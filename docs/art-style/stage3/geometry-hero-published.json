@@ -1,0 +1,63 @@
+{
+  "findings": [
+    {
+      "check": "ghost-collider",
+      "id": "wall 2",
+      "message": "no static mesh surface lies on any face of this collider",
+      "position": [
+        8.225000381469727,
+        1.399999976158142,
+        6.150000095367432
+      ],
+      "severity": "Warning"
+    },
+    {
+      "check": "room-leak",
+      "id": "room 2",
+      "message": "the room's walkable space reaches the void 1.88 m outside its footprint; no wall, opening or annotation explains it",
+      "position": [
+        -2.875,
+        0.0,
+        -6.875
+      ],
+      "severity": "Warning"
+    }
+  ],
+  "format": "places-geometry-check",
+  "level": {
+    "id": "art_style_hero",
+    "source": "tests/fixtures/levels/art_style_hero.json",
+    "validated": true
+  },
+  "markers": [
+    {
+      "x": 8.225000381469727,
+      "y": 1.399999976158142,
+      "z": 6.150000095367432
+    },
+    {
+      "x": -2.875,
+      "y": 0.0,
+      "z": -6.875
+    }
+  ],
+  "summary": {
+    "checks": {
+      "ghost-collider": {
+        "errors": 0,
+        "warnings": 1
+      },
+      "room-leak": {
+        "errors": 0,
+        "warnings": 1
+      }
+    },
+    "errors": 0,
+    "findings": 2,
+    "suppressed": {
+      "missing-wall": 5
+    },
+    "warnings": 2
+  },
+  "version": 1
+}

@@ -138,6 +138,8 @@ pub struct LightmapPlan {
     config: LightmapConfig,
     allocator: ChartAllocator,
     charts: Vec<(LightmapPatch, Chart)>,
+    /// Physical sampling density, independent of rounded chart dimensions.
+    sample_densities: Vec<f32>,
     failure: Option<LightmapFailure>,
     /// Invisible sliver quads left vertex-lit (see [`Self::slivers_skipped`]).
     slivers_skipped: usize,
@@ -151,6 +153,7 @@ impl LightmapPlan {
             allocator: ChartAllocator::new(config),
             config,
             charts: Vec::new(),
+            sample_densities: Vec::new(),
             failure: None,
             slivers_skipped: 0,
         }
@@ -191,6 +194,14 @@ impl LightmapPlan {
     #[must_use]
     pub fn charts(&self) -> &[(LightmapPatch, Chart)] {
         &self.charts
+    }
+
+    /// Physical densities aligned with [`Self::charts`]. This bake-only
+    /// metadata fixes receiver footprints in world metres; rounded endpoint
+    /// counts and triangle-local atlas axes never redefine their shape.
+    #[must_use]
+    pub fn sample_densities(&self) -> &[f32] {
+        &self.sample_densities
     }
 
     /// Number of charts placed so far.
@@ -276,6 +287,7 @@ impl LightmapPlan {
             vertex.lightmap_page = page;
         }
         self.charts.push((patch, chart));
+        self.sample_densities.push(self.config.texels_per_metre);
         true
     }
 
@@ -300,6 +312,8 @@ impl LightmapPlan {
             vertex.lightmap_page = u8::try_from(chart.page).unwrap_or(LIGHTMAP_NONE);
         }
         self.charts.push((patch, chart));
+        self.sample_densities
+            .push(density.min(self.config.texels_per_metre));
         true
     }
 

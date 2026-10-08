@@ -252,7 +252,6 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
     crate::loader::prepare_level(&mut level, catalog.assets(), None);
     let source_hash = sha256_hex(&source_bytes);
     let mut assets = crate::props::PropAssets::with_root(request.asset_root.clone());
-    let materials = MaterialTable::logical(&level, catalog.assets(), None);
 
     let dependencies = collect_dependencies(&level, &catalog, &request.asset_root, &mut warnings)?;
     record_phase(&mut phases, "load_validate_prepare_dependencies", started);
@@ -366,6 +365,13 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
         } else {
             None
         };
+        // The solve needs the same numeric alpha and linear texture reflectance
+        // as drawing. Reuse the capture's shared decoded images when available;
+        // a CPU-only build must resolve them too, rather than bake a logical table.
+        let materials = capture.as_ref().map_or_else(
+            || resolve_build_materials(&level, &catalog, &request.asset_root),
+            |context| Ok(context.loaded.materials.clone()),
+        )?;
         record_phase(&mut phases, "capture_device_materials", device_started);
         for quality in &request.variants {
             crate::logging::info(format_args!(
@@ -408,15 +414,8 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
                 variant_started,
             );
             if let Some(capture_context) = capture.as_mut() {
-                // A custom asset root can resolve different reflection state
-                // from the logical build. Skip only a proven empty capture.
-                let same_reflections = crate::render::MaterialRenderState::from_table(&materials)
-                    .reflections
-                    == crate::render::MaterialRenderState::from_table(
-                        &capture_context.loaded.materials,
-                    )
-                    .reflections;
-                if stats.probe_points > 0 || !same_reflections {
+                // Preparation and capture share the resolved material state.
+                if stats.probe_points > 0 {
                     let capture_started = Instant::now();
                     crate::logging::info(format_args!(
                         "[compiler-progress] capturing {}",
@@ -720,22 +719,33 @@ struct CaptureContext {
     loaded: crate::loader::LoadedLevel,
 }
 
+/// Resolve once for the offline solve, including CPU-only builds. The capture
+/// context and transport sidecars share these image allocations through Arc.
+fn resolve_build_materials(
+    level: &LevelDef,
+    catalog: &crate::loader::PropCatalog,
+    asset_root: &Path,
+) -> Result<MaterialTable, String> {
+    let materials = crate::materials::resolve_materials(
+        level,
+        catalog.assets(),
+        None,
+        Some(asset_root),
+        &mut TextureCache::new(),
+    );
+    crate::materials::check_texture_budget(&materials)
+        .map_err(|error| format!("level `{}`: {error}", level.id))?;
+    Ok(materials)
+}
+
 impl CaptureContext {
     fn new(
         level: &LevelDef,
         catalog: &crate::loader::PropCatalog,
         asset_root: &Path,
     ) -> Result<Self, String> {
+        let materials = resolve_build_materials(level, catalog, asset_root)?;
         let mut texture_cache = TextureCache::new();
-        let materials = crate::materials::resolve_materials(
-            level,
-            catalog.assets(),
-            None,
-            Some(asset_root),
-            &mut texture_cache,
-        );
-        crate::materials::check_texture_budget(&materials)
-            .map_err(|error| format!("level `{}`: {error}", level.id))?;
         let light_sheets = crate::loader::resolve_fixture_sheets(
             level,
             catalog.assets(),
@@ -2009,6 +2019,7 @@ mod tests {
 
     use super::*;
 
+    mod material_transport;
     mod performance;
 
     #[test]

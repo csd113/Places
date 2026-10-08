@@ -1,0 +1,283 @@
+[compiler-timing] phase=load_validate_prepare_dependencies millis=57.974
+[compiler-timing] phase=fingerprints millis=0.413
+[compiler-timing] phase=current_package_integrity millis=0.000
+[compiler-timing] phase=semantics millis=0.062
+[compiler-timing] phase=navigation_collision_inputs millis=0.991
+[compiler-timing] phase=prepared_package_integrity millis=0.000
+[compiler-timing] phase=capture_device_materials millis=61.388
+[compiler-progress] preparing off
+[compile-timing] quality=off legacy_lighting_ms=5.000 prop_geometry_and_charts_ms=16.067 architecture_and_charts_ms=0.530
+[compiler-timing] phase=prepare_encode_off millis=28.964
+[compiler-progress] capturing off
+[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Rgba8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720
+[wgpu] texture filtering: world presets low 4x / medium 8x / high 16x requested | anisotropy supported
+[wgpu] world upload: 394 vertices, 864 indices, 14 draws in 1 chunk(s) (neutral mesh: 394 vertices, 864 indices, 14 ranges)
+[wgpu] textures: 10 unique, 9 uploaded, 3 cache hits, 1 fallbacks, 0 missing of 14 draws (53127840 bytes resident, max edge 1024px, high filtering)
+[wgpu] materials: 11 resolved (6 response, 1 reflection-eligible), 2 normal maps (2 uploaded, 0 cache hits), 13 opaque / 0 cutout / 1 translucent of 14 draws (enabled response, high level)
+[wgpu] world pipeline for surface format Rgba8UnormSrgb
+[wgpu] decals: 0 draw(s), 0 chunk(s), 1 sheet(s) (0 external, 0 diagnostic)
+[wgpu] sky `outdoor:tex_sky_stars_01`: 1024x512 uploaded
+[wgpu] reflection probes: 1 probe(s), 6 face(s), face edge 64px
+[wgpu] reflection probes: 1 probe(s), 6 face(s), face edge 48px
+[compiler-timing] phase=capture_off millis=210.668
+[compiler-progress] preparing medium
+[lightmaps] transport scene triangles=5394 (0 skipped) emitters=4 (0 switchable)
+[lightmap-timing] transport_scene_and_targets_ms=5.489
+[compile-timing] quality=medium legacy_lighting_ms=0.605 prop_geometry_and_charts_ms=7.571 architecture_and_charts_ms=0.141
+[lightmaps] transport workers=12 charts=5347 bounces=1 taps=2
+[transport-audit] stage=direct room=None kind=Prop mean=0.026426 peak=0.383394 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=None kind=Wall mean=0.021401 peak=0.042802 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(0) kind=Ceiling mean=0.008097 peak=0.298562 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(0) kind=Floor mean=0.205629 peak=0.426633 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(0) kind=Wall mean=0.082670 peak=0.308015 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(1) kind=Ceiling mean=0.002257 peak=0.101874 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(1) kind=Floor mean=0.126528 peak=0.300212 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(1) kind=Wall mean=0.050723 peak=0.254382 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(2) kind=Floor mean=0.084767 peak=0.107775 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(2) kind=Wall mean=0.067720 peak=0.204773 shoulder_fraction=0.000000
+[transport-progress] diffuse_order=1/1 receivers=98067 samples=32 workers=12
+[transport-audit] stage=bounced room=None kind=Prop mean=0.080655 peak=0.543373 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=None kind=Wall mean=0.143304 peak=0.164712 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(0) kind=Ceiling mean=0.188906 peak=0.531202 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(0) kind=Floor mean=0.262639 peak=0.487663 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(0) kind=Wall mean=0.193352 peak=0.481615 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(1) kind=Ceiling mean=0.109034 peak=0.266690 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(1) kind=Floor mean=0.169865 peak=0.351539 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(1) kind=Wall mean=0.141512 peak=0.351532 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(2) kind=Floor mean=0.186101 peak=0.217061 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(2) kind=Wall mean=0.175110 peak=0.334625 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=None kind=Prop mean=0.054228 peak=0.375457 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=None kind=Wall mean=0.121902 peak=0.121911 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(0) kind=Ceiling mean=0.180809 peak=0.299255 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(0) kind=Floor mean=0.057011 peak=0.167562 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(0) kind=Wall mean=0.110682 peak=0.225068 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(1) kind=Ceiling mean=0.106777 peak=0.237156 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(1) kind=Floor mean=0.043337 peak=0.109830 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(1) kind=Wall mean=0.090805 peak=0.218494 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(2) kind=Floor mean=0.101334 peak=0.121911 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(2) kind=Wall mean=0.107389 peak=0.147997 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=None kind=Prop mean=0.080649 peak=0.543373 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=None kind=Wall mean=0.143304 peak=0.164712 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(0) kind=Ceiling mean=0.188905 peak=0.532887 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(0) kind=Floor mean=0.262632 peak=0.487977 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(0) kind=Wall mean=0.193363 peak=0.482508 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(1) kind=Ceiling mean=0.109031 peak=0.267845 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(1) kind=Floor mean=0.169892 peak=0.350433 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(1) kind=Wall mean=0.141520 peak=0.349008 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(2) kind=Floor mean=0.186103 peak=0.217061 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(2) kind=Wall mean=0.175113 peak=0.328059 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=None kind=Prop mean=0.080649 peak=0.543373 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=None kind=Wall mean=0.143304 peak=0.164712 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(0) kind=Ceiling mean=0.305536 peak=0.629814 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(0) kind=Floor mean=0.339927 peak=0.587091 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(0) kind=Wall mean=0.214841 peak=0.549101 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(1) kind=Ceiling mean=0.216200 peak=0.446093 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(1) kind=Floor mean=0.245163 peak=0.498133 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(1) kind=Wall mean=0.187875 peak=0.489759 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(2) kind=Floor mean=0.186541 peak=0.217061 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(2) kind=Wall mean=0.176588 peak=0.332812 shoulder_fraction=0.000000
+[transport-timing] base=true taps=2 bounces=1 receivers_ms=46.004 direct_visibility_ms=58.252 indirect_ms=485.776 probes_ms=5.550 filter_ms=297.778 fill_ms=46.454
+[lightmap-work] triangles=5394 texels=98067 direct_rays=1412440 bounce_rays=3138144 cache_cells=754
+[lightmap-timing] atlas_assembly_ms=5.842
+[lightmaps] irradiance field probes=495 valid=260
+[compiler-timing] phase=prepare_encode_medium millis=1105.185
+[compiler-progress] capturing medium
+[lightmaps] atlas array: 2 page(s) in 4 layer(s), 1024-texel edge, 33554432 bytes resident
+[wgpu] world upload: 284 vertices, 438 indices, 14 draws in 1 chunk(s) (neutral mesh: 284 vertices, 438 indices, 14 ranges)
+[wgpu] textures: 10 unique, 0 uploaded, 12 cache hits, 1 fallbacks, 0 missing of 14 draws (53127840 bytes resident, max edge 1024px, high filtering)
+[wgpu] materials: 11 resolved (6 response, 1 reflection-eligible), 2 normal maps (0 uploaded, 2 cache hits), 13 opaque / 0 cutout / 1 translucent of 14 draws (enabled response, high level)
+[wgpu] decals: 0 draw(s), 0 chunk(s), 1 sheet(s) (0 external, 0 diagnostic)
+[wgpu] reflection probes: 1 probe(s), 6 face(s), face edge 64px
+[wgpu] reflection probes: 1 probe(s), 6 face(s), face edge 48px
+[compiler-timing] phase=capture_medium millis=104.441
+[compiler-progress] preparing full
+[lightmaps] transport scene triangles=5394 (0 skipped) emitters=4 (0 switchable)
+[lightmap-timing] transport_scene_and_targets_ms=5.971
+[compile-timing] quality=full legacy_lighting_ms=0.709 prop_geometry_and_charts_ms=5.613 architecture_and_charts_ms=0.160
+[lightmaps] transport workers=12 charts=5347 bounces=2 taps=3
+[transport-audit] stage=direct room=None kind=Prop mean=0.026642 peak=0.383037 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=None kind=Wall mean=0.021418 peak=0.042836 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(0) kind=Ceiling mean=0.007780 peak=0.255475 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(0) kind=Floor mean=0.206309 peak=0.436137 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(0) kind=Wall mean=0.082818 peak=0.307821 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(1) kind=Ceiling mean=0.001860 peak=0.098048 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(1) kind=Floor mean=0.128030 peak=0.299392 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(1) kind=Wall mean=0.051310 peak=0.254415 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(2) kind=Floor mean=0.084714 peak=0.107913 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(2) kind=Wall mean=0.067934 peak=0.204691 shoulder_fraction=0.000000
+[transport-progress] diffuse_order=1/2 receivers=167960 samples=64 workers=12
+[transport-progress] diffuse_order=2/2 receivers=167960 samples=64 workers=12
+[transport-audit] stage=bounced room=None kind=Prop mean=0.105113 peak=0.651807 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=None kind=Wall mean=0.137067 peak=0.158488 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(0) kind=Ceiling mean=0.254961 peak=0.464155 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(0) kind=Floor mean=0.368545 peak=0.620622 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(0) kind=Wall mean=0.251217 peak=0.590556 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(1) kind=Ceiling mean=0.160055 peak=0.350238 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(1) kind=Floor mean=0.247629 peak=0.471860 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(1) kind=Wall mean=0.181555 peak=0.488450 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(2) kind=Floor mean=0.192857 peak=0.237676 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(2) kind=Wall mean=0.209873 peak=0.429669 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=None kind=Prop mean=0.078471 peak=0.406090 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=None kind=Wall mean=0.115648 peak=0.115652 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(0) kind=Ceiling mean=0.247182 peak=0.362879 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(0) kind=Floor mean=0.162238 peak=0.295535 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(0) kind=Wall mean=0.168399 peak=0.326243 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(1) kind=Ceiling mean=0.158194 peak=0.301393 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(1) kind=Floor mean=0.119599 peak=0.223187 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(1) kind=Wall mean=0.130276 peak=0.291369 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(2) kind=Floor mean=0.108161 peak=0.142514 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(2) kind=Wall mean=0.141941 peak=0.237905 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=None kind=Prop mean=0.105096 peak=0.650354 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=None kind=Wall mean=0.137067 peak=0.158488 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(0) kind=Ceiling mean=0.254962 peak=0.462839 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(0) kind=Floor mean=0.368555 peak=0.619365 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(0) kind=Wall mean=0.251225 peak=0.587788 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(1) kind=Ceiling mean=0.160056 peak=0.352210 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(1) kind=Floor mean=0.247645 peak=0.472871 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(1) kind=Wall mean=0.181562 peak=0.487465 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(2) kind=Floor mean=0.192859 peak=0.235552 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(2) kind=Wall mean=0.209879 peak=0.423765 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=None kind=Prop mean=0.105096 peak=0.650354 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=None kind=Wall mean=0.137067 peak=0.158488 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(0) kind=Ceiling mean=0.349838 peak=0.563845 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(0) kind=Floor mean=0.417131 peak=0.693401 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(0) kind=Wall mean=0.262198 peak=0.619463 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(1) kind=Ceiling mean=0.249294 peak=0.499285 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(1) kind=Floor mean=0.298990 peak=0.575556 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(1) kind=Wall mean=0.215972 peak=0.584591 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(2) kind=Floor mean=0.193168 peak=0.235552 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(2) kind=Wall mean=0.210318 peak=0.423791 shoulder_fraction=0.000000
+[transport-timing] base=true taps=3 bounces=2 receivers_ms=71.125 direct_visibility_ms=386.164 indirect_ms=2633.998 probes_ms=6.736 filter_ms=648.999 fill_ms=64.406
+[lightmap-work] triangles=5394 texels=167960 direct_rays=9653043 bounce_rays=21498880 cache_cells=752
+[lightmap-timing] atlas_assembly_ms=13.839
+[lightmaps] irradiance field probes=495 valid=260
+[compiler-timing] phase=prepare_encode_full millis=3978.810
+[compiler-progress] capturing full
+[lightmaps] atlas array: 2 page(s) in 4 layer(s), 1024-texel edge, 33554432 bytes resident
+[wgpu] world upload: 284 vertices, 438 indices, 14 draws in 1 chunk(s) (neutral mesh: 284 vertices, 438 indices, 14 ranges)
+[wgpu] textures: 10 unique, 0 uploaded, 12 cache hits, 1 fallbacks, 0 missing of 14 draws (53127840 bytes resident, max edge 1024px, high filtering)
+[wgpu] materials: 11 resolved (6 response, 1 reflection-eligible), 2 normal maps (0 uploaded, 2 cache hits), 13 opaque / 0 cutout / 1 translucent of 14 draws (enabled response, high level)
+[wgpu] decals: 0 draw(s), 0 chunk(s), 1 sheet(s) (0 external, 0 diagnostic)
+[wgpu] reflection probes: 1 probe(s), 6 face(s), face edge 64px
+[wgpu] reflection probes: 1 probe(s), 6 face(s), face edge 48px
+[compiler-timing] phase=capture_full millis=110.829
+[compiler-timing] phase=record_hashes_manifest millis=195.239
+[compiler-timing] phase=archive_compress_publish millis=125.006
+{
+  "source": "tests/fixtures/levels/art_style_hero.json",
+  "out": "debug-maps/art-style-hero/evidence/stage3-before/art_style_hero.placesmap",
+  "rebuilt": true,
+  "reuse_reason": "",
+  "variants": [
+    "off",
+    "medium",
+    "full"
+  ],
+  "bytes": 4521326,
+  "millis": 5984.201208,
+  "warnings": [],
+  "fingerprint": "594d1101edb3304e75a0f17112278881b7bfd2f135bc0a9e50a58d2adeebfefd",
+  "variant_stats": [
+    {
+      "lightmap_quality": "off",
+      "mesh_ranges": 14,
+      "mesh_vertices": 394,
+      "prop_batches": 16,
+      "lightmap_pages": 0,
+      "lightmap_charts": 0,
+      "irradiance_probes": 0,
+      "probe_points": 1,
+      "wall_boxes": 21,
+      "navigation_cells": 3194,
+      "navigation_regions": 2
+    },
+    {
+      "lightmap_quality": "medium",
+      "mesh_ranges": 14,
+      "mesh_vertices": 284,
+      "prop_batches": 16,
+      "lightmap_pages": 2,
+      "lightmap_charts": 5347,
+      "irradiance_probes": 495,
+      "probe_points": 1,
+      "wall_boxes": 21,
+      "navigation_cells": 3194,
+      "navigation_regions": 2
+    },
+    {
+      "lightmap_quality": "full",
+      "mesh_ranges": 14,
+      "mesh_vertices": 284,
+      "prop_batches": 16,
+      "lightmap_pages": 2,
+      "lightmap_charts": 5347,
+      "irradiance_probes": 495,
+      "probe_points": 1,
+      "wall_boxes": 21,
+      "navigation_cells": 3194,
+      "navigation_regions": 2
+    }
+  ],
+  "phases": [
+    {
+      "phase": "load_validate_prepare_dependencies",
+      "millis": 57.973916
+    },
+    {
+      "phase": "fingerprints",
+      "millis": 0.412917
+    },
+    {
+      "phase": "current_package_integrity",
+      "millis": 0.000083
+    },
+    {
+      "phase": "semantics",
+      "millis": 0.061875
+    },
+    {
+      "phase": "navigation_collision_inputs",
+      "millis": 0.990625
+    },
+    {
+      "phase": "prepared_package_integrity",
+      "millis": 0.000083
+    },
+    {
+      "phase": "capture_device_materials",
+      "millis": 61.388458
+    },
+    {
+      "phase": "prepare_encode_off",
+      "millis": 28.963959000000003
+    },
+    {
+      "phase": "capture_off",
+      "millis": 210.66791700000002
+    },
+    {
+      "phase": "prepare_encode_medium",
+      "millis": 1105.18525
+    },
+    {
+      "phase": "capture_medium",
+      "millis": 104.441292
+    },
+    {
+      "phase": "prepare_encode_full",
+      "millis": 3978.8096250000003
+    },
+    {
+      "phase": "capture_full",
+      "millis": 110.829292
+    },
+    {
+      "phase": "record_hashes_manifest",
+      "millis": 195.238833
+    },
+    {
+      "phase": "archive_compress_publish",
+      "millis": 125.00587499999999
+    }
+  ]
+}

@@ -1541,12 +1541,21 @@ fn merged_wall_strips_share_exact_edges() {
 
     // Group vertices by the world coordinate across the wall's thickness
     // (x = -0.4 is one face, x = 0.0 the other) and by height; within a face,
-    // the colour as a function of position must be single-valued. The wall's
-    // end caps (z at the wall ends) deliberately use a different face tint, so
-    // they are excluded.
+    // the colour as a function of position must be single-valued. End caps and
+    // exposed horizontal roof-exterior caps have real hard normal changes and
+    // deliberately use different directional tints. Select triangles wholly
+    // on one vertical length face so those caps cannot be confused with a
+    // same-oriented-plane discontinuity at their shared edge.
     let mut samples: std::collections::HashMap<(i32, i32, i32), [f32; 4]> =
         std::collections::HashMap::new();
-    for vertex in wall {
+    let length_faces = wall.as_chunks::<3>().0.iter().filter(|triangle| {
+        [-0.4, 0.0].iter().any(|face| {
+            triangle
+                .iter()
+                .all(|vertex| (vertex.pos[0] - face).abs() < 1e-4)
+        })
+    });
+    for vertex in length_faces.flatten() {
         if (vertex.pos[2] + 0.2).abs() < 1e-4 || (vertex.pos[2] - 23.8).abs() < 1e-4 {
             continue;
         }

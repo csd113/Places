@@ -1,0 +1,212 @@
+[
+  {
+    "view": {
+      "name": "apertures",
+      "spawn": [
+        15,
+        -3.5,
+        0
+      ],
+      "camera": [
+        180,
+        2
+      ],
+      "purpose": "Open, clear, tinted and cutout apertures under matching broad-source support."
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "full",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "e50355a6b29f68c5cd22619cdf4798a5cad208be10ff625b63f6bebe8353f21a",
+      "package_sha256": "d908dbb5b4c0761f222c0dd2ea4541dc0eb796cbc6e63e7977de311b5b631a15",
+      "source_sha256": "a0b9a62987cc75bf007c45911ab40ccf153f34cb9b8a200e2e6cda3695b4e2ac",
+      "camera_manifest_sha256": "396391b9b3bc87580a6ed352b204c08c6491f9671dad10b01fecf79eca0e198b",
+      "capture_tool_sha256": "c70a7e0685bd48758762d70c07093aa5b99362d37b3f02fb1aa7063b1c565a6e",
+      "catalog_sha256": "85b0489a2d01ee1ffd0bcabb34ca64fabc24c4a45d5340ba6d79b7660ecf7d0a",
+      "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+      "git_revision": "248684164759b3cbc99b8e5b30c29b60612e7b66",
+      "git_diff_sha256": "97340f366a7682ad6c83a298e660e189b418b4f3fc448e29d90a389fe630aa0a"
+    },
+    "diagnostic": null,
+    "quality_cycle": null,
+    "entity_light_trace": false,
+    "graphics_cycle": null,
+    "capture_frame": null,
+    "diagnostic_receipt": null,
+    "ready_world_seconds": 0.5,
+    "measured_frames": 0,
+    "elapsed_seconds": 1.1396667499793693,
+    "exit_code": 0,
+    "image_sha256": "2fa14c411f618a471d051f9b155465d2a23a357331a0b6416f006a02045cfd34",
+    "settings_receipt": "[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering high | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  },
+  {
+    "view": {
+      "name": "annex",
+      "spawn": [
+        17.2,
+        5.3,
+        0
+      ],
+      "camera": [
+        -22,
+        9
+      ],
+      "purpose": "Gable diagonals, aperture trim, thin decoration, alpha foliage and compact water basin."
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "full",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "e50355a6b29f68c5cd22619cdf4798a5cad208be10ff625b63f6bebe8353f21a",
+      "package_sha256": "d908dbb5b4c0761f222c0dd2ea4541dc0eb796cbc6e63e7977de311b5b631a15",
+      "source_sha256": "a0b9a62987cc75bf007c45911ab40ccf153f34cb9b8a200e2e6cda3695b4e2ac",
+      "camera_manifest_sha256": "396391b9b3bc87580a6ed352b204c08c6491f9671dad10b01fecf79eca0e198b",
+      "capture_tool_sha256": "c70a7e0685bd48758762d70c07093aa5b99362d37b3f02fb1aa7063b1c565a6e",
+      "catalog_sha256": "85b0489a2d01ee1ffd0bcabb34ca64fabc24c4a45d5340ba6d79b7660ecf7d0a",
+      "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+      "git_revision": "248684164759b3cbc99b8e5b30c29b60612e7b66",
+      "git_diff_sha256": "97340f366a7682ad6c83a298e660e189b418b4f3fc448e29d90a389fe630aa0a"
+    },
+    "diagnostic": null,
+    "quality_cycle": null,
+    "entity_light_trace": false,
+    "graphics_cycle": null,
+    "capture_frame": null,
+    "diagnostic_receipt": null,
+    "ready_world_seconds": 0.5,
+    "measured_frames": 0,
+    "elapsed_seconds": 1.1460516670485958,
+    "exit_code": 0,
+    "image_sha256": "3a801ffdd1057d2ebd1fc7e3888bbd28215514d6acc387f3bd8c3dc23b8565c5",
+    "settings_receipt": "[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering high | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  },
+  {
+    "view": {
+      "name": "basin",
+      "spawn": [
+        13.95,
+        3.95,
+        0
+      ],
+      "camera": [
+        -35,
+        -32
+      ],
+      "purpose": "Water volume attenuation, opaque basin skirts and foliage coverage."
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "full",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "e50355a6b29f68c5cd22619cdf4798a5cad208be10ff625b63f6bebe8353f21a",
+      "package_sha256": "d908dbb5b4c0761f222c0dd2ea4541dc0eb796cbc6e63e7977de311b5b631a15",
+      "source_sha256": "a0b9a62987cc75bf007c45911ab40ccf153f34cb9b8a200e2e6cda3695b4e2ac",
+      "camera_manifest_sha256": "396391b9b3bc87580a6ed352b204c08c6491f9671dad10b01fecf79eca0e198b",
+      "capture_tool_sha256": "c70a7e0685bd48758762d70c07093aa5b99362d37b3f02fb1aa7063b1c565a6e",
+      "catalog_sha256": "85b0489a2d01ee1ffd0bcabb34ca64fabc24c4a45d5340ba6d79b7660ecf7d0a",
+      "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+      "git_revision": "248684164759b3cbc99b8e5b30c29b60612e7b66",
+      "git_diff_sha256": "97340f366a7682ad6c83a298e660e189b418b4f3fc448e29d90a389fe630aa0a"
+    },
+    "diagnostic": null,
+    "quality_cycle": null,
+    "entity_light_trace": false,
+    "graphics_cycle": null,
+    "capture_frame": null,
+    "diagnostic_receipt": null,
+    "ready_world_seconds": 0.5,
+    "measured_frames": 0,
+    "elapsed_seconds": 1.1563600420486182,
+    "exit_code": 0,
+    "image_sha256": "01770e797ed36286e930c47249c954aad32a1f55b8407cbf92fef03e57754bbe",
+    "settings_receipt": "[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering high | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  }
+]

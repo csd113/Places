@@ -1,0 +1,19 @@
+{
+  "date_utc": "2026-10-08",
+  "entry_revision": "248684164759b3cbc99b8e5b30c29b60612e7b66",
+  "branch": "Art-style",
+  "normal_before": "before/high/manifest.json",
+  "same_stage2_pixels": "before/stage2-equality.json",
+  "before_binary_source_revision": "b34e1dd6d8dcdf43280a35c9644bcb567905e492",
+  "controls_source": "hero-controls.json",
+  "controls_manifest": "hero-controls-manifest.json",
+  "controls_source_sha256": "a0b9a62987cc75bf007c45911ab40ccf153f34cb9b8a200e2e6cda3695b4e2ac",
+  "controls_before": "before/controls/manifest.json",
+  "controls_before_compiler": "debug-maps/art-style-hero/milestones/stage2/places-compile",
+  "controls_before_asset_root": "assets (explicit compiler override); runtime current root with unchanged catalog/assets",
+  "controls_invalid_assets": "before/controls-invalid-snapshot-assets (preserved, excluded from acceptance)",
+  "raw_before_transport": "debug-maps/art-style-hero/evidence/stage3-before/lighting",
+  "before_settings": "Original6views:High/Full,Highfiltering,bloom/reflectionsOn,FOV60,drawable1280x720,ready0.5s. Sources/cameras/environments unchanged.",
+  "new_annex_condition": "Copied hero under same art_style_hero id; isolated additive gable/apron/open-clear-tinted-grille/water/grass/trim/decor arrangement; no production map change.",
+  "before_gable_diagnosis": "Blackwedges also appear in texturealbedo; room-centre roof lookup omittedridge split while face lookup followedgable. Geometry, not indirect/shadow darkness."
+}

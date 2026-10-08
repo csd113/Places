@@ -1,0 +1,418 @@
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+error: first doc comment paragraph is too long
+   --> src/lighting/lightmap/atlas.rs:111:1
+    |
+111 | / /// Places chart rectangles on square pages with a deterministic
+112 | | /// best-short-side-fit MAXRECTS policy for architecture and disjoint guillotine
+113 | | /// pages for the many small model-triangle charts. At the shared page limit,
+114 | | /// props can consume proven free rectangles on architecture pages.
+115 | | ///
+116 | | /// The allocator is designed to run *inline*, while the mesh is being emitted:
+    | |_^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#too_long_first_doc_paragraph
+    = note: `-D clippy::too-long-first-doc-paragraph` implied by `-D clippy::nursery`
+    = help: to override `-D clippy::nursery` add `#[allow(clippy::too_long_first_doc_paragraph)]`
+
+error: could not compile `places` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+error: multiply and add expressions may be calculated more efficiently and accurately
+  --> src/level/tests/wall_ceiling.rs:90:19
+   |
+90 |                 - (4.0 - (vertex.pos[2] - 3.0).abs() * 0.4))
+   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `f32::mul_add((vertex.pos[2] - 3.0).abs(), -0.4, 4.0)`
+   |
+   = note: the performance gain from `mul_add` may vary depending on the target architecture
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#suboptimal_flops
+   = note: `-D clippy::suboptimal-flops` implied by `-D clippy::nursery`
+   = help: to override `-D clippy::nursery` add `#[allow(clippy::suboptimal_flops)]`
+
+error: function call inside of `ok_or`
+   --> src/level/tests/wall_ceiling.rs:102:40
+    |
+102 |     let wall = level.walls.first_mut().ok_or("boundary wall".to_owned())?;
+    |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `ok_or_else(|| "boundary wall".to_owned())`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#or_fun_call
+    = note: `-D clippy::or-fun-call` implied by `-D clippy::nursery`
+    = help: to override `-D clippy::nursery` add `#[allow(clippy::or_fun_call)]`
+
+error: function call inside of `ok_or`
+   --> src/level/tests/wall_ceiling.rs:105:36
+    |
+105 |     let wall = level.walls.first().ok_or("boundary wall".to_owned())?;
+    |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `ok_or_else(|| "boundary wall".to_owned())`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#or_fun_call
+
+error: `wall` shadows a previous, unrelated binding
+   --> src/level/tests/wall_ceiling.rs:105:9
+    |
+105 |     let wall = level.walls.first().ok_or("boundary wall".to_owned())?;
+    |         ^^^^
+    |
+note: previous binding is here
+   --> src/level/tests/wall_ceiling.rs:102:9
+    |
+102 |     let wall = level.walls.first_mut().ok_or("boundary wall".to_owned())?;
+    |         ^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_unrelated
+    = note: requested on the command line with `-D clippy::shadow-unrelated`
+
+error: function call inside of `ok_or`
+   --> src/level/tests/wall_ceiling.rs:124:40
+    |
+124 |     let room = level.rooms.first_mut().ok_or("first room".to_owned())?;
+    |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `ok_or_else(|| "first room".to_owned())`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#or_fun_call
+
+error: function call inside of `ok_or`
+   --> src/level/tests/wall_ceiling.rs:129:36
+    |
+129 |     let wall = level.walls.first().ok_or("boundary wall".to_owned())?;
+    |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `ok_or_else(|| "boundary wall".to_owned())`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#or_fun_call
+
+error: function call inside of `ok_or`
+   --> src/level/tests/wall_ceiling.rs:144:29
+    |
+144 |     level.walls.first_mut().ok_or("side wall".to_owned())?.depth = 12.0;
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `ok_or_else(|| "side wall".to_owned())`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#or_fun_call
+
+error: function call inside of `ok_or`
+   --> src/level/tests/wall_ceiling.rs:145:48
+    |
+145 |     let mut next = level.rooms.get(1).cloned().ok_or("first roof".to_owned())?;
+    |                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `ok_or_else(|| "first roof".to_owned())`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#or_fun_call
+
+error: function call inside of `ok_or`
+   --> src/level/tests/wall_ceiling.rs:154:32
+    |
+154 |         level.rooms.get_mut(1).ok_or("first roof".to_owned())?.depth = 5.0;
+    |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `ok_or_else(|| "first roof".to_owned())`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#or_fun_call
+
+error: function call inside of `ok_or`
+   --> src/level/tests/wall_ceiling.rs:165:36
+    |
+165 |     let wall = level.walls.first().ok_or("side wall".to_owned())?;
+    |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `ok_or_else(|| "side wall".to_owned())`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#or_fun_call
+
+error: function call inside of `ok_or`
+   --> src/level/tests/wall_ceiling.rs:184:36
+    |
+184 |     let wall = level.walls.first().ok_or("side wall".to_owned())?;
+    |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `ok_or_else(|| "side wall".to_owned())`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#or_fun_call
+
+error: function call inside of `ok_or`
+   --> src/level/tests/wall_ceiling.rs:203:40
+    |
+203 |     let wall = level.walls.first_mut().ok_or("side wall".to_owned())?;
+    |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `ok_or_else(|| "side wall".to_owned())`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#or_fun_call
+
+error: function call inside of `ok_or`
+   --> src/level/tests/wall_ceiling.rs:207:36
+    |
+207 |     let wall = level.walls.first().ok_or("side wall".to_owned())?;
+    |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `ok_or_else(|| "side wall".to_owned())`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#or_fun_call
+
+error: `wall` shadows a previous, unrelated binding
+   --> src/level/tests/wall_ceiling.rs:207:9
+    |
+207 |     let wall = level.walls.first().ok_or("side wall".to_owned())?;
+    |         ^^^^
+    |
+note: previous binding is here
+   --> src/level/tests/wall_ceiling.rs:203:9
+    |
+203 |     let wall = level.walls.first_mut().ok_or("side wall".to_owned())?;
+    |         ^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_unrelated
+
+error: function call inside of `ok_or`
+  --> src/lighting/transport/tests/continuity.rs:21:49
+   |
+21 |         TransportTriangle::new(a, b, c, albedo).ok_or("valid control triangle".to_owned())
+   |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `ok_or_else(|| "valid control triangle".to_owned())`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#or_fun_call
+
+error: function call inside of `ok_or`
+  --> src/lighting/transport/tests/continuity.rs:88:10
+   |
+88 |         .ok_or("physical densities".to_owned())?;
+   |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `ok_or_else(|| "physical densities".to_owned())`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#or_fun_call
+
+error: function call inside of `ok_or`
+  --> src/lighting/transport/tests/continuity.rs:85:10
+   |
+85 |         .ok_or("control scene".to_owned())?
+   |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `ok_or_else(|| "control scene".to_owned())`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#or_fun_call
+
+error: function call inside of `ok_or`
+   --> src/lighting/transport/tests/continuity.rs:132:10
+    |
+132 |         .ok_or("physical densities".to_owned())?;
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `ok_or_else(|| "physical densities".to_owned())`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#or_fun_call
+
+error: function call inside of `ok_or`
+   --> src/lighting/transport/tests/continuity.rs:129:10
+    |
+129 |         .ok_or("control scene".to_owned())?
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `ok_or_else(|| "control scene".to_owned())`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#or_fun_call
+
+error: function call inside of `ok_or`
+   --> src/lighting/transport/tests/continuity.rs:163:10
+    |
+163 |         .ok_or("surface at control point".to_owned())?;
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `ok_or_else(|| "surface at control point".to_owned())`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#or_fun_call
+
+error: function call inside of `ok_or`
+   --> src/lighting/transport/tests/continuity.rs:185:63
+    |
+185 |         let scene = TransportScene::new(geometry, Vec::new()).ok_or("boundary scene".to_owned())?;
+    |                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `ok_or_else(|| "boundary scene".to_owned())`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#or_fun_call
+
+error: function call inside of `ok_or`
+   --> src/lighting/transport/tests/continuity.rs:209:10
+    |
+209 |         .ok_or("scaled surface".to_owned())?;
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `ok_or_else(|| "scaled surface".to_owned())`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#or_fun_call
+
+error: function call inside of `ok_or`
+   --> src/lighting/transport/tests/continuity.rs:233:59
+    |
+233 |     let scene = TransportScene::new(geometry, Vec::new()).ok_or("T junction".to_owned())?;
+    |                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `ok_or_else(|| "T junction".to_owned())`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#or_fun_call
+
+error: `mut geometry` shadows a previous, unrelated binding
+   --> src/lighting/transport/tests/continuity.rs:244:13
+    |
+244 |     let mut geometry = triangles(quad(0.0, 0.0, 1.0, 1.0, 0.0), [0.6; 3])?;
+    |             ^^^^^^^^
+    |
+note: previous binding is here
+   --> src/lighting/transport/tests/continuity.rs:230:9
+    |
+230 |     let mut geometry = triangles(quad(0.0, 0.0, 1.0, 2.0, 0.0), [0.6; 3])?;
+    |         ^^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_unrelated
+
+error: function call inside of `ok_or`
+   --> src/lighting/transport/tests/continuity.rs:254:59
+    |
+254 |     let scene = TransportScene::new(geometry, Vec::new()).ok_or("fold".to_owned())?;
+    |                                                           ^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `ok_or_else(|| "fold".to_owned())`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#or_fun_call
+
+error: `scene` shadows a previous, unrelated binding
+   --> src/lighting/transport/tests/continuity.rs:254:9
+    |
+254 |     let scene = TransportScene::new(geometry, Vec::new()).ok_or("fold".to_owned())?;
+    |         ^^^^^
+    |
+note: previous binding is here
+   --> src/lighting/transport/tests/continuity.rs:233:9
+    |
+233 |     let scene = TransportScene::new(geometry, Vec::new()).ok_or("T junction".to_owned())?;
+    |         ^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_unrelated
+
+error: function call inside of `ok_or`
+   --> src/lighting/transport/tests/continuity.rs:290:6
+    |
+290 |     .ok_or("first triangle".to_owned())?;
+    |      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `ok_or_else(|| "first triangle".to_owned())`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#or_fun_call
+
+error: function call inside of `ok_or`
+   --> src/lighting/transport/tests/continuity.rs:301:6
+    |
+301 |     .ok_or("second triangle".to_owned())?;
+    |      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `ok_or_else(|| "second triangle".to_owned())`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#or_fun_call
+
+error: this argument is passed by value, but not consumed in the function body
+  --> src/lighting/transport/tests/quality.rs:11:12
+   |
+11 |     image: Option<Arc<RawImage>>,
+   |            ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#needless_pass_by_value
+   = note: `-D clippy::needless-pass-by-value` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::needless_pass_by_value)]`
+help: consider taking a reference instead
+   |
+11 |     image: Option<&Arc<RawImage>>,
+   |                   +
+
+error: manual implementation of `midpoint` which can overflow
+  --> src/lighting/transport/tests/quality.rs:25:21
+   |
+25 |                     (point[0] / extent + 1.0) * 0.5,
+   |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: use `f32::midpoint` instead: `f32::midpoint(point[0] / extent, 1.0)`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#manual_midpoint
+   = note: `-D clippy::manual-midpoint` implied by `-D clippy::pedantic`
+   = help: to override `-D clippy::pedantic` add `#[allow(clippy::manual_midpoint)]`
+
+error: manual implementation of `midpoint` which can overflow
+  --> src/lighting/transport/tests/quality.rs:26:21
+   |
+26 |                     (point[2] / extent + 1.0) * 0.5,
+   |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: use `f32::midpoint` instead: `f32::midpoint(point[2] / extent, 1.0)`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#manual_midpoint
+
+error: `scene` shadows a previous, unrelated binding
+   --> src/lighting/transport/tests/quality.rs:133:9
+    |
+133 |     let scene = TransportScene::new(triangles, Vec::new())
+    |         ^^^^^
+    |
+note: previous binding is here
+   --> src/lighting/transport/tests/quality.rs:105:9
+    |
+105 |     let scene = TransportScene::new(triangles.clone(), Vec::new())
+    |         ^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_unrelated
+
+error: `surface` shadows a previous, unrelated binding
+   --> src/lighting/transport/tests/quality.rs:188:9
+    |
+188 |     for surface in surfaces.iter_mut().flatten() {
+    |         ^^^^^^^
+    |
+note: previous binding is here
+   --> src/lighting/transport/tests/quality.rs:171:9
+    |
+171 |     let surface = TransportAlphaSurface {
+    |         ^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_unrelated
+
+error: `scene` shadows a previous, unrelated binding
+   --> src/lighting/transport/tests/quality.rs:191:9
+    |
+191 |     let scene = TransportScene::new(triangles, Vec::new())
+    |         ^^^^^
+    |
+note: previous binding is here
+   --> src/lighting/transport/tests/quality.rs:178:9
+    |
+178 |     let scene = TransportScene::new(vec![triangle], Vec::new())
+    |         ^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_unrelated
+
+error: `actual` shadows a previous, unrelated binding
+   --> src/lighting/transport/tests/quality.rs:296:10
+    |
+296 |     for (actual, expected) in actual.into_iter().zip(moon.color) {
+    |          ^^^^^^
+    |
+note: previous binding is here
+   --> src/lighting/transport/tests/quality.rs:293:9
+    |
+293 |     let actual = scene
+    |         ^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_unrelated
+
+error: `triangles` shadows a previous, unrelated binding
+   --> src/lighting/transport/tests/quality.rs:305:10
+    |
+305 |     let (triangles, surfaces) = alpha_plane(
+    |          ^^^^^^^^^
+    |
+note: previous binding is here
+   --> src/lighting/transport/tests/quality.rs:274:10
+    |
+274 |     let (triangles, surfaces) = alpha_plane(
+    |          ^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_unrelated
+
+error: `surfaces` shadows a previous, unrelated binding
+   --> src/lighting/transport/tests/quality.rs:305:21
+    |
+305 |     let (triangles, surfaces) = alpha_plane(
+    |                     ^^^^^^^^
+    |
+note: previous binding is here
+   --> src/lighting/transport/tests/quality.rs:274:21
+    |
+274 |     let (triangles, surfaces) = alpha_plane(
+    |                     ^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_unrelated
+
+error: `actual` shadows a previous, unrelated binding
+   --> src/lighting/transport/tests/quality.rs:319:10
+    |
+319 |     for (actual, clear) in first_light(&covered, [0.0, 1.0, 0.0])
+    |          ^^^^^^
+    |
+note: previous binding is here
+   --> src/lighting/transport/tests/quality.rs:293:9
+    |
+293 |     let actual = scene
+    |         ^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_unrelated
+
+error: `clear` shadows a previous, unrelated binding
+   --> src/lighting/transport/tests/quality.rs:319:18
+    |
+319 |     for (actual, clear) in first_light(&covered, [0.0, 1.0, 0.0])
+    |                  ^^^^^
+    |
+note: previous binding is here
+   --> src/lighting/transport/tests/quality.rs:300:9
+    |
+300 |     let clear = TransportScene::new(Vec::new(), Vec::new())
+    |         ^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_unrelated
+
+error: `clear` shadows a previous, unrelated binding
+   --> src/lighting/transport/tests/quality.rs:405:18
+    |
+405 |     for (actual, clear) in attenuated[0]
+    |                  ^^^^^
+    |
+note: previous binding is here
+   --> src/lighting/transport/tests/quality.rs:342:9
+    |
+342 |     let clear = TransportScene::new(triangles.clone(), Vec::new()).expect("ceiling");
+    |         ^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_unrelated
+
+error: could not compile `places` (lib test) due to 41 previous errors

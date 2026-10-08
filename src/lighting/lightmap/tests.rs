@@ -248,6 +248,90 @@ fn packing_is_deterministic_and_disjoint() {
 }
 
 #[test]
+fn architecture_free_space_keeps_prop_charts_within_the_existing_budget() {
+    let config = LightmapConfig {
+        texels_per_metre: 1.0,
+        page_edge: 32,
+        max_pages: 1,
+        padding: 2,
+        bytes_per_texel: 16,
+    };
+    let patches = [
+        (14.0, PatchKind::Floor),
+        (3.0, PatchKind::Prop),
+        (4.0, PatchKind::Prop),
+        (5.0, PatchKind::Floor),
+        (3.0, PatchKind::Prop),
+    ]
+    .map(|(span, kind)| {
+        let mut surface = patch(span, span);
+        surface.kind = kind;
+        surface
+    });
+    let pack = || {
+        let mut allocator = ChartAllocator::new(config);
+        let charts = patches
+            .iter()
+            .map(|surface| {
+                allocator
+                    .allocate(surface)
+                    .expect("free atlas area must remain usable across surface families")
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            allocator.page_count(),
+            1,
+            "mixed charts retain the original page limit"
+        );
+        assert!(
+            !allocator.failed(),
+            "reusing free architecture space must keep the plan valid"
+        );
+        charts
+    };
+    let charts = pack();
+    assert_eq!(
+        charts,
+        pack(),
+        "mixed page placement must remain deterministic"
+    );
+    for (index, (surface, chart)) in patches.iter().zip(&charts).enumerate() {
+        assert_eq!(
+            (chart.width, chart.height),
+            config.chart_texels(surface),
+            "free-space reuse cannot reduce the requested receiver density"
+        );
+        let padding = config.padding_for(surface.kind);
+        let outer = (
+            chart.x - padding,
+            chart.y - padding,
+            chart.x + chart.width + padding,
+            chart.y + chart.height + padding,
+        );
+        assert!(
+            outer.2 <= config.page_edge && outer.3 <= config.page_edge,
+            "both chart gutters must remain on their resident page"
+        );
+        for (other_surface, other_chart) in patches.iter().zip(&charts).take(index) {
+            let other_padding = config.padding_for(other_surface.kind);
+            let other = (
+                other_chart.x - other_padding,
+                other_chart.y - other_padding,
+                other_chart.x + other_chart.width + other_padding,
+                other_chart.y + other_chart.height + other_padding,
+            );
+            assert!(
+                outer.2 <= other.0
+                    || other.2 <= outer.0
+                    || outer.3 <= other.1
+                    || other.3 <= outer.1,
+                "mixed-family charts and their full gutters must never overlap"
+            );
+        }
+    }
+}
+
+#[test]
 fn the_packer_uses_best_short_side_fit() {
     // The policy in one picture: a 32 x 32 page with a tall 8 x 16 chart first.
     // Every following 8 x 8 chart takes the free rectangle whose shorter
@@ -262,7 +346,9 @@ fn the_packer_uses_best_short_side_fit() {
         bytes_per_texel: 16,
     };
     let mut allocator = ChartAllocator::new(config);
-    let tall = allocator.allocate(&patch(8.0, 16.0)).expect("tall chart");
+    // At one interval per metre, seven/fifteen metres produce 8/16
+    // inclusive samples; this test still exercises the same packed rectangles.
+    let tall = allocator.allocate(&patch(7.0, 15.0)).expect("tall chart");
     assert_eq!((tall.x, tall.y, tall.width, tall.height), (0, 0, 8, 16));
     let expected = [
         (0u32, 16u32),
@@ -281,12 +367,12 @@ fn the_packer_uses_best_short_side_fit() {
         (24, 24),
     ];
     for (x, y) in expected {
-        let chart = allocator.allocate(&patch(8.0, 8.0)).expect("short chart");
+        let chart = allocator.allocate(&patch(7.0, 7.0)).expect("short chart");
         assert_eq!((chart.x, chart.y), (x, y), "best-short-side-fit placement");
     }
     // The 32 x 32 page is now full (the tall chart plus fourteen 8 x 8 charts
     // cover all 1024 texels), and the one-page budget is spent.
-    assert!(allocator.allocate(&patch(8.0, 8.0)).is_none());
+    assert!(allocator.allocate(&patch(7.0, 7.0)).is_none());
     assert!(allocator.failed());
 }
 
@@ -371,7 +457,7 @@ fn chart_texels_match_the_density_and_are_profile_specific() {
     // Stated in metres and the profile's own density, so a retune of the
     // density cannot silently invalidate the expectation.
     let texels = |config: &LightmapConfig, metres: f32| -> u32 {
-        (metres * config.texels_per_metre).ceil() as u32
+        (metres * config.texels_per_metre).ceil() as u32 + 1
     };
     assert_eq!(
         full.chart_texels(&patch),
@@ -386,6 +472,29 @@ fn chart_texels_match_the_density_and_are_profile_specific() {
         "Full must resolve more texels than Low"
     );
     assert_eq!(full.max_chart_span_m(), low.max_chart_span_m());
+}
+
+#[test]
+fn inclusive_density_keeps_fractional_spans_and_thin_axes() {
+    let config = LightmapConfig {
+        texels_per_metre: 8.0,
+        ..LightmapConfig::for_profile(crate::quality::QualityProfile::Full)
+    };
+    // Ceil describes the interval count. Both endpoints remain available
+    // even on an authored part thinner than one physical sampling interval.
+    assert_eq!(config.chart_texels(&patch(0.462, 0.632)), (5, 7));
+    assert_eq!(config.chart_texels(&patch(0.0625, 0.125)), (2, 2));
+    let mut allocator = ChartAllocator::new(config);
+    let whole = allocator.allocate(&patch(8.0, 3.0)).expect("whole wall");
+    assert_eq!((whole.width, whole.height), (65, 25));
+    for span in [2.17, 0.41, 5.42] {
+        let chart = allocator
+            .allocate(&patch(span, 3.0))
+            .expect("arbitrary strip");
+        let intervals = f32::from(u16::try_from(chart.width - 1).expect("small chart"));
+        assert!(intervals / span >= config.texels_per_metre);
+        assert_eq!(chart.height, whole.height);
+    }
 }
 
 use super::{
@@ -590,8 +699,15 @@ fn plan_stamps_the_six_vertices_with_the_chart_mapping() {
     assert!(!plan.failed());
     let (_, chart) = plan.charts()[0];
     // A 4x2 m quad at this profile's density.
-    assert_eq!(chart.width, (4.0 * config.texels_per_metre).ceil() as u32);
-    assert_eq!(chart.height, (2.0 * config.texels_per_metre).ceil() as u32);
+    assert_eq!(
+        chart.width,
+        (4.0 * config.texels_per_metre).ceil() as u32 + 1
+    );
+    assert_eq!(
+        chart.height,
+        (2.0 * config.texels_per_metre).ceil() as u32 + 1
+    );
+    assert_eq!(plan.sample_densities(), &[config.texels_per_metre]);
     for (index, corner) in [0usize, 1, 2, 0, 2, 3].into_iter().enumerate() {
         let (u, v) = match corner {
             0 => (0.0, 0.0),
@@ -1460,7 +1576,7 @@ fn chart_texels_are_clamped_to_the_usable_edge() {
         config.chart_texels(&huge),
         (
             config.usable_edge(),
-            (2.0 * config.texels_per_metre).ceil() as u32
+            (2.0 * config.texels_per_metre).ceil() as u32 + 1
         )
     );
 }

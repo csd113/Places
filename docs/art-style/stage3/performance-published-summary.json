@@ -1,0 +1,514 @@
+[
+  {
+    "quality": "high",
+    "view": "entities",
+    "frames": 360,
+    "nonzero_draw_frames": 360,
+    "max_rss_bytes": 450658304,
+    "stats": {
+      "frame": {
+        "median": 180.5,
+        "p95": 342.0,
+        "mean": 180.5,
+        "min": 1.0,
+        "max": 360.0
+      },
+      "update_ms": {
+        "median": 0.066,
+        "p95": 0.345,
+        "mean": 0.13167222222222222,
+        "min": 0.017,
+        "max": 0.452
+      },
+      "render_ms": {
+        "median": 3.0789999999999997,
+        "p95": 13.905,
+        "mean": 4.924219444444445,
+        "min": 0.464,
+        "max": 22.46
+      },
+      "swap_ms": {
+        "median": 0.0285,
+        "p95": 0.069,
+        "mean": 0.036194444444444446,
+        "min": 0.009,
+        "max": 0.199
+      },
+      "frame_ms": {
+        "median": 3.1710000000000003,
+        "p95": 14.017,
+        "mean": 5.092119444444444,
+        "min": 0.547,
+        "max": 22.605
+      },
+      "loop_ms": {
+        "median": 3.468,
+        "p95": 14.583,
+        "mean": 5.449105555555556,
+        "min": 0.816,
+        "max": 23.198
+      },
+      "total_vertices": {
+        "median": 16644.0,
+        "p95": 16644.0,
+        "mean": 16644.0,
+        "min": 16644.0,
+        "max": 16644.0
+      },
+      "visible_vertices": {
+        "median": 10688.0,
+        "p95": 10688.0,
+        "mean": 10688.0,
+        "min": 10688.0,
+        "max": 10688.0
+      },
+      "culled_vertices": {
+        "median": 5956.0,
+        "p95": 5956.0,
+        "mean": 5956.0,
+        "min": 5956.0,
+        "max": 5956.0
+      },
+      "total_batches": {
+        "median": 36.0,
+        "p95": 36.0,
+        "mean": 36.0,
+        "min": 36.0,
+        "max": 36.0
+      },
+      "visible_batches": {
+        "median": 17.0,
+        "p95": 17.0,
+        "mean": 17.0,
+        "min": 17.0,
+        "max": 17.0
+      },
+      "draw_calls": {
+        "median": 17.0,
+        "p95": 17.0,
+        "mean": 17.0,
+        "min": 17.0,
+        "max": 17.0
+      },
+      "vbo_bytes": {
+        "median": 1264944.0,
+        "p95": 1264944.0,
+        "mean": 1264944.0,
+        "min": 1264944.0,
+        "max": 1264944.0
+      },
+      "index_bytes": {
+        "median": 33984.0,
+        "p95": 33984.0,
+        "mean": 33984.0,
+        "min": 33984.0,
+        "max": 33984.0
+      },
+      "texture_binds": {
+        "median": 13.0,
+        "p95": 13.0,
+        "mean": 13.0,
+        "min": 13.0,
+        "max": 13.0
+      },
+      "material_changes": {
+        "median": 15.0,
+        "p95": 15.0,
+        "mean": 15.0,
+        "min": 15.0,
+        "max": 15.0
+      },
+      "reflection_passes": {
+        "median": 0.0,
+        "p95": 0.0,
+        "mean": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      }
+    }
+  },
+  {
+    "quality": "high",
+    "view": "hall",
+    "frames": 360,
+    "nonzero_draw_frames": 360,
+    "max_rss_bytes": 451264512,
+    "stats": {
+      "frame": {
+        "median": 180.5,
+        "p95": 342.0,
+        "mean": 180.5,
+        "min": 1.0,
+        "max": 360.0
+      },
+      "update_ms": {
+        "median": 0.065,
+        "p95": 0.364,
+        "mean": 0.13235,
+        "min": 0.021,
+        "max": 0.478
+      },
+      "render_ms": {
+        "median": 2.8625,
+        "p95": 13.531,
+        "mean": 4.755486111111111,
+        "min": 0.39,
+        "max": 18.586
+      },
+      "swap_ms": {
+        "median": 0.026,
+        "p95": 0.068,
+        "mean": 0.03419722222222222,
+        "min": 0.01,
+        "max": 0.145
+      },
+      "frame_ms": {
+        "median": 2.9355,
+        "p95": 13.83,
+        "mean": 4.922061111111111,
+        "min": 0.432,
+        "max": 18.649
+      },
+      "loop_ms": {
+        "median": 3.2525,
+        "p95": 14.22,
+        "mean": 5.284608333333333,
+        "min": 0.63,
+        "max": 18.929
+      },
+      "total_vertices": {
+        "median": 16644.0,
+        "p95": 16644.0,
+        "mean": 16644.0,
+        "min": 16644.0,
+        "max": 16644.0
+      },
+      "visible_vertices": {
+        "median": 228.0,
+        "p95": 228.0,
+        "mean": 228.0,
+        "min": 228.0,
+        "max": 228.0
+      },
+      "culled_vertices": {
+        "median": 16416.0,
+        "p95": 16416.0,
+        "mean": 16416.0,
+        "min": 16416.0,
+        "max": 16416.0
+      },
+      "total_batches": {
+        "median": 36.0,
+        "p95": 36.0,
+        "mean": 36.0,
+        "min": 36.0,
+        "max": 36.0
+      },
+      "visible_batches": {
+        "median": 8.0,
+        "p95": 8.0,
+        "mean": 8.0,
+        "min": 8.0,
+        "max": 8.0
+      },
+      "draw_calls": {
+        "median": 8.0,
+        "p95": 8.0,
+        "mean": 8.0,
+        "min": 8.0,
+        "max": 8.0
+      },
+      "vbo_bytes": {
+        "median": 1264944.0,
+        "p95": 1264944.0,
+        "mean": 1264944.0,
+        "min": 1264944.0,
+        "max": 1264944.0
+      },
+      "index_bytes": {
+        "median": 33984.0,
+        "p95": 33984.0,
+        "mean": 33984.0,
+        "min": 33984.0,
+        "max": 33984.0
+      },
+      "texture_binds": {
+        "median": 8.0,
+        "p95": 8.0,
+        "mean": 8.0,
+        "min": 8.0,
+        "max": 8.0
+      },
+      "material_changes": {
+        "median": 8.0,
+        "p95": 8.0,
+        "mean": 8.0,
+        "min": 8.0,
+        "max": 8.0
+      },
+      "reflection_passes": {
+        "median": 0.0,
+        "p95": 0.0,
+        "mean": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      }
+    }
+  },
+  {
+    "quality": "high",
+    "view": "room",
+    "frames": 360,
+    "nonzero_draw_frames": 360,
+    "max_rss_bytes": 451149824,
+    "stats": {
+      "frame": {
+        "median": 180.5,
+        "p95": 342.0,
+        "mean": 180.5,
+        "min": 1.0,
+        "max": 360.0
+      },
+      "update_ms": {
+        "median": 0.0535,
+        "p95": 0.307,
+        "mean": 0.08866944444444444,
+        "min": 0.016,
+        "max": 0.379
+      },
+      "render_ms": {
+        "median": 2.6125,
+        "p95": 12.885,
+        "mean": 4.732122222222222,
+        "min": 0.242,
+        "max": 20.553
+      },
+      "swap_ms": {
+        "median": 0.021,
+        "p95": 0.062,
+        "mean": 0.027291666666666665,
+        "min": 0.007,
+        "max": 0.14
+      },
+      "frame_ms": {
+        "median": 2.7110000000000003,
+        "p95": 12.999,
+        "mean": 4.848058333333333,
+        "min": 0.269,
+        "max": 20.671
+      },
+      "loop_ms": {
+        "median": 2.9859999999999998,
+        "p95": 13.526,
+        "mean": 5.150130555555555,
+        "min": 0.375,
+        "max": 21.193
+      },
+      "total_vertices": {
+        "median": 16644.0,
+        "p95": 16644.0,
+        "mean": 16644.0,
+        "min": 16644.0,
+        "max": 16644.0
+      },
+      "visible_vertices": {
+        "median": 21032.0,
+        "p95": 21032.0,
+        "mean": 21032.0,
+        "min": 21032.0,
+        "max": 21032.0
+      },
+      "culled_vertices": {
+        "median": 0.0,
+        "p95": 0.0,
+        "mean": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "total_batches": {
+        "median": 36.0,
+        "p95": 36.0,
+        "mean": 36.0,
+        "min": 36.0,
+        "max": 36.0
+      },
+      "visible_batches": {
+        "median": 31.0,
+        "p95": 31.0,
+        "mean": 31.0,
+        "min": 31.0,
+        "max": 31.0
+      },
+      "draw_calls": {
+        "median": 31.0,
+        "p95": 31.0,
+        "mean": 31.0,
+        "min": 31.0,
+        "max": 31.0
+      },
+      "vbo_bytes": {
+        "median": 1264944.0,
+        "p95": 1264944.0,
+        "mean": 1264944.0,
+        "min": 1264944.0,
+        "max": 1264944.0
+      },
+      "index_bytes": {
+        "median": 33984.0,
+        "p95": 33984.0,
+        "mean": 33984.0,
+        "min": 33984.0,
+        "max": 33984.0
+      },
+      "texture_binds": {
+        "median": 23.0,
+        "p95": 23.0,
+        "mean": 23.0,
+        "min": 23.0,
+        "max": 23.0
+      },
+      "material_changes": {
+        "median": 27.0,
+        "p95": 27.0,
+        "mean": 27.0,
+        "min": 27.0,
+        "max": 27.0
+      },
+      "reflection_passes": {
+        "median": 0.0,
+        "p95": 0.0,
+        "mean": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      }
+    }
+  },
+  {
+    "quality": "high",
+    "view": "window",
+    "frames": 360,
+    "nonzero_draw_frames": 360,
+    "max_rss_bytes": 451395584,
+    "stats": {
+      "frame": {
+        "median": 180.5,
+        "p95": 342.0,
+        "mean": 180.5,
+        "min": 1.0,
+        "max": 360.0
+      },
+      "update_ms": {
+        "median": 0.059,
+        "p95": 0.345,
+        "mean": 0.11398888888888889,
+        "min": 0.024,
+        "max": 0.531
+      },
+      "render_ms": {
+        "median": 1.758,
+        "p95": 13.522,
+        "mean": 4.351075,
+        "min": 0.43,
+        "max": 21.044
+      },
+      "swap_ms": {
+        "median": 0.023,
+        "p95": 0.067,
+        "mean": 0.03176944444444445,
+        "min": 0.008,
+        "max": 0.171
+      },
+      "frame_ms": {
+        "median": 1.8395000000000001,
+        "p95": 13.643,
+        "mean": 4.496772222222222,
+        "min": 0.496,
+        "max": 21.18
+      },
+      "loop_ms": {
+        "median": 2.207,
+        "p95": 14.119,
+        "mean": 4.866794444444444,
+        "min": 0.733,
+        "max": 21.667
+      },
+      "total_vertices": {
+        "median": 16644.0,
+        "p95": 16644.0,
+        "mean": 16644.0,
+        "min": 16644.0,
+        "max": 16644.0
+      },
+      "visible_vertices": {
+        "median": 9992.0,
+        "p95": 9992.0,
+        "mean": 9992.0,
+        "min": 9992.0,
+        "max": 9992.0
+      },
+      "culled_vertices": {
+        "median": 6652.0,
+        "p95": 6652.0,
+        "mean": 6652.0,
+        "min": 6652.0,
+        "max": 6652.0
+      },
+      "total_batches": {
+        "median": 36.0,
+        "p95": 36.0,
+        "mean": 36.0,
+        "min": 36.0,
+        "max": 36.0
+      },
+      "visible_batches": {
+        "median": 19.0,
+        "p95": 19.0,
+        "mean": 19.0,
+        "min": 19.0,
+        "max": 19.0
+      },
+      "draw_calls": {
+        "median": 19.0,
+        "p95": 19.0,
+        "mean": 19.0,
+        "min": 19.0,
+        "max": 19.0
+      },
+      "vbo_bytes": {
+        "median": 1264944.0,
+        "p95": 1264944.0,
+        "mean": 1264944.0,
+        "min": 1264944.0,
+        "max": 1264944.0
+      },
+      "index_bytes": {
+        "median": 33984.0,
+        "p95": 33984.0,
+        "mean": 33984.0,
+        "min": 33984.0,
+        "max": 33984.0
+      },
+      "texture_binds": {
+        "median": 13.0,
+        "p95": 13.0,
+        "mean": 13.0,
+        "min": 13.0,
+        "max": 13.0
+      },
+      "material_changes": {
+        "median": 15.0,
+        "p95": 15.0,
+        "mean": 15.0,
+        "min": 15.0,
+        "max": 15.0
+      },
+      "reflection_passes": {
+        "median": 0.0,
+        "p95": 0.0,
+        "mean": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      }
+    }
+  }
+]

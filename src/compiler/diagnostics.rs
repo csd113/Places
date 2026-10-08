@@ -132,7 +132,7 @@ fn write_build_identity(
                 "worker_budget": identity.request.workers.min(super::MAX_WORKERS),
                 "worker_contract": "compiler override; ordinary tests use serial fill"
             },
-            "materials": "logical-materials.json (logical compiler table; not decoded model materials)",
+            "materials": "logical-materials.json (resolved compiler architecture table, including decoded colour image metadata; model sheets are separate)",
             "shadow_evidence": "caster-rays.json is exact requested-ray nearest opaque geometry; no standalone shadow/AO layer is stored",
             "completion": "result.json appears only after this variant is encoded; stage JSON appears only after its output succeeds"
         }),
@@ -145,8 +145,16 @@ fn write_build_identity(
         "emission_color": material.emission.color, "emission_intensity": material.emission.intensity,
         "normal_strength": material.response.normal_strength, "specular": material.response.specular,
         "roughness": material.response.roughness,
-        "decoded_normal_or_emission_mask": null,
-        "note": "logical table omits decoded texture indices; catalog/dependency hashes identify source textures; emission is appearance, not transport illumination"
+        "decoded_color_image": material.image.as_ref().map(|image| serde_json::json!({
+            "width": image.width, "height": image.height, "rgba_bytes": image.rgba.len(),
+            "alpha_min": image.rgba.as_chunks::<4>().0.iter().filter_map(|pixel| pixel.get(3)).min(),
+            "alpha_max": image.rgba.as_chunks::<4>().0.iter().filter_map(|pixel| pixel.get(3)).max()
+        })),
+        "decoded_normal_or_emission_mask": {
+            "normal_texture_index": material.response.normal,
+            "emission_mask_texture_index": material.emission.mask
+        },
+        "note": "resolved source image metadata; catalog/dependency hashes identify source PNGs; emission is appearance, not transport illumination"
     })).collect::<Vec<_>>();
     dump::write_json(directory, "logical-materials.json", &materials)
 }

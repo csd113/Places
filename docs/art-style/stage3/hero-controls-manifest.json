@@ -1,0 +1,108 @@
+{
+  "format_version": 1,
+  "level": "art_style_hero",
+  "source": "docs/art-style/stage3/hero-controls.json",
+  "package": "debug-maps/art-style-hero/evidence/stage3-controls/art_style_hero.placesmap",
+  "base_revision": "248684164759b3cbc99b8e5b30c29b60612e7b66",
+  "settings": {
+    "bindings": {
+      "forward": "W",
+      "backward": "S",
+      "strafe_left": "A",
+      "strafe_right": "D",
+      "look_up": "UP",
+      "look_down": "DOWN",
+      "look_left": "LEFT",
+      "look_right": "RIGHT",
+      "jump": "SPACE",
+      "crouch": "C",
+      "interact": "E"
+    },
+    "look_speed_h": 90,
+    "look_speed_v": 60,
+    "walk_speed": 3,
+    "invert_look": false,
+    "mouse_sensitivity": 0.12,
+    "quality": "high",
+    "texture_filtering": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true,
+    "use_low_quality_lighting": false,
+    "vsync": false,
+    "fov_degrees": 60,
+    "window_mode": "windowed",
+    "window_width": 640,
+    "window_height": 360
+  },
+  "bake": {
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ],
+    "workers": 12,
+    "force_for_cold_measurement": true,
+    "algorithm": "unchanged normal compiler defaults; see package inspect for prepared settings"
+  },
+  "environment": {
+    "weather": "absent",
+    "sky": "outdoor:tex_sky_stars_01",
+    "sky_brightness": 1,
+    "sky_ambient": 0.22,
+    "global_illuminator": "hero_moon; source JSON is authoritative",
+    "fog": "no authored regions; normal engine atmosphere",
+    "animation": "no animated emissions; dynamic chair spawns at 0.1 s and stays fixed",
+    "seed": "no random authored events or weather"
+  },
+  "capture": {
+    "ready_world_seconds": 0.5,
+    "warmup_frames": 15,
+    "limit_frames": 2400,
+    "expected_drawable": [
+      1280,
+      720
+    ]
+  },
+  "views": [
+    {
+      "name": "apertures",
+      "spawn": [
+        15,
+        -3.5,
+        0
+      ],
+      "camera": [
+        180,
+        2
+      ],
+      "purpose": "Open, clear, tinted and cutout apertures under matching broad-source support."
+    },
+    {
+      "name": "annex",
+      "spawn": [
+        17.2,
+        5.3,
+        0
+      ],
+      "camera": [
+        -22,
+        9
+      ],
+      "purpose": "Gable diagonals, aperture trim, thin decoration, alpha foliage and compact water basin."
+    },
+    {
+      "name": "basin",
+      "spawn": [
+        13.95,
+        3.95,
+        0
+      ],
+      "camera": [
+        -35,
+        -32
+      ],
+      "purpose": "Water volume attenuation, opaque basin skirts and foliage coverage."
+    }
+  ]
+}

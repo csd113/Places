@@ -1,0 +1,19 @@
+time: debug-maps/art-style-hero/evidence/stage2-sealed/places-compile: No such file or directory
+        0.00 real         0.00 user         0.00 sys
+             1015808  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                  92  page reclaims
+                   0  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   2  voluntary context switches
+                   5  involuntary context switches
+             1666996  instructions retired
+             1165973  cycles elapsed
+             1097968  peak memory footprint

@@ -230,7 +230,7 @@ currently nothing enforces a minimum for any class.
 | Wall luminaire face | `pool_light_wall_01.png` | **2:1** | 1024×512 (current production); 128×64 painter output is contract-valid | none enforced | ignored | no | full sheet; `u` across 0.4 m width, `v` up 0.2 m height | POT both edges |
 | Flush-mount diffuser face | `ceiling_light_round_01.png` | **1:1** | 1024×1024 (current production); 256×256 painter output is contract-valid | none enforced | ignored | no | planar; sheet centre = fixture centre; inscribed circle = diffuser radius (0.16 m) | POT both edges |
 | Decal sheet | `no_diving_01.png` | **asset-defined**; placement must match it | 128×128 small markings; 1024×1024 hero signage | none enforced | **required cut-out**: alpha 0 background. A catalog decal may add `"alpha_mode": "blend"` for a soft-edged feather sheet (path-to-grass strips); the default stays the hard 0.5 cut-out | no | full sheet fitted to the level placement's width × height | POT both edges |
-| Prop / entity texture | embedded in `chair.glb` | **model-defined** (shipped 1:1) | 256×256 native (the normal shipped size); 32/64/128 legal for lighter props | none enforced | opaque by default; a glTF material may declare `alphaMode: "MASK"` (+`alphaCutoff`, default 0.5) for alpha-cutout foliage, which draws through the engine's cutout pass, or `alphaMode: "BLEND"` for a translucent material, which only the character/dynamic translucent routes draw (a blended static architecture placement is an authoring error) | no | model `TEXCOORD_0`, normalized 0..1, clamped | hard 1024 engine limit; uniform resize safe, repack is not |
+| Prop / entity texture | embedded in `chair.glb` | **model-defined** (shipped 1:1) | 256×256 native (the normal shipped size); 32/64/128 legal for lighter props | none enforced | opaque by default; glTF `MASK` (+`alphaCutoff`, default 0.5) uses cutout and `BLEND` uses translucent passes on static, character and dynamic routes; prepared static transport follows §8.5 | no | model `TEXCOORD_0`, normalized 0..1, clamped | hard 1024 engine limit; uniform resize safe, repack is not |
 | Sky sheet | `sky_aurora_01.png` / `sky_stars_01.png` | **2:1 equirectangular** | 2048×1024 preferred; stars 1024×512 | none enforced | RGB; alpha unused | **yes in u** (the horizon seam); v is a pole-to-pole span, clamped at the poles | sampled by view direction: `u` = yaw, `v` = pitch (`0` straight up). No level placement UVs | Hard maximum 2048×1024, POT both edges (`ShippedTextureKind::Sky`); the only non-square tiling-class sheet; catalog `texture` with `"surface": "sky"` |
 | Emissive mask | (none shipped) | **any**; must share the albedo's UV frame | ≤512 (High budget) | none enforced | RGB sampled, alpha ignored | follows the albedo | same UV frame as the albedo | dimensions need not equal the albedo; a mask-only texture is exempt from the square-surface dimension test |
 | Diagnostic texture | `diagnostic_alt_01.png` | deliberately varied (96×64) | n/a | n/a | deliberately varied | n/a | not used by any shipped level | test artwork only |
@@ -760,9 +760,19 @@ normal runtime texture         256x256 native
   much dimmer so the painted face stays readable) and the pumpkin head; their
   actual illumination is the runtime `glow` component, never a baked static
   light.
-* A masked prop still bakes as a *solid* occluder unless its level placement
-  sets `"occludes": false`: the bake derives coarse boxes from triangles and
-  cannot see alpha. Every scatter tool writes `"occludes": false` for foliage.
+* Prepared static transport (Medium/Full lightmaps) tests real triangle-hit
+  coverage: numeric level-zero bilinear texture alpha × vertex alpha × material
+  opacity. OPAQUE always blocks, MASK blocks at or above its cutoff, and BLEND
+  transmits `1 - coverage` along a straight ray. Separate translucent layers
+  multiply transmission; a shared triangle edge counts once. BLEND does not
+  refract, tint transmitted light, or supply diffuse bounce. These semantics
+  apply to static architectural sheets and static model primitives alike;
+  model UVs clamp and architectural UVs repeat. Water retains its separate
+  volume attenuation. A genuinely open aperture contains no surface to attenuate.
+* The historical vertex-lighting/fast-occluder path still derives coarse boxes
+  without texture alpha. Foliage placements use `"occludes": false` for that
+  path; this flag does not remove drawn opaque or covered MASK triangles from
+  the prepared static solve. Collision remains independent of visual alpha.
 * `baseColorFactor` is baked into vertex colours; the renderer adds the
   material's emissive term on top, never multiplied by the baked light.
 * An `emissiveTexture` is sampled with the *same* `TEXCOORD_0` as the base

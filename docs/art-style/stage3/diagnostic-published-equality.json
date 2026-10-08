@@ -1,0 +1,50 @@
+[
+  {
+    "before": "docs/art-style/stage3/diagnostics/native/baked-light/contact.png",
+    "after": "docs/art-style/stage3/diagnostics/native/published-baked-light/contact.png",
+    "byte_identical": true,
+    "sha256": "f6b9dd240e67e0cbf8e84c9a0f961958c392453538db900d2113cf6063778fd0"
+  },
+  {
+    "before": "docs/art-style/stage3/diagnostics/native/lightmap-values/contact.png",
+    "after": "docs/art-style/stage3/diagnostics/native/published-lightmap-values/contact.png",
+    "byte_identical": true,
+    "sha256": "44dfe4ded1b95e24a427bc435b756cf0abdc3a179f7718bd35ee3d09c9435c50"
+  },
+  {
+    "before": "docs/art-style/stage3/diagnostics/native/vertex-normal/contact.png",
+    "after": "docs/art-style/stage3/diagnostics/native/published-vertex-normal/contact.png",
+    "byte_identical": true,
+    "sha256": "92322b948eb366b471718fc9c49428dd6adc11fd28cbd7092bad7b4f5f2a2227"
+  },
+  {
+    "before": "docs/art-style/stage3/diagnostics/native/annex-albedo/annex.png",
+    "after": "docs/art-style/stage3/diagnostics/native/published-annex-albedo-final/annex.png",
+    "byte_identical": true,
+    "sha256": "80148e197c529c8faf94695cc5f4c319d85938201b9436375e9f4e5cbe1ed33a"
+  },
+  {
+    "before": "docs/art-style/stage3/diagnostics/offline/sealed-sofa-direct.png",
+    "after": "docs/art-style/stage3/diagnostics/offline/published-sofa-direct.png",
+    "byte_identical": true,
+    "sha256": "89da5b46d989b1af276c47d1aa2700a13e01a39722f5777d6b89e007b69feae7"
+  },
+  {
+    "before": "docs/art-style/stage3/diagnostics/offline/sealed-sofa-indirect.png",
+    "after": "docs/art-style/stage3/diagnostics/offline/published-sofa-indirect.png",
+    "byte_identical": true,
+    "sha256": "d4d69b33567ca7a9d4cc999c3546d9f75879e706595bfe291707484f6260ec96"
+  },
+  {
+    "before": "docs/art-style/stage3/diagnostics/offline/sealed-sofa-filled.png",
+    "after": "docs/art-style/stage3/diagnostics/offline/published-sofa-filled.png",
+    "byte_identical": true,
+    "sha256": "d12e80f552a7e4b45cb9d09a91d715f65e53b06ffcdf0bc5d6940e2f392e80a3"
+  },
+  {
+    "before": "docs/art-style/stage3/diagnostics/offline/sealed-sofa-chart-ids.png",
+    "after": "docs/art-style/stage3/diagnostics/offline/published-sofa-chart-ids.png",
+    "byte_identical": true,
+    "sha256": "7a06d353d6e7ed713a454be2dd4d90cee01f15cae91202554093276b757c23ca"
+  }
+]

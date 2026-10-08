@@ -760,7 +760,12 @@ pub fn prepare_level_geometry_with_lightmaps(
                     materials,
                     &build.lighting,
                     active_plan.charts(),
-                ) {
+                )
+                .and_then(|(scene, stats)| {
+                    scene
+                        .with_chart_sample_density(active_plan.sample_densities().to_vec())
+                        .map(|sampled_scene| (sampled_scene, stats))
+                }) {
                     Some((transport, scene_stats)) => {
                         crate::logging::info(format_args!(
                             "[lightmaps] transport scene triangles={} ({} skipped) emitters={} ({} switchable)",

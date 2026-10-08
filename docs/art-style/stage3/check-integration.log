@@ -1,0 +1,34 @@
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+error: unused import: `PatchKind`
+ --> src/lighting/transport/filter.rs:7:72
+  |
+7 |     Accumulator, Chart, LightmapFailure, LightmapPatch, LightmapTexel, PatchKind, SURFACE_OFFSET_M,
+  |                                                                        ^^^^^^^^^
+  |
+  = note: `-D unused-imports` implied by `-D warnings`
+  = help: to override `-D warnings` add `#[allow(unused_imports)]`
+
+error: unused variable: `patch`
+  --> src/lighting/transport/filter.rs:31:22
+   |
+31 |         for (index, (patch, chart)) in charts.iter().enumerate() {
+   |                      ^^^^^ help: if this is intentional, prefix it with an underscore: `_patch`
+   |
+   = note: `-D unused-variables` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(unused_variables)]`
+
+error: type `Accumulator` is more private than the item `DirectLightingSample::light`
+    --> src/lighting/transport.rs:2950:5
+     |
+2950 |     pub(super) light: Accumulator,
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `DirectLightingSample::light` is reachable at visibility `pub(in crate::lighting)`
+     |
+note: but type `Accumulator` is only usable at visibility `pub(self)`
+    --> src/lighting/transport.rs:2940:1
+     |
+2940 | struct Accumulator {
+     | ^^^^^^^^^^^^^^^^^^
+     = note: `-D private-interfaces` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(private_interfaces)]`
+
+error: could not compile `places` (lib) due to 3 previous errors

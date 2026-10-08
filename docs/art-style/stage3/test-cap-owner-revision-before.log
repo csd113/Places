@@ -1,0 +1,20 @@
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.12s
+     Running unittests src/lib.rs (target/debug/deps/places-4d06d8c90f45374a)
+
+running 1 test
+
+thread 'loader::tests::the_geometry_revision_is_part_of_both_build_fingerprints' (17842128) panicked at src/loader/tests.rs:4853:5:
+assertion `left == right` failed: linear HDR vertex colours and flat fallback normals are geometry revision 4
+  left: 5
+ right: 4
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test loader::tests::the_geometry_revision_is_part_of_both_build_fingerprints ... FAILED
+
+failures:
+
+failures:
+    loader::tests::the_geometry_revision_is_part_of_both_build_fingerprints
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2099 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`

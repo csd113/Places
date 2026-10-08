@@ -1,0 +1,48 @@
+[
+  {
+    "before": "debug-maps/art-style-hero/evidence/stage3-sealed-solve/lighting/medium",
+    "after": "debug-maps/art-style-hero/evidence/stage3-published-solve/lighting/medium",
+    "changed_files": [
+      "caster-rays.json",
+      "charts.json",
+      "filled-page0.png",
+      "filled.rgb-f32le",
+      "provenance.json",
+      "result.json"
+    ]
+  },
+  {
+    "before": "debug-maps/art-style-hero/evidence/stage3-sealed-solve/lighting/full",
+    "after": "debug-maps/art-style-hero/evidence/stage3-published-solve/lighting/full",
+    "changed_files": [
+      "caster-rays.json",
+      "charts.json",
+      "filled-page0.png",
+      "filled.rgb-f32le",
+      "provenance.json",
+      "result.json"
+    ]
+  },
+  {
+    "before": "debug-maps/art-style-hero/evidence/stage3-controls-sealed-solve/lighting/medium",
+    "after": "debug-maps/art-style-hero/evidence/stage3-controls-published-solve/lighting/medium",
+    "changed_files": [
+      "charts.json",
+      "filled-page0.png",
+      "filled.rgb-f32le",
+      "provenance.json",
+      "result.json"
+    ]
+  },
+  {
+    "before": "debug-maps/art-style-hero/evidence/stage3-controls-sealed-solve/lighting/full",
+    "after": "debug-maps/art-style-hero/evidence/stage3-controls-published-solve/lighting/full",
+    "changed_files": [
+      "charts.json",
+      "filled-page0.png",
+      "filled.rgb-f32le",
+      "provenance.json",
+      "result.json"
+    ]
+  }
+]

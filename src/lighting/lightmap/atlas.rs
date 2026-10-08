@@ -112,6 +112,9 @@ struct FreeRect {
 /// best-short-side-fit MAXRECTS policy for architecture and disjoint guillotine
 /// pages for the many small model-triangle charts.
 ///
+/// At the shared page limit,
+/// props can consume proven free rectangles on architecture pages.
+///
 /// The allocator is designed to run *inline*, while the mesh is being emitted:
 /// each chart is placed the moment its patch is built, using only the patches
 /// that came before it. That is what lets the emitter write final lightmap UVs
@@ -195,11 +198,17 @@ impl ChartAllocator {
             self.prop_pages.push(prop);
             placement = self.best_placement(outer_w, outer_h, prop);
         }
+        if placement.is_none() && prop && self.pages.len() >= self.config.max_pages {
+            // Exhausting a page family is not exhausting the atlas. Preserve
+            // the requested density and both gutters by reusing an existing
+            // architecture hole under that page's MAXRECTS ownership policy.
+            placement = self.best_placement(outer_w, outer_h, false);
+        }
         let Some((page_index, x, y)) = placement else {
             self.failed = true;
             return None;
         };
-        let placed = if prop {
+        let placed = if self.prop_pages.get(page_index).copied() == Some(true) {
             self.place_prop(page_index, x, y, outer_w, outer_h)
         } else {
             self.place(page_index, x, y, outer_w, outer_h)
@@ -245,7 +254,8 @@ impl ChartAllocator {
     /// Model triangles have many small independent charts. Dedicated pages use
     /// disjoint guillotine remainders, avoiding quadratic containment pruning on
     /// every face. Architecture keeps its established MAXRECTS layout. Both page
-    /// kinds share the same configured budget and identical chart/gutter format.
+    /// kinds share the same configured budget and identical chart/gutter format;
+    /// props placed in an architecture hole use `place` instead.
     fn place_prop(&mut self, page_index: usize, x: u32, y: u32, width: u32, height: u32) -> bool {
         let Some(page) = self.pages.get_mut(page_index) else {
             return false;

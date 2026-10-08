@@ -1,0 +1,47 @@
+[
+  {
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage3-accepted/places-normal",
+      "--package",
+      "debug-maps/art-style-hero/evidence/stage3-accepted/art_style_hero.placesmap",
+      "--out",
+      "docs/art-style/stage3/after/accepted-high"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage3-accepted/places-normal",
+      "--package",
+      "debug-maps/art-style-hero/evidence/stage3-controls-accepted/art_style_hero.placesmap",
+      "--manifest",
+      "docs/art-style/stage3/hero-controls-manifest.json",
+      "--out",
+      "docs/art-style/stage3/after/accepted-controls"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage3-accepted/places-normal",
+      "--package",
+      "debug-maps/art-style-hero/evidence/stage3-accepted/art_style_hero.placesmap",
+      "--out",
+      "docs/art-style/stage3/performance/native/accepted-high",
+      "--views",
+      "entities,hall,room,window",
+      "--frames",
+      "360"
+    ],
+    "exit_code": 0
+  }
+]

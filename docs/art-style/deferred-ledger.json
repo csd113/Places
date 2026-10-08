@@ -75,7 +75,7 @@
       "final_verification": "Read against implementation and focused neutral/colored transport controls.",
       "stage": 2,
       "status": "resolved in Stage2",
-      "resolution": "ASSET_SPECIFICATION \u00a7\u00a716\u201318 and stage2/contracts.md now separate linear bounce reflectance, stored receiver-independent irradiance, material factors and display presentation. Architecture excludes receiver vertex shading; model sheets clamp and decode sRGB.",
+      "resolution": "ASSET_SPECIFICATION \u00a7\u00a716\u201318 and stage2/contracts.md now separate linear bounce reflectance, stored receiver-independent irradiance, material factors and display presentation. Architecture excludes receiver vertex shading; model sheets clamp and decode sRGB. Stage3 hero controls exposed that compiler preparation still used a logical-only table; Stage3 repairs this blocking integration defect by sharing decoded materials with the solve and capture, including CPU-only compilation.",
       "verification": "Stage2 focused reflectance/conversion tests and required library suite pass; matched native albedo/final hero views are retained."
     },
     {
@@ -117,7 +117,7 @@
         "assets/levels/winter.json"
       ],
       "symbol_or_format": "source/packages/benchmark reference ledger",
-      "observed_failure": "These packages are unchanged at Stage1. Later renderer/compiler changes can invalidate their prepared identities even when source JSON remains valid. Stage2 advances geometry revision to4, solver revision to12, props record to4 and probe positions to3/HDR. Legacy props v3 and probe v2 readers remain supported. Shipped non-hero packages are deliberately not rebaked.",
+      "observed_failure": "These packages are unchanged at Stage1. Later renderer/compiler changes can invalidate their prepared identities even when source JSON remains valid. Stage2 advances geometry revision to4, solver revision to12, props record to4 and probe positions to3/HDR. Legacy props v3 and probe v2 readers remain supported. Shipped non-hero packages are deliberately not rebaked. Stage3 advances geometry revision to5 and solver revision to13, with resolved architectural PNG reflectance/alpha, inclusive endpoint charts and physical footprints. Non-hero packages are still deliberately not rebaked.",
       "reason_for_deferral": "Stages1\u20136 compile/bake and visually accept only the hero. Stage7 owns supported-map compatibility/regression, not broad concept refinement.",
       "required_resolution": "At Stage7 inventory changed fingerprints/dependencies and rebuild only affected packages, preserve old matched evidence, verify all final packages.",
       "final_verification": "Normal compiler currency/integrity, targeted supported-map native compatibility checks, assets and final desktop gate; detailed visual acceptance remains the hero.",
@@ -217,6 +217,35 @@
       "final_verification": "Authored tangent/handedness transform tests and genuine hero static/movable/entity controls if supported feature is added.",
       "stage": 7,
       "status": "documented limitation; adoption conditional"
+    },
+    {
+      "id": "live-atlas-texture-dependency-key",
+      "affected_files": [
+        "src/render/common/api.rs",
+        "src/lighting/lightmap/cache.rs"
+      ],
+      "symbol_or_format": "lightmap_content_key / live preparation cache inputs",
+      "observed_failure": "Live atlas content keys include level/config/solver/occluder inputs but omit resolved PNG and catalog material bytes. The offline compiler package fingerprints already include source dependencies and catalog hashes; Stage3 forced hero builds do not reuse stale live entries. A same-source hot texture edit could reuse an old live atlas.",
+      "reason_for_deferral": "Stage6 explicitly owns the full dependency-aware incremental/cache system. No hot edit occurs within the validated Stage3 hero process. Do not grow a second cache architecture in transport work.",
+      "required_resolution": "Include resolved material/image and model transport inputs in the owning incremental dependency contract; preserve ordinary package currency and avoid hashing images per receiver/frame.",
+      "final_verification": "Same-source texture-alpha/reflectance edits invalidate only affected live/offline lighting; unchanged inputs retain exact package and atlas identities; hero-only compile/visual validation.",
+      "stage": 6,
+      "status": "open"
+    },
+    {
+      "id": "geometry-check-split-face-centroid",
+      "affected_files": [
+        "src/geometry_check.rs",
+        "tests/fixtures/levels/art_style_hero.json",
+        "docs/art-style/stage3/ghost-collider-audit.json"
+      ],
+      "symbol_or_format": "triangle_on_face / check_ghost_colliders and finer wall collision spans",
+      "observed_failure": "Final hero geometry check emits ghost-collider wall2 at [8.225,1.4,6.15] after21\u219223 legitimate collision partitions. Exact audit proves identical occupied union, full0.84000052m\u00b2 east face coverage in Off/Medium/Full, and tail containment within return wall4. The supporting triangle centroid lies outside the tiny tail even though its real area and face-centre probe cover it. Checker output and assertions retained.",
+      "reason_for_deferral": "Reviewed diagnostic false positive, not missing mesh, new collision volume or visual transport defect. Stage3 final native hero has no unexplained artifact here. Stage7 owns generic validation/compatibility regression across final map geometry; avoid changing accepted emission to appease a centroid shortcut.",
+      "required_resolution": "Replace centroid-only face support acceptance with actual coplanar overlap/coverage that respects real holes; keep rejection of genuine ghost volumes and existing assertions.",
+      "final_verification": "Focused containing-triangle-with-outside-centroid, true unsupported box and partial/hole controls; final hero geometry warning eliminated without mesh/collision edits, then Stage7 supported-map validation.",
+      "stage": 7,
+      "status": "open; reviewed false positive"
     }
   ]
 }

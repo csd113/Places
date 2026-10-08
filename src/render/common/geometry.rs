@@ -346,16 +346,23 @@ fn covered_ceiling_rectangle(
         WallAxis::Z => (across, along),
     };
     let (cx, cz) = centre(f32::midpoint(along0, along1));
+    let (origin_x, origin_z) = wall.length_origin();
+    let offset_at = |along| match coverage.axis {
+        WallAxis::X => along - origin_x,
+        WallAxis::Z => along - origin_z,
+    };
     if !context
         .surfaces
-        .room_at(cx, cz)
+        .wall_ceiling_room(wall, offset_at(f32::midpoint(along0, along1)))
         .is_some_and(|owner| std::ptr::eq(owner, room))
     {
         return None;
     }
     if [along0, along1].into_iter().any(|along| {
-        let (x, z) = centre(along);
-        let ceiling_limit = wall.y + context.surfaces.clear_ceiling_height_at(x, z);
+        let ceiling_limit = wall.y
+            + context
+                .surfaces
+                .clear_ceiling_height_along(wall, offset_at(along));
         top < ceiling_limit - WALL_COINCIDENCE_EPS
     }) {
         return None;
@@ -717,12 +724,10 @@ fn emit_wall_slice(
     // written, which is what lets a raised wall span two rooms with different
     // ceiling heights.
     let ceiling_bounded = state.wall.height.is_none();
-    let profile_top = |offset| {
-        state.wall.y
-            + context
-                .surfaces
-                .clear_ceiling_height_along(state.wall, offset)
-    };
+    let owner_offset = f32::midpoint(slice.start, slice.end);
+    let span_room = context.surfaces.wall_ceiling_room(state.wall, owner_offset);
+    let profile_top =
+        |offset| wall_span_profile_top(context.surfaces, state.wall, span_room, offset);
     let follows_ceiling = ceiling_bounded
         && slice_top >= profile_top(slice.start).max(profile_top(slice.end)) - WALL_COINCIDENCE_EPS;
 
@@ -773,7 +778,7 @@ fn emit_wall_slice(
             if !ceiling_bounded {
                 return slice_top;
             }
-            let ceiling = wall_face_ceiling(context, state, at, face.position);
+            let ceiling = wall_face_ceiling(context, state, at, face.position, owner_offset);
             if follows_ceiling {
                 ceiling
             } else {
@@ -877,32 +882,56 @@ fn emit_wall_length_face(
     flush_wall_run(buckets, scratch, cursor, strip.key);
 }
 
-/// The wall's owning ceiling profile evaluated on the actual face, rather
-/// than the thickness midpoint. This also extrapolates the same roof to an
-/// exterior face instead of falling back to an unrelated room's ceiling.
+/// A linear wall span selects its roof at the span's midpoint. Its boundary
+/// vertices retain their exact positions and that roof's height, even when
+/// the adjacent room owns the same endpoint under point-query precedence.
 fn wall_face_ceiling(
     context: &EmitContext<'_, '_>,
     state: &WallState<'_>,
     at: f32,
     face: f32,
+    owner_offset: f32,
 ) -> f32 {
-    let middle = f32::midpoint(state.t0, state.t1);
-    let ((cx, cz), (x, z)) = match state.axis {
-        WallAxis::X => ((at, middle), (at, face)),
-        WallAxis::Z => ((middle, at), (face, at)),
+    let (x, z) = match state.axis {
+        WallAxis::X => (at, face),
+        WallAxis::Z => (face, at),
     };
     context
         .surfaces
-        .room_at(cx, cz)
-        .or_else(|| {
-            state
-                .room
-                .and_then(|index| context.level.room_iter().nth(index))
-        })
+        .wall_ceiling_room(state.wall, owner_offset)
         .map_or_else(
-            || context.surfaces.ceiling_y_at(x, z),
+            || context.surfaces.wall_ceiling_y_at(state.wall, x, z),
             |room| room.ceiling_y_at(x, z),
         )
+}
+
+/// Terminal-slice detection uses its midpoint owner's clear-height profile.
+/// A neighbouring room can own the shared endpoint under point-query precedence
+/// without changing this span's height relative to its authored wall base.
+fn wall_span_profile_top(
+    surfaces: &LevelSurfaces<'_>,
+    wall: &WallDef,
+    span_room: Option<&RoomDef>,
+    offset: f32,
+) -> f32 {
+    let clear = span_room.map_or_else(
+        || surfaces.clear_ceiling_height_along(wall, offset),
+        |room| {
+            let (x, z) = crate::level::wall_point(wall, offset);
+            let floor = if room.floor_y.is_finite() {
+                room.floor_y
+            } else {
+                0.0
+            };
+            let height = room.ceiling_y_at(x, z) - floor;
+            if height.is_finite() && height > 0.0 {
+                height
+            } else {
+                crate::level::DEFAULT_CEILING_HEIGHT_M
+            }
+        },
+    );
+    wall.y + clear
 }
 
 /// Evaluates the authored bottom/top shade in the parent wall's height frame.
@@ -917,7 +946,17 @@ fn wall_material_shade(
     let top = if state.wall.height.is_some() {
         state.wall_top
     } else {
-        wall_face_ceiling(context, state, at, strip.face)
+        let origin = match state.axis {
+            WallAxis::X => state.origin_x,
+            WallAxis::Z => state.origin_z,
+        };
+        wall_face_ceiling(
+            context,
+            state,
+            at,
+            strip.face,
+            f32::midpoint(strip.l0, strip.l1) - origin,
+        )
     };
     let fraction =
         ((y - state.wall_base) / (top - state.wall_base).max(f32::EPSILON)).clamp(0.0, 1.0);
@@ -930,7 +969,7 @@ fn wall_material_shade(
 /// wall or window sill, and the underside of a raised wall or door header.
 ///
 /// A cap is only the part of the slice's horizontal face that is actually
-/// exposed. Three things can own the same plane instead:
+/// exposed. Other surfaces can own the same plane instead:
 ///
 /// * the unit's own solid volume: the step between two stacked cells of a
 ///   coalesced group is an interior face, not two caps back to back;
@@ -939,6 +978,9 @@ fn wall_material_shade(
 ///   on that plane is buried under a real floor surface. Emitting it anyway
 ///   puts two coplanar faces at the same depth, which is the doorway threshold
 ///   flicker this function exists to prevent;
+/// * a closed flat roof: its actual footprint covers a coplanar rigid wall
+///   cap. A contacting roof's height alone does not cover the wall thickness
+///   outside that footprint, and an open room has no roof to cover it;
 /// * an earlier-authored wall unit whose solid reaches the same plane: where
 ///   two perpendicular walls share a corner square at one top (or one bottom),
 ///   the earlier unit keeps the overlap and this one subtracts its footprint,
@@ -946,7 +988,7 @@ fn wall_material_shade(
 ///   z-fighting. Ordering is by the unit's earliest authored member, so it is
 ///   deterministic and independent of emission or worker order.
 ///
-/// All three are subtracted as rectangles, so a cap covered over only part of
+/// These are subtracted as rectangles, so a cap covered over only part of
 /// its span keeps exactly the exposed remainder instead of disappearing whole
 /// or surviving underneath the covering surface.
 fn emit_wall_caps(
@@ -1055,12 +1097,18 @@ fn emit_wall_caps(
         covered
     };
 
-    // A wall that reaches the ceiling over this span needs no top face, which
-    // is what keeps gable-end walls from growing a flat cap above the slope.
-    if slice.top < ceiling_along(slice_mid) - 1e-3 {
+    // A ceiling-following slice has a conservative flat top, so its terminal
+    // slice must not grow a false horizontal cap above a gable slope. A rigid
+    // authored wall has a real horizontal top; only actual coplanar roof
+    // coverage can hide it, including when its centre is outside the roof.
+    let rigid_top = state.wall.height.is_some();
+    if rigid_top || slice.top < ceiling_along(slice_mid) - 1e-3 {
         let mut covered = self_covered(slice.top, true);
         covered.extend(floor_covered(slice.top));
         covered.extend(earlier_wall_covered(slice.top, true));
+        if rigid_top {
+            covered.extend(coplanar_roof_coverage(context, state, slice.top));
+        }
         for rect in subtract_rectangles(cap, &covered) {
             emit_wall_slice_cap(context, buckets, scratch, state, slice, cursor, true, rect);
         }
@@ -1076,6 +1124,31 @@ fn emit_wall_caps(
             emit_wall_slice_cap(context, buckets, scratch, state, slice, cursor, false, rect);
         }
     }
+}
+
+/// Actual flat-roof footprints in a wall cap's local coordinate frame.
+fn coplanar_roof_coverage(
+    context: &EmitContext<'_, '_>,
+    state: &WallState<'_>,
+    plane: f32,
+) -> Vec<(f32, f32, f32, f32)> {
+    context
+        .surfaces
+        .rooms()
+        .iter()
+        .filter(|room| {
+            room_is_tessellatable(room)
+                && room.ceiling.is_flat()
+                && (room.eave_y() - plane).abs() <= WALL_COINCIDENCE_EPS
+        })
+        .map(|room| {
+            let (x0, x1, z0, z1) = room.bounds();
+            match state.axis {
+                WallAxis::X => (x0 - state.origin_x, x1 - state.origin_x, z0, z1),
+                WallAxis::Z => (z0 - state.origin_z, z1 - state.origin_z, x0, x1),
+            }
+        })
+        .collect()
 }
 
 /// Emits one exposed rectangle of a solid slice's top (`up = true`) or bottom
@@ -1166,7 +1239,14 @@ fn emit_wall_slice_cap(
                 WallAxis::X => (f32::midpoint(along0, along1), f32::midpoint(b0, b1)),
                 WallAxis::Z => (f32::midpoint(b0, b1), f32::midpoint(along0, along1)),
             };
-            context.lighting.room_index_at_height(center_x, y, center_z)
+            // Exposed caps can sit above a low neighbour or outside every
+            // room footprint. Keep real air-volume ownership where it exists,
+            // then retain the complete wall's established parent like its
+            // length faces do; a footprint-only fallback would steal a lintel.
+            context
+                .lighting
+                .room_index_strict_at_height(center_x, y, center_z)
+                .or(state.room)
         } else {
             None
         };
@@ -1292,20 +1372,34 @@ fn emit_wall_cross_sections(
     }
     boundaries.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     boundaries.dedup_by(|a, b| (*a - *b).abs() <= 1e-3);
-    let ceiling_along = |offset: f32| context.surfaces.ceiling_y_along(state.wall, offset);
-
     for position in boundaries {
+        let top_at_boundary = |slice: &WallSlice| {
+            if state.wall.height.is_some() {
+                return slice.top;
+            }
+            let at = match state.axis {
+                WallAxis::X => state.origin_x + position,
+                WallAxis::Z => state.origin_z + position,
+            };
+            slice.top.min(wall_face_ceiling(
+                context,
+                state,
+                at,
+                f32::midpoint(state.t0, state.t1),
+                f32::midpoint(slice.start, slice.end),
+            ))
+        };
         let left: Vec<(f32, f32)> = state
             .slices
             .iter()
             .filter(|s| (s.end - position).abs() <= 1e-3)
-            .map(|s| (s.bottom, s.top))
+            .map(|s| (s.bottom, top_at_boundary(s)))
             .collect();
         let right: Vec<(f32, f32)> = state
             .slices
             .iter()
             .filter(|s| (s.start - position).abs() <= 1e-3)
-            .map(|s| (s.bottom, s.top))
+            .map(|s| (s.bottom, top_at_boundary(s)))
             .collect();
         let boundary = WallBoundary {
             position,
@@ -1313,9 +1407,6 @@ fn emit_wall_cross_sections(
             right: &right,
         };
         for (bottom, top) in interval_symmetric_difference(&left, &right) {
-            // A wall end under a gable stops at the ceiling, so its end cap
-            // follows the triangle instead of rising to the ridge.
-            let ceiling_top = top.min(ceiling_along(position));
             emit_wall_cross_quad(
                 context,
                 buckets,
@@ -1323,7 +1414,7 @@ fn emit_wall_cross_sections(
                 state,
                 cursor,
                 boundary,
-                (bottom, ceiling_top),
+                (bottom, top),
             );
         }
     }
@@ -1378,17 +1469,46 @@ fn wall_cross_top(
     at: f32,
     across: f32,
     top: f32,
+    owner_offset: f32,
 ) -> f32 {
     if state.wall.height.is_some() {
         return top;
     }
-    let center_ceiling = wall_face_ceiling(context, state, at, f32::midpoint(state.t0, state.t1));
-    let ceiling = wall_face_ceiling(context, state, at, across);
+    let center_ceiling = wall_face_ceiling(
+        context,
+        state,
+        at,
+        f32::midpoint(state.t0, state.t1),
+        owner_offset,
+    );
+    let ceiling = wall_face_ceiling(context, state, at, across, owner_offset);
     if top >= center_ceiling - WALL_COINCIDENCE_EPS {
         ceiling
     } else {
         top.min(ceiling)
     }
+}
+
+/// The solid side selects the roof for an exposed boundary interval.
+fn cross_span_owner_offset(
+    state: &WallState<'_>,
+    boundary: &WallBoundary<'_>,
+    span: (f32, f32),
+    right_covers: bool,
+) -> f32 {
+    let (bottom, top) = span;
+    state
+        .slices
+        .iter()
+        .find(|slice| {
+            let edge = if right_covers { slice.start } else { slice.end };
+            (edge - boundary.position).abs() <= WALL_COINCIDENCE_EPS
+                && slice.bottom <= bottom + WALL_COINCIDENCE_EPS
+                && slice.top >= top - WALL_COINCIDENCE_EPS
+        })
+        .map_or(boundary.position, |slice| {
+            f32::midpoint(slice.start, slice.end)
+        })
 }
 
 /// Emits one exposed interval of a solid-profile boundary cross-section.
@@ -1436,6 +1556,7 @@ fn emit_wall_cross_quad(
             .any(|(low, high)| *low <= bottom + 1e-3 && *high >= top - 1e-3)
     };
     let right_covers = covers(boundary.right);
+    let owner_offset = cross_span_owner_offset(state, &boundary, span, right_covers);
     let inward = if right_covers { 1.0 } else { -1.0 };
     let inboard = f32::mul_add(inward, LIGHT_FACE_PROBE_M, at);
     let key = state
@@ -1463,8 +1584,8 @@ fn emit_wall_cross_quad(
         for (across0, across1, face_bottom, face_top) in
             split_rect((across_low, across_high, rect_bottom, rect_top), max_span_m)
         {
-            let top_low_y = wall_cross_top(context, state, at, across0, face_top);
-            let top_high_y = wall_cross_top(context, state, at, across1, face_top);
+            let top_low_y = wall_cross_top(context, state, at, across0, face_top, owner_offset);
+            let top_high_y = wall_cross_top(context, state, at, across1, face_top, owner_offset);
             // Wall ends keep the directional face shading; internal reveals use
             // the darker jamb/head colours.
             let mult = if at_start {
@@ -1671,11 +1792,10 @@ fn emit_fixtures(
 
 /// Step 3b: the glass panes that fill openings.
 ///
-/// An opening with a `glass` material is a *hole with a pane in it*: the wall
-/// keeps its full cut (collision and the lighting bake are unchanged — glass
-/// transmits light, and the bake already runs through the aperture), and one
-/// quad is emitted in the wall's mid-plane so the opening reads as glazed
-/// rather than empty.
+/// An opening with a `glass` material keeps its wall cut and receives a pane
+/// quad at the wall's mid-plane. Collision follows the opening's separate
+/// authored solidity; transport follows the pane material's actual opaque,
+/// cutout or blend coverage, including its texture and vertex alpha.
 ///
 /// The pane is deliberately the opening's own rectangle at the wall's centre
 /// plane, with no frame and no thickness: it is a *surface*, so every material
@@ -1688,9 +1808,8 @@ fn emit_fixtures(
 /// wall emitter coalesces into one would each emit their own pane; author a
 /// wall once, as everywhere else in the format.
 ///
-/// The pane is never lightmapped: like a fixture face or a prop, its four
-/// corners sample the baked light directly and fold it into the vertex colour.
-/// A pane spans at most one opening, so per-corner sampling is smooth across it.
+/// Prepared panes receive wall charts in the HDR atlas. The vertex-lit fallback
+/// samples the four corners and folds that lighting into their vertex colour.
 fn emit_glass_panes(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,

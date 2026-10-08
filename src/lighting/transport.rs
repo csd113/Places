@@ -80,8 +80,11 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
+mod alpha;
 mod bvh;
 pub(crate) mod probe_audit;
+
+pub use alpha::{TransportAlphaSurface, TransportTextureAddress};
 
 use crate::lighting::lightmap::{Chart, LightmapFailure, LightmapPatch, LightmapTexel, PatchKind};
 use crate::lighting::probes::{ProbeField, ProbeSample};
@@ -248,7 +251,10 @@ pub fn solver_fingerprint() -> u64 {
 ///   gather rays respect geometric horizons and opaque front-face radiance.
 /// - 12: diffuse bounce reflectance decodes sRGB once, excluding architectural
 ///   receiver shade, and model sheets use clamped UVs and centroid factors.
-pub const SOLVER_REVISION: u64 = 12;
+/// - 13: MASK rays evaluate authored coverage, BLEND rays attenuate straight
+///   paths, finite sources integrate per-tap cosines and moments, and physical
+///   chart sample pitch is retained independently of atlas rounding.
+pub const SOLVER_REVISION: u64 = 13;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;
@@ -428,30 +434,45 @@ impl EmitterShape {
     /// rectangle a `taps x taps` grid; a line `taps` points along its axis.
     #[must_use]
     pub fn samples(&self, taps: u8) -> Vec<[f32; 3]> {
+        let mut samples = Vec::with_capacity(self.sample_count(taps));
+        self.for_each_sample(taps, |sample| samples.push(sample));
+        samples
+    }
+
+    fn sample_count(&self, taps: u8) -> usize {
+        let count = usize::from(taps.clamp(1, 3));
+        match self {
+            Self::Point => 1,
+            Self::Rect { u: _, v: _ } => count.saturating_mul(count),
+            Self::Line {
+                direction: _,
+                half_length: _,
+            } => count,
+        }
+    }
+
+    /// The same fixed tap order as `samples`, without allocating per receiver.
+    fn for_each_sample(&self, taps: u8, mut visit: impl FnMut([f32; 3])) {
         let tap_count = usize::from(taps.clamp(1, 3));
         match *self {
-            Self::Point => vec![[0.0; 3]],
+            Self::Point => visit([0.0; 3]),
             Self::Rect { u, v } => {
-                let mut out = Vec::with_capacity(tap_count.saturating_mul(tap_count));
                 for i in 0..tap_count {
                     for j in 0..tap_count {
                         let a = tap_offset(i, tap_count);
                         let b = tap_offset(j, tap_count);
-                        out.push(add(scale(u, a), scale(v, b)));
+                        visit(add(scale(u, a), scale(v, b)));
                     }
                 }
-                out
             }
             Self::Line {
                 direction,
                 half_length,
             } => {
-                let mut out = Vec::with_capacity(tap_count);
                 for i in 0..tap_count {
                     let a = tap_offset(i, tap_count);
-                    out.push(scale(direction, half_length * a));
+                    visit(scale(direction, half_length * a));
                 }
-                out
             }
         }
     }
@@ -622,7 +643,9 @@ impl TransportEmitter {
     }
 
     /// The contribution of this emitter at `point` with unit albedo, plus the
-    /// mean direction toward it.
+    /// mean direction toward it. This summary query supplies scalar source
+    /// support; physical receiver integration uses `accumulate_direct` so the
+    /// separate tap directions retain their actual cosine and moments.
     ///
     /// `scene` supplies the shadow tests; `taps` is the per-axis emitter tap
     /// count. Returns `(weight, direction)` where both are zero when nothing is
@@ -637,6 +660,69 @@ impl TransportEmitter {
         self.direct_from(scene, point, point, taps)
     }
 
+    /// Integrate actual incoming directions instead of normalizing their sum.
+    /// The calibrated fixture falloff remains one source-wide scalar; only the
+    /// per-tap visibility, coverage and cosine are integrated independently.
+    fn accumulate_direct(
+        &self,
+        scene: &TransportScene,
+        accumulator: &mut Accumulator,
+        point: [f32; 3],
+        ray_origin: [f32; 3],
+        normal: Option<[f32; 3]>,
+        attenuation: [f32; 3],
+        taps: u8,
+    ) -> (u64, usize) {
+        if self.intensity <= 0.0 || !self.reaches(point) {
+            return (0, 0);
+        }
+        let distance = if self.directional {
+            self.horizontal_distance(point)
+        } else {
+            length(sub(self.position, point))
+        };
+        let falloff = self.falloff.factor(distance / self.range);
+        if !falloff.is_finite() || falloff <= 0.0 {
+            return (0, 0);
+        }
+        let sample_count = self.shape.sample_count(taps);
+        let count = f32::from(u8::try_from(sample_count).unwrap_or(1).max(1));
+        let strength =
+            crate::lighting::LOCAL_LIGHT_STRENGTH * self.intensity * self.height_factor * falloff;
+        if !strength.is_finite() {
+            accumulator.surface_light = [f32::NAN; 3];
+            return (0, 0);
+        }
+        let mut signature = 0_u64;
+        let mut index = 0_usize;
+        self.shape.for_each_sample(taps, |offset| {
+            let sample = add(self.position, offset);
+            let throughput = scene.transmittance(ray_origin, sample);
+            signature = coverage::visibility_key(signature, index, throughput.to_bits());
+            index = index.saturating_add(1);
+            if throughput <= 0.0 {
+                return;
+            }
+            let delta = sub(sample, point);
+            let length = length(delta);
+            if length <= 1.0e-6 {
+                return;
+            }
+            let direction = scale(delta, 1.0 / length);
+            let weight = attenuate(
+                self.color
+                    .map(|color| color * strength * throughput / count),
+                attenuation,
+            );
+            if let Some(surface_normal) = normal {
+                accumulate_surface_lobe(accumulator, weight, direction, surface_normal);
+            } else {
+                accumulate_lobe(accumulator, weight, direction);
+            }
+        });
+        (signature, sample_count)
+    }
+
     fn visibility(
         &self,
         scene: &TransportScene,
@@ -644,33 +730,37 @@ impl TransportEmitter {
         ray_origin: [f32; 3],
         taps: u8,
     ) -> (f32, [f32; 3]) {
-        let samples = self.shape.samples(taps);
-        let total = f32::from(u8::try_from(samples.len()).unwrap_or(1).max(1));
-        let mut visible = 0u8;
+        let total = f32::from(
+            u8::try_from(self.shape.sample_count(taps))
+                .unwrap_or(1)
+                .max(1),
+        );
+        let mut transmitted = 0.0_f32;
         let mut direction = [0.0_f32; 3];
         let mut centre_direction = [0.0_f32; 3];
         let mut first = true;
-        for offset in samples {
+        self.shape.for_each_sample(taps, |offset| {
             let sample = add(self.position, offset);
-            if scene.occluded(ray_origin, sample) {
-                continue;
+            let throughput = scene.transmittance(ray_origin, sample);
+            if throughput <= 0.0 {
+                return;
             }
-            visible = visible.saturating_add(1);
+            transmitted += throughput;
             let to_light = sub(sample, point);
             let distance = length(to_light);
             if distance > 1.0e-6 {
                 let unit = scale(to_light, 1.0 / distance);
-                direction = add(direction, unit);
+                direction = add(direction, scale(unit, throughput));
                 if first {
                     centre_direction = unit;
                     first = false;
                 }
             }
-        }
-        if visible == 0 {
+        });
+        if transmitted <= 0.0 {
             return (0.0, [0.0; 3]);
         }
-        let visible_fraction = f32::from(visible) / total;
+        let visible_fraction = transmitted / total;
         (visible_fraction, normalize_or(direction, centre_direction))
     }
 
@@ -889,6 +979,12 @@ impl Default for SolveOptions {
 /// worker; nothing in it changes during a solve.
 pub struct TransportScene {
     triangles: Vec<TransportTriangle>,
+    /// Alpha coverage belongs to the authored material; geometry stays compact.
+    surface_alpha: Vec<Option<TransportAlphaSurface>>,
+    /// Ray-tree nodes containing Blend surfaces, for a sparse throughput walk.
+    blend_nodes: Vec<bool>,
+    /// Physical samples per metre, before integer chart dimensions are rounded.
+    chart_sample_density: Vec<f32>,
     order: Vec<u32>,
     /// Ray kernels need corners and identity, rather than shading/material data.
     /// Packed leaf data avoids chasing the larger shading/material records.
@@ -1323,6 +1419,9 @@ impl TransportScene {
         let ray_triangles = pack(&ray_order)?;
         Some(Self {
             triangles,
+            surface_alpha: Vec::new(),
+            blend_nodes: Vec::new(),
+            chart_sample_density: Vec::new(),
             order,
             ray_triangles,
             ray_nodes,
@@ -1343,6 +1442,26 @@ impl TransportScene {
     pub fn with_water(mut self, water: Vec<TransportWaterBody>) -> Self {
         self.water = water;
         self
+    }
+
+    /// Attach chart densities in plan order, independent of atlas dimensions.
+    /// An empty table retains the analytical chart-spacing fallback.
+    #[must_use]
+    pub fn with_chart_sample_density(mut self, density: Vec<f32>) -> Option<Self> {
+        if density
+            .iter()
+            .any(|value| !value.is_finite() || *value <= 0.0 || !value.recip().is_finite())
+        {
+            return None;
+        }
+        self.chart_sample_density = density;
+        Some(self)
+    }
+
+    pub(super) fn chart_sample_pitch(&self, chart: usize) -> Option<f32> {
+        self.chart_sample_density
+            .get(chart)
+            .map(|density| density.recip())
     }
 
     /// Map-wide directional sources, evaluated with infinite visibility rays.
@@ -1377,25 +1496,75 @@ impl TransportScene {
                     .map(|value| value * light.intensity / f32::from(count)),
                 attenuation,
             );
-            let mut visible = 0_u16;
             for sample in 0..count {
                 let direction = light.sample_direction(sample, count);
                 if light.cast_shadows {
                     rays = rays.saturating_add(1);
                 }
-                if light.cast_shadows && self.intersect(origin, direction).is_some() {
+                let throughput = if light.cast_shadows {
+                    let (hit, throughput) = self.intersect_transport(origin, direction);
+                    if hit.is_some() { 0.0 } else { throughput }
+                } else {
+                    1.0
+                };
+                signature = coverage::visibility_key(
+                    signature,
+                    index.saturating_mul(9).saturating_add(usize::from(sample)),
+                    throughput.to_bits(),
+                );
+                if throughput <= 0.0 {
                     continue;
                 }
-                visible = visible.saturating_add(1);
+                let transmitted = scale(weight, throughput);
                 if let Some(surface_normal) = normal {
-                    accumulate_surface_lobe(accumulator, weight, direction, surface_normal);
+                    accumulate_surface_lobe(accumulator, transmitted, direction, surface_normal);
                 } else {
-                    accumulate_lobe(accumulator, weight, direction);
+                    accumulate_lobe(accumulator, transmitted, direction);
                 }
             }
-            signature = coverage::visibility_key(signature, index, u32::from(visible));
         }
         (signature, rays)
+    }
+
+    /// One physical receiver query shared by coverage and diagnostics.
+    /// Returns the actual integral, a per-tap coverage signature and ray count.
+    fn direct_sample(
+        &self,
+        receiver: &TransportReceiver,
+        emitters: &[usize],
+        global: bool,
+        taps: u8,
+    ) -> DirectLightingSample {
+        let mut result = DirectLightingSample::default();
+        for index in emitters {
+            let Some(emitter) = self.emitters.get(*index) else {
+                continue;
+            };
+            let (signature, rays) = emitter.accumulate_direct(
+                self,
+                &mut result.light,
+                receiver.position,
+                receiver.ray_origin,
+                Some(receiver.normal),
+                receiver.attenuation,
+                taps,
+            );
+            result.visibility =
+                coverage::visibility_key(result.visibility, *index, 0) ^ signature.rotate_left(7);
+            result.rays = result.rays.saturating_add(rays);
+        }
+        if global {
+            let (signature, rays) = self.accumulate_global(
+                &mut result.light,
+                receiver.ray_origin,
+                Some(receiver.normal),
+                receiver.attenuation,
+                taps,
+            );
+            result.visibility ^= signature.rotate_left(17);
+            result.rays = result.rays.saturating_add(rays);
+        }
+        result
     }
 
     /// Attaches the per-texel authored baseline targets in receiver order.
@@ -1554,6 +1723,12 @@ impl TransportScene {
                     if let Some(t) = ray.corners(triangle.corners)
                         && t > RAY_EPS_M
                         && t < max_t
+                        && alpha::blocks(
+                            &self.surface_alpha,
+                            triangle.surface,
+                            triangle.corners,
+                            || ray.point_at(t),
+                        )
                         && self
                             .nodes
                             .get(usize::try_from(triangle.canonical_leaf).unwrap_or(usize::MAX))
@@ -1628,6 +1803,7 @@ impl TransportScene {
             &self.ray_nodes,
             &self.ray_triangles,
             &self.nodes,
+            &self.surface_alpha,
             &ray,
             origin,
             inv,
@@ -1639,6 +1815,7 @@ impl TransportScene {
                 &self.nodes,
                 &self.legacy_ray_triangles,
                 &self.nodes,
+                &self.surface_alpha,
                 &ray,
                 origin,
                 inv,
@@ -1653,6 +1830,7 @@ impl TransportScene {
         nodes: &[BvhNode],
         triangles: &[RayTriangle],
         canonical_nodes: &[BvhNode],
+        surface_alpha: &[Option<TransportAlphaSurface>],
         ray: &PreparedRay,
         origin: [f32; 3],
         inv: [f32; 3],
@@ -1693,6 +1871,9 @@ impl TransportScene {
                     }
                     if let Some(t) = ray.corners(triangle.corners)
                         && t > RAY_EPS_M
+                        && alpha::blocks(surface_alpha, triangle.surface, triangle.corners, || {
+                            ray.point_at(t)
+                        })
                     {
                         let Some(canonical_entry) =
                             triangle.canonical_entry(canonical_nodes, origin, inv, FIND_TIES)
@@ -1765,11 +1946,18 @@ impl TransportScene {
         let Some(ray) = PreparedRay::new(origin, direction) else {
             return false;
         };
-        self.triangles.iter().any(|triangle| {
+        self.triangles.iter().enumerate().any(|(index, triangle)| {
             !triangle.transmissive
-                && ray
-                    .triangle(triangle)
-                    .is_some_and(|t| t > RAY_EPS_M && t < max_t)
+                && ray.triangle(triangle).is_some_and(|t| {
+                    t > RAY_EPS_M
+                        && t < max_t
+                        && alpha::blocks(
+                            &self.surface_alpha,
+                            u32::try_from(index).unwrap_or(u32::MAX),
+                            [triangle.p0, triangle.p1, triangle.p2],
+                            || ray.point_at(t),
+                        )
+                })
         })
     }
 
@@ -1827,6 +2015,16 @@ impl TransportScene {
                             continue;
                         };
                         if solid_only && triangle.transmissive {
+                            continue;
+                        }
+                        if solid_only
+                            && !alpha::blocks(
+                                &self.surface_alpha,
+                                *index,
+                                [triangle.p0, triangle.p1, triangle.p2],
+                                || point,
+                            )
+                        {
                             continue;
                         }
                         // At a shared hard edge several faces are equally close.
@@ -1987,6 +2185,10 @@ impl TransportScene {
         }
         if !self.inputs_are_valid() {
             return Err(LightmapFailure::FillNonFinite);
+        }
+        if !self.chart_sample_density.is_empty() && self.chart_sample_density.len() != charts.len()
+        {
+            return Err(LightmapFailure::FillSize);
         }
         let workers = options.workers.clamp(1, MAX_TRANSPORT_WORKERS);
         let taps = options.taps_per_axis.clamp(1, 3);
@@ -2498,7 +2700,8 @@ impl TransportScene {
     ) -> Result<Vec<Accumulator>, LightmapFailure> {
         let count = samples.clamp(1, MAX_BOUNCE_RAYS);
         let inverse_count = 1.0 / f32::from(u16::try_from(count).unwrap_or(u16::MAX));
-        parallel_map(receivers.len(), workers, cancel, |index| {
+        let audit = diagnostics::enabled().then(GatherAudit::default);
+        let gathered = parallel_map(receivers.len(), workers, cancel, |index| {
             let Some(receiver) = receivers.get(index) else {
                 return Accumulator::default();
             };
@@ -2517,10 +2720,14 @@ impl TransportScene {
                 // directions have no visible geometric hemisphere and must not
                 // hit this face's back and recycle its own illumination.
                 if dot(direction, geometric_normal) <= 0.0 {
+                    record_gather(audit.as_ref(), GatherEvent::Horizon);
                     continue;
                 }
                 let origin = receiver.ray_origin;
-                let Some((distance, triangle_index)) = self.intersect(origin, direction) else {
+                record_gather(audit.as_ref(), GatherEvent::Traced);
+                let (nearest_hit, throughput) = self.intersect_transport(origin, direction);
+                let Some((distance, triangle_index)) = nearest_hit else {
+                    record_gather(audit.as_ref(), GatherEvent::Escaped);
                     // An escaping ray sees the level's sky radiance, which is
                     // zero unless the level authored `sky.ambient`: the night
                     // dome is the only environment term the solver has. The
@@ -2537,27 +2744,36 @@ impl TransportScene {
                         ];
                         accumulate_surface_lobe(
                             &mut accumulator,
-                            attenuate(weight, receiver.attenuation),
+                            attenuate(scale(weight, throughput), receiver.attenuation),
                             direction,
                             receiver.normal,
                         );
                     }
                     continue;
                 };
-                let hit = add(origin, scale(direction, distance));
+                let hit_position = add(origin, scale(direction, distance));
                 let Some(triangle) = self.triangles.get(triangle_index) else {
                     continue;
                 };
+                record_gather(audit.as_ref(), GatherEvent::Hit);
                 // Opaque triangles occlude from both sides, but their prepared
                 // front irradiance is not emitted through their back faces.
                 if dot(direction, triangle.normal) >= 0.0 {
+                    record_gather(audit.as_ref(), GatherEvent::Backface);
                     continue;
                 }
                 // The lookup is keyed by the hit triangle and checks cache
                 // visibility, including dividers within that triangle.
-                let radiance = cache
-                    .sample_surface(self, hit, triangle_index, receivers, current)
-                    .surface_light;
+                let stencil = cache.surface_stencil(self, hit_position, triangle_index, receivers);
+                if stencil.is_empty() {
+                    record_gather(audit.as_ref(), GatherEvent::CacheEmpty);
+                } else if stencil.is_fallback() {
+                    record_gather(audit.as_ref(), GatherEvent::CacheFallback);
+                }
+                let radiance = stencil.sample(current);
+                if radiance.iter().all(|value| *value <= 0.0) {
+                    record_gather(audit.as_ref(), GatherEvent::ZeroRadiance);
+                }
                 // The sampled incoming radiance, scaled by the sample's solid
                 // angle (uniform hemisphere sampling covers 2*pi over `count`
                 // samples) and multiplied by the hit surface's albedo. The
@@ -2573,13 +2789,17 @@ impl TransportScene {
                 ];
                 accumulate_surface_lobe(
                     &mut accumulator,
-                    attenuate(weight, receiver.attenuation),
+                    attenuate(scale(weight, throughput), receiver.attenuation),
                     direction,
                     receiver.normal,
                 );
             }
             accumulator
-        })
+        })?;
+        if let Some(counters) = audit {
+            counters.report(pass_index, 1, receivers.len().saturating_mul(count));
+        }
+        Ok(gathered)
     }
     /// Reconstructs the light a receiver sees at one normal, in HDR units.
     #[must_use]
@@ -2598,22 +2818,21 @@ impl TransportScene {
             surface: u32::MAX,
             attenuation: self.attenuation_at(position),
         };
-        let taps = options.taps_per_axis.clamp(1, 3);
-        let mut accumulator = Accumulator::default();
-        for emitter in &self.emitters {
-            if emitter.switchable.is_some() || emitter.intensity <= 0.0 {
-                continue;
-            }
-            let (weight, direction) =
-                emitter.direct_from(self, receiver.position, receiver.ray_origin, taps);
-            accumulate_surface_lobe(
-                &mut accumulator,
-                attenuate(weight, receiver.attenuation),
-                direction,
-                receiver.normal,
-            );
-        }
-        compress_surface(&accumulator, normal)
+        let emitters = self
+            .emitters
+            .iter()
+            .enumerate()
+            .filter_map(|(index, emitter)| {
+                (emitter.switchable.is_none() && emitter.intensity > 0.0).then_some(index)
+            })
+            .collect::<Vec<_>>();
+        let sampled = self.direct_sample(
+            &receiver,
+            &emitters,
+            true,
+            options.taps_per_axis.clamp(1, 3),
+        );
+        compress_surface(&sampled.light, normal)
     }
 }
 
@@ -2755,6 +2974,76 @@ struct Accumulator {
     moment: [[f32; 3]; 3],
     /// Exact cosine integral at the receiver normal, before directional compression.
     surface_light: [f32; 3],
+}
+
+#[derive(Clone, Copy, Default)]
+struct DirectLightingSample {
+    light: Accumulator,
+    visibility: u64,
+    rays: usize,
+}
+
+/// Dump-only aggregate counters; normal solves allocate no counter state.
+#[derive(Default)]
+struct GatherAudit {
+    horizon: std::sync::atomic::AtomicUsize,
+    traced: std::sync::atomic::AtomicUsize,
+    escaped: std::sync::atomic::AtomicUsize,
+    hits: std::sync::atomic::AtomicUsize,
+    backfaces: std::sync::atomic::AtomicUsize,
+    cache_empty: std::sync::atomic::AtomicUsize,
+    cache_fallback: std::sync::atomic::AtomicUsize,
+    zero_radiance: std::sync::atomic::AtomicUsize,
+}
+
+#[derive(Clone, Copy)]
+enum GatherEvent {
+    Horizon,
+    Traced,
+    Escaped,
+    Hit,
+    Backface,
+    CacheEmpty,
+    CacheFallback,
+    ZeroRadiance,
+}
+
+fn record_gather(audit: Option<&GatherAudit>, event: GatherEvent) {
+    let Some(measurements) = audit else {
+        return;
+    };
+    let counter = match event {
+        GatherEvent::Horizon => &measurements.horizon,
+        GatherEvent::Traced => &measurements.traced,
+        GatherEvent::Escaped => &measurements.escaped,
+        GatherEvent::Hit => &measurements.hits,
+        GatherEvent::Backface => &measurements.backfaces,
+        GatherEvent::CacheEmpty => &measurements.cache_empty,
+        GatherEvent::CacheFallback => &measurements.cache_fallback,
+        GatherEvent::ZeroRadiance => &measurements.zero_radiance,
+    };
+    let _previous = counter.fetch_add(1, Ordering::Relaxed);
+}
+
+impl GatherAudit {
+    fn report(&self, order: u8, layers: usize, geometric_samples: usize) {
+        let payload = serde_json::json!({
+            "diffuse_order": order.saturating_add(1),
+            "active_energy_layers": layers,
+            "geometric_samples": geometric_samples,
+            "logical_samples": geometric_samples.saturating_mul(layers),
+            "horizon_rejections": self.horizon.load(Ordering::Relaxed),
+            "traced_paths": self.traced.load(Ordering::Relaxed),
+            "escaping_paths": self.escaped.load(Ordering::Relaxed),
+            "opaque_or_mask_hits": self.hits.load(Ordering::Relaxed),
+            "backface_hits": self.backfaces.load(Ordering::Relaxed),
+            "cache_empty": self.cache_empty.load(Ordering::Relaxed),
+            "cache_nearest_fallback": self.cache_fallback.load(Ordering::Relaxed),
+            "all_active_layers_zero_radiance_hits": self.zero_radiance.load(Ordering::Relaxed),
+            "meaning": "Aggregate geometric paths; logical samples count independent energy layers. Cache-empty is absent visible support, while zero radiance can be valid darkness. Dump-enabled counts include instrumentation cost."
+        });
+        crate::logging::info(format_args!("[transport-gather] {payload}"));
+    }
 }
 
 impl Accumulator {
@@ -2988,6 +3277,43 @@ fn probe_front_face(
     front
 }
 
+/// Accumulate the always-on finite sources and, when requested, their support.
+fn accumulate_probe_emitters(
+    scene: &TransportScene,
+    accumulator: &mut Accumulator,
+    position: [f32; 3],
+    attenuation: [f32; 3],
+    taps: u8,
+    audit: bool,
+) -> Vec<usize> {
+    let mut visible_emitters = Vec::new();
+    for (emitter_index, emitter) in scene.emitters.iter().enumerate() {
+        if emitter.switchable.is_some() || emitter.intensity <= 0.0 {
+            continue;
+        }
+        let previous = accumulator.irradiance;
+        let _emitter_sample_status = emitter.accumulate_direct(
+            scene,
+            accumulator,
+            position,
+            position,
+            None,
+            attenuation,
+            taps,
+        );
+        if audit
+            && accumulator
+                .irradiance
+                .iter()
+                .zip(previous)
+                .any(|(actual, before)| *actual > before)
+        {
+            visible_emitters.push(emitter_index);
+        }
+    }
+    visible_emitters
+}
+
 fn bake_probe(
     scene: &TransportScene,
     receivers: &[TransportReceiver],
@@ -3021,19 +3347,10 @@ fn bake_probe(
         );
     }
     let mut accumulator = Accumulator::default();
-    let mut visible_emitters = Vec::new();
     let _accumulate_global_status =
         scene.accumulate_global(&mut accumulator, position, None, attenuation, taps);
-    for (emitter_index, emitter) in scene.emitters.iter().enumerate() {
-        if emitter.switchable.is_some() || emitter.intensity <= 0.0 {
-            continue;
-        }
-        let (weight, direction) = emitter.direct(scene, position, taps);
-        accumulate_lobe(&mut accumulator, attenuate(weight, attenuation), direction);
-        if audit && weight.iter().any(|channel| *channel > 0.0) {
-            visible_emitters.push(emitter_index);
-        }
-    }
+    let visible_emitters =
+        accumulate_probe_emitters(scene, &mut accumulator, position, attenuation, taps, audit);
     let mut diagnostic =
         audit.then(|| probe_audit::ProbeAudit::new(position, target_room, &accumulator));
     if let Some(chart_diagnostic) = &mut diagnostic {
@@ -3042,7 +3359,8 @@ fn bake_probe(
     let mut indirect = Accumulator::default();
     for ray in 0..rays {
         let direction = probe_direction(ray);
-        let Some((distance, triangle_index)) = scene.intersect(position, direction) else {
+        let (nearest_hit, throughput) = scene.intersect_transport(position, direction);
+        let Some((distance, triangle_index)) = nearest_hit else {
             if let Some(chart_diagnostic) = &mut diagnostic {
                 chart_diagnostic.escaping_rays = chart_diagnostic.escaping_rays.saturating_add(1);
             }
@@ -3050,7 +3368,10 @@ fn bake_probe(
             // a reflected surface, with the same sphere-mean convention.
             accumulate_lobe(
                 &mut indirect,
-                attenuate(scale(scene.sky_radiance, 2.0 * inverse_rays), attenuation),
+                attenuate(
+                    scale(scene.sky_radiance, 2.0 * inverse_rays * throughput),
+                    attenuation,
+                ),
                 direction,
             );
             continue;
@@ -3058,11 +3379,11 @@ fn bake_probe(
         let Some(triangle) = scene.triangles.get(triangle_index) else {
             continue;
         };
-        let hit = add(position, scale(direction, distance));
+        let hit_position = add(position, scale(direction, distance));
         if !probe_front_face(triangle, direction, &mut diagnostic) {
             continue;
         }
-        let cached = cache.sample_surface(scene, hit, triangle_index, receivers, values);
+        let cached = cache.sample_surface(scene, hit_position, triangle_index, receivers, values);
         let radiance = cached.surface_light;
         if let Some(chart_diagnostic) = &mut diagnostic {
             chart_diagnostic.surface_hits = chart_diagnostic.surface_hits.saturating_add(1);
@@ -3076,7 +3397,11 @@ fn bake_probe(
             triangle.albedo[1] * radiance[1] * 2.0 * inverse_rays,
             triangle.albedo[2] * radiance[2] * 2.0 * inverse_rays,
         ];
-        accumulate_lobe(&mut indirect, attenuate(weight, attenuation), direction);
+        accumulate_lobe(
+            &mut indirect,
+            attenuate(scale(weight, throughput), attenuation),
+            direction,
+        );
     }
     if let Some(chart_diagnostic) = &mut diagnostic {
         let texel = compress(&indirect);
@@ -3900,6 +4225,7 @@ fn point_box_distance_squared(point: [f32; 3], min: [f32; 3], max: [f32; 3]) -> 
 /// Projection state shared by all triangle tests along one ray.
 struct PreparedRay {
     origin: [f64; 3],
+    direction: [f32; 3],
     parallel: [bool; 3],
     dominant: usize,
     horizontal: usize,
@@ -3945,6 +4271,7 @@ impl PreparedRay {
         let vertical = horizontal.saturating_add(1) % 3;
         Some(Self {
             origin: origin.map(f64::from),
+            direction,
             parallel: direction.map(|component| component == 0.0),
             dominant,
             horizontal,
@@ -3957,6 +4284,17 @@ impl PreparedRay {
 
     fn triangle(&self, triangle: &TransportTriangle) -> Option<f32> {
         self.corners([triangle.p0, triangle.p1, triangle.p2])
+    }
+
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        reason = "Validated ray positions intentionally return to the f32 geometry domain for coverage interpolation."
+    )]
+    fn point_at(&self, distance: f32) -> [f32; 3] {
+        std::array::from_fn(|axis| {
+            f64::from(self.direction[axis]).mul_add(f64::from(distance), self.origin[axis]) as f32
+        })
     }
 
     fn corners(&self, corners: [[f32; 3]; 3]) -> Option<f32> {

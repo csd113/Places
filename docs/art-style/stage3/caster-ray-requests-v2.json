@@ -1,0 +1,198 @@
+[
+  {
+    "name": "control-open-y1.2",
+    "origin": [
+      12.675,
+      1.2,
+      1.5
+    ],
+    "direction": [
+      0,
+      0,
+      -1
+    ],
+    "max_distance": 3.5
+  },
+  {
+    "name": "control-clear-y1.2",
+    "origin": [
+      14.075000000000001,
+      1.2,
+      1.5
+    ],
+    "direction": [
+      0,
+      0,
+      -1
+    ],
+    "max_distance": 3.5
+  },
+  {
+    "name": "control-tinted-y1.2",
+    "origin": [
+      15.475000000000001,
+      1.2,
+      1.5
+    ],
+    "direction": [
+      0,
+      0,
+      -1
+    ],
+    "max_distance": 3.5
+  },
+  {
+    "name": "control-grille-y1.02",
+    "origin": [
+      16.875,
+      1.02,
+      1.5
+    ],
+    "direction": [
+      0,
+      0,
+      -1
+    ],
+    "max_distance": 3.5
+  },
+  {
+    "name": "control-grille-y1.08",
+    "origin": [
+      16.875,
+      1.08,
+      1.5
+    ],
+    "direction": [
+      0,
+      0,
+      -1
+    ],
+    "max_distance": 3.5
+  },
+  {
+    "name": "control-grille-y1.2",
+    "origin": [
+      16.875,
+      1.2,
+      1.5
+    ],
+    "direction": [
+      0,
+      0,
+      -1
+    ],
+    "max_distance": 3.5
+  },
+  {
+    "name": "control-grille-y1.26",
+    "origin": [
+      16.875,
+      1.26,
+      1.5
+    ],
+    "direction": [
+      0,
+      0,
+      -1
+    ],
+    "max_distance": 3.5
+  },
+  {
+    "name": "control-jamb",
+    "origin": [
+      13.55,
+      1.2,
+      1.5
+    ],
+    "direction": [
+      0,
+      0,
+      -1
+    ],
+    "max_distance": 3.5
+  },
+  {
+    "name": "control-water",
+    "origin": [
+      13.125,
+      0.6,
+      2.825
+    ],
+    "direction": [
+      0,
+      -1,
+      0
+    ],
+    "max_distance": 1.24
+  },
+  {
+    "name": "control-basin-solid",
+    "origin": [
+      12.7,
+      -0.4,
+      2.7
+    ],
+    "direction": [
+      -1,
+      0,
+      0
+    ],
+    "max_distance": 0.4
+  },
+  {
+    "name": "control-gable-west",
+    "origin": [
+      12.5,
+      3.0,
+      3.0
+    ],
+    "direction": [
+      -1,
+      0,
+      0
+    ],
+    "max_distance": 1
+  },
+  {
+    "name": "control-grass-top",
+    "origin": [
+      14.5,
+      2.0,
+      2.5
+    ],
+    "direction": [
+      0,
+      -1,
+      0
+    ],
+    "max_distance": 2.1
+  },
+  {
+    "name": "control-grass-covered-pixel",
+    "origin": [
+      14.828035354614258,
+      0.6822479963302612,
+      2.398143768310547
+    ],
+    "direction": [
+      0,
+      0,
+      1
+    ],
+    "max_distance": 0.15
+  },
+  {
+    "name": "control-grass-transparent-pixel",
+    "origin": [
+      15.058639526367188,
+      0.8350159525871277,
+      2.398143768310547
+    ],
+    "direction": [
+      0,
+      0,
+      1
+    ],
+    "max_distance": 0.15
+  }
+]

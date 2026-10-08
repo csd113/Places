@@ -258,6 +258,7 @@ fn representative_map_ray_benchmark() {
                 &scene.ray_nodes,
                 &scene.ray_triangles,
                 &scene.nodes,
+                &scene.surface_alpha,
                 &ray,
                 *origin,
                 direction.map(safe_inverse),

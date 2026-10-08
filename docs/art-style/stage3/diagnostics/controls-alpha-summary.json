@@ -1,0 +1,1 @@
+{"blend_triangles":6,"cutout_triangles":44,"meaning":"Opaque blocks; cutout tests level-zero bilinear numeric coverage against cutoff; blend multiplies straight neutral throughput by one minus coverage. Water transmits at its surface and keeps separate volume depth attenuation. No refraction or coloured transmission.","opaque_triangles":5714,"water_surface_triangles":2}

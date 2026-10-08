@@ -1,0 +1,83 @@
+[
+  {
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "environment": {
+      "RUSTC_WRAPPER": ""
+    },
+    "exit_code": 0,
+    "elapsed_seconds": 1.2184008340118453,
+    "log": "fmt-published.log"
+  },
+  {
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "--workspace",
+      "--all-targets",
+      "--all-features"
+    ],
+    "environment": {
+      "RUSTC_WRAPPER": ""
+    },
+    "exit_code": 0,
+    "elapsed_seconds": 3.5356360420119017,
+    "log": "check-locked-published.log"
+  },
+  {
+    "command": [
+      "cargo",
+      "clippy",
+      "--workspace",
+      "--all-targets",
+      "--all-features",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "environment": {
+      "RUSTC_WRAPPER": ""
+    },
+    "exit_code": 0,
+    "elapsed_seconds": 0.20542424998711795,
+    "log": "clippy-published.log"
+  },
+  {
+    "command": [
+      "cargo",
+      "clippy",
+      "--release",
+      "--workspace",
+      "--all-targets",
+      "--all-features",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "environment": {
+      "RUSTC_WRAPPER": ""
+    },
+    "exit_code": 0,
+    "elapsed_seconds": 12.892504874966107,
+    "log": "clippy-release-published.log"
+  },
+  {
+    "command": [
+      "cargo",
+      "test",
+      "--workspace"
+    ],
+    "environment": {
+      "RUSTC_WRAPPER": ""
+    },
+    "exit_code": 101,
+    "elapsed_seconds": 525.9266735831043,
+    "log": "test-workspace-published.log"
+  }
+]

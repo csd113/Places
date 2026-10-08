@@ -100,6 +100,12 @@ struct CasterHit<'a> {
     owner: Option<&'a str>,
     corners: Option<[[f32; 3]; 3]>,
     geometric_normal: Option<[f32; 3]>,
+    /// Straight alpha throughput along the requested segment; water depth is
+    /// a separate receiver attenuation, rather than an alpha surface blocker.
+    surface_transmittance: f32,
+    /// Existing vertical water-depth extinction at a finite segment's endpoint.
+    /// This is receiver attenuation, not absorption along the traced segment.
+    receiver_water_attenuation: Option<[f32; 3]>,
 }
 
 /// Whether the opt-in compiler dump is requested.
@@ -141,10 +147,53 @@ pub fn dump_scene(scene: &TransportScene, owners: &[CasterRange]) -> Result<(), 
                 corners: triangle
                     .map(|hit_triangle| [hit_triangle.p0, hit_triangle.p1, hit_triangle.p2]),
                 geometric_normal: triangle.map(|hit_triangle| hit_triangle.normal),
+                surface_transmittance: ray.max_distance.map_or_else(
+                    || {
+                        let (blocker, transmission) =
+                            scene.intersect_transport(ray.origin, direction);
+                        if blocker.is_some() { 0.0 } else { transmission }
+                    },
+                    |distance| {
+                        scene.transmittance(
+                            ray.origin,
+                            super::add(ray.origin, scale(direction, distance)),
+                        )
+                    },
+                ),
+                receiver_water_attenuation: ray.max_distance.map(|distance| {
+                    scene.attenuation_at(super::add(ray.origin, scale(direction, distance)))
+                }),
             }
         })
         .collect::<Vec<_>>();
     write_json(&dump_path, "caster-ranges.json", &owners)?;
+    let mut alpha_classes = [0_usize; 3];
+    for (triangle, material) in scene.triangles.iter().zip(&scene.surface_alpha) {
+        if triangle.transmissive {
+            continue;
+        }
+        let index = material
+            .as_ref()
+            .map_or(0, |surface| match surface.alpha.mode {
+                crate::materials::AlphaMode::Opaque => 0,
+                crate::materials::AlphaMode::Cutout => 1,
+                crate::materials::AlphaMode::Blend => 2,
+            });
+        if let Some(count) = alpha_classes.get_mut(index) {
+            *count = count.saturating_add(1);
+        }
+    }
+    write_json(
+        &dump_path,
+        "alpha-summary.json",
+        &serde_json::json!({
+            "opaque_triangles": alpha_classes.first().copied().unwrap_or(0),
+            "cutout_triangles": alpha_classes.get(1).copied().unwrap_or(0),
+            "blend_triangles": alpha_classes.get(2).copied().unwrap_or(0),
+            "water_surface_triangles": scene.triangles.iter().filter(|triangle| triangle.transmissive).count(),
+            "meaning": "Opaque blocks; cutout tests level-zero bilinear numeric coverage against cutoff; blend multiplies straight neutral throughput by one minus coverage. Water transmits at its surface and keeps separate volume depth attenuation. No refraction or coloured transmission."
+        }),
+    )?;
     let emitters = scene
         .emitters
         .iter()
@@ -172,20 +221,19 @@ pub(super) fn dump_components(
     if !enabled() {
         return Ok(());
     }
+    if let Some(dump_path) = directory(DUMP_ENV) {
+        let pitches = (0..charts.len())
+            .map(|index| scene.chart_sample_pitch(index))
+            .collect::<Vec<_>>();
+        write_json(&dump_path, "sample-pitches.json", &pitches)?;
+    }
     dump_stage(
         "global-direct",
         charts,
         receivers,
         receivers.iter().map(|receiver| {
-            let mut value = super::Accumulator::default();
-            let _accumulate_global_status = scene.accumulate_global(
-                &mut value,
-                receiver.ray_origin,
-                Some(receiver.normal),
-                receiver.attenuation,
-                taps,
-            );
-            super::compress_surface(&value, receiver.normal)
+            let sample = scene.direct_sample(receiver, &[], true, taps);
+            super::compress_surface(&sample.light, receiver.normal)
         }),
     )?;
     dump_stage(
@@ -217,7 +265,7 @@ pub(super) fn dump_components(
         let light_index = index
             .parse::<usize>()
             .map_err(|error| format!("local-light index: {error}"))?;
-        let emitter = scene
+        let _emitter = scene
             .emitters
             .get(light_index)
             .ok_or_else(|| "local-light index outside scene".to_string())?;
@@ -226,16 +274,8 @@ pub(super) fn dump_components(
             charts,
             receivers,
             receivers.iter().map(|receiver| {
-                let (weight, direction) =
-                    emitter.direct_from(scene, receiver.position, receiver.ray_origin, taps);
-                let mut value = super::Accumulator::default();
-                super::accumulate_surface_lobe(
-                    &mut value,
-                    super::attenuate(weight, receiver.attenuation),
-                    direction,
-                    receiver.normal,
-                );
-                super::compress_surface(&value, receiver.normal)
+                let sample = scene.direct_sample(receiver, &[light_index], false, taps);
+                super::compress_surface(&sample.light, receiver.normal)
             }),
         )?;
     }

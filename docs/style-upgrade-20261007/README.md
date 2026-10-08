@@ -195,3 +195,37 @@ is pushed and its exact remote identity is verified. Both local milestone bundle
 hash-verify and replay their matched room pixels; [snapshot receipts](../art-style/stage2/stage2-snapshot.json)
 pin binaries, assets and settings. CI and final ownership release are recorded
 in [the publication handoff](../art-style/stage2/handoff.md).
+
+## 2026-10-08 — Art-style Stage 3: light across construction seams
+
+[Matched native gallery](../art-style/stage3/README.md) ·
+[Separated lighting and caster evidence](../art-style/stage3/diagnostics.md) ·
+[Transport contracts](../art-style/stage3/contracts.md) ·
+[Costs and publication](../art-style/stage3/handoff.md)
+
+| Stage 2 before, same native camera | Stage 3, same native camera |
+| --- | --- |
+| ![Sofa contact before](../art-style/stage3/before/high/contact.png) | ![Continuous baked sofa contact](../art-style/stage3/after/published-high/contact.png) |
+| ![Hero room before](../art-style/stage3/before/high/room.png) | ![Hero room with corrected transport](../art-style/stage3/after/published-high/room.png) |
+| ![Controlled gable before](../art-style/stage3/before/controls/annex.png) | ![Closed gable and retained trim](../art-style/stage3/after/published-controls/annex.png) |
+
+The sofa's diagonal chart steps disappear while its cushions, bevels, contact
+shadows and warm lamp pool remain. World-space receiver support and filtering
+cross compatible coplanar cuts; source taps retain their real incoming cosine.
+Gable black wedges proved to be missing geometry in the albedo view. Shared
+roof ownership closes them and preserves real exposed wall tops.
+
+The compiler now supplies actual architectural PNG reflectance and numeric alpha
+to the offline solve. Glass attenuates straight light, grille and leaf coverage
+block only covered pixels, and the lowered basin keeps its blue depth attenuation.
+Cream walls contribute warmer diffuse energy; correcting the earlier white
+reflectance estimate lowers aggregate indirect brightness. This is a continuity
+and distribution improvement, not a brightness lift or a new light setup.
+
+Six original before views match sealed Stage 2 pixels. All original Stage 1,
+intermediate and control captures remain immutable, with source/settings hashes
+and genuine native provenance. Finite-budget bevel gather differences, the
+plant's real tabletop penetration, dynamic-chair grounding and screen AA remain
+explicitly assigned limits. Normal bake/storage and submitted CPU costs are
+measured separately from unmeasured GPU time. Runnable snapshots and verified
+implementation/CI links are recorded in the Stage 3 publication handoff.

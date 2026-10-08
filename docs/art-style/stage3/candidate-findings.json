@@ -1,0 +1,58 @@
+{
+  "source_inventory": "implementation-source-v1.json",
+  "native_before": "before/high",
+  "native_candidate": "after/high",
+  "controls_before": "before/controls",
+  "controls_candidate": "after/controls",
+  "acceptance": "Candidate only: compiler lacked decoded architecture images; exposed wall caps omitted; bevel filtering inset produced one shared-point mismatch",
+  "sofa_upward_coplanar": {
+    "before_groups": 70,
+    "candidate_groups": 106,
+    "before_max_direct_rgb_spread": [
+      0.0529789366,
+      0.0546697564,
+      0.0563605726
+    ],
+    "candidate_max_direct_rgb_spread": [
+      0,
+      0,
+      0
+    ],
+    "before_max_filtered_rgb_spread": [
+      0.082701087,
+      0.0818334967,
+      0.0790506825
+    ],
+    "candidate_max_filtered_rgb_spread": [
+      2.086e-07,
+      1.788e-07,
+      2.682e-07
+    ]
+  },
+  "bevel": {
+    "position": [
+      4.4520015717,
+      0.3699985147,
+      0.8420000076
+    ],
+    "charts": [
+      201,
+      202
+    ],
+    "raw_direct_indirect": "both zero",
+    "filtered_spread": [
+      0.0484994277,
+      0.049348034,
+      0.0498945899
+    ],
+    "cause": "Different chart inset ray origins straddle a nearby horizontal sofa face"
+  },
+  "geometry": {
+    "comparison": "same Full quality",
+    "before_vertices": 284,
+    "candidate_vertices": 276,
+    "before_indices": 438,
+    "candidate_indices": 426,
+    "omitted_top_area_m2": 3.33
+  }
+}

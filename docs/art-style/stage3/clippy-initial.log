@@ -1,0 +1,260 @@
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+error: binding's name is too similar to existing binding
+    --> src/lighting/transport.rs:2701:13
+     |
+2701 |         let sampled = parallel_map(receivers.len(), workers, cancel, |index| {
+     |             ^^^^^^^
+     |
+note: existing binding defined here
+    --> src/lighting/transport.rs:2692:9
+     |
+2692 |         samples: usize,
+     |         ^^^^^^^
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#similar_names
+     = note: `-D clippy::similar-names` implied by `-D clippy::pedantic`
+     = help: to override `-D clippy::pedantic` add `#[allow(clippy::similar_names)]`
+
+error[E0308]: mismatched types
+  --> src/level/tests/wall_ceiling.rs:6:5
+   |
+ 5 |   fn boundary_level() -> Result<LevelDef, String> {
+   |                          ------------------------ expected `std::result::Result<level::LevelDef, std::string::String>` because of return type
+ 6 | /     LevelDef::from_json(
+ 7 | |         r#"{
+ 8 | |         "format_version": 3,
+ 9 | |         "id": "wall_roof_contact",
+...  |
+25 | |     }"#,
+26 | |     )
+   | |_____^ expected `Result<LevelDef, String>`, found `Result<LevelDef, Error>`
+   |
+   = note: expected enum `Result<_, std::string::String>`
+              found enum `Result<_, serde_json::Error>`
+
+error: default numeric fallback might occur
+  --> src/lighting/transport/alpha.rs:94:51
+   |
+94 |     if !determinant.is_finite() || determinant <= 0.0 {
+   |                                                   ^^^ help: consider adding suffix: `0.0_f64`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#default_numeric_fallback
+   = note: requested on the command line with `-D clippy::default-numeric-fallback`
+
+error: `a` is shadowed
+  --> src/lighting/transport/alpha.rs:89:69
+   |
+89 |     let dot = |a: [f64; 3], b: [f64; 3]| a.into_iter().zip(b).map(|(a, b)| a * b).sum::<f64>();
+   |                                                                     ^
+   |
+note: previous binding is here
+  --> src/lighting/transport/alpha.rs:89:16
+   |
+89 |     let dot = |a: [f64; 3], b: [f64; 3]| a.into_iter().zip(b).map(|(a, b)| a * b).sum::<f64>();
+   |                ^
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_reuse
+   = note: requested on the command line with `-D clippy::shadow-reuse`
+
+error: `b` is shadowed
+  --> src/lighting/transport/alpha.rs:89:72
+   |
+89 |     let dot = |a: [f64; 3], b: [f64; 3]| a.into_iter().zip(b).map(|(a, b)| a * b).sum::<f64>();
+   |                                                                        ^
+   |
+note: previous binding is here
+  --> src/lighting/transport/alpha.rs:89:29
+   |
+89 |     let dot = |a: [f64; 3], b: [f64; 3]| a.into_iter().zip(b).map(|(a, b)| a * b).sum::<f64>();
+   |                             ^
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_reuse
+
+error: `extent` is shadowed
+   --> src/lighting/transport/alpha.rs:130:13
+    |
+130 |         let extent = i64::from(extent);
+    |             ^^^^^^
+    |
+note: previous binding is here
+   --> src/lighting/transport/alpha.rs:129:30
+    |
+129 |     let index = |value: i64, extent: u32| {
+    |                              ^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_reuse
+
+error: struct destructuring with rest (`..`)
+   --> src/lighting/transport.rs:446:13
+    |
+446 |             Self::Rect { .. } => count.saturating_mul(count),
+    |             ^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#rest_pattern_accessible_field
+    = note: requested on the command line with `-D clippy::rest-pattern-accessible-field`
+help: consider explicitly ignoring fields with wildcard patterns (`x: _`)
+    |
+446 -             Self::Rect { .. } => count.saturating_mul(count),
+446 +             Self::Rect { u: _, v: _ } => count.saturating_mul(count),
+    |
+
+error: struct destructuring with rest (`..`)
+   --> src/lighting/transport.rs:447:13
+    |
+447 |             Self::Line { .. } => count,
+    |             ^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#rest_pattern_accessible_field
+help: consider explicitly ignoring fields with wildcard patterns (`x: _`)
+    |
+447 -             Self::Line { .. } => count,
+447 +             Self::Line { direction: _, half_length: _ } => count,
+    |
+
+error: `hit` shadows a previous, unrelated binding
+    --> src/lighting/transport.rs:2751:21
+     |
+2751 |                 let hit = add(origin, scale(direction, distance));
+     |                     ^^^
+     |
+note: previous binding is here
+    --> src/lighting/transport.rs:2725:22
+     |
+2725 |                 let (hit, throughput) = self.intersect_transport(origin, direction);
+     |                      ^^^
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_unrelated
+     = note: requested on the command line with `-D clippy::shadow-unrelated`
+
+error: `audit` is shadowed
+    --> src/lighting/transport.rs:2796:21
+     |
+2796 |         if let Some(audit) = audit {
+     |                     ^^^^^
+     |
+note: previous binding is here
+    --> src/lighting/transport.rs:2700:13
+     |
+2700 |         let audit = diagnostics::enabled().then(GatherAudit::default);
+     |             ^^^^^
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_reuse
+
+error: `audit` is shadowed
+    --> src/lighting/transport.rs:3009:14
+     |
+3009 |     let Some(audit) = audit else {
+     |              ^^^^^
+     |
+note: previous binding is here
+    --> src/lighting/transport.rs:3008:18
+     |
+3008 | fn record_gather(audit: Option<&GatherAudit>, event: GatherEvent) {
+     |                  ^^^^^
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_reuse
+
+error: this function has too many lines (117/100)
+    --> src/lighting/transport.rs:3277:1
+     |
+3277 | / fn bake_probe(
+3278 | |     scene: &TransportScene,
+3279 | |     receivers: &[TransportReceiver],
+3280 | |     values: &[Accumulator],
+...    |
+3285 | |     audit: bool,
+3286 | | ) -> (ProbeSample, [f32; 3], Option<probe_audit::ProbeAudit>) {
+     | |_____________________________________________________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#too_many_lines
+     = note: `-D clippy::too-many-lines` implied by `-D clippy::pedantic`
+     = help: to override `-D clippy::pedantic` add `#[allow(clippy::too_many_lines)]`
+
+error: `hit` shadows a previous, unrelated binding
+    --> src/lighting/transport.rs:3365:13
+     |
+3365 |         let hit = add(position, scale(direction, distance));
+     |             ^^^
+     |
+note: previous binding is here
+    --> src/lighting/transport.rs:3345:14
+     |
+3345 |         let (hit, throughput) = scene.intersect_transport(position, direction);
+     |              ^^^
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_unrelated
+
+error: `hit` shadows a previous, unrelated binding
+   --> src/lighting/transport/batch.rs:245:21
+    |
+245 |                 let hit = add(receiver.ray_origin, scale(direction, distance));
+    |                     ^^^
+    |
+note: previous binding is here
+   --> src/lighting/transport/batch.rs:220:22
+    |
+220 |                 let (hit, throughput) = self.intersect_transport(receiver.ray_origin, direction);
+    |                      ^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_unrelated
+
+error: `audit` is shadowed
+   --> src/lighting/transport/batch.rs:277:21
+    |
+277 |         if let Some(audit) = audit {
+    |                     ^^^^^
+    |
+note: previous binding is here
+   --> src/lighting/transport/batch.rs:203:13
+    |
+203 |         let audit = super::diagnostics::enabled().then(GatherAudit::default);
+    |             ^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_reuse
+
+error: `active` is shadowed
+   --> src/lighting/transport/batch.rs:280:44
+    |
+280 |                 active.into_iter().filter(|active| *active).count(),
+    |                                            ^^^^^^
+    |
+note: previous binding is here
+   --> src/lighting/transport/batch.rs:198:9
+    |
+198 |         active: [bool; 2],
+    |         ^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_reuse
+
+error: `tangent` is shadowed
+  --> src/lighting/transport/coverage.rs:39:9
+   |
+39 |     let tangent = scale(tangent, 1.0 / length(tangent).max(f32::MIN_POSITIVE));
+   |         ^^^^^^^
+   |
+note: previous binding is here
+  --> src/lighting/transport/coverage.rs:38:9
+   |
+38 |     let tangent = cross3(reference, normal);
+   |         ^^^^^^^
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_reuse
+
+error: `material` is shadowed
+   --> src/lighting/transport/diagnostics.rs:171:25
+    |
+171 |             .map_or(0, |material| match material.alpha.mode {
+    |                         ^^^^^^^^
+    |
+note: previous binding is here
+   --> src/lighting/transport/diagnostics.rs:165:20
+    |
+165 |     for (triangle, material) in scene.triangles.iter().zip(&scene.surface_alpha) {
+    |                    ^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_reuse
+
+error: `scene` is shadowed
+   --> src/render/common/api.rs:767:31
+    |
+767 |                         .map(|scene| (scene, stats))
+    |                               ^^^^^
+    |
+note: previous binding is here
+   --> src/render/common/api.rs:764:29
+    |
+764 |                 .and_then(|(scene, stats)| {
+    |                             ^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_reuse
+
+error: could not compile `places` (lib) due to 18 previous errors
+warning: build failed, waiting for other jobs to finish...
+For more information about this error, try `rustc --explain E0308`.
+error: could not compile `places` (lib test) due to 2 previous errors

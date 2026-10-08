@@ -1,0 +1,378 @@
+{
+  "date_utc": "2026-10-08",
+  "stage": 3,
+  "branch": "Art-style",
+  "entry_revision": "248684164759b3cbc99b8e5b30c29b60612e7b66",
+  "original_stage1_baseline": "docs/art-style/baseline/high",
+  "stage2_final_before": "docs/art-style/stage2/after/sealed-high",
+  "original_camera_manifest": "docs/art-style/hero-manifest.json",
+  "control_camera_manifest": "hero-controls-manifest.json",
+  "original_source_sha256": "743c1cf3a900570cc163c9d2f1636118e0f8f36989ee82fcbeabd78560675bc0",
+  "controls_source_sha256": "a0b9a62987cc75bf007c45911ab40ccf153f34cb9b8a200e2e6cda3695b4e2ac",
+  "source_inventories": [
+    "implementation-source-v1.json",
+    "implementation-source-v2.json",
+    "implementation-source-v3.json",
+    "implementation-source-v4.json",
+    "implementation-source-v5.json"
+  ],
+  "accepted_build_identity": "accepted-build-identity.json",
+  "normal_instrumented_equality": "normal-instrumented-equality.json",
+  "final_source_repeat_equality": "published-equality.json",
+  "galleries": [
+    {
+      "label": "before/high",
+      "immutable_manifest": "docs/art-style/stage3/before/high/manifest.json",
+      "images": [
+        {
+          "path": "docs/art-style/stage3/before/high/contact.png",
+          "bytes": 1004754,
+          "sha256": "dda9a0c5080ffe21040cfc8b766c2f582a2371bbe19430cd48194c8cb1ae7d96"
+        },
+        {
+          "path": "docs/art-style/stage3/before/high/corner.png",
+          "bytes": 1086439,
+          "sha256": "ec2d91578a7029d2401cbbb10a75c6c7762409f771f0aadddac8abce226e6b85"
+        },
+        {
+          "path": "docs/art-style/stage3/before/high/entities.png",
+          "bytes": 891178,
+          "sha256": "53d929a4db49d0c3362eb3c7da137625b2e772cbd37eb4fb1af4902eb5ced998"
+        },
+        {
+          "path": "docs/art-style/stage3/before/high/hall.png",
+          "bytes": 1002081,
+          "sha256": "bad7cf8e21a07d3d370c137fa5045c3bd4cf1c95bbd4b473a9abf88ae9950361"
+        },
+        {
+          "path": "docs/art-style/stage3/before/high/room.png",
+          "bytes": 859872,
+          "sha256": "2cdc081e787f1a1fe33bd6256ce0b216c981b4c3e499ef8b4251472557174640"
+        },
+        {
+          "path": "docs/art-style/stage3/before/high/window.png",
+          "bytes": 645415,
+          "sha256": "8cdace81388f98247140eb0560fbcb7940ae3b13f51f404ae8ee6a4c731d06a8"
+        }
+      ]
+    },
+    {
+      "label": "before/controls",
+      "immutable_manifest": "docs/art-style/stage3/before/controls/manifest.json",
+      "images": [
+        {
+          "path": "docs/art-style/stage3/before/controls/annex.png",
+          "bytes": 739433,
+          "sha256": "a12a72d0398755e83a76bf7a043e6c7aef32f147db4ae606b9e4b6ddf173c61b"
+        },
+        {
+          "path": "docs/art-style/stage3/before/controls/apertures.png",
+          "bytes": 673092,
+          "sha256": "cd450fb23b1810ee45a014d9eaa1cc68297ab5d107243772400e4443f7a67dbd"
+        },
+        {
+          "path": "docs/art-style/stage3/before/controls/basin.png",
+          "bytes": 862203,
+          "sha256": "bf098b248b2aec1f5e74797b4b2cd7479bf02dc8d48f58d15af43e4818c04e50"
+        }
+      ]
+    },
+    {
+      "label": "after/high",
+      "immutable_manifest": "docs/art-style/stage3/after/high/manifest.json",
+      "images": [
+        {
+          "path": "docs/art-style/stage3/after/high/contact.png",
+          "bytes": 1006412,
+          "sha256": "52459d165625ab9fb55b77bed16a6b3c2297d5dc6686fe409ac86b9769d52382"
+        },
+        {
+          "path": "docs/art-style/stage3/after/high/corner.png",
+          "bytes": 1082439,
+          "sha256": "65cacf9a8321688de6165a189e6a8f6f680b06cc34cc64d0e10191e1373c528d"
+        },
+        {
+          "path": "docs/art-style/stage3/after/high/entities.png",
+          "bytes": 890371,
+          "sha256": "3b30c0f8ba1636e76276d7067b188cbcd23292a2d97fb6450751e6bbc7447d36"
+        },
+        {
+          "path": "docs/art-style/stage3/after/high/hall.png",
+          "bytes": 1000635,
+          "sha256": "e8b5d189e7b9cec7ba0ebb98f2f8d03a2776d26dc0f687a66174d75493ec067d"
+        },
+        {
+          "path": "docs/art-style/stage3/after/high/room.png",
+          "bytes": 860204,
+          "sha256": "b213d0f0cf72051d824a6d5267b11acf638378851c157549d6fae8f5f275913d"
+        },
+        {
+          "path": "docs/art-style/stage3/after/high/window.png",
+          "bytes": 644418,
+          "sha256": "b07263472542341b8ac442fa227183060193f4c4123ffee411313aa1a8b0fb3b"
+        }
+      ]
+    },
+    {
+      "label": "after/controls",
+      "immutable_manifest": "docs/art-style/stage3/after/controls/manifest.json",
+      "images": [
+        {
+          "path": "docs/art-style/stage3/after/controls/annex.png",
+          "bytes": 730533,
+          "sha256": "6f27636ae358d793c0e095083526051b9c6203b4dced188a24d3aea07767a237"
+        },
+        {
+          "path": "docs/art-style/stage3/after/controls/apertures.png",
+          "bytes": 561899,
+          "sha256": "659c18846443d19f17832da88381f4b6fa0e6ceb112965083f1c6cb5d9d93364"
+        },
+        {
+          "path": "docs/art-style/stage3/after/controls/basin.png",
+          "bytes": 846792,
+          "sha256": "d75c441829c38f687689c519dab491c9d673f1b255b972e6de9063eed1802f27"
+        }
+      ]
+    },
+    {
+      "label": "after/sealed-high",
+      "immutable_manifest": "docs/art-style/stage3/after/sealed-high/manifest.json",
+      "images": [
+        {
+          "path": "docs/art-style/stage3/after/sealed-high/contact.png",
+          "bytes": 979037,
+          "sha256": "891afddb0debd057010516cbd342f7b37043079dc0e6947ffb9a81dbf582efc0"
+        },
+        {
+          "path": "docs/art-style/stage3/after/sealed-high/corner.png",
+          "bytes": 1054661,
+          "sha256": "c1af506d0fb447f7e6a2898f8c909ad4212b812977e2c8a5a8d2eb779eff0580"
+        },
+        {
+          "path": "docs/art-style/stage3/after/sealed-high/entities.png",
+          "bytes": 863189,
+          "sha256": "0486d515540cb7701105b960fc15e4c05de8d8816d98449b9236199850cead74"
+        },
+        {
+          "path": "docs/art-style/stage3/after/sealed-high/hall.png",
+          "bytes": 975047,
+          "sha256": "2f91b341f7073aebd590fe7bb8b70608442d81f367a603e495770d4800c52f34"
+        },
+        {
+          "path": "docs/art-style/stage3/after/sealed-high/room.png",
+          "bytes": 829697,
+          "sha256": "0c99477412d2ebf582d6186f75b672bbc7fe31895fa261396ed821e42890eddf"
+        },
+        {
+          "path": "docs/art-style/stage3/after/sealed-high/window.png",
+          "bytes": 612002,
+          "sha256": "3babae09ac37185d5640599aa36d1322bf2369fc8bfdf0ab98f4bf634b5a34b8"
+        }
+      ]
+    },
+    {
+      "label": "after/sealed-controls",
+      "immutable_manifest": "docs/art-style/stage3/after/sealed-controls/manifest.json",
+      "images": [
+        {
+          "path": "docs/art-style/stage3/after/sealed-controls/annex.png",
+          "bytes": 711360,
+          "sha256": "3a801ffdd1057d2ebd1fc7e3888bbd28215514d6acc387f3bd8c3dc23b8565c5"
+        },
+        {
+          "path": "docs/art-style/stage3/after/sealed-controls/apertures.png",
+          "bytes": 559483,
+          "sha256": "2fa14c411f618a471d051f9b155465d2a23a357331a0b6416f006a02045cfd34"
+        },
+        {
+          "path": "docs/art-style/stage3/after/sealed-controls/basin.png",
+          "bytes": 829712,
+          "sha256": "01770e797ed36286e930c47249c954aad32a1f55b8407cbf92fef03e57754bbe"
+        }
+      ]
+    },
+    {
+      "label": "after/accepted-high",
+      "immutable_manifest": "docs/art-style/stage3/after/accepted-high/manifest.json",
+      "images": [
+        {
+          "path": "docs/art-style/stage3/after/accepted-high/contact.png",
+          "bytes": 979037,
+          "sha256": "891afddb0debd057010516cbd342f7b37043079dc0e6947ffb9a81dbf582efc0"
+        },
+        {
+          "path": "docs/art-style/stage3/after/accepted-high/corner.png",
+          "bytes": 1054661,
+          "sha256": "c1af506d0fb447f7e6a2898f8c909ad4212b812977e2c8a5a8d2eb779eff0580"
+        },
+        {
+          "path": "docs/art-style/stage3/after/accepted-high/entities.png",
+          "bytes": 863189,
+          "sha256": "0486d515540cb7701105b960fc15e4c05de8d8816d98449b9236199850cead74"
+        },
+        {
+          "path": "docs/art-style/stage3/after/accepted-high/hall.png",
+          "bytes": 975047,
+          "sha256": "2f91b341f7073aebd590fe7bb8b70608442d81f367a603e495770d4800c52f34"
+        },
+        {
+          "path": "docs/art-style/stage3/after/accepted-high/room.png",
+          "bytes": 829697,
+          "sha256": "0c99477412d2ebf582d6186f75b672bbc7fe31895fa261396ed821e42890eddf"
+        },
+        {
+          "path": "docs/art-style/stage3/after/accepted-high/window.png",
+          "bytes": 612002,
+          "sha256": "3babae09ac37185d5640599aa36d1322bf2369fc8bfdf0ab98f4bf634b5a34b8"
+        }
+      ]
+    },
+    {
+      "label": "after/accepted-controls",
+      "immutable_manifest": "docs/art-style/stage3/after/accepted-controls/manifest.json",
+      "images": [
+        {
+          "path": "docs/art-style/stage3/after/accepted-controls/annex.png",
+          "bytes": 711360,
+          "sha256": "3a801ffdd1057d2ebd1fc7e3888bbd28215514d6acc387f3bd8c3dc23b8565c5"
+        },
+        {
+          "path": "docs/art-style/stage3/after/accepted-controls/apertures.png",
+          "bytes": 559483,
+          "sha256": "2fa14c411f618a471d051f9b155465d2a23a357331a0b6416f006a02045cfd34"
+        },
+        {
+          "path": "docs/art-style/stage3/after/accepted-controls/basin.png",
+          "bytes": 829712,
+          "sha256": "01770e797ed36286e930c47249c954aad32a1f55b8407cbf92fef03e57754bbe"
+        }
+      ]
+    },
+    {
+      "label": "after/published-high",
+      "immutable_manifest": "docs/art-style/stage3/after/published-high/manifest.json",
+      "images": [
+        {
+          "path": "docs/art-style/stage3/after/published-high/contact.png",
+          "bytes": 979037,
+          "sha256": "891afddb0debd057010516cbd342f7b37043079dc0e6947ffb9a81dbf582efc0"
+        },
+        {
+          "path": "docs/art-style/stage3/after/published-high/corner.png",
+          "bytes": 1054757,
+          "sha256": "4b85a43226f9bf4bcfc6ee5bd7ebef27f7b6f55f0323e43daedf5175397723b7"
+        },
+        {
+          "path": "docs/art-style/stage3/after/published-high/entities.png",
+          "bytes": 863189,
+          "sha256": "0486d515540cb7701105b960fc15e4c05de8d8816d98449b9236199850cead74"
+        },
+        {
+          "path": "docs/art-style/stage3/after/published-high/hall.png",
+          "bytes": 975090,
+          "sha256": "312a5d4c1deebc7f8efdc10dd62c2d5965d5ec4925e9aa0ef667c6b5c3012be7"
+        },
+        {
+          "path": "docs/art-style/stage3/after/published-high/room.png",
+          "bytes": 829697,
+          "sha256": "0c99477412d2ebf582d6186f75b672bbc7fe31895fa261396ed821e42890eddf"
+        },
+        {
+          "path": "docs/art-style/stage3/after/published-high/window.png",
+          "bytes": 612002,
+          "sha256": "3babae09ac37185d5640599aa36d1322bf2369fc8bfdf0ab98f4bf634b5a34b8"
+        }
+      ]
+    },
+    {
+      "label": "after/published-controls",
+      "immutable_manifest": "docs/art-style/stage3/after/published-controls/manifest.json",
+      "images": [
+        {
+          "path": "docs/art-style/stage3/after/published-controls/annex.png",
+          "bytes": 711360,
+          "sha256": "3a801ffdd1057d2ebd1fc7e3888bbd28215514d6acc387f3bd8c3dc23b8565c5"
+        },
+        {
+          "path": "docs/art-style/stage3/after/published-controls/apertures.png",
+          "bytes": 559483,
+          "sha256": "2fa14c411f618a471d051f9b155465d2a23a357331a0b6416f006a02045cfd34"
+        },
+        {
+          "path": "docs/art-style/stage3/after/published-controls/basin.png",
+          "bytes": 829712,
+          "sha256": "01770e797ed36286e930c47249c954aad32a1f55b8407cbf92fef03e57754bbe"
+        }
+      ]
+    },
+    {
+      "label": "diagnostics/native/published-baked-light",
+      "immutable_manifest": "docs/art-style/stage3/diagnostics/native/published-baked-light/manifest.json",
+      "images": [
+        {
+          "path": "docs/art-style/stage3/diagnostics/native/published-baked-light/contact.png",
+          "bytes": 249660,
+          "sha256": "f6b9dd240e67e0cbf8e84c9a0f961958c392453538db900d2113cf6063778fd0"
+        }
+      ]
+    },
+    {
+      "label": "diagnostics/native/published-lightmap-values",
+      "immutable_manifest": "docs/art-style/stage3/diagnostics/native/published-lightmap-values/manifest.json",
+      "images": [
+        {
+          "path": "docs/art-style/stage3/diagnostics/native/published-lightmap-values/contact.png",
+          "bytes": 197596,
+          "sha256": "44dfe4ded1b95e24a427bc435b756cf0abdc3a179f7718bd35ee3d09c9435c50"
+        }
+      ]
+    },
+    {
+      "label": "diagnostics/native/published-vertex-normal",
+      "immutable_manifest": "docs/art-style/stage3/diagnostics/native/published-vertex-normal/manifest.json",
+      "images": [
+        {
+          "path": "docs/art-style/stage3/diagnostics/native/published-vertex-normal/contact.png",
+          "bytes": 33104,
+          "sha256": "92322b948eb366b471718fc9c49428dd6adc11fd28cbd7092bad7b4f5f2a2227"
+        }
+      ]
+    },
+    {
+      "label": "diagnostics/native/published-annex-albedo-final",
+      "immutable_manifest": "docs/art-style/stage3/diagnostics/native/published-annex-albedo-final/manifest.json",
+      "images": [
+        {
+          "path": "docs/art-style/stage3/diagnostics/native/published-annex-albedo-final/annex.png",
+          "bytes": 750322,
+          "sha256": "80148e197c529c8faf94695cc5f4c319d85938201b9436375e9f4e5cbe1ed33a"
+        }
+      ]
+    }
+  ],
+  "diagnostics": "diagnostic-sealed-execution.json",
+  "raw_preserved_inventory": "raw-evidence-sealed-inventory.json",
+  "receiver_analysis": "final-transport-analysis.json",
+  "snapshot_publication": "handoff.md",
+  "invalid_control_excluded": "baseline-conditions.json",
+  "gains": [
+    "continuous coplanar direct and diffuse filtering",
+    "closed roof ownership and retained real caps",
+    "actual architectural PNG bounce reflectance",
+    "explicit opaque/MASK/BLEND/water occlusion"
+  ],
+  "limits": [
+    "finite-budget indirect bevel variation",
+    "neutral straight transmission",
+    "table plant penetrates tabletop",
+    "dynamic chair contact Stage4",
+    "screen aliasing/cutout mips Stage5",
+    "material-dependency live cache Stage6",
+    "non-hero compatibility Stage7",
+    "GPU execution unmeasured"
+  ],
+  "published_build_identity": "published-build-identity.json",
+  "normal_instrumented_published_equality": "normal-instrumented-published-equality.json",
+  "final_analysis": "published-transport-analysis.json",
+  "final_raw_inventory": "raw-evidence-published-inventory.json"
+}

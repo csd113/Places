@@ -1,0 +1,48 @@
+{
+  "model": "assets/environment/outdoor/props/models/grass_patch_large.glb",
+  "mesh": 0,
+  "primitive": 0,
+  "triangle": 4,
+  "indices": [
+    8,
+    9,
+    10
+  ],
+  "placement": {
+    "translation": [
+      14.5,
+      0,
+      2.5
+    ],
+    "yaw_degrees": 0,
+    "scale": 1.4
+  },
+  "material": {
+    "index": 0,
+    "name": "grass_blades",
+    "mode": "MASK",
+    "cutoff": 0.5,
+    "opacity": 1,
+    "vertex_alpha": 1,
+    "address": "clamp",
+    "png_edge": 256
+  },
+  "ray_requests": "caster-ray-requests-v2.json",
+  "covered_uv": [
+    0.14648455381393433,
+    0.21679683029651642
+  ],
+  "transparent_uv": [
+    0.05664066970348358,
+    0.04492189735174179
+  ],
+  "expected_coverage": [
+    0.9999945759773254,
+    0
+  ],
+  "expected_transmission": [
+    0,
+    1
+  ],
+  "selection": "Actual GLB triangle/image read; only one of all42 placed grass triangles intersects each .15m segment. Native compiler caster-rays confirms behavior; selection calculation is not acceptance."
+}

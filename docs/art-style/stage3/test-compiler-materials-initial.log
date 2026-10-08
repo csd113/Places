@@ -1,0 +1,26 @@
+   Compiling places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+error[E0277]: `?` couldn't convert the error to `std::string::String`
+ --> src/compiler/tests/material_transport.rs:8:7
+  |
+5 |   fn offline_materials_include_real_glass_coverage_and_wall_reflectance() -> Result<(), String> {
+  |                                                                              ------------------ expected `std::string::String` because of this
+6 |       let level = LevelDef::from_json(include_str!(
+  |  _________________-
+7 | |         "../../../tests/fixtures/levels/art_style_hero.json"
+8 | |     ))?;
+  | |      -^ the trait `From<serde_json::Error>` is not implemented for `std::string::String`
+  | |______|
+  |        this can't be annotated with `?` because it has type `Result<_, serde_json::Error>`
+  |
+  = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+  = help: `std::string::String` implements trait `From<T>`:
+            From<&mut str>
+            From<&std::string::String>
+            From<&str>
+            From<Box<str>>
+            From<Cow<'_, str>>
+            From<char>
+            From<typed_path::common::utf8::pathbuf::Utf8PathBuf<T>>
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `places` (lib test) due to 1 previous error

@@ -1,0 +1,72 @@
+[
+  {
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage3-sealed-diagnostics/places-diagnostics",
+      "--package",
+      "debug-maps/art-style-hero/evidence/stage3-sealed/art_style_hero.placesmap",
+      "--views",
+      "contact",
+      "--diagnostic",
+      "baked-light",
+      "--out",
+      "docs/art-style/stage3/diagnostics/native/baked-light"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage3-sealed-diagnostics/places-diagnostics",
+      "--package",
+      "debug-maps/art-style-hero/evidence/stage3-sealed/art_style_hero.placesmap",
+      "--views",
+      "contact",
+      "--diagnostic",
+      "lightmap-values",
+      "--out",
+      "docs/art-style/stage3/diagnostics/native/lightmap-values"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage3-sealed-diagnostics/places-diagnostics",
+      "--package",
+      "debug-maps/art-style-hero/evidence/stage3-sealed/art_style_hero.placesmap",
+      "--views",
+      "contact",
+      "--diagnostic",
+      "vertex-normal",
+      "--out",
+      "docs/art-style/stage3/diagnostics/native/vertex-normal"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage3-sealed-diagnostics/places-diagnostics",
+      "--package",
+      "debug-maps/art-style-hero/evidence/stage3-controls-sealed/art_style_hero.placesmap",
+      "--manifest",
+      "docs/art-style/stage3/hero-controls-manifest.json",
+      "--views",
+      "annex",
+      "--diagnostic",
+      "albedo",
+      "--out",
+      "docs/art-style/stage3/diagnostics/native/annex-albedo"
+    ],
+    "exit_code": 0
+  }
+]

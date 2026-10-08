@@ -4851,8 +4851,8 @@ fn the_geometry_revision_is_part_of_both_build_fingerprints() {
 
     // The shipped revision is the one the fix introduced, not a placeholder.
     assert_eq!(
-        revision, 4,
-        "linear HDR vertex colours and flat fallback normals are geometry revision 4"
+        revision, 5,
+        "inclusive receiver endpoints and consistent boundary-roof ownership are geometry revision 5"
     );
 }
 

@@ -688,13 +688,13 @@ pub struct LightmapConfig {
 /// profiles**: a profile decides texel density and page size, never where the
 /// geometry is cut, which is what keeps `Full` and `Low` on one patch set.
 ///
-/// The value is a fixed historical constant (the span Low's smaller page could
-/// hold at the original 8 texels per metre). At the shipped densities it is
+/// The value reserves both inclusive endpoint samples and the Full profile's
+/// two gutters: (1024 - 4 - 1) / 16 metres. At the shipped densities it is
 /// never the binding constraint on the demo — its longest patch is 26.3 m — and
 /// a level that authors one surface longer than this still splits into several
 /// charts rather than failing: a chart wider than a page's usable edge would be
 /// clamped by [`LightmapConfig::chart_texels`].
-pub const MAX_CHART_SPAN_M: f32 = 63.75;
+pub const MAX_CHART_SPAN_M: f32 = 63.6875;
 
 impl LightmapConfig {
     /// The shipped settings of one quality profile.
@@ -705,7 +705,7 @@ impl LightmapConfig {
     ///
     /// The densities are the highest that fit the page budget on the shipped
     /// demo with the deterministic packer: `Full` 16 texels/m (matches the
-    /// shared cap exactly) and `Low` 10 texels/m, both measured on
+    /// shared endpoint cap exactly) and `Low` 10 texels/m, both measured on
     /// `places_demo` inside its page budget (`Low` packs the demo into three
     /// 512-texel pages at 10 texels/m; the eight-page budget still holds). A
     /// density that does not fit the budget is worse than a lower one: the
@@ -774,12 +774,18 @@ impl LightmapConfig {
     }
 }
 
-/// Texels one axis of a chart needs for `metres` of world surface, capped.
+/// Endpoint samples one axis needs for `metres` of world surface, capped.
+/// A density describes intervals per metre; inclusive endpoints need one
+/// additional sample. A positive, finite span therefore has at least two.
 fn texels_for(metres: f32, texels_per_metre: f32, cap: u32) -> u32 {
-    if !metres.is_finite() || !texels_per_metre.is_finite() {
+    if !metres.is_finite()
+        || !texels_per_metre.is_finite()
+        || metres <= 0.0
+        || texels_per_metre <= 0.0
+    {
         return 1;
     }
-    let requested = (metres * texels_per_metre).ceil().max(1.0);
+    let requested = (metres * texels_per_metre).ceil().max(1.0) + 1.0;
     let cap_f = f32::from(u16::try_from(cap).unwrap_or(u16::MAX)).max(1.0);
     let capped = requested.min(cap_f);
     #[expect(

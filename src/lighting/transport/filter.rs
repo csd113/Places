@@ -4,9 +4,10 @@
 use std::collections::BTreeMap;
 
 use super::{
-    Accumulator, Chart, LightmapFailure, LightmapPatch, LightmapTexel, PatchKind, SURFACE_OFFSET_M,
-    TransportReceiver, TransportScene, add_scaled, channel_luminance, compress_surface, coverage,
-    dot, patch_normal, receiver_position, sub, surface_energy_matches,
+    Accumulator, Chart, LightmapFailure, LightmapPatch, LightmapTexel, SURFACE_OFFSET_M,
+    TransportReceiver, TransportScene, add, add_scaled, channel_luminance, compress_surface,
+    coverage, dot, length, patch_normal, receiver_position, scale, sub, surface_energy_matches,
+    texel_axis,
 };
 
 struct SurfaceFilter<'a> {
@@ -28,20 +29,18 @@ impl<'a> SurfaceFilter<'a> {
         let mut starts = Vec::with_capacity(charts.len());
         let mut surfaces = BTreeMap::<u32, Vec<usize>>::new();
         let mut first = 0_usize;
-        for (index, (patch, chart)) in charts.iter().enumerate() {
+        for (index, (_, chart)) in charts.iter().enumerate() {
             starts.push(first);
             let end = first.saturating_add(
                 usize::try_from(chart.width.saturating_mul(chart.height)).unwrap_or(0),
             );
-            if patch.kind != PatchKind::Prop {
-                for receiver in receivers.get(first..end).unwrap_or_default() {
-                    if receiver.surface == u32::MAX {
-                        continue;
-                    }
-                    let entry = surfaces.entry(receiver.surface).or_default();
-                    if entry.last() != Some(&index) {
-                        entry.push(index);
-                    }
+            for receiver in receivers.get(first..end).unwrap_or_default() {
+                if receiver.surface == u32::MAX {
+                    continue;
+                }
+                let entry = surfaces.entry(receiver.surface).or_default();
+                if entry.last() != Some(&index) {
+                    entry.push(index);
                 }
             }
             first = end;
@@ -64,11 +63,19 @@ impl<'a> SurfaceFilter<'a> {
         centre: &TransportReceiver,
     ) -> Option<(Accumulator, [f32; 3])> {
         let (patch, _) = self.charts.get(chart_index)?;
-        if patch.kind == PatchKind::Prop {
-            return None;
-        }
         let normal = patch_normal(patch);
         let point = coverage::footprint_point(patch, u, v);
+        self.at_point(chart_index, point, normal, centre)
+    }
+
+    fn at_point(
+        &self,
+        chart_index: usize,
+        point: [f32; 3],
+        normal: [f32; 3],
+        centre: &TransportReceiver,
+    ) -> Option<(Accumulator, [f32; 3])> {
+        let (patch, _) = self.charts.get(chart_index)?;
         let magnitude = point
             .iter()
             .fold(1.0_f32, |scale, coordinate| scale.max(coordinate.abs()));
@@ -89,6 +96,7 @@ impl<'a> SurfaceFilter<'a> {
             let (neighbor_u, neighbor_v) = other.local_of(point);
             if !(-1.0e-5..=1.0 + 1.0e-5).contains(&neighbor_u)
                 || !(-1.0e-5..=1.0 + 1.0e-5).contains(&neighbor_v)
+                || (other.is_triangular() && neighbor_u + neighbor_v > 1.0 + 1.0e-5)
             {
                 continue;
             }
@@ -169,10 +177,40 @@ impl<'a> SurfaceFilter<'a> {
         di: i32,
         dj: i32,
     ) -> Option<(Accumulator, [f32; 3])> {
-        let (_, chart) = self.charts.get(chart_index)?;
+        let (patch, chart) = self.charts.get(chart_index)?;
         let width = usize::try_from(chart.width).ok()?;
         let height = usize::try_from(chart.height).ok()?;
         let first = *self.starts.get(chart_index)?;
+        if let Some(pitch) = self.scene.chart_sample_pitch(chart_index) {
+            let index = first
+                .saturating_add(row.saturating_mul(width))
+                .saturating_add(column);
+            let centre = self.receivers.get(index)?;
+            let point = patch.point_at(texel_axis(column, width), texel_axis(row, height));
+            let normal = patch_normal(patch);
+            let (tangent, bitangent) = coverage::surface_axes(normal);
+            let target = add(
+                point,
+                add(
+                    scale(tangent, f32::from(i16::try_from(di).ok()?) * pitch),
+                    scale(bitangent, f32::from(i16::try_from(dj).ok()?) * pitch),
+                ),
+            );
+            let supported = coverage::supported_point(
+                self.scene,
+                centre,
+                point,
+                target,
+                &mut Vec::with_capacity(8),
+            );
+            let magnitude = target
+                .iter()
+                .fold(1.0_f32, |current, coordinate| current.max(coordinate.abs()));
+            if length(sub(supported, target)) > 8.0 * SURFACE_OFFSET_M * magnitude {
+                return None;
+            }
+            return self.at_point(chart_index, target, normal, centre);
+        }
         if let (Some(x), Some(y)) = (
             column.checked_add_signed(isize::try_from(di).ok()?),
             row.checked_add_signed(isize::try_from(dj).ok()?),
@@ -184,7 +222,7 @@ impl<'a> SurfaceFilter<'a> {
                 .saturating_add(x);
             return Some((
                 *self.values.get(index)?,
-                self.receivers.get(index)?.ray_origin,
+                self.receivers.get(index)?.position,
             ));
         }
         let index = first
@@ -233,7 +271,10 @@ pub(super) fn filter_accumulators(
                     else {
                         continue;
                     };
-                    if scene.occluded(receiver.ray_origin, origin) {
+                    // The stencil connects physical sample positions. A chart
+                    // boundary inset can put identical edge samples on opposite
+                    // sides of an adjoining hard surface and change visibility.
+                    if scene.occluded(receiver.position, origin) {
                         continue;
                     }
                     let diff = (channel_luminance(source.irradiance)

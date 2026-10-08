@@ -2,10 +2,11 @@
 //! No transfer matrix survives a receiver: memory stays linear in texel count,
 //! and each channel retains the reference sample/accumulation order.
 use super::{
-    Accumulator, AtomicBool, BOUNCE_GAIN, Chart, LightmapFailure, LightmapPatch, MAX_BOUNCE_RAYS,
-    RadianceCache, SolveOptions, StageAudit, SurfaceCacheTarget, TransportReceiver, TransportScene,
-    TransportSolution, TransportSolve, accumulate_surface_lobe, add, add_scaled, attenuate,
-    coverage, dot, hemisphere_sample, lattice_cell, next_pair, parallel_map, ray_seed, scale,
+    Accumulator, AtomicBool, BOUNCE_GAIN, Chart, GatherAudit, GatherEvent, LightmapFailure,
+    LightmapPatch, MAX_BOUNCE_RAYS, RadianceCache, SolveOptions, StageAudit, SurfaceCacheTarget,
+    TransportReceiver, TransportScene, TransportSolution, TransportSolve, accumulate_surface_lobe,
+    add, add_scaled, attenuate, coverage, dot, hemisphere_sample, lattice_cell, next_pair,
+    parallel_map, ray_seed, record_gather, scale,
 };
 
 impl TransportScene {
@@ -199,7 +200,8 @@ impl TransportScene {
     ) -> Result<Vec<[Accumulator; 2]>, LightmapFailure> {
         let count = options.gather_samples.clamp(1, MAX_BOUNCE_RAYS);
         let inverse_count = 1.0 / f32::from(u16::try_from(count).unwrap_or(u16::MAX));
-        parallel_map(receivers.len(), options.workers, cancel, |index| {
+        let audit = super::diagnostics::enabled().then(GatherAudit::default);
+        let sampled = parallel_map(receivers.len(), options.workers, cancel, |index| {
             let receiver = &receivers[index];
             let geometric_normal = self
                 .triangles
@@ -211,10 +213,14 @@ impl TransportScene {
                 let (u1, u2) = next_pair(&mut state);
                 let direction = hemisphere_sample(receiver.normal, u1, u2);
                 if dot(direction, geometric_normal) <= 0.0 {
+                    record_gather(audit.as_ref(), GatherEvent::Horizon);
                     continue;
                 }
-                let Some((distance, surface)) = self.intersect(receiver.ray_origin, direction)
-                else {
+                record_gather(audit.as_ref(), GatherEvent::Traced);
+                let (nearest_hit, throughput) =
+                    self.intersect_transport(receiver.ray_origin, direction);
+                let Some((distance, surface)) = nearest_hit else {
+                    record_gather(audit.as_ref(), GatherEvent::Escaped);
                     if active[0]
                         && order == 0
                         && self.sky_radiance.iter().any(|channel| *channel > 0.0)
@@ -224,7 +230,7 @@ impl TransportScene {
                             .map(|radiance| radiance * 2.0 * inverse_count * BOUNCE_GAIN);
                         accumulate_surface_lobe(
                             &mut result[0],
-                            attenuate(weight, receiver.attenuation),
+                            attenuate(scale(weight, throughput), receiver.attenuation),
                             direction,
                             receiver.normal,
                         );
@@ -232,16 +238,25 @@ impl TransportScene {
                     continue;
                 };
                 let triangle = &self.triangles[surface];
+                record_gather(audit.as_ref(), GatherEvent::Hit);
                 if dot(direction, triangle.normal) >= 0.0 {
+                    record_gather(audit.as_ref(), GatherEvent::Backface);
                     continue;
                 }
-                let hit = add(receiver.ray_origin, scale(direction, distance));
-                let stencil = cache.surface_stencil(self, hit, surface, receivers);
+                let hit_position = add(receiver.ray_origin, scale(direction, distance));
+                let stencil = cache.surface_stencil(self, hit_position, surface, receivers);
+                if stencil.is_empty() {
+                    record_gather(audit.as_ref(), GatherEvent::CacheEmpty);
+                } else if stencil.is_fallback() {
+                    record_gather(audit.as_ref(), GatherEvent::CacheFallback);
+                }
+                let mut any_radiance = false;
                 for channel in 0..2 {
                     if !active[channel] {
                         continue;
                     }
                     let radiance = stencil.sample(values[channel]);
+                    any_radiance |= radiance.iter().any(|value| *value > 0.0);
                     let weight = [
                         triangle.albedo[0] * radiance[0] * 2.0 * inverse_count * BOUNCE_GAIN,
                         triangle.albedo[1] * radiance[1] * 2.0 * inverse_count * BOUNCE_GAIN,
@@ -249,14 +264,25 @@ impl TransportScene {
                     ];
                     accumulate_surface_lobe(
                         &mut result[channel],
-                        attenuate(weight, receiver.attenuation),
+                        attenuate(scale(weight, throughput), receiver.attenuation),
                         direction,
                         receiver.normal,
                     );
                 }
+                if !any_radiance {
+                    record_gather(audit.as_ref(), GatherEvent::ZeroRadiance);
+                }
             }
             result
-        })
+        })?;
+        if let Some(counters) = audit {
+            counters.report(
+                order,
+                active.into_iter().filter(|enabled| *enabled).count(),
+                receivers.len().saturating_mul(count),
+            );
+        }
+        Ok(sampled)
     }
 }
 
@@ -271,6 +297,14 @@ pub(super) struct SurfaceStencil {
 }
 
 impl SurfaceStencil {
+    pub(super) const fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    pub(super) const fn is_fallback(&self) -> bool {
+        self.fallback
+    }
+
     pub(super) fn sample(&self, values: &[Accumulator]) -> [f32; 3] {
         if self.fallback {
             return values

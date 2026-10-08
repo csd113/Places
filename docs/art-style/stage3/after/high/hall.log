@@ -1,0 +1,57 @@
+[package] /private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-art-style-hero-_2tnztbm (assets: /private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-art-style-hero-_2tnztbm/assets/levels)
+[package] asset root: /private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-art-style-hero-_2tnztbm/assets
+[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering high | window Windowed 640 x 360
+[assets] 204 placeable asset(s) of 352 catalog entries; themes: office, pool, home, outdoor, winter
+[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720
+[wgpu] texture filtering: world presets low 4x / medium 8x / high 16x requested | anisotropy supported
+[wgpu] present mode Immediate (immediate)
+[window] logical 640x360 | drawable 1280x720 pixels | backing scale 2.0x
+[wgpu] world pipeline for surface format Bgra8UnormSrgb
+[wgpu] post targets: scene 1280x720, bloom 320x180, presented 1280x720
+[startup] total 239.6 ms
+[startup]   package root: +0.2 ms (0.2 ms)
+[startup]   settings: +0.2 ms (0.4 ms)
+[startup]   window: +104.3 ms (104.7 ms)
+[startup]   asset catalog: +1.3 ms (106.0 ms)
+[startup]   renderer device: +9.2 ms (115.3 ms)
+[startup]   input responsive: +60.9 ms (176.2 ms)
+[startup]   first scene attempted: +23.9 ms (200.1 ms)
+[startup]   first UI attempted: +0.0 ms (200.1 ms)
+[startup]   first presented: +39.5 ms (239.6 ms)
+[loading] package identity level=art_style_hero variant=full sha256=c0009514029df79f49edfd7e1873dd3f16de8630c21fa293e661d66c45e83d11 source=/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-art-style-hero-_2tnztbm/assets/levels/art_style_hero.placesmap
+[loading] compiled-cache miss level=art_style_hero variant=full
+[lightmaps] atlas array: 2 page(s) in 4 layer(s), 1024-texel edge, 33554432 bytes resident
+[wgpu] world upload: 276 vertices, 426 indices, 14 draws in 1 chunk(s) (neutral mesh: 276 vertices, 426 indices, 14 ranges)
+[wgpu] textures: 10 unique, 9 uploaded, 3 cache hits, 1 fallbacks, 0 missing of 14 draws (53127840 bytes resident, max edge 1024px, high filtering)
+[wgpu] materials: 11 resolved (6 response, 1 reflection-eligible), 2 normal maps (2 uploaded, 0 cache hits), 13 opaque / 0 cutout / 1 translucent of 14 draws (enabled response, high level)
+[wgpu] decals: 0 draw(s), 0 chunk(s), 1 sheet(s) (0 external, 0 diagnostic)
+[wgpu] sky `outdoor:tex_sky_stars_01`: 1024x512 uploaded
+[wgpu] uploaded 1 packaged reflection probe(s) at 64 texels, 7 mip level(s)
+[loading] committed art_style_hero
+[props] 16 models cached (0 failed), 5300 triangles, 3856 KiB of textures, 21 draw call(s)
+[level] 276 static vertices, 15900 prop vertices, 21 prop draw call(s), built in 0.2 ms (lighting 0.0 + props 0.0 + surfaces 0.0)
+[spatial] 14 static batch(es) (floor 4 / ceiling 1 / wall 7 / light 2 / prop box 0 / decal 0), 21 prop batch(es)
+[lighting] baked 3 room(s) / 3 baseline area(s) from 4 fixture(s): 14 wall + 36 slab + 222 prop blocker(s), baselines 0.31..0.41 (avg 0.37)
+[lightmaps] 2 page(s), 5345 chart(s), 199964 chart texels, 2097152 page texels (32768 KiB), filled in 0.0 ms
+[dynamic] 0 object(s): 0 draw call(s), 0 vertices (the demonstration path; never part of the static bake); doors: 0/0
+[characters] `home:dining_chair` spawns through the dynamic path: the runtime model `environment/home/props/models/dining_chair.glb` carries no skin or animation; it cannot be posed
+PLACES_CAPTURE: wrote /Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage3/after/high/hall.png
+BENCH_SUMMARY {"level":"art_style_hero","frames":70,"swap_interval":0,"update_mean_ms":0.061,"render_mean_ms":5.409,"swap_mean_ms":1.408,"frame_mean_ms":6.878,"loop_mean_ms":5.713,"frame_median_ms":7.388,"loop_median_ms":7.601,"frame_p95_ms":10.819,"frame_p99_ms":12.106,"loop_p95_ms":10.899,"loop_p99_ms":11.335,"frame_min_ms":0.367,"frame_max_ms":105.143,"loop_min_ms":0.586,"loop_max_ms":12.279,"fps_median":131.56,"fps_p95":91.75,"fps_p99":88.23,"fps_1pct_low":88.23,"fps_mean":175.05,"measured_fps_mean":145.39,"worst_fps":81.44,"total_vertices":16608,"visible_vertices":212,"culled_vertices":16396,"total_batches":36,"visible_batches":8,"draw_calls":8,"vbo_bytes":1262208,"index_bytes":33876,"texture_binds":8,"material_changes":8,"reflection_passes":0}
+        1.04 real         0.70 user         0.18 sys
+           451674112  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+               30832  page reclaims
+                   6  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   5  voluntary context switches
+                6413  involuntary context switches
+          8241623278  instructions retired
+          2711449244  cycles elapsed
+           505529736  peak memory footprint

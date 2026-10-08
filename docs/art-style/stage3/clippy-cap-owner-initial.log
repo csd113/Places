@@ -1,0 +1,27 @@
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+error: default numeric fallback might occur
+   --> src/level/tests/wall_ceiling.rs:538:31
+    |
+538 |             let mut checked = 0;
+    |                               ^ help: consider adding suffix: `0_i32`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#default_numeric_fallback
+    = note: requested on the command line with `-D clippy::default-numeric-fallback`
+
+error: default numeric fallback might occur
+   --> src/level/tests/wall_ceiling.rs:550:32
+    |
+550 |                     checked += 1;
+    |                                ^ help: consider adding suffix: `1_i32`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#default_numeric_fallback
+
+error: default numeric fallback might occur
+   --> src/level/tests/wall_ceiling.rs:554:27
+    |
+554 |                 checked > 0,
+    |                           ^ help: consider adding suffix: `0_i32`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#default_numeric_fallback
+
+error: could not compile `places` (lib test) due to 3 previous errors

@@ -1,0 +1,16 @@
+[
+  {
+    "normal": "debug-maps/art-style-hero/evidence/stage3-sealed/art_style_hero.placesmap",
+    "instrumented": "debug-maps/art-style-hero/evidence/stage3-sealed-solve/art_style_hero.placesmap",
+    "normal_sha256": "1991cfce1dc73fd64dff04f70ff737e63facd77665fb11ba32e990ed21f253ae",
+    "instrumented_sha256": "1991cfce1dc73fd64dff04f70ff737e63facd77665fb11ba32e990ed21f253ae",
+    "byte_equal": true
+  },
+  {
+    "normal": "debug-maps/art-style-hero/evidence/stage3-controls-sealed/art_style_hero.placesmap",
+    "instrumented": "debug-maps/art-style-hero/evidence/stage3-controls-sealed-solve/art_style_hero.placesmap",
+    "normal_sha256": "d908dbb5b4c0761f222c0dd2ea4541dc0eb796cbc6e63e7977de311b5b631a15",
+    "instrumented_sha256": "d908dbb5b4c0761f222c0dd2ea4541dc0eb796cbc6e63e7977de311b5b631a15",
+    "byte_equal": true
+  }
+]

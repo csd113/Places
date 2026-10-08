@@ -1,0 +1,200 @@
+[
+  {
+    "command": [
+      "/tmp/places-art-style-analysis/bin/python",
+      "tools/bench/inspect_lighting_dump.py",
+      "debug-maps/art-style-hero/evidence/stage3-before/lighting/full",
+      "--audit",
+      "--out",
+      "docs/art-style/stage3/diagnostics/offline/before-chart-audit.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "/tmp/places-art-style-analysis/bin/python",
+      "tools/bench/inspect_lighting_dump.py",
+      "debug-maps/art-style-hero/evidence/stage3-before/lighting/full",
+      "--kind",
+      "prop",
+      "--normal",
+      "0,1,0",
+      "--plane",
+      ".4805",
+      "--bounds",
+      "2.7,.8,4.3,1.55",
+      "--stage",
+      "direct",
+      "--maximum",
+      ".7",
+      "--out",
+      "docs/art-style/stage3/diagnostics/offline/before-sofa-direct.png"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "/tmp/places-art-style-analysis/bin/python",
+      "tools/bench/inspect_lighting_dump.py",
+      "debug-maps/art-style-hero/evidence/stage3-before/lighting/full",
+      "--kind",
+      "prop",
+      "--normal",
+      "0,1,0",
+      "--plane",
+      ".4805",
+      "--bounds",
+      "2.7,.8,4.3,1.55",
+      "--stage",
+      "indirect",
+      "--maximum",
+      ".7",
+      "--out",
+      "docs/art-style/stage3/diagnostics/offline/before-sofa-indirect.png"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "/tmp/places-art-style-analysis/bin/python",
+      "tools/bench/inspect_lighting_dump.py",
+      "debug-maps/art-style-hero/evidence/stage3-before/lighting/full",
+      "--kind",
+      "prop",
+      "--normal",
+      "0,1,0",
+      "--plane",
+      ".4805",
+      "--bounds",
+      "2.7,.8,4.3,1.55",
+      "--stage",
+      "filled",
+      "--maximum",
+      ".7",
+      "--out",
+      "docs/art-style/stage3/diagnostics/offline/before-sofa-filled.png"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "/tmp/places-art-style-analysis/bin/python",
+      "tools/bench/inspect_lighting_dump.py",
+      "debug-maps/art-style-hero/evidence/stage3-before/lighting/full",
+      "--kind",
+      "prop",
+      "--normal",
+      "0,1,0",
+      "--plane",
+      ".4805",
+      "--bounds",
+      "2.7,.8,4.3,1.55",
+      "--stage",
+      "chart-ids",
+      "--maximum",
+      ".7",
+      "--out",
+      "docs/art-style/stage3/diagnostics/offline/before-sofa-chart-ids.png"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "/tmp/places-art-style-analysis/bin/python",
+      "tools/bench/inspect_lighting_dump.py",
+      "debug-maps/art-style-hero/evidence/stage3-sealed-solve/lighting/full",
+      "--audit",
+      "--out",
+      "docs/art-style/stage3/diagnostics/offline/sealed-chart-audit.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "/tmp/places-art-style-analysis/bin/python",
+      "tools/bench/inspect_lighting_dump.py",
+      "debug-maps/art-style-hero/evidence/stage3-sealed-solve/lighting/full",
+      "--kind",
+      "prop",
+      "--normal",
+      "0,1,0",
+      "--plane",
+      ".4805",
+      "--bounds",
+      "2.7,.8,4.3,1.55",
+      "--stage",
+      "direct",
+      "--maximum",
+      ".7",
+      "--out",
+      "docs/art-style/stage3/diagnostics/offline/sealed-sofa-direct.png"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "/tmp/places-art-style-analysis/bin/python",
+      "tools/bench/inspect_lighting_dump.py",
+      "debug-maps/art-style-hero/evidence/stage3-sealed-solve/lighting/full",
+      "--kind",
+      "prop",
+      "--normal",
+      "0,1,0",
+      "--plane",
+      ".4805",
+      "--bounds",
+      "2.7,.8,4.3,1.55",
+      "--stage",
+      "indirect",
+      "--maximum",
+      ".7",
+      "--out",
+      "docs/art-style/stage3/diagnostics/offline/sealed-sofa-indirect.png"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "/tmp/places-art-style-analysis/bin/python",
+      "tools/bench/inspect_lighting_dump.py",
+      "debug-maps/art-style-hero/evidence/stage3-sealed-solve/lighting/full",
+      "--kind",
+      "prop",
+      "--normal",
+      "0,1,0",
+      "--plane",
+      ".4805",
+      "--bounds",
+      "2.7,.8,4.3,1.55",
+      "--stage",
+      "filled",
+      "--maximum",
+      ".7",
+      "--out",
+      "docs/art-style/stage3/diagnostics/offline/sealed-sofa-filled.png"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "/tmp/places-art-style-analysis/bin/python",
+      "tools/bench/inspect_lighting_dump.py",
+      "debug-maps/art-style-hero/evidence/stage3-sealed-solve/lighting/full",
+      "--kind",
+      "prop",
+      "--normal",
+      "0,1,0",
+      "--plane",
+      ".4805",
+      "--bounds",
+      "2.7,.8,4.3,1.55",
+      "--stage",
+      "chart-ids",
+      "--maximum",
+      ".7",
+      "--out",
+      "docs/art-style/stage3/diagnostics/offline/sealed-sofa-chart-ids.png"
+    ],
+    "exit_code": 0
+  }
+]

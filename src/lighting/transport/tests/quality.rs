@@ -1,5 +1,509 @@
 //! Analytical controls for chart segmentation and receiver reconstruction.
 use super::*;
+use std::sync::Arc;
+
+use crate::materials::{AlphaMode, MaterialAlpha, RawImage};
+
+fn alpha_plane(
+    y: f32,
+    extent: f32,
+    alpha: MaterialAlpha,
+    image: Option<&Arc<RawImage>>,
+    address: TransportTextureAddress,
+) -> (Vec<TransportTriangle>, Vec<Option<TransportAlphaSurface>>) {
+    let mut triangles = floor(-extent, -extent, extent, extent, [0.7; 3]);
+    let mut surfaces = Vec::new();
+    for triangle in &mut triangles {
+        triangle.p0[1] = y;
+        triangle.p1[1] = y;
+        triangle.p2[1] = y;
+        surfaces.push(Some(TransportAlphaSurface {
+            alpha,
+            image: image.cloned(),
+            uv: [triangle.p0, triangle.p1, triangle.p2].map(|point| {
+                [
+                    f32::midpoint(point[0] / extent, 1.0),
+                    f32::midpoint(point[2] / extent, 1.0),
+                ]
+            }),
+            vertex_alpha: [1.0; 3],
+            address,
+        }));
+    }
+    (triangles, surfaces)
+}
+
+fn mask() -> MaterialAlpha {
+    MaterialAlpha {
+        mode: AlphaMode::Cutout,
+        opacity: 1.0,
+        cutoff: 0.5,
+    }
+}
+
+#[test]
+fn cutout_transport_uses_numeric_texel_coverage_and_keeps_solid_pixels() {
+    let image = Arc::new(RawImage::new(2, 1, vec![255, 0, 0, 0, 0, 255, 0, 255]));
+    let (mut triangles, mut surfaces) = alpha_plane(
+        1.0,
+        1.0,
+        mask(),
+        Some(&image),
+        TransportTextureAddress::Clamp,
+    );
+    let (behind, _) = alpha_plane(
+        2.0,
+        1.0,
+        MaterialAlpha::OPAQUE,
+        None,
+        TransportTextureAddress::Clamp,
+    );
+    triangles.extend(behind);
+    surfaces.extend([None, None]);
+    let scene = TransportScene::new(triangles, Vec::new())
+        .expect("scene")
+        .with_surface_alpha(surfaces)
+        .expect("coverage");
+    let open = [-0.5, 0.0, 0.25];
+    let solid = [0.5, 0.0, 0.25];
+    assert!(
+        !scene.occluded(open, [-0.5, 1.5, 0.25]),
+        "a transparent MASK pixel leaves the segment open"
+    );
+    assert!(
+        scene.occluded(solid, [0.5, 1.5, 0.25]),
+        "a covered MASK pixel blocks the segment"
+    );
+    assert_eq!(
+        scene
+            .intersect(open, [0.0, 1.0, 0.0])
+            .expect("background")
+            .0
+            .to_bits(),
+        2.0_f32.to_bits(),
+        "the transparent pixel reaches the opaque background"
+    );
+    assert_eq!(
+        scene
+            .intersect(solid, [0.0, 1.0, 0.0])
+            .expect("card pixel")
+            .0
+            .to_bits(),
+        1.0_f32.to_bits(),
+        "the covered pixel is the nearest opaque hit"
+    );
+}
+
+#[test]
+fn blend_transport_multiplies_layers_and_counts_a_shared_diagonal_once() {
+    let (mut triangles, mut surfaces) = alpha_plane(
+        1.0,
+        2.0,
+        MaterialAlpha::blend(0.25),
+        None,
+        TransportTextureAddress::Clamp,
+    );
+    let (second, second_alpha) = alpha_plane(
+        2.0,
+        2.0,
+        MaterialAlpha::blend(0.5),
+        None,
+        TransportTextureAddress::Clamp,
+    );
+    triangles.extend(second);
+    surfaces.extend(second_alpha);
+    let panes = TransportScene::new(triangles.clone(), Vec::new())
+        .expect("panes")
+        .with_surface_alpha(surfaces.clone())
+        .expect("alpha");
+    assert!(
+        !panes.occluded([0.0; 3], [0.0, 3.0, 0.0]),
+        "BLEND coverage never becomes a boolean cache barrier"
+    );
+    assert_eq!(
+        panes.transmittance([0.0; 3], [0.0, 3.0, 0.0]).to_bits(),
+        0.375_f32.to_bits(),
+        "each physical pane attenuates once at its shared diagonal"
+    );
+    let (first_solid, escaped_throughput) = panes.intersect_transport([0.0; 3], [0.0, 1.0, 0.0]);
+    assert!(
+        first_solid.is_none(),
+        "both panes transmit to the environment"
+    );
+    assert_eq!(
+        escaped_throughput.to_bits(),
+        0.375_f32.to_bits(),
+        "infinite transport retains the same two-layer transmission"
+    );
+    let (solid, _) = alpha_plane(
+        2.5,
+        2.0,
+        MaterialAlpha::OPAQUE,
+        None,
+        TransportTextureAddress::Clamp,
+    );
+    triangles.extend(solid);
+    surfaces.extend([None, None]);
+    let (beyond, beyond_alpha) = alpha_plane(
+        2.75,
+        2.0,
+        MaterialAlpha::blend(1.0),
+        None,
+        TransportTextureAddress::Clamp,
+    );
+    triangles.extend(beyond);
+    surfaces.extend(beyond_alpha);
+    let blocked = TransportScene::new(triangles, Vec::new())
+        .expect("solid")
+        .with_surface_alpha(surfaces)
+        .expect("alpha");
+    assert_eq!(
+        blocked.transmittance([0.0; 3], [0.0, 3.0, 0.0]).to_bits(),
+        0.0_f32.to_bits(),
+        "the opaque endpoint blocks finite direct transmission"
+    );
+    let (hit, throughput) = blocked.intersect_transport([0.0; 3], [0.0, 1.0, 0.0]);
+    assert_eq!(
+        hit.expect("solid").0.to_bits(),
+        2.5_f32.to_bits(),
+        "the opaque surface remains the nearest bounce hit"
+    );
+    assert_eq!(
+        throughput.to_bits(),
+        0.375_f32.to_bits(),
+        "coverage beyond the first solid must not attenuate its bounce"
+    );
+}
+
+#[test]
+fn transport_alpha_matches_clamp_repeat_vertex_factors_and_cutoff_equality() {
+    let image = Arc::new(RawImage::new(2, 1, vec![0, 0, 0, 0, 0, 0, 0, 255]));
+    for (address, expected) in [
+        (TransportTextureAddress::Clamp, true),
+        (TransportTextureAddress::Repeat, false),
+    ] {
+        let (triangles, mut surfaces) = alpha_plane(1.0, 1.0, mask(), Some(&image), address);
+        for surface in surfaces.iter_mut().flatten() {
+            surface.uv = [[1.25, 0.5]; 3];
+        }
+        let scene = TransportScene::new(triangles, Vec::new())
+            .expect("plane")
+            .with_surface_alpha(surfaces)
+            .expect("alpha");
+        assert_eq!(
+            scene.occluded([0.0; 3], [0.0, 2.0, 0.0]),
+            expected,
+            "transport coverage follows the authored {address:?} texture addressing"
+        );
+    }
+    let triangle = TransportTriangle::new(
+        [-1.0, 1.0, -1.0],
+        [1.0, 1.0, -1.0],
+        [-1.0, 1.0, 1.0],
+        [0.7; 3],
+    )
+    .expect("triangle");
+    let factor_surface = TransportAlphaSurface {
+        alpha: MaterialAlpha::blend(0.5),
+        image: None,
+        uv: [[0.0; 2]; 3],
+        vertex_alpha: [0.0, 1.0, 1.0],
+        address: TransportTextureAddress::Clamp,
+    };
+    let factor_scene = TransportScene::new(vec![triangle], Vec::new())
+        .expect("triangle")
+        .with_surface_alpha(vec![Some(factor_surface)])
+        .expect("alpha");
+    assert_eq!(
+        factor_scene
+            .transmittance([-0.5, 0.0, -0.5], [-0.5, 2.0, -0.5])
+            .to_bits(),
+        0.75_f32.to_bits(),
+        "interpolated vertex alpha multiplies authored material opacity"
+    );
+    let (triangles, mut surfaces) =
+        alpha_plane(1.0, 1.0, mask(), None, TransportTextureAddress::Clamp);
+    for surface in surfaces.iter_mut().flatten() {
+        surface.vertex_alpha = [0.5; 3];
+    }
+    let cutoff_scene = TransportScene::new(triangles, Vec::new())
+        .expect("plane")
+        .with_surface_alpha(surfaces)
+        .expect("alpha");
+    assert!(
+        cutoff_scene.occluded([0.0; 3], [0.0, 2.0, 0.0]),
+        "alpha == cutoff is opaque"
+    );
+}
+
+#[test]
+fn invalid_alpha_tables_and_nonpositive_chart_densities_are_rejected() {
+    assert!(
+        TransportScene::new(Vec::new(), Vec::new())
+            .expect("empty")
+            .with_surface_alpha(vec![None])
+            .is_none(),
+        "alpha sidecars must align with the transport triangle table"
+    );
+    let (triangles, mut surfaces) =
+        alpha_plane(1.0, 1.0, mask(), None, TransportTextureAddress::Clamp);
+    surfaces[0].as_mut().expect("surface").uv[0][0] = f32::NAN;
+    assert!(
+        TransportScene::new(triangles, Vec::new())
+            .expect("plane")
+            .with_surface_alpha(surfaces)
+            .is_none(),
+        "non-finite authored UV coordinates must be rejected"
+    );
+    for density in [
+        0.0,
+        -1.0,
+        f32::NAN,
+        f32::INFINITY,
+        f32::MIN_POSITIVE / 100.0,
+    ] {
+        assert!(
+            TransportScene::new(Vec::new(), Vec::new())
+                .expect("empty")
+                .with_chart_sample_density(vec![density])
+                .is_none(),
+            "invalid physical chart density {density:?} must be rejected"
+        );
+    }
+}
+
+#[test]
+fn finite_source_integrates_per_tap_cosines_instead_of_normalizing_their_mean() {
+    let emitter = rect([0.0, 1.0, 0.0], 1.0, 1.0, 1.0);
+    let strength =
+        crate::lighting::LOCAL_LIGHT_STRENGTH * emitter.falloff.factor(1.0 / emitter.range);
+    let scene = TransportScene::new(Vec::new(), vec![emitter]).expect("source");
+    let receiver = TransportReceiver {
+        position: [0.0; 3],
+        ray_origin: [0.0; 3],
+        normal: [0.0, 1.0, 0.0],
+        albedo: [0.01; 3],
+        area: 1.0,
+        surface: u32::MAX,
+        attenuation: [1.0; 3],
+    };
+    let sampled = scene.direct_sample(&receiver, &[0], false, 2);
+    // Four authored corners are each sqrt(3) metres away and have cosine 1/sqrt(3).
+    let expected = strength / 3.0_f32.sqrt();
+    assert_eq!(
+        sampled.rays, 4,
+        "the existing two-by-two emitter budget is retained"
+    );
+    for actual in sampled.light.surface_light {
+        assert!(
+            (actual - expected).abs() < 1.0e-6,
+            "receiver albedo must be excluded"
+        );
+    }
+    let texel = compress_surface(&sampled.light, receiver.normal);
+    assert!(
+        surface_energy_matches(texel, receiver.normal, [expected; 3]),
+        "the compact field preserves the analytical receiver cosine integral"
+    );
+    let summarized = emitter.direct(&scene, receiver.position, 2);
+    assert!(
+        (summarized.0[0] - strength).abs() < 1.0e-6,
+        "legacy query reports scalar source support"
+    );
+}
+
+#[test]
+fn blend_attenuates_global_direct_and_escaping_sky_without_an_ambient_lift() {
+    let (global_faces, global_alpha) = alpha_plane(
+        1.0,
+        1000.0,
+        MaterialAlpha::blend(0.5),
+        None,
+        TransportTextureAddress::Clamp,
+    );
+    let moon = crate::lighting::directional::DirectionalLight {
+        incoming: [0.0, 1.0, 0.0],
+        color: [0.8, 0.9, 1.0],
+        intensity: 2.0,
+        cast_shadows: true,
+        angular_radius: 0.0,
+    };
+    let scene = TransportScene::new(global_faces, Vec::new())
+        .expect("pane")
+        .with_surface_alpha(global_alpha)
+        .expect("alpha")
+        .with_global_lights(vec![moon]);
+    let direct_rgb = scene
+        .intensity_at([0.0; 3], [0.0, 1.0, 0.0], options(0, 3))
+        .light_at([0.0, 1.0, 0.0]);
+    for (channel, expected) in direct_rgb.into_iter().zip(moon.color) {
+        assert!(
+            (channel - expected).abs() < 1.0e-6,
+            "half-opacity BLEND attenuates the authored global source exactly once"
+        );
+    }
+    let charts = [floor_patch(-0.01, -0.01, 0.01, 0.01, 1, 1)];
+    let open_sky = TransportScene::new(Vec::new(), Vec::new())
+        .expect("clear")
+        .with_sky([0.2; 3])
+        .solve(&charts, options(1, 1), None)
+        .expect("sky");
+    let (sky_faces, sky_alpha) = alpha_plane(
+        1.0,
+        1000.0,
+        MaterialAlpha::blend(0.5),
+        None,
+        TransportTextureAddress::Clamp,
+    );
+    let covered = TransportScene::new(sky_faces, Vec::new())
+        .expect("pane")
+        .with_surface_alpha(sky_alpha)
+        .expect("alpha")
+        .with_sky([0.2; 3])
+        .solve(&charts, options(1, 1), None)
+        .expect("covered sky");
+    for (transmitted, before) in first_light(&covered, [0.0, 1.0, 0.0])
+        .into_iter()
+        .zip(first_light(&open_sky, [0.0, 1.0, 0.0]))
+    {
+        assert!(
+            (transmitted - before * 0.5).abs() < 1.0e-6,
+            "half-opacity BLEND attenuates escaping sky without adding ambient light"
+        );
+    }
+}
+
+#[test]
+fn blend_attenuates_a_real_surface_bounce_without_changing_cache_connectivity() {
+    let (ceiling, _) = alpha_plane(
+        2.0,
+        1000.0,
+        MaterialAlpha::OPAQUE,
+        None,
+        TransportTextureAddress::Clamp,
+    );
+    let triangles = ceiling
+        .iter()
+        .map(|face| {
+            TransportTriangle::new(face.p0, face.p2, face.p1, [0.8; 3]).expect("downward ceiling")
+        })
+        .collect::<Vec<_>>();
+    let clear = TransportScene::new(triangles.clone(), Vec::new()).expect("ceiling");
+    let mut receivers = vec![TransportReceiver {
+        position: [0.0; 3],
+        ray_origin: [0.0; 3],
+        normal: [0.0, 1.0, 0.0],
+        albedo: [0.1; 3],
+        area: 1.0,
+        surface: u32::MAX,
+        attenuation: [1.0; 3],
+    }];
+    for (point, surface) in [
+        ([0.0, 2.0, 0.0], 0),
+        ([-1000.0, 2.0, -1000.0], 0),
+        ([1000.0, 2.0, 1000.0], 1),
+    ] {
+        let position = receiver_position(point, [0.0, -1.0, 0.0]);
+        receivers.push(TransportReceiver {
+            position,
+            ray_origin: position,
+            normal: [0.0, -1.0, 0.0],
+            albedo: [0.8; 3],
+            area: 1.0,
+            surface,
+            attenuation: [1.0; 3],
+        });
+    }
+    let current = receivers
+        .iter()
+        .map(|receiver| Accumulator {
+            surface_light: if receiver.surface == u32::MAX {
+                [0.0; 3]
+            } else {
+                [1.0, 0.5, 0.25]
+            },
+            ..Accumulator::default()
+        })
+        .collect::<Vec<_>>();
+    let cache = RadianceCache::build(&receivers);
+    let unattenuated = clear
+        .bounce_pass(&receivers, &current, &cache, 32, 0, false, 1, None)
+        .expect("bounce");
+    let (pane, pane_alpha) = alpha_plane(
+        1.0,
+        1000.0,
+        MaterialAlpha::blend(0.5),
+        None,
+        TransportTextureAddress::Clamp,
+    );
+    let mut covered_triangles = triangles;
+    covered_triangles.extend(pane);
+    let mut surfaces = vec![None, None];
+    surfaces.extend(pane_alpha);
+    let covered = TransportScene::new(covered_triangles, Vec::new())
+        .expect("pane")
+        .with_surface_alpha(surfaces)
+        .expect("alpha");
+    let attenuated = covered
+        .bounce_pass(&receivers, &current, &cache, 32, 0, false, 1, None)
+        .expect("attenuated bounce");
+    assert!(
+        unattenuated[0].surface_light[0] > 0.1,
+        "the ceiling must contribute a real diffuse bounce"
+    );
+    for (actual, baseline) in attenuated[0]
+        .surface_light
+        .into_iter()
+        .zip(unattenuated[0].surface_light)
+    {
+        assert!(
+            (actual - baseline * 0.5).abs() < 1.0e-6,
+            "half-opacity BLEND attenuates a real diffuse surface contribution"
+        );
+    }
+}
+
+#[test]
+fn alpha_transport_keeps_serial_parallel_and_independent_light_layers_identical() {
+    let (mut triangles, mut surfaces) = alpha_plane(
+        1.0,
+        4.0,
+        MaterialAlpha::blend(0.5),
+        None,
+        TransportTextureAddress::Clamp,
+    );
+    triangles.extend(floor(-2.0, -2.0, 2.0, 2.0, [0.6; 3]));
+    surfaces.extend([None, None]);
+    let mut switchable = point([0.0, 2.0, 0.0], 1.0);
+    switchable.switchable = Some(7);
+    let scene = TransportScene::new(triangles, vec![point([0.0, 2.0, 0.0], 1.0), switchable])
+        .expect("scene")
+        .with_surface_alpha(surfaces)
+        .expect("alpha");
+    let charts = [floor_patch(-1.0, -1.0, 1.0, 1.0, 9, 9)];
+    let serial = scene
+        .solve_with_probes(&charts, options(1, 3), None, false)
+        .expect("serial");
+    let parallel = scene
+        .solve_with_probes(
+            &charts,
+            SolveOptions {
+                workers: 4,
+                ..options(1, 3)
+            },
+            None,
+            false,
+        )
+        .expect("parallel");
+    assert_eq!(
+        serial, parallel,
+        "alpha transport is bit-identical across worker counts"
+    );
+    assert_eq!(
+        serial.solution.charts[0].texels, serial.solution.switchable[0].1[0].texels,
+        "identical emitters retain identical independent transport through the pane"
+    );
+}
 
 fn moon() -> crate::lighting::directional::DirectionalLight {
     crate::lighting::directional::DirectionalLight {

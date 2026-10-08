@@ -1,0 +1,16 @@
+[
+  {
+    "milestone": "stage1",
+    "path": "debug-maps/art-style-hero/milestones/stage1",
+    "revision": "94d22f04a83156a3fe8ad9d16ef6d22732dc9818",
+    "verified_files": 41,
+    "mismatches": []
+  },
+  {
+    "milestone": "stage2",
+    "path": "debug-maps/art-style-hero/milestones/stage2",
+    "revision": "b34e1dd6d8dcdf43280a35c9644bcb567905e492",
+    "verified_files": 41,
+    "mismatches": []
+  }
+]

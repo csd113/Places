@@ -983,9 +983,22 @@ Opening offsets are measured from the minimum corner (`x.min(x+width)`,
 **Default height.** With `height` omitted, the wall top is the local clear ceiling at
 each point — which is why an unheighted wall in a gable room follows the slope. A wall
 spanning two rooms of different ceiling heights follows the ceiling above each part.
+Wall profiles, visible faces, caps and collision extents share roof ownership:
+a containing closed room retains first-room precedence; an outside centre plane
+can use the closed roof that physically touches its wall footprint at that length
+position. An adjoining open volume does not replace that roof. Room transitions
+and every owning gable ridge split the wall into linear spans. Outer corner ends
+may continue a contacting roof only over the wall's own thickness, with a floating
+point rounding bound; internal gaps cannot borrow a nearby roof. Point-based
+floor/ceiling authoring queries retain the overlap rule above. Explicit heights
+remain appropriate for freestanding barriers or deliberate rigid silhouettes.
 With `height` authored, the wall is drawn exactly `y..y+height`, even through a
 ceiling or across rooms. Validation requires a positive finite `height` when it is
 present.
+
+An explicit-height wall keeps its exposed horizontal top. Only actual coplanar
+closed flat-roof, floor or earlier-wall coverage removes those cap rectangles;
+a touching ceiling owner alone does not hide a cap outside the roof footprint.
 
 **Face names.** Read the names as normals:
 
@@ -3004,6 +3017,41 @@ does not create illumination.
 Surface response, emission, reflections and post-processing are added on top of
 that bake; none of them is a light source (see section 11).
 
+Prepared static transport uses the drawn geometry and material coverage.
+Offline compilation resolves source PNGs for the solve as well as the capture;
+architectural diffuse reflectance uses the mean decoded linear colour, while
+the saved incident light remains independent of the receiver's displayed albedo.
+An opaque surface blocks even when its PNG alpha is zero. A cutout surface
+blocks where numeric level-zero bilinear texture alpha × vertex alpha × material
+opacity is at or above the cutoff; holes transmit. A blended surface attenuates
+straight rays by `1 - coverage`, multiplying across separate layers. It has no
+refraction, coloured transmission, or diffuse bounce of its own. Architectural
+UVs repeat and model UVs clamp, matching their renderer routes. Water continues
+to use its authored volume attenuation independently of its visible alpha.
+An open window or door is a real geometric aperture; glass is an attenuating
+surface in that aperture. `solid` governs collision separately. The historical
+vertex/fast-occluder fallback still uses coarse boxes, so foliage's
+`occludes: false` convention remains useful there; it does not suppress actual
+opaque or covered cutout triangles in the prepared solve.
+
+Broad finite sources integrate each tap's cosine and directional moment before
+averaging. Their authored size controls penumbra; brightness, range and shape
+remain ordinary source parameters. Diffuse orders gather the previous order's
+linear incident energy times the emitting surface's linear albedo; stored
+lightmaps contain incident lighting, and the runtime multiplies receiver albedo
+once. The existing quality budgets and convergence controls are unchanged.
+
+Lightmap density describes intervals per metre: a finite positive chart span
+uses `ceil(span × density) + 1` inclusive endpoint samples, with the established
+page cap. Padding dilates each chart's own edge values. Receiver footprints use
+a canonical world-space tangent frame and the requested physical density,
+independent of chart UV winding or triangle axes. Footprints stop at real
+boundaries and may cross connected, compatible coplanar construction; they do
+not cross gaps, normal changes or material/albedo changes. Only diffuse gather
+energy is filtered across compatible joins; direct visibility keeps its own
+bounded adaptive coverage integration. No authored overlap or extra seam strip
+is required to make neighbouring coplanar geometry continuous.
+
 **The two halves of a glowing object are separate authored values:**
 
 ```text
@@ -3037,15 +3085,15 @@ examples still apply to a `Lightmaps: Off` map.
 
 Two prepared-path rules keep a solved map readable, and both are automatic:
 
-* **Water and translucent panes transmit.** A `water` volume's surface does
+* **Water and translucent panes have distinct transmission.** A `water` volume's surface does
   not block the bake: a fixture above the pool reaches the basin, and the light
   that passes into the water is attenuated with depth — a bounded per-channel
   Beer–Lambert falloff, red absorbed most, so a deep basin reads blue-green
-  while the shallow end stays brighter. A window pane, vent grille or screen
-  whose material is `blend` or `cutout` transmits exactly like the opening it
-  fills, matching the vertex-lit model; only opaque materials (including solid
-  glass) block a ray. The surface you see is unchanged: it stays a translucent
-  quad outside the atlas, as section 10 describes.
+  while the shallow end stays brighter. A blended pane attenuates by its
+  actual alpha coverage, while a cutout grille blocks its covered slats and
+  transmits through its holes. Neither is equivalent to an empty opening.
+  Opaque material always blocks. Collision's `solid` flag does not select
+  transport alpha semantics; the visible surface still follows section 10.
 * **The authored room fill is continuous.** After transport, floors, walls,
   skirts, ceilings and probes receive the receiver-local response
   `L + T * max(1 - L/(4*T), 0)^2`, where `T` is the room-area baseline above
@@ -3060,7 +3108,7 @@ Two prepared-path rules keep a solved map readable, and both are automatic:
   models). Visibility origins stay on the geometric side. Compression alone is not an irradiance integral:
   opposing grazing sources must not manufacture illumination. Each bounce
   transports only the previous order; two bounces mean `D + KD + K²D`.
-  Solver revision 11 invalidates earlier atlas and package fingerprints; sky is
+  Solver revision 13 invalidates earlier atlas and package fingerprints; sky is
   injected only into the first diffuse order. Cache interpolation also tests
   visibility so one floor triangle spanning a divider cannot transfer light
   through that divider.

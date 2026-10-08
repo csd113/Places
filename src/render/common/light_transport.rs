@@ -22,8 +22,8 @@ use crate::level::{LevelDef, WaterVolumes};
 use crate::lighting::LevelLighting;
 use crate::lighting::lightmap::{Chart, LightmapPatch};
 use crate::lighting::transport::{
-    TransportEmitter, TransportScene, TransportTriangle, TransportWaterBody, probe_targets,
-    receiver_targets,
+    TransportAlphaSurface, TransportEmitter, TransportScene, TransportTextureAddress,
+    TransportTriangle, TransportWaterBody, probe_targets, receiver_targets,
 };
 use crate::materials::{AlphaMode, MaterialTable, RawImage};
 use crate::render::{LevelMesh, MATERIAL_NONE, PropMeshBatch, SurfaceKind, Vertex};
@@ -66,6 +66,7 @@ pub fn build_transport_scene(
 ) -> Option<(TransportScene, TransportSceneStats)> {
     let mut stats = TransportSceneStats::default();
     let mut triangles: Vec<TransportTriangle> = Vec::new();
+    let mut surface_alpha = Vec::new();
     let mut owners = Vec::new();
     // Water bodies transmit and attenuate; the drawn surface triangles are
     // matched against the same resolved volumes the player swims in. A dry
@@ -80,10 +81,17 @@ pub fn build_transport_scene(
         materials,
         &water,
         &mut triangles,
+        &mut surface_alpha,
         &mut stats,
         &mut owners,
     );
-    append_prop_triangles(batches, &mut triangles, &mut stats, &mut owners);
+    append_prop_triangles(
+        batches,
+        &mut triangles,
+        &mut surface_alpha,
+        &mut stats,
+        &mut owners,
+    );
 
     let mut emitters: Vec<TransportEmitter> = Vec::new();
     let switchable = switchable_lights(level, lighting);
@@ -106,6 +114,7 @@ pub fn build_transport_scene(
     stats.triangles = triangles.len();
     stats.emitters = emitters.len();
     let scene = TransportScene::new(triangles, emitters)?
+        .with_surface_alpha(surface_alpha)?
         .with_water(
             water
                 .volumes()
@@ -234,14 +243,14 @@ fn sky_radiance(level: &LevelDef) -> [f32; 3] {
 /// Appends every architecture range's triangles to the transport scene.
 ///
 /// Decals and fixture geometry are skipped; walls, floors, ceilings,
-/// architecture and prop fallbacks occlude. A water volume's drawn surface and
-/// a blend/cutout architecture pane are marked transmissive; everything else,
-/// including a solid glass material, keeps blocking.
+/// architecture and prop fallbacks occlude. Water transmits into its attenuating
+/// body; other surfaces retain the renderer's alpha coverage at each ray hit.
 fn append_architecture_triangles(
     mesh: &LevelMesh,
     materials: &MaterialTable,
     water: &WaterVolumes,
     triangles: &mut Vec<TransportTriangle>,
+    surface_alpha: &mut Vec<Option<TransportAlphaSurface>>,
     stats: &mut TransportSceneStats,
     owners: &mut Vec<crate::lighting::transport::diagnostics::CasterRange>,
 ) {
@@ -257,13 +266,6 @@ fn append_architecture_triangles(
         let first = triangles.len();
         let material = material_albedo(materials, range.key.material);
         let material_id = material_id(materials, range.key.material);
-        // Architecture panes the renderer draws as blend/cutout (glass,
-        // grilles) transmit like the shipped vertex-lit bake's openings; a
-        // solid glass or any opaque architecture range keeps blocking.
-        let transmits = matches!(
-            range.key.kind,
-            SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall
-        ) && material_transmits(materials, range.key.material);
         for chunk in range.indices.as_chunks::<3>().0 {
             let (Some(a), Some(b), Some(c)) = (chunk.first(), chunk.get(1), chunk.get(2)) else {
                 continue;
@@ -279,8 +281,20 @@ fn append_architecture_triangles(
             match TransportTriangle::new(va.pos, vb.pos, vc.pos, albedo) {
                 Some(triangle) => {
                     let corners = [va.pos, vb.pos, vc.pos];
-                    let transmissive = transmits || is_water_surface(corners, material_id, water);
-                    triangles.push(triangle.with_transmissive(transmissive));
+                    let water_surface = is_water_surface(corners, material_id, water);
+                    triangles.push(triangle.with_transmissive(water_surface));
+                    surface_alpha.push(if water_surface {
+                        None
+                    } else {
+                        materials.entry(range.key.material).and_then(|entry| {
+                            alpha_surface(
+                                entry.alpha,
+                                entry.image.clone(),
+                                [va, vb, vc],
+                                TransportTextureAddress::Repeat,
+                            )
+                        })
+                    });
                 }
                 None => stats.skipped_triangles = stats.skipped_triangles.saturating_add(1),
             }
@@ -299,20 +313,18 @@ fn append_architecture_triangles(
     }
 }
 
-/// Appends placed prop geometry with the cutout transmission convention used
-/// by architecture. Treating a cutout card as opaque blocks the entire card,
-/// including its transparent pixels, and can black out the ground below grass.
+/// Prop sheets clamp their UVs; alpha coverage and material factors match the
+/// draw path without turning the whole card into either a blocker or a hole.
 fn append_prop_triangles(
     batches: &[PropMeshBatch],
     triangles: &mut Vec<TransportTriangle>,
+    surface_alpha: &mut Vec<Option<TransportAlphaSurface>>,
     stats: &mut TransportSceneStats,
     owners: &mut Vec<crate::lighting::transport::diagnostics::CasterRange>,
 ) {
     for batch in batches {
         let first = triangles.len();
         for submesh in &batch.submeshes {
-            // The draw alpha contract also determines whether rays can pass.
-            let transmissive = submesh.alpha.mode != AlphaMode::Opaque;
             let start = usize::try_from(submesh.first_index).unwrap_or(usize::MAX);
             let count = usize::try_from(submesh.index_count).unwrap_or(usize::MAX);
             let end = start.saturating_add(count);
@@ -339,11 +351,19 @@ fn append_prop_triangles(
                 };
                 let albedo = triangle_albedo([1.0; 3], va, vb, vc, image);
                 match TransportTriangle::new(va.pos, vb.pos, vc.pos, albedo) {
-                    Some(triangle) => triangles.push(
-                        triangle
-                            .with_shading_normals([va.normal, vb.normal, vc.normal])
-                            .with_transmissive(transmissive),
-                    ),
+                    Some(triangle) => {
+                        triangles
+                            .push(triangle.with_shading_normals([va.normal, vb.normal, vc.normal]));
+                        surface_alpha.push(alpha_surface(
+                            submesh.alpha,
+                            submesh
+                                .texture
+                                .and_then(|texture| batch.textures.get(usize::from(texture)))
+                                .cloned(),
+                            [va, vb, vc],
+                            TransportTextureAddress::Clamp,
+                        ));
+                    }
                     None => stats.skipped_triangles = stats.skipped_triangles.saturating_add(1),
                 }
             }
@@ -367,20 +387,19 @@ fn material_id(materials: &MaterialTable, material: u32) -> Option<&str> {
     materials.entry(material).map(|entry| entry.id.as_str())
 }
 
-/// True when a range's resolved material is drawn as a translucent or
-/// alpha-tested opening rather than a solid occluder.
-///
-/// This is the same `alpha_mode: blend|cutout` classification the renderer
-/// uses to route a surface into the translucent or alpha-tested pass; the
-/// vertex-lit bake transmits light through both, so the transport solve must
-/// too. A material that does not resolve stays solid.
-fn material_transmits(materials: &MaterialTable, material: u32) -> bool {
-    if material == MATERIAL_NONE {
-        return false;
-    }
-    materials
-        .entry(material)
-        .is_some_and(|entry| matches!(entry.alpha.mode, AlphaMode::Cutout | AlphaMode::Blend))
+fn alpha_surface(
+    alpha: crate::materials::MaterialAlpha,
+    image: Option<std::sync::Arc<RawImage>>,
+    vertices: [&Vertex; 3],
+    address: TransportTextureAddress,
+) -> Option<TransportAlphaSurface> {
+    (alpha.mode != AlphaMode::Opaque).then(|| TransportAlphaSurface {
+        alpha,
+        image,
+        uv: vertices.map(|vertex| vertex.uv),
+        vertex_alpha: vertices.map(|vertex| vertex.color[3]),
+        address,
+    })
 }
 
 /// True when a triangle is one water volume's drawn surface: all three corners
@@ -598,7 +617,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn cutout_prop_cards_transmit_but_opaque_batch_fallbacks_remain_solid() {
+    fn alpha_prop_cards_preserve_covered_pixels_and_opaque_fallbacks() {
         for mode in [AlphaMode::Opaque, AlphaMode::Cutout, AlphaMode::Blend] {
             let batch = PropMeshBatch {
                 model: "alpha-contract".to_owned(),
@@ -624,21 +643,26 @@ mod tests {
                 bounds: crate::spatial::Aabb::EMPTY,
             };
             let mut triangles = Vec::new();
+            let mut alpha = Vec::new();
             append_prop_triangles(
                 &[batch],
                 &mut triangles,
+                &mut alpha,
                 &mut TransportSceneStats::default(),
                 &mut Vec::new(),
             );
             assert_eq!(triangles.len(), 2);
-            let scene = TransportScene::new(triangles, Vec::new()).expect("scene");
+            let scene = TransportScene::new(triangles, Vec::new())
+                .expect("scene")
+                .with_surface_alpha(alpha)
+                .expect("aligned alpha");
             assert_eq!(
                 scene.occluded([0.0, 1.0, -1.0], [0.0, 1.0, 1.0]),
-                mode == AlphaMode::Opaque
+                mode != AlphaMode::Blend
             );
             assert_eq!(
                 scene.probe_is_clear([0.0, 1.0, 0.0]),
-                mode != AlphaMode::Opaque
+                mode == AlphaMode::Blend
             );
         }
     }
@@ -661,6 +685,7 @@ mod tests {
             &materials,
             &WaterVolumes::new(),
             &mut triangles,
+            &mut Vec::new(),
             &mut TransportSceneStats::default(),
             &mut Vec::new(),
         );
@@ -736,16 +761,15 @@ mod tests {
         }
     }
 
-    /// The renderer's alpha contract reaches the transport solve: a blend or
-    /// cutout architecture pane transmits a shadow ray, an opaque wall at the
-    /// same place blocks it.
+    /// The grille's authored central slat blocks, while clear BLEND glazing
+    /// retains a straight transmitting path and an opaque wall blocks.
     #[test]
-    fn blend_and_cutout_architecture_panes_transmit_while_an_opaque_wall_blocks() {
+    fn architecture_panes_keep_glass_transmission_and_grille_slats() {
         let from = [0.0, 1.0, -1.0];
         let to = [0.0, 1.0, 1.0];
         for (material, transmits) in [
             ("core:glass_window_clear_01", true),
-            ("core:grille_vent_01", true),
+            ("core:grille_vent_01", false),
             ("core:painting_dull_01", false),
         ] {
             let level = pane_level(material);
