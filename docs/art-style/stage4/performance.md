@@ -1,6 +1,6 @@
 # Stage 4 measured costs — 2026-10-08 UTC
 
-Same Mac14,9 / Apple M2 Pro, 12 CPU /19 GPU cores,16 GB unified memory as
+Same Mac 14,9 / Apple M 2 Pro, 12 CPU /19 GPU cores,16 GB unified memory as
 Stage 3. Native jobs and bakes were sequential, with no overlapping build/test
 job during measurements. Normal release timings exclude screenshot readback.
 Ordinary desktop applications remained running. Requested VSync is Off; these
@@ -11,23 +11,23 @@ not GPU execution or physical display cadence.
 
 [Normal forced build](hero-build-v1.json), [log/OS receipt](hero-build-v1.log),
 [member comparison](storage-comparison-v1.json):9.769 s compiler /10.06 s OS,
-650.5 MiB peak RSS,5,189,439 bytes. Stage 3 was9.804 /10.08 s,646.7 MiB,
-5,187,045 bytes. Package growth is2,394 bytes /0.046%; this single run does not
+650.5 MiB peak RSS,5,189,439 bytes. Stage 3 was 9.804 /10.08 s,646.7 MiB,
+5,187,045 bytes. Package growth is 2,394 bytes /0.046%; this single run does not
 establish a bake-time or memory improvement. Settings and budgets are unchanged.
 
-Each Medium/Full field retains495 slots /260 air-valid samples on the1.5 m lattice.
-PLPF grows17,858→29,758 serialized bytes: an11,900-byte selected-direct sidecar
-(4-byte source count +four4-byte IDs +495×24-byte means/moments).
-Compressed fields grow8,280→9,468 and8,403→9,603 bytes. CPU coefficient payload is
+Each Medium/Full field retains 495 slots /260 air-valid samples on the 1.5 m lattice.
+PLPF grows 17,858→29,758 serialized bytes: an 11,900-byte selected-direct sidecar
+(4-byte source count +four 4-byte IDs +495×24-byte means/moments).
+Compressed fields grow 8,280→9,468 and 8,403→9,603 bytes. CPU coefficient payload is
 calculated from the declared Rust element layouts:495×36 +495×32 +4×4 =33,676
 bytes, excluding container/capacity/allocator overhead. Only the active variant
 is used by entity sampling. No separate GPU probe lattice is uploaded; entities
-receive interpolated coefficients in their5632-byte environment uniform
-(previously2896 bytes).
+receive interpolated coefficients in their 5632-byte environment uniform
+(previously 2896 bytes).
 
-Two1024² atlas pages per Medium/Full variant remain33,554,432 resident bytes,
+Two 1024² atlas pages per Medium/Full variant remain 33,554,432 resident bytes,
 33,554,628 stored bytes. Geometry,5354 charts,16 prop batches,23 collision spans,
-3194 navigation cells /2 regions remain unchanged in the original hero. PLMP v5
+3194 navigation cells /2 regions remain unchanged in the original hero. PLMP v 5
 adds one caster flag byte per batch. No artwork, texture, concept or model changed.
 The [instrumented probe audit](probe-audit/) produces a package byte-identical to
 the normal build; its timing is excluded from the normal compiler comparison.
@@ -36,16 +36,16 @@ the normal build; its timing is excluded from the normal compiler comparison.
 
 [Normal visible-count samples](performance/visible/),
 [parsed distributions](performance/cpu-visible-summary.json):120 warmup +1000
-recorded frames per run. All1000 frames submit nonzero scene draws. The fixed
+recorded frames per run. All 1000 frames submit nonzero scene draws. The fixed
 [cost camera](cost-manifest.json) covers the same original hero with additive
 ordinary runtime chairs; no existing content is removed. One separate
 [raw proof](performance/visible-proof-capture/32.png) and
-[actual resource/draw receipt](performance/visible-count-proof.json) verify32
-rigid entities,32 dynamic draws, one cached204-triangle mesh/BVH and one model
-build (0.097 ms measured preparation). The scene submits57 draws; submitted
+[actual resource/draw receipt](performance/visible-count-proof.json) verify 32
+rigid entities,32 dynamic draws, one cached 204-triangle mesh/BVH and one model
+build (0.097 ms measured preparation). The scene submits 57 draws; submitted
 frustum acceptance does not establish pixel visibility after depth occlusion.
 
-| Content | Update median /p95 ms | Render CPU median ms | Frame p95 ms | Scene draws | Peak RSS MiB |
+| Content | Update median /p 95 ms | Render CPU median ms | Frame p 95 ms | Scene draws | Peak RSS MiB |
 | --- | --- | --- | --- | --- | --- |
 | 1 rigid |0.070 /0.362|2.433|14.133|26|431.4|
 | 4 rigid |0.122 /0.427|2.426|14.033|29|430.6|
@@ -55,7 +55,7 @@ frustum acceptance does not establish pixel visibility after depth occlusion.
 | 4 skinned +1 rigid, actor camera |0.824 /1.043|0.497|12.973|33|438.0|
 
 The moving case changes one caster every measured frame, forcing conservative
-refresh of all32 receiver payloads. This is a real cost: about6.86 ms more median
+refresh of all 32 receiver payloads. This is a real cost: about 6.86 ms more median
 whole-engine update than stationary. It includes benchmark command dispatch/log
 writes, transforms, ray sampling and uniform updates; it is not an isolated
 lighting kernel measurement. Stationary frames reuse payloads and never rebuild
@@ -67,7 +67,7 @@ speedup or a minimum-FPS claim.
 Earlier [original-camera count samples](performance/native/) retain valid CPU/
 resource data, but extra chairs were outside its frustum (17 draws throughout).
 They are excluded from GPU scaling claims. The original one-entity view gives
-fresh Stage3→Stage4 update medians0.050→0.069 ms and render2.494→2.207 ms;
+fresh Stage 3→Stage 4 update medians 0.050→0.069 ms and render 2.494→2.207 ms;
 [raw distributions](performance/cpu-summary.json) qualify different frame counts
 and desktop pacing. The first attempted GPU attachment ended after the old
 player exited; it recorded no GPU data.
@@ -78,23 +78,23 @@ Successful eight-second `Metal System Trace` attachments target verified owned
 player PIDs. Raw `.trace`, GPU/allocation XML and the small launch harness remain
 under `debug-maps/art-style-hero/evidence/`, outside `target/`. Each case preserves
 its exact [commands and native identities](performance/gpu/). The existing
-`tools/bench/inspect_metal_trace.py` analyzes the stable1–7 s window: union of
+`tools/bench/inspect_metal_trace.py` analyzes the stable 1–7 s window: union of
 active target GPU intervals divided by uniquely labelled scene encoders.
 Overlapping Vertex/Fragment channels are counted once. This includes real
 scene/post/upload work; it does not isolate one shader, direct light or shadow.
 GPU spans and active work are distinct measures.
 
-| Camera/content | Scene encoders in6s | Active GPU mean /scene ms | Scene span median /p95 ms | Metal time-median /peak MiB |
+| Camera/content | Scene encoders in 6 s | Active GPU mean /scene ms | Scene span median /p 95 ms | Metal time-median /peak MiB |
 | --- | --- | --- | --- | --- |
-| Stage3 original,1 rigid |1258|0.740|0.498 /0.547|143.6 /143.6|
-| Stage4 original,1 rigid |1212|1.046|0.953 /1.383|143.6 /143.6|
-| Stage4 wide,1 rigid |1250|0.959|0.860 /1.066|143.6 /143.6|
-| Stage4 wide,32 rigid stationary |1150|2.111|2.181 /4.644|144.0 /144.0|
-| Stage4 wide,32 rigid moving |720|3.567|3.630 /4.490|144.2 /144.2|
-| Stage4 actor camera,4 skinned +1 rigid |1334|0.999|0.777 /1.203|147.0 /148.4|
+| Stage 3 original,1 rigid |1258|0.740|0.498 /0.547|143.6 /143.6|
+| Stage 4 original,1 rigid |1212|1.046|0.953 /1.383|143.6 /143.6|
+| Stage 4 wide,1 rigid |1250|0.959|0.860 /1.066|143.6 /143.6|
+| Stage 4 wide,32 rigid stationary |1150|2.111|2.181 /4.644|144.0 /144.0|
+| Stage 4 wide,32 rigid moving |720|3.567|3.630 /4.490|144.2 /144.2|
+| Stage 4 actor camera,4 skinned +1 rigid |1334|0.999|0.777 /1.203|147.0 /148.4|
 
-The original-camera single pair increases active GPU work by0.306 ms; no GPU
-speedup is claimed. The wide32 moving sample increases work by1.456 ms relative
+The original-camera single pair increases active GPU work by 0.306 ms; no GPU
+speedup is claimed. The wide 32 moving sample increases work by 1.456 ms relative
 to stationary, including changed uniform uploads. Dense contacts/direct evaluation
 and geometry all remain enabled. These bounded samples establish costs for the
 hero, not universal device budgets. No limit, quality or content is weakened to

@@ -1,0 +1,148 @@
+[
+  {
+    "view": {
+      "name": "door",
+      "spawn": [
+        10.15,
+        4.2,
+        0
+      ],
+      "camera": [
+        270,
+        -20
+      ],
+      "purpose": "Real closed/open leaf and a stationary chair beside the warm-room doorway"
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "full",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "15bf22f2a0c2af0dee775879f677d77035b397374bccd553880bdeabffd6caf5",
+      "package_sha256": "af4339e3e83727badc160541d68f1ef876867537c7a3926c1fe4aad7a2f113cd",
+      "source_sha256": "3fb98e82819387dacfedfc5bba04c7a2751eb599e8b399e23bd925a23d73726b",
+      "camera_manifest_sha256": "4b65dd4ffd724f818de6797d35d9a8dcb82263c112d628dfa7bff7683b00d8f4",
+      "capture_tool_sha256": "a382242567519ee3609bc4b1c015151360e4e71686e3ba7ebd385cfac165f73c",
+      "catalog_sha256": "85b0489a2d01ee1ffd0bcabb34ca64fabc24c4a45d5340ba6d79b7660ecf7d0a",
+      "asset_root": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-movement",
+      "git_revision": "2615b9bc787a116bca1d9bc9d9deb855ed87724d",
+      "git_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "diagnostic": null,
+    "quality_cycle": null,
+    "entity_light_trace": false,
+    "graphics_cycle": null,
+    "capture_frame": null,
+    "lighting_sequence": null,
+    "sequence_captures": [],
+    "lighting_sequence_input": null,
+    "diagnostic_receipt": null,
+    "ready_world_seconds": 0.5,
+    "measured_frames": 0,
+    "elapsed_seconds": 1.798230667016469,
+    "exit_code": 0,
+    "image_sha256": "fb26b73a5bf3a9607986fcbe506e121fd9308c8a3f7d3a39a90d4ed8f1e81781",
+    "settings_receipt": "[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering high | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  },
+  {
+    "view": {
+      "name": "crossing",
+      "spawn": [
+        6.9,
+        -2.3,
+        0
+      ],
+      "camera": [
+        180,
+        -10
+      ],
+      "purpose": "Receiver passes through authored front aperture from exterior into the warm room"
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "full",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "15bf22f2a0c2af0dee775879f677d77035b397374bccd553880bdeabffd6caf5",
+      "package_sha256": "af4339e3e83727badc160541d68f1ef876867537c7a3926c1fe4aad7a2f113cd",
+      "source_sha256": "3fb98e82819387dacfedfc5bba04c7a2751eb599e8b399e23bd925a23d73726b",
+      "camera_manifest_sha256": "4b65dd4ffd724f818de6797d35d9a8dcb82263c112d628dfa7bff7683b00d8f4",
+      "capture_tool_sha256": "a382242567519ee3609bc4b1c015151360e4e71686e3ba7ebd385cfac165f73c",
+      "catalog_sha256": "85b0489a2d01ee1ffd0bcabb34ca64fabc24c4a45d5340ba6d79b7660ecf7d0a",
+      "asset_root": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-movement",
+      "git_revision": "2615b9bc787a116bca1d9bc9d9deb855ed87724d",
+      "git_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "diagnostic": null,
+    "quality_cycle": null,
+    "entity_light_trace": false,
+    "graphics_cycle": null,
+    "capture_frame": null,
+    "lighting_sequence": null,
+    "sequence_captures": [],
+    "lighting_sequence_input": null,
+    "diagnostic_receipt": null,
+    "ready_world_seconds": 0.5,
+    "measured_frames": 0,
+    "elapsed_seconds": 1.161231708014384,
+    "exit_code": 0,
+    "image_sha256": "cdce574785d90d3985069aa1e0249aef52fc0dfd2e7b7177fd2fbcf33eb9792d",
+    "settings_receipt": "[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering high | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  }
+]

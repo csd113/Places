@@ -280,3 +280,10 @@ disclosed approximations. No artwork, concept, exposure or limit is changed.
 Original Stage 1/2/3 captures and runnable bundles remain immutable and hash-verified.
 The [Stage 4 handoff](../art-style/stage4/handoff.md) records implementation/CI links,
 new compatible runnable snapshots and explicit custody release after publication.
+
+[Stage 4 implementation 2615b9b](https://github.com/csd113/Places/commit/2615b9bc787a116bca1d9bc9d9deb855ed87724d)
+is pushed and remote-verified. Five [runnable snapshot receipts](../art-style/stage4/handoff.md#verified-implementation-and-runnable-bundles)
+retain compatible binaries, packages/settings, SDL and all real dependencies.
+The original six-view bundle replays final PNGs byte for byte; actor differences
+are confined to normal animation. Exact final seal CI and custody transfer are
+recorded in the completion receipt after the gate; Stage 5 is not started here.

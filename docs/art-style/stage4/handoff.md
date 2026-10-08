@@ -148,10 +148,10 @@ normal standing animation; they are not retouched. Final source/binary hashes
 are in `build-provenance.json`; intermediate build inventories are retained.
 
 The five final packages/binaries are retained outside `target`, under
-`debug-maps/art-style-hero/evidence/`. Final immutable milestone snapshots will
+`debug-maps/art-style-hero/evidence/`. Final immutable milestone snapshots
 retain compatible player/diagnostic/compiler/SDL, real dependencies, catalog,
 source/settings and launch instructions. Snapshot verification and implementation
-links are appended after the implementation commit exists. Stage 1 originals are
+links below pin the implementation commit. Stage 1 originals are
 preserved permanently. The queue remains unfinished, so no `cargo clean` is run.
 
 The implementation push and final documentation seal are separately remote-verified.
@@ -161,3 +161,50 @@ native/build/test/trace processes must stop before explicit checkout/index/targe
 release. The inherited single `/usr/bin/caffeinate -di` PID 88945 retains queue
 coverage and is transferred to parent `01a0fe65-4379-7018-adc6-f90754d9b0ca`.
 Custody/completion metadata stays under `/tmp`, outside tracked deliverables.
+
+## Verified implementation and runnable bundles
+
+[Implementation 2615b9bc787a116bca1d9bc9d9deb855ed87724d](https://github.com/csd113/Places/commit/2615b9bc787a116bca1d9bc9d9deb855ed87724d)
+is normally pushed to `origin/Art-style`; `git ls-remote` returns that exact SHA.
+[Publication identity](publication.json) and [frozen source/bundle verification](snapshot-publication-verification.json)
+confirm all 214 compiled source inputs match Git blobs and every retained file hash
+matches. The journal seal changes documentation/evidence only. Exact final SHA/CI
+result and ownership release are supplied in the out-of-tree completion receipt
+after the final [Rust verification workflow](https://github.com/csd113/Places/actions/workflows/rust.yml?query=branch%3AArt-style) gate passes.
+
+| Local snapshot under `debug-maps/art-style-hero/milestones/` | Files | Bytes | Native replay |
+| --- | --- | --- | --- |
+| [stage4 receipt](stage4-snapshot.json) | 41 | 193,587,814 | Six original views, all byte-identical to final accepted PNGs |
+| [stage4-entities](stage4-entities-snapshot.json) | 42 | 194,828,647 | Three accepted actor environments; differences only within animated character bounds |
+| [stage4-switchable](stage4-switchable-snapshot.json) | 42 | 198,172,450 | Ordinary broad-light actor view succeeds |
+| [stage4-movement](stage4-movement-snapshot.json) | 45 | 195,384,094 | Door and exterior aperture cameras succeed; closed leaf is visually inspected |
+| [stage4-comparison](stage4-comparison-snapshot.json) | 42 | 198,509,154 | Ordinary broad-light comparison view succeeds |
+
+The [snapshot helper execution](snapshot-publication-execution.json) records actual
+creation commands. Normal replay manifests in `snapshot-verification-*` record
+actual commands/settings/native results; [main equality](snapshot-verification-main/equality.json)
+and [actor comparison](snapshot-verification-entities/equality.json) qualify repeat
+pixels. Skinned animation timing is not rewritten to force equality. Each control
+has its own compatible package root because all deliberately retain hero ID
+`art_style_hero`. Original Stage 1/2/3/control bundles remain hash-verified.
+
+```sh
+DYLD_LIBRARY_PATH="$PWD/debug-maps/art-style-hero/milestones/stage4" \
+python3 tools/bench/capture_art_style_hero.py \
+  --asset-root debug-maps/art-style-hero/milestones/stage4 \
+  --manifest debug-maps/art-style-hero/milestones/stage4/hero-manifest.json \
+  --binary debug-maps/art-style-hero/milestones/stage4/places --play --views entities
+```
+
+Use the same paths with `stage4-entities --views actors`,
+`stage4-switchable --views actors`, `stage4-movement --views door` or
+`stage4-comparison --views broad` for interactive controls. For bounded scripted
+replay use `--out NEW_DIRECTORY --frames N --lighting-sequence NEW_SEQUENCE.json`;
+copy the recorded sequence and change only its capture destinations to new paths.
+Existing destinations are intentionally rejected. These are native macOS/Metal
+bundles with preserved SDL, not cross-platform executables.
+
+[Raw-log preservation](raw-log-preservation.json) retains original terminal bytes
+outside target; tracked previews remove only repeated final LF bytes. No numeric
+output, assertion or native PNG is edited. The final reviewed index contains only
+task-owned source/control/docs and genuine immutable evidence.

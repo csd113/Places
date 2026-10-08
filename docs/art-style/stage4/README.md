@@ -35,6 +35,13 @@ bundles remain immutable. [Concept hashes](concept-preservation.json) and
 
 ## A real door, a real receiver
 
+| Stage 3 same control/camera | Stage 4 runnable replay, same content |
+| --- | --- |
+| ![Before closed leaf](before/movement-camera-v3/door.png) | ![Final spatial closed leaf](snapshot-verification-movement/door.png) |
+
+This like-for-like pair preserves the lit leaf while changing its spatial response.
+The following sequence adds a stationary chair to expose actual occlusion changes.
+
 | Closed final | Open final | Closed again |
 | --- | --- | --- |
 | ![Closed door with lit detail](movement/door/final/closed.png) | ![Open door changing receiver lighting](movement/door/final/open.png) | ![Restored door and receiver](movement/door/final/closed-restored.png) |
@@ -83,7 +90,8 @@ covered by deterministic tests because native authoring/API scale is uniform.
 [The resource matrix](quality/acceptance.json) records every directed Low/Medium/High
 pair twice in each of actor, dim and exterior views. The final binary repeats all
 six pairs twice with visible actors: **48 preset transitions in total**. Ten
-independent lighting/filter/atlas changes keep High texture storage fixed. The
+independent lighting/filter/atlas changes keep High texture storage fixed
+(5,264,704 prop bytes; 53,127,840 world cache bytes at 1024px). The
 stationary advanced-settings restored image is pixel-identical to its initial
 state. Preset endpoints may differ only where normal actor animation advances.
 Low releases atlas/probe resources; Medium/High recreate valid resources and

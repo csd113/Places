@@ -1,0 +1,440 @@
+[
+  {
+    "view": {
+      "name": "room",
+      "spawn": [
+        7.1,
+        5.25,
+        0
+      ],
+      "camera": [
+        -46,
+        -8
+      ],
+      "purpose": "broad fluorescent and warm practical distribution, furnishing, carpet/wood boundary"
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "full",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "15bf22f2a0c2af0dee775879f677d77035b397374bccd553880bdeabffd6caf5",
+      "package_sha256": "a04c08a54651ce6fce794ccf41f2dac8c909ac3ed704d6ba6efea7cf6c72caae",
+      "source_sha256": "743c1cf3a900570cc163c9d2f1636118e0f8f36989ee82fcbeabd78560675bc0",
+      "camera_manifest_sha256": "0cba6a4b791b62cd3fe6a4af07f5a9ab8c971e0b360b990a7ec11fe8e614e6d2",
+      "capture_tool_sha256": "a382242567519ee3609bc4b1c015151360e4e71686e3ba7ebd385cfac165f73c",
+      "catalog_sha256": "85b0489a2d01ee1ffd0bcabb34ca64fabc24c4a45d5340ba6d79b7660ecf7d0a",
+      "asset_root": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4",
+      "git_revision": "2615b9bc787a116bca1d9bc9d9deb855ed87724d",
+      "git_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "diagnostic": null,
+    "quality_cycle": null,
+    "entity_light_trace": false,
+    "graphics_cycle": null,
+    "capture_frame": null,
+    "lighting_sequence": null,
+    "sequence_captures": [],
+    "lighting_sequence_input": null,
+    "diagnostic_receipt": null,
+    "ready_world_seconds": 0.5,
+    "measured_frames": 0,
+    "elapsed_seconds": 4.052689167088829,
+    "exit_code": 0,
+    "image_sha256": "86318a4d94aeeee5a22d13ddf47fc2a5c5487c702ea825e10aa73d2dd5e2c0b0",
+    "settings_receipt": "[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering high | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  },
+  {
+    "view": {
+      "name": "window",
+      "spawn": [
+        3.5,
+        3.5,
+        0
+      ],
+      "camera": [
+        0,
+        3
+      ],
+      "purpose": "glazed opening, reveals, garden and sky, interior/exterior balance"
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "full",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "15bf22f2a0c2af0dee775879f677d77035b397374bccd553880bdeabffd6caf5",
+      "package_sha256": "a04c08a54651ce6fce794ccf41f2dac8c909ac3ed704d6ba6efea7cf6c72caae",
+      "source_sha256": "743c1cf3a900570cc163c9d2f1636118e0f8f36989ee82fcbeabd78560675bc0",
+      "camera_manifest_sha256": "0cba6a4b791b62cd3fe6a4af07f5a9ab8c971e0b360b990a7ec11fe8e614e6d2",
+      "capture_tool_sha256": "a382242567519ee3609bc4b1c015151360e4e71686e3ba7ebd385cfac165f73c",
+      "catalog_sha256": "85b0489a2d01ee1ffd0bcabb34ca64fabc24c4a45d5340ba6d79b7660ecf7d0a",
+      "asset_root": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4",
+      "git_revision": "2615b9bc787a116bca1d9bc9d9deb855ed87724d",
+      "git_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "diagnostic": null,
+    "quality_cycle": null,
+    "entity_light_trace": false,
+    "graphics_cycle": null,
+    "capture_frame": null,
+    "lighting_sequence": null,
+    "sequence_captures": [],
+    "lighting_sequence_input": null,
+    "diagnostic_receipt": null,
+    "ready_world_seconds": 0.5,
+    "measured_frames": 0,
+    "elapsed_seconds": 1.1246742500225082,
+    "exit_code": 0,
+    "image_sha256": "3c8dcaf1ee630fd0f12e3872a4c17c88d44eaad27f35e59fd9ac304410a6ac92",
+    "settings_receipt": "[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering high | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  },
+  {
+    "view": {
+      "name": "hall",
+      "spawn": [
+        9.1,
+        1.9,
+        0
+      ],
+      "camera": [
+        174,
+        -8
+      ],
+      "purpose": "tile, painted passage boundary, plastic and metal response, connected-room consistency"
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "full",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "15bf22f2a0c2af0dee775879f677d77035b397374bccd553880bdeabffd6caf5",
+      "package_sha256": "a04c08a54651ce6fce794ccf41f2dac8c909ac3ed704d6ba6efea7cf6c72caae",
+      "source_sha256": "743c1cf3a900570cc163c9d2f1636118e0f8f36989ee82fcbeabd78560675bc0",
+      "camera_manifest_sha256": "0cba6a4b791b62cd3fe6a4af07f5a9ab8c971e0b360b990a7ec11fe8e614e6d2",
+      "capture_tool_sha256": "a382242567519ee3609bc4b1c015151360e4e71686e3ba7ebd385cfac165f73c",
+      "catalog_sha256": "85b0489a2d01ee1ffd0bcabb34ca64fabc24c4a45d5340ba6d79b7660ecf7d0a",
+      "asset_root": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4",
+      "git_revision": "2615b9bc787a116bca1d9bc9d9deb855ed87724d",
+      "git_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "diagnostic": null,
+    "quality_cycle": null,
+    "entity_light_trace": false,
+    "graphics_cycle": null,
+    "capture_frame": null,
+    "lighting_sequence": null,
+    "sequence_captures": [],
+    "lighting_sequence_input": null,
+    "diagnostic_receipt": null,
+    "ready_world_seconds": 0.5,
+    "measured_frames": 0,
+    "elapsed_seconds": 1.1636545419460163,
+    "exit_code": 0,
+    "image_sha256": "312a5d4c1deebc7f8efdc10dd62c2d5965d5ec4925e9aa0ef667c6b5c3012be7",
+    "settings_receipt": "[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering high | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  },
+  {
+    "view": {
+      "name": "contact",
+      "spawn": [
+        5.3,
+        4.1,
+        0
+      ],
+      "camera": [
+        -48,
+        -28
+      ],
+      "purpose": "sofa/table feet, mug/books, static shadow and carpet/wood grounding"
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "full",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "15bf22f2a0c2af0dee775879f677d77035b397374bccd553880bdeabffd6caf5",
+      "package_sha256": "a04c08a54651ce6fce794ccf41f2dac8c909ac3ed704d6ba6efea7cf6c72caae",
+      "source_sha256": "743c1cf3a900570cc163c9d2f1636118e0f8f36989ee82fcbeabd78560675bc0",
+      "camera_manifest_sha256": "0cba6a4b791b62cd3fe6a4af07f5a9ab8c971e0b360b990a7ec11fe8e614e6d2",
+      "capture_tool_sha256": "a382242567519ee3609bc4b1c015151360e4e71686e3ba7ebd385cfac165f73c",
+      "catalog_sha256": "85b0489a2d01ee1ffd0bcabb34ca64fabc24c4a45d5340ba6d79b7660ecf7d0a",
+      "asset_root": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4",
+      "git_revision": "2615b9bc787a116bca1d9bc9d9deb855ed87724d",
+      "git_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "diagnostic": null,
+    "quality_cycle": null,
+    "entity_light_trace": false,
+    "graphics_cycle": null,
+    "capture_frame": null,
+    "lighting_sequence": null,
+    "sequence_captures": [],
+    "lighting_sequence_input": null,
+    "diagnostic_receipt": null,
+    "ready_world_seconds": 0.5,
+    "measured_frames": 0,
+    "elapsed_seconds": 1.170954417088069,
+    "exit_code": 0,
+    "image_sha256": "891afddb0debd057010516cbd342f7b37043079dc0e6947ffb9a81dbf582efc0",
+    "settings_receipt": "[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering high | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  },
+  {
+    "view": {
+      "name": "entities",
+      "spawn": [
+        6.25,
+        3.5,
+        0
+      ],
+      "camera": [
+        0,
+        -15
+      ],
+      "purpose": "left static and right spawned identical Home chair: fixed static/entity lighting comparison"
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "full",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "15bf22f2a0c2af0dee775879f677d77035b397374bccd553880bdeabffd6caf5",
+      "package_sha256": "a04c08a54651ce6fce794ccf41f2dac8c909ac3ed704d6ba6efea7cf6c72caae",
+      "source_sha256": "743c1cf3a900570cc163c9d2f1636118e0f8f36989ee82fcbeabd78560675bc0",
+      "camera_manifest_sha256": "0cba6a4b791b62cd3fe6a4af07f5a9ab8c971e0b360b990a7ec11fe8e614e6d2",
+      "capture_tool_sha256": "a382242567519ee3609bc4b1c015151360e4e71686e3ba7ebd385cfac165f73c",
+      "catalog_sha256": "85b0489a2d01ee1ffd0bcabb34ca64fabc24c4a45d5340ba6d79b7660ecf7d0a",
+      "asset_root": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4",
+      "git_revision": "2615b9bc787a116bca1d9bc9d9deb855ed87724d",
+      "git_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "diagnostic": null,
+    "quality_cycle": null,
+    "entity_light_trace": false,
+    "graphics_cycle": null,
+    "capture_frame": null,
+    "lighting_sequence": null,
+    "sequence_captures": [],
+    "lighting_sequence_input": null,
+    "diagnostic_receipt": null,
+    "ready_world_seconds": 0.5,
+    "measured_frames": 0,
+    "elapsed_seconds": 1.167132250033319,
+    "exit_code": 0,
+    "image_sha256": "980777a865453dacaacffc8cd44c64d94149686af87782aea4ff1075335b6372",
+    "settings_receipt": "[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering high | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  },
+  {
+    "view": {
+      "name": "corner",
+      "spawn": [
+        6.65,
+        4.7,
+        0
+      ],
+      "camera": [
+        137,
+        12
+      ],
+      "purpose": "ceiling/wall/floor junction and passage topology, same paint on adjoining slabs"
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "full",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "15bf22f2a0c2af0dee775879f677d77035b397374bccd553880bdeabffd6caf5",
+      "package_sha256": "a04c08a54651ce6fce794ccf41f2dac8c909ac3ed704d6ba6efea7cf6c72caae",
+      "source_sha256": "743c1cf3a900570cc163c9d2f1636118e0f8f36989ee82fcbeabd78560675bc0",
+      "camera_manifest_sha256": "0cba6a4b791b62cd3fe6a4af07f5a9ab8c971e0b360b990a7ec11fe8e614e6d2",
+      "capture_tool_sha256": "a382242567519ee3609bc4b1c015151360e4e71686e3ba7ebd385cfac165f73c",
+      "catalog_sha256": "85b0489a2d01ee1ffd0bcabb34ca64fabc24c4a45d5340ba6d79b7660ecf7d0a",
+      "asset_root": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4",
+      "git_revision": "2615b9bc787a116bca1d9bc9d9deb855ed87724d",
+      "git_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "diagnostic": null,
+    "quality_cycle": null,
+    "entity_light_trace": false,
+    "graphics_cycle": null,
+    "capture_frame": null,
+    "lighting_sequence": null,
+    "sequence_captures": [],
+    "lighting_sequence_input": null,
+    "diagnostic_receipt": null,
+    "ready_world_seconds": 0.5,
+    "measured_frames": 0,
+    "elapsed_seconds": 1.1727640409953892,
+    "exit_code": 0,
+    "image_sha256": "4b85a43226f9bf4bcfc6ee5bd7ebef27f7b6f55f0323e43daedf5175397723b7",
+    "settings_receipt": "[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering high | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  }
+]

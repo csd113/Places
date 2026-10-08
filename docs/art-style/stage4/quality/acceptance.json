@@ -718,7 +718,17 @@
       }
     ],
     "restored_final_pixel_identical": true,
-    "log": "docs/art-style/stage4/quality/independent/run-v2/entities.log"
+    "log": "docs/art-style/stage4/quality/independent/run-v2/entities.log",
+    "texture_storage_scope": {
+      "prop_texture_bytes": 5264704,
+      "world_texture_cache_resident_bytes": [
+        53127840
+      ],
+      "world_max_edge": 1024,
+      "world_report_count": 8,
+      "cache_uploads_after_initial": 0,
+      "meaning": "prop receipt and world cache accounting separately; filtering changes samplers independently"
+    }
   },
   "failed_recorder_attempts": {
     "actors/run-v1": "capture parents missing; no native PNG, excluded visual evidence",
