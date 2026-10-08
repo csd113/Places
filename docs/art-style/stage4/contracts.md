@@ -26,6 +26,11 @@ still absent from the base field. Static switch groups retain their prepared
 layers. This difference in inputs must be identified in comparisons.
 
 Legacy PLPF v2 retains its combined centre sample and does not add selected direct.
+Every newly solved field is v3, including indirect-only and switch-only scenes:
+an empty always-on source list retains one zero direct coefficient per probe.
+This presence marker enables spatial interpolation and reserved switched sources;
+it cannot carry nonzero direct energy without a source. Solver revision 15
+invalidates earlier cached fields that omitted this contract.
 Readers reject malformed lengths, labels, source IDs, energy and residual moments.
 Trusted constructed fields are validated before publication; per-frame sampling
 is not a recovery mechanism for malformed packages.

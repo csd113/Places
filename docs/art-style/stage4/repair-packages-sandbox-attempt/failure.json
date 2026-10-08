@@ -1,0 +1,11 @@
+{
+  "command": [
+    "python3",
+    "/tmp/places-stage4-repair-packages.py"
+  ],
+  "exit": 1,
+  "cause": "Metal unavailable in sandbox during required offline reflection capture",
+  "compiler_exit": 1,
+  "package_created": false,
+  "action": "Retry identical hero-only build through supported reviewed native execution; no flags/features disabled."
+}

@@ -106,3 +106,19 @@ Failed trace attempts are retained: `before-1` found an already-exited PID;
 They supply no GPU metrics. Corrected successful runs have explicit `trace_exit:0`
 and `native_exit:0`; full process-inventory TOC/raw tables stay outside tracked
 reports, while summaries contain only the owned Places process.
+
+## Solver-15 final-audit correction
+
+The [zero-source repair](zero-source-repair.md) preserves v3 spatial presence in
+new indirect-only and switch-only fields. Those fields now retain `4 + 24*count`
+serialized bytes and `32*count` CPU coefficient bytes, excluding containers, where
+revision 14 wrote legacy v2. This cost is derived from the actual codec/layout;
+no separate GPU probe lattice is introduced. All five accepted hero controls
+already retain selected sources, so their field sizes and runtime shader work
+are unchanged. Refreshed package payload equality is checked separately. Existing
+CPU/GPU samples describe the accepted shader and payloads; they are not relabeled
+as measurements of the refreshed binary.
+
+The conservative global caster invalidation cost remains an explicit Stage 6
+profiling lead in the shared ledger. Stage 4 accepts its measured correctness and
+cost; no visibility contract is weakened to reduce this number.

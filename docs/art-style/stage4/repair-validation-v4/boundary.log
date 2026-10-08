@@ -1,0 +1,11 @@
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.11s
+     Running unittests src/lib.rs (target/debug/deps/places-db4822a0463dd4cf)
+
+running 5 tests
+test render::boundary_tests::only_the_wgpu_backend_and_facade_name_wgpu ... ok
+test render::boundary_tests::the_neutral_layer_does_not_depend_on_the_backend ... ok
+test render::boundary_tests::the_engine_bootstrap_owns_no_platform_gpu_calls ... ok
+test render::boundary_tests::the_player_never_invokes_static_preparation ... ok
+test render::boundary_tests::engine_modules_do_not_import_a_renderer_backend ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 2120 filtered out; finished in 0.07s

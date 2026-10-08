@@ -57,28 +57,29 @@ def read_field(data):
             raise ValueError("missing PLPF selected direct extension")
         light_count, = struct.unpack_from("<I", data, base_end)
         direct_start = base_end + 4 + light_count * 4
-        expected_end = direct_start + (count * 24 if light_count else 0)
+        expected_end = direct_start + count * 24
         if light_count > 8 or len(data) != expected_end:
             raise ValueError("invalid PLPF selected direct length")
         selected = struct.unpack_from(f"<{light_count}I", data, base_end + 4)
         if any(a >= b for a, b in zip(selected, selected[1:])):
             raise ValueError("invalid PLPF selected source order")
-        if light_count:
-            for probe, direct in zip(probes, struct.iter_unpack("<6f", data[direct_start:])):
-                means, moment = direct[:3], direct[3:]
-                if not all(math.isfinite(value) for value in direct) or min(means) < 0 or max(means) > 65504:
-                    raise ValueError("invalid selected direct energy")
-                tolerance = sum(probe["irradiance"]) * 32 * 2**-23
-                if math.sqrt(sum(value * value for value in moment)) > sum(means) * (1 + 32 * 2**-23):
-                    raise ValueError("selected direct moment exceeds energy")
-                residual = tuple(total - local for total, local in zip(probe["irradiance"], means))
-                remaining_moment = tuple(total - local for total, local in zip(probe["moment"], moment))
-                if min(residual) < -tolerance or math.sqrt(sum(value * value for value in remaining_moment)) > sum(max(0, value) for value in residual) + tolerance:
-                    raise ValueError("invalid selected direct residual")
-                probe["selected_direct"] = means
-                probe["selected_direct_moment"] = moment
-                probe["nonlocal_irradiance"] = tuple(max(0, value) for value in residual)
-                probe["nonlocal_moment"] = remaining_moment
+        for probe, direct in zip(probes, struct.iter_unpack("<6f", data[direct_start:])):
+            means, moment = direct[:3], direct[3:]
+            if not all(math.isfinite(value) for value in direct) or min(means) < 0 or max(means) > 65504:
+                raise ValueError("invalid selected direct energy")
+            if not light_count and any(value != 0 for value in direct):
+                raise ValueError("selected direct energy has no source")
+            tolerance = sum(probe["irradiance"]) * 32 * 2**-23
+            if math.sqrt(sum(value * value for value in moment)) > sum(means) * (1 + 32 * 2**-23):
+                raise ValueError("selected direct moment exceeds energy")
+            residual = tuple(total - local for total, local in zip(probe["irradiance"], means))
+            remaining_moment = tuple(total - local for total, local in zip(probe["moment"], moment))
+            if min(residual) < -tolerance or math.sqrt(sum(value * value for value in remaining_moment)) > sum(max(0, value) for value in residual) + tolerance:
+                raise ValueError("invalid selected direct residual")
+            probe["selected_direct"] = means
+            probe["selected_direct_moment"] = moment
+            probe["nonlocal_irradiance"] = tuple(max(0, value) for value in residual)
+            probe["nonlocal_moment"] = remaining_moment
     return {"origin": (x, y, z), "cell_m": cell, "dims": (nx, ny, nz), "probes": probes,
             "record_version": version, "selected_light_indices": selected}
 

@@ -117,7 +117,7 @@
         "assets/levels/winter.json"
       ],
       "symbol_or_format": "source/packages/benchmark reference ledger",
-      "observed_failure": "These packages are unchanged at Stage1. Later renderer/compiler changes can invalidate their prepared identities even when source JSON remains valid. Stage2 advances geometry revision to4, solver revision to12, props record to4 and probe positions to3/HDR. Legacy props v3 and probe v2 readers remain supported. Shipped non-hero packages are deliberately not rebaked. Stage3 advances geometry revision to5 and solver revision to13, with resolved architectural PNG reflectance/alpha, inclusive endpoint charts and physical footprints. Non-hero packages are still deliberately not rebaked. Stage4 advances solver revision to14, PLPF selected-direct sidecar to3 and PLMP caster claim flags to5; legacy PLPF v2 and PLMP v3/v4 remain readable. Only original/additive hero controls are compiled. Stage7 must inventory final format/fingerprint and claim metadata across supported maps.",
+      "observed_failure": "These packages are unchanged at Stage1. Later renderer/compiler changes can invalidate their prepared identities even when source JSON remains valid. Stage2 advances geometry revision to4, solver revision to12, props record to4 and probe positions to3/HDR. Legacy props v3 and probe v2 readers remain supported. Shipped non-hero packages are deliberately not rebaked. Stage3 advances geometry revision to5 and solver revision to13, with resolved architectural PNG reflectance/alpha, inclusive endpoint charts and physical footprints. Non-hero packages are still deliberately not rebaked. Stage4 advances solver revision to14, then15 to retain the spatial marker for zero-selected-source fields, PLPF selected-direct sidecar to3 and PLMP caster claim flags to5; legacy PLPF v2 and PLMP v3/v4 remain readable. Only original/additive hero controls are compiled. Stage7 must inventory final format/fingerprint and claim metadata across supported maps.",
       "reason_for_deferral": "Stages1\u20136 compile/bake and visually accept only the hero. Stage7 owns supported-map compatibility/regression, not broad concept refinement.",
       "required_resolution": "At Stage7 inventory changed fingerprints/dependencies and rebuild only affected packages, preserve old matched evidence, verify all final packages.",
       "final_verification": "Normal compiler currency/integrity, targeted supported-map native compatibility checks, assets and final desktop gate; detailed visual acceptance remains the hero.",
@@ -248,6 +248,21 @@
       "final_verification": "Focused containing-triangle-with-outside-centroid, true unsupported box and partial/hole controls; final hero geometry warning eliminated without mesh/collision edits, then Stage7 supported-map validation.",
       "stage": 7,
       "status": "open; reviewed false positive"
+    },
+    {
+      "id": "moving-caster-global-invalidation-cost",
+      "affected_files": [
+        "src/render/common/light_transport.rs",
+        "src/renderer/scene.rs",
+        "docs/art-style/stage4/performance.md"
+      ],
+      "symbol_or_format": "global caster revision / entity payload cache invalidation",
+      "observed_failure": "Correct conservative global invalidation refreshes every receiver when any admitted caster moves. Stage4 normal wide-camera 32-receiver whole-engine update median/p95 is 7.559/7.672ms moving versus 0.699/0.807ms stationary; active GPU work is 3.567ms versus2.111ms, including payload uploads.",
+      "reason_for_deferral": "Stage4 correctness accepted and measured; Stage6 owns profiling-driven cost reduction without weakening visibility correctness or changing the frozen visual contract.",
+      "required_resolution": "Profile receiver visibility and upload work; reduce invalidation scope or redundant work only with measured benefit and unchanged hero occlusion/quality behavior.",
+      "final_verification": "Matched native hero motion/door controls, cache correctness tests and comparable CPU/GPU measurements.",
+      "stage": 6,
+      "status": "profiling lead"
     }
   ]
 }

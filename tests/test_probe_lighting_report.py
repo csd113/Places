@@ -49,6 +49,30 @@ class ProbeReportTests(unittest.TestCase):
             struct.pack_into("<" + fmt, data, offset, value)
             with self.assertRaises(ValueError): read_field(data)
 
+    def zero_source_record(self):
+        data = bytearray(self.record())
+        struct.pack_into("<H", data, 4, 3)
+        return bytes(data) + struct.pack("<I6f", 0, 0, 0, 0, 0, 0, 0)
+
+    def test_zero_source_version_three_preserves_spatial_sidecar(self):
+        field = read_field(self.zero_source_record())
+        probe = field["probes"][0]
+        self.assertEqual(field["record_version"], 3)
+        self.assertEqual(field["selected_light_indices"], ())
+        self.assertEqual(probe["selected_direct"], (0, 0, 0))
+        self.assertEqual(probe["selected_direct_moment"], (0, 0, 0))
+        self.assertEqual(probe["nonlocal_irradiance"], probe["irradiance"])
+        self.assertEqual(probe["nonlocal_moment"], probe["moment"])
+        self.assertNotIn("selected_direct", read_field(self.record())["probes"][0])
+
+    def test_zero_source_version_three_requires_aligned_zero_coefficients(self):
+        for data in (self.zero_source_record()[:-1], self.zero_source_record()[:-24]):
+            with self.assertRaises(ValueError): read_field(data)
+        for channel in range(6):
+            data = bytearray(self.zero_source_record())
+            struct.pack_into("<f", data, 38 + 36 + 4 + channel * 4, 0.01)
+            with self.assertRaises(ValueError): read_field(data)
+
     def test_single_direction_neutral_diffuse_is_exact(self):
         self.assertEqual(reconstruct((0.25,0.125,0),(0,0.375,0),(0,1,0)),(0.5,0.25,0))
         self.assertEqual(reconstruct((0.25,0.125,0),(0,0.375,0),(0,-1,0)),(0,0,0))

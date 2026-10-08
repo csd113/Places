@@ -1,7 +1,7 @@
 # Stage 4 — light that follows objects
 
 2026-10-08 UTC · [Contracts](contracts.md) · [Measured costs](performance.md) ·
-[Validation and publication](handoff.md) · [Chronological journal](../../style-upgrade-20261007/README.md)
+[Validation and publication](handoff.md) · [Final-audit correction](zero-source-repair.md) · [Chronological journal](../../style-upgrade-20261007/README.md)
 
 Movable chairs and characters now carry spatial residual irradiance and evaluate
 important practical lights at their actual fragments. Stable source identities,
@@ -122,7 +122,7 @@ Eight inset bind-bounds anchors and clamped pose support are approximations.
 Characters provide floor bounds proxies, not full posed body ray shadows; rigid
 objects use actual triangle/PNG-alpha casters. Eight soft footprints add no draw
 or texture and cap total diffuse removal at 22%. Doors do not recompute static atlas direct or indirect; moving ray occlusion
-applies to entity receivers and floor footprints provide approximate static grounding. Legacy v2/no-selected-source fields retain the prior center path.
+applies to entity receivers and floor footprints provide approximate static grounding. Genuine legacy v2 fields retain the prior center path. Newly solved indirect-only and switch-only fields preserve spatial sampling through a validated zero direct sidecar.
 The conservative global caster revision costs 7.56 ms whole-engine update for
 32 receivers while one caster moves, versus 0.70 ms stationary. The measured
 original-view GPU increase is 0.306 ms. [Performance](performance.md) reports

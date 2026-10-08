@@ -254,7 +254,10 @@ pub fn solver_fingerprint() -> u64 {
 /// - 13: MASK rays evaluate authored coverage, BLEND rays attenuate straight
 ///   paths, finite sources integrate per-tap cosines and moments, and physical
 ///   chart sample pitch is retained independently of atlas rounding.
-pub const SOLVER_REVISION: u64 = 14;
+/// - 14: selected always-on sources retain separate direct probe coefficients.
+/// - 15: every solved field retains the spatial runtime contract, including
+///   zero selected-source fields with aligned zero direct coefficients.
+pub const SOLVER_REVISION: u64 = 15;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;
@@ -3281,7 +3284,7 @@ fn bake_probe_field(
             u32::try_from(dims[2]).unwrap_or(u32::MAX),
         ],
         probes,
-        local_direct: (!scene.runtime_direct_lights.is_empty()).then(|| ProbeDirectField {
+        local_direct: Some(ProbeDirectField {
             light_indices: scene
                 .runtime_direct_lights
                 .iter()

@@ -1,0 +1,16 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--workspace"
+  ],
+  "status": "interrupted after new in-scope boundary guard failure",
+  "passed": false,
+  "terminated_owned_pids": [
+    72153,
+    72718,
+    72937
+  ],
+  "cause": "Fixture construction used LevelLighting::bake inside src/package/world.rs; guard deliberately scans that player file including inline tests.",
+  "resolution": "Move only the new fixture/test into cfg(test) world/irradiance_tests.rs; boundary validator remains unchanged."
+}

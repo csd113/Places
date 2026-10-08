@@ -130,6 +130,53 @@ mod tests {
         .map_err(|error| error.to_string())
     }
 
+    fn floor_charts() -> Vec<(
+        crate::lighting::lightmap::LightmapPatch,
+        crate::lighting::lightmap::Chart,
+    )> {
+        use crate::lighting::lightmap::{Chart, LightmapPatch, PatchKind};
+        vec![(
+            LightmapPatch {
+                origin: [10.0, 10.0, 26.0],
+                u_axis: [6.0, 0.0, 0.0],
+                v_axis: [0.0, 0.0, -6.0],
+                diagonal_correction: [0.0; 3],
+                triangle: false,
+                room: Some(0),
+                kind: PatchKind::Floor,
+            },
+            Chart {
+                page: 0,
+                x: 0,
+                y: 0,
+                width: 4,
+                height: 4,
+            },
+        )]
+    }
+
+    fn assert_zero_selected_spatial_field(field: &ProbeField) -> Result<(), String> {
+        let sidecar = field
+            .local_direct
+            .as_ref()
+            .ok_or("spatial sidecar missing")?;
+        assert_eq!(sidecar.light_indices, [0_u32; 0]);
+        assert_eq!(sidecar.probes.len(), field.probes.len());
+        assert!(
+            sidecar
+                .probes
+                .iter()
+                .all(|probe| *probe == crate::lighting::lightmap::LightmapTexel::ZERO)
+        );
+        assert!(
+            field
+                .probes
+                .iter()
+                .any(crate::lighting::probes::ProbeSample::is_valid)
+        );
+        Ok(())
+    }
+
     #[test]
     fn world_offsets_floor_regions_and_real_vertical_spans_bound_probes() -> Result<(), String> {
         let level = level()?;
@@ -158,7 +205,6 @@ mod tests {
     /// compiler air labels and the runtime entity selector.
     #[test]
     fn solved_probe_round_trips_into_runtime_entity_lighting() -> Result<(), String> {
-        use crate::lighting::lightmap::{Chart, LightmapPatch, PatchKind};
         use crate::lighting::transport::SolveOptions;
         use crate::render::{EntityLightingSource, entity_lighting};
 
@@ -168,37 +214,36 @@ mod tests {
         let scene = TransportScene::new(Vec::new(), Vec::new())
             .ok_or("scene")?
             .with_sky(sky);
-        let charts = [(
-            LightmapPatch {
-                origin: [10.0, 10.0, 26.0],
-                u_axis: [6.0, 0.0, 0.0],
-                v_axis: [0.0, 0.0, -6.0],
-                diagonal_correction: [0.0; 3],
-                triangle: false,
-                room: Some(0),
-                kind: PatchKind::Floor,
-            },
-            Chart {
-                page: 0,
-                x: 0,
-                y: 0,
-                width: 4,
-                height: 4,
-            },
-        )];
+        let charts = floor_charts();
         let mut field = scene
             .solve_with_probes(&charts, SolveOptions::default(), None, true)
             .map_err(|error| format!("{error:?}"))?
             .probes
             .ok_or("no field")?;
         label(&mut field, &level, &lighting, &scene, &[], "test");
+        assert_zero_selected_spatial_field(&field)?;
         let bytes = field.write()?;
         let decoded = ProbeField::read(&bytes)?;
+        assert_zero_selected_spatial_field(&decoded)?;
         assert_eq!(
             decoded, field,
             "serialization preserves f32 coefficients and labels"
         );
         let position = [13.0, 10.75, 23.0];
+        assert!(
+            crate::render::entity_spatial_lighting(
+                &lighting,
+                Some(&decoded),
+                crate::spatial::Aabb {
+                    min: [-0.1; 3],
+                    max: [0.1; 3]
+                },
+                glam::Mat4::from_translation(glam::Vec3::from_array(position)),
+                Some(&scene),
+            )
+            .is_some(),
+            "sky-only v3 uses the spatial runtime path"
+        );
         let candidates = decoded.sample_diagnostics_with_rooms(position, None, |probe, label| {
             lighting.labelled_probe_visible_from(position, probe, label)
         });
@@ -228,6 +273,87 @@ mod tests {
         for (value, expected) in texel.light_at([0.0, 1.0, 0.0]).into_iter().zip(sky) {
             assert!((value - expected).abs() < 1.0e-5);
         }
+        Ok(())
+    }
+
+    #[test]
+    fn authored_switch_only_probe_solve_labels_and_reload_preserve_spatial_base()
+    -> Result<(), String> {
+        use crate::lighting::transport::SolveOptions;
+        use crate::render::{build_transport_scene, switchable_lights};
+
+        let mut level = LevelDef::from_json(
+            r#"{
+            "format_version":3,"id":"switch_only_probes","name":"Switch-only probes",
+            "spawn":{"x":13,"z":23},
+            "rooms":[{"x":10,"z":20,"width":6,"depth":6,"floor_y":10,"height":3}],
+            "ceiling_lights":[{"id":"switch_only","fixture":"core:fluorescent_panel_01",
+                "x":13,"z":23,"align":"none","brightness":1,"switchable":true}]
+        }"#,
+        )
+        .map_err(|error| error.to_string())?;
+        let lighting = LevelLighting::bake(&level);
+        assert_eq!(lighting.lights().len(), 1);
+        assert_eq!(switchable_lights(&level, &lighting), vec![0]);
+        let charts = floor_charts();
+        let mesh = crate::render::LevelMesh {
+            ranges: Vec::new(),
+            batches: crate::render::LevelMeshBatches::default(),
+            vertex_count: 0,
+            index_count: 0,
+        };
+        let materials = crate::materials::MaterialTable::default();
+        let (transport_scene, stats) =
+            build_transport_scene(&level, &mesh, &[], &materials, &lighting, &charts)
+                .ok_or("authored switch scene")?;
+        assert_eq!(stats.emitters, 1);
+        assert_eq!(stats.switchable_emitters, 1);
+        let scene = transport_scene.with_sky([0.0; 3]);
+        let solved = scene
+            .solve_with_probes(&charts, SolveOptions::default(), None, true)
+            .map_err(|error| format!("{error:?}"))?;
+        assert!(solved.solution.switchable.iter().any(|(_, switch_charts)| {
+            switch_charts.iter().any(|chart| {
+                chart
+                    .texels
+                    .iter()
+                    .any(|texel| texel.irradiance.iter().any(|value| *value > 0.0))
+            })
+        }));
+        let mut field = solved.probes.ok_or("switch-only field")?;
+        label(&mut field, &level, &lighting, &scene, &[], "test-switch");
+        assert_zero_selected_spatial_field(&field)?;
+        let decoded = ProbeField::read(&field.write()?)?;
+        assert_eq!(decoded, field);
+        assert_zero_selected_spatial_field(&decoded)?;
+        assert!(decoded.probes.iter().all(|probe| probe.room == 0_i32));
+
+        level.ceiling_lights.clear();
+        let unlit = LevelLighting::bake(&level);
+        let (unlit_scene, _) =
+            build_transport_scene(&level, &mesh, &[], &materials, &unlit, &charts)
+                .ok_or("unlit control scene")?;
+        let without_switch = unlit_scene.with_sky([0.0; 3]);
+        let control = without_switch
+            .solve_with_probes(&charts, SolveOptions::default(), None, true)
+            .map_err(|error| format!("{error:?}"))?;
+        assert_eq!(
+            solved.solution.charts, control.solution.charts,
+            "switch-only energy stays outside the base atlas"
+        );
+        let mut control_field = control.probes.ok_or("control field")?;
+        label(
+            &mut control_field,
+            &level,
+            &unlit,
+            &without_switch,
+            &[],
+            "test-control",
+        );
+        assert_eq!(
+            decoded.probes, control_field.probes,
+            "switch-only energy stays outside base probes"
+        );
         Ok(())
     }
 

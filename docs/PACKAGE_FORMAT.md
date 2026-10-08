@@ -480,7 +480,10 @@ unique and valid indices into packaged lighting; their bounded count is at most
 eight. The sidecar has no independent probe count: its length uses the shared field
 `count`, and it adds `4 + 4*selected_source_count + 24*count` bytes. It contains
 incident energy, with no material albedo or gamma conversion. Readers validate
-nonnegative combined-minus-selected energy and the residual moment bound. Version
+nonnegative combined-minus-selected energy and the residual moment bound. A zero
+selected-source count still requires all `count` coefficients, each with zero
+mean and moment. This preserves the v3 spatial contract for indirect-only and
+switch-only scenes; it does not encode switched energy in the baked base. Version
 2 has no sidecar, keeps the combined centre-sample runtime path and re-encodes as
 version 2. Unsupported/malformed records are rejected without repairing energy.
 
@@ -493,7 +496,7 @@ one connected air region; a short divider must not leak light merely because air
 connects above it. Invalid corner support can reuse a compatible visible centre
 or corner; unreachable support remains zero. Valid dark samples remain dark.
 
-Solver revision 14 changes the bake identity and invalidates package/lightmap
+Solver revision 15 changes the bake identity and invalidates package/lightmap
 fingerprints; rebuild current outputs. See
 [Probe baker audit](PROBE_BAKER_AUDIT.md) for diagnostics, regression evidence and
 remaining compiler/runtime limitations, and [Stage 4 contracts](art-style/stage4/contracts.md)

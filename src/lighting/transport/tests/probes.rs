@@ -488,6 +488,38 @@ fn selected_runtime_source_sidecar_preserves_combined_energy_and_unselected_ligh
 }
 
 #[test]
+fn no_selected_source_bakes_preserve_the_spatial_sidecar_contract() {
+    for (emitters, sky) in [(Vec::new(), [0.0; 3]), (Vec::new(), [0.2; 3])] {
+        let scene = TransportScene::new(Vec::new(), emitters)
+            .expect("scene")
+            .with_sky(sky);
+        let mut field = bake(&scene, 1, 1).probes.expect("field");
+        assert_eq!(field, bake(&scene, 1, 12).probes.expect("parallel field"));
+        let sidecar = field.local_direct.as_ref().expect("spatial sidecar");
+        assert_eq!(sidecar.light_indices, [0_u32; 0]);
+        assert_eq!(sidecar.probes.len(), field.probes.len());
+        assert!(
+            sidecar
+                .probes
+                .iter()
+                .all(|value| *value == LightmapTexel::ZERO)
+        );
+        let bytes = field.write().expect("serialize new field");
+        assert_eq!(u16::from_le_bytes([bytes[4], bytes[5]]), 3);
+        assert_eq!(ProbeField::read(&bytes).expect("read new field"), field);
+        field.assign_rooms(|_| Some(0));
+        for id in 0..field.probes.len() {
+            let position = field.probe_position(id).expect("lattice position");
+            assert_eq!(
+                field.sample_nonlocal_filtered_with_rooms(position, Some(0), |_, _| true),
+                field.sample(position, Some(0)),
+                "zero selected energy preserves the complete prepared field"
+            );
+        }
+    }
+}
+
+#[test]
 fn invalid_runtime_source_mapping_and_switchable_selection_fail_the_solve() {
     let mut switched = point([3.0, 2.5, 3.0], 1.0);
     switched.switchable = Some(0);

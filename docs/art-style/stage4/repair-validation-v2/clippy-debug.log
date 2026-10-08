@@ -1,0 +1,106 @@
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+error: used `assert!` to check that a value is empty
+   --> src/compiler/probes.rs:163:9
+    |
+163 |         assert!(sidecar.light_indices.is_empty());
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#assert_is_empty
+    = note: `-D clippy::assert-is-empty` implied by `-D clippy::pedantic`
+    = help: to override `-D clippy::pedantic` add `#[allow(clippy::assert_is_empty)]`
+help: use `assert_eq!` to show the value on failure
+    |
+163 -         assert!(sidecar.light_indices.is_empty());
+163 +         assert_eq!(sidecar.light_indices, [] as [u32; 0]);
+    |
+
+error: `scene` is shadowed
+   --> src/compiler/probes.rs:311:13
+    |
+311 |         let scene = scene.with_sky([0.0; 3]);
+    |             ^^^^^
+    |
+note: previous binding is here
+   --> src/compiler/probes.rs:306:14
+    |
+306 |         let (scene, stats) =
+    |              ^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_reuse
+    = note: requested on the command line with `-D clippy::shadow-reuse`
+
+error: `charts` shadows a previous, unrelated binding
+   --> src/compiler/probes.rs:320:27
+    |
+320 |                 .any(|(_, charts)| charts.iter().any(|chart| chart
+    |                           ^^^^^^
+    |
+note: previous binding is here
+   --> src/compiler/probes.rs:298:13
+    |
+298 |         let charts = floor_charts();
+    |             ^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_unrelated
+    = note: requested on the command line with `-D clippy::shadow-unrelated`
+
+error: default numeric fallback might occur
+   --> src/compiler/probes.rs:331:65
+    |
+331 |         assert!(decoded.probes.iter().all(|probe| probe.room == 0));
+    |                                                                 ^ help: consider adding suffix: `0_i32`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#default_numeric_fallback
+    = note: requested on the command line with `-D clippy::default-numeric-fallback`
+
+error: `without_switch` is shadowed
+   --> src/compiler/probes.rs:338:13
+    |
+338 |         let without_switch = without_switch.with_sky([0.0; 3]);
+    |             ^^^^^^^^^^^^^^
+    |
+note: previous binding is here
+   --> src/compiler/probes.rs:335:14
+    |
+335 |         let (without_switch, _) =
+    |              ^^^^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_reuse
+
+error: used `assert!` to check that a value is empty
+   --> src/lighting/transport/tests/probes.rs:499:9
+    |
+499 |         assert!(sidecar.light_indices.is_empty());
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#assert_is_empty
+help: use `assert_eq!` to show the value on failure
+    |
+499 -         assert!(sidecar.light_indices.is_empty());
+499 +         assert_eq!(sidecar.light_indices, [] as [u32; 0]);
+    |
+
+error: used `assert!` to check that a value is empty
+   --> src/package/world.rs:855:17
+    |
+855 |                 assert!(direct.light_indices.is_empty());
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#assert_is_empty
+help: use `assert_eq!` to show the value on failure
+    |
+855 -                 assert!(direct.light_indices.is_empty());
+855 +                 assert_eq!(direct.light_indices, [] as [u32; 0]);
+    |
+
+error: used `assert!` to check that a value is empty
+    --> src/render/common/light_transport.rs:1614:9
+     |
+1614 |         assert!(direct.light_indices.is_empty());
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#assert_is_empty
+help: use `assert_eq!` to show the value on failure
+     |
+1614 -         assert!(direct.light_indices.is_empty());
+1614 +         assert_eq!(direct.light_indices, [] as [u32; 0]);
+     |
+
+error: could not compile `places` (lib test) due to 8 previous errors

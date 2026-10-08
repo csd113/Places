@@ -566,8 +566,8 @@ fn the_tone_map_preserves_the_calibrated_range_and_compresses_highlights() {
 #[test]
 fn the_solver_fingerprint_is_stable_and_distinct_from_the_lighting_model() {
     assert_eq!(
-        SOLVER_REVISION, 14,
-        "separated selected local direct probe coefficients are solver revision 14"
+        SOLVER_REVISION, 15,
+        "zero-source spatial probe fields require solver revision 15"
     );
     let first = solver_fingerprint();
     assert_eq!(

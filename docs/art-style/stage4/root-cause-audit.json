@@ -35,5 +35,12 @@
     "repair": "generic min(1cm,2% axis) local support inset and matching shader interpolation coordinates; finite world support checked",
     "focused_test": "15 light_transport tests passed, including real frame/leaf, thin and nonuniform support",
     "native_final": "PASS final closed/open/restored: 8 valid residual anchors, detailed grey leaf, neighbor receiver source visibility changes, exact original leaf/receiver payload restored"
+  },
+  "final_audit_zero_source_contract": {
+    "intermediate_revision": "c6b1efe85a87a969ae7c2405e284f9ea5ceada96",
+    "cause": "Actual solver omitted selected-direct sidecar when no always-on source was selected. The writer rejected constructed empty v3 fields and the reader collapsed count zero to None, disabling spatial and switch-only live entity paths.",
+    "repair": "Solver15 always emits aligned v3 sidecar; zero source list requires zero coefficients and reader preserves presence. Genuine v2 remains legacy.",
+    "regression_scope": "authored switchable classification, compiler labels, solver base exclusion, codec corruption/roundtrip, actual variant decode, runtime residual and on/off/on cache restoration",
+    "reference": "zero-source-repair.md"
   }
 }

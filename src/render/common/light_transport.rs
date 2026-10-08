@@ -1607,6 +1607,18 @@ mod tests {
             light_indices: Vec::new(),
             probes: vec![crate::lighting::lightmap::LightmapTexel::ZERO],
         });
+        let encoded = field.write().expect("empty selected-source field");
+        field = crate::lighting::probes::ProbeField::read(&encoded)
+            .expect("serialized switch-only runtime field");
+        let direct = field.local_direct.as_ref().expect("v3 presence marker");
+        assert_eq!(direct.light_indices, [0_u32; 0]);
+        assert_eq!(direct.probes.len(), field.probes.len());
+        assert!(
+            direct
+                .probes
+                .iter()
+                .all(|sample| *sample == crate::lighting::lightmap::LightmapTexel::ZERO)
+        );
         let emitter =
             TransportEmitter::from_baked(lighting.lights().first().expect("source"), Some(0));
         let scene = TransportScene::new(Vec::new(), vec![emitter]).expect("switchable scene");
@@ -1660,6 +1672,11 @@ mod tests {
             })
         );
         assert!(lighting.set_light_enabled(0, true));
+        assert_eq!(
+            entity_spatial_key(&lighting, Some(&field), glam::Mat4::IDENTITY, Some(&scene)),
+            on_key,
+            "serialized-field source identity restores the original cache key"
+        );
         let restored = entity_spatial_lighting(
             &lighting,
             Some(&field),

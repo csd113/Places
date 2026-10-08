@@ -4,6 +4,8 @@
 [root-cause audit](root-cause-audit.json) and [measured costs](performance.md)
 are the Stage 4 result. Publication and snapshot verification are appended once
 their exact identities exist; repository custody is released only after final CI.
+The [solver-15 final-audit correction](zero-source-repair.md) supersedes the
+zero-selected-source limitation and appends its own validation/bundle publication.
 
 ## Entry and ownership
 
@@ -93,8 +95,9 @@ approximations into general simulation: eight support corners/clamped bind bound
 body rays remain. Static atlas direct and indirect remain baked during door movement; current ray
 occlusion applies to entity receivers, while static floor grounding uses the
 bounded footprint approximation. Entity
-switchable diffuse bounce is absent from base probes. Legacy v2 and newly compiled
-fields with no selected always-on source retain center sampling. These are disclosed
+switchable diffuse bounce is absent from base probes. Genuine legacy v2 fields
+retain center sampling; newly solved zero-selected-source fields retain v3 spatial
+sampling and live switch accounting. These are disclosed
 input/feature limits, not brightness compensation or hidden Stage 7 failures.
 
 The global moving-caster revision conservatively refreshes every receiver. The
@@ -111,7 +114,7 @@ warning and nonhero final format/fingerprint migration remain Stage 7 ownership.
 No quality failure is moved into that map ledger. Stage 5 presentation and Stage 6
 measured caching/budget work are not started here.
 
-## Final local checks
+## First frozen implementation local checks
 
 All Rust commands use `RUSTC_WRAPPER=` because configured sccache is unavailable.
 Final strict debug and release all-target/all-feature Clippy exit 0; format exits 0.

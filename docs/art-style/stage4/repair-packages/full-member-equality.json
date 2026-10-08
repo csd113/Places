@@ -1,0 +1,107 @@
+[
+  {
+    "control": "hero",
+    "shared_members": 24,
+    "all_shared_member_bytes_identical": true,
+    "changed_manifest_keys": [
+      "compiler_fingerprint",
+      "lighting_fingerprint",
+      "entries",
+      "variants"
+    ],
+    "changed_members": [
+      "blobs/6f8022fe87e8a7280ca453ba8117d878fa8b897a537cc553192ca9a217fbfc26.lightmaps.json",
+      "blobs/94f40b6005bfcdf6d0cbcec5e039615996fb8e4f16cea71d6bb768e9c1081615.lightmaps.json"
+    ],
+    "removed_members": [
+      "blobs/0260221ea5acc63a974a6d177d1d6192b1d8e555a6dee18eb7135867c10f5690.lightmaps.json",
+      "blobs/ac5df194fd0159d7c66dfe1bcd3bb558d811ffb4f14941f45fd53ac7160ecc0b.lightmaps.json"
+    ],
+    "only_changed_lightmap_metadata_key": "content_key",
+    "only_changed_root_entry_descriptors": "content-addressed lightmap metadata"
+  },
+  {
+    "control": "actors",
+    "shared_members": 24,
+    "all_shared_member_bytes_identical": true,
+    "changed_manifest_keys": [
+      "compiler_fingerprint",
+      "lighting_fingerprint",
+      "entries",
+      "variants"
+    ],
+    "changed_members": [
+      "blobs/64e67e7d90473013a6cc0bad0100bbfac38e953a5d994c73511301f656c4f6c6.lightmaps.json",
+      "blobs/f167394d410f07d3a45a52d7f872dc1e7d2f5dabdf2d23f281dc1371a87b3abf.lightmaps.json"
+    ],
+    "removed_members": [
+      "blobs/268fe335fe98ae37af0d6cb4073dade032558f5ce417c24951bc2ae69851f0b9.lightmaps.json",
+      "blobs/c548d17edf94acf7fb55a88ce84e214b525598e433e81887e6873c2537020d6e.lightmaps.json"
+    ],
+    "only_changed_lightmap_metadata_key": "content_key",
+    "only_changed_root_entry_descriptors": "content-addressed lightmap metadata"
+  },
+  {
+    "control": "switchable",
+    "shared_members": 24,
+    "all_shared_member_bytes_identical": true,
+    "changed_manifest_keys": [
+      "compiler_fingerprint",
+      "lighting_fingerprint",
+      "entries",
+      "variants"
+    ],
+    "changed_members": [
+      "blobs/6c820ef9f41e37958c8a78bfca6e4ad92390cb693196fd7527c41cc77c7194e0.lightmaps.json",
+      "blobs/8ad813ceed8ed46d9638ffdcc0bb2a3d7fa0d23743f4dd140fb5fec5dc9262c9.lightmaps.json"
+    ],
+    "removed_members": [
+      "blobs/380189a5cfd8008c5ff4fbe8d5a975570b4917d1143c77e13da8a436393834d7.lightmaps.json",
+      "blobs/c39843b2af6e3eb27b53846818b6f9ca43e7716bb769437bb388b136b6c9417f.lightmaps.json"
+    ],
+    "only_changed_lightmap_metadata_key": "content_key",
+    "only_changed_root_entry_descriptors": "content-addressed lightmap metadata"
+  },
+  {
+    "control": "movement",
+    "shared_members": 24,
+    "all_shared_member_bytes_identical": true,
+    "changed_manifest_keys": [
+      "compiler_fingerprint",
+      "lighting_fingerprint",
+      "entries",
+      "variants"
+    ],
+    "changed_members": [
+      "blobs/1e50832eacedc9299216f234272fb035e168e92d0752b6e8e01b2ed4f36eb056.lightmaps.json",
+      "blobs/e94b6d31699c2d388e18416bde1e372fb5e7e29a82a3d722161a2977f94ad568.lightmaps.json"
+    ],
+    "removed_members": [
+      "blobs/13e2bbf570d6b5c4abdb7310226bb89a92c758af6aac5caa158743fe22147b8c.lightmaps.json",
+      "blobs/42e62c01443788cb92103906f7ebcbaadf54c894a9b46cab59d06aa9a9abace5.lightmaps.json"
+    ],
+    "only_changed_lightmap_metadata_key": "content_key",
+    "only_changed_root_entry_descriptors": "content-addressed lightmap metadata"
+  },
+  {
+    "control": "comparison",
+    "shared_members": 24,
+    "all_shared_member_bytes_identical": true,
+    "changed_manifest_keys": [
+      "compiler_fingerprint",
+      "lighting_fingerprint",
+      "entries",
+      "variants"
+    ],
+    "changed_members": [
+      "blobs/88a1ae6610d56551eb51c249df3783008c579f1d9194858b5f775c96e534c01f.lightmaps.json",
+      "blobs/b6e7e606eb9060cb2c6375313dab560ac9adaee634cb8913372b10f9ed633c9a.lightmaps.json"
+    ],
+    "removed_members": [
+      "blobs/506375691f496ace96a53e89a5ea0d918c2768c5f97ef212add0d6e1f1499b26.lightmaps.json",
+      "blobs/7c4ba2a4246725d4ad1e9aaef52eaf8f3f8e313eb3be57eceacbe8aee29cc75b.lightmaps.json"
+    ],
+    "only_changed_lightmap_metadata_key": "content_key",
+    "only_changed_root_entry_descriptors": "content-addressed lightmap metadata"
+  }
+]

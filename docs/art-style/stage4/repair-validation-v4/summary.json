@@ -1,0 +1,22 @@
+{
+  "library": {
+    "passed": 2102,
+    "failed": 0,
+    "ignored": 23,
+    "seconds": 483.81
+  },
+  "clippy_debug_exit": 0,
+  "clippy_release_exit": 0,
+  "fmt_exit": 0,
+  "python_probe_tests_passed": 9,
+  "full_local_workspace_passed": false,
+  "workspace_exit": 101,
+  "inherited_local_discovery_failures": 3,
+  "unchanged_failures": [
+    "home_showcase recorded cabinet_base.glb97224/current59144",
+    "geometry_intentional recorded pool_tile_wall_01.png1390031/current30873",
+    "level0_pit recorded pool_guardrail_end.glb65196/current31800"
+  ],
+  "remaining_macos_integration_exit": 0,
+  "exact_clean_source_final_ci_pending": true
+}

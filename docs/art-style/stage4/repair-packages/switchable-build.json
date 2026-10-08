@@ -1,0 +1,118 @@
+{
+  "source": "/Users/connordawkins/Documents/GitHub/Places/tests/fixtures/levels/art_style_hero_stage4_switchable.json",
+  "out": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage4-switchable-v2/art_style_hero.placesmap",
+  "rebuilt": true,
+  "reuse_reason": "",
+  "variants": [
+    "off",
+    "medium",
+    "full"
+  ],
+  "bytes": 9067150,
+  "millis": 9118.898084,
+  "warnings": [],
+  "fingerprint": "d1322467bb863c89bcf729f11b4938933c9d3d73008248fef3b75566732f4ce9",
+  "variant_stats": [
+    {
+      "lightmap_quality": "off",
+      "mesh_ranges": 15,
+      "mesh_vertices": 418,
+      "prop_batches": 18,
+      "lightmap_pages": 0,
+      "lightmap_charts": 0,
+      "irradiance_probes": 0,
+      "probe_points": 1,
+      "wall_boxes": 23,
+      "navigation_cells": 3194,
+      "navigation_regions": 2
+    },
+    {
+      "lightmap_quality": "medium",
+      "mesh_ranges": 15,
+      "mesh_vertices": 312,
+      "prop_batches": 18,
+      "lightmap_pages": 2,
+      "lightmap_charts": 5354,
+      "irradiance_probes": 495,
+      "probe_points": 1,
+      "wall_boxes": 23,
+      "navigation_cells": 3194,
+      "navigation_regions": 2
+    },
+    {
+      "lightmap_quality": "full",
+      "mesh_ranges": 15,
+      "mesh_vertices": 312,
+      "prop_batches": 18,
+      "lightmap_pages": 2,
+      "lightmap_charts": 5354,
+      "irradiance_probes": 495,
+      "probe_points": 1,
+      "wall_boxes": 23,
+      "navigation_cells": 3194,
+      "navigation_regions": 2
+    }
+  ],
+  "phases": [
+    {
+      "phase": "load_validate_prepare_dependencies",
+      "millis": 40.312959
+    },
+    {
+      "phase": "fingerprints",
+      "millis": 0.179917
+    },
+    {
+      "phase": "current_package_integrity",
+      "millis": 0.000083
+    },
+    {
+      "phase": "semantics",
+      "millis": 0.0555
+    },
+    {
+      "phase": "navigation_collision_inputs",
+      "millis": 0.759334
+    },
+    {
+      "phase": "prepared_package_integrity",
+      "millis": 0.000041
+    },
+    {
+      "phase": "capture_device_materials",
+      "millis": 58.336458
+    },
+    {
+      "phase": "prepare_encode_off",
+      "millis": 36.281124999999996
+    },
+    {
+      "phase": "capture_off",
+      "millis": 168.248875
+    },
+    {
+      "phase": "prepare_encode_medium",
+      "millis": 1996.180833
+    },
+    {
+      "phase": "capture_medium",
+      "millis": 150.854958
+    },
+    {
+      "phase": "prepare_encode_full",
+      "millis": 5888.934958
+    },
+    {
+      "phase": "capture_full",
+      "millis": 154.65545799999998
+    },
+    {
+      "phase": "record_hashes_manifest",
+      "millis": 385.482417
+    },
+    {
+      "phase": "archive_compress_publish",
+      "millis": 234.521458
+    }
+  ]
+}

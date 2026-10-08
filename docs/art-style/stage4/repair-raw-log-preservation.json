@@ -1,0 +1,148 @@
+{
+  "entries": [
+    {
+      "raw_path": "debug-maps/art-style-hero/evidence/stage4-raw-logs/ci-intermediate-c6b1efe.log",
+      "raw_bytes": 393394,
+      "raw_sha256": "5d0a374a8678efba0efdd2085d9e91010ae6e35fb088354acbced48d5e744d4d",
+      "tracked_preview": "docs/art-style/stage4/ci-intermediate-c6b1efe.log",
+      "tracked_sha256": "d98f04021889e5bc2bdaff5e9269e7946dad0df16ab22b4117665f7f39ff5171",
+      "normalization": "Trim terminal line-end whitespace only; raw bytes preserved outside target."
+    },
+    {
+      "raw_path": "debug-maps/art-style-hero/evidence/stage4-raw-logs/repair-validation-v2/compiler-probes.log",
+      "raw_bytes": 764,
+      "raw_sha256": "e6460769975e8e7c5b49c05f57fb7c34d87fc6f49e7b85f9a12d9382a1b090ea",
+      "tracked_preview": "docs/art-style/stage4/repair-validation-v2/compiler-probes.log",
+      "tracked_sha256": "96b93686d72c1b6fdc8c0f41502222237fe2d887f4938bc74c7b733ff0ead8e5",
+      "normalization": "Trim terminal line-end whitespace and redundant EOF blank lines only; raw bytes preserved outside target."
+    },
+    {
+      "raw_path": "debug-maps/art-style-hero/evidence/stage4-raw-logs/repair-validation-v2/no-selected-source.log",
+      "raw_bytes": 375,
+      "raw_sha256": "619faff1e1972af092f706e4db53be640ea32da7ca612d003f360a026447b8e0",
+      "tracked_preview": "docs/art-style/stage4/repair-validation-v2/no-selected-source.log",
+      "tracked_sha256": "5a41e4c6cab2440c74d64553651edd04169f90439dd878f5a652e812c7d4c4a7",
+      "normalization": "Trim terminal line-end whitespace and redundant EOF blank lines only; raw bytes preserved outside target."
+    },
+    {
+      "raw_path": "debug-maps/art-style-hero/evidence/stage4-raw-logs/repair-validation-v2/switch-accounting.log",
+      "raw_bytes": 390,
+      "raw_sha256": "bd661bb11cd76b9cd7cd67d98f3f1470235ee7cd3bd6f56bf1e0c6f0ff9a4b8c",
+      "tracked_preview": "docs/art-style/stage4/repair-validation-v2/switch-accounting.log",
+      "tracked_sha256": "a1dd84e632a9dc9bd28139f91e972cf372eb30094a5cc1d3c26b3faa3b10fa9d",
+      "normalization": "Trim terminal line-end whitespace and redundant EOF blank lines only; raw bytes preserved outside target."
+    },
+    {
+      "raw_path": "debug-maps/art-style-hero/evidence/stage4-raw-logs/repair-validation-v2/variant-reader.log",
+      "raw_bytes": 362,
+      "raw_sha256": "4cb349d6f43aa837e1234271c8c83367f6f550844fa00576a2dab60977707c64",
+      "tracked_preview": "docs/art-style/stage4/repair-validation-v2/variant-reader.log",
+      "tracked_sha256": "1d636d0ba9355a277a9cf5f2726bc636de15d0c6bc575e261a05ba4d0e51e93c",
+      "normalization": "Trim terminal line-end whitespace and redundant EOF blank lines only; raw bytes preserved outside target."
+    },
+    {
+      "raw_path": "debug-maps/art-style-hero/evidence/stage4-raw-logs/repair-validation-v2/zero-source.log",
+      "raw_bytes": 549,
+      "raw_sha256": "e459733a3700ec2c3cfca05f49bae862be300f43b42a81272d9c520a6de37c0c",
+      "tracked_preview": "docs/art-style/stage4/repair-validation-v2/zero-source.log",
+      "tracked_sha256": "c16658ff49a412075f6510e8271ae6a6409b7c2205a28bb6f6a0ac72eb171e41",
+      "normalization": "Trim terminal line-end whitespace and redundant EOF blank lines only; raw bytes preserved outside target."
+    },
+    {
+      "raw_path": "debug-maps/art-style-hero/evidence/stage4-raw-logs/repair-validation-v3/compiler-probes.log",
+      "raw_bytes": 764,
+      "raw_sha256": "e6460769975e8e7c5b49c05f57fb7c34d87fc6f49e7b85f9a12d9382a1b090ea",
+      "tracked_preview": "docs/art-style/stage4/repair-validation-v3/compiler-probes.log",
+      "tracked_sha256": "96b93686d72c1b6fdc8c0f41502222237fe2d887f4938bc74c7b733ff0ead8e5",
+      "normalization": "Trim terminal line-end whitespace and redundant EOF blank lines only; raw bytes preserved outside target."
+    },
+    {
+      "raw_path": "debug-maps/art-style-hero/evidence/stage4-raw-logs/repair-validation-v3/no-selected-source.log",
+      "raw_bytes": 375,
+      "raw_sha256": "8ff3ae47c9b6bffa9588f18075968cc9e7eebf30e4f68847b6ff373e758e8b81",
+      "tracked_preview": "docs/art-style/stage4/repair-validation-v3/no-selected-source.log",
+      "tracked_sha256": "001edcecdb5e867cd669017709bf3108a82a12e0002a8eac5fe76d66fc2ab8d3",
+      "normalization": "Trim terminal line-end whitespace and redundant EOF blank lines only; raw bytes preserved outside target."
+    },
+    {
+      "raw_path": "debug-maps/art-style-hero/evidence/stage4-raw-logs/repair-validation-v3/switch-accounting.log",
+      "raw_bytes": 390,
+      "raw_sha256": "bd661bb11cd76b9cd7cd67d98f3f1470235ee7cd3bd6f56bf1e0c6f0ff9a4b8c",
+      "tracked_preview": "docs/art-style/stage4/repair-validation-v3/switch-accounting.log",
+      "tracked_sha256": "a1dd84e632a9dc9bd28139f91e972cf372eb30094a5cc1d3c26b3faa3b10fa9d",
+      "normalization": "Trim terminal line-end whitespace and redundant EOF blank lines only; raw bytes preserved outside target."
+    },
+    {
+      "raw_path": "debug-maps/art-style-hero/evidence/stage4-raw-logs/repair-validation-v3/variant-reader.log",
+      "raw_bytes": 362,
+      "raw_sha256": "4cb349d6f43aa837e1234271c8c83367f6f550844fa00576a2dab60977707c64",
+      "tracked_preview": "docs/art-style/stage4/repair-validation-v3/variant-reader.log",
+      "tracked_sha256": "1d636d0ba9355a277a9cf5f2726bc636de15d0c6bc575e261a05ba4d0e51e93c",
+      "normalization": "Trim terminal line-end whitespace and redundant EOF blank lines only; raw bytes preserved outside target."
+    },
+    {
+      "raw_path": "debug-maps/art-style-hero/evidence/stage4-raw-logs/repair-validation-v3/zero-source.log",
+      "raw_bytes": 549,
+      "raw_sha256": "a031624c84e49397c3f1497966f38c86505c1a1aaf3eb841dffb047ab3f6c8a6",
+      "tracked_preview": "docs/art-style/stage4/repair-validation-v3/zero-source.log",
+      "tracked_sha256": "b4d0b28384e6081808f36a5b021ded6413baa41ed67233386f0a840d66bd7923",
+      "normalization": "Trim terminal line-end whitespace and redundant EOF blank lines only; raw bytes preserved outside target."
+    },
+    {
+      "raw_path": "debug-maps/art-style-hero/evidence/stage4-raw-logs/repair-validation-v4/boundary.log",
+      "raw_bytes": 677,
+      "raw_sha256": "72c24809187f8e2d0fd2df6c44f16aa9327acc80f7992e8718c2849178860ede",
+      "tracked_preview": "docs/art-style/stage4/repair-validation-v4/boundary.log",
+      "tracked_sha256": "fa72fa50c10abc9aea30e52e738c2cc9c541e4e1da6712a3c8dc0ad7a767cb4c",
+      "normalization": "Trim terminal line-end whitespace and redundant EOF blank lines only; raw bytes preserved outside target."
+    },
+    {
+      "raw_path": "debug-maps/art-style-hero/evidence/stage4-raw-logs/repair-validation-v4/compiler-probes.log",
+      "raw_bytes": 764,
+      "raw_sha256": "4ca01ecf89d4916f8d08ba84d2b1ec9680265edb825a548476651c6c1d1780ac",
+      "tracked_preview": "docs/art-style/stage4/repair-validation-v4/compiler-probes.log",
+      "tracked_sha256": "59132b8910f376e0eba24ae4f78eb1e1e0f08720ec1c9d3082dc25d2e0a9a8c4",
+      "normalization": "Trim terminal line-end whitespace and redundant EOF blank lines only; raw bytes preserved outside target."
+    },
+    {
+      "raw_path": "debug-maps/art-style-hero/evidence/stage4-raw-logs/repair-validation-v4/macos-cpu-port.log",
+      "raw_bytes": 344,
+      "raw_sha256": "7efe269b8ab616e25e5623a7aeeef9338b69694ba3f0ca0156d04c20503ea601",
+      "tracked_preview": "docs/art-style/stage4/repair-validation-v4/macos-cpu-port.log",
+      "tracked_sha256": "9325d4a996a69f9a0d81ca7dd2a1c234cc352d59f70765611e5277734da448de",
+      "normalization": "Trim terminal line-end whitespace and redundant EOF blank lines only; raw bytes preserved outside target."
+    },
+    {
+      "raw_path": "debug-maps/art-style-hero/evidence/stage4-raw-logs/repair-validation-v4/no-selected-source.log",
+      "raw_bytes": 375,
+      "raw_sha256": "e2e70d3535680c767f1316155e3953114ad112ed1553b8671d53a1a1955b4723",
+      "tracked_preview": "docs/art-style/stage4/repair-validation-v4/no-selected-source.log",
+      "tracked_sha256": "8c30fb5927d093009e2592acbce2dd66d6d1974493a7274668b74a1591182611",
+      "normalization": "Trim terminal line-end whitespace and redundant EOF blank lines only; raw bytes preserved outside target."
+    },
+    {
+      "raw_path": "debug-maps/art-style-hero/evidence/stage4-raw-logs/repair-validation-v4/switch-accounting.log",
+      "raw_bytes": 390,
+      "raw_sha256": "bd661bb11cd76b9cd7cd67d98f3f1470235ee7cd3bd6f56bf1e0c6f0ff9a4b8c",
+      "tracked_preview": "docs/art-style/stage4/repair-validation-v4/switch-accounting.log",
+      "tracked_sha256": "a1dd84e632a9dc9bd28139f91e972cf372eb30094a5cc1d3c26b3faa3b10fa9d",
+      "normalization": "Trim terminal line-end whitespace and redundant EOF blank lines only; raw bytes preserved outside target."
+    },
+    {
+      "raw_path": "debug-maps/art-style-hero/evidence/stage4-raw-logs/repair-validation-v4/variant-reader.log",
+      "raw_bytes": 373,
+      "raw_sha256": "dc79fca37e296d210c5d1a8fc9174e6765c101d3d8c9d3e5db4cf3a6d88492b6",
+      "tracked_preview": "docs/art-style/stage4/repair-validation-v4/variant-reader.log",
+      "tracked_sha256": "c05e04da4cf7b030f0e369bdcae6bc629e25250ba8fb3a621f4b84251cc5f648",
+      "normalization": "Trim terminal line-end whitespace and redundant EOF blank lines only; raw bytes preserved outside target."
+    },
+    {
+      "raw_path": "debug-maps/art-style-hero/evidence/stage4-raw-logs/repair-validation-v4/zero-source.log",
+      "raw_bytes": 549,
+      "raw_sha256": "7e48c9db8e9f74d72b4938ccbf8dbf2b09eaa2941ea825483ee28f3e228e8c6b",
+      "tracked_preview": "docs/art-style/stage4/repair-validation-v4/zero-source.log",
+      "tracked_sha256": "ace0d7fab3f7f6529cef17e168d8ecff83fd15092ef96fe1156947b7c8cc8e20",
+      "normalization": "Trim terminal line-end whitespace and redundant EOF blank lines only; raw bytes preserved outside target."
+    }
+  ]
+}

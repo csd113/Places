@@ -45,7 +45,9 @@ pub const PROBE_FIELD_MAGIC: [u8; 4] = *b"PLPF";
 ///   the per-channel first moments and the axis pair is reserved. A version-1
 ///   field is rejected.
 /// * `3` — optional separately accumulated local direct coefficients and
-///   stable compiled light indices. Version 2 remains a combined-only field.
+///   stable compiled light indices. A zero-source field retains an aligned
+///   zero sidecar and the spatial runtime contract. Version 2 remains a
+///   combined-only field.
 pub const PROBE_FIELD_RECORD_VERSION: u16 = 3;
 
 /// Maximum globally stable local sources evaluated live for prepared entities.
@@ -115,6 +117,7 @@ pub struct ProbeContribution {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProbeDirectField {
     /// Original indices in `LevelLighting::lights`, in increasing order.
+    /// Empty when the spatial field has no always-on sources to replace.
     pub light_indices: Vec<u32>,
     /// Mean and signed moment for every combined probe, with identical order.
     pub probes: Vec<LightmapTexel>,
@@ -132,7 +135,8 @@ pub struct ProbeField {
     pub dims: [u32; 3],
     /// Probes, `x` fastest then `y` then `z`.
     pub probes: Vec<ProbeSample>,
-    /// Absent in legacy combined-only fields. Never includes switchable lights.
+    /// Absent only in legacy combined-only fields. Never includes switchable
+    /// lights; a newly solved field with no selected sources stores zeroes.
     pub local_direct: Option<ProbeDirectField>,
 }
 
@@ -803,26 +807,22 @@ impl ProbeField {
             if light_count > MAX_RUNTIME_PROBE_LIGHTS {
                 return Err("probe field runtime direct light count is out of range".to_string());
             }
-            if light_count == 0 {
-                None
-            } else {
-                let mut light_indices = Vec::with_capacity(light_count);
-                for _ in 0..light_count {
-                    light_indices.push(cursor.u32()?);
-                }
-                let mut direct_probes = Vec::with_capacity(count);
-                for _ in 0..count {
-                    direct_probes.push(LightmapTexel {
-                        irradiance: [cursor.f32()?, cursor.f32()?, cursor.f32()?],
-                        direction: [cursor.f32()?, cursor.f32()?, cursor.f32()?],
-                        axis: [0.5; 2],
-                    });
-                }
-                Some(ProbeDirectField {
-                    light_indices,
-                    probes: direct_probes,
-                })
+            let mut light_indices = Vec::with_capacity(light_count);
+            for _ in 0..light_count {
+                light_indices.push(cursor.u32()?);
             }
+            let mut direct_probes = Vec::with_capacity(count);
+            for _ in 0..count {
+                direct_probes.push(LightmapTexel {
+                    irradiance: [cursor.f32()?, cursor.f32()?, cursor.f32()?],
+                    direction: [cursor.f32()?, cursor.f32()?, cursor.f32()?],
+                    axis: [0.5; 2],
+                });
+            }
+            Some(ProbeDirectField {
+                light_indices,
+                probes: direct_probes,
+            })
         };
         if !cursor.is_at_end() {
             return Err(format!(
@@ -850,8 +850,7 @@ impl ProbeField {
         let Some(direct) = &self.local_direct else {
             return Ok(());
         };
-        if direct.light_indices.is_empty()
-            || direct.light_indices.len() > MAX_RUNTIME_PROBE_LIGHTS
+        if direct.light_indices.len() > MAX_RUNTIME_PROBE_LIGHTS
             || direct
                 .light_indices
                 .windows(2)
@@ -863,6 +862,17 @@ impl ProbeField {
             );
         }
         for (index, (combined, local)) in self.probes.iter().zip(&direct.probes).enumerate() {
+            if direct.light_indices.is_empty()
+                && local
+                    .irradiance
+                    .iter()
+                    .chain(&local.direction)
+                    .any(|value| value.abs().to_bits() != 0)
+            {
+                return Err(format!(
+                    "probe {index} local direct has energy without a selected source"
+                ));
+            }
             if local.axis.map(f32::to_bits) != [0.5_f32.to_bits(); 2] {
                 return Err(format!(
                     "probe {index} local direct reserved axis must be 0.5"
@@ -1399,6 +1409,15 @@ mod tests {
         value
     }
 
+    fn zero_source_field() -> ProbeField {
+        let mut value = field();
+        value.local_direct = Some(ProbeDirectField {
+            light_indices: Vec::new(),
+            probes: vec![LightmapTexel::ZERO; value.probes.len()],
+        });
+        value
+    }
+
     #[test]
     fn version_three_preserves_selected_source_ids_and_direct_coefficients() {
         let value = split_field();
@@ -1414,6 +1433,48 @@ mod tests {
         let decoded = ProbeField::read(&old).expect("legacy read");
         assert_eq!(decoded.runtime_direct_lights(), &[0_u32; 0]);
         assert_eq!(decoded.write().expect("legacy exact replay"), old);
+    }
+
+    #[test]
+    fn zero_source_version_three_preserves_spatial_presence_and_combined_sampling() {
+        let value = zero_source_field();
+        let bytes = value.write().expect("zero-source write");
+        assert_eq!(u16::from_le_bytes([bytes[4], bytes[5]]), 3);
+        assert_eq!(bytes.len(), 38 + 36 * 2 + 4 + 24 * 2);
+        let decoded = ProbeField::read(&bytes).expect("zero-source read");
+        assert_eq!(decoded, value);
+        assert!(decoded.local_direct.is_some());
+        assert_eq!(decoded.runtime_direct_lights(), &[0_u32; 0]);
+        assert_eq!(decoded.write().expect("exact replay"), bytes);
+        for position in [[0.5; 3], [0.9, 0.5, 0.5], [1.5, 0.5, 0.5]] {
+            assert_eq!(
+                decoded.sample_nonlocal_filtered_with_rooms(position, Some(3), |_, _| true),
+                field().sample(position, Some(3))
+            );
+        }
+        assert!(ProbeField::read(&bytes[..bytes.len() - 1]).is_err());
+        assert!(ProbeField::read(&bytes[..38 + 36 * 2 + 4]).is_err());
+        let legacy =
+            ProbeField::read(&field().write().expect("legacy write")).expect("legacy read");
+        assert!(legacy.local_direct.is_none());
+    }
+
+    #[test]
+    fn zero_source_sidecars_reject_mean_or_moment_without_a_source() {
+        for moment in [false, true] {
+            let mut value = zero_source_field();
+            let direct = value.local_direct.as_mut().expect("spatial sidecar");
+            if moment {
+                direct.probes[0].direction[0] = 0.01;
+            } else {
+                direct.probes[0].irradiance[0] = 0.01;
+            }
+            assert!(value.write().is_err());
+            let mut bytes = zero_source_field().write().expect("valid zero sidecar");
+            let offset = 38 + 36 * 2 + 4 + if moment { 12 } else { 0 };
+            bytes[offset..offset + 4].copy_from_slice(&0.01_f32.to_le_bytes());
+            assert!(ProbeField::read(&bytes).is_err());
+        }
     }
 
     #[test]

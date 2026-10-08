@@ -287,3 +287,19 @@ retain compatible binaries, packages/settings, SDL and all real dependencies.
 The original six-view bundle replays final PNGs byte for byte; actor differences
 are confined to normal animation. Exact final seal CI and custody transfer are
 recorded in the completion receipt after the gate; Stage 5 is not started here.
+
+### 2026-10-08 — Stage 4 final-audit correction
+
+Before ownership release, the [compiler/runtime contract audit](../art-style/stage4/zero-source-repair.md)
+found that newly solved indirect-only and switch-only fields incorrectly selected
+the legacy center path. Solver 15 retains a validated v3 zero direct sidecar and
+therefore spatial sampling and reserved switched sources. Genuine v2 compatibility
+is preserved. Authored switch classification, air labels, serialization, actual
+package decoding, and on/off/on accounting now have focused regressions.
+
+The accepted hero shader and all five render payloads remain unchanged; the
+original Stage 4 native gallery and measured GPU evidence retain their provenance.
+New solver identities and compatible runnable bundles are appended, preserving
+every earlier milestone. This correction establishes the missing contract; it
+claims no additional visible gain or new GPU measurement. Final repair publication
+and exact-SHA CI/custody receipts are recorded in the Stage 4 handoff.

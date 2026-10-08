@@ -31,7 +31,10 @@ mod tests;
 mod wgpu;
 
 #[cfg(test)]
-pub(crate) use common::light_transport::{EntityLightingSource, entity_lighting};
+pub(crate) use common::light_transport::{
+    EntityLightingSource, build_transport_scene, entity_lighting, entity_spatial_lighting,
+    switchable_lights,
+};
 
 #[cfg(test)]
 pub(in crate::render) use common::WallUnit;

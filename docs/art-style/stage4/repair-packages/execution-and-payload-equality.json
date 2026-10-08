@@ -1,0 +1,757 @@
+[
+  {
+    "name": "hero",
+    "build_command": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage4-runtime-v2/places-compile",
+      "build",
+      "/Users/connordawkins/Documents/GitHub/Places/tests/fixtures/levels/art_style_hero.json",
+      "--out",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage4-hero-v2/art_style_hero.placesmap",
+      "--variants",
+      "off,medium,full",
+      "--workers",
+      "12",
+      "--force",
+      "--json"
+    ],
+    "verify_command": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage4-runtime-v2/places-compile",
+      "verify",
+      "/Users/connordawkins/Documents/GitHub/Places/tests/fixtures/levels/art_style_hero.json",
+      "--package",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage4-hero-v2/art_style_hero.placesmap",
+      "--require-current",
+      "--json"
+    ],
+    "exit": 0,
+    "seconds": 7.727,
+    "package": "debug-maps/art-style-hero/evidence/stage4-hero-v2/art_style_hero.placesmap",
+    "bytes": 5189440,
+    "sha256": "7dd16d4fa2baa2f1c835d939a3389bb179cceecc5454a76f4e898306a43666e2",
+    "old_package": "debug-maps/art-style-hero/evidence/stage4-hero-v1/art_style_hero.placesmap",
+    "compiler_identity_changed": true,
+    "dependencies_identical": true,
+    "identical_entries": [
+      {
+        "variant": "off",
+        "entry": "mesh"
+      },
+      {
+        "variant": "off",
+        "entry": "props"
+      },
+      {
+        "variant": "off",
+        "entry": "lighting"
+      },
+      {
+        "variant": "off",
+        "entry": "collision"
+      },
+      {
+        "variant": "off",
+        "entry": "navigation"
+      },
+      {
+        "variant": "off",
+        "entry": "lightmaps"
+      },
+      {
+        "variant": "off",
+        "entry": "lightmaps_meta"
+      },
+      {
+        "variant": "off",
+        "entry": "irradiance"
+      },
+      {
+        "variant": "off",
+        "entry": "probes"
+      },
+      {
+        "variant": "medium",
+        "entry": "mesh"
+      },
+      {
+        "variant": "medium",
+        "entry": "props"
+      },
+      {
+        "variant": "medium",
+        "entry": "lighting"
+      },
+      {
+        "variant": "medium",
+        "entry": "collision"
+      },
+      {
+        "variant": "medium",
+        "entry": "navigation"
+      },
+      {
+        "variant": "medium",
+        "entry": "lightmaps"
+      },
+      {
+        "variant": "medium",
+        "entry": "irradiance"
+      },
+      {
+        "variant": "medium",
+        "entry": "probes"
+      },
+      {
+        "variant": "full",
+        "entry": "mesh"
+      },
+      {
+        "variant": "full",
+        "entry": "props"
+      },
+      {
+        "variant": "full",
+        "entry": "lighting"
+      },
+      {
+        "variant": "full",
+        "entry": "collision"
+      },
+      {
+        "variant": "full",
+        "entry": "navigation"
+      },
+      {
+        "variant": "full",
+        "entry": "lightmaps"
+      },
+      {
+        "variant": "full",
+        "entry": "irradiance"
+      },
+      {
+        "variant": "full",
+        "entry": "probes"
+      }
+    ],
+    "metadata_changes": [
+      {
+        "variant": "medium",
+        "entry": "lightmaps_meta",
+        "changed_metadata_keys": [
+          "content_key"
+        ]
+      },
+      {
+        "variant": "full",
+        "entry": "lightmaps_meta",
+        "changed_metadata_keys": [
+          "content_key"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "actors",
+    "build_command": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage4-runtime-v2/places-compile",
+      "build",
+      "/Users/connordawkins/Documents/GitHub/Places/tests/fixtures/levels/art_style_hero_stage4_entities.json",
+      "--out",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage4-actors-v2/art_style_hero.placesmap",
+      "--variants",
+      "off,medium,full",
+      "--workers",
+      "12",
+      "--force",
+      "--json"
+    ],
+    "verify_command": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage4-runtime-v2/places-compile",
+      "verify",
+      "/Users/connordawkins/Documents/GitHub/Places/tests/fixtures/levels/art_style_hero_stage4_entities.json",
+      "--package",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage4-actors-v2/art_style_hero.placesmap",
+      "--require-current",
+      "--json"
+    ],
+    "exit": 0,
+    "seconds": 7.733,
+    "package": "debug-maps/art-style-hero/evidence/stage4-actors-v2/art_style_hero.placesmap",
+    "bytes": 5722502,
+    "sha256": "527ee5a4ec98f4fb6518f826fca0ae61d1f03d0d8885d518b07defecee3a515b",
+    "old_package": "debug-maps/art-style-hero/evidence/stage4-actors-v1/art_style_hero.placesmap",
+    "compiler_identity_changed": true,
+    "dependencies_identical": true,
+    "identical_entries": [
+      {
+        "variant": "off",
+        "entry": "mesh"
+      },
+      {
+        "variant": "off",
+        "entry": "props"
+      },
+      {
+        "variant": "off",
+        "entry": "lighting"
+      },
+      {
+        "variant": "off",
+        "entry": "collision"
+      },
+      {
+        "variant": "off",
+        "entry": "navigation"
+      },
+      {
+        "variant": "off",
+        "entry": "lightmaps"
+      },
+      {
+        "variant": "off",
+        "entry": "lightmaps_meta"
+      },
+      {
+        "variant": "off",
+        "entry": "irradiance"
+      },
+      {
+        "variant": "off",
+        "entry": "probes"
+      },
+      {
+        "variant": "medium",
+        "entry": "mesh"
+      },
+      {
+        "variant": "medium",
+        "entry": "props"
+      },
+      {
+        "variant": "medium",
+        "entry": "lighting"
+      },
+      {
+        "variant": "medium",
+        "entry": "collision"
+      },
+      {
+        "variant": "medium",
+        "entry": "navigation"
+      },
+      {
+        "variant": "medium",
+        "entry": "lightmaps"
+      },
+      {
+        "variant": "medium",
+        "entry": "irradiance"
+      },
+      {
+        "variant": "medium",
+        "entry": "probes"
+      },
+      {
+        "variant": "full",
+        "entry": "mesh"
+      },
+      {
+        "variant": "full",
+        "entry": "props"
+      },
+      {
+        "variant": "full",
+        "entry": "lighting"
+      },
+      {
+        "variant": "full",
+        "entry": "collision"
+      },
+      {
+        "variant": "full",
+        "entry": "navigation"
+      },
+      {
+        "variant": "full",
+        "entry": "lightmaps"
+      },
+      {
+        "variant": "full",
+        "entry": "irradiance"
+      },
+      {
+        "variant": "full",
+        "entry": "probes"
+      }
+    ],
+    "metadata_changes": [
+      {
+        "variant": "medium",
+        "entry": "lightmaps_meta",
+        "changed_metadata_keys": [
+          "content_key"
+        ]
+      },
+      {
+        "variant": "full",
+        "entry": "lightmaps_meta",
+        "changed_metadata_keys": [
+          "content_key"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "switchable",
+    "build_command": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage4-runtime-v2/places-compile",
+      "build",
+      "/Users/connordawkins/Documents/GitHub/Places/tests/fixtures/levels/art_style_hero_stage4_switchable.json",
+      "--out",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage4-switchable-v2/art_style_hero.placesmap",
+      "--variants",
+      "off,medium,full",
+      "--workers",
+      "12",
+      "--force",
+      "--json"
+    ],
+    "verify_command": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage4-runtime-v2/places-compile",
+      "verify",
+      "/Users/connordawkins/Documents/GitHub/Places/tests/fixtures/levels/art_style_hero_stage4_switchable.json",
+      "--package",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage4-switchable-v2/art_style_hero.placesmap",
+      "--require-current",
+      "--json"
+    ],
+    "exit": 0,
+    "seconds": 9.339,
+    "package": "debug-maps/art-style-hero/evidence/stage4-switchable-v2/art_style_hero.placesmap",
+    "bytes": 9067150,
+    "sha256": "6efe57e0f19f37304236947a87fed691247458272019fc9bd2093c42302f814b",
+    "old_package": "debug-maps/art-style-hero/evidence/stage4-switchable-v1/art_style_hero.placesmap",
+    "compiler_identity_changed": true,
+    "dependencies_identical": true,
+    "identical_entries": [
+      {
+        "variant": "off",
+        "entry": "mesh"
+      },
+      {
+        "variant": "off",
+        "entry": "props"
+      },
+      {
+        "variant": "off",
+        "entry": "lighting"
+      },
+      {
+        "variant": "off",
+        "entry": "collision"
+      },
+      {
+        "variant": "off",
+        "entry": "navigation"
+      },
+      {
+        "variant": "off",
+        "entry": "lightmaps"
+      },
+      {
+        "variant": "off",
+        "entry": "lightmaps_meta"
+      },
+      {
+        "variant": "off",
+        "entry": "irradiance"
+      },
+      {
+        "variant": "off",
+        "entry": "probes"
+      },
+      {
+        "variant": "medium",
+        "entry": "mesh"
+      },
+      {
+        "variant": "medium",
+        "entry": "props"
+      },
+      {
+        "variant": "medium",
+        "entry": "lighting"
+      },
+      {
+        "variant": "medium",
+        "entry": "collision"
+      },
+      {
+        "variant": "medium",
+        "entry": "navigation"
+      },
+      {
+        "variant": "medium",
+        "entry": "lightmaps"
+      },
+      {
+        "variant": "medium",
+        "entry": "irradiance"
+      },
+      {
+        "variant": "medium",
+        "entry": "probes"
+      },
+      {
+        "variant": "full",
+        "entry": "mesh"
+      },
+      {
+        "variant": "full",
+        "entry": "props"
+      },
+      {
+        "variant": "full",
+        "entry": "lighting"
+      },
+      {
+        "variant": "full",
+        "entry": "collision"
+      },
+      {
+        "variant": "full",
+        "entry": "navigation"
+      },
+      {
+        "variant": "full",
+        "entry": "lightmaps"
+      },
+      {
+        "variant": "full",
+        "entry": "irradiance"
+      },
+      {
+        "variant": "full",
+        "entry": "probes"
+      }
+    ],
+    "metadata_changes": [
+      {
+        "variant": "medium",
+        "entry": "lightmaps_meta",
+        "changed_metadata_keys": [
+          "content_key"
+        ]
+      },
+      {
+        "variant": "full",
+        "entry": "lightmaps_meta",
+        "changed_metadata_keys": [
+          "content_key"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "movement",
+    "build_command": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage4-runtime-v2/places-compile",
+      "build",
+      "/Users/connordawkins/Documents/GitHub/Places/tests/fixtures/levels/art_style_hero_stage4_movement.json",
+      "--out",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage4-movement-v2/art_style_hero.placesmap",
+      "--variants",
+      "off,medium,full",
+      "--workers",
+      "12",
+      "--force",
+      "--json"
+    ],
+    "verify_command": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage4-runtime-v2/places-compile",
+      "verify",
+      "/Users/connordawkins/Documents/GitHub/Places/tests/fixtures/levels/art_style_hero_stage4_movement.json",
+      "--package",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage4-movement-v2/art_style_hero.placesmap",
+      "--require-current",
+      "--json"
+    ],
+    "exit": 0,
+    "seconds": 7.784,
+    "package": "debug-maps/art-style-hero/evidence/stage4-movement-v2/art_style_hero.placesmap",
+    "bytes": 5742931,
+    "sha256": "603b3d99ccdde1b8f6402ad4a1a7eb0ae7500712798a55762c6123d8867a6769",
+    "old_package": "debug-maps/art-style-hero/evidence/stage4-movement-v1/art_style_hero.placesmap",
+    "compiler_identity_changed": true,
+    "dependencies_identical": true,
+    "identical_entries": [
+      {
+        "variant": "off",
+        "entry": "mesh"
+      },
+      {
+        "variant": "off",
+        "entry": "props"
+      },
+      {
+        "variant": "off",
+        "entry": "lighting"
+      },
+      {
+        "variant": "off",
+        "entry": "collision"
+      },
+      {
+        "variant": "off",
+        "entry": "navigation"
+      },
+      {
+        "variant": "off",
+        "entry": "lightmaps"
+      },
+      {
+        "variant": "off",
+        "entry": "lightmaps_meta"
+      },
+      {
+        "variant": "off",
+        "entry": "irradiance"
+      },
+      {
+        "variant": "off",
+        "entry": "probes"
+      },
+      {
+        "variant": "medium",
+        "entry": "mesh"
+      },
+      {
+        "variant": "medium",
+        "entry": "props"
+      },
+      {
+        "variant": "medium",
+        "entry": "lighting"
+      },
+      {
+        "variant": "medium",
+        "entry": "collision"
+      },
+      {
+        "variant": "medium",
+        "entry": "navigation"
+      },
+      {
+        "variant": "medium",
+        "entry": "lightmaps"
+      },
+      {
+        "variant": "medium",
+        "entry": "irradiance"
+      },
+      {
+        "variant": "medium",
+        "entry": "probes"
+      },
+      {
+        "variant": "full",
+        "entry": "mesh"
+      },
+      {
+        "variant": "full",
+        "entry": "props"
+      },
+      {
+        "variant": "full",
+        "entry": "lighting"
+      },
+      {
+        "variant": "full",
+        "entry": "collision"
+      },
+      {
+        "variant": "full",
+        "entry": "navigation"
+      },
+      {
+        "variant": "full",
+        "entry": "lightmaps"
+      },
+      {
+        "variant": "full",
+        "entry": "irradiance"
+      },
+      {
+        "variant": "full",
+        "entry": "probes"
+      }
+    ],
+    "metadata_changes": [
+      {
+        "variant": "medium",
+        "entry": "lightmaps_meta",
+        "changed_metadata_keys": [
+          "content_key"
+        ]
+      },
+      {
+        "variant": "full",
+        "entry": "lightmaps_meta",
+        "changed_metadata_keys": [
+          "content_key"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "comparison",
+    "build_command": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage4-runtime-v2/places-compile",
+      "build",
+      "/Users/connordawkins/Documents/GitHub/Places/tests/fixtures/levels/art_style_hero_stage4_comparison.json",
+      "--out",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage4-comparison-v2/art_style_hero.placesmap",
+      "--variants",
+      "off,medium,full",
+      "--workers",
+      "12",
+      "--force",
+      "--json"
+    ],
+    "verify_command": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage4-runtime-v2/places-compile",
+      "verify",
+      "/Users/connordawkins/Documents/GitHub/Places/tests/fixtures/levels/art_style_hero_stage4_comparison.json",
+      "--package",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage4-comparison-v2/art_style_hero.placesmap",
+      "--require-current",
+      "--json"
+    ],
+    "exit": 0,
+    "seconds": 9.524,
+    "package": "debug-maps/art-style-hero/evidence/stage4-comparison-v2/art_style_hero.placesmap",
+    "bytes": 9400925,
+    "sha256": "465239bdc261432f3d79ea1ed1bf73de6094ee3c3f5fd79e6664ac0e8270ea2d",
+    "old_package": "debug-maps/art-style-hero/evidence/stage4-comparison-v1/art_style_hero.placesmap",
+    "compiler_identity_changed": true,
+    "dependencies_identical": true,
+    "identical_entries": [
+      {
+        "variant": "off",
+        "entry": "mesh"
+      },
+      {
+        "variant": "off",
+        "entry": "props"
+      },
+      {
+        "variant": "off",
+        "entry": "lighting"
+      },
+      {
+        "variant": "off",
+        "entry": "collision"
+      },
+      {
+        "variant": "off",
+        "entry": "navigation"
+      },
+      {
+        "variant": "off",
+        "entry": "lightmaps"
+      },
+      {
+        "variant": "off",
+        "entry": "lightmaps_meta"
+      },
+      {
+        "variant": "off",
+        "entry": "irradiance"
+      },
+      {
+        "variant": "off",
+        "entry": "probes"
+      },
+      {
+        "variant": "medium",
+        "entry": "mesh"
+      },
+      {
+        "variant": "medium",
+        "entry": "props"
+      },
+      {
+        "variant": "medium",
+        "entry": "lighting"
+      },
+      {
+        "variant": "medium",
+        "entry": "collision"
+      },
+      {
+        "variant": "medium",
+        "entry": "navigation"
+      },
+      {
+        "variant": "medium",
+        "entry": "lightmaps"
+      },
+      {
+        "variant": "medium",
+        "entry": "irradiance"
+      },
+      {
+        "variant": "medium",
+        "entry": "probes"
+      },
+      {
+        "variant": "full",
+        "entry": "mesh"
+      },
+      {
+        "variant": "full",
+        "entry": "props"
+      },
+      {
+        "variant": "full",
+        "entry": "lighting"
+      },
+      {
+        "variant": "full",
+        "entry": "collision"
+      },
+      {
+        "variant": "full",
+        "entry": "navigation"
+      },
+      {
+        "variant": "full",
+        "entry": "lightmaps"
+      },
+      {
+        "variant": "full",
+        "entry": "irradiance"
+      },
+      {
+        "variant": "full",
+        "entry": "probes"
+      }
+    ],
+    "metadata_changes": [
+      {
+        "variant": "medium",
+        "entry": "lightmaps_meta",
+        "changed_metadata_keys": [
+          "content_key"
+        ]
+      },
+      {
+        "variant": "full",
+        "entry": "lightmaps_meta",
+        "changed_metadata_keys": [
+          "content_key"
+        ]
+      }
+    ]
+  }
+]

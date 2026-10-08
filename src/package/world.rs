@@ -846,3 +846,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "world/irradiance_tests.rs"]
+mod irradiance_tests;

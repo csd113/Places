@@ -1,0 +1,11 @@
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.12s
+     Running unittests src/lib.rs (target/debug/deps/places-db4822a0463dd4cf)
+
+running 5 tests
+test compiler::probes::tests::world_offsets_floor_regions_and_real_vertical_spans_bound_probes ... ok
+test compiler::probes::tests::wall_labels_use_height_and_preserve_clear_openings ... ok
+test compiler::probes::tests::validity_reasons_identify_real_air_constraints_independently_of_energy ... ok
+test compiler::probes::tests::solved_probe_round_trips_into_runtime_entity_lighting ... ok
+test compiler::probes::tests::authored_switch_only_probe_solve_labels_and_reload_preserve_spatial_base ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 2120 filtered out; finished in 0.00s
