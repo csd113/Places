@@ -1,0 +1,5 @@
+geometry check: art_style_hero (tests/fixtures/levels/art_style_hero.json)
+  room-leak: 0 error(s), 1 warning(s)
+  missing-wall: 5 suppressed by geometry_intent
+WARNING [room-leak] room 2: the room's walkable space reaches the void 1.88 m outside its footprint; no wall, opening or annotation explains it @ (-2.875, 0.000, -6.875)
+summary: 0 error(s), 1 warning(s), some warnings suppressed by intent annotations

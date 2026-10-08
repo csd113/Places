@@ -1,0 +1,155 @@
+{
+  "format_version": 1,
+  "date_utc": "2026-10-08",
+  "source_catalog_status": "Whole existing source/catalog validation passes; no new unresolved logical asset IDs observed.",
+  "items": [
+    {
+      "id": "package-home_showcase",
+      "affected_files": [
+        "levels/home_showcase.json",
+        "levels/home_showcase.placesmap",
+        "tests/list_levels.rs"
+      ],
+      "symbol_or_format": "package dependency identity + source/compiler fingerprint",
+      "observed_failure": "Fresh --require-current returns exit1/current=false. Local discovery skips environment/home/props/models/cabinet_base.glb: recorded 97224 bytes/current 59144. Three tests/list_levels tests fail on these inherited packages.",
+      "reason_for_deferral": "Explicit Stage1\u20136 hero-focused exception; historical local sources/packages and evidence must be preserved. These are not missing catalog IDs or hero defects.",
+      "required_resolution": "Preserve the old receipt/package as evidence, intentionally rebuild the local source with final compiler/assets, and review the playable result.",
+      "final_verification": "places-compile verify SOURCE --package PACKAGE --require-current; ordinary level discovery without skips; cargo test --workspace.",
+      "stage": 7,
+      "status": "open"
+    },
+    {
+      "id": "package-geometry_intentional",
+      "affected_files": [
+        "levels/geometry_intentional.json",
+        "levels/geometry_intentional.placesmap",
+        "tests/list_levels.rs"
+      ],
+      "symbol_or_format": "package dependency identity + source/compiler fingerprint",
+      "observed_failure": "Fresh --require-current returns exit1/current=false. Local discovery skips environment/pool/textures/walls/pool_tile_wall_01.png: recorded 1390031 bytes/current 30873. Three tests/list_levels tests fail on these inherited packages.",
+      "reason_for_deferral": "Explicit Stage1\u20136 hero-focused exception; historical local sources/packages and evidence must be preserved. These are not missing catalog IDs or hero defects.",
+      "required_resolution": "Preserve the old receipt/package as evidence, intentionally rebuild the local source with final compiler/assets, and review the playable result.",
+      "final_verification": "places-compile verify SOURCE --package PACKAGE --require-current; ordinary level discovery without skips; cargo test --workspace.",
+      "stage": 7,
+      "status": "open"
+    },
+    {
+      "id": "package-level0_pit",
+      "affected_files": [
+        "levels/level0_pit.json",
+        "levels/level0_pit.placesmap",
+        "tests/list_levels.rs"
+      ],
+      "symbol_or_format": "package dependency identity + source/compiler fingerprint",
+      "observed_failure": "Fresh --require-current returns exit1/current=false. Local discovery skips environment/pool/props/models/pool_guardrail_end.glb: recorded 65196 bytes/current 31800. Three tests/list_levels tests fail on these inherited packages.",
+      "reason_for_deferral": "Explicit Stage1\u20136 hero-focused exception; historical local sources/packages and evidence must be preserved. These are not missing catalog IDs or hero defects.",
+      "required_resolution": "Preserve the old receipt/package as evidence, intentionally rebuild the local source with final compiler/assets, and review the playable result.",
+      "final_verification": "places-compile verify SOURCE --package PACKAGE --require-current; ordinary level discovery without skips; cargo test --workspace.",
+      "stage": 7,
+      "status": "open"
+    },
+    {
+      "id": "home-shared-source-families",
+      "affected_files": [
+        "levels/home_showcase.json",
+        "tests/fixtures/levels/home_showcase.json"
+      ],
+      "symbol_or_format": "props[].model + source/fixture policy",
+      "observed_failure": "Local home_showcase still uses older valid core couch/table/sink/stove/chair families; source validation passes, but it is not evidence of the rebuilt Home kit.",
+      "reason_for_deferral": "Nonblocking content/reference migration belongs to Stage7; do not replace a diagnostic simply for art consistency.",
+      "required_resolution": "Choose which sources remain historical controls and which intentionally adopt completed Home models. Record exact model/size/pose updates and preserve prior evidence.",
+      "final_verification": "Catalog validation, source/package currency, collision/geometry checks and matched native Home view.",
+      "stage": 7,
+      "status": "open"
+    },
+    {
+      "id": "documentation-albedo-contract",
+      "affected_files": [
+        "docs/ASSET_SPECIFICATION.md",
+        "src/render/common/light_transport.rs"
+      ],
+      "symbol_or_format": "ASSET_SPECIFICATION \u00a718 / build_transport_scene",
+      "observed_failure": "Specification says bake never samples albedo; current transport samples texture reflectance for diffuse bounces.",
+      "reason_for_deferral": "No material/color contract changed in Stage1; record discrepancy for its owning foundation stage.",
+      "required_resolution": "Document separate lighting receiver representation, bounce reflectance and draw-time albedo under the chosen color contract.",
+      "final_verification": "Read against implementation and focused neutral/colored transport controls.",
+      "stage": 2,
+      "status": "open"
+    },
+    {
+      "id": "documentation-renderer-limits",
+      "affected_files": [
+        "docs/MAP_AUTHORING_GUIDE.md",
+        "docs/ASSET_SPECIFICATION.md",
+        "docs/VERIFICATION.md"
+      ],
+      "symbol_or_format": "older four-page/100k-vertex/32px reflection/vertex-pane/CI summaries",
+      "observed_failure": "Current code has eight active atlas pages, 24M level vertex safety cap, independently selected Off/Medium/Full reflections at48/64px, lightmapped panes and existing macOS Rust CI. Some older guide summaries remain stale.",
+      "reason_for_deferral": "No limits or formats changed in Stage1; do not churn the long guide before later contracts settle.",
+      "required_resolution": "Reconcile exact contradictory paragraphs against final source, not an indiscriminate textual replacement.",
+      "final_verification": "Review every documented limit/quality/format against final source and corresponding tests.",
+      "stage": 7,
+      "status": "open"
+    },
+    {
+      "id": "outdoors-low-wording",
+      "affected_files": [
+        "docs/style-upgrade-20261007/outdoors/README.md",
+        "src/quality.rs"
+      ],
+      "symbol_or_format": "journal description of Low as ordinary shipped setting",
+      "observed_failure": "Fresh-install quality defaults High; the Low gallery is a valid diagnostic but does not solve High darkness.",
+      "reason_for_deferral": "Preserve dated asset-pass narrative/evidence; clarify final acceptance in Stage7 and the next lighting milestone.",
+      "required_resolution": "Add an explicit dated clarification without relabeling historical pixels.",
+      "final_verification": "Native effective settings receipts, matched High views and current quality default.",
+      "stage": 7,
+      "status": "open"
+    },
+    {
+      "id": "all-theme-final-rebake",
+      "affected_files": [
+        "assets/levels/places_demo.json",
+        "assets/levels/model_zoo.json",
+        "assets/levels/lantern_hollow.json",
+        "assets/levels/movement_test.json",
+        "assets/levels/winter.json"
+      ],
+      "symbol_or_format": "source/packages/benchmark reference ledger",
+      "observed_failure": "These packages are unchanged at Stage1. Later renderer/compiler changes can invalidate their prepared identities even when source JSON remains valid.",
+      "reason_for_deferral": "Avoid repeated broad bake/polish in stages1\u20136; hero is the intermediate benchmark.",
+      "required_resolution": "At Stage7 inventory changed fingerprints/dependencies and rebuild only affected packages, preserve old matched evidence, verify all final packages.",
+      "final_verification": "Normal compiler currency/integrity, native theme galleries, assets and final desktop gate.",
+      "stage": 7,
+      "status": "open"
+    },
+    {
+      "id": "foreground-performance",
+      "affected_files": [
+        "docs/art-style/performance-baseline.json",
+        "src/lib.rs",
+        "src/render/wgpu/renderer.rs"
+      ],
+      "symbol_or_format": "present_frame / acquire_frame / record_render_stats",
+      "observed_failure": "Background native loops record zero vertices/draws and contain the surface-availability yield; their18ms loop is not scene FPS. Genuine native readback images and resource allocations succeeded.",
+      "reason_for_deferral": "No engine rewrite is justified to turn unavailable surface submissions into apparently fast frames.",
+      "required_resolution": "Run the fixed hero performance views with a successfully presenting foreground native window; retain hardware/settings and require nonzero scene counters. Measure GPU timing with a supported profiler if available.",
+      "final_verification": "Nonzero scene draws/vertices, confirmed present state, bounded frame CSV and repeat samples. No FPS acceptance from zero counters.",
+      "stage": 2,
+      "status": "open"
+    },
+    {
+      "id": "hero-open-garden-warning",
+      "affected_files": [
+        "tests/fixtures/levels/art_style_hero.json",
+        "docs/art-style/geometry.json"
+      ],
+      "symbol_or_format": "geometry-check room-leak / decorative exterior",
+      "observed_failure": "0 errors,1 warning: garden walkable space reaches void at(-2.875,0,-6.875),1.88m outside its footprint. Open garden is behind a sealed raised glazed window; interior room/hall are enclosed.",
+      "reason_for_deferral": "Warning is kept visible. Decorative exterior is intentionally open and inaccessible; no validation/check is disabled to hide it.",
+      "required_resolution": "If Stage7 makes garden playable, add normal authored containment and verify route. Otherwise retain explicit nonplayable status and the warning.",
+      "final_verification": "Current geometry checker and native interior traversal/window collision; if topology changes, rerun navigation/collision and geometry checks.",
+      "stage": 7,
+      "status": "open"
+    }
+  ]
+}

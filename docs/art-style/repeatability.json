@@ -1,0 +1,26 @@
+[
+  {
+    "view": "room",
+    "mean_worst_channel_difference_0_255": 0.0,
+    "pixels_over_8_percent": 0.0,
+    "maximum_channel_difference": 0,
+    "pixels": 921600,
+    "byte_identical": true
+  },
+  {
+    "view": "window",
+    "mean_worst_channel_difference_0_255": 0.0,
+    "pixels_over_8_percent": 0.0,
+    "maximum_channel_difference": 0,
+    "pixels": 921600,
+    "byte_identical": true
+  },
+  {
+    "view": "entities",
+    "mean_worst_channel_difference_0_255": 0.0,
+    "pixels_over_8_percent": 0.0,
+    "maximum_channel_difference": 0,
+    "pixels": 921600,
+    "byte_identical": true
+  }
+]

@@ -1,0 +1,30 @@
+{
+  "source": "tests/fixtures/levels/art_style_hero.json",
+  "out": "debug-maps/art-style-hero/evidence/art_style_hero.placesmap",
+  "rebuilt": false,
+  "reuse_reason": "debug-maps/art-style-hero/evidence/art_style_hero.placesmap is current for this source and asset identity",
+  "variants": [
+    "off",
+    "medium",
+    "full"
+  ],
+  "bytes": 3873651,
+  "millis": 254.370959,
+  "warnings": [],
+  "fingerprint": "766a0377815e99078bf1bc4c54f3e24bc662b82bd6ab0e75ad82731ed1f76453",
+  "variant_stats": [],
+  "phases": [
+    {
+      "phase": "load_validate_prepare_dependencies",
+      "millis": 37.227875
+    },
+    {
+      "phase": "fingerprints",
+      "millis": 0.163416
+    },
+    {
+      "phase": "current_package_integrity",
+      "millis": 216.95979200000002
+    }
+  ]
+}

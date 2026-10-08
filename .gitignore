@@ -27,3 +27,6 @@ levels/*.placesmap
 # Retained Winter before/after playable payloads; journal evidence is tracked.
 /debug-maps/winter-style-20261007/evidence/
 /generated_images/
+
+# Reproducible Art-style hero packages and isolated native state.
+/debug-maps/art-style-hero/evidence/

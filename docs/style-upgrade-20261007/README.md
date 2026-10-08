@@ -89,3 +89,29 @@ remain documented gaps; actual severe views retain the intended whiteout.
 
 Commit subject: `rebuild winter assets toward concept art`; the handoff records
 its exact pushed SHA and CI. Parent integration and the Art-style queue follow.
+
+## 2026-10-08 — Art-style Stage 1: the hero baseline
+
+[Audit, native cameras and reproducible launch](../art-style/README.md) ·
+[Dependency plan for Stages 2–7](../art-style/gap-plan.md) ·
+[Costs and limitations](../art-style/performance.md)
+
+| Native baseline | Independent native repeat |
+| --- | --- |
+| ![Hero room baseline](../art-style/baseline/high/room.png) | ![Hero room repeat](../art-style/repeat/high/room.png) |
+| ![Static and spawned chairs baseline](../art-style/baseline/high/entities.png) | ![Static and spawned chairs repeat](../art-style/repeat/high/entities.png) |
+
+**This establishes a benchmark; it is not a visual improvement milestone.**
+A compact furnished room, connected utility hall and real glazed garden view
+reuse the completed art on normal engine paths. Six fixed native High cameras
+expose warm/broad lighting, geometry boundaries, material response and grounding.
+Three separate repeats match byte for byte. The same chair's detailed static
+shading and flat, ungrounded spawned response now provide a useful entity control.
+
+The audit preserves working openings, warm light pools, real static shadows and
+the four asset passes, while separating chart/fill policy, entity probes, color
+headroom, material support, reflection sky and atmosphere problems. Dark exterior
+readability remains; Low is supporting evidence, not acceptance. The exact stale
+local-package ledger and unavailable background scene-FPS measurement are stated
+openly. Verified implementation and push/CI links are recorded in
+[the Stage 1 handoff](../art-style/handoff.md).

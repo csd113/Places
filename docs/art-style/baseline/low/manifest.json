@@ -1,0 +1,128 @@
+[
+  {
+    "view": {
+      "name": "window",
+      "spawn": [
+        3.5,
+        3.5,
+        0
+      ],
+      "camera": [
+        0,
+        3
+      ],
+      "purpose": "glazed opening, reveals, garden and sky, interior/exterior balance"
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "low",
+      "texture_filtering": "low",
+      "lightmaps": "off",
+      "reflections": "off",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "b936bc646fdf9755e224cd3b478e0e6ffc049f1e7316c62a5df116c4eb5b1196",
+      "package_sha256": "ef687d32cc7e4ccb7a160a239db4541ebaec479eb974edd9698784a4c24ceace",
+      "source_sha256": "743c1cf3a900570cc163c9d2f1636118e0f8f36989ee82fcbeabd78560675bc0",
+      "camera_manifest_sha256": "4e5f919d7b72a29a76db24214017374c6d89c6111ec354b7b2a81df9e9e5c034",
+      "capture_tool_sha256": "e6f5f5f527a14252d142bbe4766c3a5ab2bc69a2c8e17963da32537136404c5e",
+      "catalog_sha256": "85b0489a2d01ee1ffd0bcabb34ca64fabc24c4a45d5340ba6d79b7660ecf7d0a",
+      "git_revision": "22a78fc43822900cd866869f93c55d7796e2c812",
+      "git_diff_sha256": "f7133ec943dce821b0f0061a99feb0a8f45df3ef57a2cf7aa8dae2dd4c01b14d"
+    },
+    "ready_world_seconds": 0.5,
+    "measured_frames": 0,
+    "elapsed_seconds": 1.046931374934502,
+    "exit_code": 0,
+    "image_sha256": "2c637e3846e380e2d0ef458160b05876989d672396b115e379ac75a83958e7ff",
+    "settings_receipt": "[settings] quality low (saved low) [startup override] | lighting low | bloom on | reflections off | lightmaps off | vsync off | filtering low | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  },
+  {
+    "view": {
+      "name": "entities",
+      "spawn": [
+        6.25,
+        3.5,
+        0
+      ],
+      "camera": [
+        0,
+        -15
+      ],
+      "purpose": "left static and right spawned identical Home chair: fixed static/entity lighting comparison"
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "low",
+      "texture_filtering": "low",
+      "lightmaps": "off",
+      "reflections": "off",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "b936bc646fdf9755e224cd3b478e0e6ffc049f1e7316c62a5df116c4eb5b1196",
+      "package_sha256": "ef687d32cc7e4ccb7a160a239db4541ebaec479eb974edd9698784a4c24ceace",
+      "source_sha256": "743c1cf3a900570cc163c9d2f1636118e0f8f36989ee82fcbeabd78560675bc0",
+      "camera_manifest_sha256": "4e5f919d7b72a29a76db24214017374c6d89c6111ec354b7b2a81df9e9e5c034",
+      "capture_tool_sha256": "e6f5f5f527a14252d142bbe4766c3a5ab2bc69a2c8e17963da32537136404c5e",
+      "catalog_sha256": "85b0489a2d01ee1ffd0bcabb34ca64fabc24c4a45d5340ba6d79b7660ecf7d0a",
+      "git_revision": "22a78fc43822900cd866869f93c55d7796e2c812",
+      "git_diff_sha256": "f7133ec943dce821b0f0061a99feb0a8f45df3ef57a2cf7aa8dae2dd4c01b14d"
+    },
+    "ready_world_seconds": 0.5,
+    "measured_frames": 0,
+    "elapsed_seconds": 1.0157343751052395,
+    "exit_code": 0,
+    "image_sha256": "74e40e430a5247cd7449f4f8b511c1f6592758a934be5799a13842cfee635329",
+    "settings_receipt": "[settings] quality low (saved low) [startup override] | lighting low | bloom on | reflections off | lightmaps off | vsync off | filtering low | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  }
+]
