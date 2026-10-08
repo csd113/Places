@@ -360,3 +360,11 @@ The handoff records implementation publication and snapshot provenance. Final
 seal/push/exact-SHA CI and explicit repository/caffeinate custody release are
 recorded after the gate in the durable completion receipt. Stage 6 is not started
 by Stage 5, and the unfinished queue retains `target/`.
+
+[Stage 5 implementation 5a44e9d](https://github.com/csd113/Places/commit/5a44e9d3c461bd427830c5815738ba841342fc6a)
+binds all 216 frozen build inputs and eight accepted compatible bundles through
+[source publication](../art-style/stage5/source-publication.json). Original,
+surface, night and both corrected ghost controls replay byte for byte; weather
+differences remain confined to normal snowfall. The final seal/remote/exact-SHA CI
+and repository/caffeinate transfer are appended in the completion receipt after
+the publication gate.

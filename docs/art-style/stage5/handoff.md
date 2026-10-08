@@ -182,3 +182,18 @@ explicit hero build/verify, quality, diagnostic, profile and replay commands are
 linked in their reports. Snapshot-tool syntax and assets-root rejection are checked
 in [tool validation](snapshot-tool-validation.json), and positive runtime support
 is verified by the corrected ghost replays.
+
+## Implementation publication
+
+[Implementation 5a44e9d](https://github.com/csd113/Places/commit/5a44e9d3c461bd427830c5815738ba841342fc6a)
+contains the bounded engine/material/schema changes, focused tests, genuine native
+evidence and dated journal. [Source publication](source-publication.json) verifies
+all 216 frozen Cargo/Rust/WGSL inputs against its exact Git blobs and binds the
+eight accepted runnable bundles to their executable and copied hero-source
+revisions. Before executables retain the compatible Stage 4 source; new additive
+hero inputs are explicitly separate. Immutable precommit/capture receipts stay
+unchanged rather than pretending they were created after the commit.
+
+Remote verification and exact final seal CI are performed after the documentation
+seal, then recorded with the final SHA, run URL/result and explicit custody release
+in the durable completion receipt. No later stage starts before that gate.
