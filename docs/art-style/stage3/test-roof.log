@@ -13,4 +13,3 @@ test level::wall_ceiling_tests::boundary_gable_mesh_keeps_both_rake_edges ... ok
 test level::wall_ceiling_tests::adjacent_roof_mesh_join_retains_both_exact_endpoint_heights ... ok
 
 test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 2087 filtered out; finished in 0.00s
-

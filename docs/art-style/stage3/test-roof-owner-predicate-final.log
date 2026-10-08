@@ -16,4 +16,3 @@ test level::wall_ceiling_tests::descending_roof_spans_keep_each_exact_face_heigh
 test level::wall_ceiling_tests::rigid_boundary_wall_caps_keep_only_the_area_outside_real_roof_coverage ... ok
 
 test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 2089 filtered out; finished in 0.02s
-

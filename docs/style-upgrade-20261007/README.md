@@ -229,3 +229,10 @@ plant's real tabletop penetration, dynamic-chair grounding and screen AA remain
 explicitly assigned limits. Normal bake/storage and submitted CPU costs are
 measured separately from unmeasured GPU time. Runnable snapshots and verified
 implementation/CI links are recorded in the Stage 3 publication handoff.
+
+[Stage3 implementation b9377244249fa21fa12975ae8d93297e41111ebd](https://github.com/csd113/Places/commit/b9377244249fa21fa12975ae8d93297e41111ebd) is pushed and remote-verified.
+[Main/control runnable snapshot receipts](../art-style/stage3/handoff.md#publication-and-retained-runnable-artifacts)
+retain41/49 verified files outside target and repeat the final room/annex pixels.
+Original Stage1/2 bundles still hash-verify. The final completion receipt supplies
+the exact journal seal SHA, clean-source CI result and explicit ownership/custody
+release; Stage4 waits for that gate.

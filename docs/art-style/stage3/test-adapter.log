@@ -11,4 +11,3 @@ test render::common::light_transport::tests::architecture_panes_keep_glass_trans
 test render::common::light_transport::tests::void_wall_faces_block_the_prepared_transport_solve ... ok
 
 test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 2089 filtered out; finished in 0.00s
-

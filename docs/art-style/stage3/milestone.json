@@ -348,6 +348,28 @@
           "sha256": "80148e197c529c8faf94695cc5f4c319d85938201b9436375e9f4e5cbe1ed33a"
         }
       ]
+    },
+    {
+      "label": "snapshot-verification-main",
+      "immutable_manifest": "docs/art-style/stage3/snapshot-verification-main/manifest.json",
+      "images": [
+        {
+          "path": "docs/art-style/stage3/snapshot-verification-main/room.png",
+          "bytes": 829697,
+          "sha256": "0c99477412d2ebf582d6186f75b672bbc7fe31895fa261396ed821e42890eddf"
+        }
+      ]
+    },
+    {
+      "label": "snapshot-verification-controls",
+      "immutable_manifest": "docs/art-style/stage3/snapshot-verification-controls/manifest.json",
+      "images": [
+        {
+          "path": "docs/art-style/stage3/snapshot-verification-controls/annex.png",
+          "bytes": 711360,
+          "sha256": "3a801ffdd1057d2ebd1fc7e3888bbd28215514d6acc387f3bd8c3dc23b8565c5"
+        }
+      ]
     }
   ],
   "diagnostics": "diagnostic-sealed-execution.json",
@@ -374,5 +396,13 @@
   "published_build_identity": "published-build-identity.json",
   "normal_instrumented_published_equality": "normal-instrumented-published-equality.json",
   "final_analysis": "published-transport-analysis.json",
-  "final_raw_inventory": "raw-evidence-published-inventory.json"
+  "final_raw_inventory": "raw-evidence-published-inventory.json",
+  "implementation_revision": "b9377244249fa21fa12975ae8d93297e41111ebd",
+  "implementation_url": "https://github.com/csd113/Places/commit/b9377244249fa21fa12975ae8d93297e41111ebd",
+  "publication": "publication.json",
+  "snapshots": [
+    "stage3-snapshot.json",
+    "stage3-controls-snapshot.json"
+  ],
+  "snapshot_verification": "snapshot-publication-verification.json"
 }

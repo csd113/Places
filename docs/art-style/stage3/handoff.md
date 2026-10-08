@@ -162,6 +162,33 @@ message reports the exact final remote SHA and clean-source CI run; a tracked
 report cannot contain its own final commit hash. Ownership release happens only
 after the required final gate.
 
+[Implementation b9377244249fa21fa12975ae8d93297e41111ebd](https://github.com/csd113/Places/commit/b9377244249fa21fa12975ae8d93297e41111ebd) is committed and normally pushed to
+`https://github.com/csd113/Places`, `origin/Art-style`. `git ls-remote origin
+refs/heads/Art-style` returns that exact SHA. The [publication identity](publication.json)
+and [snapshot verification](snapshot-publication-verification.json) pin the
+implementation; all212 frozen source inputs match its Git blobs. The final
+journal/snapshot seal changes evidence/documentation only. The exact final SHA
+and [CI workflow](https://github.com/csd113/Places/actions/workflows/rust.yml?query=branch%3AArt-style)
+result are supplied in the completion receipt after the full locked all-feature
+clean-source gate passes; no final release is claimed before that gate.
+
+[Stage3 main snapshot](stage3-snapshot.json) retains41 verified files,
+193,253,012 bytes; [control snapshot](stage3-controls-snapshot.json) retains49,
+198,576,087 bytes. Stage1/2 each still verify41 files without mismatches.
+Normal room/annex replay matches the final native PNGs exactly in
+[snapshot verification captures](snapshot-verification-main/manifest.json) and
+[control replay](snapshot-verification-controls/manifest.json). The [execution
+receipt](snapshot-publication-execution.json) records actual helper/replay commands.
+Both snapshots include source/settings/assets and compatible normal/diagnostic
+players, compiler and SDL, rather than depending on a source commit alone.
+
+A staged whitespace check found terminal blank lines in raw Cargo/development
+logs. [Raw-log preservation](raw-log-preservation.json) records their original
+bytes in the implementation commit and hash-verified local copies outside target.
+The documentation seal removes only repeated terminal LF bytes from tracked text
+previews; source, numerical output and all native capture pixels are unchanged.
+No whitespace rule or lint is disabled.
+
 Retained milestone locations outside target are
 `debug-maps/art-style-hero/milestones/stage1`, `/stage2`, `/stage3` and
 `/stage3-controls`. Each preserves the normal player, compiler, diagnostic player,

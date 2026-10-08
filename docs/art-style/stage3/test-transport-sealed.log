@@ -104,4 +104,3 @@ test lighting::transport::tests::quality::medium_and_high_bounce_fields_remain_c
 test lighting::transport::tests::quality::rectangular_window_surrounds_keep_lighting_when_subdivided ... ok
 
 test result: ok. 98 passed; 0 failed; 1 ignored; 0 measured; 2000 filtered out; finished in 0.51s
-
