@@ -2558,7 +2558,7 @@
     },
     {
       "stage": 7,
-      "status": "accepted final hero; affected68 native recheck, final snapshot/replay and publication/CI pending",
+      "status": "Final integration accepted with explicit Home animation/platform/performance limits; exact publication/CI/release recorded in outside-target completion receipt.",
       "authoritative_reports": [
         "docs/art-style/stage7/README.md",
         "docs/art-style/stage7/performance.md",
@@ -2748,7 +2748,40 @@
         1280,
         720
       ],
-      "snapshots": [],
+      "snapshots": [
+        {
+          "receipt": "docs/art-style/stage7/stage7-snapshot.json",
+          "receipt_identity": {
+            "path": "docs/art-style/stage7/stage7-snapshot.json",
+            "bytes": 10952,
+            "sha256": "560368d1d57d9562518fbafc628b773f3c84e33561718d1a5779573262253a76",
+            "exists": true
+          },
+          "runtime_asset_root": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage7",
+          "stage_revision": "4ef8c8857b759b5b5f19357f437e7a9367456e59",
+          "file_count": 52,
+          "bundle_exists": true,
+          "launch": "DYLD_LIBRARY_PATH=/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage7 PLACES_ASSET_ROOT=/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage7 PLACES_LEVEL=art_style_hero /Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage7/places",
+          "launch_and_replay": "Exact compatible file identities and launch instructions in receipt. Primary verified all files and isolated ordinary native loads outside target; room/surface exact PNG replay.",
+          "verified_by": "docs/art-style/stage7/snapshot-verification.json"
+        },
+        {
+          "receipt": "docs/art-style/stage7/stage7-integration-snapshot.json",
+          "receipt_identity": {
+            "path": "docs/art-style/stage7/stage7-integration-snapshot.json",
+            "bytes": 141999,
+            "sha256": "d2e5455c7ec7c53ca42dc26fe2e693314225ac08e2a78a9773f70e909ddd012e",
+            "exists": true
+          },
+          "runtime_asset_root": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage7-integration",
+          "stage_revision": "4ef8c8857b759b5b5f19357f437e7a9367456e59",
+          "file_count": 617,
+          "bundle_exists": true,
+          "launch": "python3 /Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage7-integration/run-map.py CASE_KEY",
+          "launch_and_replay": "Exact compatible file identities and launch instructions in receipt. Primary verified all files and isolated ordinary native loads outside target; room/surface exact PNG replay.",
+          "verified_by": "docs/art-style/stage7/snapshot-verification.json"
+        }
+      ],
       "visible_result": "Compatibility integration retains the Stage6 hero. Hall/corner/surfaces/night/water are byte-identical; room/window/contact/entities have accepted bounded wood-material response changes. No new refinement or exposure gain claimed.",
       "measured_fact": {
         "hero_byte_identical_views": [
@@ -2770,12 +2803,14 @@
       },
       "limits": "First native209 retains failed/blocked commands and three rejected empty scene measurements. Affected68 current native recheck, Stage7 runnable snapshot/replay and final implementation/publication/CI pending. All three successor reports remain unresolved.",
       "revisions": {
-        "implementation_sha": null,
+        "implementation_sha": "4ef8c8857b759b5b5f19357f437e7a9367456e59",
         "publication_sha": null,
         "publication_ci_url": null,
-        "status": "Precommit capture context preserved; final implementation, publication and exact-head CI pending.",
+        "status": "Exact committed implementation/source binding verified. Original capture base and dirty-diff context immutable. Final publicationSHA/CI are recorded in durable completion receipt after gate.",
         "capture_base_revision": "26486b8538424f013c243ae6edea8720ac07d7f2",
-        "capture_dirty_diff_sha256": "89a6c1de5a4981dfb8abfaf09aaa75929d0c7530dc61c9c9c693baa006805b06"
+        "capture_dirty_diff_sha256": "89a6c1de5a4981dfb8abfaf09aaa75929d0c7530dc61c9c9c693baa006805b06",
+        "implementation_url": "https://github.com/csd113/Places/commit/4ef8c8857b759b5b5f19357f437e7a9367456e59",
+        "publication_receipt": "debug-maps/art-style-hero/evidence/stage7-completion.json"
       },
       "report_receipts": [
         {
@@ -3076,6 +3111,42 @@
             "bytes": 226952,
             "sha256": "4ede274d3e2c1e06d961da41a94734d9a035ce93ea15562bd2db455518ba5b3f"
           }
+        },
+        "native_obligation_closure": {
+          "path": "docs/art-style/stage7/validation/native-affected-obligation-closure-v3.json",
+          "bytes": 117929,
+          "sha256": "ef454791a468b2319b44188415f7e0ff9de6adf2676f7bfed77a6411e13ca041",
+          "exists": true
+        },
+        "current_cpu_package_gates": {
+          "path": "docs/art-style/stage7/validation/final-cpu-package-composition-v1.json",
+          "bytes": 8590,
+          "sha256": "16f835962740ee5676562b80ebad26fcee775ffcd17ca1c7ce1a12ccaf6ece3b",
+          "exists": true
+        },
+        "source_publication": {
+          "path": "docs/art-style/stage7/source-publication.json",
+          "bytes": 259190,
+          "sha256": "f278335c55fcaf761496dac0e3794edf2a0c48359114eb8242840ea30fcc9f90",
+          "exists": true
+        },
+        "snapshot_verification": {
+          "path": "docs/art-style/stage7/snapshot-verification.json",
+          "bytes": 2406,
+          "sha256": "dca65dca3bb4fc45e208e06ffd1a34b5f2b104c3d5053bf6ec6355a31da3871d",
+          "exists": true
+        },
+        "deferred_canonical_supplement": {
+          "path": "docs/art-style/stage7/validation/deferred-ledger-supplement-final-v1.json",
+          "bytes": 1940,
+          "sha256": "b0e95bd07aad03c34eb9226db8696cba49274fa2c06ec7414b0f8ead9de84133",
+          "exists": true
+        },
+        "supported_provenance": {
+          "path": "docs/art-style/stage7/supported-native/provenance.json",
+          "bytes": 68372,
+          "sha256": "6a2566bd5ec3acd6e6da2c32a14d70ab879bc71b8b0b57acace056ae44595cb3",
+          "exists": true
         }
       },
       "source_freeze": {
@@ -3180,6 +3251,14 @@
             "docs/art-style/stage7/validation/all48-resources-final-content-v1.json",
             "docs/art-style/stage7/execution/final-content-default-workspace-v1.json"
           ]
+        },
+        {
+          "claim": "Original52 native obligations:48directpasses+4explicitlyqualifiedHome static/rigid/captured-lighting comparisons. Originalnative68wrapper remainsfailed,56passed2failed10not-required.",
+          "proof": "docs/art-style/stage7/validation/native-affected-obligation-closure-v3.json"
+        },
+        {
+          "claim": "Both compatible Stage7 snapshots preserved669files outside target; heroroom/surface exactnative replay and isolated integrationWinter native load pass.",
+          "proof": "docs/art-style/stage7/snapshot-verification.json"
         }
       ],
       "completed_stage7_handoff": false,
@@ -3696,7 +3775,9 @@
           "bytes": 471,
           "sha256": "67b06998381c4fbcb09d62297567a03c58ee4aaea30bf251af7cbe30dc5ea798"
         }
-      ]
+      ],
+      "completed_stage7_integration_acceptance": true,
+      "completed_stage7_handoff_authority": "Finalpublication exactremote/CI and custody release live in debug-maps/art-style-hero/evidence/stage7-completion.json. This pre-gate tracked seal does not claim that future event already happened."
     }
   ],
   "stage7_final_assembly": {
@@ -5150,5 +5231,6 @@
   "jobs_started": false,
   "primary_may_append_final_stage7_results": true,
   "primary_append_utc": "2026-10-09T07:44:01.838344+00:00",
-  "primary_append_scope": "Only Stage 7 completed actual hero/performance/current source gates; Stage 1\u20136 unchanged. Native 68 run retains failed Home checks pending source-grounded triage; publication/snapshots/CI pending."
+  "primary_append_scope": "Only Stage 7 completed actual hero/performance/current source gates; Stage 1\u20136 unchanged. Native 68 run retains failed Home checks pending source-grounded triage; publication/snapshots/CI pending.",
+  "primary_final_publication_append_utc": "2026-10-09T08:27:21.875680+00:00"
 }

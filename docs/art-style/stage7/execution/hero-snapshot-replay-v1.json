@@ -1,0 +1,27 @@
+{
+  "argv": [
+    "python3",
+    "tools/bench/capture_art_style_hero.py",
+    "--manifest",
+    "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage7/hero-manifest.json",
+    "--asset-root",
+    "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage7",
+    "--binary",
+    "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage7/places",
+    "--views",
+    "room,surfaces",
+    "--quality",
+    "high",
+    "--out",
+    "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-snapshot-replay-v1"
+  ],
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "started_utc": "2026-10-09T08:23:02.408090+00:00",
+  "finished_utc": "2026-10-09T08:23:06.500076+00:00",
+  "elapsed_seconds": 4.091912625008263,
+  "exit_code": 0,
+  "environment_overrides": {
+    "DYLD_LIBRARY_PATH": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage7"
+  },
+  "log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/hero-snapshot-replay-v1.log"
+}

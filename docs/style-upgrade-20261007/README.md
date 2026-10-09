@@ -416,3 +416,84 @@ preserves compiler/player/SDL, compatible catalogue and automatically collected
 runtime assets without manual ghost exceptions. Isolated room and surface/ghost
 replays match accepted native PNGs exactly. Final seal/push/exact-SHA CI and custody
 release are recorded after that gate in the durable completion receipt.
+
+## 2026-10-09 — Art-style Stage 7: the full map inventory works together
+
+[Seven-stage history and original-baseline comparison](art-style-history.md) ·
+[Integration report and runnable bundles](../art-style/stage7/handoff.md) ·
+[Exact implementation binding](../art-style/stage7/source-publication.json) ·
+[Measured costs and limits](../art-style/stage7/performance.md)
+
+| Stage 6 replay before | Final integration after, matched native High |
+| --- | --- |
+| ![Furnished room before integration](../art-style/stage7/before/high/room.png) | ![Furnished room retained after integration](../art-style/stage7/after/high/room.png) |
+| ![Water, ice, snow and ghost before integration](../art-style/stage7/before/high/surfaces.png) | ![Surface and ghost contracts retained after integration](../art-style/stage7/after/high/surfaces.png) |
+
+The hero retains the warm oak, fitted rug, softly grounded furniture and cool
+night practicals. Five of its nine fixed views are byte-identical to Stage 6;
+four have tiny wood-material response differences. This milestone extends
+compatibility and validation across preserved content. It adds no new map-by-map
+concept-refinement pass. The history gallery shows all successive milestones
+and six cumulative ORIGINAL Stage 1 baseline-to-final comparisons; the original
+baseline, all seven concepts and earlier asset-pass entries remain unchanged.
+
+The ordinary gate inventories 50 source paths and compiles, validates and loads
+all 48 supported package cases. Two explicit offline controls and named negative
+geometry fixtures retain their assertions. Home, Office, Pool, Outdoors, Winter
+and Hallows exercise every directed quality pair twice, plus independent
+filtering, lighting and reflection changes with visible models. Genuine supported
+examples have [complete provenance](../art-style/stage7/supported-native/provenance.json).
+
+| Existing content under final systems | Purposeful regression example |
+| --- | --- |
+| ![Office fluorescent and repeated surfaces](../art-style/stage7/supported-native/office-demo-high.png) | ![Winter ice, atmosphere and entities](../art-style/stage7/supported-native/winter-high.png) |
+| ![Night paths, foliage and practicals](../art-style/stage7/supported-native/outdoor-repaired-high.png) | ![Hallows retained materials and characters](../art-style/stage7/supported-native/hallows-high.png) |
+
+Scalar model materials, Zoo adoption and all shipped archives use the established
+contracts. Generic roof endpoints and clipped ghost support fix real geometry
+issues; bounded probe placement restores actual Demo room support. Hallows' ten
+Full pages and Demo's exact typed atlas allowance preserve existing illumination.
+Lossless PLMP6 sharing puts dense content below the unchanged 1 GiB aggregate
+limit. Two authored Outdoor/Snowfall duplicate-face defects are fixed while
+collision/navigation remain unchanged. The 28-item ledger records each resolution
+and retained limitation.
+
+The actual normal desktop gate passes 2,169 all-feature library tests, every
+integration target, 286 Python tests, strict debug/release Clippy and real Metal
+controls. Latest default workspace tests pass 2,163 library tests; six new
+geometry-authoring tests and asset validation pass. Linux ARM64 tests and Windows
+GNU linking are recorded without physical cross-platform GPU claims.
+
+Failed campaigns remain visible. The affected 68-step native run records 56
+passes, two Home whole-image failures and ten conditional steps unnecessary.
+All 52 original obligations have 48 direct passes and four explicitly qualified
+Home results. Its cat animates: all ten comparisons are exact outside an
+independently source-derived idle footprint, and all twelve captured cat/drum
+lighting payloads agree. Actual animation pose/time/VBO equality and causal
+classification of every actor-region pixel remain unproved; the original whole
+image assertions are not relabelled as passed.
+
+The same-context hero pair retains 43 draws and 6,944 submitted triangles. CPU
+render means rise 0.354→0.371 ms; Metal surface-scene medians rise 0.957→1.023 ms.
+Capture/readback blocks about 81 ms per frame, so these are descriptive capture
+costs, with one-pair uncertainty and no gameplay FPS claim. GPU allocation
+observations are unchanged and exported error tables are empty. Loading
+transients and a sustained memory plateau remain unmeasured.
+
+[Implementation 4ef8c88](https://github.com/csd113/Places/commit/4ef8c8857b759b5b5f19357f437e7a9367456e59)
+binds 606 committed inputs and nine explicitly local preserved inputs. The
+[52-file hero bundle](../art-style/stage7/stage7-snapshot.json) and
+[617-file integration bundle](../art-style/stage7/stage7-integration-snapshot.json)
+retain compatible players/compiler/SDL, assets, settings, cameras and all 48
+packages outside `target/`. [Isolated verification](../art-style/stage7/snapshot-verification.json)
+replays room/surfaces byte for byte and loads Winter from the integration bundle.
+Run `python3 debug-maps/art-style-hero/milestones/stage7-integration/run-map.py --list`
+then provide an exact case key to that helper.
+
+The final seal, exact remote SHA/CI and explicit custody release are recorded
+after publication in `debug-maps/art-style-hero/evidence/stage7-completion.json`.
+The user extended the queue with a nontechnical document and a separate task
+for kitchen-model lighting, Demo/Home joins and close Hallows skeletons. Those
+specific issues remain uninvestigated here. Needed `target/` artifacts and the
+same temporary caffeinate PID 88945 transfer to the parent; cleanup and stopping
+that inhibitor belong to the end of the extended queue.

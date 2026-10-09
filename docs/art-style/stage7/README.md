@@ -7,7 +7,9 @@ The completed CPU/package/platform gates and final hero acceptance below superse
 preparation notes chronologically. The affected native obligations now have
 [final composed acceptance](validation/native-affected-obligation-closure-v3.json):
 48 direct passes and four qualified Home comparisons. Original failed wrappers
-and raw receipts remain intact. Runnable preservation and publication follow.
+and raw receipts remain intact. Runnable preservation passes; final remote/CI/release uses the outside-target
+completion receipt. [Complete handoff](handoff.md) and [source binding](source-publication.json)
+record implementation `4ef8c8857b759b5b5f19357f437e7a9367456e59`.
 
 The actual recursive inventory has 50 sources: five shipped, five local and forty
 fixtures. All 48 supported playable/catalogue-authored paths pass ordinary
@@ -64,7 +66,10 @@ no source image is retouched or overwritten. All28 compatibility ledger entries
 have [final dispositions](validation/deferred-ledger-final-v1.json). The two Home
 whole-image failures remain qualified by exact outside-idle-envelope pixels and
 identical captured lighting payloads; actual animated pose/time parity is unproved.
-New runnable bundles and publication identities follow their actual gates.
+The [52-file hero](stage7-snapshot.json) and [617-file all48-map bundle](stage7-integration-snapshot.json)
+pass [isolated verification](snapshot-verification.json) outside `target/`,
+including exact room/surface replays. Final publication identities are recorded
+after the gate in the durable completion receipt.
 The parent's [extended queue](successor-scope-and-custody.json) retains needed
 `target/` artifacts and PID 88945 for the separate successor work; `cargo clean`
 and inhibitor termination occur only at that queue's end.

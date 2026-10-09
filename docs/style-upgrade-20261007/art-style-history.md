@@ -159,14 +159,25 @@ without a gameplay-FPS claim.
 The [first supported-map native pass](../art-style/stage7/validation/native-execution-v1.md)
 retains genuine six-theme and Zoo frames as well as its failed geometry,
 endpoint and empty-scene controls. Its overall result remains a failure.
-The separately allocated 68-step affected recheck is pending; accepted hero
-pixels do not certify that wider gate. [Integration costs and limits](../art-style/stage7/performance.md)
+The [affected68 receipt](../art-style/stage7/validation/native-affected-execution-v2.md)
+retains 56 passes, two Home whole-image failures and ten unnecessary conditional
+steps. [All 52 original obligations](../art-style/stage7/validation/native-affected-obligation-closure-v3.md)
+have 48 direct passes and four qualified Home results. Source-derived animated
+bounds and actual payload equality support static/rigid lighting restoration;
+complete animated pose/pixel parity remains unproved. [Integration costs and limits](../art-style/stage7/performance.md)
 retain their measurement scopes.
 
-- Final implementation revision: **pending**.
-- Final publication / exact-head CI: **pending**.
-- Stage 7 runnable snapshot and isolated replay: **pending**.
-- Affected native recheck: **pending**.
+- [Stage 7 implementation 4ef8c88](https://github.com/csd113/Places/commit/4ef8c8857b759b5b5f19357f437e7a9367456e59); [source binding](../art-style/stage7/source-publication.json) verifies 606 committed inputs and nine explicitly local preserved inputs.
+- Final publication / exact-head CI and ownership release: authoritative outside-target
+  `debug-maps/art-style-hero/evidence/stage7-completion.json`, recorded after the gate.
+  The tracked index does not guess a self-referential final commit hash.
+- [Stage 7 hero 52-file receipt](../art-style/stage7/stage7-snapshot.json),
+  [all 48-map 617-file receipt](../art-style/stage7/stage7-integration-snapshot.json)
+  and [isolated replay/load](../art-style/stage7/snapshot-verification.json) pass
+  outside `target/`. Room/surface replays are exact against accepted final PNGs.
+- [All 28 deferred dispositions](../art-style/stage7/validation/deferred-ledger-final-v1.json)
+  retain their history and limits; additional native roots have a
+  [canonical supplement](../art-style/stage7/validation/deferred-ledger-supplement-final-v1.json).
 
 The successor reports about kitchen cupboards/sink/refrigerator, Home corridor
 wall/ceiling joins in `places_demo`, and Hallows skeletons becoming full-bright
