@@ -1,0 +1,248 @@
+{
+  "status": "focused_contract_fix_passed",
+  "recorded_utc": "2026-10-09T05:55:51.736668+00:00",
+  "owner": "renderer_compiler",
+  "scope": "Only tests/list_levels.rs changed; no production, package, helper, manifest, catalog, source-content, schema, shader, Git or index mutation. No bake or broad-library rerun.",
+  "root_cause": {
+    "classification": "CLI integration test path-spelling assumption",
+    "production_contract": "Headless dispatch_list_levels_cli prints exact LevelManager entry path; embedded fallback uses an empty path. Repository cwd discovery may yield relative package paths, executable-ancestor discovery from another cwd may yield absolute paths.",
+    "evidence": {
+      "path": "docs/art-style/stage7/execution/linux-link-tests-plmp6-v2.log",
+      "bytes": 197908,
+      "sha256": "5bc5fa2d82bf68fad51b81787aeda2d67dfde1549f4f56bdc2ceeaf9533ba699",
+      "unchanged_id_source_order_rows": 10,
+      "original_left_prefixes": [
+        "assets/levels/",
+        "levels/"
+      ],
+      "original_right_prefixes": [
+        "/source/assets/levels/",
+        "/source/levels/"
+      ],
+      "old_result": "2 passed, 1 failed; assertion compared lexical path strings."
+    }
+  },
+  "changes": {
+    "file": "tests/list_levels.rs",
+    "bytes": 11890,
+    "sha256": "13d9eb88e93a41c61109cf1bbb9eaa45a2e40d1b988f120712d463867efd4b0f",
+    "comparison": "For every concrete row, resolve cwd.join(path).canonicalize() and compare the full ordered (id,source,canonical-package-path) tuple vector. A missing path fails resolution, package extension is required, and embedded path must be exactly empty.",
+    "retained_assertions": [
+      "successful process exit",
+      "empty stderr",
+      "no .json output",
+      "exact three-field row shape",
+      "full ordered ID and source-type equality",
+      "concrete .placesmap rows",
+      "staged catalogue and exact declared dependency byte lengths and SHA256",
+      "bundled demo source and no duplicate embedded fallback"
+    ],
+    "new_negative_control": "Same-named package files in different directories remain unequal after canonicalization.",
+    "new_positive_controls": [
+      "Relative and absolute spellings of the same file are equal despite distinct launch cwd.",
+      "Embedded fallback stays empty rather than becoming cwd."
+    ],
+    "lint_policy": "No new lint allow/expect and no changed lint levels; existing isolated-test allowance retained."
+  },
+  "source_freeze_proof": {
+    "freeze_path": "docs/art-style/stage7/source-input-identities-v11.json",
+    "freeze_sha256": "5124ae174d888119dcb99aaafe0750b3a0546e71226ad6496e6b413a969bf76d",
+    "checked_file_count": 236,
+    "mismatches": [
+      {
+        "section": "files",
+        "path": "tests/list_levels.rs",
+        "frozen": {
+          "bytes": 9269,
+          "sha256": "4bf4da4f5982c12920ca1b13400ad1c9d307e647111a3eaad3f4bcbee2b67963"
+        },
+        "current": {
+          "bytes": 11890,
+          "sha256": "13d9eb88e93a41c61109cf1bbb9eaa45a2e40d1b988f120712d463867efd4b0f"
+        }
+      }
+    ],
+    "only_owned_test_changed": true
+  },
+  "focused_evidence": {
+    "receipt": "docs/art-style/stage7/validation/cli-cwd-root-v1-focused.json",
+    "commands": [
+      {
+        "label": "host-default-direct",
+        "argv": [
+          "cargo",
+          "test",
+          "--locked",
+          "--test",
+          "list_levels",
+          "--",
+          "--test-threads=1"
+        ],
+        "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+        "container_cwd": null,
+        "start_utc": "2026-10-09T05:53:26.888440+00:00",
+        "end_utc": "2026-10-09T05:53:34.016308+00:00",
+        "elapsed_seconds": 7.127214249921963,
+        "exit_code": 0,
+        "log": "docs/art-style/stage7/validation/cli-cwd-root-v1-host-default-direct.log",
+        "log_bytes": 570,
+        "log_sha256": "8ba3bba3b8cedc853e512b9ca13a97d1e8ed4c13e10025a45ce324ca86016371",
+        "normal_host_binaries_before": {
+          "places-compile": {
+            "bytes": 6760064,
+            "sha256": "f3f27db928af9927219f3440a95acbbcfb2f53bdecb321af207613ddce91527f"
+          },
+          "places": {
+            "bytes": 93056128,
+            "sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081"
+          }
+        },
+        "normal_host_binaries_after": {
+          "places-compile": {
+            "bytes": 6760064,
+            "sha256": "f3f27db928af9927219f3440a95acbbcfb2f53bdecb321af207613ddce91527f"
+          },
+          "places": {
+            "bytes": 93056128,
+            "sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081"
+          }
+        },
+        "source_sha256": "13d9eb88e93a41c61109cf1bbb9eaa45a2e40d1b988f120712d463867efd4b0f",
+        "host_places_environment_overrides_removed": true,
+        "host_rustc_wrapper": ""
+      },
+      {
+        "label": "host-all-features",
+        "argv": [
+          "cargo",
+          "test",
+          "--locked",
+          "--test",
+          "list_levels",
+          "--all-features",
+          "--",
+          "--test-threads=1"
+        ],
+        "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+        "container_cwd": null,
+        "start_utc": "2026-10-09T05:53:34.064289+00:00",
+        "end_utc": "2026-10-09T05:53:39.083071+00:00",
+        "elapsed_seconds": 5.018776291050017,
+        "exit_code": 0,
+        "log": "docs/art-style/stage7/validation/cli-cwd-root-v1-host-all-features.log",
+        "log_bytes": 570,
+        "log_sha256": "13f461c0e0c034057015f39a83aaa95fdc31ae6ffd213f003f9d8e20580984ca",
+        "normal_host_binaries_before": {
+          "places-compile": {
+            "bytes": 6760064,
+            "sha256": "f3f27db928af9927219f3440a95acbbcfb2f53bdecb321af207613ddce91527f"
+          },
+          "places": {
+            "bytes": 93056128,
+            "sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081"
+          }
+        },
+        "normal_host_binaries_after": {
+          "places-compile": {
+            "bytes": 6760064,
+            "sha256": "f3f27db928af9927219f3440a95acbbcfb2f53bdecb321af207613ddce91527f"
+          },
+          "places": {
+            "bytes": 93056128,
+            "sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081"
+          }
+        },
+        "source_sha256": "13d9eb88e93a41c61109cf1bbb9eaa45a2e40d1b988f120712d463867efd4b0f",
+        "host_places_environment_overrides_removed": true,
+        "host_rustc_wrapper": ""
+      },
+      {
+        "label": "linux-all-features",
+        "argv": [
+          "docker",
+          "exec",
+          "places-art-style-stage7-linux-v2",
+          "cargo",
+          "test",
+          "--locked",
+          "--test",
+          "list_levels",
+          "--all-features",
+          "--",
+          "--test-threads=1"
+        ],
+        "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+        "container_cwd": "/source",
+        "start_utc": "2026-10-09T05:53:39.130219+00:00",
+        "end_utc": "2026-10-09T05:53:48.526301+00:00",
+        "elapsed_seconds": 9.396131040994078,
+        "exit_code": 0,
+        "log": "docs/art-style/stage7/validation/cli-cwd-root-v1-linux-all-features.log",
+        "log_bytes": 539,
+        "log_sha256": "eaefb96a9f2eed4b500480b45c0ce0b9bfcaacd442b66f199bd938eda4511dc3",
+        "normal_host_binaries_before": {
+          "places-compile": {
+            "bytes": 6760064,
+            "sha256": "f3f27db928af9927219f3440a95acbbcfb2f53bdecb321af207613ddce91527f"
+          },
+          "places": {
+            "bytes": 93056128,
+            "sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081"
+          }
+        },
+        "normal_host_binaries_after": {
+          "places-compile": {
+            "bytes": 6760064,
+            "sha256": "f3f27db928af9927219f3440a95acbbcfb2f53bdecb321af207613ddce91527f"
+          },
+          "places": {
+            "bytes": 93056128,
+            "sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081"
+          }
+        },
+        "source_sha256": "13d9eb88e93a41c61109cf1bbb9eaa45a2e40d1b988f120712d463867efd4b0f",
+        "host_places_environment_overrides_removed": true,
+        "host_rustc_wrapper": ""
+      }
+    ],
+    "all_12_test_executions_passed": true,
+    "host_sccache_pre_compile_failure_preserved": "docs/art-style/stage7/validation/cli-cwd-root-v1-host-default.json",
+    "environment_correction": "Host retry RUSTC_WRAPPER empty, matching the existing Linux container environment; no package/source/runtime policy changes."
+  },
+  "normal_release_identity": {
+    "host_before": {
+      "places-compile": {
+        "bytes": 6760064,
+        "sha256": "f3f27db928af9927219f3440a95acbbcfb2f53bdecb321af207613ddce91527f"
+      },
+      "places": {
+        "bytes": 93056128,
+        "sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081"
+      }
+    },
+    "host_after": {
+      "places-compile": {
+        "bytes": 6760064,
+        "sha256": "f3f27db928af9927219f3440a95acbbcfb2f53bdecb321af207613ddce91527f"
+      },
+      "places": {
+        "bytes": 93056128,
+        "sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081"
+      }
+    },
+    "linux_before": "f94ceb13d608fb8d801752178d26c19e4456f018cb14a81aa494e2718ede0b78  /work/target/release/places-compile\n5a95431afd0d93290ab0caafd4a96de1ae9b07dee5a991b78d8fc92db1d0e2a3  /work/target/release/places\n",
+    "linux_after": "f94ceb13d608fb8d801752178d26c19e4456f018cb14a81aa494e2718ede0b78  /work/target/release/places-compile\n5a95431afd0d93290ab0caafd4a96de1ae9b07dee5a991b78d8fc92db1d0e2a3  /work/target/release/places\n",
+    "both_platforms_byte_exact": true
+  },
+  "remaining_primary_gates": [
+    "Latest strict/config checks after new freeze.",
+    "Linux integration targets that the earlier Cargo invocation had not reached; full all-feature library already passed 2169/0 failed/26 ignored before this test-only correction."
+  ],
+  "custody": {
+    "all_allocated_commands_completed_and_joined": true,
+    "allocated_jobs_remaining": 0,
+    "file_cpu_cargo_target_read_custody_released": true,
+    "no_native_or_gpu_jobs_launched": true,
+    "process_inventory_note": "Separate sandboxed ps read was unavailable; completion/join is established by the serial wrapper returning after every subprocess.run and final hash verification."
+  }
+}

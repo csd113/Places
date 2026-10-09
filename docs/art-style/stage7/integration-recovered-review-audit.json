@@ -1,0 +1,538 @@
+{
+  "format_version": 1,
+  "audit_utc": "2026-10-08T22:59:59.070697+00:00",
+  "entry_revision": "26486b8538424f013c243ae6edea8720ac07d7f2",
+  "method": {
+    "package_read": "Bounded ZIP record reads; each role declared bytes/SHA verified; PLCLv2 little-endian fields decoded against src/package/collision.rs and src/level.rs, finite values/counts/trailing bytes checked.",
+    "comparison": "Exact bytes and exact decoded f32 values; no epsilon/tolerance equivalence. Removed slabs checked for strict positive-volume intersection against every rebuilt wall box. Volumes use exact binary rational arithmetic.",
+    "source_changes": false,
+    "build_bake_native_jobs": false
+  },
+  "maps": [
+    {
+      "id": "blizzard_review",
+      "campaign_receipt": "target/verification/map-regression-20261008T221853Z-36436/commands/levels__blizzard_review.json",
+      "completed_commands": [
+        {
+          "command": [
+            "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+            "build",
+            "/Users/connordawkins/Documents/GitHub/Places/levels/blizzard_review.json",
+            "--out",
+            "/Users/connordawkins/Documents/GitHub/Places/levels/blizzard_review.placesmap",
+            "--asset-root",
+            "/Users/connordawkins/Documents/GitHub/Places/assets",
+            "--workers",
+            "12",
+            "--json"
+          ],
+          "started_utc": "2026-10-08T22:38:36.414017+00:00",
+          "exit_code": 0,
+          "elapsed_seconds": 149.4964734580135
+        },
+        {
+          "command": [
+            "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+            "verify",
+            "/Users/connordawkins/Documents/GitHub/Places/levels/blizzard_review.json",
+            "--package",
+            "/Users/connordawkins/Documents/GitHub/Places/levels/blizzard_review.placesmap",
+            "--asset-root",
+            "/Users/connordawkins/Documents/GitHub/Places/assets",
+            "--require-current",
+            "--json"
+          ],
+          "started_utc": "2026-10-08T22:41:05.910694+00:00",
+          "exit_code": 0,
+          "elapsed_seconds": 0.14422591589391232
+        },
+        {
+          "command": [
+            "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+            "validate",
+            "/Users/connordawkins/Documents/GitHub/Places/levels/blizzard_review.placesmap",
+            "--json"
+          ],
+          "started_utc": "2026-10-08T22:41:06.054962+00:00",
+          "exit_code": 0,
+          "elapsed_seconds": 2.4602645830018446
+        }
+      ],
+      "old": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-entry/maps/levels/blizzard_review.placesmap",
+        "package_bytes": 50056737,
+        "package_sha256": "48733fd5930b02bb85c147a04710d307527a637f2d615c7eeaeb2ad178bcf7e6",
+        "records": {
+          "semantics": {
+            "entry": "semantics.json",
+            "bytes": 143251,
+            "sha256": "d8c0196ec161e94c5116ee50ec81e670571788f1af1e0a43666618120955422a"
+          },
+          "collision": {
+            "entry": "blobs/0713eb740bffc2837134ab1f5c8568777f1a3868b17368aeff9da10b2ea4c929.collision",
+            "bytes": 9428,
+            "sha256": "0713eb740bffc2837134ab1f5c8568777f1a3868b17368aeff9da10b2ea4c929"
+          },
+          "navigation": {
+            "entry": "blobs/43c0f461f23983bcb0875aa4c80b2c04a8f99b51fddbb69581e0fbb9833d1f08.navigation",
+            "bytes": 840286,
+            "sha256": "43c0f461f23983bcb0875aa4c80b2c04a8f99b51fddbb69581e0fbb9833d1f08"
+          }
+        },
+        "collision": {
+          "version": 2,
+          "sections": {
+            "walls": {
+              "count": 264,
+              "bytes": 7402,
+              "sha256": "ddecd8c7262a3a1234d0b90b5ee28ff29dffb6f1d87a3fa7ee8fdbbf6558ffae"
+            },
+            "floor": {
+              "rooms": 44,
+              "ramps": 5,
+              "stairs": 1,
+              "regions": 17,
+              "bytes": 1924,
+              "sha256": "815f76393ceeda445c7bd470a79d30cd174c48892ff2feeb4854a427ae11cad2"
+            },
+            "ceiling": {
+              "rooms": 3,
+              "flat": 0,
+              "gable": 3,
+              "bytes": 94,
+              "sha256": "c625980407be02064c07b1a6c917d891a5367bf90b11e97534bb1fdffdae71ec"
+            },
+            "water": {
+              "count": 0,
+              "bytes": 4,
+              "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+            },
+            "ladders": {
+              "count": 0,
+              "bytes": 4,
+              "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+            }
+          },
+          "non_wall_tail_sha256": "00b15e7a35f6690ee38fa90199d926b4c8cb429905f92bc54bffd8319232de45"
+        }
+      },
+      "new": {
+        "path": "levels/blizzard_review.placesmap",
+        "package_bytes": 64537302,
+        "package_sha256": "48af46a8afdf190c674813e80e4043517d9068be5e6b15340779aff7c39c9c4e",
+        "records": {
+          "semantics": {
+            "entry": "semantics.json",
+            "bytes": 143251,
+            "sha256": "d8c0196ec161e94c5116ee50ec81e670571788f1af1e0a43666618120955422a"
+          },
+          "collision": {
+            "entry": "blobs/3ffa860a9e86673abda09e554a2c8f5465e55775642fd78bfc243393ab6329fc.collision",
+            "bytes": 9428,
+            "sha256": "3ffa860a9e86673abda09e554a2c8f5465e55775642fd78bfc243393ab6329fc"
+          },
+          "navigation": {
+            "entry": "blobs/43c0f461f23983bcb0875aa4c80b2c04a8f99b51fddbb69581e0fbb9833d1f08.navigation",
+            "bytes": 840286,
+            "sha256": "43c0f461f23983bcb0875aa4c80b2c04a8f99b51fddbb69581e0fbb9833d1f08"
+          }
+        },
+        "collision": {
+          "version": 2,
+          "sections": {
+            "walls": {
+              "count": 264,
+              "bytes": 7402,
+              "sha256": "66814122cbfc16155e2276c6c36676d37461d95a93fbee99832c6eee276c61e3"
+            },
+            "floor": {
+              "rooms": 44,
+              "ramps": 5,
+              "stairs": 1,
+              "regions": 17,
+              "bytes": 1924,
+              "sha256": "815f76393ceeda445c7bd470a79d30cd174c48892ff2feeb4854a427ae11cad2"
+            },
+            "ceiling": {
+              "rooms": 3,
+              "flat": 0,
+              "gable": 3,
+              "bytes": 94,
+              "sha256": "c625980407be02064c07b1a6c917d891a5367bf90b11e97534bb1fdffdae71ec"
+            },
+            "water": {
+              "count": 0,
+              "bytes": 4,
+              "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+            },
+            "ladders": {
+              "count": 0,
+              "bytes": 4,
+              "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+            }
+          },
+          "non_wall_tail_sha256": "00b15e7a35f6690ee38fa90199d926b4c8cb429905f92bc54bffd8319232de45"
+        }
+      },
+      "recovered_source_sha256": "d8c0196ec161e94c5116ee50ec81e670571788f1af1e0a43666618120955422a",
+      "recovered_source_equals_old_semantics_bytes": true,
+      "raw_record_equality": {
+        "semantics": true,
+        "collision": false,
+        "navigation": true
+      },
+      "collision_changes": [
+        {
+          "wall_record_index": 28,
+          "old": {
+            "min_x": 8.0,
+            "min_y": 0.0,
+            "min_z": -29.719999313354492,
+            "max_x": 8.300000190734863,
+            "max_y": 4.300000190734863,
+            "max_z": -27.0,
+            "step_up": 0.0
+          },
+          "new": {
+            "min_x": 8.0,
+            "min_y": 0.0,
+            "min_z": -29.719999313354492,
+            "max_x": 8.300000190734863,
+            "max_y": 4.299999713897705,
+            "max_z": -27.0,
+            "step_up": 0.0
+          },
+          "changed_fields": [
+            "max_y"
+          ],
+          "old_max_y_bits": "0x4089999a",
+          "new_max_y_bits": "0x40899999",
+          "removed_slab_bounds": [
+            8.0,
+            4.299999713897705,
+            -29.719999313354492,
+            8.300000190734863,
+            4.300000190734863,
+            -27.0
+          ],
+          "removed_slab_new_positive_volume_intersections": [],
+          "removed_slab_volume_exact": "448600916099/1152921504606846976",
+          "removed_slab_volume_m3": 3.8909927025081864e-07
+        },
+        {
+          "wall_record_index": 30,
+          "old": {
+            "min_x": 16.700000762939453,
+            "min_y": 0.0,
+            "min_z": -29.719999313354492,
+            "max_x": 17.0,
+            "max_y": 4.300000190734863,
+            "max_z": -27.0,
+            "step_up": 0.0
+          },
+          "new": {
+            "min_x": 16.700000762939453,
+            "min_y": 0.0,
+            "min_z": -29.719999313354492,
+            "max_x": 17.0,
+            "max_y": 4.299999713897705,
+            "max_z": -27.0,
+            "step_up": 0.0
+          },
+          "changed_fields": [
+            "max_y"
+          ],
+          "old_max_y_bits": "0x4089999a",
+          "new_max_y_bits": "0x40899999",
+          "removed_slab_bounds": [
+            16.700000762939453,
+            4.299999713897705,
+            -29.719999313354492,
+            17.0,
+            4.300000190734863,
+            -27.0
+          ],
+          "removed_slab_new_positive_volume_intersections": [],
+          "removed_slab_volume_exact": "112149872509/288230376151711744",
+          "removed_slab_volume_m3": 3.890980333383365e-07
+        }
+      ],
+      "unchanged_wall_tuple_count": 262,
+      "occupied_wall_union_equal": false,
+      "root_cause": {
+        "source_function": "src/level.rs::solid_wall_slices",
+        "authored_room_index": 1,
+        "authored_wall_indices": [
+          6,
+          7
+        ],
+        "span_offsets": [
+          0,
+          2.719999313354492
+        ],
+        "world_ridge": -27,
+        "eave": 2.700000047683716,
+        "ridge_rise": 1.600000023841858,
+        "first_sample_offset": 0.679999828338623,
+        "last_sample_offset": 2.039999485015869,
+        "first_sample_height": 3.212000608444214,
+        "last_sample_height": 3.937333345413208,
+        "fmaf_extrapolated_maximum": 4.299999713897705,
+        "actual_owned_ridge_height": 4.300000190734863,
+        "description": "Stage3 interior-sample endpoint extrapolation avoids adjacent-roof ownership borrowing but rounds the first gable span maximum one ULP below its actual owned ridge. Same source semantics and codec; not a partition-only change."
+      },
+      "predicate_witness": {
+        "source": "src/collision.rs::WallAabb::blocks_body",
+        "foot_y": 4.298999786376953,
+        "body_height": 1.7999999523162842,
+        "step_up": 0,
+        "STEP_EPS": 0.0010000000474974513,
+        "computed_top_threshold": 4.299999713897705,
+        "old_blocks": true,
+        "new_blocks": false,
+        "support_query_position_xz": [
+          8.15,
+          -28
+        ],
+        "old_highest_support_top": 4.300000190734863,
+        "new_highest_support_top": 4.299999713897705,
+        "scope": "Direct exact f32 predicate/support counterexample; no native traversal or reachability experiment performed."
+      },
+      "verdict": "Source recovery and navigation/interactions are preserved exactly. Collision union and all-state traversal predicate equality are disproved. A bounded conservative roof-span maximum correction is needed if exact legacy gameplay preservation is required; no tolerance waiver accepted.",
+      "c1_rebuilt_preservation": {
+        "key": "levels__blizzard_review",
+        "accepted_case_receipt": "target/verification/map-regression-20261008T221853Z-36436/commands/levels__blizzard_review.json",
+        "source_path": "levels/blizzard_review.placesmap",
+        "preserved_path": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/levels__blizzard_review.placesmap",
+        "bytes": 64537302,
+        "sha256": "48af46a8afdf190c674813e80e4043517d9068be5e6b15340779aff7c39c9c4e"
+      }
+    },
+    {
+      "id": "snowfall_contrast",
+      "campaign_receipt": "target/verification/map-regression-20261008T221853Z-36436/commands/levels__snowfall_contrast.json",
+      "completed_commands": [
+        {
+          "command": [
+            "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+            "build",
+            "/Users/connordawkins/Documents/GitHub/Places/levels/snowfall_contrast.json",
+            "--out",
+            "/Users/connordawkins/Documents/GitHub/Places/levels/snowfall_contrast.placesmap",
+            "--asset-root",
+            "/Users/connordawkins/Documents/GitHub/Places/assets",
+            "--workers",
+            "12",
+            "--json"
+          ],
+          "started_utc": "2026-10-08T22:43:30.520298+00:00",
+          "exit_code": 0,
+          "elapsed_seconds": 1.9574200410861522
+        },
+        {
+          "command": [
+            "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+            "verify",
+            "/Users/connordawkins/Documents/GitHub/Places/levels/snowfall_contrast.json",
+            "--package",
+            "/Users/connordawkins/Documents/GitHub/Places/levels/snowfall_contrast.placesmap",
+            "--asset-root",
+            "/Users/connordawkins/Documents/GitHub/Places/assets",
+            "--require-current",
+            "--json"
+          ],
+          "started_utc": "2026-10-08T22:43:32.477752+00:00",
+          "exit_code": 0,
+          "elapsed_seconds": 0.08110708405729383
+        },
+        {
+          "command": [
+            "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+            "validate",
+            "/Users/connordawkins/Documents/GitHub/Places/levels/snowfall_contrast.placesmap",
+            "--json"
+          ],
+          "started_utc": "2026-10-08T22:43:32.558892+00:00",
+          "exit_code": 0,
+          "elapsed_seconds": 0.2566457089269534
+        }
+      ],
+      "old": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-entry/maps/levels/snowfall_contrast.placesmap",
+        "package_bytes": 439618,
+        "package_sha256": "447f57fc993eef484e7c5a0f2142132c4085b02ebaa480f00b1ffa194f051499",
+        "records": {
+          "semantics": {
+            "entry": "semantics.json",
+            "bytes": 1814,
+            "sha256": "dedfe1e664e32767b9084ccd303f083069ea1b4d3d030ebc77b663580d84ad11"
+          },
+          "collision": {
+            "entry": "blobs/ab2618d6f51d276779555d670e23c3d1a31ed37c84cc0255c08c088869953433.collision",
+            "bytes": 86,
+            "sha256": "ab2618d6f51d276779555d670e23c3d1a31ed37c84cc0255c08c088869953433"
+          },
+          "navigation": {
+            "entry": "blobs/bddd2f070d217cd4ad7cb7eff266ed29e55f8364e39f6e817fde9cdcc1f033af.navigation",
+            "bytes": 384939,
+            "sha256": "bddd2f070d217cd4ad7cb7eff266ed29e55f8364e39f6e817fde9cdcc1f033af"
+          }
+        },
+        "collision": {
+          "version": 2,
+          "sections": {
+            "walls": {
+              "count": 1,
+              "bytes": 38,
+              "sha256": "460bd1e462c4186280e45aac245099b078bb767050746fee5e37ed7e40e846fb"
+            },
+            "floor": {
+              "rooms": 1,
+              "ramps": 0,
+              "stairs": 0,
+              "regions": 0,
+              "bytes": 36,
+              "sha256": "b9af7630dc55c3929854b3da0d331efd63f7a6a2a96e6fc1e6c8ef81644f7a2c"
+            },
+            "ceiling": {
+              "rooms": 0,
+              "flat": 0,
+              "gable": 0,
+              "bytes": 4,
+              "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+            },
+            "water": {
+              "count": 0,
+              "bytes": 4,
+              "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+            },
+            "ladders": {
+              "count": 0,
+              "bytes": 4,
+              "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+            }
+          },
+          "non_wall_tail_sha256": "4b56db197a48d2aed1d19096d8007620e582292a3e516847611415f81fd25c66"
+        }
+      },
+      "new": {
+        "path": "levels/snowfall_contrast.placesmap",
+        "package_bytes": 439223,
+        "package_sha256": "66ea73c409ca914ec9995ec5f21a0b39ed969e90aa1de61429f1c78f16f57755",
+        "records": {
+          "semantics": {
+            "entry": "semantics.json",
+            "bytes": 1941,
+            "sha256": "5160e300b9cc8299ce6d98b6ad7f251578269ec0c7a31304732fa610fc61b812"
+          },
+          "collision": {
+            "entry": "blobs/ab2618d6f51d276779555d670e23c3d1a31ed37c84cc0255c08c088869953433.collision",
+            "bytes": 86,
+            "sha256": "ab2618d6f51d276779555d670e23c3d1a31ed37c84cc0255c08c088869953433"
+          },
+          "navigation": {
+            "entry": "blobs/bddd2f070d217cd4ad7cb7eff266ed29e55f8364e39f6e817fde9cdcc1f033af.navigation",
+            "bytes": 384939,
+            "sha256": "bddd2f070d217cd4ad7cb7eff266ed29e55f8364e39f6e817fde9cdcc1f033af"
+          }
+        },
+        "collision": {
+          "version": 2,
+          "sections": {
+            "walls": {
+              "count": 1,
+              "bytes": 38,
+              "sha256": "460bd1e462c4186280e45aac245099b078bb767050746fee5e37ed7e40e846fb"
+            },
+            "floor": {
+              "rooms": 1,
+              "ramps": 0,
+              "stairs": 0,
+              "regions": 0,
+              "bytes": 36,
+              "sha256": "b9af7630dc55c3929854b3da0d331efd63f7a6a2a96e6fc1e6c8ef81644f7a2c"
+            },
+            "ceiling": {
+              "rooms": 0,
+              "flat": 0,
+              "gable": 0,
+              "bytes": 4,
+              "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+            },
+            "water": {
+              "count": 0,
+              "bytes": 4,
+              "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+            },
+            "ladders": {
+              "count": 0,
+              "bytes": 4,
+              "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+            }
+          },
+          "non_wall_tail_sha256": "4b56db197a48d2aed1d19096d8007620e582292a3e516847611415f81fd25c66"
+        }
+      },
+      "recovered_source_sha256": "dedfe1e664e32767b9084ccd303f083069ea1b4d3d030ebc77b663580d84ad11",
+      "recovered_source_equals_old_semantics_bytes": true,
+      "raw_record_equality": {
+        "semantics": false,
+        "collision": true,
+        "navigation": true
+      },
+      "collision_changes": [],
+      "unchanged_wall_tuple_count": 1,
+      "occupied_wall_union_equal": true,
+      "semantic_default_materialization": {
+        "source": "src/weather.rs::SnowfallDef #[serde(default)] / Default",
+        "added_paths": {
+          "weather.fog_color": [
+            0.6800000071525574,
+            0.7300000190734863,
+            0.7900000214576721
+          ],
+          "weather.intensity": 1.0,
+          "weather.storm_severity": 0.0,
+          "weather.visibility_m": 5.0
+        },
+        "all_other_semantic_paths_equal": true,
+        "semantic_json_equal_after_explicit_current_defaults": true,
+        "normalization_idempotent": true,
+        "raw_semantics_equal": false
+      },
+      "verdict": "Collision/navigation gameplay records are byte-identical. Four explicit documented legacy snowfall defaults account for every semantic JSON difference; no authoring or gameplay correction indicated.",
+      "c1_rebuilt_preservation": {
+        "key": "levels__snowfall_contrast",
+        "accepted_case_receipt": "target/verification/map-regression-20261008T221853Z-36436/commands/levels__snowfall_contrast.json",
+        "source_path": "levels/snowfall_contrast.placesmap",
+        "preserved_path": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/levels__snowfall_contrast.placesmap",
+        "bytes": 439223,
+        "sha256": "66ea73c409ca914ec9995ec5f21a0b39ed969e90aa1de61429f1c78f16f57755"
+      }
+    }
+  ],
+  "essential_issue": "blizzard_review gable wall span maximum underestimates exact owned ridge by one f32 ULP; strict preservation claim blocked until coordinated conservative-bound repair or explicit migration conclusion.",
+  "subsequent_authorized_source_correction": {
+    "status": "implemented; source frozen; Rust/package validation pending primary",
+    "geometry_revision": 7,
+    "root_change": "LevelSurfaces owns each cut span by its midpoint and evaluates both exact endpoints against that same room, preserving adjacent-roof isolation and avoiding rounded interior extrapolation under-bounds. Generic callback API retains its prior fallback.",
+    "files": [
+      "src/level.rs",
+      "src/level/tests/wall_ceiling.rs",
+      "src/loader.rs",
+      "src/render/common/mod.rs",
+      "src/render/common/architecture.rs"
+    ],
+    "focused_tests": [
+      "level::wall_ceiling_tests::owned_gable_collision_spans_keep_exact_endpoint_bounds",
+      "level::wall_ceiling_tests::owned_adjacent_roof_spans_keep_their_own_exact_endpoint_maxima",
+      "level::wall_ceiling_tests::owned_constant_and_explicit_wall_bounds_are_exact",
+      "level::wall_ceiling_tests::owned_gable_bounds_preserve_body_and_support_predicates"
+    ],
+    "requested_suite": "level::wall_ceiling_tests plus geometry_check::tests and loader fingerprint regressions; strict debug/release Clippy and full workspace gate before final compiler rebake",
+    "superseded_evidence": "All old/new comparisons above describe the first C1 package campaign and retain their exact hashes. They are not relabeled final or tolerance-equivalent. Final geometry7 packages require a new independent full-record/union audit.",
+    "source_inputs_changed": false,
+    "rust_tests_or_builds_run_by_auditor": false
+  },
+  "c1_campaign_status": "Superseded incomplete campaign; completed C1 products were copied byte-exact outside target before final geometry7 migration. Original paths record the historical command targets, not the latest contents of those mutable installed paths."
+}

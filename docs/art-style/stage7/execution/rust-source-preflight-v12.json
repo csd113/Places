@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "sh",
+    "/tmp/places-stage7-rust-preflight-v10.sh"
+  ],
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "started_utc": "2026-10-09T00:22:56.163456+00:00",
+  "finished_utc": "2026-10-09T00:23:57.707253+00:00",
+  "elapsed_seconds": 61.54364237503614,
+  "exit_code": 101,
+  "environment_overrides": {
+    "RUSTC_WRAPPER": ""
+  },
+  "log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/rust-source-preflight-v12.log"
+}

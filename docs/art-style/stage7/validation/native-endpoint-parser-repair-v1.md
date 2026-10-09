@@ -1,0 +1,7 @@
+The endpoint parser repair passes all 30 bounded controls and all four actual Winter/Hallows restoration/parity re-audits. The current Rust trace writes `source` after `prepared` and `display`; the former first-field regex caused the four original failures.
+
+The repaired parser accepts one balanced `EntityLighting` sample and exactly one known, top-level source enum regardless of field order. Actual current-order and reordered Winter/Hallows samples pass. Missing, duplicate, nested-only, nested plus real, unknown, malformed and unrelated spoof sources reject. An AST comparison verifies every other support, fallback, identity, graphics and image acceptance statement remains unchanged.
+
+The existing captures prove 56 observed endpoints, including 38 endpoints that require enabled spatial lighting, a valid anchor and a Prepared centre sample. All four fresh commands exit 0. Original failed command receipts and native execution results remain immutable; this report supplements them. Weather, animation and temporal image differences retain their existing qualifications. Spatial receipts alone do not establish physical on-screen visibility.
+
+The old helper is preserved byte exact. The updated helper SHA-256 is `bf3c18d803c253816bc293171ab811fb107bb18f0de3dc86a389922fb236d0db`. All bounded Python processes have joined. Helper writes are frozen and released; no native, Cargo, compiler, bake or Git job was launched.

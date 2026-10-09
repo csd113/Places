@@ -1,0 +1,14 @@
+{
+  "report": "docs/art-style/stage7/integration-recovered-review-final.json",
+  "status": "both exact recovered final cases passed",
+  "maps": [
+    {
+      "id": "blizzard_review",
+      "status": "passed per-case receipt; exact final gameplay compatibility audited"
+    },
+    {
+      "id": "snowfall_contrast",
+      "status": "passed per-case receipt; exact final gameplay compatibility audited"
+    }
+  ]
+}

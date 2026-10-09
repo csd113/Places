@@ -1,0 +1,11 @@
+ACTUAL_COMMAND ['cargo', 'clippy', '--locked', '--target', 'x86_64-pc-windows-gnu', '--workspace', '--all-targets', '--all-features', '--', '-D', 'warnings']
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `dev` profile [optimized + debuginfo] target(s) in 0.95s
+ACTUAL_COMMAND ['cargo', 'clippy', '--locked', '--release', '--target', 'x86_64-pc-windows-gnu', '--workspace', '--all-targets', '--all-features', '--', '-D', 'warnings']
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `release` profile [optimized] target(s) in 0.50s
+ACTUAL_COMMAND ['cargo', 'test', '--locked', '--target', 'x86_64-pc-windows-gnu', '--workspace', '--all-features', '--test', 'list_levels', '--no-run']
+   Compiling places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `test` profile [optimized + debuginfo] target(s) in 2.47s
+  Executable tests/list_levels.rs (target/stage7-windows/x86_64-pc-windows-gnu/debug/deps/list_levels-ebb3dbd672255a9b.exe)
+Latest v12 Windows strict checks and four-test CLI integration PE linking passed; no native Windows execution claim.

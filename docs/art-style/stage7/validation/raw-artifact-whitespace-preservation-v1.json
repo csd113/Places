@@ -1,0 +1,436 @@
+{
+  "recorded_utc": "2026-10-09T08:16:31.417615+00:00",
+  "status": "narrow immutable raw-data whitespace handling; full staged check pending",
+  "original_staged_check": {
+    "argv": [
+      "git",
+      "diff",
+      "--cached",
+      "--check"
+    ],
+    "exit_code": 2,
+    "raw_output": "debug-maps/art-style-hero/evidence/stage7-staged-whitespace-failure-v1.log",
+    "sha256": "baa03a138758884fbe18912451c9b5b1db11c4c63750cc8a7742cbb1704e13b2",
+    "findings": 498
+  },
+  "gitattributes_before_sha256": "09e6b6b1956ebcaeed5c98e9a73959a0247900ba2010b31bfdeb7aaaac75c938",
+  "gitattributes_after_sha256": "8fe6bd14b849a1a2489fc0125a8a28ce160cc1aa39a3c83c719d415a05d56fb1",
+  "files": [
+    {
+      "path": "docs/art-style/stage7/execution/final-content-composed-controls-v1.log",
+      "bytes": 3951,
+      "sha256": "b26abaed21545fb9e9143e5cef57c0f1018463d45c0b2be5a9d30b1c3558e086",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/final-content-default-workspace-v1.log",
+      "bytes": 194683,
+      "sha256": "4c3a3a4391aa10f3d63cfe37e595d95bf9fc63ab0d2688c38707b7205f827b5c",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/geometry-focused.log",
+      "bytes": 2790,
+      "sha256": "10057ad6fd1bc2db8588f20c28c5d554fa942d96484405ace0b0b22e85a85143",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/hallows-atlas-profile-v1.log",
+      "bytes": 23515,
+      "sha256": "adbd48ab9708dd1223adfe6577fa3055c9d481d79e20eaca1122e53c06f57a91",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/linux-container-sdk-v1.log",
+      "bytes": 41314,
+      "sha256": "a3526671dec38fd5636ce56b4dcf3d3bb62cd7e6053ad4df7aed279bb2b05c01",
+      "observed_findings": [
+        "trailing"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eol,-blank-at-eof,cr-at-eol"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/normal-desktop-gate-v5-supervisor.log",
+      "bytes": 5412,
+      "sha256": "489b515f31dc35297555df3461ab4a40dda826b10b52120e43e0c6a7410316e4",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/normal-desktop-gate-v6-supervisor.log",
+      "bytes": 5414,
+      "sha256": "89545818581eda7db20d52d5981ae6ce6bfb6f0615e46bddbfc3039bea9a2bbf",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/normal-desktop-gate-v7-supervisor.log",
+      "bytes": 5412,
+      "sha256": "0f8fedc8fb06bb58ca5bb5c2eddb3a2d190ed8561ed300ef156a5ed027c089bb",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/normal-desktop-gate-v8.log",
+      "bytes": 231412,
+      "sha256": "9d7ef7c9b6238165b9f1c47b7958437ad03c27ddf2693b900fdbb86f2dbff151",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/package-rss-v7-supervisor.log",
+      "bytes": 1669,
+      "sha256": "2d894a679ca2028878398d254b31deddd88109b7b1540efc1f8a9423ea89bf74",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/package-rss-v8-supervisor.log",
+      "bytes": 1669,
+      "sha256": "2c0e598a5c4dc2ea53db4ee33e99d2993f8ae7c2b38d01244021e51879bdc309",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/post-gate-resume-v1-supervisor.log",
+      "bytes": 5440,
+      "sha256": "be3a6d059b18123255c8986ddbf995d489900e5807d1db1290296788f95dc9e6",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/post-gate-resume-v2-supervisor.log",
+      "bytes": 5440,
+      "sha256": "4396b39bfeb9aa8f607d5507830d75ffec206d1a8b4933b1fced7d15d7067cb5",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/post-gate-resume-v3-supervisor.log",
+      "bytes": 5438,
+      "sha256": "0c06f163b076a005f4f899e00ed2d11ac5240445a7b01b1355e2c1ac40e7c77f",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/post-gate-serial-v1-supervisor.log",
+      "bytes": 5439,
+      "sha256": "c68e61f620e8b1ead9ea4f28d692ba3136a54d876572d6b15bee4a2b7d11976b",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/probe-focused-v2.log",
+      "bytes": 34570,
+      "sha256": "a7754006713d6a4cabfbb1d38844cc979a523e063adcebd9c8208610ea0e9e6e",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/rust-preflight-v2-supervisor.log",
+      "bytes": 2580,
+      "sha256": "e78d1683917a315b2f18d4c8f8b7a4e9792dd2449e5281cbd12ece12c975306a",
+      "observed_findings": [
+        "eof",
+        "trailing"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eol,-blank-at-eof,cr-at-eol"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/rust-preflight-v2.log",
+      "bytes": 2152,
+      "sha256": "ca87fc74b9a28fb8f1005535a7d72cb3012371461e70f7d74f6f0e55fcaeefe7",
+      "observed_findings": [
+        "trailing"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eol,-blank-at-eof,cr-at-eol"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/rust-preflight-v3-supervisor.log",
+      "bytes": 1264,
+      "sha256": "108c4cd5e879ba430793d897478d304b3b341133c116a76e72efa2c14560be2f",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/rust-preflight-v4.log",
+      "bytes": 5055,
+      "sha256": "17c56da250c8cbc6d15a4938c37c068050d4e9c7936d868cdd6d661958279cd6",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/rust-preflight-v5-supervisor.log",
+      "bytes": 866,
+      "sha256": "89621fe2973036fb456f20c29638830c2d8fc59ea97cb705a4ee253cae4003d2",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/rust-preflight-v6-supervisor.log",
+      "bytes": 5433,
+      "sha256": "5f430205f172401868690c7bdfe2bb45edbdee0254f66b4679e233407f3a508e",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/rust-preflight-v7-supervisor.log",
+      "bytes": 5432,
+      "sha256": "33a28b2aa64bc5d73b832dce6d535ae82698a50b9a084ed2366b22ca127a5341",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/rust-preflight-v8.log",
+      "bytes": 5744,
+      "sha256": "5007c4be063cf5d630f2b3e0524edd64e84ba7d2ec6d623dda06c05a6beca342",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/rust-preflight-v9.log",
+      "bytes": 3212,
+      "sha256": "00c7aecf8818bee42706a0bebfd225d73894605cc4c2a0a22bb8fec59bb428df",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/rust-source-preflight-v10-supervisor.log",
+      "bytes": 3032,
+      "sha256": "aeb4cd85143a1c335878a23bf5548e8e1a7009078dd50310db2a323f8378718f",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/rust-source-preflight-v11-supervisor.log",
+      "bytes": 2301,
+      "sha256": "76bff06c3bbfd6bfda1d1bcd7de8919bc9830ad72b464b465b0547c9ee03ec93",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/rust-source-preflight-v12-supervisor.log",
+      "bytes": 5441,
+      "sha256": "f5f3dfdedcb26dae25f2c1dc1baf22be97644411a80dd07c3593585a94ec4541",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/rust-source-preflight-v13.log",
+      "bytes": 6219,
+      "sha256": "2bf7762da57808b43fa606c223dddd9de87a4e03fe14c713c61e4b6b47b2aa54",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/rust-source-preflight-v14.log",
+      "bytes": 1795,
+      "sha256": "7346566a022a55f214a94873d198789599ea5ce507b97c3fcf0b6dcd7829a313",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/rust-source-preflight-v15-supervisor.log",
+      "bytes": 1605,
+      "sha256": "27bc6d9b4bb614ecbbcacc8c09bcceea034030d4ee5b60eaee16056f93ba5336",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/rust-source-preflight-v16-supervisor.log",
+      "bytes": 2347,
+      "sha256": "5f461b798b09ad40e281a95e542908f02729616d7fc45338432f0de269d2deca",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/rust-source-preflight-v17-supervisor.log",
+      "bytes": 5441,
+      "sha256": "46b0eedd9c5f1199e283ae7f8a067e55fc42e2a4ea80dcbe7d5651009b71f1d5",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/rust-source-preflight-v18.log",
+      "bytes": 3886,
+      "sha256": "e050ddf83c035b1a2aad83142ae77e65d33ac314261f75d180ae821f56fe8434",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/test-expectations-focused-v1-supervisor.log",
+      "bytes": 1899,
+      "sha256": "524d7801df76115f6054015873e0db76a82c1de3c05d189845ecf0e1b0730a20",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/execution/windows-sdk-stdlib-v1.log",
+      "bytes": 1721,
+      "sha256": "13c8f6672446ef393bf43621ac9db8c05c5f40d5204b84786ec0375aeb9d7a00",
+      "observed_findings": [
+        "trailing"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eol,-blank-at-eof,cr-at-eol"
+    },
+    {
+      "path": "docs/art-style/stage7/validation/cli-cwd-root-v1-host-all-features.log",
+      "bytes": 570,
+      "sha256": "13f461c0e0c034057015f39a83aaa95fdc31ae6ffd213f003f9d8e20580984ca",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/validation/cli-cwd-root-v1-host-default-direct.log",
+      "bytes": 570,
+      "sha256": "8ba3bba3b8cedc853e512b9ca13a97d1e8ed4c13e10025a45ce324ca86016371",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/validation/cli-cwd-root-v1-host-default.log",
+      "bytes": 215,
+      "sha256": "be893206be237ed0e7d264788dc87fb50ac101cffaabfcf13f32c3f9ba2ef82b",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/validation/cli-cwd-root-v1-linux-all-features.log",
+      "bytes": 539,
+      "sha256": "eaefb96a9f2eed4b500480b45c0ce0b9bfcaacd442b66f199bd938eda4511dc3",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/validation/directional-pixel-root-v1-corrected-v2/run.log",
+      "bytes": 990,
+      "sha256": "0c56f5c5f3ee5201e2c3bda812f60d03b0f5e2d1863278963d8603c6bd6ae415",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/validation/directional-pixel-root-v1-final/run.log",
+      "bytes": 645,
+      "sha256": "769a32f64d4511ede35211260cdcdec70eedbb105e93bb8cd9dd421f963dfcb4",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/validation/directional-pixel-root-v1-original-metal/run.log",
+      "bytes": 1050,
+      "sha256": "779070a853e9666c0bfc2637831023a013adb43188f06ac0c7fecf5fd9e10372",
+      "observed_findings": [
+        "trailing"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eol,-blank-at-eof,cr-at-eol"
+    },
+    {
+      "path": "docs/art-style/stage7/validation/directional-pixel-root-v1-original/run.log",
+      "bytes": 1235,
+      "sha256": "93ef74fd82ee818204b7c743a7c53da4c06cbb7a4c928492ff4d9dd3687fb425",
+      "observed_findings": [
+        "trailing"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eol,-blank-at-eof,cr-at-eol"
+    },
+    {
+      "path": "docs/art-style/stage7/validation/renderer-final-diff-review-v3.json",
+      "bytes": 52057,
+      "sha256": "049a5052ceaeac3e5dc957c3c53f3bed4fe4135aabec4f1c1bfbdbc2805c2a43",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    },
+    {
+      "path": "docs/art-style/stage7/validation/renderer-final-diff-review-v3.md",
+      "bytes": 2441,
+      "sha256": "a8bc0649539f851097dc52a33a46b333763360474abde24745845260cc2b81f5",
+      "observed_findings": [
+        "eof"
+      ],
+      "exact_attribute": "whitespace=-blank-at-eof"
+    }
+  ],
+  "scope": "Exact46 newlycommitted immutable evidence paths only. Disable only actual raw-data blank-at-EOL/EOF checks as specified per file; preserve all raw bytes and existing proof pins, source/test/map and remaining editorial checks (two sealed report EOF exceptions are explicit), Rust Clippy policy and engine/native/hash assertions. No wildcard, global whitespace flag or warning suppression. Existing upstream-license preservation convention provides repository precedent. Original failedstagedcheck retained; finalstagedcheck uses actual source patch and exact classified artifacts."
+}

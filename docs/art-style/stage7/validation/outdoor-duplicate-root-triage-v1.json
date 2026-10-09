@@ -1,0 +1,268 @@
+{
+  "status": "confirmed real authored duplicate surfaces; proposed bounded data repair not implemented or accepted",
+  "recorded_utc": "2026-10-09T06:39:55.058076+00:00",
+  "reviewer": "renderer_compiler read-only root triage",
+  "failure": {
+    "result": {
+      "path": "debug-maps/art-style-hero/evidence/stage7-native-regression-v1/geometry49/tests__fixtures__levels__outdoor_kit_showcase/result.json",
+      "bytes": 757,
+      "sha256": "d1ea9233eecbb88de736475a0acce5a1c824cddbcac03f3b64a9e0a289b0d867"
+    },
+    "geometry": {
+      "path": "debug-maps/art-style-hero/evidence/stage7-native-regression-v1/geometry49/tests__fixtures__levels__outdoor_kit_showcase/geometry.json",
+      "bytes": 43716,
+      "sha256": "21f856f4ce8a205d19dcce4f9b1956aae865e5a0d62e4e29302a9e5a6a3568d2"
+    },
+    "command": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-runtime/normal-c2-plmp6-v10/places",
+      "--check-geometry",
+      "--level",
+      "/Users/connordawkins/Documents/GitHub/Places/tests/fixtures/levels/outdoor_kit_showcase.json",
+      "--json",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-regression-v1/geometry49/tests__fixtures__levels__outdoor_kit_showcase/geometry.json"
+    ],
+    "summary": {
+      "checks": {
+        "coplanar-sliver": {
+          "errors": 0,
+          "warnings": 14
+        },
+        "duplicate-surface": {
+          "errors": 32,
+          "warnings": 0
+        },
+        "missing-wall": {
+          "errors": 0,
+          "warnings": 1
+        },
+        "overlap-emission": {
+          "errors": 0,
+          "warnings": 36
+        },
+        "reversed-face": {
+          "errors": 0,
+          "warnings": 9
+        }
+      },
+      "errors": 32,
+      "findings": 92,
+      "suppressed": {},
+      "warnings": 60
+    },
+    "expected_errors": "none; unchanged strict matrix; no allowance proposed"
+  },
+  "source": {
+    "path": "tests/fixtures/levels/outdoor_kit_showcase.json",
+    "bytes": 72192,
+    "sha256": "ef54afad931f372b1bd9c71ac7125f750feed43fe485367552f97e17900027f4"
+  },
+  "stage6_entry_source": {
+    "path": "debug-maps/art-style-hero/evidence/stage7-entry/content/tests/fixtures/levels/outdoor_kit_showcase.json",
+    "bytes": 72192,
+    "sha256": "ef54afad931f372b1bd9c71ac7125f750feed43fe485367552f97e17900027f4"
+  },
+  "ancestry": {
+    "source_byte_identical_to_stage6_entry": true,
+    "emitter": "src/render/common/architecture.rs::emit_half_wall calls solid_box and unconditionally emits box faces. Shared emitted and collision extents are HalfWallDef::bounds/solid_box.",
+    "preserved_rust_diff": {
+      "path": "/tmp/places-stage7-rust-final-review-v1.diff",
+      "bytes": 170605,
+      "sha256": "ae7cf2ed55fe214066d0c9cb1771972e4265c477011773cf617b6ed8cdc4df69"
+    },
+    "diff_observation": "Preserved Stage6\u2192Stage7 architecture diff touches only roof-profile import/baseboard owning-span caller; emit_half_wall/emit_box unchanged. Duplicate matcher has no Stage7 hunk.",
+    "qualification": "This proves the authored overlap predates Stage7. No old executable was launched to claim an empirical historical checker result."
+  },
+  "root": {
+    "classification": "Overlapping perimeter half-wall volumes produce duplicate same-facing exterior and cap faces. Lower perimeter also overlaps two house side-wall volumes.",
+    "affected_owner_pairs": [
+      {
+        "owners": [
+          "half_walls[0]",
+          "half_walls[1]"
+        ],
+        "reported_triangle_errors": 6
+      },
+      {
+        "owners": [
+          "half_walls[0]",
+          "half_walls[3]"
+        ],
+        "reported_triangle_errors": 6
+      },
+      {
+        "owners": [
+          "half_walls[1]",
+          "half_walls[4]"
+        ],
+        "reported_triangle_errors": 8
+      },
+      {
+        "owners": [
+          "half_walls[2]",
+          "half_walls[5]"
+        ],
+        "reported_triangle_errors": 7
+      },
+      {
+        "owners": [
+          "half_walls[4]",
+          "walls[2]"
+        ],
+        "reported_triangle_errors": 3
+      },
+      {
+        "owners": [
+          "half_walls[5]",
+          "walls[3]"
+        ],
+        "reported_triangle_errors": 2
+      }
+    ],
+    "affected_planes": "Y1.05 perimeter top caps; X0/X26 exterior faces; Z0/Z20 exterior faces; X2.5 and X17.5 house/perimeter end faces. All32 Error pairs are Wall m0, same-facing; none is a roof endpoint or centroid-ghost result.",
+    "independent_triangle_proof": {
+      "reported_errors_checked": 32,
+      "all_exact_positive_projected_intersection": true,
+      "normal_dot_product_above": 0.99,
+      "minimum_exact_overlap_m2": 0.0010499999836087214,
+      "maximum_exact_overlap_m2": 0.10500039577482312,
+      "method": "Parse reported triangle points/normals with ast.literal_eval, round coordinates to their logged f32 values, project to dominant plane and use exact Fraction Sutherland\u2013Hodgman intersection/shoelace with no tolerance. Match full box-corner faces, falling back to source face containment for subdivided house wall faces; each Error had a unique owner pair."
+    },
+    "matcher": "src/geometry_check.rs:1574 check_duplicate_surfaces sign-canonical plane buckets, actual coplanarity, positive projected overlap; >0.001m\u00b2 same-facing wall duplicates are Errors,0.0001..0.001m\u00b2 slivers remain warnings. The exact independent areas are genuinely positive and all exceed the existing Error threshold. No matcher correction is justified by this evidence.",
+    "example": {
+      "owners": [
+        "half_walls[1]",
+        "half_walls[0]"
+      ],
+      "plane": "X0, normal[-1,0,0]",
+      "full_wall_span": "z0..20, y0..1.05",
+      "overlapping_other_span": "z19.8..20, y0..1.05",
+      "example_triangle_overlap_m2": 0.105
+    }
+  },
+  "generator": {
+    "path": "tools/levels/build_outdoor_fixture.py",
+    "bytes": 22627,
+    "sha256": "14244f5dc9199674976843874dea81feaf5e992e46583592f0521ca708468374"
+  },
+  "proposal": {
+    "implementation_owner_files": [
+      "tools/levels/build_outdoor_fixture.py",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "minimum_changes": [
+      {
+        "owner": "half_walls[1]",
+        "fields": {
+          "z": {
+            "old": 0.0,
+            "proposed": 0.2
+          },
+          "depth": {
+            "old": 20.0,
+            "proposed": 19.6
+          }
+        }
+      },
+      {
+        "owner": "half_walls[2]",
+        "fields": {
+          "z": {
+            "old": 0.0,
+            "proposed": 0.2
+          },
+          "depth": {
+            "old": 6.0,
+            "proposed": 5.8
+          }
+        }
+      },
+      {
+        "owner": "half_walls[3]",
+        "fields": {
+          "depth": {
+            "old": 9.0,
+            "proposed": 8.8
+          }
+        }
+      },
+      {
+        "owner": "half_walls[4]",
+        "fields": {
+          "width": {
+            "old": 2.5,
+            "proposed": 2.2
+          }
+        }
+      },
+      {
+        "owner": "half_walls[5]",
+        "fields": {
+          "x": {
+            "old": 17.5,
+            "proposed": 17.8
+          },
+          "width": {
+            "old": 8.5,
+            "proposed": 8.2
+          }
+        }
+      }
+    ],
+    "unchanged_owner": "half_walls[0] owns the full top yard edge; horizontal bottom runs retain the two bottom corners; existing house side walls own their overlapping terminal strips.",
+    "preserved_parts": [
+      "all six perimeter pieces",
+      "all eight house/shed walls and door openings",
+      "all height1.05 and0.2 thickness contracts",
+      "same outdoor:house_siding_01 on every perimeter face",
+      "all rooms/props/assets/grass/floor/decals/lights/doors/spawn/sky and other authored fields",
+      "full occupied solid union and enclosing yard boundary"
+    ],
+    "independent_proposal_union_proof": {
+      "old_boxes": 8,
+      "proposed_boxes": 8,
+      "six_half_walls_plus_unchanged_house_walls": [
+        2,
+        3
+      ],
+      "axis_partition_cells_checked": 112,
+      "differences": 0,
+      "exact_f32_axis_partition_union_equal": true,
+      "method": "Emulate f32 parsing and endpoint addition exactly. Take every old/proposed box boundary in XYZ, compare closed-box occupancy through exact Fraction midpoint witnesses in all112 positive-volume cells; non-degenerate finite closed boxes are the closure of those interiors. All room floors are0, no floor regions/y overrides affect these boxes. This is a bounded proposed-solid union proof, not actual compiled navigation/native acceptance."
+    },
+    "material_alignment": "emit_box uses world X/Z and y-relative tiled_uv for vertical faces; surviving exposed boundary coordinates/heights/materials retain the texture phase. Actual generated geometry/chart and visual evidence remains required.",
+    "no_changes_recommended": [
+      "src/geometry_check.rs matcher/tolerances",
+      "Geometry7/Solver16/PLMP6 or schema",
+      "source-content deletion, placeholder assets or expected-error allowance",
+      "render or collision policy/visibility redesign"
+    ],
+    "float_note": "A derived dimension may leave only a sub-micrometre/ULP overlap at a shared boundary; the proposal union proof used actual f32 endpoints. Do not enlarge tolerances; the ordinary exact geometry gate must still pass."
+  },
+  "affected_products_and_checks": {
+    "package": "The single outdoor_kit_showcase source hash changes and must be rebuilt normally for Off/Medium/Full. Existing source/config/asset/tool cache guards remain; no provenance or compiler exception.",
+    "binary": "A data/generator-only fix should keep f3 compiler/f5 normal player identical. No Rust revision bump is justified.",
+    "compiled_products": "Source semantics and some collision partition/mesh/chart/lighting/fingerprint bytes legitimately change; occupied collision union, navigation/traversal, exposed material identity and all unrelated source fields need precise checks.",
+    "required_before_acceptance": [
+      "Canonical guide/spec consulted by allocated author; deterministic generator --check and source-only eight-scalar diff.",
+      "Actual ordinary checker0confirmedErrors with expectedErrors still empty; retain the current32Error/60Warning failure.",
+      "Focused box-union/body/support and actual compiled navigation/traversal/material checks; no raw-byte waiver presented as equality.",
+      "Fresh source-currency/validation/decode for all three ordinary variants; affected native camera/quality checks and precise new inventory/source receipts.",
+      "Existing strict/generator/full normal-gate evidence recomposed honestly for unchanged source identities; all other sources retain prior exact evidence."
+    ]
+  },
+  "limits": [
+    "Proposal not written; no repaired checker/native/build outcome claimed.",
+    "60 existing warnings are heuristic categories; their disposition remains with the strict matrix owner.",
+    "Kitchen/Home joins/close-Hallows successor issues remain separate."
+  ],
+  "custody": {
+    "files_written": [
+      "docs/art-style/stage7/validation/outdoor-duplicate-root-triage-v1.json",
+      "docs/art-style/stage7/validation/outdoor-duplicate-root-triage-v1.md"
+    ],
+    "source_helper_package_binary_target_Git_changes": false,
+    "Cargo_bake_native_jobs": false,
+    "outdoor_read_custody_released": true,
+    "remaining_delegation": "Separate read-only Demo9007spawn triage follows under the parent allocation."
+  }
+}

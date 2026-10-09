@@ -1,0 +1,21 @@
+{
+  "argv": [
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests",
+    "-p",
+    "test_content_geometry_authoring.py"
+  ],
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "started_utc": "2026-10-09T07:02:57.572874+00:00",
+  "finished_utc": "2026-10-09T07:02:57.663415+00:00",
+  "elapsed_seconds": 0.09028558304999024,
+  "exit_code": 0,
+  "environment_overrides": {
+    "RUSTC_WRAPPER": ""
+  },
+  "log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/final-content-python-controls-v1.log"
+}

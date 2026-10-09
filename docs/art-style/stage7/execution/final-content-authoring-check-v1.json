@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "python3",
+    "tools/levels/build_outdoor_fixture.py",
+    "--check"
+  ],
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "started_utc": "2026-10-09T07:02:57.693575+00:00",
+  "finished_utc": "2026-10-09T07:02:57.729933+00:00",
+  "elapsed_seconds": 0.036309125018306077,
+  "exit_code": 0,
+  "environment_overrides": {
+    "RUSTC_WRAPPER": ""
+  },
+  "log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/final-content-authoring-check-v1.log"
+}

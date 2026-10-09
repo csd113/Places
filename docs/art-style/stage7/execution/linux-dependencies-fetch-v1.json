@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "docker",
+    "exec",
+    "places-art-style-stage7-linux-v1",
+    "cargo",
+    "fetch",
+    "--locked"
+  ],
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "started_utc": "2026-10-09T02:14:46.235660+00:00",
+  "finished_utc": "2026-10-09T02:14:50.701911+00:00",
+  "elapsed_seconds": 4.466181833064184,
+  "exit_code": 0,
+  "environment_overrides": {
+    "RUSTC_WRAPPER": ""
+  },
+  "log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/linux-dependencies-fetch-v1.log"
+}

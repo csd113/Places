@@ -1,0 +1,210 @@
+[
+  {
+    "after": "ready:home_showcase",
+    "delay_ms": 200,
+    "action": {
+      "kind": "quality",
+      "level": "low"
+    }
+  },
+  {
+    "after": "ready:home_showcase",
+    "delay_ms": 1000,
+    "action": {
+      "kind": "load",
+      "level": "office_asset_review"
+    }
+  },
+  {
+    "after": "ready:office_asset_review",
+    "delay_ms": 200,
+    "action": {
+      "kind": "quality",
+      "level": "medium"
+    }
+  },
+  {
+    "after": "ready:office_asset_review",
+    "delay_ms": 1000,
+    "action": {
+      "kind": "load",
+      "level": "pool_showcase"
+    }
+  },
+  {
+    "after": "ready:pool_showcase",
+    "delay_ms": 200,
+    "action": {
+      "kind": "quality",
+      "level": "high"
+    }
+  },
+  {
+    "after": "ready:pool_showcase",
+    "delay_ms": 1000,
+    "action": {
+      "kind": "load",
+      "level": "outdoor_kit_showcase"
+    }
+  },
+  {
+    "after": "ready:outdoor_kit_showcase",
+    "delay_ms": 200,
+    "action": {
+      "kind": "quality",
+      "level": "low"
+    }
+  },
+  {
+    "after": "ready:outdoor_kit_showcase",
+    "delay_ms": 1000,
+    "action": {
+      "kind": "load",
+      "level": "winter"
+    }
+  },
+  {
+    "after": "ready:winter",
+    "delay_ms": 200,
+    "action": {
+      "kind": "quality",
+      "level": "medium"
+    }
+  },
+  {
+    "after": "ready:winter",
+    "delay_ms": 1000,
+    "action": {
+      "kind": "load",
+      "level": "lantern_hollow"
+    }
+  },
+  {
+    "after": "ready:lantern_hollow",
+    "delay_ms": 200,
+    "action": {
+      "kind": "quality",
+      "level": "high"
+    }
+  },
+  {
+    "after": "ready:lantern_hollow",
+    "delay_ms": 1000,
+    "action": {
+      "kind": "load",
+      "level": "model_zoo"
+    }
+  },
+  {
+    "after": "ready:model_zoo",
+    "delay_ms": 200,
+    "action": {
+      "kind": "quality",
+      "level": "low"
+    }
+  },
+  {
+    "after": "ready:model_zoo",
+    "delay_ms": 1000,
+    "action": {
+      "kind": "load",
+      "level": "movement_test"
+    }
+  },
+  {
+    "after": "ready:movement_test",
+    "delay_ms": 200,
+    "action": {
+      "kind": "quality",
+      "level": "medium"
+    }
+  },
+  {
+    "after": "ready:movement_test",
+    "delay_ms": 1000,
+    "action": {
+      "kind": "load",
+      "level": "places_demo"
+    }
+  },
+  {
+    "after": "ready:places_demo",
+    "delay_ms": 200,
+    "action": {
+      "kind": "quality",
+      "level": "high"
+    }
+  },
+  {
+    "after": "ready:places_demo",
+    "delay_ms": 1000,
+    "action": {
+      "kind": "load",
+      "level": "geometry_intentional"
+    }
+  },
+  {
+    "after": "ready:geometry_intentional",
+    "delay_ms": 200,
+    "action": {
+      "kind": "quality",
+      "level": "low"
+    }
+  },
+  {
+    "after": "ready:geometry_intentional",
+    "delay_ms": 1000,
+    "action": {
+      "kind": "load",
+      "level": "level0_pit"
+    }
+  },
+  {
+    "after": "ready:level0_pit",
+    "delay_ms": 200,
+    "action": {
+      "kind": "quality",
+      "level": "medium"
+    }
+  },
+  {
+    "after": "ready:level0_pit",
+    "delay_ms": 1000,
+    "action": {
+      "kind": "load",
+      "level": "blizzard_review"
+    }
+  },
+  {
+    "after": "ready:blizzard_review",
+    "delay_ms": 200,
+    "action": {
+      "kind": "quality",
+      "level": "high"
+    }
+  },
+  {
+    "after": "ready:blizzard_review",
+    "delay_ms": 1000,
+    "action": {
+      "kind": "load",
+      "level": "snowfall_contrast"
+    }
+  },
+  {
+    "after": "ready:snowfall_contrast",
+    "delay_ms": 200,
+    "action": {
+      "kind": "quality",
+      "level": "high"
+    }
+  },
+  {
+    "after": "ready:snowfall_contrast",
+    "delay_ms": 1000,
+    "action": {
+      "kind": "load",
+      "level": "home_showcase"
+    }
+  }
+]

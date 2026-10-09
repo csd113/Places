@@ -1,0 +1,9 @@
+ACTUAL_COMMAND ['cargo', 'fmt', '--all', '--check']
+ACTUAL_COMMAND ['cargo', 'clippy', '--workspace', '--all-targets', '--all-features', '--', '-D', 'warnings']
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `dev` profile [optimized + debuginfo] target(s) in 1.19s
+ACTUAL_COMMAND ['cargo', 'clippy', '--release', '--workspace', '--all-targets', '--all-features', '--', '-D', 'warnings']
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `release` profile [optimized] target(s) in 0.54s
+ACTUAL_COMMAND ['cargo', 'build', '--locked', '--release', '--bins']
+    Finished `release` profile [optimized] target(s) in 0.15s

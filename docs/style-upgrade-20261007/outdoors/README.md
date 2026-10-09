@@ -62,6 +62,14 @@ The before copy was made from the clean starting revision before content changes
 
 Matched Low native views, with lightmaps and reflections Off, make the delivered construction/palette readable; the inherited Full-lightmap route stays nearly black in both revisions. This is a material remaining rendering limitation, not evidence of a solved High atmosphere. Low is the ordinary shipped quality setting, not an edited image, custom fill-light scene or exposure change.
 
+**2026-10-08 clarification:** the sentence above records the asset pass's
+historical description; fresh installations actually default to High
+(`QualityLevel::DEFAULT` in `src/quality.rs`). These preserved Low pixels are
+diagnostic construction comparisons. They do not demonstrate High lighting
+acceptance. [Stage 7](../../art-style/stage7/README.md) checks the final High
+packages and independent quality transitions with their actual settings receipts;
+the original captures and labels remain unchanged.
+
 | Low view | Before | After |
 | --- | --- | --- |
 | Path / material palette | ![Before Low path](before-low/path.png) | ![After Low path](after-low/path.png) |

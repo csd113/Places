@@ -1,0 +1,443 @@
+{
+  "version": 1,
+  "recorded_utc": "2026-10-09T05:02:46.511619+00:00",
+  "scope": "focused native Metal directional entity pixel test root correction",
+  "result": "PASS focused final test; strict aggregate gates handed back to primary",
+  "modified_source": [
+    {
+      "path": "src/render/wgpu/entity_lighting_tests.rs",
+      "bytes": 37961,
+      "sha256": "2cbf35fe3137bd5493cf279dc9a9d5792f27432a00e06951b9e3cadfc10acb0f"
+    }
+  ],
+  "root_cause": {
+    "classification": "test reference domain drift; no renderer defect demonstrated",
+    "old_expectation": "Linear irradiance 0.21624765 multiplied by255 was compared directly with sRGB display readback bytes.",
+    "correct_contract": "Decode the sampled committed fallback colour texel from sRGB to linear, apply unchanged irradiance and default fog, then encode once through the configured Rgba8UnormSrgb direct capture target.",
+    "fallback_texel_rgb": [
+      253,
+      253,
+      255
+    ],
+    "fallback_png": {
+      "path": "assets/core/textures/white_01.png",
+      "bytes": 506558,
+      "sha256": "b8ece440e5c8cb37b58d8246bf4eb8e3bd6747d2103193cc96f208634bd1222f"
+    },
+    "original_linear_expected": 0.21624765,
+    "old_display_reference": 55.143150750000004,
+    "normal": [
+      0.0,
+      0.5812382,
+      0.81373346
+    ],
+    "centre_ray_plane_position": [
+      0.015736222,
+      0.9842638,
+      -0.48875976
+    ],
+    "centre_reference": "Analytic half-pixel camera ray for existing128x128,FOV60,eye[0,1,3] intersects the actual triangle plane; existing LevelFog::amount supplies unchanged default atmosphere.",
+    "source_contracts": [
+      "docs/art-style/stage4/contracts.md",
+      "docs/art-style/stage5/contracts.md",
+      "src/render/wgpu/renderer.rs:771",
+      "src/render/wgpu/renderer.rs:4611",
+      "src/render/wgpu/world.wgsl:734",
+      "src/render/wgpu/texture.rs:48",
+      "src/materials/color.rs",
+      "src/render/common/atmosphere.rs"
+    ],
+    "capture_helper": "Existing direct-headless fallback helper/post=None is unchanged; this check covers its single hardware sRGB encoding, not the normal presented post-process path."
+  },
+  "pixel_evidence": {
+    "bright_rgba": [
+      127,
+      127,
+      128,
+      255
+    ],
+    "reversed_rgba": [
+      88,
+      88,
+      89,
+      255
+    ],
+    "bright_reference_srgb_bytes": [
+      127.08469,
+      127.096695,
+      128.17305
+    ],
+    "reversed_reference_srgb_bytes": [
+      88.39195,
+      88.41075,
+      89.208305
+    ],
+    "incorrect_default_Z_normal_reference_srgb_bytes": [
+      88.39195,
+      88.41075,
+      89.208305
+    ],
+    "bright_absolute_error_bytes": [
+      0.08468999999999482,
+      0.09669499999999687,
+      0.17304999999998927
+    ],
+    "reversed_absolute_error_bytes": [
+      0.39194999999999425,
+      0.41074999999999307,
+      0.20830499999999574
+    ],
+    "bright_minus_reversed_bytes": [
+      39,
+      39,
+      39
+    ],
+    "all_original_and_corrected_png_hashes_equal": true
+  },
+  "assertion_contract": {
+    "display_code_tolerance": "Unchanged strict absolute error <2.0 bytes; extended from bright red to all bright and reversed RGB channels.",
+    "directional_contrast": "Unchanged >20.0-byte bright/reversed contrast, now asserted for every RGB channel.",
+    "posed_normal_contrast": "Bright output must additionally differ by >20.0 bytes from the counterfactual import-default +Z normal reference for every RGB channel.",
+    "alpha": "Both captures must be exactly255.",
+    "configuration": "Explicit configured target and fallback texture Rgba8UnormSrgb guards.",
+    "routine_logging": "Removed eprintln! for configured print_stderr Clippy rule; rich assertion failure messages retained.",
+    "no_new_lint_suppression": true
+  },
+  "runs": [
+    {
+      "label": "original",
+      "receipt": {
+        "path": "docs/art-style/stage7/validation/directional-pixel-root-v1-original/run.json",
+        "bytes": 794,
+        "sha256": "1ba834eabad029752d0168e28e2dac0752aca79d136e054a8b7e98429437dd31"
+      },
+      "execution": {
+        "argv": [
+          "cargo",
+          "test",
+          "--locked",
+          "--lib",
+          "--all-features",
+          "directional_entity_irradiance_reaches_real_rendered_pixels",
+          "--",
+          "--ignored",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+        "started_utc": "2026-10-09T04:53:01.189395+00:00",
+        "finished_utc": "2026-10-09T04:53:01.510195+00:00",
+        "elapsed_seconds": 0.3207136660348624,
+        "exit_code": 101,
+        "environment_overrides": {
+          "RUSTC_WRAPPER": "",
+          "PLACES_ENTITY_TEST_CAPTURES": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/directional-pixel-root-v1-original",
+          "other_PLACES_variables": "removed"
+        },
+        "log": "docs/art-style/stage7/validation/directional-pixel-root-v1-original/run.log"
+      },
+      "log_integrity": {
+        "path": "docs/art-style/stage7/validation/directional-pixel-root-v1-original/run.log",
+        "bytes": 1235,
+        "sha256": "93ef74fd82ee818204b7c743a7c53da4c06cbb7a4c928492ff4d9dd3687fb425"
+      },
+      "captures": []
+    },
+    {
+      "label": "original-metal",
+      "receipt": {
+        "path": "docs/art-style/stage7/validation/directional-pixel-root-v1-original-metal/run.json",
+        "bytes": 863,
+        "sha256": "99d437698f6fdaade80756b1621875dc087e9ea359d2948be54bb6bc0f04851f"
+      },
+      "execution": {
+        "argv": [
+          "cargo",
+          "test",
+          "--locked",
+          "--lib",
+          "--all-features",
+          "directional_entity_irradiance_reaches_real_rendered_pixels",
+          "--",
+          "--ignored",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+        "started_utc": "2026-10-09T04:53:46.932143+00:00",
+        "finished_utc": "2026-10-09T04:53:47.319006+00:00",
+        "elapsed_seconds": 0.3867589579895139,
+        "exit_code": 101,
+        "environment_overrides": {
+          "RUSTC_WRAPPER": "",
+          "PLACES_ENTITY_TEST_CAPTURES": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/directional-pixel-root-v1-original-metal",
+          "other_PLACES_variables": "removed"
+        },
+        "log": "docs/art-style/stage7/validation/directional-pixel-root-v1-original-metal/run.log",
+        "execution": "bounded native Metal access escalation"
+      },
+      "log_integrity": {
+        "path": "docs/art-style/stage7/validation/directional-pixel-root-v1-original-metal/run.log",
+        "bytes": 1050,
+        "sha256": "779070a853e9666c0bfc2637831023a013adb43188f06ac0c7fecf5fd9e10372"
+      },
+      "captures": [
+        {
+          "path": "docs/art-style/stage7/validation/directional-pixel-root-v1-original-metal/entity-facing-light.png",
+          "bytes": 504,
+          "sha256": "b97f4f4a7ad9292ee5e3f2fbef8195f85626090fd24f8a3c993273d136b8ab87",
+          "size": [
+            128,
+            128
+          ],
+          "centre_rgba": [
+            127,
+            127,
+            128,
+            255
+          ]
+        },
+        {
+          "path": "docs/art-style/stage7/validation/directional-pixel-root-v1-original-metal/entity-away-from-light.png",
+          "bytes": 504,
+          "sha256": "f31eae4009eac5f03e3bb7d4d4599ddc85169e7f37396b4858aed0fbdd1e6e40",
+          "size": [
+            128,
+            128
+          ],
+          "centre_rgba": [
+            88,
+            88,
+            89,
+            255
+          ]
+        }
+      ]
+    },
+    {
+      "label": "corrected",
+      "receipt": {
+        "path": "docs/art-style/stage7/validation/directional-pixel-root-v1-corrected/run.json",
+        "bytes": 852,
+        "sha256": "bd45bfed7ec6b25394834b908fcaace3cfee7392a56ecfa29e2f41545c2b1a42"
+      },
+      "execution": {
+        "argv": [
+          "cargo",
+          "test",
+          "--locked",
+          "--lib",
+          "--all-features",
+          "directional_entity_irradiance_reaches_real_rendered_pixels",
+          "--",
+          "--ignored",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+        "started_utc": "2026-10-09T04:57:56.996084+00:00",
+        "finished_utc": "2026-10-09T04:58:02.064321+00:00",
+        "elapsed_seconds": 5.068181082955562,
+        "exit_code": 101,
+        "environment_overrides": {
+          "RUSTC_WRAPPER": "",
+          "PLACES_ENTITY_TEST_CAPTURES": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/directional-pixel-root-v1-corrected",
+          "other_PLACES_variables": "removed"
+        },
+        "log": "docs/art-style/stage7/validation/directional-pixel-root-v1-corrected/run.log",
+        "execution": "bounded native Metal access escalation"
+      },
+      "log_integrity": {
+        "path": "docs/art-style/stage7/validation/directional-pixel-root-v1-corrected/run.log",
+        "bytes": 923,
+        "sha256": "6fe809f81781eaca4d928f60cafb63bd058bad26750472f37cae85c87102d08e"
+      },
+      "captures": []
+    },
+    {
+      "label": "corrected-v2",
+      "receipt": {
+        "path": "docs/art-style/stage7/validation/directional-pixel-root-v1-corrected-v2/run.json",
+        "bytes": 857,
+        "sha256": "d4cfb36b6effe4a1c4f4f87d0bba3b64139074b879ddb9bdab0726f289fc6ee4"
+      },
+      "execution": {
+        "argv": [
+          "cargo",
+          "test",
+          "--locked",
+          "--lib",
+          "--all-features",
+          "directional_entity_irradiance_reaches_real_rendered_pixels",
+          "--",
+          "--ignored",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+        "started_utc": "2026-10-09T04:58:56.758350+00:00",
+        "finished_utc": "2026-10-09T04:59:26.273492+00:00",
+        "elapsed_seconds": 29.514975958969444,
+        "exit_code": 0,
+        "environment_overrides": {
+          "RUSTC_WRAPPER": "",
+          "PLACES_ENTITY_TEST_CAPTURES": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/directional-pixel-root-v1-corrected-v2",
+          "other_PLACES_variables": "removed"
+        },
+        "log": "docs/art-style/stage7/validation/directional-pixel-root-v1-corrected-v2/run.log",
+        "execution": "bounded native Metal access escalation"
+      },
+      "log_integrity": {
+        "path": "docs/art-style/stage7/validation/directional-pixel-root-v1-corrected-v2/run.log",
+        "bytes": 990,
+        "sha256": "0c56f5c5f3ee5201e2c3bda812f60d03b0f5e2d1863278963d8603c6bd6ae415"
+      },
+      "captures": [
+        {
+          "path": "docs/art-style/stage7/validation/directional-pixel-root-v1-corrected-v2/entity-facing-light.png",
+          "bytes": 504,
+          "sha256": "b97f4f4a7ad9292ee5e3f2fbef8195f85626090fd24f8a3c993273d136b8ab87",
+          "size": [
+            128,
+            128
+          ],
+          "centre_rgba": [
+            127,
+            127,
+            128,
+            255
+          ]
+        },
+        {
+          "path": "docs/art-style/stage7/validation/directional-pixel-root-v1-corrected-v2/entity-away-from-light.png",
+          "bytes": 504,
+          "sha256": "f31eae4009eac5f03e3bb7d4d4599ddc85169e7f37396b4858aed0fbdd1e6e40",
+          "size": [
+            128,
+            128
+          ],
+          "centre_rgba": [
+            88,
+            88,
+            89,
+            255
+          ]
+        }
+      ]
+    },
+    {
+      "label": "final",
+      "receipt": {
+        "path": "docs/art-style/stage7/validation/directional-pixel-root-v1-final/run.json",
+        "bytes": 842,
+        "sha256": "0d20888e14b8d60c5cd2dc23c55588b1c7ac18bae993731b66e223eb37f25e1f"
+      },
+      "execution": {
+        "argv": [
+          "cargo",
+          "test",
+          "--locked",
+          "--lib",
+          "--all-features",
+          "directional_entity_irradiance_reaches_real_rendered_pixels",
+          "--",
+          "--ignored",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+        "started_utc": "2026-10-09T05:00:54.905918+00:00",
+        "finished_utc": "2026-10-09T05:01:30.228533+00:00",
+        "elapsed_seconds": 35.32207037496846,
+        "exit_code": 0,
+        "environment_overrides": {
+          "RUSTC_WRAPPER": "",
+          "PLACES_ENTITY_TEST_CAPTURES": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/directional-pixel-root-v1-final",
+          "other_PLACES_variables": "removed"
+        },
+        "log": "docs/art-style/stage7/validation/directional-pixel-root-v1-final/run.log",
+        "execution": "bounded native Metal access escalation"
+      },
+      "log_integrity": {
+        "path": "docs/art-style/stage7/validation/directional-pixel-root-v1-final/run.log",
+        "bytes": 645,
+        "sha256": "769a32f64d4511ede35211260cdcdec70eedbb105e93bb8cd9dd421f963dfcb4"
+      },
+      "captures": [
+        {
+          "path": "docs/art-style/stage7/validation/directional-pixel-root-v1-final/entity-facing-light.png",
+          "bytes": 504,
+          "sha256": "b97f4f4a7ad9292ee5e3f2fbef8195f85626090fd24f8a3c993273d136b8ab87",
+          "size": [
+            128,
+            128
+          ],
+          "centre_rgba": [
+            127,
+            127,
+            128,
+            255
+          ]
+        },
+        {
+          "path": "docs/art-style/stage7/validation/directional-pixel-root-v1-final/entity-away-from-light.png",
+          "bytes": 504,
+          "sha256": "f31eae4009eac5f03e3bb7d4d4599ddc85169e7f37396b4858aed0fbdd1e6e40",
+          "size": [
+            128,
+            128
+          ],
+          "centre_rgba": [
+            88,
+            88,
+            89,
+            255
+          ]
+        }
+      ]
+    }
+  ],
+  "preserved_failure_classification": {
+    "original": "Sandbox lacked a Metal adapter; exited101 before any pixel measurement.",
+    "original-metal": "Actual native GPU reproduced original posed-face-normal assertion failure; bright/reversed PNGs retained.",
+    "corrected": "A test-only module path compile error is retained; corrected helper lookup to existing super::super::texture without a production change.",
+    "corrected-v2": "Actual native GPU passed and retained printed numeric references before routine logging removal.",
+    "final": "Actual native GPU passed1test/2194filtered in0.36s test runtime; compile+run35.322s, exit0."
+  },
+  "source_integrity": {
+    "base_freeze": {
+      "path": "docs/art-style/stage7/source-input-identities-v10.json",
+      "bytes": 39722,
+      "sha256": "11405049a6f8713eaf540a8634a7bfcd786efaf06d627ab7461d1b46b5defb4f"
+    },
+    "differences_from_files_gate_inputs_and_additional_helpers": [
+      {
+        "path": "src/render/wgpu/entity_lighting_tests.rs",
+        "before_sha256": "ff0b737eabb56fa056885aa5fbd68bf7df868ae4555c9b42095b83942236789e",
+        "after_sha256": "2cbf35fe3137bd5493cf279dc9a9d5792f27432a00e06951b9e3cadfc10acb0f"
+      }
+    ],
+    "all_other_pinned_inputs_exact": true,
+    "test_module_cfg": "src/render/wgpu/renderer.rs cfg(test) module declaration at5639; no normal release build performed."
+  },
+  "existing_normal_release_integrity": {
+    "places-compile": {
+      "path": "target/release/places-compile",
+      "bytes": 6760064,
+      "sha256": "f3f27db928af9927219f3440a95acbbcfb2f53bdecb321af207613ddce91527f"
+    },
+    "places": {
+      "path": "target/release/places",
+      "bytes": 93056128,
+      "sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081"
+    }
+  },
+  "remaining_verification": {
+    "primary_owned": [
+      "cargo clippy --workspace --all-targets --all-features -- -D warnings after test-only freeze",
+      "complete any remaining final diagnostic queue"
+    ],
+    "not_repeated_here": "No broad suite, normal release rebuild, compiler/bake/package/Git/index operation, or production renderer/fixture/capture-helper change. Existing full gate/workspace receipts remain separate evidence."
+  },
+  "custody": "Focused Cargo/GPU command completed and joined; all source/target/GPU/test/read/report custody released to primary after this receipt."
+}

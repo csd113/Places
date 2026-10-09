@@ -1,0 +1,11 @@
+{
+  "label": "windows-source-check-plmp6-v1",
+  "supervisor_pid": 93208,
+  "argv": [
+    "python3",
+    "/tmp/places-stage7-windows-check-v1.py"
+  ],
+  "launched_utc": "2026-10-09T02:56:35.188477+00:00",
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "completion_receipt": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/windows-source-check-plmp6-v1.json"
+}

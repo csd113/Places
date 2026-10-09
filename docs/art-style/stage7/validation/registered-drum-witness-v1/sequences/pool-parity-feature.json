@@ -1,0 +1,24 @@
+[
+  {
+    "frame": 1,
+    "actions": [
+      {
+        "action": "spawn",
+        "key": 9007,
+        "model": "core:washer_drum",
+        "character": false,
+        "position": [
+          4.900000095367432,
+          -1.5,
+          15.900001525878906
+        ],
+        "yaw": 0,
+        "scale": 1
+      }
+    ]
+  },
+  {
+    "frame": 120,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-registered-drum-witness-v1/pool/parity-feature/endpoint.png"
+  }
+]

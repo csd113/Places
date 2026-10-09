@@ -1,0 +1,22 @@
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `dev` profile [optimized + debuginfo] target(s) in 10.21s
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+error: 5 bindings with single-character names in scope
+   --> src/package/props.rs:530:13
+    |
+530 |         let a = Vertex::new([0.0, 0.0, 0.0], [1.0; 4], [0.0, 0.0]);
+    |             ^
+531 |         let b = Vertex::new([1.0, 0.0, 0.0], [1.0; 4], [1.0, 0.0]);
+    |             ^
+532 |         let c = Vertex::new([1.0, 1.0, 0.0], [1.0; 4], [1.0, 1.0]);
+    |             ^
+533 |         let d = Vertex::new([0.0, 1.0, 0.0], [1.0; 4], [0.0, 1.0]);
+    |             ^
+534 |         let e = Vertex::new([0.5, 0.5, 1.0], [0.5; 4], [0.5, 0.5]);
+    |             ^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#many_single_char_names
+    = note: `-D clippy::many-single-char-names` implied by `-D clippy::pedantic`
+    = help: to override `-D clippy::pedantic` add `#[allow(clippy::many_single_char_names)]`
+
+error: could not compile `places` (lib test) due to 1 previous error

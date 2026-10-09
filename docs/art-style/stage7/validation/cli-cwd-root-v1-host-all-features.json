@@ -1,0 +1,45 @@
+{
+  "label": "host-all-features",
+  "argv": [
+    "cargo",
+    "test",
+    "--locked",
+    "--test",
+    "list_levels",
+    "--all-features",
+    "--",
+    "--test-threads=1"
+  ],
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "container_cwd": null,
+  "start_utc": "2026-10-09T05:53:34.064289+00:00",
+  "end_utc": "2026-10-09T05:53:39.083071+00:00",
+  "elapsed_seconds": 5.018776291050017,
+  "exit_code": 0,
+  "log": "docs/art-style/stage7/validation/cli-cwd-root-v1-host-all-features.log",
+  "log_bytes": 570,
+  "log_sha256": "13f461c0e0c034057015f39a83aaa95fdc31ae6ffd213f003f9d8e20580984ca",
+  "normal_host_binaries_before": {
+    "places-compile": {
+      "bytes": 6760064,
+      "sha256": "f3f27db928af9927219f3440a95acbbcfb2f53bdecb321af207613ddce91527f"
+    },
+    "places": {
+      "bytes": 93056128,
+      "sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081"
+    }
+  },
+  "normal_host_binaries_after": {
+    "places-compile": {
+      "bytes": 6760064,
+      "sha256": "f3f27db928af9927219f3440a95acbbcfb2f53bdecb321af207613ddce91527f"
+    },
+    "places": {
+      "bytes": 93056128,
+      "sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081"
+    }
+  },
+  "source_sha256": "13d9eb88e93a41c61109cf1bbb9eaa45a2e40d1b988f120712d463867efd4b0f",
+  "host_places_environment_overrides_removed": true,
+  "host_rustc_wrapper": ""
+}

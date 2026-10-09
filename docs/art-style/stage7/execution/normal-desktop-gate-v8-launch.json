@@ -1,0 +1,11 @@
+{
+  "label": "normal-desktop-gate-v8",
+  "supervisor_pid": 30225,
+  "argv": [
+    "sh",
+    "tools/verify.sh"
+  ],
+  "launched_utc": "2026-10-09T04:20:43.132035+00:00",
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "completion_receipt": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/normal-desktop-gate-v8.json"
+}

@@ -2,6 +2,12 @@
 
 Repository-wide checks: [authoritative desktop verification](VERIFICATION.md).
 
+October 8, 2026 integration audit: colour/HDR, shared alpha sorting, prepared
+lighting ownership and independent quality summaries were checked against the
+current renderer/compiler. Asset aspect, UV, orientation and alpha contracts
+remain unchanged; recorded stage images and platform campaigns retain their
+original provenance.
+
 This document is the canonical specification for every visual asset Places
 draws from an image: world surface textures, decals, fixture faces, prop and
 entity textures, normal maps, emissive masks and the non-runtime imagery that
@@ -100,8 +106,9 @@ introducing it.
 
 7. **Alpha is only used where the material system supports it.** A surface's
    alpha channel is ignored unless its material authors `alpha_mode: "cutout"`
-   or `"blend"`. Decal sheets are always alpha cut-outs. Fixture faces and
-   prop/entity textures are opaque; their alpha channel is ignored. See §16.
+   or `"blend"`. Decal sheets are always alpha cut-outs. Fixture faces are
+   opaque. Prop/entity alpha follows glTF OPAQUE, MASK or
+   BLEND on every supported mesh route (§8.5); OPAQUE ignores sheet alpha.
 
 8. **Source artwork should retain as much quality as the hard limits allow.**
    The ordinary PNG hard ceiling is 1024 px on either edge; 2:1 sky panoramas
@@ -748,8 +755,10 @@ normal runtime texture         256x256 native
   `p.material(..., alpha_mode="mask")`.
 * **`alphaMode: "BLEND"` is the blended-material contract.** The importer reads
   it as a real translucent material. Static props, skinned characters and
-  dynamic objects draw it through their translucent passes. Sorting remains per draw family; intersecting transparent
-  families need careful placement. MASK uses the cutout pass on every route.
+  dynamic objects draw it through their translucent passes. World/prop/dynamic/
+  character draws share stable back-to-front centre sorting in scene and emission.
+  Intersecting triangles and several primitives within one object still need
+  careful placement. MASK uses the cutout pass on every route.
   A glTF `baseColorFactor` alpha is folded into the vertex
   colours by the importer, so the blend contract itself carries opacity `1.0`;
   per-instance fade is a runtime component, not an asset property.
@@ -1206,8 +1215,8 @@ Computed lighting images are derived from level geometry and light settings:
 
 | Image | Producer | Purpose |
 |---|---|---|
-| Lightmap atlas pages | `src/lighting/lightmap/` | baked light data, regenerated at level load; never a shipped asset. A developer path can dump a page as a PNG under `target/`, but that is a diagnostic capture, not an asset. |
-| Reflection probe cubemaps | `src/render/common/reflections.rs` (routing) and `src/render/wgpu/reflections.rs` (probe cubemaps) | baked per level load |
+| Lightmap atlas pages | `src/lighting/lightmap/` + offline compiler | Incident linear HDR and signed moment pairs, prepared into package KTX2 blobs. Full plans up to ten pages per contribution group; lower profiles retain eight. The player uploads the exact produced layers, subject to the measured 320 MiB +64 KiB typed record bound and unchanged switch-group/aggregate/shape guards. PNG dumps are diagnostics, not authored assets. |
+| Reflection probe cubemaps | `src/render/common/reflections.rs` (routing) and `src/render/wgpu/reflections.rs` (offline capture) | Packaged HDR probe captures and roughness mip chains, uploaded at level load; the player does not recapture them. |
 
 Diagnostic textures under `assets/diagnostic/textures/` are real PNGs but are
 engine test artwork: the 96×64 sheet deliberately proves arbitrary NPOT
@@ -1289,7 +1298,15 @@ a runtime edge budget per texture class:
 | Prop sheet (embedded) | 256 | 256 | 128 |
 | Emissive mask | 512 | 256 | 128 |
 | Sky panorama | 2048 | 1024 | 512 |
-| Lightmap atlas page | 1024 @ 16 texels/m | 1024 @ 12 texels/m | 512 @ 10 texels/m |
+| Preset Lightmaps | Full: 1024 @ 16 texels/m | Medium: 1024 @ 12 texels/m | Off: vertex lighting |
+| Preset Reflections | Full: 64-pixel HDR probes + planar | Medium: 48-pixel HDR probes + planar | Off |
+
+Lightmaps and Reflections are independent advanced settings: Low with Full
+lightmaps/reflections and High with them Off are supported. A level ships prepared
+Off/Medium/Full variants of the same source. The legacy two-profile planner API
+also supports 512-pixel/10-texel Low atlases; that API budget is not the runtime
+Low preset. All presets share fixed authored presentation defaults (exposure 1,
+knee 0.75, saturation 1.03, contrast 1.02), while resource budgets remain distinct.
 
 * Downscaling happens **once, at upload / level-load time**, through an
   integer-factor box filter that applies the same factor to both edges, so
@@ -1509,9 +1526,10 @@ linear_scene = linear_albedo × linear_light + sheen + reflection + emission
 * Material emission is additive linear radiance: sRGB emissive colour sheets
   decode at sampling, RGB masks are numeric, and intensity multiplies before
   accumulation. Emission does not create a light; author a light separately.
-* Scene, emission, blur and reflection resources use `Rgba16Float`. Presentation
-  owns exposure (currently the existing quality defaults), shoulder and sRGB
-  encoding. No presentation curve is baked into illumination or texture data.
+* Scene, emission, blur and reflection resources use `Rgba16Float`. Authored
+  presentation owns fixed exposure, a hue-preserving shoulder and sRGB encoding;
+  its defaults are shared across quality (§14.1). No presentation curve is baked
+  into illumination or texture data.
 * Paint texture colour once. Where tint is authored, a pale neutral source
   remains useful; no tint leaves the full source colour. Do not compensate for
   the renderer with brighter assets or per-model light multipliers.
@@ -1654,8 +1672,11 @@ specification before introducing the new asset.**
 
 ## 24. Automated enforcement
 
-What exists today (all manual; there is no CI configuration in the
-repository):
+The following checks are available locally. `.github/workflows/rust.yml` also
+runs `tools/check-rust.sh` on macOS for pushes, pull requests and manual runs:
+format, locked check, strict debug/release all-feature Clippy and all-feature
+workspace tests. The full desktop script adds Python asset/package checks and
+real-window/GPU checks; see [VERIFICATION.md](VERIFICATION.md).
 
 | Rule | Enforced by | Command | Fails? |
 |---|---|---|---|
@@ -1704,7 +1725,8 @@ Known enforcement gaps (checked here, not automated):
   machine-checked (fixture orientation is pinned by render tests);
 * no dead-asset detection (unreferenced files, unused catalog entries);
 * the `--preferred` warning does not fail a build;
-* there is no CI, so every check above is run manually.
+* CI covers the shared Rust gate; a green CI run does not replace local asset
+  tooling or executed native desktop validation on the target platform.
 
 ---
 

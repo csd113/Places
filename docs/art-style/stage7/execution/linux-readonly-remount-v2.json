@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+    "/tmp/places-stage7-linux-remount-v2.py"
+  ],
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "started_utc": "2026-10-09T05:32:59.018323+00:00",
+  "finished_utc": "2026-10-09T05:33:03.851050+00:00",
+  "elapsed_seconds": 4.832635833998211,
+  "exit_code": 0,
+  "environment_overrides": {
+    "RUSTC_WRAPPER": ""
+  },
+  "log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/linux-readonly-remount-v2.log"
+}

@@ -1,0 +1,2696 @@
+{
+  "format_version": 1,
+  "recorded_utc": "2026-10-09T05:23:27.584287+00:00",
+  "status": "PASS_WITH_FINAL_ACCEPTANCE_PENDING",
+  "reviewer": "content_references",
+  "scope": "Fresh independent read-only disposition checkpoint and seven-stage evidence index. Sole write is this report; no tests, source/generator/asset edits, archive/snapshot rehash, Cargo/compiler/bake/native/GPU, target/Git/index operation or persistent process was started.",
+  "source_ledger": {
+    "path": "docs/art-style/deferred-ledger.json",
+    "sha256": "1758b5bff96dbabcf90f842d7f73e8296af208450f34c06db5505c9c30af83f3",
+    "count": 28,
+    "modified": false
+  },
+  "prior_draft": "docs/art-style/stage7/validation/ledger-disposition-draft-v1.json",
+  "freeze": {
+    "current": "docs/art-style/stage7/source-input-identities-v11.json",
+    "passed_whole_gate_freeze": "docs/art-style/stage7/source-input-identities-v10.json",
+    "delta": {
+      "files": {
+        "added": [],
+        "removed": [],
+        "changed": [
+          "src/render/wgpu/entity_lighting_tests.rs"
+        ]
+      },
+      "gate_inputs": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "additional_helpers": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      }
+    },
+    "geometry_revision": 7,
+    "solver_revision": 16,
+    "props_record_version": 6,
+    "normal_release_identity_unchanged": {
+      "compiler_sha256": "f3f27db928af9927219f3440a95acbbcfb2f53bdecb321af207613ddce91527f",
+      "player_sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081",
+      "compared_to": "debug-maps/art-style-hero/evidence/stage7-runtime/normal-c2-plmp6-v10"
+    },
+    "source_records": 223,
+    "gate_inputs": 11,
+    "helpers": 2
+  },
+  "now_proven_evidence": {
+    "normal_gate_v8": {
+      "status": "passed",
+      "receipt": "docs/art-style/stage7/execution/normal-desktop-gate-v8.json",
+      "independent_review": "docs/art-style/stage7/validation/normal-desktop-gate-independent-v1.json",
+      "scope": "Freeze v10 actual normal gate: all 48 supported paths, strict all-target/all-feature debug/release Clippy, 2169 all-feature library tests plus all integrations, 286 Python tests with no skip summary, real three-map/two-quality atlas planning and two required Metal Low-lighting GPU controls. 48 ordinary unchanged package reuses all retain Off/Medium/Full currentness and decoding. This does not complete native209 or final art acceptance."
+    },
+    "latest_v11_strict": {
+      "status": "passed",
+      "receipt": "docs/art-style/stage7/execution/latest-source-strict-v1.json",
+      "scope": "Current v11 formatting, strict debug/release all-target/all-feature Clippy and ordinary release restoration passed. v11 changes only one ignored test from v10; production source and pinned normal compiler/player remain unchanged. This is not a rerun of every v8 test on v11."
+    },
+    "required_default_workspace": {
+      "status": "passed_substep_in_retained_failed_wrapper",
+      "receipt": "docs/art-style/stage7/execution/host-final-extra-tests-v1.json",
+      "log": "docs/art-style/stage7/execution/host-final-extra-tests-v1.log",
+      "scope": "Actual cargo test --workspace passed 2163 library tests and all integrations. Following explicit entity-resource restoration GPU test passed. Wrapper exit1 is retained because the subsequent old directional pixel reference failed; do not label the entire wrapper successful."
+    },
+    "directional_pixel_final": {
+      "status": "passed",
+      "receipt": "docs/art-style/stage7/validation/directional-pixel-root-v1-final/run.json",
+      "audit": "docs/art-style/stage7/validation/directional-pixel-root-v1.json",
+      "scope": "Actual final Metal posed-normal pixel test passes its corrected input-decode/fog/output-encode reference, unchanged <2 byte tolerance, RGB contrast and exact alpha. Original/corrected captured pixels are identical; no renderer gain or production fix is claimed."
+    },
+    "remaining_gpu_controls": {
+      "status": "passed",
+      "receipt": "docs/art-style/stage7/execution/remaining-gpu-controls-v1.json",
+      "log": "docs/art-style/stage7/execution/remaining-gpu-controls-v1.log",
+      "scope": "Four explicit native headless adapter controls passed: packaged probe mip readback, cube face convention, sRGB sample round-trip and odd triangle-index upload. These are not final themed window or gallery captures."
+    },
+    "compiled_demo_gpu": {
+      "status": "passed_scoped_controls",
+      "receipt": "docs/art-style/stage7/execution/compiled-demo-gpu-v1.json",
+      "probe_report": "docs/art-style/stage7/validation/compiled-demo-gpu-v1/probe-pixel-report.json",
+      "scene_report": "docs/art-style/stage7/validation/compiled-demo-gpu-v1/native-headless-scenes/report.json",
+      "scope": "Both actual compiled Demo GPU tests passed: probe-to-pixel comparison and neutral entities/environment/quality restoration. Medium and Full contain 12 Prepared traces each; all 24 report exact GPU/interpolated energy and moment equality. These bounded samples are not exhaustive room7/8/10 route support or final native209/performance proof."
+    },
+    "linux_source_checks": {
+      "status": "passed_source_check_only",
+      "receipt": "docs/art-style/stage7/execution/linux-source-check-plmp6-v1.json",
+      "scope": "Actual Linux ARM64 source all-target checking and strict debug/release Clippy in the container passed. Current Linux linking, runtime, hardware Vulkan and physical-window execution are not proved by this receipt."
+    },
+    "windows_source_and_link": {
+      "status": "passed_cross_build_only",
+      "receipts": [
+        "docs/art-style/stage7/execution/windows-source-check-plmp6-v1.json",
+        "docs/art-style/stage7/execution/windows-link-plmp6-v1.json"
+      ],
+      "scope": "Actual Windows all-target checking and strict debug/release Clippy passed; Windows PE binaries and test targets linked. No native Windows execution or D3D12 hardware/display evidence is claimed."
+    },
+    "python_root_controls": {
+      "status": "passed",
+      "receipt": "docs/art-style/stage7/execution/python-root-focused-v1.json",
+      "content_audit": "docs/art-style/stage7/content-python-root-fixes-v1.json",
+      "scope": "Actual 14 repair tests, four Winter tests and changed Metal reload check passed; the complete v8 discovery also passed these tests. Maintained content was preserved; historical eight-edit repair is an independent control and ice retains authored probe strength 0.28."
+    }
+  },
+  "whole_gate": {
+    "exit_code": 0,
+    "elapsed_seconds": 1119.500073250034,
+    "completed_utc": "2026-10-09T04:39:22.662665+00:00",
+    "supported_sources": 48,
+    "recursive_inventory_sources": 50,
+    "shipped": 5,
+    "local": 5,
+    "fixtures": 40,
+    "reused_current_packages": 48,
+    "new_rebuilds_in_v8": 0,
+    "all_feature_library_passed": 2169,
+    "all_feature_library_failed": 0,
+    "all_feature_library_ignored": 26,
+    "python_passed": 286,
+    "python_skipped": 0
+  },
+  "synthetic_capacity_limit": {
+    "genuine_executed_contract_names": [
+      "zoo_audit::the_beyond_former_limits_fixture_carries_content_the_old_caps_refused",
+      "zoo_audit::the_dense_capacity_fixture_holds_and_collides_at_scale",
+      "materials::tests::a_table_past_the_former_u16_material_boundary_keeps_indices_distinct",
+      "package::tests::a_mesh_material_past_the_former_u16_boundary_round_trips"
+    ],
+    "optional_fixture_package_reader_test": "zoo_audit::the_beyond_former_limits_package_loads_through_the_reader",
+    "optional_fixture_package_exists_now": false,
+    "limitation": "The optional package-reader test returns immediately when its source-sibling build artifact is absent. Its ok result is not evidence that this synthetic-ID fixture was compiled or decoded. Positive source/count budget and u32 table/mesh record tests are separately genuine; the synthetic fixture is not catalogue-authored all-quality playable content."
+  },
+  "all28_items": [
+    {
+      "ledger_order": 1,
+      "id": "package-home_showcase",
+      "canonical_status_at_checkpoint": "open",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "package_rebuilt_verified__final_discovery_native_pending",
+      "actual_implementation_or_preserved_decision": "The stale installed dependency archive was intentionally rebuilt with the final normal compiler and existing assets; source remains levels/home_showcase.json. Old archive evidence is retained.",
+      "accepted_prior_evidence": [
+        {
+          "path": "debug-maps/art-style-hero/evidence/stage7-c1-v7-superseded/campaign/commands/levels__home_showcase.json",
+          "claim": "Actual ordinary all-three-variant build, --require-current and decode commands passed for levels__home_showcase",
+          "scope": "completed package phase of superseded whole gate v6; no native/whole-gate acceptance",
+          "recorded_sha256": "9a8ed6ac0be643601af01ec5135b04442b7978f1746020eee2869cde4a766ea8"
+        },
+        {
+          "path": "docs/art-style/stage7/entry-map-preservation.json",
+          "claim": "Original local source/package entry identities preserved",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/content-reference-audit.md",
+          "claim": "Existing source bytes and valid references preserved",
+          "scope": "accepted existing evidence"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8",
+        "latest_v11_strict",
+        "required_default_workspace"
+      ],
+      "completed_since_draft": [
+        {
+          "gate": "normal_desktop_gate_v7",
+          "required_observation": "Ordinary local/drop-in discovery and tests/list_levels must pass in the final whole workspace without skips.",
+          "status": "proven_by_completed_v8_with_bounded_v11_test_only_reuse",
+          "proofs": [
+            "normal_gate_v8",
+            "latest_v11_strict"
+          ]
+        }
+      ],
+      "preserved_limitations": [
+        "The local legacy core-furniture scene remains an intentional historical control, distinct from the completed Home fixture."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "native209",
+          "required_observation": "Actual normal native map, geometry, quality/entity/restoration, journey and visual evidence must pass under the final matching binaries; prepared manifests are not captures.",
+          "status": "pending_at_checkpoint"
+        },
+        {
+          "gate": "installed_comparison10",
+          "required_observation": "Ten installed-source normal forced/full archives and ordinary unchanged reuse must agree exactly, including whole archives and current tool/dependency provenance.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "src/loader.rs",
+        "src/compiler.rs",
+        "tests/list_levels.rs"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Keep final Stage 7 acceptance pending until the listed actual gates pass; update canonical ledger only with their exact receipts.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 2,
+      "id": "package-geometry_intentional",
+      "canonical_status_at_checkpoint": "open",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "package_rebuilt_verified__final_discovery_native_pending",
+      "actual_implementation_or_preserved_decision": "The stale installed dependency archive was intentionally rebuilt with the final normal compiler and existing assets; source remains levels/geometry_intentional.json. Old archive evidence is retained.",
+      "accepted_prior_evidence": [
+        {
+          "path": "debug-maps/art-style-hero/evidence/stage7-c1-v7-superseded/campaign/commands/levels__geometry_intentional.json",
+          "claim": "Actual ordinary all-three-variant build, --require-current and decode commands passed for levels__geometry_intentional",
+          "scope": "completed package phase of superseded whole gate v6; no native/whole-gate acceptance",
+          "recorded_sha256": "eb3e96f2efb10c87500ebae3059736ed4a8d7f4830b6bbd7ee8b890aa5a81da8"
+        },
+        {
+          "path": "docs/art-style/stage7/entry-map-preservation.json",
+          "claim": "Original local source/package entry identities preserved",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/content-reference-audit.md",
+          "claim": "Existing source bytes and valid references preserved",
+          "scope": "accepted existing evidence"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8",
+        "latest_v11_strict",
+        "required_default_workspace"
+      ],
+      "completed_since_draft": [
+        {
+          "gate": "normal_desktop_gate_v7",
+          "required_observation": "Ordinary local/drop-in discovery and tests/list_levels must pass in the final whole workspace without skips.",
+          "status": "proven_by_completed_v8_with_bounded_v11_test_only_reuse",
+          "proofs": [
+            "normal_gate_v8",
+            "latest_v11_strict"
+          ]
+        }
+      ],
+      "preserved_limitations": [
+        "Intentional open/decorative geometry findings retain their expected classification; no source or checker waiver was added."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "native209",
+          "required_observation": "Actual normal native map, geometry, quality/entity/restoration, journey and visual evidence must pass under the final matching binaries; prepared manifests are not captures.",
+          "status": "pending_at_checkpoint"
+        },
+        {
+          "gate": "installed_comparison10",
+          "required_observation": "Ten installed-source normal forced/full archives and ordinary unchanged reuse must agree exactly, including whole archives and current tool/dependency provenance.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "src/loader.rs",
+        "src/compiler.rs",
+        "tests/list_levels.rs"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Keep final Stage 7 acceptance pending until the listed actual gates pass; update canonical ledger only with their exact receipts.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 3,
+      "id": "package-level0_pit",
+      "canonical_status_at_checkpoint": "open",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "package_rebuilt_verified__final_discovery_native_pending",
+      "actual_implementation_or_preserved_decision": "The stale installed dependency archive was intentionally rebuilt with the final normal compiler and existing assets; source remains levels/level0_pit.json. Old archive evidence is retained.",
+      "accepted_prior_evidence": [
+        {
+          "path": "debug-maps/art-style-hero/evidence/stage7-c1-v7-superseded/campaign/commands/levels__level0_pit.json",
+          "claim": "Actual ordinary all-three-variant build, --require-current and decode commands passed for levels__level0_pit",
+          "scope": "completed package phase of superseded whole gate v6; no native/whole-gate acceptance",
+          "recorded_sha256": "e92b6790683c4d22b5a9b2525fd42e394a2a79c1908b1b161ac467d1d34d31f9"
+        },
+        {
+          "path": "docs/art-style/stage7/entry-map-preservation.json",
+          "claim": "Original local source/package entry identities preserved",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/content-reference-audit.md",
+          "claim": "Existing source bytes and valid references preserved",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/integration-pit-probe-coverage-audit.md",
+          "claim": "All 1,236 saved lower-floor walkable centres have at least 12 clear label-valid probes in the historical audit",
+          "scope": "bounded source/saved-control audit; final native sampler remains separate"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8",
+        "latest_v11_strict",
+        "required_default_workspace"
+      ],
+      "completed_since_draft": [
+        {
+          "gate": "normal_desktop_gate_v7",
+          "required_observation": "Ordinary local/drop-in discovery and tests/list_levels must pass in the final whole workspace without skips.",
+          "status": "proven_by_completed_v8_with_bounded_v11_test_only_reuse",
+          "proofs": [
+            "normal_gate_v8",
+            "latest_v11_strict"
+          ]
+        }
+      ],
+      "preserved_limitations": [
+        "Lower-floor probe ownership uses overlapping shaft rooms; absent room16–19 labels alone are not a missing-support defect."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "native209",
+          "required_observation": "Actual normal native map, geometry, quality/entity/restoration, journey and visual evidence must pass under the final matching binaries; prepared manifests are not captures.",
+          "status": "pending_at_checkpoint"
+        },
+        {
+          "gate": "installed_comparison10",
+          "required_observation": "Ten installed-source normal forced/full archives and ordinary unchanged reuse must agree exactly, including whole archives and current tool/dependency provenance.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "src/loader.rs",
+        "src/compiler.rs",
+        "tests/list_levels.rs"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Keep final Stage 7 acceptance pending until the listed actual gates pass; update canonical ledger only with their exact receipts.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 4,
+      "id": "home-shared-source-families",
+      "canonical_status_at_checkpoint": "open",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "historical_control_policy_resolved__native_adoption_pending",
+      "actual_implementation_or_preserved_decision": "Retain local Home16-prop legacy core furniture and the separate completed Home18-prop fixture; no forced model/size/pose migration is justified.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/art-style/stage7/content-reference-audit.md",
+          "claim": "Explicit control/adoption decision and exact source preservation",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "debug-maps/art-style-hero/evidence/stage7-c1-v7-superseded/campaign/commands/levels__home_showcase.json",
+          "claim": "Actual ordinary all-three-variant build, --require-current and decode commands passed for levels__home_showcase",
+          "scope": "completed package phase of superseded whole gate v6; no native/whole-gate acceptance",
+          "recorded_sha256": "9a8ed6ac0be643601af01ec5135b04442b7978f1746020eee2869cde4a766ea8"
+        },
+        {
+          "path": "debug-maps/art-style-hero/evidence/stage7-c1-v7-superseded/campaign/commands/tests__fixtures__levels__home_showcase.json",
+          "claim": "Actual ordinary all-three-variant build, --require-current and decode commands passed for tests__fixtures__levels__home_showcase",
+          "scope": "completed package phase of superseded whole gate v6; no native/whole-gate acceptance",
+          "recorded_sha256": "406d4d77debe52b82a72abe325a9e8900cecd04a0472fc2a149fc85849c80505"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8"
+      ],
+      "completed_since_draft": [
+        {
+          "gate": "normal_desktop_gate_v7",
+          "required_observation": "Fresh final strict Rust/workspace, Python and GPU gate must finish successfully on freeze v9; focused checks and package-phase success are not whole-gate success.",
+          "status": "proven_by_completed_v8_with_bounded_v11_test_only_reuse",
+          "proofs": [
+            "normal_gate_v8",
+            "latest_v11_strict"
+          ]
+        }
+      ],
+      "preserved_limitations": [
+        "Local Home is valid compatibility/control evidence, not a showcase of the rebuilt Home kit."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "native209",
+          "required_observation": "Actual normal native map, geometry, quality/entity/restoration, journey and visual evidence must pass under the final matching binaries; prepared manifests are not captures.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "levels/home_showcase.json",
+        "tests/fixtures/levels/home_showcase.json"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Keep final Stage 7 acceptance pending until the listed actual gates pass; update canonical ledger only with their exact receipts.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 5,
+      "id": "documentation-albedo-contract",
+      "canonical_status_at_checkpoint": "resolved in Stage2",
+      "checkpoint_disposition": "Preserved resolution or conditional limitation; no new design required.",
+      "prior_draft_disposition": "resolved_in_prior_foundation__retained",
+      "actual_implementation_or_preserved_decision": "Stage 2/3 documentation and compiler use separate receiver-independent incident illumination, actual linear PNG bounce reflectance and draw-time albedo; Stage 3 fixed the logical-only compiler table.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/art-style/stage2/contracts.md",
+          "claim": "Chosen colour/HDR representation",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage3/contracts.md",
+          "claim": "Resolved compiler reflectance/alpha transport",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/integration-contract-audit.md",
+          "claim": "Current source/canonical agreement review",
+          "scope": "accepted existing evidence"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8",
+        "directional_pixel_final"
+      ],
+      "completed_since_draft": [],
+      "preserved_limitations": [
+        "Stored light excludes receiver albedo; legacy clipped display probe inputs cannot recover lost HDR energy."
+      ],
+      "remaining_explicit_verification": [],
+      "current_source_anchors": [
+        "src/render/common/light_transport.rs",
+        "src/compiler.rs",
+        "docs/ASSET_SPECIFICATION.md"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Retain the prior resolved disposition. No new implementation or entry-specific campaign is required; final overall Stage 7 gates remain separate.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 6,
+      "id": "documentation-renderer-limits",
+      "canonical_status_at_checkpoint": "open",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "canonical_contracts_reconciled__final_resource_gate_pending",
+      "actual_implementation_or_preserved_decision": "Canonical docs now identify geometry revision 7 / solver revision 16 / PLMP6,24 million generated vertices,100,000 props,Full 10/lower 8 atlas planning,320 MiB +64 KiB typed atlas,48/64 px reflections,prepared panes/water, actual macOS evidence and dated platform limits.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/art-style/stage7/integration-contract-audit.md",
+          "claim": "Final source/reader/resource contract audit",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/MAP_AUTHORING_GUIDE.md",
+          "claim": "Selective current authoring-limit corrections",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/ASSET_SPECIFICATION.md",
+          "claim": "Image/material/atlas contracts",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/PACKAGE_FORMAT.md",
+          "claim": "Current record/legacy/typed-bound contract",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/VERIFICATION.md",
+          "claim": "Dated actual verification/platform claims",
+          "scope": "accepted existing evidence"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8",
+        "latest_v11_strict",
+        "remaining_gpu_controls",
+        "linux_source_checks",
+        "windows_source_and_link"
+      ],
+      "completed_since_draft": [
+        {
+          "gate": "normal_desktop_gate_v7",
+          "required_observation": "Fresh final strict Rust/workspace, Python and GPU gate must finish successfully on freeze v9; focused checks and package-phase success are not whole-gate success.",
+          "status": "proven_by_completed_v8_with_bounded_v11_test_only_reuse",
+          "proofs": [
+            "normal_gate_v8",
+            "latest_v11_strict"
+          ]
+        }
+      ],
+      "preserved_limitations": [
+        "Decoder ceilings and ordinary authoring planning capacities are distinct. No cross-platform native hardware or universal FPS certification is implied.",
+        "Existing lightmap metadata width+height coarse sanity guard does not prove rectangle area/disjointness; actual planner reservation checks remain separate."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "prepared_and_native_resources",
+          "required_observation": "Final all 48 prepared-resource inventory plus actual populated native budget counters, adapter readiness and memory observations must pass.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "src/package/",
+        "src/quality.rs",
+        "src/render/common/mod.rs",
+        "src/package/lightmaps.rs"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Keep final Stage 7 acceptance pending until the listed actual gates pass; update canonical ledger only with their exact receipts.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 7,
+      "id": "outdoors-low-wording",
+      "canonical_status_at_checkpoint": "open",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "dated_clarification_resolved__final_high_native_pending",
+      "actual_implementation_or_preserved_decision": "The 2026-10-08 addendum corrects the historical Low-as-shipped sentence: fresh installs default High, and preserved Low images are diagnostic construction comparisons.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/style-upgrade-20261007/outdoors/README.md",
+          "claim": "Explicit dated clarification retains all original labels/pixels",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/validation/gallery-history-review-v1.json",
+          "claim": "No missing history or unsupported gain; matched receipt review",
+          "scope": "accepted existing evidence"
+        }
+      ],
+      "newly_proven_evidence_keys": [],
+      "completed_since_draft": [],
+      "preserved_limitations": [
+        "Historical nearly-black Full yard remains disclosed; Low pictures do not prove a High atmosphere improvement."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "native209",
+          "required_observation": "Actual normal native map, geometry, quality/entity/restoration, journey and visual evidence must pass under the final matching binaries; prepared manifests are not captures.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "src/quality.rs:315"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Keep final Stage 7 acceptance pending until the listed actual gates pass; update canonical ledger only with their exact receipts.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 8,
+      "id": "all-theme-final-rebake",
+      "canonical_status_at_checkpoint": "open",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "all48_normal_package_matrix_passed__native_acceptance_pending",
+      "actual_implementation_or_preserved_decision": "All five shipped themes, five locals and38 catalogue-authored fixture sources passed normal three-variant build/currentness/decode. The other two inventory paths keep named loader rejection and synthetic positive CPU contracts; old campaigns are retained.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/art-style/stage7/validation/package-matrix-completed-v6.json",
+          "claim": "50 classifications:48 passed,1 expected named loader rejection,1 intended CPU contract",
+          "scope": "completed package phase"
+        },
+        {
+          "path": "docs/art-style/stage7/c1-v7-superseded-preservation.json",
+          "claim": "All 48 archives/campaign and normal C2 binaries preserved; whole gate failed only two test expectations",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/source-input-identities-v9.json",
+          "claim": "Only two cfg(test) expectations changed; normal compiler/player bytes identical",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/content-inventory.json",
+          "claim": "Complete supported/control source classification",
+          "scope": "accepted existing evidence"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8",
+        "latest_v11_strict"
+      ],
+      "completed_since_draft": [
+        {
+          "gate": "normal_desktop_gate_v7",
+          "required_observation": "Fresh final strict Rust/workspace, Python and GPU gate must finish successfully on freeze v9; focused checks and package-phase success are not whole-gate success.",
+          "status": "proven_by_completed_v8_with_bounded_v11_test_only_reuse",
+          "proofs": [
+            "normal_gate_v8",
+            "latest_v11_strict"
+          ]
+        }
+      ],
+      "preserved_limitations": [
+        "Package/decode success does not establish displayed map/weather, gameplay traversal, dynamic coherence or native resource budgets."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "native209",
+          "required_observation": "Actual normal native map, geometry, quality/entity/restoration, journey and visual evidence must pass under the final matching binaries; prepared manifests are not captures.",
+          "status": "pending_at_checkpoint"
+        },
+        {
+          "gate": "installed_comparison10",
+          "required_observation": "Ten installed-source normal forced/full archives and ordinary unchanged reuse must agree exactly, including whole archives and current tool/dependency provenance.",
+          "status": "pending_at_checkpoint"
+        },
+        {
+          "gate": "prepared_and_native_resources",
+          "required_observation": "Final all 48 prepared-resource inventory plus actual populated native budget counters, adapter readiness and memory observations must pass.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "src/compiler.rs",
+        "tools/bench/regression_maps.py"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Keep final Stage 7 acceptance pending until the listed actual gates pass; update canonical ledger only with their exact receipts.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 9,
+      "id": "foreground-performance",
+      "canonical_status_at_checkpoint": "CPU/counter baseline resolved Stage2; actual hero GPU profiling resolved Stage4; physical display cadence unmeasured",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "prior_cpu_and_scoped_gpu_baselines_retained__final_measurements_pending",
+      "actual_implementation_or_preserved_decision": "Retain Stage 1/2 nonzero submitted-frame CPU counters and Stage 4 owned-PID Metal GPU measurements; Stage 5/6 differing capture/surface contexts remain qualified.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/art-style/stage4/performance.md",
+          "claim": "Actual scoped GPU and whole-engine update observations",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage6/performance.md",
+          "claim": "Different GPU contexts and isolated receiver denominator",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/performance.md",
+          "claim": "Actual compiler/resource costs, sampled RSS and pending native metrics",
+          "scope": "accepted existing evidence"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "compiled_demo_gpu"
+      ],
+      "completed_since_draft": [],
+      "preserved_limitations": [
+        "CPU submission/event-loop or capture readback cost is not physical display cadence/gameplay FPS. Zero-draw samples are rejected.",
+        "Capture/driver allocation and process RSS are separate; sampled RSS is not an exact process-tree peak."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "final_performance",
+          "required_observation": "Record genuine matching-context normal hero CPU/GPU/resource observations with nonzero submitted scene counters and actual applied/present state; qualify unavailable cadence, stalls, overdraw or total driver memory.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "src/lib.rs",
+        "src/render/wgpu/renderer.rs"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Retain completed prior baseline/GPU scope; close Stage 7 measurement adoption only with its actual scoped receipt, retaining all unmeasured quantities.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 10,
+      "id": "hero-open-garden-warning",
+      "canonical_status_at_checkpoint": "open",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "intentional_nonplayable_exterior_preserved__final_geometry_native_pending",
+      "actual_implementation_or_preserved_decision": "No source changes make the decorative open garden playable. Keep its real room-leak warning and inaccessible raised glazed-window boundary; do not add containment to hide it.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/art-style/stage7/content-reference-audit.md",
+          "claim": "All 48 original sources and gameplay fields exact",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/integration-contract-audit.md",
+          "claim": "Hero checker still requires open garden room-leak",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/execution/geometry-focused.json",
+          "claim": "28 focused geometry tests exit0",
+          "scope": "accepted existing evidence"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8"
+      ],
+      "completed_since_draft": [],
+      "preserved_limitations": [
+        "The garden warning stays visible and is not a watertight exterior or playable route claim."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "native209",
+          "required_observation": "Final hero geometry and real interior traversal/window collision must preserve the documented boundary and expected warning.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "src/geometry_check.rs",
+        "tests/fixtures/levels/art_style_hero.json"
+      ],
+      "conditional_future_work": [
+        "Only if a later task makes the garden playable: author ordinary containment and rerun geometry/navigation/collision."
+      ],
+      "close_rule": "Keep final Stage 7 acceptance pending until the listed actual gates pass; update canonical ledger only with their exact receipts.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 11,
+      "id": "live-transition-transient-coverage",
+      "canonical_status_at_checkpoint": "Stage4 supported settled resource transitions accepted; transient presented loading frames unmeasured",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "settled_endpoint_contract_retained__transients_unmeasured",
+      "actual_implementation_or_preserved_decision": "Stage 4 accepted48 directed transitions plus independent settings; Stage 7 prepares additional themed ready-gated endpoints with requested/applied/resident and actual chair support checks.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/art-style/stage4/README.md",
+          "claim": "Accepted prior settled restoration/transition evidence",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/validation/native-execution-orchestration.md",
+          "claim": "Exact pending native endpoint and support/restoration obligations",
+          "scope": "execution plan only"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8",
+        "required_default_workspace",
+        "compiled_demo_gpu"
+      ],
+      "completed_since_draft": [],
+      "preserved_limitations": [
+        "Ready-gated captures do not measure every pending/blank/stale presented loading frame; no new transient symptom is asserted."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "native209",
+          "required_observation": "Actual normal native map, geometry, quality/entity/restoration, journey and visual evidence must pass under the final matching binaries; prepared manifests are not captures.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "src/lib.rs",
+        "tools/bench/check_quality_regression.py"
+      ],
+      "conditional_future_work": [
+        "If a transient symptom is actually reported, collect a bounded actual presented-frame pending/applied/resource sequence; do not reopen this design without that evidence."
+      ],
+      "close_rule": "Retain settled-transition resolution and explicit transient limitation; final Stage 7 endpoints must pass, but no unrequested transient architecture is required.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 12,
+      "id": "model-scalar-adoption",
+      "canonical_status_at_checkpoint": "open",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "eleven_scalar_assets_adopted_and_package_current__native_categories_pending",
+      "actual_implementation_or_preserved_decision": "Existing Mesh.material families author timber 0.72/0, resin 0.78/0, chrome 0.48/0.65, ice 0.55/0; ladder rubber stays 1/0. Eleven GLBs and owning builders change only response/group metadata;2,040 triangles, UVs, PNG bytes, bounds/collision and original chair are exact.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/art-style/stage7/content-scalar-adoption.json",
+          "claim": "Every decoded geometry/UV/image/non-scalar triangle response exact;11 post-export hashes",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/content-reference-audit.md",
+          "claim": "Approved minimal material families and no broad art regeneration",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/validation/package-matrix-completed-v6.json",
+          "claim": "All 48 affected/current ordinary packages built and decoded",
+          "scope": "package adoption only"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8",
+        "latest_v11_strict"
+      ],
+      "completed_since_draft": [
+        {
+          "gate": "normal_desktop_gate_v7",
+          "required_observation": "Fresh final strict Rust/workspace, Python and GPU gate must finish successfully on freeze v9; focused checks and package-phase success are not whole-gate success.",
+          "status": "proven_by_completed_v8_with_bounded_v11_test_only_reuse",
+          "proofs": [
+            "normal_gate_v8",
+            "latest_v11_strict"
+          ]
+        }
+      ],
+      "preserved_limitations": [
+        "Fabrics,snow,unfinished/natural and unselected families deliberately retain matte response.",
+        "Native draw/binding/visual cost is not inferred from7,840 added container bytes."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "native209",
+          "required_observation": "Actual normal native map, geometry, quality/entity/restoration, journey and visual evidence must pass under the final matching binaries; prepared manifests are not captures.",
+          "status": "pending_at_checkpoint"
+        },
+        {
+          "gate": "prepared_and_native_resources",
+          "required_observation": "Final all 48 prepared-resource inventory plus actual populated native budget counters, adapter readiness and memory observations must pass.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "tools/props/parts/home_remade.py",
+        "tools/props/parts/pool_remade.py",
+        "tools/props/parts/winter.py",
+        "src/gltf.rs"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Keep final Stage 7 acceptance pending until the listed actual gates pass; update canonical ledger only with their exact receipts.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 13,
+      "id": "presentation-alpha-and-aa",
+      "canonical_status_at_checkpoint": "Stage5 bloom coverage/global family ordering/exposure resolved; single-sample silhouettes and tiny alpha mips remain documented limitations",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "prior_stage5_resolution_retained__aa_alpha_mip_limits_preserved",
+      "actual_implementation_or_preserved_decision": "Straight emission coverage,nonemitting transparent occlusion,shared cross-family ordering and fixed hue-preserving presentation remain accepted Stage 5 behavior.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/art-style/stage5/contracts.md",
+          "claim": "Coverage/ordering/fixed presentation contract",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage5/image-comparison-v2.json",
+          "claim": "Bounded bloom effect and water-only image equality",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/integration-contract-audit.md",
+          "claim": "Current shared draw/emission contract review",
+          "scope": "accepted existing evidence"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8",
+        "directional_pixel_final"
+      ],
+      "completed_since_draft": [],
+      "preserved_limitations": [
+        "Single-sample silhouettes and tiny alpha-test mip coverage remain limitations; per-range centre sorting cannot solve every intersecting triangle/multi-primitive ordering.",
+        "No refraction or temporal/screen-AA gain is claimed."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "native209",
+          "required_observation": "Final actual alpha/emission/pane/water and independent quality controls must retain the prior accepted supported behavior.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "src/render/wgpu/world.wgsl",
+        "src/render/wgpu/postprocess.rs"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Retain Stage 5 resolved features and documented unsupported AA/mip limits; final native adoption is distinct from a new AA implementation.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 14,
+      "id": "normal-detail-model-support",
+      "canonical_status_at_checkpoint": "documented limitation; adoption conditional",
+      "checkpoint_disposition": "Preserved resolution or conditional limitation; no new design required.",
+      "prior_draft_disposition": "documented_conditional_limitation_retained",
+      "actual_implementation_or_preserved_decision": "No hero requirement justifies adding glTF normalTexture/tangent-space authoring. Architectural numeric normal maps remain supported with their established UV frames; retained model normals/transforms follow existing routes.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/art-style/stage2/contracts.md",
+          "claim": "Supported attribute/transform and normal-map boundaries",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/ASSET_SPECIFICATION.md",
+          "claim": "Model image/UV and supported material contracts",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/content-reference-audit.md",
+          "claim": "No new model normal image or tangent feature introduced",
+          "scope": "accepted existing evidence"
+        }
+      ],
+      "newly_proven_evidence_keys": [],
+      "completed_since_draft": [],
+      "preserved_limitations": [
+        "glTF normalTexture remains unsupported; JSON authoring exposes positive uniform scale even though node/pose/runtime transforms can be nonuniform."
+      ],
+      "remaining_explicit_verification": [],
+      "current_source_anchors": [
+        "src/gltf.rs",
+        "src/render/wgpu/character.rs",
+        "src/render/wgpu/dynamic.rs"
+      ],
+      "conditional_future_work": [
+        "If later measured art requires model normal detail, extend specification,authored tangents/handedness and all static/movable/character routes together with genuine controls."
+      ],
+      "close_rule": "Retain the documented conditional limitation; no current missing mandatory material route or entry-specific implementation gate exists.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 15,
+      "id": "live-atlas-texture-dependency-key",
+      "canonical_status_at_checkpoint": "Stage6 resolved by verified cache ownership; hypothetical old live consumer no longer exists",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "stage6_cache_ownership_resolution_retained__final_reuse_adoption_pending",
+      "actual_implementation_or_preserved_decision": "The hypothesized mutable live atlas consumer no longer exists: runtime installs prepared package variants by canonical manifest identity/quality; compiler transient caches start fresh, and public transient helpers require immutable resolved inputs or explicit clearing.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/art-style/stage6/contracts.md",
+          "claim": "Cache owner/source dependency contract",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage6/incremental-summary.json",
+          "claim": "Prior22 actual edit/full archive comparisons",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/integration-contract-audit.md",
+          "claim": "Current production ownership/no per-frame hashing review",
+          "scope": "accepted existing evidence"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8"
+      ],
+      "completed_since_draft": [],
+      "preserved_limitations": [
+        "A standalone model source PNG changes runtime only after its GLB is intentionally exported.",
+        "Transient public helper callers must clear after mutating resolved inputs; no second cache framework was added."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "installed_comparison10",
+          "required_observation": "Ten installed-source normal forced/full archives and ordinary unchanged reuse must agree exactly, including whole archives and current tool/dependency provenance.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "src/lighting/lightmap/cache.rs",
+        "src/render/common/api.rs",
+        "src/compiler.rs"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Keep final Stage 7 acceptance pending until the listed actual gates pass; update canonical ledger only with their exact receipts.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 16,
+      "id": "geometry-check-split-face-centroid",
+      "canonical_status_at_checkpoint": "open; reviewed false positive",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "generic_checker_root_fix_focused_pass__final_geometry_pending",
+      "actual_implementation_or_preserved_decision": "Actual coplanar clipped overlap replaces the triangle-centroid shortcut while the existing face-centre support requirement rejects centre holes,slanted/offset contacts and unsupported volumes. No mesh/collision edit or new product revision is required for this validator correction.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/art-style/stage7/integration-contract-audit.md",
+          "claim": "Detailed root predicate and conservative remaining heuristic",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/execution/geometry-focused.json",
+          "claim": "28 focused tests pass,including outside-centroid,partial/hole,unsupported and hero controls",
+          "scope": "accepted existing evidence"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8",
+        "latest_v11_strict"
+      ],
+      "completed_since_draft": [
+        {
+          "gate": "normal_desktop_gate_v7",
+          "required_observation": "Fresh final strict Rust/workspace, Python and GPU gate must finish successfully on freeze v9; focused checks and package-phase success are not whole-gate success.",
+          "status": "proven_by_completed_v8_with_bounded_v11_test_only_reuse",
+          "proofs": [
+            "normal_gate_v8",
+            "latest_v11_strict"
+          ]
+        }
+      ],
+      "preserved_limitations": [
+        "One supported face centre remains sufficient. This is not full-face/watertight coverage; a small centre patch still counts."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "native209",
+          "required_observation": "All49 geometry cases and final hero must eliminate the false ghost warning while retaining genuine planted defects and garden leak.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "src/geometry_check.rs:2486"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Keep final Stage 7 acceptance pending until the listed actual gates pass; update canonical ledger only with their exact receipts.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 17,
+      "id": "moving-caster-global-invalidation-cost",
+      "canonical_status_at_checkpoint": "Stage6 measured duplicate-query fix accepted; conservative cost remains a documented limit",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "stage6_measured_duplicate_query_fix_retained__global_cost_limit",
+      "actual_implementation_or_preserved_decision": "Stage 6 reused the already queried first support-anchor sample without weakening caster visibility; three isolated32-receiver pairs measure8.311→5.434 ms median, 34.6%.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/art-style/stage6/performance.md",
+          "claim": "Actual isolated denominator,pairs and remaining 5.43 ms",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage6/moving-caster-paired-summary.json",
+          "claim": "Raw bounded paired receiver kernel summary",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage6/runtime-parity/verification.json",
+          "claim": "Accepted old/new player pixels",
+          "scope": "accepted existing evidence"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8",
+        "compiled_demo_gpu"
+      ],
+      "completed_since_draft": [],
+      "preserved_limitations": [
+        "All 32 admitted receivers still refresh globally; no selective invalidation.",
+        "Static indirect remains baked during motion; bounded skinned proxies remain approximations. No whole-engine/FPS/GPU speedup claim."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "native209",
+          "required_observation": "Final actual motion,door,visibility/entity and quality checks must retain correctness.",
+          "status": "pending_at_checkpoint"
+        },
+        {
+          "gate": "final_performance",
+          "required_observation": "Report Stage 7 same-context observations separately; do not divide by Stage 4 whole-engine update to invent the kernel gain.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "src/render/wgpu/dynamic.rs"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Keep final Stage 7 acceptance pending until the listed actual gates pass; update canonical ledger only with their exact receipts.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 18,
+      "id": "stage5-environment-and-surface-adoption",
+      "canonical_status_at_checkpoint": "open",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "defaults_preserved_authoring_parity_and_packages_pass__native_pending",
+      "actual_implementation_or_preserved_decision": "No art retuning needed: optional presentation/fog/sky/water controls keep exact existing authored values/defaults; Python now mirrors established bounds/nested-name/null/reference rules. All 48 ordinary packages adopt final formats/assets.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/art-style/stage7/content-reference-audit.md",
+          "claim": "Unchanged weather/sky/environment/gameplay source contracts and Python parity",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "tests/test_environment_validation.py",
+          "claim": "Focused default/null/strict-name/finite/bounds/sky-reference contracts",
+          "scope": "test source; passed preparation receipt separately"
+        },
+        {
+          "path": "docs/art-style/stage7/validation/preparation-checks-v3.json",
+          "claim": "45 preparation tests exit0,including environment parity",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/validation/package-matrix-completed-v6.json",
+          "claim": "All 48 package variants current and decode",
+          "scope": "accepted existing evidence"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8",
+        "python_root_controls"
+      ],
+      "completed_since_draft": [
+        {
+          "gate": "normal_desktop_gate_v7",
+          "required_observation": "Fresh final strict Rust/workspace, Python and GPU gate must finish successfully on freeze v9; focused checks and package-phase success are not whole-gate success.",
+          "status": "proven_by_completed_v8_with_bounded_v11_test_only_reuse",
+          "proofs": [
+            "normal_gate_v8",
+            "latest_v11_strict"
+          ]
+        }
+      ],
+      "preserved_limitations": [
+        "Water attenuation 0..16/default 0 changes stylized visual coverage,not swimming/collision; no refraction/screen-space thickness.",
+        "Weather/shelter/ice movement and original outdoor traversal remain authored gameplay contracts."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "native209",
+          "required_observation": "Actual normal native map, geometry, quality/entity/restoration, journey and visual evidence must pass under the final matching binaries; prepared manifests are not captures.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "src/environment.rs",
+        "src/level.rs",
+        "tools/assets/validate.py"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Keep final Stage 7 acceptance pending until the listed actual gates pass; update canonical ledger only with their exact receipts.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 19,
+      "id": "runtime-spawn-package-dependencies",
+      "canonical_status_at_checkpoint": "resolved Stage6 automatic closure/currency; supported-map adoption remains Stage7",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "stage6_automatic_closure_retained__supported_packages_pass__runtime_pending",
+      "actual_implementation_or_preserved_decision": "Collector covers every spawn-template model and unused override; embedded PNGs participate via GLB SHA. Current package manifests/provenance enforce catalog/dependency identity; Stage 6 ordinary snapshot needs no manual ghost exception.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/art-style/stage6/source-publication.json",
+          "claim": "Published automatic closure/input identity",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage6/snapshot-verification.json",
+          "claim": "Accepted isolated real ghost dependency-only replay",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/integration-contract-audit.md",
+          "claim": "Current closure and streamed same-size dependency guards",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/validation/package-matrix-completed-v6.json",
+          "claim": "All 48 supported package preparation/currency/decode",
+          "scope": "accepted existing evidence"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8"
+      ],
+      "completed_since_draft": [],
+      "preserved_limitations": [
+        "Repository-backed images alone cannot certify isolated runtime-only dependency closure.",
+        "Legacy bundles retain their documented optional-provenance path; final new packages must be current."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "native209",
+          "required_observation": "Actual supported-map isolated runtime spawns and real ghost/character/chair images must show no missing resources.",
+          "status": "pending_at_checkpoint"
+        },
+        {
+          "gate": "installed_comparison10",
+          "required_observation": "Ten installed-source normal forced/full archives and ordinary unchanged reuse must agree exactly, including whole archives and current tool/dependency provenance.",
+          "status": "pending_at_checkpoint"
+        },
+        {
+          "gate": "final_snapshot",
+          "required_observation": "Final dependency-only runnable bundle must preserve collected runtime resources and replay matching accepted views.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "src/compiler.rs:1462",
+        "src/compiler.rs",
+        "src/package/"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Keep final Stage 7 acceptance pending until the listed actual gates pass; update canonical ledger only with their exact receipts.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 20,
+      "id": "stage6-refined-chair-catalogue-adoption",
+      "canonical_status_at_checkpoint": "open",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "additive_zoo_source_and_package_adoption_pass__display_pending",
+      "actual_implementation_or_preserved_decision": "Catalogue and current Zoo source preserve all 217 original placements plus one Stage 6 additive refined-chair apron display; old original chair remains exact. Normal Zoo three-variant package passes.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/art-style/stage7/content-scalar-adoption.json",
+          "claim": "Original chair function/asset and all existing source bytes preserved",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/content-reference-audit.md",
+          "claim": "Exact 218 Zoo placement preservation",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "debug-maps/art-style-hero/evidence/stage7-c1-v7-superseded/campaign/commands/assets__levels__model_zoo.json",
+          "claim": "Actual ordinary all-three-variant build, --require-current and decode commands passed for assets__levels__model_zoo",
+          "scope": "completed package phase of superseded whole gate v6; no native/whole-gate acceptance",
+          "recorded_sha256": "9c511355968cfcb63d5a45a0b69c159bdfeb31e5b9361ca61d7bf1dbae7ec02d"
+        },
+        {
+          "path": "docs/art-style/stage7/validation/zoo-refined-chair-manifest.json",
+          "claim": "Exact planned real apron position/model/camera",
+          "scope": "native plan only"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8"
+      ],
+      "completed_since_draft": [
+        {
+          "gate": "normal_desktop_gate_v7",
+          "required_observation": "Model Zoo generator --check and final workspace registration/source contracts must pass.",
+          "status": "proven_by_completed_v8_with_bounded_v11_test_only_reuse",
+          "proofs": [
+            "normal_gate_v8",
+            "latest_v11_strict"
+          ]
+        }
+      ],
+      "preserved_limitations": [
+        "Normal Zoo spawn/count or package currency alone does not demonstrate visible additive chair display."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "native209",
+          "required_observation": "Take the additional normal High apron view at the actual[24.8,0,140.8]display and inspect its visibility; preserve any obstructed first attempt.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "tools/levels/build_model_zoo.py",
+        "assets/levels/model_zoo.json"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Keep final Stage 7 acceptance pending until the listed actual gates pass; update canonical ledger only with their exact receipts.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 21,
+      "id": "capacity-dense-generator-drift",
+      "canonical_status_at_checkpoint": "generator/source preservation resolved; final package/native gates pending",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "generator_and_source_pressure_resolved__package_pass__native_pending",
+      "actual_implementation_or_preserved_decision": "Pin48 original explicit authored{id,size,solid}witness specs; every ID must remain a current prop/entity with actual model registration. No fixture regeneration:5,312 props,2,760 solids,48 models,120 lights,18 routes remain exact. ModelZoo owns all-catalogue coverage.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/art-style/stage7/content-capacity-generator-fix.json",
+          "claim": "Both maintained sources canonical byte equality and --check exit0",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/execution/capacity-generator-current.json",
+          "claim": "Actual maintained generator checks exit0",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/validation/preparation-checks-v3.json",
+          "claim": "Independent missing/type/model refusal and growth-order/pressure tests pass",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "debug-maps/art-style-hero/evidence/stage7-c1-v7-superseded/campaign/commands/tests__fixtures__levels__capacity_dense.json",
+          "claim": "Actual ordinary all-three-variant build, --require-current and decode commands passed for tests__fixtures__levels__capacity_dense",
+          "scope": "completed package phase of superseded whole gate v6; no native/whole-gate acceptance",
+          "recorded_sha256": "fd74bd1678ceed6ea9cf71e7481a3e2b03bf1a276dc56c5117624e576b3a4964"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8"
+      ],
+      "completed_since_draft": [
+        {
+          "gate": "normal_desktop_gate_v7",
+          "required_observation": "Fresh final strict Rust/workspace, Python and GPU gate must finish successfully on freeze v9; focused checks and package-phase success are not whole-gate success.",
+          "status": "proven_by_completed_v8_with_bounded_v11_test_only_reuse",
+          "proofs": [
+            "normal_gate_v8",
+            "latest_v11_strict"
+          ]
+        }
+      ],
+      "preserved_limitations": [
+        "Fixed historical placement extents/solid flags are explicit level inputs,not fabricated current asset metadata.",
+        "Dense lit atlas/field fallback must be judged against actual original references,not invented earlier availability."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "native209",
+          "required_observation": "Actual normal native map, geometry, quality/entity/restoration, journey and visual evidence must pass under the final matching binaries; prepared manifests are not captures.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "tools/levels/build_capacity_fixtures.py",
+        "tests/test_capacity_generator.py"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Keep final Stage 7 acceptance pending until the listed actual gates pass; update canonical ledger only with their exact receipts.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 22,
+      "id": "recovered-blizzard-roof-span-underbound",
+      "canonical_status_at_checkpoint": "bounded root fix allocated to renderer/compiler; final verification pending",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "geometry7_exact_endpoint_root_fix_focused_and_package_pass__gameplay_comparison_pending",
+      "actual_implementation_or_preserved_decision": "Two genuine positive-volume one-ULP missing roof slabs were not accepted as partition equivalence. Each span resolves its midpoint roof owner and evaluates exact endpoints against that owner; collision/geometry/coalescing/checking share the maximum. Generic callback compatibility remains.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/art-style/stage7/integration-recovered-review-audit.md",
+          "claim": "Original exact failed occupied-union/body-support counterexample retained",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/integration-contract-audit.md",
+          "claim": "Generic fixed-owner endpoint repair and geometry7 provenance",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/execution/rust-preflight-v8.json",
+          "claim": "16 roof plus 28 geometry controls and strict debug/release Clippy pass",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "debug-maps/art-style-hero/evidence/stage7-c1-v7-superseded/campaign/commands/levels__blizzard_review.json",
+          "claim": "Actual ordinary all-three-variant build, --require-current and decode commands passed for levels__blizzard_review",
+          "scope": "completed package phase of superseded whole gate v6; no native/whole-gate acceptance",
+          "recorded_sha256": "52987347cac8f8569d3faf6e52321d271074db97003bda760d05a264458ffacd"
+        },
+        {
+          "path": "docs/art-style/stage7/content-recovered-local-sources.json",
+          "claim": "Recovered serialized source bytes equal original preserved semantics",
+          "scope": "accepted existing evidence"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8",
+        "latest_v11_strict"
+      ],
+      "completed_since_draft": [
+        {
+          "gate": "normal_desktop_gate_v7",
+          "required_observation": "Fresh final strict Rust/workspace, Python and GPU gate must finish successfully on freeze v9; focused checks and package-phase success are not whole-gate success.",
+          "status": "proven_by_completed_v8_with_bounded_v11_test_only_reuse",
+          "proofs": [
+            "normal_gate_v8",
+            "latest_v11_strict"
+          ]
+        }
+      ],
+      "preserved_limitations": [
+        "Recovered serialized LevelDef source is not claimed original pre-prepare author bytes.",
+        "Current integration-recovered-review-final.md remains a paused superseded audit; it is not a final collision/navigation equality receipt."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "recovered_semantics_collision_navigation",
+          "required_observation": "Run the fresh exact recovered Blizzard/Snowfall canonical semantics,decoded navigation,occupied/step-class union and body/support comparison against preserved original contracts; no epsilon/raw-byte waiver.",
+          "status": "pending_at_checkpoint"
+        },
+        {
+          "gate": "native209",
+          "required_observation": "Actual review-map traversal/weather/native and final supported geometry checks must pass.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "src/level.rs",
+        "src/level/tests/wall_ceiling.rs",
+        "src/render/common/architecture.rs"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Keep final Stage 7 acceptance pending until the listed actual gates pass; update canonical ledger only with their exact receipts.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 23,
+      "id": "scene-budget-record-role-limit-parity",
+      "canonical_status_at_checkpoint": "helper/root parity corrected; final full-inventory/native accounting pending",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "role_and_typed_helper_parity_focused_pass__actual_native_accounting_pending",
+      "actual_implementation_or_preserved_decision": "Python preflight uses real role-specific declared/typed bounds instead of blanket256 MiB+64KiB; current atlas335,609,856,mesh/props512 MiB,ordinary256 MiB and unchanged aggregate1 GiB/count512. Duplicate,manifest,size/SHA/nonbinary/overflow cases remain strict.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/art-style/stage7/validation/preparation-checks-v3.json",
+          "claim": "45 actual preparation tests,including six independent safety controls",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/validation/atlas-bound-parity-checks.json",
+          "claim": "20 focused current-atlas/helper tests pass",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/validation/lighting-dump-page-parity-passed.json",
+          "claim": "Unchanged five diagnostic parity tests pass after actual NumPy setup",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/validation/native-execution-orchestration.md",
+          "claim": "Required actual native nonzero counter and honest fallback accounting",
+          "scope": "execution plan only"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8",
+        "remaining_gpu_controls"
+      ],
+      "completed_since_draft": [
+        {
+          "gate": "normal_desktop_gate_v7",
+          "required_observation": "Fresh final strict Rust/workspace, Python and GPU gate must finish successfully on freeze v9; focused checks and package-phase success are not whole-gate success.",
+          "status": "proven_by_completed_v8_with_bounded_v11_test_only_reuse",
+          "proofs": [
+            "normal_gate_v8",
+            "latest_v11_strict"
+          ]
+        }
+      ],
+      "preserved_limitations": [
+        "Prepared role/record bytes are not native total residency or scene draw counts.",
+        "Only exact zero-normal-scene-counters context permits a separately measured real feature-final capture; integrity/resource/lifecycle failures stay failures."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "prepared_and_native_resources",
+          "required_observation": "Final all 48 prepared-resource inventory plus actual populated native budget counters, adapter readiness and memory observations must pass.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "tools/bench/scene_budget.py",
+        "tests/test_scene_budget_limits.py",
+        "tools/bench/inspect_lighting_dump.py"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Keep final Stage 7 acceptance pending until the listed actual gates pass; update canonical ledger only with their exact receipts.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 24,
+      "id": "playable-narrow-room-probe-lattice-coverage",
+      "canonical_status_at_checkpoint": "bounded root fix implemented solver16; strict/focused validation active; final resolved-asset/native verification pending",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "solver16_phase_root_fix_focused_and_package_pass__resolved_field_native_pending",
+      "actual_implementation_or_preserved_decision": "Strict placement predicate is shared by preparation/bake phase scoring; unchanged originally covered grids stay unchanged. At most63 extra deterministic quarter-cell phases preserve baseline covered rooms and balance valid populations. Solver16 advances provenance; radius,spacing,caps,visibility,PLPF3 and aligned zero-direct sidecar are unchanged.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/art-style/stage7/integration-demo-probe-coverage-audit.md",
+          "claim": "Confirmed saved room 7/8 gaps and qualified room 10 ownership warning",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/execution/probe-focused-v2.json",
+          "claim": "Corrected21 focused tests pass,including actual Demo runtime radius/visibility and zero-source serialization",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "debug-maps/art-style-hero/evidence/stage7-c1-v7-superseded/campaign/commands/assets__levels__places_demo.json",
+          "claim": "Actual ordinary all-three-variant build, --require-current and decode commands passed for assets__levels__places_demo",
+          "scope": "completed package phase of superseded whole gate v6; no native/whole-gate acceptance",
+          "recorded_sha256": "be470c2bfe2448ed2c72cf2c4179325caacc00df6e200e2a98f1367b9ea67b51"
+        },
+        {
+          "path": "docs/art-style/stage7/validation/demo-preparation-checks.json",
+          "claim": "Final field/native support helpers prepared; historical defects reproduced",
+          "scope": "preparation only"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8",
+        "compiled_demo_gpu"
+      ],
+      "completed_since_draft": [
+        {
+          "gate": "normal_desktop_gate_v7",
+          "required_observation": "Fresh final strict Rust/workspace, Python and GPU gate must finish successfully on freeze v9; focused checks and package-phase success are not whole-gate success.",
+          "status": "proven_by_completed_v8_with_bounded_v11_test_only_reuse",
+          "proofs": [
+            "normal_gate_v8",
+            "latest_v11_strict"
+          ]
+        }
+      ],
+      "preserved_limitations": [
+        "The first boundary-only candidate failed and is preserved,rejected.",
+        "Focused source geometry uses asset-less prop placeholders; it does not establish final fully resolved saved-field support. Room10 missing labels alone never proved unsupported runtime sampling."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "demo_resolved_field_and_controls",
+          "required_observation": "Actual final resolved-asset Demo PLPF/navigation/support audit must pass and match the exact native package; six before/after room 7/8/10 entity runs must show actual Prepared centre/valid-anchor coherence.",
+          "status": "bounded_compiled_GPU_samples_passed_exhaustive_corridor_and_native_campaign_pending",
+          "partial_proof": "compiled_demo_gpu"
+        }
+      ],
+      "current_source_anchors": [
+        "src/lighting/probe_placement.rs",
+        "src/compiler/probes.rs",
+        "src/lighting/transport/tests/probes.rs"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Keep final Stage 7 acceptance pending until the listed actual gates pass; update canonical ledger only with their exact receipts.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 25,
+      "id": "shipped-demo-historical-error-allowance",
+      "canonical_status_at_checkpoint": "stronger existing assertion implemented; final source/wholematrix verification pending",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "strict_current_demo_assertion_focused_pass__final_checker_pending",
+      "actual_implementation_or_preserved_decision": "Unchanged shipped Demo must have zero wall joints and zero confirmed geometry errors; historical accept-either-state allowance is removed while planted controls retain genuine defects.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/art-style/stage7/content-demo-repair-plan-current-assets.json",
+          "claim": "Accepted full-asset CPU repair has0 findings /0 edits /0 errors and12 heuristic warnings",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/execution/rust-preflight-v8.json",
+          "claim": "28 geometry and strict Clippy pass before final all-map gate",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/source-input-identities-v9.json",
+          "claim": "Current source remains geometry7; only later unrelated test expectations changed",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "debug-maps/art-style-hero/evidence/stage7-c1-v7-superseded/campaign/commands/assets__levels__places_demo.json",
+          "claim": "Actual ordinary all-three-variant build, --require-current and decode commands passed for assets__levels__places_demo",
+          "scope": "completed package phase of superseded whole gate v6; no native/whole-gate acceptance",
+          "recorded_sha256": "be470c2bfe2448ed2c72cf2c4179325caacc00df6e200e2a98f1367b9ea67b51"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8",
+        "python_root_controls"
+      ],
+      "completed_since_draft": [
+        {
+          "gate": "normal_desktop_gate_v7",
+          "required_observation": "Fresh final strict Rust/workspace, Python and GPU gate must finish successfully on freeze v9; focused checks and package-phase success are not whole-gate success.",
+          "status": "proven_by_completed_v8_with_bounded_v11_test_only_reuse",
+          "proofs": [
+            "normal_gate_v8",
+            "latest_v11_strict"
+          ]
+        }
+      ],
+      "preserved_limitations": [
+        "Heuristic warnings are not confirmed errors and remain visible. No production source repair was justified."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "native209",
+          "required_observation": "Actual normal final Demo geometry checker must report no confirmed errors while negative controls keep expected findings.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "src/geometry_check.rs:5083"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Keep final Stage 7 acceptance pending until the listed actual gates pass; update canonical ledger only with their exact receipts.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 26,
+      "id": "hallows-full-atlas-availability-regression",
+      "canonical_status_at_checkpoint": "Full10/lower8 source and freshpartialHallows atlas/field restoration verified; newDemo typedrecord correction and finalwhole/native gates pending",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "generic_full10_restoration_source_and_package_pass__availability_native_pending",
+      "actual_implementation_or_preserved_decision": "Real unchanged Full padded demand9,549,535 texels exceeds nine1024pages; existing packer reaches mathematicalminimum10 with all245,495 charts/endpoints/disjoint gutters. Full 10/lower 8 restores ordinary Hallows atlas+field; no density,content or fallback waiver.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/art-style/stage7/validation/hallows-preserved-availability-regression.json",
+          "claim": "Original positive Full atlas/field versus failed new result retained",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/integration-hallows-atlas-audit.json",
+          "claim": "Actual minimum/page/gutter planning proof",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/execution/rust-source-preflight-v13.json",
+          "claim": "Real bundled planning,13renderer/29quality and strict gates pass",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/validation/availability-v4-first-six.json",
+          "claim": "Six actual partial original-availability checks had zero losses",
+          "scope": "partial prior campaign only"
+        },
+        {
+          "path": "debug-maps/art-style-hero/evidence/stage7-c1-v7-superseded/campaign/commands/assets__levels__lantern_hollow.json",
+          "claim": "Actual ordinary all-three-variant build, --require-current and decode commands passed for assets__levels__lantern_hollow",
+          "scope": "completed package phase of superseded whole gate v6; no native/whole-gate acceptance",
+          "recorded_sha256": "4b452c46cf39d844a74c49e809bbe24d0be6e6e6a708413277aedb6cb82c0734"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8"
+      ],
+      "completed_since_draft": [
+        {
+          "gate": "normal_desktop_gate_v7",
+          "required_observation": "Fresh final strict Rust/workspace, Python and GPU gate must finish successfully on freeze v9; focused checks and package-phase success are not whole-gate success.",
+          "status": "proven_by_completed_v8_with_bounded_v11_test_only_reuse",
+          "proofs": [
+            "normal_gate_v8",
+            "latest_v11_strict"
+          ]
+        }
+      ],
+      "preserved_limitations": [
+        "Hallows base GPU atlas160 MiB /decoded CPU 320 MiB is not total native residency.",
+        "Current typed atlas allowance is320 MiB +64 KiB; earlier256 MiB text is superseded by separately measured Demo correction.",
+        "Final original availability must compare matched old source/archives,not merely accept a degraded new manifest."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "original_successful_availability",
+          "required_observation": "Complete all actual matched installed and11hero-source prior availability checks,with no newly lost successful atlas/irradiance fields.",
+          "status": "pending_at_checkpoint"
+        },
+        {
+          "gate": "native209",
+          "required_observation": "Actual normal native map, geometry, quality/entity/restoration, journey and visual evidence must pass under the final matching binaries; prepared manifests are not captures.",
+          "status": "pending_at_checkpoint"
+        },
+        {
+          "gate": "prepared_and_native_resources",
+          "required_observation": "Final all 48 prepared-resource inventory plus actual populated native budget counters, adapter readiness and memory observations must pass.",
+          "status": "pending_at_checkpoint"
+        },
+        {
+          "gate": "installed_comparison10",
+          "required_observation": "Ten installed-source normal forced/full archives and ordinary unchanged reuse must agree exactly, including whole archives and current tool/dependency provenance.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "src/quality.rs",
+        "src/render/wgpu/world.rs",
+        "src/package/lightmaps.rs"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Keep final Stage 7 acceptance pending until the listed actual gates pass; update canonical ledger only with their exact receipts.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 27,
+      "id": "demo-full-atlas-record-budget",
+      "canonical_status_at_checkpoint": "FreshC12 Demo all3variants/currentness/decode pass; fullmatrix blocked onlybydense, nativeacceptance pending",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "measured_typed_bound_and_actual_demo_package_pass__native_memory_pending",
+      "actual_implementation_or_preserved_decision": "Exact Full record335,544,516B=320MiB+196-byte KTX2 header; generic typed ceiling335,609,856B=320 MiB +64 KiB. Medium 7 /Full 10 atlas+field retained; actual combined aggregate754,859,873B passes unchanged1 GiB. Diagnostics and Python mirror ten pages/typed bounds.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/art-style/stage7/integration-demo-atlas-record-audit.json",
+          "claim": "Measured shape/payload/header and unchanged guards",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/validation/demo-corrected-package-v5.json",
+          "claim": "Actual three-variant current/decode Demo and aggregate",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/execution/rust-source-preflight-v14.json",
+          "claim": "Strict debug/release Clippy and typed safety boundaries pass",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/validation/atlas-bound-parity-checks.json",
+          "claim": "20 Python current bound tests pass",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "debug-maps/art-style-hero/evidence/stage7-c1-v7-superseded/campaign/commands/assets__levels__places_demo.json",
+          "claim": "Actual ordinary all-three-variant build, --require-current and decode commands passed for assets__levels__places_demo",
+          "scope": "completed package phase of superseded whole gate v6; no native/whole-gate acceptance",
+          "recorded_sha256": "be470c2bfe2448ed2c72cf2c4179325caacc00df6e200e2a98f1367b9ea67b51"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8",
+        "compiled_demo_gpu"
+      ],
+      "completed_since_draft": [
+        {
+          "gate": "normal_desktop_gate_v7",
+          "required_observation": "Fresh final strict Rust/workspace, Python and GPU gate must finish successfully on freeze v9; focused checks and package-phase success are not whole-gate success.",
+          "status": "proven_by_completed_v8_with_bounded_v11_test_only_reuse",
+          "proofs": [
+            "normal_gate_v8",
+            "latest_v11_strict"
+          ]
+        }
+      ],
+      "preserved_limitations": [
+        "GPU atlas 320 MiB and decodedCPU arrays 640 MiB exclude meshes/entities/staging/driver; temporary encoded/decoded components~1.25 GiB is an estimate,not measured RSS.",
+        "Ordinary256 MiB,aggregate1 GiB,page/edge/group/exact-shape/range guards remain; no quality/content/group cut."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "native209",
+          "required_observation": "Actual normal native map, geometry, quality/entity/restoration, journey and visual evidence must pass under the final matching binaries; prepared manifests are not captures.",
+          "status": "pending_at_checkpoint"
+        },
+        {
+          "gate": "prepared_and_native_resources",
+          "required_observation": "Final all 48 prepared-resource inventory plus actual populated native budget counters, adapter readiness and memory observations must pass.",
+          "status": "pending_at_checkpoint"
+        },
+        {
+          "gate": "final_performance",
+          "required_observation": "Measure actual final Demo native RSS/residency and quality/restoration/entity support; do not call component projections total memory.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "src/package/mod.rs",
+        "src/compiler.rs",
+        "tools/bench/scene_budget.py"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Keep final Stage 7 acceptance pending until the listed actual gates pass; update canonical ledger only with their exact receipts.",
+      "canonical_ledger_modified": false
+    },
+    {
+      "ledger_order": 28,
+      "id": "capacity-dense-three-variant-storage",
+      "canonical_status_at_checkpoint": "Source, actual normal combined build/currentness/decode and independent Off/Medium/Full exact oracle pass; whole48 and native acceptance pending",
+      "checkpoint_disposition": "Implementation/content and applicable completed checks retained; final scoped verification remains pending.",
+      "prior_draft_disposition": "actual_combined_package_and_all3_exact_oracles_pass__native_full_adoption_pending",
+      "actual_implementation_or_preserved_decision": "PLMP6 uses identical full 69-byte vertex sharing within a batch and exact 28-byte frame palettes only when strictly smaller. Actual ordinary combined archive passes build/currentness/decode:1,035,943,642 bytes aggregate,37,798,182 bytes headroom,334,585,036 physical bytes. All three independent ordered-corner/header/wire-stream oracles pass; source,assets,nonprops and variants remain exact.",
+      "accepted_prior_evidence": [
+        {
+          "path": "docs/art-style/stage7/execution/capacity-combined-plmp6-v1.json",
+          "claim": "Actual normal combined build and currency/decode exit0",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/validation/capacity-off-plmp6-exact-compare-v2.json",
+          "claim": "Independent actual Off exact ordered-corner and full predicted-wire comparison pass",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/validation/capacity-medium-plmp6-exact-compare-v2.json",
+          "claim": "Independent actual Medium exact comparison pass",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/validation/capacity-full-plmp6-exact-compare-v2.json",
+          "claim": "Independent actual Full exact comparison pass",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "docs/art-style/stage7/execution/rust-source-preflight-v18.json",
+          "claim": "Strict debug/release Clippy,23 codec and2 real-asset ordered-corner/canonical controls pass",
+          "scope": "accepted existing evidence"
+        },
+        {
+          "path": "debug-maps/art-style-hero/evidence/stage7-c1-v7-superseded/campaign/commands/tests__fixtures__levels__capacity_dense.json",
+          "claim": "Actual ordinary all-three-variant build, --require-current and decode commands passed for tests__fixtures__levels__capacity_dense",
+          "scope": "completed package phase of superseded whole gate v6; no native/whole-gate acceptance",
+          "recorded_sha256": "fd74bd1678ceed6ea9cf71e7481a3e2b03bf1a276dc56c5117624e576b3a4964"
+        }
+      ],
+      "newly_proven_evidence_keys": [
+        "normal_gate_v8",
+        "latest_v11_strict"
+      ],
+      "completed_since_draft": [
+        {
+          "gate": "normal_desktop_gate_v7",
+          "required_observation": "Fresh final strict Rust/workspace, Python and GPU gate must finish successfully on freeze v9; focused checks and package-phase success are not whole-gate success.",
+          "status": "proven_by_completed_v8_with_bounded_v11_test_only_reuse",
+          "proofs": [
+            "normal_gate_v8",
+            "latest_v11_strict"
+          ]
+        }
+      ],
+      "preserved_limitations": [
+        "Encoded/expanded props remain512 MiB and aggregate remains1 GiB; no fixture shrink,variant omission,ZIP-bound bypass or provenance exception.",
+        "Original separately built Medium/Full references have explicit atlas-overflow vertex fallback/NoField; no successful earlier whole Dense archive was proven. Preserve observed fallback without inventing historical availability.",
+        "303.866 s combined build and sampled 2,448,932,864 bytes compilerRSS do not establish bake-speed/native-memory gains. Earlier adapter-path and redundant-slot test failures remain retained."
+      ],
+      "remaining_explicit_verification": [
+        {
+          "gate": "native209",
+          "required_observation": "Actual normal native map, geometry, quality/entity/restoration, journey and visual evidence must pass under the final matching binaries; prepared manifests are not captures.",
+          "status": "pending_at_checkpoint"
+        },
+        {
+          "gate": "prepared_and_native_resources",
+          "required_observation": "Final all 48 prepared-resource inventory plus actual populated native budget counters, adapter readiness and memory observations must pass.",
+          "status": "pending_at_checkpoint"
+        },
+        {
+          "gate": "installed_comparison10",
+          "required_observation": "Ten installed-source normal forced/full archives and ordinary unchanged reuse must agree exactly, including whole archives and current tool/dependency provenance.",
+          "status": "pending_at_checkpoint"
+        }
+      ],
+      "current_source_anchors": [
+        "src/package/props.rs",
+        "src/compiler.rs"
+      ],
+      "conditional_future_work": [],
+      "close_rule": "Source,actual normal combined package and independent all three bit-exact codec obligations are already passed. Close final adoption only after actual whole/native/resource/comparison gates,retaining original fallback and performance limits.",
+      "canonical_ledger_modified": false
+    }
+  ],
+  "pending_final_scopes": [
+    "Actual native209 campaign: 48 supported map views,49 geometry controls,12 thematic quality/independent sequences,6 normal/feature pairs,Zoo apron,Demo room7/8/10 controls,13-ID installed journey and native48 budgets. Prepared commands are not execution proof.",
+    "All installed prior-successful atlas/field availability, final fully resolved saved-field/collision/navigation audits including recovered Blizzard occupied-union/traversal comparison. Current integration-recovered-review-final.json is still explicitly paused/superseded.",
+    "Ten installed-source forced/full versus incremental unchanged-reuse comparisons, with exact whole-archive and current dependency/tool provenance.",
+    "Final native hero after nine matched views and cumulative original baseline comparison; honest measurement/resources and final gallery/journal assembly.",
+    "Final compatible dependency-only runnable snapshot and isolated replay; preservation closure, implementation/remote/CI identities, cleanup and handoff custody."
+  ],
+  "journal_and_seven_stage_evidence_index": [
+    {
+      "stage": 1,
+      "status": "accepted_historical_milestone",
+      "authoritative_reports": [
+        "docs/art-style/README.md",
+        "docs/art-style/diagnostics.md",
+        "docs/art-style/performance.md",
+        "docs/art-style/handoff.md"
+      ],
+      "before_manifest": "docs/art-style/baseline/high/manifest.json",
+      "after_manifest": "docs/art-style/repeat/high/manifest.json",
+      "matched_manifest_view_names": [
+        "entities",
+        "room",
+        "window"
+      ],
+      "example_png_pairs": [
+        {
+          "view": "room",
+          "before_png": "docs/art-style/baseline/high/room.png",
+          "after_png": "docs/art-style/repeat/high/room.png",
+          "camera": [
+            -46,
+            -8
+          ],
+          "spawn": [
+            7.1,
+            5.25,
+            0
+          ]
+        },
+        {
+          "view": "window",
+          "before_png": "docs/art-style/baseline/high/window.png",
+          "after_png": "docs/art-style/repeat/high/window.png",
+          "camera": [
+            0,
+            3
+          ],
+          "spawn": [
+            3.5,
+            3.5,
+            0
+          ]
+        },
+        {
+          "view": "entities",
+          "before_png": "docs/art-style/baseline/high/entities.png",
+          "after_png": "docs/art-style/repeat/high/entities.png",
+          "camera": [
+            0,
+            -15
+          ],
+          "spawn": [
+            6.25,
+            3.5,
+            0
+          ]
+        }
+      ],
+      "camera_settings_differences": [],
+      "settings": {
+        "quality": "high",
+        "texture_filtering": "high",
+        "lightmaps": "full",
+        "reflections": "full",
+        "bloom": true,
+        "use_low_quality_lighting": false,
+        "vsync": false,
+        "fov_degrees": 60,
+        "window_mode": "windowed",
+        "window_width": 640,
+        "window_height": 360
+      },
+      "settings_and_identity_authority": "Manifest per-view settings, requested/applied setting receipt, native renderer/drawable, original source/binary/package/catalogue/revision identities; never overwrite historical capture revisions.",
+      "drawable_pixels": [
+        1280,
+        720
+      ],
+      "snapshots": [
+        {
+          "receipt": "docs/art-style/stage2/stage1-snapshot.json",
+          "runtime_asset_root": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage1",
+          "native_runtime": "macOS Metal, repository SDL3 runtime; not a cross-platform binary bundle",
+          "launch_and_replay": "Exact launch/replay and file identities live in this immutable receipt; outside target."
+        }
+      ],
+      "visible_result": "Original baseline and independent repeat; no visual gain claimed.",
+      "measured_fact": "Original room/window/entities repeat receipts agree; diagnostic implementation preserves normal output.",
+      "limits": "Original diagonal sofa seam, flat spawned chair and dark night view remain visible."
+    },
+    {
+      "stage": 2,
+      "status": "accepted_historical_milestone",
+      "authoritative_reports": [
+        "docs/art-style/stage2/README.md",
+        "docs/art-style/stage2/contracts.md",
+        "docs/art-style/stage2/performance.md",
+        "docs/art-style/stage2/handoff.md"
+      ],
+      "before_manifest": "docs/art-style/stage2/before/high/manifest.json",
+      "after_manifest": "docs/art-style/stage2/after/sealed-high/manifest.json",
+      "matched_manifest_view_names": [
+        "contact",
+        "corner",
+        "entities",
+        "hall",
+        "room",
+        "window"
+      ],
+      "example_png_pairs": [
+        {
+          "view": "room",
+          "before_png": "docs/art-style/stage2/before/high/room.png",
+          "after_png": "docs/art-style/stage2/after/sealed-high/room.png",
+          "camera": [
+            -46,
+            -8
+          ],
+          "spawn": [
+            7.1,
+            5.25,
+            0
+          ]
+        },
+        {
+          "view": "hall",
+          "before_png": "docs/art-style/stage2/before/high/hall.png",
+          "after_png": "docs/art-style/stage2/after/sealed-high/hall.png",
+          "camera": [
+            174,
+            -8
+          ],
+          "spawn": [
+            9.1,
+            1.9,
+            0
+          ]
+        }
+      ],
+      "camera_settings_differences": [],
+      "settings": {
+        "quality": "high",
+        "texture_filtering": "high",
+        "lightmaps": "full",
+        "reflections": "full",
+        "bloom": true,
+        "use_low_quality_lighting": false,
+        "vsync": false,
+        "fov_degrees": 60,
+        "window_mode": "windowed",
+        "window_width": 640,
+        "window_height": 360
+      },
+      "settings_and_identity_authority": "Manifest per-view settings, requested/applied setting receipt, native renderer/drawable, original source/binary/package/catalogue/revision identities; never overwrite historical capture revisions.",
+      "drawable_pixels": [
+        1280,
+        720
+      ],
+      "snapshots": [
+        {
+          "receipt": "docs/art-style/stage2/stage2-snapshot.json",
+          "runtime_asset_root": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage2",
+          "native_runtime": "macOS Metal; preserved native SDL3 library when supplied; not a cross-platform binary bundle",
+          "launch_and_replay": "Exact launch/replay and file identities live in this immutable receipt; outside target."
+        }
+      ],
+      "visible_result": "Pale material colours and HDR survive the pipeline under unchanged artwork/lights/cameras.",
+      "measured_fact": "Before chain preserves all six Stage1 High image identities; source/capture and colour/HDR controls are retained.",
+      "limits": "Sofa seam, entity grounding, single-sample edges remain; HDR allocations cost more memory. CPU timing is not GPU/display performance."
+    },
+    {
+      "stage": 3,
+      "status": "accepted_historical_milestone",
+      "authoritative_reports": [
+        "docs/art-style/stage3/README.md",
+        "docs/art-style/stage3/diagnostics.md",
+        "docs/art-style/stage3/contracts.md",
+        "docs/art-style/stage3/performance.md",
+        "docs/art-style/stage3/handoff.md"
+      ],
+      "before_manifest": "docs/art-style/stage3/before/high/manifest.json",
+      "after_manifest": "docs/art-style/stage3/after/published-high/manifest.json",
+      "matched_manifest_view_names": [
+        "contact",
+        "corner",
+        "entities",
+        "hall",
+        "room",
+        "window"
+      ],
+      "example_png_pairs": [
+        {
+          "view": "contact",
+          "before_png": "docs/art-style/stage3/before/high/contact.png",
+          "after_png": "docs/art-style/stage3/after/published-high/contact.png",
+          "camera": [
+            -48,
+            -28
+          ],
+          "spawn": [
+            5.3,
+            4.1,
+            0
+          ]
+        },
+        {
+          "view": "room",
+          "before_png": "docs/art-style/stage3/before/high/room.png",
+          "after_png": "docs/art-style/stage3/after/published-high/room.png",
+          "camera": [
+            -46,
+            -8
+          ],
+          "spawn": [
+            7.1,
+            5.25,
+            0
+          ]
+        }
+      ],
+      "camera_settings_differences": [],
+      "settings": {
+        "quality": "high",
+        "texture_filtering": "high",
+        "lightmaps": "full",
+        "reflections": "full",
+        "bloom": true,
+        "use_low_quality_lighting": false,
+        "vsync": false,
+        "fov_degrees": 60,
+        "window_mode": "windowed",
+        "window_width": 640,
+        "window_height": 360
+      },
+      "settings_and_identity_authority": "Manifest per-view settings, requested/applied setting receipt, native renderer/drawable, original source/binary/package/catalogue/revision identities; never overwrite historical capture revisions.",
+      "drawable_pixels": [
+        1280,
+        720
+      ],
+      "snapshots": [
+        {
+          "receipt": "docs/art-style/stage3/stage3-snapshot.json",
+          "runtime_asset_root": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage3",
+          "native_runtime": "macOS Metal; preserved native SDL3 library when supplied; not a cross-platform binary bundle",
+          "launch_and_replay": "Exact launch/replay and file identities live in this immutable receipt; outside target."
+        }
+      ],
+      "visible_result": "Sofa lighting crosses construction seams; additive gable control closes actual geometry.",
+      "measured_fact": "Six matched original views and separate annex/aperture/basin controls retain genuine native manifests.",
+      "limits": "Not a brightness lift or new entity GI. Finite bevel gather, plant tabletop penetration and AA remain.",
+      "additional_matched_controls": {
+        "before_manifest": "docs/art-style/stage3/before/controls/manifest.json",
+        "after_manifest": "docs/art-style/stage3/after/published-controls/manifest.json",
+        "view_names": [
+          "annex",
+          "apertures",
+          "basin"
+        ]
+      }
+    },
+    {
+      "stage": 4,
+      "status": "accepted_historical_milestone",
+      "authoritative_reports": [
+        "docs/art-style/stage4/README.md",
+        "docs/art-style/stage4/contracts.md",
+        "docs/art-style/stage4/performance.md",
+        "docs/art-style/stage4/zero-source-repair.md",
+        "docs/art-style/stage4/handoff.md"
+      ],
+      "before_manifest": "docs/art-style/stage4/before/high/manifest.json",
+      "after_manifest": "docs/art-style/stage4/after/support-final/high/manifest.json",
+      "matched_manifest_view_names": [
+        "contact",
+        "corner",
+        "entities",
+        "hall",
+        "room",
+        "window"
+      ],
+      "example_png_pairs": [
+        {
+          "view": "entities",
+          "before_png": "docs/art-style/stage4/before/high/entities.png",
+          "after_png": "docs/art-style/stage4/after/support-final/high/entities.png",
+          "camera": [
+            0,
+            -15
+          ],
+          "spawn": [
+            6.25,
+            3.5,
+            0
+          ]
+        },
+        {
+          "view": "room",
+          "before_png": "docs/art-style/stage4/before/high/room.png",
+          "after_png": "docs/art-style/stage4/after/support-final/high/room.png",
+          "camera": [
+            -46,
+            -8
+          ],
+          "spawn": [
+            7.1,
+            5.25,
+            0
+          ]
+        }
+      ],
+      "camera_settings_differences": [],
+      "settings": {
+        "quality": "high",
+        "texture_filtering": "high",
+        "lightmaps": "full",
+        "reflections": "full",
+        "bloom": true,
+        "use_low_quality_lighting": false,
+        "vsync": false,
+        "fov_degrees": 60,
+        "window_mode": "windowed",
+        "window_width": 640,
+        "window_height": 360
+      },
+      "settings_and_identity_authority": "Manifest per-view settings, requested/applied setting receipt, native renderer/drawable, original source/binary/package/catalogue/revision identities; never overwrite historical capture revisions.",
+      "drawable_pixels": [
+        1280,
+        720
+      ],
+      "snapshots": [
+        {
+          "receipt": "docs/art-style/stage4/stage4-v2-snapshot.json",
+          "runtime_asset_root": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-v2",
+          "native_runtime": "macOS Metal; preserved native SDL3 library when supplied; not a cross-platform binary bundle",
+          "launch_and_replay": "Exact launch/replay and file identities live in this immutable receipt; outside target."
+        }
+      ],
+      "visible_result": "Movable chair and actors receive spatial practical-light response and bounded grounding; door restoration controls pass.",
+      "measured_fact": "48 directed settled quality transitions; original-camera single pair adds about0.306ms active Metal GPU work. Solver15 repair preserves accepted pixels.",
+      "limits": "Ready-gated endpoints omit loading transients. Static indirect stays baked; skinned/floor bounds proxies and conservative refresh remain.",
+      "additional_matched_controls": {
+        "before_manifest": "docs/art-style/stage4/before/actors-v2/manifest.json",
+        "after_manifest": "docs/art-style/stage4/after/support-final/actors/manifest.json",
+        "view_names": [
+          "actors",
+          "dim",
+          "exterior"
+        ]
+      }
+    },
+    {
+      "stage": 5,
+      "status": "accepted_historical_milestone",
+      "authoritative_reports": [
+        "docs/art-style/stage5/README.md",
+        "docs/art-style/stage5/contracts.md",
+        "docs/art-style/stage5/performance.md",
+        "docs/art-style/stage5/image-comparison-v2.json",
+        "docs/art-style/stage5/handoff.md"
+      ],
+      "before_manifest": "docs/art-style/stage5/before/original/manifest.json",
+      "after_manifest": "docs/art-style/stage5/after/original/manifest.json",
+      "matched_manifest_view_names": [
+        "contact",
+        "corner",
+        "entities",
+        "hall",
+        "room",
+        "window"
+      ],
+      "example_png_pairs": [
+        {
+          "view": "room",
+          "before_png": "docs/art-style/stage5/before/original/room.png",
+          "after_png": "docs/art-style/stage5/after/original/room.png",
+          "camera": [
+            -46,
+            -8
+          ],
+          "spawn": [
+            7.1,
+            5.25,
+            0
+          ]
+        }
+      ],
+      "camera_settings_differences": [],
+      "settings": {
+        "quality": "high",
+        "texture_filtering": "high",
+        "lightmaps": "full",
+        "reflections": "full",
+        "bloom": true,
+        "use_low_quality_lighting": false,
+        "vsync": false,
+        "fov_degrees": 60,
+        "window_mode": "windowed",
+        "window_width": 640,
+        "window_height": 360
+      },
+      "settings_and_identity_authority": "Manifest per-view settings, requested/applied setting receipt, native renderer/drawable, original source/binary/package/catalogue/revision identities; never overwrite historical capture revisions.",
+      "drawable_pixels": [
+        1280,
+        720
+      ],
+      "snapshots": [
+        {
+          "receipt": "docs/art-style/stage5/stage5-original-snapshot.json",
+          "runtime_asset_root": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-original",
+          "native_runtime": "macOS Metal; preserved native SDL3 library when supplied; not a cross-platform binary bundle",
+          "launch_and_replay": "Exact launch/replay and file identities live in this immutable receipt; outside target."
+        },
+        {
+          "receipt": "docs/art-style/stage5/stage5-control-snapshot.json",
+          "runtime_asset_root": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-control",
+          "native_runtime": "macOS Metal; preserved native SDL3 library when supplied; not a cross-platform binary bundle",
+          "launch_and_replay": "Exact launch/replay and file identities live in this immutable receipt; outside target."
+        },
+        {
+          "receipt": "docs/art-style/stage5/stage5-transparency-v2-snapshot.json",
+          "runtime_asset_root": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-transparency-v2",
+          "native_runtime": "macOS Metal; preserved native SDL3 library when supplied; not a cross-platform binary bundle",
+          "launch_and_replay": "Exact launch/replay and file identities live in this immutable receipt; outside target."
+        }
+      ],
+      "visible_result": "Warm highlight colour, emission coverage and prepared water become more legible; corrected controls only.",
+      "measured_fact": "Bloom on/off changes0.81% of lantern pixels and water-only view stays identical. Capture GPU cost0.897→0.963ms includes readback; bloom-off0.831ms.",
+      "limits": "Night/aurora/storm are separately authored comparisons. No physical-window FPS claim; no refraction/temporal AA; rejected incomplete-asset controls remain rejected.",
+      "additional_matched_controls": [
+        {
+          "before_manifest": "docs/art-style/stage5/before/control-corrected/manifest.json",
+          "after_manifest": "docs/art-style/stage5/after/control/manifest.json",
+          "view_names": [
+            "surfaces",
+            "night",
+            "water"
+          ],
+          "label": "Corrected complete-asset surface control; avoid rejected initial baseline."
+        },
+        {
+          "before_manifest": "docs/art-style/stage5/before/transparency/manifest.json",
+          "after_manifest": "docs/art-style/stage5/after/transparency/manifest.json",
+          "label": "Corrected actual ghost material evidence; use v2 snapshot and explicit correction receipts."
+        }
+      ]
+    },
+    {
+      "stage": 6,
+      "status": "accepted_historical_milestone",
+      "authoritative_reports": [
+        "docs/art-style/stage6/README.md",
+        "docs/art-style/stage6/contracts.md",
+        "docs/art-style/stage6/performance.md",
+        "docs/art-style/stage6/moving-caster-paired-summary.json",
+        "docs/art-style/stage6/handoff.md"
+      ],
+      "before_manifest": "docs/art-style/stage6/before/refinement-control/manifest.json",
+      "after_manifest": "docs/art-style/stage6/after/refined/manifest.json",
+      "matched_manifest_view_names": [
+        "contact",
+        "corner",
+        "entities",
+        "hall",
+        "night",
+        "room",
+        "surfaces",
+        "water",
+        "window"
+      ],
+      "example_png_pairs": [
+        {
+          "view": "room",
+          "before_png": "docs/art-style/stage6/before/refinement-control/room.png",
+          "after_png": "docs/art-style/stage6/after/refined/room.png",
+          "camera": [
+            -46,
+            -8
+          ],
+          "spawn": [
+            7.1,
+            5.25,
+            0
+          ]
+        },
+        {
+          "view": "entities",
+          "before_png": "docs/art-style/stage6/before/refinement-control/entities.png",
+          "after_png": "docs/art-style/stage6/after/refined/entities.png",
+          "camera": [
+            0,
+            -15
+          ],
+          "spawn": [
+            6.25,
+            3.5,
+            0
+          ]
+        }
+      ],
+      "camera_settings_differences": [],
+      "settings": {
+        "quality": "high",
+        "texture_filtering": "high",
+        "lightmaps": "full",
+        "reflections": "full",
+        "bloom": true,
+        "use_low_quality_lighting": false,
+        "vsync": false,
+        "fov_degrees": 60,
+        "window_mode": "windowed",
+        "window_width": 640,
+        "window_height": 360
+      },
+      "settings_and_identity_authority": "Manifest per-view settings, requested/applied setting receipt, native renderer/drawable, original source/binary/package/catalogue/revision identities; never overwrite historical capture revisions.",
+      "drawable_pixels": [
+        1280,
+        720
+      ],
+      "snapshots": [
+        {
+          "receipt": "docs/art-style/stage6/stage6-snapshot.json",
+          "runtime_asset_root": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage6",
+          "native_runtime": "macOS Metal; preserved native SDL3 library when supplied; not a cross-platform binary bundle",
+          "launch_and_replay": "Exact launch/replay and file identities live in this immutable receipt; outside target."
+        }
+      ],
+      "visible_result": "Oak/rug, cushion, plants, art, casing and additive refined chair furnish the hero while original assets remain.",
+      "measured_fact": "Isolated moving-receiver median8.311→5.434ms,34.6% reduction across three paired kernels; room draws38→43 and submitted triangles5234→6944, two atlas pages unchanged.",
+      "limits": "34.6% is not whole-engine GPU/FPS. Casing feet, lamp/plant composition overlap, silhouette detail and global receiver refresh remain."
+    },
+    {
+      "stage": 7,
+      "status": "integration_in_progress_final_native_gallery_pending",
+      "authoritative_reports": [
+        "docs/art-style/stage7/README.md",
+        "docs/art-style/stage7/performance.md",
+        "docs/art-style/stage7/integration-contract-audit.md",
+        "docs/art-style/stage7/validation/normal-desktop-gate-independent-v1.json"
+      ],
+      "before_manifest": "docs/art-style/stage7/before/high/manifest.json",
+      "after_manifest": null,
+      "matched_manifest_view_names": [],
+      "example_png_pairs": [
+        {
+          "view": "room",
+          "before_png": "docs/art-style/stage7/before/high/room.png",
+          "after_png": null,
+          "camera": [
+            -46,
+            -8
+          ],
+          "spawn": [
+            7.1,
+            5.25,
+            0
+          ]
+        },
+        {
+          "view": "entities",
+          "before_png": "docs/art-style/stage7/before/high/entities.png",
+          "after_png": null,
+          "camera": [
+            0,
+            -15
+          ],
+          "spawn": [
+            6.25,
+            3.5,
+            0
+          ]
+        },
+        {
+          "view": "surfaces",
+          "before_png": "docs/art-style/stage7/before/high/surfaces.png",
+          "after_png": null,
+          "camera": [
+            0,
+            -24
+          ],
+          "spawn": [
+            5.95,
+            -1.45,
+            0
+          ]
+        },
+        {
+          "view": "night",
+          "before_png": "docs/art-style/stage7/before/high/night.png",
+          "after_png": null,
+          "camera": [
+            -133,
+            0
+          ],
+          "spawn": [
+            9.7,
+            -6.4,
+            0
+          ]
+        },
+        {
+          "view": "water",
+          "before_png": "docs/art-style/stage7/before/high/water.png",
+          "after_png": null,
+          "camera": [
+            0,
+            -37
+          ],
+          "spawn": [
+            8,
+            -2.7,
+            0
+          ]
+        }
+      ],
+      "camera_settings_differences": [],
+      "settings": {
+        "quality": "high",
+        "texture_filtering": "high",
+        "lightmaps": "full",
+        "reflections": "full",
+        "bloom": true,
+        "use_low_quality_lighting": false,
+        "vsync": false,
+        "fov_degrees": 60,
+        "window_mode": "windowed",
+        "window_width": 640,
+        "window_height": 360
+      },
+      "settings_and_identity_authority": "Manifest per-view settings, requested/applied setting receipt, native renderer/drawable, original source/binary/package/catalogue/revision identities; never overwrite historical capture revisions.",
+      "drawable_pixels": [
+        1280,
+        720
+      ],
+      "snapshots": [],
+      "visible_result": "Pending final matched native after gallery; completed compatibility/storage/source gates are indexed separately.",
+      "measured_fact": "48 current ordinary three-variant packages; completed v8 whole gate; Dense aggregate1,435,049,755 rejected→1,035,943,642 accepted with ordered corners exact and unchanged content.",
+      "limits": "No final visual/native/resource/performance gain claimed. Forced bake durations are different workflows; native209, comparison10, final snapshot, gallery/publication/CI/cleanup remain pending."
+    }
+  ],
+  "stage7_final_assembly_contract": {
+    "seven_stage_gallery": "docs/style-upgrade-20261007/art-style-history.md",
+    "chronological_journal": "docs/style-upgrade-20261007/README.md",
+    "stage7_append_location": "docs/style-upgrade-20261007/art-style-history.md::7 — final compatibility integration; append chronological Stage7 entry after actual completion, retaining earlier dated paragraphs.",
+    "authoritative_stage7_capture_plan": "docs/art-style/stage7/hero-manifest.json",
+    "before_manifest": "docs/art-style/stage7/before/high/manifest.json",
+    "before_preservation": "docs/art-style/stage7/before-preservation.json",
+    "accepted_stage6_after": "docs/art-style/stage6/after/refined/manifest.json",
+    "original_baseline_manifest": "docs/art-style/baseline/high/manifest.json",
+    "prior_preservation": "docs/art-style/stage7/validation/prior-preservation-entry.json",
+    "historical_gallery_audit": "docs/art-style/stage7/validation/gallery-history-review-v1.json",
+    "all_nine_stage7_views": [
+      {
+        "name": "room",
+        "spawn": [
+          7.1,
+          5.25,
+          0
+        ],
+        "camera": [
+          -46,
+          -8
+        ],
+        "purpose": "broad fluorescent and warm practical distribution, furnishing, carpet/wood boundary"
+      },
+      {
+        "name": "window",
+        "spawn": [
+          3.5,
+          3.5,
+          0
+        ],
+        "camera": [
+          0,
+          3
+        ],
+        "purpose": "glazed opening, reveals, garden and sky, interior/exterior balance"
+      },
+      {
+        "name": "hall",
+        "spawn": [
+          9.1,
+          1.9,
+          0
+        ],
+        "camera": [
+          174,
+          -8
+        ],
+        "purpose": "tile, painted passage boundary, plastic and metal response, connected-room consistency"
+      },
+      {
+        "name": "contact",
+        "spawn": [
+          5.3,
+          4.1,
+          0
+        ],
+        "camera": [
+          -48,
+          -28
+        ],
+        "purpose": "sofa/table feet, mug/books, static shadow and carpet/wood grounding"
+      },
+      {
+        "name": "entities",
+        "spawn": [
+          6.25,
+          3.5,
+          0
+        ],
+        "camera": [
+          0,
+          -15
+        ],
+        "purpose": "left static and right spawned identical Home chair: fixed static/entity lighting comparison"
+      },
+      {
+        "name": "corner",
+        "spawn": [
+          6.65,
+          4.7,
+          0
+        ],
+        "camera": [
+          137,
+          12
+        ],
+        "purpose": "ceiling/wall/floor junction and passage topology, same paint on adjoining slabs"
+      },
+      {
+        "name": "surfaces",
+        "spawn": [
+          5.95,
+          -1.45,
+          0
+        ],
+        "camera": [
+          0,
+          -24
+        ],
+        "purpose": "Matched snow, ice and water under cool sky and warm practicals"
+      },
+      {
+        "name": "night",
+        "spawn": [
+          9.7,
+          -6.4,
+          0
+        ],
+        "camera": [
+          -133,
+          0
+        ],
+        "purpose": "Exterior moon, sky, warm lamps and window to interior"
+      },
+      {
+        "name": "water",
+        "spawn": [
+          8,
+          -2.7,
+          0
+        ],
+        "camera": [
+          0,
+          -37
+        ],
+        "purpose": "Water surface, recessed illuminated tile bottom and transmission"
+      }
+    ],
+    "six_original_baseline_views": [
+      "room",
+      "window",
+      "hall",
+      "contact",
+      "entities",
+      "corner"
+    ],
+    "capture_contract": {
+      "ready_world_seconds": 0.5,
+      "warmup_frames": 15,
+      "limit_frames": 2400,
+      "expected_drawable": [
+        1280,
+        720
+      ]
+    },
+    "settings_contract": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "full",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "environment_contract": {
+      "weather": "absent",
+      "sky": "outdoor:tex_sky_stars_01",
+      "sky_brightness": 1,
+      "sky_ambient": 0.22,
+      "global_illuminator": "hero_moon; source JSON is authoritative",
+      "fog": "no authored regions; normal engine atmosphere",
+      "animation": "authored ghost spawns at0.1s; normal idle at capture0.5s; animated bounds may vary slightly",
+      "seed": "no random authored events or weather"
+    },
+    "capture_requirements": [
+      "Actual final native framebuffer PNGs with current frozen normal player/package/catalogue/source and honest capture UTC dates.",
+      "Same nine camera/spawn transforms, FOV60, logical640x360/drawable1280x720, High/filterHigh/Full lightmaps/Full reflections/bloomOn, ready world0.5s,warmup15,limit2400. Record requested versus actual present mode; saved vsyncOff did not make historical renderer receipt stop reporting Fifo.",
+      "Compare Stage7 before→after for nine views; separately compare original baseline→final for the six original views. Do not imply added surface/night/water controls existed in Stage1.",
+      "Preserve before/after manifest revision and source context even when the later published implementation identity is appended.",
+      "Retain concept references, rejected historical controls, all23 accepted historical bundles/1010files and11 original baseline/repeat PNGs; entry preservation is reused here without rehash/replay.",
+      "Final new runnable snapshot must contain matching binaries, SDL, catalogue, automatically collected runtime model/image closure, settings/source/capture provenance and isolated replay receipts outside target. Snapshot creation/replay remains pending.",
+      "Use only the measured scope recorded in each stage report; no causal gameplay FPS or cross-platform hardware claims from headless/capture/cross-build evidence."
+    ],
+    "history_changed": false,
+    "final_after_manifest_available_at_checkpoint": false,
+    "final_snapshot_available_at_checkpoint": false,
+    "later_nontechnical_document": "After Stage7 handoff, primary/user will create one nontechnical seven-stage document. This report only indexes its authoritative sources and matched evidence; it does not create that document."
+  },
+  "scope_limits": [
+    "Optional synthetic capacity sibling-package reader returns without exercising a missing package; never claim that fixture compiled/decoded or ran a native whole-package test. Its executed CPU source/count/u32/collision witnesses remain separate from48 real supported packages.",
+    "Completed GPU/platform receipts have exactly the scopes above; actual on-screen themed acceptance, physical display cadence/FPS and Linux/Windows native hardware execution remain unproved.",
+    "Earlier failed wrappers/candidates remain preserved. Completed substeps are accepted individually rather than relabeling their failed aggregate receipts.",
+    "Immutable historical PNG/bundle preservation proof1010files was reused, not rehashed or replayed during this checkpoint.",
+    "Canonical ledger and journal still contain historical/pending statuses; this checkpoint recommends final disposition evidence without rewriting them or closing unexecuted obligations."
+  ],
+  "review_findings": [],
+  "ownership_released": true,
+  "persistent_jobs_started": false,
+  "index_local_path_check": {
+    "missing": [],
+    "method": "Existence-only checks for indexed reports/manifests/example PNGs/snapshot receipts; no image or bundle rehash."
+  }
+}

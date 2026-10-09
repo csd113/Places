@@ -1,0 +1,28 @@
+[
+  {
+    "frame": 1,
+    "actions": [
+      {
+        "action": "spawn",
+        "key": 9007,
+        "model": "core:washer_drum",
+        "character": false,
+        "position": [
+          62.30000305175781,
+          -0.8999999761581421,
+          -13.299995422363281
+        ],
+        "yaw": 0,
+        "scale": 1
+      }
+    ]
+  },
+  {
+    "frame": 120,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-registered-drum-witness-v1/demo-room8/after/drum-120.png"
+  },
+  {
+    "frame": 240,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-registered-drum-witness-v1/demo-room8/after/drum-240.png"
+  }
+]

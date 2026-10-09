@@ -1,0 +1,106 @@
+[
+  {
+    "quality": "high",
+    "filtering": "high",
+    "lighting": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true
+  },
+  {
+    "quality": "low",
+    "filtering": "low",
+    "lighting": "low",
+    "lightmaps": "off",
+    "reflections": "off",
+    "bloom": true
+  },
+  {
+    "quality": "medium",
+    "filtering": "medium",
+    "lighting": "medium",
+    "lightmaps": "medium",
+    "reflections": "medium",
+    "bloom": true
+  },
+  {
+    "quality": "high",
+    "filtering": "high",
+    "lighting": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true
+  },
+  {
+    "quality": "medium",
+    "filtering": "medium",
+    "lighting": "medium",
+    "lightmaps": "medium",
+    "reflections": "medium",
+    "bloom": true
+  },
+  {
+    "quality": "low",
+    "filtering": "low",
+    "lighting": "low",
+    "lightmaps": "off",
+    "reflections": "off",
+    "bloom": true
+  },
+  {
+    "quality": "high",
+    "filtering": "high",
+    "lighting": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true
+  },
+  {
+    "quality": "low",
+    "filtering": "low",
+    "lighting": "low",
+    "lightmaps": "off",
+    "reflections": "off",
+    "bloom": true
+  },
+  {
+    "quality": "medium",
+    "filtering": "medium",
+    "lighting": "medium",
+    "lightmaps": "medium",
+    "reflections": "medium",
+    "bloom": true
+  },
+  {
+    "quality": "high",
+    "filtering": "high",
+    "lighting": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true
+  },
+  {
+    "quality": "medium",
+    "filtering": "medium",
+    "lighting": "medium",
+    "lightmaps": "medium",
+    "reflections": "medium",
+    "bloom": true
+  },
+  {
+    "quality": "low",
+    "filtering": "low",
+    "lighting": "low",
+    "lightmaps": "off",
+    "reflections": "off",
+    "bloom": true
+  },
+  {
+    "quality": "high",
+    "filtering": "high",
+    "lighting": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true
+  }
+]

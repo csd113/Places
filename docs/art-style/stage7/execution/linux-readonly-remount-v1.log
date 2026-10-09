@@ -1,0 +1,250 @@
+ACTUAL_COMMAND ['docker', 'inspect', 'places-art-style-stage7-linux-v1']
+[
+    {
+        "Id": "36e8493ec1b2a334225c0c34b38429bdd18c23a6041f752150426af4dbe668b5",
+        "Created": "2026-10-09T02:06:28.065266877Z",
+        "Path": "sleep",
+        "Args": [
+            "infinity"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 653,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2026-10-09T02:06:28.142967793Z",
+            "FinishedAt": "0001-01-01T00:00:00Z"
+        },
+        "Image": "sha256:585dced3da590f4f7dc2719172ead5b39ea781bd8b698c092112da8ef3be0659",
+        "ResolvConfPath": "/var/lib/docker/containers/36e8493ec1b2a334225c0c34b38429bdd18c23a6041f752150426af4dbe668b5/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/36e8493ec1b2a334225c0c34b38429bdd18c23a6041f752150426af4dbe668b5/hostname",
+        "HostsPath": "/var/lib/docker/containers/36e8493ec1b2a334225c0c34b38429bdd18c23a6041f752150426af4dbe668b5/hosts",
+        "LogPath": "",
+        "Name": "/places-art-style-stage7-linux-v1",
+        "RestartCount": 0,
+        "Driver": "overlayfs",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": null,
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "local",
+                "Config": {}
+            },
+            "NetworkMode": "bridge",
+            "PortBindings": {},
+            "RestartPolicy": {
+                "Name": "no",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": [],
+            "DnsSearch": [],
+            "ExtraHosts": null,
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 6442450944,
+            "NanoCpus": 4000000000,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": [],
+            "BlkioDeviceReadBps": [],
+            "BlkioDeviceWriteBps": [],
+            "BlkioDeviceReadIOps": [],
+            "BlkioDeviceWriteIOps": [],
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": [],
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 12884901888,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "Mounts": [
+                {
+                    "Type": "bind",
+                    "Source": "/Users/connordawkins/Documents/GitHub/Places",
+                    "Target": "/source",
+                    "ReadOnly": true
+                },
+                {
+                    "Type": "bind",
+                    "Source": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-linux-platform-v1",
+                    "Target": "/work"
+                }
+            ],
+            "MaskedPaths": [
+                "/proc/acpi",
+                "/proc/asound",
+                "/proc/interrupts",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/sys/devices/virtual/powercap",
+                "/sys/firmware"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "Storage": {
+            "RootFS": {
+                "Snapshot": {
+                    "Name": "overlayfs"
+                }
+            }
+        },
+        "Mounts": [
+            {
+                "Type": "bind",
+                "Source": "/Users/connordawkins/Documents/GitHub/Places",
+                "Destination": "/source",
+                "Mode": "",
+                "RW": false,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-linux-platform-v1",
+                "Destination": "/work",
+                "Mode": "",
+                "RW": true,
+                "Propagation": "rprivate"
+            }
+        ],
+        "Config": {
+            "Hostname": "36e8493ec1b2",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "CARGO_TARGET_DIR=/work/target",
+                "RUSTC_WRAPPER=",
+                "PATH=/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "RUSTUP_HOME=/usr/local/rustup",
+                "CARGO_HOME=/usr/local/cargo",
+                "RUST_VERSION=1.99.0"
+            ],
+            "Cmd": [
+                "sleep",
+                "infinity"
+            ],
+            "Image": "rust@sha256:585dced3da590f4f7dc2719172ead5b39ea781bd8b698c092112da8ef3be0659",
+            "Volumes": null,
+            "WorkingDir": "/source",
+            "Entrypoint": null,
+            "Labels": {
+                "org.opencontainers.image.source": "https://github.com/rust-lang/docker-rust"
+            }
+        },
+        "NetworkSettings": {
+            "SandboxID": "8deeebee914afcac93067cebac7d4a3bbf69b0d584c22b97143adb0664e2ffeb",
+            "SandboxKey": "/var/run/docker/netns/8deeebee914a",
+            "Ports": {},
+            "Networks": {
+                "bridge": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": null,
+                    "DriverOpts": null,
+                    "GwPriority": 0,
+                    "NetworkID": "4a3a3e3bcac8038810eb322fd1095d2a9ae74793c1d045bef75435673f244430",
+                    "EndpointID": "389ce7eb654a57b1569a0de66b109fe3e05d36e24f5fcb582bf210e4d4b8ec32",
+                    "Gateway": "172.17.0.1",
+                    "IPAddress": "172.17.0.2",
+                    "MacAddress": "e2:e6:d5:db:f1:c2",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": null
+                }
+            }
+        },
+        "ImageManifestDescriptor": {
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "digest": "sha256:585dced3da590f4f7dc2719172ead5b39ea781bd8b698c092112da8ef3be0659",
+            "size": 1936,
+            "platform": {
+                "architecture": "arm64",
+                "os": "linux",
+                "variant": "v8"
+            }
+        }
+    }
+]
+
+ACTUAL_COMMAND ['docker', 'top', 'places-art-style-stage7-linux-v1', '-eo', 'pid,args']
+PID                 COMMAND
+653                 sleep infinity
+
+ACTUAL_COMMAND ['docker', 'cp', 'places-art-style-stage7-linux-v1:/work/target/release/places', '/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-linux-readonly-attempt-preserved-v1/places']
+
+ACTUAL_COMMAND ['docker', 'cp', 'places-art-style-stage7-linux-v1:/work/target/release/places-compile', '/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-linux-readonly-attempt-preserved-v1/places-compile']
+
+ACTUAL_COMMAND ['docker', 'commit', '--pause=false', 'places-art-style-stage7-linux-v1']
+Flag --pause has been deprecated, and enabled by default. Use --no-pause to disable pausing during commit.
+sha256:4799f5f7ff4db4b2a7c8799d15f8973445ec2e8b19be2dd752831782e00588de
+
+Traceback (most recent call last):
+  File "/tmp/places-stage7-linux-remount-v1.py", line 20, in <module>
+    image=run(['docker','commit','--pause=false',old]).strip();assert image.startswith('sha256:')
+                                                                      ~~~~~~~~~~~~~~~~^^^^^^^^^^^
+AssertionError

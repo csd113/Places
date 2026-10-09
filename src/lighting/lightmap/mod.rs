@@ -251,21 +251,24 @@ impl LightmapFailure {
     }
 }
 
-/// Number of atlas pages the world program can sample at once.
+/// Largest shipped atlas page budget the world program can sample at once.
 ///
-/// Every atlas page is one layer of the single `texture_2d_array` the world
-/// program binds, and the vertex's page byte selects the layer, so a bake that
-/// needs more than this cannot render its lightmaps correctly and must fall back
-/// to vertex lighting instead of dropping pages silently. Mirrors the
-/// renderer's own `LIGHTMAP_ATLAS_MAX_PAGES`.
+/// Each page occupies two RGBA16F array layers per prepared illumination group.
+/// The vertex's page byte selects that pair; switchable contributions follow
+/// the base group. The renderer shares this bound and allocates only resident
+/// pages and groups. A plan beyond its profile budget fails explicitly instead
+/// of dropping pages.
 ///
-/// Eight pages (raised from four): a 55 m × 55 m storey pair already uses most
-/// of four 1024-texel pages at Full, and the raised level caps admit maps with
-/// several such storeys. The array costs 32 MiB at Full and 8 MiB at Low, and
-/// the layers beyond the resident page count are filled white, so an unused
-/// page costs memory only. A bake that still overflows falls back to vertex
-/// lighting by name, exactly as before.
-pub const LIGHTMAP_ATLAS_MAX_PAGES: usize = 8;
+/// Full's maintained dense receiver set reserves 9,549,535 texels with
+/// inclusive endpoints and gutters, exceeding nine 1024px pages. The existing
+/// deterministic packer fits it in the mathematical minimum of ten pages.
+/// This costs 160 MiB for the base GPU group; package byte and switch-group
+/// safety limits remain independent. Lower profiles retain their prior budget.
+pub const LIGHTMAP_ATLAS_MAX_PAGES: usize = 10;
+
+/// Low and Medium retain their established eight-page atlas budgets.
+/// Medium's 1024px base group costs at most 128 MiB; Low's 512px group 32 MiB.
+pub const LIGHTMAP_ATLAS_LOWER_MAX_PAGES: usize = 8;
 
 /// Smallest axis length, in metres, a patch may have.
 ///
@@ -703,13 +706,10 @@ impl LightmapConfig {
     /// the emitter cuts the world's surfaces in exactly the same places at both
     /// densities; only chart texel counts and page usage differ.
     ///
-    /// The densities are the highest that fit the page budget on the shipped
-    /// demo with the deterministic packer: `Full` 16 texels/m (matches the
-    /// shared endpoint cap exactly) and `Low` 10 texels/m, both measured on
-    /// `places_demo` inside its page budget (`Low` packs the demo into three
-    /// 512-texel pages at 10 texels/m; the eight-page budget still holds). A
-    /// density that does not fit the budget is worse than a lower one: the
-    /// whole level falls back to vertex lighting.
+    /// Full retains 16 texels/m, matching the shared endpoint cap, and admits
+    /// ten pages to preserve every endpoint sample of the measured dense
+    /// receiver set. Low retains 10 texels/m, 512px pages and its established
+    /// eight-page budget. Both preserve the same physical patches and gutters.
     #[must_use]
     pub const fn for_profile(profile: crate::quality::QualityProfile) -> Self {
         match profile {
@@ -723,7 +723,7 @@ impl LightmapConfig {
             crate::quality::QualityProfile::Low => Self {
                 texels_per_metre: 10.0,
                 page_edge: 512,
-                max_pages: LIGHTMAP_ATLAS_MAX_PAGES,
+                max_pages: LIGHTMAP_ATLAS_LOWER_MAX_PAGES,
                 padding: 1,
                 bytes_per_texel: 16,
             },

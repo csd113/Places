@@ -1,0 +1,10 @@
+[
+  {
+    "quality": "high",
+    "filtering": "high",
+    "lighting": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true
+  }
+]

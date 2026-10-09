@@ -1,0 +1,366 @@
+{
+  "format_version": 1,
+  "recorded_utc": "2026-10-09T06:50:18.155058+00:00",
+  "status": "bounded content repairs applied; focused source controls passed; package/native acceptance pending",
+  "authorization": "Primary confirmed native209 all97 process groups/player paths/executors absent and samplers joined, then allocated the generator, generated fixture, Snowfall one-field adoption, this disjoint test and fresh reports. No frozen native input was edited before release.",
+  "files_written": [
+    "tools/levels/build_outdoor_fixture.py",
+    "tests/fixtures/levels/outdoor_kit_showcase.json",
+    "levels/snowfall_contrast.json",
+    "tests/test_content_geometry_authoring.py",
+    "docs/art-style/stage7/validation/content-geometry-repair-v1.json",
+    "docs/art-style/stage7/validation/content-geometry-repair-v1.md"
+  ],
+  "preservation": {
+    "root": "debug-maps/art-style-hero/evidence/stage7-entry/content/geometry-repair-v1",
+    "exact_before_files": [
+      {
+        "original_path": "tools/levels/build_outdoor_fixture.py",
+        "path": "debug-maps/art-style-hero/evidence/stage7-entry/content/geometry-repair-v1/tools/levels/build_outdoor_fixture.py",
+        "bytes": 22627,
+        "sha256": "14244f5dc9199674976843874dea81feaf5e992e46583592f0521ca708468374"
+      },
+      {
+        "original_path": "tests/fixtures/levels/outdoor_kit_showcase.json",
+        "path": "debug-maps/art-style-hero/evidence/stage7-entry/content/geometry-repair-v1/tests/fixtures/levels/outdoor_kit_showcase.json",
+        "bytes": 72192,
+        "sha256": "ef54afad931f372b1bd9c71ac7125f750feed43fe485367552f97e17900027f4"
+      },
+      {
+        "original_path": "levels/snowfall_contrast.json",
+        "path": "debug-maps/art-style-hero/evidence/stage7-entry/content/geometry-repair-v1/levels/snowfall_contrast.json",
+        "bytes": 1814,
+        "sha256": "dedfe1e664e32767b9084ccd303f083069ea1b4d3d030ebc77b663580d84ad11"
+      }
+    ],
+    "recovered_source_original_semantics": "debug-maps/art-style-hero/evidence/stage7-entry/content/package-semantics/snowfall_contrast.json",
+    "failed_native_receipts_unchanged": [
+      {
+        "case": "tests__fixtures__levels__outdoor_kit_showcase",
+        "result": {
+          "path": "debug-maps/art-style-hero/evidence/stage7-native-regression-v1/geometry49/tests__fixtures__levels__outdoor_kit_showcase/result.json",
+          "bytes": 757,
+          "sha256": "d1ea9233eecbb88de736475a0acce5a1c824cddbcac03f3b64a9e0a289b0d867"
+        },
+        "geometry": {
+          "path": "debug-maps/art-style-hero/evidence/stage7-native-regression-v1/geometry49/tests__fixtures__levels__outdoor_kit_showcase/geometry.json",
+          "bytes": 43716,
+          "sha256": "21f856f4ce8a205d19dcce4f9b1956aae865e5a0d62e4e29302a9e5a6a3568d2"
+        },
+        "log": {
+          "path": "debug-maps/art-style-hero/evidence/stage7-native-regression-v1/geometry49/tests__fixtures__levels__outdoor_kit_showcase/command.log",
+          "bytes": 20655,
+          "sha256": "bf78c5c808714ba65cab4a841bca077a9d70cbfae56a80853a1db08ad9e1465a"
+        }
+      },
+      {
+        "case": "levels__snowfall_contrast",
+        "result": {
+          "path": "debug-maps/art-style-hero/evidence/stage7-native-regression-v1/geometry49/levels__snowfall_contrast/result.json",
+          "bytes": 700,
+          "sha256": "f984d79f1e8bc828eb7002c01f5f3c1477b2dc04f1ffbd96989118a8df230c36"
+        },
+        "geometry": {
+          "path": "debug-maps/art-style-hero/evidence/stage7-native-regression-v1/geometry49/levels__snowfall_contrast/geometry.json",
+          "bytes": 8085,
+          "sha256": "7546605b81ba70bdb04dc477dbfbaa33cfb591dce2837fa56e6189fb9e4be376"
+        },
+        "log": {
+          "path": "debug-maps/art-style-hero/evidence/stage7-native-regression-v1/geometry49/levels__snowfall_contrast/command.log",
+          "bytes": 4685,
+          "sha256": "b4d11a309b9e54076d61ec0edbe41371745c337bacbf41924d8801b686b801f5"
+        }
+      }
+    ],
+    "historical_source": "debug-maps/snowfall-20261007/sources/snowfall_contrast.json",
+    "historical_capture_and_archive_changes": false
+  },
+  "after_identities": [
+    {
+      "path": "tools/levels/build_outdoor_fixture.py",
+      "bytes": 22724,
+      "sha256": "cca73acb4aac1b4ebe257f221232364a5bffecd0efc329979f47d59449919e48"
+    },
+    {
+      "path": "tests/fixtures/levels/outdoor_kit_showcase.json",
+      "bytes": 72192,
+      "sha256": "683aff600370ab1f360ea58d9d2c8107613f3bf7d4846ee38029ee0df60e5da5"
+    },
+    {
+      "path": "levels/snowfall_contrast.json",
+      "bytes": 1832,
+      "sha256": "fb1eb05b5b81ea2c39b33737e385593ebcef3321d3566f37b66f4992387e3140"
+    },
+    {
+      "path": "tests/test_content_geometry_authoring.py",
+      "bytes": 6468,
+      "sha256": "17993bfb59f52a60bd5e09e68d8163f54a009661897812da258502b071dae2bb"
+    }
+  ],
+  "contracts_consulted": [
+    {
+      "path": "docs/MAP_AUTHORING_GUIDE.md",
+      "sections": [
+        "Level limits and source/package authoring",
+        "Half walls, columns, archways, guardrails, thresholds and baseboards",
+        "Void wall and floor boxes",
+        "Geometry checker severity and positive-case errors"
+      ]
+    },
+    {
+      "path": "src/level.rs",
+      "sections": [
+        "HalfWallDef::bounds/base_y/solid_box",
+        "VoidWallDef::bounds/faces",
+        "LevelDef::collision_aabbs"
+      ]
+    },
+    {
+      "path": "src/render/common/architecture.rs",
+      "sections": [
+        "emit_half_wall",
+        "emit_void_wall",
+        "world-coordinate UV convention"
+      ]
+    }
+  ],
+  "outdoor": {
+    "proposal_authority": {
+      "path": "docs/art-style/stage7/validation/outdoor-duplicate-root-triage-v1.json",
+      "bytes": 11545,
+      "sha256": "db89ae4c39f3517ee60dbd68eb6edf6ee04b702b4b6040a5e92db7016dc5df69"
+    },
+    "exact_eight_scalar_diff": [
+      {
+        "path": "/half_walls/1/depth",
+        "old": 20.0,
+        "new": 19.6
+      },
+      {
+        "path": "/half_walls/1/z",
+        "old": 0.0,
+        "new": 0.2
+      },
+      {
+        "path": "/half_walls/2/depth",
+        "old": 6.0,
+        "new": 5.8
+      },
+      {
+        "path": "/half_walls/2/z",
+        "old": 0.0,
+        "new": 0.2
+      },
+      {
+        "path": "/half_walls/3/depth",
+        "old": 9.0,
+        "new": 8.8
+      },
+      {
+        "path": "/half_walls/4/width",
+        "old": 2.5,
+        "new": 2.2
+      },
+      {
+        "path": "/half_walls/5/width",
+        "old": 8.5,
+        "new": 8.2
+      },
+      {
+        "path": "/half_walls/5/x",
+        "old": 17.5,
+        "new": 17.8
+      }
+    ],
+    "proposal_applied_exactly": true,
+    "generator_comment_change": "Explains ownership of horizontal corner runs and house side-wall terminal strips. No generator behavior outside the eight scalar values changed.",
+    "canonical_generation_command": [
+      "python3",
+      "tools/levels/build_outdoor_fixture.py"
+    ],
+    "canonical_generation_exit": 0,
+    "maintained_fixture_bytes": 72192,
+    "retained_counts": {
+      "perimeter_pieces": 6,
+      "props": 328,
+      "walls": 8,
+      "rooms": 3,
+      "decals": 19,
+      "ceiling_lights": 1,
+      "doors": 1
+    },
+    "all_other_json_fields_exact": true,
+    "all_material_heights_and_0_2_thickness_contracts_exact": true,
+    "half_wall_0_exact": true,
+    "all_original_asset_references_exact": true,
+    "unrelated_content_canonical_sha256": "61c2fa17f8b94436277f92a1b5712bac9130ce8bcc874701062cfde8dec0b6d7",
+    "union_proof": {
+      "method": "Exact f32 parsing and endpoint addition for all six historical/adopted half-wall boxes and unchanged house side-wall boxes2/3; exact Fraction partition midpoints compare every positive-volume cell. Finite non-degenerate closed boxes equal their interior closure. All floor support values are0 and no floor-region/y override changes resolution.",
+      "old_boxes": 8,
+      "new_boxes": 8,
+      "axis_partition_cells_checked": 112,
+      "occupancy_differences": 0,
+      "all_unchanged_other_collision_inputs_exact": true,
+      "occupied_solid_union_exact": true,
+      "step_class_union_source_contract": "All eight witness boxes retain max_step0 semantics; every other collider source and class remains unchanged. Actual compiled PLCL partition/metadata and nav class grid still require fresh validation.",
+      "box_order_preserved": true,
+      "collision_record_partition_expected_to_change": true,
+      "no_raw_PLCL_equality_claim": true
+    },
+    "same_facing_overlap_upper_bound": {
+      "old_max_m2": 0.21000079154964624,
+      "new_max_exact_fraction_m2": "4404019/2199023255552",
+      "new_max_m2": 2.002715973503655e-06,
+      "existing_report_threshold_m2": 0.0001,
+      "method": "Every emitted triangle pair lies within its full axis-aligned box faces. Any remaining same-facing full-rectangle intersection is bounded below the existing report threshold. This source witness is not the actual native checker.",
+      "tolerances_changed": false
+    },
+    "current_native_geometry_acceptance": "pending: preserve32Error/60Warning original and require fresh zero confirmed Errors, without expected-error allowances"
+  },
+  "snowfall": {
+    "root_triage": {
+      "path": "docs/art-style/stage7/validation/snowfall-duplicate-root-triage-v1.json",
+      "bytes": 13598,
+      "sha256": "a0d31933a3ec2ad6756b6fd44dde007dba424befa1808c83274ba0defcc762cc"
+    },
+    "exact_one_field_diff": [
+      {
+        "path": "/void_walls/0/faces",
+        "operation": "add",
+        "new": "outward"
+      }
+    ],
+    "id": "bright_backdrop",
+    "effective_faces_before": "inward",
+    "faces_after": "outward",
+    "authored_reason": "This is an exterior solid plate seen from the courtyard, so canonical outward normals are appropriate; inward bottom was the real same-facing floor duplicate.",
+    "raw_text_preservation": "Only an18byte faces field was inserted into the original recovered one-line JSON. No reformatting or replacement from sparse historical source.",
+    "whole_json_after_removing_only_faces_equals_original": true,
+    "room_floor_and_all_content_exact": true,
+    "bounds": [
+      -6.0,
+      0.0,
+      -4.0,
+      6.0,
+      4.0,
+      -3.799999952316284
+    ],
+    "material": "home:wall_paint_offwhite_01",
+    "solid_and_occludes_defaults_unchanged": true,
+    "weather_exact": {
+      "count": 1400,
+      "height": 12.0,
+      "kind": "snow",
+      "material": "core:snowflake_01",
+      "opacity": 0.8500000238418579,
+      "radius": 16.0,
+      "size": [
+        0.02500000037252903,
+        0.07500000298023224
+      ],
+      "speed": [
+        0.44999998807907104,
+        1.0499999523162842
+      ],
+      "wind": [
+        0.18000000715255737,
+        0.05999999865889549
+      ]
+    },
+    "sky_lights_spawn_intent_exact": true,
+    "collision_and_navigation_source_inputs": "Whole box endpoints, solid flag, step classification, floor/room/water and all gameplay fields remain exact. Fast occluder and snow shelter derive the same bounds and occludes flag.",
+    "drawn_support_positions_and_world_uv_convention_unchanged": true,
+    "intentional_geometry_change": "All six existing face windings/normals become outward. Prepared light transport and compiled mesh/chart/lighting can change; no byte-identity claim for those products.",
+    "source_provenance_after_adoption": "Derived from exact recovered original serialized semantics with this one explicit authoring correction. New source is no longer byte-identical to original semantics; the original remains preserved.",
+    "predicted_checker": "No same-facing bottom/floor duplicate Errors; legitimate opposite-facing reversed-face contact warnings and existing open-courtyard room-leak remain subject to fresh real checker output.",
+    "all_non_weather_semantics_equal_old_receipt_scope": "Historical pre-adoption only. A new semantic oracle must assert exactly this faces addition plus the existing four documented Snowfall defaults, and exact equality of everything else."
+  },
+  "asset_and_policy_invariants": {
+    "catalog": {
+      "path": "assets/catalog.json",
+      "bytes": 171742,
+      "sha256": "27789ac9a59ec79decb5c95e63f6a4b0de3bbd5101f4ae3d2d45f177e82bee1f"
+    },
+    "catalog_exact_to_frozen_v12": true,
+    "outdoor_asset_reference_count": 368,
+    "snowfall_asset_reference_count": 6,
+    "asset_reference_multisets_exact_for_both_sources": true,
+    "visual_asset_PNG_GLB_changes": false,
+    "original_chair_and_all_other_assets_written": false,
+    "immutable_concept_baseline_stage1_to_6_evidence_changes": false,
+    "native_expected_error_policy": {
+      "path": "tools/bench/native_regression_maps.py",
+      "bytes": 10423,
+      "sha256": "da50b3904f5e7b3c4eb72d3a1df39a0a910d59e6d566e00a0598339d5635e737"
+    },
+    "policy_matches_original_campaign_hash": true,
+    "allowances_expected_errors_tolerances_placeholders_or_content_removals_added": false,
+    "production_Rust_schema_geometry_solver_changes": false
+  },
+  "focused_checks": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "tests.test_content_geometry_authoring",
+        "-v"
+      ],
+      "exit_code": 0,
+      "tests_run": 6,
+      "failed": 0,
+      "skipped": 0,
+      "unittest_seconds": 0.018,
+      "scope": [
+        "exact f32 occupied union",
+        "negative corner/terminal gap controls",
+        "same-facing positive-overlap source bound without new tolerance",
+        "all six material/height/thickness pieces and house sides",
+        "all unrelated content/asset fields",
+        "canonical generator byte equality and repeat determinism"
+      ]
+    },
+    {
+      "argv": [
+        "python3",
+        "tools/levels/build_outdoor_fixture.py",
+        "--check"
+      ],
+      "exit_code": 0,
+      "output": "ok tests/fixtures/levels/outdoor_kit_showcase.json: current"
+    },
+    {
+      "invocation": "tools/assets/validate.py::validate_levels(load_catalog(), (temporary_directory_with_only_two_corrected_actual_sources,))",
+      "exit_code": 0,
+      "errors": [],
+      "warnings": [],
+      "no_full_asset_decode_scan": true
+    },
+    {
+      "invocation": "Read-only whole JSON leaf diff against exclusive exact-before copies",
+      "outdoor_changes": 8,
+      "snowfall_changes": 1,
+      "extra_changes": 0
+    }
+  ],
+  "required_primary_gates": [
+    "Record new source freeze and current inventory with these exact hashes; prior frozen native209/geometry49 receipts and failures remain immutable historical evidence.",
+    "Normal compiler build+require-current+full package validate/decode for both changed maps Off/Medium/Full. Current compiler/player binaries should remain byte-identical because no Rust/production helper changed. Recheck all48 currentness, preserving exact other sources and control maps.",
+    "Outdoor: decode every PLCL field and report real collider partition changes; prove exact occupied/step-class union, unchanged unrelated collider and support records, whole PLNV bytes/decoded cell-mask-region equality and body/traversal behavior versus frozen pre-adoption. No raw collision record equality waiver is mislabeled as byte equality.",
+    "Snowfall: require exact original raw collision/navigation and every decoded field/occupied-class union. Assert whole prepared semantics differ only by explicit /void_walls/0/faces plus the four already documented Snowfall defaults; all other interactive/non-weather/weather values exact and normalization idempotent.",
+    "Run genuine unchanged native checker for both positive maps and require zero confirmed Errors with exit0. Record actual residual heuristic warnings. Do not add EXPECTED_ERRORS, annotations or relax tolerances.",
+    "Fresh genuine same-camera/settings normal High captures and affected traversal/quality controls for rebuilt outdoor and Snowfall; inspect exposed material phase, perimeter continuity/collision containment, Snowfall ground contact/plate shading/sky/snow shelter.",
+    "Recompute affected availability/resources and installed full/reuse comparisons using new package/source hashes, retain original references and actual no-prior-reference limits; append new honest evidence to final reports/ledger/gallery/index.",
+    "Keep the kitchen cupboards/sink/refrigerator, Demo Home joins and close Hallows brightness successor issues separate. These repairs do not establish their resolution."
+  ],
+  "not_run": [
+    "Cargo/Rust tests or Clippy",
+    "compiler package build/bake/require-current/decode",
+    "native geometry check/capture/traversal",
+    "GPU/performance comparison",
+    "Git/index/branch/target writes or cleanup"
+  ],
+  "ownership_released": true,
+  "source_test_edits_frozen": true,
+  "ongoing_owned_jobs": []
+}

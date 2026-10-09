@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     Chart, LightmapPatch, LightmapTexel, TransportReceiver, TransportScene, length, scale,
 };
-use crate::lighting::lightmap::{LightmapPage, page_png_bytes};
+use crate::lighting::lightmap::{LIGHTMAP_ATLAS_MAX_PAGES, LightmapPage, page_png_bytes};
 
 /// Destination directory for compiler diagnostics. Use one directory per map
 /// and quality variant, and `--force` to bypass a prepared-package cache hit.
@@ -356,6 +356,21 @@ fn chart_record(index: usize, offset: usize, patch: &LightmapPatch, chart: &Char
     }
 }
 
+/// Validate the shipped diagnostic page envelope before allocating images.
+fn chart_within_dump_bounds(chart: &Chart) -> bool {
+    chart.width > 0
+        && chart.height > 0
+        && usize::from(chart.page) < LIGHTMAP_ATLAS_MAX_PAGES
+        && chart
+            .x
+            .checked_add(chart.width)
+            .is_some_and(|end| end <= 1024)
+        && chart
+            .y
+            .checked_add(chart.height)
+            .is_some_and(|end| end <= 1024)
+}
+
 /// Dumps an isolated stage as tone-mapped receiver lighting atlas PNGs and
 /// linear RGB f32 little-endian data in chart/row/column order. Metadata maps
 /// every sample back to its chart, world position and geometric normal.
@@ -369,19 +384,10 @@ pub(super) fn dump_stage(
         return Ok(());
     };
     let semantics = stage_semantics(stage)?;
-    if charts.iter().any(|(_, chart)| {
-        chart.width == 0
-            || chart.height == 0
-            || chart.page >= 8
-            || chart
-                .x
-                .checked_add(chart.width)
-                .is_none_or(|end| end > 1024)
-            || chart
-                .y
-                .checked_add(chart.height)
-                .is_none_or(|end| end > 1024)
-    }) {
+    if charts
+        .iter()
+        .any(|(_, chart)| !chart_within_dump_bounds(chart))
+    {
         return Err("lighting dump chart outside the validated atlas bounds".to_string());
     }
     let records = chart_records(charts)?;
@@ -544,7 +550,12 @@ fn chart_records(charts: &[(LightmapPatch, Chart)]) -> Result<Vec<ChartRecord>, 
             let record = chart_record(index, offset, patch, chart);
             offset = offset
                 .checked_add(record.texel_count)
-                .filter(|count| *count <= 8_usize.saturating_mul(1024).saturating_mul(1024))
+                .filter(|count| {
+                    *count
+                        <= LIGHTMAP_ATLAS_MAX_PAGES
+                            .saturating_mul(1024)
+                            .saturating_mul(1024)
+                })
                 .ok_or_else(|| "lighting dump receiver count exceeds atlas budget".to_string())?;
             Ok(record)
         })
@@ -754,6 +765,84 @@ mod tests {
                 .collect::<Vec<_>>(),
             [(0, 6), (6, 1)],
             "offsets use chart/row/column order"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn diagnostic_bounds_accept_full_pages_eight_and_nine_and_reject_overflow() {
+        let chart = Chart {
+            page: 9,
+            x: 2,
+            y: 2,
+            width: 2,
+            height: 2,
+        };
+        assert!(chart_within_dump_bounds(&Chart { page: 8, ..chart }));
+        assert!(chart_within_dump_bounds(&chart));
+        assert!(!chart_within_dump_bounds(&Chart { page: 10, ..chart }));
+        for broken in [
+            Chart { width: 0, ..chart },
+            Chart { x: 1023, ..chart },
+            Chart {
+                y: u32::MAX,
+                ..chart
+            },
+        ] {
+            assert!(
+                !chart_within_dump_bounds(&broken),
+                "invalid bounds must fail"
+            );
+        }
+    }
+
+    #[test]
+    fn diagnostic_receiver_budget_accepts_ten_pages_but_not_one_extra_sample() -> Result<(), String>
+    {
+        let patch = LightmapPatch::from_quad(
+            super::super::PatchKind::Floor,
+            [
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [1.0, 0.0, 1.0],
+                [0.0, 0.0, 1.0],
+            ],
+            Some(0),
+        )
+        .ok_or_else(|| "test patch rejected".to_string())?;
+        let mut charts = (0_u16..10)
+            .map(|page| {
+                (
+                    patch,
+                    Chart {
+                        page,
+                        x: 0,
+                        y: 0,
+                        width: 1024,
+                        height: 1024,
+                    },
+                )
+            })
+            .collect::<Vec<_>>();
+        let records = chart_records(&charts)?;
+        assert_eq!(records.len(), 10);
+        assert_eq!(
+            records.last().map(|record| record.offset),
+            Some(9 * 1024 * 1024)
+        );
+        charts.push((
+            patch,
+            Chart {
+                page: 0,
+                x: 0,
+                y: 0,
+                width: 1,
+                height: 1,
+            },
+        ));
+        assert!(
+            chart_records(&charts).is_err(),
+            "one extra sample exceeds the shared cap"
         );
         Ok(())
     }

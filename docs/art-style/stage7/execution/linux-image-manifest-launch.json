@@ -1,0 +1,13 @@
+{
+  "label": "linux-image-manifest",
+  "supervisor_pid": 48473,
+  "argv": [
+    "docker",
+    "manifest",
+    "inspect",
+    "rust:1.99.0-trixie"
+  ],
+  "launched_utc": "2026-10-09T01:21:09.648750+00:00",
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "completion_receipt": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/linux-image-manifest.json"
+}

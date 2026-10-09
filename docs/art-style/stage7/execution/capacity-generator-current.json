@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "python3",
+    "tools/levels/build_capacity_fixtures.py",
+    "--check"
+  ],
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "started_utc": "2026-10-08T22:26:32.076149+00:00",
+  "finished_utc": "2026-10-08T22:26:32.330668+00:00",
+  "elapsed_seconds": 0.25445566698908806,
+  "exit_code": 0,
+  "environment_overrides": {
+    "RUSTC_WRAPPER": ""
+  },
+  "log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/capacity-generator-current.log"
+}

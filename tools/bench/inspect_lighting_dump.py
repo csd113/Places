@@ -16,10 +16,13 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw
 
+# Mirror lightmap::LIGHTMAP_ATLAS_MAX_PAGES and the Rust dump envelope.
+MAX_DUMP_PAGES = 10
+
 
 def audit_records(records: list[dict]) -> dict:
     """Validate chart geometry and disjoint padded atlas reservations."""
-    occupied = np.zeros((8,1024,1024),dtype=bool)
+    occupied = np.zeros((MAX_DUMP_PAGES,1024,1024),dtype=bool)
     errors = []
     one_sample_axes = elongated = texels = 0
     pages = set()
@@ -29,7 +32,7 @@ def audit_records(records: list[dict]) -> dict:
         page = record["page"]
         gutter = 1 if record["kind"] == "prop" else 2
         if (any(not isinstance(v,int) for v in (x,y,width,height,page))
-                or not 0<=page<8 or width<=0 or height<=0
+                or not 0<=page<MAX_DUMP_PAGES or width<=0 or height<=0
                 or x<gutter or y<gutter or x+width+gutter>1024 or y+height+gutter>1024):
             errors.append(dict(chart=index,reason="Invalid padded atlas bounds"))
             continue

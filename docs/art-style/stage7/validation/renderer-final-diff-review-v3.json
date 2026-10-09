@@ -1,0 +1,503 @@
+{
+  "review": "Stage7 final renderer/compiler integration diff review v3",
+  "reviewer": "renderer_compiler",
+  "recorded_utc": "2026-10-09T07:35:41Z",
+  "status": "PASS of the scoped production/source-contract review; final native, visual, performance, ledger, snapshot and CI acceptance remains pending",
+  "concrete_new_production_defects": [],
+  "scope": {
+    "base_revision": "26486b8538424f013c243ae6edea8720ac07d7f2",
+    "freeze": {
+      "path": "docs/art-style/stage7/source-input-identities-v14.json",
+      "bytes": 53658,
+      "sha256": "85284305d0d59b2c5d227ad3a829e4a5c2764fe5a78063eec02e2d4f8bb7a5c8",
+      "reported_exit_code": null,
+      "reported_status": null
+    },
+    "unique_identity_pins_checked": 293,
+    "identity_mismatches": [],
+    "Rust_and_build_file_pins": 223,
+    "v12_to_v14_Rust_and_build_file_deltas": [],
+    "prior_complete_diff_review": {
+      "path": "docs/art-style/stage7/validation/renderer-final-diff-review-v2.json",
+      "bytes": 27086,
+      "sha256": "668e94cd87f34b5e99a8161abdba3cf31d7f5c9b648f3f339f532b69d8d406c1",
+      "reported_exit_code": null,
+      "reported_status": "READY: no new production blocking defect found; native/visual/performance and successor scope remain separate"
+    },
+    "original_review_preserved": {
+      "path": "docs/art-style/stage7/validation/renderer-final-diff-review-v1.json",
+      "bytes": 28363,
+      "sha256": "701a9cf82a9a5558a03654762cc73ac57cc124ed3feaab939e3535ebc1438815",
+      "reported_exit_code": null,
+      "reported_status": "READY source review with explicit documented limits; active platform/final audits not accepted here"
+    },
+    "reviewed_tracked_src_diff_sha256": "8e4e3e8ec30497fad89e4f0bbc1e268c9129df5d7418c068942b432b2467226c",
+    "reviewed_tracked_src_diff_bytes": 178185,
+    "additional_shared_placement_source": {
+      "path": "src/lighting/probe_placement.rs",
+      "bytes": 1756,
+      "sha256": "afdc1e1e14039639df5b9e3fd868d368cd3e220f44893122dd43667c4936aba9"
+    },
+    "method": "Rechecked current codec/count/allocation and legacy routes, exact owned roof/ghost/probe/atlas/quality interfaces and canonical current prose. All223 v14 Rust/build pins match v12, so the earlier complete diff and changed-test review is reused rather than rerun. All293 unique v14 pins match. No Git, Cargo, compiler, bake, native/GPU command or target/package write ran.",
+    "production_WGSL_changes_since_entry": [],
+    "latest_data_and_tool_delta": "Content-owner eight-scalar Outdoor partition correction plus explicit Snowfall outward render-face field are separately pinned and explained; registered-mesh reuse witness data/helpers and all48 native default controls are pinned. These do not change Rust/compiler/WGSL/player identities."
+  },
+  "normal_binaries": [
+    {
+      "path": "target/release/places-compile",
+      "bytes": 6760064,
+      "sha256": "f3f27db928af9927219f3440a95acbbcfb2f53bdecb321af207613ddce91527f"
+    },
+    {
+      "path": "target/release/places",
+      "bytes": 93056128,
+      "sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081"
+    }
+  ],
+  "contracts": {
+    "PLMP6": {
+      "finding": "No concrete overlooked untrusted allocation or legacy decode defect found.",
+      "safeguards": [
+        "Exact69-byte, within-batch first-occurrence interning retains all ordered attributes, seams, signed zero and unique unreferenced vertices. Original ordered u16 indices are validated then remapped; a compact referenced slot cannot exceed its old u16 slot.",
+        "Version6 modes0/1/2 use literal69 or first-occurrence28-byte normal/tangent/handedness palette, literal36-byte prefix+5-byte tail and u16/u32 references. Storage uses a palette only when strictly cheaper including the shared mode byte and frame-count overhead; ties retain literal mode.",
+        "Encoded512MiB plus cumulative expanded-literal512MiB budgets remain checked before decode allocations, with bounded batch/submesh/vertex counts and complete run lengths. Palette entries are borrowed, all frames including unused ones are finite, every reference is bounded, and index-run/logical checks precede indices. Triangle multiplicity, index and submesh ranges remain enforced.",
+        "Writer enforces the same encoded and logical budgets and shrinks output capacity; it cannot serialize an unloadable enlarged decoded record. No geometry/UV/shader/manifest-topology/schema-major/content/cap change.",
+        "Independent literal versions3/4/5 remain readable: matte default for3, scalar response from4, conservative caster before5 and explicit caster from5. Source/tool identity is not exempted."
+      ],
+      "encoded_and_expanded_literal_limit_bytes": 536870912,
+      "actual_dense_each_record_encoded_bytes": 340854707,
+      "actual_dense_each_record_expanded_literal_bytes": 448534303,
+      "actual_dense_archive_uncompressed_bytes": 1035943642,
+      "aggregate_margin_bytes": 37798182,
+      "proof_scope": "Retained ordered-corner oracle and completed package receipts provide actual lossless/capacity evidence; byte budgets alone do not establish native memory residency."
+    },
+    "geometry7": {
+      "finding": "Exact owned-span roof endpoints and ridge bounds agree at identified collision/render/architecture call sites; neighboring rooms are not borrowed.",
+      "safeguards": "Owning revision7 participates in both build fingerprints; public generic closure compatibility remains. Recovered roof PLCL occupied-union/navigation proofs and focused endpoint/adjacent/hole tests remain retained.",
+      "limitation": "The unchanged generic quarter-span blocker/audit route is coarse and may underestimate an endpoint by one ULP; exact owned bounds and actual transport triangles do not prove bit-exact parity of this separate coarse route."
+    },
+    "ghost_validator": {
+      "finding": "Coplanar positive triangle/face projected overlap plus actual face-centre triangle support replaces the centroid-only false positive; actual unsupported, partial-hole and noncoplanar negatives remain.",
+      "limitation": "It is still a face-centre support heuristic, not proof of full face coverage, watertightness or absence of every hole."
+    },
+    "Solver16": {
+      "finding": "Prepared targets and bake positions share one chosen, strictly validated grid and exact positional identity guard.",
+      "safeguards": [
+        "Already fully covered original layouts remain bit-exact. Only actual missing-room cases score at most63 additional quarter-cell phases, preserve every initially covered room and require an additional covered room before choosing a replacement.",
+        "Candidate rank is covered-room count then lexicographically sorted ascending valid counts; deterministic first-best ties preserve the original choice. Full authored wall/floor/roof and opaque/closed-solid placement validity remains.",
+        "PLPF3,64 angular axes, MAX counts, spacing/radius/visibility, zero-selected-source aligned empty sidecar marker and shared runtime sampling remain unchanged. Owning solver16 identity invalidates old physical fields."
+      ],
+      "limitation": "Finite phase search does not guarantee every room or runtime position has support; it preserves initial room presence rather than every original slot. Saved-field/raw-radius proof is separate from actual opaque/movable visibility and pixels."
+    },
+    "atlas": {
+      "finding": "Baker, profiles, renderer, transport diagnostics and role guards agree.",
+      "full_pages": 10,
+      "medium_and_legacy_low_pages": 8,
+      "medium_full_edge": 1024,
+      "legacy_low_edge": 512,
+      "typed_atlas_limit_bytes": 335609856,
+      "ordinary_entry_limit_bytes": 268435456,
+      "KTX_codec_limit_bytes": 536870912,
+      "decoder_pages": 64,
+      "switch_groups": 4,
+      "device_layer_limit": 256,
+      "archive_entry_limit": 512,
+      "aggregate_uncompressed_limit_bytes": 1073741824,
+      "evidence": "Hallows Full padded area9549535 exceeds9×1024²9437184, proving10 is the minimum at unchanged density/endpoints/gutters; actual deterministic plan fits10. Demo10pages×2groups×2planesRgba16F is320MiB+196B. Typed320MiB+64KiB is an explicit measured25% allowance increase, not an unchanged guard. All other shape/count/ordinary/aggregate guards remain.",
+      "allocation": "Renderer capacity aliases the owning baker and allocates only actual resident pages/groups. CPU640MiB for two full arrays and ~1.25GiB component-peak estimates are not measured process RSS.",
+      "limitation": "Pre-existing LightmapsMeta width+height accounting does not establish chart area or disjointness. Hard shape/count/record guards and separate actual planning overlap checks retain their own scope."
+    },
+    "Low_and_live_quality": {
+      "finding": "Low preset selects Off lightmaps and reduced optional resources; independently chosen Low+Full remains supported. Material alpha/emission/albedo, authored appearance, geometry and current shared presentation are not map-named exceptions.",
+      "evidence": "Retained two real Low override resource tests, entity quality/map resource restoration and pixel-domain controls passed. Current registered-mesh witness plans preserve normal Spawn and caps rather than claiming the rejected17th chair mesh spawned."
+    },
+    "exclusions_and_lints": {
+      "new_production_map_asset_camera_keyed_exception_found": false,
+      "blanket_lint_allow_or_config_lowering_found": false,
+      "qualification": "One narrowly scoped clippy::print_stderr expectation on the ignored real Hallows planning diagnostic was introduced earlier and is documented. This review does not claim zero new scoped expectations; strict gates pass. New test fixes retain rejection/fingerprint/path/cache/pixel assertions."
+    }
+  },
+  "test_root_review": {
+    "preserved": {
+      "CLI_cwd": "Full ordered(id,source,canonical actual package path) comparison resolves each path against its command cwd. Missing paths fail, embedded stays empty, same-named files in different directories stay distinct. Original quiet/no.json/package/source and checked dependency-closure assertions remain.",
+      "CLI_source": {
+        "path": "tests/list_levels.rs",
+        "bytes": 11890,
+        "sha256": "13d9eb88e93a41c61109cf1bbb9eaa45a2e40d1b988f120712d463867efd4b0f"
+      },
+      "CLI_receipt": {
+        "path": "docs/art-style/stage7/validation/cli-cwd-root-v1.json",
+        "bytes": 10441,
+        "sha256": "6bf234f25f0446a742700b6c6cface3af2881428817e6ca24ed4a4ce79992fdd"
+      },
+      "host_default_and_all_features": "4/4 each passed; default retry disabled only inherited failing sccache wrapper. Failed startup retained.",
+      "linux_all_features": "4/4 passed on existing corrected readonly-source/writable-target container.",
+      "other_changed_tests": "Read complete Stage6→current Python test diff: current Demo requires zero confirmed errors; exact historical repair remains independently seeded/idempotent, Winter response pins maintained Stage5 values, dump boundaries retain negative controls, retained-sheet replacement+identical reload requires exact cache/state/geometry/material counters. Pixel sRGB correction,69-byte ordered-corner roundtrips and catalogue-before-dependency fixture roots are unchanged from the prior full review.",
+      "assertion_tolerances_or_production_changes_from_CLI_fix": false
+    },
+    "latest_content_and_native_controls": "The newly pinned Outdoor/Snowfall authoring controls require exact field deltas and collision-union preservation. Native runner default now uses the complete current48-camera set with three purposeful nonempty views; three focused controls passed. Registered-witness helper metadata67 controls passed, while actual witness/native results must be read separately.",
+    "no_weakening": "No expected-error allowance, arbitrary texture-upload count, map-name spawn branch, brightness/tolerance change or new source assertion bypass was added. CLI canonicalization still compares every full ordered ID/source/concrete package path and distinguishes same-named files in different directories."
+  },
+  "completed_evidence": {
+    "current_receipt_identities": [
+      {
+        "path": "docs/art-style/stage7/execution/final-content-fmt-v1.json",
+        "bytes": 466,
+        "sha256": "3a8e6eb4453b37c663d21f6242e1f091a2f5601c399a28740d17be4f3d94665d",
+        "reported_exit_code": 0,
+        "reported_status": null
+      },
+      {
+        "path": "docs/art-style/stage7/execution/final-content-debug-clippy-v1.json",
+        "bytes": 549,
+        "sha256": "8ab0d970af08f59097331ee3c4db273840795396703220b9d4ddd9ea19a5ad4e",
+        "reported_exit_code": 0,
+        "reported_status": null
+      },
+      {
+        "path": "docs/art-style/stage7/execution/final-content-release-clippy-v1.json",
+        "bytes": 568,
+        "sha256": "482a94051527c64b532e4bf47f65fc3bf5947b1d32ba8d49be971fd3ed41b320",
+        "reported_exit_code": 0,
+        "reported_status": null
+      },
+      {
+        "path": "docs/art-style/stage7/execution/final-content-default-workspace-v1.json",
+        "bytes": 471,
+        "sha256": "67b06998381c4fbcb09d62297567a03c58ee4aaea30bf251af7cbe30dc5ea798",
+        "reported_exit_code": 0,
+        "reported_status": null
+      },
+      {
+        "path": "docs/art-style/stage7/execution/final-content-composed-controls-v1.json",
+        "bytes": 495,
+        "sha256": "f9acaf0470932f06b9f5924c46958d0a1ce3aa0344a8704ed36720e886fdab28",
+        "reported_exit_code": 128,
+        "reported_status": null
+      },
+      {
+        "path": "docs/art-style/stage7/execution/final-content-diff-check-v2.json",
+        "bytes": 458,
+        "sha256": "00bdd1c694db6f89b867790a5a63e34feeeebc8e02a7c2b70bc7717f2089cafe",
+        "reported_exit_code": 0,
+        "reported_status": null
+      },
+      {
+        "path": "docs/art-style/stage7/execution/final-content-package-gate-v1.json",
+        "bytes": 768,
+        "sha256": "dacf0646fd387e0f74ef1de89745227b640dd4bf3d87d775a5c6e16393db721a",
+        "reported_exit_code": 0,
+        "reported_status": null
+      },
+      {
+        "path": "docs/art-style/stage7/execution/final-content-products-and-reuse-v1.json",
+        "bytes": 503,
+        "sha256": "a20cfbee48af87055b302f57900cd781c6f0d4352fa7bdfc2dae1885eb399e25",
+        "reported_exit_code": 0,
+        "reported_status": null
+      },
+      {
+        "path": "docs/art-style/stage7/validation/all48-resources-final-content-v1.json",
+        "bytes": 862631,
+        "sha256": "73b3d5a50e54d0b2af4e2b7fd538df7d5c6ae34202ddda9f1f58ee989223ede7",
+        "reported_exit_code": null,
+        "reported_status": "passed"
+      },
+      {
+        "path": "docs/art-style/stage7/validation/native-registered-witness-preparation-v1.json",
+        "bytes": 5341,
+        "sha256": "5f210b1ee582d44babafbb032973fad513fb4166572bc9cfef488c437fc3014c",
+        "reported_exit_code": null,
+        "reported_status": "helper preparation passed; genuine native acceptance pending"
+      },
+      {
+        "path": "docs/art-style/stage7/execution/native-final-camera-default-controls-v1.json",
+        "bytes": 562,
+        "sha256": "c92a7b50066bd848f8616c33bea0a49bac9a682da4ba407af7fcdc947c46a2cf",
+        "reported_exit_code": 0,
+        "reported_status": null
+      },
+      {
+        "path": "docs/art-style/stage7/validation/cli-cwd-root-v1.json",
+        "bytes": 10441,
+        "sha256": "6bf234f25f0446a742700b6c6cface3af2881428817e6ca24ed4a4ce79992fdd",
+        "reported_exit_code": null,
+        "reported_status": "focused_contract_fix_passed"
+      },
+      {
+        "path": "docs/art-style/stage7/execution/latest-source-strict-v2.json",
+        "bytes": 533,
+        "sha256": "a2d853aba60b9f6dbf9c46938600342c710827f3d9f8ccac06cf99dbc824065d",
+        "reported_exit_code": 0,
+        "reported_status": null
+      },
+      {
+        "path": "docs/art-style/stage7/execution/linux-final-targets-v1.json",
+        "bytes": 537,
+        "sha256": "59681df626b112d7e0251ef7896b3880c66cb048351c398b41193ca78121df03",
+        "reported_exit_code": 0,
+        "reported_status": null
+      },
+      {
+        "path": "docs/art-style/stage7/execution/windows-link-plmp6-v1.json",
+        "bytes": 528,
+        "sha256": "956ea36e5622ef814638e073885b411f632cb6246d5fb6e7da2e554c17c1160a",
+        "reported_exit_code": 0,
+        "reported_status": null
+      }
+    ],
+    "required_host_checks": "final-content format/debug strict all-target/all-feature Clippy/release strict Clippy/default workspace tests each exited0. Default library2163/0failed/26ignored and integration targets passed. Later composed wrapper retains exit128 at git-lfs Brokenpipe; it is not relabelled passed. Separate diff-check-v2 exited0.",
+    "package_inventory": "Normal full gate still discovers source paths recursively across assets/levels,levels,tests/fixtures/levels, builds all3variants, validates/decode/currentness and unchanged reuse, then proves compilerSHA before/after normal player rebuild. Fifty actual sources remain inventoried;48 supported package cases; malformed Arc must reject and synthetic count witness remains CPU-scoped. Duplicate authored IDs remain separate source-path keys.",
+    "normal_gate_inventory": {
+      "prior_source_inventory_unchanged": true,
+      "source_roots": [
+        "assets/levels",
+        "levels",
+        "tests/fixtures/levels"
+      ],
+      "actual_sources": 50,
+      "accepted_supported_package_cases": 48,
+      "normal_variants": [
+        "off",
+        "medium",
+        "full"
+      ],
+      "control_qualification": "The synthetic capacity_beyond_former_limits CPU/count/u32-material witness remains inventoried and tested in Rust without claiming catalogue-authored playable/native content. The malformed Arc fixture must fail with its exact named loader rejection and no published package. Loader-valid planted geometry controls still receive ordinary package/currentness/decode commands.",
+      "duplicate_source_identity": "Duplicate authored ids and nested repair sources are separate source-path keys, not deduplicated by level id; no package-only orphan remains.",
+      "ordinary_full_gate_inputs_all_match_v12": true
+    },
+    "GPU_diagnostics_reused": [
+      {
+        "test": "high_on_medium_off_high_and_repeated_toggles_install_real_resources",
+        "log": "docs/art-style/stage7/execution/normal-desktop-gate-v8.log",
+        "receipt": "docs/art-style/stage7/execution/normal-desktop-gate-v8.json",
+        "pass_line_verified": true,
+        "qualification": null
+      },
+      {
+        "test": "override_matches_actual_low_static_dynamic_and_material_paths",
+        "log": "docs/art-style/stage7/execution/normal-desktop-gate-v8.log",
+        "receipt": "docs/art-style/stage7/execution/normal-desktop-gate-v8.json",
+        "pass_line_verified": true,
+        "qualification": null
+      },
+      {
+        "test": "entity_resources_restore_after_quality_cycles_and_map_reloads",
+        "log": "docs/art-style/stage7/execution/host-final-extra-tests-v1.log",
+        "receipt": "docs/art-style/stage7/execution/host-final-extra-tests-v1.json",
+        "pass_line_verified": true,
+        "qualification": "This individual test passed before the later original directional test failed; the enclosing receipt remains failed."
+      },
+      {
+        "test": "directional_entity_irradiance_reaches_real_rendered_pixels",
+        "log": "docs/art-style/stage7/validation/directional-pixel-root-v1-final/run.log",
+        "receipt": "docs/art-style/stage7/validation/directional-pixel-root-v1-final/run.json",
+        "pass_line_verified": true,
+        "qualification": null
+      },
+      {
+        "test": "a_packaged_probe_chain_uploads_and_reads_back_every_level",
+        "log": "docs/art-style/stage7/execution/remaining-gpu-controls-v1.log",
+        "receipt": "docs/art-style/stage7/execution/remaining-gpu-controls-v1.json",
+        "pass_line_verified": true,
+        "qualification": null
+      },
+      {
+        "test": "the_cube_round_trip_matches_the_reference_face_convention",
+        "log": "docs/art-style/stage7/execution/remaining-gpu-controls-v1.log",
+        "receipt": "docs/art-style/stage7/execution/remaining-gpu-controls-v1.json",
+        "pass_line_verified": true,
+        "qualification": null
+      },
+      {
+        "test": "the_srgb_sample_round_trip_is_measured_on_this_adapter",
+        "log": "docs/art-style/stage7/execution/remaining-gpu-controls-v1.log",
+        "receipt": "docs/art-style/stage7/execution/remaining-gpu-controls-v1.json",
+        "pass_line_verified": true,
+        "qualification": null
+      },
+      {
+        "test": "odd_triangle_indices_upload_without_changing_draw_counts",
+        "log": "docs/art-style/stage7/execution/remaining-gpu-controls-v1.log",
+        "receipt": "docs/art-style/stage7/execution/remaining-gpu-controls-v1.json",
+        "pass_line_verified": true,
+        "qualification": null
+      },
+      {
+        "test": "compiled_demo_probe_to_pixel_comparison",
+        "log": "docs/art-style/stage7/execution/compiled-demo-gpu-v1.log",
+        "receipt": "docs/art-style/stage7/execution/compiled-demo-gpu-v1.json",
+        "pass_line_verified": true,
+        "qualification": null
+      },
+      {
+        "test": "compiled_environment_neutral_entities_and_quality_restoration",
+        "log": "docs/art-style/stage7/execution/compiled-demo-gpu-v1.log",
+        "receipt": "docs/art-style/stage7/execution/compiled-demo-gpu-v1.json",
+        "pass_line_verified": true,
+        "qualification": null
+      }
+    ],
+    "Linux_composed_reused": {
+      "scope": "Actual Linux ARM64 link, strict checks and composed CPU suite; no physical window/GPU execution.",
+      "retained_initial_completed_receipt": {
+        "path": "docs/art-style/stage7/execution/linux-link-tests-plmp6-v2.json",
+        "bytes": 537,
+        "sha256": "08154ad70a59fc62e15cc64720df82bb35b711c486b80994525e093af324be97",
+        "exit_code": 1,
+        "argv": [
+          "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+          "/tmp/places-stage7-linux-build-tests-v3.py"
+        ],
+        "started_utc": "2026-10-09T05:33:03.884590+00:00",
+        "finished_utc": "2026-10-09T05:47:09.170270+00:00"
+      },
+      "retained_initial_log": {
+        "path": "docs/art-style/stage7/execution/linux-link-tests-plmp6-v2.log",
+        "bytes": 197908,
+        "sha256": "5bc5fa2d82bf68fad51b81787aeda2d67dfde1549f4f56bdc2ceeaf9533ba699"
+      },
+      "library": {
+        "passed": 2169,
+        "failed": 0,
+        "ignored": 26,
+        "test_seconds": 841.03,
+        "unchanged_library_since_run": true
+      },
+      "earlier_targets": {
+        "main": 0,
+        "compiler_worker_test": 1,
+        "command_line": 1,
+        "failed_lexical_path_test_preserved": true
+      },
+      "corrected_list_levels": {
+        "passed": 4,
+        "failed": 0,
+        "receipt": {
+          "path": "docs/art-style/stage7/validation/cli-cwd-root-v1-linux-all-features.json",
+          "bytes": 1464,
+          "sha256": "71504a9f35a99235d3d61810f069864b95db8dd19d12bea6acdfeb7fbb7b22ff"
+        }
+      },
+      "remaining_targets": {
+        "receipt": {
+          "path": "docs/art-style/stage7/execution/linux-final-targets-v1.json",
+          "bytes": 537,
+          "sha256": "59681df626b112d7e0251ef7896b3880c66cb048351c398b41193ca78121df03",
+          "exit_code": 0,
+          "argv": [
+            "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+            "/tmp/places-stage7-linux-final-targets-v1.py"
+          ],
+          "started_utc": "2026-10-09T05:58:58.843926+00:00",
+          "finished_utc": "2026-10-09T05:59:02.159687+00:00"
+        },
+        "log": {
+          "path": "docs/art-style/stage7/execution/linux-final-targets-v1.log",
+          "bytes": 1572,
+          "sha256": "b7193e0cbed75cfe72f2e0c1c50f3b6c7d3449409ffe5d3265d705b2a7e1c50f"
+        },
+        "strict_debug_and_release": true,
+        "macos_cpu_port_linux_cfg": {
+          "passed": 0,
+          "failed": 0
+        },
+        "doc_tests": {
+          "passed": 0,
+          "failed": 0
+        }
+      },
+      "qualification": "The old enclosing full invocation remains exit1 because of the genuine CLI test failure. Fresh focused4 and actually executed remaining targets compose acceptance after a single test-only delta; no assertion/source/native waiver or repeated unchanged library bake."
+    },
+    "Windows_scope_reused": {
+      "receipt": {
+        "path": "docs/art-style/stage7/execution/windows-link-plmp6-v1.json",
+        "bytes": 528,
+        "sha256": "956ea36e5622ef814638e073885b411f632cb6246d5fb6e7da2e554c17c1160a",
+        "exit_code": 0,
+        "argv": [
+          "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+          "/tmp/places-stage7-windows-link-v2.py"
+        ],
+        "started_utc": "2026-10-09T05:05:08.439386+00:00",
+        "finished_utc": "2026-10-09T05:09:41.900752+00:00"
+      },
+      "log": {
+        "path": "docs/art-style/stage7/execution/windows-link-plmp6-v1.log",
+        "bytes": 7204,
+        "sha256": "7ed1da012ea8b8009a708a4ed00f743407933653b6f805e352b2ea98ca65b386"
+      },
+      "target": "x86_64-pc-windows-gnu",
+      "strict_debug_release_and_actual_release_binary_linking": true,
+      "all_feature_test_targets_linked_at_time_of_receipt": true,
+      "qualification": "This receipt predates the latest cwd-only CLI test addition. Production source is byte-identical, so retained release PE linking applies; latest four-case CLI target was compiled/executed on host and Linux, not relinked/executed on Windows by this review. No physical Windows process/window/GPU claim."
+    },
+    "prior_weather_qualification": "The retained recovered-review-final exact old/final semantic/navigation/PLCL occupied-union proof applies to its pinned prior products. The current Snowfall source deliberately adds /void_walls/0/faces:'outward'; raw semantic-byte equality cannot be carried forward across that recorded render-face change. Content receipt documents unchanged gameplay inputs and preserved original. Current archive/resource/currentness passes do not relabel prior semantic equality as current.",
+    "actual_native_qualification": "Primary reports current Home31 endpoint states passed but nine strict whole-frame High restoration comparisons and one normal/feature comparison differ within the visible animated cat. Original failures remain. Source-grounded animation-footprint/static-resource/trace triage is separately allocated and pending; this review does not accept them or assume every pixel is explained."
+  },
+  "documentation_changes": {
+    "files": [
+      {
+        "path": "docs/RENDERER.md",
+        "before": {
+          "bytes": 109866,
+          "sha256": "f490ad80a5cc8a06e49b8e0da253781eb9b07cd6e981fc95fc616975e3cc4b6f"
+        },
+        "after": {
+          "bytes": 111217,
+          "sha256": "3339be743ad4f513808e986d8eaa8ba261ad1d657d4018d5dd494391fdbf985d"
+        },
+        "only_allocated_section_changed": true,
+        "unified_section_diff": "--- docs/RENDERER.md before\n+++ docs/RENDERER.md after\n@@ -1,20 +1,20 @@\n ## 9. Props, dynamics, doors, fixtures and emission\n \n-**Props / GLB models.** The neutral build's `PropMeshBatch` list is uploaded verbatim: world-space, per-vertex-lit vertices, one draw per primitive, model sheets through the texture cache with clamp wrap and the player's filter. Materials are plain-opaque with the primitive's emission (and its mask); props never use normal maps, alpha modes or reflections. Under every quality variant the prop path keeps this CPU vertex-lit bake (`LIGHTMAP_NONE`), not the HDR atlas: the light is position- and room-dependent through the vertex-lit model, but it does not carry the transport solver's HDR, multibounce or dominant-direction response the static surfaces receive.\n+**Props / GLB models.** The neutral build's `PropMeshBatch` list supplies world-space vertices and primitive ranges; model sheets use the texture cache with clamp wrap and the player's filter. Static, non-animated props receive HDR atlas charts in a successful Medium/Full build, including incident transport and dominant-direction response. Off and atlas-fallback builds retain CPU vertex lighting (`LIGHTMAP_NONE`). Imported surface normals, scalar material response, emission and its mask follow the shared material shader. GLB `OPAQUE`, `MASK` and `BLEND` contracts select the corresponding opaque, cutout or sorted translucent pass. This path does not introduce model normal-map textures or per-model reflection routing.\n \n-**Dynamic objects.** One small model-space buffer per model, one group-3 environment per object carrying its model matrix and its baked-light probe (`light_scale`), refreshed only when an object moves. Opaque dynamic primitives splice in after the static opaque class; a dynamic submesh may instead declare a **blended** alpha contract, in which case it draws after the sorted static translucent surfaces, with depth writes off and depth testing against the opaque pass, so a moving glass pane composites over the static world. Dynamic objects are outside the static batches and the bake and cast no shadow. The engine's washer-drum demonstration is spawned by `set_dynamic_demo` for levels that ship one.\n+**Dynamic objects.** One model-space buffer is shared per registered model, with one group-3 environment per object carrying its transform, current centre sample and spatial incident/residual support plus selected finite direct lights. Centre samples refresh each frame; transform, source, field or movable-caster changes invalidate the cached spatial payload, and unchanged uniforms produce no GPU write. Imported GLB meshes retain their surface normals and material alpha contract. Opaque and cutout primitives use the shared body passes; blended submeshes join the shared back-to-front order across world, prop, dynamic and character transparency, with depth writes off. Current rigid-object transforms participate in bounded model-local visibility queries for entity lighting. Static atlases remain baked during motion. The existing guards admit at most 64 objects and 16 distinct registered meshes; reuse of an already registered mesh does not consume another mesh slot. The engine's washer-drum demonstration is spawned by `set_dynamic_demo` for levels that ship one.\n \n-**Doors.** A level's `doors[]` frame and leaf are built in code (`src/render/common/doors.rs`) as ordinary `PropModel`s on the dynamic path and synced from `door::Doors` every frame: the leaf's transform and its `DoorCollider` are derived from the same runtime angle, so the drawn slab and the physical stop can never disagree. The frame is the reveal the leaf is installed in — a liner through the resolved wall tunnel with a 4 mm stop lip, a casing on both end faces and the hinge knuckles and plates — and the leaf is a stile-and-rail panel door with two 12 mm recesses per face (the interior kind) or cedar stiles and rails around a clear glass panel (the sauna kind). Each submesh samples its own material slot (leaf, frame, handle, sauna glass), so a per-door `material`, `frame_material` or `handle_material` override changes exactly the surface it names and the sauna panel is the blended dynamic submesh: it is drawn after the sorted static translucent surfaces, exactly like any other dynamic blend. A door's textures resolve through the level's `MaterialTable` from its authored material ids or its kind defaults. The dynamic path carries one flat probe shade per object and no per-vertex normal, so every emitted face bakes its own shade into the vertex colour, which is what makes the recesses, the casing edges and the liner's reveal read.\n+**Doors.** A level's `doors[]` frame and leaf are built in code (`src/render/common/doors.rs`) as ordinary `PropModel`s on the dynamic path and synced from `door::Doors` every frame: the leaf's transform and its `DoorCollider` are derived from the same runtime angle. The frame is the reveal the leaf is installed in — a liner through the resolved wall tunnel with a 4 mm stop lip, a casing on both end faces and the hinge knuckles and plates — and the leaf is a stile-and-rail panel door with two 12 mm recesses per face (the interior kind) or cedar stiles and rails around a clear glass panel (the sauna kind). Each submesh samples its own material slot (leaf, frame, handle, sauna glass), so a per-door `material`, `frame_material` or `handle_material` override changes exactly the surface it names; the sauna glass joins the same sorted translucent order as other dynamic blends. A door's textures resolve through the level's `MaterialTable` from its authored material ids or its kind defaults. The door builder retains per-face shaded vertex colour and `normal: None`, preserving the recess, casing and reveal appearance. Imported GLB dynamic meshes retain their own normals; the door builder's convention is not a restriction of the generic dynamic path.\n \n **Effects (steam).** An `effects[]` entry contributes no collision, no occlusion and no bake term; it is a bounded plume of blended billboards. The neutral `EffectScene` (`src/render/common/effects.rs`) resolves one scene per level from the level's `MaterialTable` (the same material resolution a door uses) and evaluates every particle's position, size and alpha as a **pure function of the animation clock** — the scene stores no particle state, so two frames at the same clock produce byte-identical vertices and the motion cannot accumulate at any frame rate. Particles are bounded inside their emitter's own volume (`x`/`z` within half the footprint plus `drift`, `y` between the base and base + `height`).\n \n-The backend (`src/render/wgpu/effects.rs`) allocates **one vertex/index buffer pair sized once to the level schema's worst case** (64 emitters × 128 particles = 8192 billboards, 32768 vertices, 49152 indices), writes only the used vertex range per frame, and draws one contiguous range per distinct effect material in deterministic emitter order. The pass is straight-alpha (`SrcAlpha`/`OneMinusSrcAlpha`) with `LessEqual` depth testing and **depth writes off**, no culling; it runs after the decals over the finished world body, depth-testing against it and not ordered against the world's own translucent draws. Billboards are **not** sorted back to front (a soft plume a few tens of centimetres deep cannot show the order), are **not** captured into the reflection probes or the planar mirror, and never contribute to baked light. A level with no effects costs nothing; the load-time line reports emitters, particles, draws and sheets.\n+The backend (`src/render/wgpu/effects.rs`) allocates **one vertex/index buffer pair sized once to the level's actual authored steam and snow budgets**, including disabled steam emitters. Steam remains bounded by 64 emitters × 128 particles = 8192 billboards; optional `weather` adds at most 2048 snow billboards, for a combined ceiling of 40960 vertices and 61440 indices. Snow uses deterministic seeds and the shared clock: quality selects a seed prefix, while shelter and visibility reject or attenuate individual flakes. The backend writes only the used vertex range per frame and draws material ranges in deterministic order. The pass is straight-alpha (`SrcAlpha`/`OneMinusSrcAlpha`) with `LessEqual` depth testing and **depth writes off**, no culling; it runs after the decals over the finished world body, depth-testing against it and not ordered against the world's own translucent draws. Billboards are **not** sorted back to front, are **not** captured into the reflection probes or the planar mirror, and never contribute to baked light. A level with neither effects nor weather costs nothing; the load-time line reports emitters, particles, draws and sheets.\n \n-**Water surfaces.** A level's `water[]` volumes contribute one quad each at their `surface_y` into the ordinary static mesh's floor family (`src/render/common/water.rs`): the material's `alpha_mode: \"blend\"` contract puts them in the sorted back-to-front translucent pass with depth writes off and no culling, so the same quad is the surface seen from above and from below the waterline. The vertex colour carries the baked light of the corners, the vertex alpha carries the volume's authored `opacity` while the catalog material stays opaque, and the quad is never lightmapped — it stays out of the atlas and is lit by per-corner sampling, exactly like a fixture face or a glass pane. Nothing else is emitted: the basin floor and walls are the level's own room and floor-region geometry.\n+**Water surfaces.** A level's `water[]` volumes contribute a rectangular quad or a circular 48-segment triangle fan at `surface_y` into the ordinary static mesh's floor family (`src/render/common/water.rs`). The water material's blend contract puts the surface in the sorted translucent pass with depth writes off and no culling, so its underside is visible below the waterline. The vertex alpha carries the volume's authored `opacity`. Successful Medium/Full builds stamp ordinary HDR floor charts and retain material tint in vertex colour; Off and atlas-fallback builds use per-vertex light sampling. Nothing else is emitted: the basin floor and walls are the level's own room and floor-region geometry.\n \n-**Characters.** A placed prop whose model carries a glTF skin is claimed by the character path instead of the static prop draw (`src/render/common/character.rs`): the bind pose is still baked into the ordinary prop batch (light occlusion and the shipped-asset checks are untouched) and only that model's GPU prop draws are suppressed. The neutral animator keeps one blend weight per locomotion state — the current state approaches one exponentially with a 0.18 s time constant, walking advances a gait phase per metre travelled and swimming at a fixed 1.1 Hz — and produces one model-space skinning delta per joint. The backend (`src/render/wgpu/character.rs`) re-skins a character's vertices on the CPU into its own `VERTEX | COPY_DST` buffer **only on the frames its pose revision changes**, draws one indexed draw per primitive after the dynamics with frustum culling, and carries the placement through a per-character group-3 environment. A rig with clips plays the clip its name maps to (`idle`, `walk`/`run`, `jump`/`air`, `swim`) and crossfades over the same time constant; a rig with no clips uses the procedural gait (classified leg pairs, tail chain and body chain). Spatial incident/residual support lighting and selected finite direct evaluation follow [Stage 4 contracts](art-style/stage4/contracts.md); transforms, pose/caster and source changes invalidate the entity payload while static atlases remain baked.\n+**Characters.** A placed prop whose model carries a glTF skin is claimed by the character path instead of the static prop draw (`src/render/common/character.rs`). A fully claimed model's retained prop batch has `casts_static_lighting: false`, excluding its bind pose from immutable lighting casters; partial or over-budget groups keep their visible static fallback and caster flag. Collision and model/vertex budget charges remain unchanged. The neutral animator keeps one blend weight per locomotion state — the current state approaches one exponentially with a 0.18 s time constant, walking advances a gait phase per metre travelled and swimming at a fixed 1.1 Hz — and produces one model-space skinning delta per joint. The backend (`src/render/wgpu/character.rs`) re-skins a character's vertices on the CPU into its own `VERTEX | COPY_DST` buffer **only on the frames its pose revision changes**, draws one indexed draw per primitive with frustum culling, and carries the placement through a per-character group-3 environment. A rig with clips plays the clip its name maps to (`idle`, `walk`/`run`, `jump`/`air`, `swim`) and crossfades over the same time constant; a rig with no clips uses the procedural gait (classified leg pairs, tail chain and body chain). Spatial incident/residual support lighting and selected finite direct evaluation follow [Stage 4 contracts](art-style/stage4/contracts.md); transform, field, source and rigid movable-caster changes invalidate the spatial payload while static atlases remain baked. Lighting anchors and conservative culling bounds still derive from the model's bind-pose bounds rather than tight bounds of each animated pose.\n \n-A character's per-instance opacity (the level's fade component; `1.0` without one) travels in its group-3 environment, where the shader multiplies it into fragment coverage (including transparent emission blending) — a faded ghost covers and blooms proportionally less. `WgpuCharacters::sync` rewrites a character's environment only when its transform **or** its opacity changed, so a still, settled character writes nothing while a fading one rewrites one uniform. A submesh whose glTF material is `alphaMode: \"BLEND\"` (the sheet ghost) draws in the shared back-to-front order across world/prop/dynamic/character transparency, with the translucent pipeline (blend, depth writes off) and the scene index as the deterministic tie-break; a `MASK` submesh uses the same cutout pipeline as static and movable content, and translucent character submeshes are included in the emissive pass so their bloom fades with them.\n+A character's per-instance opacity (the level's fade component; `1.0` without one) travels in its group-3 environment, where the shader multiplies it into fragment coverage (including transparent emission blending) — a faded ghost covers and blooms proportionally less. `WgpuCharacters::sync` compares the complete environment, including transform, opacity and refreshed lighting, and writes only when that payload changed; a still, settled character with unchanged lighting writes nothing. A submesh whose glTF material is `alphaMode: \"BLEND\"` (the sheet ghost) draws in the shared back-to-front order across world/prop/dynamic/character transparency, with the translucent pipeline (blend, depth writes off) and the scene index as the deterministic tie-break; a `MASK` submesh uses the same cutout pipeline as static and movable content, and translucent character submeshes are included in the emissive pass so their bloom fades with them.\n \n Up to `MAX_CHARACTERS` (128) characters are drawn per level. Each owns one CPU-skinned vertex buffer and one group-3 environment, both sized by its own model's bounded vertex count, so the budget is a per-frame skinning bound rather than one fixed GPU allocation; a level that places more keeps the extras in the static prop batch in their bind pose and reports the budget.\n \n@@ -39,14 +39,15 @@\n `CharacterScene::dynamic_lights()` for the frame's upload. Characters with no\n frame keep following the player's locomotion snapshot, exactly as before.\n \n-**Fixtures and emission.** Fixture luminous faces are `SurfaceKind::Light` ranges with per-vertex emission; their housings draw the shared white sheet. A fixture's light remains entirely in the CPU bake — the emission term is visual only and never illuminates anything. Material emission (`emissive`, `emissive_intensity`, `emissive_mask`) is independent of environmental illumination, so a surface or fixture face can read fully bright while casting nothing, and a light can cast while nothing glows. A level can make a material's emission `pulse` or `flicker`, deterministically and within a bounded depth; the animation reaches the shader through `emission_scale`.\n+**Fixtures and emission.** Fixture luminous faces are `SurfaceKind::Light` ranges with per-vertex emission; their housings draw the shared white sheet. A fixture's analytic light contributes to baked transport and, when selected, finite direct evaluation for entities. Its visual emission remains separate from that illumination. Switchable fixtures use prepared layer groups: the enabled mask and luminous-face emission scale change together without rewriting atlas pages. Material emission (`emissive`, `emissive_intensity`, `emissive_mask`) is independent of environmental illumination, so a surface or fixture face can read fully bright while casting nothing, and a light can cast while nothing glows. A level can make a material's emission `pulse` or `flicker`, deterministically and within a bounded depth; the animation reaches the shader through `emission_scale`.\n \n ## 10. Decals\n \n-Decals are small local surface markings (signs, floor arrows, warning marks) placed on an existing surface. The pass draws generated atlas cells and external PNG sheets as alpha-cut-out quads over the surface they belong to, with a fixed depth bias and a real geometric offset:\n+Decals are small local surface markings (signs, floor arrows, warning marks) placed on an existing surface. The pass draws the committed atlas PNG and external PNG sheets as quads over their supporting surface, with a fixed depth bias and a real geometric offset:\n \n-- Generated decals are drawn into one shared atlas by the renderer; external sheets (`\"source\": \"file\"`) are decoded once per session and uploaded as their own fitted sheet.\n-- The sheets are fitted (their UVs never leave the sheet), sampled with mipmaps and alpha-tested at 0.5; the pass runs last in the body so it receives the baked lighting of the room.\n+- The fixed atlas is loaded from its committed PNG; external sheets (`\"source\": \"file\"`) are decoded through the asset cache and uploaded as their own fitted sheets.\n+- The sheets are fitted (their UVs never leave the sheet) and sampled with mipmaps. The fixed atlas and ordinary external sheets use the 0.5 cutout threshold and write depth. A catalog sheet with `alpha_mode: \"blend\"` uses soft coverage, depth writes off and back-to-front ordering within the decal pass. Decals draw after the world body; effects follow them.\n+- Cutout markings retain their vertex-lit appearance. In a prepared build, blended decal colours are relit from the prepared probe field so soft markings follow its surrounding illumination; an Off build retains the vertex-lit fallback.\n - `DECAL_SURFACE_OFFSET_M` displaces every decal 0.2 mm along its surface normal. That is a real geometric separation, sub-pixel at any practical viewing distance, so the base texture cannot win a pixel in the near and mid field no matter how the rasteriser fits its plane equations.\n - `DECAL_POLYGON_OFFSET` adds a slope-scaled depth bias in the decal pass, so the far field and grazing angles stay in front of the parent surface after the physical offset is below the depth buffer's resolution.\n \n"
+      },
+      {
+        "path": "docs/PACKAGE_FORMAT.md",
+        "before": {
+          "bytes": 35829,
+          "sha256": "fcb7234cc472b0acf3cc69d60a05bcd6f2c77e1410d0aac5218e277090226770"
+        },
+        "after": {
+          "bytes": 36099,
+          "sha256": "27aa1ceff0d575db18e46c83809a24cb1b5f323ebfeeb8b4556440d06e27802b"
+        },
+        "only_allocated_section_changed": true,
+        "unified_section_diff": "--- docs/PACKAGE_FORMAT.md before\n+++ docs/PACKAGE_FORMAT.md after\n@@ -9,14 +9,17 @@\n directional source: normalized incoming XYZ and RGB (`f32` triples), intensity\n (`f32`), shadow flag (`bool8`), and angular radius in radians (`f32`). The reader\n validates finite unit directions and bounded energy/angle. Atlas layout version\n-13 and transport revision 11 invalidate earlier prepared lighting identities;\n-the source map remains format 3.\n-The player keeps this record resident because three legitimate runtime\n-behaviours read it:\n+13 and transport revision 16 invalidate earlier prepared lighting identities.\n+Revision 16 uses one strictly validated, deterministically chosen probe lattice\n+for both prepared targets and solve positions; the source map remains format 3.\n+The player keeps this record resident because runtime entity lighting and\n+fixture switches read it:\n \n-* dynamic objects refresh their baked-light probe as they move;\n-* characters sample their spawn light;\n-* a switchable fixture re-fills exactly the lightmap charts its pool reaches.\n+* dynamic objects and characters refresh current entity lighting, with cached\n+  spatial payloads invalidated by transform, field, source or rigid\n+  movable-caster changes;\n+* switchable fixtures update the enabled mask of prepared layer groups and\n+  their luminous-face emission scale without rewriting atlas pages.\n \n Rebuilding this record at play time would be the static lighting bake, so it\n travels in the package. The index structures (room and light lookup grids) are\n"
+      }
+    ],
+    "verified_source_routes": [
+      "src/render/common/props.rs and src/render/wgpu/props.rs/material.rs: static nonanimated atlas, fallback, alpha and scalar response",
+      "src/render/common/dynamic.rs/dynamic_visibility.rs and wgpu/environment.rs: per-frame sample, keyed spatial refresh, payload comparison and64objects/16meshes",
+      "src/render/common/doors.rs: retained per-face colour and normal:None",
+      "src/render/common/character.rs and src/render/wgpu/character.rs: fully claimed caster exclusion, refreshed lighting, uniform payload comparison, bind-bounds limit",
+      "src/render/common/effects.rs/snow.rs,src/weather.rs and src/render/wgpu/effects.rs: actual bounded steam+snow reserve and seed/shelter submission",
+      "src/render/common/water.rs: rectangle/circle48segments, prepared floor charts/fallback and opacity",
+      "src/render/common/light_transport.rs and src/render/wgpu/renderer.rs::apply_light_toggles: selected finite direct sources and immutable prepared layer groups",
+      "src/render/common/decals.rs and src/render/wgpu/decals.rs: committed PNG, cutout/blend split, prepared relight and pass order",
+      "src/lighting/transport.rs::SOLVER_REVISION and shared chosen placement:16"
+    ],
+    "remaining_comment_limit": "Some inherited module comments still describe earlier model/effect/decal routes. Actual source and corrected canonical paragraphs are authoritative; no production-code change was made merely for comment cleanup.",
+    "historical_facts_and_limits_preserved": true
+  },
+  "explicit_ledger_and_successor_limits": [
+    "Final owner acceptance of native visual/resource/geometry matrices, restoration/parity, memory/performance plateaus, gallery, snapshots, CI and ledger dispositions remains pending.",
+    "A legitimate16-distinct-dynamic-mesh guard rejected the old Demo chair plan. Fresh registered washer-drum reuse plans do not increase caps or prove chair success; model/entity pixels and opacity require actual captures/trace review.",
+    "Specific kitchen cupboard/sink/refrigerator appearance, Demo/Home wall-ceiling joins and close Hallows skeleton appearance are uninvestigated successor scope. Generic controls do not resolve them.",
+    "Animated character lighting/culling use bind-pose bounds; fixed static atlases do not follow movable objects or skinned pose changes.",
+    "Finite grid feasibility, ghost centre support, coarse blocker precision, atlas coarse accounting and bytes-vs-RSS limits remain explicit.",
+    "Linux evidence is composed actual CPU/link tests and Windows actual PE linking/strict checking. No physical Linux/Windows window or GPU run is claimed."
+  ],
+  "custody": {
+    "only_files_written": [
+      "docs/RENDERER.md",
+      "docs/PACKAGE_FORMAT.md",
+      "docs/art-style/stage7/validation/renderer-final-diff-review-v3.json",
+      "docs/art-style/stage7/validation/renderer-final-diff-review-v3.md"
+    ],
+    "source_package_target_Git_index_mutations": false,
+    "Cargo_compiler_bake_native_GPU_jobs_launched": false,
+    "reviewer_jobs_remaining": 0,
+    "canonical_doc_and_v3_review_custody_released": true,
+    "separately_allocated_Home_read_only_triage": "pending after this receipt"
+  }
+}
+

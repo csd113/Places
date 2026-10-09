@@ -1,0 +1,21 @@
+{
+  "argv": [
+    "python3",
+    "debug-maps/art-style-hero/evidence/stage7-validation/summarize_package_resources.py",
+    "--campaign",
+    "target/verification/map-regression-final-content-v1",
+    "--compiler",
+    "debug-maps/art-style-hero/evidence/stage7-runtime/normal-c2-plmp6-v10/places-compile",
+    "--out",
+    "docs/art-style/stage7/validation/all48-resources-final-content-v1.json"
+  ],
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "started_utc": "2026-10-09T07:06:31.417683+00:00",
+  "finished_utc": "2026-10-09T07:06:36.506445+00:00",
+  "elapsed_seconds": 5.088738000020385,
+  "exit_code": 0,
+  "environment_overrides": {
+    "RUSTC_WRAPPER": ""
+  },
+  "log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/all48-resources-final-content-v1.log"
+}

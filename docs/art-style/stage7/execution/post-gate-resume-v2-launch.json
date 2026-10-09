@@ -1,0 +1,11 @@
+{
+  "label": "post-gate-resume-v2",
+  "supervisor_pid": 64909,
+  "argv": [
+    "python3",
+    "/tmp/places-stage7-post-gate-serial-v6.py"
+  ],
+  "launched_utc": "2026-10-09T05:31:03.290330+00:00",
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "completion_receipt": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/post-gate-resume-v2.json"
+}

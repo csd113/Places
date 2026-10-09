@@ -1,0 +1,16 @@
+{
+  "format": "places-geometry-repair-plan",
+  "version": 1,
+  "level": {
+    "id": "places_demo",
+    "source": "assets/levels/places_demo.json",
+    "sha256": "65833e98579a696167d616ce0cc94ebab85f744fdd72837ed247c483db1f9dec"
+  },
+  "findings": [],
+  "edits": [],
+  "review": [],
+  "post_check": {
+    "errors": 0,
+    "warnings": 12
+  }
+}

@@ -36,7 +36,8 @@
 //! taps and 11 cm cells, and Low at 10 texels per metre at the 512-texel page
 //! size with a single tap and 15 cm cells (see
 //! [`QualityLevel::lightmap_config`] and [`QualityLevel::shadow_taps_per_axis`];
-//! the page budget itself is [`crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES`]).
+//! Full's ten-page capacity is [`crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES`],
+//! while lower profiles retain eight pages).
 //!
 //! Every level bakes from the *same* patch set — density, page size and tap
 //! count are the differences, never a different set of surfaces — and all use
@@ -463,7 +464,7 @@ impl QualityLevel {
             Self::Medium => crate::lighting::lightmap::LightmapConfig {
                 texels_per_metre: MEDIUM_LIGHTMAP_DENSITY,
                 page_edge: full.page_edge,
-                max_pages: full.max_pages,
+                max_pages: crate::lighting::lightmap::LIGHTMAP_ATLAS_LOWER_MAX_PAGES,
                 padding: full.padding,
                 bytes_per_texel: full.bytes_per_texel,
             },
@@ -509,7 +510,7 @@ impl QualityLevel {
 pub enum LightmapQuality {
     /// No bake at all: the validated historical vertex-lit path.
     Off,
-    /// The intermediate atlas: Medium density at the Full page budget.
+    /// The intermediate atlas: twelve texels per metre within eight pages.
     Medium,
     /// The full/high-quality atlas.
     #[default]
@@ -562,9 +563,9 @@ impl LightmapQuality {
     /// The atlas configuration this level bakes against, or `None` for
     /// [`Self::Off`] (which never builds a plan).
     ///
-    /// Medium and Full read the same validated values the quality levels used
-    /// before this setting existed, so an atlas baked by an earlier build keeps
-    /// its content key and is reused.
+    /// Medium retains eight pages at twelve texels per metre; Full supports ten
+    /// pages at sixteen. The complete config participates in the content key,
+    /// so a changed page policy cannot reuse an atlas from an earlier policy.
     #[must_use]
     pub const fn lightmap_config(self) -> Option<crate::lighting::lightmap::LightmapConfig> {
         let full = crate::lighting::lightmap::LightmapConfig::for_profile(QualityProfile::Full);
@@ -573,7 +574,7 @@ impl LightmapQuality {
             Self::Medium => Some(crate::lighting::lightmap::LightmapConfig {
                 texels_per_metre: MEDIUM_LIGHTMAP_DENSITY,
                 page_edge: full.page_edge,
-                max_pages: full.max_pages,
+                max_pages: crate::lighting::lightmap::LIGHTMAP_ATLAS_LOWER_MAX_PAGES,
                 padding: full.padding,
                 bytes_per_texel: full.bytes_per_texel,
             }),

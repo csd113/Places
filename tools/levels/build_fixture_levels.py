@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Generates the engine regression fixture levels for Places.
 
-The game ships one playable level, ``Places Demo``; the levels built here are
-test fixtures and are deliberately kept out of the shipped content:
+The levels built here are historical core regression fixtures, deliberately
+kept out of the shipped content:
 
-* ``tests/fixtures/levels/prop_showcase.json`` — every catalogue prop once,
+* ``tests/fixtures/levels/prop_showcase.json`` — the fixed core prop witness set,
   including deliberately sunk and overlapping placements (both legal in this
   game and never "corrected").
 * ``tests/fixtures/levels/prop_stress.json`` — a representative repeated-prop

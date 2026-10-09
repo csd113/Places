@@ -1,0 +1,11 @@
+{
+  "label": "python-root-focused-v1",
+  "supervisor_pid": 29451,
+  "argv": [
+    "python3",
+    "/tmp/places-stage7-python-root-focused-v1.py"
+  ],
+  "launched_utc": "2026-10-09T04:18:47.306882+00:00",
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "completion_receipt": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/python-root-focused-v1.json"
+}

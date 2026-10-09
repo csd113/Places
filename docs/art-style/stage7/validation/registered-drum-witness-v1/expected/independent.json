@@ -1,0 +1,146 @@
+[
+  {
+    "quality": "high",
+    "filtering": "high",
+    "lighting": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true
+  },
+  {
+    "quality": "high",
+    "filtering": "low",
+    "lighting": "high",
+    "lightmaps": "off",
+    "reflections": "full",
+    "bloom": true
+  },
+  {
+    "quality": "high",
+    "filtering": "medium",
+    "lighting": "high",
+    "lightmaps": "off",
+    "reflections": "full",
+    "bloom": true
+  },
+  {
+    "quality": "high",
+    "filtering": "high",
+    "lighting": "high",
+    "lightmaps": "off",
+    "reflections": "full",
+    "bloom": true
+  },
+  {
+    "quality": "high",
+    "filtering": "low",
+    "lighting": "high",
+    "lightmaps": "medium",
+    "reflections": "full",
+    "bloom": true
+  },
+  {
+    "quality": "high",
+    "filtering": "medium",
+    "lighting": "high",
+    "lightmaps": "medium",
+    "reflections": "full",
+    "bloom": true
+  },
+  {
+    "quality": "high",
+    "filtering": "high",
+    "lighting": "high",
+    "lightmaps": "medium",
+    "reflections": "full",
+    "bloom": true
+  },
+  {
+    "quality": "high",
+    "filtering": "low",
+    "lighting": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true
+  },
+  {
+    "quality": "high",
+    "filtering": "medium",
+    "lighting": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true
+  },
+  {
+    "quality": "high",
+    "filtering": "high",
+    "lighting": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true
+  },
+  {
+    "quality": "high",
+    "filtering": "high",
+    "lighting": "low",
+    "lightmaps": "off",
+    "reflections": "off",
+    "bloom": true
+  },
+  {
+    "quality": "high",
+    "filtering": "high",
+    "lighting": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true
+  },
+  {
+    "quality": "low",
+    "filtering": "high",
+    "lighting": "low",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true
+  },
+  {
+    "quality": "medium",
+    "filtering": "high",
+    "lighting": "medium",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true
+  },
+  {
+    "quality": "high",
+    "filtering": "high",
+    "lighting": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true
+  },
+  {
+    "quality": "high",
+    "filtering": "high",
+    "lighting": "high",
+    "lightmaps": "full",
+    "reflections": "off",
+    "bloom": true
+  },
+  {
+    "quality": "high",
+    "filtering": "high",
+    "lighting": "high",
+    "lightmaps": "full",
+    "reflections": "medium",
+    "bloom": true
+  },
+  {
+    "quality": "high",
+    "filtering": "high",
+    "lighting": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true
+  }
+]

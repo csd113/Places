@@ -1,0 +1,299 @@
+{
+  "checked_utc": "2026-10-08T22:14:06.336678+00:00",
+  "scope": "Hash-only preservation audit; does not rerun native acceptance or replace any prior receipt.",
+  "accepted_bundles": 23,
+  "files": 1010,
+  "bundles": [
+    {
+      "bundle": "debug-maps/art-style-hero/milestones/stage1",
+      "receipt": "debug-maps/art-style-hero/milestones/stage1/snapshot.json",
+      "receipt_sha256": "26297d22851b175fd581bd44b72696772bc4e5508ee470d7609e880a86265cc3",
+      "files": 41,
+      "bytes": 191757388,
+      "mismatches": []
+    },
+    {
+      "bundle": "debug-maps/art-style-hero/milestones/stage2",
+      "receipt": "debug-maps/art-style-hero/milestones/stage2/snapshot.json",
+      "receipt_sha256": "99790e72510df6892038ff7f8c2faf40577bf525b23d43f786527fc1b5b7aff9",
+      "files": 41,
+      "bytes": 192471565,
+      "mismatches": []
+    },
+    {
+      "bundle": "debug-maps/art-style-hero/milestones/stage3",
+      "receipt": "debug-maps/art-style-hero/milestones/stage3/snapshot.json",
+      "receipt_sha256": "2418b5b36b98289e5d0150ebcbca07aae0204594533626900a821403973826aa",
+      "files": 41,
+      "bytes": 193253012,
+      "mismatches": []
+    },
+    {
+      "bundle": "debug-maps/art-style-hero/milestones/stage3-controls",
+      "receipt": "debug-maps/art-style-hero/milestones/stage3-controls/snapshot.json",
+      "receipt_sha256": "0d3dd013b36381def4f8fcb51ae5fe29bd6de46beaea71f7ba99121d31874442",
+      "files": 49,
+      "bytes": 198576087,
+      "mismatches": []
+    },
+    {
+      "bundle": "debug-maps/art-style-hero/milestones/stage4",
+      "receipt": "debug-maps/art-style-hero/milestones/stage4/snapshot.json",
+      "receipt_sha256": "b47edc8c254e70ebc95f4ea3673e7d70d4d2aa8224b4f2a83ba1d636ee433019",
+      "files": 41,
+      "bytes": 193587814,
+      "mismatches": []
+    },
+    {
+      "bundle": "debug-maps/art-style-hero/milestones/stage4-entities",
+      "receipt": "debug-maps/art-style-hero/milestones/stage4-entities/snapshot.json",
+      "receipt_sha256": "b70ab165e9c8f39dfa61933086ad778209f9f7e0a6361a7d115af6d4907d8538",
+      "files": 42,
+      "bytes": 194828647,
+      "mismatches": []
+    },
+    {
+      "bundle": "debug-maps/art-style-hero/milestones/stage4-switchable",
+      "receipt": "debug-maps/art-style-hero/milestones/stage4-switchable/snapshot.json",
+      "receipt_sha256": "24fa8c25d41a900f81ce4c1340c9f62530f86ac92435c24e85ce08859767181a",
+      "files": 42,
+      "bytes": 198172450,
+      "mismatches": []
+    },
+    {
+      "bundle": "debug-maps/art-style-hero/milestones/stage4-movement",
+      "receipt": "debug-maps/art-style-hero/milestones/stage4-movement/snapshot.json",
+      "receipt_sha256": "a0bce9ab191e1f100f7012f03e04d170e6cde2cb5792ea3c52b403cc0d6a86c7",
+      "files": 45,
+      "bytes": 195384094,
+      "mismatches": []
+    },
+    {
+      "bundle": "debug-maps/art-style-hero/milestones/stage4-comparison",
+      "receipt": "debug-maps/art-style-hero/milestones/stage4-comparison/snapshot.json",
+      "receipt_sha256": "6a46e229c34acda1b55b982783c85562a29fe26d979cf83a4ed5d6bedf639ae5",
+      "files": 42,
+      "bytes": 198509154,
+      "mismatches": []
+    },
+    {
+      "bundle": "debug-maps/art-style-hero/milestones/stage4-v2",
+      "receipt": "debug-maps/art-style-hero/milestones/stage4-v2/snapshot.json",
+      "receipt_sha256": "64c7522630a6705498e1e7333a119211e42a69312e88ff36423fdf2a52dd7038",
+      "files": 41,
+      "bytes": 193587821,
+      "mismatches": []
+    },
+    {
+      "bundle": "debug-maps/art-style-hero/milestones/stage4-entities-v2",
+      "receipt": "debug-maps/art-style-hero/milestones/stage4-entities-v2/snapshot.json",
+      "receipt_sha256": "2dd3fadda5c893a752782df2b4ff281b8adce0acb83e3a5851cd3f1865670aa5",
+      "files": 42,
+      "bytes": 194828659,
+      "mismatches": []
+    },
+    {
+      "bundle": "debug-maps/art-style-hero/milestones/stage4-switchable-v2",
+      "receipt": "debug-maps/art-style-hero/milestones/stage4-switchable-v2/snapshot.json",
+      "receipt_sha256": "a15932b24026b0f71d0b4dfb8953dd0c62b3a1ba89c7b8f73667da75f1d64b6f",
+      "files": 42,
+      "bytes": 198172460,
+      "mismatches": []
+    },
+    {
+      "bundle": "debug-maps/art-style-hero/milestones/stage4-movement-v2",
+      "receipt": "debug-maps/art-style-hero/milestones/stage4-movement-v2/snapshot.json",
+      "receipt_sha256": "4645cf871aa6623644a5a771efb7b829847cffd8104ffcab85e7ac9fe42bc626",
+      "files": 45,
+      "bytes": 195384107,
+      "mismatches": []
+    },
+    {
+      "bundle": "debug-maps/art-style-hero/milestones/stage4-comparison-v2",
+      "receipt": "debug-maps/art-style-hero/milestones/stage4-comparison-v2/snapshot.json",
+      "receipt_sha256": "dd246699bda9133e95aa6854f5f5c57635069f9fe85592f2ccace5b990f9dd2d",
+      "files": 42,
+      "bytes": 198509164,
+      "mismatches": []
+    },
+    {
+      "bundle": "debug-maps/art-style-hero/milestones/stage5-original",
+      "receipt": "debug-maps/art-style-hero/milestones/stage5-original/snapshot.json",
+      "receipt_sha256": "41515362ec55fd13d29f1aae94e205487b942b539fbb553d36ad30c2faf7bda3",
+      "files": 41,
+      "bytes": 193621068,
+      "mismatches": []
+    },
+    {
+      "bundle": "debug-maps/art-style-hero/milestones/stage5-control",
+      "receipt": "debug-maps/art-style-hero/milestones/stage5-control/snapshot.json",
+      "receipt_sha256": "86ca97a91d69a5b39fc71da0bf3cc3beb0899e500948597cb8f7c5a984defb62",
+      "files": 45,
+      "bytes": 197723553,
+      "mismatches": []
+    },
+    {
+      "bundle": "debug-maps/art-style-hero/milestones/stage5-night",
+      "receipt": "debug-maps/art-style-hero/milestones/stage5-night/snapshot.json",
+      "receipt_sha256": "82f34026d1b427190966e51e02a98f2de29fce203fa5b065d3fa5abd283f79a9",
+      "files": 45,
+      "bytes": 197732657,
+      "mismatches": []
+    },
+    {
+      "bundle": "debug-maps/art-style-hero/milestones/stage5-aurora",
+      "receipt": "debug-maps/art-style-hero/milestones/stage5-aurora/snapshot.json",
+      "receipt_sha256": "8fd2f10864a85d034fdd041195a64791e45dc5a34648f2ea51a710a0ad9c8a0d",
+      "files": 46,
+      "bytes": 199565961,
+      "mismatches": []
+    },
+    {
+      "bundle": "debug-maps/art-style-hero/milestones/stage5-storm",
+      "receipt": "debug-maps/art-style-hero/milestones/stage5-storm/snapshot.json",
+      "receipt_sha256": "1bbd99e9422b3e70ecd44a359ff8118d37c6826a41629f1e8515aeb7766cded5",
+      "files": 46,
+      "bytes": 199566148,
+      "mismatches": []
+    },
+    {
+      "bundle": "debug-maps/art-style-hero/milestones/stage5-transparency-v2",
+      "receipt": "debug-maps/art-style-hero/milestones/stage5-transparency-v2/snapshot.json",
+      "receipt_sha256": "238d162e2bbbe284d05d1bbc5e946d9968709b94297b0ab773a7cd49e9f67b6c",
+      "files": 47,
+      "bytes": 198095959,
+      "mismatches": []
+    },
+    {
+      "bundle": "debug-maps/art-style-hero/milestones/stage5-transparency-before-v2",
+      "receipt": "debug-maps/art-style-hero/milestones/stage5-transparency-before-v2/snapshot.json",
+      "receipt_sha256": "614f2ec590cda5531aafadcde9e437ace03ec3e9b56ace7221fa6088bed81020",
+      "files": 47,
+      "bytes": 197476783,
+      "mismatches": []
+    },
+    {
+      "bundle": "debug-maps/art-style-hero/milestones/stage5-before-control-v2",
+      "receipt": "debug-maps/art-style-hero/milestones/stage5-before-control-v2/snapshot.json",
+      "receipt_sha256": "a089293e5f11a67439447171eb06dac2a033d0eb1daa6aa9f0cff7a09ef0a63b",
+      "files": 45,
+      "bytes": 197104439,
+      "mismatches": []
+    },
+    {
+      "bundle": "debug-maps/art-style-hero/milestones/stage6",
+      "receipt": "debug-maps/art-style-hero/milestones/stage6/snapshot.json",
+      "receipt_sha256": "11e37005f4feb2f7751accc683c20207e9e2fd1bb6cbd2739d205412a41ce248",
+      "files": 52,
+      "bytes": 199369304,
+      "mismatches": []
+    }
+  ],
+  "concepts": [
+    {
+      "path": "assets/environment/home/Home Environment Asset Sheet.png",
+      "sha256": "2f79d0cd0b8fa714ed4906584167f4980ffff28264c31f922ef62f8a9dde0247",
+      "unchanged": true
+    },
+    {
+      "path": "assets/environment/home/Places_ Warm Low-Poly Home Asset Sheet.png",
+      "sha256": "2b862962bba579fd2659cd23fb7a4f6bbcd1ab5a556bfec5b6d0da022d0b9602",
+      "unchanged": true
+    },
+    {
+      "path": "assets/environment/office/Liminal Office Worlds Asset Board.png",
+      "sha256": "14179fd73b3cbb89c743e300d1ef9a9c604c148cd14b0f21f70de94791ce583c",
+      "unchanged": true
+    },
+    {
+      "path": "assets/environment/winter/Winter Expansion Environment Concept Sheet.png",
+      "sha256": "484921678b5f56203f3790f7cb5f9b4a83ae8a8b0dfb48c76aadc43c11a45550",
+      "unchanged": true
+    },
+    {
+      "path": "assets/environment/pool/Places_ Quiet Indoor Pool Asset Sheet.png",
+      "sha256": "0350383577ce207b3a1f42324f0d543b2a8bfbc4fb628ec43dc88ff8fe9e5f82",
+      "unchanged": true
+    },
+    {
+      "path": "assets/environment/outdoor/Quiet Night Places Concept Sheet.png",
+      "sha256": "479ecb9a971b2f585c0e2208274ca00fa4cebda5aca5d696e90173fad291cbd8",
+      "unchanged": true
+    },
+    {
+      "path": "assets/entities/Places & Entities_ Low-Poly Game Atlas.png",
+      "sha256": "2017e58bf65506be1fd38b0f34581fbaa8a598eb4c9dfe2582fe90f73d4479e4",
+      "unchanged": true
+    }
+  ],
+  "baselines": [
+    {
+      "path": "docs/art-style/baseline/high/room.png",
+      "sha256": "9cdfa3d7c969cbd7458cd90026255364c343c4139aff3ff6e1d9196589b4208f",
+      "receipt_sha256": "9cdfa3d7c969cbd7458cd90026255364c343c4139aff3ff6e1d9196589b4208f",
+      "unchanged": true
+    },
+    {
+      "path": "docs/art-style/baseline/high/window.png",
+      "sha256": "b8a0223fecc041c9d898b202a22ac6f6e60f5f943a2aeb93edf345a620b12a84",
+      "receipt_sha256": "b8a0223fecc041c9d898b202a22ac6f6e60f5f943a2aeb93edf345a620b12a84",
+      "unchanged": true
+    },
+    {
+      "path": "docs/art-style/baseline/high/hall.png",
+      "sha256": "1e74bc4b21fc770430250a616036cc88d27cf52b5ab4dc3cde3371fb144e8db1",
+      "receipt_sha256": "1e74bc4b21fc770430250a616036cc88d27cf52b5ab4dc3cde3371fb144e8db1",
+      "unchanged": true
+    },
+    {
+      "path": "docs/art-style/baseline/high/contact.png",
+      "sha256": "c7fccada0f9765dd03568639e8ed05b93a93aa519668823fdd9e27d4dcd84eb7",
+      "receipt_sha256": "c7fccada0f9765dd03568639e8ed05b93a93aa519668823fdd9e27d4dcd84eb7",
+      "unchanged": true
+    },
+    {
+      "path": "docs/art-style/baseline/high/entities.png",
+      "sha256": "0ae660f2b363c81d1e3bda6037403587b2626b7e2321eca17ef45991fbfd1e3e",
+      "receipt_sha256": "0ae660f2b363c81d1e3bda6037403587b2626b7e2321eca17ef45991fbfd1e3e",
+      "unchanged": true
+    },
+    {
+      "path": "docs/art-style/baseline/high/corner.png",
+      "sha256": "e6c4f675ef234085a2b8616ce8c8f71386ccc84a757a6ac9e5f4c573ef151728",
+      "receipt_sha256": "e6c4f675ef234085a2b8616ce8c8f71386ccc84a757a6ac9e5f4c573ef151728",
+      "unchanged": true
+    },
+    {
+      "path": "docs/art-style/baseline/low/window.png",
+      "sha256": "2c637e3846e380e2d0ef458160b05876989d672396b115e379ac75a83958e7ff",
+      "receipt_sha256": "2c637e3846e380e2d0ef458160b05876989d672396b115e379ac75a83958e7ff",
+      "unchanged": true
+    },
+    {
+      "path": "docs/art-style/baseline/low/entities.png",
+      "sha256": "74e40e430a5247cd7449f4f8b511c1f6592758a934be5799a13842cfee635329",
+      "receipt_sha256": "74e40e430a5247cd7449f4f8b511c1f6592758a934be5799a13842cfee635329",
+      "unchanged": true
+    },
+    {
+      "path": "docs/art-style/repeat/high/room.png",
+      "sha256": "9cdfa3d7c969cbd7458cd90026255364c343c4139aff3ff6e1d9196589b4208f",
+      "receipt_sha256": "9cdfa3d7c969cbd7458cd90026255364c343c4139aff3ff6e1d9196589b4208f",
+      "unchanged": true
+    },
+    {
+      "path": "docs/art-style/repeat/high/window.png",
+      "sha256": "b8a0223fecc041c9d898b202a22ac6f6e60f5f943a2aeb93edf345a620b12a84",
+      "receipt_sha256": "b8a0223fecc041c9d898b202a22ac6f6e60f5f943a2aeb93edf345a620b12a84",
+      "unchanged": true
+    },
+    {
+      "path": "docs/art-style/repeat/high/entities.png",
+      "sha256": "0ae660f2b363c81d1e3bda6037403587b2626b7e2321eca17ef45991fbfd1e3e",
+      "receipt_sha256": "0ae660f2b363c81d1e3bda6037403587b2626b7e2321eca17ef45991fbfd1e3e",
+      "unchanged": true
+    }
+  ],
+  "mismatches": [],
+  "elapsed_seconds": 2.5630925829755142
+}

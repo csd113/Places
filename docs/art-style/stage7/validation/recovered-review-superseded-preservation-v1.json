@@ -1,0 +1,18 @@
+{
+  "recorded_utc": "2026-10-09T03:33:29.562229+00:00",
+  "reason": "Preserve earlier pending recovered-map audit before the actual current complete-campaign audit replaces its working canonical summary",
+  "files": [
+    {
+      "original": "docs/art-style/stage7/integration-recovered-review-final.json",
+      "preserved": "docs/art-style/stage7/integration-recovered-review-final-superseded-v1.json",
+      "bytes": 225059,
+      "sha256": "4511980af00cf9ffff8b927256636d6e2a8547d0ca34b366056402b99a0b3b05"
+    },
+    {
+      "original": "docs/art-style/stage7/integration-recovered-review-final.md",
+      "preserved": "docs/art-style/stage7/integration-recovered-review-final-superseded-v1.md",
+      "bytes": 3959,
+      "sha256": "cbf0b6eaba8a6ffb1c215972f1e254fd86b48b27510fc3cc07d305934b1e1da8"
+    }
+  ]
+}

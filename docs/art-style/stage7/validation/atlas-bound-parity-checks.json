@@ -1,0 +1,47 @@
+{
+  "phase": "allocated-atlas-helper-preparation-only",
+  "command": [
+    "python3",
+    "-m",
+    "unittest",
+    "tests.test_scene_budget_limits",
+    "tests.test_compiler_bench"
+  ],
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "environment": {
+    "PYTHONDONTWRITEBYTECODE": "1"
+  },
+  "started_utc": "2026-10-09T01:04:52.454549+00:00",
+  "ended_utc": "2026-10-09T01:04:53.226471+00:00",
+  "elapsed_seconds": 0.7713095829822123,
+  "exit_code": 0,
+  "raw_stdout": "",
+  "raw_stderr": "....................\n----------------------------------------------------------------------\nRan 20 tests in 0.686s\n\nOK\n",
+  "source_identities": {
+    "tools/bench/scene_budget.py": "fc135afdf0f896db0dbcd43ffe18ae76394a67a736f5e96429bc929728a6097e",
+    "tests/test_scene_budget_limits.py": "0170d31e35cd3ef44927181ff0f8993932ce3e7fc5fd9a3a69de746e062d6662",
+    "tests/test_compiler_bench.py": "e065bdbd821de991cbe118c3cd3da801dde46835f708054f419c68047c393684",
+    "docs/art-style/stage7/validation/atlas-bound-parity.md": "a78e9c3f409f303bfb9c357f4736646dd6bf36e955773056b45f2cc9199fdf7a",
+    "docs/art-style/stage7/validation/native-execution-orchestration.md": "a351d0236433fce682d3922564186466da193374810262a09890af1c61c899ce",
+    "docs/art-style/stage7/validation/preparation-handoff.md": "717b3c03298d241d0d631feda68039d2d18b0bebb8f13a063fb1e579248ed15d"
+  },
+  "contracts": {
+    "atlas_record_bytes": 335609856,
+    "measured_demo_atlas_record_bytes": 335544516,
+    "measured_payload_bytes": 335544320,
+    "header_bytes": 196,
+    "edge_pixels": 1024,
+    "pages": 10,
+    "planes": 2,
+    "illumination_groups": 2,
+    "layers": 40,
+    "ordinary_entry_bytes": 268435456,
+    "mesh_props_bytes": 536870912,
+    "aggregate_bytes": 1073741824,
+    "entry_count": 512,
+    "decoded_f32_lighting_moments_bytes": 671088640
+  },
+  "decoder_scope": "Python bounds and archive SHA/size only; ordinary Rust retains legacy RGBA8/current RGBA16F, shape/header/range/texel validation.",
+  "pending": "Completed new ordinary package campaign and frozen final normal/diagnostic identities, decoder/aggregate checks, original availability, Demo field audit and genuine native RSS/resource receipts.",
+  "custody": "Allocated helper, tests and documentation frozen/released. No Cargo/compiler/bake/native or target job launched; no validation-owned active jobs."
+}

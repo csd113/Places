@@ -4855,8 +4855,8 @@ fn the_geometry_revision_is_part_of_both_build_fingerprints() {
 
     // The shipped revision is the one the fix introduced, not a placeholder.
     assert_eq!(
-        revision, 6,
-        "water incident-HDR charts extend the seam and roof contracts at geometry revision 6"
+        revision, 7,
+        "owned roof endpoints extend the incident-HDR and seam contracts at geometry revision 7"
     );
 }
 

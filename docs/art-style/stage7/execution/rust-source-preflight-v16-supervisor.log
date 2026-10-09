@@ -1,0 +1,45 @@
+{"argv": ["sh", "/tmp/places-stage7-rust-preflight-v15.sh"], "cwd": "/Users/connordawkins/Documents/GitHub/Places", "started_utc": "2026-10-09T02:29:09.509801+00:00", "finished_utc": "2026-10-09T02:29:37.283075+00:00", "elapsed_seconds": 27.773174999980256, "exit_code": 101, "environment_overrides": {"RUSTC_WRAPPER": ""}, "log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/rust-source-preflight-v16.log"}
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `dev` profile [optimized + debuginfo] target(s) in 10.12s
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+error: `count` is shadowed
+   --> src/package/props.rs:113:13
+    |
+113 |         let count = u64::try_from(count)
+    |             ^^^^^
+    |
+note: previous binding is here
+   --> src/package/props.rs:112:29
+    |
+112 |     fn add_slots(&mut self, count: usize, width: u64, overhead: u64) -> Result<(), String> {
+    |                             ^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_reuse
+    = note: requested on the command line with `-D clippy::shadow-reuse`
+
+error: `bytes` is shadowed
+   --> src/package/props.rs:124:9
+    |
+124 |     let bytes = u64::try_from(bytes)
+    |         ^^^^^
+    |
+note: previous binding is here
+   --> src/package/props.rs:123:23
+    |
+123 | fn check_encoded_size(bytes: usize) -> Result<(), String> {
+    |                       ^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_reuse
+
+error: manual implementation of `.is_multiple_of()`
+   --> src/package/props.rs:541:8
+    |
+541 |     if indices.len() % 3 != 0 {
+    |        ^^^^^^^^^^^^^^^^^^^^^^ help: replace with: `!indices.len().is_multiple_of(3)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#manual_is_multiple_of
+    = note: `-D clippy::manual-is-multiple-of` implied by `-D clippy::all`
+    = help: to override `-D clippy::all` add `#[allow(clippy::manual_is_multiple_of)]`
+
+error: could not compile `places` (lib) due to 3 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `places` (lib test) due to 3 previous errors
+

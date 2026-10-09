@@ -1,0 +1,11 @@
+{
+  "label": "capacity-combined-plmp6-v1",
+  "supervisor_pid": 86105,
+  "argv": [
+    "python3",
+    "/tmp/places-stage7-dense-after-v1.py"
+  ],
+  "launched_utc": "2026-10-09T02:42:19.278747+00:00",
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "completion_receipt": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/capacity-combined-plmp6-v1.json"
+}

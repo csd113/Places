@@ -18,7 +18,7 @@ use crate::level::{
     ActionDef, BASEBOARD_DEFAULT_HEIGHT_M, BASEBOARD_DEFAULT_THICKNESS_M, BaseboardDef,
     ComponentDef, ConditionDef, EventBindingDef, EventKindName, LevelDef, LevelSurfaces,
     MAX_ACTIONS_PER_SOURCE, MAX_BINDINGS_PER_ENTITY, MAX_LEVEL_FLOOR_AREA_M2, MAX_LEVEL_VERTICES,
-    TriggerVolumeDef, WALL_SLICE_EPS, WallAxis, WallDef, wall_solid_slices_profiled,
+    TriggerVolumeDef, WALL_SLICE_EPS, WallAxis, WallDef,
 };
 use crate::materials::{MaterialTable, PackMaterials, resolve_materials};
 
@@ -1972,14 +1972,12 @@ fn point_buried_in_wall(level: &LevelDef, x: f32, z: f32, y: f32) -> Option<usiz
         {
             continue;
         }
-        let breaks = surfaces.wall_profile_breaks(wall);
-        let clear = |offset: f32| surfaces.clear_ceiling_height_along(wall, offset);
         let (origin_x, origin_z) = wall.length_origin();
         let offset = match wall.axis() {
             WallAxis::X => x - origin_x,
             WallAxis::Z => z - origin_z,
         };
-        for slice in wall_solid_slices_profiled(wall, clear, &breaks) {
+        for slice in surfaces.wall_solid_slices(wall) {
             if offset > slice.start + WALL_SLICE_EPS
                 && offset < slice.end - WALL_SLICE_EPS
                 && y > slice.bottom + WALL_SLICE_EPS

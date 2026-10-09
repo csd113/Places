@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "python3",
+    "/tmp/places-stage7-preserve-v6.py"
+  ],
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "started_utc": "2026-10-09T03:45:33.654745+00:00",
+  "finished_utc": "2026-10-09T03:45:35.960754+00:00",
+  "elapsed_seconds": 2.3059479580260813,
+  "exit_code": 0,
+  "environment_overrides": {
+    "RUSTC_WRAPPER": ""
+  },
+  "log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/preserve-v6-full-matrix-v1.log"
+}

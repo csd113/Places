@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "python3",
+    "/tmp/places-stage7-linux-check-v1.py"
+  ],
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "started_utc": "2026-10-09T02:54:38.970379+00:00",
+  "finished_utc": "2026-10-09T02:56:02.513825+00:00",
+  "elapsed_seconds": 83.54329395794775,
+  "exit_code": 0,
+  "environment_overrides": {
+    "RUSTC_WRAPPER": ""
+  },
+  "log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/linux-source-check-plmp6-v1.log"
+}

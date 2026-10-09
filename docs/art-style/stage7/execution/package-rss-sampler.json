@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "python3",
+    "/tmp/places-stage7-compile-rss.py"
+  ],
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "started_utc": "2026-10-08T23:14:48.636429+00:00",
+  "finished_utc": "2026-10-08T23:22:38.482447+00:00",
+  "elapsed_seconds": 469.84434266691096,
+  "exit_code": 0,
+  "environment_overrides": {
+    "RUSTC_WRAPPER": ""
+  },
+  "log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/package-rss-sampler.log"
+}

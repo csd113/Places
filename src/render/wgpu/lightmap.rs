@@ -46,10 +46,10 @@ use crate::lighting::lightmap::{LevelLightmaps, LightmapPage};
 /// One page pair per page and switchable group, selected by the vertex page
 /// byte plus the uniform's group index. A bake that needs more pages fails over
 /// to vertex lighting instead of dropping pages silently. Mirrors
-/// [`crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES`] (eight pages: a
-/// 128 MiB layer group at Full's 1024-texel edge and 32 MiB at Low's
-/// 512-texel edge; only the prepared groups are ever allocated).
-pub const LIGHTMAP_ATLAS_MAX_PAGES: usize = 8;
+/// [`crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES`] (ten Full pages:
+/// a 160 MiB layer group at its 1024px edge). Medium retains eight 1024px pages
+/// and Low eight 512px pages; only resident pages and prepared groups allocate.
+pub const LIGHTMAP_ATLAS_MAX_PAGES: usize = crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES;
 
 /// Whether an On-mode build whose atlas failed to upload must be rebuilt with
 /// vertex lighting.
@@ -646,17 +646,46 @@ mod tests {
     }
 
     #[test]
-    fn the_page_budget_is_eight_at_every_profile() {
-        assert_eq!(LIGHTMAP_ATLAS_MAX_PAGES, 8);
+    fn profile_budgets_match_shared_renderer_capacity() {
+        assert_eq!(LIGHTMAP_ATLAS_MAX_PAGES, 10);
+        assert_eq!(
+            LIGHTMAP_ATLAS_MAX_PAGES,
+            crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES,
+            "baker and renderer share one capacity"
+        );
         for profile in crate::quality::QualityProfile::ALL {
             let config = profile.lightmap_config();
+            let expected = match profile {
+                crate::quality::QualityProfile::Low => 8,
+                crate::quality::QualityProfile::Full => 10,
+            };
             assert_eq!(
-                config.max_pages, LIGHTMAP_ATLAS_MAX_PAGES,
-                "{profile:?} must support the shared page budget"
+                config.max_pages, expected,
+                "{profile:?} retains its measured page policy"
             );
             // Every page needs two RGBA16F layers.
             assert_eq!(config.bytes_per_texel, 16, "{profile:?}");
         }
+        let medium = crate::quality::LightmapQuality::Medium.lightmap_config();
+        assert_eq!(
+            medium.map(|config| config.max_pages),
+            Some(8),
+            "Medium has an atlas and retains its previous budget"
+        );
+        assert_eq!(medium.map(|config| config.texels_per_metre), Some(12.0));
+        assert_eq!(
+            crate::quality::QualityLevel::Medium
+                .lightmap_config()
+                .max_pages,
+            8,
+            "the legacy quality entry point retains Medium's budget"
+        );
+        assert_eq!(
+            crate::quality::LightmapQuality::Full
+                .lightmap_config()
+                .map(|config| config.max_pages),
+            Some(10)
+        );
         // Low keeps its 512-texel pages and Full its 1024-texel pages.
         assert_eq!(
             crate::quality::QualityProfile::Low
@@ -683,6 +712,34 @@ mod tests {
         assert_eq!(stats.resident_bytes, 2 * 2 * 1024 * 1024 * 8);
         assert_eq!(stats.charts, 7);
         assert_eq!(stats.chart_texels, 123);
+    }
+
+    #[test]
+    fn full_capacity_uses_only_resident_pages_and_contribution_layers() {
+        // Tiny physical pages exercise the complete layer-addressing boundary
+        // without allocating the measured Full profile's 160 MiB GPU payload.
+        let mut maps = lightmaps(vec![black_page(1); 10]);
+        let base = upload_stats(Some(&maps));
+        assert_eq!(base.capacity, 10);
+        assert_eq!(base.pages, 10);
+        assert_eq!(base.resident_bytes, 10 * 2 * 8);
+        maps.switchable = (0..MAX_SWITCHABLE_GROUPS)
+            .map(|light_index| SwitchableLightmaps {
+                light_index,
+                pages: vec![black_page(1); 10],
+            })
+            .collect();
+        assert_eq!(maps.layer_count(), 100);
+        assert_eq!(maps.irradiance_layer(Some(3), 9), 98);
+        let contributions = upload_stats(Some(&maps));
+        assert_eq!(contributions.pages, 10);
+        assert_eq!(contributions.resident_bytes, 100 * 8);
+        assert!(maps.pages.pop().is_some());
+        for contribution in &mut maps.switchable {
+            assert!(contribution.pages.pop().is_some());
+        }
+        assert_eq!(maps.layer_count(), 90);
+        assert_eq!(upload_stats(Some(&maps)).resident_bytes, 90 * 8);
     }
 
     #[test]

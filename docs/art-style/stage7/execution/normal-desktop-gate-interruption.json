@@ -1,0 +1,122 @@
+{
+  "observed_utc": "2026-10-08T23:00:06.060224+00:00",
+  "outer_session_id": 8926,
+  "outer_completion_receipt": false,
+  "known_exit_code": null,
+  "active_owned_jobs_on_inspection": [],
+  "completed_case_receipts": [
+    {
+      "path": "target/verification/map-regression-20261008T221853Z-36436/commands/assets__levels__lantern_hollow.json",
+      "key": "assets__levels__lantern_hollow",
+      "status": "passed"
+    },
+    {
+      "path": "target/verification/map-regression-20261008T221853Z-36436/commands/assets__levels__model_zoo.json",
+      "key": "assets__levels__model_zoo",
+      "status": "passed"
+    },
+    {
+      "path": "target/verification/map-regression-20261008T221853Z-36436/commands/assets__levels__movement_test.json",
+      "key": "assets__levels__movement_test",
+      "status": "passed"
+    },
+    {
+      "path": "target/verification/map-regression-20261008T221853Z-36436/commands/assets__levels__places_demo.json",
+      "key": "assets__levels__places_demo",
+      "status": "passed"
+    },
+    {
+      "path": "target/verification/map-regression-20261008T221853Z-36436/commands/assets__levels__winter.json",
+      "key": "assets__levels__winter",
+      "status": "passed"
+    },
+    {
+      "path": "target/verification/map-regression-20261008T221853Z-36436/commands/levels__blizzard_review.json",
+      "key": "levels__blizzard_review",
+      "status": "passed"
+    },
+    {
+      "path": "target/verification/map-regression-20261008T221853Z-36436/commands/levels__geometry_intentional.json",
+      "key": "levels__geometry_intentional",
+      "status": "passed"
+    },
+    {
+      "path": "target/verification/map-regression-20261008T221853Z-36436/commands/levels__home_showcase.json",
+      "key": "levels__home_showcase",
+      "status": "passed"
+    },
+    {
+      "path": "target/verification/map-regression-20261008T221853Z-36436/commands/levels__level0_pit.json",
+      "key": "levels__level0_pit",
+      "status": "passed"
+    },
+    {
+      "path": "target/verification/map-regression-20261008T221853Z-36436/commands/levels__snowfall_contrast.json",
+      "key": "levels__snowfall_contrast",
+      "status": "passed"
+    },
+    {
+      "path": "target/verification/map-regression-20261008T221853Z-36436/commands/tests__fixtures__levels__art_style_hero.json",
+      "key": "tests__fixtures__levels__art_style_hero",
+      "status": "passed"
+    },
+    {
+      "path": "target/verification/map-regression-20261008T221853Z-36436/commands/tests__fixtures__levels__art_style_hero_atmosphere.json",
+      "key": "tests__fixtures__levels__art_style_hero_atmosphere",
+      "status": "passed"
+    },
+    {
+      "path": "target/verification/map-regression-20261008T221853Z-36436/commands/tests__fixtures__levels__art_style_hero_aurora.json",
+      "key": "tests__fixtures__levels__art_style_hero_aurora",
+      "status": "passed"
+    },
+    {
+      "path": "target/verification/map-regression-20261008T221853Z-36436/commands/tests__fixtures__levels__art_style_hero_night.json",
+      "key": "tests__fixtures__levels__art_style_hero_night",
+      "status": "passed"
+    },
+    {
+      "path": "target/verification/map-regression-20261008T221853Z-36436/commands/tests__fixtures__levels__art_style_hero_refined.json",
+      "key": "tests__fixtures__levels__art_style_hero_refined",
+      "status": "passed"
+    },
+    {
+      "path": "target/verification/map-regression-20261008T221853Z-36436/commands/tests__fixtures__levels__art_style_hero_stage4_comparison.json",
+      "key": "tests__fixtures__levels__art_style_hero_stage4_comparison",
+      "status": "passed"
+    },
+    {
+      "path": "target/verification/map-regression-20261008T221853Z-36436/commands/tests__fixtures__levels__art_style_hero_stage4_entities.json",
+      "key": "tests__fixtures__levels__art_style_hero_stage4_entities",
+      "status": "passed"
+    },
+    {
+      "path": "target/verification/map-regression-20261008T221853Z-36436/commands/tests__fixtures__levels__art_style_hero_stage4_movement.json",
+      "key": "tests__fixtures__levels__art_style_hero_stage4_movement",
+      "status": "passed"
+    },
+    {
+      "path": "target/verification/map-regression-20261008T221853Z-36436/commands/tests__fixtures__levels__art_style_hero_stage4_switchable.json",
+      "key": "tests__fixtures__levels__art_style_hero_stage4_switchable",
+      "status": "passed"
+    },
+    {
+      "path": "target/verification/map-regression-20261008T221853Z-36436/commands/tests__fixtures__levels__art_style_hero_storm.json",
+      "key": "tests__fixtures__levels__art_style_hero_storm",
+      "status": "passed"
+    },
+    {
+      "path": "target/verification/map-regression-20261008T221853Z-36436/commands/tests__fixtures__levels__art_style_hero_transparency.json",
+      "key": "tests__fixtures__levels__art_style_hero_transparency",
+      "status": "passed"
+    },
+    {
+      "path": "target/verification/map-regression-20261008T221853Z-36436/commands/tests__fixtures__levels__asset_polish_showcase.json",
+      "key": "tests__fixtures__levels__asset_polish_showcase",
+      "status": "passed"
+    }
+  ],
+  "next_case": "tests__fixtures__levels__capacity_dense",
+  "next_case_completion_receipt": false,
+  "note": "Exec session no longer exists; process inspection confirms no owned build, bake or native process. No unobserved exit code or termination cause is inferred. Partial completed receipts remain preserved; final acceptance requires a complete campaign under the repaired compiler."
+}

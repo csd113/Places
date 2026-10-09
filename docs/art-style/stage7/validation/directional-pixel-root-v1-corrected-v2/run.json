@@ -1,0 +1,26 @@
+{
+  "argv": [
+    "cargo",
+    "test",
+    "--locked",
+    "--lib",
+    "--all-features",
+    "directional_entity_irradiance_reaches_real_rendered_pixels",
+    "--",
+    "--ignored",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "started_utc": "2026-10-09T04:58:56.758350+00:00",
+  "finished_utc": "2026-10-09T04:59:26.273492+00:00",
+  "elapsed_seconds": 29.514975958969444,
+  "exit_code": 0,
+  "environment_overrides": {
+    "RUSTC_WRAPPER": "",
+    "PLACES_ENTITY_TEST_CAPTURES": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/directional-pixel-root-v1-corrected-v2",
+    "other_PLACES_variables": "removed"
+  },
+  "log": "docs/art-style/stage7/validation/directional-pixel-root-v1-corrected-v2/run.log",
+  "execution": "bounded native Metal access escalation"
+}

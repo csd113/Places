@@ -1,0 +1,21 @@
+{
+  "argv": [
+    "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+    "debug-maps/art-style-hero/evidence/stage7-validation/run_installed_comparisons.py",
+    "--campaign",
+    "target/verification/map-regression-20261009T042109Z-30226",
+    "--compiler",
+    "debug-maps/art-style-hero/evidence/stage7-runtime/normal-c2-plmp6-v10/places-compile",
+    "--out",
+    "debug-maps/art-style-hero/evidence/stage7-installed-full-reuse-v1"
+  ],
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "started_utc": "2026-10-09T05:59:19.862260+00:00",
+  "finished_utc": "2026-10-09T06:25:24.422405+00:00",
+  "elapsed_seconds": 1564.553390917019,
+  "exit_code": 0,
+  "environment_overrides": {
+    "RUSTC_WRAPPER": ""
+  },
+  "log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/installed-full-reuse-v1.log"
+}

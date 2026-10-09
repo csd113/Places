@@ -1,0 +1,29 @@
+{
+  "recorded_utc": "2026-10-09T01:11:32.072623+00:00",
+  "source_freeze": "docs/art-style/stage7/source-input-identities-v6.json",
+  "source_freeze_sha256": "fa8fecdb977b821daed27042b8c045b5c5bcb740aca34f77fbe94c1f328ef73a",
+  "build": "docs/art-style/stage7/execution/normal-desktop-gate-v5.log",
+  "status": "Frozen normal runtime after initial C1 release; not final C2 re-embedded Demo acceptance",
+  "campaign": "target/verification/map-regression-20261009T011113Z-40817",
+  "files": [
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-runtime/normal-c1-v6/places",
+      "bytes": 93303792,
+      "sha256": "46320a0cb79b27bb5f009767144a9048f5fa2ad81184ede630e64c0d18787894",
+      "copied_from": "/Users/connordawkins/Documents/GitHub/Places/target/release/places"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-runtime/normal-c1-v6/places-compile",
+      "bytes": 6743536,
+      "sha256": "c12e9c69ddd3bc5ecc04a24f8489f605158145d64423c29535fdac2937161d34",
+      "copied_from": "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-runtime/normal-c1-v6/libSDL3.0.dylib",
+      "bytes": 2520816,
+      "sha256": "5fdf17e340d9123e3d57c60c4c3c41777d04fe233d09bcd00874de09281746ab",
+      "copied_from": "/opt/homebrew/lib/libSDL3.0.dylib"
+    }
+  ],
+  "source_hash_mismatches": []
+}

@@ -840,13 +840,45 @@ fn prop_records_round_trip_with_textures_reattached_at_load() {
     assert_eq!(decoded.len(), build.batches.len());
     for (original, decoded_batch) in build.batches.iter().zip(&decoded) {
         assert_eq!(original.model, decoded_batch.model);
-        assert_eq!(original.vertices, decoded_batch.vertices);
-        assert_eq!(original.indices, decoded_batch.indices);
+        assert_eq!(
+            original.casts_static_lighting,
+            decoded_batch.casts_static_lighting
+        );
+        assert_eq!(original.submeshes, decoded_batch.submeshes);
+        assert_eq!(
+            original.bounds.min.map(f32::to_bits),
+            decoded_batch.bounds.min.map(f32::to_bits)
+        );
+        assert_eq!(
+            original.bounds.max.map(f32::to_bits),
+            decoded_batch.bounds.max.map(f32::to_bits)
+        );
+        assert_eq!(original.indices.len(), decoded_batch.indices.len());
+        // Storage may share duplicate slots; the ordered draw stream must keep
+        // all 69 bytes of every corner, including UV seams and shading frames.
+        for (&original_index, &decoded_index) in original.indices.iter().zip(&decoded_batch.indices)
+        {
+            let mut original_corner = Writer::new();
+            let mut decoded_corner = Writer::new();
+            super::mesh::write_vertex(
+                &mut original_corner,
+                &original.vertices[usize::from(original_index)],
+            );
+            super::mesh::write_vertex(
+                &mut decoded_corner,
+                &decoded_batch.vertices[usize::from(decoded_index)],
+            );
+            assert_eq!(original_corner.into_bytes(), decoded_corner.into_bytes());
+        }
         assert!(
             decoded_batch.textures.is_empty(),
             "pixels travel by model reference"
         );
     }
+    assert_eq!(
+        bytes,
+        super::props::write_props(&decoded).expect("roundtrip encoding is canonical")
+    );
     assert!(super::props::read_props(&bytes[..4]).is_err());
 }
 

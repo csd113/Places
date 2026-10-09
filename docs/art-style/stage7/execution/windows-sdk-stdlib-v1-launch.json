@@ -1,0 +1,11 @@
+{
+  "label": "windows-sdk-stdlib-v1",
+  "supervisor_pid": 75089,
+  "argv": [
+    "python3",
+    "/tmp/places-stage7-windows-prepare-v1.py"
+  ],
+  "launched_utc": "2026-10-09T02:15:48.766122+00:00",
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "completion_receipt": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/windows-sdk-stdlib-v1.json"
+}

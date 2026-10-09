@@ -1,0 +1,445 @@
+{
+  "status": "qualified static pixels and captured lighting PASS; animated pose equality unproved",
+  "envelope": {
+    "vertices": 3029,
+    "joint_count": 26,
+    "idle_keys": 49,
+    "idle_duration_seconds": 4.0,
+    "intervals": 48,
+    "mesh_rest_identity": true,
+    "unweighted_vertices": 0,
+    "raw_position_bounds": [
+      [
+        -0.08247996866703033,
+        -9.352037722010209e-08,
+        -0.2966857850551605
+      ],
+      [
+        0.08247998356819153,
+        0.3889120817184448,
+        0.32900047302246094
+      ]
+    ],
+    "bind_bounds": [
+      [
+        -0.08247996266977096,
+        -1.2089746015298866e-07,
+        -0.2966857797995838
+      ],
+      [
+        0.08247999068880532,
+        0.3889120528351193,
+        0.3290004926814097
+      ]
+    ],
+    "parser_bind_bake_included": true,
+    "maximum_parser_bind_displacement_m": 5.90578761982163e-08,
+    "maximum_joint_rest_inverse_bind_identity_residual": 3.667666166884409e-07,
+    "idle_all_time_conservative_bounds": [
+      [
+        -0.08247997918635065,
+        -0.0022925031441570105,
+        -0.30637057271568685
+      ],
+      [
+        0.08248000483000469,
+        0.40375477046481206,
+        0.3305635999259105
+      ]
+    ],
+    "maximum_interval_rotation_degrees": 0.47533549441389644,
+    "maximum_conservative_interval_vertex_displacement_m": 0.0072967106439356805
+  },
+  "projection": {
+    "continuous": [
+      1012.9689744024367,
+      263.7225245201982,
+      1259.0027430565024,
+      410.9858209891125
+    ],
+    "integer_xyxy_exclusive": [
+      1012,
+      263,
+      1260,
+      411
+    ],
+    "minimum_camera_depth_m": 1.9453578036007888
+  },
+  "image_comparisons": [
+    {
+      "index": 0,
+      "kind": "restoration",
+      "initial": {
+        "frame": 120,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/images/00-high.png",
+        "sha256": "1c80771f307d769cfb0988c9eb3e445e42e5df3bf66954799241156197af2ca4"
+      },
+      "restored": {
+        "frame": 660,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/images/03-high.png",
+        "sha256": "edca79e2286a806ad23aacd613b9f6947052fcc169b9cde8768ca2575c18c35c"
+      },
+      "changed_rgba_pixels": 1822,
+      "outside_changed_rgba_pixels": 0,
+      "alpha_changed_pixels": 0,
+      "bbox_xyxy_exclusive": [
+        1041,
+        279,
+        1222,
+        362
+      ]
+    },
+    {
+      "index": 1,
+      "kind": "restoration",
+      "initial": {
+        "frame": 120,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/images/00-high.png",
+        "sha256": "1c80771f307d769cfb0988c9eb3e445e42e5df3bf66954799241156197af2ca4"
+      },
+      "restored": {
+        "frame": 1200,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/images/06-high.png",
+        "sha256": "371c9957050861a35e0a896b92df508f9d1d2600c886053c8521f31d4b44c33c"
+      },
+      "changed_rgba_pixels": 2862,
+      "outside_changed_rgba_pixels": 0,
+      "alpha_changed_pixels": 0,
+      "bbox_xyxy_exclusive": [
+        1041,
+        279,
+        1228,
+        381
+      ]
+    },
+    {
+      "index": 2,
+      "kind": "restoration",
+      "initial": {
+        "frame": 120,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/images/00-high.png",
+        "sha256": "1c80771f307d769cfb0988c9eb3e445e42e5df3bf66954799241156197af2ca4"
+      },
+      "restored": {
+        "frame": 1740,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/images/09-high.png",
+        "sha256": "e50038c44cb26cee1346998b38bd12a639adc935a5265eaec7db20ad648e583a"
+      },
+      "changed_rgba_pixels": 1657,
+      "outside_changed_rgba_pixels": 0,
+      "alpha_changed_pixels": 0,
+      "bbox_xyxy_exclusive": [
+        1040,
+        279,
+        1222,
+        381
+      ]
+    },
+    {
+      "index": 3,
+      "kind": "restoration",
+      "initial": {
+        "frame": 120,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/images/00-high.png",
+        "sha256": "1c80771f307d769cfb0988c9eb3e445e42e5df3bf66954799241156197af2ca4"
+      },
+      "restored": {
+        "frame": 2280,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/images/12-high.png",
+        "sha256": "45072674cb3f0fa6f4452b73fb29bfbd5ea3f44b486587e6fd8d637a95ff2dd4"
+      },
+      "changed_rgba_pixels": 2937,
+      "outside_changed_rgba_pixels": 0,
+      "alpha_changed_pixels": 0,
+      "bbox_xyxy_exclusive": [
+        1041,
+        279,
+        1228,
+        362
+      ]
+    },
+    {
+      "index": 4,
+      "kind": "restoration",
+      "initial": {
+        "frame": 120,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/images/00-high.png",
+        "sha256": "1c80771f307d769cfb0988c9eb3e445e42e5df3bf66954799241156197af2ca4"
+      },
+      "restored": {
+        "frame": 120,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/independent/images/00-baseline.png",
+        "sha256": "8d349dab3a10299472e169d87d022a9c290cbe344c18b424fb40fc2ae450a992"
+      },
+      "changed_rgba_pixels": 542,
+      "outside_changed_rgba_pixels": 0,
+      "alpha_changed_pixels": 0,
+      "bbox_xyxy_exclusive": [
+        1043,
+        279,
+        1222,
+        361
+      ]
+    },
+    {
+      "index": 5,
+      "kind": "restoration",
+      "initial": {
+        "frame": 120,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/images/00-high.png",
+        "sha256": "1c80771f307d769cfb0988c9eb3e445e42e5df3bf66954799241156197af2ca4"
+      },
+      "restored": {
+        "frame": 1740,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/independent/images/09-full-high.png",
+        "sha256": "1cdf9187ad995fd7120c20713c5759e401f8e8cf3787585336de8ec810ef21ee"
+      },
+      "changed_rgba_pixels": 2147,
+      "outside_changed_rgba_pixels": 0,
+      "alpha_changed_pixels": 0,
+      "bbox_xyxy_exclusive": [
+        1041,
+        279,
+        1225,
+        364
+      ]
+    },
+    {
+      "index": 6,
+      "kind": "restoration",
+      "initial": {
+        "frame": 120,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/images/00-high.png",
+        "sha256": "1c80771f307d769cfb0988c9eb3e445e42e5df3bf66954799241156197af2ca4"
+      },
+      "restored": {
+        "frame": 2100,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/independent/images/11-restored.png",
+        "sha256": "1549297e167afd5801ae5fd578537812b1b94e4dc5527dc5e700d785933a93e7"
+      },
+      "changed_rgba_pixels": 2349,
+      "outside_changed_rgba_pixels": 0,
+      "alpha_changed_pixels": 0,
+      "bbox_xyxy_exclusive": [
+        1041,
+        279,
+        1223,
+        363
+      ]
+    },
+    {
+      "index": 7,
+      "kind": "restoration",
+      "initial": {
+        "frame": 120,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/images/00-high.png",
+        "sha256": "1c80771f307d769cfb0988c9eb3e445e42e5df3bf66954799241156197af2ca4"
+      },
+      "restored": {
+        "frame": 2640,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/independent/images/14-restored-high.png",
+        "sha256": "0a3fea5916849ccab78e49083a0302124f0fc4a6c855835e465d6f854e5f1ae9"
+      },
+      "changed_rgba_pixels": 1756,
+      "outside_changed_rgba_pixels": 0,
+      "alpha_changed_pixels": 0,
+      "bbox_xyxy_exclusive": [
+        1041,
+        279,
+        1222,
+        365
+      ]
+    },
+    {
+      "index": 8,
+      "kind": "restoration",
+      "initial": {
+        "frame": 120,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/images/00-high.png",
+        "sha256": "1c80771f307d769cfb0988c9eb3e445e42e5df3bf66954799241156197af2ca4"
+      },
+      "restored": {
+        "frame": 3180,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/independent/images/17-reflections-full.png",
+        "sha256": "a34286640c35c82a52cca7ab0daa2d9ec4e9415ae71a63761964d3aa4ea5d374"
+      },
+      "changed_rgba_pixels": 1171,
+      "outside_changed_rgba_pixels": 0,
+      "alpha_changed_pixels": 0,
+      "bbox_xyxy_exclusive": [
+        1041,
+        279,
+        1222,
+        364
+      ]
+    },
+    {
+      "index": 9,
+      "kind": "normal-feature-parity",
+      "initial": {
+        "frame": 120,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/parity/home/normal/images/endpoint.png",
+        "sha256": "524600025d2993a9519e3ebd1a13a3421cad30a55f74c37540ffd12214a8a9ee"
+      },
+      "restored": {
+        "frame": 120,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/parity/home/feature/images/endpoint.png",
+        "sha256": "290401b03927e81093f6dca5b52c08fe1fdb324eac33f218052f50271a6fc71c"
+      },
+      "changed_rgba_pixels": 70,
+      "outside_changed_rgba_pixels": 0,
+      "alpha_changed_pixels": 0,
+      "bbox_xyxy_exclusive": [
+        1054,
+        280,
+        1219,
+        354
+      ]
+    }
+  ],
+  "high_endpoints": [
+    {
+      "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/images/00-high.png",
+      "payload_sha256": "f2066c7f4dd0a3306e474c5f77bfb8ed0ee4e7373e7a3f1398c07520fd6bc971",
+      "cat_centre_sha256": "57703d550b96da80cd8fba39d734a7822488b5a209e0f7c48cf6129dc761c954",
+      "cat_spatial_sha256": "cb1d30cd22c3d0ee15b654e5e6e9d465797f275cfac7b8df7e2fb8e655195b63",
+      "drum_centre_sha256": "14aad57cd9020409d8274edf6e937cd6d6fb483588564de753fe1fe3b30f2990",
+      "drum_spatial_sha256": "c150063dcce5ebc29863506c788c3bd4457287363332501ea1d2fcb317d15726",
+      "has_visual_snapshot": true
+    },
+    {
+      "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/images/03-high.png",
+      "payload_sha256": "f2066c7f4dd0a3306e474c5f77bfb8ed0ee4e7373e7a3f1398c07520fd6bc971",
+      "cat_centre_sha256": "57703d550b96da80cd8fba39d734a7822488b5a209e0f7c48cf6129dc761c954",
+      "cat_spatial_sha256": "cb1d30cd22c3d0ee15b654e5e6e9d465797f275cfac7b8df7e2fb8e655195b63",
+      "drum_centre_sha256": "14aad57cd9020409d8274edf6e937cd6d6fb483588564de753fe1fe3b30f2990",
+      "drum_spatial_sha256": "c150063dcce5ebc29863506c788c3bd4457287363332501ea1d2fcb317d15726",
+      "has_visual_snapshot": true
+    },
+    {
+      "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/images/06-high.png",
+      "payload_sha256": "f2066c7f4dd0a3306e474c5f77bfb8ed0ee4e7373e7a3f1398c07520fd6bc971",
+      "cat_centre_sha256": "57703d550b96da80cd8fba39d734a7822488b5a209e0f7c48cf6129dc761c954",
+      "cat_spatial_sha256": "cb1d30cd22c3d0ee15b654e5e6e9d465797f275cfac7b8df7e2fb8e655195b63",
+      "drum_centre_sha256": "14aad57cd9020409d8274edf6e937cd6d6fb483588564de753fe1fe3b30f2990",
+      "drum_spatial_sha256": "c150063dcce5ebc29863506c788c3bd4457287363332501ea1d2fcb317d15726",
+      "has_visual_snapshot": true
+    },
+    {
+      "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/images/09-high.png",
+      "payload_sha256": "f2066c7f4dd0a3306e474c5f77bfb8ed0ee4e7373e7a3f1398c07520fd6bc971",
+      "cat_centre_sha256": "57703d550b96da80cd8fba39d734a7822488b5a209e0f7c48cf6129dc761c954",
+      "cat_spatial_sha256": "cb1d30cd22c3d0ee15b654e5e6e9d465797f275cfac7b8df7e2fb8e655195b63",
+      "drum_centre_sha256": "14aad57cd9020409d8274edf6e937cd6d6fb483588564de753fe1fe3b30f2990",
+      "drum_spatial_sha256": "c150063dcce5ebc29863506c788c3bd4457287363332501ea1d2fcb317d15726",
+      "has_visual_snapshot": true
+    },
+    {
+      "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/images/12-high.png",
+      "payload_sha256": "f2066c7f4dd0a3306e474c5f77bfb8ed0ee4e7373e7a3f1398c07520fd6bc971",
+      "cat_centre_sha256": "57703d550b96da80cd8fba39d734a7822488b5a209e0f7c48cf6129dc761c954",
+      "cat_spatial_sha256": "cb1d30cd22c3d0ee15b654e5e6e9d465797f275cfac7b8df7e2fb8e655195b63",
+      "drum_centre_sha256": "14aad57cd9020409d8274edf6e937cd6d6fb483588564de753fe1fe3b30f2990",
+      "drum_spatial_sha256": "c150063dcce5ebc29863506c788c3bd4457287363332501ea1d2fcb317d15726",
+      "has_visual_snapshot": true
+    },
+    {
+      "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/independent/images/00-baseline.png",
+      "payload_sha256": "f2066c7f4dd0a3306e474c5f77bfb8ed0ee4e7373e7a3f1398c07520fd6bc971",
+      "cat_centre_sha256": "57703d550b96da80cd8fba39d734a7822488b5a209e0f7c48cf6129dc761c954",
+      "cat_spatial_sha256": "cb1d30cd22c3d0ee15b654e5e6e9d465797f275cfac7b8df7e2fb8e655195b63",
+      "drum_centre_sha256": "14aad57cd9020409d8274edf6e937cd6d6fb483588564de753fe1fe3b30f2990",
+      "drum_spatial_sha256": "c150063dcce5ebc29863506c788c3bd4457287363332501ea1d2fcb317d15726",
+      "has_visual_snapshot": true
+    },
+    {
+      "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/independent/images/09-full-high.png",
+      "payload_sha256": "f2066c7f4dd0a3306e474c5f77bfb8ed0ee4e7373e7a3f1398c07520fd6bc971",
+      "cat_centre_sha256": "57703d550b96da80cd8fba39d734a7822488b5a209e0f7c48cf6129dc761c954",
+      "cat_spatial_sha256": "cb1d30cd22c3d0ee15b654e5e6e9d465797f275cfac7b8df7e2fb8e655195b63",
+      "drum_centre_sha256": "14aad57cd9020409d8274edf6e937cd6d6fb483588564de753fe1fe3b30f2990",
+      "drum_spatial_sha256": "c150063dcce5ebc29863506c788c3bd4457287363332501ea1d2fcb317d15726",
+      "has_visual_snapshot": true
+    },
+    {
+      "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/independent/images/11-restored.png",
+      "payload_sha256": "f2066c7f4dd0a3306e474c5f77bfb8ed0ee4e7373e7a3f1398c07520fd6bc971",
+      "cat_centre_sha256": "57703d550b96da80cd8fba39d734a7822488b5a209e0f7c48cf6129dc761c954",
+      "cat_spatial_sha256": "cb1d30cd22c3d0ee15b654e5e6e9d465797f275cfac7b8df7e2fb8e655195b63",
+      "drum_centre_sha256": "14aad57cd9020409d8274edf6e937cd6d6fb483588564de753fe1fe3b30f2990",
+      "drum_spatial_sha256": "c150063dcce5ebc29863506c788c3bd4457287363332501ea1d2fcb317d15726",
+      "has_visual_snapshot": true
+    },
+    {
+      "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/independent/images/14-restored-high.png",
+      "payload_sha256": "f2066c7f4dd0a3306e474c5f77bfb8ed0ee4e7373e7a3f1398c07520fd6bc971",
+      "cat_centre_sha256": "57703d550b96da80cd8fba39d734a7822488b5a209e0f7c48cf6129dc761c954",
+      "cat_spatial_sha256": "cb1d30cd22c3d0ee15b654e5e6e9d465797f275cfac7b8df7e2fb8e655195b63",
+      "drum_centre_sha256": "14aad57cd9020409d8274edf6e937cd6d6fb483588564de753fe1fe3b30f2990",
+      "drum_spatial_sha256": "c150063dcce5ebc29863506c788c3bd4457287363332501ea1d2fcb317d15726",
+      "has_visual_snapshot": true
+    },
+    {
+      "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/independent/images/17-reflections-full.png",
+      "payload_sha256": "f2066c7f4dd0a3306e474c5f77bfb8ed0ee4e7373e7a3f1398c07520fd6bc971",
+      "cat_centre_sha256": "57703d550b96da80cd8fba39d734a7822488b5a209e0f7c48cf6129dc761c954",
+      "cat_spatial_sha256": "cb1d30cd22c3d0ee15b654e5e6e9d465797f275cfac7b8df7e2fb8e655195b63",
+      "drum_centre_sha256": "14aad57cd9020409d8274edf6e937cd6d6fb483588564de753fe1fe3b30f2990",
+      "drum_spatial_sha256": "c150063dcce5ebc29863506c788c3bd4457287363332501ea1d2fcb317d15726",
+      "has_visual_snapshot": true
+    },
+    {
+      "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/parity/home/normal/images/endpoint.png",
+      "payload_sha256": "f2066c7f4dd0a3306e474c5f77bfb8ed0ee4e7373e7a3f1398c07520fd6bc971",
+      "cat_centre_sha256": "57703d550b96da80cd8fba39d734a7822488b5a209e0f7c48cf6129dc761c954",
+      "cat_spatial_sha256": "cb1d30cd22c3d0ee15b654e5e6e9d465797f275cfac7b8df7e2fb8e655195b63",
+      "drum_centre_sha256": "14aad57cd9020409d8274edf6e937cd6d6fb483588564de753fe1fe3b30f2990",
+      "drum_spatial_sha256": "c150063dcce5ebc29863506c788c3bd4457287363332501ea1d2fcb317d15726",
+      "has_visual_snapshot": false
+    },
+    {
+      "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/parity/home/feature/images/endpoint.png",
+      "payload_sha256": "f2066c7f4dd0a3306e474c5f77bfb8ed0ee4e7373e7a3f1398c07520fd6bc971",
+      "cat_centre_sha256": "57703d550b96da80cd8fba39d734a7822488b5a209e0f7c48cf6129dc761c954",
+      "cat_spatial_sha256": "cb1d30cd22c3d0ee15b654e5e6e9d465797f275cfac7b8df7e2fb8e655195b63",
+      "drum_centre_sha256": "14aad57cd9020409d8274edf6e937cd6d6fb483588564de753fe1fe3b30f2990",
+      "drum_spatial_sha256": "c150063dcce5ebc29863506c788c3bd4457287363332501ea1d2fcb317d15726",
+      "has_visual_snapshot": true
+    }
+  ],
+  "matching_visual_snapshot": {
+    "world": {
+      "chunks": 1,
+      "draws": 161,
+      "index_bytes": 34908,
+      "indices": 17454,
+      "vertex_bytes": 834632,
+      "vertices": 10982
+    },
+    "props": {
+      "chunks": 209,
+      "draws": 305,
+      "indices": 373629,
+      "texture_bytes": 65448340,
+      "vertices": 373629
+    },
+    "lighting_uniform": {
+      "fog_density": 0.009499999694526196,
+      "fog_region_count": 1,
+      "light_scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "lightmap_enabled": 1.0,
+      "page_count": 10,
+      "switchable_word": 393473
+    }
+  },
+  "negative_controls": {
+    "outside_envelope_pixel_rejected": true,
+    "restored_entity_payload_mismatch_rejected": true
+  },
+  "original_whole_image_failures_retained": 2,
+  "pose_time_or_posed_buffer_trace_available": false
+}

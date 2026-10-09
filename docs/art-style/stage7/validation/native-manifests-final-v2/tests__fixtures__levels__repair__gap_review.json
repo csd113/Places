@@ -1,0 +1,93 @@
+{
+  "format_version": 1,
+  "level": "repair_gap_review",
+  "source": "tests/fixtures/levels/repair/gap_review.json",
+  "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__repair__gap_review.placesmap",
+  "settings": {
+    "bindings": {
+      "forward": "W",
+      "backward": "S",
+      "strafe_left": "A",
+      "strafe_right": "D",
+      "look_up": "UP",
+      "look_down": "DOWN",
+      "look_left": "LEFT",
+      "look_right": "RIGHT",
+      "jump": "SPACE",
+      "crouch": "C",
+      "interact": "E"
+    },
+    "look_speed_h": 90,
+    "look_speed_v": 60,
+    "walk_speed": 3,
+    "invert_look": false,
+    "mouse_sensitivity": 0.12,
+    "quality": "high",
+    "texture_filtering": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true,
+    "use_low_quality_lighting": false,
+    "vsync": false,
+    "fov_degrees": 60,
+    "window_mode": "windowed",
+    "window_width": 640,
+    "window_height": 360
+  },
+  "capture": {
+    "ready_world_seconds": 0.5,
+    "warmup_frames": 15,
+    "limit_frames": 2400,
+    "expected_drawable": [
+      1280,
+      720
+    ]
+  },
+  "views": [
+    {
+      "name": "spawn",
+      "spawn": [
+        2.0,
+        1.0,
+        90
+      ],
+      "camera": [
+        90,
+        -6
+      ],
+      "purpose": "Purposeful nonempty scene accounting from unchanged authored spawn toward actual geometry; original outward blank view retained as a rejected budget control"
+    }
+  ],
+  "prior_blank_control": {
+    "receipt": "debug-maps/art-style-hero/evidence/stage7-native-regression-v1/budget48/tests__fixtures__levels__repair__gap_review/feature-capture/manifest.json",
+    "receipt_sha256": "2a49ee426cbe590f1e108722e62ee5122a7a17cae913b03828357f3a3a3c8ec3",
+    "image": "debug-maps/art-style-hero/evidence/stage7-native-regression-v1/budget48/tests__fixtures__levels__repair__gap_review/feature-capture/spawn.png",
+    "image_sha256": "74beded43980a4e45626f3b74db141437c1ae38dfed338476b87c13c8a18c718",
+    "original_view": {
+      "name": "spawn",
+      "spawn": [
+        2.0,
+        1.0,
+        0.0
+      ],
+      "camera": [
+        0.0,
+        -6
+      ],
+      "purpose": "Normal supported-map compatibility; visual review required at real authored spawn"
+    },
+    "actual_capture_submission": {
+      "draw_calls": 0,
+      "frustum_visible_batches": 0,
+      "frustum_visible_distinct_vertices": 0,
+      "material_binds": 0,
+      "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+      "submitted_indices": 0,
+      "submitted_triangles": 0,
+      "texture_binds": 0,
+      "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+      "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+    },
+    "status": "rejected empty actual native capture; no budget acceptance"
+  }
+}

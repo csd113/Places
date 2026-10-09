@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "python3",
+    "tools/bench/capture_art_style_hero.py",
+    "--asset-root",
+    "debug-maps/art-style-hero/milestones/stage6",
+    "--manifest",
+    "debug-maps/art-style-hero/milestones/stage6/hero-manifest.json",
+    "--binary",
+    "debug-maps/art-style-hero/milestones/stage6/places",
+    "--out",
+    "docs/art-style/stage7/before/high"
+  ],
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "started_utc": "2026-10-08T22:04:22.519168+00:00",
+  "finished_utc": "2026-10-08T22:04:34.887196+00:00",
+  "elapsed_seconds": 12.367945624981076,
+  "exit_code": 0,
+  "environment_overrides": {
+    "RUSTC_WRAPPER": ""
+  },
+  "log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/native-before.log"
+}

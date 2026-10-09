@@ -1,0 +1,45 @@
+{
+  "recorded_utc": "2026-10-09T08:02:33.306195+00:00",
+  "status": "passed",
+  "containers": [
+    {
+      "container": "places-art-style-stage7-linux-v1",
+      "state": {
+        "Status": "exited",
+        "Running": false,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 0,
+        "ExitCode": 137,
+        "Error": "",
+        "StartedAt": "2026-10-09T02:06:28.142967793Z",
+        "FinishedAt": "2026-10-09T05:33:03.170677168Z"
+      },
+      "image": "rust@sha256:585dced3da590f4f7dc2719172ead5b39ea781bd8b698c092112da8ef3be0659",
+      "action": "v2 stopped after actual docker top showed sleep infinity only; v1 already stopped",
+      "removed": false
+    },
+    {
+      "container": "places-art-style-stage7-linux-v2",
+      "state": {
+        "Status": "exited",
+        "Running": false,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 0,
+        "ExitCode": 137,
+        "Error": "",
+        "StartedAt": "2026-10-09T05:33:03.587993293Z",
+        "FinishedAt": "2026-10-09T08:02:15.589655422Z"
+      },
+      "image": "sha256:4799f5f7ff4db4b2a7c8799d15f8973445ec2e8b19be2dd752831782e00588de",
+      "action": "v2 stopped after actual docker top showed sleep infinity only; v1 already stopped",
+      "removed": false
+    }
+  ],
+  "scope": "Only queue-owned idle Stage7 containers stopped. Images, SDKs, nested targets and preserved ELF/PE artifacts retained. No target cleanup or caffeinate signal."
+}

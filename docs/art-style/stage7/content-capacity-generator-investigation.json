@@ -1,0 +1,531 @@
+{
+  "format_version": 1,
+  "status": "read-only investigation; generator/source mutation not yet authorized",
+  "fixture_source": "tests/fixtures/levels/capacity_dense.json",
+  "fixture_sha256": "8ff5d19cdde7ef853e932de7e03b864fc178eb86e8ac99e138295e40c21845f9",
+  "entry_copy_exact": true,
+  "generator_sha256": "83758fc6f14f881e1d3c141e447c933b772a4539d78996cfcdfa7ea106529a8d",
+  "catalog_sha256": "27789ac9a59ec79decb5c95e63f6a4b0de3bbd5101f4ae3d2d45f177e82bee1f",
+  "old_witness": {
+    "props": 5312,
+    "unique_models": 48,
+    "solid_prop_boxes": 2760,
+    "authored_instance_bind_triangle_sum": 2307678,
+    "lights": 120,
+    "actor_routes": 18
+  },
+  "unrestricted_regeneration": {
+    "props": 3689,
+    "unique_models": 205,
+    "solid_prop_boxes": 774,
+    "authored_instance_bind_triangle_sum": 963124,
+    "lights": 120,
+    "actor_routes": 18
+  },
+  "unchanged_non_prop_keys": [
+    "format_version",
+    "id",
+    "name",
+    "author",
+    "spawn",
+    "defaults",
+    "rooms",
+    "walls",
+    "floor_regions",
+    "water",
+    "arc_walls",
+    "pillars",
+    "ceiling_lights",
+    "decals",
+    "routes",
+    "geometry_intent"
+  ],
+  "removed_existing_ids": 1624,
+  "added_ids": 1,
+  "changed_retained_placements": 3670,
+  "changed_retained_fields": {
+    "size": 3651,
+    "x": 3649,
+    "rotation_degrees": 3669,
+    "model": 3653,
+    "z": 3655,
+    "solid": 1887
+  },
+  "historical_roster_specs": [
+    {
+      "id": "core:armchair",
+      "size": [
+        0.9,
+        0.9,
+        0.9
+      ],
+      "solid": true
+    },
+    {
+      "id": "core:bed",
+      "size": [
+        1.4,
+        0.55,
+        2.0
+      ],
+      "solid": true
+    },
+    {
+      "id": "core:bookshelf",
+      "size": [
+        1.0,
+        1.8,
+        0.35
+      ],
+      "solid": true
+    },
+    {
+      "id": "core:cabinet",
+      "size": [
+        0.9,
+        0.85,
+        0.45
+      ],
+      "solid": true
+    },
+    {
+      "id": "core:cardboard_box",
+      "size": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "solid": false
+    },
+    {
+      "id": "core:chair",
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true
+    },
+    {
+      "id": "core:couch",
+      "size": [
+        2.0,
+        0.9,
+        0.9
+      ],
+      "solid": true
+    },
+    {
+      "id": "core:crate",
+      "size": [
+        0.6,
+        0.6,
+        0.6
+      ],
+      "solid": true
+    },
+    {
+      "id": "core:desk",
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ],
+      "solid": true
+    },
+    {
+      "id": "core:exit_sign",
+      "size": [
+        0.45,
+        0.57,
+        0.08
+      ],
+      "solid": false
+    },
+    {
+      "id": "core:fridge",
+      "size": [
+        0.7,
+        1.8,
+        0.7
+      ],
+      "solid": true
+    },
+    {
+      "id": "core:lamp",
+      "size": [
+        0.35,
+        1.5,
+        0.35
+      ],
+      "solid": false
+    },
+    {
+      "id": "core:plant",
+      "size": [
+        0.4,
+        1.0,
+        0.4
+      ],
+      "solid": false
+    },
+    {
+      "id": "core:pool_chair",
+      "size": [
+        0.52,
+        0.85,
+        0.55
+      ],
+      "solid": true
+    },
+    {
+      "id": "core:pool_curtain_corner",
+      "size": [
+        0.6,
+        2.6,
+        0.6
+      ],
+      "solid": false
+    },
+    {
+      "id": "core:pool_curtain_end",
+      "size": [
+        0.6,
+        2.6,
+        0.22
+      ],
+      "solid": false
+    },
+    {
+      "id": "core:pool_curtain_straight",
+      "size": [
+        1.2,
+        2.6,
+        0.22
+      ],
+      "solid": false
+    },
+    {
+      "id": "core:pool_guardrail_corner",
+      "size": [
+        0.6,
+        1.05,
+        0.6
+      ],
+      "solid": true
+    },
+    {
+      "id": "core:pool_guardrail_end",
+      "size": [
+        0.6,
+        1.05,
+        0.08
+      ],
+      "solid": true
+    },
+    {
+      "id": "core:pool_guardrail_straight",
+      "size": [
+        2.0,
+        1.05,
+        0.08
+      ],
+      "solid": true
+    },
+    {
+      "id": "core:pool_ladder",
+      "size": [
+        0.55,
+        2.2,
+        0.45
+      ],
+      "solid": true
+    },
+    {
+      "id": "core:pool_table",
+      "size": [
+        0.8,
+        0.74,
+        0.8
+      ],
+      "solid": true
+    },
+    {
+      "id": "core:rubber_duck",
+      "size": [
+        0.1,
+        0.12,
+        0.14
+      ],
+      "solid": false
+    },
+    {
+      "id": "core:rug",
+      "size": [
+        2.0,
+        0.02,
+        1.4
+      ],
+      "solid": false
+    },
+    {
+      "id": "core:sink",
+      "size": [
+        0.6,
+        1.1,
+        0.55
+      ],
+      "solid": true
+    },
+    {
+      "id": "core:stop_sign",
+      "size": [
+        0.45,
+        1.8,
+        0.06
+      ],
+      "solid": true
+    },
+    {
+      "id": "core:stove",
+      "size": [
+        0.6,
+        0.9,
+        0.6
+      ],
+      "solid": true
+    },
+    {
+      "id": "core:table",
+      "size": [
+        1.4,
+        0.75,
+        0.8
+      ],
+      "solid": true
+    },
+    {
+      "id": "core:tv",
+      "size": [
+        1.1,
+        0.7,
+        0.1
+      ],
+      "solid": false
+    },
+    {
+      "id": "core:vending_machine",
+      "size": [
+        1.0,
+        1.9,
+        0.8
+      ],
+      "solid": true
+    },
+    {
+      "id": "core:washer_drum",
+      "size": [
+        0.42,
+        0.3,
+        0.42
+      ],
+      "solid": false
+    },
+    {
+      "id": "core:washing_machine",
+      "size": [
+        0.6,
+        0.85,
+        0.6
+      ],
+      "solid": true
+    },
+    {
+      "id": "core:water_cooler",
+      "size": [
+        0.35,
+        1.1,
+        0.35
+      ],
+      "solid": true
+    },
+    {
+      "id": "home:ball_light",
+      "size": [
+        0.2,
+        0.8,
+        0.2
+      ],
+      "solid": false
+    },
+    {
+      "id": "home:bowl",
+      "size": [
+        0.15,
+        0.065,
+        0.15
+      ],
+      "solid": false
+    },
+    {
+      "id": "home:cabinet_base",
+      "size": [
+        0.6,
+        0.9,
+        0.6
+      ],
+      "solid": true
+    },
+    {
+      "id": "home:cabinet_wall",
+      "size": [
+        0.6,
+        0.72,
+        0.33
+      ],
+      "solid": true
+    },
+    {
+      "id": "home:crt_tv",
+      "size": [
+        0.55,
+        0.48,
+        0.46
+      ],
+      "solid": true
+    },
+    {
+      "id": "home:fork",
+      "size": [
+        0.026,
+        0.012,
+        0.196
+      ],
+      "solid": false
+    },
+    {
+      "id": "home:knife",
+      "size": [
+        0.022,
+        0.016,
+        0.215
+      ],
+      "solid": false
+    },
+    {
+      "id": "home:plant_table",
+      "size": [
+        0.13,
+        0.28,
+        0.13
+      ],
+      "solid": false
+    },
+    {
+      "id": "home:plate",
+      "size": [
+        0.22,
+        0.022,
+        0.22
+      ],
+      "solid": false
+    },
+    {
+      "id": "home:spoon",
+      "size": [
+        0.036,
+        0.02,
+        0.185
+      ],
+      "solid": false
+    },
+    {
+      "id": "home:wall_switch",
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ],
+      "solid": false
+    },
+    {
+      "id": "mannequin",
+      "size": [
+        0.42,
+        1.72,
+        0.305
+      ],
+      "solid": false
+    },
+    {
+      "id": "rat",
+      "size": [
+        0.095,
+        0.139,
+        0.613
+      ],
+      "solid": false
+    },
+    {
+      "id": "skeleton",
+      "size": [
+        0.427,
+        1.72,
+        0.315
+      ],
+      "solid": false
+    },
+    {
+      "id": "spooner-man",
+      "size": [
+        0.165,
+        0.389,
+        0.626
+      ],
+      "solid": false
+    }
+  ],
+  "historical_roster_catalog_metadata_drift": [
+    {
+      "id": "home:ball_light",
+      "delta": {
+        "size": {
+          "old": [
+            0.2,
+            0.8,
+            0.2
+          ],
+          "current_catalog": [
+            0.38,
+            0.8,
+            0.38
+          ]
+        }
+      }
+    },
+    {
+      "id": "skeleton",
+      "delta": {
+        "size": {
+          "old": [
+            0.427,
+            1.72,
+            0.315
+          ],
+          "current_catalog": [
+            0.4266,
+            1.72,
+            0.315
+          ]
+        }
+      }
+    }
+  ],
+  "fixed_witness_in_memory_exact_original_bytes": true,
+  "fixed_witness_sha256": "8ff5d19cdde7ef853e932de7e03b864fc178eb86e8ac99e138295e40c21845f9",
+  "root_cause": "Every sorted catalog placeable participates in a cyclic model selection; model footprint rejection near actor corridors controls model_index advancement and global RNG consumption. Expansion48\u2192205 changes accepted bays and all later model/pose draws. Unrestricted regeneration erases collision/instance pressure and falls below existing test minima.",
+  "recommended_change": "Pin explicit historical48 id,size,solid dense-witness specs in generator; validate those IDs exist as current placeables. Preserve every existing source byte/placement/actor/geometry/collision contract. Model Zoo remains the current all-catalog showroom. Narrow stale all-registered-model documentation to fixed dense witness.",
+  "authoritative_regression": "src/zoo_audit.rs::the_dense_capacity_fixture_holds_and_collides_at_scale (>5000 props,>=40 models,>=100 fixtures,>=16 routes,>2000 CollisionWorld boxes).",
+  "metric_limits": "Bind triangle sum is authored instances times decoded bind-pose model triangles; not compiled/native submitted triangles or a runtime character-claim metric. Solid prop count is authored box count, not complete compiled CollisionWorld count.",
+  "campaign_rule": "Current package campaign pins originalsource; no generator/fixture write until primary releases the source."
+}

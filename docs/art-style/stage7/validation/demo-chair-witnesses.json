@@ -1,0 +1,401 @@
+{
+  "scope": "Read-only planned rigid chair9007, unit scale, yaw0, all inset bounds anchors; no native support or pixel claim",
+  "model": "home:dining_chair",
+  "bounds": [
+    [
+      -0.25,
+      0.0,
+      -0.245
+    ],
+    [
+      0.25,
+      0.902,
+      0.245
+    ]
+  ],
+  "inset_bounds": [
+    [
+      -0.24,
+      0.01,
+      -0.2352
+    ],
+    [
+      0.24,
+      0.892,
+      0.2352
+    ]
+  ],
+  "room7": {
+    "navigation_cell_id": 166368,
+    "spawn_position": [
+      60.900001525878906,
+      -0.8999999761581421,
+      -5.5
+    ],
+    "centre": {
+      "position": [
+        60.900001525878906,
+        -0.44899997115135193,
+        -5.5
+      ],
+      "raw_candidates_before_visibility": 0,
+      "raw_candidate_ids": [],
+      "nearest_valid_probe": {
+        "id": 17544,
+        "position": [
+          60.20158386230469,
+          -0.07616519927978516,
+          3.9214935302734375
+        ],
+        "label": 6,
+        "distance_m": 9.454699008476856
+      }
+    },
+    "anchors": [
+      {
+        "position": [
+          60.65999984741211,
+          -0.8899999856948853,
+          -5.735199928283691
+        ],
+        "raw_candidates_before_visibility": 0,
+        "raw_candidate_ids": []
+      },
+      {
+        "position": [
+          61.1400032043457,
+          -0.8899999856948853,
+          -5.735199928283691
+        ],
+        "raw_candidates_before_visibility": 0,
+        "raw_candidate_ids": []
+      },
+      {
+        "position": [
+          60.65999984741211,
+          -0.00799997616559267,
+          -5.735199928283691
+        ],
+        "raw_candidates_before_visibility": 0,
+        "raw_candidate_ids": []
+      },
+      {
+        "position": [
+          61.1400032043457,
+          -0.00799997616559267,
+          -5.735199928283691
+        ],
+        "raw_candidates_before_visibility": 0,
+        "raw_candidate_ids": []
+      },
+      {
+        "position": [
+          60.65999984741211,
+          -0.8899999856948853,
+          -5.264800071716309
+        ],
+        "raw_candidates_before_visibility": 0,
+        "raw_candidate_ids": []
+      },
+      {
+        "position": [
+          61.1400032043457,
+          -0.8899999856948853,
+          -5.264800071716309
+        ],
+        "raw_candidates_before_visibility": 0,
+        "raw_candidate_ids": []
+      },
+      {
+        "position": [
+          60.65999984741211,
+          -0.00799997616559267,
+          -5.264800071716309
+        ],
+        "raw_candidates_before_visibility": 0,
+        "raw_candidate_ids": []
+      },
+      {
+        "position": [
+          61.1400032043457,
+          -0.00799997616559267,
+          -5.264800071716309
+        ],
+        "raw_candidates_before_visibility": 0,
+        "raw_candidate_ids": []
+      }
+    ],
+    "human_walkable": true,
+    "rat_walkable": true,
+    "human_region": 0,
+    "rat_region": 3
+  },
+  "room8_selected_wider_margin": {
+    "navigation_cell_id": 152296,
+    "spawn_position": [
+      62.30000305175781,
+      -0.8999999761581421,
+      -13.299995422363281
+    ],
+    "centre": {
+      "position": [
+        62.30000305175781,
+        -0.44899997115135193,
+        -13.299995422363281
+      ],
+      "raw_candidates_before_visibility": 0,
+      "raw_candidate_ids": [],
+      "nearest_valid_probe": {
+        "id": 15053,
+        "position": [
+          70.35392761230469,
+          -0.07616519927978516,
+          -12.322265625
+        ],
+        "label": 8,
+        "distance_m": 8.12161696651281
+      }
+    },
+    "anchors": [
+      {
+        "position": [
+          62.060001373291016,
+          -0.8899999856948853,
+          -13.535195350646973
+        ],
+        "raw_candidates_before_visibility": 0,
+        "raw_candidate_ids": []
+      },
+      {
+        "position": [
+          62.54000473022461,
+          -0.8899999856948853,
+          -13.535195350646973
+        ],
+        "raw_candidates_before_visibility": 0,
+        "raw_candidate_ids": []
+      },
+      {
+        "position": [
+          62.060001373291016,
+          -0.00799997616559267,
+          -13.535195350646973
+        ],
+        "raw_candidates_before_visibility": 0,
+        "raw_candidate_ids": []
+      },
+      {
+        "position": [
+          62.54000473022461,
+          -0.00799997616559267,
+          -13.535195350646973
+        ],
+        "raw_candidates_before_visibility": 0,
+        "raw_candidate_ids": []
+      },
+      {
+        "position": [
+          62.060001373291016,
+          -0.8899999856948853,
+          -13.06479549407959
+        ],
+        "raw_candidates_before_visibility": 0,
+        "raw_candidate_ids": []
+      },
+      {
+        "position": [
+          62.54000473022461,
+          -0.8899999856948853,
+          -13.06479549407959
+        ],
+        "raw_candidates_before_visibility": 0,
+        "raw_candidate_ids": []
+      },
+      {
+        "position": [
+          62.060001373291016,
+          -0.00799997616559267,
+          -13.06479549407959
+        ],
+        "raw_candidates_before_visibility": 0,
+        "raw_candidate_ids": []
+      },
+      {
+        "position": [
+          62.54000473022461,
+          -0.00799997616559267,
+          -13.06479549407959
+        ],
+        "raw_candidates_before_visibility": 0,
+        "raw_candidate_ids": []
+      }
+    ],
+    "human_walkable": true,
+    "rat_walkable": true,
+    "human_region": 0,
+    "rat_region": 3
+  },
+  "room10": {
+    "navigation_cell_id": 185531,
+    "spawn_position": [
+      66.9000015258789,
+      -0.8999999761581421,
+      5.100006103515625
+    ],
+    "centre": {
+      "position": [
+        66.9000015258789,
+        -0.44899997115135193,
+        5.100006103515625
+      ],
+      "raw_candidates_before_visibility": 6,
+      "raw_candidate_ids": [
+        17546,
+        17858,
+        18170,
+        17585,
+        17897,
+        17549
+      ],
+      "nearest_valid_probe": {
+        "id": 17858,
+        "position": [
+          64.26251983642578,
+          -0.07616519927978516,
+          5.95196533203125
+        ],
+        "label": 6,
+        "distance_m": 2.796631895042673
+      }
+    },
+    "anchors": [
+      {
+        "position": [
+          66.66000366210938,
+          -0.8899999856948853,
+          4.864806175231934
+        ],
+        "raw_candidates_before_visibility": 6,
+        "raw_candidate_ids": [
+          17546,
+          17858,
+          18170,
+          17585,
+          17897,
+          17549
+        ]
+      },
+      {
+        "position": [
+          67.13999938964844,
+          -0.8899999856948853,
+          4.864806175231934
+        ],
+        "raw_candidates_before_visibility": 3,
+        "raw_candidate_ids": [
+          17546,
+          17858,
+          17549
+        ]
+      },
+      {
+        "position": [
+          66.66000366210938,
+          -0.00799997616559267,
+          4.864806175231934
+        ],
+        "raw_candidates_before_visibility": 6,
+        "raw_candidate_ids": [
+          17546,
+          17858,
+          18170,
+          17585,
+          17897,
+          17549
+        ]
+      },
+      {
+        "position": [
+          67.13999938964844,
+          -0.00799997616559267,
+          4.864806175231934
+        ],
+        "raw_candidates_before_visibility": 5,
+        "raw_candidate_ids": [
+          17546,
+          17858,
+          17585,
+          17897,
+          17549
+        ]
+      },
+      {
+        "position": [
+          66.66000366210938,
+          -0.8899999856948853,
+          5.335206031799316
+        ],
+        "raw_candidates_before_visibility": 6,
+        "raw_candidate_ids": [
+          17546,
+          17858,
+          18170,
+          17585,
+          17897,
+          17549
+        ]
+      },
+      {
+        "position": [
+          67.13999938964844,
+          -0.8899999856948853,
+          5.335206031799316
+        ],
+        "raw_candidates_before_visibility": 4,
+        "raw_candidate_ids": [
+          17546,
+          17858,
+          18170,
+          17549
+        ]
+      },
+      {
+        "position": [
+          66.66000366210938,
+          -0.00799997616559267,
+          5.335206031799316
+        ],
+        "raw_candidates_before_visibility": 6,
+        "raw_candidate_ids": [
+          17546,
+          17858,
+          18170,
+          17585,
+          17897,
+          17549
+        ]
+      },
+      {
+        "position": [
+          67.13999938964844,
+          -0.00799997616559267,
+          5.335206031799316
+        ],
+        "raw_candidates_before_visibility": 6,
+        "raw_candidate_ids": [
+          17546,
+          17858,
+          18170,
+          17585,
+          17897,
+          17549
+        ]
+      }
+    ],
+    "human_walkable": true,
+    "rat_walkable": true,
+    "human_region": 0,
+    "rat_region": 3
+  },
+  "room8_eligible_all_anchor_unsupported_cells": 77
+}

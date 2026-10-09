@@ -5065,6 +5065,16 @@ pub fn wall_solid_slices_profiled(
     clear_ceiling_at: impl Fn(f32) -> f32,
     breaks: &[f32],
 ) -> Vec<WallSlice> {
+    wall_solid_slices_with_span_maximum(wall, clear_ceiling_at, breaks, |_, _| None)
+}
+
+/// Shared decomposition with an optional exact maximum from a span's roof owner.
+fn wall_solid_slices_with_span_maximum(
+    wall: &WallDef,
+    clear_ceiling_at: impl Fn(f32) -> f32,
+    breaks: &[f32],
+    span_maximum: impl Fn(f32, f32) -> Option<f32>,
+) -> Vec<WallSlice> {
     let length = wall.length();
     if !length.is_finite() || length <= WALL_SLICE_EPS {
         return Vec::new();
@@ -5122,7 +5132,7 @@ pub fn wall_solid_slices_profiled(
 
     // Emit the vertical complement of the openings covering each segment, so
     // neighbouring solid ranges stay merged.
-    solid_wall_slices(&cuts, &openings, base, &top_at)
+    solid_wall_slices(&cuts, &openings, base, &top_at, &span_maximum)
 }
 
 /// Clamps a wall's authored openings to its footprint and local ceiling.
@@ -5186,6 +5196,7 @@ fn solid_wall_slices(
     openings: &[WallSlice],
     base: f32,
     top_at: &impl Fn(f32) -> f32,
+    span_maximum: &impl Fn(f32, f32) -> Option<f32>,
 ) -> Vec<WallSlice> {
     let mut slices = Vec::new();
     for bounds in cuts.windows(2) {
@@ -5195,13 +5206,14 @@ fn solid_wall_slices(
         if end <= start + WALL_SLICE_EPS {
             continue;
         }
-        // Each cut span is linear, but the exact shared endpoint can belong
-        // to the neighbouring room. Recover this span's true endpoint maximum
-        // from two interior values; collision stays conservative without
-        // borrowing the adjacent room's height or moving any emitted vertex.
-        let first = top_at((end - start).mul_add(0.25, start));
-        let last = top_at((end - start).mul_add(0.75, start));
-        let segment_ceiling = 0.5_f32.mul_add((last - first).abs(), first.max(last));
+        // Engine spans evaluate exact endpoints against their midpoint roof
+        // owner. Generic caller profiles have no owner identity: preserve their
+        // interior extrapolation rather than borrowing a neighbour's endpoint.
+        let segment_ceiling = span_maximum(start, end).unwrap_or_else(|| {
+            let first = top_at((end - start).mul_add(0.25, start));
+            let last = top_at((end - start).mul_add(0.75, start));
+            0.5_f32.mul_add((last - first).abs(), first.max(last))
+        });
         if !segment_ceiling.is_finite() || segment_ceiling <= base + WALL_SLICE_EPS {
             continue;
         }
@@ -7454,16 +7466,14 @@ impl LevelDef {
         }
 
         // Walls are bounded by replaying the same solid-slice decomposition the
-        // geometry builder uses (`wall_solid_slices_profiled`), so the estimate
+        // geometry builder uses (`LevelSurfaces::wall_solid_slices`), so the estimate
         // tracks per-slice segment counts and opening reveals instead of
         // assuming a fixed number of faces per wall. Everything saturates, so
         // malformed dimensions cannot overflow the total.
         let surfaces = LevelSurfaces::new(self);
         let mut wall_quads: u64 = 0;
         for wall in &self.walls {
-            let breaks = surfaces.wall_profile_breaks(wall);
-            let clear = |offset: f32| surfaces.clear_ceiling_height_along(wall, offset);
-            let slices = wall_solid_slices_profiled(wall, clear, &breaks);
+            let slices = surfaces.wall_solid_slices(wall);
             for slice in &slices {
                 let segments = u64::from(crate::lighting::wall_light_segments(
                     slice.end - slice.start,
@@ -7547,8 +7557,6 @@ impl LevelDef {
         let mut aabbs = Vec::new();
 
         for wall in &self.walls {
-            let breaks = surfaces.wall_profile_breaks(wall);
-            let clear = |offset: f32| surfaces.clear_ceiling_height_along(wall, offset);
             let (origin_x, origin_z) = wall.length_origin();
             let (min_x, max_x) = (
                 wall.x.min(wall.x + wall.width),
@@ -7559,7 +7567,7 @@ impl LevelDef {
                 wall.z.max(wall.z + wall.depth),
             );
 
-            for slice in wall_solid_slices_profiled(wall, clear, &breaks) {
+            for slice in surfaces.wall_solid_slices(wall) {
                 let (slice_width, slice_depth) = match wall.axis() {
                     WallAxis::X => (slice.end - slice.start, max_z - min_z),
                     WallAxis::Z => (max_x - min_x, slice.end - slice.start),
@@ -8240,6 +8248,43 @@ impl<'a> LevelSurfaces<'a> {
                 } else {
                     DEFAULT_CEILING_HEIGHT_M
                 }
+            },
+        )
+    }
+
+    /// Solid wall spans with exact endpoint maxima from each span's own roof.
+    ///
+    /// The midpoint owner remains fixed at both endpoints, so a shared boundary
+    /// cannot borrow its neighbour's roof. Evaluating the owned endpoints also
+    /// avoids rounding an interior-sample extrapolation below a real ridge.
+    #[must_use]
+    pub(crate) fn wall_solid_slices(&self, wall: &WallDef) -> Vec<WallSlice> {
+        let breaks = self.wall_profile_breaks(wall);
+        wall_solid_slices_with_span_maximum(
+            wall,
+            |offset| self.clear_ceiling_height_along(wall, offset),
+            &breaks,
+            |start, end| {
+                if let Some(height) = wall.height {
+                    return Some(wall.y + height);
+                }
+                let room = self.wall_ceiling_room(wall, f32::midpoint(start, end))?;
+                let floor = if room.floor_y.is_finite() {
+                    room.floor_y
+                } else {
+                    0.0
+                };
+                let top_at = |offset| {
+                    let (x, z) = wall_point(wall, offset);
+                    let clear = room.ceiling_y_at(x, z) - floor;
+                    wall.y
+                        + if clear.is_finite() && clear > 0.0 {
+                            clear
+                        } else {
+                            DEFAULT_CEILING_HEIGHT_M
+                        }
+                };
+                Some(top_at(start).max(top_at(end)))
             },
         )
     }

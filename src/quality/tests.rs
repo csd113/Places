@@ -184,16 +184,18 @@ fn lightmap_configs_are_the_documented_low_medium_high_values() {
     assert_eq!(high.padding, 2);
     assert_eq!(high.usable_edge(), 1_020);
 
-    for config in [low, medium, high] {
-        // The page budget is the shared atlas budget (B owns the constant and
-        // its mirrored renderer copy); every level uses the same one.
-        assert_eq!(
-            config.max_pages,
-            crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES
-        );
+    for (config, pages) in [(low, 8), (medium, 8), (high, 10)] {
+        // The measured Full policy needs ten pages; lower profiles retain
+        // eight. Every profile stays within the shared renderer capacity.
+        assert_eq!(config.max_pages, pages);
         assert_eq!(config.bytes_per_texel, 16);
         assert_eq!(config.max_chart_span_m(), low.max_chart_span_m());
     }
+    assert_eq!(
+        high.max_pages,
+        crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES,
+        "Full owns the shared renderer capacity"
+    );
 
     // Medium and High must resolve the shared chart-span cap at their density
     // without using the last-resort clamp, exactly as Full did; Low's smaller
@@ -209,13 +211,14 @@ fn lightmap_configs_are_the_documented_low_medium_high_values() {
         );
     }
 
-    // Medium and High share the Full page shape but not the density, so the
+    // Medium and High share the page shape but differ in density and budget, so the
     // content key (which hashes the config) keeps them apart.
     assert_ne!(medium, high);
     assert_eq!(
         medium,
         LightmapConfig {
             texels_per_metre: 12.0,
+            max_pages: 8,
             ..high
         }
     );

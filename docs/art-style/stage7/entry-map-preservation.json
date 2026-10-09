@@ -1,0 +1,114 @@
+{
+  "entry_revision": "26486b8538424f013c243ae6edea8720ac07d7f2",
+  "captured_utc": "2026-10-08T22:05:15.980244+00:00",
+  "files": [
+    {
+      "path": "assets/levels/lantern_hollow.placesmap",
+      "bytes": 110288475,
+      "sha256": "e187a09a28a5300626bfa77c3684d8a08823d243b09e8461aaf81724467d1447",
+      "preserved": "debug-maps/art-style-hero/evidence/stage7-entry/maps/assets/levels/lantern_hollow.placesmap"
+    },
+    {
+      "path": "assets/levels/lantern_hollow.json",
+      "bytes": 348530,
+      "sha256": "1e2c53846cfa21892b3b66e43658925ec28fcea8f4143324f998e1193a91d0c0",
+      "preserved": "debug-maps/art-style-hero/evidence/stage7-entry/maps/assets/levels/lantern_hollow.json"
+    },
+    {
+      "path": "assets/levels/places_demo.json",
+      "bytes": 537437,
+      "sha256": "65833e98579a696167d616ce0cc94ebab85f744fdd72837ed247c483db1f9dec",
+      "preserved": "debug-maps/art-style-hero/evidence/stage7-entry/maps/assets/levels/places_demo.json"
+    },
+    {
+      "path": "assets/levels/movement_test.placesmap",
+      "bytes": 42370588,
+      "sha256": "53920ec1d1bdc6b990a44ec44b4270307b9fb9872fba0f7001ec517dc296a23b",
+      "preserved": "debug-maps/art-style-hero/evidence/stage7-entry/maps/assets/levels/movement_test.placesmap"
+    },
+    {
+      "path": "assets/levels/model_zoo.json",
+      "bytes": 197557,
+      "sha256": "ebbe62f78723b1ccf0525d5c1622bd895f4ecb3444902d984d59f0f8b1d5f458",
+      "preserved": "debug-maps/art-style-hero/evidence/stage7-entry/maps/assets/levels/model_zoo.json"
+    },
+    {
+      "path": "assets/levels/places_demo.placesmap",
+      "bytes": 74520351,
+      "sha256": "01595d413f58f298d178d0b97be2e2dde8513a9537b10ce2006ba14b2615047a",
+      "preserved": "debug-maps/art-style-hero/evidence/stage7-entry/maps/assets/levels/places_demo.placesmap"
+    },
+    {
+      "path": "assets/levels/winter.placesmap",
+      "bytes": 50056698,
+      "sha256": "b4141a9aaa033fa59e67cccfe4e88bf7f05db082aad5781cc176d6bab5799677",
+      "preserved": "debug-maps/art-style-hero/evidence/stage7-entry/maps/assets/levels/winter.placesmap"
+    },
+    {
+      "path": "assets/levels/movement_test.json",
+      "bytes": 42302,
+      "sha256": "f6f51c3a65ae38cb4afb6282d9a6239ece3de17618971accfd8ae9580d02d45b",
+      "preserved": "debug-maps/art-style-hero/evidence/stage7-entry/maps/assets/levels/movement_test.json"
+    },
+    {
+      "path": "assets/levels/winter.json",
+      "bytes": 123556,
+      "sha256": "785480ca9c87febe9790ac35390ee664ec42c78a9dfc54398ef7182ce09333d0",
+      "preserved": "debug-maps/art-style-hero/evidence/stage7-entry/maps/assets/levels/winter.json"
+    },
+    {
+      "path": "assets/levels/model_zoo.placesmap",
+      "bytes": 87454894,
+      "sha256": "97df50b077f7295cfc246dd849de56ba25e7dd18e4f0b3f1b00cea4b34356ed9",
+      "preserved": "debug-maps/art-style-hero/evidence/stage7-entry/maps/assets/levels/model_zoo.placesmap"
+    },
+    {
+      "path": "levels/geometry_intentional.json",
+      "bytes": 4622,
+      "sha256": "4efa15c7a7373e5f69c4aa0621c99f558c5067b9496796a4761f4b740612e13b",
+      "preserved": "debug-maps/art-style-hero/evidence/stage7-entry/maps/levels/geometry_intentional.json"
+    },
+    {
+      "path": "levels/level0_pit.json",
+      "bytes": 77481,
+      "sha256": "fe67c23ddc9742fc819befdecc38d1dbce5000c281d4c7eec06ce8367989db38",
+      "preserved": "debug-maps/art-style-hero/evidence/stage7-entry/maps/levels/level0_pit.json"
+    },
+    {
+      "path": "levels/home_showcase.json",
+      "bytes": 10942,
+      "sha256": "26930244496c5eae26d0daf7d14571da488649c4a5d513c42311e6d3229f8ac3",
+      "preserved": "debug-maps/art-style-hero/evidence/stage7-entry/maps/levels/home_showcase.json"
+    },
+    {
+      "path": "levels/home_showcase.placesmap",
+      "bytes": 3683295,
+      "sha256": "e26913305af6fbb27ed2106d18b8252b235d74f8de238224ffcef0d35ee42563",
+      "preserved": "debug-maps/art-style-hero/evidence/stage7-entry/maps/levels/home_showcase.placesmap"
+    },
+    {
+      "path": "levels/geometry_intentional.placesmap",
+      "bytes": 3904451,
+      "sha256": "76aad22500096e3d72fb3210dc0d22b07c32819723cdc81bc4b5bc6337ef98c6",
+      "preserved": "debug-maps/art-style-hero/evidence/stage7-entry/maps/levels/geometry_intentional.placesmap"
+    },
+    {
+      "path": "levels/snowfall_contrast.placesmap",
+      "bytes": 439618,
+      "sha256": "447f57fc993eef484e7c5a0f2142132c4085b02ebaa480f00b1ffa194f051499",
+      "preserved": "debug-maps/art-style-hero/evidence/stage7-entry/maps/levels/snowfall_contrast.placesmap"
+    },
+    {
+      "path": "levels/blizzard_review.placesmap",
+      "bytes": 50056737,
+      "sha256": "48733fd5930b02bb85c147a04710d307527a637f2d615c7eeaeb2ad178bcf7e6",
+      "preserved": "debug-maps/art-style-hero/evidence/stage7-entry/maps/levels/blizzard_review.placesmap"
+    },
+    {
+      "path": "levels/level0_pit.placesmap",
+      "bytes": 50898114,
+      "sha256": "53d84e36594dd989caddcfd6d1ae7fb50a200fbabcc3522d9d5ce19eaced116b",
+      "preserved": "debug-maps/art-style-hero/evidence/stage7-entry/maps/levels/level0_pit.placesmap"
+    }
+  ]
+}

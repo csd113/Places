@@ -1,0 +1,61 @@
+{
+  "format_version": 1,
+  "level": "lighting_diagnostic",
+  "source": "tests/fixtures/levels/lighting_diagnostic.json",
+  "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__lighting_diagnostic.placesmap",
+  "settings": {
+    "bindings": {
+      "forward": "W",
+      "backward": "S",
+      "strafe_left": "A",
+      "strafe_right": "D",
+      "look_up": "UP",
+      "look_down": "DOWN",
+      "look_left": "LEFT",
+      "look_right": "RIGHT",
+      "jump": "SPACE",
+      "crouch": "C",
+      "interact": "E"
+    },
+    "look_speed_h": 90,
+    "look_speed_v": 60,
+    "walk_speed": 3,
+    "invert_look": false,
+    "mouse_sensitivity": 0.12,
+    "quality": "high",
+    "texture_filtering": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true,
+    "use_low_quality_lighting": false,
+    "vsync": false,
+    "fov_degrees": 60,
+    "window_mode": "windowed",
+    "window_width": 640,
+    "window_height": 360
+  },
+  "capture": {
+    "ready_world_seconds": 0.5,
+    "warmup_frames": 15,
+    "limit_frames": 2400,
+    "expected_drawable": [
+      1280,
+      720
+    ]
+  },
+  "views": [
+    {
+      "name": "spawn",
+      "spawn": [
+        6.0,
+        6.0,
+        0.0
+      ],
+      "camera": [
+        0.0,
+        -6
+      ],
+      "purpose": "Normal supported-map compatibility; visual review required at real authored spawn"
+    }
+  ]
+}

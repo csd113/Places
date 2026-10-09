@@ -13,8 +13,8 @@ Covered: dry-run mutates nothing, apply is atomic, concurrent change and stale
 ``old`` values are refused, malformed pointers are refused, a non-clean
 post-check refuses before publishing, a non-empty second plan restores the
 published bytes, a clean map writes nothing, unrelated fields and key order
-survive byte-for-byte, and the Home-south-wall acceptance case (both the current
-maintained source and a seeded pre-repair scratch copy).
+survive byte-for-byte, the clean current demo, and the historical Home-south-wall
+acceptance case in an independent pre-repair scratch control.
 """
 
 from __future__ import annotations
@@ -42,21 +42,68 @@ SCRATCH = os.path.join(
     ROOT, "target", "agent-work", "06-wall-alignment-audit-and-repair", "runs", "agent-a", "python-tests"
 )
 
-# The confirmed home-south-wall repair plan (Job 06 defect D1): the exact
-# pointers, values and coupling of the accepted plan. The maintained source was
-# repaired with it, so the demo test reconstructs the pre-repair state from its
-# inverse. The wall's index moved 37 -> 35 when Job 02 joined the Home's three
-# overlapping west-wall patches into one wall. The trim quality pass joined
-# artificial 2 mm splits, so the inverse uses the current continuous runs.
+# Job 06 defect D1 belongs to the historical Home envelope, which subsequent
+# Home authoring replaced. Keep its geometry independent of current demo array
+# indices. This compact repaired control preserves the authored fields (only
+# comments omitted) from the retained pre-Home source:
+# debug-maps/pool-style-20261007/evidence/before/assets/levels/places_demo.json
+# Original walls [32, 35, 19], baseboards [1, 5, 6, 9, 10], floor_regions [11]
+# and rooms [5, 6] are reindexed here; no ignored evidence file is needed at run
+# time. Reverse the same eight accepted scalar edits to seed the known defect.
+HISTORICAL_DEMO_REPAIRED = {
+    "format_version": 3,
+    "id": "repair_historical_home_south",
+    "name": "Historical Home South Repair Control",
+    "author": "Places Team",
+    "spawn": {"x": 56.0, "z": 8.0, "yaw_degrees": 0.0},
+    "defaults": {
+        "wall": "core:wallpaper_yellow_01",
+        "floor": "core:carpet_beige_01",
+        "ceiling": "core:ceiling_panel_01",
+    },
+    "walls": [
+        {"x": 36.15, "z": 14.85, "width": 16.85, "depth": 0.3, "y": -0.9,
+         "height": 3.0, "material": "core:wallpaper_yellow_01"},
+        {"x": 53.0, "z": 14.85, "width": 12.0, "depth": 0.3, "height": 4.5,
+         "y": -0.9, "material": "home:wallpaper_offwhite_01"},
+        {"x": 32.85, "z": 14.85, "width": 3.3, "depth": 0.3, "y": -0.9,
+         "height": 3.0},
+    ],
+    "baseboards": [
+        {"x": 53.3, "z": 14.87, "length": 0.948, "material": "home:baseboard_white_01",
+         "y": -0.9, "rotation_degrees": 90.0},
+        {"x": 64.7, "z": 5.8, "length": 9.05, "material": "home:baseboard_white_01",
+         "y": -0.9, "rotation_degrees": 270.0},
+        {"x": 64.7, "z": 14.85, "length": 11.4, "material": "home:baseboard_white_01",
+         "y": -0.9, "rotation_degrees": 180.0},
+        {"x": 64.7, "z": 14.85, "length": 6.7, "material": "home:baseboard_wood_01",
+         "y": 1.2, "rotation_degrees": 180.0},
+        {"x": 64.7, "z": 11.0, "length": 3.85, "material": "home:baseboard_wood_01",
+         "y": 1.2, "rotation_degrees": 270.0},
+    ],
+    "floor_regions": [
+        {"x": 58.0, "z": 11.0, "width": 6.75, "depth": 3.9, "offset_y": 2.1,
+         "material": "home:hardwood_walnut_02", "edge_material": "home:wall_paint_offwhite_01"},
+    ],
+    "rooms": [
+        {"x": 33.0, "z": 11.0, "width": 20.0, "depth": 4.0, "height": 3.0,
+         "floor_y": -0.9, "material": "core:carpet_damp_01",
+         "ceiling_material": "core:ceiling_stained_01"},
+        {"x": 53.0, "z": 3.0, "width": 12.0, "depth": 12.0, "height": 4.5,
+         "floor_y": -0.9, "ceiling": {"kind": "gable", "ridge": "x", "ridge_rise": 1.4},
+         "material": "home:hardwood_oak_01", "ceiling_material": "home:ceiling_white_01"},
+    ],
+}
+
 DEMO_REPAIR_EDITS = (
-    ("/walls/35/z", 14.7, 14.85, "wall"),
-    ("/baseboards/1/z", 14.72, 14.87, "baseboard-end"),
-    ("/baseboards/1/length", 0.798, 0.948, "baseboard-end"),
-    ("/baseboards/5/length", 8.9, 9.05, "baseboard-end"),
-    ("/baseboards/6/z", 14.7, 14.85, "baseboard-parallel"),
-    ("/baseboards/9/z", 14.7, 14.85, "baseboard-parallel"),
-    ("/baseboards/10/length", 3.7, 3.85, "baseboard-end"),
-    ("/floor_regions/11/depth", 3.75, 3.9, "floor-tuck"),
+    ("/walls/1/z", 14.7, 14.85, "wall"),
+    ("/baseboards/0/z", 14.72, 14.87, "baseboard-end"),
+    ("/baseboards/0/length", 0.798, 0.948, "baseboard-end"),
+    ("/baseboards/1/length", 8.9, 9.05, "baseboard-end"),
+    ("/baseboards/2/z", 14.7, 14.85, "baseboard-parallel"),
+    ("/baseboards/3/z", 14.7, 14.85, "baseboard-parallel"),
+    ("/baseboards/4/length", 3.7, 3.85, "baseboard-end"),
+    ("/floor_regions/0/depth", 3.75, 3.9, "floor-tuck"),
 )
 
 sys.path.insert(0, os.path.join(ROOT, "tools", "levels"))
@@ -114,36 +161,22 @@ class RepairScratch(unittest.TestCase):
         return path
 
     def seed_demo_repair(self) -> str:
-        """A scratch demo copy in the confirmed pre-repair (D1) state.
-
-        The maintained source was repaired by Agent C, so this reconstructs the
-        defect from the accepted plan's own inverse: a pointer still at its
-        repaired value is put back to the plan's ``old``. A source that is
-        already pre-repair is copied as-is; anything else fails loudly.
-        """
-        source = os.path.join(self.work, "places_demo.json")
-        shutil.copyfile(DEMO, source)
-        with open(source, "r", encoding="utf-8") as handle:
-            document = json.load(handle)
+        """Seed the historical D1 geometry without relying on current demo indices."""
+        document = json.loads(json.dumps(HISTORICAL_DEMO_REPAIRED))
         for pointer, old, new, _coupled in DEMO_REPAIR_EDITS:
             current = ra.resolve_pointer(document, pointer)
-            if ra.values_match(current, new):
-                ra.assign_pointer(document, pointer, old)
-            else:
-                self.assertTrue(
-                    ra.values_match(current, old),
-                    f"{pointer}: the demo carries {current!r}, expected the repaired "
-                    f"{new!r} or the seeded {old!r}",
-                )
-        with open(source, "wb") as handle:
-            handle.write(ra.serialise(document, True))
-        return source
+            self.assertTrue(
+                ra.values_match(current, new),
+                f"{pointer}: the historical control carries {current!r}, expected {new!r}",
+            )
+            ra.assign_pointer(document, pointer, old)
+        return self.write_level("historical_home_south", document)
 
     def assert_demo_repair_plan(self, plan: dict) -> None:
-        """The accepted Home-south-wall plan: one step finding and the exact 11 edits."""
+        """The historical Home-south-wall plan: one step and the exact eight edits."""
         self.assertEqual(len(plan["findings"]), 1, plan["findings"])
         finding = plan["findings"][0]
-        self.assertEqual((finding["first"], finding["second"]), (32, 35))
+        self.assertEqual((finding["first"], finding["second"]), (0, 1))
         self.assertEqual(finding["kind"], "step")
         self.assertTrue(finding["auto_repairable"])
         self.assertAlmostEqual(finding["shift"], 0.15, places=4)
@@ -160,6 +193,7 @@ class RepairScratch(unittest.TestCase):
             self.assertEqual(edit["coupled"], coupled)
             self.assertEqual(edit["finding"], 0)
         self.assertEqual(plan["post_check"]["errors"], 0)
+        self.assertEqual(plan["review"], [])
 
     def plan_for(self, source: str) -> dict:
         plan_path = os.path.join(self.work, "plan.json")
@@ -333,11 +367,9 @@ class RepairApplierTests(RepairScratch):
             )
 
     def test_the_demo_source_plans_only_its_current_state(self) -> None:
-        # Mirrors the Rust test `the_shipped_demo_reports_only_the_confirmed_wall_step`:
-        # the maintained source is currently repaired, so it must plan nothing
-        # and verify cleanly; if it ever regresses, the pre-repair shape below
-        # is asserted exactly. The plan is always re-checked against the real
-        # source in place (read-only).
+        # Mirrors the Rust test `the_shipped_demo_has_no_confirmed_geometry_defects`.
+        # The maintained source must plan nothing and verify cleanly. Historical
+        # D1 acceptance is tested independently, never allowed as a source regression.
         before = self.read(DEMO)
         plan = self.plan_for(DEMO)
         self.assertEqual(self.read(DEMO), before, "the planner must be read-only")
@@ -345,15 +377,13 @@ class RepairApplierTests(RepairScratch):
         checked = self.applier(plan_path, "--check")
         self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
         self.assertEqual(self.read(DEMO), before)
-        if plan["findings"]:
-            # A source regression: only the known Home-south-wall step may appear.
-            self.assert_demo_repair_plan(plan)
-        else:
-            self.assertEqual(plan["edits"], [])
-            self.assertEqual(plan["review"], [])
-            self.assertEqual(plan["post_check"]["errors"], 0)
+        self.assertEqual(plan["findings"], [])
+        self.assertEqual(plan["edits"], [])
+        self.assertEqual(plan["review"], [])
+        self.assertEqual(plan["post_check"]["errors"], 0)
 
     def test_the_seeded_demo_repair_plan_and_apply_are_pinned(self) -> None:
+        maintained_before = self.read(DEMO)
         source = self.seed_demo_repair()
         before = self.read(source)
         plan = self.plan_for(source)
@@ -365,21 +395,31 @@ class RepairApplierTests(RepairScratch):
         self.assertEqual(self.temp_siblings(), [])
         with open(source, "r", encoding="utf-8") as handle:
             fixed = json.load(handle)
-        self.assertEqual(fixed["walls"][35]["z"], 14.85)
-        self.assertEqual(fixed["baseboards"][1]["z"], 14.87)
-        self.assertEqual(fixed["baseboards"][1]["length"], 0.948)
-        self.assertEqual(fixed["baseboards"][5]["length"], 9.05)
-        self.assertEqual(fixed["baseboards"][6]["z"], 14.85)
-        self.assertEqual(fixed["baseboards"][9]["z"], 14.85)
-        self.assertEqual(fixed["baseboards"][10]["length"], 3.85)
-        self.assertEqual(fixed["floor_regions"][11]["depth"], 3.9)
+        self.assertEqual(fixed["walls"][1]["z"], 14.85)
+        self.assertEqual(fixed["baseboards"][0]["z"], 14.87)
+        self.assertEqual(fixed["baseboards"][0]["length"], 0.948)
+        self.assertEqual(fixed["baseboards"][1]["length"], 9.05)
+        self.assertEqual(fixed["baseboards"][2]["z"], 14.85)
+        self.assertEqual(fixed["baseboards"][3]["z"], 14.85)
+        self.assertEqual(fixed["baseboards"][4]["length"], 3.85)
+        self.assertEqual(fixed["floor_regions"][0]["depth"], 3.9)
+        self.assertEqual(fixed, HISTORICAL_DEMO_REPAIRED, "all unrelated authored fields survive")
+        before_leaves, after_leaves = flatten(json.loads(before)), flatten(fixed)
+        self.assertEqual(
+            {pointer for pointer in before_leaves if before_leaves[pointer] != after_leaves[pointer]},
+            {pointer for pointer, _old, _new, _coupled in DEMO_REPAIR_EDITS},
+        )
 
         second = run(
             [places_binary(), "--repair-geometry", "--level", source, "--json"]
         )
         self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
-        self.assertEqual(json.loads(second.stdout)["findings"], [])
-        self.assertEqual(json.loads(second.stdout)["edits"], [])
+        second_plan = json.loads(second.stdout)
+        self.assertEqual(second_plan["findings"], [])
+        self.assertEqual(second_plan["edits"], [])
+        self.assertEqual(second_plan["review"], [])
+        self.assertEqual(second_plan["post_check"]["errors"], 0)
+        self.assertEqual(self.read(DEMO), maintained_before, "the maintained demo stays byte-identical")
 
     def test_malformed_pointer_is_refused_and_mutates_nothing(self) -> None:
         source = self.copy_fixture("wall_step_x")

@@ -721,6 +721,9 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
 
 def level_ids(level: dict):
     """Yields ``(id, what)`` for every asset reference in a parsed level."""
+    sky = level.get("sky")
+    if isinstance(sky, dict) and sky.get("texture"):
+        yield str(sky["texture"]).strip(), "sky texture"
     defaults = level.get("defaults") or {}
     for key in ("wall", "floor", "ceiling"):
         if defaults.get(key):
@@ -872,6 +875,63 @@ def validate_doors(level: dict, where: str, errors: list[str]) -> None:
         obstruction = door.get("obstruction", "stop")
         if obstruction not in ("stop", "reverse"):
             errors.append(f"{where}: door {index} obstruction must be 'stop' or 'reverse'")
+
+
+def validate_environment(level: dict, where: str, errors: list[str]) -> None:
+    """Mirror environment.rs defaults, strict field names and authored bounds."""
+    environment = level.get("environment")
+    if environment is None:
+        return
+    if not isinstance(environment, dict):
+        errors.append(f"{where}: environment must be an object")
+        return
+    if environment.keys() - {"presentation", "fog"}:
+        errors.append(f"{where}: unknown environment fields: {sorted(environment.keys() - {'presentation', 'fog'})}")
+    sections = (
+        ("presentation", (("exposure", 1.0, .125, 8.0),
+                          ("tone_knee", .75, .25, .95),
+                          ("saturation", 1.03, .8, 1.2),
+                          ("contrast", 1.02, .8, 1.2))),
+        ("fog", (("density", .0095, 0.0, .5),
+                 ("reference_y", 2.0, -10_000.0, 10_000.0),
+                 ("height_gain", .045, 0.0, 1.0))),
+    )
+    for name, fields in sections:
+        section = environment.get(name, {})
+        if not isinstance(section, dict):
+            errors.append(f"{where}: environment {name} must be an object")
+            continue
+        allowed = {key for key, _, _, _ in fields}
+        if name == "fog":
+            allowed.add("color")
+        if section.keys() - allowed:
+            errors.append(f"{where}: unknown environment {name} fields: {sorted(section.keys() - allowed)}")
+        for key, default, low, high in fields:
+            value = section.get(key, default)
+            if not is_finite_number(value) or not low <= value <= high:
+                errors.append(f"{where}: environment {name} {key} must be finite in {low}..{high}")
+        if name == "fog" and not is_color_triplet(section.get("color", [.60, .63, .68])):
+            errors.append(f"{where}: environment fog color must have three finite sRGB channels in 0..1")
+
+
+def validate_sky(level: dict, where: str, errors: list[str]) -> None:
+    """SkyDef keeps permissive field names and bounded linear dome radiance."""
+    sky = level.get("sky")
+    if sky is None:
+        return
+    if not isinstance(sky, dict):
+        errors.append(f"{where}: sky must be an object")
+        return
+    texture = sky.get("texture")
+    if not isinstance(texture, str) or not _ASSET_ID.fullmatch(texture.strip()):
+        errors.append(f"{where}: sky texture must be a well-formed logical id")
+    for key, default, high in (("brightness", 1.0, 4.0), ("ambient", 0.0, 1.0)):
+        value = sky.get(key, default)
+        if not is_finite_number(value) or not 0.0 <= value <= high:
+            errors.append(f"{where}: sky {key} must be finite in 0..{high}")
+    color = sky.get("ambient_color")
+    if color is not None and not is_color_triplet(color):
+        errors.append(f"{where}: sky ambient_color must have three finite linear channels in 0..1")
 
 
 def validate_weather(level: dict, where: str, errors: list[str]) -> None:
@@ -2432,6 +2492,9 @@ def validate_water_shapes(level: dict, where: str, errors: List[str]) -> None:
             not is_finite_number(opacity) or not 0.0 <= opacity <= 1.0
         ):
             errors.append(f"{context} opacity must be a finite number between 0 and 1")
+        attenuation = volume.get("attenuation_per_metre", 0.0)
+        if not is_finite_number(attenuation) or not 0.0 <= attenuation <= 16.0:
+            errors.append(f"{context} attenuation_per_metre must be finite in 0..16")
         bottom = volume.get("bottom_y")
         surface = volume.get("surface_y")
         if bottom is not None and (
@@ -2693,6 +2756,8 @@ def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> 
             validate_interactions(level, relative, errors)
             validate_doors(level, relative, errors)
             validate_effects(level, relative, errors)
+            validate_environment(level, relative, errors)
+            validate_sky(level, relative, errors)
             validate_weather(level, relative, errors)
             validate_water_shapes(level, relative, errors)
             validate_floats(level, relative, errors)

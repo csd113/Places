@@ -1,0 +1,39 @@
+{
+  "recorded_utc": "2026-10-09T08:04:23.593445+00:00",
+  "start_utc": "2026-10-09T08:04:22.813370+00:00",
+  "argv": [
+    "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+    "docs/art-style/stage7/validation/home-animation-restoration-root-v1.py"
+  ],
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "exit_code": 0,
+  "elapsed_seconds": 0.7792214159853756,
+  "status": "passed",
+  "renderer_report_exact_output_match": true,
+  "helper": {
+    "path": "docs/art-style/stage7/validation/home-animation-restoration-root-v1.py",
+    "bytes": 17444,
+    "sha256": "19a813a927aabd72c67b8a08bbfabc3edc678e97dec15b2053eab327f2109bf9"
+  },
+  "inputs": {
+    "path": "docs/art-style/stage7/validation/home-animation-restoration-root-v1.inputs.json",
+    "bytes": 8138,
+    "sha256": "31895183da618e2b92dfc79c6ea4c871b776c3fed358c9dc9f43bfb1c90757bd"
+  },
+  "renderer_report": {
+    "path": "docs/art-style/stage7/validation/home-animation-restoration-root-v1.json",
+    "bytes": 40860,
+    "sha256": "c273150d797d05aa4d8f29ff3af32ecd70b6be422c0e8d1cef1dea88ab044d85"
+  },
+  "stdout": {
+    "path": "docs/art-style/stage7/validation/home-animation-independent-reproduction-v1.stdout.json",
+    "bytes": 19482,
+    "sha256": "309a9168375af1233876c52a9d4e67d779bf23d8233bd53549460cdd00fccc33"
+  },
+  "stderr": {
+    "path": "docs/art-style/stage7/validation/home-animation-independent-reproduction-v1.stderr.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "no_native_build_bake_git_source_changes": true
+}

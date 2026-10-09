@@ -254,8 +254,27 @@ fn directional_entity_irradiance_reaches_real_rendered_pixels() {
     let normal = Vec3::new(0.0, 1.0, 1.4).normalize().to_array();
     let expected = texel.light_at(normal)[0];
     assert!(expected > 0.21 && expected < 0.22);
+    assert_eq!(
+        renderer.world_pipeline.as_ref().unwrap().format(),
+        wgpu::TextureFormat::Rgba8UnormSrgb,
+        "the unchanged direct capture writes linear radiance to an sRGB target"
+    );
+    assert_eq!(
+        renderer.textures.fallback().meta().format,
+        wgpu::TextureFormat::Rgba8UnormSrgb,
+        "the committed fallback colour texel is decoded before lighting"
+    );
+    let position = directional_pixel_position(&asset, Vec3::from_array(normal));
+    let expected_bright = directional_display_pixel(&loaded, position, texel.light_at(normal));
+    let default_normal =
+        directional_display_pixel(&loaded, position, texel.light_at([0.0, 0.0, 1.0]));
     let mut reversed_field = renderer.dynamic_field.as_ref().unwrap().as_ref().clone();
     reversed_field.probes[0].direction = [0.0, -0.3, 0.0];
+    let expected_dark = directional_display_pixel(
+        &loaded,
+        position,
+        reversed_field.probes[0].texel().light_at(normal),
+    );
     renderer.dynamic_field = Some(Arc::new(reversed_field));
     let _update_stats_2 = renderer.update_dynamic(0.0);
     let dark = capture(&mut renderer);
@@ -274,19 +293,67 @@ fn directional_entity_irradiance_reaches_real_rendered_pixels() {
         .expect("dark PNG");
     }
     let centre = (64 * 128 + 64) * 4;
-    assert!(
-        expected
-            .mul_add(-255.0, f32::from(bright.rgba[centre]))
-            .abs()
-            < 2.0,
-        "posed face normal reaches pixels"
-    );
-    assert!(
-        bright.rgba[centre] > dark.rgba[centre] + 20,
-        "moment sign changes diffuse pixels: {} vs {}",
-        bright.rgba[centre],
-        dark.rgba[centre]
-    );
+    assert_directional_display_pixel(&bright, expected_bright, "posed face normal");
+    assert_directional_display_pixel(&dark, expected_dark, "reversed incident moment");
+    for (channel, default) in default_normal.iter().enumerate() {
+        let bright_channel = f32::from(bright.rgba[centre + channel]);
+        let dark_channel = f32::from(dark.rgba[centre + channel]);
+        assert!(
+            bright_channel - dark_channel > 20.0 && bright_channel - default > 20.0,
+            "channel {channel}: moment/posed-normal contrast exceeds 20 display bytes: \
+             bright={bright_channel}, reversed={dark_channel}, default_normal={default}"
+        );
+    }
+}
+
+fn directional_pixel_position(asset: &LoadedPropAsset, normal: Vec3) -> [f32; 3] {
+    // Centre pixel (64,64) of the existing 128px/FOV60 capture. Intersect its
+    // half-pixel-offset camera ray with the actual sloped triangle's plane.
+    let eye = Vec3::new(0.0, 1.0, 3.0);
+    let half_pixel = 30_f32.to_radians().tan() / 128.0;
+    let ray = Vec3::new(half_pixel, -half_pixel, -1.0);
+    let plane = Vec3::from_array(asset.model.vertices[0].pos);
+    let distance = normal.dot(plane - eye) / normal.dot(ray);
+    (eye + ray * distance).to_array()
+}
+
+fn directional_display_pixel(
+    loaded: &LoadedLevel,
+    position: [f32; 3],
+    light: [f32; 3],
+) -> [f32; 3] {
+    // UV(0,0) uses the committed fallback's nearest texel, which is not
+    // assumed to be unit white. Retain normal fog and the direct capture's
+    // single hardware sRGB encode; no post settings or renderer gates change.
+    let source = super::super::texture::fallback_white_image();
+    assert_eq!(source.rgba[3], 255, "the reference face remains opaque");
+    let fog = crate::render::common::atmosphere::LevelFog::from_level(&loaded.level);
+    let (amount, color) = fog.amount([0.0, 1.0, 3.0], position);
+    std::array::from_fn(|channel| {
+        let albedo = crate::materials::color::decode_byte(source.rgba[channel]);
+        let lit = albedo * light[channel];
+        let fog_linear = crate::materials::color::srgb_to_linear(color[channel]);
+        let linear = (fog_linear - lit).mul_add(amount, lit);
+        crate::materials::color::linear_to_srgb(linear) * 255.0
+    })
+}
+
+fn assert_directional_display_pixel(
+    image: &crate::loader::RawImage,
+    expected: [f32; 3],
+    label: &str,
+) {
+    let centre = (64 * 128 + 64) * 4;
+    for (channel, reference) in expected.iter().enumerate() {
+        let actual = f32::from(image.rgba[centre + channel]);
+        assert!(
+            (actual - reference).abs() < 2.0,
+            "{label} reaches channel {channel}: expected {reference:.4} sRGB display \
+             bytes, actual={actual}, RGBA={:?}; tolerance remains <2 bytes",
+            &image.rgba[centre..centre + 4]
+        );
+    }
+    assert_eq!(image.rgba[centre + 3], 255, "{label} remains opaque");
 }
 
 fn archive_bytes(archive: &mut zip::ZipArchive<std::io::Cursor<&[u8]>>, name: &str) -> Vec<u8> {

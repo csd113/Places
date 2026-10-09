@@ -1,0 +1,27 @@
+{
+  "recorded_utc": "2026-10-09T02:42:19.238926+00:00",
+  "source_freeze": "docs/art-style/stage7/source-input-identities-v8.json",
+  "source_freeze_sha256": "b8c24828fd0f2d27d7104202e81d63fe0177e7a5f38a0cbe064f06bdcd0a88ba",
+  "build": "docs/art-style/stage7/execution/ordinary-c1-plmp6-release-v1.json",
+  "status": "Actual frozen ordinary C1 release after PLMP6 preflight; final48/C2/current native acceptance pending",
+  "files": [
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-runtime/normal-c1-plmp6-v8/places",
+      "bytes": 93601024,
+      "sha256": "98020c56c30ab1dbdbbfa3c0bbbb45ef8c8357651f23e3d1998c12c6a9985d44",
+      "copied_from": "/Users/connordawkins/Documents/GitHub/Places/target/release/places"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-runtime/normal-c1-plmp6-v8/places-compile",
+      "bytes": 6760064,
+      "sha256": "f3f27db928af9927219f3440a95acbbcfb2f53bdecb321af207613ddce91527f",
+      "copied_from": "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-runtime/normal-c1-plmp6-v8/libSDL3.0.dylib",
+      "bytes": 2520816,
+      "sha256": "5fdf17e340d9123e3d57c60c4c3c41777d04fe233d09bcd00874de09281746ab",
+      "copied_from": "/opt/homebrew/lib/libSDL3.0.dylib"
+    }
+  ]
+}

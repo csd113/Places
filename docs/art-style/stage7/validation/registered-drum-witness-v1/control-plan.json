@@ -1,0 +1,385 @@
+{
+  "recorded_utc": "2026-10-09T06:58:29.124234+00:00",
+  "status": "prepared-data-only; no native execution",
+  "source_freeze": {
+    "path": "docs/art-style/stage7/source-input-identities-v12.json",
+    "bytes": 40216,
+    "sha256": "740b3e71b79f7691ffd99889836d04afc796a397fb09e7d5982155ca2f96e432"
+  },
+  "source": {
+    "path": "assets/levels/places_demo.json",
+    "bytes": 537437,
+    "sha256": "65833e98579a696167d616ce0cc94ebab85f744fdd72837ed247c483db1f9dec"
+  },
+  "catalog": {
+    "path": "assets/catalog.json",
+    "bytes": 171742,
+    "sha256": "27789ac9a59ec79decb5c95e63f6a4b0de3bbd5101f4ae3d2d45f177e82bee1f"
+  },
+  "model": {
+    "path": "assets/core/props/models/washer_drum.glb",
+    "bytes": 105568,
+    "sha256": "570eb5aa9a9be9062bdfb261dfb0758fb11c6e072d56c10a657322e521555d0a",
+    "model_path": "core/props/models/washer_drum.glb",
+    "catalog_id": "core:washer_drum",
+    "node_transform": "identity",
+    "bounds_min": [
+      -0.20999999344348907,
+      0.0,
+      -0.20999999344348907
+    ],
+    "bounds_max": [
+      0.20999999344348907,
+      0.30000001192092896,
+      0.20999999344348907
+    ],
+    "centre": [
+      0.0,
+      0.15000000596046448,
+      0.0
+    ],
+    "vertex_count": 289,
+    "index_count": 462,
+    "triangle_count": 154,
+    "local_inset_bounds_min": [
+      -0.20160000026226044,
+      0.006000000052154064,
+      -0.20160000026226044
+    ],
+    "local_inset_bounds_extent": [
+      0.4032000005245209,
+      0.2879999876022339,
+      0.4032000005245209
+    ]
+  },
+  "before": {
+    "package": {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/assets__levels__places_demo.placesmap",
+      "bytes": 85226656,
+      "sha256": "3a4561f1a909b1cc64b23fda1fb0c22c1f130da457ed72f583f09d35f3227acf"
+    },
+    "binary": {
+      "path": "debug-maps/art-style-hero/evidence/stage7-runtime/normal-c1-v2/places",
+      "bytes": 93303792,
+      "sha256": "ee7f237d742c4d3e6f4574b7e6cfef071dc022af1c2308ded875abd876f673f8"
+    },
+    "scope": "Superseded genuine prephase control; currentness not claimed"
+  },
+  "after": {
+    "package": {
+      "path": "assets/levels/places_demo.placesmap",
+      "bytes": 84978735,
+      "sha256": "6eb87c7d61a60610c8729812f83a2bf45caec4d9c45d123a9184b7a3bb9228c7"
+    },
+    "binary": {
+      "path": "debug-maps/art-style-hero/evidence/stage7-runtime/normal-c2-plmp6-v10/places",
+      "bytes": 93056128,
+      "sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081"
+    },
+    "compiler_sha256": "f3f27db928af9927219f3440a95acbbcfb2f53bdecb321af207613ddce91527f",
+    "scope": "Current package/normalplayer; exact dependencies/catalog/currentness required at execution"
+  },
+  "cases": [
+    {
+      "id": "home",
+      "manifest": "docs/art-style/stage7/validation/registered-drum-witness-v1/manifests/home.json",
+      "sequences": {
+        "quality": "docs/art-style/stage7/validation/registered-drum-witness-v1/sequences/home-quality.json",
+        "independent": "docs/art-style/stage7/validation/registered-drum-witness-v1/sequences/home-independent.json",
+        "parity-normal": "docs/art-style/stage7/validation/registered-drum-witness-v1/sequences/home-parity-normal.json",
+        "parity-feature": "docs/art-style/stage7/validation/registered-drum-witness-v1/sequences/home-parity-feature.json"
+      },
+      "quality_cycle": "180:low,360:medium,540:high,720:medium,900:low,1080:high,1260:low,1440:medium,1620:high,1800:medium,1980:low,2160:high",
+      "quality_frames": 2420,
+      "quality_expected": "docs/art-style/stage7/validation/registered-drum-witness-v1/expected/quality.json",
+      "independent_graphics_cycle": "180:lightmaps=off,181:filtering=low,361:filtering=medium,541:filtering=high,720:lightmaps=medium,721:filtering=low,901:filtering=medium,1081:filtering=high,1260:lightmaps=full,1261:filtering=low,1441:filtering=medium,1621:filtering=high,1800:low-lighting=on,1980:low-lighting=off,2161:lightmaps=full,2162:reflections=full,2163:filtering=high,2341:lightmaps=full,2342:reflections=full,2343:filtering=high,2700:reflections=off,2880:reflections=medium,3060:reflections=full",
+      "independent_quality_cycle": "2160:low,2340:medium,2520:high",
+      "independent_frames": 3340,
+      "independent_expected": "docs/art-style/stage7/validation/registered-drum-witness-v1/expected/independent.json",
+      "parity_frames": 240,
+      "parity_expected": "docs/art-style/stage7/validation/registered-drum-witness-v1/expected/parity.json",
+      "minimum_dynamic_objects": 17,
+      "expected_registered_meshes": 16,
+      "entity_light_trace": true,
+      "witness": {
+        "key": 9007,
+        "model": "core:washer_drum",
+        "model_path": "core/props/models/washer_drum.glb",
+        "model_sha256": "570eb5aa9a9be9062bdfb261dfb0758fb11c6e072d56c10a657322e521555d0a",
+        "position": [
+          61.10000228881836,
+          -0.8999999761581421,
+          7.100006103515625
+        ],
+        "yaw": 0,
+        "scale": 1,
+        "centre": [
+          61.10000228881836,
+          -0.75,
+          7.100006103515625
+        ],
+        "tolerance_m": 0.0001,
+        "role": "runtime registered mesh reuse"
+      }
+    },
+    {
+      "id": "office",
+      "manifest": "docs/art-style/stage7/validation/registered-drum-witness-v1/manifests/office.json",
+      "sequences": {
+        "quality": "docs/art-style/stage7/validation/registered-drum-witness-v1/sequences/office-quality.json",
+        "independent": "docs/art-style/stage7/validation/registered-drum-witness-v1/sequences/office-independent.json",
+        "parity-normal": "docs/art-style/stage7/validation/registered-drum-witness-v1/sequences/office-parity-normal.json",
+        "parity-feature": "docs/art-style/stage7/validation/registered-drum-witness-v1/sequences/office-parity-feature.json"
+      },
+      "quality_cycle": "180:low,360:medium,540:high,720:medium,900:low,1080:high,1260:low,1440:medium,1620:high,1800:medium,1980:low,2160:high",
+      "quality_frames": 2420,
+      "quality_expected": "docs/art-style/stage7/validation/registered-drum-witness-v1/expected/quality.json",
+      "independent_graphics_cycle": "180:lightmaps=off,181:filtering=low,361:filtering=medium,541:filtering=high,720:lightmaps=medium,721:filtering=low,901:filtering=medium,1081:filtering=high,1260:lightmaps=full,1261:filtering=low,1441:filtering=medium,1621:filtering=high,1800:low-lighting=on,1980:low-lighting=off,2161:lightmaps=full,2162:reflections=full,2163:filtering=high,2341:lightmaps=full,2342:reflections=full,2343:filtering=high,2700:reflections=off,2880:reflections=medium,3060:reflections=full",
+      "independent_quality_cycle": "2160:low,2340:medium,2520:high",
+      "independent_frames": 3340,
+      "independent_expected": "docs/art-style/stage7/validation/registered-drum-witness-v1/expected/independent.json",
+      "parity_frames": 240,
+      "parity_expected": "docs/art-style/stage7/validation/registered-drum-witness-v1/expected/parity.json",
+      "minimum_dynamic_objects": 17,
+      "expected_registered_meshes": 16,
+      "entity_light_trace": true,
+      "witness": {
+        "key": 9007,
+        "model": "core:washer_drum",
+        "model_path": "core/props/models/washer_drum.glb",
+        "model_sha256": "570eb5aa9a9be9062bdfb261dfb0758fb11c6e072d56c10a657322e521555d0a",
+        "position": [
+          2.700000047683716,
+          0.0,
+          3.100006103515625
+        ],
+        "yaw": 0,
+        "scale": 1,
+        "centre": [
+          2.700000047683716,
+          0.15000000596046448,
+          3.100006103515625
+        ],
+        "tolerance_m": 0.0001,
+        "role": "runtime registered mesh reuse"
+      }
+    },
+    {
+      "id": "pool",
+      "manifest": "docs/art-style/stage7/validation/registered-drum-witness-v1/manifests/pool.json",
+      "sequences": {
+        "quality": "docs/art-style/stage7/validation/registered-drum-witness-v1/sequences/pool-quality.json",
+        "independent": "docs/art-style/stage7/validation/registered-drum-witness-v1/sequences/pool-independent.json",
+        "parity-normal": "docs/art-style/stage7/validation/registered-drum-witness-v1/sequences/pool-parity-normal.json",
+        "parity-feature": "docs/art-style/stage7/validation/registered-drum-witness-v1/sequences/pool-parity-feature.json"
+      },
+      "quality_cycle": "180:low,360:medium,540:high,720:medium,900:low,1080:high,1260:low,1440:medium,1620:high,1800:medium,1980:low,2160:high",
+      "quality_frames": 2420,
+      "quality_expected": "docs/art-style/stage7/validation/registered-drum-witness-v1/expected/quality.json",
+      "independent_graphics_cycle": "180:lightmaps=off,181:filtering=low,361:filtering=medium,541:filtering=high,720:lightmaps=medium,721:filtering=low,901:filtering=medium,1081:filtering=high,1260:lightmaps=full,1261:filtering=low,1441:filtering=medium,1621:filtering=high,1800:low-lighting=on,1980:low-lighting=off,2161:lightmaps=full,2162:reflections=full,2163:filtering=high,2341:lightmaps=full,2342:reflections=full,2343:filtering=high,2700:reflections=off,2880:reflections=medium,3060:reflections=full",
+      "independent_quality_cycle": "2160:low,2340:medium,2520:high",
+      "independent_frames": 3340,
+      "independent_expected": "docs/art-style/stage7/validation/registered-drum-witness-v1/expected/independent.json",
+      "parity_frames": 240,
+      "parity_expected": "docs/art-style/stage7/validation/registered-drum-witness-v1/expected/parity.json",
+      "minimum_dynamic_objects": 17,
+      "expected_registered_meshes": 16,
+      "entity_light_trace": true,
+      "witness": {
+        "key": 9007,
+        "model": "core:washer_drum",
+        "model_path": "core/props/models/washer_drum.glb",
+        "model_sha256": "570eb5aa9a9be9062bdfb261dfb0758fb11c6e072d56c10a657322e521555d0a",
+        "position": [
+          4.900000095367432,
+          -1.5,
+          15.900001525878906
+        ],
+        "yaw": 0,
+        "scale": 1,
+        "centre": [
+          4.900000095367432,
+          -1.350000023841858,
+          15.900001525878906
+        ],
+        "tolerance_m": 0.0001,
+        "role": "runtime registered mesh reuse"
+      }
+    },
+    {
+      "id": "outdoors",
+      "manifest": "docs/art-style/stage7/validation/registered-drum-witness-v1/manifests/outdoors.json",
+      "sequences": {
+        "quality": "docs/art-style/stage7/validation/registered-drum-witness-v1/sequences/outdoors-quality.json",
+        "independent": "docs/art-style/stage7/validation/registered-drum-witness-v1/sequences/outdoors-independent.json",
+        "parity-normal": "docs/art-style/stage7/validation/registered-drum-witness-v1/sequences/outdoors-parity-normal.json",
+        "parity-feature": "docs/art-style/stage7/validation/registered-drum-witness-v1/sequences/outdoors-parity-feature.json"
+      },
+      "quality_cycle": "180:low,360:medium,540:high,720:medium,900:low,1080:high,1260:low,1440:medium,1620:high,1800:medium,1980:low,2160:high",
+      "quality_frames": 2420,
+      "quality_expected": "docs/art-style/stage7/validation/registered-drum-witness-v1/expected/quality.json",
+      "independent_graphics_cycle": "180:lightmaps=off,181:filtering=low,361:filtering=medium,541:filtering=high,720:lightmaps=medium,721:filtering=low,901:filtering=medium,1081:filtering=high,1260:lightmaps=full,1261:filtering=low,1441:filtering=medium,1621:filtering=high,1800:low-lighting=on,1980:low-lighting=off,2161:lightmaps=full,2162:reflections=full,2163:filtering=high,2341:lightmaps=full,2342:reflections=full,2343:filtering=high,2700:reflections=off,2880:reflections=medium,3060:reflections=full",
+      "independent_quality_cycle": "2160:low,2340:medium,2520:high",
+      "independent_frames": 3340,
+      "independent_expected": "docs/art-style/stage7/validation/registered-drum-witness-v1/expected/independent.json",
+      "parity_frames": 240,
+      "parity_expected": "docs/art-style/stage7/validation/registered-drum-witness-v1/expected/parity.json",
+      "minimum_dynamic_objects": 17,
+      "expected_registered_meshes": 16,
+      "entity_light_trace": true,
+      "witness": {
+        "key": 9007,
+        "model": "core:washer_drum",
+        "model_path": "core/props/models/washer_drum.glb",
+        "model_sha256": "570eb5aa9a9be9062bdfb261dfb0758fb11c6e072d56c10a657322e521555d0a",
+        "position": [
+          4.5,
+          0.0,
+          -16.099998474121094
+        ],
+        "yaw": 0,
+        "scale": 1,
+        "centre": [
+          4.5,
+          0.15000000596046448,
+          -16.099998474121094
+        ],
+        "tolerance_m": 0.0001,
+        "role": "runtime registered mesh reuse"
+      }
+    },
+    {
+      "id": "demo-room7",
+      "room": 7,
+      "manifest": "docs/art-style/stage7/validation/registered-drum-witness-v1/manifests/demo-room7.json",
+      "sequences": {
+        "before": "docs/art-style/stage7/validation/registered-drum-witness-v1/sequences/demo-room7-before.json",
+        "after": "docs/art-style/stage7/validation/registered-drum-witness-v1/sequences/demo-room7-after.json"
+      },
+      "expected_frames": [
+        120,
+        240
+      ],
+      "frames": 360,
+      "before_support": "disabled-and-unresolved",
+      "after_support": "enabled-valid-anchor-and-prepared-centre",
+      "witness": {
+        "key": 9007,
+        "model": "core:washer_drum",
+        "model_path": "core/props/models/washer_drum.glb",
+        "model_sha256": "570eb5aa9a9be9062bdfb261dfb0758fb11c6e072d56c10a657322e521555d0a",
+        "position": [
+          60.900001525878906,
+          -0.8999999761581421,
+          -5.5
+        ],
+        "yaw": 0,
+        "scale": 1,
+        "centre": [
+          60.900001525878906,
+          -0.75,
+          -5.5
+        ],
+        "tolerance_m": 0.0001,
+        "role": "runtime registered mesh reuse"
+      }
+    },
+    {
+      "id": "demo-room8",
+      "room": 8,
+      "manifest": "docs/art-style/stage7/validation/registered-drum-witness-v1/manifests/demo-room8.json",
+      "sequences": {
+        "before": "docs/art-style/stage7/validation/registered-drum-witness-v1/sequences/demo-room8-before.json",
+        "after": "docs/art-style/stage7/validation/registered-drum-witness-v1/sequences/demo-room8-after.json"
+      },
+      "expected_frames": [
+        120,
+        240
+      ],
+      "frames": 360,
+      "before_support": "disabled-and-unresolved",
+      "after_support": "enabled-valid-anchor-and-prepared-centre",
+      "witness": {
+        "key": 9007,
+        "model": "core:washer_drum",
+        "model_path": "core/props/models/washer_drum.glb",
+        "model_sha256": "570eb5aa9a9be9062bdfb261dfb0758fb11c6e072d56c10a657322e521555d0a",
+        "position": [
+          62.30000305175781,
+          -0.8999999761581421,
+          -13.299995422363281
+        ],
+        "yaw": 0,
+        "scale": 1,
+        "centre": [
+          62.30000305175781,
+          -0.75,
+          -13.299995422363281
+        ],
+        "tolerance_m": 0.0001,
+        "role": "runtime registered mesh reuse"
+      }
+    },
+    {
+      "id": "demo-room10",
+      "room": 10,
+      "manifest": "docs/art-style/stage7/validation/registered-drum-witness-v1/manifests/demo-room10.json",
+      "sequences": {
+        "before": "docs/art-style/stage7/validation/registered-drum-witness-v1/sequences/demo-room10-before.json",
+        "after": "docs/art-style/stage7/validation/registered-drum-witness-v1/sequences/demo-room10-after.json"
+      },
+      "expected_frames": [
+        120,
+        240
+      ],
+      "frames": 360,
+      "before_support": "observe",
+      "after_support": "enabled-valid-anchor-and-prepared-centre",
+      "witness": {
+        "key": 9007,
+        "model": "core:washer_drum",
+        "model_path": "core/props/models/washer_drum.glb",
+        "model_sha256": "570eb5aa9a9be9062bdfb261dfb0758fb11c6e072d56c10a657322e521555d0a",
+        "position": [
+          66.9000015258789,
+          -0.8999999761581421,
+          5.100006103515625
+        ],
+        "yaw": 0,
+        "scale": 1,
+        "centre": [
+          66.9000015258789,
+          -0.75,
+          5.100006103515625
+        ],
+        "tolerance_m": 0.0001,
+        "role": "runtime registered mesh reuse"
+      }
+    }
+  ],
+  "directed_quality_pairs_twice": {
+    "high->low": 2,
+    "low->medium": 2,
+    "medium->high": 2,
+    "high->medium": 2,
+    "medium->low": 2,
+    "low->high": 2
+  },
+  "independent_states": 18,
+  "independent_delta": "Original14states/order/settings retained; add initialHigh and final reflectionOff/Medium/Full.",
+  "acceptance": {
+    "spawn": "Actual frame1 key9007 core:washer_drum character=false unit-scale transform applied=true; object17 shares mesh16. No cap increase or mapped success.",
+    "identity": "Pin actual DynamicId from first centre trace; dynamic: prefix + exact model path, model/source/catalog/package/binary/manifest identity and centre within.0001m in every capture block.",
+    "spatial": "Actual uploaded eight-anchor payload persists; nonLow supported states require actualPrepared centre/enabled support/valid anchors. Fallback states retain ordinary contract; nonnullJSON insufficient.",
+    "corridor": "Before7/8 actualUnresolved centre + disabled/allinvalidsupport;10observe. Final all3 Prepared +enabledbinding +validanchor and exactunitinsetbounds.",
+    "visual": "Inspect untouched genuine native pixels at geometricprojection; staticbody/ray/rawradius proof does not establish opacity/culling/raster visibility.",
+    "parity": "Matched normal/feature actualinputs/requested/applied/resident/submitted/entity/action identities. No wholeimageequality for animation.",
+    "scope": "Registered rigid entity prepared support and quality/resource continuity in Demo; no chair-specific or identical-static-drum claim."
+  },
+  "original_failed_plan": {
+    "path": "docs/art-style/stage7/validation/native-quality-plan.json",
+    "bytes": 9312,
+    "sha256": "125a04218ae148ce4ee12d42de7c4bc938cb72781a6ba08e5376380d59f34b6e"
+  },
+  "no_jobs": true
+}

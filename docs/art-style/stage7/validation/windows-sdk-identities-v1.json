@@ -1,0 +1,24 @@
+{
+  "recorded_utc": "2026-10-09T02:20:04.129944+00:00",
+  "scope": "SDK preparation, not compile/link/native acceptance",
+  "official_release": "debug-maps/art-style-hero/evidence/stage7-windows-platform-v1/official-release.json",
+  "release_tag": "release-3.4.18",
+  "archive_sha256": "049b9dd711e3fb3f8d84feb998dfec54a75e17cf539c4a80ff4d058d839771cf",
+  "files": [
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-windows-platform-v1/sdk/SDL3-3.4.18/x86_64-w64-mingw32/lib/pkgconfig/sdl3.pc",
+      "bytes": 588,
+      "sha256": "8239e36c227abd85ec584802d16c002318b53241729caa2429377b2a48b0b003"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-windows-platform-v1/sdk/SDL3-3.4.18/x86_64-w64-mingw32/lib/libSDL3.dll.a",
+      "bytes": 839510,
+      "sha256": "e2b4776d02b0f7ba9bbdc6db64e0de873e37a4c32afcdf276e63766e864fb15a"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-windows-platform-v1/sdk/SDL3-3.4.18/x86_64-w64-mingw32/bin/SDL3.dll",
+      "bytes": 5384859,
+      "sha256": "4659d5a1e240e7d58fb92808f84afeb53395818cec62385d4796b72977a7d859"
+    }
+  ]
+}

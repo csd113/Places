@@ -1,0 +1,52 @@
+{
+  "format_version": 1,
+  "recorded_utc": "2026-10-08T22:26:56.133725+00:00",
+  "status": "generator-only root fix frozen; fixture/catalog/model bytes unchanged",
+  "generator": "tools/levels/build_capacity_fixtures.py",
+  "entry_generator_sha256": "83758fc6f14f881e1d3c141e447c933b772a4539d78996cfcdfa7ea106529a8d",
+  "final_generator_sha256": "03c0f10521835f167f27ce5a3e412cc7f2107e1a9b26839c26cd7337518a9f8f",
+  "witness_roster_count": 48,
+  "catalog_placeable_count": 205,
+  "registration_rule": "Every fixed witness id must resolve among current prop/entity entries with a model; missing/type-changed/model-less registration raises ValueError. The constants remain authoring size/solid inputs, not asset metadata.",
+  "verification_command": [
+    "python3",
+    "tools/levels/build_capacity_fixtures.py",
+    "--check"
+  ],
+  "verification_exit_code": 0,
+  "verification_stdout": "ok /Users/connordawkins/Documents/GitHub/Places/tests/fixtures/levels/capacity_dense.json\nok /Users/connordawkins/Documents/GitHub/Places/tests/fixtures/levels/capacity_beyond_former_limits.json\n",
+  "sources": [
+    {
+      "source": "tests/fixtures/levels/capacity_dense.json",
+      "source_sha256": "8ff5d19cdde7ef853e932de7e03b864fc178eb86e8ac99e138295e40c21845f9",
+      "source_bytes": 1264805,
+      "entry_byte_identical": true,
+      "canonical_generated_byte_identical": true,
+      "props": 5312,
+      "solid_prop_boxes": 2760,
+      "unique_models": 48,
+      "lights": 120,
+      "routes": 18
+    },
+    {
+      "source": "tests/fixtures/levels/capacity_beyond_former_limits.json",
+      "source_sha256": "7e56032f70756e8951902361b49f248a9eb3fdfa6201ca908e0c1be8e75b81a6",
+      "source_bytes": 15087870,
+      "entry_byte_identical": true,
+      "canonical_generated_byte_identical": true,
+      "props": 20001,
+      "solid_prop_boxes": 0,
+      "unique_models": 2,
+      "lights": 400,
+      "routes": 0
+    }
+  ],
+  "source_mutations": [],
+  "independent_tests_owner": "regression_validation",
+  "canonical_documentation_owner": "primary",
+  "required_prose_locations": [
+    "docs/MAP_AUTHORING_GUIDE.md capacity fixture table row capacity_dense",
+    "assets/levels/README.md Regression fixtures table row capacity_dense"
+  ],
+  "jobs": "No Cargo/native/bake job; all lightweight Python checks completed; generator ownership released."
+}

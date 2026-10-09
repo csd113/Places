@@ -1,0 +1,13 @@
+{
+  "label": "package-rss-v3-sampler",
+  "supervisor_pid": 94979,
+  "argv": [
+    "python3",
+    "/tmp/places-stage7-compile-rss-v3.py",
+    "--supervisor",
+    "94828"
+  ],
+  "launched_utc": "2026-10-08T23:48:21.877179+00:00",
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "completion_receipt": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/package-rss-v3-sampler.json"
+}

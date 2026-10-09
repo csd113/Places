@@ -1,0 +1,68 @@
+{
+  "all_stage6_before_views_preserved": true,
+  "views": [
+    {
+      "view": "contact",
+      "before": "docs/art-style/stage7/before/high/contact.png",
+      "prior": "docs/art-style/stage6/after/refined/contact.png",
+      "sha256": "aa0324b73ca64749f8c592135a4ea47b408321f859ae3c8d11e2fd366d8e5401",
+      "byte_identical": true
+    },
+    {
+      "view": "corner",
+      "before": "docs/art-style/stage7/before/high/corner.png",
+      "prior": "docs/art-style/stage6/after/refined/corner.png",
+      "sha256": "109271ee3b36d02eaced7bc9e30b43dfb646099fb268224e960ed5f8eee464bc",
+      "byte_identical": true
+    },
+    {
+      "view": "entities",
+      "before": "docs/art-style/stage7/before/high/entities.png",
+      "prior": "docs/art-style/stage6/after/refined/entities.png",
+      "sha256": "9398579017c802d44d4d36950d79ca9131898477466896b4fa292e55f0c3abf6",
+      "byte_identical": true
+    },
+    {
+      "view": "hall",
+      "before": "docs/art-style/stage7/before/high/hall.png",
+      "prior": "docs/art-style/stage6/after/refined/hall.png",
+      "sha256": "b381c5d3ac1ab3273405991f951c8373604ff23a9e977d2455294b7d0a8b48bc",
+      "byte_identical": true
+    },
+    {
+      "view": "night",
+      "before": "docs/art-style/stage7/before/high/night.png",
+      "prior": "docs/art-style/stage6/after/refined/night.png",
+      "sha256": "70cbf4afebbc1f30f21bc6a46f6ff9c0520c52f17705337f65ab81dac9796df4",
+      "byte_identical": true
+    },
+    {
+      "view": "room",
+      "before": "docs/art-style/stage7/before/high/room.png",
+      "prior": "docs/art-style/stage6/after/refined/room.png",
+      "sha256": "ab243ac70f0658b56f4eac0d350e97bf42f4716b5faa6edbff41fb82d355ec0d",
+      "byte_identical": true
+    },
+    {
+      "view": "surfaces",
+      "before": "docs/art-style/stage7/before/high/surfaces.png",
+      "prior": "docs/art-style/stage6/after/refined/surfaces.png",
+      "sha256": "bd0b97db2983e3338c798ff3f2b51ed226fc257ef33e0b6c28c7aac258e18b00",
+      "byte_identical": true
+    },
+    {
+      "view": "water",
+      "before": "docs/art-style/stage7/before/high/water.png",
+      "prior": "docs/art-style/stage6/after/refined/water.png",
+      "sha256": "210f749dfbfe79693bcd91f281b03bfb83044f0ace1ae4cd8e05fd759d2b222b",
+      "byte_identical": true
+    },
+    {
+      "view": "window",
+      "before": "docs/art-style/stage7/before/high/window.png",
+      "prior": "docs/art-style/stage6/after/refined/window.png",
+      "sha256": "6e3ac726416979d406e2c825bfd4b4d6c114f46427e66bb52fd502eaf6781db3",
+      "byte_identical": true
+    }
+  ]
+}

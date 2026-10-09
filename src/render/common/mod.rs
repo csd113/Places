@@ -2,7 +2,7 @@ use std::cell::RefCell;
 
 use crate::level::{
     FloorPatchDef, LevelDef, LevelSurfaces, MaterialRef, PropDef, RoomDef, RoomFloorGrid, WallAxis,
-    WallDef, WallSlice, wall_solid_slices_profiled,
+    WallDef, WallSlice,
 };
 use crate::lighting::lightmap::{LightmapPlan, PatchKind};
 use crate::lighting::{LevelLighting, LightColor, wall_light_segments};
@@ -728,8 +728,9 @@ const WALL_COINCIDENCE_EPS: f32 = 1e-3;
 /// wall; 3 = endpoint-centred atlas UVs and reflected static-model winding;
 /// 4 = linear colour interpretation and flat fallback model attributes;
 /// 5 = inclusive receiver endpoints and consistent boundary-roof ownership;
-/// 6 = incident-HDR water floor charts and folded circular fan quads.
-pub const GEOMETRY_REVISION: u32 = 6;
+/// 6 = incident-HDR water floor charts and folded circular fan quads;
+/// 7 = exact wall-span endpoint maxima from the span's own roof.
+pub const GEOMETRY_REVISION: u32 = 7;
 
 /// One material run of a coalesced wall group: a rectangle in the group's own
 /// (length, height) space over which the visible material is constant.
@@ -830,14 +831,7 @@ impl WallUnit<'_> {
     /// already resolved by [`coalesce_wall_group`].
     fn slices(&self, surfaces: &LevelSurfaces<'_>) -> Vec<WallSlice> {
         match self {
-            Self::Plain { wall, index: _ } => {
-                let breaks = surfaces.wall_profile_breaks(wall);
-                wall_solid_slices_profiled(
-                    wall,
-                    |offset| surfaces.clear_ceiling_height_along(wall, offset),
-                    &breaks,
-                )
-            }
+            Self::Plain { wall, index: _ } => surfaces.wall_solid_slices(wall),
             Self::Coalesced {
                 slices,
                 members: _,
@@ -1245,12 +1239,7 @@ fn wall_coverage(
         WallAxis::X => origin_x,
         WallAxis::Z => origin_z,
     };
-    let breaks = surfaces.wall_profile_breaks(wall);
-    let slices = wall_solid_slices_profiled(
-        wall,
-        |offset| surfaces.clear_ceiling_height_along(wall, offset),
-        &breaks,
-    );
+    let slices = surfaces.wall_solid_slices(wall);
     let mut solids: Vec<(f32, f32, f32, f32)> = slices
         .iter()
         .map(|slice| {
@@ -1488,12 +1477,7 @@ fn group_member_solids(
             WallAxis::X => origin_x,
             WallAxis::Z => origin_z,
         };
-        let breaks = surfaces.wall_profile_breaks(wall);
-        let slices = wall_solid_slices_profiled(
-            wall,
-            |offset| surfaces.clear_ceiling_height_along(wall, offset),
-            &breaks,
-        );
+        let slices = surfaces.wall_solid_slices(wall);
         for slice in slices {
             solids.push(MemberSolid {
                 index: *index,

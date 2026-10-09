@@ -7,6 +7,7 @@ Repository-wide checks: [authoritative desktop verification](VERIFICATION.md).
 | Document status | **Canonical / living.** Update it whenever the authoring contract changes (see [Maintaining This Guide](#maintaining-this-guide)). |
 | Level format version documented | `3` (`format_version` in every level JSON) |
 | Asset catalog format version documented | `2` (`format_version` in `assets/catalog.json`) |
+| Stage 7 integration audit | October 9, 2026: checked colour/HDR, measured Full ten-page/lower eight-page atlas policy, independent quality controls, panes, PLPF v3/solver 16, geometry revision 7 and compiler/runtime dependency identity against the current source. Wall spans evaluate exact endpoints against their own roof owner. Platform execution claims remain dated evidence in [VERIFICATION.md](VERIFICATION.md). |
 | Verification | Sky panorama limits and quality uploads re-verified against `src/assets.rs`, `src/materials/image.rs`, `src/quality.rs` and `src/render/wgpu/sky.rs` (October 2026 working tree). Movement support and rim backing in §10 re-verified against `src/game.rs`, `src/level.rs` and the permanent movement-map tests (October 2026 working tree). Verified against the working tree at version 0.7.0. Section 33 was checked against `src/nav/`, `src/ai/`, `src/package/navigation.rs`, `src/loader.rs`, `src/compiler.rs`, `assets/levels/places_demo.json` and the fixed-step tests `nav::tests`, `ai::tests` and `game::tests::demo_home_encounter_*`. The v3 contract (components, event bindings, trigger volumes, timers, sequences and spawns) was checked against `src/level.rs`, `src/loader.rs`, `src/entities/`, `assets/levels/places_demo.json`, `assets/levels/model_zoo.json`, `levels/*.json` and the generator/converter tools. The `fade`/`glow` components in §29 were checked against `src/level.rs` (`FadeDef`/`GlowDef`), `src/loader.rs` (`validate_component_value`), `src/entities/components.rs` (`Fade`/`Glow`), `src/entity.rs` (`EntityFrame`) and `tools/assets/validate.py`. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/geometry_check.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
 | Outdoors reconstruction verification | Section 34 checked against the October 7 Outdoors catalog, fitted PNGs, closed model builders, source placements, native wgpu captures and asset integrity audit. Engine format and lighting model are unchanged. |
 | Checks that must pass before a code or asset change ships | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check` (see [Validation Workflow](#27-validation-workflow) for what each proves) |
@@ -124,7 +125,7 @@ Authoritative paths:
 | Map-wired door actions (`open`, `close`, `toggle`, switchable light fixtures) | Implemented (see [§30](#30-doors-switches-and-effects)) |
 | Presentation-only ambient effects (`effects[]`, steam) | Implemented (see [§30](#30-doors-switches-and-effects)) |
 | Offscreen scene rendering presented by a fullscreen quad, UI at drawable resolution | Implemented |
-| Selective reflections: per-material `reflection_mode` (`none` / `probe` / `planar`) at 64/48/32-texel probes (High/Medium/Low) and a half-resolution planar pass (Medium and High) | Implemented |
+| Selective reflections: per-material `reflection_mode` (`none` / `probe` / `planar`); independent Reflections Full/Medium use 64/48-texel probes and a half-resolution planar pass, Off releases both | Implemented |
 | Restrained post-processing: emission-driven bloom, a tone shoulder, the global distance fog and a subtle grade, with the UI drawn outside it | Implemented (optional `environment` authors fixed presentation and global atmosphere; regional fog volumes add to it — see [§11](#fog-a-global-atmosphere-plus-level-authored-regions)) |
 | Level-authored regional fog volumes (`fog_regions[]`, ≤ 16) | Implemented (see [§11](#fog-a-global-atmosphere-plus-level-authored-regions)) |
 | Opaque void wall / floor boxes (`void_walls[]`, ≤ 256) for hiding the void | Implemented (see [§11](#void-wall-and-floor-boxes)) |
@@ -143,10 +144,10 @@ Authoritative paths:
 | Baked navigation (`nav_agent` bodies, per-class clearance, stairs/slopes, door portals), runtime path queries and the shared AI framework (`ai`: idle/wander/follow/flee/investigate/pursue/catch, sight and hearing, catch -> sequence) | Implemented (see [§33](#33-navigation-and-ai)); the player loads the compiler's bake and never builds one. |
 | Animation actions (`play_animation`, `toggle_animation`) | Implemented per instance; the target must carry an `animation` component. |
 | Audio actions (`play_sound`, `stop_sound`) | Implemented as a typed emitter state on an entity with an `audio` component; no audio device backend exists in this tree, so a playback request is reported once instead of playing. No shipped map authors one. |
-| Water refraction/transmission, realtime dynamic lights, realtime shadow maps | Not implemented |
+| Water refraction, realtime shadow maps and runtime static transport solves | Not implemented; straight alpha/depth transmission and bounded entity direct lights are implemented |
 | Animated entities: a placed skinned GLB follows the player's locomotion state (idle/walking/airborne/swimming); a rig with authored clips plays them, a no-clip rig uses the built-in procedural gait | Implemented (see [§16](#16-props-and-models)) |
 | Screen-space reflections; per-frame raytraced reflections; cubemap probes with realtime updates | Not implemented (static probes and one planar plane exist) |
-| GLB MASK/cutout props; BLEND on routed characters/dynamic props | Implemented; ordinary static BLEND props use the opaque fallback |
+| GLB MASK/cutout and BLEND on static props, characters and dynamic props | Implemented; shared back-to-front object/batch sorting, without intersecting-triangle sorting |
 | Emissive decals; per-placement emission overrides; cone/spot lights | Not implemented |
 | Authoring a normal map from a level (a level names a material, and the material owns the map) | Implemented (via the catalog) |
 | Sloped floors (`ramps`), staircases (`stairs`), half walls, columns, archways, guardrails, thresholds, baseboards | Implemented |
@@ -760,7 +761,7 @@ constant in `src/level.rs`, not an inline literal.
 | Estimated generated vertices | ≤ 24 000 000 (`MAX_LEVEL_VERTICES`) | Loader rejection (its own upper-bound estimate) |
 | Distinct decoded texture bytes | ≤ 1 GiB (`MAX_LEVEL_TEXTURE_BYTES`) | Loader rejection per level, after resolution and before upload |
 | Standalone level JSON file size | ≤ 32 MiB (`MAX_LEVEL_JSON_BYTES`) | Rejected before parsing; the embedded fallback demo is exempt |
-| Package archive: entries / entry / aggregate | ≤ 512 entries / ≤ 256 MiB / ≤ 1 GiB uncompressed | Package rejected at open (see [PACKAGE_FORMAT.md](PACKAGE_FORMAT.md)) |
+| Package archive: entries / entry / aggregate | ≤ 512 entries / ordinary entry ≤ 256 MiB; mesh/props ≤ 512 MiB, atlas ≤ 320 MiB + 64 KiB, other typed records may be tighter / aggregate ≤ 1 GiB uncompressed | Package rejected at open (see [PACKAGE_FORMAT.md](PACKAGE_FORMAT.md)) |
 | Package variants | one per lightmap quality (`off`/`medium`/`full`) | Package rejected at open |
 | Package blob hashes | SHA-256 must match the name and the manifest | Blob rejected before decoding |
 | Distinct prop models placed | ≤ 4096 (`MAX_LEVEL_PROP_MODELS`) | **Not a rejection:** later placements draw placeholder boxes |
@@ -1996,12 +1997,13 @@ surface named, not a silent clamp. `shine` only moves a surface along the
 glossiness range: it cannot give a `specular: 0` material a sheen and it can
 never turn a surface into a mirror.
 
-The renderer multiplies: **sampled texture × material tint × baked light**, where
+The renderer multiplies: **decoded linear texture × linear material tint × linear incident light**, where
 *baked light* is the lightmap atlas texel for static world geometry (see
 [Lighting](#18-lighting)) and the baked vertex colour on the vertex-lit fallback
-path. There is no gamma handling; the shipped art, tints and lighting constants were
-calibrated together in that space. Author with the tint in mind (the office wallpaper
-tint, for example, is `[0.85, 0.80, 0.42]`, so the PNG is authored pale).
+path. Colour PNGs decode sRGB before filtering; normal maps, emission masks and
+alpha remain numeric. Presentation encodes sRGB once after HDR composition.
+Author with the linear tint in mind (the office wallpaper tint, for example,
+is `[0.85, 0.80, 0.42]`, so the PNG is authored pale).
 
 ### Emission: materials that glow
 
@@ -2118,7 +2120,7 @@ vocabulary — bumps, grime, brushed streaks and panel seams, not sculpted detai
 ### Selective reflections: which surfaces reflect
 
 Two authorable paths can show a surface the room back: a **static probe** (a small
-cubemap baked once per level load) and a **planar mirror** (a real second view of the
+cubemap captured offline and installed from the package) and a **planar mirror** (a real second view of the
 level through the surface's own plane). Neither is a screen-space effect, and
 **nothing reflects unless a material asks** via `reflection_mode`. Shine and
 reflection are separate: an extremely glossy ordinary material (`shine: 1.0`)
@@ -2135,7 +2137,7 @@ always the dedicated `planar` behaviour rather than a shine value.
 | `reflection_mode` | What it draws | Cost |
 | --- | --- | --- |
 | `none` (default) | nothing | none |
-| `probe` | the static cubemap baked at level load, read by the reflected view vector | one texture read per reflective fragment |
+| `probe` | the packaged static HDR cubemap, read by the reflected view vector | one texture read per reflective fragment |
 | `planar` | a real second view of the level, mirrored through the surface's plane | one extra scene pass per frame while that plane is on screen |
 
 Four properties are worth designing around:
@@ -2153,8 +2155,8 @@ Four properties are worth designing around:
   changes *where* the reflection comes from, so a matte override on a marked
   surface keeps the (now faint) probe or planar reflection rather than removing
   it.
-* **It is approximate.** A probe is a 64-texel-per-face cubemap at `High` (48
-  at `Medium`, 32 at `Low`) — the shape of the room, not a second render of it —
+* **It is approximate.** A probe is a 64-texel-per-face cubemap at Reflections
+  `Full` (48 at `Medium`, absent at `Off`) — the shape of the room, not a second render of it —
   and a planar reflection is drawn at half resolution. Use them where the surface
   should read as wet, polished or mirrored, not where the player will compare the
   reflection with the room.
@@ -2184,10 +2186,11 @@ Four properties are worth designing around:
   material belongs on an axis-aligned floor, wall or ceiling pane; a probe is the
   right choice for anything else.
 
-**Quality levels.** `Medium` and `High` draw the planar pass and 64/48-texel
-probes; `Low` draws the probes at 32 texels and never allocates a planar target.
-A material marked `planar` simply keeps its sheen and loses the mirror image on
-`Low`.
+**Independent reflection quality.** Reflections `Full`/`Medium` use 64/48-texel
+probes and allow the half-resolution planar pass; `Off` retires probes and the
+planar target. The overall High/Medium/Low presets select Full/Medium/Off,
+respectively, but the player may override Reflections independently. Low with
+Reflections Full is supported. An Off reflection keeps the material's sheen.
 
 Shipped examples: `core:pool_deck_wet_01` (`planar`, 0.4, the wet deck patch),
 `core:linoleum_polished_01` (`probe`, 0.25, the deliberately waxed end — Places
@@ -2207,10 +2210,10 @@ The renderer decides which pass a surface lands in, and there are exactly three:
 
 Consequences worth knowing:
 
-* Two overlapping translucent surfaces blend correctly because the pass is sorted
-  back to front by the distance from the camera to each batch. Sorting is per
-  spatial batch (the granularity the renderer already partitions the world at),
-  not per triangle.
+* World batches, static props, movable objects and characters share stable
+  back-to-front centre sorting in both scene and emission passes. Sorting is
+  per batch/object, not per intersecting triangle; large overlapping transparent
+  ranges and several primitives inside one object still need careful placement.
 * A translucent surface never occludes anything: a pane of glass is hidden by the
   wall it sits in, but does not hide the room behind it in the depth buffer.
 * Emissive translucent materials work: emission is added to the lit term before
@@ -2227,11 +2230,12 @@ Consequences worth knowing:
   `solid: false` pane is a pure visual surface — each combination (opaque solid
   panel, walk-through glass, solid glass, cut-out walk-through grille) is
   legal and explicit.
-* Transparency is alpha blending, not refraction: nothing bends, and the lighting
-  bake still treats the aperture as an open hole (see the glazing note below).
-* GLB MASK props draw through the cutout pass and transmit prepared transport
-  rays, like cutout architecture. BLEND is supported by routed characters and
-  dynamic props; ordinary static BLEND props retain the opaque fallback.
+* Transparency uses straight alpha without refraction. Prepared transport
+  attenuates blended crossings by `1 - coverage`, and cutout holes transmit
+  while covered texels block. A pane is distinct from an empty aperture.
+* GLB MASK props use the cutout pass on every route and transmit prepared rays
+  through their holes. BLEND uses the translucent pass on static, character and
+  dynamic routes; its prepared straight transmission follows the same coverage.
 
 Authoring a transparent sheet is ordinary artwork: RGBA, with the alpha channel
 carrying the coverage (a grime film, a tint, a cut-out pattern). `tile_metres`
@@ -2252,15 +2256,15 @@ one surface at the wall's centre plane. It is what turns "a hole in a wall" into
   sheen, emission and alpha mode are the material's, not the opening's. A
   `glass_shine` override can re-shine one pane without a second material.
 * The pane is the opening's own rectangle: no frame, no thickness, one surface
-  seen from both sides. It is **not lightmapped**: its four corners sample the
-  baked light directly and fold it into the vertex colour, like a fixture face or a
-  prop.
+  seen from both sides. Medium/Full panes receive incident-HDR lightmap charts;
+  Lightmaps Off keeps the supported vertex-lit fallback.
 * Collision follows the wall's solid slices (a raised window still blocks) plus
   the opening's own `solid` flag: a glazed opening with `"solid": true` adds the
   pane's thin slab, so glass can be a real barrier; the default `false` keeps a
-  pane walk-through. The lighting bake still transmits through the aperture as an
-  open hole — glass does not darken the room behind it. Tint the glass to imply
-  that in the artwork.
+  pane walk-through. Collision and lighting coverage are independent: opaque
+  panes block prepared rays, cutout holes transmit, and blended panes attenuate
+  by real alpha coverage. Tint affects drawn colour, without coloured refraction
+  or absorption in the pane's transmitted light.
 * Any alpha mode works. `blend` gives real glass; `cutout` gives a grille,
   mesh or screen with holes in it (`core:grille_vent_01` is a transfer grille,
   authored on a `vent` opening above Places Demo's office door); `opaque` gives a
@@ -2465,7 +2469,7 @@ layouts preserved; see the table below and Asset Specification §12.3.
 | Fixture wrapping | `CLAMP_TO_EDGE` + mipmaps; the whole sheet is fitted once across the face. |
 | Alpha | Surface sheets are opaque *unless* their material authors `alpha_mode`. The base pass has blending off, so an `opaque` material's alpha channel is ignored; `cutout` discards texels below the material's cutoff and `blend` samples it. Decals are alpha cut-outs (alpha < 0.5 discarded). Fixture faces are opaque. |
 | Normal maps | A normal map is an ordinary RGB sheet in the same asset tree; the material names it with `normal_texture`. It is a *surface* texture for quality purposes (High 1024 / Medium 512 / Low 256), tiles like its albedo and may be hand-painted or generated. |
-| Colour space | No gamma handling; texture × tint × baked light in display space. |
+| Colour space | Colour PNG RGB decodes sRGB before filtering; tint/light factors and lighting use linear HDR. Numeric normal/mask/alpha data do not decode sRGB. Presentation encodes once. |
 
 Shipped Office/Pool surface sheets are intentionally 1024×1024, square, opaque;
 `python3 tools/textures/build.py --check` reports them as "over preferred" warnings by
@@ -2477,9 +2481,9 @@ The source PNG is *not* what necessarily reaches the GPU. Three quality levels
 (`settings.json` → `"quality": "low" | "medium" | "high"`, default `high`)
 decide a **runtime** edge budget
 per texture class. The level is a selector in Settings → Graphics and can be
-changed while a level is running: the renderer releases its level-dependent GPU
-textures and rebuilds them (plus the lightmap atlas) from the level already
-resident, so the player, camera and game state are preserved:
+changed while a level is running: staged loading installs the corresponding
+prepared package variant and GPU resources, preserving player, camera and game
+state. The player never bakes a new atlas or captures a probe:
 
 | Texture class | High (default) | Medium | Low |
 | --- | --- | --- | --- |
@@ -2489,9 +2493,10 @@ resident, so the player, camera and game state are preserved:
 | Prop sheet (GLB) | 256 | 256 | 128 |
 | Emissive mask | 512 | 256 | 128 |
 | Sky panorama | 2048 | 1024 | 512 |
-| Lightmap atlas page | 1024, 16 texels/m | 1024, 12 texels/m | 512, 10 texels/m |
-| Shadow penumbra taps | 2 per axis (5) | 2 per axis (5) | 1 per axis (hard) |
-| Prop occlusion grid | 0.075 m | 0.11 m | 0.15 m |
+| Preset Lightmaps | Full: 1024, 16 texels/m | Medium: 1024, 12 texels/m | Off: vertex lighting |
+| Preset Reflections | Full: 64-pixel probes + planar | Medium: 48-pixel probes + planar | Off |
+| Prepared transport | Full solve | Medium solve | Historical vertex fallback |
+| Legacy coarse prop-occlusion grid | 0.075 m | 0.11 m | 0.15 m |
 
 * **High is the native Places runtime size.** Every shipped asset is already at
   or below it, so High uploads the decoded image unchanged — no rescaling, no
@@ -2505,10 +2510,11 @@ resident, so the player, camera and game state are preserved:
   always produces the same runtime image.
 * The source hard limit (1024 px for ordinary sheets, 2048×1024 for skies) is unchanged by any level: quality only
   decides how much of an accepted source reaches the GPU.
-* The **lightmap atlas** is baked light data, not shipped artwork (see
-  [Baked lightmaps](#baked-lightmaps)): the same level bakes at the level's
-  density, so a lower level needs no separate level or hand-authored lightmap
-  set.
+* Lightmaps and Reflections are independent advanced controls. The compiler
+  prepares Off/Medium/Full variants of the same source; the player selects a
+  packaged variant, without a separate authored level or artwork set. The
+  legacy two-profile planner API also supports 512-pixel/10-texel Low atlases,
+  but that API budget is not the runtime Low preset, which selects Off.
 * Do **not** author a separate level or asset set for a lower quality level; one
   level serves all three.
 
@@ -2577,13 +2583,13 @@ entry.)
 | White sheet (1024×1024 opaque white fill, file-backed) | `assets/core/textures/white_01.png` (loaded by `src/render/wgpu/texture.rs`) | Untextured geometry (fixture housings, UI quads). |
 | HUD font atlas (128×64) | `assets/core/ui/font_01.png` | Project-owned bitmap UI font with sixteen 8×8 ASCII cells per row and the reserved white UI cell. |
 | Emergency white sheet (2×2) | `assets/core/textures/white_fallback_01.png` | Embedded opaque white fallback if the primary embedded white PNG cannot decode. |
-| Lightmap atlas (up to four pages, quality-profile sized) | `src/lighting/lightmap/` | Baked *light data*, derived at level load from the level's own lights and geometry — the texel equivalent of the baked vertex colours it replaces. Not authored artwork, and deliberately not shipped as PNGs: it changes whenever a light, prop or surface moves, and it is regenerated (never re-saved) on load. |
+| Lightmap atlas (Full up to ten pages per contribution group; lower profiles eight) | `src/lighting/lightmap/`, packaged KTX2 payloads | Incident linear HDR and signed moments computed offline from geometry/material/light inputs. Loaded from the prepared package; the 320 MiB +64 KiB typed bound and unchanged aggregate/shape guards apply. PNG dumps are diagnostics, not artwork. |
 
 Everything else the renderer draws from an image comes from a PNG under `assets/`.
 Every *surface, fixture, decal and prop texture* is still a real PNG asset under
-`assets/`, including the lightmap's albedo partners; the lightmap atlas is the only
-thing the renderer samples that is generated at runtime, and it is lighting data
-rather than texture artwork.
+`assets/`, including the lightmap's albedo partners. Prepared atlases and probe
+cubes are derived lighting data in `.placesmap` archives; the realtime planar
+target is rendered scene data. None is runtime-generated texture artwork.
 
 ### Texture budget summary
 
@@ -3035,12 +3041,15 @@ frame instance exposes the title through the existing E/toggle-label binding.
 
 ## 18. Lighting
 
-Places has **no dynamic lights and no realtime shadow maps**. The compiler prepares
+The compiler prepares
 per-texel lightmap atlases and the baked-vertex fallback. Authors control lighting
 with fixtures, prop lights and global directional illuminators; material emission
 does not create illumination.
 Surface response, emission, reflections and post-processing are added on top of
-that bake; none of them is a light source (see section 11).
+that bake; none of them is a light source (see section 11). Entities also receive
+bounded live selected/switchable direct sources and attached `glow` lights through
+the shared runtime path. Static atlases remain baked; there are no realtime shadow
+maps or per-frame diffuse transport solves.
 
 Prepared static transport uses the drawn geometry and material coverage.
 Offline compilation resolves source PNGs for the solve as well as the capture;
@@ -3133,7 +3142,7 @@ Two prepared-path rules keep a solved map readable, and both are automatic:
   models). Visibility origins stay on the geometric side. Compression alone is not an irradiance integral:
   opposing grazing sources must not manufacture illumination. Each bounce
   transports only the previous order; two bounces mean `D + KD + K²D`.
-  Solver revision 13 invalidates earlier atlas and package fingerprints; sky is
+  Current solver revision 16 invalidates earlier atlas and package fingerprints; sky is
   injected only into the first diffuse order. Cache interpolation also tests
   visibility so one floor triangle spanning a divider cannot transfer light
   through that divider.
@@ -3142,7 +3151,14 @@ Two prepared-path rules keep a solved map readable, and both are automatic:
 
 The probe field uses 64 shared antipodal sphere samples, including the authored
 sky on escaping rays. Compiler validation excludes non-air and embedded probes
-and reports rooms with no valid coverage. `PLACES_PROBE_DUMP_DIR=<directory>`
+and reports rooms with no valid coverage. Solver 16 keeps the centred grid when
+all rooms have valid air support; otherwise it tests at most 63 additional
+quarter-cell phases at unchanged spacing/caps. A phase must recover room coverage
+without losing any originally covered room. All bounded phases are scored by
+room coverage, then balanced per-room valid-probe counts so a boundary singleton
+does not stop the search. The same chosen grid supplies target positions and
+baked coefficients. Unrecoverable spaces still produce warnings;
+runtime support and opaque visibility remain unchanged. `PLACES_PROBE_DUMP_DIR=<directory>`
 enables deterministic JSON diagnostics; use `--force` and a separate directory
 per source/build. See [Probe baker audit](PROBE_BAKER_AUDIT.md) and
 [the PLPF contract](PACKAGE_FORMAT.md#61-irradiance-field-for-moving-objects).
@@ -3324,30 +3340,30 @@ sample = clamp(AMBIENT_LEVEL + room/partition-area baseline
 
 ### Baked lightmaps
 
-The value above is stored per *texel* of static geometry instead of per vertex: the
-engine packs every floor, ceiling, wall face, reveal and recess skirt into a lightmap
-atlas at level load, and the surface shader multiplies its texture by the atlas. The
-lighting model, the fixtures and everything a map authors are unchanged — this is a
-storage change, not an authoring one.
+The compiler stores linear incident irradiance and signed moments per texel of
+static geometry, including panes, water and real static model triangles. The
+player uploads these prepared package layers and multiplies receiver albedo once.
 
-* Density follows the quality level: **High** bakes 16 texels per metre onto up to
-  four 1024-texel pages, **Medium** 12 texels per metre onto the same 1024-texel
-  pages, **Low** 10 texels per metre onto four 512-texel pages (`places_demo`
-  packs three of them).
-  Every level bakes the same set of surfaces; faces longer than one chart are split
-  automatically (chart span cap 63.75 m). The packer is a deterministic
-  best-short-side-fit MaxRects allocator: `places_demo` fits two High pages and
-  The Pit four, where the historical skyline packer needed five for The Pit. Four
-  pages is the renderer's sampling contract (one `texture_2d_array` whose layers the
-  vertex page byte selects), so a level that genuinely needs more keeps the
-  historical vertex-lit mesh and reports a named page-overflow failure.
-* Shadow softness follows the same level: a local pool's visibility is sampled on
-  the fixture's own emitting rectangle — **High and Medium** use a five-tap
-  quincunx (the centre plus the four quadrant corners) and **Low** the historical
-  single centre tap — so a partially blocked pool fades over a penumbra instead of
-  ending on a hard line where the level pays for it. `taps_per_axis == 1` is the
-  historical centre-only test, which is also what the vertex-lit fallback bakes
-  with.
+* Independent Lightmaps **Full** uses 16 texels/m and **Medium** 12 texels/m,
+  both with 1024-pixel pages. Full plans up to **ten base pages** per contribution
+  group; Medium retains **eight**. **Off** uses the historical vertex-lit representation. High/Medium/Low
+  presets select Full/Medium/Off; advanced choices may override them.
+  The shared chart-span cap is 63.6875 m, preserving room for inclusive endpoints
+  and gutters. The deterministic best-short-side-fit MaxRects allocator reports
+  named page overflow rather than dropping surfaces. Each resident page uses two
+  RGBA16F layers; every switchable group adds another pair per base page. The GPU
+  allocates exactly the produced layers, without reserving unused pages.
+  [The Stage 7 Hallows capacity measurement](art-style/stage7/integration-hallows-atlas-audit.md)
+  finds 9,549,535 padded Full texels, exceeding nine-page capacity; the existing
+  packer reaches the mathematical minimum of ten. This costs 160 MiB of base
+  RGBA16F GPU storage at Full, compared with the prior eight-page 128 MiB policy.
+  Density, endpoint samples, gutters, chart orientation and content are retained.
+  Decoder page/byte, switch-group and aggregate safety bounds are unchanged.
+* Medium/Full finite-source transport uses the selected solver's shaped taps
+  with per-tap visibility/cosine and bounded adaptive receiver coverage. The
+  historical vertex fallback retains its centre-only coarse-box shadow path.
+  The legacy profile bake API's five-tap quincunx is not the complete prepared
+  transport solver contract; see [Prepared HDR lighting](#prepared-hdr-lighting-medium-and-full-atlases).
 * A chart's texels span their own patch: the first and last texel sit exactly on the
   patch's geometric edges. Adjacent coplanar surfaces therefore evaluate the *same*
   world point on a shared edge, so changing an albedo material across one continuous
@@ -3367,10 +3383,9 @@ storage change, not an authoring one.
   coplanar strips whose bottoms rounded opposite ways stepped at the seam.
 * `settings.json` carries `"lightmaps": "off"|"medium"|"full"` (default
   `"full"`), exposed as
-  Settings → Graphics → Lightmaps and switched live (the level's lighting is
-  rebuilt from the resident definition, with the player state preserved; an
-  uncached atlas fills on a worker while the previous lighting keeps
-  rendering). The
+  Settings → Graphics → Lightmaps and switched live by installing a prepared
+  package variant, with player state preserved. The previous resident world
+  remains installed until staged resources commit. The
   environment override `PLACES_NO_LIGHTMAPS=1` forces the historical vertex-lit
   path for a benchmark or A/B capture run.
 * If a bake cannot fit the page budget, or an atlas page cannot upload, the level
@@ -3380,18 +3395,19 @@ storage change, not an authoring one.
   so the plan leaves that quad vertex-lit and reports it in the `[lightmaps]` line
   (`left N sub-texel sliver quad(s) vertex-lit`) while the rest of the level keeps its
   atlas. A visible malformed quad (a bow-tie) still fails the build over.
-* Fixtures, prop placeholder boxes, decals and dynamic objects (door frames,
-  door leaves and the washer drum) are vertex-lit:
-  their colour keeps the baked light folded in, exactly as before. Glass panes and
-  stairs are lightmapped like the wall around them.
+* Fixtures, prop placeholder boxes and decals retain the vertex-lit path.
+  Panes, stairs, water and real static props receive prepared charts in
+  Medium/Full. Movable objects use spatial residual probes plus bounded live
+  finite-source direct light, with the legacy centre path for genuine PLPF v2.
 * Set `PLACES_DUMP_LIGHTMAPS=1` to write the baked atlas pages as PNGs under
   `target/diagnostics/atlases/` for inspection.
 
 #### Static props occlude the bake
 
-A placed prop is not air: every prop's own triangles become a small set of
-occlusion boxes for the bake, automatically and per distinct model. Nothing is
-authored and there is no per-prop occlusion flag. The boxes are ground on a
+A placed prop is not air: prepared transport uses its actual triangles and
+numeric material/PNG coverage. The vertex/fast-occluder fallback derives a small
+set of boxes per distinct model unless the placement authors `occludes: false`.
+Those fallback boxes are ground on a
 quality-level grid — **High** 0.075 m, **Medium** 0.11 m, **Low** the historical
 0.15 m — so High resolves a finer contact silhouette and the shadow a prop throws
 on the floor or wall behind it, while Medium and Low keep cheaper derivations. The
@@ -3427,8 +3443,10 @@ an ordinary static prop and participates in the bake).
   map-authored movable solid.
 * The **washer-drum demonstration** is engine-created: placing a
   `core:washing_machine` is the only way a level influences one.
-* Dynamic objects are lit by a single probe of the static bake at their current
-  position (no shadows, no realtime lights).
+* Movable receivers use eight inset bind-bounds support anchors for residual
+  irradiance, and selected finite-source direct light at real fragments. Rigid
+  moving casters use cached triangle/alpha visibility; skinned floor contacts
+  use bounds proxies. Genuine legacy PLPF v2 retains one centre probe.
 * Moving one never rebuilds geometry, batches or lightmaps, and a door leaf casts
   no baked shadow.
 
@@ -5907,6 +5925,14 @@ placeholders, no GLB interiors) and does not validate prop models, textures or
 shading. Marker files and `--json` are the reproducible localization path for
 every finding; a clean run does not prove that no geometry defect exists.
 
+The ghost-collider warning tests actual coplanar triangle/face overlap and a
+covered face centre, rather than requiring the triangle centroid inside the
+collision partition. A large triangle may support a small legitimate wall tail.
+Separate coplanar fragments cannot fill a real centre hole through their bounds.
+This remains a support heuristic: one supported face centre is sufficient, and
+conservative roof-following boxes need no invented horizontal cap. It does not
+prove full face coverage or watertight collision.
+
 ---
 
 ## 32. The Model Zoo and the capacity fixtures
@@ -5970,8 +5996,8 @@ PLACES_TOOL_WORKERS=4 python3 tools/levels/build_model_zoo.py
   grows; animated displays are placed in a reserved lane so a route can never be
   blocked by an exhibit.
 * **Baked within budget.** The continuous hall uses flat ownership cells at
-  most 16 × 18 m so its floor and ceiling charts pack into the existing eight
-  page High budget. Shared cell borders are open, with narrow checker intent
+  most 16 × 18 m so its floor and ceiling charts pack within the current ten-page
+  Full budget. Shared cell borders are open, with narrow checker intent
   strips; the exterior shell remains enclosed apart from its authored exit.
   The basin fits within one cell. Thin snow attachments and icicles mount on
   the display wall, and all three string spans hang from the ceiling with their
@@ -5992,7 +6018,7 @@ the raised limits are measured against:
 
 | Fixture | What it binds |
 | --- | --- |
-| `capacity_dense` | 5000+ placements covering every registered model, 100+ fixtures, 18 routed entities and a real basin, in one 76 m x 56 m hall. Proves the raised instance/model/vertex/fixture budgets and gives the collision index its dense witness set. |
+| `capacity_dense` | 5000+ placements using a fixed historical 48-model witness, 100+ fixtures, 18 routed entities and a real basin, in one 76 m x 56 m hall. Proves the raised instance/model/vertex/fixture budgets and gives the collision index its dense witness set. Model Zoo owns complete current catalogue coverage; catalogue growth must not erase this fixture's collision pressure. |
 | `capacity_beyond_former_limits` | The 2026 pass's high-count source: 20 001 walls, 20 001 props, 2 025 rooms, 2 001 floor regions / patches / water volumes, and 81 582 distinct material ids (past the former 16-bit index boundary). It compiles offline to a 45.4 MiB package and is loaded through the package reader; see the Level limits section. |
 
 The generated fixtures support `--check`; the dense fixture must also pass
@@ -6793,7 +6819,8 @@ authoring. They are not invitations to change the engine as part of an authoring
 18. **Water is a volume, lighting is baked.** "Flooded" needs a `water[]` volume
     over real recessed geometry (a volume over a flat floor reads as a puddle, not
     a pool); "mood lighting" must be expressed with existing materials, geometry and
-    per-fixture colour/brightness. There is no dynamic lighting.
+    per-fixture colour/brightness. Static transport is baked; bounded live
+    entity direct/glow response does not rebake the room.
 19. **Reflections are per-material and limited.** One planar plane per frame, at most
     two probes per level, probes are static (no realtime update), and a planar material
     reused on non-planar geometry is skipped with a warning.
@@ -7211,6 +7238,8 @@ A tube that reads bright but casts a restrained local pool (the demo's far corri
    when the incremental check says the package is current.
 3. Verify the result: `./target/release/places-compile validate my_level.placesmap`
    decodes every record and re-hashes every entry;
+   `./target/release/places-compile verify my_level.json --package my_level.placesmap --require-current`
+   checks final source/catalogue/dependency/compiler currency;
    `./target/release/places-compile inspect my_level.placesmap` prints the
    manifest and resource list.
 4. Drop the `.placesmap` into `levels/` (or use the in-game Import action) and
@@ -7219,6 +7248,32 @@ A tube that reads bright but casts a restrained local pool (the demo's far corri
 
 `./target/release/places-compile build-collection levels/` compiles every source
 in a directory, reporting per-source failures without blocking the others.
+
+Current package major is 1, level schema 3, geometry revision 7 and transport
+solver revision 16. PLMP v6 shares exact vertex/frame bytes without changing
+decoded material response, normals, UVs, lighting or character caster claims;
+literal v3/v4/v5 remain readable with their documented defaults. Both encoded
+and expanded literal prop records retain the 512-MiB bound. PLPF v3 preserves spatial selected
+direct presence even with zero sources; v2 remains a genuine legacy centre path.
+Probe positions v3 declares HDR captures; v2's old RGBA8 data decodes to linear
+without recovering already clipped energy. These reader guarantees do not make
+historical prepared fingerprints current.
+
+Ordinary builds include placed models and every runtime spawn template in the
+dependency closure, including unused override choices. GLB SHA covers embedded
+PNG bytes; editing a standalone model-source PNG requires exporting its GLB first.
+`build-inputs.json` revision 1 binds source, catalogue, executable and capture mode
+alongside format/geometry/solver/variant identity. Missing or corrupt provenance
+requires rebuilding, and `--force` bypasses both package and prepared-product reuse.
+Metadata, navigation/AI and final presentation edits may reuse prepared products;
+physical material, image, model, geometry, source and entity changes rebuild
+conservatively. Source/assets must stay stable through each compiler invocation.
+
+At package-open the player streams external dependency SHA-256 once and checks
+new packages against the installed catalogue. Same-size substitutions are named
+rebuild errors. Genuine old packages without provenance retain their compatible
+immutable-bundle contract. The runtime cache keys prepared manifest identity and
+quality; no file hashing, source compilation or static bake occurs per frame.
 
 ## Add a new texture
 

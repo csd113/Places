@@ -1,0 +1,10 @@
+{
+  "observed_utc": "2026-10-08T23:22:37.989492+00:00",
+  "owned_supervisor_pid": 70005,
+  "verified_command": "/Library/Frameworks/Python.framework/Versions/3.13/Resources/Python.app/Contents/MacOS/Python /tmp/places-stage7-command.py normal-desktop-gate-v2 sh tools/verify.sh",
+  "signal": "SIGTERM to exactowned processgroup70005",
+  "reason": "Read-only C1 prepared-field/nav audit confirms zero valid irradiance probes in two playable Demo rooms, with nearest valid point outside strict support radius. Final acceptance paused for bounded root fix before further expensive rebakes.",
+  "gate_completed": false,
+  "known_command_exit_code": null,
+  "completion_receipt": "No gate receipt is inferred from intentional processgroup termination; completed percase receipts remain retained."
+}

@@ -1,0 +1,19 @@
+ACTUAL_COMMAND ['/Library/Frameworks/Python.framework/Versions/3.13/bin/python3', '-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_geometry_repair.py']
+..............
+----------------------------------------------------------------------
+Ran 14 tests in 83.448s
+
+OK
+ACTUAL_COMMAND ['/Library/Frameworks/Python.framework/Versions/3.13/bin/python3', '-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_winter.py']
+....
+----------------------------------------------------------------------
+Ran 4 tests in 0.014s
+
+OK
+ACTUAL_COMMAND ['/Library/Frameworks/Python.framework/Versions/3.13/bin/python3', '-m', 'unittest', 'test_wgpu_bootstrap.WgpuRuntimeSmokeTests.test_a_second_level_replaces_the_uploaded_world']
+.
+----------------------------------------------------------------------
+Ran 1 test in 5.710s
+
+OK
+Corrected content modules and exact changed native reload test passed and joined.

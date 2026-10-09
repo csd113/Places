@@ -1,0 +1,3195 @@
+{
+  "recorded_utc": "2026-10-09T08:17:50.026025+00:00",
+  "status": "accepted scoped preservation approach with two editorial EOF findings explicitly retained",
+  "reviewer": "regression_validation independent publication review",
+  "source_failure_log": {
+    "path": "/tmp/places-stage7-staged-whitespace-failure-v1.log",
+    "bytes": 68742,
+    "sha256": "baa03a138758884fbe18912451c9b5b1db11c4c63750cc8a7742cbb1704e13b2"
+  },
+  "precommit_identity_receipt": {
+    "path": "docs/art-style/stage7/validation/primary-precommit-review-v1.json",
+    "bytes": 234610,
+    "sha256": "75ba7f3f09487ac244c5cf8889430053adc6e5bd208dec63f44b5975bb8fd2cd"
+  },
+  "observed_current_attributes": {
+    "path": ".gitattributes",
+    "bytes": 5334,
+    "sha256": "8fe6bd14b849a1a2489fc0125a8a28ce160cc1aa39a3c83c719d415a05d56fb1"
+  },
+  "finding_count": 498,
+  "exact_file_count": 46,
+  "raw_log_file_count": 44,
+  "raw_log_finding_count": 496,
+  "sealed_editorial_report_file_count": 2,
+  "sealed_editorial_report_finding_count": 2,
+  "finding_kinds": {
+    "new blank line at EOF": 41,
+    "trailing whitespace": 457
+  },
+  "debian_terminal_cr_findings": 447,
+  "source_fixture_test_or_executable_paths_in_exception_set": [],
+  "editorial_whitespace_flagged": [
+    "docs/art-style/stage7/validation/renderer-final-diff-review-v3.json",
+    "docs/art-style/stage7/validation/renderer-final-diff-review-v3.md"
+  ],
+  "files": [
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/final-content-composed-controls-v1.log",
+        "bytes": 3951,
+        "sha256": "b26abaed21545fb9e9143e5cef57c0f1018463d45c0b2be5a9d30b1c3558e086"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 13,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/final-content-composed-controls-v1.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/final-content-default-workspace-v1.log",
+        "bytes": 194683,
+        "sha256": "4c3a3a4391aa10f3d63cfe37e595d95bf9fc63ab0d2688c38707b7205f827b5c"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 2253,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/final-content-default-workspace-v1.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/geometry-focused.log",
+        "bytes": 2790,
+        "sha256": "10057ad6fd1bc2db8588f20c28c5d554fa942d96484405ace0b0b22e85a85143"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 36,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/geometry-focused.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/hallows-atlas-profile-v1.log",
+        "bytes": 23515,
+        "sha256": "adbd48ab9708dd1223adfe6577fa3055c9d481d79e20eaca1122e53c06f57a91"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 12,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/hallows-atlas-profile-v1.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/linux-container-sdk-v1.log",
+        "bytes": 41314,
+        "sha256": "a3526671dec38fd5636ce56b4dcf3d3bb62cd7e6053ad4df7aed279bb2b05c01"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Debian SDK installation stdout with terminal carriage returns;447 flagged line ends preserve CR.",
+      "findings": [
+        {
+          "line": 188,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 189,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 190,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 191,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 192,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 193,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 194,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 195,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 196,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 197,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 198,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 199,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 200,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 201,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 202,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 203,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 204,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 205,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 206,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 207,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 208,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 209,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 210,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 211,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 212,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 213,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 214,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 215,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 216,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 217,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 218,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 219,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 220,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 221,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 222,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 223,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 224,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 225,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 226,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 227,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 228,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 229,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 230,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 231,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 232,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 233,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 234,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 235,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 236,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 237,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 238,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 239,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 240,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 241,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 242,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 243,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 244,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 245,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 246,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 247,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 248,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 249,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 250,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 251,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 252,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 253,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 254,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 255,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 256,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 257,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 258,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 259,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 260,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 261,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 262,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 263,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 264,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 265,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 266,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 267,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 268,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 269,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 270,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 271,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 272,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 273,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 274,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 275,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 276,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 277,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 278,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 279,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 280,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 281,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 282,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 283,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 284,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 285,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 286,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 287,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 288,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 289,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 290,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 291,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 292,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 293,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 294,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 295,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 296,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 297,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 298,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 299,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 300,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 301,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 302,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 303,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 304,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 305,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 306,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 307,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 308,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 309,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 310,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 311,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 312,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 313,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 314,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 315,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 316,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 317,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 318,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 319,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 320,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 321,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 322,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 323,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 324,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 325,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 326,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 327,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 328,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 329,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 330,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 331,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 332,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 333,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 334,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 335,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 336,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 337,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 338,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 339,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 340,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 341,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 342,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 343,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 344,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 345,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 346,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 347,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 348,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 349,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 350,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 351,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 352,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 353,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 354,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 355,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 356,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 357,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 358,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 359,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 360,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 361,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 362,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 363,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 364,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 365,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 366,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 367,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 368,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 369,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 370,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 371,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 372,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 373,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 374,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 375,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 376,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 377,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 378,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 379,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 380,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 381,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 382,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 383,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 384,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 385,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 386,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 387,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 388,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 389,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 390,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 391,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 392,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 393,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 394,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 395,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 396,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 397,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 398,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 399,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 400,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 401,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 402,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 403,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 404,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 405,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 406,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 407,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 408,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 409,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 410,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 411,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 412,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 413,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 414,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 415,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 416,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 417,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 418,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 419,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 420,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 421,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 422,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 423,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 424,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 425,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 426,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 427,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 428,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 429,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 430,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 431,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 432,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 433,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 434,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 435,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 436,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 437,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 438,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 439,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 440,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 441,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 442,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 443,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 444,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 445,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 446,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 447,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 448,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 449,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 450,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 451,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 452,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 453,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 454,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 455,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 456,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 457,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 458,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 459,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 460,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 461,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 462,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 463,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 464,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 465,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 466,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 467,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 468,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 469,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 470,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 471,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 472,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 473,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 474,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 475,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 476,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 477,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 478,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 479,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 480,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 481,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 482,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 483,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 484,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 485,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 486,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 487,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 488,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 489,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 490,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 491,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 492,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 493,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 494,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 495,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 496,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 497,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 498,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 499,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 500,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 501,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 502,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 503,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 504,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 505,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 506,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 507,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 508,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 509,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 510,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 511,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 512,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 513,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 514,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 515,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 516,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 517,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 518,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 519,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 520,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 521,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 522,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 523,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 524,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 525,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 526,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 527,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 528,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 529,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 530,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 531,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 532,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 533,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 534,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 535,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 536,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 537,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 538,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 539,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 540,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 541,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 542,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 543,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 544,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 545,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 546,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 547,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 548,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 549,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 550,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 551,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 552,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 553,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 554,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 555,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 556,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 557,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 558,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 559,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 560,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 561,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 562,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 563,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 564,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 565,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 566,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 567,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 568,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 569,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 570,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 571,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 572,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 573,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 574,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 575,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 576,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 577,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 578,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 579,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 580,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 581,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 582,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 583,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 584,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 585,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 586,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 587,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 588,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 589,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 590,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 591,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 592,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 593,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 594,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 595,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 596,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 597,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 598,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 599,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 600,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 601,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 602,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 603,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 604,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 605,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 606,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 607,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 608,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 609,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 610,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 611,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 612,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 613,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 614,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 615,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 616,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 617,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 618,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 619,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 620,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 621,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 622,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 623,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 624,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 625,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 626,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 627,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 628,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 629,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 630,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 631,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 632,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 633,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        },
+        {
+          "line": 634,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/linux-container-sdk-v1.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/normal-desktop-gate-v5-supervisor.log",
+        "bytes": 5412,
+        "sha256": "489b515f31dc35297555df3461ab4a40dda826b10b52120e43e0c6a7410316e4"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 141,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/normal-desktop-gate-v5-supervisor.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/normal-desktop-gate-v6-supervisor.log",
+        "bytes": 5414,
+        "sha256": "89545818581eda7db20d52d5981ae6ce6bfb6f0615e46bddbfc3039bea9a2bbf"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 74,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/normal-desktop-gate-v6-supervisor.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/normal-desktop-gate-v7-supervisor.log",
+        "bytes": 5412,
+        "sha256": "0f8fedc8fb06bb58ca5bb5c2eddb3a2d190ed8561ed300ef156a5ed027c089bb"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 37,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/normal-desktop-gate-v7-supervisor.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/normal-desktop-gate-v8.log",
+        "bytes": 231412,
+        "sha256": "9d7ef7c9b6238165b9f1c47b7958437ad03c27ddf2693b900fdbb86f2dbff151"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 3073,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/normal-desktop-gate-v8.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/package-rss-v7-supervisor.log",
+        "bytes": 1669,
+        "sha256": "2d894a679ca2028878398d254b31deddd88109b7b1540efc1f8a9423ea89bf74"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 18,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/package-rss-v7-supervisor.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/package-rss-v8-supervisor.log",
+        "bytes": 1669,
+        "sha256": "2c0e598a5c4dc2ea53db4ee33e99d2993f8ae7c2b38d01244021e51879bdc309"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 18,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/package-rss-v8-supervisor.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/post-gate-resume-v1-supervisor.log",
+        "bytes": 5440,
+        "sha256": "be3a6d059b18123255c8986ddbf995d489900e5807d1db1290296788f95dc9e6"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 65,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/post-gate-resume-v1-supervisor.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/post-gate-resume-v2-supervisor.log",
+        "bytes": 5440,
+        "sha256": "4396b39bfeb9aa8f607d5507830d75ffec206d1a8b4933b1fced7d15d7067cb5"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 107,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/post-gate-resume-v2-supervisor.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/post-gate-resume-v3-supervisor.log",
+        "bytes": 5438,
+        "sha256": "0c06f163b076a005f4f899e00ed2d11ac5240445a7b01b1355e2c1ac40e7c77f"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 69,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/post-gate-resume-v3-supervisor.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/post-gate-serial-v1-supervisor.log",
+        "bytes": 5439,
+        "sha256": "c68e61f620e8b1ead9ea4f28d692ba3136a54d876572d6b15bee4a2b7d11976b"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 97,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/post-gate-serial-v1-supervisor.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/probe-focused-v2.log",
+        "bytes": 34570,
+        "sha256": "a7754006713d6a4cabfbb1d38844cc979a523e063adcebd9c8208610ea0e9e6e"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 315,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/probe-focused-v2.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/rust-preflight-v2-supervisor.log",
+        "bytes": 2580,
+        "sha256": "e78d1683917a315b2f18d4c8f8b7a4e9792dd2449e5281cbd12ece12c975306a"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained historical cargo-fmt diagnostic diff includes whitespace-only output; this is a log containing source snippets, not an editable source file.",
+      "findings": [
+        {
+          "line": 40,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": false
+        },
+        {
+          "line": 52,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/rust-preflight-v2-supervisor.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/rust-preflight-v2.log",
+        "bytes": 2152,
+        "sha256": "ca87fc74b9a28fb8f1005535a7d72cb3012371461e70f7d74f6f0e55fcaeefe7"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained historical cargo-fmt diagnostic diff includes whitespace-only output; this is a log containing source snippets, not an editable source file.",
+      "findings": [
+        {
+          "line": 39,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": false
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/rust-preflight-v2.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/rust-preflight-v3-supervisor.log",
+        "bytes": 1264,
+        "sha256": "108c4cd5e879ba430793d897478d304b3b341133c116a76e72efa2c14560be2f"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 20,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/rust-preflight-v3-supervisor.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/rust-preflight-v4.log",
+        "bytes": 5055,
+        "sha256": "17c56da250c8cbc6d15a4938c37c068050d4e9c7936d868cdd6d661958279cd6"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 65,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/rust-preflight-v4.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/rust-preflight-v5-supervisor.log",
+        "bytes": 866,
+        "sha256": "89621fe2973036fb456f20c29638830c2d8fc59ea97cb705a4ee253cae4003d2"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 11,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/rust-preflight-v5-supervisor.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/rust-preflight-v6-supervisor.log",
+        "bytes": 5433,
+        "sha256": "5f430205f172401868690c7bdfe2bb45edbdee0254f66b4679e233407f3a508e"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 108,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/rust-preflight-v6-supervisor.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/rust-preflight-v7-supervisor.log",
+        "bytes": 5432,
+        "sha256": "33a28b2aa64bc5d73b832dce6d535ae82698a50b9a084ed2366b22ca127a5341"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 52,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/rust-preflight-v7-supervisor.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/rust-preflight-v8.log",
+        "bytes": 5744,
+        "sha256": "5007c4be063cf5d630f2b3e0524edd64e84ba7d2ec6d623dda06c05a6beca342"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 76,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/rust-preflight-v8.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/rust-preflight-v9.log",
+        "bytes": 3212,
+        "sha256": "00c7aecf8818bee42706a0bebfd225d73894605cc4c2a0a22bb8fec59bb428df"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 42,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/rust-preflight-v9.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/rust-source-preflight-v10-supervisor.log",
+        "bytes": 3032,
+        "sha256": "aeb4cd85143a1c335878a23bf5548e8e1a7009078dd50310db2a323f8378718f"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 55,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/rust-source-preflight-v10-supervisor.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/rust-source-preflight-v11-supervisor.log",
+        "bytes": 2301,
+        "sha256": "76bff06c3bbfd6bfda1d1bcd7de8919bc9830ad72b464b465b0547c9ee03ec93"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 41,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/rust-source-preflight-v11-supervisor.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/rust-source-preflight-v12-supervisor.log",
+        "bytes": 5441,
+        "sha256": "f5f3dfdedcb26dae25f2c1dc1baf22be97644411a80dd07c3593585a94ec4541"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 77,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/rust-source-preflight-v12-supervisor.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/rust-source-preflight-v13.log",
+        "bytes": 6219,
+        "sha256": "2bf7762da57808b43fa606c223dddd9de87a4e03fe14c713c61e4b6b47b2aa54"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 89,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/rust-source-preflight-v13.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/rust-source-preflight-v14.log",
+        "bytes": 1795,
+        "sha256": "7346566a022a55f214a94873d198789599ea5ce507b97c3fcf0b6dcd7829a313"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 28,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/rust-source-preflight-v14.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/rust-source-preflight-v15-supervisor.log",
+        "bytes": 1605,
+        "sha256": "27bc6d9b4bb614ecbbcacc8c09bcceea034030d4ee5b60eaee16056f93ba5336"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 24,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/rust-source-preflight-v15-supervisor.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/rust-source-preflight-v16-supervisor.log",
+        "bytes": 2347,
+        "sha256": "5f461b798b09ad40e281a95e542908f02729616d7fc45338432f0de269d2deca"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 45,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/rust-source-preflight-v16-supervisor.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/rust-source-preflight-v17-supervisor.log",
+        "bytes": 5441,
+        "sha256": "46b0eedd9c5f1199e283ae7f8a067e55fc42e2a4ea80dcbe7d5651009b71f1d5"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 12,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/rust-source-preflight-v17-supervisor.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/rust-source-preflight-v18.log",
+        "bytes": 3886,
+        "sha256": "e050ddf83c035b1a2aad83142ae77e65d33ac314261f75d180ae821f56fe8434"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 53,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/rust-source-preflight-v18.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/test-expectations-focused-v1-supervisor.log",
+        "bytes": 1899,
+        "sha256": "524d7801df76115f6054015873e0db76a82c1de3c05d189845ecf0e1b0730a20"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 23,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/test-expectations-focused-v1-supervisor.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/execution/windows-sdk-stdlib-v1.log",
+        "bytes": 1721,
+        "sha256": "13c8f6672446ef393bf43621ac9db8c05c5f40d5204b84786ec0375aeb9d7a00"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Captured upstream SDL3 pkg-config text includes literal trailing spaces in Requires.private/Libs/Cflags.",
+      "findings": [
+        {
+          "line": 15,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": false
+        },
+        {
+          "line": 17,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": false
+        },
+        {
+          "line": 19,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": false
+        },
+        {
+          "line": 31,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": false
+        },
+        {
+          "line": 33,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": false
+        },
+        {
+          "line": 35,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": false
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/execution/windows-sdk-stdlib-v1.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/validation/cli-cwd-root-v1-host-all-features.log",
+        "bytes": 570,
+        "sha256": "13f461c0e0c034057015f39a83aaa95fdc31ae6ffd213f003f9d8e20580984ca"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 12,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/validation/cli-cwd-root-v1-host-all-features.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/validation/cli-cwd-root-v1-host-default-direct.log",
+        "bytes": 570,
+        "sha256": "8ba3bba3b8cedc853e512b9ca13a97d1e8ed4c13e10025a45ce324ca86016371"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 12,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/validation/cli-cwd-root-v1-host-default-direct.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/validation/cli-cwd-root-v1-host-default.log",
+        "bytes": 215,
+        "sha256": "be893206be237ed0e7d264788dc87fb50ac101cffaabfcf13f32c3f9ba2ef82b"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 4,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/validation/cli-cwd-root-v1-host-default.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/validation/cli-cwd-root-v1-linux-all-features.log",
+        "bytes": 539,
+        "sha256": "eaefb96a9f2eed4b500480b45c0ce0b9bfcaacd442b66f199bd938eda4511dc3"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 12,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/validation/cli-cwd-root-v1-linux-all-features.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/validation/directional-pixel-root-v1-corrected-v2/run.log",
+        "bytes": 990,
+        "sha256": "0c56f5c5f3ee5201e2c3bda812f60d03b0f5e2d1863278963d8603c6bd6ae415"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 11,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/validation/directional-pixel-root-v1-corrected-v2/run.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/validation/directional-pixel-root-v1-final/run.log",
+        "bytes": 645,
+        "sha256": "769a32f64d4511ede35211260cdcdec70eedbb105e93bb8cd9dd421f963dfcb4"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained command/supervisor/test output includes its original final blank output line.",
+      "findings": [
+        {
+          "line": 10,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/validation/directional-pixel-root-v1-final/run.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/validation/directional-pixel-root-v1-original-metal/run.log",
+        "bytes": 1050,
+        "sha256": "779070a853e9666c0bfc2637831023a013adb43188f06ac0c7fecf5fd9e10372"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained historical Cargo/native-test stdout includes incomplete test-status line trailing space.",
+      "findings": [
+        {
+          "line": 6,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": false
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/validation/directional-pixel-root-v1-original-metal/run.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/validation/directional-pixel-root-v1-original/run.log",
+        "bytes": 1235,
+        "sha256": "93ef74fd82ee818204b7c743a7c53da4c06cbb7a4c928492ff4d9dd3687fb425"
+      },
+      "classification": "retained raw stdout/stderr or supervisor log",
+      "origin_assessment": "Retained historical Cargo/native-test stdout includes incomplete test-status line trailing space.",
+      "findings": [
+        {
+          "line": 6,
+          "kind": "trailing whitespace",
+          "carriage_return_at_line_end": false
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/validation/directional-pixel-root-v1-original/run.log -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/validation/renderer-final-diff-review-v3.json",
+        "bytes": 52057,
+        "sha256": "049a5052ceaeac3e5dc957c3c53f3bed4fe4135aabec4f1c1bfbdbc2805c2a43"
+      },
+      "classification": "sealed authored validation report; genuine editorial EOF whitespace",
+      "origin_assessment": "One extra blank EOF line in a released, already hash-pinned report. This is not a raw-terminal false positive. Preserve exact sealed bytes or explicitly revise and repin; do not describe it as absent.",
+      "findings": [
+        {
+          "line": 503,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/validation/renderer-final-diff-review-v3.json -whitespace"
+    },
+    {
+      "file": {
+        "path": "docs/art-style/stage7/validation/renderer-final-diff-review-v3.md",
+        "bytes": 2441,
+        "sha256": "a8bc0649539f851097dc52a33a46b333763360474abde24745845260cc2b81f5"
+      },
+      "classification": "sealed authored validation report; genuine editorial EOF whitespace",
+      "origin_assessment": "One extra blank EOF line in a released, already hash-pinned report. This is not a raw-terminal false positive. Preserve exact sealed bytes or explicitly revise and repin; do not describe it as absent.",
+      "findings": [
+        {
+          "line": 12,
+          "kind": "new blank line at EOF",
+          "extra_blank_eof_verified": true
+        }
+      ],
+      "already_recorded_precommit_sha_match": true,
+      "proposed_exact_attribute": "/docs/art-style/stage7/validation/renderer-final-diff-review-v3.md -whitespace"
+    }
+  ],
+  "assessment": "Git correctly reports actual whitespace bytes. For44 retained raw logs these bytes are captured evidence, including failed runs and terminal/upstream output, not defects to normalize in active source. Two sealed report EOF blanks are real editorial formatting, but their released bytes are already pinned. The exact46path exception preserves those identities without exempting source, fixtures, tests, assertion logic or ordinary new prose.",
+  "recommended_scope": {
+    "attributes": [
+      "/docs/art-style/stage7/execution/final-content-composed-controls-v1.log -whitespace",
+      "/docs/art-style/stage7/execution/final-content-default-workspace-v1.log -whitespace",
+      "/docs/art-style/stage7/execution/geometry-focused.log -whitespace",
+      "/docs/art-style/stage7/execution/hallows-atlas-profile-v1.log -whitespace",
+      "/docs/art-style/stage7/execution/linux-container-sdk-v1.log -whitespace",
+      "/docs/art-style/stage7/execution/normal-desktop-gate-v5-supervisor.log -whitespace",
+      "/docs/art-style/stage7/execution/normal-desktop-gate-v6-supervisor.log -whitespace",
+      "/docs/art-style/stage7/execution/normal-desktop-gate-v7-supervisor.log -whitespace",
+      "/docs/art-style/stage7/execution/normal-desktop-gate-v8.log -whitespace",
+      "/docs/art-style/stage7/execution/package-rss-v7-supervisor.log -whitespace",
+      "/docs/art-style/stage7/execution/package-rss-v8-supervisor.log -whitespace",
+      "/docs/art-style/stage7/execution/post-gate-resume-v1-supervisor.log -whitespace",
+      "/docs/art-style/stage7/execution/post-gate-resume-v2-supervisor.log -whitespace",
+      "/docs/art-style/stage7/execution/post-gate-resume-v3-supervisor.log -whitespace",
+      "/docs/art-style/stage7/execution/post-gate-serial-v1-supervisor.log -whitespace",
+      "/docs/art-style/stage7/execution/probe-focused-v2.log -whitespace",
+      "/docs/art-style/stage7/execution/rust-preflight-v2-supervisor.log -whitespace",
+      "/docs/art-style/stage7/execution/rust-preflight-v2.log -whitespace",
+      "/docs/art-style/stage7/execution/rust-preflight-v3-supervisor.log -whitespace",
+      "/docs/art-style/stage7/execution/rust-preflight-v4.log -whitespace",
+      "/docs/art-style/stage7/execution/rust-preflight-v5-supervisor.log -whitespace",
+      "/docs/art-style/stage7/execution/rust-preflight-v6-supervisor.log -whitespace",
+      "/docs/art-style/stage7/execution/rust-preflight-v7-supervisor.log -whitespace",
+      "/docs/art-style/stage7/execution/rust-preflight-v8.log -whitespace",
+      "/docs/art-style/stage7/execution/rust-preflight-v9.log -whitespace",
+      "/docs/art-style/stage7/execution/rust-source-preflight-v10-supervisor.log -whitespace",
+      "/docs/art-style/stage7/execution/rust-source-preflight-v11-supervisor.log -whitespace",
+      "/docs/art-style/stage7/execution/rust-source-preflight-v12-supervisor.log -whitespace",
+      "/docs/art-style/stage7/execution/rust-source-preflight-v13.log -whitespace",
+      "/docs/art-style/stage7/execution/rust-source-preflight-v14.log -whitespace",
+      "/docs/art-style/stage7/execution/rust-source-preflight-v15-supervisor.log -whitespace",
+      "/docs/art-style/stage7/execution/rust-source-preflight-v16-supervisor.log -whitespace",
+      "/docs/art-style/stage7/execution/rust-source-preflight-v17-supervisor.log -whitespace",
+      "/docs/art-style/stage7/execution/rust-source-preflight-v18.log -whitespace",
+      "/docs/art-style/stage7/execution/test-expectations-focused-v1-supervisor.log -whitespace",
+      "/docs/art-style/stage7/execution/windows-sdk-stdlib-v1.log -whitespace",
+      "/docs/art-style/stage7/validation/cli-cwd-root-v1-host-all-features.log -whitespace",
+      "/docs/art-style/stage7/validation/cli-cwd-root-v1-host-default-direct.log -whitespace",
+      "/docs/art-style/stage7/validation/cli-cwd-root-v1-host-default.log -whitespace",
+      "/docs/art-style/stage7/validation/cli-cwd-root-v1-linux-all-features.log -whitespace",
+      "/docs/art-style/stage7/validation/directional-pixel-root-v1-corrected-v2/run.log -whitespace",
+      "/docs/art-style/stage7/validation/directional-pixel-root-v1-final/run.log -whitespace",
+      "/docs/art-style/stage7/validation/directional-pixel-root-v1-original-metal/run.log -whitespace",
+      "/docs/art-style/stage7/validation/directional-pixel-root-v1-original/run.log -whitespace",
+      "/docs/art-style/stage7/validation/renderer-final-diff-review-v3.json -whitespace",
+      "/docs/art-style/stage7/validation/renderer-final-diff-review-v3.md -whitespace"
+    ],
+    "exact_root_anchored_literal_paths_only": true,
+    "broad_globs_or_directory_rules": false,
+    "no_eol_text_filter_diff_or_merge_changes": true,
+    "no_global_core_whitespace_change": true,
+    "no_original_artifact_edits": true,
+    "existing_precedent": "Current .gitattributes uses -whitespace on exact immutable upstream license copies; this is a separately documented evidence-preservation use.",
+    "future_mutation_contract": "These exact files remain sealed artifacts. Future source/editorial text must use separate files and ordinary whitespace checks; hash checks must continue rejecting any changed retained byte."
+  },
+  "publication_follow_up": "Primary should apply only these exact attributes, inspect/check the exact46 attributes and rerun staged diff --check; preserve the initial failed command receipt and verify all46 recorded hashes stay equal. Attribute mutation and staged verification are not executed by this reviewer.",
+  "limits": "This reviews byte preservation and exact path scope only, not renewed substantive acceptance of any historical failed command or report. No code/test/validation assertion is waived.",
+  "ownership": {
+    "writes": [
+      "docs/art-style/stage7/validation/publication-whitespace-independent-review-v1.json"
+    ],
+    "original_artifact_source_build_native_git_index_changes": false,
+    "bounded_python_read_completed": true,
+    "no_background_jobs": true,
+    "custody_released": true
+  }
+}

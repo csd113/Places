@@ -1,0 +1,468 @@
+{
+  "recorded_utc": "2026-10-08T23:45:37.459417+00:00",
+  "status": "Read-only preserved C1 lower-Pit prepared support audit; final solver16 packages/native acceptance separate",
+  "package": {
+    "path": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/levels__level0_pit.placesmap",
+    "bytes": 52251637,
+    "sha256": "466f4fe029f3774870c4aa6fe418721c93bbdd41e0cd4e8740ac0136e0a9fec6",
+    "compiler_fingerprint": "4bcbaf8f63da7255618646deaef30119b799706c42d56ee03549e6387828bb49",
+    "status": "superseded C1"
+  },
+  "source": {
+    "path": "levels/level0_pit.json",
+    "bytes": 77481,
+    "sha256": "fe67c23ddc9742fc819befdecc38d1dbce5000c281d4c7eec06ce8367989db38",
+    "source_semantic_room_fields_equal": true
+  },
+  "records": {
+    "lighting": {
+      "entry": "blobs/33f790e467256e0fee2462ea40549ec45cc0180817cdc47c8cf1534f8181febd.lighting",
+      "bytes": 918035,
+      "sha256": "33f790e467256e0fee2462ea40549ec45cc0180817cdc47c8cf1534f8181febd"
+    },
+    "navigation": {
+      "entry": "blobs/10a1888911d0f57256fd01ef707f97f6aff19e8854bd5ba8b314cd013dcf3023.navigation",
+      "bytes": 944716,
+      "sha256": "10a1888911d0f57256fd01ef707f97f6aff19e8854bd5ba8b314cd013dcf3023"
+    },
+    "irradiance": {
+      "entry": "blobs/3bc87ad31afc173f01bf61bd3fc3f573f540b0c675cce2af3871a135966ae598.irradiance",
+      "bytes": 1549454,
+      "sha256": "3bc87ad31afc173f01bf61bd3fc3f573f540b0c675cce2af3871a135966ae598"
+    }
+  },
+  "semantics": {
+    "bytes": 109282,
+    "sha256": "4420e6076efe5c5e963f6517b479480b2b377fbd8045bea7ae5453edef926c94"
+  },
+  "plpf": {
+    "version": 3,
+    "origin": [
+      5.250011444091797,
+      -18.749980926513672,
+      -33.75001525878906
+    ],
+    "cell_m": 1.5,
+    "dims": [
+      49,
+      17,
+      31
+    ],
+    "count": 25823,
+    "label_counts": {
+      "-1": 21693,
+      "0": 66,
+      "1": 21,
+      "2": 279,
+      "3": 12,
+      "4": 198,
+      "5": 198,
+      "6": 144,
+      "7": 144,
+      "8": 32,
+      "9": 32,
+      "10": 24,
+      "11": 24,
+      "12": 96,
+      "13": 96,
+      "14": 60,
+      "15": 60,
+      "20": 555,
+      "21": 555,
+      "22": 286,
+      "23": 288,
+      "24": 960
+    },
+    "selected_direct_sources": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      21,
+      22,
+      23
+    ],
+    "radius_m": 3.0
+  },
+  "pllt": {
+    "version": 2,
+    "room_count": 25,
+    "light_count": 114,
+    "wall_solids": 228,
+    "horizontal_solids": 927,
+    "prop_solids": 409,
+    "visibility_byte_span": [
+      15065,
+      914532
+    ],
+    "all_bytes_consumed": true
+  },
+  "owner_rule": "Saved PLLT2 f32 spans and1cm edge band; strict containing air chooses smallest area with earlier ties. room_index_at_height retains historical footprint fallback only if no air volume; probe_region_at separately requires true containing air and a valid zone.",
+  "overlapping_tall_shaft_rooms": [
+    {
+      "id": 20,
+      "compiled_volume": {
+        "x0": 49.0,
+        "x1": 73.0,
+        "z0": -28.0,
+        "z1": -22.0,
+        "floor": -11.0,
+        "ceiling": 6.0,
+        "area": 144.0
+      }
+    },
+    {
+      "id": 21,
+      "compiled_volume": {
+        "x0": 49.0,
+        "x1": 73.0,
+        "z0": -10.0,
+        "z1": -4.0,
+        "floor": -11.0,
+        "ceiling": 6.0,
+        "area": 144.0
+      }
+    },
+    {
+      "id": 22,
+      "compiled_volume": {
+        "x0": 49.0,
+        "x1": 55.0,
+        "z0": -22.0,
+        "z1": -10.0,
+        "floor": -11.0,
+        "ceiling": 6.0,
+        "area": 72.0
+      }
+    },
+    {
+      "id": 23,
+      "compiled_volume": {
+        "x0": 67.0,
+        "x1": 73.0,
+        "z0": -22.0,
+        "z1": -10.0,
+        "floor": -11.0,
+        "ceiling": 6.0,
+        "area": 72.0
+      }
+    },
+    {
+      "id": 24,
+      "compiled_volume": {
+        "x0": 55.0,
+        "x1": 67.0,
+        "z0": -22.0,
+        "z1": -10.0,
+        "floor": -11.0,
+        "ceiling": 6.0,
+        "area": 144.0
+      }
+    }
+  ],
+  "nav": {
+    "version": 1,
+    "cell_m": 0.20000000298023224,
+    "origin_xz": [
+      5.400000095367432,
+      -33.60000228881836
+    ],
+    "dims": [
+      366,
+      232
+    ],
+    "profiles": [
+      [
+        0.30000001192092896,
+        1.7999999523162842,
+        0.4000000059604645,
+        2.6666665077209473
+      ]
+    ],
+    "all_bytes_consumed": true,
+    "all_class_masks_then_all_region_arrays": true
+  },
+  "sampling_method": "Each actual saved lower-floor humanoid walkable cell at half-body height; PLPF f64 lattice distance2<4; stored probe owner validated against saved PLLT2 air volumes; zone lookup validity; f32/fmaf start nudge, strict box/slab clip, floor crossing, and oriented prop blockers over actual compiled PLLT2 solids. Full candidate geometry tested independently of spatial indices; positive raw count alone is not called support.",
+  "rooms": [
+    {
+      "authored_room_id": 16,
+      "authored_room": {
+        "ceiling": {
+          "kind": "flat"
+        },
+        "ceiling_material": "core:ceiling_panel_01",
+        "ceiling_shine": null,
+        "depth": 6.150000095367432,
+        "floor_y": -7.599999904632568,
+        "height": 2.200000047683716,
+        "material": "core:carpet_beige_01",
+        "shine": null,
+        "width": 24.299999237060547,
+        "x": 48.849998474121094,
+        "z": -28.149999618530273
+      },
+      "compiled_air_volume": {
+        "x0": 48.849998474121094,
+        "x1": 73.14999389648438,
+        "z0": -28.149999618530273,
+        "z1": -22.0,
+        "floor": -7.599999904632568,
+        "ceiling": -5.399999618530273,
+        "area": 149.44496154785156
+      },
+      "lower_floor_walkable_cells": 350,
+      "lower_floor_navigation_regions": {
+        "8": 350
+      },
+      "runtime_air_owner_counts": {
+        "20": 350
+      },
+      "minimum_raw_candidates": 29,
+      "without_raw_candidates": 0,
+      "minimum_clear_label_valid_candidates": 14,
+      "without_clear_label_valid_candidates": 0,
+      "all_visible_candidate_label_counts": {
+        "20": 6220,
+        "22": 165,
+        "24": 676,
+        "23": 196
+      },
+      "minimum_support_witness": {
+        "cell_id": 19648,
+        "region": 8,
+        "floor_y": -7.599999904632568,
+        "position": [
+          55.500003814697266,
+          -6.699999809265137,
+          -22.900001525878906
+        ],
+        "runtime_air_owner": 20,
+        "raw_candidates": 34,
+        "clear_candidates": 14,
+        "first_clear_probe": {
+          "id": 6256,
+          "position": [
+            55.5000114440918,
+            -5.999980926513672,
+            -22.500015258789062
+          ],
+          "label": 20,
+          "distance_m": 0.8062353565351029
+        }
+      }
+    },
+    {
+      "authored_room_id": 17,
+      "authored_room": {
+        "ceiling": {
+          "kind": "flat"
+        },
+        "ceiling_material": "core:ceiling_panel_01",
+        "ceiling_shine": null,
+        "depth": 6.150000095367432,
+        "floor_y": -7.599999904632568,
+        "height": 2.200000047683716,
+        "material": "core:carpet_beige_01",
+        "shine": null,
+        "width": 24.299999237060547,
+        "x": 48.849998474121094,
+        "z": -10.0
+      },
+      "compiled_air_volume": {
+        "x0": 48.849998474121094,
+        "x1": 73.14999389648438,
+        "z0": -10.0,
+        "z1": -3.8499999046325684,
+        "floor": -7.599999904632568,
+        "ceiling": -5.399999618530273,
+        "area": 149.44497680664062
+      },
+      "lower_floor_walkable_cells": 350,
+      "lower_floor_navigation_regions": {
+        "8": 350
+      },
+      "runtime_air_owner_counts": {
+        "21": 350
+      },
+      "minimum_raw_candidates": 29,
+      "without_raw_candidates": 0,
+      "minimum_clear_label_valid_candidates": 12,
+      "without_clear_label_valid_candidates": 0,
+      "all_visible_candidate_label_counts": {
+        "22": 236,
+        "21": 5159,
+        "24": 798,
+        "23": 279
+      },
+      "minimum_support_witness": {
+        "cell_id": 44536,
+        "region": 8,
+        "floor_y": -7.599999904632568,
+        "position": [
+          55.500003814697266,
+          -6.699999809265137,
+          -9.30000114440918
+        ],
+        "runtime_air_owner": 21,
+        "raw_candidates": 34,
+        "clear_candidates": 12,
+        "first_clear_probe": {
+          "id": 13753,
+          "position": [
+            55.5000114440918,
+            -5.999980926513672,
+            -9.000015258789062
+          ],
+          "label": 21,
+          "distance_m": 0.7615891069586689
+        }
+      }
+    },
+    {
+      "authored_room_id": 18,
+      "authored_room": {
+        "ceiling": {
+          "kind": "flat"
+        },
+        "ceiling_material": "core:ceiling_panel_01",
+        "ceiling_shine": null,
+        "depth": 12.0,
+        "floor_y": -7.599999904632568,
+        "height": 2.200000047683716,
+        "material": "core:carpet_beige_01",
+        "shine": null,
+        "width": 6.150000095367432,
+        "x": 48.849998474121094,
+        "z": -22.0
+      },
+      "compiled_air_volume": {
+        "x0": 48.849998474121094,
+        "x1": 55.0,
+        "z0": -22.0,
+        "z1": -10.0,
+        "floor": -7.599999904632568,
+        "ceiling": -5.399999618530273,
+        "area": 73.80001831054688
+      },
+      "lower_floor_walkable_cells": 268,
+      "lower_floor_navigation_regions": {
+        "8": 268
+      },
+      "runtime_air_owner_counts": {
+        "22": 268
+      },
+      "minimum_raw_candidates": 29,
+      "without_raw_candidates": 0,
+      "minimum_clear_label_valid_candidates": 12,
+      "without_clear_label_valid_candidates": 0,
+      "all_visible_candidate_label_counts": {
+        "20": 268,
+        "22": 3585,
+        "24": 774,
+        "21": 167
+      },
+      "minimum_support_witness": {
+        "cell_id": 36843,
+        "region": 8,
+        "floor_y": -7.599999904632568,
+        "position": [
+          54.10000228881836,
+          -6.699999809265137,
+          -13.500001907348633
+        ],
+        "runtime_air_owner": 22,
+        "raw_candidates": 29,
+        "clear_candidates": 12,
+        "first_clear_probe": {
+          "id": 11253,
+          "position": [
+            54.0000114440918,
+            -5.999980926513672,
+            -13.500015258789062
+          ],
+          "label": 22,
+          "distance_m": 0.7071241796290109
+        }
+      }
+    },
+    {
+      "authored_room_id": 19,
+      "authored_room": {
+        "ceiling": {
+          "kind": "flat"
+        },
+        "ceiling_material": "core:ceiling_panel_01",
+        "ceiling_shine": null,
+        "depth": 12.0,
+        "floor_y": -7.599999904632568,
+        "height": 2.200000047683716,
+        "material": "core:carpet_beige_01",
+        "shine": null,
+        "width": 6.150000095367432,
+        "x": 67.0,
+        "z": -22.0
+      },
+      "compiled_air_volume": {
+        "x0": 67.0,
+        "x1": 73.1500015258789,
+        "z0": -22.0,
+        "z1": -10.0,
+        "floor": -7.599999904632568,
+        "ceiling": -5.399999618530273,
+        "area": 73.80001831054688
+      },
+      "lower_floor_walkable_cells": 268,
+      "lower_floor_navigation_regions": {
+        "8": 268
+      },
+      "runtime_air_owner_counts": {
+        "23": 268
+      },
+      "minimum_raw_candidates": 29,
+      "without_raw_candidates": 0,
+      "minimum_clear_label_valid_candidates": 14,
+      "without_clear_label_valid_candidates": 0,
+      "all_visible_candidate_label_counts": {
+        "20": 301,
+        "23": 4340,
+        "24": 663,
+        "21": 190
+      },
+      "minimum_support_witness": {
+        "cell_id": 23004,
+        "region": 8,
+        "floor_y": -7.599999904632568,
+        "position": [
+          67.9000015258789,
+          -6.699999809265137,
+          -21.10000228881836
+        ],
+        "runtime_air_owner": 23,
+        "raw_candidates": 33,
+        "clear_candidates": 14,
+        "first_clear_probe": {
+          "id": 7097,
+          "position": [
+            67.50001525878906,
+            -5.999980926513672,
+            -21.000015258789062
+          ],
+          "label": 23,
+          "distance_m": 0.812411752895757
+        }
+      }
+    }
+  ],
+  "elapsed_seconds": 41.55010708398186,
+  "scope_limit": "Independent read-only codec/segment witness from preserved C1; no final current package, native traversal, dynamic source state, displayed brightness or renderer frame claim; primary runs final actual Rust sampler/native gates",
+  "source_edits": [],
+  "cargo_compiler_bake_native_jobs": [],
+  "conclusion": {
+    "lower_floor_samples": 1236,
+    "without_clear_label_valid_candidates": 0,
+    "label_shadowing": "Actual lower-floor air owners20..23 are overlapping smaller shaft volumes; no16..19labels is compatible with supported prepared interpolation",
+    "source_fix_justified": false,
+    "final_acceptance": "Primary actual Rust sampler on new normal products plus native map/dynamic transition checks; C1 evidence remains superseded"
+  }
+}

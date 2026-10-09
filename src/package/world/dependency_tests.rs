@@ -259,11 +259,28 @@ fn package_open_keeps_named_missing_and_resized_dependency_failures() {
 }
 
 #[test]
-fn the_original_embedded_demo_still_opens_without_an_asset_root() {
+fn the_embedded_demo_requires_catalog_then_assets_only_with_an_installed_root() {
     let opened = open_at(crate::loader::embedded_demo_package(), None)
-        .expect("original embedded fallback in a truly asset-less install");
+        .expect("embedded fallback in a truly asset-less install");
     assert_eq!(opened.level.id, crate::loader::DEMO_LEVEL_ID);
     let missing_root = evidence_directory("empty-assets");
+    let catalog_error = open_at(crate::loader::embedded_demo_package(), Some(&missing_root))
+        .expect_err("an installed root cannot skip the prepared catalog identity");
+    assert!(
+        catalog_error.contains("package catalog.json")
+            && catalog_error.contains("could not be verified"),
+        "{catalog_error}"
+    );
+    let copied_catalog_bytes =
+        std::fs::copy("assets/catalog.json", missing_root.join("catalog.json"))
+            .expect("install the exact catalog prepared with the embedded package");
+    assert_eq!(
+        copied_catalog_bytes,
+        std::fs::metadata("assets/catalog.json")
+            .expect("prepared catalog metadata")
+            .len(),
+        "the complete prepared catalog was installed"
+    );
     let error = open_at(crate::loader::embedded_demo_package(), Some(&missing_root))
         .expect_err("an installed root cannot silently skip missing dependencies");
     assert!(

@@ -328,7 +328,7 @@ def build_railing(p, name):
 
 def build_icicles(p, count=1):
     _snow(p)
-    p.begin_material(p.material('ice'))
+    p.begin_material(p.material('ice', roughness=.55))
     for i in range(count):
         length = p.height if i == 0 else p.height*(.35 + .5*math.sin(i*2.8)**2)
         radius = p.depth/2*(1 if i == 0 else .62)

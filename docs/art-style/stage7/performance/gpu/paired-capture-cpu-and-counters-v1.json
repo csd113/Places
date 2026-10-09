@@ -1,0 +1,149 @@
+{
+  "reports": [
+    {
+      "case": "before-room-v1",
+      "measured_rows": 720,
+      "warmup_frames": 120,
+      "capture_cpu_ms": {
+        "update_ms": {
+          "median": 0.064,
+          "mean": 0.06822777777777778,
+          "p95": 0.107
+        },
+        "render_ms": {
+          "median": 0.332,
+          "mean": 0.3539277777777778,
+          "p95": 0.491
+        },
+        "swap_ms": {
+          "median": 80.54650000000001,
+          "mean": 80.90879027777778,
+          "p95": 83.885
+        },
+        "frame_ms": {
+          "median": 80.975,
+          "mean": 81.33092777777777,
+          "p95": 84.387
+        },
+        "loop_ms": {
+          "median": 81.07849999999999,
+          "mean": 81.44341666666666,
+          "p95": 84.497
+        }
+      },
+      "counters": {
+        "draw_calls": [
+          43
+        ],
+        "visible_indices": [
+          20832
+        ],
+        "visible_vertices": [
+          28118
+        ],
+        "total_vertices": [
+          21570
+        ],
+        "total_batches": [
+          48
+        ],
+        "visible_batches": [
+          43
+        ],
+        "vbo_bytes": [
+          1639320
+        ],
+        "index_bytes": [
+          44100
+        ]
+      },
+      "metal_command_buffer_error_rows": 0,
+      "actual_capture_count": 840,
+      "owned_process_release": [
+        {
+          "role": "xctrace",
+          "owned_pgid": 92659,
+          "action": "already absent"
+        },
+        {
+          "role": "capture wrapper/native",
+          "owned_pgid": 92641,
+          "action": "already absent"
+        }
+      ]
+    },
+    {
+      "case": "after-room-v1",
+      "measured_rows": 720,
+      "warmup_frames": 120,
+      "capture_cpu_ms": {
+        "update_ms": {
+          "median": 0.068,
+          "mean": 0.07376666666666666,
+          "p95": 0.108
+        },
+        "render_ms": {
+          "median": 0.344,
+          "mean": 0.37125138888888887,
+          "p95": 0.503
+        },
+        "swap_ms": {
+          "median": 80.3615,
+          "mean": 81.13178611111111,
+          "p95": 84.709
+        },
+        "frame_ms": {
+          "median": 80.77199999999999,
+          "mean": 81.57679444444445,
+          "p95": 85.307
+        },
+        "loop_ms": {
+          "median": 80.8765,
+          "mean": 81.68925,
+          "p95": 85.412
+        }
+      },
+      "counters": {
+        "draw_calls": [
+          43
+        ],
+        "visible_indices": [
+          20832
+        ],
+        "visible_vertices": [
+          28118
+        ],
+        "total_vertices": [
+          21570
+        ],
+        "total_batches": [
+          48
+        ],
+        "visible_batches": [
+          43
+        ],
+        "vbo_bytes": [
+          1639320
+        ],
+        "index_bytes": [
+          44100
+        ]
+      },
+      "metal_command_buffer_error_rows": 0,
+      "actual_capture_count": 840,
+      "owned_process_release": [
+        {
+          "role": "xctrace",
+          "owned_pgid": 93114,
+          "action": "already absent"
+        },
+        {
+          "role": "capture wrapper/native",
+          "owned_pgid": 93096,
+          "action": "already absent"
+        }
+      ]
+    }
+  ],
+  "method": "720 real measured ready capture frames after120 warmups; positive counters on every row. CSV CPU fields include actual capture/copy/readback blocking, profiler context and Fifo. These are paired capture workload timings, not gameplay FPS. GPU errors inspected from exported actual table."
+}

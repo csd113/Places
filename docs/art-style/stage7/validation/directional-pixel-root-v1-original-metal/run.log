@@ -1,0 +1,19 @@
+ACTUAL_COMMAND ['cargo', 'test', '--locked', '--lib', '--all-features', 'directional_entity_irradiance_reaches_real_rendered_pixels', '--', '--ignored', '--test-threads=1', '--nocapture']
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.12s
+     Running unittests src/lib.rs (target/debug/deps/places-4d06d8c90f45374a)
+
+running 1 test
+test render::wgpu::renderer::entity_lighting_tests::directional_entity_irradiance_reaches_real_rendered_pixels ... 
+thread 'render::wgpu::renderer::entity_lighting_tests::directional_entity_irradiance_reaches_real_rendered_pixels' (19456364) panicked at src/render/wgpu/entity_lighting_tests.rs:277:5:
+posed face normal reaches pixels
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    render::wgpu::renderer::entity_lighting_tests::directional_entity_irradiance_reaches_real_rendered_pixels
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2194 filtered out; finished in 0.22s
+
+error: test failed, to rerun pass `--lib`

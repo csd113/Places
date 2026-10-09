@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+    "/tmp/places-stage7-prior-preservation-final-v1.py"
+  ],
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "started_utc": "2026-10-09T06:26:17.073994+00:00",
+  "finished_utc": "2026-10-09T06:26:19.850591+00:00",
+  "elapsed_seconds": 2.7765077500371262,
+  "exit_code": 0,
+  "environment_overrides": {
+    "RUSTC_WRAPPER": ""
+  },
+  "log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/prior-preservation-final-v1.log"
+}

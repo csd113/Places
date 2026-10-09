@@ -1,0 +1,37 @@
+{
+  "recorded_utc": "2026-10-09T07:54:15.220825+00:00",
+  "status": "passed bounded native view inspection",
+  "images": [
+    {
+      "path": "docs/art-style/stage7/supported-native/outdoor-repaired-high.png",
+      "bytes": 482679,
+      "sha256": "9fe7199c36c321aed2271421ca3b9c4cf7fad0e86840ba58a5bffae15c8d611b",
+      "actual_visual_observation": "Night foliage, path and warm practicals visible; dark established night response retained."
+    },
+    {
+      "path": "docs/art-style/stage7/supported-native/snowfall-repaired-high.png",
+      "bytes": 477358,
+      "sha256": "ed4da237b2d95d1206b367b9019a756be6c7db1596aaf5aba62fb4256bd67b6d",
+      "actual_visual_observation": "Aurora, snow particles, floor and backdrop visible; outward backdrop faces resolve duplicate authoring without re-tuning weather."
+    },
+    {
+      "path": "docs/art-style/stage7/supported-native/gap-review-purposeful-high.png",
+      "bytes": 7818,
+      "sha256": "92d4a89d1343ca8dfa7ff2685630b5860be8986d9974f7077b4c11341d5d0225",
+      "actual_visual_observation": "Actual walls and offset opening visible in an intentionally unlit repair fixture."
+    },
+    {
+      "path": "docs/art-style/stage7/supported-native/wall-step-x-purposeful-high.png",
+      "bytes": 9085,
+      "sha256": "e3a76f926f7dba027defbf94540d748a1114714d1bde974a20e9d013e63e1d60",
+      "actual_visual_observation": "Actual stepped wall silhouette visible in an intentionally unlit fixture."
+    },
+    {
+      "path": "docs/art-style/stage7/supported-native/round-pool-purposeful-high.png",
+      "bytes": 71428,
+      "sha256": "8861090e7d742fe3e6a584a616b82f9b38a4a85ae023b5c304011a65e5800b3b",
+      "actual_visual_observation": "Round pool boundary and emissive actors visible; primitive fixture stays intentionally dark."
+    }
+  ],
+  "scope": "Primary inspected actual unprocessed native PNGs. Positive counter/geometry conclusions use their independent command receipts. No fixture art refinement, exposure adjustment or pixel edit; three dark fixture captures establish actual geometry submission rather than polished lighting."
+}

@@ -1,0 +1,17 @@
+{
+  "label": "package-rss-v7",
+  "supervisor_pid": 15438,
+  "argv": [
+    "python3",
+    "/tmp/places-stage7-compile-rss-v6.py",
+    "--supervisor",
+    "15263",
+    "--job-label",
+    "normal-desktop-gate-v7",
+    "--label",
+    "package-rss-v7"
+  ],
+  "launched_utc": "2026-10-09T03:47:55.265146+00:00",
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "completion_receipt": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/package-rss-v7.json"
+}

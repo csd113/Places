@@ -1,0 +1,6 @@
+ACTUAL_COMMAND ['cargo', 'build', '--locked', '--release', '--features', 'visual-diagnostics']
+   Compiling places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `release` profile [optimized] target(s) in 1m 45s
+ACTUAL_COMMAND ['cargo', 'build', '--locked', '--release']
+    Finished `release` profile [optimized] target(s) in 0.22s
+Actual normal C2 and diagnostic runtimes preserved; normal compiler/player restored exactly.

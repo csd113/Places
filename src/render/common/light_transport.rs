@@ -23,7 +23,7 @@ use crate::lighting::LevelLighting;
 use crate::lighting::lightmap::{Chart, LightmapPatch};
 use crate::lighting::transport::{
     TransportAlphaSurface, TransportEmitter, TransportScene, TransportTextureAddress,
-    TransportTriangle, TransportWaterBody, probe_targets, receiver_targets,
+    TransportTriangle, TransportWaterBody, receiver_targets,
 };
 use crate::materials::{AlphaMode, MaterialTable, RawImage};
 use crate::render::{LevelMesh, MATERIAL_NONE, PropMeshBatch, SurfaceKind, Vertex};
@@ -131,7 +131,7 @@ pub fn build_transport_scene(
                 .collect(),
         )
         .with_receiver_target(receiver_targets(lighting, charts))
-        .with_probe_target(probe_targets(lighting, charts))
+        .with_validated_probe_targets(level, lighting, charts)
         .with_sky(sky_radiance(level));
     let lit_scene = scene.with_global_lights(
         level

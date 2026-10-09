@@ -15,6 +15,61 @@ from pathlib import Path
 import re
 import zipfile
 
+MAX_ATLAS_RECORD_BYTES = 320 * 1024 ** 2 + 64 * 1024
+
+
+def declared_entry_limit(entry):
+    """Mirror compiler.rs::declared_entry_limit; typed records tighten below."""
+    if entry["name"] == "semantics.json":
+        return 64 * 1024 ** 2
+    if entry["role"] == "lightmaps":
+        return MAX_ATLAS_RECORD_BYTES
+    if entry["role"] in {"mesh", "props"}:
+        return 512 * 1024 ** 2
+    return 256 * 1024 ** 2
+
+
+def validate_archive_bounds(archive):
+    """Check declared sizes before payload reads using existing runtime bounds.
+
+    package/mod.rs supplies the constants; compiler.rs and package/world.rs
+    select them for integrity reads and typed variant records. Payload decoding
+    remains the ordinary compiler validator's responsibility.
+    """
+    entries = archive.infolist()
+    if (len(entries) > 512 or sum(item.file_size for item in entries) > 1024 ** 3
+            or archive.getinfo("manifest.json").file_size > 2 * 1024 ** 2
+            or len({item.filename for item in entries}) != len(entries)):
+        raise ValueError("Package exceeds reader safety bounds or has duplicate entries")
+    manifest = json.loads(archive.read("manifest.json"))
+    members = {item["name"]: item for item in manifest["entries"]}
+    if len(members) != len(manifest["entries"]) or set(archive.namelist()) != set(members) | {"manifest.json"}:
+        raise ValueError("Archive entries do not match the declared manifest")
+    typed_limits = {"semantics.json": 64 * 1024 ** 2, "build-inputs.json": 2 * 1024 ** 2}
+    variant_limits = {"mesh": 512 * 1024 ** 2, "props": 512 * 1024 ** 2,
+                      "lighting": 256 * 1024 ** 2, "collision": 128 * 1024 ** 2,
+                      "navigation": 128 * 1024 ** 2,
+                      "lightmaps": MAX_ATLAS_RECORD_BYTES,
+                      "lightmaps_meta": 64 * 1024 ** 2, "irradiance": 256 * 1024 ** 2}
+    for variant in manifest["variants"]:
+        records = variant["entries"]
+        for key, limit in variant_limits.items():
+            if records.get(key):
+                name = records[key]
+                typed_limits[name] = min(typed_limits.get(name, limit), limit)
+        for probes in records.get("probes", []):
+            typed_limits[probes["positions"]] = min(typed_limits.get(probes["positions"], 16 * 1024 ** 2), 16 * 1024 ** 2)
+            for name in probes["cubemaps"]:
+                typed_limits[name] = min(typed_limits.get(name, 256 * 1024 ** 2), 256 * 1024 ** 2)
+    for name, entry in members.items():
+        size = archive.getinfo(name).file_size
+        limit = min(declared_entry_limit(entry), typed_limits.get(name, 512 * 1024 ** 2))
+        if size != entry["bytes"]:
+            raise ValueError("Declared package entry size differs: " + name)
+        if size > limit:
+            raise ValueError(f"Package entry '{name}' exceeds its {limit}-byte record safety bound")
+    return manifest, members
+
 
 def warning_budgets(metrics, limits):
     if any(key not in metrics or not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value) or value <= 0
@@ -26,17 +81,7 @@ def warning_budgets(metrics, limits):
 
 def inspect(package, log, variant="full"):
     with zipfile.ZipFile(package) as archive:
-        # Mirror the established package aggregate/count/manifest safety bounds.
-        entries = archive.infolist()
-        if (len(entries) > 512 or sum(item.file_size for item in entries) > 1024 ** 3
-                or archive.getinfo("manifest.json").file_size > 2 * 1024 ** 2
-                or any(item.file_size > 256 * 1024 ** 2 + 64 * 1024 for item in entries)
-                or len({item.filename for item in entries}) != len(entries)):
-            raise ValueError("Package exceeds reader safety bounds or has duplicate entries")
-        manifest = json.loads(archive.read("manifest.json"))
-        members = {item["name"]: item for item in manifest["entries"]}
-        if len(members) != len(manifest["entries"]) or set(archive.namelist()) != set(members) | {"manifest.json"}:
-            raise ValueError("Archive entries do not match the declared manifest")
+        manifest, members = validate_archive_bounds(archive)
         for name, entry in members.items():
             data = archive.read(name)
             if len(data) != entry["bytes"] or hashlib.sha256(data).hexdigest() != entry["sha256"]:

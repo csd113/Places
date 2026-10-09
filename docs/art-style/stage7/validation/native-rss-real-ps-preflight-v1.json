@@ -1,0 +1,13 @@
+{
+  "recorded_utc": "2026-10-09T06:24:01.685386+00:00",
+  "argv": [
+    "ps",
+    "-axo",
+    "pid,pgid,ppid,rss,command"
+  ],
+  "scope": "One read-only real-host ps parser smoke; full unrelated process output is not retained; no native game/process/sampler thread started.",
+  "owned_pgid": 75686,
+  "status": "passed",
+  "filtered_native_rows": 0,
+  "total_ps_rows": 531
+}

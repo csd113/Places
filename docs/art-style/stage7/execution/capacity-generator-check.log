@@ -1,0 +1,2 @@
+stale /Users/connordawkins/Documents/GitHub/Places/tests/fixtures/levels/capacity_dense.json: regenerate with tools/levels/build_capacity_fixtures.py
+ok /Users/connordawkins/Documents/GitHub/Places/tests/fixtures/levels/capacity_beyond_former_limits.json

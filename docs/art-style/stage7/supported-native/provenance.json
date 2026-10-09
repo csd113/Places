@@ -1,0 +1,1349 @@
+{
+  "recorded_utc": "2026-10-09T07:46:04.142708+00:00",
+  "status": "twelve byte-exact genuine native examples documented; Home strict image failures remain pending",
+  "images": [
+    {
+      "name": "home-demo-high",
+      "path": "docs/art-style/stage7/supported-native/home-demo-high.png",
+      "bytes": 835466,
+      "sha256": "1c80771f307d769cfb0988c9eb3e445e42e5df3bf66954799241156197af2ca4",
+      "original_source_png": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/images/00-high.png",
+      "native_capture_manifest": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/capture/manifest.json",
+        "sha256": "07cbc0173c3efb8657e7914ba2eda8785d4ac5b0aca18d9f7238d72861263b3e"
+      },
+      "command_receipt": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/commands/home-quality.json",
+        "sha256": "35e08bb0d91669fe9f3a1d8a928fc3365d9223cacf2448358fc9f7832bff65f5",
+        "argv": [
+          "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+          "/Users/connordawkins/Documents/GitHub/Places/tools/bench/capture_art_style_hero.py",
+          "--manifest",
+          "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/registered-drum-witness-v1/manifests/home.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/assets/levels/places_demo.placesmap",
+          "--binary",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-runtime/diagnostics-plmp6-v10/places",
+          "--asset-root",
+          "/Users/connordawkins/Documents/GitHub/Places",
+          "--quality",
+          "high",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/capture",
+          "--entity-light-trace",
+          "--lighting-sequence",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/inputs/home-quality.json",
+          "--frames",
+          "2420",
+          "--diagnostic",
+          "final",
+          "--quality-cycle",
+          "180:low,360:medium,540:high,720:medium,900:low,1080:high,1260:low,1440:medium,1620:high,1800:medium,1980:low,2160:high"
+        ],
+        "status": "passed"
+      },
+      "binary": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-runtime/diagnostics-plmp6-v10/places",
+        "sha256": "819161f6c206d999b7c5cb1f5d7e52bcc33abe720da4df00e08d38e0fb7995d2"
+      },
+      "package": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/places_demo.placesmap",
+        "sha256": "6eb87c7d61a60610c8729812f83a2bf45caec4d9c45d123a9184b7a3bb9228c7"
+      },
+      "camera_manifest": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/registered-drum-witness-v1/manifests/home.json",
+        "sha256": "09f50e1d6212977f2532ac9e2e84686ecec83cf6b7a976a6d9b47b0f75af323f"
+      },
+      "actual_identity": {
+        "binary_sha256": "819161f6c206d999b7c5cb1f5d7e52bcc33abe720da4df00e08d38e0fb7995d2",
+        "package_sha256": "6eb87c7d61a60610c8729812f83a2bf45caec4d9c45d123a9184b7a3bb9228c7",
+        "source_sha256": "65833e98579a696167d616ce0cc94ebab85f744fdd72837ed247c483db1f9dec",
+        "camera_manifest_sha256": "09f50e1d6212977f2532ac9e2e84686ecec83cf6b7a976a6d9b47b0f75af323f",
+        "capture_tool_sha256": "c966d5f75a5fb431e67f77c368204d26efccafaa99807b2f6b35e6b4af2e1583",
+        "catalog_sha256": "27789ac9a59ec79decb5c95e63f6a4b0de3bbd5101f4ae3d2d45f177e82bee1f",
+        "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+        "git_revision": "26486b8538424f013c243ae6edea8720ac07d7f2",
+        "git_diff_sha256": "89a6c1de5a4981dfb8abfaf09aaa75929d0c7530dc61c9c9c693baa006805b06"
+      },
+      "actual_view": {
+        "name": "home-registered-drum",
+        "spawn": [
+          60.099998474121094,
+          0.7000000476837158,
+          8.399999618530273,
+          0
+        ],
+        "camera": [
+          35,
+          -41.47932419899597
+        ],
+        "purpose": "Unit registered washer-drum rigid entity; original eye/XZ and wing yaw retained, pitch aims at actual centre. Native pixels/opacity require genuine inspection."
+      },
+      "actual_settings": {
+        "bindings": {
+          "forward": "W",
+          "backward": "S",
+          "strafe_left": "A",
+          "strafe_right": "D",
+          "look_up": "UP",
+          "look_down": "DOWN",
+          "look_left": "LEFT",
+          "look_right": "RIGHT",
+          "jump": "SPACE",
+          "crouch": "C",
+          "interact": "E"
+        },
+        "look_speed_h": 90,
+        "look_speed_v": 60,
+        "walk_speed": 3,
+        "invert_look": false,
+        "mouse_sensitivity": 0.12,
+        "quality": "high",
+        "texture_filtering": "high",
+        "lightmaps": "full",
+        "reflections": "full",
+        "bloom": true,
+        "use_low_quality_lighting": false,
+        "vsync": false,
+        "fov_degrees": 60,
+        "window_mode": "windowed",
+        "window_width": 640,
+        "window_height": 360
+      },
+      "diagnostic": "final",
+      "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+      "capture_frame": 120,
+      "purpose": "registered unit-scale core:washer_drum in Demo home wing",
+      "limits": "Home whole-image restoration/parity checks remain failed from cat-region mismatches.",
+      "copy_contract": "Exact original PNG bytes; no resizing, processing, synthesis or altered pixels."
+    },
+    {
+      "name": "office-demo-high",
+      "path": "docs/art-style/stage7/supported-native/office-demo-high.png",
+      "bytes": 1777130,
+      "sha256": "6712b973592fd42a89f223731758fea8797922dfadc207808da4137ba7c9ef1f",
+      "original_source_png": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/office/quality/images/00-high.png",
+      "native_capture_manifest": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/office/quality/capture/manifest.json",
+        "sha256": "10cdd7ca7174d0374472369475e0828a8f3266bdf1e9d70c1da73443cdc4165e"
+      },
+      "command_receipt": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/commands/office-quality.json",
+        "sha256": "81e2dc477d46ac4d51b61e51fe1bdbcc783bd104d4aad1f980f051e32b9874d6",
+        "argv": [
+          "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+          "/Users/connordawkins/Documents/GitHub/Places/tools/bench/capture_art_style_hero.py",
+          "--manifest",
+          "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/registered-drum-witness-v1/manifests/office.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/assets/levels/places_demo.placesmap",
+          "--binary",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-runtime/diagnostics-plmp6-v10/places",
+          "--asset-root",
+          "/Users/connordawkins/Documents/GitHub/Places",
+          "--quality",
+          "high",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/office/quality/capture",
+          "--entity-light-trace",
+          "--lighting-sequence",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/inputs/office-quality.json",
+          "--frames",
+          "2420",
+          "--diagnostic",
+          "final",
+          "--quality-cycle",
+          "180:low,360:medium,540:high,720:medium,900:low,1080:high,1260:low,1440:medium,1620:high,1800:medium,1980:low,2160:high"
+        ],
+        "status": "passed"
+      },
+      "binary": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-runtime/diagnostics-plmp6-v10/places",
+        "sha256": "819161f6c206d999b7c5cb1f5d7e52bcc33abe720da4df00e08d38e0fb7995d2"
+      },
+      "package": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/places_demo.placesmap",
+        "sha256": "6eb87c7d61a60610c8729812f83a2bf45caec4d9c45d123a9184b7a3bb9228c7"
+      },
+      "camera_manifest": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/registered-drum-witness-v1/manifests/office.json",
+        "sha256": "a17c6c95d29ba2f4a4007eb57671ea18d16c988444172c2fadf51241bb72f69f"
+      },
+      "actual_identity": {
+        "binary_sha256": "819161f6c206d999b7c5cb1f5d7e52bcc33abe720da4df00e08d38e0fb7995d2",
+        "package_sha256": "6eb87c7d61a60610c8729812f83a2bf45caec4d9c45d123a9184b7a3bb9228c7",
+        "source_sha256": "65833e98579a696167d616ce0cc94ebab85f744fdd72837ed247c483db1f9dec",
+        "camera_manifest_sha256": "a17c6c95d29ba2f4a4007eb57671ea18d16c988444172c2fadf51241bb72f69f",
+        "capture_tool_sha256": "c966d5f75a5fb431e67f77c368204d26efccafaa99807b2f6b35e6b4af2e1583",
+        "catalog_sha256": "27789ac9a59ec79decb5c95e63f6a4b0de3bbd5101f4ae3d2d45f177e82bee1f",
+        "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+        "git_revision": "26486b8538424f013c243ae6edea8720ac07d7f2",
+        "git_diff_sha256": "89a6c1de5a4981dfb8abfaf09aaa75929d0c7530dc61c9c9c693baa006805b06"
+      },
+      "actual_view": {
+        "name": "office-registered-drum",
+        "spawn": [
+          1.399999976158142,
+          1.600000023841858,
+          3.0999999046325684,
+          90
+        ],
+        "camera": [
+          90,
+          -48.12212924613539
+        ],
+        "purpose": "Unit registered washer-drum rigid entity; original eye/XZ and wing yaw retained, pitch aims at actual centre. Native pixels/opacity require genuine inspection."
+      },
+      "actual_settings": {
+        "bindings": {
+          "forward": "W",
+          "backward": "S",
+          "strafe_left": "A",
+          "strafe_right": "D",
+          "look_up": "UP",
+          "look_down": "DOWN",
+          "look_left": "LEFT",
+          "look_right": "RIGHT",
+          "jump": "SPACE",
+          "crouch": "C",
+          "interact": "E"
+        },
+        "look_speed_h": 90,
+        "look_speed_v": 60,
+        "walk_speed": 3,
+        "invert_look": false,
+        "mouse_sensitivity": 0.12,
+        "quality": "high",
+        "texture_filtering": "high",
+        "lightmaps": "full",
+        "reflections": "full",
+        "bloom": true,
+        "use_low_quality_lighting": false,
+        "vsync": false,
+        "fov_degrees": 60,
+        "window_mode": "windowed",
+        "window_width": 640,
+        "window_height": 360
+      },
+      "diagnostic": "final",
+      "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+      "capture_frame": 120,
+      "purpose": "registered unit-scale core:washer_drum in Demo office wing",
+      "limits": "View-scoped entity/support evidence; not a whole-map visual review.",
+      "copy_contract": "Exact original PNG bytes; no resizing, processing, synthesis or altered pixels."
+    },
+    {
+      "name": "pool-demo-high",
+      "path": "docs/art-style/stage7/supported-native/pool-demo-high.png",
+      "bytes": 979259,
+      "sha256": "4791c290e4b2f3ab36160b0795ca5dbe5d83453790ad52cfb9a3898a999f9714",
+      "original_source_png": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/pool/quality/images/00-high.png",
+      "native_capture_manifest": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/pool/quality/capture/manifest.json",
+        "sha256": "869504eaf8fd497ea541a4594b6ef64726e3bd61295a022150fec9c9c7516da4"
+      },
+      "command_receipt": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/commands/pool-quality.json",
+        "sha256": "e2f0e4a3944f5ff8b9c7cf107baf11bc505cce1796125986bad9f98972f6461b",
+        "argv": [
+          "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+          "/Users/connordawkins/Documents/GitHub/Places/tools/bench/capture_art_style_hero.py",
+          "--manifest",
+          "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/registered-drum-witness-v1/manifests/pool.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/assets/levels/places_demo.placesmap",
+          "--binary",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-runtime/diagnostics-plmp6-v10/places",
+          "--asset-root",
+          "/Users/connordawkins/Documents/GitHub/Places",
+          "--quality",
+          "high",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/pool/quality/capture",
+          "--entity-light-trace",
+          "--lighting-sequence",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/inputs/pool-quality.json",
+          "--frames",
+          "2420",
+          "--diagnostic",
+          "final",
+          "--quality-cycle",
+          "180:low,360:medium,540:high,720:medium,900:low,1080:high,1260:low,1440:medium,1620:high,1800:medium,1980:low,2160:high"
+        ],
+        "status": "passed"
+      },
+      "binary": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-runtime/diagnostics-plmp6-v10/places",
+        "sha256": "819161f6c206d999b7c5cb1f5d7e52bcc33abe720da4df00e08d38e0fb7995d2"
+      },
+      "package": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/places_demo.placesmap",
+        "sha256": "6eb87c7d61a60610c8729812f83a2bf45caec4d9c45d123a9184b7a3bb9228c7"
+      },
+      "camera_manifest": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/registered-drum-witness-v1/manifests/pool.json",
+        "sha256": "1eacbc8d7ee4ad3a973e097f7f07d688cf668310913b7eecae4686d99ad90bc5"
+      },
+      "actual_identity": {
+        "binary_sha256": "819161f6c206d999b7c5cb1f5d7e52bcc33abe720da4df00e08d38e0fb7995d2",
+        "package_sha256": "6eb87c7d61a60610c8729812f83a2bf45caec4d9c45d123a9184b7a3bb9228c7",
+        "source_sha256": "65833e98579a696167d616ce0cc94ebab85f744fdd72837ed247c483db1f9dec",
+        "camera_manifest_sha256": "1eacbc8d7ee4ad3a973e097f7f07d688cf668310913b7eecae4686d99ad90bc5",
+        "capture_tool_sha256": "c966d5f75a5fb431e67f77c368204d26efccafaa99807b2f6b35e6b4af2e1583",
+        "catalog_sha256": "27789ac9a59ec79decb5c95e63f6a4b0de3bbd5101f4ae3d2d45f177e82bee1f",
+        "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+        "git_revision": "26486b8538424f013c243ae6edea8720ac07d7f2",
+        "git_diff_sha256": "a939875a613f1b173609c1c846e1dd5c9dc113bd76614646585c4e71cdeb8ed9"
+      },
+      "actual_view": {
+        "name": "pool-registered-drum",
+        "spawn": [
+          5.900000095367432,
+          0.10000002384185791,
+          17.600000381469727,
+          0
+        ],
+        "camera": [
+          325,
+          -36.32256598669439
+        ],
+        "purpose": "Unit registered washer-drum rigid entity; original eye/XZ and wing yaw retained, pitch aims at actual centre. Native pixels/opacity require genuine inspection."
+      },
+      "actual_settings": {
+        "bindings": {
+          "forward": "W",
+          "backward": "S",
+          "strafe_left": "A",
+          "strafe_right": "D",
+          "look_up": "UP",
+          "look_down": "DOWN",
+          "look_left": "LEFT",
+          "look_right": "RIGHT",
+          "jump": "SPACE",
+          "crouch": "C",
+          "interact": "E"
+        },
+        "look_speed_h": 90,
+        "look_speed_v": 60,
+        "walk_speed": 3,
+        "invert_look": false,
+        "mouse_sensitivity": 0.12,
+        "quality": "high",
+        "texture_filtering": "high",
+        "lightmaps": "full",
+        "reflections": "full",
+        "bloom": true,
+        "use_low_quality_lighting": false,
+        "vsync": false,
+        "fov_degrees": 60,
+        "window_mode": "windowed",
+        "window_width": 640,
+        "window_height": 360
+      },
+      "diagnostic": "final",
+      "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+      "capture_frame": 120,
+      "purpose": "registered unit-scale core:washer_drum in Demo pool wing",
+      "limits": "View-scoped entity/support evidence; not a whole-map visual review.",
+      "copy_contract": "Exact original PNG bytes; no resizing, processing, synthesis or altered pixels."
+    },
+    {
+      "name": "outdoors-demo-high",
+      "path": "docs/art-style/stage7/supported-native/outdoors-demo-high.png",
+      "bytes": 335843,
+      "sha256": "a10673d1dc0304116dbf7d5d93f7f5f82e6dabf88057251c5de29bc88b85d53d",
+      "original_source_png": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/outdoors/quality/images/00-high.png",
+      "native_capture_manifest": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/outdoors/quality/capture/manifest.json",
+        "sha256": "9031cce4434e36bb829c888be46f390ea2d753543e95281bd267ef166834e2db"
+      },
+      "command_receipt": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/commands/outdoors-quality.json",
+        "sha256": "266584eac9d636670ff3c6f97ae4c4d98d29294c54e4467df42420a4186213c4",
+        "argv": [
+          "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+          "/Users/connordawkins/Documents/GitHub/Places/tools/bench/capture_art_style_hero.py",
+          "--manifest",
+          "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/registered-drum-witness-v1/manifests/outdoors.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/assets/levels/places_demo.placesmap",
+          "--binary",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-runtime/diagnostics-plmp6-v10/places",
+          "--asset-root",
+          "/Users/connordawkins/Documents/GitHub/Places",
+          "--quality",
+          "high",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/outdoors/quality/capture",
+          "--entity-light-trace",
+          "--lighting-sequence",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/inputs/outdoors-quality.json",
+          "--frames",
+          "2420",
+          "--diagnostic",
+          "final",
+          "--quality-cycle",
+          "180:low,360:medium,540:high,720:medium,900:low,1080:high,1260:low,1440:medium,1620:high,1800:medium,1980:low,2160:high"
+        ],
+        "status": "passed"
+      },
+      "binary": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-runtime/diagnostics-plmp6-v10/places",
+        "sha256": "819161f6c206d999b7c5cb1f5d7e52bcc33abe720da4df00e08d38e0fb7995d2"
+      },
+      "package": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/places_demo.placesmap",
+        "sha256": "6eb87c7d61a60610c8729812f83a2bf45caec4d9c45d123a9184b7a3bb9228c7"
+      },
+      "camera_manifest": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/registered-drum-witness-v1/manifests/outdoors.json",
+        "sha256": "aa070315c44b16a8cec07141f27dada213cec6383d9916b441f59a7b4d4f58b4"
+      },
+      "actual_identity": {
+        "binary_sha256": "819161f6c206d999b7c5cb1f5d7e52bcc33abe720da4df00e08d38e0fb7995d2",
+        "package_sha256": "6eb87c7d61a60610c8729812f83a2bf45caec4d9c45d123a9184b7a3bb9228c7",
+        "source_sha256": "65833e98579a696167d616ce0cc94ebab85f744fdd72837ed247c483db1f9dec",
+        "camera_manifest_sha256": "aa070315c44b16a8cec07141f27dada213cec6383d9916b441f59a7b4d4f58b4",
+        "capture_tool_sha256": "c966d5f75a5fb431e67f77c368204d26efccafaa99807b2f6b35e6b4af2e1583",
+        "catalog_sha256": "27789ac9a59ec79decb5c95e63f6a4b0de3bbd5101f4ae3d2d45f177e82bee1f",
+        "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+        "git_revision": "26486b8538424f013c243ae6edea8720ac07d7f2",
+        "git_diff_sha256": "a939875a613f1b173609c1c846e1dd5c9dc113bd76614646585c4e71cdeb8ed9"
+      },
+      "actual_view": {
+        "name": "outdoors-registered-drum",
+        "spawn": [
+          4.5,
+          1.600000023841858,
+          -14.0,
+          0
+        ],
+        "camera": [
+          0,
+          -34.62417487570841
+        ],
+        "purpose": "Unit registered washer-drum rigid entity; original eye/XZ and wing yaw retained, pitch aims at actual centre. Native pixels/opacity require genuine inspection."
+      },
+      "actual_settings": {
+        "bindings": {
+          "forward": "W",
+          "backward": "S",
+          "strafe_left": "A",
+          "strafe_right": "D",
+          "look_up": "UP",
+          "look_down": "DOWN",
+          "look_left": "LEFT",
+          "look_right": "RIGHT",
+          "jump": "SPACE",
+          "crouch": "C",
+          "interact": "E"
+        },
+        "look_speed_h": 90,
+        "look_speed_v": 60,
+        "walk_speed": 3,
+        "invert_look": false,
+        "mouse_sensitivity": 0.12,
+        "quality": "high",
+        "texture_filtering": "high",
+        "lightmaps": "full",
+        "reflections": "full",
+        "bloom": true,
+        "use_low_quality_lighting": false,
+        "vsync": false,
+        "fov_degrees": 60,
+        "window_mode": "windowed",
+        "window_width": 640,
+        "window_height": 360
+      },
+      "diagnostic": "final",
+      "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+      "capture_frame": 120,
+      "purpose": "registered unit-scale core:washer_drum in Demo outdoors wing",
+      "limits": "High Outdoor drum is a dark silhouette; no refinement/brightness claim.",
+      "copy_contract": "Exact original PNG bytes; no resizing, processing, synthesis or altered pixels."
+    },
+    {
+      "name": "winter-high",
+      "path": "docs/art-style/stage7/supported-native/winter-high.png",
+      "bytes": 772105,
+      "sha256": "1425802eaf8d0022b8ffa3ec8376c822022c455278abfc672225714e29856ca5",
+      "original_source_png": "debug-maps/art-style-hero/evidence/stage7-native-regression-v1/quality/winter/quality/images/00-high.png",
+      "native_capture_manifest": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-native-regression-v1/quality/winter/quality/capture/manifest.json",
+        "sha256": "48684b0a7c8031a86c30ad858751c73f77c90b3ddcd0ffe1995377c7f951815c"
+      },
+      "command_receipt": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-native-regression-v1/commands/winter-quality.json",
+        "sha256": "e719dddc725259f439b949e785172e44f426bc5bd1a61d01eb894917171a3acd",
+        "argv": [
+          "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+          "/Users/connordawkins/Documents/GitHub/Places/tools/bench/capture_art_style_hero.py",
+          "--manifest",
+          "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/winter-manifest.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/assets/levels/winter.placesmap",
+          "--binary",
+          "debug-maps/art-style-hero/evidence/stage7-runtime/diagnostics-plmp6-v10/places",
+          "--asset-root",
+          "/Users/connordawkins/Documents/GitHub/Places",
+          "--quality",
+          "high",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-regression-v1/quality/winter/quality/capture",
+          "--entity-light-trace",
+          "--lighting-sequence",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-regression-v1/inputs/winter-quality-sequence.json",
+          "--frames",
+          "2420",
+          "--diagnostic",
+          "final",
+          "--quality-cycle",
+          "180:low,360:medium,540:high,720:medium,900:low,1080:high,1260:low,1440:medium,1620:high,1800:medium,1980:low,2160:high"
+        ],
+        "status": "passed"
+      },
+      "binary": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-runtime/diagnostics-plmp6-v10/places",
+        "sha256": "819161f6c206d999b7c5cb1f5d7e52bcc33abe720da4df00e08d38e0fb7995d2"
+      },
+      "package": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/winter.placesmap",
+        "sha256": "38b486054ea4c88156424a2f1104e7fad8f4080de6729263d4c75874d1330033"
+      },
+      "camera_manifest": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/winter-manifest.json",
+        "sha256": "89130987203f75ba6b9a1e81813caab4946cc5c7bf1addbdcd458847d3dbabd4"
+      },
+      "actual_identity": {
+        "binary_sha256": "819161f6c206d999b7c5cb1f5d7e52bcc33abe720da4df00e08d38e0fb7995d2",
+        "package_sha256": "38b486054ea4c88156424a2f1104e7fad8f4080de6729263d4c75874d1330033",
+        "source_sha256": "785480ca9c87febe9790ac35390ee664ec42c78a9dfc54398ef7182ce09333d0",
+        "camera_manifest_sha256": "89130987203f75ba6b9a1e81813caab4946cc5c7bf1addbdcd458847d3dbabd4",
+        "capture_tool_sha256": "c966d5f75a5fb431e67f77c368204d26efccafaa99807b2f6b35e6b4af2e1583",
+        "catalog_sha256": "27789ac9a59ec79decb5c95e63f6a4b0de3bbd5101f4ae3d2d45f177e82bee1f",
+        "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+        "git_revision": "26486b8538424f013c243ae6edea8720ac07d7f2",
+        "git_diff_sha256": "e9ab9b17f4b1a2f79e103f67a0ccf64a4f2b06bdb706798a5c1d26a16f79efd1"
+      },
+      "actual_view": {
+        "name": "winter",
+        "spawn": [
+          1,
+          10,
+          -32
+        ],
+        "camera": [
+          -32,
+          -3
+        ],
+        "purpose": "Existing immutable theme camera; visible runtime chair location requires genuine native inspection"
+      },
+      "actual_settings": {
+        "bindings": {
+          "forward": "W",
+          "backward": "S",
+          "strafe_left": "A",
+          "strafe_right": "D",
+          "look_up": "UP",
+          "look_down": "DOWN",
+          "look_left": "LEFT",
+          "look_right": "RIGHT",
+          "jump": "SPACE",
+          "crouch": "C",
+          "interact": "E"
+        },
+        "look_speed_h": 90,
+        "look_speed_v": 60,
+        "walk_speed": 3,
+        "invert_look": false,
+        "mouse_sensitivity": 0.12,
+        "quality": "high",
+        "texture_filtering": "high",
+        "lightmaps": "full",
+        "reflections": "full",
+        "bloom": true,
+        "use_low_quality_lighting": false,
+        "vsync": false,
+        "fov_degrees": 60,
+        "window_mode": "windowed",
+        "window_width": 640,
+        "window_height": 360
+      },
+      "diagnostic": "final",
+      "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+      "capture_frame": 120,
+      "purpose": "Retained genuine v1 High themed native frame",
+      "limits": "Live snow/fire/animation; no deterministic whole-image equality or close Hallows successor resolution claim.",
+      "copy_contract": "Exact original PNG bytes; no resizing, processing, synthesis or altered pixels."
+    },
+    {
+      "name": "hallows-high",
+      "path": "docs/art-style/stage7/supported-native/hallows-high.png",
+      "bytes": 964035,
+      "sha256": "1f219d03320846be198f5e5c898ae2438976030ad199b5ac3b26440dad304e8a",
+      "original_source_png": "debug-maps/art-style-hero/evidence/stage7-native-regression-v1/quality/hallows/quality/images/00-high.png",
+      "native_capture_manifest": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-native-regression-v1/quality/hallows/quality/capture/manifest.json",
+        "sha256": "36e6ed7a9af758016024973cb53bb45e78778c9d7c3b3ea12ca66849ad5eafb4"
+      },
+      "command_receipt": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-native-regression-v1/commands/hallows-quality.json",
+        "sha256": "64f4c3671ec12a403dccd6de012611e6f5b65ce2fecf811396ed2c0495201f58",
+        "argv": [
+          "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+          "/Users/connordawkins/Documents/GitHub/Places/tools/bench/capture_art_style_hero.py",
+          "--manifest",
+          "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/hallows-manifest.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/assets/levels/lantern_hollow.placesmap",
+          "--binary",
+          "debug-maps/art-style-hero/evidence/stage7-runtime/diagnostics-plmp6-v10/places",
+          "--asset-root",
+          "/Users/connordawkins/Documents/GitHub/Places",
+          "--quality",
+          "high",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-regression-v1/quality/hallows/quality/capture",
+          "--entity-light-trace",
+          "--lighting-sequence",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-regression-v1/inputs/hallows-quality-sequence.json",
+          "--frames",
+          "2420",
+          "--diagnostic",
+          "final",
+          "--quality-cycle",
+          "180:low,360:medium,540:high,720:medium,900:low,1080:high,1260:low,1440:medium,1620:high,1800:medium,1980:low,2160:high"
+        ],
+        "status": "passed"
+      },
+      "binary": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-runtime/diagnostics-plmp6-v10/places",
+        "sha256": "819161f6c206d999b7c5cb1f5d7e52bcc33abe720da4df00e08d38e0fb7995d2"
+      },
+      "package": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/lantern_hollow.placesmap",
+        "sha256": "0321b936e281476fd10a9e5df613a76c8cc48a4e5339f84666f6c7d62c3a326b"
+      },
+      "camera_manifest": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/hallows-manifest.json",
+        "sha256": "2b8fd4df18d022e7ab327e076a82eff35ef09904e77141a7c8e0539af63db75b"
+      },
+      "actual_identity": {
+        "binary_sha256": "819161f6c206d999b7c5cb1f5d7e52bcc33abe720da4df00e08d38e0fb7995d2",
+        "package_sha256": "0321b936e281476fd10a9e5df613a76c8cc48a4e5339f84666f6c7d62c3a326b",
+        "source_sha256": "1e2c53846cfa21892b3b66e43658925ec28fcea8f4143324f998e1193a91d0c0",
+        "camera_manifest_sha256": "2b8fd4df18d022e7ab327e076a82eff35ef09904e77141a7c8e0539af63db75b",
+        "capture_tool_sha256": "c966d5f75a5fb431e67f77c368204d26efccafaa99807b2f6b35e6b4af2e1583",
+        "catalog_sha256": "27789ac9a59ec79decb5c95e63f6a4b0de3bbd5101f4ae3d2d45f177e82bee1f",
+        "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+        "git_revision": "26486b8538424f013c243ae6edea8720ac07d7f2",
+        "git_diff_sha256": "e9ab9b17f4b1a2f79e103f67a0ccf64a4f2b06bdb706798a5c1d26a16f79efd1"
+      },
+      "actual_view": {
+        "name": "hallows",
+        "spawn": [
+          -18,
+          -28,
+          0
+        ],
+        "camera": [
+          0,
+          -9
+        ],
+        "purpose": "Existing immutable theme camera; visible runtime chair location requires genuine native inspection"
+      },
+      "actual_settings": {
+        "bindings": {
+          "forward": "W",
+          "backward": "S",
+          "strafe_left": "A",
+          "strafe_right": "D",
+          "look_up": "UP",
+          "look_down": "DOWN",
+          "look_left": "LEFT",
+          "look_right": "RIGHT",
+          "jump": "SPACE",
+          "crouch": "C",
+          "interact": "E"
+        },
+        "look_speed_h": 90,
+        "look_speed_v": 60,
+        "walk_speed": 3,
+        "invert_look": false,
+        "mouse_sensitivity": 0.12,
+        "quality": "high",
+        "texture_filtering": "high",
+        "lightmaps": "full",
+        "reflections": "full",
+        "bloom": true,
+        "use_low_quality_lighting": false,
+        "vsync": false,
+        "fov_degrees": 60,
+        "window_mode": "windowed",
+        "window_width": 640,
+        "window_height": 360
+      },
+      "diagnostic": "final",
+      "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+      "capture_frame": 120,
+      "purpose": "Retained genuine v1 High themed native frame",
+      "limits": "Live snow/fire/animation; no deterministic whole-image equality or close Hallows successor resolution claim.",
+      "copy_contract": "Exact original PNG bytes; no resizing, processing, synthesis or altered pixels."
+    },
+    {
+      "name": "zoo-refined-chair-apron",
+      "path": "docs/art-style/stage7/supported-native/zoo-refined-chair-apron.png",
+      "bytes": 1007190,
+      "sha256": "39f760816c069d5061fb9abf1f27cf9f6eb978e2f0d7a11f826d3393d0fb8d59",
+      "original_source_png": "debug-maps/art-style-hero/evidence/stage7-native-regression-v1/zoo-apron/refined-chair-apron.png",
+      "native_capture_manifest": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-native-regression-v1/zoo-apron/manifest.json",
+        "sha256": "ebb2b95a5c3eed0e380ef3aef2614760b6d14d33c45360b969b181aebfffa08b"
+      },
+      "command_receipt": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-native-regression-v1/commands/zoo-refined-apron.json",
+        "sha256": "868eb2e8e327ee95902070c0e3b06a0a873f5abe398793d2afc6123ed6fe650f",
+        "argv": [
+          "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+          "/Users/connordawkins/Documents/GitHub/Places/tools/bench/capture_art_style_hero.py",
+          "--manifest",
+          "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/zoo-refined-chair-manifest.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/assets/levels/model_zoo.placesmap",
+          "--binary",
+          "debug-maps/art-style-hero/evidence/stage7-runtime/normal-c2-plmp6-v10/places",
+          "--asset-root",
+          "/Users/connordawkins/Documents/GitHub/Places",
+          "--quality",
+          "high",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-regression-v1/zoo-apron"
+        ],
+        "status": "passed"
+      },
+      "binary": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-runtime/normal-c2-plmp6-v10/places",
+        "sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081"
+      },
+      "package": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/model_zoo.placesmap",
+        "sha256": "0de04f839ca7e79a299e7284fb1bf8850df32ba43f6846a03e20995d0fe05398"
+      },
+      "camera_manifest": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/zoo-refined-chair-manifest.json",
+        "sha256": "7b92010c2f0253fffee641e375e7a8085ec65296835890e20f1e6e86ee6ba903"
+      },
+      "actual_identity": {
+        "binary_sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081",
+        "package_sha256": "0de04f839ca7e79a299e7284fb1bf8850df32ba43f6846a03e20995d0fe05398",
+        "source_sha256": "ebbe62f78723b1ccf0525d5c1622bd895f4ecb3444902d984d59f0f8b1d5f458",
+        "camera_manifest_sha256": "7b92010c2f0253fffee641e375e7a8085ec65296835890e20f1e6e86ee6ba903",
+        "capture_tool_sha256": "c966d5f75a5fb431e67f77c368204d26efccafaa99807b2f6b35e6b4af2e1583",
+        "catalog_sha256": "27789ac9a59ec79decb5c95e63f6a4b0de3bbd5101f4ae3d2d45f177e82bee1f",
+        "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+        "git_revision": "26486b8538424f013c243ae6edea8720ac07d7f2",
+        "git_diff_sha256": "e9ab9b17f4b1a2f79e103f67a0ccf64a4f2b06bdb706798a5c1d26a16f79efd1"
+      },
+      "actual_view": {
+        "name": "refined-chair-apron",
+        "spawn": [
+          25.8,
+          142.25,
+          -34.59
+        ],
+        "camera": [
+          -34.59,
+          -34
+        ],
+        "purpose": "Normal High native view of additive refined chair/apron at its actual Zoo placement; raw image inspection required"
+      },
+      "actual_settings": {
+        "bindings": {
+          "forward": "W",
+          "backward": "S",
+          "strafe_left": "A",
+          "strafe_right": "D",
+          "look_up": "UP",
+          "look_down": "DOWN",
+          "look_left": "LEFT",
+          "look_right": "RIGHT",
+          "jump": "SPACE",
+          "crouch": "C",
+          "interact": "E"
+        },
+        "look_speed_h": 90,
+        "look_speed_v": 60,
+        "walk_speed": 3,
+        "invert_look": false,
+        "mouse_sensitivity": 0.12,
+        "quality": "high",
+        "texture_filtering": "high",
+        "lightmaps": "full",
+        "reflections": "full",
+        "bloom": true,
+        "use_low_quality_lighting": false,
+        "vsync": false,
+        "fov_degrees": 60,
+        "window_mode": "windowed",
+        "window_width": 640,
+        "window_height": 360
+      },
+      "diagnostic": null,
+      "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+      "capture_frame": null,
+      "purpose": "Normal Model Zoo purposeful refined chair apron display",
+      "limits": "Apron/legs/rails visible; no changes to old placements or renderer/model-specific branch.",
+      "copy_contract": "Exact original PNG bytes; no resizing, processing, synthesis or altered pixels."
+    },
+    {
+      "name": "outdoor-repaired-high",
+      "path": "docs/art-style/stage7/supported-native/outdoor-repaired-high.png",
+      "bytes": 482679,
+      "sha256": "9fe7199c36c321aed2271421ca3b9c4cf7fad0e86840ba58a5bffae15c8d611b",
+      "original_source_png": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/budget-affected/tests__fixtures__levels__outdoor_kit_showcase/normal-capture/spawn.png",
+      "native_capture_manifest": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/budget-affected/tests__fixtures__levels__outdoor_kit_showcase/normal-capture/manifest.json",
+        "sha256": "c21b79481245a4bc86923c3e1f6184e522f20ae5d22dd0f475737b131d48d353"
+      },
+      "command_receipt": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/commands/normal-tests__fixtures__levels__outdoor_kit_showcase.json",
+        "sha256": "15404a16b23cae415630f4739a7b4d5423875f87e4e8d41e8c3befb09c4e0596",
+        "argv": [
+          "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+          "/Users/connordawkins/Documents/GitHub/Places/tools/bench/capture_art_style_hero.py",
+          "--manifest",
+          "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/native-manifests-final-v2/tests__fixtures__levels__outdoor_kit_showcase.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__outdoor_kit_showcase.placesmap",
+          "--binary",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-runtime/normal-c2-plmp6-v10/places",
+          "--asset-root",
+          "/Users/connordawkins/Documents/GitHub/Places",
+          "--quality",
+          "high",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/budget-affected/tests__fixtures__levels__outdoor_kit_showcase/normal-capture"
+        ],
+        "status": "passed"
+      },
+      "binary": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-runtime/normal-c2-plmp6-v10/places",
+        "sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081"
+      },
+      "package": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__outdoor_kit_showcase.placesmap",
+        "sha256": "954271222396b5f4a41655d8063a54713da892846b443089280ab9809d2423f5"
+      },
+      "camera_manifest": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/native-manifests-final-v2/tests__fixtures__levels__outdoor_kit_showcase.json",
+        "sha256": "05646537b29a674377db54fa96c5ff1516af7ef0598d1d07abee68a55c27861f"
+      },
+      "actual_identity": {
+        "binary_sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081",
+        "package_sha256": "954271222396b5f4a41655d8063a54713da892846b443089280ab9809d2423f5",
+        "source_sha256": "683aff600370ab1f360ea58d9d2c8107613f3bf7d4846ee38029ee0df60e5da5",
+        "camera_manifest_sha256": "05646537b29a674377db54fa96c5ff1516af7ef0598d1d07abee68a55c27861f",
+        "capture_tool_sha256": "c966d5f75a5fb431e67f77c368204d26efccafaa99807b2f6b35e6b4af2e1583",
+        "catalog_sha256": "27789ac9a59ec79decb5c95e63f6a4b0de3bbd5101f4ae3d2d45f177e82bee1f",
+        "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+        "git_revision": "26486b8538424f013c243ae6edea8720ac07d7f2",
+        "git_diff_sha256": "a939875a613f1b173609c1c846e1dd5c9dc113bd76614646585c4e71cdeb8ed9"
+      },
+      "actual_view": {
+        "name": "spawn",
+        "spawn": [
+          10.0,
+          16.0,
+          0.0
+        ],
+        "camera": [
+          0.0,
+          -6
+        ],
+        "purpose": "Normal supported-map compatibility; visual review required at real authored spawn"
+      },
+      "actual_settings": {
+        "bindings": {
+          "forward": "W",
+          "backward": "S",
+          "strafe_left": "A",
+          "strafe_right": "D",
+          "look_up": "UP",
+          "look_down": "DOWN",
+          "look_left": "LEFT",
+          "look_right": "RIGHT",
+          "jump": "SPACE",
+          "crouch": "C",
+          "interact": "E"
+        },
+        "look_speed_h": 90,
+        "look_speed_v": 60,
+        "walk_speed": 3,
+        "invert_look": false,
+        "mouse_sensitivity": 0.12,
+        "quality": "high",
+        "texture_filtering": "high",
+        "lightmaps": "full",
+        "reflections": "full",
+        "bloom": true,
+        "use_low_quality_lighting": false,
+        "vsync": false,
+        "fov_degrees": 60,
+        "window_mode": "windowed",
+        "window_width": 640,
+        "window_height": 360
+      },
+      "diagnostic": null,
+      "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+      "capture_frame": null,
+      "purpose": "Normal High affected source or purposeful nonempty accounting view",
+      "limits": "Very dark night exterior and practical lights; no bright/material-refinement claim.",
+      "copy_contract": "Exact original PNG bytes; no resizing, processing, synthesis or altered pixels."
+    },
+    {
+      "name": "snowfall-repaired-high",
+      "path": "docs/art-style/stage7/supported-native/snowfall-repaired-high.png",
+      "bytes": 477358,
+      "sha256": "ed4da237b2d95d1206b367b9019a756be6c7db1596aaf5aba62fb4256bd67b6d",
+      "original_source_png": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/budget-affected/levels__snowfall_contrast/normal-capture/spawn.png",
+      "native_capture_manifest": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/budget-affected/levels__snowfall_contrast/normal-capture/manifest.json",
+        "sha256": "46e16849ef00d53d65fb89c8e50ce74589fd3d3044bcfb0c1b5c7ade0f54597c"
+      },
+      "command_receipt": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/commands/normal-levels__snowfall_contrast.json",
+        "sha256": "3f767e1af54f6e917b935f5ce3fb10bee83de9cdb039e183de0263c91ffb0a7c",
+        "argv": [
+          "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+          "/Users/connordawkins/Documents/GitHub/Places/tools/bench/capture_art_style_hero.py",
+          "--manifest",
+          "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/native-manifests-final-v2/levels__snowfall_contrast.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/levels/snowfall_contrast.placesmap",
+          "--binary",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-runtime/normal-c2-plmp6-v10/places",
+          "--asset-root",
+          "/Users/connordawkins/Documents/GitHub/Places",
+          "--quality",
+          "high",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/budget-affected/levels__snowfall_contrast/normal-capture"
+        ],
+        "status": "passed"
+      },
+      "binary": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-runtime/normal-c2-plmp6-v10/places",
+        "sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081"
+      },
+      "package": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/levels/snowfall_contrast.placesmap",
+        "sha256": "236694961645bf3b652bbba4d85a8a1135cc79ae9128fc6ec3da604edb7efab1"
+      },
+      "camera_manifest": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/native-manifests-final-v2/levels__snowfall_contrast.json",
+        "sha256": "4c6fac4492f8a2c39cf95d48ab6113903948d5d68d2a14c45a51af155157eae9"
+      },
+      "actual_identity": {
+        "binary_sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081",
+        "package_sha256": "236694961645bf3b652bbba4d85a8a1135cc79ae9128fc6ec3da604edb7efab1",
+        "source_sha256": "fb1eb05b5b81ea2c39b33737e385593ebcef3321d3566f37b66f4992387e3140",
+        "camera_manifest_sha256": "4c6fac4492f8a2c39cf95d48ab6113903948d5d68d2a14c45a51af155157eae9",
+        "capture_tool_sha256": "c966d5f75a5fb431e67f77c368204d26efccafaa99807b2f6b35e6b4af2e1583",
+        "catalog_sha256": "27789ac9a59ec79decb5c95e63f6a4b0de3bbd5101f4ae3d2d45f177e82bee1f",
+        "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+        "git_revision": "26486b8538424f013c243ae6edea8720ac07d7f2",
+        "git_diff_sha256": "a939875a613f1b173609c1c846e1dd5c9dc113bd76614646585c4e71cdeb8ed9"
+      },
+      "actual_view": {
+        "name": "spawn",
+        "spawn": [
+          0.0,
+          10.0,
+          0.0
+        ],
+        "camera": [
+          0.0,
+          -6
+        ],
+        "purpose": "Normal supported-map compatibility; visual review required at real authored spawn"
+      },
+      "actual_settings": {
+        "bindings": {
+          "forward": "W",
+          "backward": "S",
+          "strafe_left": "A",
+          "strafe_right": "D",
+          "look_up": "UP",
+          "look_down": "DOWN",
+          "look_left": "LEFT",
+          "look_right": "RIGHT",
+          "jump": "SPACE",
+          "crouch": "C",
+          "interact": "E"
+        },
+        "look_speed_h": 90,
+        "look_speed_v": 60,
+        "walk_speed": 3,
+        "invert_look": false,
+        "mouse_sensitivity": 0.12,
+        "quality": "high",
+        "texture_filtering": "high",
+        "lightmaps": "full",
+        "reflections": "full",
+        "bloom": true,
+        "use_low_quality_lighting": false,
+        "vsync": false,
+        "fov_degrees": 60,
+        "window_mode": "windowed",
+        "window_width": 640,
+        "window_height": 360
+      },
+      "diagnostic": null,
+      "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+      "capture_frame": null,
+      "purpose": "Normal High affected source or purposeful nonempty accounting view",
+      "limits": "Bright plate/ground, falling snow and aurora visible; live weather and one explicit face-normal source correction retained.",
+      "copy_contract": "Exact original PNG bytes; no resizing, processing, synthesis or altered pixels."
+    },
+    {
+      "name": "gap-review-purposeful-high",
+      "path": "docs/art-style/stage7/supported-native/gap-review-purposeful-high.png",
+      "bytes": 7818,
+      "sha256": "92d4a89d1343ca8dfa7ff2685630b5860be8986d9974f7077b4c11341d5d0225",
+      "original_source_png": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/budget-affected/tests__fixtures__levels__repair__gap_review/normal-capture/spawn.png",
+      "native_capture_manifest": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/budget-affected/tests__fixtures__levels__repair__gap_review/normal-capture/manifest.json",
+        "sha256": "2a6eff168a03201a197678232021341c885ac822f7b3b4739f5d65e91f290845"
+      },
+      "command_receipt": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/commands/normal-tests__fixtures__levels__repair__gap_review.json",
+        "sha256": "cedc3ca9530996678cf25d79561d5fa4bce6d8e87d56f95ba156c1652d80fc5d",
+        "argv": [
+          "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+          "/Users/connordawkins/Documents/GitHub/Places/tools/bench/capture_art_style_hero.py",
+          "--manifest",
+          "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/native-manifests-final-v2/tests__fixtures__levels__repair__gap_review.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__repair__gap_review.placesmap",
+          "--binary",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-runtime/normal-c2-plmp6-v10/places",
+          "--asset-root",
+          "/Users/connordawkins/Documents/GitHub/Places",
+          "--quality",
+          "high",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/budget-affected/tests__fixtures__levels__repair__gap_review/normal-capture"
+        ],
+        "status": "passed"
+      },
+      "binary": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-runtime/normal-c2-plmp6-v10/places",
+        "sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081"
+      },
+      "package": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__repair__gap_review.placesmap",
+        "sha256": "8b2fd254b1ba1158382624aa35f77139e4639cf7ec4ab298ec5e74b211f5ea87"
+      },
+      "camera_manifest": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/native-manifests-final-v2/tests__fixtures__levels__repair__gap_review.json",
+        "sha256": "efc01abfd8323d8a415225af54f8e5fe457fb6059cec6f46bef04e5a454b8bc6"
+      },
+      "actual_identity": {
+        "binary_sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081",
+        "package_sha256": "8b2fd254b1ba1158382624aa35f77139e4639cf7ec4ab298ec5e74b211f5ea87",
+        "source_sha256": "1e6013b937524555cb954fda76c18cfda57f7bcf64cf56b2b3f84a836f72cab0",
+        "camera_manifest_sha256": "efc01abfd8323d8a415225af54f8e5fe457fb6059cec6f46bef04e5a454b8bc6",
+        "capture_tool_sha256": "c966d5f75a5fb431e67f77c368204d26efccafaa99807b2f6b35e6b4af2e1583",
+        "catalog_sha256": "27789ac9a59ec79decb5c95e63f6a4b0de3bbd5101f4ae3d2d45f177e82bee1f",
+        "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+        "git_revision": "26486b8538424f013c243ae6edea8720ac07d7f2",
+        "git_diff_sha256": "a939875a613f1b173609c1c846e1dd5c9dc113bd76614646585c4e71cdeb8ed9"
+      },
+      "actual_view": {
+        "name": "spawn",
+        "spawn": [
+          2.0,
+          1.0,
+          90
+        ],
+        "camera": [
+          90,
+          -6
+        ],
+        "purpose": "Purposeful nonempty scene accounting from unchanged authored spawn toward actual geometry; original outward blank view retained as a rejected budget control"
+      },
+      "actual_settings": {
+        "bindings": {
+          "forward": "W",
+          "backward": "S",
+          "strafe_left": "A",
+          "strafe_right": "D",
+          "look_up": "UP",
+          "look_down": "DOWN",
+          "look_left": "LEFT",
+          "look_right": "RIGHT",
+          "jump": "SPACE",
+          "crouch": "C",
+          "interact": "E"
+        },
+        "look_speed_h": 90,
+        "look_speed_v": 60,
+        "walk_speed": 3,
+        "invert_look": false,
+        "mouse_sensitivity": 0.12,
+        "quality": "high",
+        "texture_filtering": "high",
+        "lightmaps": "full",
+        "reflections": "full",
+        "bloom": true,
+        "use_low_quality_lighting": false,
+        "vsync": false,
+        "fov_degrees": 60,
+        "window_mode": "windowed",
+        "window_width": 640,
+        "window_height": 360
+      },
+      "diagnostic": null,
+      "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+      "capture_frame": null,
+      "purpose": "Normal High affected source or purposeful nonempty accounting view",
+      "limits": "Dark geometry is visibly nonempty; yaw90 retains authored XZ/eye/pitch. Original blank/rejected receipt retained.",
+      "copy_contract": "Exact original PNG bytes; no resizing, processing, synthesis or altered pixels."
+    },
+    {
+      "name": "wall-step-x-purposeful-high",
+      "path": "docs/art-style/stage7/supported-native/wall-step-x-purposeful-high.png",
+      "bytes": 9085,
+      "sha256": "e3a76f926f7dba027defbf94540d748a1114714d1bde974a20e9d013e63e1d60",
+      "original_source_png": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/budget-affected/tests__fixtures__levels__repair__wall_step_x/normal-capture/spawn.png",
+      "native_capture_manifest": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/budget-affected/tests__fixtures__levels__repair__wall_step_x/normal-capture/manifest.json",
+        "sha256": "2cb8d050803669dab293d99cfb75fb020dab6719549f3a2a1cc21cb5b5cbeb1c"
+      },
+      "command_receipt": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/commands/normal-tests__fixtures__levels__repair__wall_step_x.json",
+        "sha256": "a5ec06501699962bb4587553ca9ab471d93a6d60ad3999d0fc27d218c92382a4",
+        "argv": [
+          "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+          "/Users/connordawkins/Documents/GitHub/Places/tools/bench/capture_art_style_hero.py",
+          "--manifest",
+          "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/native-manifests-final-v2/tests__fixtures__levels__repair__wall_step_x.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__repair__wall_step_x.placesmap",
+          "--binary",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-runtime/normal-c2-plmp6-v10/places",
+          "--asset-root",
+          "/Users/connordawkins/Documents/GitHub/Places",
+          "--quality",
+          "high",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/budget-affected/tests__fixtures__levels__repair__wall_step_x/normal-capture"
+        ],
+        "status": "passed"
+      },
+      "binary": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-runtime/normal-c2-plmp6-v10/places",
+        "sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081"
+      },
+      "package": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__repair__wall_step_x.placesmap",
+        "sha256": "36fb9ab8ed31bb54e137d06659780e25a3960a4e055666c2ab873ed8ee4d9fa6"
+      },
+      "camera_manifest": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/native-manifests-final-v2/tests__fixtures__levels__repair__wall_step_x.json",
+        "sha256": "bd75af99b97082a577b3d28501eba53d4200e88a0ee6b63eb565c787c5b42a5c"
+      },
+      "actual_identity": {
+        "binary_sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081",
+        "package_sha256": "36fb9ab8ed31bb54e137d06659780e25a3960a4e055666c2ab873ed8ee4d9fa6",
+        "source_sha256": "f800232785a8775c4ce11dcc81256279484f6edb47adec4ec028cb55ee111afb",
+        "camera_manifest_sha256": "bd75af99b97082a577b3d28501eba53d4200e88a0ee6b63eb565c787c5b42a5c",
+        "capture_tool_sha256": "c966d5f75a5fb431e67f77c368204d26efccafaa99807b2f6b35e6b4af2e1583",
+        "catalog_sha256": "27789ac9a59ec79decb5c95e63f6a4b0de3bbd5101f4ae3d2d45f177e82bee1f",
+        "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+        "git_revision": "26486b8538424f013c243ae6edea8720ac07d7f2",
+        "git_diff_sha256": "a939875a613f1b173609c1c846e1dd5c9dc113bd76614646585c4e71cdeb8ed9"
+      },
+      "actual_view": {
+        "name": "spawn",
+        "spawn": [
+          2.0,
+          1.0,
+          90
+        ],
+        "camera": [
+          90,
+          -6
+        ],
+        "purpose": "Purposeful nonempty scene accounting from unchanged authored spawn toward actual geometry; original outward blank view retained as a rejected budget control"
+      },
+      "actual_settings": {
+        "bindings": {
+          "forward": "W",
+          "backward": "S",
+          "strafe_left": "A",
+          "strafe_right": "D",
+          "look_up": "UP",
+          "look_down": "DOWN",
+          "look_left": "LEFT",
+          "look_right": "RIGHT",
+          "jump": "SPACE",
+          "crouch": "C",
+          "interact": "E"
+        },
+        "look_speed_h": 90,
+        "look_speed_v": 60,
+        "walk_speed": 3,
+        "invert_look": false,
+        "mouse_sensitivity": 0.12,
+        "quality": "high",
+        "texture_filtering": "high",
+        "lightmaps": "full",
+        "reflections": "full",
+        "bloom": true,
+        "use_low_quality_lighting": false,
+        "vsync": false,
+        "fov_degrees": 60,
+        "window_mode": "windowed",
+        "window_width": 640,
+        "window_height": 360
+      },
+      "diagnostic": null,
+      "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+      "capture_frame": null,
+      "purpose": "Normal High affected source or purposeful nonempty accounting view",
+      "limits": "Dark floor/wall silhouettes visible; yaw90 retains authored XZ/eye/pitch. Original blank/rejected receipt retained.",
+      "copy_contract": "Exact original PNG bytes; no resizing, processing, synthesis or altered pixels."
+    },
+    {
+      "name": "round-pool-purposeful-high",
+      "path": "docs/art-style/stage7/supported-native/round-pool-purposeful-high.png",
+      "bytes": 71428,
+      "sha256": "8861090e7d742fe3e6a584a616b82f9b38a4a85ae023b5c304011a65e5800b3b",
+      "original_source_png": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/budget-affected/tests__fixtures__levels__round_pool_and_proximity_fade/normal-capture/spawn.png",
+      "native_capture_manifest": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/budget-affected/tests__fixtures__levels__round_pool_and_proximity_fade/normal-capture/manifest.json",
+        "sha256": "4a042a0696b58e9aab622c8ba0ee3e33ba703edf7617b0327edb7864a863a564"
+      },
+      "command_receipt": {
+        "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/commands/normal-tests__fixtures__levels__round_pool_and_proximity_fade.json",
+        "sha256": "d58c89c0998083f4e80230d2f71de4dea32e041dffa187a0ef51697dd82eb681",
+        "argv": [
+          "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+          "/Users/connordawkins/Documents/GitHub/Places/tools/bench/capture_art_style_hero.py",
+          "--manifest",
+          "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/native-manifests-final-v2/tests__fixtures__levels__round_pool_and_proximity_fade.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__round_pool_and_proximity_fade.placesmap",
+          "--binary",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-runtime/normal-c2-plmp6-v10/places",
+          "--asset-root",
+          "/Users/connordawkins/Documents/GitHub/Places",
+          "--quality",
+          "high",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/budget-affected/tests__fixtures__levels__round_pool_and_proximity_fade/normal-capture"
+        ],
+        "status": "passed"
+      },
+      "binary": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-runtime/normal-c2-plmp6-v10/places",
+        "sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081"
+      },
+      "package": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__round_pool_and_proximity_fade.placesmap",
+        "sha256": "ec1fcc96598877846e53c21cd94e0b6a604f38019e826db8a1075ee5439fd61e"
+      },
+      "camera_manifest": {
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/validation/native-manifests-final-v2/tests__fixtures__levels__round_pool_and_proximity_fade.json",
+        "sha256": "1005db71c2a99e99719f658ec6d35cdccdea81cde25a3598755732ed414e34f1"
+      },
+      "actual_identity": {
+        "binary_sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081",
+        "package_sha256": "ec1fcc96598877846e53c21cd94e0b6a604f38019e826db8a1075ee5439fd61e",
+        "source_sha256": "8db4e1c877a683b5755e1f27c6e9d919660f1db2ef9ac16e3112be19a11ca5a1",
+        "camera_manifest_sha256": "1005db71c2a99e99719f658ec6d35cdccdea81cde25a3598755732ed414e34f1",
+        "capture_tool_sha256": "c966d5f75a5fb431e67f77c368204d26efccafaa99807b2f6b35e6b4af2e1583",
+        "catalog_sha256": "27789ac9a59ec79decb5c95e63f6a4b0de3bbd5101f4ae3d2d45f177e82bee1f",
+        "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+        "git_revision": "26486b8538424f013c243ae6edea8720ac07d7f2",
+        "git_diff_sha256": "a939875a613f1b173609c1c846e1dd5c9dc113bd76614646585c4e71cdeb8ed9"
+      },
+      "actual_view": {
+        "name": "spawn",
+        "spawn": [
+          2.0,
+          2.0,
+          135
+        ],
+        "camera": [
+          135,
+          -6
+        ],
+        "purpose": "Purposeful nonempty scene accounting from unchanged authored spawn toward actual geometry; original outward blank view retained as a rejected budget control"
+      },
+      "actual_settings": {
+        "bindings": {
+          "forward": "W",
+          "backward": "S",
+          "strafe_left": "A",
+          "strafe_right": "D",
+          "look_up": "UP",
+          "look_down": "DOWN",
+          "look_left": "LEFT",
+          "look_right": "RIGHT",
+          "jump": "SPACE",
+          "crouch": "C",
+          "interact": "E"
+        },
+        "look_speed_h": 90,
+        "look_speed_v": 60,
+        "walk_speed": 3,
+        "invert_look": false,
+        "mouse_sensitivity": 0.12,
+        "quality": "high",
+        "texture_filtering": "high",
+        "lightmaps": "full",
+        "reflections": "full",
+        "bloom": true,
+        "use_low_quality_lighting": false,
+        "vsync": false,
+        "fov_degrees": 60,
+        "window_mode": "windowed",
+        "window_width": 640,
+        "window_height": 360
+      },
+      "diagnostic": null,
+      "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+      "capture_frame": null,
+      "purpose": "Normal High affected source or purposeful nonempty accounting view",
+      "limits": "Pool/room silhouettes and glowing entities visible; yaw135 retains authored XZ/eye/pitch. Original blank/rejected receipt retained.",
+      "copy_contract": "Exact original PNG bytes; no resizing, processing, synthesis or altered pixels."
+    }
+  ],
+  "count": 12,
+  "scope": "Explicit normal/diagnostic binary and package/camera provenance retained. Images are evidence for their actual views, not an overall Stage7 acceptance claim.",
+  "corridor_controls": [
+    {
+      "room": 7,
+      "before": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/demo/before/room7/images/drum-120.png",
+      "after": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/demo/after/room7/images/drum-120.png",
+      "before_support": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/demo/before/room7/support.json",
+      "after_support": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/demo/after/room7/support.json"
+    },
+    {
+      "room": 8,
+      "before": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/demo/before/room8/images/drum-120.png",
+      "after": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/demo/after/room8/images/drum-120.png",
+      "before_support": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/demo/before/room8/support.json",
+      "after_support": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/demo/after/room8/support.json"
+    },
+    {
+      "room": 10,
+      "before": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/demo/before/room10/images/drum-120.png",
+      "after": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/demo/after/room10/images/drum-120.png",
+      "before_support": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/demo/before/room10/support.json",
+      "after_support": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/demo/after/room10/support.json"
+    }
+  ]
+}

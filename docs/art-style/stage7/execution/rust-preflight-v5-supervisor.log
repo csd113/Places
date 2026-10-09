@@ -1,0 +1,11 @@
+{"argv": ["sh", "/tmp/places-stage7-rust-preflight-v5.sh"], "cwd": "/Users/connordawkins/Documents/GitHub/Places", "started_utc": "2026-10-08T23:31:37.592211+00:00", "finished_utc": "2026-10-08T23:31:47.580038+00:00", "elapsed_seconds": 9.987739875097759, "exit_code": 101, "environment_overrides": {"RUSTC_WRAPPER": ""}, "log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/rust-preflight-v5.log"}
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+error[E0282]: type annotations needed
+   --> src/lighting/transport/tests/probes.rs:486:18
+    |
+486 |     let owner = |[x, y, z]| lighting.room_index_at_height(x, y, z);
+    |                  ^^^^^^^^^ cannot infer type
+
+For more information about this error, try `rustc --explain E0282`.
+error: could not compile `places` (lib test) due to 1 previous error
+

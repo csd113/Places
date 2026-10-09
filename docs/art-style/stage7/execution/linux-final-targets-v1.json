@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+    "/tmp/places-stage7-linux-final-targets-v1.py"
+  ],
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "started_utc": "2026-10-09T05:58:58.843926+00:00",
+  "finished_utc": "2026-10-09T05:59:02.159687+00:00",
+  "elapsed_seconds": 3.315659541054629,
+  "exit_code": 0,
+  "environment_overrides": {
+    "RUSTC_WRAPPER": ""
+  },
+  "log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/linux-final-targets-v1.log"
+}

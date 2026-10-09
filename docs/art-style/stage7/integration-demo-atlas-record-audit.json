@@ -1,0 +1,2997 @@
+{
+  "status": "bounded typed HDR record and diagnostic maximum fixes implemented; strict gates, actual final aggregate and native evidence pending",
+  "entry": {
+    "path": "debug-maps/art-style-hero/evidence/stage7-entry/maps/assets/levels/places_demo.placesmap",
+    "bytes": 74520351,
+    "sha256": "01595d413f58f298d178d0b97be2e2dde8513a9537b10ce2006ba14b2615047a",
+    "manifest_sha256": "7766de58957f5cc632f5614e807f4e7a633d484328a87ced30163143d4ce12b7",
+    "manifest_total_declared_bytes": 614046003,
+    "build_inputs": null,
+    "dependencies": [
+      {
+        "kind": "model",
+        "path": "core/props/models/bed.glb",
+        "sha256": "216c96a022437fa9803ba6ac75692efd86aac846837d7ef8e231718c1e36dbbe",
+        "bytes": 128448
+      },
+      {
+        "kind": "model",
+        "path": "core/props/models/exit_sign.glb",
+        "sha256": "96b1939c78d9504d78a0d2a4bf5a2882f1c8491337bf88eb9e612010488c4ab0",
+        "bytes": 67904
+      },
+      {
+        "kind": "model",
+        "path": "core/props/models/fridge.glb",
+        "sha256": "a24e261f9f454a7c5312a93bee77723785d6b4028daf6ae1896a0c34bf80bc43",
+        "bytes": 155544
+      },
+      {
+        "kind": "model",
+        "path": "core/props/models/painting_frame_landscape_01.glb",
+        "sha256": "4f96262a43b024d834be1948984546f80fb1101abfec80618bb338d6b0a706f3",
+        "bytes": 127040
+      },
+      {
+        "kind": "model",
+        "path": "core/props/models/plant.glb",
+        "sha256": "0c32f16166d890eb433d008abc139a22651b1eb977abfbfd9233b3888d6167e8",
+        "bytes": 178432
+      },
+      {
+        "kind": "model",
+        "path": "core/props/models/rug.glb",
+        "sha256": "4c4e9f1fcc5e2845700583222c6f1bcb799647b6c6cdf72441ff8245cad6b144",
+        "bytes": 266280
+      },
+      {
+        "kind": "model",
+        "path": "core/props/models/table.glb",
+        "sha256": "574b1a1d8900d4f2c86c3e0e2469dc4f17c79a3538285d6ab42260df4f64dd8b",
+        "bytes": 123816
+      },
+      {
+        "kind": "model",
+        "path": "core/props/models/washing_machine.glb",
+        "sha256": "8a8bd2113efa8e5a0a6fbc13de480ec5a4840a793ca07df7065ceb4f79911a0e",
+        "bytes": 58000
+      },
+      {
+        "kind": "model",
+        "path": "entities/carved-pumpkin/model/carved-pumpkin.glb",
+        "sha256": "b6f76aec463625bc09906ee9c17f7168caca34b80a5745144d5de05b2440d285",
+        "bytes": 340140
+      },
+      {
+        "kind": "model",
+        "path": "entities/pumpkin-skeleton/model/pumpkin-skeleton.glb",
+        "sha256": "5a7511b0b1c22311c43d2ef50f3762458a86c68c42ffc9f9161dda6e00653953",
+        "bytes": 568928
+      },
+      {
+        "kind": "model",
+        "path": "entities/sheet-ghost-cat/model/sheet-ghost-cat.glb",
+        "sha256": "192741197f6004506474ae0c06f514d52a279073d023172237eedcca7a78acef",
+        "bytes": 243116
+      },
+      {
+        "kind": "model",
+        "path": "entities/sheet-ghost/model/sheet-ghost.glb",
+        "sha256": "ea07c5f3e89eebf426943aff688258392796917be8fc1be86571707aa0e0fe16",
+        "bytes": 304480
+      },
+      {
+        "kind": "model",
+        "path": "entities/spooner-man/model/spooner-man.glb",
+        "sha256": "3ac24ca7efea8a04ce70e285d0219e372826bdd36503d2541237213cb1084981",
+        "bytes": 708624
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/armchair.glb",
+        "sha256": "67a3ba40ac0aa463cf78da9a2196568618900eaa38a5880c1125001f9bd1521d",
+        "bytes": 83636
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/ball_light.glb",
+        "sha256": "c1d44add23a0ab8059b903fc5d7d9c638a97b9e5ede561e49e30634663462dad",
+        "bytes": 57176
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/book_stack.glb",
+        "sha256": "ecd7ca1e98b44c329a4fcb744b1e8c2347a2fb372c2a860314f9743eee5e0b90",
+        "bytes": 45556
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/bookshelf.glb",
+        "sha256": "6ff87c5e35a89d14e7f6d75fb0ccbe94a785ab0f8844e15467aefab2cf98b85a",
+        "bytes": 80748
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/bowl.glb",
+        "sha256": "61306b9374ea482bf1eb6ad97c772a9bc7d04b8bd5ca47af691e1fa928525c44",
+        "bytes": 31540
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/cabinet_base.glb",
+        "sha256": "29c871b20e2a74badf7d043080a9619d20d971f7b406dace45cb9522d02f382c",
+        "bytes": 59144
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/cabinet_strip.glb",
+        "sha256": "1b8b27d55628d60c3bd22a1a2515128233e8c007e886831a693eddbef5cf1204",
+        "bytes": 37592
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/cabinet_wall.glb",
+        "sha256": "10f0420a42e3d749fa14d106292dc027995a7ce58ea4c088fbdfd33e8550f4f1",
+        "bytes": 51168
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/coffee_table.glb",
+        "sha256": "ba72cc5618015e8541ca4343b4cedd20784adaf98661eb02bfba353bf882eeb6",
+        "bytes": 77644
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/crt_tv.glb",
+        "sha256": "598653c413852f290a021bfd3cda30adfbcccd515fa5055e82234cff09f688d1",
+        "bytes": 91380
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/cushion.glb",
+        "sha256": "cc3af5ca5944b83ef56c7b3930d7f17a2ebd7116d2c7b4cd63a5a03a4a20c1ff",
+        "bytes": 58564
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/dining_chair.glb",
+        "sha256": "661c64e5deaf96ec13630443eef41ba49af5a6347d79df291786bb76ed28c20e",
+        "bytes": 79196
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/dining_table.glb",
+        "sha256": "0534999501e4e36be9201e35f75e942bd37078c1ade277f71f7d8846290f050c",
+        "bytes": 75448
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/door_casing.glb",
+        "sha256": "084e6155218091a898b4aee2092a79089378eba0c131b7a77bc1734730390099",
+        "bytes": 39416
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/floor_lamp.glb",
+        "sha256": "28cc32163e3d64ac41e7209275fb02b10b2696a9128cbb61048026e92408e1c3",
+        "bytes": 50452
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/fork.glb",
+        "sha256": "d31997ec8f9818db4405511cfa502fbc0f9a12b6de114688e5843c87671f724b",
+        "bytes": 25684
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/kettle.glb",
+        "sha256": "c8fcc43cc05be0e410a3f472e74c84b6b161b0d3c86ca0ef5eba2bf131b43cd0",
+        "bytes": 55052
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/knife.glb",
+        "sha256": "5746ff970cd85e3619bfe0fb5acad940de0ee94701396991cbd0542b264320f8",
+        "bytes": 17148
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/landscape_frame.glb",
+        "sha256": "25951b9b3069829b05cddc44043ed223813ac284aed15ab99b9289d0ed918ef5",
+        "bytes": 53016
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/mug.glb",
+        "sha256": "5d6cdebcbfe2aad546981fc7f5558e8372ca9b4f9dc49e5853ad90af8ae24632",
+        "bytes": 61088
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/outlet.glb",
+        "sha256": "787b6c5f049189fb12341a67e1e3a84accc38625e9e22618234297a8d91630f8",
+        "bytes": 51300
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/plant_table.glb",
+        "sha256": "b53511d1db0bd1d230c1b537ff99ee4a07b65f43d6e3eb0ac09fb08ca876ed61",
+        "bytes": 27804
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/plate.glb",
+        "sha256": "477e1957512cf801f522dd5cfc70844e5eeeae65176b3bad637e3f8f008264a8",
+        "bytes": 27140
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/rug.glb",
+        "sha256": "0171ad8df033958933da7e92311cd6f425b734a7feb519adf252ce4b1d93bd4f",
+        "bytes": 100980
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/sink.glb",
+        "sha256": "37971e3e7af616de41346b5e3a3716bbbdd9db171c69cbe9bfc1ce40f892d927",
+        "bytes": 76284
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/sofa.glb",
+        "sha256": "9ab95deac810c7482415cc81fb6ffab6796615fd776159f4b0c6796700ee8471",
+        "bytes": 93892
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/spoon.glb",
+        "sha256": "2166f1d8c09e8a26c43ccd6f4060b87fb1ddd14b9455d0d70bfd26630b5cfa02",
+        "bytes": 25764
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/stove.glb",
+        "sha256": "3695f201a988e089081ef6373afe95466174ddd51bf3c217916f8723828f1eb2",
+        "bytes": 81072
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/toaster.glb",
+        "sha256": "00d6aaa4ae8584d53b0e23dcdf6b094489dfb5a316fa4f0fbb3e153ce75bdac8",
+        "bytes": 43240
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/tv_console.glb",
+        "sha256": "fde5b404d834dce5d0332e6c25b5eab10aa87b5f6e6a15d87dfd12c288e35ff1",
+        "bytes": 88424
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/wall_switch.glb",
+        "sha256": "3537a94bbeab4049cb95321cecfd96d1d6ecdd330f0cf6dd417bb3d29ad85d73",
+        "bytes": 27088
+      },
+      {
+        "kind": "model",
+        "path": "environment/office/props/models/cabinet.glb",
+        "sha256": "111de0b8e41fce2a12c501e6e09a1558a928fb091a54437f26894dbabc49fc51",
+        "bytes": 104356
+      },
+      {
+        "kind": "model",
+        "path": "environment/office/props/models/chair.glb",
+        "sha256": "6787523696a6676ac2854345c1e0444614845e7fdc5ee3ad307e6299e04c1acc",
+        "bytes": 134376
+      },
+      {
+        "kind": "model",
+        "path": "environment/office/props/models/desk.glb",
+        "sha256": "bb82c8b7190218387804d42ccc43c35273938d01a4050731c20936d74c134d58",
+        "bytes": 109384
+      },
+      {
+        "kind": "model",
+        "path": "environment/office/props/models/water_cooler.glb",
+        "sha256": "5fe6d350f9ea955952cdf7b0f8afbce137c7361d35638c22b350ae404b2222fc",
+        "bytes": 111512
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/boundary_ridge.glb",
+        "sha256": "184b59a85cb81a215e3d84a048e4798809489fdbfdb64fb55b8f6a9b21c3d372",
+        "bytes": 45740
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/bush_low.glb",
+        "sha256": "00b4bec4b73ff2ceeda576adb7f90e4d9b42030aedcfeddb9f8178f5808df4c9",
+        "bytes": 69528
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/bush_round.glb",
+        "sha256": "d026ba9526205735ac9566599f23297ad3df7518d8ea6d296015d99e424c06d4",
+        "bytes": 69516
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/campfire_static.glb",
+        "sha256": "7387a352438c08fc2cf4535e97431bf0556d3827ca55c6d1f134f10cd3fb0f77",
+        "bytes": 82768
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/collision_peg.glb",
+        "sha256": "19a546d0c550ec9d055414d1d8b3bbcfa31e77f7fe5db63b134839a894dadc92",
+        "bytes": 2928
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/fence_two_rail.glb",
+        "sha256": "855df209a6259cec57af96692f4990a8002e735c21fe6f02b14d9f9e2054d879",
+        "bytes": 46100
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/grass_patch_large.glb",
+        "sha256": "f42b3c78aa8ffbd4e95fa7ff170b91df21b0d821e2e9c52b588832ecea4c559a",
+        "bytes": 76832
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/grass_patch_small.glb",
+        "sha256": "66b64d9856023596e8ad1b12cc483fa2baf59320e8f6278489e0a28705656b9e",
+        "bytes": 75424
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_02_corner_trim.glb",
+        "sha256": "31372acf63a9e6d7b284c8da60808a0e52e36cd867bf40ea9fd994c2a8581f49",
+        "bytes": 24592
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_02_porch_deck.glb",
+        "sha256": "b66c3632ed0aac70b09d7fd75ca427d5c6ef848d861f5bb54f37db3f384fc2c0",
+        "bytes": 72100
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_02_porch_post.glb",
+        "sha256": "530160d349bbf4c82e0335422f5d8f1c78c3bb4a94bb4963b8ab33433b191601",
+        "bytes": 24996
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_02_roof_ridge.glb",
+        "sha256": "763d974bec94ee58f5145a59548907bb77f95330a881b3d4b9bc159d1ee7a834",
+        "bytes": 23768
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_02_roof_slope.glb",
+        "sha256": "00e936bddfa88a2c2686dde4b94277e8055ebc8eff89ce21bf5d086e29273846",
+        "bytes": 70800
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_02_wall_doorway.glb",
+        "sha256": "777d4b79dfe8b031624be43d7c3d673563a250f2bdd6fe5740caa67276abcec0",
+        "bytes": 74048
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_02_wall_window.glb",
+        "sha256": "fd645a8177c5820af0f080ae5654d3372af743f68158c7be228096263d719157",
+        "bytes": 79576
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_corner_trim.glb",
+        "sha256": "319f790219701ec584fd338ace110a2e0fce5430bf86c586b4d9195ff68631f5",
+        "bytes": 18600
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_roof_ridge.glb",
+        "sha256": "5b3fd4da15c6b0a2272268ce8be956e78455ec5c50e69c5cc85d4c70c9e65842",
+        "bytes": 28696
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_roof_slope.glb",
+        "sha256": "1c8ee6574a514002b33122b4100764496e0277827512c08677f6ff78279fe76b",
+        "bytes": 122956
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_wall_doorway.glb",
+        "sha256": "4ed7fe70f6cefcb9ead174219c1582b577cd5b0f95a75b89b50a8cd1ee7f10d5",
+        "bytes": 43528
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_wall_solid.glb",
+        "sha256": "612d26b79e856c605e3c2d4d25f822a8b0b8d3f66b69ec4aa3f652d6ef44ba29",
+        "bytes": 41572
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_wall_window.glb",
+        "sha256": "96d8fd6e8b64e5b6596a076d95b3cea00e46556fb001f36c2170c7d55b634bc4",
+        "bytes": 49700
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/lamp_fence.glb",
+        "sha256": "9cc99dc811ed7f43bdae83925990a8808561d15504b3086e86bdc5fe667c226a",
+        "bytes": 40748
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/lamp_stand.glb",
+        "sha256": "3f09ba4a8af59e688657f7cb30af9d6d985b4a93897cfc7f4fe969add8b32d39",
+        "bytes": 42872
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/lamp_wall.glb",
+        "sha256": "d4f393ccfc284b81ca6ffbe1efc928d216869c22bf968e97ebbef529ce75156b",
+        "bytes": 42984
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/masonry_pier.glb",
+        "sha256": "f72d8c58c4cc3d6622aa7257ffd7b1447be9ec3fe3499158804263d6d83237b8",
+        "bytes": 48684
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/porch_canopy.glb",
+        "sha256": "5c6b9ca4a1781094fa04c826d79f9ec4ab1b1b3bac46b5d9f007f8abd1308158",
+        "bytes": 45780
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/porch_railing_straight.glb",
+        "sha256": "61797305298248c61232b68be89d64ffe6aecaa0d596c5923b0bd3a68afebe24",
+        "bytes": 40108
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/road_barrier.glb",
+        "sha256": "e7a5ad3aef11c4de6da985e52afc574fb28516873841b9308d856aaab1bd5e0a",
+        "bytes": 39024
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/showcase_boulder.glb",
+        "sha256": "ed7b065ec5e668839e3a43b71610c5a8b9514994dd23583d66b786dcc977efdd",
+        "bytes": 45248
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/showcase_stump_seat.glb",
+        "sha256": "c944405b1b4f9e51a5cf3513d91bb7c9c7a3f71173013ad3fde360cb8e7ebddf",
+        "bytes": 30872
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/streetlight.glb",
+        "sha256": "6661025d1a940135fb62ee7ffe4dcd158b3cb776646da7904b6290cf26e627ba",
+        "bytes": 45752
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/tree_01.glb",
+        "sha256": "68b4996a0631432027d41ce5cacaf177cd25c4ad549c605e161ccddac5716665",
+        "bytes": 110952
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/tree_02.glb",
+        "sha256": "e34552825e5724db460974b323524faa640c1c8e5cf0156c79fad03d658604b5",
+        "bytes": 107492
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/tree_03.glb",
+        "sha256": "29dd017d049fbcf28a483527d37d4dedc16aab0ad1ba862239061e1be289ddc5",
+        "bytes": 105060
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/hot_tub.glb",
+        "sha256": "adfcc41cb47055022674ab34bb115b774c40005133a0b119a3489ecfbc854919",
+        "bytes": 37192
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_bench.glb",
+        "sha256": "bf3a225c45f3419453ae02b8e665afb98e6053367d178ad2f44a68a67614e926",
+        "bytes": 20740
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_chair.glb",
+        "sha256": "9cfe66ef0c5b9947eada1a62ff01351967879b5dc0008abd3469a0e92e921fab",
+        "bytes": 25104
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_curtain_corner.glb",
+        "sha256": "30691369df8484367a50d2abed272521292599207adda1ddb429bcd20b721cf6",
+        "bytes": 50620
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_curtain_end.glb",
+        "sha256": "7679516909324c04857b8e82e2b20fd92ba851a40fa3fa954e3d229e085ba626",
+        "bytes": 37640
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_curtain_straight.glb",
+        "sha256": "5810ed97272b86a38b16d1cb936db92ee1ab7eecad09113f376899cbaf5e0295",
+        "bytes": 53608
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_drain.glb",
+        "sha256": "d192b9afb84feb947cea4be5f43412ba9e662d4bc3135ef86274d69b5f52f81d",
+        "bytes": 35828
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_guardrail_end.glb",
+        "sha256": "cd88e89d7e12abe4bd5cea36a60943ffb6cdabe909528658606bbdcb234639b6",
+        "bytes": 31800
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_guardrail_straight.glb",
+        "sha256": "2cde1ef11c50e5e63fc0762ec2a7bf1372e1e0fc52ef74e517573857474def29",
+        "bytes": 35452
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_ladder.glb",
+        "sha256": "268d7303f498c13b64afaf023e80f712fca811ba1d4227c5680d9fc7087eb28c",
+        "bytes": 56748
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_service_door.glb",
+        "sha256": "81d19420b25a789a990cdc9cf07a988cf4ec0ad519fdca2d4499eeb79e42582d",
+        "bytes": 17808
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_table.glb",
+        "sha256": "f1dda462dfa61ae0b0d95a4313f06035e825f095bd0983e32068dce9f91cc81a",
+        "bytes": 23788
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/rubber_duck.glb",
+        "sha256": "164f15f0931772b515cf55b2446b1cb43598445d5245071fe0d02e3a751ffae6",
+        "bytes": 75028
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/effects/steam_01.png",
+        "sha256": "5dbc87a8f0303934620275f0207b28d7478649689f64a85bce771360046f3086",
+        "bytes": 129303
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/floors/linoleum_01.png",
+        "sha256": "beccae9271208401f1d50770d512d3c93bd1561ef9fe54eb1d59d6b42e40bf16",
+        "bytes": 2111981
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/glass/glass_clear_01.png",
+        "sha256": "218c6e30035c5a552867f876b388b45a166205a27b75b4c2b92dda943c98bc70",
+        "bytes": 765441
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/glass/glass_dirty_01.png",
+        "sha256": "81a61cda8b9e0cb0d2532808b2e6e78d420310915132e29f5188ad4e770eba5e",
+        "bytes": 2444851
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/glass/glass_tinted_01.png",
+        "sha256": "5a0c17c4eb5f631ae1a36a7cabeb7da418e34fc591fcc1bec3559138798db71d",
+        "bytes": 1151815
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/metal/brass_01.png",
+        "sha256": "c3b3ee65a0dad58e4fbc498fb39a1aa7c6688054c65c7ea995bf8d849e76b4c8",
+        "bytes": 13583
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/normals/normal_brushed_01.png",
+        "sha256": "561a3869339fc7f5eb143d842ce7cae585ec1476ad1886b2b84c529d0d95dc4a",
+        "bytes": 1512724
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/walls/grille_01.png",
+        "sha256": "56cdd920bb8b0ca249aa414948f54228942cddbeca56c7b6ac6455cb336d0b23",
+        "bytes": 1494293
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/walls/metal_panel_01.png",
+        "sha256": "25b9ecbe8ed2c9a20cf1849e21ee5d776c320a6948d5c691fa332e6c777bcb34",
+        "bytes": 1319516
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/ceilings/ceiling_plaster_01.png",
+        "sha256": "2281fe50643d6ec0d3471cdaba24a5b094e109e60114f98587d30f291890cdbc",
+        "bytes": 1916762
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/ceilings/ceiling_plaster_warm_01.png",
+        "sha256": "a74d27e781aee9a0c32dcbb62e1369c7a2de4779e3aa6a5a7c93dbdaa87df96c",
+        "bytes": 1441043
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/ceilings/ceiling_warm_01.png",
+        "sha256": "56949a52b1e5d28226cd015388dab88553391972cb8f5d0165c4e05bf62dde4b",
+        "bytes": 1447919
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/ceilings/ceiling_white_01.png",
+        "sha256": "69e3183327b5592e030f5d6bb421b4f24ca51cac4aef6020a587e7ca3c24dadb",
+        "bytes": 1809764
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/doors/door_white_01.png",
+        "sha256": "7ecb91db71dac2afa8682499420a6ed9b1eab35f95c90d6306d2bcfb5351ab6d",
+        "bytes": 251992
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/doors/sauna_wood_01.png",
+        "sha256": "b3668ca802e8a8b3830696cb69412e9d3af4545e0598d33946ae0ba017e83c90",
+        "bytes": 669306
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/floors/carpet_cream_01.png",
+        "sha256": "02bfac2257a4cc3e51a3bb603dcadd027fbda70e50b85c0f367a99cc0007ef4c",
+        "bytes": 1709152
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/floors/hardwood_oak_01.png",
+        "sha256": "ec7196525a7c2d3b15b949401067d972d2afac42844e4cb0210c8bbeccb70dde",
+        "bytes": 789782
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/floors/hardwood_oak_warm_01.png",
+        "sha256": "87401587e9b81109a636f163582cbeb3509cab3c6b5eb68b98d03efd1ee72f4a",
+        "bytes": 36008
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/floors/hardwood_walnut_02.png",
+        "sha256": "733c6006676ebc3cb24418699fc22f9c626cb6b04a6923767b31210f2113b16c",
+        "bytes": 35461
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/floors/threshold_wood_01.png",
+        "sha256": "aaa0e5e96e3a6121a620d5cf6e1970e25f1709b023b35e9a0249822cf9e55cd3",
+        "bytes": 1121306
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/floors/tile_home_01.png",
+        "sha256": "b97538adee8e8e20fe6a1ec74a7a4be3245bf7e61523cb5b48b984af764c5364",
+        "bytes": 20411
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/lights/ceiling_light_round_01.png",
+        "sha256": "1906b81f845cdf7ee1471b0052239f5a6b03cf58205eae7e4ed7682cdbe5ccfe",
+        "bytes": 831543
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/walls/backsplash_01.png",
+        "sha256": "3aa20a428d89b75821f8de7d5d3648462eda7b96cd9700b1ec49de471f5c7711",
+        "bytes": 49440
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/walls/baseboard_white_01.png",
+        "sha256": "55bac184ea7520f9b281a6ada4c364108dd80f13b7bb01f46e2c217faaa851ec",
+        "bytes": 269156
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/walls/baseboard_wood_01.png",
+        "sha256": "5bf09de702583d850e06a75a30c1a5466d375ae51e44b21b43423637d929c843",
+        "bytes": 916244
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/walls/handrail_wood_01.png",
+        "sha256": "66fb5172167b4599dd5d45d055af6c714406941f6fb55f3d022a433652153a31",
+        "bytes": 1031319
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/walls/wall_paint_offwhite_01.png",
+        "sha256": "fabdc048ec80d9c3e07fe1a92bb6ba20e5d7797bd304f17dfe1c578d033ec7c4",
+        "bytes": 1240158
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/walls/wall_paint_warm_01.png",
+        "sha256": "7eb3e3d9bc2d7ece33099a4467f04ed1b191951da192290f4559ece64126ba6c",
+        "bytes": 1644246
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/walls/wallpaper_offwhite_01.png",
+        "sha256": "e9f5715deb0533f25939a0a45d3b4e16f35d5a1f27b3e94b216beb7b78f7bc87",
+        "bytes": 1644500
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/walls/wallpaper_pattern_01.png",
+        "sha256": "3c8c135c5257576a593cbf05b71eb12ce22a9fecd573f3fa7e8f6fb2b007201b",
+        "bytes": 1458771
+      },
+      {
+        "kind": "texture",
+        "path": "environment/office/textures/ceilings/ceiling_panel_01.png",
+        "sha256": "77773b64877e4b28856ebd6a972acb51d7d4016e9464c595a895af4b471c2edc",
+        "bytes": 1676140
+      },
+      {
+        "kind": "texture",
+        "path": "environment/office/textures/ceilings/ceiling_stained_01.png",
+        "sha256": "ce17d289824c5f8883f9b00a5018d3bee3271733709aaac51c722285123e5eda",
+        "bytes": 1600672
+      },
+      {
+        "kind": "texture",
+        "path": "environment/office/textures/floors/carpet_beige_01.png",
+        "sha256": "beb6d0d74787e5e78104b0f1ae2cb641127eb601ddfaf48fc348344c94772b87",
+        "bytes": 2198560
+      },
+      {
+        "kind": "texture",
+        "path": "environment/office/textures/floors/carpet_damp_01.png",
+        "sha256": "112f0e5bd44c006e0d835522f872896ae477b21c425e59704080a4b25a9bd6d3",
+        "bytes": 1897156
+      },
+      {
+        "kind": "texture",
+        "path": "environment/office/textures/lights/fluorescent_panel_01.png",
+        "sha256": "55db5b8b8ee11f740f3413ba864f538a1d44a32812d4e7b27e082b3cbc97a358",
+        "bytes": 749982
+      },
+      {
+        "kind": "texture",
+        "path": "environment/office/textures/walls/wallpaper_stained_01.png",
+        "sha256": "39847f1bf877eae398563219da98ec026306966858f73e6bbd7bae8482a2a398",
+        "bytes": 1070507
+      },
+      {
+        "kind": "texture",
+        "path": "environment/office/textures/walls/wallpaper_yellow_01.png",
+        "sha256": "33e56521491224e0d9f39614dd4d616218eea79fd46f23c7ad2bcb5072ffa28b",
+        "bytes": 1072510
+      },
+      {
+        "kind": "texture",
+        "path": "environment/outdoor/textures/ground/concrete_pavement_01.png",
+        "sha256": "a632fb7ecc4c80191af54a738bbf50122cf57f7cd40d6c175ed83079fe5d2340",
+        "bytes": 107624
+      },
+      {
+        "kind": "texture",
+        "path": "environment/outdoor/textures/ground/dirt_gravel_01.png",
+        "sha256": "68f3af5c3d282af475d1c8792d2b51a1e061c8ed8dca12173b9d719e9dd9f381",
+        "bytes": 171637
+      },
+      {
+        "kind": "texture",
+        "path": "environment/outdoor/textures/ground/grass_ground_01.png",
+        "sha256": "41ac64043cd745009cd148a3b2f11fcc39d1c2b2657e6499631621a237dd7340",
+        "bytes": 211963
+      },
+      {
+        "kind": "texture",
+        "path": "environment/outdoor/textures/house/siding_01.png",
+        "sha256": "cea853ccd313be74a35a9a10e3905de1aec8c44306dce9179723ff7fedc2a331",
+        "bytes": 209692
+      },
+      {
+        "kind": "texture",
+        "path": "environment/outdoor/textures/sky/sky_stars_01.png",
+        "sha256": "eb7e03e373a9bd15ee505750281e699d3c204f35193bfc051100395e501d9075",
+        "bytes": 3540
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/ceilings/pool_ceiling_01.png",
+        "sha256": "185facf8c2b2eb80e3bdc8bfa0b34c920d9c8c556a92b30edf2a702d70c9734d",
+        "bytes": 18858
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/floors/pool_coping_01.png",
+        "sha256": "d0260cc9d983b4db03aaf7584ee38c86a6c2aac01d041497c1b57da000da832b",
+        "bytes": 28834
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/floors/pool_tile_basin_01.png",
+        "sha256": "f4ee07dab94ddd3be3c714a64818799b2710f5ada70413f217a375bf57599d81",
+        "bytes": 27578
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/floors/pool_tile_deck_01.png",
+        "sha256": "89c337b44b8ab42de176ce192384d44806eeebfce43ed6affb9130a5ee794b0b",
+        "bytes": 106783
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/lights/pool_light_round_01.png",
+        "sha256": "3a4c935a87c8e7e1cec65916a75d0de270dd923d6e9321b26827d244d82dc2e4",
+        "bytes": 49554
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/lights/pool_light_wall_01.png",
+        "sha256": "afc219b7d0e4718f5d66bcd73ad347aa4e7624c12dd6d41ef9043cda8bc712a3",
+        "bytes": 3210
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/walls/pool_band_01.png",
+        "sha256": "20ff99bf123933e7f856a19d60117c2fe0621b1fe0ceb2f53a30e599483363a7",
+        "bytes": 24902
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/walls/pool_metal_01.png",
+        "sha256": "3d91688bd13b9f58995b65842e3dda5ad7494779160d184363069f651e9e2ac5",
+        "bytes": 12769
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/walls/pool_tile_wall_01.png",
+        "sha256": "4a07a895c52cc33832e0e79b29f552a231ffc43a1466ae1949bf5f526f06bd40",
+        "bytes": 30873
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/water/pool_water_01.png",
+        "sha256": "dc9caa62d80c0884c2b6f062143934340b12d57d500441d16e831ebd4b18711a",
+        "bytes": 852371
+      }
+    ],
+    "profiles": [
+      {
+        "quality": "medium",
+        "atlas_record": {
+          "name": "blobs/7b4f25adbc4fd302836225d7c4ff69fcc8d3675fb996be69ae6a6ac842a49661.lightmaps.ktx2",
+          "role": "lightmaps",
+          "bytes": 167772356,
+          "sha256": "7b4f25adbc4fd302836225d7c4ff69fcc8d3675fb996be69ae6a6ac842a49661"
+        },
+        "metadata_record": {
+          "name": "blobs/2c6d3023ff7337f34d756c634be7282e5a74a7b30342ca4a41aa196ac08f5be3.lightmaps.json",
+          "role": "lightmaps-meta",
+          "bytes": 29260215,
+          "sha256": "2c6d3023ff7337f34d756c634be7282e5a74a7b30342ca4a41aa196ac08f5be3"
+        },
+        "pages": 5,
+        "edge": 1024,
+        "switchable_lights": [
+          21
+        ],
+        "charts": 126507,
+        "chart_data_texels": 2504932,
+        "content_key": "v13-c5397165b1fb76e0",
+        "layers": 20,
+        "groups": 2,
+        "payload_bytes": 167772160,
+        "container_bytes": 196,
+        "full_atlas_payload_sha_verified": true
+      },
+      {
+        "quality": "full",
+        "atlas_record": {
+          "name": "blobs/d77791bc2a6a267832ce77696f59f85e1061f21bb7ab19b66a0422167b3bca8f.lightmaps.ktx2",
+          "role": "lightmaps",
+          "bytes": 268435652,
+          "sha256": "d77791bc2a6a267832ce77696f59f85e1061f21bb7ab19b66a0422167b3bca8f"
+        },
+        "metadata_record": {
+          "name": "blobs/9fd2dbe71fc3d25dce38c89fd548b4646423bbd50d5d3c1144d9ce2c1c653f9c.lightmaps.json",
+          "role": "lightmaps-meta",
+          "bytes": 29260836,
+          "sha256": "9fd2dbe71fc3d25dce38c89fd548b4646423bbd50d5d3c1144d9ce2c1c653f9c"
+        },
+        "pages": 8,
+        "edge": 1024,
+        "switchable_lights": [
+          21
+        ],
+        "charts": 126507,
+        "chart_data_texels": 3906855,
+        "content_key": "v13-fc9644df9849188e",
+        "layers": 32,
+        "groups": 2,
+        "payload_bytes": 268435456,
+        "container_bytes": 196,
+        "full_atlas_payload_sha_verified": true
+      }
+    ]
+  },
+  "preserved_c1": {
+    "path": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/assets__levels__places_demo.placesmap",
+    "bytes": 85226656,
+    "sha256": "3a4561f1a909b1cc64b23fda1fb0c22c1f130da457ed72f583f09d35f3227acf",
+    "manifest_sha256": "60f897dc3f1b703fb1aa961962f5bc992cc09ce7623ed9dd481cd9ef5ae33766",
+    "manifest_total_declared_bytes": 687760188,
+    "build_inputs": {
+      "capture_probes": true,
+      "catalog_sha256": "27789ac9a59ec79decb5c95e63f6a4b0de3bbd5101f4ae3d2d45f177e82bee1f",
+      "revision": 1,
+      "source_sha256": "65833e98579a696167d616ce0cc94ebab85f744fdd72837ed247c483db1f9dec",
+      "tool_sha256": "751c5153d138534232deb60d8e710b87f34f227c7bbbd6644133b04136ee3935"
+    },
+    "dependencies": [
+      {
+        "kind": "model",
+        "path": "core/props/models/bed.glb",
+        "sha256": "216c96a022437fa9803ba6ac75692efd86aac846837d7ef8e231718c1e36dbbe",
+        "bytes": 128448
+      },
+      {
+        "kind": "model",
+        "path": "core/props/models/exit_sign.glb",
+        "sha256": "96b1939c78d9504d78a0d2a4bf5a2882f1c8491337bf88eb9e612010488c4ab0",
+        "bytes": 67904
+      },
+      {
+        "kind": "model",
+        "path": "core/props/models/fridge.glb",
+        "sha256": "a24e261f9f454a7c5312a93bee77723785d6b4028daf6ae1896a0c34bf80bc43",
+        "bytes": 155544
+      },
+      {
+        "kind": "model",
+        "path": "core/props/models/painting_frame_landscape_01.glb",
+        "sha256": "4f96262a43b024d834be1948984546f80fb1101abfec80618bb338d6b0a706f3",
+        "bytes": 127040
+      },
+      {
+        "kind": "model",
+        "path": "core/props/models/plant.glb",
+        "sha256": "0c32f16166d890eb433d008abc139a22651b1eb977abfbfd9233b3888d6167e8",
+        "bytes": 178432
+      },
+      {
+        "kind": "model",
+        "path": "core/props/models/rug.glb",
+        "sha256": "4c4e9f1fcc5e2845700583222c6f1bcb799647b6c6cdf72441ff8245cad6b144",
+        "bytes": 266280
+      },
+      {
+        "kind": "model",
+        "path": "core/props/models/table.glb",
+        "sha256": "574b1a1d8900d4f2c86c3e0e2469dc4f17c79a3538285d6ab42260df4f64dd8b",
+        "bytes": 123816
+      },
+      {
+        "kind": "model",
+        "path": "core/props/models/washing_machine.glb",
+        "sha256": "8a8bd2113efa8e5a0a6fbc13de480ec5a4840a793ca07df7065ceb4f79911a0e",
+        "bytes": 58000
+      },
+      {
+        "kind": "model",
+        "path": "entities/carved-pumpkin/model/carved-pumpkin.glb",
+        "sha256": "b6f76aec463625bc09906ee9c17f7168caca34b80a5745144d5de05b2440d285",
+        "bytes": 340140
+      },
+      {
+        "kind": "model",
+        "path": "entities/pumpkin-skeleton/model/pumpkin-skeleton.glb",
+        "sha256": "5a7511b0b1c22311c43d2ef50f3762458a86c68c42ffc9f9161dda6e00653953",
+        "bytes": 568928
+      },
+      {
+        "kind": "model",
+        "path": "entities/rat/model/rat.glb",
+        "sha256": "bfa093773b9ab3d40513071428b9903210afbf045ca582ccbb9212c0df44a2b8",
+        "bytes": 295368
+      },
+      {
+        "kind": "model",
+        "path": "entities/sheet-ghost-cat/model/sheet-ghost-cat.glb",
+        "sha256": "192741197f6004506474ae0c06f514d52a279073d023172237eedcca7a78acef",
+        "bytes": 243116
+      },
+      {
+        "kind": "model",
+        "path": "entities/sheet-ghost/model/sheet-ghost.glb",
+        "sha256": "ea07c5f3e89eebf426943aff688258392796917be8fc1be86571707aa0e0fe16",
+        "bytes": 304480
+      },
+      {
+        "kind": "model",
+        "path": "entities/spooner-man/model/spooner-man.glb",
+        "sha256": "3ac24ca7efea8a04ce70e285d0219e372826bdd36503d2541237213cb1084981",
+        "bytes": 708624
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/armchair.glb",
+        "sha256": "67a3ba40ac0aa463cf78da9a2196568618900eaa38a5880c1125001f9bd1521d",
+        "bytes": 83636
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/ball_light.glb",
+        "sha256": "c1d44add23a0ab8059b903fc5d7d9c638a97b9e5ede561e49e30634663462dad",
+        "bytes": 57176
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/book_stack.glb",
+        "sha256": "ecd7ca1e98b44c329a4fcb744b1e8c2347a2fb372c2a860314f9743eee5e0b90",
+        "bytes": 45556
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/bookshelf.glb",
+        "sha256": "6ff87c5e35a89d14e7f6d75fb0ccbe94a785ab0f8844e15467aefab2cf98b85a",
+        "bytes": 80748
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/bowl.glb",
+        "sha256": "61306b9374ea482bf1eb6ad97c772a9bc7d04b8bd5ca47af691e1fa928525c44",
+        "bytes": 31540
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/cabinet_base.glb",
+        "sha256": "29c871b20e2a74badf7d043080a9619d20d971f7b406dace45cb9522d02f382c",
+        "bytes": 59144
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/cabinet_strip.glb",
+        "sha256": "1b8b27d55628d60c3bd22a1a2515128233e8c007e886831a693eddbef5cf1204",
+        "bytes": 37592
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/cabinet_wall.glb",
+        "sha256": "10f0420a42e3d749fa14d106292dc027995a7ce58ea4c088fbdfd33e8550f4f1",
+        "bytes": 51168
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/coffee_table.glb",
+        "sha256": "cd1870388d378a9b7d05666d48e3ce85940b62577b07b1c9ecc4bcbcb441b4d8",
+        "bytes": 77680
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/crt_tv.glb",
+        "sha256": "598653c413852f290a021bfd3cda30adfbcccd515fa5055e82234cff09f688d1",
+        "bytes": 91380
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/cushion.glb",
+        "sha256": "cc3af5ca5944b83ef56c7b3930d7f17a2ebd7116d2c7b4cd63a5a03a4a20c1ff",
+        "bytes": 58564
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/dining_chair.glb",
+        "sha256": "661c64e5deaf96ec13630443eef41ba49af5a6347d79df291786bb76ed28c20e",
+        "bytes": 79196
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/dining_table.glb",
+        "sha256": "85ce92eca202879aededd509c5aa5572b988a8214ff9ca5c95ff99c5807e1189",
+        "bytes": 75484
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/door_casing.glb",
+        "sha256": "084e6155218091a898b4aee2092a79089378eba0c131b7a77bc1734730390099",
+        "bytes": 39416
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/floor_lamp.glb",
+        "sha256": "28cc32163e3d64ac41e7209275fb02b10b2696a9128cbb61048026e92408e1c3",
+        "bytes": 50452
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/fork.glb",
+        "sha256": "d31997ec8f9818db4405511cfa502fbc0f9a12b6de114688e5843c87671f724b",
+        "bytes": 25684
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/kettle.glb",
+        "sha256": "c8fcc43cc05be0e410a3f472e74c84b6b161b0d3c86ca0ef5eba2bf131b43cd0",
+        "bytes": 55052
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/knife.glb",
+        "sha256": "5746ff970cd85e3619bfe0fb5acad940de0ee94701396991cbd0542b264320f8",
+        "bytes": 17148
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/landscape_frame.glb",
+        "sha256": "25951b9b3069829b05cddc44043ed223813ac284aed15ab99b9289d0ed918ef5",
+        "bytes": 53016
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/mug.glb",
+        "sha256": "5d6cdebcbfe2aad546981fc7f5558e8372ca9b4f9dc49e5853ad90af8ae24632",
+        "bytes": 61088
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/outlet.glb",
+        "sha256": "787b6c5f049189fb12341a67e1e3a84accc38625e9e22618234297a8d91630f8",
+        "bytes": 51300
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/plant_table.glb",
+        "sha256": "b53511d1db0bd1d230c1b537ff99ee4a07b65f43d6e3eb0ac09fb08ca876ed61",
+        "bytes": 27804
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/plate.glb",
+        "sha256": "477e1957512cf801f522dd5cfc70844e5eeeae65176b3bad637e3f8f008264a8",
+        "bytes": 27140
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/rug.glb",
+        "sha256": "0171ad8df033958933da7e92311cd6f425b734a7feb519adf252ce4b1d93bd4f",
+        "bytes": 100980
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/sink.glb",
+        "sha256": "37971e3e7af616de41346b5e3a3716bbbdd9db171c69cbe9bfc1ce40f892d927",
+        "bytes": 76284
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/sofa.glb",
+        "sha256": "9ab95deac810c7482415cc81fb6ffab6796615fd776159f4b0c6796700ee8471",
+        "bytes": 93892
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/spoon.glb",
+        "sha256": "2166f1d8c09e8a26c43ccd6f4060b87fb1ddd14b9455d0d70bfd26630b5cfa02",
+        "bytes": 25764
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/stove.glb",
+        "sha256": "3695f201a988e089081ef6373afe95466174ddd51bf3c217916f8723828f1eb2",
+        "bytes": 81072
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/toaster.glb",
+        "sha256": "00d6aaa4ae8584d53b0e23dcdf6b094489dfb5a316fa4f0fbb3e153ce75bdac8",
+        "bytes": 43240
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/tv_console.glb",
+        "sha256": "fde5b404d834dce5d0332e6c25b5eab10aa87b5f6e6a15d87dfd12c288e35ff1",
+        "bytes": 88424
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/wall_switch.glb",
+        "sha256": "3537a94bbeab4049cb95321cecfd96d1d6ecdd330f0cf6dd417bb3d29ad85d73",
+        "bytes": 27088
+      },
+      {
+        "kind": "model",
+        "path": "environment/office/props/models/cabinet.glb",
+        "sha256": "111de0b8e41fce2a12c501e6e09a1558a928fb091a54437f26894dbabc49fc51",
+        "bytes": 104356
+      },
+      {
+        "kind": "model",
+        "path": "environment/office/props/models/chair.glb",
+        "sha256": "6787523696a6676ac2854345c1e0444614845e7fdc5ee3ad307e6299e04c1acc",
+        "bytes": 134376
+      },
+      {
+        "kind": "model",
+        "path": "environment/office/props/models/desk.glb",
+        "sha256": "bb82c8b7190218387804d42ccc43c35273938d01a4050731c20936d74c134d58",
+        "bytes": 109384
+      },
+      {
+        "kind": "model",
+        "path": "environment/office/props/models/water_cooler.glb",
+        "sha256": "5fe6d350f9ea955952cdf7b0f8afbce137c7361d35638c22b350ae404b2222fc",
+        "bytes": 111512
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/boundary_ridge.glb",
+        "sha256": "184b59a85cb81a215e3d84a048e4798809489fdbfdb64fb55b8f6a9b21c3d372",
+        "bytes": 45740
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/bush_low.glb",
+        "sha256": "00b4bec4b73ff2ceeda576adb7f90e4d9b42030aedcfeddb9f8178f5808df4c9",
+        "bytes": 69528
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/bush_round.glb",
+        "sha256": "d026ba9526205735ac9566599f23297ad3df7518d8ea6d296015d99e424c06d4",
+        "bytes": 69516
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/campfire_static.glb",
+        "sha256": "7387a352438c08fc2cf4535e97431bf0556d3827ca55c6d1f134f10cd3fb0f77",
+        "bytes": 82768
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/collision_peg.glb",
+        "sha256": "19a546d0c550ec9d055414d1d8b3bbcfa31e77f7fe5db63b134839a894dadc92",
+        "bytes": 2928
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/fence_two_rail.glb",
+        "sha256": "855df209a6259cec57af96692f4990a8002e735c21fe6f02b14d9f9e2054d879",
+        "bytes": 46100
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/grass_patch_large.glb",
+        "sha256": "f42b3c78aa8ffbd4e95fa7ff170b91df21b0d821e2e9c52b588832ecea4c559a",
+        "bytes": 76832
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/grass_patch_small.glb",
+        "sha256": "66b64d9856023596e8ad1b12cc483fa2baf59320e8f6278489e0a28705656b9e",
+        "bytes": 75424
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_02_corner_trim.glb",
+        "sha256": "31372acf63a9e6d7b284c8da60808a0e52e36cd867bf40ea9fd994c2a8581f49",
+        "bytes": 24592
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_02_porch_deck.glb",
+        "sha256": "b66c3632ed0aac70b09d7fd75ca427d5c6ef848d861f5bb54f37db3f384fc2c0",
+        "bytes": 72100
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_02_porch_post.glb",
+        "sha256": "530160d349bbf4c82e0335422f5d8f1c78c3bb4a94bb4963b8ab33433b191601",
+        "bytes": 24996
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_02_roof_ridge.glb",
+        "sha256": "763d974bec94ee58f5145a59548907bb77f95330a881b3d4b9bc159d1ee7a834",
+        "bytes": 23768
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_02_roof_slope.glb",
+        "sha256": "00e936bddfa88a2c2686dde4b94277e8055ebc8eff89ce21bf5d086e29273846",
+        "bytes": 70800
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_02_wall_doorway.glb",
+        "sha256": "777d4b79dfe8b031624be43d7c3d673563a250f2bdd6fe5740caa67276abcec0",
+        "bytes": 74048
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_02_wall_window.glb",
+        "sha256": "fd645a8177c5820af0f080ae5654d3372af743f68158c7be228096263d719157",
+        "bytes": 79576
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_corner_trim.glb",
+        "sha256": "319f790219701ec584fd338ace110a2e0fce5430bf86c586b4d9195ff68631f5",
+        "bytes": 18600
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_roof_ridge.glb",
+        "sha256": "5b3fd4da15c6b0a2272268ce8be956e78455ec5c50e69c5cc85d4c70c9e65842",
+        "bytes": 28696
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_roof_slope.glb",
+        "sha256": "1c8ee6574a514002b33122b4100764496e0277827512c08677f6ff78279fe76b",
+        "bytes": 122956
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_wall_doorway.glb",
+        "sha256": "4ed7fe70f6cefcb9ead174219c1582b577cd5b0f95a75b89b50a8cd1ee7f10d5",
+        "bytes": 43528
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_wall_solid.glb",
+        "sha256": "612d26b79e856c605e3c2d4d25f822a8b0b8d3f66b69ec4aa3f652d6ef44ba29",
+        "bytes": 41572
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_wall_window.glb",
+        "sha256": "96d8fd6e8b64e5b6596a076d95b3cea00e46556fb001f36c2170c7d55b634bc4",
+        "bytes": 49700
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/lamp_fence.glb",
+        "sha256": "9cc99dc811ed7f43bdae83925990a8808561d15504b3086e86bdc5fe667c226a",
+        "bytes": 40748
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/lamp_stand.glb",
+        "sha256": "3f09ba4a8af59e688657f7cb30af9d6d985b4a93897cfc7f4fe969add8b32d39",
+        "bytes": 42872
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/lamp_wall.glb",
+        "sha256": "d4f393ccfc284b81ca6ffbe1efc928d216869c22bf968e97ebbef529ce75156b",
+        "bytes": 42984
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/masonry_pier.glb",
+        "sha256": "f72d8c58c4cc3d6622aa7257ffd7b1447be9ec3fe3499158804263d6d83237b8",
+        "bytes": 48684
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/porch_canopy.glb",
+        "sha256": "5c6b9ca4a1781094fa04c826d79f9ec4ab1b1b3bac46b5d9f007f8abd1308158",
+        "bytes": 45780
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/porch_railing_straight.glb",
+        "sha256": "61797305298248c61232b68be89d64ffe6aecaa0d596c5923b0bd3a68afebe24",
+        "bytes": 40108
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/road_barrier.glb",
+        "sha256": "e7a5ad3aef11c4de6da985e52afc574fb28516873841b9308d856aaab1bd5e0a",
+        "bytes": 39024
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/showcase_boulder.glb",
+        "sha256": "ed7b065ec5e668839e3a43b71610c5a8b9514994dd23583d66b786dcc977efdd",
+        "bytes": 45248
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/showcase_stump_seat.glb",
+        "sha256": "c944405b1b4f9e51a5cf3513d91bb7c9c7a3f71173013ad3fde360cb8e7ebddf",
+        "bytes": 30872
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/streetlight.glb",
+        "sha256": "6661025d1a940135fb62ee7ffe4dcd158b3cb776646da7904b6290cf26e627ba",
+        "bytes": 45752
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/tree_01.glb",
+        "sha256": "68b4996a0631432027d41ce5cacaf177cd25c4ad549c605e161ccddac5716665",
+        "bytes": 110952
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/tree_02.glb",
+        "sha256": "e34552825e5724db460974b323524faa640c1c8e5cf0156c79fad03d658604b5",
+        "bytes": 107492
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/tree_03.glb",
+        "sha256": "29dd017d049fbcf28a483527d37d4dedc16aab0ad1ba862239061e1be289ddc5",
+        "bytes": 105060
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/hot_tub.glb",
+        "sha256": "adfcc41cb47055022674ab34bb115b774c40005133a0b119a3489ecfbc854919",
+        "bytes": 37192
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_bench.glb",
+        "sha256": "bf3a225c45f3419453ae02b8e665afb98e6053367d178ad2f44a68a67614e926",
+        "bytes": 20740
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_chair.glb",
+        "sha256": "7ae775993d0c703bf06706ab9b3379706ad98ea46b65b6a1711e6948a82a5646",
+        "bytes": 25132
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_curtain_corner.glb",
+        "sha256": "30691369df8484367a50d2abed272521292599207adda1ddb429bcd20b721cf6",
+        "bytes": 50620
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_curtain_end.glb",
+        "sha256": "7679516909324c04857b8e82e2b20fd92ba851a40fa3fa954e3d229e085ba626",
+        "bytes": 37640
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_curtain_straight.glb",
+        "sha256": "5810ed97272b86a38b16d1cb936db92ee1ab7eecad09113f376899cbaf5e0295",
+        "bytes": 53608
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_drain.glb",
+        "sha256": "d192b9afb84feb947cea4be5f43412ba9e662d4bc3135ef86274d69b5f52f81d",
+        "bytes": 35828
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_guardrail_end.glb",
+        "sha256": "cd88e89d7e12abe4bd5cea36a60943ffb6cdabe909528658606bbdcb234639b6",
+        "bytes": 31800
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_guardrail_straight.glb",
+        "sha256": "2cde1ef11c50e5e63fc0762ec2a7bf1372e1e0fc52ef74e517573857474def29",
+        "bytes": 35452
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_ladder.glb",
+        "sha256": "b50a1e05840c17c1f0235becf1ed37ec8d949a4fcfb0e04f675a1b4ebe7e35ef",
+        "bytes": 64436
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_service_door.glb",
+        "sha256": "81d19420b25a789a990cdc9cf07a988cf4ec0ad519fdca2d4499eeb79e42582d",
+        "bytes": 17808
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_table.glb",
+        "sha256": "47605112c90741d9484f5cc59f4654c89c44e6df53c095b5aa55dc3a53dbeb6a",
+        "bytes": 23816
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/rubber_duck.glb",
+        "sha256": "164f15f0931772b515cf55b2446b1cb43598445d5245071fe0d02e3a751ffae6",
+        "bytes": 75028
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/effects/steam_01.png",
+        "sha256": "5dbc87a8f0303934620275f0207b28d7478649689f64a85bce771360046f3086",
+        "bytes": 129303
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/floors/linoleum_01.png",
+        "sha256": "beccae9271208401f1d50770d512d3c93bd1561ef9fe54eb1d59d6b42e40bf16",
+        "bytes": 2111981
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/glass/glass_clear_01.png",
+        "sha256": "218c6e30035c5a552867f876b388b45a166205a27b75b4c2b92dda943c98bc70",
+        "bytes": 765441
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/glass/glass_dirty_01.png",
+        "sha256": "81a61cda8b9e0cb0d2532808b2e6e78d420310915132e29f5188ad4e770eba5e",
+        "bytes": 2444851
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/glass/glass_tinted_01.png",
+        "sha256": "5a0c17c4eb5f631ae1a36a7cabeb7da418e34fc591fcc1bec3559138798db71d",
+        "bytes": 1151815
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/metal/brass_01.png",
+        "sha256": "c3b3ee65a0dad58e4fbc498fb39a1aa7c6688054c65c7ea995bf8d849e76b4c8",
+        "bytes": 13583
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/normals/normal_brushed_01.png",
+        "sha256": "561a3869339fc7f5eb143d842ce7cae585ec1476ad1886b2b84c529d0d95dc4a",
+        "bytes": 1512724
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/walls/grille_01.png",
+        "sha256": "56cdd920bb8b0ca249aa414948f54228942cddbeca56c7b6ac6455cb336d0b23",
+        "bytes": 1494293
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/walls/metal_panel_01.png",
+        "sha256": "25b9ecbe8ed2c9a20cf1849e21ee5d776c320a6948d5c691fa332e6c777bcb34",
+        "bytes": 1319516
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/ceilings/ceiling_plaster_01.png",
+        "sha256": "2281fe50643d6ec0d3471cdaba24a5b094e109e60114f98587d30f291890cdbc",
+        "bytes": 1916762
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/ceilings/ceiling_plaster_warm_01.png",
+        "sha256": "a74d27e781aee9a0c32dcbb62e1369c7a2de4779e3aa6a5a7c93dbdaa87df96c",
+        "bytes": 1441043
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/ceilings/ceiling_warm_01.png",
+        "sha256": "56949a52b1e5d28226cd015388dab88553391972cb8f5d0165c4e05bf62dde4b",
+        "bytes": 1447919
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/ceilings/ceiling_white_01.png",
+        "sha256": "69e3183327b5592e030f5d6bb421b4f24ca51cac4aef6020a587e7ca3c24dadb",
+        "bytes": 1809764
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/doors/door_white_01.png",
+        "sha256": "7ecb91db71dac2afa8682499420a6ed9b1eab35f95c90d6306d2bcfb5351ab6d",
+        "bytes": 251992
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/doors/sauna_wood_01.png",
+        "sha256": "b3668ca802e8a8b3830696cb69412e9d3af4545e0598d33946ae0ba017e83c90",
+        "bytes": 669306
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/floors/carpet_cream_01.png",
+        "sha256": "02bfac2257a4cc3e51a3bb603dcadd027fbda70e50b85c0f367a99cc0007ef4c",
+        "bytes": 1709152
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/floors/hardwood_oak_01.png",
+        "sha256": "ec7196525a7c2d3b15b949401067d972d2afac42844e4cb0210c8bbeccb70dde",
+        "bytes": 789782
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/floors/hardwood_oak_warm_01.png",
+        "sha256": "87401587e9b81109a636f163582cbeb3509cab3c6b5eb68b98d03efd1ee72f4a",
+        "bytes": 36008
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/floors/hardwood_walnut_02.png",
+        "sha256": "733c6006676ebc3cb24418699fc22f9c626cb6b04a6923767b31210f2113b16c",
+        "bytes": 35461
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/floors/threshold_wood_01.png",
+        "sha256": "aaa0e5e96e3a6121a620d5cf6e1970e25f1709b023b35e9a0249822cf9e55cd3",
+        "bytes": 1121306
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/floors/tile_home_01.png",
+        "sha256": "b97538adee8e8e20fe6a1ec74a7a4be3245bf7e61523cb5b48b984af764c5364",
+        "bytes": 20411
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/lights/ceiling_light_round_01.png",
+        "sha256": "1906b81f845cdf7ee1471b0052239f5a6b03cf58205eae7e4ed7682cdbe5ccfe",
+        "bytes": 831543
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/walls/backsplash_01.png",
+        "sha256": "3aa20a428d89b75821f8de7d5d3648462eda7b96cd9700b1ec49de471f5c7711",
+        "bytes": 49440
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/walls/baseboard_white_01.png",
+        "sha256": "55bac184ea7520f9b281a6ada4c364108dd80f13b7bb01f46e2c217faaa851ec",
+        "bytes": 269156
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/walls/baseboard_wood_01.png",
+        "sha256": "5bf09de702583d850e06a75a30c1a5466d375ae51e44b21b43423637d929c843",
+        "bytes": 916244
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/walls/handrail_wood_01.png",
+        "sha256": "66fb5172167b4599dd5d45d055af6c714406941f6fb55f3d022a433652153a31",
+        "bytes": 1031319
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/walls/wall_paint_offwhite_01.png",
+        "sha256": "fabdc048ec80d9c3e07fe1a92bb6ba20e5d7797bd304f17dfe1c578d033ec7c4",
+        "bytes": 1240158
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/walls/wall_paint_warm_01.png",
+        "sha256": "7eb3e3d9bc2d7ece33099a4467f04ed1b191951da192290f4559ece64126ba6c",
+        "bytes": 1644246
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/walls/wallpaper_offwhite_01.png",
+        "sha256": "e9f5715deb0533f25939a0a45d3b4e16f35d5a1f27b3e94b216beb7b78f7bc87",
+        "bytes": 1644500
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/walls/wallpaper_pattern_01.png",
+        "sha256": "3c8c135c5257576a593cbf05b71eb12ce22a9fecd573f3fa7e8f6fb2b007201b",
+        "bytes": 1458771
+      },
+      {
+        "kind": "texture",
+        "path": "environment/office/textures/ceilings/ceiling_panel_01.png",
+        "sha256": "77773b64877e4b28856ebd6a972acb51d7d4016e9464c595a895af4b471c2edc",
+        "bytes": 1676140
+      },
+      {
+        "kind": "texture",
+        "path": "environment/office/textures/ceilings/ceiling_stained_01.png",
+        "sha256": "ce17d289824c5f8883f9b00a5018d3bee3271733709aaac51c722285123e5eda",
+        "bytes": 1600672
+      },
+      {
+        "kind": "texture",
+        "path": "environment/office/textures/floors/carpet_beige_01.png",
+        "sha256": "beb6d0d74787e5e78104b0f1ae2cb641127eb601ddfaf48fc348344c94772b87",
+        "bytes": 2198560
+      },
+      {
+        "kind": "texture",
+        "path": "environment/office/textures/floors/carpet_damp_01.png",
+        "sha256": "112f0e5bd44c006e0d835522f872896ae477b21c425e59704080a4b25a9bd6d3",
+        "bytes": 1897156
+      },
+      {
+        "kind": "texture",
+        "path": "environment/office/textures/lights/fluorescent_panel_01.png",
+        "sha256": "55db5b8b8ee11f740f3413ba864f538a1d44a32812d4e7b27e082b3cbc97a358",
+        "bytes": 749982
+      },
+      {
+        "kind": "texture",
+        "path": "environment/office/textures/walls/wallpaper_stained_01.png",
+        "sha256": "39847f1bf877eae398563219da98ec026306966858f73e6bbd7bae8482a2a398",
+        "bytes": 1070507
+      },
+      {
+        "kind": "texture",
+        "path": "environment/office/textures/walls/wallpaper_yellow_01.png",
+        "sha256": "33e56521491224e0d9f39614dd4d616218eea79fd46f23c7ad2bcb5072ffa28b",
+        "bytes": 1072510
+      },
+      {
+        "kind": "texture",
+        "path": "environment/outdoor/textures/ground/concrete_pavement_01.png",
+        "sha256": "a632fb7ecc4c80191af54a738bbf50122cf57f7cd40d6c175ed83079fe5d2340",
+        "bytes": 107624
+      },
+      {
+        "kind": "texture",
+        "path": "environment/outdoor/textures/ground/dirt_gravel_01.png",
+        "sha256": "68f3af5c3d282af475d1c8792d2b51a1e061c8ed8dca12173b9d719e9dd9f381",
+        "bytes": 171637
+      },
+      {
+        "kind": "texture",
+        "path": "environment/outdoor/textures/ground/grass_ground_01.png",
+        "sha256": "41ac64043cd745009cd148a3b2f11fcc39d1c2b2657e6499631621a237dd7340",
+        "bytes": 211963
+      },
+      {
+        "kind": "texture",
+        "path": "environment/outdoor/textures/house/siding_01.png",
+        "sha256": "cea853ccd313be74a35a9a10e3905de1aec8c44306dce9179723ff7fedc2a331",
+        "bytes": 209692
+      },
+      {
+        "kind": "texture",
+        "path": "environment/outdoor/textures/sky/sky_stars_01.png",
+        "sha256": "eb7e03e373a9bd15ee505750281e699d3c204f35193bfc051100395e501d9075",
+        "bytes": 3540
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/ceilings/pool_ceiling_01.png",
+        "sha256": "185facf8c2b2eb80e3bdc8bfa0b34c920d9c8c556a92b30edf2a702d70c9734d",
+        "bytes": 18858
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/floors/pool_coping_01.png",
+        "sha256": "d0260cc9d983b4db03aaf7584ee38c86a6c2aac01d041497c1b57da000da832b",
+        "bytes": 28834
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/floors/pool_tile_basin_01.png",
+        "sha256": "f4ee07dab94ddd3be3c714a64818799b2710f5ada70413f217a375bf57599d81",
+        "bytes": 27578
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/floors/pool_tile_deck_01.png",
+        "sha256": "89c337b44b8ab42de176ce192384d44806eeebfce43ed6affb9130a5ee794b0b",
+        "bytes": 106783
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/lights/pool_light_round_01.png",
+        "sha256": "3a4c935a87c8e7e1cec65916a75d0de270dd923d6e9321b26827d244d82dc2e4",
+        "bytes": 49554
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/lights/pool_light_wall_01.png",
+        "sha256": "afc219b7d0e4718f5d66bcd73ad347aa4e7624c12dd6d41ef9043cda8bc712a3",
+        "bytes": 3210
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/walls/pool_band_01.png",
+        "sha256": "20ff99bf123933e7f856a19d60117c2fe0621b1fe0ceb2f53a30e599483363a7",
+        "bytes": 24902
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/walls/pool_metal_01.png",
+        "sha256": "3d91688bd13b9f58995b65842e3dda5ad7494779160d184363069f651e9e2ac5",
+        "bytes": 12769
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/walls/pool_tile_wall_01.png",
+        "sha256": "4a07a895c52cc33832e0e79b29f552a231ffc43a1466ae1949bf5f526f06bd40",
+        "bytes": 30873
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/water/pool_water_01.png",
+        "sha256": "dc9caa62d80c0884c2b6f062143934340b12d57d500441d16e831ebd4b18711a",
+        "bytes": 852371
+      }
+    ],
+    "profiles": [
+      {
+        "quality": "medium",
+        "atlas_record": {
+          "name": "blobs/cb138ef65cac93f0246a78295623e4e0a1171a68aeab912b1043d99dfeb7ec20.lightmaps.ktx2",
+          "role": "lightmaps",
+          "bytes": 234881220,
+          "sha256": "cb138ef65cac93f0246a78295623e4e0a1171a68aeab912b1043d99dfeb7ec20"
+        },
+        "metadata_record": {
+          "name": "blobs/5f40b9c1aa40b782585dd9e3bfb07738af2c09acc98bcc0de902caa4e038541b.lightmaps.json",
+          "role": "lightmaps-meta",
+          "bytes": 29280821,
+          "sha256": "5f40b9c1aa40b782585dd9e3bfb07738af2c09acc98bcc0de902caa4e038541b"
+        },
+        "pages": 7,
+        "edge": 1024,
+        "switchable_lights": [
+          21
+        ],
+        "charts": 126624,
+        "chart_data_texels": 3147666,
+        "content_key": "v13-a65c8bb1e596f3f4",
+        "layers": 28,
+        "groups": 2,
+        "payload_bytes": 234881024,
+        "container_bytes": 196,
+        "full_atlas_payload_sha_verified": true
+      },
+      {
+        "quality": "full",
+        "atlas_record": {
+          "name": "blobs/80cdb036c5e975ef26029ce146c57fe2fb195c8e0c2564dd646e95b4c22e0db2.lightmaps.ktx2",
+          "role": "lightmaps",
+          "bytes": 268435652,
+          "sha256": "80cdb036c5e975ef26029ce146c57fe2fb195c8e0c2564dd646e95b4c22e0db2"
+        },
+        "metadata_record": {
+          "name": "blobs/40e0fc517cc4ddf79858e8445582ab3d0eea59ab2e3bfa03d61f81e4c1c5664a.lightmaps.json",
+          "role": "lightmaps-meta",
+          "bytes": 29297259,
+          "sha256": "40e0fc517cc4ddf79858e8445582ab3d0eea59ab2e3bfa03d61f81e4c1c5664a"
+        },
+        "pages": 8,
+        "edge": 1024,
+        "switchable_lights": [
+          21
+        ],
+        "charts": 126624,
+        "chart_data_texels": 4665539,
+        "content_key": "v13-b90dc1fb5515d7f8",
+        "layers": 32,
+        "groups": 2,
+        "payload_bytes": 268435456,
+        "container_bytes": 196,
+        "full_atlas_payload_sha_verified": true
+      }
+    ]
+  },
+  "inputs": {
+    "source": {
+      "path": "assets/levels/places_demo.json",
+      "sha256": "65833e98579a696167d616ce0cc94ebab85f744fdd72837ed247c483db1f9dec",
+      "bytes": 537437
+    },
+    "catalog": {
+      "path": "assets/catalog.json",
+      "sha256": "27789ac9a59ec79decb5c95e63f6a4b0de3bbd5101f4ae3d2d45f177e82bee1f",
+      "bytes": 171742
+    },
+    "source_and_catalog_exact_c1": true,
+    "all_148_current_dependencies_exact_c1": true,
+    "verified_dependencies": [
+      {
+        "kind": "model",
+        "path": "core/props/models/bed.glb",
+        "sha256": "216c96a022437fa9803ba6ac75692efd86aac846837d7ef8e231718c1e36dbbe",
+        "bytes": 128448
+      },
+      {
+        "kind": "model",
+        "path": "core/props/models/exit_sign.glb",
+        "sha256": "96b1939c78d9504d78a0d2a4bf5a2882f1c8491337bf88eb9e612010488c4ab0",
+        "bytes": 67904
+      },
+      {
+        "kind": "model",
+        "path": "core/props/models/fridge.glb",
+        "sha256": "a24e261f9f454a7c5312a93bee77723785d6b4028daf6ae1896a0c34bf80bc43",
+        "bytes": 155544
+      },
+      {
+        "kind": "model",
+        "path": "core/props/models/painting_frame_landscape_01.glb",
+        "sha256": "4f96262a43b024d834be1948984546f80fb1101abfec80618bb338d6b0a706f3",
+        "bytes": 127040
+      },
+      {
+        "kind": "model",
+        "path": "core/props/models/plant.glb",
+        "sha256": "0c32f16166d890eb433d008abc139a22651b1eb977abfbfd9233b3888d6167e8",
+        "bytes": 178432
+      },
+      {
+        "kind": "model",
+        "path": "core/props/models/rug.glb",
+        "sha256": "4c4e9f1fcc5e2845700583222c6f1bcb799647b6c6cdf72441ff8245cad6b144",
+        "bytes": 266280
+      },
+      {
+        "kind": "model",
+        "path": "core/props/models/table.glb",
+        "sha256": "574b1a1d8900d4f2c86c3e0e2469dc4f17c79a3538285d6ab42260df4f64dd8b",
+        "bytes": 123816
+      },
+      {
+        "kind": "model",
+        "path": "core/props/models/washing_machine.glb",
+        "sha256": "8a8bd2113efa8e5a0a6fbc13de480ec5a4840a793ca07df7065ceb4f79911a0e",
+        "bytes": 58000
+      },
+      {
+        "kind": "model",
+        "path": "entities/carved-pumpkin/model/carved-pumpkin.glb",
+        "sha256": "b6f76aec463625bc09906ee9c17f7168caca34b80a5745144d5de05b2440d285",
+        "bytes": 340140
+      },
+      {
+        "kind": "model",
+        "path": "entities/pumpkin-skeleton/model/pumpkin-skeleton.glb",
+        "sha256": "5a7511b0b1c22311c43d2ef50f3762458a86c68c42ffc9f9161dda6e00653953",
+        "bytes": 568928
+      },
+      {
+        "kind": "model",
+        "path": "entities/rat/model/rat.glb",
+        "sha256": "bfa093773b9ab3d40513071428b9903210afbf045ca582ccbb9212c0df44a2b8",
+        "bytes": 295368
+      },
+      {
+        "kind": "model",
+        "path": "entities/sheet-ghost-cat/model/sheet-ghost-cat.glb",
+        "sha256": "192741197f6004506474ae0c06f514d52a279073d023172237eedcca7a78acef",
+        "bytes": 243116
+      },
+      {
+        "kind": "model",
+        "path": "entities/sheet-ghost/model/sheet-ghost.glb",
+        "sha256": "ea07c5f3e89eebf426943aff688258392796917be8fc1be86571707aa0e0fe16",
+        "bytes": 304480
+      },
+      {
+        "kind": "model",
+        "path": "entities/spooner-man/model/spooner-man.glb",
+        "sha256": "3ac24ca7efea8a04ce70e285d0219e372826bdd36503d2541237213cb1084981",
+        "bytes": 708624
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/armchair.glb",
+        "sha256": "67a3ba40ac0aa463cf78da9a2196568618900eaa38a5880c1125001f9bd1521d",
+        "bytes": 83636
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/ball_light.glb",
+        "sha256": "c1d44add23a0ab8059b903fc5d7d9c638a97b9e5ede561e49e30634663462dad",
+        "bytes": 57176
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/book_stack.glb",
+        "sha256": "ecd7ca1e98b44c329a4fcb744b1e8c2347a2fb372c2a860314f9743eee5e0b90",
+        "bytes": 45556
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/bookshelf.glb",
+        "sha256": "6ff87c5e35a89d14e7f6d75fb0ccbe94a785ab0f8844e15467aefab2cf98b85a",
+        "bytes": 80748
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/bowl.glb",
+        "sha256": "61306b9374ea482bf1eb6ad97c772a9bc7d04b8bd5ca47af691e1fa928525c44",
+        "bytes": 31540
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/cabinet_base.glb",
+        "sha256": "29c871b20e2a74badf7d043080a9619d20d971f7b406dace45cb9522d02f382c",
+        "bytes": 59144
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/cabinet_strip.glb",
+        "sha256": "1b8b27d55628d60c3bd22a1a2515128233e8c007e886831a693eddbef5cf1204",
+        "bytes": 37592
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/cabinet_wall.glb",
+        "sha256": "10f0420a42e3d749fa14d106292dc027995a7ce58ea4c088fbdfd33e8550f4f1",
+        "bytes": 51168
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/coffee_table.glb",
+        "sha256": "cd1870388d378a9b7d05666d48e3ce85940b62577b07b1c9ecc4bcbcb441b4d8",
+        "bytes": 77680
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/crt_tv.glb",
+        "sha256": "598653c413852f290a021bfd3cda30adfbcccd515fa5055e82234cff09f688d1",
+        "bytes": 91380
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/cushion.glb",
+        "sha256": "cc3af5ca5944b83ef56c7b3930d7f17a2ebd7116d2c7b4cd63a5a03a4a20c1ff",
+        "bytes": 58564
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/dining_chair.glb",
+        "sha256": "661c64e5deaf96ec13630443eef41ba49af5a6347d79df291786bb76ed28c20e",
+        "bytes": 79196
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/dining_table.glb",
+        "sha256": "85ce92eca202879aededd509c5aa5572b988a8214ff9ca5c95ff99c5807e1189",
+        "bytes": 75484
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/door_casing.glb",
+        "sha256": "084e6155218091a898b4aee2092a79089378eba0c131b7a77bc1734730390099",
+        "bytes": 39416
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/floor_lamp.glb",
+        "sha256": "28cc32163e3d64ac41e7209275fb02b10b2696a9128cbb61048026e92408e1c3",
+        "bytes": 50452
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/fork.glb",
+        "sha256": "d31997ec8f9818db4405511cfa502fbc0f9a12b6de114688e5843c87671f724b",
+        "bytes": 25684
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/kettle.glb",
+        "sha256": "c8fcc43cc05be0e410a3f472e74c84b6b161b0d3c86ca0ef5eba2bf131b43cd0",
+        "bytes": 55052
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/knife.glb",
+        "sha256": "5746ff970cd85e3619bfe0fb5acad940de0ee94701396991cbd0542b264320f8",
+        "bytes": 17148
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/landscape_frame.glb",
+        "sha256": "25951b9b3069829b05cddc44043ed223813ac284aed15ab99b9289d0ed918ef5",
+        "bytes": 53016
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/mug.glb",
+        "sha256": "5d6cdebcbfe2aad546981fc7f5558e8372ca9b4f9dc49e5853ad90af8ae24632",
+        "bytes": 61088
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/outlet.glb",
+        "sha256": "787b6c5f049189fb12341a67e1e3a84accc38625e9e22618234297a8d91630f8",
+        "bytes": 51300
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/plant_table.glb",
+        "sha256": "b53511d1db0bd1d230c1b537ff99ee4a07b65f43d6e3eb0ac09fb08ca876ed61",
+        "bytes": 27804
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/plate.glb",
+        "sha256": "477e1957512cf801f522dd5cfc70844e5eeeae65176b3bad637e3f8f008264a8",
+        "bytes": 27140
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/rug.glb",
+        "sha256": "0171ad8df033958933da7e92311cd6f425b734a7feb519adf252ce4b1d93bd4f",
+        "bytes": 100980
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/sink.glb",
+        "sha256": "37971e3e7af616de41346b5e3a3716bbbdd9db171c69cbe9bfc1ce40f892d927",
+        "bytes": 76284
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/sofa.glb",
+        "sha256": "9ab95deac810c7482415cc81fb6ffab6796615fd776159f4b0c6796700ee8471",
+        "bytes": 93892
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/spoon.glb",
+        "sha256": "2166f1d8c09e8a26c43ccd6f4060b87fb1ddd14b9455d0d70bfd26630b5cfa02",
+        "bytes": 25764
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/stove.glb",
+        "sha256": "3695f201a988e089081ef6373afe95466174ddd51bf3c217916f8723828f1eb2",
+        "bytes": 81072
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/toaster.glb",
+        "sha256": "00d6aaa4ae8584d53b0e23dcdf6b094489dfb5a316fa4f0fbb3e153ce75bdac8",
+        "bytes": 43240
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/tv_console.glb",
+        "sha256": "fde5b404d834dce5d0332e6c25b5eab10aa87b5f6e6a15d87dfd12c288e35ff1",
+        "bytes": 88424
+      },
+      {
+        "kind": "model",
+        "path": "environment/home/props/models/wall_switch.glb",
+        "sha256": "3537a94bbeab4049cb95321cecfd96d1d6ecdd330f0cf6dd417bb3d29ad85d73",
+        "bytes": 27088
+      },
+      {
+        "kind": "model",
+        "path": "environment/office/props/models/cabinet.glb",
+        "sha256": "111de0b8e41fce2a12c501e6e09a1558a928fb091a54437f26894dbabc49fc51",
+        "bytes": 104356
+      },
+      {
+        "kind": "model",
+        "path": "environment/office/props/models/chair.glb",
+        "sha256": "6787523696a6676ac2854345c1e0444614845e7fdc5ee3ad307e6299e04c1acc",
+        "bytes": 134376
+      },
+      {
+        "kind": "model",
+        "path": "environment/office/props/models/desk.glb",
+        "sha256": "bb82c8b7190218387804d42ccc43c35273938d01a4050731c20936d74c134d58",
+        "bytes": 109384
+      },
+      {
+        "kind": "model",
+        "path": "environment/office/props/models/water_cooler.glb",
+        "sha256": "5fe6d350f9ea955952cdf7b0f8afbce137c7361d35638c22b350ae404b2222fc",
+        "bytes": 111512
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/boundary_ridge.glb",
+        "sha256": "184b59a85cb81a215e3d84a048e4798809489fdbfdb64fb55b8f6a9b21c3d372",
+        "bytes": 45740
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/bush_low.glb",
+        "sha256": "00b4bec4b73ff2ceeda576adb7f90e4d9b42030aedcfeddb9f8178f5808df4c9",
+        "bytes": 69528
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/bush_round.glb",
+        "sha256": "d026ba9526205735ac9566599f23297ad3df7518d8ea6d296015d99e424c06d4",
+        "bytes": 69516
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/campfire_static.glb",
+        "sha256": "7387a352438c08fc2cf4535e97431bf0556d3827ca55c6d1f134f10cd3fb0f77",
+        "bytes": 82768
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/collision_peg.glb",
+        "sha256": "19a546d0c550ec9d055414d1d8b3bbcfa31e77f7fe5db63b134839a894dadc92",
+        "bytes": 2928
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/fence_two_rail.glb",
+        "sha256": "855df209a6259cec57af96692f4990a8002e735c21fe6f02b14d9f9e2054d879",
+        "bytes": 46100
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/grass_patch_large.glb",
+        "sha256": "f42b3c78aa8ffbd4e95fa7ff170b91df21b0d821e2e9c52b588832ecea4c559a",
+        "bytes": 76832
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/grass_patch_small.glb",
+        "sha256": "66b64d9856023596e8ad1b12cc483fa2baf59320e8f6278489e0a28705656b9e",
+        "bytes": 75424
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_02_corner_trim.glb",
+        "sha256": "31372acf63a9e6d7b284c8da60808a0e52e36cd867bf40ea9fd994c2a8581f49",
+        "bytes": 24592
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_02_porch_deck.glb",
+        "sha256": "b66c3632ed0aac70b09d7fd75ca427d5c6ef848d861f5bb54f37db3f384fc2c0",
+        "bytes": 72100
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_02_porch_post.glb",
+        "sha256": "530160d349bbf4c82e0335422f5d8f1c78c3bb4a94bb4963b8ab33433b191601",
+        "bytes": 24996
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_02_roof_ridge.glb",
+        "sha256": "763d974bec94ee58f5145a59548907bb77f95330a881b3d4b9bc159d1ee7a834",
+        "bytes": 23768
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_02_roof_slope.glb",
+        "sha256": "00e936bddfa88a2c2686dde4b94277e8055ebc8eff89ce21bf5d086e29273846",
+        "bytes": 70800
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_02_wall_doorway.glb",
+        "sha256": "777d4b79dfe8b031624be43d7c3d673563a250f2bdd6fe5740caa67276abcec0",
+        "bytes": 74048
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_02_wall_window.glb",
+        "sha256": "fd645a8177c5820af0f080ae5654d3372af743f68158c7be228096263d719157",
+        "bytes": 79576
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_corner_trim.glb",
+        "sha256": "319f790219701ec584fd338ace110a2e0fce5430bf86c586b4d9195ff68631f5",
+        "bytes": 18600
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_roof_ridge.glb",
+        "sha256": "5b3fd4da15c6b0a2272268ce8be956e78455ec5c50e69c5cc85d4c70c9e65842",
+        "bytes": 28696
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_roof_slope.glb",
+        "sha256": "1c8ee6574a514002b33122b4100764496e0277827512c08677f6ff78279fe76b",
+        "bytes": 122956
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_wall_doorway.glb",
+        "sha256": "4ed7fe70f6cefcb9ead174219c1582b577cd5b0f95a75b89b50a8cd1ee7f10d5",
+        "bytes": 43528
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_wall_solid.glb",
+        "sha256": "612d26b79e856c605e3c2d4d25f822a8b0b8d3f66b69ec4aa3f652d6ef44ba29",
+        "bytes": 41572
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/house_wall_window.glb",
+        "sha256": "96d8fd6e8b64e5b6596a076d95b3cea00e46556fb001f36c2170c7d55b634bc4",
+        "bytes": 49700
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/lamp_fence.glb",
+        "sha256": "9cc99dc811ed7f43bdae83925990a8808561d15504b3086e86bdc5fe667c226a",
+        "bytes": 40748
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/lamp_stand.glb",
+        "sha256": "3f09ba4a8af59e688657f7cb30af9d6d985b4a93897cfc7f4fe969add8b32d39",
+        "bytes": 42872
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/lamp_wall.glb",
+        "sha256": "d4f393ccfc284b81ca6ffbe1efc928d216869c22bf968e97ebbef529ce75156b",
+        "bytes": 42984
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/masonry_pier.glb",
+        "sha256": "f72d8c58c4cc3d6622aa7257ffd7b1447be9ec3fe3499158804263d6d83237b8",
+        "bytes": 48684
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/porch_canopy.glb",
+        "sha256": "5c6b9ca4a1781094fa04c826d79f9ec4ab1b1b3bac46b5d9f007f8abd1308158",
+        "bytes": 45780
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/porch_railing_straight.glb",
+        "sha256": "61797305298248c61232b68be89d64ffe6aecaa0d596c5923b0bd3a68afebe24",
+        "bytes": 40108
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/road_barrier.glb",
+        "sha256": "e7a5ad3aef11c4de6da985e52afc574fb28516873841b9308d856aaab1bd5e0a",
+        "bytes": 39024
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/showcase_boulder.glb",
+        "sha256": "ed7b065ec5e668839e3a43b71610c5a8b9514994dd23583d66b786dcc977efdd",
+        "bytes": 45248
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/showcase_stump_seat.glb",
+        "sha256": "c944405b1b4f9e51a5cf3513d91bb7c9c7a3f71173013ad3fde360cb8e7ebddf",
+        "bytes": 30872
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/streetlight.glb",
+        "sha256": "6661025d1a940135fb62ee7ffe4dcd158b3cb776646da7904b6290cf26e627ba",
+        "bytes": 45752
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/tree_01.glb",
+        "sha256": "68b4996a0631432027d41ce5cacaf177cd25c4ad549c605e161ccddac5716665",
+        "bytes": 110952
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/tree_02.glb",
+        "sha256": "e34552825e5724db460974b323524faa640c1c8e5cf0156c79fad03d658604b5",
+        "bytes": 107492
+      },
+      {
+        "kind": "model",
+        "path": "environment/outdoor/props/models/tree_03.glb",
+        "sha256": "29dd017d049fbcf28a483527d37d4dedc16aab0ad1ba862239061e1be289ddc5",
+        "bytes": 105060
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/hot_tub.glb",
+        "sha256": "adfcc41cb47055022674ab34bb115b774c40005133a0b119a3489ecfbc854919",
+        "bytes": 37192
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_bench.glb",
+        "sha256": "bf3a225c45f3419453ae02b8e665afb98e6053367d178ad2f44a68a67614e926",
+        "bytes": 20740
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_chair.glb",
+        "sha256": "7ae775993d0c703bf06706ab9b3379706ad98ea46b65b6a1711e6948a82a5646",
+        "bytes": 25132
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_curtain_corner.glb",
+        "sha256": "30691369df8484367a50d2abed272521292599207adda1ddb429bcd20b721cf6",
+        "bytes": 50620
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_curtain_end.glb",
+        "sha256": "7679516909324c04857b8e82e2b20fd92ba851a40fa3fa954e3d229e085ba626",
+        "bytes": 37640
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_curtain_straight.glb",
+        "sha256": "5810ed97272b86a38b16d1cb936db92ee1ab7eecad09113f376899cbaf5e0295",
+        "bytes": 53608
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_drain.glb",
+        "sha256": "d192b9afb84feb947cea4be5f43412ba9e662d4bc3135ef86274d69b5f52f81d",
+        "bytes": 35828
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_guardrail_end.glb",
+        "sha256": "cd88e89d7e12abe4bd5cea36a60943ffb6cdabe909528658606bbdcb234639b6",
+        "bytes": 31800
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_guardrail_straight.glb",
+        "sha256": "2cde1ef11c50e5e63fc0762ec2a7bf1372e1e0fc52ef74e517573857474def29",
+        "bytes": 35452
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_ladder.glb",
+        "sha256": "b50a1e05840c17c1f0235becf1ed37ec8d949a4fcfb0e04f675a1b4ebe7e35ef",
+        "bytes": 64436
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_service_door.glb",
+        "sha256": "81d19420b25a789a990cdc9cf07a988cf4ec0ad519fdca2d4499eeb79e42582d",
+        "bytes": 17808
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/pool_table.glb",
+        "sha256": "47605112c90741d9484f5cc59f4654c89c44e6df53c095b5aa55dc3a53dbeb6a",
+        "bytes": 23816
+      },
+      {
+        "kind": "model",
+        "path": "environment/pool/props/models/rubber_duck.glb",
+        "sha256": "164f15f0931772b515cf55b2446b1cb43598445d5245071fe0d02e3a751ffae6",
+        "bytes": 75028
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/effects/steam_01.png",
+        "sha256": "5dbc87a8f0303934620275f0207b28d7478649689f64a85bce771360046f3086",
+        "bytes": 129303
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/floors/linoleum_01.png",
+        "sha256": "beccae9271208401f1d50770d512d3c93bd1561ef9fe54eb1d59d6b42e40bf16",
+        "bytes": 2111981
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/glass/glass_clear_01.png",
+        "sha256": "218c6e30035c5a552867f876b388b45a166205a27b75b4c2b92dda943c98bc70",
+        "bytes": 765441
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/glass/glass_dirty_01.png",
+        "sha256": "81a61cda8b9e0cb0d2532808b2e6e78d420310915132e29f5188ad4e770eba5e",
+        "bytes": 2444851
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/glass/glass_tinted_01.png",
+        "sha256": "5a0c17c4eb5f631ae1a36a7cabeb7da418e34fc591fcc1bec3559138798db71d",
+        "bytes": 1151815
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/metal/brass_01.png",
+        "sha256": "c3b3ee65a0dad58e4fbc498fb39a1aa7c6688054c65c7ea995bf8d849e76b4c8",
+        "bytes": 13583
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/normals/normal_brushed_01.png",
+        "sha256": "561a3869339fc7f5eb143d842ce7cae585ec1476ad1886b2b84c529d0d95dc4a",
+        "bytes": 1512724
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/walls/grille_01.png",
+        "sha256": "56cdd920bb8b0ca249aa414948f54228942cddbeca56c7b6ac6455cb336d0b23",
+        "bytes": 1494293
+      },
+      {
+        "kind": "texture",
+        "path": "core/textures/walls/metal_panel_01.png",
+        "sha256": "25b9ecbe8ed2c9a20cf1849e21ee5d776c320a6948d5c691fa332e6c777bcb34",
+        "bytes": 1319516
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/ceilings/ceiling_plaster_01.png",
+        "sha256": "2281fe50643d6ec0d3471cdaba24a5b094e109e60114f98587d30f291890cdbc",
+        "bytes": 1916762
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/ceilings/ceiling_plaster_warm_01.png",
+        "sha256": "a74d27e781aee9a0c32dcbb62e1369c7a2de4779e3aa6a5a7c93dbdaa87df96c",
+        "bytes": 1441043
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/ceilings/ceiling_warm_01.png",
+        "sha256": "56949a52b1e5d28226cd015388dab88553391972cb8f5d0165c4e05bf62dde4b",
+        "bytes": 1447919
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/ceilings/ceiling_white_01.png",
+        "sha256": "69e3183327b5592e030f5d6bb421b4f24ca51cac4aef6020a587e7ca3c24dadb",
+        "bytes": 1809764
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/doors/door_white_01.png",
+        "sha256": "7ecb91db71dac2afa8682499420a6ed9b1eab35f95c90d6306d2bcfb5351ab6d",
+        "bytes": 251992
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/doors/sauna_wood_01.png",
+        "sha256": "b3668ca802e8a8b3830696cb69412e9d3af4545e0598d33946ae0ba017e83c90",
+        "bytes": 669306
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/floors/carpet_cream_01.png",
+        "sha256": "02bfac2257a4cc3e51a3bb603dcadd027fbda70e50b85c0f367a99cc0007ef4c",
+        "bytes": 1709152
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/floors/hardwood_oak_01.png",
+        "sha256": "ec7196525a7c2d3b15b949401067d972d2afac42844e4cb0210c8bbeccb70dde",
+        "bytes": 789782
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/floors/hardwood_oak_warm_01.png",
+        "sha256": "87401587e9b81109a636f163582cbeb3509cab3c6b5eb68b98d03efd1ee72f4a",
+        "bytes": 36008
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/floors/hardwood_walnut_02.png",
+        "sha256": "733c6006676ebc3cb24418699fc22f9c626cb6b04a6923767b31210f2113b16c",
+        "bytes": 35461
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/floors/threshold_wood_01.png",
+        "sha256": "aaa0e5e96e3a6121a620d5cf6e1970e25f1709b023b35e9a0249822cf9e55cd3",
+        "bytes": 1121306
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/floors/tile_home_01.png",
+        "sha256": "b97538adee8e8e20fe6a1ec74a7a4be3245bf7e61523cb5b48b984af764c5364",
+        "bytes": 20411
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/lights/ceiling_light_round_01.png",
+        "sha256": "1906b81f845cdf7ee1471b0052239f5a6b03cf58205eae7e4ed7682cdbe5ccfe",
+        "bytes": 831543
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/walls/backsplash_01.png",
+        "sha256": "3aa20a428d89b75821f8de7d5d3648462eda7b96cd9700b1ec49de471f5c7711",
+        "bytes": 49440
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/walls/baseboard_white_01.png",
+        "sha256": "55bac184ea7520f9b281a6ada4c364108dd80f13b7bb01f46e2c217faaa851ec",
+        "bytes": 269156
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/walls/baseboard_wood_01.png",
+        "sha256": "5bf09de702583d850e06a75a30c1a5466d375ae51e44b21b43423637d929c843",
+        "bytes": 916244
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/walls/handrail_wood_01.png",
+        "sha256": "66fb5172167b4599dd5d45d055af6c714406941f6fb55f3d022a433652153a31",
+        "bytes": 1031319
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/walls/wall_paint_offwhite_01.png",
+        "sha256": "fabdc048ec80d9c3e07fe1a92bb6ba20e5d7797bd304f17dfe1c578d033ec7c4",
+        "bytes": 1240158
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/walls/wall_paint_warm_01.png",
+        "sha256": "7eb3e3d9bc2d7ece33099a4467f04ed1b191951da192290f4559ece64126ba6c",
+        "bytes": 1644246
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/walls/wallpaper_offwhite_01.png",
+        "sha256": "e9f5715deb0533f25939a0a45d3b4e16f35d5a1f27b3e94b216beb7b78f7bc87",
+        "bytes": 1644500
+      },
+      {
+        "kind": "texture",
+        "path": "environment/home/textures/walls/wallpaper_pattern_01.png",
+        "sha256": "3c8c135c5257576a593cbf05b71eb12ce22a9fecd573f3fa7e8f6fb2b007201b",
+        "bytes": 1458771
+      },
+      {
+        "kind": "texture",
+        "path": "environment/office/textures/ceilings/ceiling_panel_01.png",
+        "sha256": "77773b64877e4b28856ebd6a972acb51d7d4016e9464c595a895af4b471c2edc",
+        "bytes": 1676140
+      },
+      {
+        "kind": "texture",
+        "path": "environment/office/textures/ceilings/ceiling_stained_01.png",
+        "sha256": "ce17d289824c5f8883f9b00a5018d3bee3271733709aaac51c722285123e5eda",
+        "bytes": 1600672
+      },
+      {
+        "kind": "texture",
+        "path": "environment/office/textures/floors/carpet_beige_01.png",
+        "sha256": "beb6d0d74787e5e78104b0f1ae2cb641127eb601ddfaf48fc348344c94772b87",
+        "bytes": 2198560
+      },
+      {
+        "kind": "texture",
+        "path": "environment/office/textures/floors/carpet_damp_01.png",
+        "sha256": "112f0e5bd44c006e0d835522f872896ae477b21c425e59704080a4b25a9bd6d3",
+        "bytes": 1897156
+      },
+      {
+        "kind": "texture",
+        "path": "environment/office/textures/lights/fluorescent_panel_01.png",
+        "sha256": "55db5b8b8ee11f740f3413ba864f538a1d44a32812d4e7b27e082b3cbc97a358",
+        "bytes": 749982
+      },
+      {
+        "kind": "texture",
+        "path": "environment/office/textures/walls/wallpaper_stained_01.png",
+        "sha256": "39847f1bf877eae398563219da98ec026306966858f73e6bbd7bae8482a2a398",
+        "bytes": 1070507
+      },
+      {
+        "kind": "texture",
+        "path": "environment/office/textures/walls/wallpaper_yellow_01.png",
+        "sha256": "33e56521491224e0d9f39614dd4d616218eea79fd46f23c7ad2bcb5072ffa28b",
+        "bytes": 1072510
+      },
+      {
+        "kind": "texture",
+        "path": "environment/outdoor/textures/ground/concrete_pavement_01.png",
+        "sha256": "a632fb7ecc4c80191af54a738bbf50122cf57f7cd40d6c175ed83079fe5d2340",
+        "bytes": 107624
+      },
+      {
+        "kind": "texture",
+        "path": "environment/outdoor/textures/ground/dirt_gravel_01.png",
+        "sha256": "68f3af5c3d282af475d1c8792d2b51a1e061c8ed8dca12173b9d719e9dd9f381",
+        "bytes": 171637
+      },
+      {
+        "kind": "texture",
+        "path": "environment/outdoor/textures/ground/grass_ground_01.png",
+        "sha256": "41ac64043cd745009cd148a3b2f11fcc39d1c2b2657e6499631621a237dd7340",
+        "bytes": 211963
+      },
+      {
+        "kind": "texture",
+        "path": "environment/outdoor/textures/house/siding_01.png",
+        "sha256": "cea853ccd313be74a35a9a10e3905de1aec8c44306dce9179723ff7fedc2a331",
+        "bytes": 209692
+      },
+      {
+        "kind": "texture",
+        "path": "environment/outdoor/textures/sky/sky_stars_01.png",
+        "sha256": "eb7e03e373a9bd15ee505750281e699d3c204f35193bfc051100395e501d9075",
+        "bytes": 3540
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/ceilings/pool_ceiling_01.png",
+        "sha256": "185facf8c2b2eb80e3bdc8bfa0b34c920d9c8c556a92b30edf2a702d70c9734d",
+        "bytes": 18858
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/floors/pool_coping_01.png",
+        "sha256": "d0260cc9d983b4db03aaf7584ee38c86a6c2aac01d041497c1b57da000da832b",
+        "bytes": 28834
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/floors/pool_tile_basin_01.png",
+        "sha256": "f4ee07dab94ddd3be3c714a64818799b2710f5ada70413f217a375bf57599d81",
+        "bytes": 27578
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/floors/pool_tile_deck_01.png",
+        "sha256": "89c337b44b8ab42de176ce192384d44806eeebfce43ed6affb9130a5ee794b0b",
+        "bytes": 106783
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/lights/pool_light_round_01.png",
+        "sha256": "3a4c935a87c8e7e1cec65916a75d0de270dd923d6e9321b26827d244d82dc2e4",
+        "bytes": 49554
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/lights/pool_light_wall_01.png",
+        "sha256": "afc219b7d0e4718f5d66bcd73ad347aa4e7624c12dd6d41ef9043cda8bc712a3",
+        "bytes": 3210
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/walls/pool_band_01.png",
+        "sha256": "20ff99bf123933e7f856a19d60117c2fe0621b1fe0ceb2f53a30e599483363a7",
+        "bytes": 24902
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/walls/pool_metal_01.png",
+        "sha256": "3d91688bd13b9f58995b65842e3dda5ad7494779160d184363069f651e9e2ac5",
+        "bytes": 12769
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/walls/pool_tile_wall_01.png",
+        "sha256": "4a07a895c52cc33832e0e79b29f552a231ffc43a1466ae1949bf5f526f06bd40",
+        "bytes": 30873
+      },
+      {
+        "kind": "texture",
+        "path": "environment/pool/textures/water/pool_water_01.png",
+        "sha256": "dc9caa62d80c0884c2b6f062143934340b12d57d500441d16e831ebd4b18711a",
+        "bytes": 852371
+      }
+    ],
+    "failed_build_physical_mesh_exactness": "unavailable: failed in-memory products discarded; no byte equality claim; packaging-only guard change must not alter geometry inputs/algorithms"
+  },
+  "failed_case": {
+    "receipt": "target/verification/map-regression-20261009T002850Z-19070/commands/assets__levels__places_demo.json",
+    "sha256": "f12f633b12acbc22a28d4612b6da4092655ceddd62ef6c22a185b403edb1f442",
+    "contents": {
+      "key": "assets__levels__places_demo",
+      "status": "failed",
+      "commands": [
+        {
+          "command": [
+            "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+            "build",
+            "/Users/connordawkins/Documents/GitHub/Places/assets/levels/places_demo.json",
+            "--out",
+            "/Users/connordawkins/Documents/GitHub/Places/assets/levels/places_demo.placesmap",
+            "--asset-root",
+            "/Users/connordawkins/Documents/GitHub/Places/assets",
+            "--workers",
+            "12",
+            "--json"
+          ],
+          "started_utc": "2026-10-09T00:43:52.497547+00:00",
+          "exit_code": 1,
+          "elapsed_seconds": 332.42734608391766,
+          "log": "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T002850Z-19070/commands/assets__levels__places_demo-0.log"
+        }
+      ]
+    },
+    "log": "target/verification/map-regression-20261009T002850Z-19070/commands/assets__levels__places_demo-0.log",
+    "log_sha256": "683920a7a3450198cef272d3135baae77493529875b83199c97fe470e3fc8db2",
+    "normal_compiler_identity_record": {
+      "path": "docs/art-style/stage7/normal-c1-v5-identities.json",
+      "sha256": "36acbe9b89c8937c665a7fa99aba54b34bbf8fea028e0157bdb014cafba45baa",
+      "contents": {
+        "recorded_utc": "2026-10-09T00:29:22.220701+00:00",
+        "source_freeze": "docs/art-style/stage7/source-input-identities-v5.json",
+        "source_freeze_sha256": "019d9e99dfa143e7ed395d7e795494143fce063f9b3ce53d67029d13555360b8",
+        "build": "docs/art-style/stage7/execution/normal-desktop-gate-v4.log",
+        "status": "Frozen normal C1 after the initial release build, before C2 Demo re-embed; package/native acceptance pending",
+        "campaign": "target/verification/map-regression-20261009T002850Z-19070",
+        "files": [
+          {
+            "path": "debug-maps/art-style-hero/evidence/stage7-runtime/normal-c1-v5/places",
+            "bytes": 93303792,
+            "sha256": "447286666a26544a5b582684812867029812d3412e28b03c213283e4541da579",
+            "copied_from": "/Users/connordawkins/Documents/GitHub/Places/target/release/places"
+          },
+          {
+            "path": "debug-maps/art-style-hero/evidence/stage7-runtime/normal-c1-v5/places-compile",
+            "bytes": 6743536,
+            "sha256": "b6188e665f9f6b8e8657b08299890afd66f5ee8c108bb0329233756c97c869ae",
+            "copied_from": "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile"
+          },
+          {
+            "path": "debug-maps/art-style-hero/evidence/stage7-runtime/normal-c1-v5/libSDL3.0.dylib",
+            "bytes": 2520816,
+            "sha256": "5fdf17e340d9123e3d57c60c4c3c41777d04fe233d09bcd00874de09281746ab",
+            "copied_from": "/opt/homebrew/lib/libSDL3.0.dylib"
+          }
+        ],
+        "source_hash_mismatches": []
+      }
+    }
+  },
+  "measured_record": {
+    "encoded_bytes": 335544516,
+    "data_bytes": 335544320,
+    "container_bytes": 196,
+    "pages": 10,
+    "edge": 1024,
+    "groups": 2,
+    "switchable_groups": 1,
+    "array_layers": 40,
+    "gpu_half_float_bytes": 335544320,
+    "cpu_float_texels_bytes": 671088640,
+    "existing_typed_record_limit": 268500992,
+    "proposed_typed_record_limit": 335609856,
+    "proposed_payload_budget_increase_percent": 25,
+    "new_record_headroom_bytes": 65340
+  },
+  "aggregate": {
+    "actual_failed_final_total_available": false,
+    "reason": "build_variant fails at write_lightmaps before manifest/write_archive; all blobs/cache are process memory, dropped on Err, no persisted prepared stage",
+    "atlas_only_projection_bytes": 788423484,
+    "projection_remaining_bytes_below_1gib": 285318340,
+    "projection_assumptions": "Start from C1 total; add Full8to10=64MiB and worst Medium7to8=32MiB. Non-atlas bytes may differ after geometry/solver repairs; this is not a final total.",
+    "authoritative_guard": "package::archive::write_archive checks actual complete uncompressed entries <=1GiB before temporary creation/publication"
+  },
+  "safety": {
+    "changed_guard": "typed HDR atlas record memory budget explicitly increases256to320MiB plus unchanged64KiB container allowance; not an unchanged hard guard",
+    "unchanged": {
+      "ordinary_entry_bytes": 268435456,
+      "aggregate_archive_bytes": 1073741824,
+      "ktx_payload_bytes": 536870912,
+      "ktx_layers": 1024,
+      "device_array_layers": 256,
+      "runtime_max_pages": 10,
+      "runtime_max_switch_groups": 4,
+      "max_runtime_array_layers": 100,
+      "package_page_limit": 64,
+      "package_edge_limit": 4096
+    },
+    "record_shape": "RGBA16F97, exact edge*edge*layers*8 payload, one-level two-plane page groups and exact metadata group/edge/page matching; checked arithmetic/truncation/trailing checks remain",
+    "temporary_memory_components": {
+      "encoded_archive_buffer_bytes": 335544516,
+      "ktx_decoded_level_copy_bytes": 335544320,
+      "decoded_float_pages_bytes": 671088640,
+      "decode_component_sum_bytes": 1342177476
+    },
+    "memory_scope": "Component sum approx1.25GiB, before meshes/driver/active old world. Actual peak RSS/native uploads still require measurement. Cache refuses oversized entries above128MiB, so no retained large-atlas cache growth."
+  },
+  "provenance": {
+    "packaging_only_new_compiler_can_reuse_c1_v5_prepared_package": false,
+    "root": "compiler::fingerprint_with_build_inputs hashes executableSHA into both package and lighting stage fingerprints; reuse_prepared_lighting compares wrapped fingerprint and verifies declared records",
+    "no_exception": "Do not weaken tool SHA identity or re-label stale prepared products. New normal compiler and serialized campaign required."
+  },
+  "proposal": {
+    "minimum_source_files": [
+      "src/package/mod.rs",
+      "src/compiler.rs (owning bound test)",
+      "src/static_prop_lighting_tests.rs (actual final Demo page/header witness)",
+      "src/lighting/transport/diagnostics.rs (two stale8 guards and controls)"
+    ],
+    "validation_owner_files": [
+      "tools/bench/scene_budget.py (both atlas bound call sites)",
+      "tests/test_scene_budget_limits.py (320MiB+header acceptance and one-byte-over/ordinary256 rejection)"
+    ],
+    "codec_revision": "No layout/schema/solver revision change required for a bounded typed memory-budget change; executable SHA automatically invalidates prior source/tool currentness.",
+    "chunking": "Not recommended: changes variant entry topology, manifest/codec/capture/load and compatibility with no demonstrated need; existing KTX shape512MiB supports measured320MiB.",
+    "required_evidence": [
+      "actual successful final Demo aggregate <=1GiB",
+      "all declared records size/hash and typed budget proof",
+      "40 actual GPU layers and all authored switch/static/dynamic behavior",
+      "RSS and native map/quality transition memory",
+      "strict exact currentness/newcompiler pins"
+    ]
+  },
+  "specialist_actions": "Read-only source and preserved archive audit; only owned reports/ignored helper written. No current failed output archive opened, source edits, Cargo/compiler/bake/native/Git/target writes.",
+  "implementation": {
+    "source_files": [
+      "src/package/mod.rs",
+      "src/compiler.rs",
+      "src/lighting/transport/diagnostics.rs",
+      "src/static_prop_lighting_tests.rs"
+    ],
+    "typed_record_limit_bytes": 335609856,
+    "ordinary_entry_limit_bytes": 268435456,
+    "aggregate_limit_bytes": 1073741824,
+    "diagnostic_maximum": "shared owning LIGHTMAP_ATLAS_MAX_PAGES10; page indices8/9 accepted,10 rejected; cumulative samples10*1024*1024 accepted,one extra rejected",
+    "owning_tests": [
+      "compiler::tests::measured_full_atlases_include_their_container_in_the_typed_record_budget",
+      "lighting::transport::diagnostics::tests::diagnostic_bounds_accept_full_pages_eight_and_nine_and_reject_overflow",
+      "lighting::transport::diagnostics::tests::diagnostic_receiver_budget_accepts_ten_pages_but_not_one_extra_sample",
+      "static_prop_lighting_tests::real_full_demo_atlas_loads_with_its_ktx_container_overhead (fresh artifact required)"
+    ],
+    "negative_controls": "previous atlas guard rejects actual320MiB record; current typed one-byte-over rejects; original256MiB+196 and new320MiB+196 both rejected for ordinary texture role",
+    "guard_changed": true,
+    "schema_solver_geometry_revision_change": false,
+    "jobs": "none started by specialist; source frozen/released to primary for all Cargo/compiler/native/target jobs",
+    "source_hashes_pre_format": [
+      {
+        "path": "src/package/mod.rs",
+        "sha256": "3d19947219d2e67a62717b0ed1594fbeae9f5692773a2ae12e4b4a16a9e2f6ba"
+      },
+      {
+        "path": "src/compiler.rs",
+        "sha256": "4abe270c2b06dba04c57baa8d0c4e4996e12af44a52920ce43ec8192e2f74f4a"
+      },
+      {
+        "path": "src/lighting/transport/diagnostics.rs",
+        "sha256": "dbaaa9617128ce33b3118a764e2aee8477e9f9e3c1f08f31d6f7188ab5b8de7f"
+      },
+      {
+        "path": "src/static_prop_lighting_tests.rs",
+        "sha256": "c89a647d3acb15839d2dc7712b683380eab4cce998cf760eb56b5fd90ecfd420"
+      }
+    ]
+  }
+}

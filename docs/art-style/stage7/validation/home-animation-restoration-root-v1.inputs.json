@@ -1,0 +1,190 @@
+{
+  "model": "assets/entities/spooner-man/model/spooner-man.glb",
+  "clip": "idle",
+  "cat_name": "spooner_man_home",
+  "drum_name": "DynamicId(30)",
+  "transform": [
+    [
+      -0.34202006,
+      0,
+      -0.9396927,
+      62.5
+    ],
+    [
+      0,
+      1,
+      0,
+      -0.9
+    ],
+    [
+      0.9396927,
+      0,
+      -0.34202006,
+      8
+    ],
+    [
+      0,
+      0,
+      0,
+      1
+    ]
+  ],
+  "drawable": [
+    1280,
+    720
+  ],
+  "projection_manifest": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/parity/home/feature/capture/manifest.json",
+  "image_report": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/home-image-difference-v2.json",
+  "logs": [
+    "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/capture/home-registered-drum.log",
+    "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/independent/capture/home-registered-drum.log",
+    "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/parity/home/normal/capture/home-registered-drum.log",
+    "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/parity/home/feature/capture/home-registered-drum.log"
+  ],
+  "high_endpoint_paths": [
+    "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/images/00-high.png",
+    "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/images/03-high.png",
+    "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/images/06-high.png",
+    "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/images/09-high.png",
+    "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/images/12-high.png",
+    "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/independent/images/00-baseline.png",
+    "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/independent/images/09-full-high.png",
+    "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/independent/images/11-restored.png",
+    "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/independent/images/14-restored-high.png",
+    "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/independent/images/17-reflections-full.png",
+    "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/parity/home/normal/images/endpoint.png",
+    "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/parity/home/feature/images/endpoint.png"
+  ],
+  "pins": [
+    {
+      "path": "assets/entities/spooner-man/model/spooner-man.glb",
+      "bytes": 708624,
+      "sha256": "3ac24ca7efea8a04ce70e285d0219e372826bdd36503d2541237213cb1084981"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/home-image-difference-v2.json",
+      "bytes": 198104,
+      "sha256": "6df8e47af93dbc1b735b0218f2b861d66d5f26a297ef234f469360a5a180d857"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/capture/home-registered-drum.log",
+      "bytes": 3945532,
+      "sha256": "6a90362265e136f420368ba2c688fecdf38ced89bf9f7241c9f87ea40f755803"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/independent/capture/home-registered-drum.log",
+      "bytes": 5767251,
+      "sha256": "cbeffd014e11f47ede15394f0e175bab533250d7683a80652609f0d1a3eeb265"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/parity/home/normal/capture/home-registered-drum.log",
+      "bytes": 364925,
+      "sha256": "6d912063fcda15769d054a731fd5db1231827ee8cf4c1e4543a6a48ea60cc833"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/parity/home/feature/capture/home-registered-drum.log",
+      "bytes": 370476,
+      "sha256": "2d52aaa27fc8b2cb157db1516d8b6212b885e151d5ba304f70282e9f59e9d58b"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/parity/home/feature/capture/manifest.json",
+      "bytes": 3959,
+      "sha256": "e2fb435d575a772b54742d7e5c97346dda7a88e24da5ac0e756c8977ac0fdaaa"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/quality/capture/manifest.json",
+      "bytes": 10009,
+      "sha256": "07cbc0173c3efb8657e7914ba2eda8785d4ac5b0aca18d9f7238d72861263b3e"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/independent/capture/manifest.json",
+      "bytes": 13306,
+      "sha256": "ba9d601980106575e7786b795453b6a9d5142f883f9115cf64bc64bc33b87e71"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/parity/home/normal/capture/manifest.json",
+      "bytes": 3952,
+      "sha256": "6384e1a2037ea4f1c92c3ba2f2ffbab9af3195dd3194bbbffed9597d977ee48c"
+    },
+    {
+      "path": "assets/levels/places_demo.placesmap",
+      "bytes": 84978735,
+      "sha256": "6eb87c7d61a60610c8729812f83a2bf45caec4d9c45d123a9184b7a3bb9228c7"
+    },
+    {
+      "path": "assets/levels/places_demo.json",
+      "bytes": 537437,
+      "sha256": "65833e98579a696167d616ce0cc94ebab85f744fdd72837ed247c483db1f9dec"
+    },
+    {
+      "path": "assets/catalog.json",
+      "bytes": 171742,
+      "sha256": "27789ac9a59ec79decb5c95e63f6a4b0de3bbd5101f4ae3d2d45f177e82bee1f"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/quality/home/restoration.json",
+      "bytes": 226366,
+      "sha256": "37384b78416f19afc47346a495e91c1c00795eb81d8e32f97c7d8de1d5b8e4e7"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/parity/home/parity.json",
+      "bytes": 11762,
+      "sha256": "20591193e5f3c00beb6afbc5a3f92da307e9915e72edd8e30accf3ba6009f6c8"
+    },
+    {
+      "path": "src/render/common/character.rs",
+      "bytes": 176402,
+      "sha256": "b3bb58af1efbb2448ce9ccac68310d62ee73850ec6b40af0199dd744d36e88bc"
+    },
+    {
+      "path": "src/render/common/camera.rs",
+      "bytes": 3603,
+      "sha256": "c7e189c03afda7ae12fbb85dff9cdfaefee83375ef1ba319f1d1199b52215b08"
+    },
+    {
+      "path": "src/render/common/view.rs",
+      "bytes": 6618,
+      "sha256": "26cc4b4d6da275e90ddb9ebaf222c04afadcb49dd9f998929d7f665936b7655b"
+    },
+    {
+      "path": "src/entities/mod.rs",
+      "bytes": 230859,
+      "sha256": "52c865f3fc3e14720a657b186dab17d632212721b078221bfa772f115e39d1d1"
+    },
+    {
+      "path": "src/ai/mod.rs",
+      "bytes": 57371,
+      "sha256": "52af5cb95f1fe70b148698ceb130579a2fd3fa3cbc0711ac6b3b1bc4680a8bb6"
+    },
+    {
+      "path": "src/ai/movement.rs",
+      "bytes": 7511,
+      "sha256": "e96cd002fcfe6e3d2f164c55ff02a04f9928ae4ca3f9a538804f43a4a66db7bf"
+    },
+    {
+      "path": "src/game.rs",
+      "bytes": 144394,
+      "sha256": "2e314f7736e11210e84cae26983c19aaf8aa180322f8f4ccf4736658febf9973"
+    },
+    {
+      "path": "src/lib.rs",
+      "bytes": 138448,
+      "sha256": "ed7ed34f61de2b03b753322de0530a4a373adbb3d55d376237ec5561a1267439"
+    },
+    {
+      "path": "src/render/wgpu/character.rs",
+      "bytes": 26197,
+      "sha256": "60aee0a3099c2d40c0156c91826a32f61883853f1fdf6f84fd12c1dbc6b5fd80"
+    },
+    {
+      "path": "src/render/wgpu/renderer.rs",
+      "bytes": 238412,
+      "sha256": "7611890220529910fa0631fa9bba05bb1bc3a3e53585e6e0d980f7a698a21618"
+    },
+    {
+      "path": "src/gltf.rs",
+      "bytes": 145654,
+      "sha256": "cd421867da86f3209536ab4705f71e4552cd276a1bfcbd106d6fc0c172bb8222"
+    }
+  ]
+}

@@ -1,0 +1,184 @@
+{
+  "recorded_utc": "2026-10-09T02:30:01.062648+00:00",
+  "status": "ready-not-executed",
+  "helper": "debug-maps/art-style-hero/evidence/stage7-validation/props_exact_oracle.py",
+  "helper_sha256": "1943574e3ea23956c3521d37423688ad5d05520c520ec4f519e4464a2ea1b9bf",
+  "helper_custody": "Released after final32-control check; no active jobs. Only ignored helper and fresh capacity-* receipts written.",
+  "bounded_controls": {
+    "receipt": "docs/art-style/stage7/validation/capacity-oracle-plmp6-preparation-v2.json",
+    "checks": 32,
+    "passed": true,
+    "scope": "Bounded in-memory toy bytes/count boundaries only; no actual package or actual compiler-copy proof acceptance."
+  },
+  "allowed_input_transition": "PLMP5-to6 or unchanged codec version; PLMP3/4/5/6 reader supported; no metadata normalization/default synthesis in comparison.",
+  "after_adapter": {
+    "top_fields": [
+      "compiler_sha256",
+      "source_sha256",
+      "results"
+    ],
+    "row_fields": [
+      "quality",
+      "argv",
+      "exit_code",
+      "package",
+      "package_sha256",
+      "entries",
+      "variants",
+      "validate",
+      "verify"
+    ],
+    "shared_combined_rows": "All three quality rows may share actual build argv, archive pin and full manifest entries/variants; exactly one selected quality row and variant required.",
+    "ordinary_proofs": "Nested validate and verify contain actual argv/exit_code0 and optional log path (absolute or repository-relative). Default log path is report-adjacent QUALITY-kind.log. Successful require-current and ordinary validate JSON must match package fingerprint, source/catalog/deps and selected quality.",
+    "compiler_path": "Actual build/validate/verify argv tool paths must agree unchanged. Optional report.compiler_pin supplies preserved identical compiler bytes; compiler_copy_receipt pins source_original_path and destination hashes. No original argv is rewritten.",
+    "optional_compiler_pin": {
+      "compiler_pin": "Actual immutable preserved compiler-copy path, absolute or repository-relative.",
+      "compiler_copy_receipt": "Actual immutable JSON path, absolute or repository-relative.",
+      "copy_receipt_fields": {
+        "source_original_path": "Actual original build argv[0] path; must match actual validate/verify argv[0].",
+        "compiler_pin": "Actual preserved destination path; must equal report.compiler_pin.",
+        "source_sha256": "Original actual compiler hash, equals report.compiler_sha256 and build-inputs.tool_sha256.",
+        "compiler_pin_sha256": "Same original hash, must equal actual preserved-file bytes.",
+        "copy_verified": true
+      },
+      "provenance": "Actual original-path current bytes, if present, are separately recorded; they never replace the preserved historical tool identity. Copy receipt/file identities are checked again at completion."
+    }
+  },
+  "checks_enforced": [
+    "Actual package byteSHA; every declared archive entry byteSHA/size; no duplicate entries; unchanged512 entries/1GiB archive bounds; actual source/catalog/dependencies and proof identities rechecked at completion.",
+    "Raw model/material/submesh/caster/bounds/range metadata bytes identical; version/mode/palette headers compared against independently derived PLMP6 wire, not against old version bytes.",
+    "Original-first full69-byte unique vertices and exact28-byte frames; strict-smaller palette choice including shared mode byte, literal wins ties; modes0/1/2 and65536 frame-width threshold.",
+    "All decoded attributes and signedzeros byteexact; mapped u16 index count/order exact; every expanded ordered69-byte corner byteexact; unreferenced vertex slots retain original-first uniqueness.",
+    "Every palette frame finite including unused frames; frame count/ref/truncation and per-batch explicit64MiB analysis budget; no skipped batches or runtime limit changes.",
+    "Exact nonprops selected-variant record role/size/SHA and variant metadata; exact prepared semantics/source/catalog/deps; only compiler input tool hash and compiler fingerprint/provenance evolve.",
+    "Independent encoded512MiB ceiling and cumulative expanded literal512MiB ceiling: record header10 + actual legacy-width raw batch metadata +vertex_count4 +69*stored_vertices +index_count4 +2*indices. Expanded counts charged before vertex/index payload allocation, palette/header savings excluded; prediction and both actual record sides checked."
+  ],
+  "execution_commands": {
+    "off": {
+      "predict": [
+        "python3",
+        "debug-maps/art-style-hero/evidence/stage7-validation/props_exact_oracle.py",
+        "predict",
+        "--report",
+        "debug-maps/art-style-hero/evidence/stage7-capacity-before-v1/report.json",
+        "--quality",
+        "off",
+        "--code-revision",
+        "C12-normal-c1-v6",
+        "--target-version",
+        "6",
+        "--allocation-label",
+        "ACTUAL_PRIMARY_EXECUTION_ALLOCATION",
+        "--out",
+        "docs/art-style/stage7/validation/capacity-off-plmp6-prediction-v1.json"
+      ],
+      "compare": [
+        "python3",
+        "debug-maps/art-style-hero/evidence/stage7-validation/props_exact_oracle.py",
+        "compare",
+        "--report",
+        "debug-maps/art-style-hero/evidence/stage7-capacity-before-v1/report.json",
+        "--quality",
+        "off",
+        "--code-revision",
+        "C12-normal-c1-v6",
+        "--target-version",
+        "6",
+        "--after-report",
+        "ACTUAL_COMBINED_REPORT_PATH",
+        "--after-code-revision",
+        "ACTUAL_FINAL_COMPILER_REVISION",
+        "--allocation-label",
+        "ACTUAL_PRIMARY_EXECUTION_ALLOCATION",
+        "--out",
+        "docs/art-style/stage7/validation/capacity-off-plmp6-exact-compare-v1.json"
+      ]
+    },
+    "medium": {
+      "predict": [
+        "python3",
+        "debug-maps/art-style-hero/evidence/stage7-validation/props_exact_oracle.py",
+        "predict",
+        "--report",
+        "debug-maps/art-style-hero/evidence/stage7-capacity-before-v1/report.json",
+        "--quality",
+        "medium",
+        "--code-revision",
+        "C12-normal-c1-v6",
+        "--target-version",
+        "6",
+        "--allocation-label",
+        "ACTUAL_PRIMARY_EXECUTION_ALLOCATION",
+        "--out",
+        "docs/art-style/stage7/validation/capacity-medium-plmp6-prediction-v1.json"
+      ],
+      "compare": [
+        "python3",
+        "debug-maps/art-style-hero/evidence/stage7-validation/props_exact_oracle.py",
+        "compare",
+        "--report",
+        "debug-maps/art-style-hero/evidence/stage7-capacity-before-v1/report.json",
+        "--quality",
+        "medium",
+        "--code-revision",
+        "C12-normal-c1-v6",
+        "--target-version",
+        "6",
+        "--after-report",
+        "ACTUAL_COMBINED_REPORT_PATH",
+        "--after-code-revision",
+        "ACTUAL_FINAL_COMPILER_REVISION",
+        "--allocation-label",
+        "ACTUAL_PRIMARY_EXECUTION_ALLOCATION",
+        "--out",
+        "docs/art-style/stage7/validation/capacity-medium-plmp6-exact-compare-v1.json"
+      ]
+    },
+    "full": {
+      "predict": [
+        "python3",
+        "debug-maps/art-style-hero/evidence/stage7-validation/props_exact_oracle.py",
+        "predict",
+        "--report",
+        "debug-maps/art-style-hero/evidence/stage7-capacity-before-v1/report.json",
+        "--quality",
+        "full",
+        "--code-revision",
+        "C12-normal-c1-v6",
+        "--target-version",
+        "6",
+        "--allocation-label",
+        "ACTUAL_PRIMARY_EXECUTION_ALLOCATION",
+        "--out",
+        "docs/art-style/stage7/validation/capacity-full-plmp6-prediction-v1.json"
+      ],
+      "compare": [
+        "python3",
+        "debug-maps/art-style-hero/evidence/stage7-validation/props_exact_oracle.py",
+        "compare",
+        "--report",
+        "debug-maps/art-style-hero/evidence/stage7-capacity-before-v1/report.json",
+        "--quality",
+        "full",
+        "--code-revision",
+        "C12-normal-c1-v6",
+        "--target-version",
+        "6",
+        "--after-report",
+        "ACTUAL_COMBINED_REPORT_PATH",
+        "--after-code-revision",
+        "ACTUAL_FINAL_COMPILER_REVISION",
+        "--allocation-label",
+        "ACTUAL_PRIMARY_EXECUTION_ALLOCATION",
+        "--out",
+        "docs/art-style/stage7/validation/capacity-full-plmp6-exact-compare-v1.json"
+      ]
+    }
+  },
+  "environment": {
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "cwd": "/Users/connordawkins/Documents/GitHub/Places"
+  },
+  "pending": "Actual completed combined package + primary execution allocation; three qualities run serially. Prediction is not normal three-variant/native/memory acceptance.",
+  "superseded_ready_receipt": "capacity-oracle-plmp6-ready-v1.json retained unchanged."
+}

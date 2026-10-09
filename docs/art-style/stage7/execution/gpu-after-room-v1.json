@@ -1,0 +1,21 @@
+{
+  "argv": [
+    "python3",
+    "debug-maps/art-style-hero/evidence/stage7-metal-profile-capture-v3.py",
+    "after-room-v1",
+    "debug-maps/art-style-hero/evidence/stage7-runtime/normal-c2-plmp6-v10/places",
+    ".",
+    "target/verification/maps/tests__fixtures__levels__art_style_hero_refined.placesmap",
+    "docs/art-style/stage6/hero-final-manifest.json",
+    "room"
+  ],
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "started_utc": "2026-10-09T07:20:25.725895+00:00",
+  "finished_utc": "2026-10-09T07:21:38.984887+00:00",
+  "elapsed_seconds": 73.25869941699784,
+  "exit_code": 0,
+  "environment_overrides": {
+    "RUSTC_WRAPPER": ""
+  },
+  "log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/gpu-after-room-v1.log"
+}

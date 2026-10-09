@@ -1,0 +1,26 @@
+{
+  "recorded_utc": "2026-10-09T05:26:32.389403+00:00",
+  "source_freeze": "docs/art-style/stage7/source-input-identities-v11.json",
+  "purpose": "Preserve and freeze identical SDL runtime closure for ordinary, diagnostic and superseded prephase Demo control players before actual native allocation. No executable, source, package or original identity receipt changed.",
+  "normal_sdl_sha256": "5fdf17e340d9123e3d57c60c4c3c41777d04fe233d09bcd00874de09281746ab",
+  "actual_linked_sdk_path": "/opt/homebrew/Cellar/sdl3/3.4.18/lib/libSDL3.0.dylib",
+  "actual_linked_sdk_sha256": "5fdf17e340d9123e3d57c60c4c3c41777d04fe233d09bcd00874de09281746ab",
+  "additional_copies": [
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-runtime/diagnostics-plmp6-v10/libSDL3.0.dylib",
+      "bytes": 2520816,
+      "sha256": "5fdf17e340d9123e3d57c60c4c3c41777d04fe233d09bcd00874de09281746ab",
+      "copied_from": "debug-maps/art-style-hero/evidence/stage7-runtime/normal-c2-plmp6-v10/libSDL3.0.dylib"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-runtime/normal-c1-v2/libSDL3.0.dylib",
+      "bytes": 2520816,
+      "sha256": "5fdf17e340d9123e3d57c60c4c3c41777d04fe233d09bcd00874de09281746ab",
+      "copied_from": "debug-maps/art-style-hero/evidence/stage7-runtime/normal-c2-plmp6-v10/libSDL3.0.dylib"
+    }
+  ],
+  "original_plan_helper": {
+    "path": "debug-maps/art-style-hero/evidence/stage7-validation/prepare_native_execution_preflight_original_v1.py",
+    "sha256": "0586b78665d1a2b0e9f512a2bd52453a58de6d7c3c76a40d0bc58d254a5185bc"
+  }
+}

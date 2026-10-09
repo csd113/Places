@@ -22,7 +22,16 @@ Bundled content lives in `assets/levels/` (read-only) and is packaged by
 are kept for authors but are never discovered as playable rows.
 
 See `docs/PACKAGE_FORMAT.md` for the record contract and
-`docs/MAP_AUTHORING_GUIDE.md` for the authoring workflow. Nothing in this
-directory is part of the game's packaged content: `tools/package.sh` copies the
-packages that are already here, so a fresh checkout and a packaged build both
-start with the bundled levels.
+`docs/MAP_AUTHORING_GUIDE.md` for the authoring workflow. `tools/package.sh`
+copies compiled packages present here into an export; it never packages these
+raw sources. Ignored local packages are absent from a fresh checkout.
+
+The historical `home_showcase.json`, `geometry_intentional.json` and
+`level0_pit.json` remain valid local controls. In particular, the local Home
+source retains the legacy core furniture; the separate fixture Home source
+exercises the completed Home kit. `blizzard_review.json` and
+`snowfall_contrast.json` are recovered serialized LevelDef sources, extracted
+byte for byte from their original package semantics so the reviews can be
+rebuilt through the normal compiler. These local sources and packages remain
+ignored. Their identities, provenance and individual commands are recorded in
+`docs/art-style/stage7/content-inventory.json`.

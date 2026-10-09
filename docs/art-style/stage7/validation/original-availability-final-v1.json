@@ -1,0 +1,3768 @@
+{
+  "recorded_utc": "2026-10-09T05:59:18.057572+00:00",
+  "campaign": "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226",
+  "script_sha256": "53113a4d661b4a301df281891c685e2766f697e340b53bafa763a6edf597d7c0",
+  "entry_receipt_sha256": "93f8eee302053a8f7d6296a6a14b59c3f709be8aea95015ed2566574f5e9209c",
+  "accepted_bundle_receipt_sha256": "e357880fc4b51b0328ab20476fcffbd58c6a064ebd8387defcfd5cf70f2b95fe",
+  "status": "passed",
+  "cases": [
+    {
+      "key": "tests__fixtures__levels__home_showcase",
+      "source": "tests/fixtures/levels/home_showcase.json",
+      "classification": "playable",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__home_showcase.placesmap",
+      "current_package_sha256": "d5856ae5fc8a8343e88e33961372ffc22ad146bfc0801e48eb9d80f7055243c2",
+      "current": {
+        "level": "home_showcase",
+        "manifest_sha256": "07e4320ca713462e8afd47352d5d7f1fb2ad84c220d7f01dace084ebb0318dee",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 6567,
+              "texels": 148806
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 6567,
+              "texels": 232955
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__home_showcase.json",
+      "completed_case_receipt_sha256": "3a157c0d57a29deb1e00901e569c62dfdc678e4ff594bc2198fd0c11b447cfc0",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__office_asset_review",
+      "source": "tests/fixtures/levels/office_asset_review.json",
+      "classification": "playable",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__office_asset_review.placesmap",
+      "current_package_sha256": "d485e1cff5f3e7100287741487a2874e33c64cb1a5fc2a701231ab433a6436c9",
+      "current": {
+        "level": "office_asset_review",
+        "manifest_sha256": "0dddf883657ac048a70db539999b84deb6183787493d8f037d08073b8af00b6d",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 2143,
+              "texels": 109132
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 2143,
+              "texels": 183681
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__office_asset_review.json",
+      "completed_case_receipt_sha256": "f336cb4748c1f885198a972abf6ce4d89ca9143f04143ccd02d147ffedc2f232",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__pool_showcase",
+      "source": "tests/fixtures/levels/pool_showcase.json",
+      "classification": "playable",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__pool_showcase.placesmap",
+      "current_package_sha256": "af6795198970ad155daaa18520cd9801445de257acce8eab093f7357aa3ab87a",
+      "current": {
+        "level": "pool_showcase",
+        "manifest_sha256": "749f67a31c84a1e3688bb6517846271cede3e7df1a75e065019a74714ab556bb",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 6231,
+              "texels": 295526
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 6231,
+              "texels": 490003
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__pool_showcase.json",
+      "completed_case_receipt_sha256": "30f404dde1282324d7ae65f81a5e9242639983c8f4463c376edeaef0553c12b7",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__outdoor_kit_showcase",
+      "source": "tests/fixtures/levels/outdoor_kit_showcase.json",
+      "classification": "playable",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__outdoor_kit_showcase.placesmap",
+      "current_package_sha256": "51c0d3f2bfc54d3e5779f0ddb7627e0add32badea5cc0d248f320ec2e8375206",
+      "current": {
+        "level": "outdoor_kit_showcase",
+        "manifest_sha256": "7f824055543cfecf4dc62be8c5629929a3ab436af36b390c33bb7cb8b2ea5d6e",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 19437,
+              "texels": 683174
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 3,
+              "edge": 1024,
+              "charts": 19437,
+              "texels": 1094351
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__outdoor_kit_showcase.json",
+      "completed_case_receipt_sha256": "261f248cd7deb6beca02eacc1ebb9a9b97781ef5d2597660c063fefce29e0325",
+      "losses": []
+    },
+    {
+      "key": "assets__levels__winter",
+      "source": "assets/levels/winter.json",
+      "classification": "playable",
+      "accepted_references": [
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-entry/maps/assets/levels/winter.placesmap",
+          "package_sha256": "b4141a9aaa033fa59e67cccfe4e88bf7f05db082aad5781cc176d6bab5799677",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/entry-map-preservation.json",
+          "match": "exact installed source path, including recovered serialized local source",
+          "availability": {
+            "level": "winter",
+            "manifest_sha256": "0d770eaaf7803fbe53408137d76b8a6aeac933a56624e5b910817fc775c11e2b",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 0,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 0,
+                "atlas": {
+                  "pages": 3,
+                  "edge": 1024,
+                  "charts": 114385,
+                  "texels": 1091383
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 0,
+                "atlas": {
+                  "pages": 5,
+                  "edge": 1024,
+                  "charts": 114385,
+                  "texels": 1844385
+                }
+              }
+            }
+          }
+        }
+      ],
+      "status": "availability-preserved",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/winter.placesmap",
+      "current_package_sha256": "38b486054ea4c88156424a2f1104e7fad8f4080de6729263d4c75874d1330033",
+      "current": {
+        "level": "winter",
+        "manifest_sha256": "0628d7badfa5e3e482a43e0898b0577dd5a0ea0da86a85514efa056e9a75039f",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 4,
+              "edge": 1024,
+              "charts": 114385,
+              "texels": 1611674
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 6,
+              "edge": 1024,
+              "charts": 114385,
+              "texels": 2457655
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__winter.json",
+      "completed_case_receipt_sha256": "390ee8e42fd03a48485762d0427979d5ecfd929ae6c8c580dce5e87a6d4899ba",
+      "losses": []
+    },
+    {
+      "key": "assets__levels__lantern_hollow",
+      "source": "assets/levels/lantern_hollow.json",
+      "classification": "playable",
+      "accepted_references": [
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-entry/maps/assets/levels/lantern_hollow.placesmap",
+          "package_sha256": "e187a09a28a5300626bfa77c3684d8a08823d243b09e8461aaf81724467d1447",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/entry-map-preservation.json",
+          "match": "exact installed source path, including recovered serialized local source",
+          "availability": {
+            "level": "lantern_hollow",
+            "manifest_sha256": "49c3edd4e168ef2f3fc5533f8459b4357e3eddc3aa6fcb75de9f4eae9aa5102e",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 0,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 0,
+                "atlas": {
+                  "pages": 6,
+                  "edge": 1024,
+                  "charts": 245447,
+                  "texels": 2227632
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 0,
+                "atlas": {
+                  "pages": 8,
+                  "edge": 1024,
+                  "charts": 245447,
+                  "texels": 3680557
+                }
+              }
+            }
+          }
+        }
+      ],
+      "status": "availability-preserved",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/lantern_hollow.placesmap",
+      "current_package_sha256": "0321b936e281476fd10a9e5df613a76c8cc48a4e5339f84666f6c7d62c3a326b",
+      "current": {
+        "level": "lantern_hollow",
+        "manifest_sha256": "94e22cd62b090f9c07c2ad1f920281a30f1b42b73d1a8f134d61064f5ce7b355",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 8,
+              "edge": 1024,
+              "charts": 245495,
+              "texels": 3504615
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 10,
+              "edge": 1024,
+              "charts": 245495,
+              "texels": 5228055
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__lantern_hollow.json",
+      "completed_case_receipt_sha256": "18081f02738a8e43eee21298053d45a90863b549c654143509bfbe9cd9eb5a1e",
+      "losses": []
+    },
+    {
+      "key": "assets__levels__model_zoo",
+      "source": "assets/levels/model_zoo.json",
+      "classification": "playable",
+      "accepted_references": [
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-entry/maps/assets/levels/model_zoo.placesmap",
+          "package_sha256": "97df50b077f7295cfc246dd849de56ba25e7dd18e4f0b3f1b00cea4b34356ed9",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/entry-map-preservation.json",
+          "match": "exact installed source path, including recovered serialized local source",
+          "availability": {
+            "level": "model_zoo",
+            "manifest_sha256": "593eb5eda2cf63245ddf94476f3e75a744c27f91831192b926511cf825aaef16",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 0,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 0,
+                "atlas": {
+                  "pages": 6,
+                  "edge": 1024,
+                  "charts": 41139,
+                  "texels": 3344554
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 0,
+                "atlas": {
+                  "pages": 8,
+                  "edge": 1024,
+                  "charts": 41139,
+                  "texels": 5868924
+                }
+              }
+            }
+          }
+        }
+      ],
+      "status": "availability-preserved",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/model_zoo.placesmap",
+      "current_package_sha256": "0de04f839ca7e79a299e7284fb1bf8850df32ba43f6846a03e20995d0fe05398",
+      "current": {
+        "level": "model_zoo",
+        "manifest_sha256": "571a6e86144ff78a949db2ef188cd732cb82aa0017e747a8001be91c4e19d2d6",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 6,
+              "edge": 1024,
+              "charts": 41497,
+              "texels": 3635445
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 8,
+              "edge": 1024,
+              "charts": 41497,
+              "texels": 6224982
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__model_zoo.json",
+      "completed_case_receipt_sha256": "adec74b19a48e8c279263458896be6c65f64393dbb922fb38acbe26d684bd1b9",
+      "losses": []
+    },
+    {
+      "key": "assets__levels__movement_test",
+      "source": "assets/levels/movement_test.json",
+      "classification": "playable",
+      "accepted_references": [
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-entry/maps/assets/levels/movement_test.placesmap",
+          "package_sha256": "53920ec1d1bdc6b990a44ec44b4270307b9fb9872fba0f7001ec517dc296a23b",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/entry-map-preservation.json",
+          "match": "exact installed source path, including recovered serialized local source",
+          "availability": {
+            "level": "movement_test",
+            "manifest_sha256": "43d65fd20f7d57b190c28a5d7750504004539441aedbce0861ad6c0db260db94",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 0,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 0,
+                "atlas": {
+                  "pages": 3,
+                  "edge": 1024,
+                  "charts": 4640,
+                  "texels": 1546686
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 0,
+                "atlas": {
+                  "pages": 5,
+                  "edge": 1024,
+                  "charts": 4640,
+                  "texels": 2737282
+                }
+              }
+            }
+          }
+        }
+      ],
+      "status": "availability-preserved",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/movement_test.placesmap",
+      "current_package_sha256": "4e1d2fc35903cf5dcf07402d151db184499ec1540c632e65998582c486549632",
+      "current": {
+        "level": "movement_test",
+        "manifest_sha256": "e36cb8245ba98ee4ba6d97a73dac471390a9c4771d9d44314821ea479f5c89bb",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 3,
+              "edge": 1024,
+              "charts": 4643,
+              "texels": 1653677
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 5,
+              "edge": 1024,
+              "charts": 4643,
+              "texels": 2883339
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__movement_test.json",
+      "completed_case_receipt_sha256": "1cfb2d68da5e8b823a9e1e69883bbb0005a5ba45f88e73b1300d5be07935e3f0",
+      "losses": []
+    },
+    {
+      "key": "assets__levels__places_demo",
+      "source": "assets/levels/places_demo.json",
+      "classification": "playable",
+      "accepted_references": [
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-entry/maps/assets/levels/places_demo.placesmap",
+          "package_sha256": "01595d413f58f298d178d0b97be2e2dde8513a9537b10ce2006ba14b2615047a",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/entry-map-preservation.json",
+          "match": "exact installed source path, including recovered serialized local source",
+          "availability": {
+            "level": "places_demo",
+            "manifest_sha256": "7766de58957f5cc632f5614e807f4e7a633d484328a87ced30163143d4ce12b7",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 5,
+                  "edge": 1024,
+                  "charts": 126507,
+                  "texels": 2504932
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 8,
+                  "edge": 1024,
+                  "charts": 126507,
+                  "texels": 3906855
+                }
+              }
+            }
+          }
+        }
+      ],
+      "status": "availability-preserved",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/places_demo.placesmap",
+      "current_package_sha256": "6eb87c7d61a60610c8729812f83a2bf45caec4d9c45d123a9184b7a3bb9228c7",
+      "current": {
+        "level": "places_demo",
+        "manifest_sha256": "43c1d6741c4b7504e1899a90494c7ec13c5bd5d030e0fe1d72c9595a348e37a3",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 7,
+              "edge": 1024,
+              "charts": 126624,
+              "texels": 3147666
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 10,
+              "edge": 1024,
+              "charts": 126624,
+              "texels": 4665539
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__places_demo.json",
+      "completed_case_receipt_sha256": "86f8be7f856d3b9ed1189175343382fc29b97d64e242f05409d37b78882b4024",
+      "losses": []
+    },
+    {
+      "key": "levels__blizzard_review",
+      "source": "levels/blizzard_review.json",
+      "classification": "playable",
+      "accepted_references": [
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-entry/maps/levels/blizzard_review.placesmap",
+          "package_sha256": "48733fd5930b02bb85c147a04710d307527a637f2d615c7eeaeb2ad178bcf7e6",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/entry-map-preservation.json",
+          "match": "exact installed source path, including recovered serialized local source",
+          "availability": {
+            "level": "blizzard_review",
+            "manifest_sha256": "e3ddd50bb0e3ace0e55f2857dbe8607c2ac4524ea77b4fcefdd3a957a499ef72",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 0,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 0,
+                "atlas": {
+                  "pages": 3,
+                  "edge": 1024,
+                  "charts": 114385,
+                  "texels": 1091383
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 0,
+                "atlas": {
+                  "pages": 5,
+                  "edge": 1024,
+                  "charts": 114385,
+                  "texels": 1844385
+                }
+              }
+            }
+          }
+        }
+      ],
+      "status": "availability-preserved",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/levels/blizzard_review.placesmap",
+      "current_package_sha256": "ef1bbc55baf05757127cd6acb445eee2086221003993f9f2c2b528c5c96af70a",
+      "current": {
+        "level": "blizzard_review",
+        "manifest_sha256": "5eb7ed4027b0a28e3bbf313cf5bdf8f76d055394796e7f5f22d73bf0d67eb54a",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 4,
+              "edge": 1024,
+              "charts": 114385,
+              "texels": 1611674
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 6,
+              "edge": 1024,
+              "charts": 114385,
+              "texels": 2457655
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/levels__blizzard_review.json",
+      "completed_case_receipt_sha256": "4a0c11cc190088f11d0a5ab1139be99d540702232fdaf525640ab8ba4aacfd1f",
+      "losses": []
+    },
+    {
+      "key": "levels__geometry_intentional",
+      "source": "levels/geometry_intentional.json",
+      "classification": "playable",
+      "accepted_references": [
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-entry/maps/levels/geometry_intentional.placesmap",
+          "package_sha256": "76aad22500096e3d72fb3210dc0d22b07c32819723cdc81bc4b5bc6337ef98c6",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/entry-map-preservation.json",
+          "match": "exact installed source path, including recovered serialized local source",
+          "availability": {
+            "level": "geometry_intentional",
+            "manifest_sha256": "1130d21c304059bf44c050fab773d818756734a949f7dd8c093e299f7b254503",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 1,
+                  "edge": 1024,
+                  "charts": 277,
+                  "texels": 127403
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 1,
+                  "edge": 1024,
+                  "charts": 277,
+                  "texels": 224349
+                }
+              }
+            }
+          }
+        }
+      ],
+      "status": "availability-preserved",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/levels/geometry_intentional.placesmap",
+      "current_package_sha256": "f4f5f2efa80ade3f7b7bbfe850f14f28ab5251974ff783bf0fd3ea1565a1492b",
+      "current": {
+        "level": "geometry_intentional",
+        "manifest_sha256": "da0d04c013d8c886b69482b27b52770ff66c3496b7ed0930d0d3fd2951ce5a37",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 279,
+              "texels": 138054
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 279,
+              "texels": 238409
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/levels__geometry_intentional.json",
+      "completed_case_receipt_sha256": "a0d790b0773db56d4f87cc7da3d753a7fe856368d4c4d2bf8ff7b9fc46c15a01",
+      "losses": []
+    },
+    {
+      "key": "levels__home_showcase",
+      "source": "levels/home_showcase.json",
+      "classification": "playable",
+      "accepted_references": [
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-entry/maps/levels/home_showcase.placesmap",
+          "package_sha256": "e26913305af6fbb27ed2106d18b8252b235d74f8de238224ffcef0d35ee42563",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/entry-map-preservation.json",
+          "match": "exact installed source path, including recovered serialized local source",
+          "availability": {
+            "level": "home_showcase",
+            "manifest_sha256": "7fbb24453804db9260da3a15048c7b9123e1fd793a2794de79b10e575d82f64a",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 0,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 0,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5437,
+                  "texels": 107019
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 0,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5437,
+                  "texels": 182930
+                }
+              }
+            }
+          }
+        }
+      ],
+      "status": "availability-preserved",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/levels/home_showcase.placesmap",
+      "current_package_sha256": "d9f95ddd68ca5688711776e8215ad7708ee194d4bb7597c7716eb460ca73acd3",
+      "current": {
+        "level": "home_showcase",
+        "manifest_sha256": "9294786655c1e81fcacbb542751a9765a7c7f21654e728fcfe0c377dff906999",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 6335,
+              "texels": 147869
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 6335,
+              "texels": 232764
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/levels__home_showcase.json",
+      "completed_case_receipt_sha256": "067e95679d5d4cd8467a5fad1c7252ff89bedc8c9d29ea5aacb741399c48cd3b",
+      "losses": []
+    },
+    {
+      "key": "levels__level0_pit",
+      "source": "levels/level0_pit.json",
+      "classification": "playable",
+      "accepted_references": [
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-entry/maps/levels/level0_pit.placesmap",
+          "package_sha256": "53d84e36594dd989caddcfd6d1ae7fb50a200fbabcc3522d9d5ce19eaced116b",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/entry-map-preservation.json",
+          "match": "exact installed source path, including recovered serialized local source",
+          "availability": {
+            "level": "level0_pit",
+            "manifest_sha256": "26c625b38496a5a4db7daf423377528878907e36e766fc989e4c4ebd9b5c98e7",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 4,
+                  "edge": 1024,
+                  "charts": 14058,
+                  "texels": 1983464
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 5,
+                  "edge": 1024,
+                  "charts": 14058,
+                  "texels": 3482324
+                }
+              }
+            }
+          }
+        }
+      ],
+      "status": "availability-preserved",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/levels/level0_pit.placesmap",
+      "current_package_sha256": "11d7ac0a3b91f805b5e76a7c42c8016fdb0ad7cc30d3559c2d66813b2e332b0a",
+      "current": {
+        "level": "level0_pit",
+        "manifest_sha256": "a2836457262add8329fdcad5d2e362b4598224fe9380adff0f90947aa0b9ff90",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 4,
+              "edge": 1024,
+              "charts": 12634,
+              "texels": 2080845
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 6,
+              "edge": 1024,
+              "charts": 12634,
+              "texels": 3583884
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/levels__level0_pit.json",
+      "completed_case_receipt_sha256": "632fd8ecdc251c2f799d1858962f8ba653a29412c29dc3c8c52743dee420d63f",
+      "losses": []
+    },
+    {
+      "key": "levels__snowfall_contrast",
+      "source": "levels/snowfall_contrast.json",
+      "classification": "playable",
+      "accepted_references": [
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-entry/maps/levels/snowfall_contrast.placesmap",
+          "package_sha256": "447f57fc993eef484e7c5a0f2142132c4085b02ebaa480f00b1ffa194f051499",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/entry-map-preservation.json",
+          "match": "exact installed source path, including recovered serialized local source",
+          "availability": {
+            "level": "snowfall_contrast",
+            "manifest_sha256": "9243949e47ae242a6af4fa9c235c0cd6892536dbe873136b08ece7453052947f",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 0,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 0,
+                "atlas": {
+                  "pages": 1,
+                  "edge": 1024,
+                  "charts": 7,
+                  "texels": 201600
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 0,
+                "atlas": {
+                  "pages": 1,
+                  "edge": 1024,
+                  "charts": 7,
+                  "texels": 358400
+                }
+              }
+            }
+          }
+        }
+      ],
+      "status": "availability-preserved",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/levels/snowfall_contrast.placesmap",
+      "current_package_sha256": "2deffc4ab4414f68bbfb5eab0d0d336b29701e3674572de88ad0c49ffdc0e0c9",
+      "current": {
+        "level": "snowfall_contrast",
+        "manifest_sha256": "f351b9a33be665d30167acb670d9ae2ee77db6810890e6c9b01253dac33c25a4",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 7,
+              "texels": 203251
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 7,
+              "texels": 360599
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/levels__snowfall_contrast.json",
+      "completed_case_receipt_sha256": "336b1cae29baadf5ad1a03efea5a40ff8395523640412f218e659e8f0ee80b17",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero",
+      "source": "tests/fixtures/levels/art_style_hero.json",
+      "classification": "playable",
+      "accepted_references": [
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage1/assets/levels/art_style_hero.placesmap",
+          "package_sha256": "ef687d32cc7e4ccb7a160a239db4541ebaec479eb974edd9698784a4c24ceace",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage1/snapshot.json",
+          "match": "exact authored source SHA in accepted prior runnable bundle",
+          "availability": {
+            "level": "art_style_hero",
+            "manifest_sha256": "37d9d3c66ae70e3b14335a930d18daa29d6395dd8a21df4b6ae473c5ebdf0097",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5347,
+                  "texels": 98067
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5347,
+                  "texels": 167960
+                }
+              }
+            }
+          }
+        },
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage2/assets/levels/art_style_hero.placesmap",
+          "package_sha256": "b38a022a2762251ab49e475de494791ecf1cae24a30060e0be90edacc85aa1cd",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage2/snapshot.json",
+          "match": "exact authored source SHA in accepted prior runnable bundle",
+          "availability": {
+            "level": "art_style_hero",
+            "manifest_sha256": "6c9adaa9c555937cb3932b8c28a9f59a166de89dbe6be66c7c58de55e70a8f15",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5347,
+                  "texels": 98067
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5347,
+                  "texels": 167960
+                }
+              }
+            }
+          }
+        },
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage3/assets/levels/art_style_hero.placesmap",
+          "package_sha256": "ef65a36253237e27281e255d0e1aafc3c6e73602f13eac1a9a6f5d9be5e036f5",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage3/snapshot.json",
+          "match": "exact authored source SHA in accepted prior runnable bundle",
+          "availability": {
+            "level": "art_style_hero",
+            "manifest_sha256": "31daa5d7b7b4f617e0d4d681845df0322be83d0b5f3f996aa64cb07ec93d3ac2",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5354,
+                  "texels": 127974
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5354,
+                  "texels": 203798
+                }
+              }
+            }
+          }
+        },
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4/assets/levels/art_style_hero.placesmap",
+          "package_sha256": "a04c08a54651ce6fce794ccf41f2dac8c909ac3ed704d6ba6efea7cf6c72caae",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4/snapshot.json",
+          "match": "exact authored source SHA in accepted prior runnable bundle",
+          "availability": {
+            "level": "art_style_hero",
+            "manifest_sha256": "3eeecc62e7fbf242037e6c25dab73329974e6653ac16808dbba3365638da432a",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5354,
+                  "texels": 127974
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5354,
+                  "texels": 203798
+                }
+              }
+            }
+          }
+        },
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-v2/assets/levels/art_style_hero.placesmap",
+          "package_sha256": "7dd16d4fa2baa2f1c835d939a3389bb179cceecc5454a76f4e898306a43666e2",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-v2/snapshot.json",
+          "match": "exact authored source SHA in accepted prior runnable bundle",
+          "availability": {
+            "level": "art_style_hero",
+            "manifest_sha256": "26935022c340ea42d16069fedc95dcfe69ef771548beddd36422344bb741e6f0",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5354,
+                  "texels": 127974
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5354,
+                  "texels": 203798
+                }
+              }
+            }
+          }
+        },
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-original/assets/levels/art_style_hero.placesmap",
+          "package_sha256": "501ef091063166d2f512f6fdd1d08468c21f1495382f5d2a6e541659aaa7d1d7",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-original/snapshot.json",
+          "match": "exact authored source SHA in accepted prior runnable bundle",
+          "availability": {
+            "level": "art_style_hero",
+            "manifest_sha256": "3f791e4b7a9692a4e5d7bfce45429303d462bc013eb14b8d74fe602418464081",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5354,
+                  "texels": 127974
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5354,
+                  "texels": 203798
+                }
+              }
+            }
+          }
+        }
+      ],
+      "status": "availability-preserved",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__art_style_hero.placesmap",
+      "current_package_sha256": "5e58e394651f7b7ac3af8f3ff7fec1fa1d5ea31ff20f72d243ad166c8b31ba27",
+      "current": {
+        "level": "art_style_hero",
+        "manifest_sha256": "4f1be4e4c5c0a1f104c88b6d7d5cc69fb2f0d4896f030cd0db793143f999c7fd",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 5354,
+              "texels": 127974
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 5354,
+              "texels": 203798
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero.json",
+      "completed_case_receipt_sha256": "3f1b887c4fa4a9963397539364f82d79d552460e6f3f26e135d2bb460b2f071e",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_atmosphere",
+      "source": "tests/fixtures/levels/art_style_hero_atmosphere.json",
+      "classification": "playable",
+      "accepted_references": [
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-control/assets/levels/art_style_hero.placesmap",
+          "package_sha256": "735f69546d5e2371f4f27314c3f38d37ac8e0907ca397bad461aed561cbf7a61",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-control/snapshot.json",
+          "match": "exact authored source SHA in accepted prior runnable bundle",
+          "availability": {
+            "level": "art_style_hero",
+            "manifest_sha256": "39956cded886988164e4a74789cc06fae800a9da3873615195cfc9ac14a8a6a2",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5598,
+                  "texels": 135166
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5598,
+                  "texels": 214709
+                }
+              }
+            }
+          }
+        },
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-before-control-v2/assets/levels/art_style_hero.placesmap",
+          "package_sha256": "45ddc9be457cb235b46879cbc4a7fc0bb7baffaed03d8aa57fb075a5bbb480f1",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-before-control-v2/snapshot.json",
+          "match": "exact authored source SHA in accepted prior runnable bundle",
+          "availability": {
+            "level": "art_style_hero",
+            "manifest_sha256": "b116315f27866313782f602cc94093ad5ce15211d9d057f8246efa26cc94f1d8",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5597,
+                  "texels": 134391
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5597,
+                  "texels": 213356
+                }
+              }
+            }
+          }
+        }
+      ],
+      "status": "availability-preserved",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__art_style_hero_atmosphere.placesmap",
+      "current_package_sha256": "3d6698c0572852614e7c38a1f73b8e55b35aa741b49bfa8fdccc6c1de51929c2",
+      "current": {
+        "level": "art_style_hero",
+        "manifest_sha256": "434ac6072d2bd1c5e20157c76c04a37562276e525e59649e8b84c0fe0a6d9f88",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 5598,
+              "texels": 135166
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 5598,
+              "texels": 214709
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_atmosphere.json",
+      "completed_case_receipt_sha256": "7c4649139136a4533bce029c4658ac2f6afbdad685e5922da64b38f0bbefbe2f",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_aurora",
+      "source": "tests/fixtures/levels/art_style_hero_aurora.json",
+      "classification": "playable",
+      "accepted_references": [
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-aurora/assets/levels/art_style_hero.placesmap",
+          "package_sha256": "965d6873eec6a9d8152b77c81428e74c65dbac707f2d4ab3ad75ebad7f9a2c16",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-aurora/snapshot.json",
+          "match": "exact authored source SHA in accepted prior runnable bundle",
+          "availability": {
+            "level": "art_style_hero",
+            "manifest_sha256": "ea8ba144cccbb9c9819b49d7b0f7ad128c764624da5e5cca72c29e2721f162f3",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5598,
+                  "texels": 135166
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5598,
+                  "texels": 214709
+                }
+              }
+            }
+          }
+        }
+      ],
+      "status": "availability-preserved",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__art_style_hero_aurora.placesmap",
+      "current_package_sha256": "a27fbed14ed3843e622ce443afae38b6b3638bfcb46d04cdabf83ab559620701",
+      "current": {
+        "level": "art_style_hero",
+        "manifest_sha256": "c59dfb2d02a122bc562331755f4cfc8a15868fa6bc235874e2b74e7e2f18acd6",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 5598,
+              "texels": 135166
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 5598,
+              "texels": 214709
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_aurora.json",
+      "completed_case_receipt_sha256": "5715b9dc6833c96fc6ce3a245d1c6f41d79668f8754e16da31a41029aa303127",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_night",
+      "source": "tests/fixtures/levels/art_style_hero_night.json",
+      "classification": "playable",
+      "accepted_references": [
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-night/assets/levels/art_style_hero.placesmap",
+          "package_sha256": "ab8a25b97a35c6a71c3ca6bbdeb88227a09521a5c2060ff8724c3e6a3eaaf752",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-night/snapshot.json",
+          "match": "exact authored source SHA in accepted prior runnable bundle",
+          "availability": {
+            "level": "art_style_hero",
+            "manifest_sha256": "c4cc8aca8b9ace57ab2868e40a6caa6a1afa956e1ed5ccdfbcfccc712c1bca0e",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5598,
+                  "texels": 135166
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5598,
+                  "texels": 214709
+                }
+              }
+            }
+          }
+        }
+      ],
+      "status": "availability-preserved",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__art_style_hero_night.placesmap",
+      "current_package_sha256": "51834a27b59787f2168b44b24946f71e26cd8efdc129fb500a31bc6b5651f777",
+      "current": {
+        "level": "art_style_hero",
+        "manifest_sha256": "41a34930862843861fb6feb565fde83c1d8ffe49403ef82aebb3719e183d3930",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 5598,
+              "texels": 135166
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 5598,
+              "texels": 214709
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_night.json",
+      "completed_case_receipt_sha256": "f7c4ae41b5483228e7294085b9b2a7bb754a47bea4e9c727fc63a56244d253f1",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_refined",
+      "source": "tests/fixtures/levels/art_style_hero_refined.json",
+      "classification": "playable",
+      "accepted_references": [
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage6/assets/levels/art_style_hero.placesmap",
+          "package_sha256": "8814a82b0abdc44df31c4de8f56a834ca141b1c612dffb1000fb3cf402138d37",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage6/snapshot.json",
+          "match": "exact authored source SHA in accepted prior runnable bundle",
+          "availability": {
+            "level": "art_style_hero",
+            "manifest_sha256": "4ec6896ceeb0991333467dbea293aa1bfaa8c2fe36d46ab6673660f82f6c2cf8",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 6874,
+                  "texels": 156548
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 6874,
+                  "texels": 246682
+                }
+              }
+            }
+          }
+        }
+      ],
+      "status": "availability-preserved",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__art_style_hero_refined.placesmap",
+      "current_package_sha256": "53181a47871a90f477fb157930da92a972c5349594915219ae7ffd9878703061",
+      "current": {
+        "level": "art_style_hero",
+        "manifest_sha256": "d55384aea4d9699c01c4ffa1d78ccae64206c64a0e766bc521d0b3c1f08ca5a3",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 6874,
+              "texels": 156548
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 6874,
+              "texels": 246682
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_refined.json",
+      "completed_case_receipt_sha256": "9d4ce5744bb728ff666420a46a663e87f6550d43589b6829a67fdf824ad262a0",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_stage4_comparison",
+      "source": "tests/fixtures/levels/art_style_hero_stage4_comparison.json",
+      "classification": "playable",
+      "accepted_references": [
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-comparison/assets/levels/art_style_hero.placesmap",
+          "package_sha256": "95d1c51d9647792c10312ebc47f7bb8561b341924228c60ff5f34138b16a4556",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-comparison/snapshot.json",
+          "match": "exact authored source SHA in accepted prior runnable bundle",
+          "availability": {
+            "level": "art_style_hero",
+            "manifest_sha256": "7f1dbd581ea15eec4db4c701d25f6037be9e837d8f1b3feaf6bcd1c5ac9204c9",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5966,
+                  "texels": 134094
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5966,
+                  "texels": 212366
+                }
+              }
+            }
+          }
+        },
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-comparison-v2/assets/levels/art_style_hero.placesmap",
+          "package_sha256": "465239bdc261432f3d79ea1ed1bf73de6094ee3c3f5fd79e6664ac0e8270ea2d",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-comparison-v2/snapshot.json",
+          "match": "exact authored source SHA in accepted prior runnable bundle",
+          "availability": {
+            "level": "art_style_hero",
+            "manifest_sha256": "9938501957a286e764f4587fa20134153e2328a00653dc6a39be7e22c2003a43",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5966,
+                  "texels": 134094
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5966,
+                  "texels": 212366
+                }
+              }
+            }
+          }
+        }
+      ],
+      "status": "availability-preserved",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__art_style_hero_stage4_comparison.placesmap",
+      "current_package_sha256": "0ec33e022e7d070e01f82ae7ba3b392ad2c4faa9b946e7944007126b6fd0999b",
+      "current": {
+        "level": "art_style_hero",
+        "manifest_sha256": "30ccce844ca365ebd552f20810623c4b63af36c4b5861bbe7d9f8ff62016ab96",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 5966,
+              "texels": 134094
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 5966,
+              "texels": 212366
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_comparison.json",
+      "completed_case_receipt_sha256": "043489c8b2738fc2a503f54baee05346de4d52353a98ce96404d7a7a26bd422d",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_stage4_entities",
+      "source": "tests/fixtures/levels/art_style_hero_stage4_entities.json",
+      "classification": "playable",
+      "accepted_references": [
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-entities/assets/levels/art_style_hero.placesmap",
+          "package_sha256": "dad94ca4f812f0fc2a938e08d81ad4d741df98c69f58927160276f0827dbb534",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-entities/snapshot.json",
+          "match": "exact authored source SHA in accepted prior runnable bundle",
+          "availability": {
+            "level": "art_style_hero",
+            "manifest_sha256": "5748e65d065fdd12991fa1398905e77f94d35f7cb74fe732b81f69a53056ee17",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5354,
+                  "texels": 127974
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5354,
+                  "texels": 203798
+                }
+              }
+            }
+          }
+        },
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-entities-v2/assets/levels/art_style_hero.placesmap",
+          "package_sha256": "527ee5a4ec98f4fb6518f826fca0ae61d1f03d0d8885d518b07defecee3a515b",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-entities-v2/snapshot.json",
+          "match": "exact authored source SHA in accepted prior runnable bundle",
+          "availability": {
+            "level": "art_style_hero",
+            "manifest_sha256": "fe32876e046cc6ace08c4043cb0a4121086e6b1b3b1c3f45005d950b49f55859",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5354,
+                  "texels": 127974
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5354,
+                  "texels": 203798
+                }
+              }
+            }
+          }
+        }
+      ],
+      "status": "availability-preserved",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__art_style_hero_stage4_entities.placesmap",
+      "current_package_sha256": "314fd9c5521622dc49c602886e041d274cd27b5306ee7ce97defa618fc5a6cae",
+      "current": {
+        "level": "art_style_hero",
+        "manifest_sha256": "212f1c38fa9f4fb7d8a81e81a4627880b5151c98655f76c67ca225bcbad0f5a2",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 5354,
+              "texels": 127974
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 5354,
+              "texels": 203798
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_entities.json",
+      "completed_case_receipt_sha256": "89e130288b43c3aec362c5e8335c0cc9e8bb3140a8fb9b47b2c27c7143530ed7",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_stage4_movement",
+      "source": "tests/fixtures/levels/art_style_hero_stage4_movement.json",
+      "classification": "playable",
+      "accepted_references": [
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-movement/assets/levels/art_style_hero.placesmap",
+          "package_sha256": "af4339e3e83727badc160541d68f1ef876867537c7a3926c1fe4aad7a2f113cd",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-movement/snapshot.json",
+          "match": "exact authored source SHA in accepted prior runnable bundle",
+          "availability": {
+            "level": "art_style_hero",
+            "manifest_sha256": "f4ffef2cfcb56c5ec8cdd4f25f3f5c195d8598a2f2e7f3aae253a9bab44739a7",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5363,
+                  "texels": 127724
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5363,
+                  "texels": 203188
+                }
+              }
+            }
+          }
+        },
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-movement-v2/assets/levels/art_style_hero.placesmap",
+          "package_sha256": "603b3d99ccdde1b8f6402ad4a1a7eb0ae7500712798a55762c6123d8867a6769",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-movement-v2/snapshot.json",
+          "match": "exact authored source SHA in accepted prior runnable bundle",
+          "availability": {
+            "level": "art_style_hero",
+            "manifest_sha256": "d42c4dbc365974ddb55580274f84a378ba264a93df11c9b1d81516c0b77fc038",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5363,
+                  "texels": 127724
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5363,
+                  "texels": 203188
+                }
+              }
+            }
+          }
+        }
+      ],
+      "status": "availability-preserved",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__art_style_hero_stage4_movement.placesmap",
+      "current_package_sha256": "47b9d3f175c71903c177a875b2745cf2a5cb9100e6fbe31fbe978a20647ef6c1",
+      "current": {
+        "level": "art_style_hero",
+        "manifest_sha256": "1548815c48fb1eee89035b21c73532c9a3c267656d0e6e4a7f918054bd01b9cd",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 5363,
+              "texels": 127724
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 5363,
+              "texels": 203188
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_movement.json",
+      "completed_case_receipt_sha256": "172b216c53da462a6b0fc5a485f27f5eeb3c3deb24197428b11e6307afc7707e",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_stage4_switchable",
+      "source": "tests/fixtures/levels/art_style_hero_stage4_switchable.json",
+      "classification": "playable",
+      "accepted_references": [
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-switchable/assets/levels/art_style_hero.placesmap",
+          "package_sha256": "640dc79f598f9943a53ebe83694267056c5b1d06f373be8e634d216426886f9d",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-switchable/snapshot.json",
+          "match": "exact authored source SHA in accepted prior runnable bundle",
+          "availability": {
+            "level": "art_style_hero",
+            "manifest_sha256": "136d9434170cdc6f4858e2036bdc4d2ae9741929bd9aa2215b2a4dbbe779c7a7",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5354,
+                  "texels": 127974
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5354,
+                  "texels": 203798
+                }
+              }
+            }
+          }
+        },
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-switchable-v2/assets/levels/art_style_hero.placesmap",
+          "package_sha256": "6efe57e0f19f37304236947a87fed691247458272019fc9bd2093c42302f814b",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-switchable-v2/snapshot.json",
+          "match": "exact authored source SHA in accepted prior runnable bundle",
+          "availability": {
+            "level": "art_style_hero",
+            "manifest_sha256": "96696557aea91b2ead2a81bf5cd3c03722805e4b67130f083f47f95893536a17",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5354,
+                  "texels": 127974
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5354,
+                  "texels": 203798
+                }
+              }
+            }
+          }
+        }
+      ],
+      "status": "availability-preserved",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__art_style_hero_stage4_switchable.placesmap",
+      "current_package_sha256": "862a7c28eb08b3f1110e1dccdc391034529e4fb586b00ddecd3d1d23ef14f96e",
+      "current": {
+        "level": "art_style_hero",
+        "manifest_sha256": "577843b692707b37272f5537d816e93f1320bd1ac084b3238fd3a59c0a20b807",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 5354,
+              "texels": 127974
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 5354,
+              "texels": 203798
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_switchable.json",
+      "completed_case_receipt_sha256": "aaf7c3373bd81fdf1d610bf4cfa3e90d480b82c9655a74d29d361a99fcf561e6",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_storm",
+      "source": "tests/fixtures/levels/art_style_hero_storm.json",
+      "classification": "playable",
+      "accepted_references": [
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-storm/assets/levels/art_style_hero.placesmap",
+          "package_sha256": "b43309b50516ebf54a06f4c60219732b891d7e7a95710e896ac9cafa3de7ac01",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-storm/snapshot.json",
+          "match": "exact authored source SHA in accepted prior runnable bundle",
+          "availability": {
+            "level": "art_style_hero",
+            "manifest_sha256": "8dde2dc3f10d7dc3db63220d7944cebb85cfc4d64ebb9c8ef5295412864be472",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5598,
+                  "texels": 135166
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5598,
+                  "texels": 214709
+                }
+              }
+            }
+          }
+        }
+      ],
+      "status": "availability-preserved",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__art_style_hero_storm.placesmap",
+      "current_package_sha256": "e87bfeddf58bfe5dc2fde94b1c573a29ce2dab52dbadd3cd536197ff5887afb6",
+      "current": {
+        "level": "art_style_hero",
+        "manifest_sha256": "1049a882c4b33d4e66486e2f54af26dc23efc51065aa48706e81c6f76c23d95d",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 5598,
+              "texels": 135166
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 5598,
+              "texels": 214709
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_storm.json",
+      "completed_case_receipt_sha256": "b71c9ad3bdb5890a8388a76b339be64c5eab5800a4aeec1fde3022eeb82fdb31",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_transparency",
+      "source": "tests/fixtures/levels/art_style_hero_transparency.json",
+      "classification": "playable",
+      "accepted_references": [
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-transparency-v2/assets/levels/art_style_hero.placesmap",
+          "package_sha256": "518629e17147ab07e742e1da231156590f5241e6b1fe2140ab62b556759193e7",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-transparency-v2/snapshot.json",
+          "match": "exact authored source SHA in accepted prior runnable bundle",
+          "availability": {
+            "level": "art_style_hero",
+            "manifest_sha256": "daacd574b8d578fa1d3029487ffb8cea1d476e6d569262d5981bcf0fd8b87e50",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5598,
+                  "texels": 135166
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5598,
+                  "texels": 214709
+                }
+              }
+            }
+          }
+        },
+        {
+          "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-transparency-before-v2/assets/levels/art_style_hero.placesmap",
+          "package_sha256": "1c8377da5c29d92ef226b962d6b298df3524cf777496afff38e83f83860b923c",
+          "receipt": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-transparency-before-v2/snapshot.json",
+          "match": "exact authored source SHA in accepted prior runnable bundle",
+          "availability": {
+            "level": "art_style_hero",
+            "manifest_sha256": "54dfbdc2f28166b70add5b8f394d372466d0eafb747c89c522cc90de72f7d503",
+            "variants": {
+              "off": {
+                "atlas_present": false,
+                "irradiance_present": false,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": null
+              },
+              "medium": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5597,
+                  "texels": 134391
+                }
+              },
+              "full": {
+                "atlas_present": true,
+                "irradiance_present": true,
+                "failure": null,
+                "reflection_groups": 2,
+                "atlas": {
+                  "pages": 2,
+                  "edge": 1024,
+                  "charts": 5597,
+                  "texels": 213356
+                }
+              }
+            }
+          }
+        }
+      ],
+      "status": "availability-preserved",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__art_style_hero_transparency.placesmap",
+      "current_package_sha256": "b39d9b09b4611bce5d73b03726359e0fb2af85ca96e5d6ae06c9d29d7aeae67a",
+      "current": {
+        "level": "art_style_hero",
+        "manifest_sha256": "1bd08b2fdb3d7e529bbc115b39862c0a9dfd4804d4affcd566c099661e18f7c0",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 5598,
+              "texels": 135166
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 5598,
+              "texels": 214709
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_transparency.json",
+      "completed_case_receipt_sha256": "df103c39c58fdededde0eda3af2b9ba27e40c3eb5d0f8c415d02ef9babbc9ead",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__asset_polish_showcase",
+      "source": "tests/fixtures/levels/asset_polish_showcase.json",
+      "classification": "playable",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__asset_polish_showcase.placesmap",
+      "current_package_sha256": "ea56364d921264226e2f116771ab34509baadac245281efdab47c666023e9dad",
+      "current": {
+        "level": "asset_polish_showcase",
+        "manifest_sha256": "2597d54404038d13972313a4c4a29e4be1ffae63016169afbabf570a16815af3",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 4846,
+              "texels": 137768
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 4846,
+              "texels": 221738
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__asset_polish_showcase.json",
+      "completed_case_receipt_sha256": "af4d29c09c0594a05abfa21054b0b85e853f7fa9f1d8f4f65cdf26fdd877c86c",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__capacity_beyond_former_limits",
+      "source": "tests/fixtures/levels/capacity_beyond_former_limits.json",
+      "classification": "cpu-boundary-witness",
+      "accepted_references": [],
+      "status": "offline-contract",
+      "reason": "Positive loader/count/u32-material-index witness with synthetic cap:* IDs; not catalogue-authored playable content. See tools/levels/build_capacity_fixtures.py and src/zoo_audit.rs."
+    },
+    {
+      "key": "tests__fixtures__levels__capacity_dense",
+      "source": "tests/fixtures/levels/capacity_dense.json",
+      "classification": "playable",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__capacity_dense.placesmap",
+      "current_package_sha256": "1ba52aafb75b502f0d9c380cf4d7dca2c226f523fbe57b55e25735156051c0cc",
+      "current": {
+        "level": "capacity_dense",
+        "manifest_sha256": "d54c5213375f8fe6cde2e6c5ef093c9494c4f746815a854a954bed6722f831b8",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": "page overflow",
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "full": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": "page overflow",
+            "reflection_groups": 2,
+            "atlas": null
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__capacity_dense.json",
+      "completed_case_receipt_sha256": "a3b59955106ea3b5488add371f0a2edb2720d187bb5498c8270ca30262ffd44c",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__entity_showcase",
+      "source": "tests/fixtures/levels/entity_showcase.json",
+      "classification": "playable",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__entity_showcase.placesmap",
+      "current_package_sha256": "08e5526adbbd27c975aafb17d4cc631516344f1e98ce8ce8e38e052805ef3d87",
+      "current": {
+        "level": "entity_showcase",
+        "manifest_sha256": "9c5a3d6d96ad39e66a405da2442e1ed848f79f3b7053fc02d621018551eecdb4",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 720,
+              "texels": 140432
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 720,
+              "texels": 245937
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__entity_showcase.json",
+      "completed_case_receipt_sha256": "7931445791530d272822628fa1a0ed75cc6733a3c199a6988b29defdd65bc323",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__fog_void_validation",
+      "source": "tests/fixtures/levels/fog_void_validation.json",
+      "classification": "playable",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__fog_void_validation.placesmap",
+      "current_package_sha256": "7fa835d3fc27e7b25341b099cab4dafd80e74499915f758497cc274a67149c0f",
+      "current": {
+        "level": "fog_void_validation",
+        "manifest_sha256": "1daeeba54506e9c0f179d8057e812e20946591e730bd579c95fddc5d1086e774",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 31,
+              "texels": 250847
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 31,
+              "texels": 442731
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__fog_void_validation.json",
+      "completed_case_receipt_sha256": "f1402d6d8625c78f96508beacc6657aaf00902ce021dbb2abc9517d8dbfd3568",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__geometry_broken",
+      "source": "tests/fixtures/levels/geometry_broken.json",
+      "classification": "playable-geometry-negative",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__geometry_broken.placesmap",
+      "current_package_sha256": "c9fd05adb286616a6825c79e720a97896cb0e94d2fe7adc858756206c21042ba",
+      "current": {
+        "level": "geometry_broken",
+        "manifest_sha256": "d6bb79ac5b9da3b6bbbe83fa6d5600d3c6ad4653fa344652aa328b9d50758eba",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 103,
+              "texels": 63003
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 103,
+              "texels": 109350
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__geometry_broken.json",
+      "completed_case_receipt_sha256": "9aa5a1892d573aa5616a71576932d223c69a113021b30574a725fa3ea277ee2a",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__geometry_intentional",
+      "source": "tests/fixtures/levels/geometry_intentional.json",
+      "classification": "playable",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__geometry_intentional.placesmap",
+      "current_package_sha256": "f4f5f2efa80ade3f7b7bbfe850f14f28ab5251974ff783bf0fd3ea1565a1492b",
+      "current": {
+        "level": "geometry_intentional",
+        "manifest_sha256": "da0d04c013d8c886b69482b27b52770ff66c3496b7ed0930d0d3fd2951ce5a37",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 279,
+              "texels": 138054
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 279,
+              "texels": 238409
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__geometry_intentional.json",
+      "completed_case_receipt_sha256": "889552bfaef4aaf94939f9ad7ae1fb4032648e59a1600594e277f65de42f8964",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__halloween_entities",
+      "source": "tests/fixtures/levels/halloween_entities.json",
+      "classification": "playable",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__halloween_entities.placesmap",
+      "current_package_sha256": "d15ab1c5fbe0125aab6e413366848cf8cceb0e63b859ee7513451d83025b4827",
+      "current": {
+        "level": "halloween_entities",
+        "manifest_sha256": "a3975f95be17da6d27172544e4913581b93b0e843f945f97bdb8f5ce281dab6d",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 3048,
+              "texels": 181116
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 3048,
+              "texels": 307106
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__halloween_entities.json",
+      "completed_case_receipt_sha256": "c21b71a22c9c4928bb5effd0bfbac8effb744d4d69a158541d3be133d69b961b",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__invalid__geometry_invalid",
+      "source": "tests/fixtures/levels/invalid/geometry_invalid.json",
+      "classification": "loader-negative",
+      "accepted_references": [],
+      "status": "offline-contract",
+      "reason": "Degenerate curves must be rejected; geometry_check::tests retains curved-invalid controls."
+    },
+    {
+      "key": "tests__fixtures__levels__level0_pit",
+      "source": "tests/fixtures/levels/level0_pit.json",
+      "classification": "playable",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__level0_pit.placesmap",
+      "current_package_sha256": "11d7ac0a3b91f805b5e76a7c42c8016fdb0ad7cc30d3559c2d66813b2e332b0a",
+      "current": {
+        "level": "level0_pit",
+        "manifest_sha256": "a2836457262add8329fdcad5d2e362b4598224fe9380adff0f90947aa0b9ff90",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 4,
+              "edge": 1024,
+              "charts": 12634,
+              "texels": 2080845
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 6,
+              "edge": 1024,
+              "charts": 12634,
+              "texels": 3583884
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__level0_pit.json",
+      "completed_case_receipt_sha256": "63a26d6122e4fcf742f5b66af6c7d744e69b4a296c615f3a4b6ff35e50b138be",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__lighting_diagnostic",
+      "source": "tests/fixtures/levels/lighting_diagnostic.json",
+      "classification": "playable",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__lighting_diagnostic.placesmap",
+      "current_package_sha256": "6cf1be2dd4b4dde16311652abd9c1b13914b2aa7edbc4b2de62d2207aa205e7d",
+      "current": {
+        "level": "lighting_diagnostic",
+        "manifest_sha256": "252af31db368d78b754d0f1e79e60f1dcb24b618a11277db35cbf91bb1d814f8",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 165,
+              "texels": 758578
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 165,
+              "texels": 1339059
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_diagnostic.json",
+      "completed_case_receipt_sha256": "701121be1eb50e4c68db2d4810020c381408b2e0c59fc803f609f65b7f722a5a",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__lighting_isolation",
+      "source": "tests/fixtures/levels/lighting_isolation.json",
+      "classification": "playable",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__lighting_isolation.placesmap",
+      "current_package_sha256": "48ccdfbf04911051d2a08863d66992229a681530a593e2a59bda4c86d9e8941a",
+      "current": {
+        "level": "lighting_isolation",
+        "manifest_sha256": "919d88a1cadbafdf23648709fe4f190b065df429677062ffee9c1018fc66d353",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 275,
+              "texels": 399254
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 275,
+              "texels": 698137
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_isolation.json",
+      "completed_case_receipt_sha256": "e17e833e3a5668040fc3429ab97967d74ff49a4cc192942bfe8b32542d12a7df",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__lighting_quality",
+      "source": "tests/fixtures/levels/lighting_quality.json",
+      "classification": "playable",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__lighting_quality.placesmap",
+      "current_package_sha256": "32e81d41f6c29e4d13ec232c6fe5eaeced3199fd438dd59a55fb0d0da0077cf1",
+      "current": {
+        "level": "lighting_quality",
+        "manifest_sha256": "63b901c1d515c45b8362b04e7045ebb798eed48988c9413c7909826787043177",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 4140,
+              "texels": 492559
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 4140,
+              "texels": 848891
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_quality.json",
+      "completed_case_receipt_sha256": "ce9789534bf359bfb7293dccbaa13252c4c5cde92be63210df05c650c178fe16",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__lighting_repair_cases",
+      "source": "tests/fixtures/levels/lighting_repair_cases.json",
+      "classification": "playable",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__lighting_repair_cases.placesmap",
+      "current_package_sha256": "456defbaec12a7aeb482e109b2d930454ae8a7badd763ae44be6290463e886a4",
+      "current": {
+        "level": "lighting_repair_cases",
+        "manifest_sha256": "664c3b8a62b6f248bddc7eb4f920d6d9683daa40a3a71eeb073f61e39c3a9ddf",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 91,
+              "texels": 90454
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 91,
+              "texels": 158000
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_repair_cases.json",
+      "completed_case_receipt_sha256": "6c7fe0536705fa14dbe70c5fa4ead203283e04d2e69213186802e6a0df53aaa7",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__prop_showcase",
+      "source": "tests/fixtures/levels/prop_showcase.json",
+      "classification": "playable",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__prop_showcase.placesmap",
+      "current_package_sha256": "9fa9943c9e7ca92ffe03632519e2f126536b7381f41c08cd6e48ef92fad8e37f",
+      "current": {
+        "level": "prop_showcase",
+        "manifest_sha256": "36a1e160ce328480cefbb4e71ca6cb1ea53dcf795e967811f520794f9ddbbec4",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 11433,
+              "texels": 241741
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 11433,
+              "texels": 382861
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__prop_showcase.json",
+      "completed_case_receipt_sha256": "c5b2570f68803076b8f94948be70057642e455f0f73d9af9b832c303268c18f6",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__prop_stress",
+      "source": "tests/fixtures/levels/prop_stress.json",
+      "classification": "playable",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__prop_stress.placesmap",
+      "current_package_sha256": "93b2f562e2cc0123b85d1e59bac517e19af2d57c83f957b50a7c6dfc6bb4089a",
+      "current": {
+        "level": "prop_stress",
+        "manifest_sha256": "c04006ed81347722e8cefa1369485bb770d608c748e32262ef5481d494e3b59c",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 3,
+              "edge": 1024,
+              "charts": 64351,
+              "texels": 713373
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 3,
+              "edge": 1024,
+              "charts": 64351,
+              "texels": 1028157
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__prop_stress.json",
+      "completed_case_receipt_sha256": "21c3683d735a7cd7594de9c3292ade76ca03c58a2509b3d0e9c0dd1cff2d70c6",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__rendering_diagnostic",
+      "source": "tests/fixtures/levels/rendering_diagnostic.json",
+      "classification": "playable",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__rendering_diagnostic.placesmap",
+      "current_package_sha256": "8f9f42f631952f53943c306e51490d4242b95e75e33510043e2432037187a8cd",
+      "current": {
+        "level": "rendering_diagnostic",
+        "manifest_sha256": "f4d49af5f59abb23ea593d7dc93ecb1a9b9fc85e9611281f351c2f0a7b20e4c4",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 214,
+              "texels": 170468
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 214,
+              "texels": 296384
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__rendering_diagnostic.json",
+      "completed_case_receipt_sha256": "7c983def285019a0e8cf4e73871507580a5ea78316ac1bf48791e38d257f5ef8",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__repair__clean",
+      "source": "tests/fixtures/levels/repair/clean.json",
+      "classification": "playable",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__repair__clean.placesmap",
+      "current_package_sha256": "fe638292a329d1259564ecc1ead87e242850e39f421470655f5accbc749b60cc",
+      "current": {
+        "level": "repair_clean",
+        "manifest_sha256": "8c9bda766635504c3800b5eabb9cf15aab7b1b70e3fb0256349534be68a976e7",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 21,
+              "texels": 16114
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 21,
+              "texels": 27811
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__clean.json",
+      "completed_case_receipt_sha256": "1d9318275d9291c6bcb1c6be5bf0d2cea4d711bb2ce751f3388db33f52b9dd07",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__repair__gap_review",
+      "source": "tests/fixtures/levels/repair/gap_review.json",
+      "classification": "playable-review-control",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__repair__gap_review.placesmap",
+      "current_package_sha256": "8b2fd254b1ba1158382624aa35f77139e4639cf7ec4ab298ec5e74b211f5ea87",
+      "current": {
+        "level": "repair_gap_review",
+        "manifest_sha256": "7e5564b16d22a0f8980488e40768305e786b40b5102dcb0ac2f1d279cbdfb8c0",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 20,
+              "texels": 13996
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 20,
+              "texels": 24148
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__gap_review.json",
+      "completed_case_receipt_sha256": "227e91d3c535b15b4903efcbd70e21cb814b3ca8e5255f809133342a943e288b",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__repair__wall_step_x",
+      "source": "tests/fixtures/levels/repair/wall_step_x.json",
+      "classification": "playable-geometry-negative",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__repair__wall_step_x.placesmap",
+      "current_package_sha256": "36fb9ab8ed31bb54e137d06659780e25a3960a4e055666c2ab873ed8ee4d9fa6",
+      "current": {
+        "level": "repair_wall_step_x",
+        "manifest_sha256": "092d4a4010eeedb7a1145183c476a26fe85a34800ca4296eafc6c4887185c7fd",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 44,
+              "texels": 28951
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 44,
+              "texels": 50135
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__wall_step_x.json",
+      "completed_case_receipt_sha256": "ca577cb09b7a521338418dafd5bfdc5d9fb5c68ea5a13877ee8a0fca91f169cf",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__repair__wall_step_z",
+      "source": "tests/fixtures/levels/repair/wall_step_z.json",
+      "classification": "playable-geometry-negative",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__repair__wall_step_z.placesmap",
+      "current_package_sha256": "c81690bb8f2c74a965afce6feaa6bcd0ba9b39e77d655e189104f89569ca14f1",
+      "current": {
+        "level": "repair_wall_step_z",
+        "manifest_sha256": "fcc494aef5a3f19952bc34e010ba0db8d7539bf1ccf48441dc069dc971c33d72",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 44,
+              "texels": 29018
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 44,
+              "texels": 50224
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__wall_step_z.json",
+      "completed_case_receipt_sha256": "39ef6e7d34872fa0807b3c35a84e8efaab887eada4b5641a460c145fc3e973a3",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__round_pool_and_proximity_fade",
+      "source": "tests/fixtures/levels/round_pool_and_proximity_fade.json",
+      "classification": "playable",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__round_pool_and_proximity_fade.placesmap",
+      "current_package_sha256": "ec1fcc96598877846e53c21cd94e0b6a604f38019e826db8a1075ee5439fd61e",
+      "current": {
+        "level": "round_pool_and_proximity_fade",
+        "manifest_sha256": "951f0eaead83c3d099e4ab8ab27fc9461c1dd42aa546d5c51075b80a5023e81d",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 66,
+              "texels": 78208
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 66,
+              "texels": 137280
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__round_pool_and_proximity_fade.json",
+      "completed_case_receipt_sha256": "16546bde8cf57df82b281b865fa069742026d91efc59ab0463b0b9ef136a0e2b",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__test_room",
+      "source": "tests/fixtures/levels/test_room.json",
+      "classification": "playable",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__test_room.placesmap",
+      "current_package_sha256": "80873a77ce8d043b3e180d427f0527e4127745c095f30457dc34c0b84620bf00",
+      "current": {
+        "level": "test_room",
+        "manifest_sha256": "6c2c8e902fbdeb75c71bd02df4d14e181d6356565683f86af66cf3699756c637",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 681,
+              "texels": 170263
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 681,
+              "texels": 297496
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__test_room.json",
+      "completed_case_receipt_sha256": "3a03fe1eb573af03ad04b878f48c7a20cfd5247ce9979a93145317a810d19e46",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__vertical_diagnostic",
+      "source": "tests/fixtures/levels/vertical_diagnostic.json",
+      "classification": "playable",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__vertical_diagnostic.placesmap",
+      "current_package_sha256": "5ea12f683377db113e915c76c400e59676b18ba97909cfb0d94347ee94501289",
+      "current": {
+        "level": "vertical_diagnostic",
+        "manifest_sha256": "784eec6dd48c32998b28c561975d483403193bfd5b8de128e50776e4657237c5",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 443,
+              "texels": 261914
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 0,
+            "atlas": {
+              "pages": 2,
+              "edge": 1024,
+              "charts": 443,
+              "texels": 455351
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__vertical_diagnostic.json",
+      "completed_case_receipt_sha256": "6df5d8b5fac29b5875788f94540ba6f829401189fee6609839d8173185387f41",
+      "losses": []
+    },
+    {
+      "key": "tests__fixtures__levels__water_transmission",
+      "source": "tests/fixtures/levels/water_transmission.json",
+      "classification": "playable",
+      "accepted_references": [],
+      "status": "no-matched-prior-archive",
+      "current_package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__water_transmission.placesmap",
+      "current_package_sha256": "f05857587a8fcae929131f29e9bfbf9a653f31fa5137ab6be9b53493aed7028f",
+      "current": {
+        "level": "water_transmission",
+        "manifest_sha256": "9917e0158dd6ae64cada0323323ca1ead845bcef9c2a2730e7dc39e6199a879e",
+        "variants": {
+          "off": {
+            "atlas_present": false,
+            "irradiance_present": false,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": null
+          },
+          "medium": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 55,
+              "texels": 54302
+            }
+          },
+          "full": {
+            "atlas_present": true,
+            "irradiance_present": true,
+            "failure": null,
+            "reflection_groups": 2,
+            "atlas": {
+              "pages": 1,
+              "edge": 1024,
+              "charts": 55,
+              "texels": 94448
+            }
+          }
+        }
+      },
+      "completed_case_receipt": "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__water_transmission.json",
+      "completed_case_receipt_sha256": "73e0783b1bcf3cfbfdbb0f611f2c15726be89abcdfc7327403b3064325927775",
+      "losses": []
+    }
+  ],
+  "losses": [],
+  "pending_supported_cases": [],
+  "scope": "Actual original accepted installed-package/source-matched runnable-bundle atlas and field availability. Partial current cases are explicit; a newly degraded manifest cannot authorize fallback acceptance. Native visibility and brightness remain separate."
+}

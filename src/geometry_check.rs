@@ -2378,7 +2378,7 @@ impl Checker<'_> {
             }
         }
 
-        // Reversed faces and ghost colliders.
+        // Ghost colliders: require real coplanar support at a face centre.
         for collider in colliders {
             if !collider.ghost_checked {
                 continue;
@@ -2394,10 +2394,6 @@ impl Checker<'_> {
                 (2, 1.0),
             ] {
                 let centre = aabb_face_centre(boxed, axis, sign);
-                let mut outward = [0.0_f32; 3];
-                if let Some(slot) = outward.get_mut(axis) {
-                    *slot = sign;
-                }
                 let mut face_covered = false;
                 if let Some(candidates) = index.near(centre) {
                     for slot in candidates {
@@ -2407,18 +2403,14 @@ impl Checker<'_> {
                         else {
                             continue;
                         };
-                        let offset = dot3(triangle.normal, sub3(centre, triangle.points[0]));
-                        if offset.abs() > FACE_SAMPLE_EPS_M {
-                            continue;
-                        }
-                        if !triangle_on_face(triangle, boxed, axis) {
+                        if !triangle_on_face(triangle, boxed, axis, sign) {
                             continue;
                         }
                         if !point_in_triangle(centre, triangle) {
                             continue;
                         }
-                        let _ = outward;
                         face_covered = true;
+                        break;
                     }
                 }
                 if face_covered {
@@ -2483,22 +2475,52 @@ fn point_in_triangle(point: [f32; 3], triangle: &Tri) -> bool {
         || (ab <= epsilon && bc <= epsilon && ca <= epsilon)
 }
 
-/// True when a triangle's centroid lies within a collider's face rectangle.
-fn triangle_on_face(triangle: &Tri, boxed: &WallAabb, axis: usize) -> bool {
-    let centre = triangle.centroid;
-    let mut within = true;
-    for (candidate, value) in centre.iter().enumerate() {
-        if candidate == axis {
-            continue;
-        }
-        let (low, high) = match candidate {
-            0 => (boxed.min_x, boxed.max_x),
-            1 => (boxed.min_y, boxed.max_y),
-            _ => (boxed.min_z, boxed.max_z),
-        };
-        within = within && *value >= low - 0.001 && *value <= high + 0.001;
+/// True when a triangle lies on and overlaps the actual collider face.
+///
+/// Collider decomposition and mesh triangulation need not share partitions: a
+/// supporting triangle may contain the entire face with its centroid outside
+/// the box. Clip the triangle to the face instead. Positive area alone is not
+/// coverage: the caller also checks the real face centre against each triangle,
+/// retaining holes between disconnected fragments. Roof-following conservative
+/// AABBs need only one supported face, never an invented horizontal roof cap.
+fn triangle_on_face(triangle: &Tri, boxed: &WallAabb, axis: usize, sign: f32) -> bool {
+    let centre = aabb_face_centre(boxed, axis, sign);
+    let Some(plane) = centre.get(axis) else {
+        return false;
+    };
+    if triangle.points.iter().any(|point| {
+        point
+            .get(axis)
+            .is_none_or(|coordinate| (*coordinate - *plane).abs() > FACE_SAMPLE_EPS_M)
+    }) {
+        return false;
     }
-    within
+    let (low, high) = match axis {
+        0 => ([boxed.min_y, boxed.min_z], [boxed.max_y, boxed.max_z]),
+        1 => ([boxed.min_x, boxed.min_z], [boxed.max_x, boxed.max_z]),
+        _ => ([boxed.min_x, boxed.min_y], [boxed.max_x, boxed.max_y]),
+    };
+    let extent = [high[0] - low[0], high[1] - low[1]];
+    let face_area = extent[0] * extent[1];
+    if face_area <= 0.0 {
+        return false;
+    }
+    let mut overlap = project_triangle(triangle.points, axis);
+    for point in &mut overlap {
+        point[0] -= low[0];
+        point[1] -= low[1];
+    }
+    let rectangle = [[0.0_f32, 0.0], [extent[0], 0.0], extent, [0.0, extent[1]]];
+    for (slot, from) in rectangle.iter().enumerate() {
+        let Some(to) = rectangle.get(wrap_next(slot, rectangle.len())) else {
+            return false;
+        };
+        overlap = clip_polygon_left(&overlap, *from, *to);
+        if overlap.len() < 3 {
+            return false;
+        }
+    }
+    polygon_area(&overlap).abs() > (face_area * 1.0e-6).max(1.0e-9)
 }
 
 /// Exact-box key for duplicate detection, in millimetres.
@@ -4785,6 +4807,134 @@ mod tests {
         ]
     }
 
+    /// Run only the collision checker against a synthetic, engine-matched box.
+    fn ghost_findings(boxed: WallAabb, triangles: &[Tri]) -> Vec<Finding> {
+        let level = joint_level(&[]);
+        let mut checker = Checker::new(&level);
+        let colliders = [Collider {
+            source: "synthetic wall".to_owned(),
+            aabb: boxed,
+            ghost_checked: true,
+        }];
+        checker.check_colliders(
+            &colliders,
+            &[boxed],
+            triangles,
+            &SpatialHash::build(triangles),
+        );
+        checker.findings
+    }
+
+    #[test]
+    fn ghost_face_support_accepts_containing_triangle_with_outside_centroid() {
+        // A narrow tail of a collider partition can share a much larger mesh
+        // triangle. Repeat at a large offset to exercise the local clipping frame.
+        for offset in [0.0_f32, 250.0] {
+            let boxed = WallAabb::with_y(offset, offset, offset, 1.0, 1.0, 0.2);
+            let triangle = x_axis_triangle(
+                offset,
+                [offset - 10.0, offset - 10.0],
+                [offset + 40.0, offset - 10.0],
+                [offset - 10.0, offset + 40.0],
+                0,
+            );
+            assert!(
+                triangle.centroid[0] > boxed.max_x && triangle.centroid[1] > boxed.max_y,
+                "the control centroid must be outside both face extents"
+            );
+            assert!(
+                triangle_on_face(&triangle, &boxed, 2, -1.0),
+                "real clipped support must survive unrelated collision partitions"
+            );
+            assert!(
+                ghost_findings(boxed, &[triangle]).is_empty(),
+                "the containing triangle covers the actual collider face centre"
+            );
+        }
+    }
+
+    #[test]
+    fn ghost_face_support_rejects_unsupported_and_partial_boxes() {
+        let boxed = WallAabb::with_y(0.0, 0.0, 0.0, 1.0, 1.0, 0.2);
+        for triangles in [Vec::new(), x_axis_quad(0.0, 0.0, 0.4, 0.0, 1.0, 0)] {
+            let findings = ghost_findings(boxed, &triangles);
+            assert_eq!(findings.len(), 1, "uncovered box must retain its warning");
+            assert_eq!(
+                findings[0].check, "ghost-collider",
+                "expected ghost warning"
+            );
+        }
+        let centre_patch = x_axis_quad(0.0, 0.4, 0.6, 0.4, 0.6, 0);
+        assert!(
+            ghost_findings(boxed, &centre_patch).is_empty(),
+            "ghost support remains a centre heuristic, not whole-face watertightness"
+        );
+    }
+
+    #[test]
+    fn ghost_face_support_preserves_real_holes_between_coplanar_fragments() {
+        let boxed = WallAabb::with_y(0.0, 0.0, 0.0, 1.0, 1.0, 0.2);
+        let mut fragments = x_axis_quad(0.0, 0.0, 0.45, 0.0, 1.0, 0);
+        fragments.extend(x_axis_quad(0.0, 0.55, 1.0, 0.0, 1.0, 0));
+        fragments.extend(x_axis_quad(0.0, 0.45, 0.55, 0.0, 0.45, 0));
+        fragments.extend(x_axis_quad(0.0, 0.45, 0.55, 0.55, 1.0, 0));
+        assert!(
+            fragments
+                .iter()
+                .all(|triangle| triangle_on_face(triangle, &boxed, 2, -1.0)),
+            "every fragment must have actual positive coplanar area"
+        );
+        let findings = ghost_findings(boxed, &fragments);
+        assert_eq!(
+            findings.len(),
+            1,
+            "fragment bounds cannot fill the real hole"
+        );
+        assert_eq!(findings[0].check, "ghost-collider", "hole retains warning");
+    }
+
+    #[test]
+    fn ghost_face_support_requires_coplanarity_and_positive_area() {
+        let boxed = WallAabb::with_y(0.0, 0.0, 0.0, 1.0, 1.0, 0.2);
+        let edge = x_axis_triangle(0.0, [1.0, 0.0], [2.0, 0.0], [1.0, 1.0], 0);
+        assert!(
+            !triangle_on_face(&edge, &boxed, 2, -1.0),
+            "edge contact has no positive face area"
+        );
+        let offset = x_axis_quad(0.01, 0.0, 1.0, 0.0, 1.0, 0);
+        assert!(
+            offset
+                .iter()
+                .all(|triangle| !triangle_on_face(triangle, &boxed, 2, -1.0)),
+            "nearby parallel faces beyond the existing tolerance cannot support the box"
+        );
+        let mut crossing = x_axis_triangle(0.0, [0.0, 0.0], [1.0, 0.0], [0.5, 1.0], 0);
+        crossing.points[0][2] = -0.1;
+        crossing.points[1][2] = 0.1;
+        assert!(
+            !triangle_on_face(&crossing, &boxed, 2, -1.0),
+            "a slanted crossing is not a coplanar collider face"
+        );
+    }
+
+    #[test]
+    fn hero_collision_partitions_have_real_face_support() {
+        let (_, report) = fixture(
+            include_str!("../tests/fixtures/levels/art_style_hero.json"),
+            "art_style_hero",
+        );
+        assert!(report.validated, "the unchanged hero must validate");
+        assert!(
+            !has(&report, "ghost-collider", Severity::Warning),
+            "mesh support must survive the legitimate wall collision partitions: {:?}",
+            counts(&report)
+        );
+        assert!(
+            has(&report, "room-leak", Severity::Warning),
+            "the intentionally open decorative garden remains an unsuppressed warning"
+        );
+    }
+
     /// True when a plan point lies inside a convex polygon.
     fn inside_polygon(point: Vec2, polygon: &[(f32, f32)]) -> bool {
         let mut sign = 0.0_f32;
@@ -4930,38 +5080,18 @@ mod tests {
     }
 
     #[test]
-    fn the_shipped_demo_reports_only_the_confirmed_wall_step() {
+    fn the_shipped_demo_has_no_confirmed_geometry_defects() {
         let (level, report) = fixture(
             include_str!("../assets/levels/places_demo.json"),
             "places_demo",
         );
         assert!(report.validated);
-        // Job 06's confirmed defect: wall 37 is half a thickness off the
-        // corridor's coplanar chain (walls 16/19/31). Agent C's source repair
-        // removes the joint; this test accepts either state and never any
-        // other confirmed defect.
         let joints = wall_joints(&level);
-        if !joints.is_empty() {
-            assert_eq!(joints.len(), 1, "{joints:#?}");
-            let joint = &joints[0];
-            assert_eq!((joint.first, joint.second), (31, 37), "{joint:#?}");
-            assert_eq!(joint.kind, "step");
-            assert!(joint.auto_repairable, "{joint:#?}");
-            assert!((joint.shift - 0.15).abs() <= 1.0e-4, "{joint:#?}");
-            assert_eq!(joint.authority, "chain");
-        }
-        for finding in &report.findings {
-            if finding.severity == Severity::Error {
-                assert_eq!(
-                    finding.check, "wall-joint-step",
-                    "unexpected confirmed defect: {finding:?}"
-                );
-            }
-        }
+        assert_eq!(joints.len(), 0_usize, "{joints:#?}");
         assert_eq!(
             report.error_count(),
-            joints.len(),
-            "one error per wall joint: {:#?}",
+            0_usize,
+            "unexpected confirmed defect: {:#?}",
             counts(&report)
         );
     }

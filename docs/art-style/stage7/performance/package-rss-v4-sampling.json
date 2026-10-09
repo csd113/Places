@@ -1,0 +1,10 @@
+{
+  "started_utc": "2026-10-09T00:26:56.143842+00:00",
+  "finished_utc": "2026-10-09T00:54:49.083436+00:00",
+  "samples": 756,
+  "supervisor_pid": 19069,
+  "runner_pids": [
+    20324
+  ],
+  "scope": "Two-second coarse RSS/%CPU samples of exact compiler children belonging to this recorded final gate process tree; not process-tree peak/GPU memory or exact maximum residency. No safety limit changed."
+}

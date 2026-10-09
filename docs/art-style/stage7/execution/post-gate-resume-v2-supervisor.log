@@ -1,0 +1,107 @@
+{"argv": ["python3", "/tmp/places-stage7-post-gate-serial-v6.py"], "cwd": "/Users/connordawkins/Documents/GitHub/Places", "started_utc": "2026-10-09T05:31:03.363916+00:00", "finished_utc": "2026-10-09T05:31:23.398550+00:00", "elapsed_seconds": 20.034437166061252, "exit_code": 1, "environment_overrides": {"RUSTC_WRAPPER": ""}, "log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/post-gate-resume-v2.log"}
+e,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-linux-platform-v1",
+                "Destination": "/work",
+                "Mode": "",
+                "RW": true,
+                "Propagation": "rprivate"
+            }
+        ],
+        "Config": {
+            "Hostname": "36e8493ec1b2",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "CARGO_TARGET_DIR=/work/target",
+                "RUSTC_WRAPPER=",
+                "PATH=/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "RUSTUP_HOME=/usr/local/rustup",
+                "CARGO_HOME=/usr/local/cargo",
+                "RUST_VERSION=1.99.0"
+            ],
+            "Cmd": [
+                "sleep",
+                "infinity"
+            ],
+            "Image": "rust@sha256:585dced3da590f4f7dc2719172ead5b39ea781bd8b698c092112da8ef3be0659",
+            "Volumes": null,
+            "WorkingDir": "/source",
+            "Entrypoint": null,
+            "Labels": {
+                "org.opencontainers.image.source": "https://github.com/rust-lang/docker-rust"
+            }
+        },
+        "NetworkSettings": {
+            "SandboxID": "8deeebee914afcac93067cebac7d4a3bbf69b0d584c22b97143adb0664e2ffeb",
+            "SandboxKey": "/var/run/docker/netns/8deeebee914a",
+            "Ports": {},
+            "Networks": {
+                "bridge": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": null,
+                    "DriverOpts": null,
+                    "GwPriority": 0,
+                    "NetworkID": "4a3a3e3bcac8038810eb322fd1095d2a9ae74793c1d045bef75435673f244430",
+                    "EndpointID": "389ce7eb654a57b1569a0de66b109fe3e05d36e24f5fcb582bf210e4d4b8ec32",
+                    "Gateway": "172.17.0.1",
+                    "IPAddress": "172.17.0.2",
+                    "MacAddress": "e2:e6:d5:db:f1:c2",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": null
+                }
+            }
+        },
+        "ImageManifestDescriptor": {
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "digest": "sha256:585dced3da590f4f7dc2719172ead5b39ea781bd8b698c092112da8ef3be0659",
+            "size": 1936,
+            "platform": {
+                "architecture": "arm64",
+                "os": "linux",
+                "variant": "v8"
+            }
+        }
+    }
+]
+
+ACTUAL_COMMAND ['docker', 'top', 'places-art-style-stage7-linux-v1', '-eo', 'pid,args']
+PID                 COMMAND
+653                 sleep infinity
+
+ACTUAL_COMMAND ['docker', 'cp', 'places-art-style-stage7-linux-v1:/work/target/release/places', '/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-linux-readonly-attempt-preserved-v1/places']
+
+ACTUAL_COMMAND ['docker', 'cp', 'places-art-style-stage7-linux-v1:/work/target/release/places-compile', '/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-linux-readonly-attempt-preserved-v1/places-compile']
+
+ACTUAL_COMMAND ['docker', 'commit', '--pause=false', 'places-art-style-stage7-linux-v1']
+Flag --pause has been deprecated, and enabled by default. Use --no-pause to disable pausing during commit.
+sha256:4799f5f7ff4db4b2a7c8799d15f8973445ec2e8b19be2dd752831782e00588de
+
+Traceback (most recent call last):
+  File "/tmp/places-stage7-linux-remount-v1.py", line 20, in <module>
+    image=run(['docker','commit','--pause=false',old]).strip();assert image.startswith('sha256:')
+                                                                      ~~~~~~~~~~~~~~~~^^^^^^^^^^^
+AssertionError
+
+Traceback (most recent call last):
+  File "/tmp/places-stage7-post-gate-serial-v6.py", line 22, in <module>
+    subprocess.run([sys.executable,"/tmp/places-stage7-command.py",label,*argv],cwd=root,check=True)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/subprocess.py", line 577, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['/Library/Frameworks/Python.framework/Versions/3.13/bin/python3', '/tmp/places-stage7-command.py', 'linux-readonly-remount-v1', '/Library/Frameworks/Python.framework/Versions/3.13/bin/python3', '/tmp/places-stage7-linux-remount-v1.py']' returned non-zero exit status 1.
+

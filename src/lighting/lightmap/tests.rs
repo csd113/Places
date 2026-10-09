@@ -426,6 +426,53 @@ fn the_shipped_page_budget_is_used_when_genuinely_needed() {
 }
 
 #[test]
+fn full_page_policy_preserves_sampling_and_invalidates_the_eight_page_cache() {
+    let full = LightmapConfig::for_profile(QualityProfile::Full);
+    assert_eq!(full.max_pages, 10, "Full admits the measured minimum");
+    let previous_full = LightmapConfig {
+        max_pages: 8,
+        ..full
+    };
+    for receiver in [patch(0.3, 0.35), patch(8.0, 6.0), patch(63.6875, 63.6875)] {
+        assert_eq!(
+            full.chart_texels(&receiver),
+            previous_full.chart_texels(&receiver),
+            "the page policy cannot change samples or gutters"
+        );
+        assert_eq!(full.padding_for(receiver.kind), 2);
+    }
+    let level = crate::level::LevelDef::from_json(
+        r#"{"format_version":3,"id":"page_policy","name":"Page policy",
+            "spawn":{"x":1,"z":1},
+            "rooms":[{"x":0,"z":0,"width":8,"depth":6,"height":3}]}"#,
+    )
+    .expect("the policy fixture parses");
+    assert_ne!(
+        content_key(&level, &full, QualityProfile::Full),
+        content_key(&level, &previous_full, QualityProfile::Full),
+        "the previous Full atlas must not survive a changed page budget"
+    );
+    let medium = crate::quality::LightmapQuality::Medium
+        .lightmap_config()
+        .expect("Medium has an atlas");
+    let previous_medium = LightmapConfig {
+        texels_per_metre: 12.0,
+        ..previous_full
+    };
+    assert_eq!(medium, previous_medium, "Medium's whole policy is retained");
+    assert_eq!(
+        content_key(&level, &medium, QualityProfile::Full),
+        content_key(&level, &previous_medium, QualityProfile::Full),
+        "unchanged Medium inputs preserve their atlas key"
+    );
+    assert_eq!(
+        LightmapConfig::for_profile(QualityProfile::Low).max_pages,
+        8,
+        "Low retains its prior budget"
+    );
+}
+
+#[test]
 fn a_two_page_allocator_still_reports_the_same_overflow() {
     // The budget is a config field, not a hard-coded count: an allocator built
     // with two pages still fills two and rejects the third with the same named
@@ -1679,7 +1726,7 @@ fn patch_set(lightmaps: &LevelLightmaps) -> Vec<PatchIdentity> {
 }
 
 /// A synthetic two-storey tower whose two 55 x 55 m floors plus their ceilings
-/// need more than the historical two-page budget but fit the shipped eight. It
+/// need more than the historical two-page budget but fit the former eight. It
 /// pins the capacity contract on a clean checkout, where the drop-in Pit is not
 /// present.
 fn large_tower_level() -> crate::level::LevelDef {
@@ -1762,8 +1809,8 @@ fn the_pit_bakes_into_the_shipped_page_budget_at_full() {
     let profile = QualityProfile::Full;
     let config = profile.lightmap_config();
     assert_eq!(
-        config.max_pages, 8,
-        "the shipped profile supports the shared eight-page budget"
+        config.max_pages, 10,
+        "the shipped Full profile supports the measured ten-page budget"
     );
     assert_eq!(config.page_edge, 1024);
 
@@ -1812,13 +1859,13 @@ fn the_pit_bakes_into_the_shipped_page_budget_at_full() {
 
 /// The 2026 raise from four pages to eight: a third 55 m x 55 m storey must
 /// overflow the old four-page budget by name (falling back to vertex lighting),
-/// and the shipped eight-page budget must bake it with more than four pages
+/// and the former eight-page budget must bake it with more than four pages
 /// actually resident. Without this, the raise would be an unproven constant.
 #[test]
 fn the_three_storey_tower_needs_the_raised_page_budget() {
     let profile = QualityProfile::Full;
     let config = profile.lightmap_config();
-    assert_eq!(config.max_pages, 8);
+    assert_eq!(config.max_pages, 10);
     let taller = large_tower_level_with_storeys(3);
     let mut four_page = config;
     four_page.max_pages = 4;
@@ -1829,7 +1876,11 @@ fn the_three_storey_tower_needs_the_raised_page_budget() {
         "the three-storey tower must overflow a four-page budget"
     );
     assert!(four.lightmaps.is_none());
-    let raised = build_with_config(&taller, config);
+    let eight_page = LightmapConfig {
+        max_pages: 8,
+        ..config
+    };
+    let raised = build_with_config(&taller, eight_page);
     assert_eq!(
         raised.lightmap_failure, None,
         "the eight-page budget must bake the three-storey tower"

@@ -1,0 +1,22 @@
+ACTUAL_COMMAND ['cargo', 'fmt', '--all', '--check']
+ACTUAL_COMMAND ['cargo', 'test', '--locked', '--lib', '--all-features', 'the_geometry_revision_is_part_of_both_build_fingerprints']
+   Compiling places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `test` profile [optimized + debuginfo] target(s) in 24.37s
+     Running unittests src/lib.rs (target/debug/deps/places-4d06d8c90f45374a)
+
+running 1 test
+test loader::tests::the_geometry_revision_is_part_of_both_build_fingerprints ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2194 filtered out; finished in 0.00s
+
+ACTUAL_COMMAND ['cargo', 'test', '--locked', '--lib', '--all-features', 'the_embedded_demo_requires_catalog_then_assets_only_with_an_installed_root']
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.37s
+     Running unittests src/lib.rs (target/debug/deps/places-4d06d8c90f45374a)
+
+running 1 test
+test package::world::dependency_tests::the_embedded_demo_requires_catalog_then_assets_only_with_an_installed_root ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2194 filtered out; finished in 0.08s
+
+ACTUAL_COMMAND ['cargo', 'build', '--locked', '--release']
+    Finished `release` profile [optimized] target(s) in 0.17s

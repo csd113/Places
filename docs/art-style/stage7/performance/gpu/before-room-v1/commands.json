@@ -1,0 +1,53 @@
+{
+  "native": [
+    "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+    "/Users/connordawkins/Documents/GitHub/Places/tools/bench/capture_art_style_hero.py",
+    "--out",
+    "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/performance/gpu/before-room-v1/native",
+    "--binary",
+    "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage6/places",
+    "--asset-root",
+    "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage6",
+    "--package",
+    "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage6/assets/levels/art_style_hero.placesmap",
+    "--views",
+    "room",
+    "--frames",
+    "720",
+    "--lighting-sequence",
+    "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/performance/gpu/before-room-v1/native-capture-sequence.json",
+    "--manifest",
+    "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage6/hero-manifest.json"
+  ],
+  "trace": [
+    "xcrun",
+    "xctrace",
+    "record",
+    "--template",
+    "Metal System Trace",
+    "--time-limit",
+    "8s",
+    "--output",
+    "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-before-room-v1.trace",
+    "--attach",
+    "92657"
+  ],
+  "verified_owned_pid": 92657,
+  "native_wrapper_pid": 92641,
+  "owned_pgid": 92641,
+  "identities": {
+    "binary": {
+      "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage6/places",
+      "sha256": "7489f5eb25549c25c229fa317999321c20eb2aac93dbe883255539aca67c2926"
+    },
+    "package": {
+      "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage6/assets/levels/art_style_hero.placesmap",
+      "sha256": "8814a82b0abdc44df31c4de8f56a834ca141b1c612dffb1000fb3cf402138d37"
+    },
+    "camera_manifest": {
+      "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage6/hero-manifest.json",
+      "sha256": "99a5b82a5b727b99ebe0c0cdbd5c5e036a0191bb4d739f3fa4691c73f84dd2b7"
+    }
+  },
+  "method": "Actual capture sequence uses normal scene/post shaders and resident targets. GPU capture and surface populations must be classified from real trace tables. Untouched profiling PNGs retained outside target. Capture/readback timings do not establish gameplay FPS."
+}

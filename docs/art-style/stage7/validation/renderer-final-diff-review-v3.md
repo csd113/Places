@@ -1,0 +1,12 @@
+Scoped source review passed: no new production defect found. All 293 v14 pins match, including all 223 Rust/build inputs unchanged from v12; compiler/player remain f3f27db9…/f5d3a2fe…. The earlier complete diff and actual focused proofs remain applicable. No build, bake, native/GPU, Git or target operation ran for this review.
+
+Corrected only the approved current prose in [RENDERER.md](/Users/connordawkins/Documents/GitHub/Places/docs/RENDERER.md) §§9–10 and [PACKAGE_FORMAT.md](/Users/connordawkins/Documents/GitHub/Places/docs/PACKAGE_FORMAT.md) §4.3: HDR static props/water; current entity and caster payloads; retained door shading and animated bind-bounds limits; actual bounded steam/snow reserve; fixture layer switching; committed decal PNG and alpha/field contracts; transport16. Reconstructing each prior document hash proves all text outside those sections stayed byte-exact. Exact paragraph diffs and source references are in [the JSON receipt](renderer-final-diff-review-v3.json).
+
+PLMP6 encoded/expanded512MiB guards and literal3/4/5 compatibility, Geometry7 exact owned roofs, ghost support, Solver16 shared strict lattice, Full10/lower8 and typed320MiB+64KiB/aggregate1GiB contracts agree. Required current host strict checks and workspace tests passed; the failed composed git-lfs wrapper remains failed. Linux combines actual2169 library tests, corrected CLI4 and remaining targets. Windows establishes PE linking and strict checks, without physical window/GPU execution.
+
+Limits remain explicit: finite phase feasibility; ghost face-centre support; coarse quarter-span and atlas accounting; bind-pose character bounds; fixed atlases during motion; archive bytes do not measure runtime RSS. Earlier Snowfall raw semantic equality predates the authorized outward render-face field and is not claimed for the changed current semantics. Original Demo chair rejection is a legitimate16-mesh budget result; registered-mesh reuse witnesses require genuine native evidence.
+
+Current Home strict whole-frame restoration/parity failures are preserved and separately await source-grounded animation triage. Kitchen models, Demo/Home joins and close Hallows skeleton appearance remain uninvestigated successor issues. Final native, visual/performance, ledger, snapshots and CI acceptance is pending.
+
+Canonical-document and v3 review custody is released with no jobs. Separately allocated Home read-only triage follows.
+

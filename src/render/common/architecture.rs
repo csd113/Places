@@ -35,7 +35,7 @@ use super::{
 use crate::level::{
     ArcWallDef, ArchwayDef, BaseboardDef, ColumnDef, GuardrailDef, HalfWallDef, LevelDef,
     LevelSurfaces, MaterialRef, PillarDef, RampDef, StairDef, ThresholdDef, VoidWallDef, WallAxis,
-    axis_positions, round_point, wall_solid_slices_profiled,
+    axis_positions, round_point,
 };
 use crate::lighting::light_grid_cells;
 use crate::lighting::lightmap::PatchKind;
@@ -2894,9 +2894,9 @@ fn baseboard_end_flush_with_wall(
         if cross_low < span_low - 0.01 || cross_high > span_high + 0.01 {
             continue;
         }
-        let breaks = context.surfaces.wall_profile_breaks(wall);
-        let clear = |offset: f32| context.surfaces.clear_ceiling_height_along(wall, offset);
-        let covered = wall_solid_slices_profiled(wall, clear, &breaks)
+        let covered = context
+            .surfaces
+            .wall_solid_slices(wall)
             .iter()
             .any(|slice| {
                 slice.start <= end_point - span_low + 0.01

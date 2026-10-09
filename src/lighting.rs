@@ -137,6 +137,7 @@ mod color;
 pub mod directional;
 mod light;
 pub mod lightmap;
+pub(crate) mod probe_placement;
 pub mod probes;
 pub mod transport;
 

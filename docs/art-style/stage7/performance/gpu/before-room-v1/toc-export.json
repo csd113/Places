@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "xcrun",
+    "xctrace",
+    "export",
+    "--input",
+    "debug-maps/art-style-hero/evidence/stage7-before-room-v1.trace",
+    "--toc",
+    "--output",
+    "debug-maps/art-style-hero/evidence/stage7-before-room-v1-export/toc.xml"
+  ],
+  "exit_code": 0,
+  "stdout": "Finished export to the file: /Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-before-room-v1-export/toc.xml\n",
+  "stderr": ""
+}

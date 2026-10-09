@@ -238,11 +238,7 @@ fn adjacent_roof_collision_spans_cannot_borrow_a_neighbours_endpoint_height() ->
             .height = next_height;
         let surfaces = LevelSurfaces::new(&level);
         let wall = level.walls.first().ok_or_else(|| "side wall".to_owned())?;
-        let slices = wall_solid_slices_profiled(
-            wall,
-            |offset| surfaces.clear_ceiling_height_along(wall, offset),
-            &surfaces.wall_profile_breaks(wall),
-        );
+        let slices = surfaces.wall_solid_slices(wall);
         for slice in slices {
             let owner = surfaces
                 .wall_ceiling_room(wall, f32::midpoint(slice.start, slice.end))
@@ -258,6 +254,106 @@ fn adjacent_roof_collision_spans_cannot_borrow_a_neighbours_endpoint_height() ->
             );
         }
     }
+    Ok(())
+}
+
+/// The recovered Blizzard wall coordinates exposed a one-ULP underestimate
+/// when rounded quarter-span roof samples were extrapolated to the ridge.
+fn rounded_gable_bound_level() -> Result<LevelDef, String> {
+    LevelDef::from_json(
+        r#"{
+        "format_version": 3, "id": "rounded_gable_bounds", "name": "Rounded Gable Bounds",
+        "spawn": { "x": 12.0, "z": -27.0 },
+        "rooms": [{ "x": 8.0, "z": -30.0, "width": 9.0, "depth": 6.0,
+            "height": 2.7, "ceiling": { "kind": "gable", "ridge": "x", "ridge_rise": 1.6 } }],
+        "walls": [
+            { "x": 8.0, "z": -29.719999313354492, "width": 0.3, "depth": 5.440000057220459 },
+            { "x": 16.700000762939453, "z": -29.719999313354492, "width": 0.3, "depth": 5.440000057220459 }
+        ] }"#,
+    )
+    .map_err(|error| error.to_string())
+}
+
+#[test]
+fn owned_gable_collision_spans_keep_exact_endpoint_bounds() -> Result<(), String> {
+    let level = rounded_gable_bound_level()?;
+    let surfaces = LevelSurfaces::new(&level);
+    let room = level.rooms.first().ok_or("gable room")?;
+    let ridge = room.ridge_y().ok_or("gable ridge")?;
+    assert_eq!(ridge.to_bits(), 0x4089_999a, "exact authored ridge");
+    for wall in &level.walls {
+        let slices = surfaces.wall_solid_slices(wall);
+        assert_eq!(slices.len(), 2, "both linear sides meet the ridge");
+        for slice in slices {
+            assert_eq!(slice.top.to_bits(), ridge.to_bits(), "exact ridge bound");
+        }
+    }
+    let boxes = level.collision_aabbs();
+    assert_eq!(boxes.len(), 4, "two unchanged partitions per wall");
+    for boxed in boxes {
+        assert_eq!(boxed.max_y.to_bits(), ridge.to_bits(), "serialized bound");
+    }
+    Ok(())
+}
+
+#[test]
+fn owned_adjacent_roof_spans_keep_their_own_exact_endpoint_maxima() -> Result<(), String> {
+    for next_height in [2.0, 4.0] {
+        let mut level = adjacent_roof_level(false)?;
+        level.rooms.last_mut().ok_or("adjacent roof")?.height = next_height;
+        let surfaces = LevelSurfaces::new(&level);
+        let wall = level.walls.first().ok_or("side wall")?;
+        for slice in surfaces.wall_solid_slices(wall) {
+            let owner = surfaces
+                .wall_ceiling_room(wall, f32::midpoint(slice.start, slice.end))
+                .ok_or("supported span")?;
+            let endpoint = |offset| {
+                let (x, z) = super::wall_point(wall, offset);
+                owner.ceiling_y_at(x, z) - owner.floor_y + wall.y
+            };
+            let maximum = endpoint(slice.start).max(endpoint(slice.end));
+            assert_eq!(
+                slice.top.to_bits(),
+                maximum.to_bits(),
+                "sloped/ridge/shared endpoints must use only their span's roof"
+            );
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn owned_constant_and_explicit_wall_bounds_are_exact() -> Result<(), String> {
+    let mut level = rounded_gable_bound_level()?;
+    level.rooms.first_mut().ok_or("room")?.ceiling = CeilingProfileDef::Flat;
+    let room = level.rooms.first().ok_or("room")?;
+    let surfaces = LevelSurfaces::new(&level);
+    for wall in &level.walls {
+        for slice in surfaces.wall_solid_slices(wall) {
+            assert_eq!(slice.top.to_bits(), room.height.to_bits(), "flat endpoint");
+        }
+    }
+    level.walls.first_mut().ok_or("wall")?.height = Some(1.25);
+    let explicit_surfaces = LevelSurfaces::new(&level);
+    for slice in explicit_surfaces.wall_solid_slices(level.walls.first().ok_or("wall")?) {
+        assert_eq!(slice.top.to_bits(), 1.25_f32.to_bits(), "explicit height");
+    }
+    Ok(())
+}
+
+#[test]
+fn owned_gable_bounds_preserve_body_and_support_predicates() -> Result<(), String> {
+    let level = rounded_gable_bound_level()?;
+    let boxes = level.collision_aabbs();
+    let first = boxes.first().ok_or("first wall span")?;
+    let foot_y = f32::from_bits(0x4089_9168);
+    assert!(
+        first.blocks_body(foot_y, crate::collision::PLAYER_HEIGHT),
+        "the preserved original top blocks at the exact prior counterexample"
+    );
+    let support = crate::collision::highest_support_top(8.15, -28.0, 4.5, &boxes)
+        .ok_or("gable wall support")?;
+    assert_eq!(support.to_bits(), 0x4089_999a, "exact prior support height");
     Ok(())
 }
 

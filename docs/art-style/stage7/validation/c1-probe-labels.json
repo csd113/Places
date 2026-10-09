@@ -1,0 +1,433 @@
+{
+  "utc": "2026-10-08T23:36:27.682956+00:00",
+  "status": "Historical superseded C1 label inventory only; valid radius/visibility/usable spatial coverage require independent checks.",
+  "cases": [
+    {
+      "key": "assets__levels__model_zoo",
+      "preserved_package": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/assets__levels__model_zoo.placesmap",
+      "source_package_sha256": "2f9069c8815b50febad14b3adc0a09e3f12680b82dddd5cb66194939da868ec0",
+      "count": 5888,
+      "room_counts": [
+        105,
+        105,
+        105,
+        105,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        119,
+        120,
+        119,
+        119,
+        120,
+        119,
+        119,
+        120,
+        120,
+        120,
+        119,
+        120,
+        120,
+        128,
+        120,
+        120,
+        120
+      ],
+      "zero_label_rooms": [],
+      "invalid_count": 2106
+    },
+    {
+      "key": "assets__levels__movement_test",
+      "preserved_package": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/assets__levels__movement_test.placesmap",
+      "source_package_sha256": "fd6797353fb9f21f9e593e6a9b40d6e72e678d15c9e91a6eb25e5a96a25443c3",
+      "count": 16815,
+      "room_counts": [
+        6409,
+        3,
+        81,
+        126,
+        108,
+        135,
+        1499,
+        203
+      ],
+      "zero_label_rooms": [],
+      "invalid_count": 8251
+    },
+    {
+      "key": "assets__levels__places_demo",
+      "preserved_package": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/assets__levels__places_demo.placesmap",
+      "source_package_sha256": "3a4561f1a909b1cc64b23fda1fb0c22c1f130da457ed72f583f09d35f3227acf",
+      "count": 19968,
+      "room_counts": [
+        12,
+        15,
+        15,
+        169,
+        12,
+        40,
+        85,
+        0,
+        1,
+        8,
+        0,
+        12,
+        1018,
+        10
+      ],
+      "zero_label_rooms": [
+        7,
+        10
+      ],
+      "invalid_count": 18571
+    },
+    {
+      "key": "assets__levels__winter",
+      "preserved_package": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/assets__levels__winter.placesmap",
+      "source_package_sha256": "b1db7e027c578a9765f70d9becf34bbc88900f4384e8d3f8657221e7319383da",
+      "count": 16074,
+      "room_counts": [
+        60,
+        36,
+        30,
+        660,
+        297,
+        307,
+        299,
+        283,
+        177,
+        186,
+        112,
+        107,
+        187,
+        186,
+        192,
+        169,
+        48,
+        47,
+        12,
+        14,
+        120,
+        118,
+        48,
+        60,
+        236,
+        238,
+        60,
+        72,
+        92,
+        96,
+        96,
+        90,
+        96,
+        95,
+        95,
+        83,
+        93,
+        141,
+        169,
+        180,
+        297,
+        308,
+        299,
+        288
+      ],
+      "zero_label_rooms": [],
+      "invalid_count": 9195
+    },
+    {
+      "key": "levels__blizzard_review",
+      "preserved_package": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/levels__blizzard_review.placesmap",
+      "source_package_sha256": "48af46a8afdf190c674813e80e4043517d9068be5e6b15340779aff7c39c9c4e",
+      "count": 16074,
+      "room_counts": [
+        60,
+        36,
+        30,
+        660,
+        297,
+        307,
+        299,
+        283,
+        177,
+        186,
+        112,
+        107,
+        187,
+        186,
+        192,
+        169,
+        48,
+        47,
+        12,
+        14,
+        120,
+        118,
+        48,
+        60,
+        236,
+        238,
+        60,
+        72,
+        92,
+        96,
+        96,
+        90,
+        96,
+        95,
+        95,
+        83,
+        93,
+        141,
+        169,
+        180,
+        297,
+        308,
+        299,
+        288
+      ],
+      "zero_label_rooms": [],
+      "invalid_count": 9195
+    },
+    {
+      "key": "levels__geometry_intentional",
+      "preserved_package": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/levels__geometry_intentional.placesmap",
+      "source_package_sha256": "41d152bd0ca7b7d32c91eb899fec90695dbf53d739bacc838ef386c20d0058d5",
+      "count": 220,
+      "room_counts": [
+        96,
+        55,
+        8
+      ],
+      "zero_label_rooms": [],
+      "invalid_count": 61
+    },
+    {
+      "key": "levels__home_showcase",
+      "preserved_package": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/levels__home_showcase.placesmap",
+      "source_package_sha256": "f36ee8fe36f267ca33f2d04dfef7c74b56a6ff5c210b38ec9ca69c30e9d013a4",
+      "count": 108,
+      "room_counts": [
+        12,
+        6,
+        5,
+        11
+      ],
+      "zero_label_rooms": [],
+      "invalid_count": 74
+    },
+    {
+      "key": "levels__level0_pit",
+      "preserved_package": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/levels__level0_pit.placesmap",
+      "source_package_sha256": "466f4fe029f3774870c4aa6fe418721c93bbdd41e0cd4e8740ac0136e0a9fec6",
+      "count": 25823,
+      "room_counts": [
+        66,
+        21,
+        279,
+        12,
+        198,
+        198,
+        144,
+        144,
+        32,
+        32,
+        24,
+        24,
+        96,
+        96,
+        60,
+        60,
+        0,
+        0,
+        0,
+        0,
+        555,
+        555,
+        286,
+        288,
+        960
+      ],
+      "zero_label_rooms": [
+        16,
+        17,
+        18,
+        19
+      ],
+      "invalid_count": 21693
+    },
+    {
+      "key": "levels__snowfall_contrast",
+      "preserved_package": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/levels__snowfall_contrast.placesmap",
+      "source_package_sha256": "66ea73c409ca914ec9995ec5f21a0b39ed969e90aa1de61429f1c78f16f57755",
+      "count": 1728,
+      "room_counts": [
+        1704
+      ],
+      "zero_label_rooms": [],
+      "invalid_count": 24
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero",
+      "preserved_package": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/tests__fixtures__levels__art_style_hero.placesmap",
+      "source_package_sha256": "3ca9f2fd29b4b52196bfe9892c9c8bfad2983bc3ae4065949045e2065b458dd8",
+      "count": 495,
+      "room_counts": [
+        36,
+        13,
+        211
+      ],
+      "zero_label_rooms": [],
+      "invalid_count": 235
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_atmosphere",
+      "preserved_package": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/tests__fixtures__levels__art_style_hero_atmosphere.placesmap",
+      "source_package_sha256": "91b216cda2fa452625841a3a45c7652d59b561a281c6ec3358e49462a681c12e",
+      "count": 495,
+      "room_counts": [
+        40,
+        13,
+        168
+      ],
+      "zero_label_rooms": [],
+      "invalid_count": 274
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_aurora",
+      "preserved_package": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/tests__fixtures__levels__art_style_hero_aurora.placesmap",
+      "source_package_sha256": "d7c345282609829f0f4f2e13ad294e4cab10cd5f2addc604029c3aeb7b78904b",
+      "count": 495,
+      "room_counts": [
+        40,
+        13,
+        168
+      ],
+      "zero_label_rooms": [],
+      "invalid_count": 274
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_night",
+      "preserved_package": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/tests__fixtures__levels__art_style_hero_night.placesmap",
+      "source_package_sha256": "fb425f98045fe86b1f0e7ce3a9e3cb5752a131ab5496dc5596b2219bcc2b84f7",
+      "count": 495,
+      "room_counts": [
+        40,
+        13,
+        168
+      ],
+      "zero_label_rooms": [],
+      "invalid_count": 274
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_refined",
+      "preserved_package": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/tests__fixtures__levels__art_style_hero_refined.placesmap",
+      "source_package_sha256": "d5d10fdb538c82c038534a4e9b9537449ada54d982869628dbd3070860f3c749",
+      "count": 495,
+      "room_counts": [
+        40,
+        13,
+        168
+      ],
+      "zero_label_rooms": [],
+      "invalid_count": 274
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_stage4_comparison",
+      "preserved_package": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/tests__fixtures__levels__art_style_hero_stage4_comparison.placesmap",
+      "source_package_sha256": "2e0720096260adeeef45a82b84f0c2bfd942491bb4efd1b672ee33ace65a38ed",
+      "count": 495,
+      "room_counts": [
+        36,
+        13,
+        211
+      ],
+      "zero_label_rooms": [],
+      "invalid_count": 235
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_stage4_entities",
+      "preserved_package": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/tests__fixtures__levels__art_style_hero_stage4_entities.placesmap",
+      "source_package_sha256": "8e2cf9919e5ea0c3dc44fb4bbc74b32d924d988af5c65606aea86e26fb47fbc9",
+      "count": 495,
+      "room_counts": [
+        36,
+        13,
+        211
+      ],
+      "zero_label_rooms": [],
+      "invalid_count": 235
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_stage4_movement",
+      "preserved_package": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/tests__fixtures__levels__art_style_hero_stage4_movement.placesmap",
+      "source_package_sha256": "fd39ba56542df624548561732b84c7e8a79498e5194ff8758ad9304160bc02ec",
+      "count": 495,
+      "room_counts": [
+        36,
+        13,
+        213
+      ],
+      "zero_label_rooms": [],
+      "invalid_count": 233
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_stage4_switchable",
+      "preserved_package": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/tests__fixtures__levels__art_style_hero_stage4_switchable.placesmap",
+      "source_package_sha256": "163307c30b237e3a41b5517c55350944889ab2a1dd737c66f15a9165abd90658",
+      "count": 495,
+      "room_counts": [
+        36,
+        13,
+        211
+      ],
+      "zero_label_rooms": [],
+      "invalid_count": 235
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_storm",
+      "preserved_package": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/tests__fixtures__levels__art_style_hero_storm.placesmap",
+      "source_package_sha256": "8947b252e816359983cc209e3aab0422429956cb7789dae8914af5ac80a2be0f",
+      "count": 495,
+      "room_counts": [
+        40,
+        13,
+        168
+      ],
+      "zero_label_rooms": [],
+      "invalid_count": 274
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_transparency",
+      "preserved_package": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/tests__fixtures__levels__art_style_hero_transparency.placesmap",
+      "source_package_sha256": "cb2a03c2f118ade21452c14ca248eabf861830a322ed614caef13e450bfb367e",
+      "count": 495,
+      "room_counts": [
+        40,
+        13,
+        168
+      ],
+      "zero_label_rooms": [],
+      "invalid_count": 274
+    },
+    {
+      "key": "tests__fixtures__levels__asset_polish_showcase",
+      "preserved_package": "debug-maps/art-style-hero/evidence/stage7-c1-interrupted/packages/tests__fixtures__levels__asset_polish_showcase.placesmap",
+      "source_package_sha256": "065b9a0cdf2ad6d12d95886eb22a2c17d4311ca145c082a852f94d51a7b11380",
+      "count": 243,
+      "room_counts": [
+        141
+      ],
+      "zero_label_rooms": [],
+      "invalid_count": 102
+    }
+  ]
+}

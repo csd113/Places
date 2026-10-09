@@ -1,0 +1,187 @@
+{
+  "recorded_utc": "2026-10-09T02:07:06.945078+00:00",
+  "status": "Measured unchanged C12 individual variants; not normalcombined acceptance",
+  "compiler_sha256": "c12e9c69ddd3bc5ecc04a24f8489f605158145d64423c29535fdac2937161d34",
+  "source_sha256": "8ff5d19cdde7ef853e932de7e03b864fc178eb86e8ac99e138295e40c21845f9",
+  "normal_gate_aggregate_bytes": 1435049755,
+  "aggregate_limit": 1073741824,
+  "excess_bytes": 361307931,
+  "entry_union_bytes": 1435029550,
+  "union_records": 19,
+  "variants": [
+    {
+      "quality": "off",
+      "package": "debug-maps/art-style-hero/evidence/stage7-capacity-before-v1/off.placesmap",
+      "archive_bytes": 115017645,
+      "sha256": "3a27c83a17ce8227b8ccc568ab172788cfb06bbeb1416da9932aecc828874468",
+      "aggregate_bytes": 480622719,
+      "roles": {
+        "collision": 157162,
+        "probes-meta": 150,
+        "mesh": 892069,
+        "lighting": 2308996,
+        "probes": 410144,
+        "props": 473890078,
+        "navigation": 1228214,
+        "compiler-inputs": 284,
+        "semantics": 1720289
+      },
+      "variant": {
+        "lightmap_quality": "off",
+        "quality_profile": "low",
+        "lightmap_failure": null,
+        "entries": {
+          "mesh": "blobs/3496b8c9c2d399ac32ee3b6c23fda8ae542f52098ef03356433b1dbaa7526e81.mesh",
+          "props": "blobs/978601a523c111b9f677713dc57b3fa637021d9e930a7068dd584cd6cd064888.props",
+          "lighting": "blobs/597630696c363ef7dab25a23287948a54d7f46b6082d7b73e6cde975b7c6227f.lighting",
+          "collision": "blobs/00ad1c366b2578b2bdefe5f75948338db3a2ab262b127fd6da98ea538ec8a2a8.collision",
+          "navigation": "blobs/a37ed8125fedae1b175de2f5c41d1e0c21626d4b74928eaf7d186314f160732c.navigation",
+          "lightmaps": null,
+          "lightmaps_meta": null,
+          "irradiance": null,
+          "probes": [
+            {
+              "face_edge": 64,
+              "levels": 7,
+              "count": 1,
+              "cubemaps": [
+                "blobs/7f182185eeddd81825a52895240077f73c3eec35882a72a1e348704574b83f99.probe.ktx2"
+              ],
+              "positions": "blobs/112f81b2871d691cb5f9a89ebe4da6a81ce44c2272c37ffeac1876fb4321ea3b.probes.json"
+            },
+            {
+              "face_edge": 48,
+              "levels": 6,
+              "count": 1,
+              "cubemaps": [
+                "blobs/ce993fc749e161f8223d8245b1e34e08e322244183eba4f23831822c051c925c.probe.ktx2"
+              ],
+              "positions": "blobs/3e949e3d279d9129dab93bba7c49f32dce32aae05b767fe230f84527f198c7e8.probes.json"
+            }
+          ]
+        }
+      },
+      "build_elapsed_seconds": 22.569178957957774,
+      "verify_exit": 0,
+      "validate_exit": 0
+    },
+    {
+      "quality": "medium",
+      "package": "debug-maps/art-style-hero/evidence/stage7-capacity-before-v1/medium.placesmap",
+      "archive_bytes": 116431465,
+      "sha256": "d166c7a69305e45c02ea06eeb6df997afe04cb765581f58ce17426d7d3c62c37",
+      "aggregate_bytes": 480580726,
+      "roles": {
+        "collision": 157162,
+        "probes-meta": 150,
+        "probes": 410144,
+        "props": 473890078,
+        "mesh": 892336,
+        "navigation": 1228214,
+        "lighting": 2266721,
+        "compiler-inputs": 284,
+        "semantics": 1720289
+      },
+      "variant": {
+        "lightmap_quality": "medium",
+        "quality_profile": "full",
+        "lightmap_failure": "page overflow",
+        "entries": {
+          "mesh": "blobs/981dc87d73479999e617e3f186d3b8c01f9b256775d9af71828301f6873ef37c.mesh",
+          "props": "blobs/585bd66b371aebfc93b5b9742e1ae0d4e9df16a8ec398fc5552f0d131b068e84.props",
+          "lighting": "blobs/f25f9ca15b7fcc908f8e04b5700bacc4de03df2963a876df123af91b5f0f6f67.lighting",
+          "collision": "blobs/00ad1c366b2578b2bdefe5f75948338db3a2ab262b127fd6da98ea538ec8a2a8.collision",
+          "navigation": "blobs/a37ed8125fedae1b175de2f5c41d1e0c21626d4b74928eaf7d186314f160732c.navigation",
+          "lightmaps": null,
+          "lightmaps_meta": null,
+          "irradiance": null,
+          "probes": [
+            {
+              "face_edge": 64,
+              "levels": 7,
+              "count": 1,
+              "cubemaps": [
+                "blobs/cda621e1d459575e825b14a1a5d27d065ffc66b7e4e873c0523aaeae88f59d1f.probe.ktx2"
+              ],
+              "positions": "blobs/112f81b2871d691cb5f9a89ebe4da6a81ce44c2272c37ffeac1876fb4321ea3b.probes.json"
+            },
+            {
+              "face_edge": 48,
+              "levels": 6,
+              "count": 1,
+              "cubemaps": [
+                "blobs/12257f7160107ad4a5d7c17524efb6189578334b2ecc1c0e08338e7b4d06def9.probe.ktx2"
+              ],
+              "positions": "blobs/3e949e3d279d9129dab93bba7c49f32dce32aae05b767fe230f84527f198c7e8.probes.json"
+            }
+          ]
+        }
+      },
+      "build_elapsed_seconds": 71.88436500006355,
+      "verify_exit": 0,
+      "validate_exit": 0
+    },
+    {
+      "quality": "full",
+      "package": "debug-maps/art-style-hero/evidence/stage7-capacity-before-v1/full.placesmap",
+      "archive_bytes": 117358313,
+      "sha256": "0094b7e2cab2225b7fcdc6b47a151d82168d272c54e3f47e071920c459e1e7c2",
+      "aggregate_bytes": 480494474,
+      "roles": {
+        "collision": 157162,
+        "probes-meta": 150,
+        "probes": 410144,
+        "lighting": 2180471,
+        "mesh": 892336,
+        "navigation": 1228214,
+        "props": 473890078,
+        "compiler-inputs": 284,
+        "semantics": 1720289
+      },
+      "variant": {
+        "lightmap_quality": "full",
+        "quality_profile": "full",
+        "lightmap_failure": "page overflow",
+        "entries": {
+          "mesh": "blobs/8e3352c10a77b719a4fd4832ba19b12ca4de79f846b03ec73c947188fda15959.mesh",
+          "props": "blobs/cba69eee016d6e2e9f92674ce3e7c97302cd76af447975d9d04b65713fec76b2.props",
+          "lighting": "blobs/8225712bd424908245eb5a2c947d68c7c01ba8d3a313d5eab52a4c7522902e02.lighting",
+          "collision": "blobs/00ad1c366b2578b2bdefe5f75948338db3a2ab262b127fd6da98ea538ec8a2a8.collision",
+          "navigation": "blobs/a37ed8125fedae1b175de2f5c41d1e0c21626d4b74928eaf7d186314f160732c.navigation",
+          "lightmaps": null,
+          "lightmaps_meta": null,
+          "irradiance": null,
+          "probes": [
+            {
+              "face_edge": 64,
+              "levels": 7,
+              "count": 1,
+              "cubemaps": [
+                "blobs/cda621e1d459575e825b14a1a5d27d065ffc66b7e4e873c0523aaeae88f59d1f.probe.ktx2"
+              ],
+              "positions": "blobs/112f81b2871d691cb5f9a89ebe4da6a81ce44c2272c37ffeac1876fb4321ea3b.probes.json"
+            },
+            {
+              "face_edge": 48,
+              "levels": 6,
+              "count": 1,
+              "cubemaps": [
+                "blobs/12257f7160107ad4a5d7c17524efb6189578334b2ecc1c0e08338e7b4d06def9.probe.ktx2"
+              ],
+              "positions": "blobs/3e949e3d279d9129dab93bba7c49f32dce32aae05b767fe230f84527f198c7e8.probes.json"
+            }
+          ]
+        }
+      },
+      "build_elapsed_seconds": 208.80202254198957,
+      "verify_exit": 0,
+      "validate_exit": 0
+    }
+  ],
+  "notes": [
+    "MediumANDFull explicitpageoverflow; noatlas/irradiance, bothretainqualitybakedvertexlighting.",
+    "Sourcecontent5312props/48models/2760solid/120fixtures/18routesunchanged.",
+    "Separatequalityarchives retainexactrecordsforlaterexpandedstreamoracle; neither splittingthefinalpackage nor claimingexistingwholegatepass.",
+    "HistoricaloldFullatlasavailability unproven because no preservedDense archive; no newcap increase orfallback waiver."
+  ]
+}

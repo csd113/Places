@@ -1,0 +1,1 @@
+{"status": "passed", "cases": [{"key": "tests__fixtures__levels__outdoor_kit_showcase", "changed_wall_indices": [15, 16, 17, 18, 19], "navigation_byte_exact": true, "closed_union_and_step_probes": 52785}, {"key": "levels__snowfall_contrast", "changed_wall_indices": [], "navigation_byte_exact": true, "closed_union_and_step_probes": 27}]}

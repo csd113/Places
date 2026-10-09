@@ -1,0 +1,117 @@
+{
+  "format_version": 1,
+  "level": "places_demo",
+  "source": "assets/levels/places_demo.json",
+  "package": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/places_demo.placesmap",
+  "settings": {
+    "bindings": {
+      "forward": "W",
+      "backward": "S",
+      "strafe_left": "A",
+      "strafe_right": "D",
+      "look_up": "UP",
+      "look_down": "DOWN",
+      "look_left": "LEFT",
+      "look_right": "RIGHT",
+      "jump": "SPACE",
+      "crouch": "C",
+      "interact": "E"
+    },
+    "look_speed_h": 90,
+    "look_speed_v": 60,
+    "walk_speed": 3,
+    "invert_look": false,
+    "mouse_sensitivity": 0.12,
+    "quality": "high",
+    "texture_filtering": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true,
+    "use_low_quality_lighting": false,
+    "vsync": false,
+    "fov_degrees": 60,
+    "window_mode": "windowed",
+    "window_width": 640,
+    "window_height": 360
+  },
+  "capture": {
+    "ready_world_seconds": 0.5,
+    "warmup_frames": 15,
+    "limit_frames": 3000,
+    "expected_drawable": [
+      1280,
+      720
+    ]
+  },
+  "views": [
+    {
+      "name": "home-registered-drum",
+      "spawn": [
+        60.099998474121094,
+        0.7000000476837158,
+        8.399999618530273,
+        0
+      ],
+      "camera": [
+        35,
+        -41.47932419899597
+      ],
+      "purpose": "Unit registered washer-drum rigid entity; original eye/XZ and wing yaw retained, pitch aims at actual centre. Native pixels/opacity require genuine inspection."
+    }
+  ],
+  "witness": {
+    "key": 9007,
+    "model": "core:washer_drum",
+    "model_path": "core/props/models/washer_drum.glb",
+    "model_sha256": "570eb5aa9a9be9062bdfb261dfb0758fb11c6e072d56c10a657322e521555d0a",
+    "position": [
+      61.10000228881836,
+      -0.8999999761581421,
+      7.100006103515625
+    ],
+    "yaw": 0,
+    "scale": 1,
+    "centre": [
+      61.10000228881836,
+      -0.75,
+      7.100006103515625
+    ],
+    "tolerance_m": 0.0001,
+    "role": "runtime registered mesh reuse"
+  },
+  "planned_target": {
+    "room": 6,
+    "navigation_cell_id": 189112,
+    "model": "core:washer_drum",
+    "key": 9007,
+    "character": false,
+    "scale": 1,
+    "yaw": 0,
+    "position": [
+      61.10000228881836,
+      -0.8999999761581421,
+      7.100006103515625
+    ],
+    "expected_bounds_centre": [
+      61.10000228881836,
+      -0.75,
+      7.100006103515625
+    ],
+    "source_sha256": "65833e98579a696167d616ce0cc94ebab85f744fdd72837ed247c483db1f9dec",
+    "model_path": "dynamic:core/props/models/washer_drum.glb",
+    "model_sha256": "570eb5aa9a9be9062bdfb261dfb0758fb11c6e072d56c10a657322e521555d0a",
+    "local_inset_bounds_min": [
+      -0.20160000026226044,
+      0.006000000052154064,
+      -0.20160000026226044
+    ],
+    "local_inset_bounds_extent": [
+      0.4032000005245209,
+      0.2879999876022339,
+      0.4032000005245209
+    ],
+    "before_support": "observe",
+    "after_support": "enabled-valid-anchor-and-prepared-centre"
+  },
+  "registered_witness_scope": "Separate runtime model reuse witness; original failed chair plan immutable. No chair spawn, static-identical drum parity, pixels or runtime Prepared claim."
+}

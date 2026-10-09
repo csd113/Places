@@ -428,7 +428,7 @@ fn test_architecture_stress_builds_with_bounded_geometry() {
     // geometry: the mesh is complete and finite, only unlit. The 5-grid above
     // fits the shipped budget; the much larger 10-grid is a genuine overflow of
     // the historical four-page budget, so the oversized build is pinned against
-    // that budget explicitly (the shipped one is eight pages).
+    // that budget explicitly (the shipped Full profile admits ten pages).
     let oversized = architecture_stress_level_for(10);
     let oversized_materials = logical_materials(&oversized);
     let mut options = crate::render::LightmapBuildOptions::for_profile(

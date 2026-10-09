@@ -1,0 +1,17 @@
+{
+  "recorded_utc": "2026-10-09T01:17:07.659291+00:00",
+  "scope": "Additional offline diagnostic-helper/test parity outside the immutable C1 compiler/package inputs; production compiler unchanged. Five focused tests passed, full discovery pending.",
+  "receipt": "docs/art-style/stage7/validation/lighting-dump-page-parity-passed.json",
+  "files": [
+    {
+      "path": "tools/bench/inspect_lighting_dump.py",
+      "bytes": 10623,
+      "sha256": "da06a0fd8c92e6f3b6d9a160003506bafd6dd95541359d578058ef17215c49f7"
+    },
+    {
+      "path": "tests/test_lighting_dump.py",
+      "bytes": 4681,
+      "sha256": "c08eb0ecc1e0a791ad4ff9197f1e6599596d659790cd2a19d26821f5cf651ee1"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+The two fresh registered-witness helpers pass67bounded controls: seven actual manifest/catalog/GLB/source resolutions,22actual data-sequence spawn contracts, and positive/negative transform, centre, graphics, resource, live-entity and Prepared/fallback controls. Synthetic controls do not create native acceptance evidence.
+
+The unit-scale key9007washer drum reuses an existing mesh. Actual applied Spawn and Mat4/centre/source traces must agree with the frozen witness. Quality endpoints require at least17dynamic objects and exactly16meshes, actual positive scene submission and the existing requested/applied/resident graphics, atlas/field and restoration/parity provenance contracts. Available non-Low lighting still requires enabled uploaded support,a validanchor andPreparedcentre; missingfield fallback is explicit. The internal quality-library historical parameter is used generically; published evidence calls the object a registered rigid witness.
+
+Before corridor7/8mustremain disabled/Unresolved; corridor10observesactualsource. Allthree aftercontrols must prove enabled/validanchor/Prepared withactual unitmodelbounds, genuine matchednormalcaptures, exactsource/package/binary/camera/catalog identities and a passed saved-fieldaudit. Original chair helper/plans and all failed receipts are preserved.
+
+No native,build,bake,Cargo or Git job ran. The helpers and final48camera manifest set are frozen and released for primaryplanreview. Sole nativeallocation is still required.

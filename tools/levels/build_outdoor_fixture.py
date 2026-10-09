@@ -409,15 +409,16 @@ def level() -> Dict:
         wall(26.0, 10.7, 5.0, 0.3, height=2.6),
         wall(30.7, 6.0, 0.3, 5.0, height=2.6),
     ]
-    # A low run around the yard keeps the player inside the fixture; the east
-    # side stops either side of the shed doorway.
+    # The horizontal runs own the yard corners; side runs meet their ends.
+    # House side walls own the two bottom terminal strips. These ownership
+    # boundaries keep the same occupied solid union without doubled faces.
     perimeter = [
         half_wall(0.0, 19.8, 26.0, 0.2),
-        half_wall(0.0, 0.0, 0.2, 20.0),
-        half_wall(25.8, 0.0, 0.2, 6.0),
-        half_wall(25.8, 11.0, 0.2, 9.0),
-        half_wall(0.0, 0.0, 2.5, 0.2),
-        half_wall(17.5, 0.0, 8.5, 0.2),
+        half_wall(0.0, 0.2, 0.2, 19.6),
+        half_wall(25.8, 0.2, 0.2, 5.8),
+        half_wall(25.8, 11.0, 0.2, 8.8),
+        half_wall(0.0, 0.0, 2.2, 0.2),
+        half_wall(17.8, 0.0, 8.2, 0.2),
     ]
 
     return {

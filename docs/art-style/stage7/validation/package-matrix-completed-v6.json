@@ -1,0 +1,360 @@
+{
+  "recorded_utc": "2026-10-09T03:37:49.970724+00:00",
+  "status": "Complete supported package matrix passed; remaining normal desktop Rust/Python/native gates still running",
+  "campaign": "target/verification/map-regression-20261009T025950Z-95672",
+  "results_sha256": "8e6c6697671c8cffb4065de9276f92384beb9ee431863ef51b23a534c3856137",
+  "compiler_sha256": "f3f27db928af9927219f3440a95acbbcfb2f53bdecb321af207613ddce91527f",
+  "compiler_stable": true,
+  "inventory_entries": 50,
+  "status_counts": {
+    "expected-named-loader-rejection": 1,
+    "intended-cpu-contract": 1,
+    "passed": 48
+  },
+  "per_case_commands": [
+    {
+      "key": "assets__levels__lantern_hollow",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/assets__levels__lantern_hollow.json",
+      "sha256": "4b452c46cf39d844a74c49e809bbe24d0be6e6e6a708413277aedb6cb82c0734",
+      "elapsed_seconds": 374.1720995012438
+    },
+    {
+      "key": "assets__levels__model_zoo",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/assets__levels__model_zoo.json",
+      "sha256": "9c511355968cfcb63d5a45a0b69c159bdfeb31e5b9361ca61d7bf1dbae7ec02d",
+      "elapsed_seconds": 236.12979695899412
+    },
+    {
+      "key": "assets__levels__movement_test",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/assets__levels__movement_test.json",
+      "sha256": "ffd6d1312bd7e5b6f1165943674b3688c3f0f6e215b182721b91152a371eec1d",
+      "elapsed_seconds": 56.18993362504989
+    },
+    {
+      "key": "assets__levels__places_demo",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/assets__levels__places_demo.json",
+      "sha256": "be470c2bfe2448ed2c72cf2c4179325caacc00df6e200e2a98f1367b9ea67b51",
+      "elapsed_seconds": 354.3977068748791
+    },
+    {
+      "key": "assets__levels__winter",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/assets__levels__winter.json",
+      "sha256": "c325f1e8d3652a644bc0711335e6404fc5b82499ed3122a61a7386a36b2075a5",
+      "elapsed_seconds": 157.74284958199132
+    },
+    {
+      "key": "levels__blizzard_review",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/levels__blizzard_review.json",
+      "sha256": "52987347cac8f8569d3faf6e52321d271074db97003bda760d05a264458ffacd",
+      "elapsed_seconds": 154.96080550109036
+    },
+    {
+      "key": "levels__geometry_intentional",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/levels__geometry_intentional.json",
+      "sha256": "eb3e96f2efb10c87500ebae3059736ed4a8d7f4830b6bbd7ee8b890aa5a81da8",
+      "elapsed_seconds": 6.113080708077177
+    },
+    {
+      "key": "levels__home_showcase",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/levels__home_showcase.json",
+      "sha256": "9a8ed6ac0be643601af01ec5135b04442b7978f1746020eee2869cde4a766ea8",
+      "elapsed_seconds": 14.899352832930163
+    },
+    {
+      "key": "levels__level0_pit",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/levels__level0_pit.json",
+      "sha256": "e92b6790683c4d22b5a9b2525fd42e394a2a79c1908b1b161ac467d1d34d31f9",
+      "elapsed_seconds": 123.42728712502867
+    },
+    {
+      "key": "levels__snowfall_contrast",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/levels__snowfall_contrast.json",
+      "sha256": "ed7fd378221ca6e82e0b2ac4c351539595df54fb1108a80e8ecac00aa6fd816a",
+      "elapsed_seconds": 2.268105624942109
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__art_style_hero.json",
+      "sha256": "8b143a43a28202e9cdc5a46ea512cb3334574f17c0cc5b0795cba16dc589c6fc",
+      "elapsed_seconds": 8.366071041906253
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_atmosphere",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__art_style_hero_atmosphere.json",
+      "sha256": "4ac41b485b2fae393c290a93d4329eb87d588d0e31a869fa2d7a8e79016f4005",
+      "elapsed_seconds": 8.730742041138
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_aurora",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__art_style_hero_aurora.json",
+      "sha256": "31f2ea49c1164dc78f35302d83eec7a6478bd9fa366cdc7f15d466d8dbaab152",
+      "elapsed_seconds": 8.948846959043294
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_night",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__art_style_hero_night.json",
+      "sha256": "21d067bc21559bb846ba048a50f03ebb3f98a661451d16bbbd0b7fc841997b12",
+      "elapsed_seconds": 8.864191833883524
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_refined",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__art_style_hero_refined.json",
+      "sha256": "e882ced711ac5f183b8f310e65d1c52e38dfdff63318b30497a352d5e9589f5c",
+      "elapsed_seconds": 10.859296208946034
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_stage4_comparison",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__art_style_hero_stage4_comparison.json",
+      "sha256": "8501d845852b1ddc6dbfd7e11e9db877ff7b602f153ec566370bcff9eb1ce110",
+      "elapsed_seconds": 10.72003683296498
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_stage4_entities",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__art_style_hero_stage4_entities.json",
+      "sha256": "e14121ee8fa629f276e342639adaae0c17163bc384d62d780b89305ec6c47745",
+      "elapsed_seconds": 8.494794750818983
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_stage4_movement",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__art_style_hero_stage4_movement.json",
+      "sha256": "289d2218e3bed55ff2215f0ce951f81b9a522b2ed325e18555ade4aa13d0a47d",
+      "elapsed_seconds": 8.499726624926552
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_stage4_switchable",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__art_style_hero_stage4_switchable.json",
+      "sha256": "bcce4eb94c940b24dade23ad3cf96361b50b96d2a038ad3e5a5225bbf2ae5f2c",
+      "elapsed_seconds": 10.348984831944108
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_storm",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__art_style_hero_storm.json",
+      "sha256": "b715aa11eff5a6adc185f1859e0d5a5dfd6a634a4f5af561d032ae0d2f8ff33b",
+      "elapsed_seconds": 9.040803957846947
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_transparency",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__art_style_hero_transparency.json",
+      "sha256": "b06221c76370947a73194a622757d277f13b28ce02b57a6ddeb88409781e37c0",
+      "elapsed_seconds": 8.965735917096026
+    },
+    {
+      "key": "tests__fixtures__levels__asset_polish_showcase",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__asset_polish_showcase.json",
+      "sha256": "924953e3c63fc8020491e3a02df399c6c43cca1482d88d7fdf9de38f387d0222",
+      "elapsed_seconds": 9.909980791155249
+    },
+    {
+      "key": "tests__fixtures__levels__capacity_dense",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__capacity_dense.json",
+      "sha256": "fd74bd1678ceed6ea9cf71e7481a3e2b03bf1a276dc56c5117624e576b3a4964",
+      "elapsed_seconds": 13.793133083032444
+    },
+    {
+      "key": "tests__fixtures__levels__entity_showcase",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__entity_showcase.json",
+      "sha256": "c8f83f91f441f3df6a2e47bccacc608d6c43b0e249a1e4b98b77b1e09de4e204",
+      "elapsed_seconds": 4.473009541979991
+    },
+    {
+      "key": "tests__fixtures__levels__fog_void_validation",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__fog_void_validation.json",
+      "sha256": "140b134abf7b7e447b2d67e49895748a0b2ca6618366a6811d3d7099f0503e3e",
+      "elapsed_seconds": 6.925748833920807
+    },
+    {
+      "key": "tests__fixtures__levels__geometry_broken",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__geometry_broken.json",
+      "sha256": "1f4fda3ac69168ab8fc35f6f63c0b35852a549538fa26ceb66cc71a9adf04762",
+      "elapsed_seconds": 2.663833416881971
+    },
+    {
+      "key": "tests__fixtures__levels__geometry_intentional",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__geometry_intentional.json",
+      "sha256": "62d449e4a06bf86f6d2da9dbe6aba87344c3bae0031619b94ce2551fa2e483de",
+      "elapsed_seconds": 6.071944916038774
+    },
+    {
+      "key": "tests__fixtures__levels__halloween_entities",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__halloween_entities.json",
+      "sha256": "0a3ced1db3cc4c87abc399d1d704a1b3fe20a1a13cac8038dfb10e0c929b0ca0",
+      "elapsed_seconds": 5.7744215009734035
+    },
+    {
+      "key": "tests__fixtures__levels__home_showcase",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__home_showcase.json",
+      "sha256": "406d4d77debe52b82a72abe325a9e8900cecd04a0472fc2a149fc85849c80505",
+      "elapsed_seconds": 15.174441916053183
+    },
+    {
+      "key": "tests__fixtures__levels__invalid__geometry_invalid",
+      "status": "expected-named-loader-rejection",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__invalid__geometry_invalid.json",
+      "sha256": "1df851101c108155fa22c30f0b17265ae81d1fa6b5b7e2c15d0e63436155d89d",
+      "elapsed_seconds": 0.010632917052134871
+    },
+    {
+      "key": "tests__fixtures__levels__level0_pit",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__level0_pit.json",
+      "sha256": "992d5c40a8a70b7ece3f393440547d471d7c27c885e15c387273d081687d0a7a",
+      "elapsed_seconds": 129.0648533741478
+    },
+    {
+      "key": "tests__fixtures__levels__lighting_diagnostic",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__lighting_diagnostic.json",
+      "sha256": "153153059fa92f55764c2b18c6b6974e84c09e53f64be31031286e0d9df05d6d",
+      "elapsed_seconds": 22.560776374069974
+    },
+    {
+      "key": "tests__fixtures__levels__lighting_isolation",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__lighting_isolation.json",
+      "sha256": "3917950e036608b74b203c6ea618c6dc42deb9b320e0569b6cbc87ec205cf57c",
+      "elapsed_seconds": 12.038127417094074
+    },
+    {
+      "key": "tests__fixtures__levels__lighting_quality",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__lighting_quality.json",
+      "sha256": "2891c25fb51afeb7378b706b4e6e9c81efae54bbe52c4231fa0077e746dcd47f",
+      "elapsed_seconds": 14.66834187391214
+    },
+    {
+      "key": "tests__fixtures__levels__lighting_repair_cases",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__lighting_repair_cases.json",
+      "sha256": "e362b33d73844f65b6b31c917ad39aea3bd93920ee3f557f0f702590b75f9f8f",
+      "elapsed_seconds": 3.239230209030211
+    },
+    {
+      "key": "tests__fixtures__levels__office_asset_review",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__office_asset_review.json",
+      "sha256": "78b25de886acac71be7d131aa2aaa6f1872a89fa9e7897ca1be6248dfb92fd5b",
+      "elapsed_seconds": 6.015854415949434
+    },
+    {
+      "key": "tests__fixtures__levels__outdoor_kit_showcase",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__outdoor_kit_showcase.json",
+      "sha256": "84dcec1eb9d91a3629c571cd4cd0e80b8089823fec1c8804a7a569c35f974225",
+      "elapsed_seconds": 57.699624874978326
+    },
+    {
+      "key": "tests__fixtures__levels__pool_showcase",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__pool_showcase.json",
+      "sha256": "ece22bafcac229c6ae5f436c2b7cd8786b738e8907b13386af1c99027ff8071d",
+      "elapsed_seconds": 19.427077000960708
+    },
+    {
+      "key": "tests__fixtures__levels__prop_showcase",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__prop_showcase.json",
+      "sha256": "dce9e83d0361227ccf15ff4795f8093eb698b75dcff16e5b2da661bc944f353e",
+      "elapsed_seconds": 15.500758416950703
+    },
+    {
+      "key": "tests__fixtures__levels__prop_stress",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__prop_stress.json",
+      "sha256": "4d98a26607cf9644f67c4f50673196223fc427e5b284f932643620938997282a",
+      "elapsed_seconds": 55.8761037500808
+    },
+    {
+      "key": "tests__fixtures__levels__rendering_diagnostic",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__rendering_diagnostic.json",
+      "sha256": "77292b93998f2e287b0c22c8f310ff178a3cffe3ec3566c6785212d87317193d",
+      "elapsed_seconds": 6.112063208012842
+    },
+    {
+      "key": "tests__fixtures__levels__repair__clean",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__repair__clean.json",
+      "sha256": "bfe978798b9e901a28ee1e900d9f396ded46e88c7a7f6972a98122281f3a503f",
+      "elapsed_seconds": 0.6576433751033619
+    },
+    {
+      "key": "tests__fixtures__levels__repair__gap_review",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__repair__gap_review.json",
+      "sha256": "47fd10f5665632f5d9dbe44cd697e154b7dd42b52caba573e489dd352561776c",
+      "elapsed_seconds": 0.6565026661846787
+    },
+    {
+      "key": "tests__fixtures__levels__repair__wall_step_x",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__repair__wall_step_x.json",
+      "sha256": "220c477c568020d4a9fa9ea91de558cf99b4a8dbb86bb059ba066655c0ab9e54",
+      "elapsed_seconds": 0.7673307500081137
+    },
+    {
+      "key": "tests__fixtures__levels__repair__wall_step_z",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__repair__wall_step_z.json",
+      "sha256": "dca271d311d79f8e95b481f194fa84023b7d09e0f02647b9356cad7633e37afd",
+      "elapsed_seconds": 0.7683067079633474
+    },
+    {
+      "key": "tests__fixtures__levels__round_pool_and_proximity_fade",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__round_pool_and_proximity_fade.json",
+      "sha256": "7c36c7f3242459c28841fe82bbdec92b91fd2393d5841ba6b7a39ed5135a2b11",
+      "elapsed_seconds": 1.6470617910381407
+    },
+    {
+      "key": "tests__fixtures__levels__test_room",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__test_room.json",
+      "sha256": "07d2d98aa0eaf53b1e78c71f6f1f2ebfeb878e6fc34f96c6bfac751ece607819",
+      "elapsed_seconds": 5.727731334045529
+    },
+    {
+      "key": "tests__fixtures__levels__vertical_diagnostic",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__vertical_diagnostic.json",
+      "sha256": "7d4f1cb8010afd7f6cbd8a734b8af78b863169a13e02dfcdb728389fc95f6b89",
+      "elapsed_seconds": 9.513484749943018
+    },
+    {
+      "key": "tests__fixtures__levels__water_transmission",
+      "status": "passed",
+      "receipt": "target/verification/map-regression-20261009T025950Z-95672/commands/tests__fixtures__levels__water_transmission.json",
+      "sha256": "712d2e1f698f847820aef46f7ac05ecdf22f1e64a85172563a83986ef8dc10dc",
+      "elapsed_seconds": 2.5725051660556346
+    }
+  ],
+  "scope": "Actual build, required-currentness and decode receipts; no native loading, visual quality, full gate or final acceptance inferred"
+}

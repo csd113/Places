@@ -1,0 +1,53 @@
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `dev` profile [optimized + debuginfo] target(s) in 4.41s
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+error: used `expect()` on an `Option` value
+   --> src/render/wgpu/lightmap.rs:669:22
+    |
+669 |           let medium = crate::quality::LightmapQuality::Medium
+    |  ______________________^
+670 | |             .lightmap_config()
+671 | |             .expect("Medium has an atlas config");
+    | |_________________________________________________^
+    |
+    = note: if this value is `None`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#expect_used
+    = note: requested on the command line with `-D clippy::expect-used`
+
+error: used `expect()` on an `Option` value
+   --> src/render/wgpu/lightmap.rs:682:13
+    |
+682 | /             crate::quality::LightmapQuality::Full
+683 | |                 .lightmap_config()
+684 | |                 .expect("Full has an atlas config")
+    | |___________________________________________________^
+    |
+    = note: if this value is `None`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#expect_used
+
+error: this function has too many lines (170/100)
+   --> src/static_prop_lighting_tests.rs:742:1
+    |
+742 | fn lantern_hollow_atlas_capacity_profile() {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#too_many_lines
+    = note: `-D clippy::too-many-lines` implied by `-D clippy::pedantic`
+    = help: to override `-D clippy::pedantic` add `#[allow(clippy::too_many_lines)]`
+
+error: used `assert!` to check that a value is not empty
+   --> src/static_prop_lighting_tests.rs:774:9
+    |
+774 |         assert!(!request.charts.is_empty());
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#assert_is_empty
+    = note: `-D clippy::assert-is-empty` implied by `-D clippy::pedantic`
+    = help: to override `-D clippy::pedantic` add `#[allow(clippy::assert_is_empty)]`
+help: use `assert_ne!` to show the value on failure
+    |
+774 -         assert!(!request.charts.is_empty());
+774 +         assert_ne!(request.charts, [] as [(lighting::lightmap::LightmapPatch, lighting::lightmap::Chart); 0]);
+    |
+
+error: could not compile `places` (lib test) due to 4 previous errors

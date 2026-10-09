@@ -1,0 +1,16 @@
+{
+  "recorded_utc": "2026-10-09T07:41:42.216119+00:00",
+  "status": "bounded current contract prose correction",
+  "before_sha256": "3339be743ad4f513808e986d8eaa8ba261ad1d657d4018d5dd494391fdbf985d",
+  "after_sha256": "ff6cac71dc20251d34bc30e7939ee7fe1409cb356f78d78aea03212faa895fa2",
+  "replacements": 8,
+  "source_anchors": [
+    "src/render/common/dynamic_lights.rs",
+    "src/render/common/dynamic.rs",
+    "src/render/common/dynamic_visibility.rs",
+    "src/render/wgpu/renderer.rs",
+    "src/render/wgpu/reflections.rs",
+    "src/render/common/water.rs"
+  ],
+  "scope": "Correct current-source contradictions in lighting selection, shadows, runtime uniform updates, HDR reflection format and water controls. No source, historical captures/measurements or test assertion changed. Supplements scoped v3 documentation review."
+}

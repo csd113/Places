@@ -257,7 +257,9 @@ pub fn solver_fingerprint() -> u64 {
 /// - 14: selected always-on sources retain separate direct probe coefficients.
 /// - 15: every solved field retains the spatial runtime contract, including
 ///   zero selected-source fields with aligned zero direct coefficients.
-pub const SOLVER_REVISION: u64 = 15;
+/// - 16: uncovered rooms can select a validated phase of the same bounded
+///   lattice; baseline targets and probe solves share that exact placement.
+pub const SOLVER_REVISION: u64 = 16;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;
@@ -916,6 +918,27 @@ pub struct ProbeTarget {
     pub room: i32,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct ProbeLattice {
+    min: [f32; 3],
+    cell: f32,
+    dims: [usize; 3],
+}
+
+impl ProbeLattice {
+    fn count(self) -> usize {
+        self.dims
+            .iter()
+            .fold(1_usize, |count, dim| count.saturating_mul(*dim))
+    }
+
+    fn position(self, index: usize) -> [f32; 3] {
+        let indices = <[usize; 3]>::from(lattice_from_index(index, self.dims))
+            .map(|value| f32::from(u16::try_from(value).unwrap_or(u16::MAX)));
+        std::array::from_fn(|axis| self.min[axis] + (indices[axis] + 0.5) * self.cell)
+    }
+}
+
 /// One solved chart: the receiver set plus its HDR texels.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SolvedChart {
@@ -1006,6 +1029,9 @@ pub struct TransportScene {
     /// Per-probe authored baseline target and room in flat probe order (see
     /// [`probe_targets`]); empty when no probe lattice was supplied.
     probe_target: Vec<ProbeTarget>,
+    /// Original receiver layout and its validated phase. Both remain fixed
+    /// across target preparation and the solve; legacy callers use the centre.
+    probe_layout: Option<(ProbeLattice, ProbeLattice)>,
     /// (Scene emitter slot, stable compiled source ID) for direct energy
     /// replaced by runtime receiver evaluation. Unselected sources stay baked.
     runtime_direct_lights: Vec<(usize, u32)>,
@@ -1250,15 +1276,16 @@ pub fn receiver_targets(
 /// point: its room is resolved by height at its own position, and a probe
 /// outside every room gets zero and room `-1`, exactly like a texel.
 #[must_use]
-#[expect(
-    clippy::cast_precision_loss,
-    clippy::as_conversions,
-    reason = "probe_lattice caps every axis at 64; each coordinate is below that cap and converts exactly to f32."
-)]
 pub fn probe_targets(
     lighting: &LevelLighting,
     charts: &[(LightmapPatch, Chart)],
 ) -> Vec<ProbeTarget> {
+    chart_probe_lattice(charts)
+        .map(|lattice| lattice_probe_targets(lighting, lattice))
+        .unwrap_or_default()
+}
+
+fn chart_probe_lattice(charts: &[(LightmapPatch, Chart)]) -> Option<ProbeLattice> {
     let mut positions: Vec<[f32; 3]> = Vec::new();
     for (patch, chart) in charts {
         let width = usize::try_from(chart.width).unwrap_or(0);
@@ -1272,18 +1299,15 @@ pub fn probe_targets(
             positions.push(receiver_position(patch.point_at(u, v), normal));
         });
     }
-    let Some((min, cell, dims)) = probe_lattice(positions.iter()) else {
-        return Vec::new();
-    };
-    let count = dims[0].saturating_mul(dims[1]).saturating_mul(dims[2]);
+    let (min, cell, dims) = probe_lattice(positions.iter())?;
+    Some(ProbeLattice { min, cell, dims })
+}
+
+fn lattice_probe_targets(lighting: &LevelLighting, lattice: ProbeLattice) -> Vec<ProbeTarget> {
+    let count = lattice.count();
     let mut out = Vec::with_capacity(count);
     for index in 0..count {
-        let (x, y, z) = lattice_from_index(index, dims);
-        let position = [
-            min[0] + (x as f32 + 0.5) * cell,
-            min[1] + (y as f32 + 0.5) * cell,
-            min[2] + (z as f32 + 0.5) * cell,
-        ];
+        let position = lattice.position(index);
         let (target, room) = target_and_room_at(lighting, position);
         out.push(ProbeTarget {
             position,
@@ -1292,6 +1316,112 @@ pub fn probe_targets(
         });
     }
     out
+}
+
+fn probe_room_coverage(
+    lattice: ProbeLattice,
+    room_count: usize,
+    owner: &impl Fn([f32; 3]) -> Option<usize>,
+    valid_air: &impl Fn([f32; 3]) -> Option<usize>,
+) -> Vec<bool> {
+    let mut covered = vec![false; room_count];
+    let mut remaining = room_count;
+    for index in 0..lattice.count() {
+        let position = lattice.position(index);
+        let Some(room) = owner(position) else {
+            continue;
+        };
+        if covered.get(room).is_some_and(|value| !value)
+            && valid_air(position) == Some(room)
+            && let Some(value) = covered.get_mut(room)
+        {
+            *value = true;
+            remaining = remaining.saturating_sub(1);
+            if remaining == 0 {
+                break;
+            }
+        }
+    }
+    covered
+}
+
+fn probe_room_counts(
+    lattice: ProbeLattice,
+    room_count: usize,
+    owner: &impl Fn([f32; 3]) -> Option<usize>,
+    valid_air: &impl Fn([f32; 3]) -> Option<usize>,
+) -> Vec<usize> {
+    let mut counts = vec![0_usize; room_count];
+    for index in 0..lattice.count() {
+        let position = lattice.position(index);
+        let Some(room) = owner(position) else {
+            continue;
+        };
+        if counts.get(room).is_some()
+            && valid_air(position) == Some(room)
+            && let Some(count) = counts.get_mut(room)
+        {
+            *count = count.saturating_add(1);
+        }
+    }
+    counts
+}
+
+fn choose_probe_phase(
+    original: ProbeLattice,
+    room_count: usize,
+    owner: impl Fn([f32; 3]) -> Option<usize>,
+    valid_air: impl Fn([f32; 3]) -> Option<usize>,
+) -> ProbeLattice {
+    let baseline = probe_room_coverage(original, room_count, &owner, &valid_air);
+    let baseline_count = baseline.iter().filter(|value| **value).count();
+    if baseline_count == room_count {
+        return original;
+    }
+    let mut best_count = baseline_count;
+    let mut best_balance = Vec::new();
+    let mut best = original;
+    // The original plus 63 distinct phases; there is no spacing/cap change.
+    // Equal scores keep the earlier phase, including the unchanged original.
+    let phases = [0.0, -0.25, 0.25, -0.5];
+    for x in phases {
+        for y in phases {
+            for z in phases {
+                if x == 0.0 && y == 0.0 && z == 0.0 {
+                    continue;
+                }
+                let shift = [x, y, z];
+                let candidate = ProbeLattice {
+                    min: std::array::from_fn(|axis| {
+                        original.min[axis] + shift[axis] * original.cell
+                    }),
+                    ..original
+                };
+                let mut counts = probe_room_counts(candidate, room_count, &owner, &valid_air);
+                if baseline
+                    .iter()
+                    .zip(&counts)
+                    .any(|(required, count)| *required && *count == 0)
+                {
+                    continue;
+                }
+                let count = counts.iter().filter(|value| **value > 0).count();
+                if count <= baseline_count {
+                    continue;
+                }
+                // Balance the smallest room populations first. A boundary
+                // singleton cannot beat interior coverage because a huge
+                // outdoor room gains many unrelated probes.
+                counts.sort_unstable();
+                if count > best_count || (count == best_count && counts > best_balance) {
+                    best = candidate;
+                    best_count = count;
+                    best_balance = counts;
+                }
+            }
+        }
+    }
+    best
 }
 
 /// The origin, cell size and counts of the probe lattice a receiver set
@@ -1438,6 +1568,7 @@ impl TransportScene {
             water: Vec::new(),
             receiver_target: Vec::new(),
             probe_target: Vec::new(),
+            probe_layout: None,
             runtime_direct_lights: Vec::new(),
             sky_radiance: [0.0; 3],
         })
@@ -1594,6 +1725,42 @@ impl TransportScene {
     #[must_use]
     pub fn with_probe_target(mut self, target: Vec<ProbeTarget>) -> Self {
         self.probe_target = target;
+        self.probe_layout = None;
+        self
+    }
+
+    /// Keep the centred lattice when every room has valid air support. If a
+    /// room is missed, test at most 64 deterministic quarter-cell phases using
+    /// the compiler's complete placement predicate. A phase must preserve
+    /// every originally covered room and recover at least one missing room.
+    /// Complete valid-probe counts balance the least populated rooms before
+    /// choosing among equally complete phases; one boundary probe is not a
+    /// reason to stop the search.
+    #[must_use]
+    pub(crate) fn with_validated_probe_targets(
+        mut self,
+        level: &crate::level::LevelDef,
+        lighting: &LevelLighting,
+        charts: &[(LightmapPatch, Chart)],
+    ) -> Self {
+        let Some(original) = chart_probe_lattice(charts) else {
+            return self;
+        };
+        let surfaces = crate::level::LevelSurfaces::new(level);
+        let walls = level.collision_aabbs();
+        let selected = choose_probe_phase(
+            original,
+            lighting.rooms().len(),
+            |[x, y, z]| lighting.room_index_at_height(x, y, z),
+            |position| {
+                crate::lighting::probe_placement::placement_at(
+                    position, &surfaces, lighting, &self, &walls,
+                )
+                .0
+            },
+        );
+        self.probe_target = lattice_probe_targets(lighting, selected);
+        self.probe_layout = Some((original, selected));
         self
     }
 
@@ -3217,11 +3384,6 @@ fn channel_luminance(color: [f32; 3]) -> f32 {
 /// Returns [`LightmapFailure::InvalidConfig`] for an empty or unaddressable
 /// receiver set and propagates cancellation as a fill failure.
 // one bake, every input explicit
-#[expect(
-    clippy::cast_precision_loss,
-    clippy::as_conversions,
-    reason = "probe_lattice caps each axis at 64; lattice_from_index visits only the checked product, so every world-coordinate index converts exactly to f32."
-)]
 fn bake_probe_field(
     scene: &TransportScene,
     receivers: &[TransportReceiver],
@@ -3231,16 +3393,38 @@ fn bake_probe_field(
     workers: usize,
     cancel: Option<&AtomicBool>,
 ) -> Result<ProbeField, LightmapFailure> {
-    let Some((min, cell, dims)) =
+    let Some((original_min, original_cell, original_dims)) =
         probe_lattice(receivers.iter().map(|receiver| &receiver.position))
     else {
         return Err(LightmapFailure::InvalidConfig);
     };
-    let count = dims[0].saturating_mul(dims[1]).saturating_mul(dims[2]);
+    let original = ProbeLattice {
+        min: original_min,
+        cell: original_cell,
+        dims: original_dims,
+    };
+    let lattice = match scene.probe_layout {
+        Some((expected, selected)) if expected == original => selected,
+        Some(_) => return Err(LightmapFailure::FillSize),
+        None => original,
+    };
+    let ProbeLattice { min, cell, dims } = lattice;
+    let count = lattice.count();
     if count == 0 || count > crate::lighting::probes::MAX_PROBES {
         return Err(LightmapFailure::InvalidConfig);
     }
     if !scene.probe_target.is_empty() && scene.probe_target.len() != count {
+        return Err(LightmapFailure::FillSize);
+    }
+    if scene.probe_layout.is_some()
+        && scene
+            .probe_target
+            .iter()
+            .enumerate()
+            .any(|(index, target)| {
+                target.position.map(f32::to_bits) != lattice.position(index).map(f32::to_bits)
+            })
+    {
         return Err(LightmapFailure::FillSize);
     }
     let cache = RadianceCache::build(receivers);
@@ -3251,12 +3435,7 @@ fn bake_probe_field(
         crate::logging::warn(format_args!("[probe-diagnostics] {error}"));
     }
     let baked = parallel_map(count, workers, cancel, |index| {
-        let (x, y, z) = lattice_from_index(index, dims);
-        let position = [
-            min[0] + (x as f32 + 0.5) * cell,
-            min[1] + (y as f32 + 0.5) * cell,
-            min[2] + (z as f32 + 0.5) * cell,
-        ];
+        let position = lattice.position(index);
         bake_probe(
             scene, receivers, values, &cache, position, index, taps, audit,
         )

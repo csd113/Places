@@ -1,0 +1,9 @@
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+error[E0282]: type annotations needed
+   --> src/lighting/transport/tests/probes.rs:486:18
+    |
+486 |     let owner = |[x, y, z]| lighting.room_index_at_height(x, y, z);
+    |                  ^^^^^^^^^ cannot infer type
+
+For more information about this error, try `rustc --explain E0282`.
+error: could not compile `places` (lib test) due to 1 previous error

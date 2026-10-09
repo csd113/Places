@@ -1,0 +1,17 @@
+{
+  "argv": [
+    "docker",
+    "manifest",
+    "inspect",
+    "rust:1.99.0-trixie"
+  ],
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "started_utc": "2026-10-09T01:21:09.675807+00:00",
+  "finished_utc": "2026-10-09T01:21:20.275357+00:00",
+  "elapsed_seconds": 10.599446999956854,
+  "exit_code": 0,
+  "environment_overrides": {
+    "RUSTC_WRAPPER": ""
+  },
+  "log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/linux-image-manifest.log"
+}

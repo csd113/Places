@@ -106,6 +106,60 @@ DENSE_ROOM = {"x": -38.0, "z": -28.0, "width": 76.0, "depth": 56.0, "height": 5.
 DENSE_TARGET_PROPS = 6_000
 DENSE_TARGET_LIGHTS = 120
 DENSE_FIXTURE_STEP = 0.47
+# Fixed historical authoring inputs for the dense collision/instance witness.
+# These are level placement extents/flags, not replacement catalog metadata.
+# Catalog growth must not reshuffle every bay or reduce its >5000-instance load;
+# the Model Zoo owns complete current-catalog coverage.
+DENSE_PLACEABLE_SPECS: Tuple[Dict, ...] = (
+    {"id": "core:armchair", "size": [0.9, 0.9, 0.9], "solid": True},
+    {"id": "core:bed", "size": [1.4, 0.55, 2.0], "solid": True},
+    {"id": "core:bookshelf", "size": [1.0, 1.8, 0.35], "solid": True},
+    {"id": "core:cabinet", "size": [0.9, 0.85, 0.45], "solid": True},
+    {"id": "core:cardboard_box", "size": [0.5, 0.5, 0.5], "solid": False},
+    {"id": "core:chair", "size": [0.5, 0.9, 0.5], "solid": True},
+    {"id": "core:couch", "size": [2.0, 0.9, 0.9], "solid": True},
+    {"id": "core:crate", "size": [0.6, 0.6, 0.6], "solid": True},
+    {"id": "core:desk", "size": [1.6, 0.75, 0.7], "solid": True},
+    {"id": "core:exit_sign", "size": [0.45, 0.57, 0.08], "solid": False},
+    {"id": "core:fridge", "size": [0.7, 1.8, 0.7], "solid": True},
+    {"id": "core:lamp", "size": [0.35, 1.5, 0.35], "solid": False},
+    {"id": "core:plant", "size": [0.4, 1.0, 0.4], "solid": False},
+    {"id": "core:pool_chair", "size": [0.52, 0.85, 0.55], "solid": True},
+    {"id": "core:pool_curtain_corner", "size": [0.6, 2.6, 0.6], "solid": False},
+    {"id": "core:pool_curtain_end", "size": [0.6, 2.6, 0.22], "solid": False},
+    {"id": "core:pool_curtain_straight", "size": [1.2, 2.6, 0.22], "solid": False},
+    {"id": "core:pool_guardrail_corner", "size": [0.6, 1.05, 0.6], "solid": True},
+    {"id": "core:pool_guardrail_end", "size": [0.6, 1.05, 0.08], "solid": True},
+    {"id": "core:pool_guardrail_straight", "size": [2.0, 1.05, 0.08], "solid": True},
+    {"id": "core:pool_ladder", "size": [0.55, 2.2, 0.45], "solid": True},
+    {"id": "core:pool_table", "size": [0.8, 0.74, 0.8], "solid": True},
+    {"id": "core:rubber_duck", "size": [0.1, 0.12, 0.14], "solid": False},
+    {"id": "core:rug", "size": [2.0, 0.02, 1.4], "solid": False},
+    {"id": "core:sink", "size": [0.6, 1.1, 0.55], "solid": True},
+    {"id": "core:stop_sign", "size": [0.45, 1.8, 0.06], "solid": True},
+    {"id": "core:stove", "size": [0.6, 0.9, 0.6], "solid": True},
+    {"id": "core:table", "size": [1.4, 0.75, 0.8], "solid": True},
+    {"id": "core:tv", "size": [1.1, 0.7, 0.1], "solid": False},
+    {"id": "core:vending_machine", "size": [1.0, 1.9, 0.8], "solid": True},
+    {"id": "core:washer_drum", "size": [0.42, 0.3, 0.42], "solid": False},
+    {"id": "core:washing_machine", "size": [0.6, 0.85, 0.6], "solid": True},
+    {"id": "core:water_cooler", "size": [0.35, 1.1, 0.35], "solid": True},
+    {"id": "home:ball_light", "size": [0.2, 0.8, 0.2], "solid": False},
+    {"id": "home:bowl", "size": [0.15, 0.065, 0.15], "solid": False},
+    {"id": "home:cabinet_base", "size": [0.6, 0.9, 0.6], "solid": True},
+    {"id": "home:cabinet_wall", "size": [0.6, 0.72, 0.33], "solid": True},
+    {"id": "home:crt_tv", "size": [0.55, 0.48, 0.46], "solid": True},
+    {"id": "home:fork", "size": [0.026, 0.012, 0.196], "solid": False},
+    {"id": "home:knife", "size": [0.022, 0.016, 0.215], "solid": False},
+    {"id": "home:plant_table", "size": [0.13, 0.28, 0.13], "solid": False},
+    {"id": "home:plate", "size": [0.22, 0.022, 0.22], "solid": False},
+    {"id": "home:spoon", "size": [0.036, 0.02, 0.185], "solid": False},
+    {"id": "home:wall_switch", "size": [0.086, 0.12, 0.033], "solid": False},
+    {"id": "mannequin", "size": [0.42, 1.72, 0.305], "solid": False},
+    {"id": "rat", "size": [0.095, 0.139, 0.613], "solid": False},
+    {"id": "skeleton", "size": [0.427, 1.72, 0.315], "solid": False},
+    {"id": "spooner-man", "size": [0.165, 0.389, 0.626], "solid": False},
+)
 DENSE_ANIMATED: List[Tuple[str, str]] = [
     ("mannequin", "pose_stand"),
     ("mannequin", "pose_arms_up"),
@@ -160,7 +214,19 @@ def dense_walls(room: Dict) -> List[Dict]:
     ]
 
 
+def dense_placeables(placeables: List[Dict]) -> List[Dict]:
+    """Resolve the fixed witness against actual current catalog placeables."""
+    current = {entry["id"] for entry in placeables
+               if entry.get("asset_type") in ("prop", "entity") and entry.get("model")}
+    missing = [entry["id"] for entry in DENSE_PLACEABLE_SPECS if entry["id"] not in current]
+    if missing:
+        raise ValueError("dense witness models are missing from catalog placeables: " + ", ".join(missing))
+    return [{"id": entry["id"], "size": list(entry["size"]), "solid": entry["solid"]}
+            for entry in DENSE_PLACEABLE_SPECS]
+
+
 def build_dense(rng: Rng, placeables: List[Dict]) -> Dict:
+    placeables = dense_placeables(placeables)
     room = dict(DENSE_ROOM)
     room["material"] = "core:pool_tile_deck_01"
     room["ceiling_material"] = "core:pool_ceiling_01"
@@ -260,7 +326,7 @@ def build_dense(rng: Rng, placeables: List[Dict]) -> Dict:
     def in_corridor(pz: float, depth: float) -> bool:
         return any(abs(pz - cz) < corridor_half_width + depth * 0.5 for cz in corridors)
 
-    # The instance field: every registered model, spread over a fine bay grid
+    # The instance field: the fixed historical models, spread over a fine bay grid
     # so the hall holds thousands of instances but keeps a clear spawn plaza,
     # the reserved cast corridors and a regular aisle lattice. Every placement
     # authors `id`, `size` and `solid` explicitly, so the fixture is

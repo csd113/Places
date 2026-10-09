@@ -130,6 +130,7 @@ def closed_path(p, points, radius, uv, segments=8):
 
 def table(p):
     t=source(p,('tray','trim','leg','brace'))
+    p.begin_material(p.material('satin_resin',roughness=.78))
     # Broad round moulded top, gently rolled edge and a shallow underside skirt.
     outward_lathe(p,(0,0,0),[(.701,.370),(.714,.400),(.735,.400),(.740,.389)],
                   segments=24,uv=t.uv('tray',inset=2),color=WHITE,
@@ -150,6 +151,7 @@ def table(p):
 
 def chair(p):
     t=source(p,('seat','frame','leg','slat'))
+    p.begin_material(p.material('satin_resin',roughness=.78))
     padded_box(p,(0,.43,.028),(.472,.044,.438),t.uv('seat',inset=2),bevel=.014)
     for x in (-.203,.203):
         for z in (-.218,.205):
@@ -178,6 +180,8 @@ def chair(p):
 
 def ladder(p):
     t=source(p,('tube','tread','grip','boot'))
+    chrome=p.material('chrome',roughness=.48,metallic=.65)
+    rubber=p.material('rubber')
     for x in (-.229,.229):
         # Full inverted-U grab rail: the return is bolted onto the dry deck.
         points=[(x,.03,-.192),(x,1.935,-.192)]
@@ -187,13 +191,18 @@ def ladder(p):
         points.append((x,1.5,.290))
         # Keep the established 0.45 m depth and climb-volume alignment.
         points=[(px,py,(pz-.049)*.828+.025) for px,py,pz in points]
+        p.begin_material(chrome)
         closed_path(p,points,.024,t.uv('tube',inset=2),segments=8)
+        p.begin_material(rubber)
         outward_lathe(p,(x,0,-.17455),[(0,.027),(.045,.027)],segments=8,
                       uv=t.uv('boot',inset=2),color=WHITE,cap_start=True,cap_end=True)
+        p.begin_material(chrome)
         outward_lathe(p,(x,1.5,.22455),[(0,.046),(.016,.046),(.028,.032)],segments=8,
                       uv=t.uv('tube',inset=2),color=WHITE,cap_start=True,cap_end=True)
     for y in (.35,.655,.96,1.265):
+        p.begin_material(chrome)
         solid_box(p,(0,y,-.168),(.455,.028,.105),uv=t.uv('tread',inset=2),color=WHITE)
+        p.begin_material(rubber)
         solid_box(p,(0,y+.016,-.168),(.385,.004,.076),uv=t.uv('grip',inset=2),color=WHITE)
     low,high=p.mesh.bounds()
     depth_scale=.45/(high[2]-low[2])

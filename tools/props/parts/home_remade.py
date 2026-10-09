@@ -102,6 +102,7 @@ def sofa(p):
 
 def table(p, coffee=False):
     t = atlas(p)
+    p.begin_material(p.material("varnished_timber", roughness=.72))
     w, h, d = p.size
     top = .055 if coffee else .040
     padded_box(p, (0, h - top / 2, 0), (w, top, d), t.uv("main", inset=2), bevel=.006)
@@ -136,6 +137,7 @@ def dining_chair(p):
 
 def dining_chair_refined(p):
     t = load_atlas_from(p, ROOT / "dining_chair.png", ("main", "secondary", "detail", "dark"))
+    p.begin_material(p.material("varnished_timber", roughness=.72))
 
     def stock_ring(x, y, z, width, depth):
         return [(x + a * width / 2, y, z + b * depth / 2) for a, b in

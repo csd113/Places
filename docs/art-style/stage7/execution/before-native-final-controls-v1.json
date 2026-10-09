@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "python3",
+    "/tmp/places-stage7-before-native-v1.py"
+  ],
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "started_utc": "2026-10-09T06:26:12.724960+00:00",
+  "finished_utc": "2026-10-09T06:26:21.439066+00:00",
+  "elapsed_seconds": 8.713831083034165,
+  "exit_code": 0,
+  "environment_overrides": {
+    "RUSTC_WRAPPER": ""
+  },
+  "log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/before-native-final-controls-v1.log"
+}

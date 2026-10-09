@@ -1,0 +1,1333 @@
+{
+  "recorded_utc": "2026-10-09T02:00:38.737620+00:00",
+  "campaign": "target/verification/map-regression-20261009T011113Z-40817",
+  "status": "completed rejected/superseded; no complete normal gate acceptance",
+  "gate_receipt": "docs/art-style/stage7/execution/normal-desktop-gate-v5.json",
+  "compiler_sha256": "c12e9c69ddd3bc5ecc04a24f8489f605158145d64423c29535fdac2937161d34",
+  "compiler_stable": true,
+  "source_freeze": "docs/art-style/stage7/source-input-identities-v7.json",
+  "passed_cases": 47,
+  "failed_cases": [
+    "tests__fixtures__levels__capacity_dense"
+  ],
+  "classified_offline_controls": [
+    {
+      "key": "tests__fixtures__levels__capacity_beyond_former_limits",
+      "status": "intended-cpu-contract"
+    },
+    {
+      "key": "tests__fixtures__levels__invalid__geometry_invalid",
+      "status": "expected-named-loader-rejection"
+    }
+  ],
+  "archives": [
+    {
+      "key": "tests__fixtures__levels__home_showcase",
+      "original": "target/verification/maps/tests__fixtures__levels__home_showcase.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__home_showcase.placesmap",
+      "bytes": 4645845,
+      "sha256": "1e2f8755cfb2f6983105e916e429395267688533d380cb009b255b5238472977"
+    },
+    {
+      "key": "tests__fixtures__levels__office_asset_review",
+      "original": "target/verification/maps/tests__fixtures__levels__office_asset_review.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__office_asset_review.placesmap",
+      "bytes": 3143630,
+      "sha256": "59c6ad4af603d648f2c6477b82d35e9727c902ee02cdab87d6aa23582950d0f4"
+    },
+    {
+      "key": "tests__fixtures__levels__pool_showcase",
+      "original": "target/verification/maps/tests__fixtures__levels__pool_showcase.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__pool_showcase.placesmap",
+      "bytes": 9613656,
+      "sha256": "16222c24f959b728a71ff35f18ebeb925fcaf55442d79666afe495a419436c95"
+    },
+    {
+      "key": "tests__fixtures__levels__outdoor_kit_showcase",
+      "original": "target/verification/maps/tests__fixtures__levels__outdoor_kit_showcase.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__outdoor_kit_showcase.placesmap",
+      "bytes": 14806782,
+      "sha256": "3825537a25d3de0e4c38befcddd5627c7d996361e6cd16fc9e6c7cec0f4c7d7b"
+    },
+    {
+      "key": "assets__levels__winter",
+      "original": "assets/levels/winter.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/assets__levels__winter.placesmap",
+      "bytes": 64537347,
+      "sha256": "cf46a333fbf7c498469217a888b695030ebc4f6f05a7db9bd0af765e19ac91ac"
+    },
+    {
+      "key": "assets__levels__lantern_hollow",
+      "original": "assets/levels/lantern_hollow.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/assets__levels__lantern_hollow.placesmap",
+      "bytes": 144825606,
+      "sha256": "ea716cc24b4a9c75b70d0c1c059331e9f3791b6c79d16b5ef3de0c3bb60fece4"
+    },
+    {
+      "key": "assets__levels__model_zoo",
+      "original": "assets/levels/model_zoo.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/assets__levels__model_zoo.placesmap",
+      "bytes": 96056813,
+      "sha256": "f653afebe5eb709c16dee3f1c1bede2bbc0e45f36149fdd3e2463a8648919fb9"
+    },
+    {
+      "key": "assets__levels__movement_test",
+      "original": "assets/levels/movement_test.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/assets__levels__movement_test.placesmap",
+      "bytes": 44980523,
+      "sha256": "ce2ea4dd00df2fb5cddb6f67fd3a8ec31e4352f104f19712420797880233f0dd"
+    },
+    {
+      "key": "assets__levels__places_demo",
+      "original": "assets/levels/places_demo.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/assets__levels__places_demo.placesmap",
+      "bytes": 85508452,
+      "sha256": "2aa2b97116eddf08a5fec643cbeec4e793f150ed6c451360a85915a48fbe9e85"
+    },
+    {
+      "key": "levels__blizzard_review",
+      "original": "levels/blizzard_review.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/levels__blizzard_review.placesmap",
+      "bytes": 64537298,
+      "sha256": "3f8966f141ab0d6ac1f47c3c79b053c96540edc79e6d71d383398aca06d14747"
+    },
+    {
+      "key": "levels__geometry_intentional",
+      "original": "levels/geometry_intentional.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/levels__geometry_intentional.placesmap",
+      "bytes": 4776828,
+      "sha256": "f2c56cd703d541848590353f530a80742c569e05dc2dbfdee4ae4175a73a5978"
+    },
+    {
+      "key": "levels__home_showcase",
+      "original": "levels/home_showcase.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/levels__home_showcase.placesmap",
+      "bytes": 4699152,
+      "sha256": "08ac530dfc38e875e85c97917ba48e5f05e0d91990cef6e711f3bfcd02a93081"
+    },
+    {
+      "key": "levels__level0_pit",
+      "original": "levels/level0_pit.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/levels__level0_pit.placesmap",
+      "bytes": 52251642,
+      "sha256": "851a32ab67b8ac3472b5be943f3514155af90eeb5dc9bbc998e5cd18f73f8d2d"
+    },
+    {
+      "key": "levels__snowfall_contrast",
+      "original": "levels/snowfall_contrast.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/levels__snowfall_contrast.placesmap",
+      "bytes": 439227,
+      "sha256": "3bf4a0be774aa73b4d76ed6ea79cdee0fbae2d8fa67ef3388aacad742e42626c"
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero",
+      "original": "target/verification/maps/tests__fixtures__levels__art_style_hero.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__art_style_hero.placesmap",
+      "bytes": 5189882,
+      "sha256": "138ad5531225e8d2ee456fecc176e4dc58ee735b264c98aec80834b24dfb7afa"
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_atmosphere",
+      "original": "target/verification/maps/tests__fixtures__levels__art_style_hero_atmosphere.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__art_style_hero_atmosphere.placesmap",
+      "bytes": 6020702,
+      "sha256": "8a35b38bb7e939a118381a281c795a674b4237a85601dba98789434f189e4ed9"
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_aurora",
+      "original": "target/verification/maps/tests__fixtures__levels__art_style_hero_aurora.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__art_style_hero_aurora.placesmap",
+      "bytes": 6027588,
+      "sha256": "80dd1a8e3bb376a164d3a58f9f3fbd662da1819989b3eadffdd328290431c7f3"
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_night",
+      "original": "target/verification/maps/tests__fixtures__levels__art_style_hero_night.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__art_style_hero_night.placesmap",
+      "bytes": 6027363,
+      "sha256": "1ff603b3fbef475a1dcfc2f31a57d02100cb7c5e464dd44504d7f0de359fb21b"
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_refined",
+      "original": "target/verification/maps/tests__fixtures__levels__art_style_hero_refined.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__art_style_hero_refined.placesmap",
+      "bytes": 6632427,
+      "sha256": "a8eb817f6bffef65685874e2e87eba50b467125fcb5b922c1730c087db960358"
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_stage4_comparison",
+      "original": "target/verification/maps/tests__fixtures__levels__art_style_hero_stage4_comparison.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__art_style_hero_stage4_comparison.placesmap",
+      "bytes": 9401371,
+      "sha256": "ae944662265ecdf1971d44299e0d0d1a128d7de7e0341e6d816ff6d0cdc09230"
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_stage4_entities",
+      "original": "target/verification/maps/tests__fixtures__levels__art_style_hero_stage4_entities.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__art_style_hero_stage4_entities.placesmap",
+      "bytes": 5722922,
+      "sha256": "15b1e211addd4d8034869d7c1317fc42f33a03723280d0cab588726670543482"
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_stage4_movement",
+      "original": "target/verification/maps/tests__fixtures__levels__art_style_hero_stage4_movement.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__art_style_hero_stage4_movement.placesmap",
+      "bytes": 5743369,
+      "sha256": "3303923ee0e328d922db17f1a32d56cf69bcdef1b59e8384e5eb19367f3e56fc"
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_stage4_switchable",
+      "original": "target/verification/maps/tests__fixtures__levels__art_style_hero_stage4_switchable.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__art_style_hero_stage4_switchable.placesmap",
+      "bytes": 9067573,
+      "sha256": "34681fc2b599868fd6fe9b5487ebd6d85e119305d27e5b7111217e0e5e64a49b"
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_storm",
+      "original": "target/verification/maps/tests__fixtures__levels__art_style_hero_storm.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__art_style_hero_storm.placesmap",
+      "bytes": 6027576,
+      "sha256": "d2c164b62277367b7ed4f6f27daecef4180e3e693c86329ee66b633f645951ec"
+    },
+    {
+      "key": "tests__fixtures__levels__art_style_hero_transparency",
+      "original": "target/verification/maps/tests__fixtures__levels__art_style_hero_transparency.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__art_style_hero_transparency.placesmap",
+      "bytes": 6020834,
+      "sha256": "f9a1c7a4376e9ed2aa9ac28047de2823fe13a6c43d069a3556f046787509a110"
+    },
+    {
+      "key": "tests__fixtures__levels__asset_polish_showcase",
+      "original": "target/verification/maps/tests__fixtures__levels__asset_polish_showcase.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__asset_polish_showcase.placesmap",
+      "bytes": 4464886,
+      "sha256": "6ac4322d7de4e7eb8cfd35cc2bff8ba9ff04417273c066ce20ec0abad4c16d69"
+    },
+    {
+      "key": "tests__fixtures__levels__entity_showcase",
+      "original": "target/verification/maps/tests__fixtures__levels__entity_showcase.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__entity_showcase.placesmap",
+      "bytes": 5898076,
+      "sha256": "da1259b220a5f71803b726f96e9b518be1d750ba45e5ed922d43e569d2695237"
+    },
+    {
+      "key": "tests__fixtures__levels__fog_void_validation",
+      "original": "target/verification/maps/tests__fixtures__levels__fog_void_validation.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__fog_void_validation.placesmap",
+      "bytes": 6694419,
+      "sha256": "df0e17de8abdf15aea64024140579309cf57c765cb1f84d1b07b8872bea4b0df"
+    },
+    {
+      "key": "tests__fixtures__levels__geometry_broken",
+      "original": "target/verification/maps/tests__fixtures__levels__geometry_broken.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__geometry_broken.placesmap",
+      "bytes": 2535179,
+      "sha256": "90d773c8f7deecd408333dc0554c8b0b4e60c635e1cd57be142fcde78f3c157c"
+    },
+    {
+      "key": "tests__fixtures__levels__geometry_intentional",
+      "original": "target/verification/maps/tests__fixtures__levels__geometry_intentional.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__geometry_intentional.placesmap",
+      "bytes": 4776828,
+      "sha256": "f2c56cd703d541848590353f530a80742c569e05dc2dbfdee4ae4175a73a5978"
+    },
+    {
+      "key": "tests__fixtures__levels__halloween_entities",
+      "original": "target/verification/maps/tests__fixtures__levels__halloween_entities.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__halloween_entities.placesmap",
+      "bytes": 4934547,
+      "sha256": "8471a0ed1522b7e418dbde605cc6aa09c3a31f8b6d638cf57f384a94f6b9acf4"
+    },
+    {
+      "key": "tests__fixtures__levels__level0_pit",
+      "original": "target/verification/maps/tests__fixtures__levels__level0_pit.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__level0_pit.placesmap",
+      "bytes": 52251642,
+      "sha256": "851a32ab67b8ac3472b5be943f3514155af90eeb5dc9bbc998e5cd18f73f8d2d"
+    },
+    {
+      "key": "tests__fixtures__levels__lighting_diagnostic",
+      "original": "target/verification/maps/tests__fixtures__levels__lighting_diagnostic.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__lighting_diagnostic.placesmap",
+      "bytes": 18957515,
+      "sha256": "6196c6e8a55cd0a55fd4814645094ed4e3ebe6201898551155221b50ce9a39c6"
+    },
+    {
+      "key": "tests__fixtures__levels__lighting_isolation",
+      "original": "target/verification/maps/tests__fixtures__levels__lighting_isolation.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__lighting_isolation.placesmap",
+      "bytes": 6561666,
+      "sha256": "c7811ae93862de3019e0076fd7824b2c70fe6211a1a1dad6b1262f15db2039a6"
+    },
+    {
+      "key": "tests__fixtures__levels__lighting_quality",
+      "original": "target/verification/maps/tests__fixtures__levels__lighting_quality.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__lighting_quality.placesmap",
+      "bytes": 12034609,
+      "sha256": "281daf0b3b5b143d198d999e73e7696918df596f24622520b3da4929094286ed"
+    },
+    {
+      "key": "tests__fixtures__levels__lighting_repair_cases",
+      "original": "target/verification/maps/tests__fixtures__levels__lighting_repair_cases.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__lighting_repair_cases.placesmap",
+      "bytes": 2041920,
+      "sha256": "8c1bba2b68674c2dfdae3dd419f489147b5d340987d203c1fa5205b3051c25d4"
+    },
+    {
+      "key": "tests__fixtures__levels__prop_showcase",
+      "original": "target/verification/maps/tests__fixtures__levels__prop_showcase.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__prop_showcase.placesmap",
+      "bytes": 8657315,
+      "sha256": "7dc79f0ae0f0b045f7a0c905fd2e659d852948994aa60f2238c8ac11ed2b2655"
+    },
+    {
+      "key": "tests__fixtures__levels__prop_stress",
+      "original": "target/verification/maps/tests__fixtures__levels__prop_stress.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__prop_stress.placesmap",
+      "bytes": 25419833,
+      "sha256": "e3891401deb131a9d2e15ec9f31ff9d68b3e99a3eb40a376dd717f94e6e53e65"
+    },
+    {
+      "key": "tests__fixtures__levels__rendering_diagnostic",
+      "original": "target/verification/maps/tests__fixtures__levels__rendering_diagnostic.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__rendering_diagnostic.placesmap",
+      "bytes": 4474386,
+      "sha256": "87e515198c0742ce5a131b5b6865a6f16f11158f5a92cd4f48392dc9029929ce"
+    },
+    {
+      "key": "tests__fixtures__levels__repair__clean",
+      "original": "target/verification/maps/tests__fixtures__levels__repair__clean.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__repair__clean.placesmap",
+      "bytes": 100867,
+      "sha256": "2064ef54aed00a73e5dde1f6a6a88eea51a2dcaf57aaa46ad51b0a858db9bba2"
+    },
+    {
+      "key": "tests__fixtures__levels__repair__gap_review",
+      "original": "target/verification/maps/tests__fixtures__levels__repair__gap_review.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__repair__gap_review.placesmap",
+      "bytes": 100455,
+      "sha256": "8110c6a501f7ac9add2ec18aac82bff8938187aca592bf549e100b17290f0ac0"
+    },
+    {
+      "key": "tests__fixtures__levels__repair__wall_step_x",
+      "original": "target/verification/maps/tests__fixtures__levels__repair__wall_step_x.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__repair__wall_step_x.placesmap",
+      "bytes": 105675,
+      "sha256": "560341e1823b259d4bd9eb7cb453fd95556debb739170404e9a832d6c6cefb67"
+    },
+    {
+      "key": "tests__fixtures__levels__repair__wall_step_z",
+      "original": "target/verification/maps/tests__fixtures__levels__repair__wall_step_z.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__repair__wall_step_z.placesmap",
+      "bytes": 105745,
+      "sha256": "da88887d5c7dcfbe97c72fbb9edfa90b2b713b2ae02029ee709d4ff391259fca"
+    },
+    {
+      "key": "tests__fixtures__levels__round_pool_and_proximity_fade",
+      "original": "target/verification/maps/tests__fixtures__levels__round_pool_and_proximity_fade.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__round_pool_and_proximity_fade.placesmap",
+      "bytes": 543250,
+      "sha256": "023cf4bf43b6bc6615f4e137b23e8730250db4bc7b03e5050f07c9e581d04dc0"
+    },
+    {
+      "key": "tests__fixtures__levels__test_room",
+      "original": "target/verification/maps/tests__fixtures__levels__test_room.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__test_room.placesmap",
+      "bytes": 3871355,
+      "sha256": "57c5568ddd0d7d9c2ca7844c3c1aec2925b261459ce48ff2f2077105017fbc6d"
+    },
+    {
+      "key": "tests__fixtures__levels__vertical_diagnostic",
+      "original": "target/verification/maps/tests__fixtures__levels__vertical_diagnostic.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__vertical_diagnostic.placesmap",
+      "bytes": 6836564,
+      "sha256": "5d9d03f4d77afb4f7e39d32534a6a9b1470584ecededabfa7b772f799ce68e56"
+    },
+    {
+      "key": "tests__fixtures__levels__water_transmission",
+      "original": "target/verification/maps/tests__fixtures__levels__water_transmission.placesmap",
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/packages/tests__fixtures__levels__water_transmission.placesmap",
+      "bytes": 1959347,
+      "sha256": "6f40f9145cf3793d79aade42b3865b67afd8647be8fdacf5dce86143474e480b"
+    }
+  ],
+  "campaign_files": [
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/assets__levels__lantern_hollow-0.log",
+      "bytes": 3190,
+      "sha256": "783de59ffcc7a89f8d4f65d6cfae205de662f196a08b9abf41181a710810b555"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/assets__levels__lantern_hollow-1.log",
+      "bytes": 423,
+      "sha256": "1c99a68ff6fd9fa49d3eeaf2487ff1e740b5f98406d6a437a675ef194c746d8f"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/assets__levels__lantern_hollow-2.log",
+      "bytes": 432,
+      "sha256": "88402824250e1a028f22b35637d4c5ddb8ddf6fb5a03e289358124541f95a2af"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/assets__levels__lantern_hollow.json",
+      "bytes": 2180,
+      "sha256": "440ab143cfbfb8fbfba4cc2e4b5d22f6f3d9fda8416f4ac5f1e5dc81836eb250"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/assets__levels__model_zoo-0.log",
+      "bytes": 3165,
+      "sha256": "596e44491bf157bcd0776673551ad1b283d9b38d389bc856292388ebbf2901d5"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/assets__levels__model_zoo-1.log",
+      "bytes": 413,
+      "sha256": "c9bf40841ac44cddb5758ba52a736847668146c035b1d72b539278660f8896f2"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/assets__levels__model_zoo-2.log",
+      "bytes": 418,
+      "sha256": "9cbd25af8434a4b9f6e99243bd018c777355513535d3415b12c94df140a7f088"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/assets__levels__model_zoo.json",
+      "bytes": 2135,
+      "sha256": "2c5639db7c81101990a20dff19a78b199bedd2c5a9a93baba17d371b77047864"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/assets__levels__movement_test-0.log",
+      "bytes": 3112,
+      "sha256": "7d35d3c5fb13e6247588f51438bb968a3712ace4f257748839fc236717d85b2d"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/assets__levels__movement_test-1.log",
+      "bytes": 421,
+      "sha256": "538eefcf98000f93148c5185581f74557754b47507c5b0e56d5302ee98cc42c3"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/assets__levels__movement_test-2.log",
+      "bytes": 429,
+      "sha256": "570009c0e4726de1da71823fbfc4960d882c7d81fd1a32d3240bf1569810ab95"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/assets__levels__movement_test.json",
+      "bytes": 2171,
+      "sha256": "3bc268868fdd1b61b1b03baaba56e883cbb1589f51e74e994c566fde3b785a65"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/assets__levels__places_demo-0.log",
+      "bytes": 3186,
+      "sha256": "601018f7cc41cce02ec13de19fd72bbe9d75708c0fb21545478ed8b1bc879bd0"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/assets__levels__places_demo-1.log",
+      "bytes": 417,
+      "sha256": "3c193704e3e992392a000dd50a26d62450e0b27cc780fa2f972d702f566d8d39"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/assets__levels__places_demo-2.log",
+      "bytes": 424,
+      "sha256": "81c74b756920504269953178d98032b795f0fd5a1f1504df67fe7457c39bf8f8"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/assets__levels__places_demo.json",
+      "bytes": 2151,
+      "sha256": "64b3b5c67cee9f6442fba178645c5cdf52f7ab29d976898e52a51b82a0a1605e"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/assets__levels__winter-0.log",
+      "bytes": 3178,
+      "sha256": "de6d35ae494a836fe1be88e31f3ce340324ec7a12ba4e325e6e5efdc945ab192"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/assets__levels__winter-1.log",
+      "bytes": 407,
+      "sha256": "481fd48f3eb8b57962c57ecba02ac63c89075c3268c1d16f19947096b09fb035"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/assets__levels__winter-2.log",
+      "bytes": 408,
+      "sha256": "0056391be67193b0cda470d204ad76ef5d947454ce37ac26385206aa4963c9ce"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/assets__levels__winter.json",
+      "bytes": 2108,
+      "sha256": "ef315ebdf309809d05686853448942407e63a40d49a8a1ff8d2e5b616b3942b8"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/levels__blizzard_review-0.log",
+      "bytes": 3181,
+      "sha256": "ecdc2d24b017404d2caeb75897274b56dec355364a945c8ae5f0f2f6bcd2fe03"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/levels__blizzard_review-1.log",
+      "bytes": 411,
+      "sha256": "4c3e3da3521245c5f5254909105ac91a9173b3b0279ec65fbcb271207989fbdb"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/levels__blizzard_review-2.log",
+      "bytes": 435,
+      "sha256": "066547b5c3a979055c02e043988f78aff41ffccd0d9c1df132954e124582ca55"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/levels__blizzard_review.json",
+      "bytes": 2121,
+      "sha256": "5a7325f401da3ce3eeab2fce88b00e9ab000f8a5c6699b4891e78af64da01892"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/levels__geometry_intentional-0.log",
+      "bytes": 3052,
+      "sha256": "22ed8aa198e4de584f80a34731829bafb3bc3789ef348878b29b9507f76cfeb1"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/levels__geometry_intentional-1.log",
+      "bytes": 421,
+      "sha256": "99f2f2f501c07562668e509fecf40fdc78cdc8b107b49f32ca0ac3c1dfe8507e"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/levels__geometry_intentional-2.log",
+      "bytes": 462,
+      "sha256": "339e0bfd3b6fb5826649195863c3889f349b7bed8880cbcd70e08f6d4f16d7b8"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/levels__geometry_intentional.json",
+      "bytes": 2168,
+      "sha256": "9b0e3516b7640ff78b59b9834f4de8824b3f84793ab2ff2fe5a07588521b294b"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/levels__home_showcase-0.log",
+      "bytes": 2944,
+      "sha256": "e1e7fabb74d875e410e41cfc789edf3fcaab315909a740aa11fed74239e77278"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/levels__home_showcase-1.log",
+      "bytes": 407,
+      "sha256": "5aad1b9095ac2cd9a8ec243e03b370d8f10475970011d1d03b51c0c1aac1e794"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/levels__home_showcase-2.log",
+      "bytes": 427,
+      "sha256": "6373e4e2db271fcbffea377374f1d7caaaed60204530f98a5b7d5f0b8a1ea42f"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/levels__home_showcase.json",
+      "bytes": 2104,
+      "sha256": "6e5454e6c39d7e4aa89f7b3553383fcf8676c914fd943d5b09e437365378e91a"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/levels__level0_pit-0.log",
+      "bytes": 3654,
+      "sha256": "146514144e46d7ed3633810cdb57d5a6d8c3777109bd7c258508e1427104f196"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/levels__level0_pit-1.log",
+      "bytes": 401,
+      "sha256": "98430f309c2f506e11bf1d6a7c61a4f29f27766e2d347a7a44c999f8dca03566"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/levels__level0_pit-2.log",
+      "bytes": 419,
+      "sha256": "7575d46482a57de8f00def52d67bea0e8d5ddf3479ea1246fba6ee9dd38a33a6"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/levels__level0_pit.json",
+      "bytes": 2076,
+      "sha256": "b1f5cd0cf789779d4936c87a5b37adf70cbfb1e542aef84490ae2f7f801774fe"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/levels__snowfall_contrast-0.log",
+      "bytes": 2825,
+      "sha256": "5909d74014cfd1ae823e7e0bcd11b684ea205f8977a210d9a34131cb9404b5f1"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/levels__snowfall_contrast-1.log",
+      "bytes": 415,
+      "sha256": "88221a1546bab376131f0c7443c0448c5f4ca896ed064f519efd776407f08ff3"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/levels__snowfall_contrast-2.log",
+      "bytes": 439,
+      "sha256": "ca21db91a7720f33468e1cbaee58329240bf8476cb2a103b1b866657b7f44633"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/levels__snowfall_contrast.json",
+      "bytes": 2141,
+      "sha256": "e5aeb60a2d365b9ad16baf0f4ab507740604321ca86a71e29c3a012afa09c7aa"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero-0.log",
+      "bytes": 3123,
+      "sha256": "1c7356b7b40d3ac6268cedcc14a0e336386c2cdc62d4aafd899e4122c70e4147"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero-1.log",
+      "bytes": 467,
+      "sha256": "80cd831d8608ddafeac2f68e0de52dfeb98fb566dffceea41724b5decf213125"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero-2.log",
+      "bytes": 493,
+      "sha256": "ec49e870ca1e4b5d7d302a2484ef88da8c26757db7616645058a8e7db857305b"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero.json",
+      "bytes": 2339,
+      "sha256": "5a873a92972f1439625a339b1794bc2acaf46a9f2b8e25566da446b25594df72"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_atmosphere-0.log",
+      "bytes": 3152,
+      "sha256": "0af7e5c51734af7ba7ca51d861a733b413da250a45b5b741101a4a011b95333c"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_atmosphere-1.log",
+      "bytes": 489,
+      "sha256": "a16bd3945c0ed7c5d20bd7740ef4b3cea6b1cc6ef3692f6b3fae0da27c2a3785"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_atmosphere-2.log",
+      "bytes": 516,
+      "sha256": "752e1e233261c39c2ec7f855a4fb3fd37006bc160842e51f41cb60463491c302"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_atmosphere.json",
+      "bytes": 2439,
+      "sha256": "ee3cce64efe430d50aa21b26543740e9e93844cd6ca77ff46b182b5c47c7fb1f"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_aurora-0.log",
+      "bytes": 3101,
+      "sha256": "661b3f43a53c771b2032f6bc53daa79748a1ac827d8fe78b729d8dbf71f0ae1e"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_aurora-1.log",
+      "bytes": 481,
+      "sha256": "3dab1149097aa1e6232ff665664e9eb359b7f09c5ba0495bc6e32ec4f4988fae"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_aurora-2.log",
+      "bytes": 512,
+      "sha256": "7a61d19779798af61ad4b16fa05392c1700b7dc10e3ff5aceea19225c287ef2c"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_aurora.json",
+      "bytes": 2403,
+      "sha256": "cb660286d4541647c1b3423bfa0425ff3095377072f253e60fcc0ad797b13e0b"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_night-0.log",
+      "bytes": 3143,
+      "sha256": "36c65178a5a9e15e601b64eff4c8b740cd36f515ce44a6bf9aa8a4085b041402"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_night-1.log",
+      "bytes": 479,
+      "sha256": "0ab0624bc054c942dcd146952fd56c8b82f30a352afadc2522367c2463f56f39"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_night-2.log",
+      "bytes": 511,
+      "sha256": "80957559cbd0117123005f6286fde0eb3234a08b49eb89b2660dffbb02262f31"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_night.json",
+      "bytes": 2394,
+      "sha256": "bbdd905811aa12b9104ea04ac1e2da660a95392e4747caa01d05e5120674cf72"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_refined-0.log",
+      "bytes": 3107,
+      "sha256": "2d4b999ebb975fa1dc02318f065fbb58ef379cb921d0149de4f37484e0e7e041"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_refined-1.log",
+      "bytes": 483,
+      "sha256": "65364b914cbbcf9ee41e5dbe16bcb485e1931a538719b390d2957e7a60d849e4"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_refined-2.log",
+      "bytes": 509,
+      "sha256": "e7b2bad612ed1ea593e6f79a6d0ecc6d47602da31c43a42691d256c1c9bae435"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_refined.json",
+      "bytes": 2411,
+      "sha256": "cee44107f9c72d190f4bda2b7597dc9b5c516385f745222662f889bab26f8954"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_stage4_comparison-0.log",
+      "bytes": 3164,
+      "sha256": "69d2ae562e60fcbb098c7e605c411c6a72b15c407370ab5ab44ad742ad261fe3"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_stage4_comparison-1.log",
+      "bytes": 503,
+      "sha256": "9a49dce1237fc054b1df6020d57d8810ad2a705f7d9b031f3581354001a2996a"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_stage4_comparison-2.log",
+      "bytes": 521,
+      "sha256": "e30f0a20306295b9493d536db29ee85fcbb92d5f6086d0aec39d49772a0a7521"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_stage4_comparison.json",
+      "bytes": 2501,
+      "sha256": "0b8693fefac648fa5423adb148aa232edd22d7f317e1c201cd55d2554f03586d"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_stage4_entities-0.log",
+      "bytes": 3151,
+      "sha256": "b6d1880be95205e2e1361dfedbb898fc3e751b5ea15a34ffc139e83053acdb81"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_stage4_entities-1.log",
+      "bytes": 499,
+      "sha256": "1ae3c1127948c4a7ad3f17d0e03fec1b6e43b8a06c222fb825bbcc1f6f3ed02e"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_stage4_entities-2.log",
+      "bytes": 509,
+      "sha256": "08f4418b6bc8b1c60ee4e9e5f7f18699a999af544f572c89194f8a409eb818ac"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_stage4_entities.json",
+      "bytes": 2484,
+      "sha256": "9da166c096019ca8764466bb3a9d2bce708103555526673238ffb497ef9b1051"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_stage4_movement-0.log",
+      "bytes": 3144,
+      "sha256": "f1783a15a8a21dcfbefad5ffaa680ad3199f6eb99b463e93dadc91209c59e98d"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_stage4_movement-1.log",
+      "bytes": 499,
+      "sha256": "39426dc27b17f35d69f15e767bc50c0c4987d4926a34b7a979f7426ba71d6128"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_stage4_movement-2.log",
+      "bytes": 520,
+      "sha256": "d0004d421fab50ee8f695439832c58b7af28444d1e953a23591b307d14545047"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_stage4_movement.json",
+      "bytes": 2483,
+      "sha256": "908e9c1d0152b2efa95716e959696721a01fa1c2d0cd58f741317ae8f2c897e5"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_stage4_switchable-0.log",
+      "bytes": 3140,
+      "sha256": "e4c1523eae04f022c8b478c27b46e89eb3d6642123e92cbd119469f368552cd2"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_stage4_switchable-1.log",
+      "bytes": 503,
+      "sha256": "7bedfc198f94643b58bd857709118469f4b541e6f40695c82a7ccdbf0b96bb17"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_stage4_switchable-2.log",
+      "bytes": 512,
+      "sha256": "d7169f475322c1a37e89d5ce90d4629170d20d6ca79228f3776926d052b2e46d"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_stage4_switchable.json",
+      "bytes": 2501,
+      "sha256": "e4722bea6753d864e5019afa04096d19893999dfb0ce0fbc421fb62a90804ba2"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_storm-0.log",
+      "bytes": 3132,
+      "sha256": "2febfb754eeeb5f7d35f3edaa8d52542b77a83597acb6f642288cb35091bc935"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_storm-1.log",
+      "bytes": 479,
+      "sha256": "79f4c04b9d7d4d106b681416c647ef5ce2bd756dcc17918e929fe1c88db83a41"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_storm-2.log",
+      "bytes": 511,
+      "sha256": "a99e99479bc43626c2bf0b62643fbced36f12c5a96d4cd525b83d03a437554f6"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_storm.json",
+      "bytes": 2393,
+      "sha256": "a9499eb99d5af4e295d07bc17c9ad76928e0edd0bf94402b7dd5b15454b64996"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_transparency-0.log",
+      "bytes": 3144,
+      "sha256": "e080a73a4e3e3528b27f4239d9dbb17fb6b87260f735190a77cc9288de61855a"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_transparency-1.log",
+      "bytes": 493,
+      "sha256": "d0ef251bbcb35954ced33984aa6e741b3072e3015f275ac6248cab2ad2383a5d"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_transparency-2.log",
+      "bytes": 518,
+      "sha256": "84f7e8d11ecdd0f502df1d17e26a8956cc7b59c49b08b4df3ff9af125d4716c3"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__art_style_hero_transparency.json",
+      "bytes": 2457,
+      "sha256": "69d209638ddb288f3edd2783d92f96c57370a2f78390260187eb916857bbe959"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__asset_polish_showcase-0.log",
+      "bytes": 3011,
+      "sha256": "b11a25807ffb95fbf628841d9b521c8c3d474ea48ee172b14dab43ad7c53a62a"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__asset_polish_showcase-1.log",
+      "bytes": 481,
+      "sha256": "27d13c1844f66e689cf335e6cb6c224ea242b21b4699d1033c981aab96448128"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__asset_polish_showcase-2.log",
+      "bytes": 488,
+      "sha256": "5e03774258a3d7fadc917c1b39531796d7693d8aa959ea233c2c0eae455f7a43"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__asset_polish_showcase.json",
+      "bytes": 2403,
+      "sha256": "236cd1cb2e7692715d9065bb13bd62c8e55c7cd85fbb279222ecb0103ec6bf72"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__capacity_dense-0.log",
+      "bytes": 394,
+      "sha256": "f74628bb72879081ac841537cd31035ed075579e2d5e7117cca6c5402c3133db"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__capacity_dense.json",
+      "bytes": 923,
+      "sha256": "40c2ad88cc27da3167419717622ea66d95b309a14973c39d49ab13246e28e684"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__entity_showcase-0.log",
+      "bytes": 2820,
+      "sha256": "057a1fc98d45a9359657a4fb7a6a9fb6eba9aeb6a10a6b58c5f67e4501471a1e"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__entity_showcase-1.log",
+      "bytes": 469,
+      "sha256": "20748930ea3fc2eda437410aec1ff080ade775d8ad7dd00d45794093f24de275"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__entity_showcase-2.log",
+      "bytes": 469,
+      "sha256": "ce03b50ba223896d214d26608ae7febfaac964685cc412b9b87bcf52e39297a6"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__entity_showcase.json",
+      "bytes": 2349,
+      "sha256": "d01826e215372634856bededdda300fecd40e4552b996360a6887053c9f230cc"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__fog_void_validation-0.log",
+      "bytes": 2854,
+      "sha256": "f8dacd7b91ca67496553f830e53fbf751d7c4c4f1a92484e3cda9183c2aee4f0"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__fog_void_validation-1.log",
+      "bytes": 477,
+      "sha256": "2f4897c9a41740f7e09dcb8cdfa67f8e687fe9224fe60d51bff551ba5a906106"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__fog_void_validation-2.log",
+      "bytes": 485,
+      "sha256": "c85b96fb253f60a66adb6daed32f10cb36154d64d69d309489e05e8ce6ea3606"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__fog_void_validation.json",
+      "bytes": 2385,
+      "sha256": "3cf34f5bedc7a39da85189ec8aa6cee06c04537543a25127a419b9dd2d550cdb"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__geometry_broken-0.log",
+      "bytes": 3060,
+      "sha256": "4c0550c89ac250020c9babc87799d39f5d6c13931b66c71eec006ba27a4015f1"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__geometry_broken-1.log",
+      "bytes": 469,
+      "sha256": "dca44ef85b40038cc0d1393ee82fed65401c3be0121f38a565b56b649969e6a9"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__geometry_broken-2.log",
+      "bytes": 485,
+      "sha256": "066228ff270311524dba9507d3274b27d1f758049b9b36184e9a3fc25b3984ca"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__geometry_broken.json",
+      "bytes": 2349,
+      "sha256": "23f9983e43b4b73491f8d7ae9cc0bdc7351cd9475338fc0a3094304070f0e098"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__geometry_intentional-0.log",
+      "bytes": 3071,
+      "sha256": "2a01e67a3d1fc0ea2894e18eee8056d0e95c4ef5a20a09455641dcc1a500eebc"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__geometry_intentional-1.log",
+      "bytes": 479,
+      "sha256": "b3a5442b3d6506d608da68d04355d213a58d74a947531ca28ce5051c72a0894d"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__geometry_intentional-2.log",
+      "bytes": 505,
+      "sha256": "deba0ac8137d0cc0d6f716011bb6ad9f51067b4df7360fff892a0ab21c559f4c"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__geometry_intentional.json",
+      "bytes": 2393,
+      "sha256": "40798d9eed6f4915b51e36ac2e0b989c2052b28f0a0d6d781d094ef94ba858f6"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__halloween_entities-0.log",
+      "bytes": 2867,
+      "sha256": "cab820522b30d51ec19ede15e53066607f2f873cba0921e6d53628154c610196"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__halloween_entities-1.log",
+      "bytes": 475,
+      "sha256": "b42c883fb61de959ca736dec11444b117d22a339b78fd5d604a05d7c9c1c20e9"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__halloween_entities-2.log",
+      "bytes": 485,
+      "sha256": "e6960995f70109fd4f086ae8f36e3c16c1d1dea4b7700cc170ff340c241b124c"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__halloween_entities.json",
+      "bytes": 2376,
+      "sha256": "f8c4ccdf9032a9bc7a1ee5a5350a512b33fa65aa184fc96cc12b092fab9d838d"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__home_showcase-0.log",
+      "bytes": 2974,
+      "sha256": "417ba82904943d9105ad01f3fe593a91e596cc12d04545e4f7b0ea8078b74014"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__home_showcase-1.log",
+      "bytes": 465,
+      "sha256": "c8cc695ed040c33645bfa6e62d2b9894945cfd5c7eb8af4fbcf8dea8b6b403f3"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__home_showcase-2.log",
+      "bytes": 470,
+      "sha256": "5dbe3aea26d6c40a74f7515dc513112941604d3659ca8d44ef05eb12a72c4dc2"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__home_showcase.json",
+      "bytes": 2332,
+      "sha256": "17770c995328950c42319fbf913e721ad0f4b905385041eb2f4dcb1daa64df9c"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__invalid__geometry_invalid-0.log",
+      "bytes": 116,
+      "sha256": "252b984485ae6a9242d1e6daad82027cab2649b127d388caa983b5bc02eee313"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__invalid__geometry_invalid.json",
+      "bytes": 993,
+      "sha256": "1209e65a939c3664311d016c67d5e2236101ea4634ef02085750314457562fe1"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__level0_pit-0.log",
+      "bytes": 3632,
+      "sha256": "83df3c0635ea03ae5318023b0f580b406ff74701e2444d9e51fe3a0fdc880f0f"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__level0_pit-1.log",
+      "bytes": 459,
+      "sha256": "81029a462d6ace3951237313918e031ee7d05543785367211e64925a6a418a3d"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__level0_pit-2.log",
+      "bytes": 462,
+      "sha256": "1bfc6fc96c9e5a431a1d54a75bf3884d764c7a1f1ebb74a111c2f3ee4369b8fa"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__level0_pit.json",
+      "bytes": 2304,
+      "sha256": "e20f7d16aabd2c806d4bdb20b3ce6a1a7ac798ea92236991d4da7da13db5cf77"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__lighting_diagnostic-0.log",
+      "bytes": 2856,
+      "sha256": "a893a1e81e946224b87c4f08dc365ded95c5b51b3d4b6961b9ea3abe1dce7d2b"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__lighting_diagnostic-1.log",
+      "bytes": 477,
+      "sha256": "9e6da9484ead9e56566ffe7a096dc1b7f24b0208e9aa88545f2e95f889503bf1"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__lighting_diagnostic-2.log",
+      "bytes": 481,
+      "sha256": "d665e18c4b3e09e1422ea157baa2c5e69364ea15fd533b72c281ffb4c1c2b43f"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__lighting_diagnostic.json",
+      "bytes": 2385,
+      "sha256": "1a31d236f245bf0a4e7923a85f0082767af0d7b098ae84c40b95daf69e75152c"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__lighting_isolation-0.log",
+      "bytes": 2864,
+      "sha256": "d756be4c896348c27c258ec9f7328273dd61b67cdae75a644d2d4e09279408bd"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__lighting_isolation-1.log",
+      "bytes": 475,
+      "sha256": "d77f0b4e8d3847569fc57b5f411c903f418103c14ca91c916a38372717ea78b6"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__lighting_isolation-2.log",
+      "bytes": 478,
+      "sha256": "23e5a2b8b18f9d4a9cc34a25dba0e8b3f9e455eb13fd9d93a1d81cdcb906fb26"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__lighting_isolation.json",
+      "bytes": 2378,
+      "sha256": "817c80aac203131b94a3090d085b42e60981ae92ad8b923e310c4588772242ea"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__lighting_quality-0.log",
+      "bytes": 2925,
+      "sha256": "9e144648d3d9504b28b88c4955d4f9347ac59fb65323d3615462d49917cda782"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__lighting_quality-1.log",
+      "bytes": 471,
+      "sha256": "34d2532c46de2c985236b567711e08e0d8a5900d27ca3258409ccc03e2e66523"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__lighting_quality-2.log",
+      "bytes": 482,
+      "sha256": "a4258f7d6fa5ff48368efda0517c36955baa30af86dba3fafc99a1211a6b95b8"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__lighting_quality.json",
+      "bytes": 2356,
+      "sha256": "4e0939d8c2e9018ba77b3c01330da1ea085394709b5892f69cefe294bbae6c60"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__lighting_repair_cases-0.log",
+      "bytes": 2860,
+      "sha256": "12d80782fda2f7479d9954bbeff3a7562562d5063a7fbc7ad5739a32219a03ec"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__lighting_repair_cases-1.log",
+      "bytes": 481,
+      "sha256": "ea9b6cc0b35652d8c57de8ba5a1cc25b43742250bf1404fe56c904b40d530f42"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__lighting_repair_cases-2.log",
+      "bytes": 487,
+      "sha256": "8b0431414fc18bb7b6ac5ae837ff32990bc102418ac7c5dc7bb08f8f50c522ce"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__lighting_repair_cases.json",
+      "bytes": 2404,
+      "sha256": "c534b260f02cbadd01f3ac27d09f3387975f600ea9610f6fdb78d04a6e50fa4f"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__office_asset_review-0.log",
+      "bytes": 2926,
+      "sha256": "4d1c0d8742527767cf25c6fc0fee39acd1e7424b78db21a84e4903443952b87e"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__office_asset_review-1.log",
+      "bytes": 477,
+      "sha256": "519e1ef63128b7ffdcd7931955aac5b3cfb7f62bb42723b3a0b252af25801dc5"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__office_asset_review-2.log",
+      "bytes": 482,
+      "sha256": "4fd212af39a471e88202b815b02e2126ff637085b3648e8fe77a62c233d1e7e2"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__office_asset_review.json",
+      "bytes": 2384,
+      "sha256": "c977a1e6c78c64aaa4359337fb1e65bfc04a413618c383aa212dfaf32aeafcd2"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__outdoor_kit_showcase-0.log",
+      "bytes": 2928,
+      "sha256": "dfd629d3c18e514b17ae0b4b470011cca98cddcfb5cf15d00be3ef17386ca511"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__outdoor_kit_showcase-1.log",
+      "bytes": 479,
+      "sha256": "488133b08a0b313c176d27c0b9ee9f5abb676ec1558ca654465485dd6ada5d94"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__outdoor_kit_showcase-2.log",
+      "bytes": 492,
+      "sha256": "15cbc02e1d963324ae461c863ac8305333b3cb0e0e2362fbabdad58cc6436275"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__outdoor_kit_showcase.json",
+      "bytes": 2395,
+      "sha256": "c57ec382850b03b8d49b99050463c82da424aa1391484010f32668ea7ad06ec9"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__pool_showcase-0.log",
+      "bytes": 3114,
+      "sha256": "201b8a301c67f666b395f04bfb082b4a15eab0502e73e506d32ce93eadb71d47"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__pool_showcase-1.log",
+      "bytes": 465,
+      "sha256": "03b426695e3b709bb8d0ac22c07bf5019467ae958f4463af2b511532a44ce311"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__pool_showcase-2.log",
+      "bytes": 464,
+      "sha256": "58cac665491bbc7e95c6ec4326204b868402703cbe6faebc7abdd3e3d6cffc74"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__pool_showcase.json",
+      "bytes": 2332,
+      "sha256": "e729dc792db1ae2197b789f42e60e28d6d917209c96ca9ad1fd7fc6e94c46094"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__prop_showcase-0.log",
+      "bytes": 2907,
+      "sha256": "016f4f5014d3eead83ae47417301abc0cddfb712b12690f6421c78825445c698"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__prop_showcase-1.log",
+      "bytes": 465,
+      "sha256": "0765f5487a2c574fc9ee8069ccd31650d144c4c3511c8ed09c39c8fd8e66b66c"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__prop_showcase-2.log",
+      "bytes": 470,
+      "sha256": "db6c9291fcc78cd9dab00b97e601de3116ca856450b2553540c5d28c184f7c02"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__prop_showcase.json",
+      "bytes": 2332,
+      "sha256": "662816a2a5a2f64d0dcc243c2a438bb730048022312e68525b622e2a848f859c"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__prop_stress-0.log",
+      "bytes": 2820,
+      "sha256": "0343347a388e04edd9d93c46f6eb4a45399091da71175276b37d9561717ee768"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__prop_stress-1.log",
+      "bytes": 461,
+      "sha256": "6af6e9f9434c4de37e666cdd864abdf1ea5d26775c2904d7c0977f725834cce7"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__prop_stress-2.log",
+      "bytes": 470,
+      "sha256": "3fb64bee8bb0984196532cdc64b034dfb82b486079919b8fb8ca8f7af307f4e7"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__prop_stress.json",
+      "bytes": 2313,
+      "sha256": "e614d4c2a0a958044f54366b33b24f8751bf50e73341fad6434f270d785cfc63"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__rendering_diagnostic-0.log",
+      "bytes": 2825,
+      "sha256": "2357ef8093e6886b5399acc57ff6591e4933f75df6feca6ac42952ae8790318f"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__rendering_diagnostic-1.log",
+      "bytes": 479,
+      "sha256": "7976e80614f8b875a9e7232a79a32781294c0ca5ae20f5e5cf8b7c58cf9571f9"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__rendering_diagnostic-2.log",
+      "bytes": 484,
+      "sha256": "6911246f946c3cbd8948fc72e801c820e5f282932b2b310b99d29d4a504d1342"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__rendering_diagnostic.json",
+      "bytes": 2394,
+      "sha256": "65330c4593fed5a8da0dca8d6158714980a1606b2fbe0a40eef9a0f55072d166"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__repair__clean-0.log",
+      "bytes": 2804,
+      "sha256": "bc92ebcda67f5af564f335a1c42e1bd9433030d4ee4418acf7bce41020f09620"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__repair__clean-1.log",
+      "bytes": 464,
+      "sha256": "c1e6918b172f01b1528d734ce1570ec6025c6c812842bd88e17bcbfa5ba51e83"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__repair__clean-2.log",
+      "bytes": 461,
+      "sha256": "32ac0cd363c663c8be12bfef737fbf3db9991175078c6a89628393a944a0e2d7"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__repair__clean.json",
+      "bytes": 2332,
+      "sha256": "d4ae67cd508b750a3a47b3790ebc7300531f41aa771d07615ab2a057789380b9"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__repair__gap_review-0.log",
+      "bytes": 2808,
+      "sha256": "adb9d6fa5939de44d4c391f0eb12cbb622653d5446eb373a7ca8e6e2d3824a2f"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__repair__gap_review-1.log",
+      "bytes": 474,
+      "sha256": "3d0becd3d7dd006f27572d664b6b5b31f52dc76484291d188ae278c0d8aeb96d"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__repair__gap_review-2.log",
+      "bytes": 476,
+      "sha256": "d039037be6d5bf267c055604c7663a3ff4a1815477a0d11d83c2611598b9389d"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__repair__gap_review.json",
+      "bytes": 2375,
+      "sha256": "1bb37eec731677748a688968b6906495363c517066bfde4442e2a806f842da25"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__repair__wall_step_x-0.log",
+      "bytes": 2830,
+      "sha256": "10190f97f83de002de62346def26bb5a1c7b70d7db321789708fe68cd9ee2a7e"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__repair__wall_step_x-1.log",
+      "bytes": 476,
+      "sha256": "433c9620662b2944208e47e521d1b930de108fd3976f36965a4fa1012c335ad1"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__repair__wall_step_x-2.log",
+      "bytes": 479,
+      "sha256": "5f122f92199bf57e3f4728af12ff3e7d39a90b72943cb5665db005fb202ce0ba"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__repair__wall_step_x.json",
+      "bytes": 2386,
+      "sha256": "7d68cdcd7f1d260785d2df9c21dc453691d25779f9dd0eaf925db974a9d1e1a6"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__repair__wall_step_z-0.log",
+      "bytes": 2875,
+      "sha256": "3cc4095fec0b68bfc50fb151eaa582df736d9c863d6e8329190fdd4ff435222d"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__repair__wall_step_z-1.log",
+      "bytes": 476,
+      "sha256": "8061baa7bdda5c2685d314efb49578e31fc0cd4291e27000bf0f2f90291a0e6c"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__repair__wall_step_z-2.log",
+      "bytes": 479,
+      "sha256": "4d400542a0fb5312f67ea282f619727ace93bf76d92f9bc7c3c8b87617a0fbb8"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__repair__wall_step_z.json",
+      "bytes": 2387,
+      "sha256": "fc8f23a7e51b52a41a7ff9ea7462e45216e1adbc40111e02328f3f03282a4f1a"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__round_pool_and_proximity_fade-0.log",
+      "bytes": 3063,
+      "sha256": "7504542a31cc8f878ae0e7d6945a089c70ccaa99ec84a2de69299eccc564c18d"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__round_pool_and_proximity_fade-1.log",
+      "bytes": 497,
+      "sha256": "fbd191b65a0dd9078d03cb361ef23a6df80261bc44242876764c223a237ba221"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__round_pool_and_proximity_fade-2.log",
+      "bytes": 511,
+      "sha256": "7e00ebb114143072198f2eb3adc9964068d8631fe8796763326311d5819e56e5"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__round_pool_and_proximity_fade.json",
+      "bytes": 2477,
+      "sha256": "9497e9665e971bb6450cd7d22519c12ebcb1f2107b5382d2d8cdaadea3a29c50"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__test_room-0.log",
+      "bytes": 2818,
+      "sha256": "7dee80bd6067c70c5eab220fb21f2e7f7f2ccb31c3434deaf8197940e32565cf"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__test_room-1.log",
+      "bytes": 457,
+      "sha256": "fdf768891308c03d2360416ea15828318376e59e119363e827247888255c9f4d"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__test_room-2.log",
+      "bytes": 451,
+      "sha256": "e1be1b8d5730b710591918d843891c1d143e72f53bdda25b6b1b3492fe90e377"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__test_room.json",
+      "bytes": 2295,
+      "sha256": "627dda5e1e79f29a670271a14609b0da6fd2f8e49d697f62c0061e0c0ff149a8"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__vertical_diagnostic-0.log",
+      "bytes": 2854,
+      "sha256": "e8ade3a0801adb6a1902dd24453b334c567652da83fd1c9d462eab63b08e38d6"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__vertical_diagnostic-1.log",
+      "bytes": 477,
+      "sha256": "5211cf8794d5ea47d974ab98ba4e5a4d1a0fe5f1ceb653aefcb08abae68631f8"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__vertical_diagnostic-2.log",
+      "bytes": 481,
+      "sha256": "f81eef408b6aab008dc8ed97b0786eac1ab108d28f6aba806c8963692fcc55e9"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__vertical_diagnostic.json",
+      "bytes": 2385,
+      "sha256": "41eeefd7d5306ffc92e7c0eb208981b8a7a20eda94924781e9acb9fbbe574cba"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__water_transmission-0.log",
+      "bytes": 3018,
+      "sha256": "4c39026fbddbba547bdffcfdbe33bdddbbded2389a8616d67e164a77a2969597"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__water_transmission-1.log",
+      "bytes": 475,
+      "sha256": "734a3da268240d17f24eacdf39f828e950ab383aad7285dc0995ce78d6413091"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__water_transmission-2.log",
+      "bytes": 478,
+      "sha256": "8d433985971493a9fc09ea1c72f3c0bfa123ebdccff8d7f0f9b80cecb083b339"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/commands/tests__fixtures__levels__water_transmission.json",
+      "bytes": 2377,
+      "sha256": "ac47ffd8d05f02871b92a763324a1cea1f53d7ed30be101c4d499f289df868c2"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/inventory.json",
+      "bytes": 33086,
+      "sha256": "225291ea957d7c41ef8b260f8d0a31fc36b5aec7cff2d874243933d4071249f2"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/package-results.json",
+      "bytes": 122387,
+      "sha256": "6eaa67a0c3fa4df95b987f7b559896678ecd6b3bf23ac881f839e3228a17f80c"
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage7-c1-v6-superseded/campaign/plan.json",
+      "bytes": 65866,
+      "sha256": "555b766dc130c94faf46da701024426afe062c8bd06ce06619cef5c361eaad13"
+    }
+  ],
+  "archive_bytes": 840030487,
+  "campaign_bytes": 520066
+}

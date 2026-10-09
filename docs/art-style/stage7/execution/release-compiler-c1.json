@@ -1,0 +1,17 @@
+{
+  "argv": [
+    "cargo",
+    "build",
+    "--locked",
+    "--release"
+  ],
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "started_utc": "2026-10-08T22:16:28.910345+00:00",
+  "finished_utc": "2026-10-08T22:18:06.828348+00:00",
+  "elapsed_seconds": 97.91781591705512,
+  "exit_code": 0,
+  "environment_overrides": {
+    "RUSTC_WRAPPER": ""
+  },
+  "log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/release-compiler-c1.log"
+}

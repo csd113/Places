@@ -1,0 +1,11 @@
+{
+  "label": "rust-source-preflight-v11",
+  "supervisor_pid": 15987,
+  "argv": [
+    "sh",
+    "/tmp/places-stage7-rust-preflight-v10.sh"
+  ],
+  "launched_utc": "2026-10-09T00:21:31.663240+00:00",
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "completion_receipt": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/rust-source-preflight-v11.json"
+}

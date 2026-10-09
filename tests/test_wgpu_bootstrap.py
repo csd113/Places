@@ -1190,12 +1190,23 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
     def test_a_second_level_replaces_the_uploaded_world(self):
         state = os.path.join(SMOKE_ROOT, "reload-state")
         shutil.rmtree(state, ignore_errors=True)
-        _write_level(state, _second_level())
+        second_level = _second_level()
+        # These 512px catalog sheets are already drawn by the Demo's concrete
+        # path and house walls. Use explicit identities: retained textures are
+        # bounded, so its large default sheets need not survive the next load.
+        second_level["defaults"] = {
+            "wall": "outdoor:house_siding_01",
+            "floor": "outdoor:concrete_pavement_01",
+            "ceiling": "outdoor:house_siding_01",
+        }
+        _write_level(state, second_level)
 
         script = os.path.join(state, "actions.json")
         trace = os.path.join(state, "trace.jsonl")
         with open(script, "w", encoding="utf-8") as stream:
             json.dump([{"after": "ready:places_demo", "delay_ms": 0,
+                        "action": {"kind": "load", "level": SECOND_LEVEL_ID}},
+                       {"after": f"ready:{SECOND_LEVEL_ID}", "delay_ms": 0,
                         "action": {"kind": "load", "level": SECOND_LEVEL_ID}}], stream)
         code, output = self.run_binary(
             {
@@ -1211,16 +1222,19 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
             events = [json.loads(line) for line in stream]
         self.assertEqual([event["detail"] for event in events
                           if event["event"] == "gpu_ready"],
-                         ["places_demo", SECOND_LEVEL_ID])
+                         ["places_demo", SECOND_LEVEL_ID, SECOND_LEVEL_ID])
+        self.assertEqual([event["detail"] for event in events
+                          if event["event"] == "scene_presented"],
+                         ["places_demo", SECOND_LEVEL_ID, SECOND_LEVEL_ID])
         action = next(event for event in events if event["event"] == "action")
         self.assertTrue(any(event["event"] == "present" and event["detail"] == "ready"
                             and event["elapsed_ms"] <= action["elapsed_ms"] for event in events),
                         "the demo must actually present before requesting replacement")
         uploads = self.world_uploads(output)
         self.assertEqual(
-            len(uploads), 2, f"present demo then request replacement:\n{output}"
+            len(uploads), 3, f"present demo, replace it, then repeat the second level:\n{output}"
         )
-        first, second = uploads
+        first, second, repeated = uploads
         self.assertGreater(first[2], 0, "the boot level uploads draws")
         self.assertGreater(second[0], 0, "the second level uploads vertices")
         self.assertGreater(second[1], 0, "the second level uploads indices")
@@ -1228,6 +1242,23 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertNotEqual(
             first, second, "the second level must replace the first world"
         )
+        self.assertEqual(second, repeated, "the identical reload preserves all uploaded geometry")
+        self.assertIn(f"[loading] compiled-cache hit level={SECOND_LEVEL_ID}", output)
+        commits = [json.loads(event["detail"]) for event in events
+                   if event["event"] == "world_committed"]
+        self.assertEqual([snapshot["current_level_id"] for snapshot in commits],
+                         ["places_demo", SECOND_LEVEL_ID, SECOND_LEVEL_ID])
+        for snapshot in commits:
+            self.assert_world_snapshot_consistent(snapshot)
+        for field in ["quality", "lightmaps", "reflections", "renderer_quality",
+                      "renderer_lightmaps", "bloom"]:
+            self.assertEqual(commits[1][field], commits[0][field],
+                             f"replacement changed the selected {field}")
+        for field in ["player_position", "walls", "interactables", "routes", "triggers",
+                      "characters", "dynamic_objects", "quality", "lightmaps", "reflections",
+                      "renderer_quality", "renderer_lightmaps", "bloom"]:
+            self.assertEqual(commits[2][field], commits[1][field],
+                             f"identical reload changed {field}")
 
         # The demonstration objects and the level's door leaves/frames belong to
         # the level that spawned them: the boot demo spawns the drum, the
@@ -1243,42 +1274,47 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
                 output,
             )
         ]
-        self.assertEqual(len(dynamic_counts), 2, output)
+        self.assertEqual(len(dynamic_counts), 3, output)
         self.assertEqual(
             dynamic_counts[0][:2],
             (16, 26),
             "the demo's drum, floating duck and seven door frames and leaves",
         )
         self.assertGreater(dynamic_counts[0][2], 0, "the demo dynamic scene contains geometry")
-        self.assertEqual(
-            dynamic_counts[1], (0, 0, 0),
-            "level replacement must clear every object, draw and vertex from the dynamic scene",
-        )
+        for counts in dynamic_counts[1:]:
+            self.assertEqual(
+                counts, (0, 0, 0),
+                "replacement and repeat must clear every dynamic object, draw and vertex",
+            )
 
         # One texture resolution per level load, never per frame.
         loads = self.texture_loads(output)
-        self.assertEqual(len(loads), 2, output)
+        self.assertEqual(len(loads), 3, output)
         for load in loads:
             self.assert_texture_resolution_is_sane(load, output)
-        # The second level's default materials are the ones the demo already
-        # uploaded, so the renderer-lifetime cache serves them without a
-        # re-decode and without a re-upload.
-        self.assertEqual(
-            loads[1][1],
-            0,
-            f"a reload must reuse cached textures, not upload them again:\n{output}",
-        )
-        self.assertEqual(loads[1][3], 0, "the second level resolves every material")
+        # The explicit small sheets remain in the bounded catalog cache. Both
+        # the replacement and its identical repeat must reuse them; neither
+        # fallback draws nor missing textures may disguise a cache failure.
+        for load in loads[1:]:
+            self.assertEqual(load[:6], (2, 0, 2, 0, 0, 2),
+                             f"both real sheets must be cached for both draws:\n{output}")
+            self.assertEqual(load[6:8], (2796200, 512),
+                             "both 512px sheets retain their complete native mip chains")
+            self.assertEqual(load[8], "high", "replacement retains texture filtering")
+        self.assertEqual(loads[1], loads[2], "the repeat preserves exact texture residency")
 
         # Materials resolve once per level load too, and the second level's
         # materials are all fresh GPU states (uniforms and bind groups are
         # level-scoped) with no normal-map uploads.
         material_loads = self.material_loads(output)
-        self.assertEqual(len(material_loads), 2, output)
+        self.assertEqual(len(material_loads), 3, output)
         for load in material_loads:
             self.assert_material_resolution_is_sane(load, output)
         self.assertGreaterEqual(material_loads[1][0], 1, output)
-        self.assertEqual(material_loads[1][4], 0, "no normal maps in the second level")
+        for load in material_loads[1:]:
+            self.assertEqual(load[3:6], (0, 0, 0), "no normal maps in the second level")
+            self.assertEqual(load[10:], ("enabled", "high"), "replacement retains material quality")
+        self.assertEqual(material_loads[1], material_loads[2], "the repeat resolves identical materials")
         self.assert_no_gpu_failure(output)
 
     def test_an_empty_level_draws_nothing_and_still_presents(self):

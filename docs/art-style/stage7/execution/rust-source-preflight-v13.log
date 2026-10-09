@@ -1,0 +1,89 @@
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `dev` profile [optimized + debuginfo] target(s) in 3.34s
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `dev` profile [optimized + debuginfo] target(s) in 7.09s
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `release` profile [optimized] target(s) in 12.93s
+   Compiling places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `test` profile [optimized + debuginfo] target(s) in 9.15s
+     Running unittests src/lib.rs (target/debug/deps/places-4d06d8c90f45374a)
+
+running 1 test
+test lighting::lightmap::tests::full_page_policy_preserves_sampling_and_invalidates_the_eight_page_cache ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2172 filtered out; finished in 0.00s
+
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.12s
+     Running unittests src/lib.rs (target/debug/deps/places-4d06d8c90f45374a)
+
+running 13 tests
+test render::wgpu::lightmap::tests::an_upload_fallback_never_rebakes_a_plan_failure ... ok
+test render::wgpu::lightmap::tests::profile_budgets_match_shared_renderer_capacity ... ok
+test render::wgpu::lightmap::tests::hdr_pages_encode_irradiance_and_the_signed_moment_in_half_floats ... ok
+test render::wgpu::lightmap::tests::a_signed_direction_moment_round_trips_through_the_half_floats ... ok
+test render::wgpu::lightmap::tests::a_truncated_page_is_padded_with_the_neutral_texel ... ok
+test render::wgpu::lightmap::tests::no_atlas_reports_zero_pages_and_the_full_capacity ... ok
+test render::wgpu::lightmap::tests::the_page_format_is_raw_rgba16_float_linear ... ok
+test render::wgpu::lightmap::tests::switchable_groups_extend_the_layer_layout_in_group_order ... ok
+test render::wgpu::lightmap::tests::the_white_fallback_is_unit_irradiance_zero_direction_and_reserved_alpha ... ok
+test render::wgpu::lightmap::tests::full_capacity_uses_only_resident_pages_and_contribution_layers ... ok
+test render::wgpu::lightmap::tests::switchable_groups_that_disagree_with_the_base_are_rejected ... ok
+test render::wgpu::lightmap::tests::a_page_set_that_cannot_share_one_array_reports_no_pages ... ok
+test render::wgpu::lightmap::tests::upload_stats_count_pages_texels_and_the_exact_layer_bytes ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 2160 filtered out; finished in 0.01s
+
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.11s
+     Running unittests src/lib.rs (target/debug/deps/places-4d06d8c90f45374a)
+
+running 29 tests
+test quality::tests::budgets_are_power_of_two_so_downscaling_is_a_clean_halving_chain ... ok
+test quality::tests::every_graphics_spec_names_its_expected_configuration ... ok
+test quality::tests::every_quality_transition_is_scheduled ... ok
+test quality::tests::a_failed_request_is_held_until_the_request_changes ... ok
+test quality::tests::a_stale_install_never_wins_over_a_newer_selection ... ok
+test quality::tests::lightmap_configs_are_the_documented_low_medium_high_values ... ok
+test quality::tests::lightmap_quality_bakes_match_the_validated_configurations ... ok
+test quality::tests::low_and_high_delegate_to_the_validated_profiles ... ok
+test quality::tests::advanced_quality_names_labels_and_parse_round_trip ... ok
+test quality::tests::an_image_already_within_budget_is_never_copied ... ok
+test quality::tests::high_and_medium_keep_a_native_256_prop_texture_exactly ... ok
+test quality::tests::medium_budgets_are_the_documented_intermediate ... ok
+test quality::tests::names_round_trip_and_parse_is_forgiving_about_case ... ok
+test quality::tests::only_low_reserves_the_optional_feature_hook ... ok
+test quality::tests::shadow_quality_scales_with_the_level ... ok
+test quality::tests::reflection_quality_gates_are_exact ... ok
+test quality::tests::repeated_quality_cycles_end_settled_at_the_last_selection ... ok
+test quality::tests::returning_to_the_resident_configuration_cancels_a_stale_install ... ok
+test quality::tests::surface_response_is_drawn_except_on_low ... ok
+test quality::tests::the_advanced_preset_table_is_exact ... ok
+test quality::tests::the_default_level_is_high ... ok
+test quality::tests::the_profile_mapping_is_the_content_key_boundary ... ok
+test quality::tests::low_halves_a_native_prop_texture_to_the_documented_budget ... ok
+test quality::tests::high_uploads_a_shipped_surface_sheet_exactly_as_decoded ... ok
+test quality::tests::a_prop_sheet_is_smaller_than_a_surface_sheet_under_every_level ... ok
+test quality::tests::low_quarters_the_same_sheet_to_the_documented_budget ... ok
+test quality::tests::medium_halves_the_same_sheet_to_the_documented_budget ... ok
+test quality::tests::fitting_is_deterministic_for_the_same_input ... ok
+test quality::tests::switching_levels_changes_every_derived_decision ... ok
+
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 2144 filtered out; finished in 0.05s
+
+   Compiling places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `test` profile [optimized + debuginfo] target(s) in 30.57s
+     Running unittests src/lib.rs (target/debug/deps/places-db4822a0463dd4cf)
+
+running 1 test
+[lightmaps] 'lantern_hollow' left 64 sub-texel sliver quad(s) vertex-lit
+ATLAS_PREFLIGHT map=lantern_hollow quality=medium pages=8 charts=245495 planning_seconds=13.241 failure=None
+ATLAS_PREFLIGHT map=lantern_hollow quality=full pages=10 charts=245495 planning_seconds=13.721 failure=None
+[lightmaps] 'model_zoo' left 32 sub-texel sliver quad(s) vertex-lit
+ATLAS_PREFLIGHT map=model_zoo quality=medium pages=6 charts=41497 planning_seconds=0.944 failure=None
+ATLAS_PREFLIGHT map=model_zoo quality=full pages=8 charts=41497 planning_seconds=0.764 failure=None
+[lightmaps] 'places_demo' left 15 sub-texel sliver quad(s) vertex-lit
+ATLAS_PREFLIGHT map=places_demo quality=medium pages=7 charts=126624 planning_seconds=3.537 failure=None
+ATLAS_PREFLIGHT map=places_demo quality=full pages=10 charts=126624 planning_seconds=3.326 failure=None
+test static_prop_lighting_tests::bundled_static_models_fit_medium_and_full_atlas_plans ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2166 filtered out; finished in 35.55s
+

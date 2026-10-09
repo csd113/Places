@@ -26,7 +26,9 @@ class WinterTests(unittest.TestCase):
         self.assertEqual(ice['alpha_mode'], 'blend')
         self.assertGreater(ice['opacity'], .7)
         self.assertLess(ice['opacity'], 1)
-        self.assertNotIn('reflection_mode', ice)
+        # Stage 5's restrained probe response is independent of physical traction.
+        self.assertEqual(ice['reflection_mode'], 'probe')
+        self.assertEqual(ice['reflection_strength'], .28)
         self.assertEqual(assets[ice['texture']]['model'], 'environment/winter/textures/floors/ice_01.png')
         level = author.build_level()
         backing = next(b for b in level['void_walls'] if b['id'] == 'pond_ice_depth')

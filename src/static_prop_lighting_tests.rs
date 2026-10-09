@@ -17,7 +17,9 @@
 use glam::Vec3;
 
 use crate::level::LevelDef;
-use crate::lighting::lightmap::{LevelLightmaps, LightmapMode, LightmapTexel};
+use crate::lighting::lightmap::{
+    Chart, LevelLightmaps, LightmapConfig, LightmapMode, LightmapPatch, LightmapTexel,
+};
 use crate::loader::PropCatalog;
 use crate::quality::QualityLevel;
 use crate::render::{LightmapBuildOptions, PropMeshBatch, Vertex};
@@ -353,14 +355,42 @@ fn model_lightmap_coordinates_normals_and_shading_survive_package_roundtrip() {
     let atlas = built.lightmaps.as_ref().unwrap();
     let encoded = crate::package::props::write_props(&built.batches).unwrap();
     let decoded = crate::package::props::read_props(&encoded).unwrap();
+    assert_eq!(built.batches.len(), decoded.len());
     for (before, after) in built.batches.iter().zip(&decoded) {
+        assert_eq!(before.model, after.model);
+        assert_eq!(before.casts_static_lighting, after.casts_static_lighting);
         assert_eq!(
-            before.vertices, after.vertices,
-            "normals, albedo and atlas coordinates are exact"
+            before.bounds.min.map(f32::to_bits),
+            after.bounds.min.map(f32::to_bits)
         );
-        assert_eq!(before.indices, after.indices);
+        assert_eq!(
+            before.bounds.max.map(f32::to_bits),
+            after.bounds.max.map(f32::to_bits)
+        );
+        assert_eq!(before.indices.len(), after.indices.len());
+        for (&before_index, &after_index) in before.indices.iter().zip(&after.indices) {
+            let mut before_corner = crate::package::binary::Writer::new();
+            let mut after_corner = crate::package::binary::Writer::new();
+            crate::package::mesh::write_vertex(
+                &mut before_corner,
+                &before.vertices[usize::from(before_index)],
+            );
+            crate::package::mesh::write_vertex(
+                &mut after_corner,
+                &after.vertices[usize::from(after_index)],
+            );
+            assert_eq!(
+                before_corner.into_bytes(),
+                after_corner.into_bytes(),
+                "every ordered corner retains exact normals, albedo and atlas coordinates"
+            );
+        }
         assert_eq!(before.submeshes, after.submeshes);
     }
+    assert_eq!(
+        encoded,
+        crate::package::props::write_props(&decoded).unwrap()
+    );
     let (meta, pixels) = crate::package::lightmaps::write_lightmaps(atlas).unwrap();
     let decoded_atlas = crate::package::lightmaps::read_lightmaps(&meta, &pixels).unwrap();
     assert_eq!(atlas.charts, decoded_atlas.charts);
@@ -729,6 +759,237 @@ fn bundled_static_models_fit_medium_and_full_atlas_plans() {
     }
 }
 
+struct AtlasProfileDemand {
+    kinds: std::collections::BTreeMap<String, (usize, u64, u64)>,
+    dimension_histogram: std::collections::BTreeMap<String, usize>,
+    padded_texels: u64,
+}
+
+fn atlas_profile_densities(
+    config: LightmapConfig,
+    charts: &[(LightmapPatch, Chart)],
+) -> (Vec<f32>, usize) {
+    use crate::lighting::lightmap::PatchKind;
+    let mut density_ambiguities = 0_usize;
+    let densities = charts
+        .iter()
+        .map(|(patch, chart)| {
+            let candidates = if patch.kind == PatchKind::Prop {
+                vec![
+                    1.0,
+                    config.texels_per_metre * 0.125,
+                    config.texels_per_metre * 0.5,
+                ]
+            } else {
+                vec![config.texels_per_metre]
+            };
+            let matching = candidates
+                .into_iter()
+                .filter(|density| {
+                    LightmapConfig {
+                        texels_per_metre: *density,
+                        ..config
+                    }
+                    .chart_texels(patch)
+                        == (chart.width, chart.height)
+                })
+                .collect::<Vec<_>>();
+            assert_ne!(
+                matching.len(),
+                0,
+                "a real planned density must size each chart"
+            );
+            density_ambiguities += usize::from(matching.len() > 1);
+            // Ambiguous densities yield the same exact dimensions, so
+            // choosing their first member cannot change packing demand.
+            matching[0]
+        })
+        .collect::<Vec<_>>();
+    (densities, density_ambiguities)
+}
+
+fn atlas_profile_demand(
+    config: LightmapConfig,
+    charts: &[(LightmapPatch, Chart)],
+) -> AtlasProfileDemand {
+    let mut kinds = std::collections::BTreeMap::<String, (usize, u64, u64)>::new();
+    let mut dimension_histogram = std::collections::BTreeMap::<String, usize>::new();
+    for (patch, chart) in charts {
+        let padding = u64::from(config.padding_for(patch.kind));
+        let width = u64::from(chart.width);
+        let height = u64::from(chart.height);
+        let kind = serde_json::to_value(patch.kind)
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let counts = kinds.entry(kind.clone()).or_default();
+        counts.0 += 1;
+        counts.1 += width * height;
+        counts.2 += (width + 2 * padding) * (height + 2 * padding);
+        *dimension_histogram
+            .entry(format!("{kind}:{}x{}", chart.width, chart.height))
+            .or_default() += 1;
+    }
+    let padded_texels = kinds.values().map(|counts| counts.2).sum::<u64>();
+    AtlasProfileDemand {
+        kinds,
+        dimension_histogram,
+        padded_texels,
+    }
+}
+
+fn atlas_profile_replay(
+    base_config: LightmapConfig,
+    inputs: &[(LightmapPatch, Chart)],
+    page_count: usize,
+    production_cap: usize,
+    densities: &[f32],
+) -> (usize, Vec<serde_json::Value>) {
+    use crate::lighting::lightmap::ChartAllocator;
+    let mut budgets = Vec::new();
+    let mut minimum_pages = None;
+    for cap in production_cap..=page_count {
+        let config = LightmapConfig {
+            max_pages: cap,
+            ..base_config
+        };
+        let replay_started = std::time::Instant::now();
+        let mut allocator = ChartAllocator::new(config);
+        let mut charts = Vec::with_capacity(inputs.len());
+        for ((patch, expected), density) in inputs.iter().zip(densities) {
+            let Some(chart) = allocator.allocate_at_density(patch, *density) else {
+                break;
+            };
+            assert_eq!(
+                (chart.width, chart.height),
+                (expected.width, expected.height)
+            );
+            charts.push((*patch, chart));
+        }
+        let complete = charts.len() == inputs.len();
+        assert_eq!(allocator.failed(), !complete);
+        let mut page_occupancy = vec![0_u64; allocator.page_count()];
+        for (patch, chart) in &charts {
+            let padding = u64::from(config.padding_for(patch.kind));
+            page_occupancy[usize::from(chart.page)] +=
+                (u64::from(chart.width) + 2 * padding) * (u64::from(chart.height) + 2 * padding);
+        }
+        budgets.push(serde_json::json!({
+            "max_pages": cap,
+            "pages_opened": allocator.page_count(),
+            "charts_placed": charts.len(),
+            "complete": complete,
+            "page_padded_texels": page_occupancy,
+            "replay_seconds": replay_started.elapsed().as_secs_f64(),
+        }));
+        if complete {
+            assert_chart_gutters_disjoint(&config, allocator.page_count(), &charts);
+            minimum_pages = Some(allocator.page_count());
+            break;
+        }
+    }
+    let pages = minimum_pages.expect("the complete plan must replay within its measured pages");
+    (pages, budgets)
+}
+
+/// Measure the real dense bundled receiver set without filling any atlas page.
+/// The larger diagnostic limit is the existing decoder's safety bound, not a
+/// proposed production budget. Replaying each smaller budget uses the shipped
+/// allocator and the exact planned rectangle sizes, including both gutters.
+#[test]
+#[ignore = "explicit dense-map atlas capacity measurement; no lightmap fill"]
+#[expect(
+    clippy::print_stderr,
+    reason = "Explicit developer planning diagnostic, outside normal tests and runtime."
+)]
+fn lantern_hollow_atlas_capacity_profile() {
+    let root = crate::assets::resolve_asset_root().unwrap();
+    let catalog = PropCatalog::load_from_path(&root.join("catalog.json")).unwrap();
+    let json = std::fs::read_to_string(root.join("levels/lantern_hollow.json")).unwrap();
+    let mut level = LevelDef::from_json(&json).unwrap();
+    crate::loader::prepare_level(&mut level, catalog.assets(), None);
+    let materials = crate::render::logical_materials(&level);
+    let mut assets = crate::props::PropAssets::with_root(&root);
+    let mut profiles = Vec::new();
+    let mut reference_patches = None;
+    for quality in [
+        crate::quality::LightmapQuality::Medium,
+        crate::quality::LightmapQuality::Full,
+    ] {
+        let mut options = LightmapBuildOptions::for_lightmaps(quality);
+        let production_cap = options.config.max_pages;
+        options.config.max_pages = crate::package::MAX_LIGHTMAP_PAGES;
+        let started = std::time::Instant::now();
+        let prepared = crate::render::prepare_level_geometry_with_lightmaps(
+            &level,
+            &catalog,
+            &mut assets,
+            &materials,
+            options,
+            None,
+        );
+        assert!(prepared.build.lightmap_failure.is_none());
+        let request = prepared
+            .fill
+            .expect("uncached planning returns every chart");
+        assert_ne!(request.charts.len(), 0);
+        let patches = request
+            .charts
+            .iter()
+            .map(|(patch, _)| *patch)
+            .collect::<Vec<_>>();
+        if let Some(reference) = &reference_patches {
+            assert_eq!(
+                reference, &patches,
+                "quality must preserve physical receivers"
+            );
+        } else {
+            reference_patches = Some(patches);
+        }
+        let (densities, density_ambiguities) =
+            atlas_profile_densities(request.config, &request.charts);
+        let demand = atlas_profile_demand(request.config, &request.charts);
+        let padded_texels = demand.padded_texels;
+        let page_texels = u64::from(request.config.page_edge).pow(2);
+        let (pages, budgets) = atlas_profile_replay(
+            request.config,
+            &request.charts,
+            request.page_count,
+            production_cap,
+            &densities,
+        );
+        profiles.push(serde_json::json!({
+            "quality": quality.name(),
+            "density": request.config.texels_per_metre,
+            "page_edge": request.config.page_edge,
+            "production_page_cap": production_cap,
+            "diagnostic_page_cap": request.config.max_pages,
+            "charts": request.charts.len(),
+            "kind_counts_charts_data_padded": demand.kinds,
+            "dimension_histogram": demand.dimension_histogram,
+            "density_ambiguities_with_identical_dimensions": density_ambiguities,
+            "padded_texels": padded_texels,
+            "area_lower_bound_pages": padded_texels.div_ceil(page_texels),
+            "minimum_current_packer_pages": pages,
+            "base_gpu_rgba16f_bytes": u64::try_from(pages).unwrap() * page_texels * 16,
+            "base_cpu_f32_bytes": u64::try_from(pages).unwrap() * page_texels * 32,
+            "planning_and_replay_seconds": started.elapsed().as_secs_f64(),
+            "budgets": budgets,
+        }));
+    }
+    eprintln!(
+        "ATLAS_CAPACITY_PROFILE {}",
+        serde_json::to_string(&serde_json::json!({
+            "map": "lantern_hollow",
+            "source_sha256": crate::package::hash::sha256_hex(json.as_bytes()),
+            "profiles": profiles,
+            "atlas_fill_executed": false,
+        }))
+        .unwrap()
+    );
+}
+
 #[test]
 fn thousands_of_model_charts_pack_deterministically_without_gutter_overlap_or_extra_page_budgets() {
     use crate::lighting::lightmap::{ChartAllocator, LightmapConfig, LightmapPatch, PatchKind};
@@ -1064,8 +1325,8 @@ fn real_dense_showcase_metadata_exceeds_material_budget_and_loads_under_its_own_
         atlas.charts.len() >= 225_000,
         "this must exercise the real dense chart bake, never padded synthetic JSON"
     );
-    // High's increased large-model density uses the full eight-page budget.
-    assert_eq!(atlas.pages.len(), 8);
+    // High's increased large-model density uses its measured Full page budget.
+    assert_eq!(atlas.pages.len(), 10);
     assert!(
         loaded
             .props
@@ -1484,6 +1745,10 @@ fn real_full_demo_atlas_loads_with_its_ktx_container_overhead() {
     let full = opened.manifest.variant("full").unwrap();
     let pages = full.entries.lightmaps.as_ref().unwrap();
     let entry = opened.manifest.entry(pages).unwrap();
+    assert_eq!(
+        entry.bytes, 335_544_516,
+        "the measured ten-page two-group record"
+    );
     assert!(entry.bytes > crate::package::MAX_ENTRY_BYTES);
     assert!(entry.bytes <= crate::package::MAX_LIGHTMAP_ATLAS_BYTES);
     let mut reader =
@@ -1507,6 +1772,9 @@ fn real_full_demo_atlas_loads_with_its_ktx_container_overhead() {
         crate::quality::LightmapQuality::Full,
         &mut assets,
     )
-    .expect("eight real HDR atlas pages must load with their KTX2 container header");
-    assert_eq!(loaded.lightmaps.as_ref().unwrap().pages.len(), 8);
+    .expect("ten real HDR atlas pages must load with their KTX2 container header");
+    let atlas = loaded.lightmaps.as_ref().unwrap();
+    assert_eq!(atlas.pages.len(), 10);
+    assert_eq!(atlas.switchable.len(), 1);
+    assert_eq!(atlas.layer_count(), 40);
 }

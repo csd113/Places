@@ -1,0 +1,92 @@
+[
+  {
+    "frame": 1,
+    "actions": [
+      {
+        "action": "spawn",
+        "key": 9007,
+        "model": "core:washer_drum",
+        "character": false,
+        "position": [
+          61.10000228881836,
+          -0.8999999761581421,
+          7.100006103515625
+        ],
+        "yaw": 0,
+        "scale": 1
+      }
+    ]
+  },
+  {
+    "frame": 120,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-registered-drum-witness-v1/home/independent/00-baseline.png"
+  },
+  {
+    "frame": 300,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-registered-drum-witness-v1/home/independent/01-off-low.png"
+  },
+  {
+    "frame": 480,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-registered-drum-witness-v1/home/independent/02-off-medium.png"
+  },
+  {
+    "frame": 660,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-registered-drum-witness-v1/home/independent/03-off-high.png"
+  },
+  {
+    "frame": 840,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-registered-drum-witness-v1/home/independent/04-medium-low.png"
+  },
+  {
+    "frame": 1020,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-registered-drum-witness-v1/home/independent/05-medium-medium.png"
+  },
+  {
+    "frame": 1200,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-registered-drum-witness-v1/home/independent/06-medium-high.png"
+  },
+  {
+    "frame": 1380,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-registered-drum-witness-v1/home/independent/07-full-low.png"
+  },
+  {
+    "frame": 1560,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-registered-drum-witness-v1/home/independent/08-full-medium.png"
+  },
+  {
+    "frame": 1740,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-registered-drum-witness-v1/home/independent/09-full-high.png"
+  },
+  {
+    "frame": 1920,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-registered-drum-witness-v1/home/independent/10-low-lighting-on.png"
+  },
+  {
+    "frame": 2100,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-registered-drum-witness-v1/home/independent/11-restored.png"
+  },
+  {
+    "frame": 2280,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-registered-drum-witness-v1/home/independent/12-low-full-high-filter.png"
+  },
+  {
+    "frame": 2460,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-registered-drum-witness-v1/home/independent/13-medium-full-high-filter.png"
+  },
+  {
+    "frame": 2640,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-registered-drum-witness-v1/home/independent/14-restored-high.png"
+  },
+  {
+    "frame": 2820,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-registered-drum-witness-v1/home/independent/15-reflections-off.png"
+  },
+  {
+    "frame": 3000,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-registered-drum-witness-v1/home/independent/16-reflections-medium.png"
+  },
+  {
+    "frame": 3180,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-registered-drum-witness-v1/home/independent/17-reflections-full.png"
+  }
+]

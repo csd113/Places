@@ -1,0 +1,151 @@
+{
+  "recorded_utc": "2026-10-09T07:05:13.770254+00:00",
+  "status": "passed",
+  "decoder_source": "debug-maps/art-style-hero/evidence/stage7-validation/recovered-review-final-audit.py",
+  "decoder_source_sha256": "06a35693ca0cdc6879fdad10d175e73905c4b26cc0b0bd7e2c2e6a9d582a130e",
+  "cases": [
+    {
+      "key": "tests__fixtures__levels__outdoor_kit_showcase",
+      "old_package": "debug-maps/art-style-hero/evidence/stage7-c1-v7-superseded/packages/tests__fixtures__levels__outdoor_kit_showcase.placesmap",
+      "new_package": "target/verification/maps/tests__fixtures__levels__outdoor_kit_showcase.placesmap",
+      "collision_byte_exact": false,
+      "navigation_byte_exact": true,
+      "changed_wall_indices": [
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "wall_count": 25,
+      "non_wall_sections_exact": true,
+      "step_values_preserved": true,
+      "closed_union_and_step_probes": 52785,
+      "occupancy_differences": 0,
+      "old_collision_sha256": "72c0873ac20e0e78e9cc05278337c5dfbf33bb2e4c9ff6b61e8bd999de2c0096",
+      "new_collision_sha256": "f0d21d528ae8227839e9ab417cac3af01d4ce8707897711523285da83800adb5",
+      "navigation_sha256": "313a63bd0151b03a5a97acb092e9adf3d1636d122088c36ea0fd109b52056b68",
+      "decoded_navigation": {
+        "magic": "PLNV",
+        "version": 1,
+        "cell_m": 0.20000000298023224,
+        "origin_xz": [
+          -0.6000000238418579,
+          -4.400000095367432
+        ],
+        "dims": [
+          161,
+          125
+        ],
+        "class_profiles": [
+          [
+            0.30000001192092896,
+            1.7999999523162842,
+            0.4000000059604645,
+            2.6666665077209473
+          ]
+        ],
+        "portal_ids": [
+          "front_door"
+        ],
+        "cells": 20125,
+        "cell_fields_sha256": "d250ac46e6f668e406e2f4dbdd01135d200747b5c087861825884a9053731172",
+        "flags_counts": {
+          "0": 5056,
+          "1": 15069
+        },
+        "surface_y_range": [
+          0.0,
+          0.0
+        ],
+        "headroom_cm_range": [
+          0,
+          65535
+        ],
+        "class_masks": [
+          {
+            "bytes": 2516,
+            "sha256": "3aacfff8bae8f2ea588d106c0714230d7126b8274a1c329ac335beabb9d74eb6",
+            "walkable_cells": 12983
+          }
+        ],
+        "class_region_runs": [
+          {
+            "cells": 20125,
+            "sha256": "3006dd6f5bfed748e2d42c87adb99e383e49daa3cd01866999ad8de2444c40ae"
+          }
+        ],
+        "codec_order": "all class masks followed by all class region arrays",
+        "bytes_consumed": 223963
+      }
+    },
+    {
+      "key": "levels__snowfall_contrast",
+      "old_package": "debug-maps/art-style-hero/evidence/stage7-c1-v7-superseded/packages/levels__snowfall_contrast.placesmap",
+      "new_package": "levels/snowfall_contrast.placesmap",
+      "collision_byte_exact": true,
+      "navigation_byte_exact": true,
+      "changed_wall_indices": [],
+      "wall_count": 1,
+      "non_wall_sections_exact": true,
+      "step_values_preserved": true,
+      "closed_union_and_step_probes": 27,
+      "occupancy_differences": 0,
+      "old_collision_sha256": "ab2618d6f51d276779555d670e23c3d1a31ed37c84cc0255c08c088869953433",
+      "new_collision_sha256": "ab2618d6f51d276779555d670e23c3d1a31ed37c84cc0255c08c088869953433",
+      "navigation_sha256": "bddd2f070d217cd4ad7cb7eff266ed29e55f8364e39f6e817fde9cdcc1f033af",
+      "decoded_navigation": {
+        "magic": "PLNV",
+        "version": 1,
+        "cell_m": 0.20000000298023224,
+        "origin_xz": [
+          -18.600000381469727,
+          -18.600000381469727
+        ],
+        "dims": [
+          186,
+          186
+        ],
+        "class_profiles": [
+          [
+            0.30000001192092896,
+            1.7999999523162842,
+            0.4000000059604645,
+            2.6666665077209473
+          ]
+        ],
+        "portal_ids": [],
+        "cells": 34596,
+        "cell_fields_sha256": "ae28ab3fe841117d782671c53617bb8341eb0a7ab0a7ea6e6448572ce5231496",
+        "flags_counts": {
+          "0": 2196,
+          "1": 32400
+        },
+        "surface_y_range": [
+          0.0,
+          0.0
+        ],
+        "headroom_cm_range": [
+          0,
+          65535
+        ],
+        "class_masks": [
+          {
+            "bytes": 4325,
+            "sha256": "b83eb3388407107143ceb6adc8d43e15b8627fc128f77190bd8e9654aaa72aba",
+            "walkable_cells": 32153
+          }
+        ],
+        "class_region_runs": [
+          {
+            "cells": 34596,
+            "sha256": "637d7915c7475ca7f2e62483c354d44d43c9f2cef03b7e08727599c603b71b67"
+          }
+        ],
+        "codec_order": "all class masks followed by all class region arrays",
+        "bytes_consumed": 384939
+      }
+    }
+  ],
+  "scope": "Actual compiled PLCL2/PLNV1 records and exhaustive closed AABB partition witnesses including boundaries. Wall records may repartition, with occupied and step-valued union exact; gameplay movement and native visuals remain separate."
+}

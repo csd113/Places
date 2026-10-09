@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "python3",
+    "tools/bench/regression_maps.py",
+    "--run-packages",
+    "--compiler",
+    "debug-maps/art-style-hero/evidence/stage7-runtime/normal-c2-plmp6-v10/places-compile",
+    "--out",
+    "target/verification/map-regression-final-content-v1",
+    "--prepared-root",
+    "target/verification/maps",
+    "--install-source-packages"
+  ],
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "started_utc": "2026-10-09T06:49:10.670215+00:00",
+  "finished_utc": "2026-10-09T06:51:29.841732+00:00",
+  "elapsed_seconds": 139.17092270799913,
+  "exit_code": 0,
+  "environment_overrides": {
+    "RUSTC_WRAPPER": ""
+  },
+  "log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/final-content-package-gate-v1.log"
+}

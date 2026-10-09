@@ -1,0 +1,8 @@
+{
+  "recorded_utc": "2026-10-09T01:21:10.104597+00:00",
+  "source_freeze": "docs/art-style/stage7/source-input-identities-v7.json",
+  "extra_helper_freeze": "docs/art-style/stage7/diagnostic-helper-identities.json",
+  "checked": 233,
+  "mismatches": [],
+  "note": "Test-only expectation correction recorded after compiledC1 release; production input binaries are preserved and C2 exactcompilercomparison remains pending."
+}

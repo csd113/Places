@@ -1,0 +1,117 @@
+{
+  "recorded_utc": "2026-10-09T08:08:50.133837+00:00",
+  "status": "accepted only qualified static/rigid and captured-lighting restoration",
+  "reviewer": "regression_validation independent validation specialist",
+  "renderer_proof": {
+    "path": "docs/art-style/stage7/validation/home-animation-restoration-root-v1.json",
+    "bytes": 40860,
+    "sha256": "c273150d797d05aa4d8f29ff3af32ecd70b6be422c0e8d1cef1dea88ab044d85"
+  },
+  "helper": {
+    "path": "docs/art-style/stage7/validation/home-animation-restoration-root-v1.py",
+    "bytes": 17444,
+    "sha256": "19a813a927aabd72c67b8a08bbfabc3edc678e97dec15b2053eab327f2109bf9"
+  },
+  "inputs": {
+    "path": "docs/art-style/stage7/validation/home-animation-restoration-root-v1.inputs.json",
+    "bytes": 8138,
+    "sha256": "31895183da618e2b92dfc79c6ea4c871b776c3fed358c9dc9f43bfb1c90757bd"
+  },
+  "independent_reproduction": {
+    "path": "docs/art-style/stage7/validation/home-animation-independent-reproduction-v1.json",
+    "bytes": 1585,
+    "sha256": "84adf11241467a1ea44558be056af1f9d40dc15fb9d57c779d9680a5753d162e"
+  },
+  "primary_concurrence": {
+    "path": "docs/art-style/stage7/validation/home-animation-primary-acceptance-v1.json",
+    "bytes": 2155,
+    "sha256": "43b4c07726d3d6a80b35a039a538bb5c7af6e11a4282d9b158148b89af70f322"
+  },
+  "supported_png_final_check": {
+    "path": "docs/art-style/stage7/validation/supported-native-final-provenance-review-v2.json",
+    "bytes": 49960,
+    "sha256": "619a8f471bc01d268bc3bcc32e53d1cd49389043ed0fc5ff9ff20d2f0426d1c5"
+  },
+  "source_checks": {
+    "actual_glb_mesh_node": 26,
+    "mesh_node_not_idle_animation_target": true,
+    "idle_interpolation": "LINEAR",
+    "idle_channels": 28,
+    "idle_keys": 49,
+    "joint_count": 26,
+    "vertex_count": 3029,
+    "parser_bind_preprocessing_included": true,
+    "maximum_parser_bind_displacement_m": 5.90578761982163e-08,
+    "actual_source_skinning_and_camera_contracts_reviewed": [
+      "src/gltf.rs::append_skinned_vertices / ResolvedSkin::skin_matrices",
+      "src/render/common/character.rs::compute_deltas / skin_position / linear quaternion sampling",
+      "src/render/common/camera.rs forward and perspective",
+      "src/render/common/view.rs aspect-conditioned vertical FOV",
+      "src/ai/movement.rs idle cue; src/entities/mod.rs AI cue precedence"
+    ]
+  },
+  "derivation_assessment": "For each complete LINEAR interval, shortest-arc angular displacement bounds every rotated point; each parent recurrence bounds scale, inherited error and linear translation. Positive normalized weights preserve this componentwise overapproximation. Parser bind preprocessing precedes runtime rest-inverse skinning. Mesh node identity and fixed actual transform/camera meet this formula\u2019s source conditions. Projecting all positive-depth box corners gives extrema of the perspective ratios. The integer envelope is source-derived independently of changed pixels.",
+  "actual_evidence": {
+    "projection_xyxy_exclusive": [
+      1012,
+      263,
+      1260,
+      411
+    ],
+    "full_rgba_comparisons": 10,
+    "exact_outside_rgba_pixels_per_pair": 884896,
+    "all_actual_outside_difference_counts_zero": true,
+    "entity_high_endpoints": 12,
+    "actual_cat_and_drum_payloads_identical": true,
+    "identical_world_props_lighting_uniform_snapshots": 11,
+    "normal_optional_visual_snapshot_absent": true,
+    "normal_actual_entity_payloads_present": true,
+    "original_whole_image_failures": 2
+  },
+  "independent_in_memory_controls": [
+    {
+      "control": "outside_left_single_rgba_channel_change",
+      "rejected": true
+    },
+    {
+      "control": "outside_right_single_rgba_channel_change",
+      "rejected": true
+    },
+    {
+      "control": "outside_top_single_rgba_channel_change",
+      "rejected": true
+    },
+    {
+      "control": "outside_bottom_single_rgba_channel_change",
+      "rejected": true
+    },
+    {
+      "control": "inside_source_envelope_change",
+      "allowed_by_scoped_comparison": true,
+      "meaning": "Explicit unproved actor-domain limit; no whole-image pass."
+    },
+    {
+      "control": "cat_uploaded_anchor_payload_change",
+      "rejected": true
+    },
+    {
+      "control": "drum_uploaded_anchor_payload_change",
+      "rejected": true
+    }
+  ],
+  "acceptance_scope": "Prepared centre, all-eight uploaded anchor validity, rigid drum/entity preservation, graphics state restoration, exact static pixels outside the conditional actor envelope and scoped normal/feature equivalence are accepted. Original strict whole-image command outcomes remain failed. This composed proof does not prove animated-domain equality or causal animation for every difference.",
+  "remaining_limits": [
+    "Actual current clip/time, joint pose, posed vertex/normal buffers and complete opacity uniform are not traced.",
+    "Envelope is conditional on idle plus fixed actual camera/rigid transform; authored/AI source supports idle but actual clip equality is inferred.",
+    "Float64 analysis over stored float32 inputs is not a bitwise Rust float32 skinner reproduction. Changed pixels remain at least16 pixels within the bound; no static-image assertion is made underneath that bound.",
+    "The geometric footprint is not a universal bloom/shadow/all-clip convolution bound. Actual fullRGBA pairs nevertheless have zero changes outside it.",
+    "Normal binary lacks the optional detailed visual snapshot; its actual centre/spatial payloads and outside-image comparison pass.",
+    "Kitchen models, Demo joins and close Hallows skeleton issues remain successor-owned and uninvestigated."
+  ],
+  "custody": {
+    "no_native_build_bake_cargo_git_source_changes": true,
+    "bounded_cpu_review_complete": true,
+    "all_started_python_subprocesses_joined": true,
+    "no_background_workers": true
+  }
+}

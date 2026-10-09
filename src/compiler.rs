@@ -57,7 +57,7 @@ use crate::package::manifest::{
     VariantEntries,
 };
 use crate::package::mesh::write_mesh;
-use crate::package::props::write_props;
+use crate::package::props::{PropsEncodingStats, write_props_with_stats};
 use crate::package::{FORMAT_VERSION, PACKAGE_EXTENSION};
 use crate::quality::LightmapQuality;
 use crate::quality::{QualityLevel, ReflectionQuality};
@@ -180,6 +180,9 @@ pub struct VariantStats {
     pub mesh_vertices: usize,
     /// Prop batches.
     pub prop_batches: usize,
+    /// Exact vertex storage reduction during encoding; absent for reused blobs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prop_encoding: Option<PropsEncodingStats>,
     /// Lightmap pages (0 for the vertex-lit variant).
     pub lightmap_pages: usize,
     /// Charts (0 for the vertex-lit variant).
@@ -400,6 +403,7 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
                 mesh_ranges: 0,
                 mesh_vertices: 0,
                 prop_batches: 0,
+                prop_encoding: None,
                 lightmap_pages: 0,
                 lightmap_charts: 0,
                 irradiance_probes: 0,
@@ -1290,7 +1294,8 @@ fn build_variant(
     };
 
     let mesh_name = insert_blob(blobs, write_mesh(&build.mesh)?, ".mesh", "mesh");
-    let props_name = insert_blob(blobs, write_props(&build.batches)?, ".props", "props");
+    let (props_bytes, prop_encoding) = write_props_with_stats(&build.batches)?;
+    let props_name = insert_blob(blobs, props_bytes, ".props", "props");
     let lighting_name = insert_blob(
         blobs,
         write_lighting(&build.lighting)?,
@@ -1338,6 +1343,7 @@ fn build_variant(
         mesh_ranges: build.mesh.ranges.len(),
         mesh_vertices: build.mesh.vertex_count,
         prop_batches: build.batches.len(),
+        prop_encoding: Some(prop_encoding),
         lightmap_pages: pages,
         lightmap_charts: charts,
         irradiance_probes: build.probes.as_ref().map_or(0, |field| field.probes.len()),
@@ -1376,6 +1382,7 @@ fn build_variant(
             probes: Vec::new(),
         },
     };
+    report_record_storage(quality, &variant.entries, blobs, prop_encoding);
     // Records above retain the labelled field and relit runtime mesh. Move the
     // same variant directly into capture with its historical capture state;
     // at most one prepared variant is retained, and the atlas is never copied.
@@ -1409,6 +1416,33 @@ fn report_preparation(quality: LightmapQuality, build: &crate::render::LevelBuil
         build.timings.lighting_millis,
         build.timings.props_millis,
         build.timings.surfaces_millis
+    ));
+}
+
+fn report_record_storage(
+    quality: LightmapQuality,
+    entries: &VariantEntries,
+    blobs: &BlobMap,
+    props: PropsEncodingStats,
+) {
+    let size = |name: &str| blobs.get(name).map_or(0, |(bytes, _)| bytes.len());
+    let unique_bytes = blobs
+        .values()
+        .fold(0_usize, |sum, (bytes, _)| sum.saturating_add(bytes.len()));
+    crate::logging::info(format_args!(
+        "[compile-storage] quality={} mesh_bytes={} props_bytes={} lighting_bytes={} collision_bytes={} navigation_bytes={} atlas_bytes={} irradiance_bytes={} prop_input_slots={} prop_stored_slots={} prop_duplicate_slots={} unique_record_bytes={}",
+        quality.name(),
+        size(&entries.mesh),
+        size(&entries.props),
+        size(&entries.lighting),
+        size(&entries.collision),
+        size(&entries.navigation),
+        entries.lightmaps.as_deref().map_or(0, size),
+        entries.irradiance.as_deref().map_or(0, size),
+        props.input_vertex_slots,
+        props.stored_vertex_slots,
+        props.duplicate_slots,
+        unique_bytes,
     ));
 }
 
@@ -2324,20 +2358,29 @@ mod tests {
     }
 
     #[test]
-    fn full_eight_page_atlas_includes_its_container_in_the_record_budget() {
+    fn measured_full_atlases_include_their_container_in_the_typed_record_budget() {
         let mut entry = PackageEntry {
             name: "blobs/full.lightmaps.ktx2".to_string(),
             role: "lightmaps".to_string(),
-            bytes: 268_435_652, // Actual final Places Demo: 256 MiB plus KTX2 header.
+            bytes: 335_544_516, // Actual ten-page, two-group Demo record plus KTX2 header.
             sha256: String::new(),
         };
         assert!(entry.bytes > crate::package::MAX_ENTRY_BYTES);
+        assert!(
+            entry.bytes > 268_500_992,
+            "the previous atlas budget rejects it"
+        );
+        assert!(entry.bytes <= declared_entry_limit(&entry));
+        assert_eq!(declared_entry_limit(&entry), 335_609_856);
+        entry.bytes = 268_435_652; // Preserved eight-page Demo remains accepted.
         assert!(entry.bytes <= declared_entry_limit(&entry));
         entry.bytes = crate::package::MAX_LIGHTMAP_ATLAS_BYTES + 1;
         assert!(entry.bytes > declared_entry_limit(&entry));
-        entry.bytes = 268_435_652;
-        entry.role = "texture".to_string();
-        assert!(entry.bytes > declared_entry_limit(&entry));
+        for bytes in [268_435_652, 335_544_516] {
+            entry.bytes = bytes;
+            entry.role = "texture".to_string();
+            assert!(entry.bytes > declared_entry_limit(&entry));
+        }
     }
 
     /// Deterministic per-texel pattern, distinct per face.

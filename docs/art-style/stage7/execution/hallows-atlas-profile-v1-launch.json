@@ -1,0 +1,12 @@
+{
+  "label": "hallows-atlas-profile-v1",
+  "supervisor_pid": 8693,
+  "argv": [
+    "sh",
+    "-c",
+    "cargo fmt --all && cargo test --lib static_prop_lighting_tests::lantern_hollow_atlas_capacity_profile -- --ignored --nocapture"
+  ],
+  "launched_utc": "2026-10-09T00:09:01.392617+00:00",
+  "cwd": "/Users/connordawkins/Documents/GitHub/Places",
+  "completion_receipt": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/hallows-atlas-profile-v1.json"
+}

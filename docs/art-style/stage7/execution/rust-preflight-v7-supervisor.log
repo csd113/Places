@@ -1,0 +1,52 @@
+{"argv": ["sh", "/tmp/places-stage7-rust-preflight-v5.sh"], "cwd": "/Users/connordawkins/Documents/GitHub/Places", "started_utc": "2026-10-08T23:33:15.419726+00:00", "finished_utc": "2026-10-08T23:34:44.562284+00:00", "elapsed_seconds": 89.14236987498589, "exit_code": 101, "environment_overrides": {"RUSTC_WRAPPER": ""}, "log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage7/execution/rust-preflight-v7.log"}
+=None kind=Floor mean=0.427702 peak=1.151574 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(0) kind=Ceiling mean=0.244612 peak=1.052590 shoulder_fraction=0.000000
+[transport-timing] base=true taps=3 bounces=2 receivers_ms=0.017 direct_visibility_ms=0.261 indirect_ms=6.034 probes_ms=1.556 filter_ms=0.097 fill_ms=0.011
+test lighting::transport::tests::probes::enclosed_dark_room_and_wall_separation_preserve_darkness ... ok
+[transport-audit] stage=indirect room=None kind=Floor mean=0.165343 peak=0.276975 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(0) kind=Ceiling mean=0.302660 peak=0.510282 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=None kind=Floor mean=1.093218 peak=1.562008 shoulder_fraction=0.140625
+[transport-audit] stage=filtered room=Some(0) kind=Ceiling mean=0.648017 peak=1.315715 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=None kind=Floor mean=1.093218 peak=1.562008 shoulder_fraction=0.140625
+[transport-audit] stage=filled room=Some(0) kind=Ceiling mean=0.648017 peak=1.315715 shoulder_fraction=0.000000
+[transport-timing] base=true taps=3 bounces=2 receivers_ms=0.017 direct_visibility_ms=0.349 indirect_ms=6.460 probes_ms=1.540 filter_ms=0.086 fill_ms=0.007
+[transport-audit] stage=direct room=None kind=Floor mean=0.926984 peak=1.347006 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(0) kind=Ceiling mean=0.343851 peak=0.947827 shoulder_fraction=0.000000
+[transport-progress] diffuse_order=1/2 receivers=128 samples=32 workers=12
+[transport-progress] diffuse_order=2/2 receivers=128 samples=32 workers=12
+[transport-audit] stage=bounced room=None kind=Floor mean=0.775719 peak=1.209427 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(0) kind=Ceiling mean=0.456826 peak=1.112934 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=None kind=Floor mean=1.092327 peak=1.569128 shoulder_fraction=0.156250
+[transport-audit] stage=bounced room=Some(0) kind=Ceiling mean=0.646512 peak=1.325762 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=None kind=Floor mean=0.116233 peak=0.183085 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(0) kind=Ceiling mean=0.213939 peak=0.358692 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=None kind=Floor mean=0.776355 peak=1.203652 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(0) kind=Ceiling mean=0.457939 peak=1.092839 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=None kind=Floor mean=0.776355 peak=1.203652 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(0) kind=Ceiling mean=0.457939 peak=1.092839 shoulder_fraction=0.000000
+[transport-timing] base=true taps=3 bounces=2 receivers_ms=0.018 direct_visibility_ms=0.259 indirect_ms=6.429 probes_ms=1.549 filter_ms=0.089 fill_ms=0.009
+test lighting::transport::tests::probes::probe_bakes_are_bit_identical_across_workers_and_repeated_builds ... ok
+[transport-audit] stage=indirect room=None kind=Floor mean=0.165343 peak=0.276975 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(0) kind=Ceiling mean=0.302660 peak=0.510282 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=None kind=Floor mean=1.093218 peak=1.562008 shoulder_fraction=0.140625
+[transport-audit] stage=filtered room=Some(0) kind=Ceiling mean=0.648017 peak=1.315715 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=None kind=Floor mean=1.093218 peak=1.562008 shoulder_fraction=0.140625
+[transport-audit] stage=filled room=Some(0) kind=Ceiling mean=0.648017 peak=1.315715 shoulder_fraction=0.000000
+[transport-timing] base=true taps=3 bounces=2 receivers_ms=0.021 direct_visibility_ms=0.213 indirect_ms=1.840 probes_ms=1.566 filter_ms=0.101 fill_ms=0.008
+test lighting::transport::tests::probes::selected_runtime_source_sidecar_preserves_combined_energy_and_unselected_lights ... ok
+Demo probe phase original=[-7.8191605, -3.12187, -110.80006] selected=[-8.326778, -3.12187, -111.30767] baseline=[true, true, true, true, true, true, true, false, true, true, false, true, true, true] selected_room_counts=[13, 12, 11, 169, 12, 40, 84, 1, 4, 9, 2, 12, 1047, 12]
+
+thread 'lighting::transport::tests::probes::demo_probe_phase_recovers_authored_corridor_air_without_losing_rooms' (18871060) panicked at src/lighting/transport/tests/probes.rs:544:9:
+the actual runtime radius and opaque visibility recover [60.9, -0.82, -5.5]
+test lighting::transport::tests::probes::demo_probe_phase_recovers_authored_corridor_air_without_losing_rooms ... FAILED
+
+failures:
+
+failures:
+    lighting::transport::tests::probes::demo_probe_phase_recovers_authored_corridor_air_without_losing_rooms
+    lighting::transport::tests::probes::validated_probe_phase_shares_targets_bake_and_zero_source_plpf3
+
+test result: FAILED. 18 passed; 2 failed; 0 ignored; 0 measured; 2149 filtered out; finished in 14.46s
+
+error: test failed, to rerun pass `--lib`
+

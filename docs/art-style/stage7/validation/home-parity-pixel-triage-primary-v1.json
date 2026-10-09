@@ -1,0 +1,24 @@
+{
+  "status": "triage only; animated footprint proof pending",
+  "images": {
+    "initial": {
+      "frame": 120,
+      "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/parity/home/normal/images/endpoint.png",
+      "sha256": "524600025d2993a9519e3ebd1a13a3421cad30a55f74c37540ffd12214a8a9ee"
+    },
+    "restored": {
+      "frame": 120,
+      "path": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage7-native-recheck-v2/parity/home/feature/images/endpoint.png",
+      "sha256": "290401b03927e81093f6dca5b52c08fe1fdb324eac33f218052f50271a6fc71c"
+    },
+    "image_sha256_equal": false
+  },
+  "bbox": [
+    1054,
+    280,
+    1219,
+    354
+  ],
+  "different_rgb_pixels": 70,
+  "raw_images_modified": false
+}

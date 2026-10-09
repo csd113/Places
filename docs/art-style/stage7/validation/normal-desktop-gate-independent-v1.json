@@ -1,0 +1,3212 @@
+{
+  "recorded_utc": "2026-10-09T04:49:02.743259+00:00",
+  "reviewer_role": "Independent Stage7 regression validation specialist",
+  "status": "passed",
+  "review_method": "Source/JSON/log and small source-identity reads only. No tests, Cargo, compiler, bake, native/GPU, archive parsing/rehash, Git or shared-file edits launched by this review. Exactly this fresh receipt is the only write.",
+  "gate": {
+    "receipt": "docs/art-style/stage7/execution/normal-desktop-gate-v8.json",
+    "argv": [
+      "sh",
+      "tools/verify.sh"
+    ],
+    "started_utc": "2026-10-09T04:20:43.159421+00:00",
+    "finished_utc": "2026-10-09T04:39:22.662665+00:00",
+    "exit_code": 0,
+    "elapsed_seconds": 1119.500073250034,
+    "environment_overrides": {
+      "RUSTC_WRAPPER": ""
+    },
+    "campaign": "target/verification/map-regression-20261009T042109Z-30226"
+  },
+  "freeze": {
+    "path": "docs/art-style/stage7/source-input-identities-v10.json",
+    "sha256": "11405049a6f8713eaf540a8634a7bfcd786efaf06d627ab7461d1b46b5defb4f",
+    "base_revision": "26486b8538424f013c243ae6edea8720ac07d7f2",
+    "geometry_revision": 7,
+    "solver_revision": 16,
+    "props_record_version": 6,
+    "current_sources_checked": 223,
+    "current_gate_inputs_checked": 11,
+    "current_helpers_checked": 2,
+    "mismatches": [],
+    "normal_release_identity_unchanged": {
+      "compiler_sha256": "f3f27db928af9927219f3440a95acbbcfb2f53bdecb321af207613ddce91527f",
+      "player_sha256": "f5d3a2fe572e4abc69237c6df14e527060b839901184c65b6b69830ad8628081",
+      "compared_to": "debug-maps/art-style-hero/evidence/stage7-c1-v7-superseded/runtime"
+    },
+    "historical_freeze_note": "The pre-run freeze note correctly says the gate was pending at capture time; this later successful receipt supplies its actual outcome."
+  },
+  "compiler_identity": {
+    "campaign_sha256": "f3f27db928af9927219f3440a95acbbcfb2f53bdecb321af207613ddce91527f",
+    "stable_during_campaign": true,
+    "compiler_before_player_rebuild": "f3f27db928af9927219f3440a95acbbcfb2f53bdecb321af207613ddce91527f  target/release/places-compile",
+    "compiler_after_player_rebuild": "f3f27db928af9927219f3440a95acbbcfb2f53bdecb321af207613ddce91527f  target/release/places-compile",
+    "interpretation": "Historical actual gate identities agree. Current target binary is not rehashed while separate primary post-gate jobs own it."
+  },
+  "map_matrix": {
+    "actual_recursive_sources": 50,
+    "shipped": 5,
+    "local": 5,
+    "fixtures": 40,
+    "supported": 48,
+    "classification_counts": {
+      "playable": 44,
+      "cpu-boundary-witness": 1,
+      "playable-geometry-negative": 3,
+      "loader-negative": 1,
+      "playable-review-control": 1
+    },
+    "progressive_first6": [
+      "tests/fixtures/levels/home_showcase.json",
+      "tests/fixtures/levels/office_asset_review.json",
+      "tests/fixtures/levels/pool_showcase.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json",
+      "assets/levels/winter.json",
+      "assets/levels/lantern_hollow.json"
+    ],
+    "package_only_orphans": [],
+    "source_hash_mismatches": [],
+    "normal_reuse_count": 48,
+    "normal_rebuilt_count": 0,
+    "duplicate_id_groups": {
+      "home_showcase": [
+        "tests/fixtures/levels/home_showcase.json",
+        "levels/home_showcase.json"
+      ],
+      "geometry_intentional": [
+        "levels/geometry_intentional.json",
+        "tests/fixtures/levels/geometry_intentional.json"
+      ],
+      "level0_pit": [
+        "levels/level0_pit.json",
+        "tests/fixtures/levels/level0_pit.json"
+      ],
+      "art_style_hero": [
+        "tests/fixtures/levels/art_style_hero.json",
+        "tests/fixtures/levels/art_style_hero_atmosphere.json",
+        "tests/fixtures/levels/art_style_hero_aurora.json",
+        "tests/fixtures/levels/art_style_hero_night.json",
+        "tests/fixtures/levels/art_style_hero_refined.json",
+        "tests/fixtures/levels/art_style_hero_stage4_comparison.json",
+        "tests/fixtures/levels/art_style_hero_stage4_entities.json",
+        "tests/fixtures/levels/art_style_hero_stage4_movement.json",
+        "tests/fixtures/levels/art_style_hero_stage4_switchable.json",
+        "tests/fixtures/levels/art_style_hero_storm.json",
+        "tests/fixtures/levels/art_style_hero_transparency.json"
+      ]
+    },
+    "all_supported_cases": [
+      {
+        "key": "tests__fixtures__levels__home_showcase",
+        "source": "tests/fixtures/levels/home_showcase.json",
+        "source_sha256": "a4ac6d08f2b105bbd832bf1b81f86ca6a3b8a52369141cec8a1552d3841b28a2",
+        "level_id": "home_showcase",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__home_showcase.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "7ea62c0fcf75598ae466986418a43d991722adca6e6484c2932c727fb6201b98",
+        "declared_entry_count": 20,
+        "declared_payload_bytes": 73320791,
+        "dependency_count": 29,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__home_showcase-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__home_showcase-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__home_showcase-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__office_asset_review",
+        "source": "tests/fixtures/levels/office_asset_review.json",
+        "source_sha256": "051fea3f91d1f3cabbf639fa7b4af5593beaa3aebd1325b217e7ba64cdea1fbb",
+        "level_id": "office_asset_review",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__office_asset_review.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "c3d03370b0cf4955f1e404f5295fd754e2077164a20aabc9e21ffa38dd20e952",
+        "declared_entry_count": 20,
+        "declared_payload_bytes": 69200215,
+        "dependency_count": 12,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__office_asset_review-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__office_asset_review-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__office_asset_review-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__pool_showcase",
+        "source": "tests/fixtures/levels/pool_showcase.json",
+        "source_sha256": "b9ed6eb352d04caa05eefef1984cec5ce5d3ef1d9213619aabf35fca9d1a2db4",
+        "level_id": "pool_showcase",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__pool_showcase.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "2d6b774d5c99ce2902e1a99867d7be5f3e46d92f6bf34169cb580138af6ac66c",
+        "declared_entry_count": 28,
+        "declared_payload_bytes": 75811408,
+        "dependency_count": 22,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__pool_showcase-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__pool_showcase-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__pool_showcase-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__outdoor_kit_showcase",
+        "source": "tests/fixtures/levels/outdoor_kit_showcase.json",
+        "source_sha256": "ef54afad931f372b1bd9c71ac7125f750feed43fe485367552f97e17900027f4",
+        "level_id": "outdoor_kit_showcase",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__outdoor_kit_showcase.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "c8e1c5b0e65b307b22edca325401c2a4920a0ed07a04df59182e06f615ad939e",
+        "declared_entry_count": 20,
+        "declared_payload_bytes": 102223296,
+        "dependency_count": 78,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__outdoor_kit_showcase-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__outdoor_kit_showcase-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__outdoor_kit_showcase-2.log"
+        ]
+      },
+      {
+        "key": "assets__levels__winter",
+        "source": "assets/levels/winter.json",
+        "source_sha256": "785480ca9c87febe9790ac35390ee664ec42c78a9dfc54398ef7182ce09333d0",
+        "level_id": "winter",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/winter.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "efb6799e517086189384ebc7287b40b3159cb7003937870ee2a76b2f033b1480",
+        "declared_entry_count": 30,
+        "declared_payload_bytes": 284047954,
+        "dependency_count": 65,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__winter-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__winter-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__winter-2.log"
+        ]
+      },
+      {
+        "key": "assets__levels__lantern_hollow",
+        "source": "assets/levels/lantern_hollow.json",
+        "source_sha256": "1e2c53846cfa21892b3b66e43658925ec28fcea8f4143324f998e1193a91d0c0",
+        "level_id": "lantern_hollow",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/lantern_hollow.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "b27ede8bc5141021ade10d9461a16154d12a4f5090c6fd4ab4af0349e7be6d42",
+        "declared_entry_count": 28,
+        "declared_payload_bytes": 563106865,
+        "dependency_count": 78,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__lantern_hollow-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__lantern_hollow-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__lantern_hollow-2.log"
+        ]
+      },
+      {
+        "key": "assets__levels__model_zoo",
+        "source": "assets/levels/model_zoo.json",
+        "source_sha256": "ebbe62f78723b1ccf0525d5c1622bd895f4ecb3444902d984d59f0f8b1d5f458",
+        "level_id": "model_zoo",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/model_zoo.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "53332dd523021614bf7299a113ef65761669a89b0527ae2264fd7df0dc2f6a16",
+        "declared_entry_count": 28,
+        "declared_payload_bytes": 297779421,
+        "dependency_count": 211,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__model_zoo-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__model_zoo-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__model_zoo-2.log"
+        ]
+      },
+      {
+        "key": "assets__levels__movement_test",
+        "source": "assets/levels/movement_test.json",
+        "source_sha256": "f6f51c3a65ae38cb4afb6282d9a6239ece3de17618971accfd8ae9580d02d45b",
+        "level_id": "movement_test",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/movement_test.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "a047e4356fa59911b8ae5c5aeffaa53f88e08dedb8c5b14e5d9acf758da0a2cc",
+        "declared_entry_count": 28,
+        "declared_payload_bytes": 146597201,
+        "dependency_count": 19,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__movement_test-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__movement_test-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__movement_test-2.log"
+        ]
+      },
+      {
+        "key": "assets__levels__places_demo",
+        "source": "assets/levels/places_demo.json",
+        "source_sha256": "65833e98579a696167d616ce0cc94ebab85f744fdd72837ed247c483db1f9dec",
+        "level_id": "places_demo",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/places_demo.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "e4cf389b38b854bbcf441d24d243769556853d7c1884d41968b7c7b4d103d480",
+        "declared_entry_count": 34,
+        "declared_payload_bytes": 733708872,
+        "dependency_count": 148,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__places_demo-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__places_demo-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__places_demo-2.log"
+        ]
+      },
+      {
+        "key": "levels__blizzard_review",
+        "source": "levels/blizzard_review.json",
+        "source_sha256": "d8c0196ec161e94c5116ee50ec81e670571788f1af1e0a43666618120955422a",
+        "level_id": "blizzard_review",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/levels/blizzard_review.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "69338460153ca3432c5afed609fe309b357258a3c6f84fc3a1c518151c1062fe",
+        "declared_entry_count": 30,
+        "declared_payload_bytes": 284047943,
+        "dependency_count": 65,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/levels__blizzard_review-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/levels__blizzard_review-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/levels__blizzard_review-2.log"
+        ]
+      },
+      {
+        "key": "levels__geometry_intentional",
+        "source": "levels/geometry_intentional.json",
+        "source_sha256": "4efa15c7a7373e5f69c4aa0621c99f558c5067b9496796a4761f4b740612e13b",
+        "level_id": "geometry_intentional",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/levels/geometry_intentional.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "183295456672b842882402d85c0bdfbd18b5e9e05a428eac531fb686b71475a0",
+        "declared_entry_count": 25,
+        "declared_payload_bytes": 35500326,
+        "dependency_count": 10,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/levels__geometry_intentional-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/levels__geometry_intentional-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/levels__geometry_intentional-2.log"
+        ]
+      },
+      {
+        "key": "levels__home_showcase",
+        "source": "levels/home_showcase.json",
+        "source_sha256": "26930244496c5eae26d0daf7d14571da488649c4a5d513c42311e6d3229f8ac3",
+        "level_id": "home_showcase",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/levels/home_showcase.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "c916c6fa0410b6ff484d71c600bd5911e2c8e5b982f53d820c4b33514190b962",
+        "declared_entry_count": 20,
+        "declared_payload_bytes": 73230358,
+        "dependency_count": 27,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/levels__home_showcase-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/levels__home_showcase-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/levels__home_showcase-2.log"
+        ]
+      },
+      {
+        "key": "levels__level0_pit",
+        "source": "levels/level0_pit.json",
+        "source_sha256": "fe67c23ddc9742fc819befdecc38d1dbce5000c281d4c7eec06ce8367989db38",
+        "level_id": "level0_pit",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/levels/level0_pit.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "67369b34887b80d0e8a544ec0e85c23d94dd7d4b1c62cd16e792ebb467126a13",
+        "declared_entry_count": 28,
+        "declared_payload_bytes": 188112670,
+        "dependency_count": 17,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/levels__level0_pit-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/levels__level0_pit-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/levels__level0_pit-2.log"
+        ]
+      },
+      {
+        "key": "levels__snowfall_contrast",
+        "source": "levels/snowfall_contrast.json",
+        "source_sha256": "dedfe1e664e32767b9084ccd303f083069ea1b4d3d030ebc77b663580d84ad11",
+        "level_id": "snowfall_contrast",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/levels/snowfall_contrast.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "6deb27f2d14b609337172fd19bdec51d73b21d7df91d291c2da8e6ce32a98bef",
+        "declared_entry_count": 17,
+        "declared_payload_bytes": 34168079,
+        "dependency_count": 4,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/levels__snowfall_contrast-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/levels__snowfall_contrast-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/levels__snowfall_contrast-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__art_style_hero",
+        "source": "tests/fixtures/levels/art_style_hero.json",
+        "source_sha256": "743c1cf3a900570cc163c9d2f1636118e0f8f36989ee82fcbeabd78560675bc0",
+        "level_id": "art_style_hero",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__art_style_hero.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "110f9c1bbdfd195d23ecfec34c200030b74d4796293f7e23d4c3ffecb798913e",
+        "declared_entry_count": 28,
+        "declared_payload_bytes": 73420450,
+        "dependency_count": 29,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__art_style_hero_atmosphere",
+        "source": "tests/fixtures/levels/art_style_hero_atmosphere.json",
+        "source_sha256": "c0500d91443249c56dd6e138bc705550387f6868009593eff59a0a6ae7c97466",
+        "level_id": "art_style_hero",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__art_style_hero_atmosphere.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "4cf2f8fe9f0f622322ee6f92762b7b9a71a1b679203e5e95bbb5aeaefee388c7",
+        "declared_entry_count": 34,
+        "declared_payload_bytes": 74927428,
+        "dependency_count": 33,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_atmosphere-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_atmosphere-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_atmosphere-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__art_style_hero_aurora",
+        "source": "tests/fixtures/levels/art_style_hero_aurora.json",
+        "source_sha256": "4a74cc4a1e8998fdb4621d22facfc60286ef4e9e2cb2e58863913708cdc434ad",
+        "level_id": "art_style_hero",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__art_style_hero_aurora.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "43b651e018a906496de8145c1583a9cd1308724d451bb67219562da863bb42f3",
+        "declared_entry_count": 34,
+        "declared_payload_bytes": 74928444,
+        "dependency_count": 34,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_aurora-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_aurora-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_aurora-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__art_style_hero_night",
+        "source": "tests/fixtures/levels/art_style_hero_night.json",
+        "source_sha256": "914519438329ff6772b2613f93bb1b032077ce483b73fa3f7b39ceabef7015d0",
+        "level_id": "art_style_hero",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__art_style_hero_night.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "7239326f70c8b660891253c583c093923fdad0c9b254f26add68b50f88819c9e",
+        "declared_entry_count": 34,
+        "declared_payload_bytes": 74928027,
+        "dependency_count": 33,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_night-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_night-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_night-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__art_style_hero_refined",
+        "source": "tests/fixtures/levels/art_style_hero_refined.json",
+        "source_sha256": "bca6f840a3c54dda6ecbff707a0c40f98e8cb6fd14258c97defa283b31f8710e",
+        "level_id": "art_style_hero",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__art_style_hero_refined.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "fc7699384181a64831e9fab592e12c6ed433770e3d0d28f21c30306b7e5700dc",
+        "declared_entry_count": 34,
+        "declared_payload_bytes": 76128049,
+        "dependency_count": 40,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_refined-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_refined-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_refined-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__art_style_hero_stage4_comparison",
+        "source": "tests/fixtures/levels/art_style_hero_stage4_comparison.json",
+        "source_sha256": "4008225fe5bcab967e4b75c76695049bcc483f3a14b3018c5601d9682ed755b0",
+        "level_id": "art_style_hero",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__art_style_hero_stage4_comparison.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "b6057e04b51f3a3e9b74aab3e940954384ca18fc1ac57bbb581cfe4619bebff1",
+        "declared_entry_count": 28,
+        "declared_payload_bytes": 142702219,
+        "dependency_count": 30,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_comparison-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_comparison-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_comparison-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__art_style_hero_stage4_entities",
+        "source": "tests/fixtures/levels/art_style_hero_stage4_entities.json",
+        "source_sha256": "f4cce152146015a67d75d5e5b4612a386be326c9b87c53406bda76b473e6044c",
+        "level_id": "art_style_hero",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__art_style_hero_stage4_entities.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "fc9891a4324c377be320721cd877fc966098153812b77843a8035553036fe958",
+        "declared_entry_count": 28,
+        "declared_payload_bytes": 75072080,
+        "dependency_count": 30,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_entities-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_entities-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_entities-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__art_style_hero_stage4_movement",
+        "source": "tests/fixtures/levels/art_style_hero_stage4_movement.json",
+        "source_sha256": "3fb98e82819387dacfedfc5bba04c7a2751eb599e8b399e23bd925a23d73726b",
+        "level_id": "art_style_hero",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__art_style_hero_stage4_movement.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "aa87fbb7c2ef0ad961e6722b1a6b6c81d46cfd73c08dd76374a687cd39ea5059",
+        "declared_entry_count": 28,
+        "declared_payload_bytes": 75102028,
+        "dependency_count": 33,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_movement-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_movement-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_movement-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__art_style_hero_stage4_switchable",
+        "source": "tests/fixtures/levels/art_style_hero_stage4_switchable.json",
+        "source_sha256": "b45b7794b6846a38a1a32dc7c09216ec91c9e0c41cad298732ce2d79da00735c",
+        "level_id": "art_style_hero",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__art_style_hero_stage4_switchable.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "cecf54c87948dc8cc20626f4ef8882557829a02e808a51746d710f56c7ec1faf",
+        "declared_entry_count": 28,
+        "declared_payload_bytes": 142181051,
+        "dependency_count": 30,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_switchable-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_switchable-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_switchable-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__art_style_hero_storm",
+        "source": "tests/fixtures/levels/art_style_hero_storm.json",
+        "source_sha256": "cf68d3ba0541b0f805494f392cbab826da02429c98e0e09fb9013702e2b953a5",
+        "level_id": "art_style_hero",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__art_style_hero_storm.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "22fd1942d3b5e4ff0c07f2b3d71cf2330a432d740a39c1ca369ec91f48e87870",
+        "declared_entry_count": 34,
+        "declared_payload_bytes": 74928396,
+        "dependency_count": 34,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_storm-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_storm-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_storm-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__art_style_hero_transparency",
+        "source": "tests/fixtures/levels/art_style_hero_transparency.json",
+        "source_sha256": "a73c44e3ad362ba2c6dac4ce93bde4a77cfd573cfed17d33dbfbb61eaca327df",
+        "level_id": "art_style_hero",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__art_style_hero_transparency.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "53315df97331e616b4154a038f862fc7a36110e3f089acec9ead8480aee1a5b7",
+        "declared_entry_count": 34,
+        "declared_payload_bytes": 74928022,
+        "dependency_count": 34,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_transparency-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_transparency-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_transparency-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__asset_polish_showcase",
+        "source": "tests/fixtures/levels/asset_polish_showcase.json",
+        "source_sha256": "73ae9d3cfff84c0f5eee9d184cf685a4f12ad9ebb745e94d0174aea344325e07",
+        "level_id": "asset_polish_showcase",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__asset_polish_showcase.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "54a5cfea6e82bbeadbdc28f7050904937ba52da071e8212577d628c5dbfb1a49",
+        "declared_entry_count": 20,
+        "declared_payload_bytes": 72168160,
+        "dependency_count": 17,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__asset_polish_showcase-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__asset_polish_showcase-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__asset_polish_showcase-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__capacity_dense",
+        "source": "tests/fixtures/levels/capacity_dense.json",
+        "source_sha256": "8ff5d19cdde7ef853e932de7e03b864fc178eb86e8ac99e138295e40c21845f9",
+        "level_id": "capacity_dense",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__capacity_dense.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "8fd27f3711084315ee164a63284dea13ecaf06f99a43774d8d22f3b7be6decb5",
+        "declared_entry_count": 20,
+        "declared_payload_bytes": 1035923437,
+        "dependency_count": 54,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__capacity_dense-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__capacity_dense-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__capacity_dense-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__entity_showcase",
+        "source": "tests/fixtures/levels/entity_showcase.json",
+        "source_sha256": "691b2b5cbf1a95ba351a22648eb1a89e6b7d189a3961da5012a8f67a58c17b79",
+        "level_id": "entity_showcase",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__entity_showcase.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "d4decd7fb37ad0c0485969d60324ba2aaed74132f8819d49145dcd984a56af27",
+        "declared_entry_count": 20,
+        "declared_payload_bytes": 71237418,
+        "dependency_count": 8,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__entity_showcase-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__entity_showcase-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__entity_showcase-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__fog_void_validation",
+        "source": "tests/fixtures/levels/fog_void_validation.json",
+        "source_sha256": "771b991f06742f3ed90e3fc551cbda96a8e6c8012c04e20b61e7542a9154db1d",
+        "level_id": "fog_void_validation",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__fog_void_validation.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "698ef99ac2cefb62df18524443c06e71fdf8c83f1b993817ab48e15f1b3e605f",
+        "declared_entry_count": 17,
+        "declared_payload_bytes": 33943963,
+        "dependency_count": 7,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__fog_void_validation-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__fog_void_validation-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__fog_void_validation-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__geometry_broken",
+        "source": "tests/fixtures/levels/geometry_broken.json",
+        "source_sha256": "7df452e1a2bdb74b53257f38be8f7ceaed92c73edbfc28b54365a7254fce1aed",
+        "level_id": "geometry_broken",
+        "classification": "playable-geometry-negative",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__geometry_broken.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "4b1218f09d28f7a1cd0f5bc23b03365c741d03b18c2e42b93f8ee938c6f3847f",
+        "declared_entry_count": 25,
+        "declared_payload_bytes": 35011840,
+        "dependency_count": 8,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__geometry_broken-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__geometry_broken-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__geometry_broken-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__geometry_intentional",
+        "source": "tests/fixtures/levels/geometry_intentional.json",
+        "source_sha256": "4efa15c7a7373e5f69c4aa0621c99f558c5067b9496796a4761f4b740612e13b",
+        "level_id": "geometry_intentional",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__geometry_intentional.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "183295456672b842882402d85c0bdfbd18b5e9e05a428eac531fb686b71475a0",
+        "declared_entry_count": 25,
+        "declared_payload_bytes": 35500326,
+        "dependency_count": 10,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__geometry_intentional-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__geometry_intentional-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__geometry_intentional-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__halloween_entities",
+        "source": "tests/fixtures/levels/halloween_entities.json",
+        "source_sha256": "3f0240df719538793376f6cb1e4c67b6be896065f6aca6cbf210161bf29857e3",
+        "level_id": "halloween_entities",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__halloween_entities.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "986b90884bc7202f97e74e8704cfff0a7a9a45cd331e3509ce52e5f69d33a541",
+        "declared_entry_count": 20,
+        "declared_payload_bytes": 74531014,
+        "dependency_count": 14,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__halloween_entities-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__halloween_entities-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__halloween_entities-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__level0_pit",
+        "source": "tests/fixtures/levels/level0_pit.json",
+        "source_sha256": "fe67c23ddc9742fc819befdecc38d1dbce5000c281d4c7eec06ce8367989db38",
+        "level_id": "level0_pit",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__level0_pit.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "67369b34887b80d0e8a544ec0e85c23d94dd7d4b1c62cd16e792ebb467126a13",
+        "declared_entry_count": 28,
+        "declared_payload_bytes": 188112670,
+        "dependency_count": 17,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__level0_pit-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__level0_pit-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__level0_pit-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__lighting_diagnostic",
+        "source": "tests/fixtures/levels/lighting_diagnostic.json",
+        "source_sha256": "de6833c18cec9aaa80ac116b88824f2fbc06f1613d207d0aa0783bcd609df2e3",
+        "level_id": "lighting_diagnostic",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__lighting_diagnostic.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "1c70a4bea0e1bfe6be7f215f7e69b5af2a6be3b223a09aa23d4a9f52a2027253",
+        "declared_entry_count": 17,
+        "declared_payload_bytes": 51680673,
+        "dependency_count": 3,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_diagnostic-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_diagnostic-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_diagnostic-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__lighting_isolation",
+        "source": "tests/fixtures/levels/lighting_isolation.json",
+        "source_sha256": "9a77e14c4bef850199d030a48c7856386d5297e3fcd61d05af0738b5fbf53dc7",
+        "level_id": "lighting_isolation",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__lighting_isolation.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "2c3ff356549f9760a130797a62ed84b7721c1f0f8c8f38f785ea49741ae7195b",
+        "declared_entry_count": 17,
+        "declared_payload_bytes": 34347503,
+        "dependency_count": 3,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_isolation-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_isolation-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_isolation-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__lighting_quality",
+        "source": "tests/fixtures/levels/lighting_quality.json",
+        "source_sha256": "26a0ce8fc78b4b3b687659ce646ced18d3acd0eec04c42af7f11fbb56caf38de",
+        "level_id": "lighting_quality",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__lighting_quality.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "cb6de956a786e85871fc5bc5fcf6740a50c6c3400062fd3387fdb8371c1fce7b",
+        "declared_entry_count": 20,
+        "declared_payload_bytes": 72646094,
+        "dependency_count": 11,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_quality-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_quality-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_quality-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__lighting_repair_cases",
+        "source": "tests/fixtures/levels/lighting_repair_cases.json",
+        "source_sha256": "a9e21c002716ce1e88e6384a6f8eef8e9af2dcd0d6dfffd27b14ed0470808faa",
+        "level_id": "lighting_repair_cases",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__lighting_repair_cases.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "35103e48c03f9b56f9f2eff2605fa5783c4762796acd50ab649dd4e4752703e9",
+        "declared_entry_count": 17,
+        "declared_payload_bytes": 33811912,
+        "dependency_count": 4,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_repair_cases-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_repair_cases-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_repair_cases-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__prop_showcase",
+        "source": "tests/fixtures/levels/prop_showcase.json",
+        "source_sha256": "b8184043af2a3ba6b52facf09b6b9b7b6a6054da841b2ea61e2df13ee35ae9bd",
+        "level_id": "prop_showcase",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__prop_showcase.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "f91f4f42861e995ac29d79c2e2d7d986563895f77f20bc0fcc98b7f7344e50ff",
+        "declared_entry_count": 20,
+        "declared_payload_bytes": 80100433,
+        "dependency_count": 43,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__prop_showcase-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__prop_showcase-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__prop_showcase-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__prop_stress",
+        "source": "tests/fixtures/levels/prop_stress.json",
+        "source_sha256": "35509c4aada0829f38a2eae77c0e93a5e59ca2d542e18b61fa8ea4e6d8361c4e",
+        "level_id": "prop_stress",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__prop_stress.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "c9c7e0fdca1a2fed00366404b01a82a57b4d0f2f513e2736f4acf7bef3f20d1f",
+        "declared_entry_count": 20,
+        "declared_payload_bytes": 157594550,
+        "dependency_count": 14,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__prop_stress-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__prop_stress-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__prop_stress-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__rendering_diagnostic",
+        "source": "tests/fixtures/levels/rendering_diagnostic.json",
+        "source_sha256": "95a708ce70eec35eb99c6f508fe84d570a66f9e107256b61c63880c9abf2f4c8",
+        "level_id": "rendering_diagnostic",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__rendering_diagnostic.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "124acffd565b78ba5fc47726b7d506287abdf9ee869a7ac03f8596f6897a4fef",
+        "declared_entry_count": 19,
+        "declared_payload_bytes": 67548395,
+        "dependency_count": 9,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__rendering_diagnostic-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__rendering_diagnostic-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__rendering_diagnostic-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__repair__clean",
+        "source": "tests/fixtures/levels/repair/clean.json",
+        "source_sha256": "d6988d608940ddec148bdeb87e51bc09d6cf982dc246e686d0d0c1c18890602c",
+        "level_id": "repair_clean",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__repair__clean.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "94fbe926d546054a6b8b891d4cd463105027d5a63d8ea6877e66734fa582e182",
+        "declared_entry_count": 15,
+        "declared_payload_bytes": 16817296,
+        "dependency_count": 3,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__clean-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__clean-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__clean-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__repair__gap_review",
+        "source": "tests/fixtures/levels/repair/gap_review.json",
+        "source_sha256": "1e6013b937524555cb954fda76c18cfda57f7bcf64cf56b2b3f84a836f72cab0",
+        "level_id": "repair_gap_review",
+        "classification": "playable-review-control",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__repair__gap_review.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "973532af36d3511ee9030d0065a28a477453b8d0d2ef201f6c1fc9b37de663de",
+        "declared_entry_count": 15,
+        "declared_payload_bytes": 16816495,
+        "dependency_count": 3,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__gap_review-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__gap_review-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__gap_review-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__repair__wall_step_x",
+        "source": "tests/fixtures/levels/repair/wall_step_x.json",
+        "source_sha256": "f800232785a8775c4ce11dcc81256279484f6edb47adec4ec028cb55ee111afb",
+        "level_id": "repair_wall_step_x",
+        "classification": "playable-geometry-negative",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__repair__wall_step_x.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "cb81373a86682a7324c2f758e40d00df0414df6ed8abf32a52a3fe9b47a062da",
+        "declared_entry_count": 15,
+        "declared_payload_bytes": 16860542,
+        "dependency_count": 4,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__wall_step_x-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__wall_step_x-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__wall_step_x-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__repair__wall_step_z",
+        "source": "tests/fixtures/levels/repair/wall_step_z.json",
+        "source_sha256": "4301a6e27892df10ce28373dad301b456e314779ecd8daff34b542d00d2beab0",
+        "level_id": "repair_wall_step_z",
+        "classification": "playable-geometry-negative",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__repair__wall_step_z.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "4340b69f3cec8ffe329af25bdda07ddabfcc32e580922205f70a2db4667e8e57",
+        "declared_entry_count": 15,
+        "declared_payload_bytes": 16860529,
+        "dependency_count": 4,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__wall_step_z-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__wall_step_z-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__wall_step_z-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__round_pool_and_proximity_fade",
+        "source": "tests/fixtures/levels/round_pool_and_proximity_fade.json",
+        "source_sha256": "8db4e1c877a683b5755e1f27c6e9d919660f1db2ef9ac16e3112be19a11ca5a1",
+        "level_id": "round_pool_and_proximity_fade",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__round_pool_and_proximity_fade.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "06763ba456fca6e2103cc5f44bd048656677a958283a85157d3f5ea782dcb2bf",
+        "declared_entry_count": 21,
+        "declared_payload_bytes": 18113967,
+        "dependency_count": 9,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__round_pool_and_proximity_fade-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__round_pool_and_proximity_fade-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__round_pool_and_proximity_fade-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__test_room",
+        "source": "tests/fixtures/levels/test_room.json",
+        "source_sha256": "39315416421d60f70551593799db3c5df2469071a9958bf519fe49b8301fb12d",
+        "level_id": "test_room",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__test_room.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "ff347e3f1d1f7653316767630a868a443cee1bd1f40076246d20234ca2593320",
+        "declared_entry_count": 20,
+        "declared_payload_bytes": 67885035,
+        "dependency_count": 6,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__test_room-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__test_room-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__test_room-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__vertical_diagnostic",
+        "source": "tests/fixtures/levels/vertical_diagnostic.json",
+        "source_sha256": "56d11363546e8190afb6ba9ea9db6125ea999051a7a842c6ea4d99f3bb1c3010",
+        "level_id": "vertical_diagnostic",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__vertical_diagnostic.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "5b0bab289b29f3bfe2994ab86b9091bd5f8e9e146f5d21ba40f72b761d6d6177",
+        "declared_entry_count": 19,
+        "declared_payload_bytes": 67975481,
+        "dependency_count": 7,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__vertical_diagnostic-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__vertical_diagnostic-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__vertical_diagnostic-2.log"
+        ]
+      },
+      {
+        "key": "tests__fixtures__levels__water_transmission",
+        "source": "tests/fixtures/levels/water_transmission.json",
+        "source_sha256": "5fcaf47bc2ea67cec7b083410f58c4ec0f23e895f87276e65179175f28c7bc13",
+        "level_id": "water_transmission",
+        "classification": "playable",
+        "status": "passed",
+        "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__water_transmission.placesmap",
+        "ordinary_build_rebuilt": false,
+        "variants": [
+          "off",
+          "medium",
+          "full"
+        ],
+        "current": true,
+        "dependencies_intact": true,
+        "fingerprint": "d429f5ed1b6770affce374d2dfb9ba3303feb94bde68240a5832653b77898370",
+        "declared_entry_count": 25,
+        "declared_payload_bytes": 34916347,
+        "dependency_count": 6,
+        "logs": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__water_transmission-0.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__water_transmission-1.log",
+          "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__water_transmission-2.log"
+        ]
+      }
+    ],
+    "other_explicit_controls": [
+      {
+        "source": "tests/fixtures/levels/capacity_beyond_former_limits.json",
+        "source_sha256": "7e56032f70756e8951902361b49f248a9eb3fdfa6201ca908e0c1be8e75b81a6",
+        "classification": "cpu-boundary-witness",
+        "status": "intended-cpu-contract",
+        "reason": "Positive loader/count/u32-material-index witness with synthetic cap:* IDs; not catalogue-authored playable content. See tools/levels/build_capacity_fixtures.py and src/zoo_audit.rs.",
+        "scope": "Source loader/count/u32-material and dense collision contracts covered by ordinary Rust/Python tests; no playable package/native acceptance claimed."
+      },
+      {
+        "source": "tests/fixtures/levels/invalid/geometry_invalid.json",
+        "source_sha256": "5e80891a4ca59a0f1ea3c53b0abb86be9cdc8bb14979fd3942d6e804a7a9450e",
+        "classification": "loader-negative",
+        "status": "expected-named-loader-rejection",
+        "reason": "Degenerate curves must be rejected; geometry_check::tests retains curved-invalid controls.",
+        "actual_exit_code": 1,
+        "actual_rejection": "places-compile: Arc wall 0 thickness must be positive and thinner than twice its radius (radius 0.4, thickness 0.9)",
+        "no_published_output": true,
+        "log": "/Users/connordawkins/Documents/GitHub/Places/target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__invalid__geometry_invalid-0.log"
+      }
+    ],
+    "build_warning_cases": [],
+    "coverage_statement": "Every actual source path is inventoried separately, including duplicate IDs, nested repair controls and recovered local sources. Forty-eight supported source paths each execute ordinary default Off/Medium/Full build, strict currentness verification and full record validation. No loader-valid planted geometry case is omitted. Native per-map captures and named geometry-check findings remain a separate campaign."
+  },
+  "rust_gate": {
+    "command_contract": [
+      "cargo fmt --all --check",
+      "cargo check --locked --workspace --all-targets --all-features",
+      "cargo clippy --locked --workspace --all-targets --all-features -- -D warnings",
+      "cargo clippy --locked --release --workspace --all-targets --all-features -- -D warnings",
+      "cargo test --locked --workspace --all-features"
+    ],
+    "library_passed": 2169,
+    "library_failed": 0,
+    "library_ignored": 26,
+    "library_seconds": 499.76,
+    "compiler_binary_tests_passed": 1,
+    "integration_tests_passed": 5,
+    "integration_suites": {
+      "command_line": 1,
+      "list_levels": 3,
+      "macos_cpu_port": 1
+    },
+    "main_binary_tests": 0,
+    "doc_tests": 0,
+    "ordinary_total_passed": 2175,
+    "remaining_ignored_after_explicit_checks": 23,
+    "ordinary_ignored_cases": [
+      {
+        "name": "game::tests::art_style::audit_compiled_hero_routes",
+        "reason": "explicit preserved hero package and asset root required; compiled route audit"
+      },
+      {
+        "name": "game::tests::capture_demo_stair_inventory",
+        "reason": "developer diagnostic; writes CSVs when PLACES_STAIR_TRACE_DIR is set"
+      },
+      {
+        "name": "game::tests::capture_stairs_walk_trace",
+        "reason": "developer diagnostic; writes a CSV when PLACES_STAIRS_TRACE is set"
+      },
+      {
+        "name": "game::tests::movement_performance::measure_controller_hot_path",
+        "reason": "opt-in before/after movement hot-path measurement"
+      },
+      {
+        "name": "lighting::light::tests::fixture_distribution_audit_report",
+        "reason": "developer measurement: prints per-family fixture pool profiles"
+      },
+      {
+        "name": "lighting::lightmap::tests::measure_demo_chart_statistics",
+        "reason": "developer measurement: prints places_demo's chart statistics"
+      },
+      {
+        "name": "lighting::occlusion::tests::measure_demo_level_box_totals",
+        "reason": "developer measurement: prints per-level occlusion box counts"
+      },
+      {
+        "name": "lighting::tests::write_lighting_candidate_sweep",
+        "reason": "developer report; writes target/diagnostics/lighting"
+      },
+      {
+        "name": "lighting::tests::write_lighting_developer_report",
+        "reason": "developer report; writes target/diagnostics/lighting"
+      },
+      {
+        "name": "lighting::transport::tests::performance::representative_map_ray_benchmark",
+        "reason": "release ray-kernel profiling on real representative map geometry"
+      },
+      {
+        "name": "lighting::visibility::tests::measure_home_corridor_bake",
+        "reason": "developer measurement, run with --ignored --nocapture"
+      },
+      {
+        "name": "lighting_repair_regression::maintained_transport_stage_audit",
+        "reason": "stage audit of maintained packages; run with PLACES_VERBOSE=1"
+      },
+      {
+        "name": "nav::tests::capture_demo_transition_class_matrix",
+        "reason": "developer capture: Demo stair inventory"
+      },
+      {
+        "name": "render::common::dynamic_visibility::tests::profile_hero_moving_caster_refresh",
+        "reason": "explicit preserved hero package and asset root required; isolated CPU profiling"
+      },
+      {
+        "name": "render::wgpu::reflections::tests::the_cube_round_trip_matches_the_reference_face_convention",
+        "reason": "requires a GPU adapter"
+      },
+      {
+        "name": "render::wgpu::renderer::entity_lighting_tests::compiled_demo_probe_to_pixel_comparison",
+        "reason": "requires a native GPU adapter; explicit compiled-demo diagnostic"
+      },
+      {
+        "name": "render::wgpu::renderer::entity_lighting_tests::compiled_environment_neutral_entities_and_quality_restoration",
+        "reason": "requires native GPU; actual demo environment and compiled quality transitions"
+      },
+      {
+        "name": "render::wgpu::renderer::entity_lighting_tests::directional_entity_irradiance_reaches_real_rendered_pixels",
+        "reason": "requires a native GPU adapter; run explicitly on a desktop host"
+      },
+      {
+        "name": "render::wgpu::renderer::entity_lighting_tests::entity_resources_restore_after_quality_cycles_and_map_reloads",
+        "reason": "requires a native GPU adapter; run explicitly on a desktop host"
+      },
+      {
+        "name": "render::wgpu::renderer::low_lighting_tests::high_on_medium_off_high_and_repeated_toggles_install_real_resources",
+        "reason": "requires a native GPU adapter; run explicitly on a desktop host"
+      },
+      {
+        "name": "render::wgpu::renderer::low_lighting_tests::override_matches_actual_low_static_dynamic_and_material_paths",
+        "reason": "requires a native GPU adapter; run explicitly on a desktop host"
+      },
+      {
+        "name": "render::wgpu::renderer::tests::a_packaged_probe_chain_uploads_and_reads_back_every_level",
+        "reason": "requires a GPU adapter"
+      },
+      {
+        "name": "render::wgpu::texture::tests::the_srgb_sample_round_trip_is_measured_on_this_adapter",
+        "reason": "requires a GPU adapter"
+      },
+      {
+        "name": "render::wgpu::world::tests::odd_triangle_indices_upload_without_changing_draw_counts",
+        "reason": "requires a GPU adapter"
+      },
+      {
+        "name": "static_prop_lighting_tests::bundled_static_models_fit_medium_and_full_atlas_plans",
+        "reason": "explicit bundled-map atlas planning preflight; no lightmap fill"
+      },
+      {
+        "name": "static_prop_lighting_tests::lantern_hollow_atlas_capacity_profile",
+        "reason": "explicit dense-map atlas capacity measurement; no lightmap fill"
+      }
+    ],
+    "explicit_after_ordinary": {
+      "atlas_planning": {
+        "passed": 1,
+        "seconds": 35.03,
+        "maps": [
+          "lantern_hollow",
+          "model_zoo",
+          "places_demo"
+        ],
+        "profiles": [
+          "medium",
+          "full"
+        ],
+        "combinations": 6,
+        "scope": "Actual asset-resolved geometry/chart planning; asserts atlas fits and static receivers exist. No lightmap fill or native image acceptance."
+      },
+      "low_lighting_native_gpu": {
+        "passed": 2,
+        "seconds": 10.04,
+        "test_names": [
+          "render::wgpu::renderer::low_lighting_tests::high_on_medium_off_high_and_repeated_toggles_install_real_resources",
+          "render::wgpu::renderer::low_lighting_tests::override_matches_actual_low_static_dynamic_and_material_paths"
+        ],
+        "scope": "Real required native headless96x96 adapter/device resources, independent lighting override and restoration; native-backend check required, no optional early return."
+      }
+    },
+    "phase_receipt_limit": "fmt/check/debugClippy/releaseClippy have quiet combined log markers rather than individual per-phase receipts. Their successful execution follows the frozen set-eu script order, the later complete test summaries and exit0 whole receipt."
+  },
+  "python_gate": {
+    "command": "python3 -m unittest discover -s tests -p 'test_*.py'",
+    "actual_passed": 286,
+    "source_method_count": 286,
+    "failed": 0,
+    "reported_skipped": 0,
+    "seconds": 453.462,
+    "native_smoke_method_count": 34,
+    "native_smoke_breakdown": {
+      "CompiledBuildSmokeTests": 9,
+      "WgpuRuntimeSmokeTests": 25
+    },
+    "platform_table_methods": 2,
+    "native_method_names": {
+      "test_compiled_build.py": {
+        "PlatformCapabilityTests": [
+          "test_display_available_follows_the_platform_table"
+        ],
+        "CompiledBuildSmokeTests": [
+          "test_packaged_build_runs_from_an_unrelated_directory",
+          "test_empty_install_boots_the_embedded_demo_and_creates_state",
+          "test_restart_loads_the_saved_configuration",
+          "test_malformed_settings_recover_without_a_crash",
+          "test_malformed_custom_levels_are_skipped_with_reasons",
+          "test_unknown_material_prop_and_fixture_degrade_without_a_crash",
+          "test_the_player_performs_no_static_preparation",
+          "test_places_demo_is_always_available",
+          "test_packaged_reflection_probes_draw_with_complete_samplers"
+        ]
+      },
+      "test_wgpu_bootstrap.py": {
+        "PlatformCapabilityTests": [
+          "test_display_available_follows_the_platform_table"
+        ],
+        "WgpuRuntimeSmokeTests": [
+          "test_the_wgpu_renderer_draws_the_world_and_exits_cleanly",
+          "test_places_demo_uploads_non_empty_world_geometry",
+          "test_places_demo_uploads_each_base_texture_once",
+          "test_a_hundred_frames_reuse_the_same_uploaded_textures",
+          "test_places_demo_resolves_materials_for_every_pass",
+          "test_the_quality_level_gates_the_material_response",
+          "test_quality_levels_fit_the_same_textures_to_their_budget",
+          "test_cancel_after_cpu_acceptance_keeps_previous_world_and_retry_commits",
+          "test_loading_resize_cancel_and_retry_process_real_events",
+          "test_selecting_the_preparing_background_level_reuses_its_preparation",
+          "test_quit_during_preparation_joins_owned_work_without_committing",
+          "test_rapid_level_request_commits_only_latest_generation",
+          "test_in_flight_same_path_replacement_supersedes_with_new_content",
+          "test_failed_request_preserves_previous_world_and_allows_retry",
+          "test_graphics_changes_during_preparation_commit_only_latest_low_full",
+          "test_graphics_only_rebuild_preserves_nondefault_player_and_entity_world",
+          "test_repeated_visits_reuse_prepared_geometry_but_reset_new_world_spawn",
+          "test_direct_launch_prepares_only_the_requested_world",
+          "test_a_second_level_replaces_the_uploaded_world",
+          "test_an_empty_level_draws_nothing_and_still_presents",
+          "test_a_material_less_level_uses_the_fallback_sheet",
+          "test_an_unknown_material_resolves_to_the_diagnostic_texture",
+          "test_the_wgpu_build_reports_the_baked_lighting_and_its_occluders",
+          "test_the_wgpu_capture_writes_the_drawable_as_a_png",
+          "test_both_quality_levels_draw_the_same_world"
+        ]
+      }
+    },
+    "scope_statement": "All286 static unittest methods match the actual successful whole-discovery count, with no skip summary. The34 native smoke methods use the actual release player and real SDL/window/GPU paths; wgpu asserts Metal on this macOS host. This counts test methods, not windows/processes/images. Functional capture/loading/resource evidence is not scene FPS."
+  },
+  "capacity_cpu_contract": {
+    "genuine_executed_contract_names": [
+      "zoo_audit::the_beyond_former_limits_fixture_carries_content_the_old_caps_refused",
+      "zoo_audit::the_dense_capacity_fixture_holds_and_collides_at_scale",
+      "materials::tests::a_table_past_the_former_u16_material_boundary_keeps_indices_distinct",
+      "package::tests::a_mesh_material_past_the_former_u16_boundary_round_trips"
+    ],
+    "optional_fixture_package_reader_test": "zoo_audit::the_beyond_former_limits_package_loads_through_the_reader",
+    "optional_fixture_package_exists_now": false,
+    "limitation": "The optional package-reader test returns immediately when its source-sibling build artifact is absent. Its ok result is not evidence that this synthetic-ID fixture was compiled or decoded. Positive source/count budget and u32 table/mesh record tests are separately genuine; the synthetic fixture is not catalogue-authored all-quality playable content."
+  },
+  "expected_negative_output": {
+    "duplicate_catalog": "tests.test_package.test_a_broken_catalog_surfaces_in_the_validators_exit_code expects validator exit1 for a duplicate ID; FAIL core:couch is its intentional output.",
+    "entity_contact_worker_failure": "test_contact_failure_does_not_publish_partial_sheets injects a failed worker; FAILED rat output is expected and no sheet publication is required.",
+    "initializer_tracebacks": "test_failed_initializer_and_cancellation intentionally raises initializer failed, expects BrokenProcessPool and verifies child cleanup.",
+    "missing_zoo_model": "Injected fixture:missing inspection failure is a negative-control test. Whole286 successful summary resolves these emitted errors; none is silently treated as a shipped-map pass.",
+    "art_budget_table": "Over-target/review notes in the prop inventory are advisory art targets; hard parse/asset and compiler gates still ran."
+  },
+  "limitations": [
+    "This review verifies the normal desktop gate and current package/source provenance, not all48 native views,49 geometry controls,12 thematic quality sequences,6 normal/feature captures, Zoo/Demo views or the13-ID journey; those separately allocated native commands remain pending.",
+    "The gate proves presence/currentness/decoding of all3 prepared variants, not that every variant has an atlas or field, nor preservation of prior successful atlas/field availability. Those existing independent availability/field audits remain required; no NoField waiver is inferred.",
+    "The gate retains26 ordinary ignored diagnostics; three required explicit checks run later, leaving23 ignored developer/GPU audits outside this receipt.",
+    "The two LowGPU checks are headless adapter/resource tests; actual on-screen appearance/visibility and GPU readback performance require separate evidence. No gameplay FPS or memory plateau follows from this gate.",
+    "Other primary post-gate serial Cargo/platform/bake/GPU work was active during this read-only review and is not claimed completed."
+  ],
+  "checks": [
+    {
+      "name": "actual whole gate receipt exit0/ordinary command",
+      "status": "passed"
+    },
+    {
+      "name": "receipt duration/timestamps and matching launched task",
+      "status": "passed"
+    },
+    {
+      "name": "authoritative freeze v10 file SHA",
+      "status": "passed"
+    },
+    {
+      "name": "current frozen source/gate/helper identity coverage",
+      "status": "passed",
+      "detail": {
+        "files": 223,
+        "gate_inputs": 11,
+        "additional_helpers": 2,
+        "mismatches": []
+      }
+    },
+    {
+      "name": "normal gate begins ordinary release and has required recursive package path",
+      "status": "passed"
+    },
+    {
+      "name": "normal gate retains strict fail-fast shell and default all variants",
+      "status": "passed"
+    },
+    {
+      "name": "shared Rust gate exact required commands",
+      "status": "passed"
+    },
+    {
+      "name": "whole Python/explicit atlas/explicit twoLowGPU/noGit-execution-by-reviewer",
+      "status": "passed"
+    },
+    {
+      "name": "actual recursive source-path inventory exactly50/no silent omission",
+      "status": "passed",
+      "detail": {
+        "actual_paths": 50,
+        "inventory_paths": 50,
+        "package_only_orphans": []
+      }
+    },
+    {
+      "name": "no unresolved package-only maps",
+      "status": "passed"
+    },
+    {
+      "name": "campaign no failures/current compiler stable",
+      "status": "passed"
+    },
+    {
+      "name": "package compiler and pre/postplayer rebuild hashes agree",
+      "status": "passed"
+    },
+    {
+      "name": "requested HomeOfficePoolOutdoorsWinterHallows progressive order",
+      "status": "passed"
+    },
+    {
+      "name": "supported count remains48 and two explicit other contracts",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__home_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__home_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__home_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__home_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__office_asset_review",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__office_asset_review",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__office_asset_review",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__office_asset_review",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__pool_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__pool_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__pool_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__pool_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__outdoor_kit_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__outdoor_kit_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__outdoor_kit_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__outdoor_kit_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands assets__levels__winter",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 assets__levels__winter",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies assets__levels__winter",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness assets__levels__winter",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands assets__levels__lantern_hollow",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 assets__levels__lantern_hollow",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies assets__levels__lantern_hollow",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness assets__levels__lantern_hollow",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands assets__levels__model_zoo",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 assets__levels__model_zoo",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies assets__levels__model_zoo",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness assets__levels__model_zoo",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands assets__levels__movement_test",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 assets__levels__movement_test",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies assets__levels__movement_test",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness assets__levels__movement_test",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands assets__levels__places_demo",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 assets__levels__places_demo",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies assets__levels__places_demo",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness assets__levels__places_demo",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands levels__blizzard_review",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 levels__blizzard_review",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies levels__blizzard_review",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness levels__blizzard_review",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands levels__geometry_intentional",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 levels__geometry_intentional",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies levels__geometry_intentional",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness levels__geometry_intentional",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands levels__home_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 levels__home_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies levels__home_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness levels__home_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands levels__level0_pit",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 levels__level0_pit",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies levels__level0_pit",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness levels__level0_pit",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands levels__snowfall_contrast",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 levels__snowfall_contrast",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies levels__snowfall_contrast",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness levels__snowfall_contrast",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__art_style_hero",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__art_style_hero",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__art_style_hero",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__art_style_hero",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__art_style_hero_atmosphere",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__art_style_hero_atmosphere",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__art_style_hero_atmosphere",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__art_style_hero_atmosphere",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__art_style_hero_aurora",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__art_style_hero_aurora",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__art_style_hero_aurora",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__art_style_hero_aurora",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__art_style_hero_night",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__art_style_hero_night",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__art_style_hero_night",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__art_style_hero_night",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__art_style_hero_refined",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__art_style_hero_refined",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__art_style_hero_refined",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__art_style_hero_refined",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__art_style_hero_stage4_comparison",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__art_style_hero_stage4_comparison",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__art_style_hero_stage4_comparison",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__art_style_hero_stage4_comparison",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__art_style_hero_stage4_entities",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__art_style_hero_stage4_entities",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__art_style_hero_stage4_entities",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__art_style_hero_stage4_entities",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__art_style_hero_stage4_movement",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__art_style_hero_stage4_movement",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__art_style_hero_stage4_movement",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__art_style_hero_stage4_movement",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__art_style_hero_stage4_switchable",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__art_style_hero_stage4_switchable",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__art_style_hero_stage4_switchable",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__art_style_hero_stage4_switchable",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__art_style_hero_storm",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__art_style_hero_storm",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__art_style_hero_storm",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__art_style_hero_storm",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__art_style_hero_transparency",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__art_style_hero_transparency",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__art_style_hero_transparency",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__art_style_hero_transparency",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__asset_polish_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__asset_polish_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__asset_polish_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__asset_polish_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__capacity_beyond_former_limits",
+      "status": "passed"
+    },
+    {
+      "name": "synthetic CPU positive classified independently",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__capacity_dense",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__capacity_dense",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__capacity_dense",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__capacity_dense",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__entity_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__entity_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__entity_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__entity_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__fog_void_validation",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__fog_void_validation",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__fog_void_validation",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__fog_void_validation",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__geometry_broken",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__geometry_broken",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__geometry_broken",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__geometry_broken",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__geometry_intentional",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__geometry_intentional",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__geometry_intentional",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__geometry_intentional",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__halloween_entities",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__halloween_entities",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__halloween_entities",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__halloween_entities",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__invalid__geometry_invalid",
+      "status": "passed"
+    },
+    {
+      "name": "exact named degenerateArc rejection and no publication",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__level0_pit",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__level0_pit",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__level0_pit",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__level0_pit",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__lighting_diagnostic",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__lighting_diagnostic",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__lighting_diagnostic",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__lighting_diagnostic",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__lighting_isolation",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__lighting_isolation",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__lighting_isolation",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__lighting_isolation",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__lighting_quality",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__lighting_quality",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__lighting_quality",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__lighting_quality",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__lighting_repair_cases",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__lighting_repair_cases",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__lighting_repair_cases",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__lighting_repair_cases",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__prop_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__prop_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__prop_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__prop_showcase",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__prop_stress",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__prop_stress",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__prop_stress",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__prop_stress",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__rendering_diagnostic",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__rendering_diagnostic",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__rendering_diagnostic",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__rendering_diagnostic",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__repair__clean",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__repair__clean",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__repair__clean",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__repair__clean",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__repair__gap_review",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__repair__gap_review",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__repair__gap_review",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__repair__gap_review",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__repair__wall_step_x",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__repair__wall_step_x",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__repair__wall_step_x",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__repair__wall_step_x",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__repair__wall_step_z",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__repair__wall_step_z",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__repair__wall_step_z",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__repair__wall_step_z",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__round_pool_and_proximity_fade",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__round_pool_and_proximity_fade",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__round_pool_and_proximity_fade",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__round_pool_and_proximity_fade",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__test_room",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__test_room",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__test_room",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__test_room",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__vertical_diagnostic",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__vertical_diagnostic",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__vertical_diagnostic",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__vertical_diagnostic",
+      "status": "passed"
+    },
+    {
+      "name": "plan/actual commands tests__fixtures__levels__water_transmission",
+      "status": "passed"
+    },
+    {
+      "name": "supported ordinary three commands exit0 tests__fixtures__levels__water_transmission",
+      "status": "passed"
+    },
+    {
+      "name": "three variants/current fingerprints/dependencies tests__fixtures__levels__water_transmission",
+      "status": "passed"
+    },
+    {
+      "name": "actual source/fullroot and strict currentness tests__fixtures__levels__water_transmission",
+      "status": "passed"
+    },
+    {
+      "name": "all50 source bytes still match actual campaign pins",
+      "status": "passed",
+      "detail": []
+    },
+    {
+      "name": "48supported with all144 ordinary command records",
+      "status": "passed",
+      "detail": {
+        "supported": 48,
+        "supported_commands": 144,
+        "named_negative_build_commands": 1,
+        "cpu_witness_build_commands": 0,
+        "all_commands": 145
+      }
+    },
+    {
+      "name": "all supported normal builds used verified unchanged reuse",
+      "status": "passed",
+      "detail": {
+        "rebuilt": 0,
+        "reused": 48,
+        "interpretation": "Each actual normal build reopens and checks current package integrity; this is the required unchanged-source reuse path. No forced/full rebake is claimed in this v8 run."
+      }
+    },
+    {
+      "name": "ordinary percase build/validation warnings empty",
+      "status": "passed",
+      "detail": []
+    },
+    {
+      "name": "286actual Python tests exactly all286 source methods/no skips",
+      "status": "passed"
+    },
+    {
+      "name": "ordinary Rust library/integration summaries",
+      "status": "passed"
+    },
+    {
+      "name": "ignored count26 plus3 explicitly executed checks",
+      "status": "passed"
+    },
+    {
+      "name": "LowGPU adapter required without silent optional skip",
+      "status": "passed"
+    },
+    {
+      "name": "atlas explicit test covers three actual maps and both profiles/no fill",
+      "status": "passed"
+    },
+    {
+      "name": "34native methods included in successful unskipped discovery",
+      "status": "passed"
+    },
+    {
+      "name": "focused source/count/collision/u32material contracts present",
+      "status": "passed"
+    }
+  ],
+  "failure_count": 0,
+  "failures": [],
+  "uncertainty": "No gate/inventory/source identity failure found. Scope limits and optional synthetic fixture reader early-return are explicit above.",
+  "evidence_identities": {
+    "docs/art-style/stage7/execution/normal-desktop-gate-v8.json": {
+      "bytes": 448,
+      "sha256": "c9b9f0ba12fcb6a4dc188199c7fe97a8dae86389670463bf17eeec07f7c534ee"
+    },
+    "docs/art-style/stage7/execution/normal-desktop-gate-v8-launch.json": {
+      "bytes": 359,
+      "sha256": "40a1b034646e8d7f646a8a140cd511377975db05cee159c146e540c90599641f"
+    },
+    "docs/art-style/stage7/execution/normal-desktop-gate-v8.log": {
+      "bytes": 231412,
+      "sha256": "9d7ef7c9b6238165b9f1c47b7958437ad03c27ddf2693b900fdbb86f2dbff151"
+    },
+    "tools/verify.sh": {
+      "bytes": 2305,
+      "sha256": "3a029f1991ae423d0af0af7e53597d6ab4789dec017bfb26c569c8905e1ee9ea"
+    },
+    "tools/check-rust.sh": {
+      "bytes": 552,
+      "sha256": "f992b04f67e69d5126e1518d5295215e8c8d3a317c478cecdf8ebdfa99e57394"
+    },
+    "tools/bench/regression_maps.py": {
+      "bytes": 11598,
+      "sha256": "0eeff39a446251e2c9088dbab1c4877173d99773c86e5ed2615f52516cf47ae8"
+    },
+    "docs/art-style/stage7/source-input-identities-v10.json": {
+      "bytes": 39722,
+      "sha256": "11405049a6f8713eaf540a8634a7bfcd786efaf06d627ab7461d1b46b5defb4f"
+    },
+    "src/bin/places-compile.rs": {
+      "bytes": 20351,
+      "sha256": "af6c7071122d76bb2733bae9b3a3bc1ac8b7a6432a55b265410fca71297e3136"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/inventory.json": {
+      "bytes": 33086,
+      "sha256": "532f2f4b21697ae4f9cb8e0a084f7295c0b05646b45bdd9d407e6921e6f5116f"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/plan.json": {
+      "bytes": 65866,
+      "sha256": "555b766dc130c94faf46da701024426afe062c8bd06ce06619cef5c361eaad13"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/package-results.json": {
+      "bytes": 123914,
+      "sha256": "6d4a23506cf9cc6808b88e8f777a76c44f02b24ec58fec6a8700203288baa860"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/compiler-before.sha256": {
+      "bytes": 96,
+      "sha256": "9e8530c91b4f0f2d0a32b0c7701f57a2df8e5e932bcd775fcbbd0853b9d50741"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/compiler-after.sha256": {
+      "bytes": 96,
+      "sha256": "9e8530c91b4f0f2d0a32b0c7701f57a2df8e5e932bcd775fcbbd0853b9d50741"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__home_showcase-0.log": {
+      "bytes": 1308,
+      "sha256": "3390b4e933cf46014621479bcf6f501021a17c86beb1dfef49e9ab73d4e28151"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__home_showcase-1.log": {
+      "bytes": 465,
+      "sha256": "18d6d85d79ecd37c1df270af967f080f727aa62b7be2e74d0425c1599d0d4642"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__home_showcase-2.log": {
+      "bytes": 470,
+      "sha256": "f6f3ac911bc49e688b1d1dc9eaf6c7536e7706e00af537e706046934e8b99316"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__office_asset_review-0.log": {
+      "bytes": 1325,
+      "sha256": "b288f63ce64596a860f4f457283deeedb0b90498a0bcecaef8e620f7d9ce7eb3"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__office_asset_review-1.log": {
+      "bytes": 477,
+      "sha256": "c7c86384ed467fdd963ce54a897c96d0ef9d104f624440d90f1fd75e8e878957"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__office_asset_review-2.log": {
+      "bytes": 482,
+      "sha256": "1acf9008e4f3382fd334d0e3c3d8a7231d10f9fa90b971a65007d9f4ea78ae3d"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__pool_showcase-0.log": {
+      "bytes": 1310,
+      "sha256": "b6f9761b16319bca21e117528b80b38a1ba1383ac95ae60b25a97e38ea9019d1"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__pool_showcase-1.log": {
+      "bytes": 465,
+      "sha256": "f49276f02323eb1632f3291cc633e0bfb8360bfb656fc903c20222e89432274e"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__pool_showcase-2.log": {
+      "bytes": 464,
+      "sha256": "07a01af8f11a1cc3dc0f268b79a9e6009971f9d51abc876027a5f520ea3e67ae"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__outdoor_kit_showcase-0.log": {
+      "bytes": 1331,
+      "sha256": "f04bbbd824ed5f8de3859a9caacf82d028a0ffcc1152302ad7cdbd0f43034a14"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__outdoor_kit_showcase-1.log": {
+      "bytes": 479,
+      "sha256": "e22a8b458f617d47e584a8248a367a86014193beae13319612619a62cd86be8c"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__outdoor_kit_showcase-2.log": {
+      "bytes": 492,
+      "sha256": "3a7b72487480c5b28ab813af26633ee30b2bbd71d8074a3b7c05931f4d81aef2"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__winter-0.log": {
+      "bytes": 1173,
+      "sha256": "d06de3ecdc9873feb8d2aae33b22fe2e7f2d15f2fd7c159456c20fd5ce606339"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__winter-1.log": {
+      "bytes": 407,
+      "sha256": "3ea215795dfd4963d5a82865b92f2657198330baa0902092e8eb087518f073a2"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__winter-2.log": {
+      "bytes": 408,
+      "sha256": "c3ffb06575a3d8d64bfa518b7b8119816918597cee0689243ac54680de09c6fe"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__lantern_hollow-0.log": {
+      "bytes": 1224,
+      "sha256": "4f7baa45b54eb8734bd1cc4d3b4376ea9fa65df5a99d81c64b52059004f94868"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__lantern_hollow-1.log": {
+      "bytes": 423,
+      "sha256": "8587f6f7d7a4cbc0222cd53029f9d4cefafb12a38f5e19ef4747701a7633c571"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__lantern_hollow-2.log": {
+      "bytes": 432,
+      "sha256": "b9b87363e5e5a7d81f2b9bbc5a7172c09460ccb7a1391f0e9f42a7f30ea2217d"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__model_zoo-0.log": {
+      "bytes": 1185,
+      "sha256": "05065b4f083c54eac5e8fc9fbc0bfcf9a9ca7d35ddc8a6a53ab529e1da5178db"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__model_zoo-1.log": {
+      "bytes": 413,
+      "sha256": "e6286f3b053e614f97d2b90bddd7580172c6bbfead3570f14d0c1a746afb4b4a"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__model_zoo-2.log": {
+      "bytes": 418,
+      "sha256": "63a638274b917e169cfd08d64afca993dea681292ecc72deb1a5b911e2cedac5"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__movement_test-0.log": {
+      "bytes": 1184,
+      "sha256": "fb2b61fc962d7fda0487af22bf223354531d2ff95d8769beada0dfd93d195ec5"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__movement_test-1.log": {
+      "bytes": 421,
+      "sha256": "b42933da17311d8225d68bb08f0c4001a9eb4bc0fd831965f3f4f333ecf130b4"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__movement_test-2.log": {
+      "bytes": 429,
+      "sha256": "d97ca6f3a11e9fece5f613df34d36734b7edf9c9cfd52d3e45dfb5a18b44dcc1"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__places_demo-0.log": {
+      "bytes": 1204,
+      "sha256": "49202e3cc95799cfd22b0b88dd846ae6fbbf5f86415e60efb2f5348fcaeeb610"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__places_demo-1.log": {
+      "bytes": 417,
+      "sha256": "6107cbf062cf4ba89023d0868ef6bc44c2e445f87ba358cc11be3745a02fd347"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/assets__levels__places_demo-2.log": {
+      "bytes": 424,
+      "sha256": "5534ec8dbef9109cb2bf4b367c9f2df837065575f88efc6974eb3b72cf7c04a4"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/levels__blizzard_review-0.log": {
+      "bytes": 1192,
+      "sha256": "683e4b7f64ba8737feac0c1b64aacf5fee8bd3802e8f677841c7e369046c823c"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/levels__blizzard_review-1.log": {
+      "bytes": 411,
+      "sha256": "37e0e0fff0cefaebfd8bd912fb4f585b15824586a137c5ff9a4720b77c41609f"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/levels__blizzard_review-2.log": {
+      "bytes": 435,
+      "sha256": "2dbe700af3e28fd24076b9f9bd6cf00c383ebbab41eb1065cdfb59fd8ef59828"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/levels__geometry_intentional-0.log": {
+      "bytes": 1184,
+      "sha256": "29952a80edf3e7d9d467827fb28ecd36ad3ecebbd789ae8cda03ca90efc27750"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/levels__geometry_intentional-1.log": {
+      "bytes": 421,
+      "sha256": "e1d1e96e622752d34fa91dec2566391767be4b7a09d018da04799635b177d6f5"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/levels__geometry_intentional-2.log": {
+      "bytes": 462,
+      "sha256": "468096f7be15f1630853518338e620b42f842015c648edc124e7b7b81db21f48"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/levels__home_showcase-0.log": {
+      "bytes": 1166,
+      "sha256": "f7b6cf0788b02da68bba94e83b447a4dea884ba04788baa20b82800e7f207307"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/levels__home_showcase-1.log": {
+      "bytes": 407,
+      "sha256": "db91e9a2670e948958e9e5accb50eeab797f053aeb164bb01e01d7c8189b0581"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/levels__home_showcase-2.log": {
+      "bytes": 427,
+      "sha256": "53a7e955c04c14b8557fdac9293779cde85f8f5508f3d8de831276d097cb7982"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/levels__level0_pit-0.log": {
+      "bytes": 1154,
+      "sha256": "be8430b1eb76e1580068d330c7ef6cfda11a2556a8a742256522092ef197d178"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/levels__level0_pit-1.log": {
+      "bytes": 401,
+      "sha256": "3f9489ddd390226626e590c68ec182c14115411dc641816da60717d5a473ac8f"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/levels__level0_pit-2.log": {
+      "bytes": 419,
+      "sha256": "62ac4b7d5d6f52caeb8e33fdf03b41f1b01a94bedb8862d1630181b1998e97e7"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/levels__snowfall_contrast-0.log": {
+      "bytes": 1196,
+      "sha256": "d65a89d160d29ea6b6f8b5481f7375b166baa6b65dbcda9288dce7f0026347af"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/levels__snowfall_contrast-1.log": {
+      "bytes": 415,
+      "sha256": "2f94f0c4e7c93bef710e13aea0676066ac552bd74912a8f14a7faf470d20237d"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/levels__snowfall_contrast-2.log": {
+      "bytes": 439,
+      "sha256": "854ade0cb5ae6230b4d9fd25182f09b3883cd631f3b816e8942e5e93939b2c29"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero-0.log": {
+      "bytes": 1317,
+      "sha256": "8498b2509917e8ed09d6a808e9a4180a62c43fc615fbaee158475c85e9c05a3e"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero-1.log": {
+      "bytes": 467,
+      "sha256": "722fef0f9294bf801fd362368fad5b87c3834fbd96ef0393252a5e5ab3f7841a"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero-2.log": {
+      "bytes": 493,
+      "sha256": "e15b9b3deb35fdc83561224c80d9da818bee766b810eccfc783f9458c7da54da"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_atmosphere-0.log": {
+      "bytes": 1359,
+      "sha256": "bfb5890c4b54a906740033c8f975c24218c4fbdcb5d83613d2c215ff8384031f"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_atmosphere-1.log": {
+      "bytes": 489,
+      "sha256": "3fb93ba148a9f6cac6ffd98b2f8516b40611513e00f2cc3fc8e130a486703474"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_atmosphere-2.log": {
+      "bytes": 516,
+      "sha256": "ee1642cc6c9a42277c2ad17ce0d0ad54939438eedd5db7ac459b25c82842b524"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_aurora-0.log": {
+      "bytes": 1341,
+      "sha256": "db87321f6b7817e094b4e8573f4f6cfc812004ee84e8b73a3b2697a39c0cc792"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_aurora-1.log": {
+      "bytes": 481,
+      "sha256": "dc284a9c64a29b56e6eac5cd9d4e8fd8fa8571f0a10de8d690160c32389bec95"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_aurora-2.log": {
+      "bytes": 512,
+      "sha256": "2b268445f47b67d176c0bcfb1ab5e1a2244e639305476c93e2403f043997b3c5"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_night-0.log": {
+      "bytes": 1335,
+      "sha256": "233e4f1751b8cca9f9abe2ebe43d51b8a0c936da693097fec6da1f3f4f838440"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_night-1.log": {
+      "bytes": 479,
+      "sha256": "d281e756e0163a7920d8bd0fbdae49457f3db218e63906e56d6da024640bf0e4"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_night-2.log": {
+      "bytes": 511,
+      "sha256": "fa7be8ae026168a19c9d71f037f0d248d0f812885cba9c268a529fa98748d389"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_refined-0.log": {
+      "bytes": 1355,
+      "sha256": "d2e0629278add9e9e5b2bf90d3eadb3f339ae99c6fb9f55041adea4788de793a"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_refined-1.log": {
+      "bytes": 483,
+      "sha256": "54e67b2e988dfb52a3a0e75fd7acae1d6a422aab1907064d3162bcf244c786aa"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_refined-2.log": {
+      "bytes": 509,
+      "sha256": "8565ac501c572810eed3101995ca60629d85cb7cdbad3a8a3b5c58c6b046b51c"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_comparison-0.log": {
+      "bytes": 1395,
+      "sha256": "c2cff4181acf72488d25d2ecf867997065b0142594475483851d9104153cd8cf"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_comparison-1.log": {
+      "bytes": 503,
+      "sha256": "fba885cf33716e618eab5954cef04ced530ea3d2804ff660336d4cc3a6052c14"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_comparison-2.log": {
+      "bytes": 521,
+      "sha256": "00e21aa42479ab26aa56aa8b35496c35c8fa54a4649afe39ccc8aa40a25eb3fd"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_entities-0.log": {
+      "bytes": 1397,
+      "sha256": "40fdc36429d0ced9f672c418b4e30013aad3714cbb7bfd4d1751c2ce657599d2"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_entities-1.log": {
+      "bytes": 499,
+      "sha256": "3a39ab4e89be6e51f9efcf9ad87ccabdb60a83325aa62b829afa1df3223676d6"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_entities-2.log": {
+      "bytes": 509,
+      "sha256": "41a55b7a2bc7802590ebe494e249d792915170c06af0eaaa69d40b117aa360d3"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_movement-0.log": {
+      "bytes": 1374,
+      "sha256": "0a87b95aa7f4abd98d4556f8e0ec0588c4f776f17cb96fe5c11f887461b4d01e"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_movement-1.log": {
+      "bytes": 499,
+      "sha256": "924d19546e8444b5228a5e81564591c6eb8175accf055b9c0f34664666381aba"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_movement-2.log": {
+      "bytes": 520,
+      "sha256": "f1ada588ed0544ffa1ef96b934d1fbc84722f31cd1e183a3650c7e47cf0aa98a"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_switchable-0.log": {
+      "bytes": 1387,
+      "sha256": "aa8b266a96a543cc8969395f863ed1ba9fd668c3903560b28b689d68fcccaeeb"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_switchable-1.log": {
+      "bytes": 503,
+      "sha256": "1e862f7e3e9df62cf9d7704398e38c9952648679d5e72ebda1bffc937e9f019d"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_stage4_switchable-2.log": {
+      "bytes": 512,
+      "sha256": "e6bea2ce9b1ce37ec3c1e02afd146aaa5e917930ca9a49730811b71fda6021a6"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_storm-0.log": {
+      "bytes": 1347,
+      "sha256": "014be2228c93ae2a8a3fe322b1e35fee1f0f627c4cf829b8a0197700d029629e"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_storm-1.log": {
+      "bytes": 479,
+      "sha256": "691cd5c4a1ee43803243f08ba370538a43bb950fcfe03de0573dd5000ae9b865"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_storm-2.log": {
+      "bytes": 511,
+      "sha256": "a8680c2489ee48686d2408daba73bce57e32e07d8027b3b60a82c0e8ddefd2df"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_transparency-0.log": {
+      "bytes": 1386,
+      "sha256": "c2b487349c97bc5a99d7ee83b511486116ce9810df230a3eb6460c03f5967bd2"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_transparency-1.log": {
+      "bytes": 493,
+      "sha256": "303b91b8c4e5f9268ef8d2948b4146e7f836394649b9078b1e5b644a2feb7bc6"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__art_style_hero_transparency-2.log": {
+      "bytes": 518,
+      "sha256": "4e799611d7bd24fcd44bb6c6f7f0892371270fd12f9c730936f522d04f412ae1"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__asset_polish_showcase-0.log": {
+      "bytes": 1334,
+      "sha256": "1f2cbfad291afeb7068122ecc58d507bdc529849eeb7d7ff812ae94996454b47"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__asset_polish_showcase-1.log": {
+      "bytes": 481,
+      "sha256": "62467cfd486bb4d211761196fc8002b4ff524658b66f7cad2730f442ee7dfc51"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__asset_polish_showcase-2.log": {
+      "bytes": 488,
+      "sha256": "6fc6cffadc0ddb69fdf59e19ec9e77dd992fa970ef0f692f1d4f724ac6fc9a12"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__capacity_dense-0.log": {
+      "bytes": 1311,
+      "sha256": "594475e451a347b4d3872d7482ff4ef04b2127a1d9d9cbfe1ecd88245d68219f"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__capacity_dense-1.log": {
+      "bytes": 467,
+      "sha256": "bec35486cfcf8a94e0cba51f36102769041a0ee506cbd52d4e55c81fa4482f16"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__capacity_dense-2.log": {
+      "bytes": 484,
+      "sha256": "fcc21856830a84a96443c58286ac9756dac1aa5d1aae442705f36e1ccbd666ed"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__entity_showcase-0.log": {
+      "bytes": 1317,
+      "sha256": "e2a7d9954e1f7a0e7494a679a280d5a201199aff8bc764993d31a550b551a44f"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__entity_showcase-1.log": {
+      "bytes": 469,
+      "sha256": "68e34bc100d112c7e1aa8ff26a78abd6a75869f358f2b1e02ec9669dc3ee3ff8"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__entity_showcase-2.log": {
+      "bytes": 469,
+      "sha256": "377cdf8e69b4d81a7d734f33bceca14672a0cca753049d3e1106335e9ce0a2cb"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__fog_void_validation-0.log": {
+      "bytes": 1334,
+      "sha256": "1c53cf2ff96d7b2d71538bcbfd242a868dde79c39618b4768abc9abe1ddb977f"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__fog_void_validation-1.log": {
+      "bytes": 477,
+      "sha256": "7587eb828214a57278add963bb283cb6c4d9922291ff537ea0429b37626398c6"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__fog_void_validation-2.log": {
+      "bytes": 485,
+      "sha256": "9cb538f64169467925a8aecc452539d33f62a23bfc65bc08eaec75839d907268"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__geometry_broken-0.log": {
+      "bytes": 1326,
+      "sha256": "2c693af968d0b4f534fa184eba66dec65a5dc2266c67ae5804c5473bac1c7aa2"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__geometry_broken-1.log": {
+      "bytes": 469,
+      "sha256": "7774c9b429ac91b6d492004399c4a9582fe9c98c1fb3ba6a51435e7e38367ace"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__geometry_broken-2.log": {
+      "bytes": 485,
+      "sha256": "aaca162ab0ece92b13aa90e51aed15dd2380edf67b52419ceea3cd47cd040b71"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__geometry_intentional-0.log": {
+      "bytes": 1336,
+      "sha256": "2e6d563cc64c79e2c74a2bc7c9d5ff680211d4a312e9a3beac59d5ea4842b6ba"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__geometry_intentional-1.log": {
+      "bytes": 479,
+      "sha256": "d3504e7bc4693dc5718a2242b7752a45673874494df8658284601675cc5ec560"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__geometry_intentional-2.log": {
+      "bytes": 505,
+      "sha256": "cb9091882386f6bbbde9395d80f5677476e60c90288957c0c399edd9441afd66"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__halloween_entities-0.log": {
+      "bytes": 1337,
+      "sha256": "4ebcdce7aa08655f11450eeb73474430e61de67d6df3fe1a19c678ece844c996"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__halloween_entities-1.log": {
+      "bytes": 475,
+      "sha256": "032bac7bc24e062c9008336462ba82d23cfcc10af5e4d87cd3051eaf75c91ea1"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__halloween_entities-2.log": {
+      "bytes": 485,
+      "sha256": "0b9fc2d5b7b7920a1ee6595aa97d7d64c852a25fe76ed862e43f6b5c847fc6b2"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__invalid__geometry_invalid-0.log": {
+      "bytes": 116,
+      "sha256": "252b984485ae6a9242d1e6daad82027cab2649b127d388caa983b5bc02eee313"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__level0_pit-0.log": {
+      "bytes": 1304,
+      "sha256": "18906210294552be02a84e2d710bec799831b5394179406c738451f7e95c33e6"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__level0_pit-1.log": {
+      "bytes": 459,
+      "sha256": "26ffa283edfd8759f6832968e4080a79a8d25aac77647fe75a264775f3e2db98"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__level0_pit-2.log": {
+      "bytes": 462,
+      "sha256": "f4710976ee76846832852acb4154ec426877e8ec751d23dfff19834edf281c50"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_diagnostic-0.log": {
+      "bytes": 1345,
+      "sha256": "cfc7ece2d64230827bdaaab98d2381a575d489161b56ce8fdbbb89109763d5c9"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_diagnostic-1.log": {
+      "bytes": 477,
+      "sha256": "36663f92e8153f640253da4e690ab0a9f0726f73d57f4e18ac1e3a69bff51fa8"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_diagnostic-2.log": {
+      "bytes": 481,
+      "sha256": "0c8b1ee776f476358bb860c0537342d3fbf27ef26b21c1c9ae71437832569bf8"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_isolation-0.log": {
+      "bytes": 1327,
+      "sha256": "c9aedd60afb21c4a718c89c8eacc11f13e2df30dc8e00e5f8c21353f506c8c80"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_isolation-1.log": {
+      "bytes": 475,
+      "sha256": "c0e95d2ef9de1f48e5af7d0426edb77d6546645fee7e4d51246c02ed2e0cd597"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_isolation-2.log": {
+      "bytes": 478,
+      "sha256": "c77a055162e8814382e14fe3c95fd52772ebdfece7a861cd23f754b572cf649b"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_quality-0.log": {
+      "bytes": 1334,
+      "sha256": "a32ca710aa3bbac51e873bd9ef7a620e162606264d3b62c0badee0a24439bf10"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_quality-1.log": {
+      "bytes": 471,
+      "sha256": "3c3f68fb318c941c46978ebd998a05161c6bf205a32059d5170232aff9282d5b"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_quality-2.log": {
+      "bytes": 482,
+      "sha256": "59ed6ced5f180926ab65cd429a395add2bdab29fbb7187d6471df2a633cecdc4"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_repair_cases-0.log": {
+      "bytes": 1353,
+      "sha256": "cbd99b8087f03c039c7456bf60e39f423a76b8b3c4ce27e67edc9a3668a6c701"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_repair_cases-1.log": {
+      "bytes": 481,
+      "sha256": "914ee5c022f5de4eeece77e1bd0525b63fdf586213712bfcf8b4a05faa26371f"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__lighting_repair_cases-2.log": {
+      "bytes": 487,
+      "sha256": "314b15c116aeff2121c3a3e99e2e84aa592897fb3128cac579ced95a60d2dd69"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__prop_showcase-0.log": {
+      "bytes": 1313,
+      "sha256": "76022cf73deacafc00e8c8157a9a7981a6983a5918ed2029511d992580a8b6e2"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__prop_showcase-1.log": {
+      "bytes": 465,
+      "sha256": "4d69e9caa0b4f36f1246bd828b3809b6bed17a6a51dc22c6cca2565e6d2b65ca"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__prop_showcase-2.log": {
+      "bytes": 470,
+      "sha256": "deb149c44dae0abf91c5ce7d7e97ac6dd7e3db3b3600d083085b83041b080fd4"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__prop_stress-0.log": {
+      "bytes": 1295,
+      "sha256": "b836829279e334edba8fb949f65a6b9fed1d78b63ed0a763dedfa3596a82b44e"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__prop_stress-1.log": {
+      "bytes": 461,
+      "sha256": "17f9603429b9fb43e6cc84231c86aeb6a1d46455386645319a139bccd280976d"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__prop_stress-2.log": {
+      "bytes": 470,
+      "sha256": "154f66dab2175b91cc9a7df1588de973bb22b7617a41a4b0768bcaa61a388e11"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__rendering_diagnostic-0.log": {
+      "bytes": 1350,
+      "sha256": "404f198b7073bbbdd6f39f16ee9118db0338244bb89677fd438b91a9e15a98ae"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__rendering_diagnostic-1.log": {
+      "bytes": 479,
+      "sha256": "d716e9f0ebccd5159630621159f09eb6a3f6baa697b8c61c25f1ee673b5838e5"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__rendering_diagnostic-2.log": {
+      "bytes": 484,
+      "sha256": "764046b9a2663c1055fb941db28ae50e82ea98defcbcf5479a343cf285570d36"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__clean-0.log": {
+      "bytes": 1313,
+      "sha256": "91738141e8a4dbc995c73c823646c9bf6a930308452f85022201fd2a13342f65"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__clean-1.log": {
+      "bytes": 464,
+      "sha256": "b195efadc3c6f2aedb89387cc5a1213792ee1ed0f700b976c2d2ba6294717dc7"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__clean-2.log": {
+      "bytes": 461,
+      "sha256": "053542d8995418bc55c725df53a7e4871eb726c99dff6a03f7384c4a6f3c1c4d"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__gap_review-0.log": {
+      "bytes": 1343,
+      "sha256": "01c70c91ce074851dfe10bdc4f2f70c38c59328fbae4f0d9e4e44bde612603fb"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__gap_review-1.log": {
+      "bytes": 474,
+      "sha256": "33d32ca3df6b4607dee10058c51aabc937bf5732feafebc9ee142ae262f4afb2"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__gap_review-2.log": {
+      "bytes": 476,
+      "sha256": "0fa7b2690cc835afcd671f337517df5d72778d924d27a69e7787c99483f7b619"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__wall_step_x-0.log": {
+      "bytes": 1331,
+      "sha256": "c1312a2acb281d528a01bb477d19e8adecb272b894214ab9513ad2187c5defd3"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__wall_step_x-1.log": {
+      "bytes": 476,
+      "sha256": "0a9a15465454b54d0b2a9df3fc3e25ebe5a505a9188c6ed0b00167bca2795300"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__wall_step_x-2.log": {
+      "bytes": 479,
+      "sha256": "3f4fa302b131e204ec4d2be407904bec394c5a29b539920672699942ba65d9d4"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__wall_step_z-0.log": {
+      "bytes": 1359,
+      "sha256": "45bc6e70980e35354280ff0e9a5c12765874b355c46d4326e554a1e4497d8902"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__wall_step_z-1.log": {
+      "bytes": 476,
+      "sha256": "4c4b8048dfd314759ab26c5142f87da444924a17712eb78becaae9a50031ad3f"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__repair__wall_step_z-2.log": {
+      "bytes": 479,
+      "sha256": "74225c3561484bfaee6b74ac84133f2e10ec9df7cc09a0ef1698e6d85bba56b9"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__round_pool_and_proximity_fade-0.log": {
+      "bytes": 1382,
+      "sha256": "9d8aaaa697ac62fc87ad7d26cd943e1721d2de6f662457f468d8e39b77b24d85"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__round_pool_and_proximity_fade-1.log": {
+      "bytes": 497,
+      "sha256": "c621910a979b6476f6b4f951f0f8d8b53647c35474c5bb69f68faf9a4f79be21"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__round_pool_and_proximity_fade-2.log": {
+      "bytes": 511,
+      "sha256": "5be165622bebc5a5f69c2b6d5eeac38af8d12d2330a47f232b0d872babcc9e70"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__test_room-0.log": {
+      "bytes": 1303,
+      "sha256": "c34d281a0ad4fb280d6d5eb313b830af275b39fbeaa35afe450582cdde3c6e73"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__test_room-1.log": {
+      "bytes": 457,
+      "sha256": "20722fd17aecfe336a0f403429048123f16f5760acd1e4f6007e75af12916b61"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__test_room-2.log": {
+      "bytes": 451,
+      "sha256": "a7fc3dd84380c7342b500e0e58f08b23bbf667f603577b85e8589da99dba055a"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__vertical_diagnostic-0.log": {
+      "bytes": 1334,
+      "sha256": "570ae1d4bb4b01a278dadbdbaca4981007bf914cc1bd6465e6703e17c1d7eafe"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__vertical_diagnostic-1.log": {
+      "bytes": 477,
+      "sha256": "2fd35ef00990233474ec1f89dd868ca9fdb96fd24c05d2e54cf3166a7e7564bc"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__vertical_diagnostic-2.log": {
+      "bytes": 481,
+      "sha256": "ebc8c5f031921f355865e97e07f809818fa2c1ba46eda0b760396c0968be91b5"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__water_transmission-0.log": {
+      "bytes": 1329,
+      "sha256": "3de6088f2c75e9f250518a49e5a9c28ce5cf341f8f83841c4462240ef101f84b"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__water_transmission-1.log": {
+      "bytes": 475,
+      "sha256": "cb32ff0701da0829131166b2f4d290153eaf9c406f9e8718ed862d793eef93be"
+    },
+    "target/verification/map-regression-20261009T042109Z-30226/commands/tests__fixtures__levels__water_transmission-2.log": {
+      "bytes": 478,
+      "sha256": "9273234c9b8496a919a53acfbf97be4dffdfd855ac4b1d198573286d51dec9d6"
+    },
+    "tests/test_compiled_build.py": {
+      "bytes": 21615,
+      "sha256": "eaa4e09f78b62ded75b27afa73a534ad1a98766a2357a9083f8b870d37f1305d"
+    },
+    "tests/test_wgpu_bootstrap.py": {
+      "bytes": 77218,
+      "sha256": "494843cd47af86225548a9f7de9feb50eb4a77376c9019859deacb093f3773c9"
+    },
+    "src/render/wgpu/low_lighting_tests.rs": {
+      "bytes": 12128,
+      "sha256": "e5e55ed736de38f8986d5fffe2a0d8acb70369eebc10efbe35e4dbada0563729"
+    },
+    "src/render/wgpu/renderer.rs": {
+      "bytes": 238412,
+      "sha256": "7611890220529910fa0631fa9bba05bb1bc3a3e53585e6e0d980f7a698a21618"
+    },
+    "src/static_prop_lighting_tests.rs": {
+      "bytes": 68173,
+      "sha256": "0e6afb622272df14090ee6d31340b8b2eb5987da017e4f3a2385de4cbd409bb6"
+    },
+    "src/zoo_audit.rs": {
+      "bytes": 31167,
+      "sha256": "a5f6d636d140b6c499cccebb1ef13172402cb85e0010794a6b7dca072dcbba94"
+    },
+    "tests/test_package.py": {
+      "bytes": 68165,
+      "sha256": "37ee045beea6aa2ba071c2b8076b5a9643b66c9bcad02d2b55eb75044957dbbc"
+    },
+    "tests/test_tool_execution.py": {
+      "bytes": 10195,
+      "sha256": "104f2408964011733d86ecae8f7b35b4ab6e3c0dd8aa63d5cb4188ad540267a7"
+    },
+    "rust-toolchain.toml": {
+      "bytes": 86,
+      "sha256": "b2c19d86958ed6810741488db5cd352856f303c53bcf0ea774e72f94ee4d201e"
+    },
+    "Cargo.toml": {
+      "bytes": 4988,
+      "sha256": "6303f5958558f8e6aff4962c18b51e29b0b2cee424e58fa130fe615a09632f50"
+    },
+    ".github/workflows/rust.yml": {
+      "bytes": 932,
+      "sha256": "0d006c920baa125dce0c8fb8077d6f99fd66cb639d2060b3e5c6d93ad4d971c4"
+    }
+  },
+  "custody": "Receipt released. No reviewer jobs or background processes were created or remain."
+}

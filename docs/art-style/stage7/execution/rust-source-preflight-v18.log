@@ -1,0 +1,53 @@
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `dev` profile [optimized + debuginfo] target(s) in 4.42s
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `dev` profile [optimized + debuginfo] target(s) in 7.84s
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `release` profile [optimized] target(s) in 13.78s
+   Compiling places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `test` profile [optimized + debuginfo] target(s) in 27.58s
+     Running unittests src/lib.rs (target/debug/deps/places-4d06d8c90f45374a)
+
+running 23 tests
+test package::props::budget_tests::declared_index_run_fails_logical_budget_before_reading_or_allocating ... ok
+test package::props::budget_tests::logical_literal_budget_is_cumulative_and_checks_declared_run_arithmetic ... ok
+test package::props::budget_tests::logical_literal_budget_accepts_exact_limit_and_rejects_one_byte_over ... ok
+test package::props::budget_tests::encoded_record_budget_has_the_same_exact_boundary ... ok
+test package::props::legacy_tests::legacy_v3_submesh_keeps_alpha_emission_and_explicit_matte_response ... ok
+test package::props::interning_tests::invalid_source_indices_are_rejected_before_remapping ... ok
+test package::props::budget_tests::logical_budget_equals_the_independent_v5_literal_record_size ... ok
+test package::props::budget_tests::large_declared_vertex_count_fails_before_storage_or_vertex_allocation ... ok
+test package::props::legacy_tests::static_caster_metadata_round_trips_and_rejects_invalid_markers ... ok
+test package::props::legacy_tests::legacy_v5_literal_vertices_and_caster_flags_remain_exact ... ok
+test package::props::legacy_tests::legacy_prop_records_default_to_static_casters ... ok
+test package::props::interning_tests::identical_vertices_are_interned_only_within_their_own_batch ... ok
+test package::props::interning_tests::exact_vertex_interning_preserves_ordered_triangles_and_metadata ... ok
+test package::props::interning_tests::signed_zero_vertex_components_do_not_merge ... ok
+test package::props::palette_tests::non_finite_frames_are_rejected_even_when_unused ... ok
+test package::props::palette_tests::literal_mode_is_retained_for_unique_frames_and_exact_size_ties ... ok
+test package::props::palette_tests::non_finite_literal_attributes_retain_the_neutral_vertex_guard ... ok
+test package::props::interning_tests::every_serialized_vertex_attribute_remains_a_distinct_seam ... ok
+test package::props::palette_tests::out_of_range_frame_indices_and_truncated_runs_are_rejected ... ok
+test package::props::palette_tests::u16_palette_retains_first_occurrence_frame_order_and_exact_bits ... ok
+test package::props::palette_tests::unknown_modes_and_invalid_frame_counts_are_rejected_before_allocation ... ok
+test package::props::interning_tests::unreferenced_unique_vertices_beyond_u16_index_space_remain_valid ... ok
+test package::props::palette_tests::frame_index_width_boundary_preserves_large_unreferenced_vertex_lists ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 2172 filtered out; finished in 0.30s
+
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.33s
+     Running unittests src/lib.rs (target/debug/deps/places-4d06d8c90f45374a)
+
+running 1 test
+test package::tests::prop_records_round_trip_with_textures_reattached_at_load ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2194 filtered out; finished in 0.01s
+
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.11s
+     Running unittests src/lib.rs (target/debug/deps/places-4d06d8c90f45374a)
+
+running 1 test
+test static_prop_lighting_tests::model_lightmap_coordinates_normals_and_shading_survive_package_roundtrip ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2194 filtered out; finished in 0.32s
+
