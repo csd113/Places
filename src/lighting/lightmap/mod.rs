@@ -259,12 +259,12 @@ impl LightmapFailure {
 /// pages and groups. A plan beyond its profile budget fails explicitly instead
 /// of dropping pages.
 ///
-/// Full's maintained dense receiver set reserves 9,549,535 texels with
-/// inclusive endpoints and gutters, exceeding nine 1024px pages. The existing
-/// deterministic packer fits it in the mathematical minimum of ten pages.
-/// This costs 160 MiB for the base GPU group; package byte and switch-group
+/// Full's measured coplanar model receiver plan at 32 samples/m reserves
+/// 10,171,144 texels with inclusive endpoints and gutters. The deterministic
+/// inline packer needs eleven pages to retain those physical shadow samples.
+/// This costs at most 176 MiB for the base GPU group; package byte and switch-group
 /// safety limits remain independent. Lower profiles retain their prior budget.
-pub const LIGHTMAP_ATLAS_MAX_PAGES: usize = 10;
+pub const LIGHTMAP_ATLAS_MAX_PAGES: usize = 11;
 
 /// Low and Medium retain their established eight-page atlas budgets.
 /// Medium's 1024px base group costs at most 128 MiB; Low's 512px group 32 MiB.
@@ -292,7 +292,7 @@ pub enum PatchKind {
     Ceiling,
     Wall,
     Skirt,
-    /// A real static model triangle; receives physical transport without room fill.
+    /// A real static model triangle or coplanar quad; physical transport without room fill.
     Prop,
 }
 
@@ -317,7 +317,7 @@ impl PatchKind {
 /// `origin + u*u_axis + v*v_axis + min(u,v)*diagonal_correction`.
 /// Keeping the fourth corner matters for gable wall trapezoids: an affine
 /// rectangle would sample metres away from their real receiver positions.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
 pub struct LightmapPatch {
     /// World position of local `(u, v) = (0, 0)`.
     pub origin: [f32; 3],
@@ -332,7 +332,6 @@ pub struct LightmapPatch {
     /// A repeated last corner emits one triangle with UVs `(0,0),(1,0),(0,1)`.
     /// Samples outside that triangle reflect across its diagonal onto real
     /// geometry. This domain is independent of the surface's lighting family.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub triangle: bool,
     /// Room hint for [`crate::lighting::LevelLighting::sample_in_room`].
     ///
@@ -343,6 +342,45 @@ pub struct LightmapPatch {
     pub room: Option<usize>,
     /// Which static surface family this patch covers.
     pub kind: PatchKind,
+}
+
+// Older model records omitted the topology flag and used the Prop kind for
+// folded triangles. An explicit false must survive for new shared model quads.
+fn deserialize_topology_flag<'de, D>(deserializer: D) -> Result<Option<bool>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    <bool as serde::Deserialize>::deserialize(deserializer).map(Some)
+}
+
+impl<'de> serde::Deserialize<'de> for LightmapPatch {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(serde::Deserialize)]
+        struct Record {
+            origin: [f32; 3],
+            u_axis: [f32; 3],
+            v_axis: [f32; 3],
+            #[serde(default)]
+            diagonal_correction: [f32; 3],
+            #[serde(default, deserialize_with = "deserialize_topology_flag")]
+            triangle: Option<bool>,
+            room: Option<usize>,
+            kind: PatchKind,
+        }
+        let record = <Record as serde::Deserialize>::deserialize(deserializer)?;
+        Ok(Self {
+            origin: record.origin,
+            u_axis: record.u_axis,
+            v_axis: record.v_axis,
+            diagonal_correction: record.diagonal_correction,
+            triangle: record.triangle.unwrap_or(record.kind == PatchKind::Prop),
+            room: record.room,
+            kind: record.kind,
+        })
+    }
 }
 
 /// Why a quad cannot become a lightmap patch.
@@ -447,10 +485,10 @@ impl LightmapPatch {
     }
 
     /// Whether this chart covers one triangle, independent of its family.
-    /// The kind check preserves the triangular domain of older model records.
+    /// Legacy model records acquire their missing flag during deserialization.
     #[must_use]
-    pub fn is_triangular(&self) -> bool {
-        self.triangle || self.kind == PatchKind::Prop
+    pub const fn is_triangular(&self) -> bool {
+        self.triangle
     }
 
     /// World position corresponding exactly to the mesh's UV interpolation.
@@ -706,9 +744,9 @@ impl LightmapConfig {
     /// the emitter cuts the world's surfaces in exactly the same places at both
     /// densities; only chart texel counts and page usage differ.
     ///
-    /// Full retains 16 texels/m, matching the shared endpoint cap, and admits
-    /// ten pages to preserve every endpoint sample of the measured dense
-    /// receiver set. Low retains 10 texels/m, 512px pages and its established
+    /// Full retains architecture's 16 texels/m, matching the shared endpoint
+    /// cap, and admits eleven pages for the measured finer model receivers.
+    /// Low retains 10 texels/m, 512px pages and its established
     /// eight-page budget. Both preserve the same physical patches and gutters.
     #[must_use]
     pub const fn for_profile(profile: crate::quality::QualityProfile) -> Self {
@@ -739,6 +777,23 @@ impl LightmapConfig {
             1
         } else {
             self.padding
+        }
+    }
+
+    /// Bound explicit receiver resolution without changing architectural
+    /// allocation. Models may request twice the architectural density; large
+    /// opaque surfaces and cutouts still select their established coarser rates.
+    fn bounded_surface_density(&self, kind: PatchKind, requested: f32) -> Option<f32> {
+        let maximum = self.texels_per_metre
+            * if matches!(kind, PatchKind::Prop) {
+                2.0
+            } else {
+                1.0
+            };
+        if !maximum.is_finite() || maximum <= 0.0 || !requested.is_finite() || requested <= 0.0 {
+            None
+        } else {
+            Some(requested.min(maximum))
         }
     }
 

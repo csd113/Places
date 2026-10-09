@@ -7,7 +7,7 @@ and atlas budgets remain unchanged. Additive actor and fixture controls keep
 
 ## Energy and sources
 
-PLPF v3 preserves the combined probe field. An aligned selected-direct sidecar
+PLPF v 3 preserves the combined probe field. An aligned selected-direct sidecar
 stores incident linear RGB means and signed first moments for stable always-on
 source IDs. Sampling uses the same accepted weights for combined and selected
 coefficients and subtracts before directional reconstruction. Global direct,
@@ -25,8 +25,8 @@ Switchable entity response adds live direct only; switched diffuse bounce is
 still absent from the base field. Static switch groups retain their prepared
 layers. This difference in inputs must be identified in comparisons.
 
-Legacy PLPF v2 retains its combined centre sample and does not add selected direct.
-Every newly solved field is v3, including indirect-only and switch-only scenes:
+Legacy PLPF v 2 retains its combined centre sample and does not add selected direct.
+Every newly solved field is v 3, including indirect-only and switch-only scenes:
 an empty always-on source list retains one zero direct coefficient per probe.
 This presence marker enables spatial interpolation and reserved switched sources;
 it cannot carry nonzero direct energy without a source. Solver revision 15
@@ -58,8 +58,8 @@ Animation beyond bind bounds clamps this spatial fit; it is a bounded approximat
 One shared finite-placement/animator/128-character claim plan controls native
 spawning, voxel exclusion and retained bind-batch caster metadata. Fully claimed
 moving actors do not remain immutable bind-pose casters or self-block probe rays.
-Partial/overflow model groups retain existing static fallback behavior. PLMP v5
-adds one strict boolean byte per batch; v3/v4 remain readable with conservative
+Partial/overflow model groups retain existing static fallback behavior. PLMP v 5
+adds one strict boolean byte per batch; v 3/v 4 remain readable with conservative
 caster flag true. Collision and existing model/vertex charges are preserved.
 
 The player constructs an immutable exact triangle/alpha visibility scene once
@@ -90,7 +90,7 @@ unrelated Stage 7 map ledger.
 Requested texture/lighting quality changes no longer mutate resident material
 and frame gates before staged resources commit. Preparation captures the complete
 graphics request, including reflections; commit installs that captured request.
-The next request remains pending. Texture quality and filtering retain independent
+A later request remains queued until the in-flight change finishes. Texture quality and filtering retain independent
 settings and resource keys. Spatial cache identity includes field, exact scene,
 model transform, moving-caster revision and active selected/switchable source state.
 

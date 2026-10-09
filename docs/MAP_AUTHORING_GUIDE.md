@@ -812,7 +812,7 @@ go through the collision index (`src/collision_index.rs`), and `zoo_audit`
 pins the indexed result equal to the linear scan over the real fixtures. Notes
 that remain load-time costs: the lightmap fill is linear in chart texels ×
 nearby fixtures, and the prop vertex expansion samples lighting per vertex. See
-`docs/reports/feature-expansion-handoff.md` for the historical measurements.
+`docs/reports/feature-expansion-summary.md` for the historical measurements.
 
 ---
 
@@ -2583,7 +2583,7 @@ entry.)
 | White sheet (1024×1024 opaque white fill, file-backed) | `assets/core/textures/white_01.png` (loaded by `src/render/wgpu/texture.rs`) | Untextured geometry (fixture housings, UI quads). |
 | HUD font atlas (128×64) | `assets/core/ui/font_01.png` | Project-owned bitmap UI font with sixteen 8×8 ASCII cells per row and the reserved white UI cell. |
 | Emergency white sheet (2×2) | `assets/core/textures/white_fallback_01.png` | Embedded opaque white fallback if the primary embedded white PNG cannot decode. |
-| Lightmap atlas (Full up to ten pages per contribution group; lower profiles eight) | `src/lighting/lightmap/`, packaged KTX2 payloads | Incident linear HDR and signed moments computed offline from geometry/material/light inputs. Loaded from the prepared package; the 320 MiB +64 KiB typed bound and unchanged aggregate/shape guards apply. PNG dumps are diagnostics, not artwork. |
+| Lightmap atlas (Full up to eleven pages per contribution group; lower profiles eight) | `src/lighting/lightmap/`, packaged KTX2 payloads | Incident linear HDR and signed moments computed offline from geometry/material/light inputs. Loaded from the prepared package; the 320 MiB +64 KiB typed bound and unchanged aggregate/shape guards apply. PNG dumps are diagnostics, not artwork. |
 
 Everything else the renderer draws from an image comes from a PNG under `assets/`.
 Every *surface, fixture, decal and prop texture* is still a real PNG asset under
@@ -3081,9 +3081,11 @@ page cap. Padding dilates each chart's own edge values. Receiver footprints use
 a canonical world-space tangent frame and the requested physical density,
 independent of chart UV winding or triangle axes. Footprints stop at real
 boundaries and may cross connected, compatible coplanar construction; they do
-not cross gaps, normal changes or material/albedo changes. Only diffuse gather
-energy is filtered across compatible joins; direct visibility keeps its own
-bounded adaptive coverage integration. No authored overlap or extra seam strip
+not cross gaps, shading-normal changes or different authored source materials.
+Triangle-centroid texture colour is reflectance, not material identity. Untagged
+analytical scenes retain the conservative albedo boundary guard. Only diffuse
+gather energy is filtered across compatible joins; direct visibility uses a
+complete bounded physical coverage stencil. No authored overlap or extra seam strip
 is required to make neighbouring coplanar geometry continuous.
 
 **The two halves of a glowing object are separate authored values:**
@@ -3142,7 +3144,7 @@ Two prepared-path rules keep a solved map readable, and both are automatic:
   models). Visibility origins stay on the geometric side. Compression alone is not an irradiance integral:
   opposing grazing sources must not manufacture illumination. Each bounce
   transports only the previous order; two bounces mean `D + KD + K²D`.
-  Current solver revision 16 invalidates earlier atlas and package fingerprints; sky is
+  Current solver revision 17 invalidates earlier atlas and package fingerprints; sky is
   injected only into the first diffuse order. Cache interpolation also tests
   visibility so one floor triangle spanning a divider cannot transfer light
   through that divider.
@@ -3224,11 +3226,16 @@ its sky ambient; its star sheet contains no visible moon.
 Gameplay Low uses vertex lighting. Medium uses nominal 12 texels/m for
 architecture, two emitter taps per axis, one diffuse order and 32 gather
 directions; High uses 16 texels/m, three emitter taps, two orders and 64 gather
-directions. Small opaque model charts use half the architecture density and
-large opaque models use one eighth; cutout charts retain 1 texel/m. Actual
-endpoint-grid density is `(chart_axis_texels - 1) / axis_metres`.
-Medium integrates 2×2 receiver-footprint samples at visibility edges; High uses
-4×4. Smooth direct fields keep their centre sample. Coplanar chart joins compare
+directions. Small opaque model charts use twice the architecture density:
+24 intervals/m for Medium and 32 for High. Large opaque models retain one eighth
+of architectural density; cutout charts retain 1 interval/m. Compatible coplanar
+triangles in one original model primitive share a native four-corner chart.
+The original common diagonal, all six drawn corners, material UVs and normal
+frames remain exact; incompatible unions retain individual triangle charts.
+Actual endpoint-grid density is `(chart_axis_texels - 1) / axis_metres`.
+Medium integrates every 2×2 receiver-footprint sample; High integrates every
+4×4 sample. Equal centre/corner visibility does not establish uniform coverage.
+Coplanar chart joins compare
 supported neighbours in world space. Only diffuse gather energy is denoised;
 its filter crosses a chart join only with matching normals/material and an
 unoccluded connection. Atlas endpoints address texel centres, and the existing
@@ -3353,14 +3360,21 @@ player uploads these prepared package layers and multiplies receiver albedo once
   named page overflow rather than dropping surfaces. Each resident page uses two
   RGBA16F layers; every switchable group adds another pair per base page. The GPU
   allocates exactly the produced layers, without reserving unused pages.
-  [The Stage 7 Hallows capacity measurement](art-style/stage7/integration-hallows-atlas-audit.md)
+  [The Stage 7 Hallows capacity measurement](art-style/stage7/integration-contract-audit.md)
   finds 9,549,535 padded Full texels, exceeding nine-page capacity; the existing
   packer reaches the mathematical minimum of ten. This costs 160 MiB of base
   RGBA16F GPU storage at Full, compared with the prior eight-page 128 MiB policy.
   Density, endpoint samples, gutters, chart orientation and content are retained.
   Decoder page/byte, switch-group and aggregate safety bounds are unchanged.
+  The separate model-lighting correction now shares compatible native prop
+  charts and uses finer small-opaque sampling (High32/m, Medium24/m). Its
+  Hallows Full plan needs eleven pages: 176 MiB for the base group. The
+  320 MiB +64 KiB typed record, group/shape and aggregate bounds remain enforced;
+  extra page capacity does not waive them. See
+  [the correction report](model-lighting-root-cause-and-fix.md) for current
+  verification status, distinct from the dated Stage 7 evidence.
 * Medium/Full finite-source transport uses the selected solver's shaped taps
-  with per-tap visibility/cosine and bounded adaptive receiver coverage. The
+  with per-tap visibility/cosine and complete bounded receiver coverage. The
   historical vertex fallback retains its centre-only coarse-box shadow path.
   The legacy profile bake API's five-tap quincunx is not the complete prepared
   transport solver contract; see [Prepared HDR lighting](#prepared-hdr-lighting-medium-and-full-atlases).
@@ -5996,7 +6010,7 @@ PLACES_TOOL_WORKERS=4 python3 tools/levels/build_model_zoo.py
   grows; animated displays are placed in a reserved lane so a route can never be
   blocked by an exhibit.
 * **Baked within budget.** The continuous hall uses flat ownership cells at
-  most 16 × 18 m so its floor and ceiling charts pack within the current ten-page
+  most 16 × 18 m so its floor and ceiling charts pack within the current eleven-page
   Full budget. Shared cell borders are open, with narrow checker intent
   strips; the exterior shell remains enclosed apart from its authored exit.
   The basin fits within one cell. Thin snow attachments and icicles mount on
@@ -7249,8 +7263,8 @@ A tube that reads bright but casts a restrained local pool (the demo's far corri
 `./target/release/places-compile build-collection levels/` compiles every source
 in a directory, reporting per-source failures without blocking the others.
 
-Current package major is 1, level schema 3, geometry revision 7 and transport
-solver revision 16. PLMP v6 shares exact vertex/frame bytes without changing
+Current package major is 1, level schema 3, geometry revision 8 and transport
+solver revision 17. PLMP v6 shares exact vertex/frame bytes without changing
 decoded material response, normals, UVs, lighting or character caster claims;
 literal v3/v4/v5 remain readable with their documented defaults. Both encoded
 and expanded literal prop records retain the 512-MiB bound. PLPF v3 preserves spatial selected

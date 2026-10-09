@@ -1,5 +1,8 @@
 # Places asset refinement — 26 September 2026
 
+Historical acceptance: September 2026 asset polish. Counts, timings and validation below describe
+that tested version; the canonical guides govern current contracts.
+
 This pass refines the assets already present in the working tree. It preserves their logical IDs, model paths, dimensions, metre scale, +Y up / +Z front conventions, rigs and gameplay roles. No commits, dependencies, engine architecture changes or unrelated asset rebuilds were made.
 
 ## Deliverables
@@ -21,7 +24,7 @@ This pass refines the assets already present in the working tree. It preserves t
 | 13 | Small potted plant | Defined glazed rim around the soil; retained seven closed folded leaves and original table-scale proportions. `assets/environment/home/props/models/plant_table.glb` |
 | 14 | Yellow rubber duck | Broad flat bill, fuller crown and low-relief folded wings; corrected body/head winding. `assets/environment/pool/props/models/rubber_duck.glb` |
 | 15 | Ceiling vent | New clean stylized grille artwork with bevel, slats and corner fixings; retained square 128×128 cut-out contract. `assets/core/decals/ceiling_vent_01.png` |
-| 16 | Curved wall geometry | Reusable 90° and 180° engine-native modules: 2 m centreline radius, 24 cm thickness, 2.8 m height, 12 facets per quarter turn. `docs/asset-presets/curved_architecture.json` |
+| 16 | Curved wall geometry | Reusable 90° and 180° engine-native modules: 2 m centreline radius, 24 cm thickness, 2.8 m height, 12 facets per quarter turn. the native curved-architecture contract in the map authoring guide |
 | 17 | Circular pillar geometry | Reusable engine-native 60 cm diameter, 2.8 m height, 16-facet pillar with centre-floor origin. Same preset file. |
 | 18 | Spoonerman idle | Quieter breathing/tail movement, denser keys, exact standing endpoint; in `spooner-man.glb`, clip `idle`. |
 | 19 | Spoonerman walking | Smooth body-bob curve, denser sampling, repaired skin transitions; clip `walk`. |
@@ -46,14 +49,11 @@ Two new artworks: the mannequin's opaque 256×256 `concrete_grey_01.png` and the
 
 No new rigs or joints: Spoonerman 26, rat 25, mannequin 23, skeleton 24. Skin weights were repaired on the rat and Spoonerman without changing their rest skeletons. Loops close; Spoonerman's idle/sit/stand boundaries match within 0.00001 in the exported channels. Locomotion remains in place with reference-speed metadata; sit/stand use local pelvis movement, not route/root translation.
 
-## Previews and technical evidence
+## Previews and checks
 
-- [Props, sheet 1](asset-polish/sheet_1.png): stop sign, exit sign, globe, switch, CRT; knife, fork, spoon, plate, bowl.
-- [Props, sheet 2](asset-polish/sheet_2.png): potted plant, rubber duck.
-- [Mannequin](asset-polish/mannequin.png), [skeleton](asset-polish/skeleton.png), [rat](asset-polish/rat.png), [Spoonerman](asset-polish/spoonerman.png): front/side/three-quarter clip contact sheets.
-- [In-game integration capture](asset-polish/game-showcase.png).
-- [Exact changed asset/tool file inventory](asset-polish/files.json) and [per-model triangle, rig and clip inventory](asset-polish/models.json). [Export hashes and matching PNG sources](asset-polish/exports.json) identify the delivered bytes.
-- [Architecture placement instructions](../asset-presets/README.md).
+- Offline software inspection: [props, sheet 1](../images/reports/asset-polish/sheet_1.png): stop sign, exit sign, globe, switch, CRT; knife, fork, spoon, plate, bowl.
+- Actual native renderer: [in-game integration capture](../images/reports/asset-polish/game-showcase.png).
+- [Architecture placement instructions](../MAP_AUTHORING_GUIDE.md).
 
 The software preview camera was corrected so signs are no longer mirrored. The Blender contact-sheet tool now explicitly selects action slots, disables imported NLA overrides and provides room for raised-arm poses. The entity deformation validator now examines every skinned primitive, including all three Spoonerman parts. `tools/entities/check_clip_boundaries.py` adds an export-level check for normalized skin weights, loop seams and sit/stand transitions.
 
@@ -61,6 +61,6 @@ The rat passes 62 builder checks plus the independent 60 Hz sweep (maximum edge 
 
 ## Validation
 
-Final validation passed: **1,265 Rust tests passed, 0 failed, 8 ignored**, plus formatting, strict Clippy and the asset checks. Exact command outcomes are recorded in [validation.txt](asset-polish/validation.txt). Detailed intermediate logs and reversible before-state backups are under `target/asset-polish/` (not shipped).
+Final validation passed: **1,265 Rust tests passed, 0 failed, 8 ignored**, plus formatting, strict Clippy and the asset checks.
 
 All requested items have usable outputs. No asset was left as a missing export. The character contact sheets are offline visual checks; the in-game capture verifies the props, vent and native curved architecture. No claim is made of exhaustive interactive gameplay testing of every animation transition. Existing world-texture preferred-resolution warnings are unrelated to this pass.

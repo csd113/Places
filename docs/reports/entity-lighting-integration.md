@@ -1,5 +1,8 @@
 # Integrated compiler and entity lighting
 
+Historical acceptance: 2026-10-01 compiler/runtime integration. Measurements, package identities and limits below
+describe that tested version. The canonical guides govern the current checkout.
+
 The combined implementation fixes probe preparation and runtime consumption without
 changing light calibration or making dark entities emissive. Compiler-owned air
 labels, physical transport values, serialized coefficients, runtime weights and
@@ -7,27 +10,12 @@ GPU inputs now form one validated pipeline. An integration regression at real op
 doorways was also fixed: room ownership no longer introduces an abrupt lighting
 step when both populations are visible through the opening.
 
-## Inputs and history
-
-Integration started only after both tasks had completed their final handoffs,
-were idle, had clean worktrees and had no remaining writers or validation processes.
-
-| Owner | Task | Branch | Final commit |
-| --- | --- | --- | --- |
-| Compiler/baker | `01a0f56d-6874-7d01-ba5f-798f6023ff24` | `agent/probe-baker-audit` | `c56283765deb8a86bae191deb656e6ccf3a8b979` |
-| Runtime/entities | `01a0f56d-8680-7ff0-ab3c-ffc4c7950468` | `agent/entity-lighting-audit` | `8d8c6190de0614db5b4ffd6b4fcd3174c52f8dad` |
-
-The original branch was `main` at `ba16887516dda666ca499d92b473782a18ae7a9a`.
-Integration uses `agent/entity-lighting-integration` in `Places-lighting-integration`.
-The baker merge is `b666ded9d385a9404f34c78356611bd86e15f1de`; the subsequent runtime
-merge preserves both source histories and includes the reconciliation below.
-The enclosing integration commit and final primary-branch hash are recorded in the
-execution handoff rather than inserting a self-referential hash into this file.
-
-Full original reports remain available:
-[compiler/baker](../PROBE_BAKER_AUDIT.md) and
-[runtime/entities](runtime-entity-lighting-audit.md). Their branch-specific remaining
-findings are historical; this report describes the combined result.
+The runtime-only audit and baker audit were reconciled in this combined result.
+The earlier runtime pass deliberately retained low-energy outdoor bake problems
+and a doorway ownership step; the final fresh-map controls below test their
+combined corrections. Runtime-only stale-package failures are superseded by the
+rebuilt integration gate. The [baker report](../PROBE_BAKER_AUDIT.md) records the
+transport investigation.
 
 ## Root causes and reconciliation
 
@@ -43,12 +31,6 @@ applied a room-baseline floor to valid dark probes, omitted directional shader
 reconstruction, and refreshed some moving samples only after a distance threshold.
 Asset pivots and independently implemented rigid/animated paths disagreed about
 sampling positions. Quality reinstalls could discard live entity state/resources.
-
-The only textual merge conflict was `src/lighting/probes.rs`. The resolution retains
-baker validation and byte-preserving serialization, runtime compact interpolation
-and diagnostics, and tests from both branches. The common transport file retains
-both MASK transmission and the runtime lighting representation. No `ours`/`theirs`
-resolution dropped either implementation.
 
 The branches disagreed about HDR validation: runtime had a 65504 bound and the baker
 accepted larger finite values. The shared validator now rejects coefficients above
@@ -130,8 +112,7 @@ For both fresh demo variants, every raw baked mean/moment and final room label w
 correlated with its serialized record: all 13,440 records agree bit-for-bit. Across
 24 actual entity traces, decoded candidates, normalized weights, f64 interpolation,
 f32 results and the GPU uniform mirror agree with zero observed rounding difference.
-The retained [pipeline agreement](entity-lighting-integration/pipeline-agreement.json)
-records representative positions and final coefficients.
+The table below records representative final coefficients.
 
 | Full variant location | Final shader mean RGB | Source |
 | --- | --- | --- |
@@ -147,8 +128,7 @@ records representative positions and final coefficients.
 | pumpkin area | .060431, .051688, .042152 | Prepared |
 | skeleton area | .328256, .290414, .247273 | Prepared |
 
-These are raw means, not tonemapped pixel RGB. Historical baker and runtime tables
-in the source reports retain their before/after measurements. In particular, the
+These are raw means, not tonemapped pixel RGB. For the before/after comparison, the
 baker's previously zero outdoor physical receiver becomes
 `[.449155,.380149,.299301]`; its upward probe/static-under-probe luminance becomes
 `.506678/.431217`. The old runtime room floor made the pumpkin-area diagnostic
@@ -165,7 +145,7 @@ The controlled fixture excludes authored actor static batches to prevent an acto
 at the exact sample anchor from occluding the neutral model. Normal production
 captures retain authored actors and normal reflections.
 
-![Neutral model in compiled demo lighting](entity-lighting-integration/neutral-scenes.png)
+![Neutral model in compiled demo lighting](../images/reports/entity-lighting-integration/neutral-scenes.png)
 
 White neutral models inherit warm office/stair color, cool pool color, and genuine
 dimness in halls/home/night locations. Static surfaces and models broadly belong to
@@ -179,7 +159,7 @@ view, and direct/restored High native quality snapshots. Every capture command e
 successfully and produces a PNG. Existing ghosts are intentionally emissive; their
 appearance does not serve as a neutral diffuse-lighting assertion.
 
-![Canonical High production views](entity-lighting-integration/production-scenes.png)
+![Canonical High production views](../images/reports/entity-lighting-integration/production-scenes.png)
 
 Three 501-position paths exercise open office-to-office transitions, vertical
 stairs and the night area. Actual GPU coefficients refresh at every position;
@@ -252,10 +232,7 @@ demo and 0.789 GB for zoo.
 Three final High runs each measure 120 frames after 20 warm-up frames, with
 GPU completion enabled. Render submission means are 6.598–6.666 ms; median
 complete frames are 8.279–8.316 ms and p95 frames 14.513–15.238 ms. Each run
-records 247 draws, 148 texture binds and 149 material changes in the pinned view. Full observed render/frame ranges are
-retained in [render metrics](entity-lighting-integration/render-performance.json);
-[loading metrics](entity-lighting-integration/loading-performance.json) retain
-startup events and cache definitions. CPU render submission and end-to-end
+records 247 draws, 148 texture binds and 149 material changes in the pinned view. CPU render submission and end-to-end
 frame completion are not presented as isolated GPU timestamp costs or a
 controlled before/after benchmark. Earlier occluded zero-draw runs are excluded.
 
@@ -273,15 +250,33 @@ nearby floor texel, and outdoor fixture reach creates legitimate very dim tails.
 An actor centre outside actual probe air uses the defined authored fallback. Artistic
 light placement and malformed/non-manifold prop interiors are distinct content work;
 no map-specific engine exception was added.
+## Directional response and diagnostics
 
-The original checkout's unrelated authored map, generator and test changes are
-preserved separately from the integration commit. Old local compiled bytes are
-backed up before merge, then user-authored maps are compiled with the validated
-compiler so local play does not silently restore the obsolete lighting pipeline.
-The execution handoff records the subsequent primary-branch merge, smoke
-validation and exact GitHub commit verification. No unrelated source changes
-are included in this integration history.
+For unit world normal `n`, mean energy `I`, signed moment `g` and `k = sum(I)`,
+the shader reconstructs
+`max(0, I + I/k * (2*max(dot(g,n),0) - length(g)))`, using the shared small-energy
+guard. The existing soft knee runs once before material/texture and emission.
+Prepared coefficients are neither gamma decoded nor multiplied into spawn albedo.
+Opaque, cutout and blended entity primitives preserve their alpha/material routes.
+A sloped-face native oracle distinguished the true `(0,1,1.4)` geometric normal
+from an authored +Z normal: opposing Y moments produced 0.216 versus 0.1 before
+the knee, with a framebuffer red-channel difference above 20 and predictions
+within two channels. This is independent shader evidence, not a full-scene bake
+brightness assertion. One bounds-centre sample per body remains a limitation for
+very large objects spanning different volumes.
 
-Raw logs, per-stage bake dumps and full captures remain at
-`/tmp/places-lighting-integration-evidence/`; compact evidence is retained beside
-this report. The new nighttime map is outside this integration and has not started.
+Normal play emits no lighting telemetry. Use `PLACES_ENTITY_LIGHT_TRACE=all`,
+an instance ID, `DynamicId(0)` or a model path with `PLACES_VERBOSE=1` and the
+existing `PLACES_CAPTURE` destination. Developer output identifies the sample
+anchor, ownership, candidates/weights, raw coefficients, fallback reason and
+actual GPU uniform mirror. Missing/unresolved/out-of-room inputs use the authored
+finite environment response bounded to `[0,1]`; valid zero prepared energy stays
+zero. Malformed serialized fields fail decoding.
+
+```sh
+cargo test --lib entity_lighting_tests -- --ignored --nocapture
+```
+
+The GPU suite requires a working native desktop adapter. Optional
+`PLACES_ENTITY_TEST_CAPTURES` and `PLACES_ENTITY_PROBE_REPORT` destinations retain
+its diagnostic images and numeric output.

@@ -1,5 +1,8 @@
 # Office concept-art refinement
 
+Historical acceptance: October 2026 Office refinement. Counts, timings and validation below describe
+that tested version; the canonical guides govern current contracts.
+
 The existing Office assets now have separately readable furniture construction,
 stronger material artwork and remade wallpaper. Asset IDs, material settings,
 collision footprints, map sources and the rendering architecture are preserved.
@@ -48,8 +51,7 @@ signs in the existing set. Generic demo furnishings remain outside this pass.
 Five new committed 1024-square prop master PNGs derive the existing 256-square
 native atlases with the established box filter. The GLBs embed only the native
 atlases. There are no new gameplay assets, material IDs, runtime texture sources
-or external dependencies. ImageGen prompts are recorded in
-`office-refinement-prompts.json`. Processing uses existing resizing and seam
+or external dependencies. ImageGen supplied the offline artwork; processing uses existing resizing and seam
 repair tools; no runtime procedural imagery was introduced.
 
 The Office surface and fluorescent exporters now load the authoritative PNGs,
@@ -73,15 +75,10 @@ tool records seven demo views: reception, workroom, desk, hallway, ceiling,
 window and vent. Settings and camera positions are identical before/after;
 captures are 1280x720 on Apple M2 Pro.
 
-Before/after evidence was gathered under
-`target/office-refinement/{before,after}/`: fixture `high/` and `low/`, demo
-`demo-high/` and `demo-low/`, plus logs, CSV timing and capture manifests. High
-uses full lightmaps; Low uses the existing baked vertex lighting path. The
-original/refined artwork, captures, manifests, pinned renderer and validation
-logs are preserved outside the build target and disposable worktree at
-`/Users/connordawkins/Documents/Places-Office-Refinement-Evidence/`. Its README
-provides the tested launch command for the preserved review level. Final frozen
-demo captures are under `isolated/demo-high/` and `isolated/demo-low/`.
+Native High and Low fixture/demo comparisons used one fixed renderer, camera
+and settings. Original/refined sources, matching packages/assets and the saved
+player are independent reproduction inputs. The current combined package result
+is recorded in the [October 7 integration](integration-provenance-20261007.md).
 
 The largest differences are the quieter vertical wallpaper print, convincing
 metal/wood desk construction, visible cabinet drawer reveals and label plates,
@@ -131,7 +128,7 @@ validation override: `PLACES_ASSET_ROOT` must name the repository root, not
 its `assets` directory. Pointing it at the fixed repository made all three
 launch-layout tests pass; no CLI or asset-discovery source changed.
 
-Final Rust commands use the fixed worktree, `PLACES_ASSET_ROOT` pointing at
+Final Rust commands used the fixed source/asset snapshot, `PLACES_ASSET_ROOT` pointing at
 that repository root, a private cargo target and uncached
 compilation (`RUSTC_WRAPPER=`, `CARGO_INCREMENTAL=0`) to avoid stale embedded
 source/package data discovered during concurrent testing:
@@ -140,8 +137,7 @@ source/package data discovered during concurrent testing:
 * `cargo clippy --workspace --all-targets --all-features -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery -D clippy::cargo` — passed.
 * `cargo test --workspace --all-features` — passed: 2,007 library tests plus
   all binary and integration tests; 23 pre-existing ignored library cases.
-  The final complete run exited 0. Its log is `logs/isolated/rust-tests-correct-root.log`
-  in the preserved evidence directory.
+  The final complete run exited 0.
 
 Asset and visual commands completed successfully:
 
@@ -185,8 +181,7 @@ per run. Median-of-run mean render time was 4.785 ms before / 5.030 ms after on
 High and 4.951 ms before / 4.819 ms after on Low. High before samples ranged
 from 1.580 to 5.256 ms, demonstrating substantial background/display variability;
 this does not establish a precise performance delta. The cost counters are
-unchanged except the documented vertices and indices. Twelve native logs,
-frame CSVs and the binary hash are saved under `target/office-refinement/paired-perf/`.
+unchanged except the documented vertices and indices.
 
 The unchanged-source demo bake produced 96,219,764 bytes versus 96,163,308
 before (+0.059%). Medium/Full charts increased from 153,410 to 154,332 (+0.6%);
@@ -211,19 +206,10 @@ assets remain readable on both. Sub-texel faces use the existing vertex-lighting
 fallback rather than receiving their own lightmap chart. No global lighting, shader, geometry format or
 asset limit was changed to address these constraints.
 
-The final pass is isolated on `codex/office-refinement` at base `be7740f`.
-Concurrent Winter and painting work changed the catalog and two map sources
-during the first primary-checkout bake. The compiler includes the entire
-catalog hash in both build and lighting fingerprints, even for unrelated asset
-registrations. Those changes invalidated otherwise successful Office bakes;
-this compiler behavior is documented here and was not changed. Final packages
-and tests use the fixed Office worktree, preserving the concurrent checkout.
-Merging later catalog or map edits requires rebuilding affected package
-fingerprints against that combined state. The authorized consolidation chat
-retains the painting worker's current canonical demo and Model Zoo packages;
-Office also rebuilt canonical Movement Test and Lantern Hollow against the
-frozen combined catalog. The four Office-only packages in this commit should
-not replace those current integrated packages during consolidation.
+The compiler fingerprints the entire catalog even when new registrations are
+unrelated to a map. Concurrent catalog edits therefore invalidate otherwise
+successful asset-only bakes. Final asset comparisons used fixed source/asset
+snapshots; combined-state integration requires matching package identities.
 
 Four bundled packages reference changed Office assets: `places_demo`,
 `movement_test`, `lantern_hollow` and `model_zoo`. Their package outputs require
@@ -247,8 +233,5 @@ remain compatible.
   `tools/bench/capture_office.py`.
 * One density-expectation update in `src/static_prop_lighting_tests.rs` needed
   for the rebuilt Hollow package; actual metadata-cap assertions are retained.
-* `docs/ASSET_SPECIFICATION.md`, this report and its prompt record.
+* `docs/ASSET_SPECIFICATION.md`, this report.
 * Four dependent `assets/levels/*.placesmap` outputs listed above.
-
-The discrete Office commit is identified in the final handoff; temporary
-captures and concurrent Winter changes are not part of that commit.

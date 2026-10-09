@@ -566,8 +566,8 @@ fn the_tone_map_preserves_the_calibrated_range_and_compresses_highlights() {
 #[test]
 fn the_solver_fingerprint_is_stable_and_distinct_from_the_lighting_model() {
     assert_eq!(
-        SOLVER_REVISION, 16,
-        "chosen-grid placement and zero-source spatial fields require solver revision 16"
+        SOLVER_REVISION, 17,
+        "safe support origins, complete coverage stencils and material identities require solver revision 17"
     );
     let first = solver_fingerprint();
     assert_eq!(
@@ -1663,6 +1663,7 @@ fn reordering_charts_does_not_change_the_indirect_field() {
     }
 }
 
+mod model_lighting;
 mod probes;
 mod quality;
 

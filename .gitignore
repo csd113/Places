@@ -33,3 +33,34 @@ levels/*.placesmap
 
 # Immutable local queue milestone binaries, packages and verified asset bundles.
 /debug-maps/art-style-hero/milestones/
+
+# Preserved model-lighting native runtimes, solver dumps and recovery payloads.
+# Reviewable reports and native image evidence are tracked under docs/.
+/debug-maps/model-lighting-investigation/
+
+# Local model-authoring validation receipts.
+/debug-maps/domestic-model-remake/
+
+# Repeatable native lighting captures; inputs live under tests/fixtures/native/.
+/debug-maps/model-lighting-replay/
+
+# Current captures must never overwrite the frozen renderer comparison fixtures.
+/debug-maps/renderer-baseline-captures/
+
+/docs/model-lighting-investigation/
+/docs/art-style/baseline/
+/docs/art-style/diagnostics/
+/docs/art-style/stage7/execution/
+/docs/art-style/stage7/validation/
+
+# Published docs contain final prose and curated images. Machine receipts belong
+# under ignored target/debug-map output; functional inputs belong under tests/.
+/docs/**/*.log
+/docs/**/*.jsonl
+/docs/**/*.csv
+/docs/**/*.stdout
+/docs/**/*.gz
+/docs/**/*.json
+!/docs/asset-presets/*.json
+/docs/**/*.png
+!/docs/images/**/*.png

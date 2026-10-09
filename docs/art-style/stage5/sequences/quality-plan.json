@@ -1,6 +1,0 @@
-{
-  "cycle": "180:low,360:medium,540:high,720:medium,900:low,1080:high",
-  "frames": 1320,
-  "captures": "120 ready frames after each request; one uninterrupted player per original entity / authored night surface view",
-  "loading_transients": "not measured; settled endpoints only"
-}

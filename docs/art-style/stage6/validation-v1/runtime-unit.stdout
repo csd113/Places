@@ -1,9 +1,0 @@
-
-running 5 tests
-test package::world::dependency_tests::declared_optional_provenance_rejects_malformed_revision_role_and_digest ... ok
-test package::world::dependency_tests::new_package_catalog_identity_rejects_same_size_edits_and_legacy_remains_supported ... ok
-test package::world::dependency_tests::package_open_keeps_named_missing_and_resized_dependency_failures ... ok
-test package::world::dependency_tests::package_open_rejects_same_size_png_and_glb_substitution ... ok
-test package::world::dependency_tests::the_original_embedded_demo_still_opens_without_an_asset_root ... ok
-
-test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 2144 filtered out; finished in 0.12s

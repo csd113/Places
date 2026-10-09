@@ -113,12 +113,12 @@ impl<'a> SurfaceFilter<'a> {
             }
             let first = *self.starts.get(*candidate)?;
             let (value, receiver) = self.interpolate(chart, first, neighbor_u, neighbor_v)?;
-            if centre
-                .albedo
-                .iter()
-                .zip(receiver.albedo)
-                .any(|(left, right)| (*left - right).abs() > 1.0e-5)
-                || dot(centre.normal, receiver.normal) < 1.0 - 8.0 * f32::EPSILON
+            if !self.scene.same_surface_material(
+                centre.surface,
+                receiver.surface,
+                centre.albedo,
+                receiver.albedo,
+            ) || dot(centre.normal, receiver.normal) < 1.0 - 8.0 * f32::EPSILON
             {
                 continue;
             }

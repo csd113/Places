@@ -1,7 +1,0 @@
-    Finished `test` profile [optimized + debuginfo] target(s) in 0.20s
-     Running unittests src/lib.rs (target/debug/deps/places-db4822a0463dd4cf)
-
-running 1 test
-test lighting::transport::tests::probes::no_selected_source_bakes_preserve_the_spatial_sidecar_contract ... ok
-
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2124 filtered out; finished in 0.00s

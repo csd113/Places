@@ -88,6 +88,10 @@ const WINDOW_CYCLE_ENV: &str = "PLACES_BENCH_WINDOW_CYCLE";
 
 /// Freeze the camera at `yaw_degrees[,pitch_degrees]` for a repeatable shot.
 const BENCH_CAMERA_ENV: &str = "PLACES_CAMERA";
+/// Render-eye XYZ independent of the player's ordinary gameplay position.
+const BENCH_CAMERA_POSITION_ENV: &str = "PLACES_BENCH_CAMERA_POSITION";
+/// Explicit simulation step for deterministic diagnostic captures, in seconds.
+const BENCH_FIXED_DELTA_ENV: &str = "PLACES_BENCH_FIXED_DELTA_SECONDS";
 /// `on`/`off` override for the swap interval, used only to characterise `VSync`.
 const BENCH_VSYNC_ENV: &str = "PLACES_VSYNC";
 /// `1` waits for submitted GPU work before the swap, splitting renderer time
@@ -156,6 +160,10 @@ pub struct BenchConfig {
     pub warmup_frames: u64,
     pub limit_frames: Option<u64>,
     pub camera: Option<(f32, f32)>,
+    /// Independent render eye; this never moves the gameplay player.
+    pub camera_position: Option<[f32; 3]>,
+    /// Opt-in fixed simulation step, finite and in `(0, 0.1]` seconds.
+    pub fixed_delta_seconds: Option<f32>,
     pub vsync_override: Option<bool>,
     /// Diagnostic switches that each change one submission decision.
     pub switches: BenchSwitches,
@@ -177,6 +185,10 @@ impl BenchConfig {
             .and_then(|value| value.parse::<u64>().ok())
             .filter(|value| *value > 0);
         let camera = non_empty_var(BENCH_CAMERA_ENV).and_then(|value| parse_camera(&value));
+        let camera_position = non_empty_var(BENCH_CAMERA_POSITION_ENV)
+            .and_then(|value| parse_camera_position(&value));
+        let fixed_delta_seconds = non_empty_var(BENCH_FIXED_DELTA_ENV)
+            .and_then(|value| parse_fixed_delta_seconds(&value));
         let vsync_override =
             non_empty_var(BENCH_VSYNC_ENV).and_then(|value| parse_vsync_override(&value));
         let mut switches = BenchSwitches::default();
@@ -196,6 +208,8 @@ impl BenchConfig {
             warmup_frames,
             limit_frames,
             camera,
+            camera_position,
+            fixed_delta_seconds,
             vsync_override,
             switches,
         }
@@ -315,6 +329,32 @@ pub fn parse_camera(value: &str) -> Option<(f32, f32)> {
     } else {
         None
     }
+}
+
+/// Parses exactly three finite world coordinates: `x,y,z`.
+#[must_use]
+pub fn parse_camera_position(value: &str) -> Option<[f32; 3]> {
+    let mut parts = value.split(',').map(str::trim);
+    let position = [
+        parts.next()?.parse::<f32>().ok()?,
+        parts.next()?.parse::<f32>().ok()?,
+        parts.next()?.parse::<f32>().ok()?,
+    ];
+    if parts.next().is_none() && position.iter().all(|coordinate| coordinate.is_finite()) {
+        Some(position)
+    } else {
+        None
+    }
+}
+
+/// Parses a finite, positive simulation step no greater than 100 ms.
+#[must_use]
+pub fn parse_fixed_delta_seconds(value: &str) -> Option<f32> {
+    value
+        .trim()
+        .parse::<f32>()
+        .ok()
+        .filter(|delta| delta.is_finite() && *delta > 0.0 && *delta <= 0.1)
 }
 
 /// Parses an explicit swap-interval override: `on`/`off`/`1`/`0`.
@@ -587,6 +627,41 @@ impl Bench {
     #[must_use]
     pub const fn camera_override(&self) -> Option<(f32, f32)> {
         self.config.camera
+    }
+
+    /// Independent render eye, enabled only for explicit benchmark captures.
+    #[must_use]
+    pub const fn camera_position_override(&self) -> Option<[f32; 3]> {
+        if self.config.enabled {
+            self.config.camera_position
+        } else {
+            None
+        }
+    }
+
+    /// Deterministic simulation step, enabled only for explicit benchmarks.
+    #[must_use]
+    pub const fn fixed_delta_seconds(&self) -> Option<f32> {
+        if self.config.enabled {
+            self.config.fixed_delta_seconds
+        } else {
+            None
+        }
+    }
+
+    /// Changes the diagnostic render eye/orientation without touching gameplay.
+    /// Angles are degrees, matching `PLACES_CAMERA` and authored camera recipes.
+    pub fn set_camera_override(&mut self, position: [f32; 3], yaw: f32, pitch: f32) -> bool {
+        if !self.config.enabled
+            || !position.iter().all(|coordinate| coordinate.is_finite())
+            || !yaw.is_finite()
+            || !pitch.is_finite()
+        {
+            return false;
+        }
+        self.config.camera_position = Some(position);
+        self.config.camera = Some((yaw, pitch));
+        true
     }
 
     /// Explicit swap-interval request, when `PLACES_VSYNC` was set.

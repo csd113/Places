@@ -1,0 +1,335 @@
+[
+  {
+    "frame": 1,
+    "actions": [
+      {
+        "action": "player",
+        "position": [
+          -16.7009,
+          1.6,
+          -19.7478
+        ],
+        "yaw": 0,
+        "pitch": 0
+      },
+      {
+        "action": "camera",
+        "position": [
+          -16.7009,
+          0.8,
+          -31.1478
+        ],
+        "yaw": 0,
+        "pitch": 25.016893478100027
+      }
+    ]
+  },
+  {
+    "frame": 60,
+    "capture": "debug-maps/model-lighting-replay/player/approach-12.png"
+  },
+  {
+    "frame": 121,
+    "actions": [
+      {
+        "action": "player",
+        "position": [
+          -16.7009,
+          1.6,
+          -25.7478
+        ],
+        "yaw": 0,
+        "pitch": 0
+      }
+    ]
+  },
+  {
+    "frame": 180,
+    "capture": "debug-maps/model-lighting-replay/player/approach-6.png"
+  },
+  {
+    "frame": 241,
+    "actions": [
+      {
+        "action": "player",
+        "position": [
+          -16.7009,
+          1.6,
+          -28.7478
+        ],
+        "yaw": 0,
+        "pitch": 0
+      }
+    ]
+  },
+  {
+    "frame": 300,
+    "capture": "debug-maps/model-lighting-replay/player/approach-3.png"
+  },
+  {
+    "frame": 361,
+    "actions": [
+      {
+        "action": "player",
+        "position": [
+          -16.7009,
+          1.6,
+          -30.7478
+        ],
+        "yaw": 0,
+        "pitch": 0
+      }
+    ]
+  },
+  {
+    "frame": 420,
+    "capture": "debug-maps/model-lighting-replay/player/approach-1.png"
+  },
+  {
+    "frame": 481,
+    "actions": [
+      {
+        "action": "player",
+        "position": [
+          -16.7009,
+          1.6,
+          -30.9478
+        ],
+        "yaw": 0,
+        "pitch": 0
+      }
+    ]
+  },
+  {
+    "frame": 540,
+    "capture": "debug-maps/model-lighting-replay/player/approach-0p8.png"
+  },
+  {
+    "frame": 601,
+    "actions": [
+      {
+        "action": "player",
+        "position": [
+          -16.7009,
+          1.6,
+          -31.0478
+        ],
+        "yaw": 0,
+        "pitch": 0
+      }
+    ]
+  },
+  {
+    "frame": 660,
+    "capture": "debug-maps/model-lighting-replay/player/approach-0p7.png"
+  },
+  {
+    "frame": 721,
+    "actions": [
+      {
+        "action": "player",
+        "position": [
+          -16.7009,
+          1.6,
+          -31.1478
+        ],
+        "yaw": 0,
+        "pitch": 0
+      }
+    ]
+  },
+  {
+    "frame": 780,
+    "capture": "debug-maps/model-lighting-replay/player/approach-0p6.png"
+  },
+  {
+    "frame": 841,
+    "actions": [
+      {
+        "action": "player",
+        "position": [
+          -16.7009,
+          1.6,
+          -31.2478
+        ],
+        "yaw": 0,
+        "pitch": 0
+      }
+    ]
+  },
+  {
+    "frame": 900,
+    "capture": "debug-maps/model-lighting-replay/player/approach-0p5.png"
+  },
+  {
+    "frame": 961,
+    "actions": [
+      {
+        "action": "player",
+        "position": [
+          -16.7009,
+          1.6,
+          -31.3478
+        ],
+        "yaw": 0,
+        "pitch": 0
+      }
+    ]
+  },
+  {
+    "frame": 1020,
+    "capture": "debug-maps/model-lighting-replay/player/approach-0p4.png"
+  },
+  {
+    "frame": 1081,
+    "actions": [
+      {
+        "action": "player",
+        "position": [
+          -16.7009,
+          1.6,
+          -31.2478
+        ],
+        "yaw": 0,
+        "pitch": 0
+      }
+    ]
+  },
+  {
+    "frame": 1140,
+    "capture": "debug-maps/model-lighting-replay/player/retreat-0p5.png"
+  },
+  {
+    "frame": 1201,
+    "actions": [
+      {
+        "action": "player",
+        "position": [
+          -16.7009,
+          1.6,
+          -31.1478
+        ],
+        "yaw": 0,
+        "pitch": 0
+      }
+    ]
+  },
+  {
+    "frame": 1260,
+    "capture": "debug-maps/model-lighting-replay/player/retreat-0p6.png"
+  },
+  {
+    "frame": 1321,
+    "actions": [
+      {
+        "action": "player",
+        "position": [
+          -16.7009,
+          1.6,
+          -31.0478
+        ],
+        "yaw": 0,
+        "pitch": 0
+      }
+    ]
+  },
+  {
+    "frame": 1380,
+    "capture": "debug-maps/model-lighting-replay/player/retreat-0p7.png"
+  },
+  {
+    "frame": 1441,
+    "actions": [
+      {
+        "action": "player",
+        "position": [
+          -16.7009,
+          1.6,
+          -30.9478
+        ],
+        "yaw": 0,
+        "pitch": 0
+      }
+    ]
+  },
+  {
+    "frame": 1500,
+    "capture": "debug-maps/model-lighting-replay/player/retreat-0p8.png"
+  },
+  {
+    "frame": 1561,
+    "actions": [
+      {
+        "action": "player",
+        "position": [
+          -16.7009,
+          1.6,
+          -30.7478
+        ],
+        "yaw": 0,
+        "pitch": 0
+      }
+    ]
+  },
+  {
+    "frame": 1620,
+    "capture": "debug-maps/model-lighting-replay/player/retreat-1.png"
+  },
+  {
+    "frame": 1681,
+    "actions": [
+      {
+        "action": "player",
+        "position": [
+          -16.7009,
+          1.6,
+          -28.7478
+        ],
+        "yaw": 0,
+        "pitch": 0
+      }
+    ]
+  },
+  {
+    "frame": 1740,
+    "capture": "debug-maps/model-lighting-replay/player/retreat-3.png"
+  },
+  {
+    "frame": 1801,
+    "actions": [
+      {
+        "action": "player",
+        "position": [
+          -16.7009,
+          1.6,
+          -25.7478
+        ],
+        "yaw": 0,
+        "pitch": 0
+      }
+    ]
+  },
+  {
+    "frame": 1860,
+    "capture": "debug-maps/model-lighting-replay/player/retreat-6.png"
+  },
+  {
+    "frame": 1921,
+    "actions": [
+      {
+        "action": "player",
+        "position": [
+          -16.7009,
+          1.6,
+          -19.7478
+        ],
+        "yaw": 0,
+        "pitch": 0
+      }
+    ]
+  },
+  {
+    "frame": 1980,
+    "capture": "debug-maps/model-lighting-replay/player/retreat-12.png"
+  }
+]

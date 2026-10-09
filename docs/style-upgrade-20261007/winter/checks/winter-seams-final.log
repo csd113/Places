@@ -1,6 +1,0 @@
-[seams] completed 4/4
-PASS assets/environment/winter/textures/floors/snow_01.png
-PASS assets/environment/winter/textures/floors/ice_01.png
-PASS assets/environment/winter/textures/walls/stone_masonry_01.png
-PASS assets/environment/winter/textures/walls/timber_01.png
-4/4 texture(s) pass the seam metric

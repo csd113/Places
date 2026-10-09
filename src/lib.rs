@@ -1005,6 +1005,12 @@ impl FrameLoop<'_> {
             self.game.reset_timing();
         }
         // Update player movement (only active during AppState::Playing)
+        if self.load_intent.is_none()
+            && self.current_level.is_some()
+            && let Some(delta) = self.bench.fixed_delta_seconds()
+        {
+            self.game.set_benchmark_simulation_delta(delta);
+        }
         self.apply_move_script();
         self.game
             .update_player_movement(self.input_handler.state_mut(), self.settings);
@@ -1037,7 +1043,8 @@ impl FrameLoop<'_> {
         // Advance the dynamic objects (the demonstration drum and any other
         // spawned object) once per frame: transform only, never a geometry or
         // lightmap rebuild.
-        let _update_stats = self.renderer.update_dynamic(self.game.delta_seconds());
+        let visual_delta = self.visual_delta_seconds();
+        let _update_stats = self.renderer.update_dynamic(visual_delta);
         // Animated characters follow the player's locomotion state unless a
         // map-authored route or interaction addresses them by instance id
         // (`game.entity_frames()`); the renderer re-skins only the characters
@@ -1045,7 +1052,7 @@ impl FrameLoop<'_> {
         // back as an `animation_complete` event, which is how a sequence's
         // `wait_animation` step and an authored binding learn about it.
         let characters = self.renderer.update_characters(
-            self.game.delta_seconds(),
+            visual_delta,
             self.game.locomotion_snapshot(),
             self.game.entity_frames(),
         );
@@ -1058,6 +1065,23 @@ impl FrameLoop<'_> {
         let frame_update_done = Instant::now();
 
         self.render_and_present(frame_begin, frame_update_done);
+    }
+
+    /// Advances controlled visual time only while the diagnostic world is playing.
+    fn visual_delta_seconds(&self) -> f32 {
+        self.bench.fixed_delta_seconds().map_or_else(
+            || self.game.delta_seconds(),
+            |delta| {
+                if self.load_intent.is_none()
+                    && self.current_level.is_some()
+                    && self.game.app_state() == AppState::Playing
+                {
+                    delta
+                } else {
+                    0.0
+                }
+            },
+        )
     }
 
     /// Applies this ready-world frame's `PLACES_MOVE_SCRIPT` holds, if any.
@@ -1515,6 +1539,23 @@ impl FrameLoop<'_> {
             .lighting_actions_at(self.ready_frames.saturating_add(1))
         {
             let applied = match &action {
+                bench::lighting_sequence::LightingAction::Camera {
+                    position,
+                    yaw,
+                    pitch,
+                } => self.bench.set_camera_override(*position, *yaw, *pitch),
+                bench::lighting_sequence::LightingAction::Player {
+                    position,
+                    yaw,
+                    pitch,
+                } => {
+                    self.game.set_benchmark_player_position(
+                        Vec3::from_array(*position),
+                        yaw.to_radians(),
+                        pitch.to_radians(),
+                    );
+                    true
+                }
                 bench::lighting_sequence::LightingAction::Spawn {
                     key,
                     model,
@@ -2862,6 +2903,35 @@ impl FrameLoop<'_> {
         }
     }
 
+    fn trace_lighting_capture_state(&self) {
+        if !self.bench.enabled() {
+            return;
+        }
+        let player = self.game.player_position;
+        let eye = self
+            .bench
+            .camera_position_override()
+            .unwrap_or_else(|| player.to_array());
+        let (yaw, pitch) = self.bench.camera_override().unwrap_or_else(|| {
+            (
+                self.game.player_yaw.to_degrees(),
+                self.game.player_pitch.to_degrees(),
+            )
+        });
+        crate::logging::info(format!(
+            "[lighting-capture-state] {}",
+            serde_json::json!({
+                "ready_frame": self.ready_frames,
+                "simulation_seconds": self.ready_seconds,
+                "fixed_delta_seconds": self.bench.fixed_delta_seconds(),
+                "player_eye": player.to_array(),
+                "render_eye": eye,
+                "render_yaw_pitch_degrees": [yaw, pitch],
+                "fov_degrees": self.settings.fov_degrees,
+            })
+        ));
+    }
+
     /// Takes the one-shot `PLACES_CAPTURE` frame when it is due.
     ///
     /// The capture waits for a ready world so it records the finished screen,
@@ -2876,6 +2946,7 @@ impl FrameLoop<'_> {
                 self.game.stop();
                 return;
             }
+            self.trace_lighting_capture_state();
             write_capture(self.renderer, &path);
             crate::logging::info(format!(
                 "[lighting-sequence] capture_attempt ready_frame={} path={}",
@@ -2901,6 +2972,7 @@ impl FrameLoop<'_> {
         let Some(path) = self.capture_path.take() else {
             return;
         };
+        self.trace_lighting_capture_state();
         write_capture(self.renderer, &path);
         perf::startup_mark("capture readback");
         self.game.stop();
@@ -2984,11 +3056,15 @@ impl FrameLoop<'_> {
             Some((yaw, pitch)) => (yaw.to_radians(), pitch.to_radians()),
             None => (cam_yaw, cam_pitch),
         };
+        let render_position = self
+            .bench
+            .camera_position_override()
+            .map_or(cam_pos, Vec3::from_array);
 
         let skip_render = self.bench.skip_render();
         if !skip_render {
             self.renderer.render_scene(render::RenderCamera::new(
-                cam_pos,
+                render_position,
                 render_yaw,
                 render_pitch,
                 self.settings.fov_degrees,
@@ -3010,7 +3086,13 @@ impl FrameLoop<'_> {
         // Menu/settings UI geometry is cached and only rebuilt when its inputs
         // change. Floating interaction labels and the aimed-at prompt are
         // appended to the same submission.
-        self.submit_ui(drawable, cam_pos, render_yaw, render_pitch, skip_render);
+        self.submit_ui(
+            drawable,
+            render_position,
+            render_yaw,
+            render_pitch,
+            skip_render,
+        );
         // `PLACES_BENCH_FINISH=1`: force submitted GPU work to drain before the
         // swap timing point, so `render_ms` is renderer completion time rather
         // than "how much of the frame the driver happened to absorb".

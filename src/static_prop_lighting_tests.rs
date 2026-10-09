@@ -1319,14 +1319,12 @@ fn real_dense_showcase_metadata_exceeds_material_budget_and_loads_under_its_own_
         "the actual runtime record reader must accept dense model charts using their dedicated cap",
     );
     let atlas = loaded.lightmaps.as_ref().unwrap();
-    // Authored prop simplification can remove incidental receiver charts. The
-    // over-cap/read-failure assertions above protect the actual regression.
-    assert!(
-        atlas.charts.len() >= 225_000,
-        "this must exercise the real dense chart bake, never padded synthetic JSON"
-    );
-    // High's increased large-model density uses its measured Full page budget.
-    assert_eq!(atlas.pages.len(), 10);
+    // The source-preserving coplanar chart sharing reduces the real Hallows
+    // chart inventory. Keep its exact production fixture count here; the
+    // over-cap/read-failure assertions above still protect the original bug.
+    assert_eq!(atlas.charts.len(), 191_610);
+    // The denser small-prop receivers use the measured eleven-page Full budget.
+    assert_eq!(atlas.pages.len(), 11);
     assert!(
         loaded
             .props
@@ -1454,8 +1452,8 @@ fn folded_architecture_triangles_sample_only_real_geometry_and_preserve_kind() {
             patch
         );
     }
-    // The new optional fields do not enlarge ordinary rectangular records and
-    // old model records still retain their already established triangle domain.
+    // Legacy model records retain their triangle domain. New records always
+    // name topology explicitly so shared model quads survive a round trip.
     let old = r#"{"origin":[0,0,0],"u_axis":[2,0,0],"v_axis":[0,3,0],"room":null,"kind":"prop"}"#;
     let restored: LightmapPatch = serde_json::from_str(old).unwrap();
     assert!(restored.is_triangular());
@@ -1472,7 +1470,13 @@ fn folded_architecture_triangles_sample_only_real_geometry_and_preserve_kind() {
     )
     .unwrap();
     let record = serde_json::to_string(&rectangle).unwrap();
-    assert!(!record.contains("diagonal_correction") && !record.contains("triangle"));
+    assert!(!record.contains("diagonal_correction"));
+    let fields: serde_json::Value = serde_json::from_str(&record).unwrap();
+    assert_eq!(fields["triangle"], false);
+    let restored_rectangle: LightmapPatch = serde_json::from_str(&record).unwrap();
+    assert_eq!(restored_rectangle, rectangle);
+    assert!(!restored_rectangle.is_triangular());
+    assert_eq!(restored_rectangle.point_at(1.0, 1.0), [2.0, 3.0, 0.0]);
 }
 
 /// A physical occluder and area-independent point source for edge comparisons.

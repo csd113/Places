@@ -1,8 +1,0 @@
-   Compiling places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
-    Finished `test` profile [optimized + debuginfo] target(s) in 24.31s
-     Running unittests src/lib.rs (target/debug/deps/places-db4822a0463dd4cf)
-
-running 1 test
-test render::common::dynamic_lights::tests::practical_selection_is_stable_bounded_and_excludes_switchable_sources ... ok
-
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2117 filtered out; finished in 0.00s

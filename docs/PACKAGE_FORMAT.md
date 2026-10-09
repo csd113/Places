@@ -162,23 +162,34 @@ A package carries up to one variant per lightmap quality (`off`, `medium`,
 `quality_profile` records the bake/plan profile (`low` for `off`, `full`
 otherwise) so a future reader can tell which bake produced the vertex colours.
 
-A decoded package whose prepared atlas the device cannot bind (more than ten
+A decoded package whose prepared atlas the device cannot bind (more than eleven
 pages, or more than four switchable groups: a combination the compiler can
 never emit) falls back to a vertex-lit rebuild of the decoded semantics. That
 is the loader's defensive recovery path, not a player-side bake of the prepared
 path; no compiler output reaches it, and the prepared solve never runs in the
 player.
 
-Full's normal planning budget is ten pages; lower profiles retain eight.
-[The measured Hallows audit](art-style/stage7/integration-hallows-atlas-audit.md)
-proves ten pages are the minimum at unchanged sampling density, inclusive
-endpoints and gutters. The independent typed atlas bound is 320 MiB +64 KiB,
+Full's profile planning cap is eleven pages; lower profiles retain eight.
+Before geometry emission, the planner also bounds that cap by the actual base
+and switchable illumination groups, the typed record bytes (including the exact
+196-byte single-mip KTX2 header), the codec payload/layer bounds and the decoder
+page count. At 1024px, Full allows 11/10/6/5/4 pages for zero through four
+switchable lights. Demo therefore retains ten pages for its two groups. The
+effective config is shared by the plan, fill and public cache-key refresh.
+The model-lighting correction shares compatible coplanar source-triangle charts
+and gives small opaque props 32 intervals/m (Medium24/m). Its measured Hallows
+Full layout needs eleven 1024px pages, or 176 MiB for the base group, preserving
+the finer physical shadow field. The earlier
+[Stage 7 Hallows audit](art-style/stage7/integration-contract-audit.md)
+established ten pages at its former sampling density. The independent typed
+atlas bound remains 320 MiB +64 KiB,
 the measured ten-page two-group Demo payload plus container allowance. The
-[record audit](art-style/stage7/integration-demo-atlas-record-audit.md) records
+[record audit](art-style/stage7/integration-contract-audit.md) records
 the old 256 MiB rejection and 25% increase. The 64-page decoder count, exact
 KTX2 shape/length checks, four-switch-group limit and 1 GiB aggregate remain
-enforced. More groups still have to fit the typed byte bound; ten pages do not
-authorize an arbitrary total allocation.
+enforced. More groups still have to fit the typed byte bound; eleven pages do not
+authorize an arbitrary total allocation. The aggregate guard still applies to
+the complete archive, including all quality variants.
 
 ## 4. Binary records
 

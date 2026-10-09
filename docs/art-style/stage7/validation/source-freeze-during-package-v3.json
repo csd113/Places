@@ -1,7 +1,0 @@
-{
-  "recorded_utc": "2026-10-09T00:00:59.839495+00:00",
-  "freeze": "docs/art-style/stage7/source-input-identities-v4.json",
-  "checked": 231,
-  "mismatches": [],
-  "scope": "Read-only current source/gate input identities while serial package campaign is active; not completion or a replacement gate."
-}

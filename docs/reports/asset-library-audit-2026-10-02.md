@@ -6,7 +6,7 @@ geometry and UV defect, and the pool table had a duplicated coplanar tabletop
 closure. Both were repaired without changing their textures, dimensions or placements.
 Twenty-eight missing standalone PNG records were recovered from the existing GLBs,
 without changing their pixels. The existing art direction and valid assets were retained.
-[Preservation checks](asset-library-audit-2026-10-02/preservation-checks.json)
+Preservation checks
 confirm that all pre-existing PNGs and every GLB except the hot tub and pool table are byte-unchanged,
 the new sources are exact original embedded PNGs, and the tub re-export is deterministic.
 
@@ -18,12 +18,11 @@ runtime renderer or baker code was changed.
 
 The final canonical gate passed with both repairs installed. All four shipped
 packages are current and valid at off/medium/full. No Rust production or gameplay
-code changed, and no commit or publication was performed.
+code changed,
 
 ## Inventory and coverage
 
-[Complete machine-readable inventory](asset-library-audit-2026-10-02/inventory.json)
-records paths, hashes, formats, dimensions, alpha ranges, bounds, vertices,
+The complete inventory records paths, hashes, formats, dimensions, alpha ranges, bounds, vertices,
 triangles, materials, embedded images and their standalone sources, transforms,
 skins, clip channels/durations, map uses, code literals, unused data and duplicates.
 It also inventories the other files under `assets/` and the application icon.
@@ -101,7 +100,7 @@ and its end post; it is hidden assembly geometry and was conservatively retained
 | `core:pool_table` / `assets/environment/pool/props/models/pool_table.glb` | A generic boundary closure put a second, downward-facing quad exactly on the tray top, making it black in the bake. | Removed that two-triangle closure and four now-unused vertices. All surviving position/UV/colour records and the embedded PNG/materials are unchanged. The native tabletop receives light again. Its top sheet's boundary is buried in the rim; the lower apron remains intact. |
 | `tools/props/repair_geometry.py` | The maintenance pass treated the tray sheet boundary as a missing solid face. | Added a reviewed, fail-closed table-cap removal and excluded this particular tray boundary from hole closure, so maintenance does not recreate the defect. |
 | `tools/props/parts/pool.py` | Builder recreated the tub artwork instead of loading a standalone asset. | Loads the recovered, unchanged `hot_tub.png` and `pool_table.png` instead of recreating artwork. Keeps the tub's original two-region atlas, colours, geometry, pivot and 384 triangles. Removed the unused tub/tray painters; shared resin/metal painters for untouched assets remain unchanged. |
-| 28 native PNG records | Existing artwork was available only inside GLBs. | Extracted byte-identical existing PNGs into the corresponding asset directories. The [full source list](asset-library-audit-2026-10-02/exported-sources.json) identifies every added file. Only the tub and table GLBs changed. |
+| 28 native PNG records | Existing artwork was available only inside GLBs. | Extracted byte-identical existing PNGs into the corresponding asset directories. The full source list identifies every added file. Only the tub and table GLBs changed. |
 | `tools/assets/audit.py` | No one inventory joined all models, images, clips, duplicates and map uses. | Added a read-only stdlib audit with finite data, topology, coincident quads including opposite diagonals, UV, normal/tangent, skin, animation, native-image-budget and standalone-source checks. Uses the established bounded execution/atomic-write helpers. |
 | `tools/props/glb.py` | Inspection kept only the first texture and lost primitive material assignment. | Retains every texture slot and triangle material, preserving the legacy first-texture field for existing callers. Game loading code is unchanged. |
 | `tools/props/preview.py` | Multi-material models, foliage and translucent inspection views could be misleading; no rear/culling view. | Uses primitive textures/factors, MASK cutoff and BLEND compositing; adds `--cull` and `--rear`. Remains a bind-pose software inspection renderer. |
@@ -144,13 +143,9 @@ No nominal-resolution upscaling or simplification was performed for cosmetic dif
 
 ## Visual evidence
 
-![Native before/after comparison](asset-library-audit-2026-10-02/native-comparison.png)
+![Native before/after comparison](../images/reports/asset-library-audit-2026-10-02/native-comparison.png)
 
-![Pool-table geometry-only native comparison](asset-library-audit-2026-10-02/pool-table-comparison.png)
-
-![Tub winding and tile proportions with inspection culling](asset-library-audit-2026-10-02/hot-tub-winding-uv.png)
-
-![Outdoor vegetation, house kit and maintained door comparisons](asset-library-audit-2026-10-02/outdoor-door-comparison.png)
+![Pool-table geometry-only native comparison](../images/reports/asset-library-audit-2026-10-02/pool-table-comparison.png)
 
 Native baseline views used the same binary, cameras and scratch settings with the
 tracked pre-edit asset/package files from HEAD in a separate read-only package root.
@@ -171,37 +166,31 @@ The tub is no longer completely black, but its exterior remains dark under the
 existing bake. Its unchanged albedo is plainly visible in the unlit inspection
 view. This residual lighting concern was not hidden by whitening its texture.
 
-Raw full-size captures, all front/rear sheets, original texture sheets, profiling
-data and command logs remain in `target/asset-audit/` (scratch evidence, gitignored).
-Selected evidence and the inventory are retained beside this report.
-
 ## Validation
 
-The [complete canonical command ledger](asset-library-audit-2026-10-02/validation-ledger.json)
-records every step of `sh tools/verify.sh`, all passed. The
-[final gate log](asset-library-audit-2026-10-02/final-verify.log) retains their output.
-The gate uses `set -eu`; its exit status was **0**. Additional checks are listed below:
+The complete `sh tools/verify.sh` gate exited **0** with `set -eu`; every
+required step passed. Additional checks are listed below:
 
 | Command/check | Result |
 | --- | --- |
 | `cargo fmt --all --check` | Passed in the final canonical gate. |
 | `cargo clippy --workspace --all-targets --all-features -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery -D clippy::cargo` | Passed in the final canonical gate. |
 | `cargo test --workspace --all-features` | Passed: 1,912 library tests, 3 integration tests; 21 default ignored diagnostics. The gate additionally runs the maintained atlas-budget check and two native GPU checks, all passed. |
-| `cargo check --workspace --all-targets --all-features` | Passed; final package refresh checked again before handoff. |
+| `cargo check --workspace --all-targets --all-features` | Passed; final package refresh checked again. |
 | `sh tools/verify.sh` | Passed, exit 0. All asset/source checks, seven Python suites, full package current/decode checks, geometry repair, native GPU and startup checks passed. |
 | `cargo build --release` | Passed. |
 | `python3 -m unittest tests.test_asset_audit tests.test_glb_accessors` | Passed, 18 tests. |
 | `python3 tools/assets/audit.py --workers 1 --out target/asset-audit/serial.json` | Passed, zero integrity errors. |
 | `python3 tools/assets/audit.py --workers 12 --out target/asset-audit/parallel.json` | Passed, zero integrity errors; JSON byte-identical to serial run. |
 | Final `audit.py --workers 1 --out target/asset-audit/serial-final.json` / `--workers 12 --out target/asset-audit/parallel-final.json` and `cmp` | Both passed after both model/package repairs; JSON byte-identical and final inventory retained. |
-| `python3 tools/entities/validate_entities.py --workers 12 --json` | Passed, eight assets/27 clips/3,227 posed frames; requested 12, effective 11 under existing memory cap. [Results](asset-library-audit-2026-10-02/animation-sweep.json). |
+| `python3 tools/entities/validate_entities.py --workers 12 --json` | Passed, eight assets/27 clips/3,227 posed frames; requested 12, effective 11 under existing memory cap. |
 | `python3 tools/entities/check_clip_boundaries.py` | Passed. |
 | `python3 tools/entities/author_halloween_assets.py --check` | Passed. |
 | `python3 tools/textures/seam_repair.py --check <39 intended tiled PNGs> --workers 12` | 39/39 passed; no repair writes. |
 | `python3 tools/props/build.py --only core:hot_tub` | Exported the focused repair; original artwork preserved. |
 | In-memory `build.build_one(..., publish=False)` comparison | Tub re-export byte-identical; bounds, triangle count, materials and embedded image bytes match the original. No filesystem writes during this check. |
-| `target/release/places --check-geometry --level <source> --json <output>` | Seven sources, all exit 0; zero errors, warnings retained below. [Exact commands](asset-library-audit-2026-10-02/geometry-checks.json). |
-| `places-compile build/verify/validate` for Pit, Hallows entity fixture and pool showcase | Passed for vertex-lit structural variants; pool showcase additionally built/current/validated at off/medium/full. [Exact commands](asset-library-audit-2026-10-02/fixture-package-checks.json). |
+| `target/release/places --check-geometry --level <source> --json <output>` | Seven sources, all exit 0; zero errors, warnings retained below. |
+| `places-compile build/verify/validate` for Pit, Hallows entity fixture and pool showcase | Passed for vertex-lit structural variants; pool showcase additionally built/current/validated at off/medium/full. |
 | `PLACES_STATE_ROOT=<scratch> sh tools/bench/capture_zoo.sh <out>` | Ten current views in each comparison phase captured and inspected. |
 | `PLACES_KIT_PACKAGE=<compiled fixture> sh tools/bench/capture_outdoor_kit.sh` | 28/28 native views in each phase, no failures. |
 | `sh tools/bench/capture_doors.sh` with five maintained view selections | Captured maintained interior, sauna and exterior door views. |
@@ -218,7 +207,7 @@ the independent validator confirms that exact stale dependency. This requires a
 normal asset/package rebuild, not a lighting-code workaround. The focused atlas
 test passed after rebuilding Demo; the full canonical gate passed after the tub
 repair and again after the final table repair. The
-[initial failed run](asset-library-audit-2026-10-02/initial-verify.log) is retained
+initial failed run is retained
 alongside the successful final output.
 
 ## Map compatibility
@@ -252,8 +241,6 @@ use `(171,176,173)`. The bands are about 11% brighter before runtime lighting.
 The shared `PropBuilder._ao_at` darkens each primitive according to its base;
 floor-reaching columns get 0.9 contact tint, raised head pieces get 1.0.
 The themed house builder applies continuous module-space UVs and the same PNG to both.
-See [measurements for every themed variant](asset-library-audit-2026-10-02/house-family-shading.json)
-and [blue door/window geometry/UV evidence](asset-library-audit-2026-10-02/blue-house-door-window-shading.json).
 The same shared helper is used by the original kit. This is a family-wide authored
 shading discontinuity, not evidence of a damaged texture or proof of a global
 runtime lightmap bug. It was left unchanged under the user's lighting-code
@@ -275,8 +262,7 @@ Demo's tiny wall-joint sliver and porch dressing/floor coplanarity; Zoo's room-l
 candidate; Hallows' four joint slivers and eight opposite-facing coplanar wall
 overlaps; Pit's sixteen slivers and fifty-two missing-wall candidates. These are
 existing map/checker findings, not new GLB corruption. Intentionally open geometry
-also appears in the checker's explicitly suppressed findings. Full JSON evidence
-is retained in scratch output. No map redesign or compiler change was made to
+also appears in the checker's explicitly suppressed findings. No map redesign or compiler change was made to
 silence them.
 
 **Gameplay/collision:** No new issue was confirmed. Furniture may use coarse box
@@ -294,11 +280,11 @@ Non-asset changes are the audit, GLB inspection reader, software previews, focus
 regressions, corrected Zoo capture cameras, canonical gate and its documentation;
 each exists to inspect or prevent the asset failures described above. Documentation
 changes cover the source PNG contract, validation commands, inspection workflow,
-current library/image-memory counts and the existing cutout/translucent contract. This report/evidence is review material, not runtime content.
+current library/image-memory counts and the existing cutout/translucent contract. This report is review material, not runtime content.
 
-The [complete changed-file manifest](asset-library-audit-2026-10-02/changed-files.json)
+The complete changed-file manifest
 lists every modified and added file, including the 28 exact PNG source records
-and the retained report evidence. The implementation/documentation files are
+and this report. The implementation/documentation files are
 listed below; the PNG source list is also available separately above.
 
 - `assets/environment/pool/props/models/hot_tub.glb`

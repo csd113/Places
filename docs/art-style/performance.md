@@ -1,21 +1,21 @@
 # Stage 1 costs and measurement limits
 
-Measured 2026-10-08 UTC on Mac14,9 MacBook Pro: Apple M2 Pro, 12 CPU cores
+Measured 2026-10-08 UTC on Mac 14,9 MacBook Pro: Apple M 2 Pro, 12 CPU cores
 (8 performance + 4 efficiency), 19 GPU cores, 16 GB unified memory, macOS
-27.0.1 (26A434), native Metal. SDL window is 640×360 logical / 1280×720 Retina
+27.0.1 (26A 434), native Metal. SDL window is 640×360 logical / 1280×720 Retina
 drawable. VSync is Off/Immediate. This is one host with normal desktop applications
 running, not an isolated laboratory or a Linux/Windows hardware result.
 
 ## Valid preparation and resource baseline
 
-[Forced compile](compile-cold.json) and [OS resource receipt](compile-cold.log):
+Forced compiler measurement:
 all three ordinary variants, 12 worker cap, **4.872 s compiler / 4.89 s process
 wall time**, 37.83 s accumulated CPU and **659.1 MiB maximum resident set**.
 Here “cold” means an explicit forced solve with no prepared package reuse;
-OS/file caches were warm. A subsequent [reuse check](compile-reuse.json) takes
+OS/file caches were warm. A subsequent reuse check takes
 0.254 s compiler / 0.26 s process wall, 46.0 MiB maximum RSS and does not rebuild.
 The forced rebuild reproduces the exact package bytes already used by captures.
-The package is **3,873,651 bytes**; see the actual compile receipt if regenerated.
+The measured package is **3,873,651 bytes**.
 
 The fixture has three rooms, 16 distinct static model resources, 5,300 static
 model triangles, 14 architectural/fixture draws and 21 static prop draws at
@@ -37,14 +37,14 @@ normals, sky, framebuffers, reflection targets and CPU copies are separate costs
 these columns must not be summed as complete GPU memory. Static assets report
 3,856 KiB decoded texture data. High uses one packaged 64 px reflection probe;
 Medium uses its 48 px variant. This scene has no active planar surface. There
-are no missing textures or failed static models. [Package inspect](package-inspect.json)
+are no missing textures or failed static models. Package inspect
 preserves exact record/dependency storage.
 
 ## Initial timing attempt that cannot be treated as scene performance
 
 Five bounded native samples use 120 warmup + 360 recorded frames: High
 room/hall/entities, Medium room and Low room. Raw CSVs/logs/manifests are under
-[performance](performance/); [parsed receipts](performance-baseline.json) retain
+performance; parsed receipts retain
 all fields. They confirm the requested world and effective graphics settings.
 
 However, **all frame draw/vertex counters are zero**. In this background desktop
@@ -76,9 +76,9 @@ The initial unavailable-surface condition no longer occurred in the expanded
 campaign. The preserved **normal release**, with diagnostics omitted, ran six
 bounded samples: 120 warmup + 360 recorded frames each, sequentially without
 builds/tests/bakes/native workers. **Every sample has 360/360 nonzero scene-draw
-frames**. [Exact commands](diagnostics/performance-execution.json),
-[raw CSV/log/manifest files](diagnostics/performance/) and
-[parsed distributions](diagnostics/performance-summary.json) retain provenance.
+frames**. Exact commands,
+raw CSV/log/manifest files and
+parsed distributions retain provenance.
 VSync is requested Off; the initial adapter receipt says Fifo, followed by the
 actual settings application log `[wgpu] present mode Immediate (immediate)`.
 
@@ -110,7 +110,7 @@ Capture-time instrumentation also now gives genuine **offscreen base-scene**
 counts: room/contact/entities/window/hall are 31/23/17/18/8 accounted draws in
 the fixed scene, respectively. Counts exclude uncounted sky/reflections, emission
 duplicates, post and UI. Frustum-accepted distinct indexed range/object vertices
-are not triangle or occlusion-visible counts. [Native state summary](diagnostics/native-state-summary.json)
+are not triangle or occlusion-visible counts. Native state summary
 records these counts plus world/prop/dynamic geometry storage, two atlas pages,
 reflection faces, actual scene resolution and process RSS for each control.
 Static upload remains 5,300 model triangles; a triangle count cannot be inferred

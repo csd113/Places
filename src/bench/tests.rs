@@ -20,6 +20,64 @@ fn parse_camera_accepts_yaw_and_optional_pitch() {
 }
 
 #[test]
+fn diagnostic_render_eye_requires_exactly_three_finite_coordinates() {
+    assert_eq!(
+        parse_camera_position(" -16.7 , 1.6, -30.8 "),
+        Some([-16.7, 1.6, -30.8])
+    );
+    for invalid in [
+        "", "1,2", "1,2,3,4", "1,2,3,", "nan,2,3", "1,inf,3", "1,2,-inf",
+    ] {
+        assert_eq!(parse_camera_position(invalid), None, "{invalid}");
+    }
+}
+
+#[test]
+fn deterministic_capture_delta_rejects_invalid_or_unbounded_steps() {
+    assert_eq!(
+        parse_fixed_delta_seconds(" 0.016666667 "),
+        Some(0.016_666_668)
+    );
+    assert_eq!(parse_fixed_delta_seconds(".1"), Some(0.1));
+    for invalid in ["", "0", "-0", "-.01", ".10001", "nan", "inf", "-inf", "1"] {
+        assert_eq!(parse_fixed_delta_seconds(invalid), None, "{invalid}");
+    }
+}
+
+#[test]
+fn diagnostic_eye_and_fixed_time_are_inert_without_benchmark_enablement() {
+    let mut bench = Bench::from_config(BenchConfig {
+        camera_position: Some([1.0, 2.0, 3.0]),
+        fixed_delta_seconds: Some(0.02),
+        ..BenchConfig::default()
+    });
+    assert_eq!(bench.camera_position_override(), None);
+    assert_eq!(bench.fixed_delta_seconds(), None);
+    assert!(!bench.set_camera_override([4.0, 5.0, 6.0], 90.0, -15.0));
+    assert_eq!(bench.camera_override(), None);
+}
+
+#[test]
+fn independent_render_eye_changes_reject_invalid_updates_atomically() {
+    let mut bench = Bench::from_config(BenchConfig {
+        enabled: true,
+        fixed_delta_seconds: Some(0.02),
+        ..BenchConfig::default()
+    });
+    assert!(bench.set_camera_override([-16.7, 1.6, -30.8], 0.0, -20.0));
+    for (position, yaw, pitch) in [
+        ([f32::NAN, 1.6, -30.8], 0.0, -20.0),
+        ([-16.7, 1.6, -30.8], f32::INFINITY, -20.0),
+        ([-16.7, 1.6, -30.8], 0.0, f32::NEG_INFINITY),
+    ] {
+        assert!(!bench.set_camera_override(position, yaw, pitch));
+        assert_eq!(bench.camera_position_override(), Some([-16.7, 1.6, -30.8]));
+        assert_eq!(bench.camera_override(), Some((0.0, -20.0)));
+    }
+    assert_eq!(bench.fixed_delta_seconds(), Some(0.02));
+}
+
+#[test]
 fn parse_vsync_override_maps_human_words() {
     assert_eq!(parse_vsync_override("on"), Some(true));
     assert_eq!(parse_vsync_override("1"), Some(true));

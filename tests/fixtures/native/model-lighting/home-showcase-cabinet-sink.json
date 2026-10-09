@@ -1,0 +1,78 @@
+{
+  "format_version": 1,
+  "level": "home_showcase",
+  "source": "levels/home_showcase.json",
+  "package": "levels/home_showcase.placesmap",
+  "settings": {
+    "bindings": {
+      "forward": "W",
+      "backward": "S",
+      "strafe_left": "A",
+      "strafe_right": "D",
+      "look_up": "UP",
+      "look_down": "DOWN",
+      "look_left": "LEFT",
+      "look_right": "RIGHT",
+      "jump": "SPACE",
+      "crouch": "C",
+      "interact": "E"
+    },
+    "look_speed_h": 90,
+    "look_speed_v": 60,
+    "walk_speed": 3,
+    "invert_look": false,
+    "mouse_sensitivity": 0.12,
+    "quality": "high",
+    "texture_filtering": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true,
+    "use_low_quality_lighting": false,
+    "vsync": false,
+    "fov_degrees": 60,
+    "window_mode": "windowed",
+    "window_width": 640,
+    "window_height": 360
+  },
+  "capture": {
+    "ready_world_seconds": 0.5,
+    "warmup_frames": 15,
+    "limit_frames": 3000,
+    "expected_drawable": [
+      1280,
+      720
+    ]
+  },
+  "views": [
+    {
+      "name": "showcase_cabinets_sink",
+      "spawn": [
+        6.5,
+        1.6,
+        7.4,
+        0
+      ],
+      "camera": [
+        26,
+        -8
+      ],
+      "target": "Actual base/upper cabinet props5-8 and core:sink prop9 on east wall",
+      "purpose": "Supplemental actual front view from south along narrow kitchen; previous preserved kitchen shot clips cabinets and omits sink. Verify entire target visibility and collision; camera is unvalidated until native baseline."
+    },
+    {
+      "name": "showcase_fridge_doors",
+      "spawn": [
+        6.5,
+        1.6,
+        5.1,
+        0
+      ],
+      "camera": [
+        155,
+        -12
+      ],
+      "target": "Actual core:fridge prop11 at[7.55,0,7.3], yaw270; both doors",
+      "purpose": "Supplemental oblique north approach lets both original fridge doors fit the narrow kitchen; old shot sees side only. Native baseline must confirm visibility."
+    }
+  ]
+}

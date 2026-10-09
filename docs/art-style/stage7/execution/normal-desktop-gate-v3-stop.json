@@ -1,9 +1,0 @@
-{
-  "recorded_utc": "2026-10-09T00:03:25.555928+00:00",
-  "verified_owner": "94828 94828 Thu Oct  8 16:48:15 2026     /Library/Frameworks/Python.framework/Versions/3.13/Resources/Python.app/Contents/MacOS/Python /tmp/places-stage7-command.py normal-desktop-gate-v3 sh tools/verify.sh",
-  "signal": "SIGTERM to exact owned process group",
-  "pgid": 94828,
-  "reason": "Read-only preserved/current Hallows comparison proves Full lightmap/irradiance loss from page overflow; prior successful rendering contract must be restored before final acceptance.",
-  "campaign": "target/verification/map-regression-20261008T235019Z-94829",
-  "status": "Intentionally stopped; no fabricated normal gate exit or acceptance."
-}

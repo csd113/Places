@@ -1,8 +1,0 @@
-   Compiling places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
-    Finished `test` profile [optimized + debuginfo] target(s) in 26.01s
-     Running unittests src/lib.rs (target/debug/deps/places-4d06d8c90f45374a)
-
-running 1 test
-test compiler::tests::material_transport::offline_materials_include_real_glass_coverage_and_wall_reflectance ... ok
-
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2097 filtered out; finished in 0.16s

@@ -1,12 +1,9 @@
-# Prompt 6 — Light Snowfall Weather
+# Light snowfall weather — 2026-10-07
 
 Winter now normally loads gentle snowfall through `"weather": {"kind": "snow"}`.
 The renderer has no Winter map-id special case; omitted weather preserves every
-other shipped Place's defaults. Prompt 6 alone is implemented on `Winter-expansion`.
-Prompts 7–9 remain queued and separate. Starting HEAD was
-`3abf087715b6401cfbd8504c7debd0ff8df11a03`; its
-[consolidation CI](https://github.com/csd113/Places/actions/runs/37594023563)
-completed successfully before this work.
+other shipped Place's defaults. The [final Winter audit](winter-final-audit.md) records subsequent integrated
+weather acceptance. The initial snowfall measurements remain dated observations.
 
 ## Configuration and rendering
 
@@ -159,11 +156,10 @@ Their one normal build durations were 165.097 / 189.570 / 36.103 / 238.115 s
 respectively. Every integrated Office, painting, aurora, winter, lighting and
 movement asset/source remains intact.
 
-`debug-maps/snowfall-20261007/evidence/` retains pre-snow and final matching
-assets, original PNG master, sources, playable Winter/contrast packages,
-pinned player/compiler, SDL library, launch instructions, raw native telemetry,
-captures and verification logs outside `target/`. Existing debug maps and both
-external Office/consolidation evidence archives remain intact. Shared build
-artifacts remain available for queued prompts. Publication SHA, exact remote
-verification, CI and final process/ownership release are recorded in the final
-handoff and accompanying ignored `evidence/handoff.json`.
+## Reproduction
+
+`tools/bench/capture_snowfall.py` exercises native camera/movement, contrast,
+quality cycling and equal-source on/off measurements. The maintained bright-floor
+contrast source and original flake master are independent reproduction inputs.
+Use the [final Winter audit](winter-final-audit.md) for integrated native examples
+and the canonical authoring guide for accepted weather ranges.

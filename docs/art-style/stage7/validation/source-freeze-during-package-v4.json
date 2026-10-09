@@ -1,8 +1,0 @@
-{
-  "recorded_utc": "2026-10-09T00:46:08.901519+00:00",
-  "source_freeze": "docs/art-style/stage7/source-input-identities-v5.json",
-  "source_freeze_sha256": "019d9e99dfa143e7ed395d7e795494143fce063f9b3ce53d67029d13555360b8",
-  "campaign": "target/verification/map-regression-20261009T002850Z-19070",
-  "checked": 231,
-  "mismatches": []
-}

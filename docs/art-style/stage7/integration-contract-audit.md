@@ -1,31 +1,10 @@
-# Stage 7 renderer/compiler integration audit
+# Integration contracts and verification method
 
-2026-10-08 UTC. Entry: `Art-style` at
-`26486b8538424f013c243ae6edea8720ac07d7f2`.
-This report records source review and the bounded validator, roof and probe-placement corrections. It does
-not substitute for the primary's final package, native, Rust or publication gate.
-[Integration evidence plan](integration-evidence-plan.md) identifies those checks.
-
-## Scope and custody
-
-The renderer/compiler owner read `AGENTS.md`, the canonical authoring and asset
-contracts, Stage 1–6 reports/contracts/performance, the deferred ledger and
-[Stage 6 completion](../../../debug-maps/art-style-hero/evidence/stage6-completion.json).
-Stage 6 released checkout/index/target with no active owned jobs. The primary
-retains sole ownership of Git, Cargo builds, package preparation and native
-processes. This specialist ran no build, bake, native process or Git mutation.
-Source writes were frozen before the primary's focused test checkpoint.
-
-Initial owned changes are `src/geometry_check.rs`, `docs/MAP_AUTHORING_GUIDE.md`,
-`docs/ASSET_SPECIFICATION.md`, `docs/VERIFICATION.md` and these two integration
-reports. No runtime shader, camera, level ID, lighting intensity, asset, collision
-volume, navigation policy, package format or safety limit is changed by the
-ghost correction. The subsequent recovered-review check below found a real
-roof-bound issue and received a separate bounded source allocation.
+Audited October 8–9, 2026. [Stage 7](README.md) completed with the historical Geometry 7/solver 16 contract below. Current source currency is Geometry 8/solver 17; Full planning max 11 pages (Demo two-group switch budget 10), Medium max 8. [Verification](../../VERIFICATION.md) is authoritative for current guards and commands, and the [separate model-lighting correction](../../model-lighting-root-cause-and-fix.md) explains the later changes. Reader compatibility, currentness, planning capacity and safety ceilings remain distinct.
 
 ## Ghost collider root cause and correction
 
-The Stage 3 [exact audit](../stage3/ghost-collider-audit.json) established that
+The Stage 3 exact audit established that
 wall 2's small collision partition has real face coverage by a larger return-wall
 triangle, with unchanged occupied collision union. `triangle_on_face` previously
 required the supporting triangle's centroid to lie inside the box's face
@@ -55,26 +34,25 @@ offset and slanted contacts; and the unchanged hero. The hero test requires the
 ghost warning to disappear while its intentionally open decorative garden
 retains `room-leak`. Existing roof, collision and checker regressions remain.
 
-The primary's [focused receipt](execution/geometry-focused.json) records
+The focused run executes
 `cargo test --lib --all-features geometry_check::tests`, exit 0, 28 passed,
-zero failed/ignored, in 89.89 s total. The [log](execution/geometry-focused.log)
-includes the new regressions. Strict Clippy and the full workspace gate remain
-part of the primary's final campaign. The correction changes validation only;
+zero failed/ignored, in 89.89 s total. The log
+includes the new regressions. Strict Clippy and the workspace gate subsequently passed as recorded in [final Stage 7 acceptance](README.md). The correction changes validation only;
 prepared meshes, collision and lighting bytes do not require a new geometry or
 solver revision.
 
-## Current formats and compatibility boundaries
+## Historical Stage 7 formats and compatibility boundaries
 
-| Contract | Current source and reader behavior |
+| Contract | Stage 7 publication source and reader behavior |
 | --- | --- |
 | Authored level / catalogue / package | Level schema 3; catalogue schema 2; package major 1. |
 | Geometry / physical solve | Geometry revision 7; solver revision 16. |
-| World mesh / collision / navigation | PLMW v2 / PLCL v2 / PLNV v1; older incompatible record revisions are rejected. |
-| Props | PLMP v6 shares exact vertex/frame bytes with unchanged decoded attributes; literal v3/v4/v5 readers retain their documented defaults and caster semantics. Encoded and expanded literal records remain bounded at 512 MiB. |
-| Legacy vertex lighting | Lighting record v2. |
-| Lightmaps | Cache/content-key format 13; metadata v3 with linear mean and signed moment RGBA16F KTX2 layers; incompatible metadata v2 is rejected. |
-| Irradiance field | PLPF v3 with aligned local-direct decomposition; v2 remains a legacy reader path without that decomposition. |
-| Reflection images | Positions v3 and HDR RGBA16F KTX2 captures/mip chains; positions v2 and legacy display RGBA8 probes decode once into linear, without recovering already clipped energy; positions v1 is rejected. |
+| World mesh / collision / navigation | PLMW v 2 / PLCL v 2 / PLNV v 1; older incompatible record revisions are rejected. |
+| Props | PLMP v 6 shares exact vertex/frame bytes with unchanged decoded attributes; literal v 3/v 4/v 5 readers retain their documented defaults and caster semantics. Encoded and expanded literal records remain bounded at 512 MiB. |
+| Legacy vertex lighting | Lighting record v 2. |
+| Lightmaps | Cache/content-key format 13; metadata v 3 with linear mean and signed moment RGBA16F KTX 2 layers; incompatible metadata v 2 is rejected. |
+| Irradiance field | PLPF v 3 with aligned local-direct decomposition; v 2 remains a legacy reader path without that decomposition. |
+| Reflection images | Positions v 3 and HDR RGBA16F KTX 2 captures/mip chains; positions v 2 and legacy display RGBA8 probes decode once into linear, without recovering already clipped energy; positions v 1 is rejected. |
 
 Source anchors: `src/level.rs`, `src/assets.rs`, `src/package/`,
 `src/lighting/bake.rs`, `src/lighting/probes.rs`, `src/lighting/transport.rs`,
@@ -82,7 +60,7 @@ Source anchors: `src/level.rs`, `src/assets.rs`, `src/package/`,
 Reader compatibility is distinct from currentness: an older accepted record
 does not establish that a package matches the current source/catalogue/tool.
 
-Stage 4's solver-15 zero-source repair remains intact. Every solved v3 probe field
+Stage 4's solver-15 zero-source repair remains intact. Every solved v 3 probe field
 carries the local-direct vector even when there are no always-on local sources,
 with coefficients aligned to slots and correctly zero. Writer and reader reject
 nonzero energy with zero source count, malformed lengths and inconsistent
@@ -130,8 +108,7 @@ distinct from prepared receiver-depth RGB absorption and gameplay collision.
 Weather movement/shelter, ice traction and water geometry stay unchanged. Existing
 maps need no per-name rendering exception or obligatory artistic retuning.
 
-The guide now distinguishes Full's ten-page and lower profiles' eight-page planning capacities from decoder
-safety ceilings and the 24-million generated vertex limit from art budgets.
+At Stage 7, Full planning used ten pages and lower profiles eight; current planning caps are stated above. Planning capacities remain distinct from decoder safety ceilings and the 24-million generated vertex limit from art budgets.
 The 100,000 count is a prop limit, not a vertex budget. Historical platform/test
 summaries keep their dates; macOS CI and Metal hero captures do not certify
 unexecuted Linux/Windows native hardware or a gameplay frame-rate budget.
@@ -179,10 +156,7 @@ The integration audit identified that `tests/list_levels.rs` package-layout
 staging originally omitted installed external dependency closure and the
 catalogue. An existing `assets` directory is selected by asset-root resolution,
 so an incomplete staged root cannot rely on fallback to the repository catalogue.
-This was routed to the primary/validation owner for an honest fixture repair;
-runtime guards must remain intact. Content migration, recovered local sources,
-new-chair Zoo adoption and reference receipts remain the content/primary owners'
-work. No file in those write sets is modified by this specialist.
+The completed staging fixture supplies exact installed closure/catalogue; runtime guards remain intact. Final content, recovered-source and new-chair adoption pass [Stage 7 acceptance](README.md).
 
 ## Compiler identity and embedded demo dependency
 
@@ -199,86 +173,18 @@ supports release dead stripping; it does not replace a final rebuild experiment.
 | Stage 6 retained `places-compile` | 6,809,648 | Same digest | Absent |
 | `assets/levels/places_demo.placesmap` at entry | 74,520,351 | `01595d413f58f298d178d0b97be2e2dde8513a9537b10ce2006ba14b2615047a` | Input archive |
 
-The normal player inspected at audit held the full demo at byte 6,250,846;
-the retained Stage 6 player at byte 6,218,214. No speculative loader refactor
-or weaker tool provenance was justified. Freeze Rust/assets/catalogue, build
-ordinary compiler C1, refresh the demo with C1, rebuild ordinary player/compiler
-C2, compare C1/C2 SHA, then require currentness and byte-preserving unchanged reuse.
-If the digest changes, distinguish linker/tool changes from embedded archive
-retention before considering a root-cause repair. Final normal and diagnostic
-executables keep their own provenance; an old compiler is no exception to the
-normal full-build workflow.
+The normal player inspected at this checkpoint embeds the complete demo. Dead stripping from the compiler avoids a presumed circular dependency; the completed normal gate verifies this through an actual C1/C2 rebuild and digest comparison rather than treating byte inspection alone as proof.
 
-## Release to primary
+## Completed verification order and acceptance method
 
-The subsequent [recovered review audit](integration-recovered-review-audit.md)
-found two Blizzard wall tops one f32 ULP below their actual ridge after interior
-profile extrapolation. Exact occupied union and an exact body/support predicate
-changed, so no tolerance waiver was accepted. A separately authorized repair
-resolves each cut span's midpoint roof owner, evaluates both endpoints against
-that fixed owner, and shares the resulting maximum across collision, geometry,
-coalescing and validation. Unsupported generic profiles retain their existing
-callback API/fallback. Geometry revision 7 invalidates prepared products.
+The normal gate builds release compiler C1, checks assets/generators, migrates the recursive source inventory, then rebuilds ordinary compiler/player C2 after refreshing the embedded demo. C1/C2 compiler identity, required-current verification, dependency closure and unchanged safe reuse must agree. Frozen normal and diagnostic binaries retain separate provenance. Changes to source, catalog or compiler require new compatible inputs.
 
-The additional changed source files are `src/level.rs`,
-`src/level/tests/wall_ceiling.rs`, `src/loader.rs`,
-`src/render/common/mod.rs` and `src/render/common/architecture.rs`.
-The existing geometry emitter already evaluates exact endpoints against the
-span's owner and needs no separate `geometry.rs` change. Four new embedded
-tests require exact ridge bounds, adjacent-roof maxima without borrowing,
-constant/explicit bounds and the previous body/support predicate witnesses.
-Their serialized Rust check and final package comparison remain the primary's
-next gate. The earlier C1 campaign is preserved as superseded evidence.
+The complete locked Rust gate and Python discovery follow that build/package order, with no `PLACES_SKIP_SMOKE` or `PLACES_SKIP_PACKAGING` substitutions. The maintained capacity generator preserves its 48-model witness, 5,312 props, 2,760 explicit solid placements, 120 lights and 18 routes under catalog growth; exact serialized-fixture and collision-pressure checks remain required. The optional synthetic sibling archive is not claimed executed when absent.
 
-The [Demo probe coverage audit](integration-demo-probe-coverage-audit.md) then
-confirmed missing prepared support on the playable Home loop in preserved C1.
-Room 7's saved walkable witness is 9.4766 m from its nearest valid probe, beyond
-the unchanged 4.06094 m runtime support radius; room 8 also has unsupported
-walkable centres. The source remained unchanged. A separately allocated bounded
-phase repair moves the exact compiler air predicate into a shared helper and
-checks at most 64 existing-grid phases. Already covered fields retain the
-original phase; a changed phase must increase covered-room count and preserve
-every originally covered room. Missing-room searches count every strict valid
-probe in all 63 additional phases and compare covered-room count, then sorted
-ascending room populations; an early boundary singleton cannot end the search.
-Target preparation and bake share one chosen
-layout, with exact position alignment checked before baking. Solver revision 16
-invalidates earlier physical caches. PLPF v3, caps, radius, visibility and the
-solver-15 aligned zero-source contract remain unchanged. Six new focused tests
-cover exact/legacy placement, blocked and infeasible cases, the actual Demo
-source witness and zero-source serialization. The test geometry uses real
-architecture/materials with asset-less prop placeholders; fully resolved-asset
-final field and native coherence still require separate acceptance evidence.
-The retained first-strategy preflight-v7 failed the unchanged Demo runtime
-witness and an incorrectly bounded synthetic fixture. The corrected strategy
-and fixture passed the primary [focused-v2 gate](execution/probe-focused-v2.json),
-21/21 tests in 15.00 s (44.54 s with build), including actual Demo source support.
-Selected Demo room counts 7/10 are 16/4; all original room coverage is retained.
-The primary [strict preflight-v8](execution/rust-preflight-v8.json) subsequently
-passed format/check/strict debug+release Clippy and compiler5/roof16/geometry28
-focused suites in 78.37 s. A [normal release checkpoint](execution/release-compiler-c1-v3.json)
-passed in 96.05 s. The allocated obsolete Demo assertion cleanup and final source
-freeze remain primary work; full workspace and final resolved-field/native gates
-remain separate.
+A normal native inventory replay requires nonzero actual scene submission and matching GPU-ready/scene-presented identities for all 48 supported source paths. Geometry replay additionally exercises the invalid Arc control and requires its exact intended errors. Missing display/binary or platform limitations must be recorded, rather than accepted as native passes. Same-camera normal/diagnostic `final` comparison requires ordinary exposure, grade, bloom, sky, decals and effects. Animated differences require qualified actual payload and pixel-region evidence; [Stage 7's Home conclusion](README.md) retains the missing pose/time qualification.
 
-The separate [Pit lower-floor audit](integration-pit-probe-coverage-audit.md)
-checks all 1,236 actual saved lower-floor walkable humanoid cell centres. Despite
-no labels 16–19, smaller overlapping shaft rooms 20–23 own their actual air; every
-centre has at least 12 clear, label-valid probes against saved PLLT2 solids.
-No source migration or label/radius exception is justified. Final new-package
-Rust sampler/native checks remain separate.
+Live quality checks require requested/applied/resident agreement, selected prepared-package availability and genuine encoded draws/indices. An archive that decodes after losing its previously available atlas/field is rejected as a lighting fallback regression. Capture submission and successful loading remain distinct from physical display cadence and ordinary gameplay FPS. Current reusable commands and inputs are maintained in [Verification](../../VERIFICATION.md).
 
-The additional probe source files are `src/lighting.rs`,
-`src/lighting/probe_placement.rs`, `src/compiler/probes.rs`,
-`src/lighting/transport.rs`, `src/lighting/transport/tests/probes.rs` and
-`src/render/common/light_transport.rs`. They are frozen and released; the
-primary owns formatting and serialized tests/builds. The primary also updates
-current canonical solver/package documentation. Both prior C1 campaigns remain
-superseded, with byte-verified preservation receipts.
+## Typed atlas-record safety
 
-Source and canonical documentation writes are released after the bounded repair.
-The primary can format/check/build the shared target serially. The focused ghost
-checker gate above passed; roof tests, remaining full checks, directed live quality/
-map changes, all supported current packages, final identity/reuse and native review
-belong to the primary's integration campaign. Historical receipts and seven
-concepts remain immutable. There are no active specialist jobs or permission changes.
+Demo's historical ten-page, two-group Full atlas produces forty RGBA16F layers: 320 MiB of GPU texel payload and a 335,544,516-byte KTX2 record. Its role-specific allowance is 320 MiB plus 64 KiB; unrelated entries retain their ordinary 256 MiB bound, mesh/prop records 512 MiB and aggregate packages 1 GiB. The exact KTX2 header, layer counts and paired irradiance/moment shapes must validate before allocation. This measured exception is not a generic raising of every record limit or permission to silently omit an atlas.

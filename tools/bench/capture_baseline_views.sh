@@ -2,8 +2,9 @@
 # Captures the canonical frozen reference set: the fixed view set below, in the
 # High and Low quality profiles, from Places Demo.
 #
-# The frozen reference lives in docs/renderer-baseline/ (high/ and low/ beside
-# BASELINE.md). A current build is captured with the same script and compared
+# The frozen reference lives in tests/fixtures/native/gles2-reference/; its
+# readable record is docs/renderer-baseline/BASELINE.md. A current build is
+# captured with the same script and compared
 # view by view, or used to refresh a comparison capture directory:
 #
 #     sh tools/bench/capture_baseline_views.sh                       # both profiles
@@ -30,7 +31,7 @@ set -eu
 
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
 BIN="${PLACES_BIN:-$REPO/target/release/places}"
-OUT="${PLACES_CAPTURE_DIR:-$REPO/docs/renderer-baseline}"
+OUT="${PLACES_CAPTURE_DIR:-$REPO/debug-maps/renderer-baseline-captures}"
 STATE="${PLACES_BASELINE_STATE:-$REPO/target/renderer-baseline-state}"
 
 if [ ! -x "$BIN" ]; then

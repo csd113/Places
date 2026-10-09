@@ -67,6 +67,20 @@ pub const VK_FORMAT_R16G16B16A16_SFLOAT: u32 = 97;
 /// Total size of the data format descriptor this writer emits.
 const DFD_TOTAL_SIZE: u32 = 92;
 
+/// Identifier and fixed KTX2 header fields before the per-level index.
+const FIXED_HEADER_BYTES: u64 = 80;
+const LEVEL_INDEX_BYTES: u64 = 24;
+
+/// The writer's complete header, one level index and aligned descriptor.
+/// Atlas planning reserves these bytes before budgeting image data.
+pub(crate) fn single_level_header_bytes() -> u64 {
+    align4(
+        FIXED_HEADER_BYTES
+            .saturating_add(LEVEL_INDEX_BYTES)
+            .saturating_add(u64::from(DFD_TOTAL_SIZE)),
+    )
+}
+
 /// [`DFD_TOTAL_SIZE`] as an array length.
 #[expect(
     clippy::as_conversions,
@@ -457,14 +471,11 @@ fn encode_levels(
         ));
     }
 
-    let header_size: u64 = 12 + 9 * 4;
-    let index_size: u64 = 4 * 4 + 2 * 8;
     let level_index_size = u64::from(level_count)
-        .checked_mul(24)
+        .checked_mul(LEVEL_INDEX_BYTES)
         .ok_or_else(|| "KTX2 header size overflows".to_string())?;
-    let dfd_offset = header_size
-        .checked_add(index_size)
-        .and_then(|value| value.checked_add(level_index_size))
+    let dfd_offset = FIXED_HEADER_BYTES
+        .checked_add(level_index_size)
         .ok_or_else(|| "KTX2 header size overflows".to_string())?;
     let data_offset = align4(
         dfd_offset

@@ -1,6 +1,0 @@
-   Compiling places v0.7.0 (/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.83s
-  Executable unittests src/main.rs (target/debug/deps/places-febb7d61995c3093)
-real 12.85
-user 20.16
-sys 1.44

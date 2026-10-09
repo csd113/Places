@@ -1,5 +1,8 @@
 # Winter ice pass — 2026-10-06
 
+Historical acceptance: 2026-10-06 ice/controller pass. Counts, timings and validation below describe
+that tested version; the canonical guides govern current contracts.
+
 Winter's existing 10 × 12 m pond now has blue-gray translucent ice with quiet
 cloudy facets, sparse cracks and pale highlights. The dedicated 1024² PNG uses
 the existing world-aligned floor/material system at an 8 m repeat. Material
@@ -28,7 +31,7 @@ blocked momentum; reset and ladder attachment clear it. Gravity, jump height,
 step reach, vertical support and collision sweeps retain their existing behavior.
 
 The existing pond floor remains at -0.16 m. Its depth backing is non-solid at
--0.31 m, and all added drifts are non-solid. The [source comparison](winter-ice/collision-comparison.json)
+-0.31 m, and all added drifts are non-solid. The source comparison
 against `ec533422fcb45c8b1f20be3da7b5047d7f6ff004` confirms rooms, walls,
 floor regions, stairs, ramps, doors, guardrails and existing solid props/void
 walls retain their geometry: zero new colliders. West/south approaches stay
@@ -72,8 +75,9 @@ pass. The [preceding snow report](winter-static-assets.md) records both failures
 Both were also reproduced individually with this pass's test binary pointed at
 an asset root containing the original `HEAD:assets/catalog.json`, confirming
 they do not depend on the new ice entries. Tests were not suppressed or weakened.
-The repository-wide test gate remains red until that separate showcase issue
-is addressed.
+At this pass's completion the repository-wide gate remained red for that
+showcase issue. The subsequent [string-light integration](winter-string-lights.md)
+refreshed Zoo and passed the full gate; these earlier failures remain recorded.
 
 The new controller tests cover entering/leaving ice, coasting and stopping,
 reversal, bounded diagonal speed, takeoff, landing, reset, a thin collision wall,
@@ -88,7 +92,7 @@ Metal desktop renderer. Every run exited zero, presented Winter, applied the
 requested quality and passed its applicable traversal bounds. High checks
 pond entry, jump/landing, reverse/return to snow, coast versus snow stopping and
 the pond rail boundary. High/Medium/Low pond and close views show distinct ice;
-the High pond also passes with Low lighting forced. [Native records](winter-ice/native-validation.json)
+the High pond also passes with Low lighting forced. Native records
 preserve package/binary/capture identities and movement bounds.
 
 ```sh
@@ -114,7 +118,7 @@ x=16.465 with ordinary shoreline height, without vertical recovery or clipping.
 | Material changes | 37 | 44 |
 | Reflection passes | 0 | 0 |
 
-The [cost comparison](winter-ice/cost-comparison.json) adds 1,320 expanded vertices,
+The cost comparison adds 1,320 expanded vertices,
 seven draws and 82.5 KiB of vertex buffers. One 4 MiB decoded RGBA albedo is shared
 with the depth backing. The rebuilt package is 52,244,409 bytes. Medium/Full
 retain three/five lightmap pages, 256 collision wall boxes and 57,120 navigation
@@ -123,9 +127,9 @@ fallback; no atlas overflow or package warnings occurred.
 
 A separate High native benchmark measured 1,200 frames after 240 warmup frames
 with vsync enabled: mean 119.99 FPS, median loop 8.331 ms, p99 loop 9.213 ms and
-mean update 0.082 ms. [Run configuration](winter-ice/performance-run.json) and
-[measurements](winter-ice/native-performance.json) preserve the setup and summary.
-The final seven-sample [controller benchmark](winter-ice/controller-performance.json)
+mean update 0.082 ms. Run configuration and
+measurements preserve the setup and summary.
+The final seven-sample controller benchmark
 measures medians of 0.847 µs/frame on ordinary ground, 1.019 µs in the dense
 4,000-wall fixture and 0.920 µs on ice. These are local measurements on this Mac,
 not a performance guarantee for other hardware; the short screenshot timings
@@ -136,8 +140,7 @@ Package SHA256:
 Release binary SHA256:
 `9bead0d18b7eca4e4d58636266f29c6a2796992f24d95dae24f57fa11c34d862`.
 
-![Frozen pond and shoreline snow](winter-ice/high-pond.png)
-![Restrained ice cracks and cloudy facets](winter-ice/high-ice-close.png)
+![Frozen pond and shoreline snow](../images/reports/winter-ice/high-pond.png)
 
 ## Image source
 
@@ -150,17 +153,9 @@ The final generation prompt was:
 
 > Use case: stylized-concept. Asset type: a single seamless tiling square 1024x1024 albedo PNG for a retro low-poly first-person game's frozen pond floor. Orthographic flat top-down texture only, fills entire square edge to edge, no scene, no borders, no perspective. Quiet blue-gray ice, muted pale slate and soft steel blue with very subtle large flat polygonal cloudy variations suggesting trapped air beneath translucent frozen water. A few sparse hairline angular cracks, short broken pale blue highlights adjacent to cracks, restrained rather than a dense web. Approximately an 8-metre square patch of ice, cracks small and sparse at that scale. Even neutral albedo illumination, no baked shadows, no central spotlight, no mirror reflection, no glossy photographed surface, no snow clumps or shoreline, no objects, no text. Perfectly seamless repeat in both axes: matching edge colors and marks; avoid cracks reaching image boundary. Stylized handcrafted PS1/low-poly game artwork, readable at distance, large quiet areas, low contrast variation. All pixels opaque; actual translucency will be supplied by the game's material, not holes or transparent pixels.
 
-## Changed files
+## Reproduction
 
-- `assets/catalog.json`
-- `assets/environment/winter/README.md`
-- `assets/environment/winter/textures/floors/ice_01.png`
-- `assets/levels/winter.json`, `assets/levels/winter.placesmap`
-- `src/assets.rs`, `src/game.rs`, `src/level.rs`, `src/loading.rs`
-- `src/level/ground.rs`, `src/materials/ground.rs`
-- `src/materials.rs`, `src/materials/pack.rs`, `src/materials/resolve.rs`, `src/materials/tests.rs`
-- `src/game/tests.rs`, `src/game/tests/ice.rs`, `src/game/tests/winter.rs`, `src/game/tests/movement_performance.rs`
-- `tests/test_winter.py`
-- `tools/levels/build_winter.py`, `tools/bench/capture_winter.py`, `tools/bench/winter_views.json`
-- `docs/MAP_AUTHORING_GUIDE.md`, `docs/ASSET_SPECIFICATION.md`
-- `docs/reports/winter-ice.md` and the JSON/PNG evidence in `docs/reports/winter-ice/`
+Use the authored Winter pond and `tools/bench/capture_winter.py` for native
+pond/entry/coast/wall controls. The controller tests provide fixed 30/60/144 Hz
+endpoint checks independently of frame-sampled native trajectories. Current
+material/ground-surface contracts are in the map and asset guides.

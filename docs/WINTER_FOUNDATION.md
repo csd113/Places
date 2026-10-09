@@ -73,8 +73,9 @@ describe canonical future directories, references and integration anchors.
 
 The following commands are run from the repository root. Logs and full native
 captures are retained under `target/winter-*` and `target/winter-evidence/`.
-The committed images below and `docs/winter-foundation/validation.json`
-preserve selected evidence beyond build cleanup.
+The committed native images below preserve the selected visual evidence.
+The table records the final results; raw execution receipts are kept out of the
+published documentation.
 
 | Command | Result |
 | --- | --- |
@@ -145,7 +146,7 @@ Added:
 - `tools/bench/capture_winter.py` and `tools/bench/winter_views.json`
 - `src/game/tests/winter.rs` and `tests/test_winter.py`
 - `docs/WINTER_FOUNDATION.md`
-- `docs/winter-foundation/{square,lodge,pond,overview}.png` and `validation.json`
+- `docs/winter-foundation/{square,lodge,pond,overview}.png`
 
 Modified:
 

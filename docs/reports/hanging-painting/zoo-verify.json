@@ -1,8 +1,0 @@
-{
-  "source": "assets/levels/model_zoo.json",
-  "package": "assets/levels/model_zoo.placesmap",
-  "package_fingerprint": "eb9c07e3d8b1bd6ce649926c218f9247d4a1510e942f5380f3aaf464dd4d894c",
-  "current_fingerprint": "eb9c07e3d8b1bd6ce649926c218f9247d4a1510e942f5380f3aaf464dd4d894c",
-  "current": true,
-  "differences": []
-}

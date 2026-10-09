@@ -1,5 +1,0 @@
-{
-  "run": "run-v1",
-  "cause": "Sequence requested nonexistent home:chair alias; action correctly rejected, no captures",
-  "correction": "door-v2 uses verified home:dining_chair; all not-yet-executed crossing/cost inputs corrected before capture"
-}

@@ -1,6 +1,6 @@
 # Stage 3 measured costs — 2026-10-08 UTC
 
-Same Mac14,9 / Apple M2 Pro, 12 CPU /19 GPU cores,16 GB unified memory,
+Same Mac 14,9 / Apple M 2 Pro, 12 CPU /19 GPU cores, 16 GB unified memory,
 native macOS Metal as [Stage 2](../stage2/performance.md). All native jobs,
 bakes and measurements run sequentially; no task build or test overlaps a
 measured bake or frame sample. Ordinary desktop applications remain running.
@@ -9,8 +9,8 @@ unchanged. The separate control is an additive arrangement of that same hero.
 
 ## Normal forced compilation
 
-[Final compiler receipt](hero-build-published.json), [verbose phase log](hero-build-published.log)
-and [OS receipt](hero-build-published-time.log) measure the normal release compiler,
+Final compiler receipt, verbose phase log
+and OS receipt measure the normal release compiler,
 12 workers, all Off/Medium/Full variants, forced output. Dump instrumentation is
 absent. Stage 2's normal forced run is reused rather than recompiling history.
 
@@ -25,9 +25,9 @@ absent. Stage 2's normal forced run is reused rather than recompiling history.
 | Dependency loading | prior receipt | 60.23 ms |
 | Package | 4,521,326 bytes | 5,187,045 bytes (+14.72%) |
 
-The preceding [sealed v3 run](hero-build-sealed.json) was7.526 /7.81 s, with
-194.75 ms first capture/setup rather than2405.08 ms. The v4 repeat before the cap hint repair was9.837 /10.13 s with Full
-preparation5249.83 ms; the final Full preparation is5286.67 ms. The cap repair
+The preceding sealed v 3 run was 7.526 /7.81 s, with
+194.75 ms first capture/setup rather than 2405.08 ms. The v 4 repeat before the cap hint repair was 9.837 /10.13 s with Full
+preparation 5249.83 ms; the final Full preparation is 5286.67 ms. The cap repair
 alters package room hints and fill, so package equality is not claimed. Most
 of the end-to-end variation is
 native setup/capture cost, not a lighting speedup. The final cost is higher than
@@ -45,29 +45,29 @@ budget is reduced to compensate. One run cannot establish a stable RSS gain.
 | Diffuse filtering | 320.867 | 506.951 |
 | Baseline fill | 20.860 | 34.610 |
 
-The final run records scene construction4.845 /5.623 ms,
-199.32 ms hashing and143.50 ms archive publication. Phase totals include bounded
+The final run records scene construction 4.845 /5.623 ms,
+199.32 ms hashing and 143.50 ms archive publication. Phase totals include bounded
 worker overhead and need not sum exactly to compiler preparation. Direct time
 includes visibility and accumulation; no unsupported standalone BVH-only timing
 is claimed. Serialization, capture, hashing and publication remain separately
-reported compiler phases. [Controlled annex](controls-build-published.json) costs
-10.264 s compiler time and6,782,162 bytes; it is a larger diagnostic arrangement,
+reported compiler phases. Controlled annex costs
+10.264 s compiler time and 6,782,162 bytes; it is a larger diagnostic arrangement,
 not a replacement benchmark for the original hero.
 
 ## Storage and useful work
 
-[Package member comparison](storage-published-comparison.json) preserves byte and compressed
-member sizes. The page array is still two1024² pages with paired float irradiance
-and moments:33,554,432 resident bytes per Medium/Full variant. Uncompressed KTX2
-is33,554,628 bytes per variant including headers. More detailed fields compress
-less: the two compressed lightmap blobs total3,543,709 bytes versus3,014,500.
+Package member comparison preserves byte and compressed
+member sizes. The page array is still two 1024² pages with paired float irradiance
+and moments:33,554,432 resident bytes per Medium/Full variant. Uncompressed KTX 2
+is 33,554,628 bytes per variant including headers. More detailed fields compress
+less: the two compressed lightmap blobs total 3,543,709 bytes versus 3,014,500.
 No texture/concept/model file is changed. Five thousand three hundred model
-triangles,16 prop batches,495 probe slots /260 air-valid probes,3194 navigation
+triangles, 16 prop batches, 495 probe slots /260 air-valid probes, 3194 navigation
 cells /2 regions are retained. Architecture now includes real exposed rigid wall
-tops and consistent roof-profile cuts:23 collision spans instead of21, covering
+tops and consistent roof-profile cuts:23 collision spans instead of 21, covering
 the same authored solids rather than adding a gameplay barrier.
 
-Full chart count5347→5354 and receivers167,960→203,798 (+21.34%). Positive spans
+Full chart count 5347→5354 and receivers 167,960→203,798 (+21.34%). Positive spans
 retain both endpoints;6205 one-sample axes become zero. Padding/bounds audit finds
 zero overlapping reservations in both versions. Medium uses the same geometric
 chart set with its existing density. Physical footprint scouts and bounded
@@ -76,17 +76,17 @@ coverage sampling increase direct work without changing source tap counts.
 Finite-source tap iteration removes per-receiver temporary Vec allocations.
 Transport images share decoded compiler allocations through Arc. A sparse Blend
 node mask prunes opaque-only subtrees; no new cross-build cache or dependency
-framework is introduced. The [unchanged-package build](hero-reuse-published.json) exits0 in263.39 ms,
-reports `rebuilt:false`, and preserves the normal package hash. It spends37.29 ms
-loading dependencies and225.11 ms checking package integrity, with no transport
+framework is introduced. The unchanged-package build exits 0 in 263.39 ms,
+reports `rebuilt:false`, and preserves the normal package hash. It spends 37.29 ms
+loading dependencies and 225.11 ms checking package integrity, with no transport
 or native reflection recapture. Stage 6 owns the documented live material-dependency key gap.
 
 ## Submitted runtime samples
 
-[Four sequential final High samples](performance/native/published-high/),
-[parsed distributions](performance-published-summary.json):120 warmup +360 recorded
-frames, screenshot readback absent,360/360 nonzero draw frames in every sample.
-VSync requested Off and actual Immediate; drawable1280×720, bloom and Full
+Four sequential final High samples,
+parsed distributions:120 warmup +360 recorded
+frames, screenshot readback absent, 360/360 nonzero draw frames in every sample.
+VSync requested Off and actual Immediate; drawable 1280×720, bloom and Full
 lightmaps/reflections unchanged. These are CPU/submission/event-loop timings,
 **not GPU execution or minimum frame-rate measurements**.
 

@@ -26,14 +26,7 @@ Two bloom-off/on 32-byte uniforms replace six preset slots and update on authore
 changes only. Final output still quantizes to eight display bits; no dithering or
 antialiasing system is added. Native acceptance evaluates visible banding and edges.
 
-Diagnostics return documented mapped linear values before normal material/fog
-composition. Identity post applies one sRGB encoding without exposure, shoulder,
-grade or bloom; sky/decals/weather overlays are suppressed. Thus a mapped normal
-component 0.5 becomes about 0.735 display RGB, rather than a literal 0.5 byte.
-HDR views use their explicitly documented HDR/(1+HDR) mapping. Capture logs label
-this encoding and bypass. Diagnostic `final` executes normal composition and must
-match the ordinary binary separately. Diagnostic display brightness is not a
-measurement of irradiance.
+Diagnostics map normals and HDR values into documented display RGB, then apply `srgb_to_linear(display)` in `visual_diagnostic_color`. The identity post path re-encodes once, so the inverse conversion cancels it: `E(D(M(I))) ≈ M(I)`. A mapped normal component of 0.5 therefore presents near 0.5, subject to eight-bit quantization. The original Stage 5 receipt description implying a displayed value near 0.735 was inaccurate; the shader conversion is unchanged. HDR views use their documented `HDR/(1+HDR)` mapping. Exposure, shoulder, grade, bloom, sky, decals and weather are bypassed for these diagnostics. Diagnostic `final` executes ordinary composition and requires separate normal-binary equality. Diagnostic display brightness is not irradiance.
 
 ## Selective bloom and coverage
 
@@ -96,7 +89,7 @@ and ordinary final exposure. These reusable material changes require nonhero
 package adoption in Stage 7; no nonhero map is baked or visually tested here.
 
 Geometry revision is 6 for prepared water charts/fan layout. Solver remains 15,
-PLPF v3 and existing reflection/atlas formats remain intact. New optional schema
+PLPF v 3 and existing reflection/atlas formats remain intact. New optional schema
 fields serialize into normal package identity; earlier bundles retain compatible
 old executables, catalogues and assets. Stage 6 owns dependency-aware cache work,
 including avoiding presentation-only lighting invalidation where appropriate.

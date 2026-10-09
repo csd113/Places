@@ -1,9 +1,12 @@
 # Winter integration and art polish — Prompt 8
 
+Historical acceptance: 2026-10-07 environment integration. Counts, timings and validation below describe
+that tested version; the canonical guides govern current contracts.
+
 Baseline: `3ceb1fafd6d5e49f02448523aeae14a5b782e673`, branch
 `Winter-expansion`. This pass authors Winter's composition and repairs visible
 integration defects. No engine, asset catalog, texture, GLB, material, weather,
-movement or non-Winter map source was changed. Prompt 9 remains queued.
+movement or non-Winter map source was changed. The [final Winter audit](winter-final-audit.md) records subsequent acceptance.
 
 ## Art direction and changes
 
@@ -42,30 +45,15 @@ three quality settings. No weather or lighting-engine redesign was introduced.
 ## Native before/after evidence
 
 These are actual SDL3/wgpu Metal captures on the M2 Pro. Each pair uses the same
-camera, timing, player binary and weather; pixels are unchanged.
+camera, timing, player binary and weather. The original PNG bytes are unedited.
 
 | View | Before | After |
 | --- | --- | --- |
-| Square/path and silhouettes | [Before](winter-integration-evidence/before-square.png) | [After](winter-integration-evidence/after-square.png) |
-| Lodge approach/sheltered snow | [Before](winter-integration-evidence/before-lodge.png) | [After](winter-integration-evidence/after-lodge.png) |
-| Pond/shore composition | [Before](winter-integration-evidence/before-pond.png) | [After](winter-integration-evidence/after-pond.png) |
-| Severe entrance landmark | [Before](winter-integration-evidence/before-blizzard-entrance.png) | [After](winter-integration-evidence/after-blizzard-entrance.png) |
+| Lodge approach/sheltered snow | [Before](../images/reports/winter-integration-evidence/before-lodge.png) | [After](../images/reports/winter-integration-evidence/after-lodge.png) |
+| Pond/shore composition | [Before](../images/reports/winter-integration-evidence/before-pond.png) | [After](../images/reports/winter-integration-evidence/after-pond.png) |
 
-Additional native views: [overview](winter-integration-evidence/final-overview.png),
-[closed lodge foundation](winter-integration-evidence/final-lodge-foundation.png),
-[forest resting place](winter-integration-evidence/final-forest-rest.png).
-[Capture provenance](winter-integration-evidence/capture-index.json) and
-[native route results](winter-integration-evidence/native-validation.json)
-are committed with the images.
-
-Both calm and severe High runs include 22 views and 11 actual held-control
-walks: lodge/overhang, stairs, pond crossing, forest, ice coast, snow stop,
-ice-wall stop, rock collision/retreat, railing collision/retreat and both
-cottage approaches. All assertions passed. Representative square, lodge,
-pond, forest resting place, cottage string and interior views also passed in
-Medium and Low in both modes: 68 accepted scene/route views, plus two overview
-views, ten paired comparison views and a severe live High→Low→Medium→High
-cycle. Weather telemetry records no particle-buffer capacity growth.
+These original same-binary native comparisons hold camera and weather constant.
+The accepted campaign contains 68 view/route checks and a live quality cycle.
 
 ## Geometry, collision and performance
 
@@ -91,7 +79,6 @@ Off 115 ranges/4,703 vertices/0 atlas pages; Medium and Full
 111 ranges/3,655 vertices with 3 and 4 atlas pages respectively. Full previously
 used 5 pages. These totals include repeated evergreens, snow caps, string
 geometry, ice and aurora through the existing renderer/material paths.
-[Composition metrics](winter-integration-evidence/composition.json).
 
 The matched High native square records 364→345 prop draw calls and 312→293
 visible total draws. Model texture residency drops 10,112→9,856 KiB; the Full
@@ -138,9 +125,6 @@ The earlier before-art calm on means were 8.223/7.364/7.146 ms and medians
 6.899/5.261/5.025 ms for High/Medium/Low. Those separate-time samples have
 different timing distributions; no before/after art speedup is inferred. The
 measured draw/memory reductions above remain direct resource observations.
-[Completed-frame results](winter-integration-evidence/completed-frame-results.json),
-[console checks](winter-integration-evidence/console-checks.jsonl) and
-[performance data](winter-integration-evidence/performance.json).
 
 ## Validation and practical limits
 
@@ -174,7 +158,6 @@ measured draw/memory reductions above remain direct resource observations.
   byte-identical. The original 400-file Prompt 7 frozen archive and new
   393-file frozen payload pass their complete SHA-256 manifests.
 
-[Verification counts and exact hashes](winter-integration-evidence/verification.json).
 The initial locked-console gaps are resolved by the focused unlocked suite and
 both accepted timing campaigns. Historical skips remain recorded accurately;
 there are no outstanding display-dependent Prompt 8 validation cases.
@@ -190,22 +173,10 @@ position or roof. Roof tops are not newly made accessible. Performance numbers
 are whole-frame timings including GPU completion with host jitter, not isolated
 GPU timestamps. The sky boundary and severe visibility retain their existing design.
 
-Two intermediate compiler runs were intentionally interrupted during geometry
-iteration, and a sandboxed initial launch could not access a display. Those
-logs are retained as failed/superseded attempts; all accepted builds/captures
-use successful final native runs with display access.
+## Reproduction
 
-## Reproduction and preservation
-
-See [review instructions](../../debug-maps/winter-integration-20261007/README.md)
-and `tools/bench/capture_winter_integration.py`. The ignored
-`debug-maps/winter-integration-20261007/evidence/` archive preserves raw before
-and final captures/telemetry/logs, exact source/packages, matching player,
-compiler and SDL binaries, dependency assets and a SHA-256 preservation
-manifest outside `target`. Its frozen launcher supports both modes.
-
-Earlier snowfall/blizzard/movement/compiler debug collections and both external
-Office/Consolidation evidence directories remain intact. The original Prompt 7
-frozen launcher/payload are preserved; only its current review source is synced.
-Shared target artifacts remain available for Prompt 9. Publication SHA, remote
-confirmation and CI outcome are recorded in the final task handoff after commit.
+`tools/bench/capture_winter_integration.py` exercises matched native views, routes,
+quality cycling and completed-frame checks. The dated A/B requires original and
+final authoring/package inputs with matching assets and the same player. Frozen
+launch settings support both calm Winter and the severe review variant.
+The [final Winter audit](winter-final-audit.md) records later integrated acceptance.

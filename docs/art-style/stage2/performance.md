@@ -1,14 +1,12 @@
 # Stage 2 costs — 2026-10-08 UTC
 
-Same Mac14,9 / Apple M2 Pro, 12 CPU /19 GPU cores,16 GB unified memory,
-macOS27.0.1 native Metal as [Stage 1](../performance.md). Window640×360 logical,
+Same Mac 14,9 / Apple M 2 Pro, 12 CPU /19 GPU cores, 16 GB unified memory,
+macOS 27.0.1 native Metal as [Stage 1](../performance.md). Window 640×360 logical,
 1280×720 drawable, VSync requested Off and applied Immediate. Fixed hero cameras,
 source/assets/lights/environment remain unchanged. No concurrent build/test/bake
 or other task-owned native worker runs during these six sequential samples.
 Ordinary desktop applications still run; this is one host, not an isolated GPU
-laboratory. [Exact commands](native-final-execution.json),
-[raw logs/CSVs/manifests](performance/native/) and
-[parsed distributions](performance-summary.json) are retained.
+laboratory. Measurements use the bounded method below.
 
 ## Submitted runtime samples
 
@@ -34,7 +32,7 @@ run or cross-platform measurement is available. Budget/cap changes are not justi
 The final counter fix removes phantom object vertices for empty alpha classes.
 Stage 1 and the first Stage 2 galleries counted the opaque chair again during an
 empty translucent visit; adding correct cutout visits exposed another extra count.
-Final High room/entities report21,008/10,668 rather than21,440/11,100. This is
+Final High room/entities report 21,008/10,668 rather than 21,440/11,100. This is
 accounting, not dropped geometry or reduced content. Per-object buffers may still
 be counted once per *submitted* alpha class on a mixed-class mesh; counts are not
 globally deduplicated triangles or GPU occlusion-visible vertices. Draws remain
@@ -44,30 +42,30 @@ without altering source topology, collision or asset triangle counts.
 
 ## Allocation and package costs
 
-- World vertex stride64→76 bytes (+18.75%); High/Medium aggregate benchmark
-  VBO1,063,424→1,262,816 bytes. Index storage33,900 bytes is unchanged. The
-  environment normal matrix adds48 bytes to each model environment uniform.
-  Low final VBO is1,271,176 bytes/index storage34,752 bytes after flat-corner
+- World vertex stride 64→76 bytes (+18.75%); High/Medium aggregate benchmark
+  VBO 1,063,424→1,262,816 bytes. Index storage 33,900 bytes is unchanged. The
+  environment normal matrix adds 48 bytes to each model environment uniform.
+  Low final VBO is 1,271,176 bytes/index storage 34,752 bytes after flat-corner
   expansion; source triangles and batching bounds are retained.
-- Colour/data texture storage remains4 bytes/texel. World cache receipts remain
-  High53,127,840 /Medium17,476,256 /Low7,514,784 bytes, including the dedicated
+- Colour/data texture storage remains 4 bytes/texel. World cache receipts remain
+  High 53,127,840 /Medium 17,476,256 /Low 7,514,784 bytes, including the dedicated
   committed white fallback. Props, numeric normals, sky and target resources are
-  separate; this is not total GPU memory. High prop texture residency5,264,704
-  bytes includes fitted mips; source decoded prop inventory remains3,856 KiB.
-- Scene/emission/both blur buffers move4→8 bytes/texel; presented image stays4.
-  The five colour-image allocations at High total11,520,000→19,353,600 bytes
-  (+7,833,600); Medium5,644,800→7,603,200; Low4,787,520→5,888,640. These are
+  separate; this is not total GPU memory. High prop texture residency 5,264,704
+  bytes includes fitted mips; source decoded prop inventory remains 3,856 KiB.
+- Scene/emission/both blur buffers move 4→8 bytes/texel; presented image stays 4.
+  The five colour-image allocations at High total 11,520,000→19,353,600 bytes
+  (+7,833,600); Medium 5,644,800→7,603,200; Low 4,787,520→5,888,640. These are
   deterministic **colour allocations only**, excluding depth/driver alignment,
   sky/cache/reflections/CPU copies; Low's allocated blur images need not execute.
-- Full64px cube mip-chain texels total32,766:131,064→262,128 bytes. Medium48px
-  chain totals18,426:73,704→147,408 bytes. The same one selected hero probe,
+- Full 64 px cube mip-chain texels total 32,766:131,064→262,128 bytes. Medium 48 px
+  chain totals 18,426:73,704→147,408 bytes. The same one selected hero probe,
   face size/roughness LOD and no planar target remain. No reflection-resolution
   increase or extra probe is introduced.
-- Full/Medium atlas pages remain2,1024² paired irradiance+moment layers,
-  33,554,432 bytes,5,347 charts /167,960 chart texels.495 irradiance slots
-  (260 air-valid),16 static model resources and5,300 source triangles remain.
-- Hero package3,873,651→4,521,326 bytes (+647,675,+16.72%).
-  [Member comparison](storage-comparison.json): HDR cube blobs contribute
+- Full/Medium atlas pages remain 2,1024² paired irradiance+moment layers,
+  33,554,432 bytes, 5,347 charts /167,960 chart texels.495 irradiance slots
+  (260 air-valid),16 static model resources and 5,300 source triangles remain.
+- Hero package 3,873,651→4,521,326 bytes (+647,675,+16.72%).
+  Member comparison: HDR cube blobs contribute
   +579,661 compressed bytes; flat fallback/scalar prop records +76,733;
   lightmap compressed data −8,740. Uncompressed lightmap storage is unchanged.
   Source/model/texture/catalog/concept bytes are unchanged.
@@ -80,20 +78,20 @@ unmeasured; CPU render samples are not a substitute for that cost.
 
 ## Forced compilation and reproducibility
 
-Stage 1 forced compiler4.872s/process4.89s, peak659.1MiB. Stage 2 final isolated
-forced compiler7.149s/process7.44s, peak660.7MiB;12-worker cap, all three normal
-variants. [Compiler receipt](hero-build.json), [OS receipt](hero-build.log).
+Stage 1 forced compiler 4.872 s/process 4.89 s, peak 659.1 MiB. Stage 2 final isolated
+forced compiler 7.149 s/process 7.44 s, peak 660.7 MiB;12-worker cap, all three normal
+variants.
 The slower overall run is concentrated in the first capture phase:
-Off capture127.18→2506.42ms. This includes new native HDR pipeline/capture setup
-and prefiltering, not solely the lighting solve. Medium preparation745.52→732.43ms;
-Full3388.98→3246.68ms. These phase timings do not prove a solver speedup.
-The first build overlapped library tests (11.44s) and is excluded, preserved as
+Off capture 127.18→2506.42 ms. This includes new native HDR pipeline/capture setup
+and prefiltering, not solely the lighting solve. Medium preparation 745.52→732.43 ms;
+Full 3388.98→3246.68 ms. These phase timings do not prove a solver speedup.
+The first build overlapped library tests (11.44 s) and is excluded, preserved as
 `hero-build-initial.*`. Two independent bakes reproduce the exact package SHA
 and all six independent native PNGs match byte for byte.
 
 Texture size/filter settings remain independent of lighting selection, with
-trilinear4×/8×/16× policies and device support fallback. Final High/Medium/Low
-samples and [native controls](control-execution.json) confirm applied state.
+trilinear 4×/8×/16× policies and device support fallback. Final High/Medium/Low
+samples and native controls confirm applied state.
 Single-sample silhouettes, alpha-test coverage mips, emission alpha/family sorting
 and exposure are documented later-stage limits; no cost is hidden by disabling
 assertions, quality, content, bloom or shadows.

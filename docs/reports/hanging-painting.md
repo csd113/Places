@@ -1,5 +1,8 @@
 # The Temptation of Adam and Eve
 
+Historical acceptance: October 2026 painting integration. Counts, timings and validation below describe
+that tested version; the canonical guides govern current contracts.
+
 The supplied photograph is now a hanging timber-framed painting in the Home
 section of Places Demo and in Model Zoo. Aim at the Home frame and press E to
 toggle the title through the existing interaction system.
@@ -10,7 +13,7 @@ High quality uploads that sheet unchanged; Medium and Low use the existing
 decal texture budgets. The visible artwork is 1.800×1.092 m, with a 50 mm
 frame. The frame reuses the existing bookshelf PNG atlas and has 48 triangles.
 
-![Painting in the actual Home interior](hanging-painting/home-painting.png)
+![Painting in the actual Home interior](../images/reports/hanging-painting/home-painting.png)
 
 ## Files
 
@@ -26,14 +29,12 @@ frame. The frame reuses the existing bookshelf PNG atlas and has 48 triangles.
 - `docs/ASSET_SPECIFICATION.md`
 - `docs/MAP_AUTHORING_GUIDE.md`
 - `assets/environment/home/README.md`
-- This report and `docs/reports/hanging-painting/` evidence.
 
 ## Validation
 
 Passed:
 
-- Exact decoded photo/PNG active-rectangle pixel comparison;
-  `hanging-painting/source-preservation.json` records source and asset hashes.
+- Exact decoded source-photo/PNG active-rectangle pixel comparison passed.
 - `cargo fmt --all --check`.
 - `cargo clippy --workspace --all-targets --all-features -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery -D clippy::cargo`.
 - `python3 tools/assets/validate.py` (290 assets, zero warnings).
@@ -48,7 +49,6 @@ Passed:
   updated to include the new painting sheet.
 - Demo and Model Zoo builds with off/medium/full lightmap variants,
   `places-compile validate`, and `places-compile verify --require-current`.
-  JSON results are preserved in `hanging-painting/`.
 - Final demo geometry audit: zero errors; two existing warnings for a tiny wall
   overlap and the night-house porch floor.
 - Actual native High-quality game launch/capture in Places Demo, inspected for
@@ -63,23 +63,13 @@ final strict Clippy. The two unresolved failures are external to the painting:
 `static_prop_lighting_tests::real_dense_showcase_metadata_exceeds_material_budget_and_loads_under_its_own_limit`.
 Both reject stale `lantern_hollow.placesmap`: its Office cabinet dependency
 records 97,468 bytes, while the final concurrent Office asset is 104,356 bytes.
-The Office/consolidation chats own that package refresh and the final integrated
-workspace gates. No checks were skipped or assertions weakened. Exact results
-are in `hanging-painting/workspace-tests.json`.
+The subsequent combined package refresh and integrated gate passed, as recorded
+in the October 7 integration note. No checks were skipped or assertions weakened.
 
 The full workspace command has **not** passed yet. Binary and documentation
 integration tests after the failing library stage remain unverified in this run.
 
-## Handoff
-
-The painting work is in the canonical checkout on `Winter-expansion` and is
-uncommitted. Concurrent Office and Winter changes were preserved. No dependencies
-or runtime Rust code were added. The source PNG is the authoritative artwork;
-the authoring command reloads it unchanged.
-
-Build/test logs and the small isolated QA level are retained under
-`target/temptation-painting/`. The final Home capture and source/package
-verification evidence above are also preserved outside `target/`.
-
-All painting-owned processes have exited. Checkout and target ownership are
-released for the authorized consolidation; no new worktree was created.
+The subsequent [October 7 integration](integration-provenance-20261007.md)
+records the combined package refresh and successful final gate. The initial
+asset-only run above retains its actual stale-package failures; it is not
+relabeled as a complete workspace pass.

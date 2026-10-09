@@ -1,5 +1,0 @@
-geometry check: places_demo (assets/levels/places_demo.json)
-  coplanar-sliver: 0 error(s), 1 warning(s)
-  missing-wall: 6 suppressed by geometry_intent
-WARNING [coplanar-sliver] Wall m32: a 0.00031 m² coplanar overlap sliver at a joint (a at 6.28,0.09,0.16; b at 0.16,0.09,2.28) @ (6.283, 0.090, 0.162)
-summary: 0 error(s), 1 warning(s), some warnings suppressed by intent annotations

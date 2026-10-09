@@ -1,8 +1,0 @@
-    Finished `test` profile [optimized + debuginfo] target(s) in 0.16s
-     Running unittests src/bin/places-compile.rs (target/debug/deps/places_compile-e9db90fa9884fe55)
-     Running tests/command_line.rs (target/debug/deps/command_line-79be9713aaec86a2)
-     Running tests/list_levels.rs (target/debug/deps/list_levels-f7c5b46f693a860b)
-error: test failed, to rerun pass `--test list_levels`
-     Running tests/macos_cpu_port.rs (target/debug/deps/macos_cpu_port-028e4edc2f762e64)
-error: 1 target failed:
-    `--test list_levels`

@@ -1,8 +1,8 @@
 # Winter — concept reconstruction, 2026-10-08
 
-Starting revision: [`026eedb`](https://github.com/csd113/Places/commit/026eedb1995669e3c8951c1da447d88edc0fe316), on the existing `Winter-expansion` branch after the completed Outdoors pass. This is the fourth entry in the [sequential visual journal](../README.md). [Reconstruction history](https://github.com/csd113/Places/commits/Winter-expansion/docs/style-upgrade-20261007/winter) locates `rebuild winter assets toward concept art`; the final task handoff records its exact remote SHA and CI.
+Starting revision: [`026eedb`](https://github.com/csd113/Places/commit/026eedb1995669e3c8951c1da447d88edc0fe316), on the existing `Winter-expansion` branch after the completed Outdoors pass. This is the fourth entry in the [sequential visual journal](../README.md). [Reconstruction history](https://github.com/csd113/Places/commits/Winter-expansion/docs/style-upgrade-20261007/winter) locates `rebuild winter assets toward concept art`; the later complete inventory/test gate is recorded in [Stage 7](../../art-style/stage7/README.md).
 
-The actual immutable [Winter Expansion Environment Concept Sheet](../../../assets/environment/winter/Winter%20Expansion%20Environment%20Concept%20Sheet.png) was inspected before authoring. Its SHA-256 remains `484921678b5f56203f3790f7cb5f9b4a83ae8a8b0dfb48c76aadc43c11a45550`. Prior Pool, Home and Outdoors journal text, images and review payloads remain intact.
+The actual immutable [Winter Expansion Environment Concept Sheet](../../../assets/environment/winter/Winter%20Expansion%20Environment%20Concept%20Sheet.png) was inspected before authoring. Its SHA-256 remains `484921678b5f56203f3790f7cb5f9b4a83ae8a8b0dfb48c76aadc43c11a45550`. The earlier Pool, Home and Outdoors reconstruction remains separately documented.
 
 ## Reference and baseline
 
@@ -33,45 +33,28 @@ The starting playable settlement already had three cottages, a raised lodge/deck
 | Bare trees / footprints / signs / benches / utilities | **Omitted by reference evidence.** None is clearly established as a required object in this sheet; no speculative family added. Existing forest stump resting pocket is retained. |
 | Full distant village / church | **Remaining composition gap.** The sheet's distant settlement silhouette is larger than the playable three-cottage composition. This pass improves those three buildings and the real mountain layer without expanding into a new settlement or inaccessible church interior. |
 
-The [individual model inventory](model-inventory.json) audits **all 38 Winter GLBs: 10 remade, 14 retextured, 7 retained and 7 new**, with before/after triangle counts, topology, PNG identities and actual placement counts. The [borrowed static inventory](borrowed-model-inventory.json) reviews the full before/current union of **28 shared families**: 21 retained in Winter and seven replaced there while their source files remain byte-identical. The [texture inventory](texture-inventory.json) covers all 14 non-reference Winter PNGs, including four masters and fitted derivatives. Borrowed PNGs are audited with their models and preserved exactly. No existing catalog entry is altered; twelve Winter-local entries are added.
+The individual model inventory audits **all 38 Winter GLBs: 10 remade, 14 retextured, 7 retained and 7 new**, with before/after triangle counts, topology, PNG identities and actual placement counts. The borrowed static inventory reviews the full before/current union of **28 shared families**: 21 retained in Winter and seven replaced there while their source files remain byte-identical. The texture inventory covers all 14 non-reference Winter PNGs, including four masters and fitted derivatives. Borrowed PNGs are audited with their models and preserved exactly. No existing catalog entry is altered; twelve Winter-local entries are added.
 
 ## Construction and technical inspection
 
-New masonry is actual coursed geometry where silhouette/joints matter, with simpler tiled mineral artwork on large wall planes. The fitted stone/wood/metal/amber atlas preserves a 1024² master and native 256² derivative; stone is cropped within one painted block so model courses own the joints. Four raster masters were authored using the built-in ImageGen tool. [Artwork provenance](artwork-provenance.json) records source hashes, briefs, resolution and periodic repair. `tools/props/build_winter_textures.py --check` reproduces exact repaired and Lanczos derivatives from committed art; no runtime or normal builder paints textures.
+New masonry is actual coursed geometry where silhouette/joints matter, with simpler tiled mineral artwork on large wall planes. The fitted stone/wood/metal/amber atlas preserves a 1024² master and native 256² derivative; stone is cropped within one painted block so model courses own the joints. Four raster masters were authored using the built-in ImageGen tool. Artwork provenance records source hashes, briefs, resolution and periodic repair. `tools/props/build_winter_textures.py --check` reproduces exact repaired and Lanczos derivatives from committed art; no runtime or normal builder paints textures.
 
 Snow remains sealed economical geometry with supported bases. Evergreen coats retain every base record; rock crowns query the actual canonical faces. Drift crowns are asymmetric without extra tessellation. New village stock ranges from 24 to 252 triangles, all below 800; existing tree review exceptions remain below 1,500 without raising any budget. Atlas UVs are finite and fitted to 0..1, models are centred in X/Z with Y=0 contact and +Z fronts, and ordinary static emission is restricted to lantern glass.
 
-The first native candidate exposed a floor-relative mounting error: raised lodge window frames and the masonry entrance added the deck rise twice. Final anchors now align with actual sill and doorway heights. The candidate assets/binaries and all twelve first native PNGs remain in the review archive. Initial tree rim winding and one timber wrap offset were corrected at their causes; original failures remain in validation evidence. No assertion tolerance is lowered or check removed to obtain a pass. The old simple hood's scene-coverage expectation now explicitly requires both genuine replacement hoods while preserving its library/Zoo validation.
+The first native candidate exposed a floor-relative mounting error: raised lodge window frames and the masonry entrance added the deck rise twice. Final anchors now align with actual sill and doorway heights. Final native views use the corrected floor-relative anchors. Initial tree rim winding and one timber wrap offset were corrected at their causes; the original failing attempts are not counted as acceptance. No assertion tolerance is lowered or check removed to obtain a pass. The old simple hood's scene-coverage expectation now explicitly requires both genuine replacement hoods while preserving its library/Zoo validation.
 
 ## Matched native views
 
-All PNGs below are unmodified actual native wgpu/Metal pixels. The clean before copy includes its matching assets, packages and release binaries. The after copy includes final art/packages with matching binaries. [Provenance](provenance.json) pins camera, spawn, package/binary/image hashes and settings. `tools/bench/capture_winter_style.py` freezes twelve High cameras, four matched Low cameras and four severe cameras. High uses full lightmaps/reflections, bloom, 60° FOV and a 640×360 logical / 1280×720 drawable window. Stationary shots capture at 1.5 s; the elevated overview captures the first native presented view. Snow positions can differ with native startup timing.
+All PNGs below are unmodified actual native wgpu/Metal pixels. The clean before copy includes its matching assets, packages and release binaries. The after copy includes final art/packages with matching binaries. Provenance pins camera, spawn, package/binary/image hashes and settings. `tools/bench/capture_winter_style.py` freezes twelve High cameras, four matched Low cameras and four severe cameras. High uses full lightmaps/reflections, bloom, 60° FOV and a 640×360 logical / 1280×720 drawable window. Stationary shots capture at 1.5 s; the elevated overview captures the first native presented view. Snow positions can differ with native startup timing.
 
 | View | Before | After |
 | --- | --- | --- |
-| Square / warm focal rhythm | ![Before square](before/square.png) | ![After square](after/square.png) |
-| Lodge / steps / snow support | ![Before lodge](before/lodge.png) | ![After lodge](after/lodge.png) |
-| Entrance / framing / dry shelter | ![Before entrance](before/entrance.png) | ![After entrance](after/entrance.png) |
-| Cottage / stone / braced hood | ![Before cottage](before/cottage.png) | ![After cottage](after/cottage.png) |
-| Evergreen coats / night silhouette | ![Before tree](before/tree.png) | ![After tree](after/tree.png) |
-| Forest / stone approach | ![Before forest](before/forest.png) | ![After forest](after/forest.png) |
-| Pond / frozen boundary | ![Before pond](before/pond.png) | ![After pond](after/pond.png) |
-| Ice / angular plates | ![Before ice](before/ice.png) | ![After ice](after/ice.png) |
-| Rail / caps / frozen transition | ![Before rail](before/rail.png) | ![After rail](after/rail.png) |
-| Path / broad snow texture | ![Before path](before/path.png) | ![After path](after/path.png) |
-| Entire composition | ![Before overview](before/overview.png) | ![After overview](after/overview.png) |
-| Warm interior / preserved domestic fittings | ![Before interior](before/interior.png) | ![After interior](after/interior.png) |
+| Cottage / stone / braced hood | ![Before cottage](../../images/style-upgrade/winter-before-cottage.png) | ![After cottage](../../images/style-upgrade/winter-after-cottage.png) |
+| Pond / frozen boundary | ![Before pond](../../images/style-upgrade/winter-before-pond.png) | ![After pond](../../images/style-upgrade/winter-after-pond.png) |
 
 Ordinary Low views retain the same cameras with lightmaps/reflections Off. These are useful additional evidence for fitted artwork and geometry; no image exposure correction is applied.
 
-| Low view | Before | After |
-| --- | --- | --- |
-| Evergreen | ![Before Low tree](before-low/tree.png) | ![After Low tree](after-low/tree.png) |
-| Cottage | ![Before Low cottage](before-low/cottage.png) | ![After Low cottage](after-low/cottage.png) |
-| Ice | ![Before Low pond](before-low/pond.png) | ![After Low pond](after-low/pond.png) |
-| Snow/path | ![Before Low path](before-low/path.png) | ![After Low path](after-low/path.png) |
-
-Severe weather remains a near-whiteout outside. Its matching square/cottage/pond/interior pairs are retained under `before-severe/` and `after-severe/`; they establish preservation, not improved static readability through the storm. Six established native held-control routes pass in **both** calm and severe modes. [Traversal evidence](traversal.json) records controller bounds, exact weather/package identities, completed presentations, shelter accounting and zero particle capacity growth.
+Severe weather remains a near-whiteout outside. The matched severe controls establish preservation, not improved static readability through the storm. Six established native held-control routes pass in **both** calm and severe modes. Traversal evidence records controller bounds, exact weather/package identities, completed presentations, shelter accounting and zero particle capacity growth.
 
 ## Gains and remaining limits
 
@@ -79,4 +62,14 @@ Masonry and timber construction now carry the reference's village identity, expo
 
 The geometry stays more angular and repetitive than the illustrated evergreens. Perimeter containment still reads as an enclosing rocky arena in the elevated overview. The wide roof load is more regular than the sheet's draped accumulation, and ice is darker under actual cool night transport than the isolated concept vignette. The complete distant village/church is omitted as described above. Severe whiteout intentionally hides exterior detail. These are visible limits, not corrected screenshots or claims of exact image reproduction.
 
-Costs, checks and compatibility are in [validation](validation.md) and [performance data](performance.json). Playable before/candidate/after fixtures, native logs/CSVs/settings and intermediate failures live outside `target` in the [retained archive](../../../debug-maps/winter-style-20261007/README.md). Parent integration owns the next branch transition and Art-style queue; this task stops at the standalone pushed Winter revision.
+## Historical validation, costs and compatibility
+
+The October 8 catalog contains 352 assets, 204 placeables and five themes with zero warnings. Integrity checks cover 204 GLBs, 206 embedded images, 296 PNGs, 37 maps and 68 materials with zero errors. The full asset sheet has 80 outputs and 73 advisory warnings. The placeable library totals 52,090 triangles and 42,084 KiB base RGBA pixels, preserving the 64 MiB texture budget. Connected snow-rim winding, the 370-pixel periodic timber wrap and raised-floor mounting are repaired at their causes with regressions.
+
+Forty matched real native images cover twelve High, four Low and four severe views per side, plus a final Low square control. Six held-control routes pass in calm and severe weather with completed presentations and no particle-capacity growth. Severe captures remain intentionally near-opaque outdoors. The first-frame elevated overview has no timing CSV and is excluded from cost aggregates.
+
+All three-profile affected packages build: Winter 50,056,698 bytes / 105.946 s, severe Winter 50,056,737 bytes / 92.965 s and Zoo 87,454,894 bytes / 334.660 s. Forty-five Winter and 32 Zoo sliver faces use documented subtexel vertex fallback. Geometry checks have zero errors/warnings while retaining 159 open-ground and 24 exterior-leak annotations rather than treating those scoped exterior findings as failures or suppressing them.
+
+Formatting, debug/release checks and strict Clippy pass. The dated required workspace command passes 2,022 library tests with 23 ignored, along with game/compiler and non-Unicode targets, then fails three quiet package-discovery assertions on inherited stale optional local packages. It is not a full workspace exit-zero result. Twelve focused Python asset/frame checks pass. [Stage 7](../../art-style/stage7/README.md) subsequently closes supported package currency and records the full passing gate.
+
+High draws change 82 → 74 and material batches 50 → 51; Low draws remain 86.5 while batches change 61 → 65.5. Short native loop samples change 1.959 → 1.662 ms High and 1.611 → 2.626 ms Low. Those samples describe capture cost; they are not controlled gameplay FPS or proof of a speedup. The original sky, calm/severe weather, shelter rules, collision/navigation and ordinary light strengths remain unchanged.

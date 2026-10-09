@@ -259,7 +259,10 @@ pub fn solver_fingerprint() -> u64 {
 ///   zero selected-source fields with aligned zero direct coefficients.
 /// - 16: uncovered rooms can select a validated phase of the same bounded
 ///   lattice; baseline targets and probe solves share that exact placement.
-pub const SOLVER_REVISION: u64 = 16;
+/// - 17: architectural baseline support traces from the receiver's owning-side
+///   safe origin; complete physical stencils detect interior visibility, and
+///   authored material identity preserves textured coplanar continuation.
+pub const SOLVER_REVISION: u64 = 17;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;
@@ -1007,6 +1010,9 @@ pub struct TransportScene {
     triangles: Vec<TransportTriangle>,
     /// Alpha coverage belongs to the authored material; geometry stays compact.
     surface_alpha: Vec<Option<TransportAlphaSurface>>,
+    /// Scene-local authored material identities; zero retains the analytical
+    /// albedo boundary contract when no production material metadata exists.
+    surface_materials: Vec<u32>,
     /// Ray-tree nodes containing Blend surfaces, for a sparse throughput walk.
     blend_nodes: Vec<bool>,
     /// Physical samples per metre, before integer chart dimensions are rounded.
@@ -1556,6 +1562,7 @@ impl TransportScene {
         Some(Self {
             triangles,
             surface_alpha: Vec::new(),
+            surface_materials: Vec::new(),
             blend_nodes: Vec::new(),
             chart_sample_density: Vec::new(),
             order,
@@ -1580,6 +1587,46 @@ impl TransportScene {
     pub fn with_water(mut self, water: Vec<TransportWaterBody>) -> Self {
         self.water = water;
         self
+    }
+
+    /// Attach one scene-local authored material identity per triangle. A
+    /// nonzero shared identity permits incident light to continue across
+    /// texture colour variation; zero keeps the conservative albedo guard.
+    #[must_use]
+    pub fn with_surface_materials(mut self, identities: Vec<u32>) -> Option<Self> {
+        if identities.len() != self.triangles.len() {
+            return None;
+        }
+        self.surface_materials = identities;
+        Some(self)
+    }
+
+    fn same_surface_material(
+        &self,
+        left: u32,
+        right: u32,
+        left_albedo: [f32; 3],
+        right_albedo: [f32; 3],
+    ) -> bool {
+        let identity = |surface| {
+            self.surface_materials
+                .get(usize::try_from(surface).unwrap_or(usize::MAX))
+                .copied()
+                .unwrap_or(0)
+        };
+        match (identity(left), identity(right)) {
+            (0, 0) => {
+                left_albedo
+                    .iter()
+                    .zip(right_albedo)
+                    .all(|(reference_value, candidate_value)| {
+                        (*reference_value - candidate_value).abs() <= 1.0e-5
+                    })
+            }
+            (left_identity, right_identity) => {
+                left_identity != 0 && left_identity == right_identity
+            }
+        }
     }
 
     /// Attach chart densities in plan order, independent of atlas dimensions.
@@ -2777,6 +2824,13 @@ impl TransportScene {
     /// A target-only scene retains its explicit recovery target; a scene of
     /// switchable emitters contributes no permanent support.
     fn baseline_support(&self, point: [f32; 3]) -> f32 {
+        self.baseline_support_from(point, point)
+    }
+
+    /// Source falloff uses the physical receiver position. Surface visibility
+    /// uses the same owning-side origin as direct transport; an edge position
+    /// alone can still lie exactly on an adjoining perpendicular face.
+    fn baseline_support_from(&self, point: [f32; 3], ray_origin: [f32; 3]) -> f32 {
         if self.emitters.is_empty() {
             return 1.0;
         }
@@ -2794,7 +2848,7 @@ impl TransportScene {
                     return 0.0;
                 }
                 // Authored recovery fill cannot cross a sealed blocker either.
-                support * emitter.visibility(self, point, point, 3).0
+                support * emitter.visibility(self, point, ray_origin, 3).0
             })
             .filter(|value| value.is_finite())
             .fold(0.0_f32, f32::max)
@@ -2839,7 +2893,7 @@ impl TransportScene {
                     receiver.normal,
                     scale(
                         attenuate(target, receiver.attenuation),
-                        self.baseline_support(receiver.position),
+                        self.baseline_support_from(receiver.position, receiver.ray_origin),
                     ),
                 );
             }

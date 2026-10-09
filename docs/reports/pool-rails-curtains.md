@@ -1,5 +1,8 @@
 # Pool guard rails and curtain remakes
 
+Historical acceptance: September 2026 pool asset refinement. Counts, timings and validation below describe
+that tested version; the canonical guides govern current contracts.
+
 Completed all six modules. Existing catalog dimensions, origins, orientation,
 solid flags and texture pixels are preserved.
 
@@ -32,8 +35,6 @@ Other changes:
 - `tools/props/parts/pool.py`: routes these six entries to the new builders.
 - `assets/catalog.json`: descriptions updated for two rails and revised pleats.
 - `docs/ASSET_SPECIFICATION.md`: records source atlases and new geometry contracts.
-- This report and `docs/reports/pool-rails-curtains/`: preview sheet, export log,
-  and per-model geometry/texture audit JSON.
 
 ## Validation
 

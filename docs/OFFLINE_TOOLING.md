@@ -238,8 +238,7 @@ The inventory covers maintained entry points and their execution contracts.
 `tools/verify.sh` is the shell consumer of the Python validation and native
 suites; no other active CI configuration is tracked. Historical functional
 results, equivalence measurements and limitations are recorded in the
-[feature-expansion report](reports/feature-expansion-handoff.md) and
-[tooling results](reports/run09-tooling-results.json). Those records describe
+[feature-expansion summary](reports/feature-expansion-summary.md). These results describe
 specific runs, not current gate status.
 
 Native startup measurements use an already-built binary and a fresh output directory:

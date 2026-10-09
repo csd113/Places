@@ -1,5 +1,0 @@
-Traceback (most recent call last):
-  File "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-capture-gpu-scene-scope.py", line 19, in <module>
-    assert active is None
-           ^^^^^^^^^^^^^^
-AssertionError

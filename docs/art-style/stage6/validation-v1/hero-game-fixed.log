@@ -1,3 +1,0 @@
-   Compiling places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
-    Finished `test` profile [optimized + debuginfo] target(s) in 9.03s
-     Running unittests src/lib.rs (target/debug/deps/places-db4822a0463dd4cf)

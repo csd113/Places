@@ -4,7 +4,7 @@ Starting commit: [`476dfb4`](https://github.com/csd113/Places/commit/476dfb4e603
 on the existing `Winter-expansion` branch, immediately after Pool. This is
 the second serial entry in the [visual development journal](../README.md).
 Reconstruction commit: [`0ca1c92`](https://github.com/csd113/Places/commit/0ca1c926d233f11dbad645e62148cfd1980f85ec);
-the handoff identifies the narrow validation follow-up.
+the numerical validation follow-up is described below.
 Both immutable Home sheets were inspected as actual pixels before authoring:
 [Home Environment Asset Sheet](../../../assets/environment/home/Home%20Environment%20Asset%20Sheet.png)
 and [Warm Low-Poly Home Asset Sheet](../../../assets/environment/home/Places_%20Warm%20Low-Poly%20Home%20Asset%20Sheet.png).
@@ -106,25 +106,13 @@ click for the native 1280×720 image.
 
 | View | Before | After | Result |
 | --- | --- | --- | --- |
-| Living group | ![Living before](before/living.png) | ![Living after](after/living.png) | Cream seating, low shelf table, domestic console/CRT and restrained dressing. |
-| Living reverse | ![Reverse before](before/living_reverse.png) | ![Reverse after](after/living_reverse.png) | Construction, upholstery and furniture spacing from the opposite direction. |
-| Kitchen | ![Kitchen before](before/kitchen.png) | ![Kitchen after](after/kitchen.png) | Real Shaker build, matching sink/cooker, warm ceramic and counter fittings. |
-| Cabinet close | ![Cabinet before](before/cabinet_close.png) | ![Cabinet after](after/cabinet_close.png) | Recesses, drawers, pulls, open basin, worktop edge and supported splash. |
-| Dining | ![Dining before](before/dining.png) | ![Dining after](after/dining.png) | Timber domestic chairs and existing fitted place settings. |
-| Entry | ![Entry before](before/entry.png) | ![Entry after](after/entry.png) | Warmer domestic material hierarchy within the retained footprint. |
-| Stairs | ![Stairs before](before/stairs.png) | ![Stairs after](after/stairs.png) | Original support/risers/rails retained; warm floor and trim remain legible. |
-| Loft balcony | ![Balcony before](before/balcony.png) | ![Balcony after](after/balcony.png) | Warm floor, populated shelf and linen lamp; existing bed retained. |
-| Loft overview | ![Overview before](before/under_balcony.png) | ![Overview after](after/under_balcony.png) | Domestic furniture and construction seen from the existing raised floor. |
-| Ceiling | ![Ceiling before](before/ceiling.png) | ![Ceiling after](after/ceiling.png) | Existing vault with warmer fill; the entry view shows the faceted hanging globe. |
-| Hall door | ![Door before](before/door.png) | ![Door after](after/door.png) | Existing panelled leaf and new stepped casing stock. |
-| Floor close | ![Floor before](before/floor.png) | ![Floor after](after/floor.png) | Readable timber boards and a quiet cream pile rug. |
+| Living group | ![Living before](../../images/style-upgrade/home-before-living.png) | ![Living after](../../images/style-upgrade/home-after-living.png) | Cream seating, low shelf table, domestic console/CRT and restrained dressing. |
+| Kitchen | ![Kitchen before](../../images/style-upgrade/home-before-kitchen.png) | ![Kitchen after](../../images/style-upgrade/home-after-kitchen.png) | Real Shaker build, matching sink/cooker, warm ceramic and counter fittings. |
 
-The [before manifest](before/manifest.json) and [after manifest](after/manifest.json)
-record `PLACES_SPAWN=x,z,yaw`, absolute yaw/pitch, renderer identity and PNG
-SHA-256. Floor/support resolution sets eye height consistently. High quality,
+The comparison uses `PLACES_SPAWN=x,z,yaw`, absolute yaw/pitch and the same renderer identity. Floor/support resolution sets eye height consistently. High quality,
 full lightmaps/reflections, High filtering, bloom on, 60° FOV, 640×360 logical
 window / 1280×720 drawable, vsync off; 15 warmup frames, capture/exit at frame
-60, 45 CSV samples. The same Apple M2 Pro Metal renderer is used for both.
+60, 45 CSV samples. The same Apple M 2 Pro Metal renderer is used for both.
 
 The first complete native candidate exposed a black thin-box backsplash and
 extra casing, plus a coffee table/rug axis mismatch. The splash became an
@@ -139,8 +127,7 @@ counter line, preserving its standable deck. Four extra skirting shoulders
 that continued beyond Home were removed. Lighting diagnostics then found
 that the enlarged ceiling fill and pendant saturated the lamp samples.
 An attempt to retain only two flush fixtures passed the CPU/lighting checks
-but native review showed excessively dark cream furniture; that actual
-result remains in `candidate3`. The original eight fill positions now use
+but native review showed excessively dark cream furniture; that candidate was rejected. The original eight fill positions now use
 half-scale committed Home globes with owned warm lights. Each needs only
 24 CPU placeholder vertices instead of 105 flush-fixture vertices, restoring
 the domestic fill within the unchanged limit: 99,974 vertices below 100,000.
@@ -162,18 +149,13 @@ rebaked source.
 
 ### Pendant contribution with the full authored scene
 
-| Pendant on | Only kitchen pendant off |
-| --- | --- |
-| ![Native pendant on](lamp-check/on.png) | ![Native pendant off](lamp-check/off.png) |
 
 These additional native High/full views keep all other Home lights active.
 The private off package differs only at `kitchen_pendant.lights[0].enabled`;
 geometry, emissive faces, camera and settings remain identical. The table
 receives a small warm lift: mean RGB increases by 1.52/1.70/1.88 values out of
 255 in the recorded table rectangle. This is a subtle contribution within
-bright room fill. [Comparison and source hashes](lamp-check/comparison.json),
-[on manifest](lamp-check/on-manifest.json), [off manifest](lamp-check/off-manifest.json)
-and the adjacent settings preserve the evidence. The full-scene CPU regression
+bright room fill. The comparison holds geometry, emissive faces, camera and settings fixed. The full-scene CPU regression
 and supplemental source-isolation checks preserve the protected .02 contrast
 thresholds; no renderer or limit was changed to obtain a pass.
 
@@ -184,7 +166,7 @@ a ray ending just outside the north face rounded into a hit in f32; a
 its unshrunk slab intersection in f64. A regression retains the exterior
 endpoint as clear and a ray entering the same wall as blocked. Production
 lighting, authored assets and the .02 acceptance threshold remain unchanged.
-The source diagnostic and original failed CI logs remain in local evidence.
+The failed CI result remains a historical failure; this correction changes only the independent reference.
 
 ## Remaining visual limits and cost
 
@@ -197,8 +179,7 @@ low-poly shadow gradients than the concept's beauty lighting. Fine fabrics,
 timber grain and drawer recesses are deliberately restrained at native prop
 resolution. The CRT image is a static picture, with no new television entity.
 
-[Costs](costs.json), [model audit](model-audit.json), [geometry](geometry.json),
-[scope preservation](scope.json) and [validation](validation.md) give measured asset/package/residency results.
+Model, geometry and scope inspection underlies the measured asset and residency results below.
 The short fixed-camera samples are a proportional cost check, not a controlled
 FPS benchmark. The living view adds 21,304 total / 7,697 visible vertices,
 nine draw calls, 1.30 MiB VBO and 3.70 MiB model-texture residency; measured
@@ -206,28 +187,12 @@ world-texture residency is unchanged. CPU fallback uses 99,974 vertices with
 26 vertices of headroom under its preserved 100,000 limit. Neither a
 performance improvement nor exact concept parity is claimed.
 
-## Retained review payload and handoff
+## Historical validation and compatibility
 
-`debug-maps/home-style-20261007/evidence/before` freezes the exact starting
-assets, compiled demo and renderer outside `target`. `after` freezes the final
-playable assets/packages/renderer, and `candidate` preserves the first native
-iteration; `candidate2` preserves the second twelve-view review, including
-the casing overlap that prompted a correction; `candidate3` preserves the
-darker fill experiment rejected after native review; `candidate4` keeps the
-short-range globe review that revealed the differing falloff; `candidate5`
-keeps the range-correct result before the final collision-stock/mount fixes.
-`lamp-check-off` retains the private single-source comparison package; the
-final `after/lamp-check` retains its authored-scene partner. Raw logs, CSVs, model
-previews and hashes live beside them. Older
-Pool/debug-map archives and reusable Cargo outputs are retained.
+The October 7 catalog contains 332 assets, 189 placeables and five themes with zero warnings. Thirty-one Home model families total 9,200 triangles; the largest has 704 and no invalid topology. Twenty-four 1024² masters have exact 256² derivatives and ten periodic surfaces pass seam checks. Twelve matched High views and the pendant on/off control have zero missing textures/models. The normal release build takes 95.99 s and three-profile Demo preparation takes 236.16 s without compiler warnings.
 
-Commit subject: `rebuild home assets toward concept art`. The task handoff
-reports the pushed exact SHA and CI URL; repository history also locates the
-entry with `git log -- docs/style-upgrade-20261007/home`. Pool's exact preceding
-[CI run](https://github.com/csd113/Places/actions/runs/37672078580) completed
-successfully on `476dfb4`.
+Formatting and strict Clippy pass. The first workspace run reports 2,016 library passes, 23 ignored and five failures. Focused fixes cover the new sink selector, 600 mm sink/counter alignment, lamp clipping, unchanged CPU geometry limit and bundled-level discovery after refreshing the newly dependent Hollow cabinet. Those five checks plus five Home Showcase checks pass. A full local workspace rerun was not performed at this asset checkpoint; the focused result must not be described as a complete pass.
 
-The task-owned temporary `caffeinate -di` assertion is passed continuously to
-Outdoors. Its current PID/assertion verification is retained in local evidence
-and the handoff. No persistent power/security setting, branch/worktree,
-shared engine feature, entity or Outdoors/Winter pass is introduced here.
+The first [Home CI run](https://github.com/csd113/Places/actions/runs/37693916111) failed formatting. The [corrected run](https://github.com/csd113/Places/actions/runs/37694798789) passes formatting, debug/release builds and strict Clippy, with 2,020 library passes, 23 ignored and the independent wall-reference failure described above. Its subsequent focused repair passes; this report does not claim an unobserved final Home CI. [Stage 7](../../art-style/stage7/README.md) records the later complete inventory/test gate and qualified animated Home acceptance.
+
+Two non-Home placement warnings remain inherited at this checkpoint: Office trim at `[1.215,0.09,0.162]` and the Outdoors porch at `[13.5,0.24,-90.95]`. The dated after kitchen image still shows diagonal smearing on cupboard and refrigerator panels, alongside darker/coarser narrow recesses than the concept sheet. The later [production model-lighting correction](../../model-lighting-root-cause-and-fix.md) investigates that distinct rendering issue; this asset reconstruction does not claim to have solved it.

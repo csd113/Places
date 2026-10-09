@@ -1,7 +1,0 @@
-
-running 3 tests
-test game::tests::art_style::audit_compiled_hero_routes ... ignored, explicit preserved hero package and asset root required; compiled route audit
-test game::tests::art_style::hero_decorations_do_not_add_collision_and_prior_surface_controls_survive ... ok
-test game::tests::art_style::hero_refinement_keeps_living_room_and_hall_traversable ... ok
-
-test result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 2146 filtered out; finished in 0.00s

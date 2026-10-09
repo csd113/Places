@@ -1,0 +1,90 @@
+{
+  "format_version": 1,
+  "level": "places_demo",
+  "source": "assets/levels/places_demo.json",
+  "package": "assets/levels/places_demo.placesmap",
+  "settings": {
+    "bindings": {
+      "forward": "W",
+      "backward": "S",
+      "strafe_left": "A",
+      "strafe_right": "D",
+      "look_up": "UP",
+      "look_down": "DOWN",
+      "look_left": "LEFT",
+      "look_right": "RIGHT",
+      "jump": "SPACE",
+      "crouch": "C",
+      "interact": "E"
+    },
+    "look_speed_h": 90,
+    "look_speed_v": 60,
+    "walk_speed": 3,
+    "invert_look": false,
+    "mouse_sensitivity": 0.12,
+    "quality": "high",
+    "texture_filtering": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true,
+    "use_low_quality_lighting": false,
+    "vsync": false,
+    "fov_degrees": 60,
+    "window_mode": "windowed",
+    "window_width": 640,
+    "window_height": 360
+  },
+  "capture": {
+    "ready_world_seconds": 0.5,
+    "warmup_frames": 15,
+    "limit_frames": 3000,
+    "expected_drawable": [
+      1280,
+      720
+    ]
+  },
+  "views": [
+    {
+      "name": "actual_washer_drum",
+      "spawn": [
+        34.4,
+        13.2,
+        180
+      ],
+      "camera": [
+        180,
+        -48
+      ],
+      "target": "Original prop15 core:washing_machine and its native derived core:washer_drum",
+      "purpose": "Existing production spinning rigid movable inside static occluding washer; damp corridor floor/wall and small porthole; verify actual draw and position before acceptance"
+    },
+    {
+      "name": "actual_home_cat",
+      "spawn": [
+        63.5,
+        8.3,
+        0
+      ],
+      "camera": [
+        286.6992442339936,
+        -52
+      ],
+      "target": "Original prop55 spooner_man_home at[62.5,-.9,8], yaw250; assets/entities/spooner-man/model/spooner-man.glb",
+      "purpose": "Actual production animated/skinned feline; aim near original bounds at first fixed second before idle wander/prey activation; native pose/transform/cue required"
+    },
+    {
+      "name": "actual_hall_door",
+      "spawn": [
+        61,
+        5,
+        0
+      ],
+      "camera": [
+        0,
+        -5
+      ],
+      "target": "Original hall_door at[60.3,floor=-.9,3], initial closed",
+      "purpose": "Maintained capture_home.py doorway camera; frame/wall/floor occlusion and actual movable leaf. Do not spawn substitute geometry."
+    }
+  ]
+}

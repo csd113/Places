@@ -510,7 +510,8 @@ tools/               asset, texture, prop and level generators and validators
 tests/               the Python suites and their fixtures
 docs/                ARCHITECTURE.md, RENDERER.md, VERIFICATION.md and the guides
 docs/screenshots/    the images in this README
-docs/renderer-baseline/  frozen 25-view reference captures (Full and Low) and their record
+docs/renderer-baseline/  readable record of the former renderer
+tests/fixtures/native/gles2-reference/  frozen 25-view Full/Low comparison inputs
 ```
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the layer diagram, the

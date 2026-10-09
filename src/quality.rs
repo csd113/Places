@@ -36,7 +36,10 @@
 //! taps and 11 cm cells, and Low at 10 texels per metre at the 512-texel page
 //! size with a single tap and 15 cm cells (see
 //! [`QualityLevel::lightmap_config`] and [`QualityLevel::shadow_taps_per_axis`];
-//! Full's ten-page capacity is [`crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES`],
+//! Small opaque model surfaces use twice those physical densities: High32/m
+//! and Medium24/m, retaining narrow authored shadow detail. Compatible source
+//! triangles share illumination charts while their draw attributes stay exact.
+//! Full's eleven-page capacity is [`crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES`],
 //! while lower profiles retain eight pages).
 //!
 //! Every level bakes from the *same* patch set — density, page size and tap

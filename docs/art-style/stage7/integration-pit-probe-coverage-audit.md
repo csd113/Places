@@ -1,19 +1,12 @@
-# Pit lower-floor prepared probe audit
+# Pit overlapping probe ownership — 2026-10-09
 
-[Exact machine witness](integration-pit-probe-coverage-audit.json). The audit
-uses preserved, superseded C1 `levels__level0_pit.placesmap`, SHA
-`466f4fe029f3774870c4aa6fe418721c93bbdd41e0cd4e8740ac0136e0a9fec6`.
-The current local source remains unchanged, SHA
-`fe67c23ddc9742fc819befdecc38d1dbce5000c281d4c7eec06ce8367989db38`.
-Its room 16–24 fields match the saved prepared semantics after f32 parsing.
-This is a read-only archive/source/segment audit; no source, asset, Cargo,
-compiler, bake or native job was changed or run by this specialist.
+This historical saved C 1 witness explains why zero lower-room labels did not justify changing valid ownership or interpolation radius. The completed [Stage 7 integration](README.md) separately verifies the final normal package/native inventory.
 
 ## Zero labels are overlapping ownership
 
 Rooms 16–19 are real lower-floor authored space: floor -7.6 m, height 2.2 m,
-areas approximately 149.445, 149.445, 73.8 and 73.8 m². The primary's independent
-[navigation witness](validation/c1-pit-navigation.json) establishes actual
+areas approximately 149.445, 149.445, 73.8 and 73.8 m². An independent
+navigation witness establishes actual
 lower-floor humanoid walkable cells in navigation region 8. They are not
 classified as decoration or outside the field.
 
@@ -25,7 +18,7 @@ actual air owner is the corresponding shaft room. The lower room's missing
 label therefore does not imply an unsupported sample. Shaft labels 20–23 have
 555, 555, 286 and 288 valid probes throughout their actual volumes.
 
-The saved Full PLPF v3 origin is
+The saved Full PLPF v 3 origin is
 `[5.250011444091797, -18.749980926513672, -33.75001525878906]`, with 1.5 m cells,
 dimensions `[49,17,31]`, 25,823 slots and unchanged 3 m runtime radius. The
 irradiance blob SHA is
@@ -34,7 +27,7 @@ irradiance blob SHA is
 ## Saved compiled visibility witness
 
 The bounded decoder checked declared byte lengths and SHA hashes, consumed
-every byte of PLPF v3, PLNV v1 and PLLT v2, and used the **saved lighting
+every byte of PLPF v 3, PLNV v 1 and PLLT v 2, and used the **saved lighting
 visibility solids** rather than equating lighting with collision or assuming
 positive radius counts imply support. PLLT contains 25 room volumes, 114 local
 lights, 228 wall boxes, 927 horizontal slabs/interfaces and 409 prop boxes.
@@ -69,6 +62,4 @@ No geometry migration, owner-rule change, fabricated room recovery, radius
 extension or source edit is justified by these zero labels. The bounded solver-16
 phase selector is permitted to retain a layout when no additional strictly valid
 room ownership is feasible. This audit does not certify the whole map's other
-floor layers or every native entity/source state. The primary still verifies
-the final normal rebuilt package with the actual Rust sampler and native
-transition checks; saved C1 evidence is not relabelled as final acceptance.
+floor layers or every native entity/source state. The saved witness is not relabelled as a fresh per-cell final-package audit.

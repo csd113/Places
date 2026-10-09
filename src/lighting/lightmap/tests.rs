@@ -45,6 +45,132 @@ fn patch_local_round_trip() {
 }
 
 #[test]
+fn topology_flag_rejects_explicit_null() {
+    for kind in [PatchKind::Floor, PatchKind::Prop] {
+        let mut record = serde_json::to_value(patch(1.0, 1.0)).expect("chart metadata");
+        record["kind"] = serde_json::to_value(kind).expect("patch kind");
+        record["triangle"] = serde_json::Value::Null;
+        assert!(
+            serde_json::from_value::<LightmapPatch>(record).is_err(),
+            "legacy missing flags remain supported, but explicit null is malformed"
+        );
+    }
+}
+
+#[test]
+fn legacy_missing_model_topology_flag_remains_a_folded_triangle() {
+    let corners = [
+        [0.0, 0.0, 0.0],
+        [0.8, 0.0, 0.0],
+        [0.0, 0.6, 0.0],
+        [0.0, 0.6, 0.0],
+    ];
+    let original =
+        LightmapPatch::from_quad(PatchKind::Prop, corners, None).expect("legacy source triangle");
+    let mut record = serde_json::to_value(original).expect("triangle metadata");
+    let removed = record
+        .as_object_mut()
+        .expect("patch record")
+        .remove("triangle");
+    assert_eq!(
+        removed,
+        Some(serde_json::Value::Bool(true)),
+        "new records carry explicit topology"
+    );
+    let legacy: LightmapPatch =
+        serde_json::from_value(record).expect("legacy metadata still decodes");
+    assert_eq!(
+        legacy, original,
+        "missing Prop topology retains its historical domain"
+    );
+    assert!(
+        legacy.is_triangular(),
+        "legacy model chart cannot become a full quad"
+    );
+    assert_eq!(
+        legacy.point_at(1.0, 1.0),
+        legacy.point_at(0.0, 0.0),
+        "unused legacy chart half still folds"
+    );
+}
+
+#[test]
+fn shared_model_quad_serializes_explicit_false_and_never_folds() {
+    let corners = [
+        [0.0, 0.0, 0.0],
+        [0.8, 0.0, 0.0],
+        [0.65, 0.6, 0.0],
+        [0.1, 0.6, 0.0],
+    ];
+    let original =
+        LightmapPatch::from_quad(PatchKind::Prop, corners, None).expect("shared model quad");
+    let record = serde_json::to_value(original).expect("quad metadata");
+    assert_eq!(
+        record.get("triangle"),
+        Some(&serde_json::Value::Bool(false)),
+        "false must survive serialization to distinguish new model quads"
+    );
+    let decoded: LightmapPatch = serde_json::from_value(record).expect("quad metadata round trip");
+    assert_eq!(
+        decoded, original,
+        "native piecewise domain survives metadata round trip"
+    );
+    assert!(
+        !decoded.is_triangular(),
+        "model family no longer determines topology"
+    );
+    assert!(
+        glam::Vec3::from_array(decoded.point_at(1.0, 1.0))
+            .distance(glam::Vec3::from_array(corners[2]))
+            < 1.0e-6,
+        "far quad corner remains real geometry"
+    );
+    for u in [0.1_f32, 0.5, 0.9] {
+        for v in [0.2_f32, 0.6, 1.0] {
+            let (back_u, back_v) = decoded.local_of(decoded.point_at(u, v));
+            assert!(
+                (u - back_u).abs() < 1.0e-5 && (v - back_v).abs() < 1.0e-5,
+                "upper and lower quad halves invert without reflection"
+            );
+        }
+    }
+}
+
+#[test]
+fn legacy_architecture_defaults_to_quad_but_explicit_triangles_keep_their_domain() {
+    let original = patch(0.8, 0.6);
+    let mut record = serde_json::to_value(original).expect("architecture metadata");
+    let removed = record
+        .as_object_mut()
+        .expect("patch record")
+        .remove("triangle");
+    assert_eq!(
+        removed,
+        Some(serde_json::Value::Bool(false)),
+        "all new quad records carry topology"
+    );
+    let legacy: LightmapPatch = serde_json::from_value(record).expect("legacy architecture record");
+    assert_eq!(legacy, original, "legacy architecture remains a full quad");
+    let triangle = LightmapPatch::from_quad(
+        PatchKind::Wall,
+        [[0.0; 3], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 1.0, 0.0]],
+        Some(3),
+    )
+    .expect("explicit architecture triangle");
+    let decoded: LightmapPatch =
+        serde_json::from_slice(&serde_json::to_vec(&triangle).expect("triangle serialization"))
+            .expect("triangle decoding");
+    assert_eq!(
+        decoded, triangle,
+        "explicit architecture topology takes precedence over family"
+    );
+    assert!(
+        decoded.is_triangular(),
+        "explicit wall triangle still folds unused chart half"
+    );
+}
+
+#[test]
 fn patch_axes_follow_the_quad_winding() {
     let corners = [
         [1.0, 2.0, 3.0],
@@ -426,11 +552,14 @@ fn the_shipped_page_budget_is_used_when_genuinely_needed() {
 }
 
 #[test]
-fn full_page_policy_preserves_sampling_and_invalidates_the_eight_page_cache() {
+fn full_page_policy_preserves_architecture_sampling_and_invalidates_the_ten_page_cache() {
     let full = LightmapConfig::for_profile(QualityProfile::Full);
-    assert_eq!(full.max_pages, 10, "Full admits the measured minimum");
+    assert_eq!(
+        full.max_pages, 11,
+        "Full admits the measured finer model plan"
+    );
     let previous_full = LightmapConfig {
-        max_pages: 8,
+        max_pages: 10,
         ..full
     };
     for receiver in [patch(0.3, 0.35), patch(8.0, 6.0), patch(63.6875, 63.6875)] {
@@ -457,6 +586,7 @@ fn full_page_policy_preserves_sampling_and_invalidates_the_eight_page_cache() {
         .expect("Medium has an atlas");
     let previous_medium = LightmapConfig {
         texels_per_metre: 12.0,
+        max_pages: 8,
         ..previous_full
     };
     assert_eq!(medium, previous_medium, "Medium's whole policy is retained");
@@ -1564,15 +1694,14 @@ fn switchable_groups_follow_the_base_layers_in_a_dense_pair_layout() {
 }
 
 /// The format version is bumped whenever the atlas layout, texel encoding or key
-/// inputs change; version 13 maps chart endpoints to texel centres in the HDR transport solve (an irradiance
-/// term plus a directional moment per texel, and prepared switchable layer
-/// groups). Pinned so a future layout change has to bump it deliberately, and
-/// part of every key so a pre-12 atlas can never be reused.
+/// inputs change; version 14 shares supported coplanar prop chart domains and
+/// records explicit triangle/quad topology. Pinned so layout changes invalidate
+/// transient atlases even when all source level and model bytes are unchanged.
 #[test]
 fn the_format_version_is_current_and_is_part_of_every_key_prefix() {
     // The value itself is pinned by the cache module's version notes; the
     // contract under test is that the key carries it.
-    assert_eq!(LIGHTMAP_FORMAT_VERSION, 13);
+    assert_eq!(LIGHTMAP_FORMAT_VERSION, 14);
     let level = crate::level::LevelDef::from_json(
         r#"{
             "format_version": 3,
@@ -1809,8 +1938,8 @@ fn the_pit_bakes_into_the_shipped_page_budget_at_full() {
     let profile = QualityProfile::Full;
     let config = profile.lightmap_config();
     assert_eq!(
-        config.max_pages, 10,
-        "the shipped Full profile supports the measured ten-page budget"
+        config.max_pages, 11,
+        "the shipped Full profile supports the measured eleven-page budget"
     );
     assert_eq!(config.page_edge, 1024);
 
@@ -1865,7 +1994,7 @@ fn the_pit_bakes_into_the_shipped_page_budget_at_full() {
 fn the_three_storey_tower_needs_the_raised_page_budget() {
     let profile = QualityProfile::Full;
     let config = profile.lightmap_config();
-    assert_eq!(config.max_pages, 10);
+    assert_eq!(config.max_pages, 11);
     let taller = large_tower_level_with_storeys(3);
     let mut four_page = config;
     four_page.max_pages = 4;

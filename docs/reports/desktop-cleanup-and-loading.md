@@ -1,8 +1,10 @@
 # Desktop cleanup and loading
 
 Implementation and verification record for the September 2026 corrective pass.
-Final implementation handoff; completed measurements and remaining acceptance
-limits are distinguished below. Historical reports retain their original results.
+The corrective pass stopped with an unbuilt, untested final pacing edit.
+Completed measurements and that remaining acceptance gap are distinguished below.
+The [feature summary](feature-expansion-summary.md) preserves the preceding
+gameplay and tooling delivery.
 
 ## Baseline and measurement scope
 
@@ -13,18 +15,12 @@ No branch, worktree, commit, user cache purge, or system cache purge was used.
 Measurements run serially on macOS / Apple Silicon M2 Pro. Application-cache cold
 means a fresh isolated state directory, not cold operating-system or GPU caches.
 The controlled release harness uses High, VSync, a 640×360 logical window, camera
-74°, and four ready frames. Raw logs contain effective renderer configuration.
-
-Raw baseline evidence is under [desktop-cleanup](desktop-cleanup/). The first Pit
-pair in `places-loading-before-release-controlled` is invalid because the copied
-baseline lacked that ignored level; use `places-loading-before-pit` instead.
-The debug pilot terminated abnormally before presenting and is not a valid runtime
-baseline. Compilation and process execution are reported separately.
+74°, and four ready frames. Effective renderer configuration was recorded independently.
 
 The baseline Rust gate compiled in 12.85 seconds. Its cached full invocation took
 1140.17 seconds wall time, with 1139.35 seconds reported test execution: 1288 passed,
 2 failed and 8 ignored (1298 unique tests). Failures were the allocation-estimate
-ratio assertion and cross-room wall continuity. See `places-baseline-tests.log`.
+ratio assertion and cross-room wall continuity.
 Over-60-second notices identify candidates, not independently measured durations;
 their times must not be added to claim suite wall time.
 
@@ -36,13 +32,7 @@ removal saves **zero measured desktop-suite execution time**. No desktop backend
 Linux/ARM support, low-quality setting, or low-resolution safety coverage was
 removed. The root dependency lockfile did not need changes.
 
-[retirement.json](desktop-cleanup/retirement.json) records all 845 nested Rust/Python
-test identities and classifications. Shared current contracts retain 774 tests;
-six useful geometry regressions were transferred into desktop tests. Exclusively
-retired contracts have their obsolete purpose recorded. Historical reports retain
-accurate references to the former platform.
-
-## Runtime changes and ownership
+## Runtime preparation
 
 A single persistent preparation worker owns level reading, immutable asset
 snapshots, geometry, lighting, collision-world preparation and character initialization.
@@ -130,15 +120,12 @@ been completed. Linux/Windows runtime checks were unavailable: this host has no
 running Docker daemon or corresponding native runtime. These are acceptance
 limits, not passing checks.
 
-
 ## Final controlled runtime measurements
 
 Already-built binaries, one cold/warm pair per level; seconds include process
 startup, readiness, four rendered frames and clean exit. These are individual
-observations rather than statistical confidence intervals. Exact commands, binary
-hashes, environment, phase records, first-ready presents, RSS, and gap percentiles
-are retained in [comparison.json](desktop-cleanup/comparison.json) and the adjacent
-`places-loading-after-parallel` directory.
+observations rather than statistical confidence intervals. Renderer configuration, first-ready presentation, phase records, RSS and event
+gaps were recorded with each invocation.
 
 | Entry | Before cold | After cold | Before warm | After warm |
 |---|---:|---:|---:|---:|
@@ -146,7 +133,7 @@ are retained in [comparison.json](desktop-cleanup/comparison.json) and the adjac
 | places_demo | 29.191 | 15.704 | 2.250 | 1.309 |
 | model_zoo | 37.010 | 6.492 | 2.841 | 0.784 |
 | level0_pit | 36.560 | 3.550 | 2.457 | 0.494 |
-| capacity_sparse | 31.196 | 1.000 | 2.299 | 0.375 |
+| capacity_sparse (subsequently retired) | 31.196 | 1.000 | 2.299 | 0.375 |
 | capacity_dense | 78.992 | 27.839 | 30.929 | 11.418 |
 
 Unoptimized debug normal startup improved from 346.570 to 181.764 seconds cold
@@ -183,22 +170,19 @@ No packaged prebake requirement was added. Cache misses remain supported.
 No new dependencies, production art changes, preference migrations or commits
 were introduced.
 
-
 Cold-process maximum RSS decreased from 709.6 to 656.3 MiB for normal menu entry
 and from 1428.9 to 672.8 MiB for the dense fixture. RSS is process resident memory,
 not a GPU allocation or process-tree measure. Across release cold runs, measured
 maximum event-pump gaps ranged 132.3–170.1 ms including initial setup. Sparse has
 few observations and its p99 includes that initial interval; it must not be
 summarized as universally sub-10-ms. Dense cold p99 was 8.915 ms. Synthetic action
-latencies and repeated-visit RSS samples are retained under `native-loading`;
+latencies and repeated-visit RSS samples were recorded;
 synthetic focus actions do not prove operating-system focus handling.
-
 
 ## Final integration corrections
 
 The first complete integration run found seven failures (1317 passed, 7 failed,
-8 ignored; 694.06 seconds test execution, 703.44 seconds invocation). Its log is
-retained as `places-final-verification.log`, not represented as a passing gate.
+8 ignored; 694.06 seconds test execution, 703.44 seconds invocation). This initial run was not a passing gate.
 The seven targeted reruns all passed after these focused corrections:
 
 - Empty scripted Escape/Quit variants now reject unknown JSON fields. Serde's
@@ -222,7 +206,6 @@ The runtime table above was collected immediately before these final winding and
 script-validation corrections (binary hashes are preserved). It measures the
 implemented loader, caches and bounded fill; it is not a post-correction timing
 rerun. Final-code validation is listed separately below.
-
 
 ## Stopped at the user's request
 
@@ -255,3 +238,8 @@ its capture file. These edits need the remaining lint fix and affected checks.
 The displayed timing table predates these final corrections. No final timing sweep,
 manual gameplay walkthrough or baseline/current visual comparison is claimed.
 Linux/Windows runtime verification was unavailable. No commits were created.
+
+The source journal also records the preceding input correction: short key taps
+are latched until simulation consumes their edge, with crouch height and a
+placed-instance E action checked through the native player. That completed
+feature acceptance does not certify the later untested loading pacing edit.

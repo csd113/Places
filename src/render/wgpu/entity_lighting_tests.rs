@@ -356,6 +356,386 @@ fn assert_directional_display_pixel(
     assert_eq!(image.rgba[centre + 3], 255, "{label} remains opaque");
 }
 
+struct EntityNormalCase {
+    name: &'static str,
+    node: glam::Mat4,
+    base_rotation: glam::Quat,
+    scale: f32,
+    view_side: f32,
+    moment: [f32; 3],
+}
+
+fn entity_normal_cases() -> [EntityNormalCase; 4] {
+    [
+        EntityNormalCase {
+            name: "front",
+            node: glam::Mat4::IDENTITY,
+            base_rotation: glam::Quat::IDENTITY,
+            scale: 1.0,
+            view_side: 1.0,
+            moment: [0.0, 0.3, 0.0],
+        },
+        EntityNormalCase {
+            name: "back",
+            node: glam::Mat4::IDENTITY,
+            base_rotation: glam::Quat::IDENTITY,
+            scale: 1.0,
+            view_side: -1.0,
+            moment: [0.0, -0.3, 0.0],
+        },
+        EntityNormalCase {
+            name: "rotated-small-nonuniform",
+            node: glam::Mat4::from_scale_rotation_translation(
+                Vec3::new(1.3, 0.7, 1.8),
+                glam::Quat::from_rotation_x(0.35),
+                Vec3::ZERO,
+            ),
+            base_rotation: glam::Quat::from_rotation_z(0.22) * glam::Quat::from_rotation_y(0.55),
+            scale: 0.125,
+            view_side: 1.0,
+            moment: (Vec3::new(0.2, 1.0, 0.5).normalize() * 0.3).to_array(),
+        },
+        EntityNormalCase {
+            name: "mirrored-large-back",
+            node: glam::Mat4::from_scale_rotation_translation(
+                Vec3::new(-0.8, 1.3, 0.6),
+                glam::Quat::from_rotation_x(0.35),
+                Vec3::ZERO,
+            ),
+            base_rotation: glam::Quat::from_rotation_z(0.22) * glam::Quat::from_rotation_y(0.55),
+            scale: 4.0,
+            view_side: -1.0,
+            moment: (Vec3::new(-0.2, -1.0, -0.5).normalize() * 0.3).to_array(),
+        },
+    ]
+}
+
+fn depth_normal_triangle(authored_normal: bool, case: &EntityNormalCase) -> Arc<LoadedPropAsset> {
+    let mut asset = triangle();
+    let mutable = Arc::get_mut(&mut asset).expect("unique test asset");
+    mutable.model_path = format!("depth-normal-triangle-{}-{authored_normal}", case.name);
+    let normal = case
+        .node
+        .inverse()
+        .transpose()
+        .transform_vector3(Vec3::Z)
+        .normalize()
+        .to_array();
+    for vertex in &mut mutable.model.vertices {
+        vertex.pos[2] = 0.0;
+        vertex.pos = case
+            .node
+            .transform_point3(Vec3::from_array(vertex.pos))
+            .to_array();
+        vertex.normal = authored_normal.then_some(normal);
+    }
+    // The glTF importer reverses static mirrored-node winding so authored
+    // inverse-transpose normals retain the same outward side (gltf.rs).
+    if case.node.determinant() < 0.0 {
+        mutable.model.indices.swap(1, 2);
+    }
+    asset
+}
+
+fn save_depth_normal_capture(
+    image: &crate::loader::RawImage,
+    authored_normal: bool,
+    case: &EntityNormalCase,
+    camera: [f32; 2],
+) {
+    if let Ok(directory) = std::env::var("PLACES_ENTITY_TEST_CAPTURES") {
+        let path = std::path::Path::new(&directory);
+        std::fs::create_dir_all(path).expect("capture directory");
+        let name = format!(
+            "entity-normal-{}-{}-{}x{}-fov{}-depth{}.png",
+            case.name,
+            if authored_normal {
+                "authored"
+            } else {
+                "derived"
+            },
+            image.width,
+            image.height,
+            camera[0],
+            camera[1],
+        );
+        std::fs::write(
+            path.join(name),
+            crate::materials::encode_png(image).expect("PNG"),
+        )
+        .expect("normal depth PNG");
+    }
+}
+
+fn depth_normal_pixels(
+    renderer: &mut WgpuRenderer,
+    authored_normal: bool,
+    case: &EntityNormalCase,
+) -> Vec<([f32; 2], [u8; 4])> {
+    let asset = depth_normal_triangle(authored_normal, case);
+    let centre = Vec3::new(0.0, 1.0, 0.0);
+    let translation =
+        centre - case.base_rotation * (case.node.transform_point3(Vec3::Y) * case.scale);
+    let id = renderer
+        .dynamic
+        .spawn_oriented(
+            &asset,
+            translation.to_array(),
+            crate::render::common::dynamic::SpawnOrientation {
+                base_rotation: case.base_rotation,
+                spin_axis: [0.0, 1.0, 0.0],
+            },
+            0.0,
+            case.scale,
+            0.0,
+        )
+        .expect("normal reference triangle");
+    let _update_stats = renderer.update_dynamic(0.0);
+    renderer.upload_dynamic();
+    let before = *renderer
+        .world_dynamic
+        .as_ref()
+        .unwrap()
+        .diagnostic_uniform(0)
+        .unwrap();
+    assert_eq!(
+        before.entity_irradiance,
+        [0.2, 0.2, 0.2, 1.0],
+        "the reference uses the fixed directional probe"
+    );
+    assert_eq!(
+        before.entity_bounds_min[3], 0.0,
+        "the reference isolates the directional entity path"
+    );
+    let facing = case.base_rotation
+        * case
+            .node
+            .inverse()
+            .transpose()
+            .transform_vector3(Vec3::Z)
+            .normalize()
+        * case.view_side;
+    let forward = -facing;
+    let mut pixels = Vec::new();
+    for fov in [45.0_f32, 60.0, 90.0] {
+        for depth in [1.0_f32, 0.125] {
+            assert!(
+                depth > crate::render::common::SCENE_NEAR_M,
+                "the reference face remains beyond the near plane"
+            );
+            renderer.render_scene(RenderCamera::new(
+                centre + facing * depth,
+                forward.x.atan2(-forward.z),
+                forward.y.asin(),
+                fov,
+            ));
+            renderer.post = None;
+            let image = renderer
+                .capture_default_framebuffer()
+                .expect("normal depth readback");
+            let after = renderer
+                .world_dynamic
+                .as_ref()
+                .unwrap()
+                .diagnostic_uniform(0)
+                .unwrap();
+            assert_eq!(
+                after.entity_irradiance, before.entity_irradiance,
+                "moving the camera retains uploaded incident energy"
+            );
+            assert_eq!(
+                after.entity_moment, before.entity_moment,
+                "moving the camera retains the uploaded incident moment"
+            );
+            let centre_offset =
+                usize::try_from((image.height / 2 * image.width + image.width / 2) * 4)
+                    .expect("centre pixel offset");
+            let pixel = image.rgba[centre_offset..centre_offset + 4]
+                .try_into()
+                .expect("one RGBA pixel");
+            pixels.push(([fov, depth], pixel));
+            save_depth_normal_capture(&image, authored_normal, case, [fov, depth]);
+        }
+    }
+    assert!(renderer.dynamic.despawn(id), "reference triangle removed");
+    renderer.upload_dynamic();
+    pixels
+}
+
+#[test]
+#[ignore = "requires a native GPU adapter; run explicitly on a desktop host"]
+fn missing_entity_normals_match_authored_normals_at_near_and_far_depths() {
+    let loaded = fixture();
+    // Wide targets retain the configured vertical FOV. On a square 128px
+    // target the old derivative cutoff lies behind the 0.1m near plane.
+    for size in [DrawableSize::new(512, 288), DrawableSize::new(1280, 720)] {
+        let mut renderer = WgpuRenderer::new_headless(size).expect("GPU");
+        install(&mut renderer, &loaded, QualityLevel::High, false);
+        for case in entity_normal_cases() {
+            let mut field = renderer.dynamic_field.as_ref().unwrap().as_ref().clone();
+            field.probes[0].direction = case.moment;
+            renderer.dynamic_field = Some(Arc::new(field));
+            // Reverse the moment on back views so an erroneous -Y fallback
+            // retains the same large contrast as +Y in the front view.
+            let derived = depth_normal_pixels(&mut renderer, false, &case);
+            let authored = depth_normal_pixels(&mut renderer, true, &case);
+            assert_eq!(derived.len(), authored.len(), "matching camera cases");
+            for ((camera, actual), (reference_camera, expected)) in derived.iter().zip(&authored) {
+                assert_eq!(camera, reference_camera, "twins use identical cameras");
+                for channel in 0..3 {
+                    assert!(
+                        actual[channel].abs_diff(expected[channel]) < 2,
+                        "{} {}x{}, FOV={}, depth={}m, channel {channel}: geometric normal \
+                         must match authored normal within <2 display bytes; derived={actual:?}, \
+                         authored={expected:?}",
+                        case.name,
+                        size.width,
+                        size.height,
+                        camera[0],
+                        camera[1],
+                    );
+                    assert!(
+                        expected[channel] > 20,
+                        "the reference contains a visible lit face"
+                    );
+                }
+                assert_eq!(actual[3], 255, "the derived-normal face remains opaque");
+                assert_eq!(expected[3], 255, "the authored-normal face remains opaque");
+            }
+        }
+    }
+}
+
+const NORMAL_MATH_ENTRY: &str = r"
+@group(0) @binding(1)
+var<storage, read_write> normal_test_results: array<vec4<f32>>;
+
+@compute @workgroup_size(1)
+fn normal_math_test() {
+    normal_test_results[0] = vec4<f32>(unit_direction_or_zero(vec3<f32>(0.0, 3.0e-20, 4.0e-20)), 0.0);
+    normal_test_results[1] = vec4<f32>(unit_direction_or_zero(vec3<f32>(0.0, 3.0e20, 4.0e20)), 0.0);
+    normal_test_results[2] = vec4<f32>(unit_direction_or_zero(vec3<f32>(0.0)), 0.0);
+    normal_test_results[3] = vec4<f32>(unit_direction_or_zero(cross(
+        rescale_direction(vec3<f32>(0.0, 4.0e-20, 0.0)),
+        rescale_direction(vec3<f32>(3.0e-20, 0.0, 0.0)))), 0.0);
+    normal_test_results[4] = vec4<f32>(unit_direction_or_zero(cross(
+        rescale_direction(vec3<f32>(0.0, 4.0e20, 0.0)),
+        rescale_direction(vec3<f32>(3.0e20, 0.0, 0.0)))), 0.0);
+    normal_test_results[5] = vec4<f32>(unit_direction_or_zero(cross(
+        rescale_direction(vec3<f32>(2.0e-20, 4.0e-20, 0.0)),
+        rescale_direction(vec3<f32>(2.0e20, 4.0e20, 0.0)))), 0.0);
+}
+";
+
+fn gpu_normal_math_results(renderer: &WgpuRenderer) -> Vec<[f32; 4]> {
+    // Execute the production helpers themselves. The compute entry supplies
+    // analytic directions rather than duplicating their arithmetic in Rust.
+    let source = format!(
+        "{}\n{NORMAL_MATH_ENTRY}",
+        super::super::world::WORLD_SHADER_SRC
+    );
+    let shader = renderer
+        .device
+        .create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("entity-normal-math-test"),
+            source: wgpu::ShaderSource::Wgsl(source.into()),
+        });
+    let pipeline = renderer
+        .device
+        .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("entity-normal-math-test"),
+            layout: None,
+            module: &shader,
+            entry_point: Some("normal_math_test"),
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            cache: None,
+        });
+    let output = renderer.device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("entity-normal-math-output"),
+        size: 96,
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+        mapped_at_creation: false,
+    });
+    let staging = renderer.device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("entity-normal-math-readback"),
+        size: 96,
+        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    let binding = renderer
+        .device
+        .create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("entity-normal-math-binding"),
+            layout: &pipeline.get_bind_group_layout(0),
+            entries: &[wgpu::BindGroupEntry {
+                binding: 1,
+                resource: output.as_entire_binding(),
+            }],
+        });
+    let mut encoder = renderer
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("entity-normal-math-test"),
+        });
+    {
+        let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            label: Some("entity-normal-math-test"),
+            timestamp_writes: None,
+        });
+        pass.set_pipeline(&pipeline);
+        pass.set_bind_group(0, &binding, &[]);
+        pass.dispatch_workgroups(1, 1, 1);
+    }
+    encoder.copy_buffer_to_buffer(&output, 0, &staging, 0, 96);
+    let _submission = renderer.queue.submit([encoder.finish()]);
+    read_normal_math_buffer(&renderer.device, &staging)
+}
+
+fn read_normal_math_buffer(device: &wgpu::Device, staging: &wgpu::Buffer) -> Vec<[f32; 4]> {
+    let slice = staging.slice(..);
+    let (sender, receiver) = std::sync::mpsc::channel();
+    slice.map_async(wgpu::MapMode::Read, move |result| {
+        sender.send(result).expect("normal math readback receiver");
+    });
+    let _poll_status = device
+        .poll(wgpu::PollType::wait_indefinitely())
+        .expect("GPU poll");
+    receiver.recv().expect("map callback").expect("buffer maps");
+    let data = slice.get_mapped_range().expect("mapped range");
+    let actual = bytemuck::cast_slice::<u8, [f32; 4]>(&data).to_vec();
+    drop(data);
+    staging.unmap();
+    actual
+}
+
+#[test]
+#[ignore = "requires a native GPU adapter; run explicitly on a desktop host"]
+fn normal_direction_helpers_keep_extreme_and_degenerate_vectors_finite_on_gpu() {
+    let renderer = WgpuRenderer::new_headless(DrawableSize::new(16, 16)).expect("GPU");
+    let actual = gpu_normal_math_results(&renderer);
+    let expected = [
+        [0.0_f32, 0.6, 0.8, 0.0],
+        [0.0, 0.6, 0.8, 0.0],
+        [0.0; 4],
+        [0.0, 0.0, -1.0, 0.0],
+        [0.0, 0.0, -1.0, 0.0],
+        [0.0; 4],
+    ];
+    assert_eq!(
+        actual.len(),
+        expected.len(),
+        "all normal cases were executed"
+    );
+    for (index, (value, reference)) in actual.iter().zip(&expected).enumerate() {
+        for (channel, (component, wanted)) in value.iter().zip(reference).enumerate() {
+            assert!(
+                component.is_finite() && (component - wanted).abs() < 1.0e-5,
+                "normal case {index}, channel {channel}: actual={value:?}, expected={reference:?}"
+            );
+        }
+    }
+}
+
 fn archive_bytes(archive: &mut zip::ZipArchive<std::io::Cursor<&[u8]>>, name: &str) -> Vec<u8> {
     use std::io::Read;
     let mut bytes = Vec::new();

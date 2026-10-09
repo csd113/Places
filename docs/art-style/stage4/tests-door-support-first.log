@@ -1,7 +1,0 @@
-   Compiling places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
-    Finished `test` profile [optimized + debuginfo] target(s) in 27.08s
-     Running unittests src/lib.rs (target/debug/deps/places-db4822a0463dd4cf)
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2120 filtered out; finished in 0.00s

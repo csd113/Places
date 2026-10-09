@@ -1,10 +1,12 @@
 # Lighting energy repair and maintained-level rebake
 
-Evidence root: `target/lighting-repair/remaining/`. This continues the earlier
-`target/lighting-repair/report.md` repair; its intersection, wall ownership,
-ceiling clipping, stair, roof and per-triangle bounce-cache fixes are preserved.
-No authoring intensity, global brightness, exposure, tone-map or albedo changes
-were made. No dependencies were added. Publication was subsequently requested by the user.
+Historical acceptance: September 2026 physical transport repair. Measurements, package identities and limits below
+describe that tested version. The canonical guides govern the current checkout.
+
+The physical transport repair preserves the prior intersection, wall ownership,
+ceiling clipping, stair, roof and triangle bounce-cache fixes. Authored intensity,
+global brightness, exposure, tone mapping and albedo were unchanged. No
+dependencies were added.
 
 ## Confirmed causes → fixes → independent evidence
 
@@ -28,8 +30,7 @@ reuse read every entry with a 256 MiB limit. Those reads now share the runtime's
 existing mesh/prop budget while retaining the archive total cap, smaller limits
 for other roles, hashes and typed decoding. The measured capacity record is a
 regression witness. Small-package tests never crossed the inconsistent cap.
-The frozen final compiler was refreshed after this discovery, and the final
-forced bake queue was restarted; intermediate `pass1/` evidence is retained.
+The final compiler and all accepted force-rebuilt packages include this fix.
 
 The first attempted baseline runtime capture of `test_room` also exposed an
 index-upload crash: 363 `u16` indices occupy 726 bytes, which violates wgpu's
@@ -38,16 +39,14 @@ index uploads now use wgpu's existing padded mapped initialization, retaining
 the original draw count. The GPU regression independently checks 0, 3, 6 and
 363 indices against 4, 8, 12 and 728 allocated bytes, and was explicitly run on
 Metal. Quad-only coverage had hidden the odd-triangle case. The original player
-cannot provide a `test_room` before image; its panic log is retained. Its
+could not render a `test_room` before image. Its
 original baked package is also captured with the final upload fix, providing
-a lighting baseline without altering the old baked energy
-(`before-test-room-upload-fix/`). This baseline explicitly records the newer
+a lighting baseline without altering the old baked energy. This baseline explicitly records the newer
 player hash and original package hash.
 
 ## Stage measurements
 
-`stages-before.log`, `stages-after.log` and `stage-measurements.json` retain the
-same deterministic Full-quality stage audit. Values below are area-weighted
+The deterministic Full-quality stage audit below reports area-weighted
 RGB-mean light, before display tone mapping. The audit assembles its geometry
 through the existing regression path; it is representative solver evidence,
 not a claim that these statistics are extracted from the final package.
@@ -119,27 +118,14 @@ settings. The 25 canonical demo cameras were also refreshed with the frozen
 final player in `canonical-final/`, including opposite roof, balcony and
 pool/window close-ups. They supplement the full room-grid acceptance set.
 
-Before views preserve the original executables and installed packages, then
-compile missing fixture packages with the original compiler. The first
-abandoned `remaining/before/` attempt had incorrect eye height and is excluded;
-use `before-installed/` and `before-fixtures/`. Camera coordinates, settings,
-logs, committed runtime state and package hashes accompany the PNGs.
-`before-curves/` and `after-curves/` contain the additional curved-partition
-views discovered during visual review; view IDs deduplicate overlapping captures.
-`before-surfaces/` adds matched floor/ceiling baselines without rebaking or
-repeating existing camera investigations. `baseline-coverage-final.json` verifies
-1,087 unique High before views with exactly matching final camera coordinates
-and angles, covering every bakeable room/region. `final-runtime-captures.json`
-selects the final captures, including the two authoring-repair replacements.
-`water_partitions.py` supplies explicit wet/dry ceiling and overview views for
-Water Transmission, whose generic centre camera lies inside its divider.
-
-Final bakes use the single frozen `final-bin/places-compile` executable and
-`build <source> --workers 12 --force --json --out <package>`. An exclusive lock
-shares the worker budget with any remaining baseline bake. Builds are serial;
-no two compiler processes compute concurrently. Every successful build contains
-Off, Medium and Full variants. Existing installed/shipped copies are updated;
-fixture-only packages remain under `final/packages/`.
+Matched before views used the original executables/installed packages, with
+missing fixture packages built by the original compiler. The initial incorrect
+eye-height attempt is excluded. All 1,087 unique High before views have exactly
+matching final camera coordinates and angles and cover every bakeable room/region.
+Curved partitions and floor/ceiling supplements preserve independent original
+inputs. Explicit wet/dry ceiling and overview views cover Water Transmission,
+whose generic centre camera lies inside a divider. Accepted final captures use
+the two repaired-authoring versions rather than superseded images.
 
 ## Retired level and authoring repairs
 
@@ -186,8 +172,7 @@ All 19 maintained geometry checks now exit successfully with zero errors. Warnin
 findings remain explicit: Water Transmission has 32 opposite-facing contacts at
 the opaque control, and Rendering Diagnostic has six small trim-joint slivers
 (0.00081 m² each) plus three doorway/room-footprint warnings. The other 17 levels'
-findings are unchanged. `geometry-final-acceptance.json` retains before/final
-summaries and links to the two corrected reports.
+findings are unchanged.
 
 ## Final results
 
@@ -245,34 +230,10 @@ Water Transmission has four extra wet/dry views per profile because its generic
 centre camera lies in a divider. The final canonical home roof/ceiling and
 balcony close-ups retain surface grain and intentional shadows.
 
-The final compiler SHA-256 is
-`07f8406d5212eaaa97b7247cfc2c923e5c147ae20e61d46ed0f3392d7e17e3e6`;
-player SHA-256 is
-`5017aabd93960b22bbdad7705546844c946a2159249ae0aeeeded449a791ce15`.
-A second forced 12-worker Home Showcase bake using that same compiler was
-byte-identical (`d921378b7275dfab7e9e28eeb77ac128e2b6abc2c7c6d53ed099103b93c5f4fa`).
-All task-owned bake, capture and verification jobs were awaited.
-
-Evidence indexes under the evidence root:
-
-- `final/results.json`: per-level source/package paths, variant statistics, validation,
-  source/dependency freshness, archive hashes and updated copies.
-- `final-audit.json`: exact package/player/manifest identities and complete
-  room/profile view-set assertions; `baseline-coverage-final.json`: 1,087
-  independently recorded matched High baselines.
-- `supplement-final-audit.json`: water, canonical and embedded identity/
-  zero-bake checks, including embedded/external pixel equality.
-- `visual-final-reviewed.json` and `sheets/after-final/`: per-level visual
-  findings and reviewed contact sheets; full-resolution PNGs/logs/traces live
-  under `after-final/`, `canonical-final/`, `after-water-authoring/`,
-  `after-rendering-authoring/` and `water-partitions-after-authoring/`.
-  `final-runtime-captures.json` selects the latest 2,145 main captures, excluding
-  the superseded pre-authoring water/rendering images.
-- `matched-energy-comparison.png`: matched home and ceiling before/final views.
-- `geometry-final-acceptance.json`: all 19 geometry results; the two repaired
-  levels retain their previous summaries alongside the final zero-error results.
-- `final/failures.json`: the original and final navigation blocker is documented
-  in the report above; this file retains the final failed command/error.
+A second forced 12-worker Home Showcase bake was byte-identical to the first.
+The 1,087 matched High baselines and all accepted captures used independently
+verified package/player identities; expected navigation failures were kept
+separate from the successful final 18-level campaign.
 
 ## Validation commands
 
@@ -315,13 +276,13 @@ Evidence indexes under the evidence root:
   `assets/levels/model_zoo.placesmap`.
 - Existing local installed copies: `levels/home_showcase.placesmap`,
   `levels/geometry_intentional.placesmap`, `levels/level0_pit.placesmap`.
-  Fixture-only rebuilt packages and all evidence remain under the evidence root.
+  These local and fixture controls are separate from shipped bundle acceptance.
 
 Only the two proven overlapping-geometry source defects were changed. No visual
 assets, dependencies, exposure settings or authored light intensities changed.
 Geometry/texture warnings were not suppressed.
 
-## Requested retirement and publication
+## Sparse-level retirement
 
 Deleted `tests/fixtures/levels/capacity_sparse.json`, the only maintained source
 that failed the upgrade. Updated `src/zoo_audit.rs`,

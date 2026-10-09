@@ -746,6 +746,20 @@ impl Game {
         self.seed_routes_at_rest();
     }
 
+    /// Repositions the benchmark player while retaining entity routes and state.
+    /// Collision support and trigger baselines follow the ordinary spawn path.
+    pub fn set_benchmark_player_position(&mut self, eye: Vec3, yaw: f32, pitch: f32) {
+        let frame_time = self.last_frame_time;
+        let real_delta = self.delta_seconds;
+        let simulation_delta = self.sim_delta_seconds;
+        self.clear_run_state(eye, yaw, false);
+        self.player_pitch = pitch;
+        self.reseed_trigger_inside();
+        self.last_frame_time = frame_time;
+        self.delta_seconds = real_delta;
+        self.sim_delta_seconds = simulation_delta;
+    }
+
     #[must_use]
     pub const fn is_running(&self) -> bool {
         self.running
@@ -1003,6 +1017,12 @@ impl Game {
     #[must_use]
     pub const fn sim_delta_seconds(&self) -> f32 {
         self.sim_delta_seconds
+    }
+
+    /// Sets a controlled simulation step for an explicitly enabled benchmark.
+    /// Real frame timing remains available for telemetry and presentation costs.
+    pub const fn set_benchmark_simulation_delta(&mut self, delta: f32) {
+        self.sim_delta_seconds = clamp_sim_delta(delta);
     }
 
     /// Discards the accumulated frame time without advancing the simulation.

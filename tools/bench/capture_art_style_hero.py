@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import shutil
@@ -20,7 +21,7 @@ import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[2]
-MANIFEST = ROOT / "docs/art-style/hero-manifest.json"
+MANIFEST = ROOT / "tests/fixtures/native/hero-manifest.json"
 
 
 def digest(path: Path) -> str:
@@ -38,11 +39,12 @@ def select_views(manifest: dict, names: str | None) -> list[dict]:
     return [known[name] for name in selected]
 
 
-def visual_receipt(log: str, requested: str | None) -> dict | None:
+def visual_receipt(log: str, requested: str | None, captured: Path | None = None) -> dict | None:
     """Require a real feature-build capture receipt rather than an ignored env var."""
     if requested is None:
         return None
     records = []
+    pending = None
     for line in log.splitlines():
         if line.startswith("[visual-diagnostic] "):
             try:
@@ -51,6 +53,15 @@ def visual_receipt(log: str, requested: str | None) -> dict | None:
                 continue
             if value.get("event") == "capture":
                 records.append(value)
+                pending = value
+        if captured is not None and line == f"PLACES_CAPTURE: wrote {captured}":
+            if pending is None or pending.get("mode") != requested:
+                raise ValueError("No matching capture-time receipt for the requested visual diagnostic")
+            return pending
+        if line.startswith("PLACES_CAPTURE: wrote "):
+            pending = None
+    if captured is not None:
+        raise ValueError("Missing image-bound visual diagnostic receipt")
     if not records or records[-1].get("mode") != requested:
         raise ValueError("No capture-time receipt for the requested visual diagnostic")
     return records[-1]
@@ -96,14 +107,26 @@ def main() -> int:
     parser.add_argument("--low-lighting", action="store_true", help="Existing independent Low lighting override")
     parser.add_argument("--diagnostic", help="Opt-in visual-diagnostics build mode; final keeps normal composition")
     parser.add_argument("--entity-light-trace", action="store_true", help="Existing actual entity payload/anchor trace")
+    parser.add_argument("--finish-gpu", action="store_true", help="Existing benchmark GPU drain before swap; renderer completion timing, not GPU timestamps")
     parser.add_argument("--quality-cycle", help="Existing live settings script, e.g. 60:low,180:high")
     parser.add_argument("--graphics-cycle", help="Existing Advanced settings script, e.g. 60:lightmaps=off")
     parser.add_argument("--lighting-sequence", type=Path, help="Bounded native model movement and multi-capture JSON; requires --frames and one view")
     parser.add_argument("--capture-frame", type=int, help="Ready frame to capture instead of the fixed half-second")
     parser.add_argument("--frames", type=int, default=0, help="Measure frames after 120 warmup frames")
     parser.add_argument("--move-script", help="Existing held-control script; records actual player state")
+    parser.add_argument("--fixed-delta", type=float, help="Explicit benchmark simulation step in (0, 0.1] seconds; real telemetry remains measured")
+    parser.add_argument("--camera-position", help="Independent benchmark render eye x,y,z; the gameplay player remains at spawn")
     parser.add_argument("--play", action="store_true")
     args = parser.parse_args()
+    if args.fixed_delta is not None and (not math.isfinite(args.fixed_delta) or not 0 < args.fixed_delta <= 0.1):
+        parser.error("Fixed delta must be finite and in (0, 0.1] seconds")
+    if args.camera_position:
+        try:
+            eye = [float(value) for value in args.camera_position.split(",")]
+        except ValueError:
+            parser.error("Camera position must contain three finite coordinates")
+        if len(eye) != 3 or not all(math.isfinite(value) for value in eye):
+            parser.error("Camera position must contain three finite coordinates")
     manifest = json.loads(args.manifest.read_text())
     try:
         views = select_views(manifest, args.views)
@@ -183,10 +206,16 @@ def main() -> int:
                 env["PLACES_MOVE_SCRIPT"] = args.move_script
                 if out:
                     env["PLACES_STATE_LOG"] = str(out / (view["name"] + "-state.csv"))
+            if args.fixed_delta is not None:
+                env["PLACES_BENCH_FIXED_DELTA_SECONDS"] = str(args.fixed_delta)
+            if args.camera_position:
+                env["PLACES_BENCH_CAMERA_POSITION"] = args.camera_position
             if args.diagnostic:
                 env["PLACES_VISUAL_DIAGNOSTIC"] = args.diagnostic
             if args.entity_light_trace:
                 env["PLACES_ENTITY_LIGHT_TRACE"] = "all"
+            if args.finish_gpu:
+                env["PLACES_BENCH_FINISH"] = "1"
             if args.quality_cycle:
                 env["PLACES_BENCH_QUALITY_CYCLE"] = args.quality_cycle
             if args.graphics_cycle:
@@ -224,14 +253,17 @@ def main() -> int:
                 if step.get("capture"):
                     captured = Path(step["capture"])
                     validate_native(log, manifest["level"], captured, manifest["capture"]["expected_drawable"])
-                    sequence_captures.append(dict(frame=step["frame"], path=str(captured), sha256=digest(captured)))
-            diagnostic_receipt = visual_receipt(log, args.diagnostic) if image else None
+                    sequence_captures.append(dict(frame=step["frame"], path=str(captured), sha256=digest(captured),
+                                                  diagnostic_receipt=visual_receipt(log, args.diagnostic, captured)))
+            diagnostic_receipt = visual_receipt(log, args.diagnostic, image) if image else None
             if digest(package) != identity["package_sha256"] or digest(binary) != identity["binary_sha256"]:
                 raise RuntimeError("Binary/package changed during capture")
             receipts.append(dict(view=view, settings=settings, identity=identity,
                                  diagnostic=args.diagnostic, quality_cycle=args.quality_cycle,
                                  move_script=args.move_script,
+                                 fixed_delta_seconds=args.fixed_delta, camera_position=args.camera_position,
                                  entity_light_trace=args.entity_light_trace,
+                                 finish_gpu=args.finish_gpu,
                                  graphics_cycle=args.graphics_cycle, capture_frame=args.capture_frame,
                                  lighting_sequence=sequence, sequence_captures=sequence_captures,
                                  lighting_sequence_input=str(args.lighting_sequence.resolve()) if args.lighting_sequence else None,

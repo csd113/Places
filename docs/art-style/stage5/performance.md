@@ -1,8 +1,8 @@
 # Stage 5 costs — 2026-10-08 UTC
 
-[Native comparisons](README.md) · [Contracts](contracts.md) · [Handoff](handoff.md)
+[Native comparisons](README.md) · [Contracts](contracts.md) · [Final milestone](README.md)
 
-Measurements use the Apple M2 Pro / Metal, logical 640×360 and native 1280×720,
+Measurements use the Apple M 2 Pro / Metal, logical 640×360 and native 1280×720,
 High lighting/filtering, Full atlases/reflections, fixed exposure 1 and the surface
 camera. No quality limit, content or assertion is weakened for a number. Builds,
 bakes and tests did not overlap the five traced native samples. These are single
@@ -12,7 +12,7 @@ bounded samples, not device-independent budgets or a speedup claim.
 
 First normal-window samples completed with zero scene draws. The unchanged surface
 acquisition path skipped unavailable frames; telemetry spent time yielding. Those
-CSV timings and traces are [rejected](performance/rejected-native-v1.json).
+CSV timings and traces are rejected.
 An empty established lighting sequence did not change that outcome. No renderer
 fix, artificial foreground event or FPS claim is inferred from these samples.
 
@@ -27,13 +27,7 @@ presented-frame CPU cost. No CPU improvement or ordinary gameplay FPS is claimed
 
 The existing `tools/bench/inspect_metal_trace.py` unions active hardware intervals
 so overlapping Vertex/Fragment channels are counted once. Allocation state changes
-are weighted by time. [Summaries and pass breakdown](performance/gpu-summary.json),
-[owned-PID commands/outcomes](performance/gpu/) and
-[export commands](performance/export-commands.json) are tracked. Raw `.trace`, GPU
-and allocation XML remain outside `target/` under
-`debug-maps/art-style-hero/evidence/stage5-*-capture*-export` and matching traces.
-Only one untouched proof image per case is retained; repetitive profiling scratch
-PNGs are removed after recording their count. This is not another gallery campaign.
+are weighted by time. The results below use actual encoded scenes and time-weighted allocations, with the capture/acquisition limitations above.
 
 | Native capture case | Encoded scenes in 6 s | Active GPU union /scene ms | Scene span median /p95 ms | Metal time-median /peak MiB |
 | --- | ---: | ---: | ---: | ---: |
@@ -56,7 +50,7 @@ changes and different submission pacing. The storm cost includes the existing
 ## Attachments and resident resources
 
 At 1280×720 the post chain retains the same two full-size RGBA16F scene/emission
-images, Depth32Float scene depth, two 320×180 RGBA16F blur images and full-size
+images, Depth 32Float scene depth, two 320×180 RGBA16F blur images and full-size
 RGBA8 presented image: 23,040,000 bytes (21.973 MiB), excluding main surface/depth,
 driver allocation and other scene resources. No thickness/refraction copy or new
 full-size target is added. Bloom-off retains the existing resident targets. Two
@@ -76,7 +70,7 @@ package/resident increase. Original hero remains one probe point.
 ## Compiler and storage samples
 
 Cold explicit builds use the native frozen compiler, `--force --workers 12`, all
-three variants and the full repository asset root. [Commands/results](compile-v3/commands.json)
+three variants and the full repository asset root. Commands/results
 and JSON/logs retain measured phases, `/usr/bin/time -l` and verification. Every
 accepted package passes `verify SOURCE --package PACKAGE --asset-root ASSETS
 --require-current --json`. One corrected legacy control is measured with its

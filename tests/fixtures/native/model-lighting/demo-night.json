@@ -1,0 +1,62 @@
+{
+  "format_version": 1,
+  "level": "places_demo",
+  "source": "assets/levels/places_demo.json",
+  "package": "assets/levels/places_demo.placesmap",
+  "settings": {
+    "bindings": {
+      "forward": "W",
+      "backward": "S",
+      "strafe_left": "A",
+      "strafe_right": "D",
+      "look_up": "UP",
+      "look_down": "DOWN",
+      "look_left": "LEFT",
+      "look_right": "RIGHT",
+      "jump": "SPACE",
+      "crouch": "C",
+      "interact": "E"
+    },
+    "look_speed_h": 90,
+    "look_speed_v": 60,
+    "walk_speed": 3,
+    "invert_look": false,
+    "mouse_sensitivity": 0.12,
+    "quality": "high",
+    "texture_filtering": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true,
+    "use_low_quality_lighting": false,
+    "vsync": false,
+    "fov_degrees": 60,
+    "window_mode": "windowed",
+    "window_width": 640,
+    "window_height": 360
+  },
+  "capture": {
+    "ready_world_seconds": 0.5,
+    "warmup_frames": 15,
+    "limit_frames": 3000,
+    "expected_drawable": [
+      1280,
+      720
+    ]
+  },
+  "views": [
+    {
+      "name": "source_look_back_near",
+      "spawn": [
+        4.5,
+        -7.0,
+        0
+      ],
+      "camera": [
+        180,
+        1
+      ],
+      "target": "Original places_demo source-room facade and initially-open source_front_door, actual outdoor path/lamps",
+      "purpose": "Maintained tools/bench/capture_night_route.sh production camera: dark outdoor ground, warm multi-source lamps, lit doorway spill and real wall occlusion. Preserve original source/package/asset root; use fixed1/60 frame210 (3.5s phase), no synthetic geometry or illumination. Native baseline must verify actual target visibility."
+    }
+  ]
+}

@@ -1,5 +1,8 @@
 # Domestic model remakes
 
+Historical acceptance: September 2026 domestic prop remake. Counts, timings and validation below describe
+that tested version; the canonical guides govern current contracts.
+
 Remade all ten requested models in the existing Places style and catalog paths.
 No catalog IDs, placement contracts, gameplay code, or unrelated models changed.
 All models remain triangulated GLBs with embedded PNGs and baked face shading.

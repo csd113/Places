@@ -239,21 +239,23 @@ profiles at once. It owns its view table, a pinned `settings.json` under
 per profile:
 
 ```sh
-sh tools/bench/capture_baseline_views.sh                        # -> docs/renderer-baseline/{high,low}
+sh tools/bench/capture_baseline_views.sh                        # -> debug-maps/renderer-baseline-captures/{high,low}
 PLACES_QUALITY=low sh tools/bench/capture_baseline_views.sh    # one profile only
 PLACES_BIN=target/release/places \
     PLACES_CAPTURE_DIR=target/agent-work/baseline-current \
     sh tools/bench/capture_baseline_views.sh                    # a comparison build
 ```
 
-The committed reference and its camera/settings manifest are documented in
-`docs/renderer-baseline/BASELINE.md`; that document is the authority on what
-each view exercises. `PLACES_QUALITY=high` and `PLACES_QUALITY=low` select one
+The frozen PNGs live in [the native reference fixtures](../../tests/fixtures/native/gles2-reference/).
+Their camera/settings contract is documented in [BASELINE.md](../../docs/renderer-baseline/BASELINE.md),
+and three curated High/Low pairs live in [the renderer reference gallery](../../docs/images/renderer-reference/).
+`PLACES_QUALITY=high` and `PLACES_QUALITY=low` select one
 profile, and any other value is
 rejected. Delete the state root before a run to
 force a cold lightmap bake rather than reusing its cache. The script's own
-default writes the frozen `docs/renderer-baseline/{high,low}` images, so a
-comparison run must set `PLACES_CAPTURE_DIR`.
+default writes current captures to ignored `debug-maps/renderer-baseline-captures/{high,low}`.
+Use `PLACES_CAPTURE_DIR` to retain separate runs; `compare_baseline.py` reads
+`tests/fixtures/native/gles2-reference/{high,low}` as its default reference.
 
 The working tree's assets can be mid-edit while renderer work continues, in
 which case a capture legitimately differs from the committed reference. To
@@ -426,6 +428,15 @@ python3 tools/bench/capture_compiler.py --binary target/release/places \
 ```
 
 ## Hero incremental inputs and quality paths
+
+The maintained [hero camera manifest](../../tests/fixtures/native/hero-manifest.json)
+is the default for `capture_art_style_hero.py` and `snapshot_art_style_hero.py`.
+The [hero diagnostics manifest](../../tests/fixtures/native/hero-diagnostics-manifest.json)
+is available through `--manifest` for the diagnostic capture views.
+`native_regression_maps.py` reads the [map camera manifests](../../tests/fixtures/native/map-manifests/)
+by default. These are reusable capture inputs; each run writes its receipts and
+images to a new evidence directory. The domestic model validator writes its
+machine report to ignored `debug-maps/domestic-model-remake/geometry-validation.json`.
 
 The [Stage 6 contracts](../../docs/art-style/stage6/contracts.md) document source,
 resolved dependency, catalogue, tool and capture identity. `cache_decisions` in

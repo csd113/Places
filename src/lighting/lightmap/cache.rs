@@ -40,7 +40,10 @@ use super::{LevelLightmaps, LightmapConfig};
 ///   No value from a version-11 or older atlas is valid.
 /// * `13` — mesh endpoints address the first/last data texel centres; prop
 ///   chart density follows the selected architecture profile and size class.
-pub const LIGHTMAP_FORMAT_VERSION: u32 = 13;
+/// * `14` — compatible coplanar model triangles share their native quad domain;
+///   model topology is explicit rather than implied by the receiver family,
+///   and small opaque models resolve transport at twice architecture's density.
+pub const LIGHTMAP_FORMAT_VERSION: u32 = 14;
 
 /// Process-level memory cache of prepared atlases.
 ///

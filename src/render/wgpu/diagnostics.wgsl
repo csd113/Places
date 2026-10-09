@@ -65,8 +65,8 @@ fn visual_diagnostic_display(in: VsOut, base: vec3<f32>, normal: vec3<f32>, mode
     switch mode {
         case 1u: { return base; }
         case 2u: {
-            if (dot(in.world_normal, in.world_normal) < 1.0e-12) { return visual_unavailable(); }
-            return normalize(in.world_normal) * 0.5 + 0.5;
+            if (!any(in.world_normal != vec3<f32>(0.0))) { return visual_unavailable(); }
+            return unit_direction_or_zero(in.world_normal) * 0.5 + 0.5;
         }
         case 3u: { return normal * 0.5 + 0.5; }
         case 4u: { return visual_baked(in, normal); }

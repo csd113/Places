@@ -6,12 +6,14 @@ from the repository root on a desktop session. The release's platform status is
 recorded in the matrix in §7.
 
 October 9, 2026 contract audit: the current source uses package major 1, level
-schema 3, geometry revision 7, solver revision 16, PLMP v6 and PLPF v3. Runtime
+schema 3, geometry revision 8, solver revision 17, PLMP v6 and PLPF v3. Runtime
 Low/Medium/High presets select Off/Medium/Full lightmaps and reflections; both
 advanced settings and texture filtering remain independent. The atlas capacity
-is ten pages per contribution group for Full; lower profiles retain eight-page
-planning budgets. This measured allocation policy preserves inclusive endpoints
-and gutters on Hallows. The measured typed atlas record allowance is now
+is at most eleven pages per contribution group for Full; lower profiles retain
+eight-page planning budgets. Preparation also bounds the page count by the exact
+encoded contribution-group cost: Demo's two groups permit ten Full pages, while
+Hallows' one group permits eleven. This allocation policy preserves inclusive
+endpoints and gutters within the unchanged typed atlas record allowance of
 320 MiB +64 KiB; ordinary records retain 256 MiB and total decompressed archives
 retain 1 GiB. PLMP6's exact vertex/frame sharing preserves literal v3/v4/v5
 readers and the independent 512-MiB expanded prop-record envelope. Exact codec
@@ -111,13 +113,16 @@ and checker coverage with their named expected errors. Ordinary supported
 sources receive Off/Medium/Full builds, required-current verification and full
 record validation. Their sources, content and assertions are never removed to
 make discovery pass. Native all-map and directed-quality evidence is a separate
-serialized campaign described in the [Stage 7 matrix](art-style/stage7/validation/regression-plan.md).
+serialized campaign described in the [Stage 7 integration](art-style/stage7/README.md)
+and [contract audit](art-style/stage7/integration-contract-audit.md).
 
-Full ten-page, two-group HDR atlases require the measured 320 MiB +64 KiB
-typed record allowance. Ordinary entries remain 256 MiB, and total decompressed
+Full ten-page, two-group HDR atlases fit the unchanged 320 MiB +64 KiB
+typed record allowance; the eleven-page Full planning maximum is further bounded
+by encoded group cost. Medium retains an eight-page maximum under the same
+group-aware bound. Ordinary entries remain 256 MiB, and total decompressed
 archive data remains limited to 1 GiB. The normal compiler rejects excessive
 aggregate, malformed shape and over-limit records; no failed package authorizes
-a fallback to missing lighting. See the [measured storage audit](art-style/stage7/integration-demo-atlas-record-audit.md).
+a fallback to missing lighting. See the [final storage audit](art-style/stage7/integration-capacity-storage-audit.md).
 
 A valid unchanged package is reused (`rebuilt: false`, bytes untouched); source,
 physical input, catalogue or tool changes publish a safely replaced package.
@@ -438,10 +443,10 @@ that have not been run. Its old captures and receipts remain frozen.
   and the recorded OS-event matrix above are the available evidence; do not
   report a runtime input run that did not deliver events.
 
-The later [Stage 6 completion receipt](../debug-maps/art-style-hero/evidence/stage6-completion.json)
+The later [Stage 6 completion summary](art-style/stage6/README.md)
 records exact-final-SHA macOS CI at `26486b8538424f013c243ae6edea8720ac07d7f2`:
 2,130 library tests passed, zero failed, 25 ignored, every integration target
-passed, and strict debug/release Clippy passed. Its [handoff](art-style/stage6/handoff.md)
+passed, and strict debug/release Clippy passed. Its [completion summary](art-style/stage6/README.md)
 records the executed native Metal hero/package/resource checks separately.
 That CI result is the Stage 7 entry evidence; final Stage 7 validation must bind
 its own source, executable, package and capture identities. Neither hero captures
@@ -453,8 +458,7 @@ FPS. Capture/readback timings cannot substitute for submitted presented-frame co
 The table below is the historical platform campaign, retained as prior evidence.
 It does not certify the final Art-style source. Stage 7 records its current host
 and tool availability in
-[platform availability](art-style/stage7/validation/platform-availability.json)
-and [Docker image inventory](art-style/stage7/validation/platform-image-cache.json).
+[qualified platform results](art-style/stage7/README.md).
 Current Metal runs and the exact publication CI require their own Stage 7 receipts;
 an installed cross compiler, Docker daemon or prior capture is not an executed
 current Linux or Windows result.

@@ -1,0 +1,59 @@
+[
+  {
+    "frame": 1,
+    "actions": [
+      {
+        "action": "camera",
+        "position": [
+          -16.7009,
+          0.8,
+          -31.1478
+        ],
+        "yaw": 0,
+        "pitch": 25.016893478100027
+      }
+    ]
+  },
+  {
+    "frame": 60,
+    "capture": "debug-maps/model-lighting-replay/orientation/same-eye-25deg.png"
+  },
+  {
+    "frame": 121,
+    "actions": [
+      {
+        "action": "camera",
+        "position": [
+          -16.7009,
+          0.8,
+          -31.1478
+        ],
+        "yaw": 0,
+        "pitch": 43.025065989118026
+      }
+    ]
+  },
+  {
+    "frame": 180,
+    "capture": "debug-maps/model-lighting-replay/orientation/same-eye-43deg.png"
+  },
+  {
+    "frame": 241,
+    "actions": [
+      {
+        "action": "camera",
+        "position": [
+          -16.7009,
+          0.8,
+          -31.1478
+        ],
+        "yaw": 0,
+        "pitch": 25.016893478100027
+      }
+    ]
+  },
+  {
+    "frame": 300,
+    "capture": "debug-maps/model-lighting-replay/orientation/restored-eye-25deg.png"
+  }
+]

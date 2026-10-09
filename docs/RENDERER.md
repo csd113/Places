@@ -478,6 +478,12 @@ Group 2's layout is created once with the device and shared by every pipeline re
 
 ### 6.4 Normal maps
 
+Missing model normals are derived from posed world-position derivatives.
+Each derivative is scaled by its maximum absolute component before crossing,
+and the result uses the same scaled normalization as authored normals. Only
+exact zero or collinear frames use the fallback. An absolute cross-length
+threshold would incorrectly change the normal with distance, FOV or resolution.
+
 The WGSL reproduces the reference fragment stage:
 
 ```wgsl
@@ -579,6 +585,11 @@ the level's `LightSource`s as point/rect/line emitters, and then:
    shadow. Ceiling fixtures keep the historical horizontal-reach falloff, so a
    tall chamber's floor stays lit; the receiver's normal supplies the incidence
    in an exact per-contribution cosine sum before compression.
+   Receiver coverage integrates every bounded 2×2 Medium or 4×4 Full physical
+   footprint position; equal centre/corner visibility cannot prove a uniform
+   interior. Footprints may cross connected coplanar source triangles with the
+   same authored material and shading normal, preserving gaps and true material
+   boundaries. Triangle-centroid texture colour is not material identity.
 2. **Bounce**: uniform-hemisphere ray samples per texel read the previous pass's
    solved **order** through a side/surface-aware cache. The cumulative result
    is `D + KD + K²D`, never `D + KD + K(D + KD)`. Cache values retain the
@@ -625,6 +636,11 @@ the level's `LightSource`s as point/rect/line emitters, and then:
    uses the same local response. Switchable layers never receive this fill,
    and their emitters are excluded from the permanent target. The prepared
    path does not add the vertex-lit model's global `0.10` ambient floor.
+
+   Surface support visibility uses the receiver's existing owning-side safe
+   ray origin, while falloff keeps its physical position. This avoids tiny
+   positive boundary hits on adjoining walls without a global ray dead zone.
+   Air-probe support retains its original point-origin semantics.
 
 Ray origins use a normal offset of four `f32` machine epsilons scaled by world
 coordinate magnitude, plus a tiny chart-interior inset at boundaries. Shading
@@ -843,8 +859,13 @@ sRGB and applies the display grade.
 Charts are planned inline while the mesh is emitted with the deterministic
 best-short-side-fit MaxRects allocator; a plan or fill failure keeps the
 historical vertex-lit mesh, and a level that needs more than its effective Full
-ten-page or lower eight-page budget reports the named `PageOverflow` failure — a partial or black atlas is
-never drawn. The compiler content key follows the effective configuration,
+eleven-page or lower eight-page profile budget reports the named `PageOverflow`
+failure — a partial or black atlas is never drawn. Before stamping geometry,
+the actual base-plus-switchable group count further bounds pages by the unchanged
+typed package and KTX2 byte/layer limits. Full therefore plans at most ten pages
+with one switchable light, retaining both groups inside 320 MiB +64 KiB. An
+invalid or zero budget fails before the first chart. The compiler content key
+and its public metadata refresh follow this same effective configuration,
 never the overall quality label, so `Low + Lightmaps Full` reuses the same Full
 entry as `High + Lightmaps Full` while Medium and Full never collide; it folds
 in the occluder fingerprint, a fingerprint of the vertex-lit model's constants

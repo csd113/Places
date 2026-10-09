@@ -103,7 +103,7 @@ def check_geometry(source: str, level: str, report: dict, exit_code: int) -> Non
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--campaign", type=Path, required=True, help="Completed regression_maps package campaign")
-    parser.add_argument("--manifests", type=Path, default=ROOT / "docs/art-style/stage7/validation/native-manifests-final-v2")
+    parser.add_argument("--manifests", type=Path, default=ROOT / "tests/fixtures/native/map-manifests")
     parser.add_argument("--binary", type=Path, default=ROOT / "target/release/places")
     parser.add_argument("--out", type=Path, required=True, help="New immutable evidence directory")
     parser.add_argument("--geometry", action="store_true", help="CPU checker only; no window/capture")

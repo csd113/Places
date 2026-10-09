@@ -34,6 +34,18 @@ pub enum LightingAction {
         id: String,
         open: bool,
     },
+    /// Independent render-eye/orientation diagnostic, with angles in degrees.
+    Camera {
+        position: [f32; 3],
+        yaw: f32,
+        pitch: f32,
+    },
+    /// Ordinary player reset/teleport diagnostic, with angles in degrees.
+    Player {
+        position: [f32; 3],
+        yaw: f32,
+        pitch: f32,
+    },
 }
 
 impl LightingAction {
@@ -58,6 +70,16 @@ impl LightingAction {
                 yaw,
                 key: _,
             } => position.iter().all(|v| v.is_finite()) && yaw.is_finite(),
+            Self::Camera {
+                position,
+                yaw,
+                pitch,
+            }
+            | Self::Player {
+                position,
+                yaw,
+                pitch,
+            } => position.iter().all(|v| v.is_finite()) && yaw.is_finite() && pitch.is_finite(),
             Self::Despawn { key: _ }
             | Self::ToggleFixture {
                 fixture: _,
@@ -180,5 +202,75 @@ mod tests {
         assert!(sequence.capture_at(7).is_some(), "one native capture");
         assert!(sequence.capture_at(7).is_none(), "capture is immutable");
         Ok(())
+    }
+
+    #[test]
+    fn camera_and_player_steps_remain_distinct_and_execute_once() -> Result<(), String> {
+        let steps: Vec<Step> = serde_json::from_str(
+            r#"[
+                {"frame":1,"actions":[{"action":"camera","position":[-16.7,1.6,-30.8],"yaw":0,"pitch":-20}]},
+                {"frame":2,"actions":[{"action":"player","position":[-16.7,1.6,-19.8],"yaw":0,"pitch":0}]}
+            ]"#,
+        )
+        .map_err(|error| error.to_string())?;
+        let mut sequence = LightingSequence::from_steps(steps)?;
+        assert!(sequence.actions_at(0).is_empty());
+        let camera = sequence.actions_at(1);
+        assert!(matches!(
+            camera.as_slice(),
+            [LightingAction::Camera {
+                position: _,
+                yaw: _,
+                pitch: _
+            }]
+        ));
+        assert!(sequence.actions_at(1).is_empty());
+        let player = sequence.actions_at(2);
+        assert!(matches!(
+            player.as_slice(),
+            [LightingAction::Player {
+                position: _,
+                yaw: _,
+                pitch: _
+            }]
+        ));
+        assert!(sequence.actions_at(2).is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn camera_and_player_steps_reject_nonfinite_coordinates_and_angles() {
+        for action in [
+            LightingAction::Camera {
+                position: [f32::NAN, 0.0, 0.0],
+                yaw: 0.0,
+                pitch: 0.0,
+            },
+            LightingAction::Player {
+                position: [0.0, 0.0, 0.0],
+                yaw: f32::INFINITY,
+                pitch: 0.0,
+            },
+            LightingAction::Camera {
+                position: [0.0, 0.0, 0.0],
+                yaw: 0.0,
+                pitch: f32::NEG_INFINITY,
+            },
+        ] {
+            assert!(
+                LightingSequence::from_steps(vec![Step {
+                    frame: 1,
+                    actions: vec![action],
+                    capture: None,
+                }])
+                .is_err()
+            );
+        }
+        assert!(
+            serde_json::from_str::<Vec<Step>>(
+                r#"[{"frame":1,"actions":[{"action":"camera","position":[0,0,0],"yaw":0,"pitch":0,"unexpected":1}]}]"#
+            )
+            .is_err()
+        );
     }
 }

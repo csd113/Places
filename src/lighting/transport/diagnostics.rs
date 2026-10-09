@@ -770,9 +770,11 @@ mod tests {
     }
 
     #[test]
-    fn diagnostic_bounds_accept_full_pages_eight_and_nine_and_reject_overflow() {
+    fn diagnostic_bounds_accept_the_last_full_page_and_reject_overflow() -> Result<(), String> {
+        let limit = u16::try_from(crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES)
+            .map_err(|error| error.to_string())?;
         let chart = Chart {
-            page: 9,
+            page: limit.saturating_sub(1),
             x: 2,
             y: 2,
             width: 2,
@@ -780,7 +782,10 @@ mod tests {
         };
         assert!(chart_within_dump_bounds(&Chart { page: 8, ..chart }));
         assert!(chart_within_dump_bounds(&chart));
-        assert!(!chart_within_dump_bounds(&Chart { page: 10, ..chart }));
+        assert!(!chart_within_dump_bounds(&Chart {
+            page: limit,
+            ..chart
+        }));
         for broken in [
             Chart { width: 0, ..chart },
             Chart { x: 1023, ..chart },
@@ -794,11 +799,14 @@ mod tests {
                 "invalid bounds must fail"
             );
         }
+        Ok(())
     }
 
     #[test]
-    fn diagnostic_receiver_budget_accepts_ten_pages_but_not_one_extra_sample() -> Result<(), String>
-    {
+    fn diagnostic_receiver_budget_accepts_the_shared_pages_but_not_one_extra_sample()
+    -> Result<(), String> {
+        let limit = u16::try_from(crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES)
+            .map_err(|error| error.to_string())?;
         let patch = LightmapPatch::from_quad(
             super::super::PatchKind::Floor,
             [
@@ -810,7 +818,7 @@ mod tests {
             Some(0),
         )
         .ok_or_else(|| "test patch rejected".to_string())?;
-        let mut charts = (0_u16..10)
+        let mut charts = (0_u16..limit)
             .map(|page| {
                 (
                     patch,
@@ -825,10 +833,10 @@ mod tests {
             })
             .collect::<Vec<_>>();
         let records = chart_records(&charts)?;
-        assert_eq!(records.len(), 10);
+        assert_eq!(records.len(), usize::from(limit));
         assert_eq!(
             records.last().map(|record| record.offset),
-            Some(9 * 1024 * 1024)
+            Some(usize::from(limit.saturating_sub(1)).saturating_mul(1024 * 1024))
         );
         charts.push((
             patch,

@@ -1,5 +1,8 @@
 # Winter static snow asset pass — 2026-10-06
 
+Historical acceptance: 2026-10-06 snow-kit pass. Counts, timings and validation below describe
+that tested version; the canonical guides govern current contracts.
+
 This pass adds the core snow kit and integrates it into the existing Winter
 Place. Only `assets/levels/winter.json` and `winter.placesmap` change among
 level files. Model Zoo and every other map remain untouched at the user's
@@ -46,7 +49,7 @@ it does not change the lighting solver or shaders.
 
 ## Geometry, collision and cost
 
-[Asset validation records](winter-static-assets/asset-validation.json) include
+Asset validation records include
 all model hashes, extents, triangle counts and snow topology. All snow/icicle
 components are closed, outward-wound and free of degenerates, nonmanifold edges,
 inconsistent edges and contradictory winding. Normals derive from the checked
@@ -62,7 +65,7 @@ new model is below 500 triangles; modular caps use 66, drifts 72, individual
 icicles 8, and mixed/sparse clusters 56/24. The full catalogue holds 29,988 KiB
 of decoded prop images against the existing 64 MiB pack budget.
 
-[Collision comparison](winter-static-assets/collision-comparison.json) checks
+Collision comparison checks
 against the foundation commit `13a4ef6`: all 44 rooms, 12 walls, seven floor
 regions, three guardrails, one stair flight, two ramps, three doors, seven solid
 void walls and 157 solid prop colliders retain their original numerical geometry.
@@ -78,10 +81,6 @@ or placeholder prop fallback was reported. An incremental rebuild confirmed the
 package is current and preserved its bytes.
 
 ## Validation commands
-
-All commands run from the repository root. Full logs remain under
-`target/winter-assets/`; compact native identities and metrics are committed
-with this report.
 
 | Command | Result |
 | --- | --- |
@@ -113,6 +112,10 @@ and `zoo_audit::the_zoo_displays_every_catalogued_placeable`: both require Model
 Zoo to display the 28 new winter entries. Updating that map is explicitly outside
 this pass. No assertion was weakened or suppressed to conceal these failures.
 
+The two Zoo coverage failures above were present before this pass. The later
+[string-light integration](winter-string-lights.md) refreshed Zoo and passed the
+full workspace gate. These earlier failures remain part of the dated result.
+
 ## Native presentation and draw cost
 
 The final release was loaded through the real SDL3/wgpu Metal desktop renderer
@@ -120,7 +123,7 @@ The final release was loaded through the real SDL3/wgpu Metal desktop renderer
 one High run with Low lighting forced. Every run exited zero, presented Winter
 and confirmed the requested renderer quality. All four traversal campaigns
 passed: lodge ramp/door/interior, side stairs, pond entry/jump/return and the
-forest spine. [Native identities and metrics](winter-static-assets/native-validation.json)
+forest spine. Native identities and metrics
 record the package, binary and capture hashes; all final captures use the same
 package and release binary. The white material remains correctly bound in all
 lighting profiles. Interiors remain dry and unchanged.
@@ -133,7 +136,7 @@ python3 tools/bench/capture_winter.py --root "$PWD" --quality high --low-lightin
 ```
 
 The same High lodge camera was compared with the preserved foundation capture.
-[Cost records](winter-static-assets/cost-comparison.json) retain the complete
+Cost records retain the complete
 benchmark summaries and both identities.
 
 | Native High lodge metric | Foundation | Snow pass |
@@ -155,29 +158,16 @@ Package SHA256:
 Release binary SHA256:
 `6cb4289e45a79dab7bade8f09d2132a952ec1ed1aad02549e132fd81c2f6a8fa`.
 
-![Winter lodge with supported snow and icicles](winter-static-assets/high-lodge.png)
-![Canonical evergreen with separate branch snow](winter-static-assets/high-tree-lit-snow.png)
-![Snow rail tops, posts, rock cap and drift](winter-static-assets/high-railing-snow.png)
-![Winter accumulation across the level](winter-static-assets/high-overview.png)
+![Winter lodge with supported snow and icicles](../images/reports/winter-static-assets/high-lodge.png)
+![Canonical evergreen with separate branch snow](../images/reports/winter-static-assets/high-tree-lit-snow.png)
 
-[Low evergreen](winter-static-assets/low-tree-lit-snow.png) and
-[Medium evergreen](winter-static-assets/medium-tree-lit-snow.png) document the
+Low evergreen and
+Medium evergreen document the
 same tree through the two other quality profiles.
 
-## Changed files
+## Reproduction
 
-- `assets/catalog.json`
-- `assets/environment/winter/README.md`
-- `assets/environment/winter/textures/floors/snow_01.png`
-- `assets/environment/winter/props/models/snow_surface.png` and the 28 GLBs
-  enumerated in the kit README and asset-validation JSON
-- `assets/levels/winter.json`, `assets/levels/winter.placesmap`
-- `tools/levels/build_winter.py`, `tools/props/parts/winter.py`,
-  `tools/props/parts/__init__.py`, `tools/props/mesh.py`, `tools/props/glb.py`
-- `src/render/wgpu/props.rs`, `src/props/tests.rs`
-- `tests/test_winter.py`, `tests/test_winter_assets.py`
-- `tools/bench/winter_views.json`
-- `docs/ASSET_SPECIFICATION.md`, `docs/MAP_AUTHORING_GUIDE.md`
-- This report and its screenshot/validation evidence directory
-
-Existing user concept sheets and unrelated untracked files remain untouched.
+The [Winter kit README](../../assets/environment/winter/README.md) inventories
+the native models, shared source artwork and generator commands.
+`tools/bench/capture_winter.py` exercises the real renderer across qualities;
+the final integrated acceptance is in the [Winter audit](winter-final-audit.md).

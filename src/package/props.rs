@@ -515,6 +515,7 @@ fn read_batch(
     validate_draw_indices(batch_vertex_count, &indices, &submeshes)?;
     Ok(PropMeshBatch {
         model,
+        source_primitives: Vec::new(),
         casts_static_lighting,
         textures: Vec::<Arc<crate::loader::RawImage>>::new(),
         submeshes,
@@ -800,6 +801,7 @@ mod interning_tests {
             .map_err(|error| format!("test index count is too large: {error}"))?;
         Ok(PropMeshBatch {
             model: "models/interning.glb".to_string(),
+            source_primitives: Vec::new(),
             casts_static_lighting: false,
             textures: Vec::new(),
             submeshes: vec![PropSubmeshBatch {
@@ -1638,6 +1640,7 @@ mod legacy_tests {
     fn caster_batch(casts_static_lighting: bool) -> PropMeshBatch {
         PropMeshBatch {
             model: "models/caster.glb".to_string(),
+            source_primitives: Vec::new(),
             casts_static_lighting,
             textures: Vec::new(),
             submeshes: vec![PropSubmeshBatch {

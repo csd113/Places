@@ -1,6 +1,6 @@
 # Outdoors — concept reconstruction, 2026-10-07
 
-Starting commit: [`7ecacdf`](https://github.com/csd113/Places/commit/7ecacdfbe9f9c11df2c00932248a73634e78904e), on the existing `Winter-expansion` branch after the completed Pool and Home passes. This is entry three in the [serial visual development journal](../README.md). [Reconstruction commit history](https://github.com/csd113/Places/commits/Winter-expansion/docs/style-upgrade-20261007/outdoors) locates the standalone `rebuild outdoors assets toward concept art` commit; the task handoff records its exact pushed SHA and CI run.
+Starting commit: [`7ecacdf`](https://github.com/csd113/Places/commit/7ecacdfbe9f9c11df2c00932248a73634e78904e), on the existing `Winter-expansion` branch after the completed Pool and Home passes. This is entry three in the [serial visual development journal](../README.md). [Reconstruction commit history](https://github.com/csd113/Places/commits/Winter-expansion/docs/style-upgrade-20261007/outdoors) locates the standalone `rebuild outdoors assets toward concept art` commit; the later inventory integration is recorded separately in [Stage 7](../../art-style/stage7/README.md).
 
 The authoritative [Quiet Night Places Concept Sheet](../../../assets/environment/outdoor/Quiet%20Night%20Places%20Concept%20Sheet.png) was inspected as actual pixels before editing. Its SHA-256 remains `479ecb9a971b2f585c0e2208274ca00fa4cebda5aca5d696e90173fad291cbd8`.
 
@@ -35,7 +35,7 @@ The original demo is a long established night route between two facades, with a 
 | Complete neighbourhood / blue diffuse night | Remaining composition/lighting gap: the existing demo has two facades rather than the reference street. The zero-ambient sky and engine transport are unchanged. No global atmosphere rewrite or new neighbourhood layout. |
 | Entities shown in captures | Excluded from this reconstruction; existing ghosts, characters, routes, triggers and behavior preserved. |
 
-The [complete model inventory](model-inventory.json) records every one of the 89 Outdoors GLBs, its classification, before/after triangles, topology, actual demo placement count and downstream users: **8 new, 10 rebuilt, 12 refined, 59 retained**. The [complete texture inventory](texture-inventory.json) classifies all 89 non-reference Outdoors PNGs, including masters, runtime derivatives and retained sources. New families also appear on the Zoo's unused apron; prior non-Outdoors exhibits and architecture are unchanged.
+The complete model inventory records every one of the 89 Outdoors GLBs, its classification, before/after triangles, topology, actual demo placement count and downstream users: **8 new, 10 rebuilt, 12 refined, 59 retained**. The complete texture inventory classifies all 89 non-reference Outdoors PNGs, including masters, runtime derivatives and retained sources. New families also appear on the Zoo's unused apron; prior non-Outdoors exhibits and architecture are unchanged.
 
 ## Asset and technical decisions
 
@@ -45,44 +45,27 @@ Opaque foliage eliminates layered leaf-card overdraw on the three rebuilt trees.
 
 Native iteration exposed two real construction problems. Registering the opaque Family 02 stock slot before its faces confines window emission to glass. The closed lantern head surrounds its light anchor, so route lamps now opt out of coarse self-occlusion without changing collision, the existing light intensities/ranges, sky or engine. Four new pier lights and the campfire use local owned lights. The gravel painter now wraps aggregate chips across tile edges; every final ground sheet passes raw and smoothed seam checks. The porch deck no longer shares a plane with the walkable region, and added rails use the floor-relative placement contract.
 
-The boulder now uses grounded homothetic rings with deliberate planar shoulders rather than warped lower quads. Its grazing faces exposed a test-reference mismatch: direct native uploads and packages both use RGBA16F, while the Outdoors rock round-trip test sampled the original FP32 solve. That test now independently rounds coefficients to binary16 before sampling, retains its original illumination tolerance and exact geometry/chart assertions, and additionally checks every texel and encoded upload plane exactly. No production renderer, lighting solver or serializer changes. The original animated campfire remains unchanged; the new static version avoids adding a seventeenth character to the existing sixteen-owner scene.
+The boulder now uses grounded homothetic rings with deliberate planar shoulders rather than warped lower quads. Its grazing faces exposed a test-reference mismatch: direct native uploads and packages both use RGBA16F, while the Outdoors rock round-trip test sampled the original FP32 solve. That test now independently rounds coefficients to binary 16 before sampling, retains its original illumination tolerance and exact geometry/chart assertions, and additionally checks every texel and encoded upload plane exactly. No production renderer, lighting solver or serializer changes. The original animated campfire remains unchanged; the new static version avoids adding a seventeenth character to the existing sixteen-owner scene.
 
 ## Native matched views
 
-The before copy was made from the clean starting revision before content changes. The final after copy uses the final source/assets and compiled packages. Captures are actual native wgpu Metal frames, unmodified PNGs, at matched positions and angles. `tools/bench/capture_outdoors.py` records renderer, quality, camera, settings, package/binary identity and image hashes in the [capture provenance](provenance.json). High uses full lightmaps/reflections, bloom, 60° FOV, vsync off, a 640×360 logical window and 1280×720 drawable capture; warm-up is 15 frames and capture is frame 60. Existing moving entities can differ slightly with startup timing.
+The before copy was made from the clean starting revision before content changes. The final after copy uses the final source/assets and compiled packages. Captures are actual native wgpu Metal frames, unmodified PNGs, at matched positions and angles. `tools/bench/capture_outdoors.py` records renderer, quality, camera, settings, package/binary identity and image hashes in the capture provenance. High uses full lightmaps/reflections, bloom, 60° FOV, vsync off, a 640×360 logical window and 1280×720 drawable capture; warm-up is 15 frames and capture is frame 60. Existing moving entities can differ slightly with startup timing.
 
 | View | Before | After |
 | --- | --- | --- |
-| Path | ![Before path](before/path.png) | ![After path](after/path.png) |
-| Grove / silhouette | ![Before grove](before/grove.png) | ![After grove](after/grove.png) |
-| Ground / texture scale | ![Before ground](before/ground.png) | ![After ground](after/ground.png) |
-| Destination | ![Before destination](before/destination.png) | ![After destination](after/destination.png) |
-| Porch / fixture construction | ![Before porch](before/porch.png) | ![After porch](after/porch.png) |
-| Off-route layers | ![Before clearing](before/clearing.png) | ![After clearing](after/clearing.png) |
+| Path | ![Before path](../../images/style-upgrade/outdoors-before-path.png) | ![After path](../../images/style-upgrade/outdoors-after-path.png) |
+| Grove / silhouette | ![Before grove](../../images/style-upgrade/outdoors-before-grove.png) | ![After grove](../../images/style-upgrade/outdoors-after-grove.png) |
 
-Matched Low native views, with lightmaps and reflections Off, make the delivered construction/palette readable; the inherited Full-lightmap route stays nearly black in both revisions. This is a material remaining rendering limitation, not evidence of a solved High atmosphere. Low is the ordinary shipped quality setting, not an edited image, custom fill-light scene or exposure change.
-
-**2026-10-08 clarification:** the sentence above records the asset pass's
-historical description; fresh installations actually default to High
-(`QualityLevel::DEFAULT` in `src/quality.rs`). These preserved Low pixels are
-diagnostic construction comparisons. They do not demonstrate High lighting
-acceptance. [Stage 7](../../art-style/stage7/README.md) checks the final High
-packages and independent quality transitions with their actual settings receipts;
-the original captures and labels remain unchanged.
-
-| Low view | Before | After |
-| --- | --- | --- |
-| Path / material palette | ![Before Low path](before-low/path.png) | ![After Low path](after-low/path.png) |
-| Grove / branches | ![Before Low grove](before-low/grove.png) | ![After Low grove](after-low/grove.png) |
-| Ground / derivative survival | ![Before Low ground](before-low/ground.png) | ![After Low ground](after-low/ground.png) |
-| Destination / constructed stock | ![Before Low destination](before-low/destination.png) | ![After Low destination](after-low/destination.png) |
-
-The arrival, lamp, walkway and source views are preserved alongside these six High pairs, and all ten cameras have matched Low pairs. The candidate copy and its first native iteration remain in the local archive; no after image is manufactured or altered.
+The inherited High/Full-lightmap route remains nearly black before and after. Additional ordinary Low views, with lightmaps/reflections Off, make the constructed assets readable; they do not prove a solved High atmosphere. Fresh installations default to High (`QualityLevel::DEFAULT`). This corrects the original asset journal's inaccurate description of Low as the shipped default. The selected High images above remain unmodified.
 
 ## Performance, compatibility and validation
 
-Final measurements and exact checks are recorded in [validation](validation.md). All local review assets and binaries are preserved outside `target` under [debug-maps/outdoors-style-20261007](../../../debug-maps/outdoors-style-20261007/README.md). The before/candidate/final payloads, settings, logs, CSV timings and older evidence remain available locally; repository journal PNGs and JSON evidence are tracked normally.
+The October 7 catalog contains 340 assets and 197 placeables. Integrity checks cover 197 models, 199 embedded images, 287 PNGs, 37 maps and 65 materials with zero errors. Twenty-six fitted derivatives, 78 asset-sheet outputs and three seam controls pass. Normal debug/release builds, formatting and strict Clippy pass, as do 20 focused static-model tests (one ignored) and the 16-character ownership check.
+
+The initial library run reports 2,020 passes, 23 ignored and two failures. One catches Night generator insertion order; the other compares original FP32 boulder light against the real RGBA16F upload. Focused repairs preserve non-Night array order and use independent binary 16 round-to-nearest-even without weakening the 0.002 relative / 0.0001 absolute tolerances. A repeated full local passing workspace run is not claimed at this checkpoint. Inherited stale optional-package discovery failures remain dated failures; later [Stage 7](../../art-style/stage7/README.md) records complete integration.
+
+CPU fallback shrinks from 99,974 to 64,489 vertices and 212,376 to 159,216 indices under the unchanged 100,000-vertex limit. Demo physical package size changes 100,086,061 → 74,520,351 bytes. High loaded vertices change 517,285 → 393,481 and VBO bytes 33,106,240 → 25,182,784; Low vertices change 375,862 → 305,745. Full still uses eight lightmap pages at this historical checkpoint. High draws change 113 → 123 and material batches 67 → 87.5; Low draws 115 → 122.5 and batches 67 → 87. Short loop samples change 2.398 → 2.7795 ms High and 2.497 → 2.9425 ms Low. These fixed-camera samples are not controlled gameplay FPS or a performance improvement claim.
 
 Pool, Home, Office, Winter and entity source artwork are byte-identical to the starting pass. Only Outdoors catalog entries are changed/added; the demo changes stay in the owned static night props. Its walls, floor regions, rooms, floor patches and decals remain exactly equal, including array order. Winter, Hollow and Movement source JSONs are unchanged. Their affected compiled dependencies are refreshed honestly rather than disguising stale packages. Zoo registration changes are limited to the new Outdoors apron models and the narrower tree envelope. A Rust showcase assertion caught the route generator moving its decal group after the later Pool/Home groups. The generator now replaces its slice at the original insertion position, preserving other generators' content/order; the assertion remains unchanged and a focused regression covers later appended decals.
 
-Winter's shipped snow GLBs still contain the preceding bare evergreen/rock generation. `tree_03_snow_base.png` preserves the exact old evergreen PNG so the asset audit retains genuine embedded/source identity. Snow builders and canonical-support expectations need reconciliation with the new bare kit in the authorized Winter pass; they were not regenerated, weakened or suppressed here. Original full bases, packages and source assets remain in the before copy and starting commit. The handoff transfers this explicit dependency along with the active sleep assertion; this pass does not start Winter reconstruction.
+At the Outdoors checkpoint, Winter snow GLBs still embed the preceding bare evergreen/rock generation. `tree_03_snow_base.png` preserves that genuine source identity. The subsequent [Winter reconstruction](../winter/README.md) reconciles the canonical bare-kit dependency without weakening support checks.

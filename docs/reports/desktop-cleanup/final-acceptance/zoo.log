@@ -1,3 +1,0 @@
-geometry check: model_zoo (assets/levels/model_zoo.json)
-  room-leak: 1 suppressed by geometry_intent
-summary: 0 error(s), 0 warning(s), some warnings suppressed by intent annotations

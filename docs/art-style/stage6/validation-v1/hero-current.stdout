@@ -1,8 +1,0 @@
-{
-  "source": "tests/fixtures/levels/art_style_hero_refined.json",
-  "package": "debug-maps/art-style-hero/evidence/stage6-compile-v1/art_style_hero.placesmap",
-  "package_fingerprint": "8cb9efb055e6d32358f82c109a899ccfa545f7715943fa1718f36ba23562464f",
-  "current_fingerprint": "8cb9efb055e6d32358f82c109a899ccfa545f7715943fa1718f36ba23562464f",
-  "current": true,
-  "differences": []
-}

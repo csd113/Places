@@ -1,1 +1,0 @@
-Excluded: CUA inadvertently launched an older packaged Places app during this run. Both owned processes closed; benchmark aborted after competing workload. No timing claim.

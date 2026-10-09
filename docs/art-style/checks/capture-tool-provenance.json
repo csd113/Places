@@ -1,6 +1,0 @@
-{
-  "captured_tool_sha256": "c2fa5c3be5713f67e547008f4daec0144b6bbe1c317b62cc6a173cb9f056f18e",
-  "committed_tool_sha256": "22f72337605fdb1b1e7411d67d9a3a771a68712a9c9bf392d4b0eb25e02cdfb1",
-  "difference": "Module docstring corrected after the main campaign; no executable capture logic changed. Supplemental multi-view control uses the committed tool hash.",
-  "reconstruction": "Replace the committed two-line development-selector docstring sentence with the prior one-line No renderer or lighting overrides sentence; SHA256 then matches the native manifests."
-}

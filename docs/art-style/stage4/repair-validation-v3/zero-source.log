@@ -1,9 +1,0 @@
-   Compiling places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
-    Finished `test` profile [optimized + debuginfo] target(s) in 16.64s
-     Running unittests src/lib.rs (target/debug/deps/places-db4822a0463dd4cf)
-
-running 2 tests
-test lighting::probes::tests::zero_source_sidecars_reject_mean_or_moment_without_a_source ... ok
-test lighting::probes::tests::zero_source_version_three_preserves_spatial_presence_and_combined_sampling ... ok
-
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 2123 filtered out; finished in 0.00s

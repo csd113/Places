@@ -36,5 +36,8 @@ PLACES_RENDERER=opengl PLACES_LEVEL=places_demo target/release/places
 The snapshot predates the removal of the renderer selector, so it still accepts
 `PLACES_RENDERER=opengl`. Against its own committed asset tree,
 `tools/bench/compare_baseline.py` reports 50/50 byte-identical images.
-`docs/renderer-baseline/` (in mainline and in the snapshot) is the frozen
-reference set; it is never regenerated.
+The snapshot retains its original `docs/renderer-baseline/` reference set.
+In the current checkout, its 50 byte-identical PNG comparison inputs live in
+`tests/fixtures/native/gles2-reference/`; the readable record remains
+[Historical renderer baseline](renderer-baseline/BASELINE.md). Current capture
+tools write to local evidence directories and never regenerate these fixtures.

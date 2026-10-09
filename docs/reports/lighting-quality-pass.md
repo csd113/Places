@@ -1,5 +1,8 @@
 # Desktop lighting quality pass
 
+Historical acceptance: 2026-10-03 UV, gather, cache and moon quality pass. Measurements, package identities and limits below
+describe that tested version. The canonical guides govern the current checkout.
+
 Completed 2026-10-03 on Apple M2 Pro, 12 CPU cores, 16 GiB unified memory. Systemic UV, receiver-normal, GI-cache/reconstruction and adaptive visibility repairs are validated; Lantern Hollow now uses a true baked directional moon. The full repository gate passes. Known finite-resolution and prop-filter limits are documented below.
 
 Scope: the modern desktop engine and compiler, starting at `540d111920cea71a43ac98f3e3ae175ab28a99bd`. The original player, compiler and all seven packages were preserved before changes. No source texture, model texture, roof placement, local light strength or ambient constant was repainted or increased. Lantern Hollow receives the newly supported directional moon. No dependencies or commits were added.
@@ -44,13 +47,13 @@ Closed-box directional controls at world scales **0.01, 1 and 1000** require zer
 
 The user identified the four houses in Lantern Hollow. Two fixed interior views per house, at Medium and High, are preserved for comparison. Investigation separates physical furniture shadows from triangle-shaped lighting discontinuities.
 
-House 0's fridge door has a false diagonal between original Medium charts **10313 and 10314**, on the front face at `x=-30.47`. Their shared direct samples agree; their raw bounced field differs by **0.0833693743** and filtered field by **0.0473701954** in a linear RGB channel. Across **71 identical physical positions**, the final raw discrepancy is **0.0002478659** (**99.7% reduction**); filtered discrepancy is **0.0129529238** (**72.7% reduction**). The remaining small prop-local filter difference is acknowledged in section 19. The corresponding clean quad cache control previously differed by 0.01875 when only the hit triangle changed; it now agrees within `1e-5`. [Full samples and chart coordinates](lighting-quality-pass/fridge-final-diagonal-comparison.json).
+House 0's fridge door has a false diagonal between original Medium charts **10313 and 10314**, on the front face at `x=-30.47`. Their shared direct samples agree; their raw bounced field differs by **0.0833693743** and filtered field by **0.0473701954** in a linear RGB channel. Across **71 identical physical positions**, the final raw discrepancy is **0.0002478659** (**99.7% reduction**); filtered discrepancy is **0.0129529238** (**72.7% reduction**). The remaining small prop-local filter difference is acknowledged in section 19. The corresponding clean quad cache control previously differed by 0.01875 when only the hit triangle changed; it now agrees within `1e-5`. Full samples and chart coordinates.
 
-The selected black door samples have positively identified physical casters: **all 30 queried rays hit the fridge's own handles or hinges**, **0.77–4.04 cm** from their receivers. Triangle **12667** is the middle hinge, **12630** the upper handle, **12650/12651** the upper hinge and **12678** the lower hinge. Owner `model:core/props/models/fridge.glb`, world corners, origin, direction, distance and triangle ID are preserved in the [exact selected hits](lighting-quality-pass/house-selected-caster-evidence.json). Those small legitimate shadows were overrepresented by binary texel-centre visibility; adaptive footprint coverage corrects their reconstruction. The separate full-door diagonal originates in indirect transport and has no roof caster.
+The selected black door samples have positively identified physical casters: **all 30 queried rays hit the fridge's own handles or hinges**, **0.77–4.04 cm** from their receivers. Triangle **12667** is the middle hinge, **12630** the upper handle, **12650/12651** the upper hinge and **12678** the lower hinge. Owner `model:core/props/models/fridge.glb`, world corners, origin, direction, distance and triangle ID are preserved in the exact selected hits. Those small legitimate shadows were overrepresented by binary texel-centre visibility; adaptive footprint coverage corrects their reconstruction. The separate full-door diagonal originates in indirect transport and has no roof caster.
 
 ## 7. Roof involvement
 
-The final production investigation tests **1,452 valid visible-air floor rays**, **363 per house**, directed upward and toward its living/bedroom fixtures. There are **zero roof hits**. First blockers include **476 ceilings, 268 partitions, 48 tables, 32 beds** and other legitimate furniture; **500 segments are unobstructed**. These rays are separate from the 30 selected refrigerator rays. The [summary](lighting-quality-pass/house-caster-summary.json) and [complete ray records](lighting-quality-pass/house-caster-rays.json) are preserved.
+The final production investigation tests **1,452 valid visible-air floor rays**, **363 per house**, directed upward and toward its living/bedroom fixtures. There are **zero roof hits**. First blockers include **476 ceilings, 268 partitions, 48 tables, 32 beds** and other legitimate furniture; **500 segments are unobstructed**. These rays are separate from the 30 selected refrigerator rays. The summary and complete ray records are preserved.
 
 The preliminary investigation included forty upward roof hits from origins buried inside partition footprints, where the ceiling intentionally excludes hidden geometry. Those origins were excluded from the final visible-air receiver set. They do not demonstrate a leak into a visible interior.
 
@@ -84,7 +87,7 @@ The compiler logs receiver setup, direct visibility, indirect transport, probes,
 
 The chart inspector's `--audit` checks finite/nondegenerate geometry, unit normals, atlas bounds and disjoint padded reservations. Original and final Hollow Medium both pass **all 230,117 charts with zero errors**. The deliberate malformed control detects overlap, degeneracy, nonunit normals and zero width. One-sample axes and extreme elongation remain reported budget/pathology diagnostics, rather than automatically being called corrupt. `inspect_metal_trace.py` unions overlapping active GPU channels and weights resource-allocation states by duration.
 
-The five representative production meshes—fridge, water cooler, boulder, stump and rubber duck—have no duplicate faces, zero-area UV triangles, inverted triangles, nonmanifold edges or geometry-audit errors. The fridge has **108 triangles and nine closed components**. All five contain no authored normals: imported-normal repairs are protected by transformed synthetic controls and are not falsely claimed as this fridge diagonal's cause. [Geometry audit](lighting-quality-pass/representative-model-geometry-audit.json).
+The five representative production meshes—fridge, water cooler, boulder, stump and rubber duck—have no duplicate faces, zero-area UV triangles, inverted triangles, nonmanifold edges or geometry-audit errors. The fridge has **108 triangles and nine closed components**. All five contain no authored normals: imported-normal repairs are protected by transformed synthetic controls and are not falsely claimed as this fridge diagonal's cause. Geometry audit.
 
 The subsystem classification is supported by controls rather than appearance alone:
 
@@ -108,34 +111,21 @@ The subsystem classification is supported by controls rather than appearance alo
 
 ## 11. Deterministic captures
 
-The [capture index](lighting-quality-pass/capture-index.json) records **169 valid native Metal images**: **39 production before + 39 after**, **48 equal-source local diagnostic A/B images**, **40 directional diagnostic Medium/High images**, and **three Low controls**. Exact cameras, settings, fixed time, image/binary/package hashes and source paths are recorded. **39 selected images and native logs** are stored beside this report. No screenshot was painted, cropped, exposure-adjusted or resampled.
+The campaign accepted 169 native Metal images: 39 production before and 39
+after, 48 equal-source local A/B controls, 40 directional controls and three
+closed-corner views. All verify loaded map/quality and real presented draws.
+Production Hollow adds the authored moon, so its before/after views are not a
+pure equal-source engine comparison. The local controls hold physical sources
+constant. The representative pairs below are original native PNGs.
 
-Saved settings request a 1920×1080 window, FOV 60°, VSync off, reflections off and time zero. macOS fits the window to the work area and uses a Retina backing surface, producing **3024×1676 native PNGs**, identical across A/B. Native logs must commit the requested map. The local-control A/B disables directional bake participation in the same source on both compilers; the production Hollow comparison intentionally includes the moon. Failed requested-level loads, obsolete empty Model Zoo cameras, preliminary concurrent-load profiling and stale intermediate captures are excluded.
-
-Visual QC covers the pool/window, wide pool, corridor and home room; Model Zoo fridge and curved props; street, pond and all four Hollow houses; all 20 High diagnostic views and selected Medium comparisons. Enclosed, unlit diagnostic rooms stay black. Slightly different normals remain actual surface discontinuities. The fixture cameras show technical controls, not a finished artistic map.
-
-| Evidence | Before | After |
+| Control | Before | After |
 | --- | --- | --- |
-| Pool window, Medium | [Native](lighting-quality-pass/production-before-pool_window-medium.png) | [Native](lighting-quality-pass/production-after-pool_window-medium.png) |
-| Pool window, High | [Native](lighting-quality-pass/production-before-pool_window-high.png) | [Native](lighting-quality-pass/production-after-pool_window-high.png) |
-| Zoo fridge, Medium | [Native](lighting-quality-pass/production-before-zoo_fridge-medium.png) | [Native](lighting-quality-pass/production-after-zoo_fridge-medium.png) |
-| Zoo fridge, High | [Native](lighting-quality-pass/production-before-zoo_fridge-high.png) | [Native](lighting-quality-pass/production-after-zoo_fridge-high.png) |
-| Curved props, High | [Native](lighting-quality-pass/production-before-zoo_curved-high.png) | [Native](lighting-quality-pass/production-after-zoo_curved-high.png) |
-| Corridor, High | [Native](lighting-quality-pass/production-before-corridor-high.png) | [Native](lighting-quality-pass/production-after-corridor-high.png) |
-| Hollow house 0 gable, Medium | [Native](lighting-quality-pass/production-before-hollow_house0_gable-medium.png) | [Native](lighting-quality-pass/production-after-hollow_house0_gable-medium.png) |
-| Hollow house 0 gable, High | [Native](lighting-quality-pass/production-before-hollow_house0_gable-high.png) | [Native](lighting-quality-pass/production-after-hollow_house0_gable-high.png) |
-| Hollow house 0 floor, High | [Native](lighting-quality-pass/production-before-hollow_house0_floor-high.png) | [Native](lighting-quality-pass/production-after-hollow_house0_floor-high.png) |
-| Hollow street, Low | [Native](lighting-quality-pass/production-before-hollow_street-low.png) | [Native](lighting-quality-pass/production-after-hollow_street-low.png) |
-| Hollow street, Medium | [Native](lighting-quality-pass/production-before-hollow_street-medium.png) | [Native](lighting-quality-pass/production-after-hollow_street-medium.png) |
-| Hollow street, High | [Native](lighting-quality-pass/production-before-hollow_street-high.png) | [Native](lighting-quality-pass/production-after-hollow_street-high.png) |
-| Hollow pond, High | [Native](lighting-quality-pass/production-before-hollow_pond-high.png) | [Native](lighting-quality-pass/production-after-hollow_pond-high.png) |
-| Vertical strips, Medium, equal local source | [Native](lighting-quality-pass/local-control-before-vertical_strips-medium.png) | [Native](lighting-quality-pass/local-control-after-vertical_strips-medium.png) |
-| Vertical strips, High, equal local source | [Native](lighting-quality-pass/local-control-before-vertical_strips-high.png) | [Native](lighting-quality-pass/local-control-after-vertical_strips-high.png) |
-| Window pieces, Medium, equal local source | [Native](lighting-quality-pass/local-control-before-window_separate_pieces-medium.png) | [Native](lighting-quality-pass/local-control-after-window_separate_pieces-medium.png) |
-| Window pieces, High, equal local source | [Native](lighting-quality-pass/local-control-before-window_separate_pieces-high.png) | [Native](lighting-quality-pass/local-control-after-window_separate_pieces-high.png) |
-| Ceiling/pitched roof, High, equal local source | [Native](lighting-quality-pass/local-control-before-ceiling_pitched_roof-high.png) | [Native](lighting-quality-pass/local-control-after-ceiling_pitched_roof-high.png) |
+| Zoo fridge, High | [Before](../images/reports/lighting-quality-pass/production-before-zoo_fridge-high.png) | [After](../images/reports/lighting-quality-pass/production-after-zoo_fridge-high.png) |
+| Vertical strips, High, equal local source | [Before](../images/reports/lighting-quality-pass/local-control-before-vertical_strips-high.png) | [After](../images/reports/lighting-quality-pass/local-control-after-vertical_strips-high.png) |
 
-The final directional caster views are [Medium](lighting-quality-pass/directional-control-after-diagonal_thin_caster-medium.png) and [High](lighting-quality-pass/directional-control-after-diagonal_thin_caster-high.png). The [thin enclosed room](lighting-quality-pass/directional-control-after-thin_closed_corners-high.png) stays black. The independent area oracle quantifies diagonal coverage rather than relying only on a dim nighttime image.
+The fridge images still show the coarse legitimate handle/contact-shadow
+footprints described in the limitations. They demonstrate the dated diagonal
+correction, not complete acceptance of later reported kitchen smears.
 
 ## 12. World-space texel density
 
@@ -149,7 +139,7 @@ The final directional caster views are [Medium](lighting-quality-pass/directiona
 
 Model densities now derive from the architecture quality rather than remaining fixed across qualities. Actual inclusive endpoint density is `(axis_texels - 1) / physical_axis_span`; rounded chart dimensions and tiny one-sample axes are reported in metadata. The policy is constrained by the existing eight-page budget, including real Hollow foliage/structure fragmentation. It does not allocate arbitrary per-map brightness or density overrides.
 
-Measured examples: Hollow's 9 m architectural floor axis has **108 samples = 11.888889 intervals/m**, unchanged at Medium. Its two front fridge-door charts change from **6×8 / 8×5** to **4×6 / 6×4** at Medium. Measured axis densities change from **[7.575759, 7.907208] / [7.907208, 6.779662]** to **[4.545456, 5.648006] / [5.648006, 5.084746]**. Better visibility/cache reconstruction permits smaller Medium model charts while large surfaces gain density. The equal-source diagnostic's median resolved floor-axis density is **11.854167 / 15.854167** at Medium/High; wall medians are **11.5 / 15.5**. [Full quantiles, representative charts and collapsed-axis counts](lighting-quality-pass/texel-density-measurements.json).
+Measured examples: Hollow's 9 m architectural floor axis has **108 samples = 11.888889 intervals/m**, unchanged at Medium. Its two front fridge-door charts change from **6×8 / 8×5** to **4×6 / 6×4** at Medium. Measured axis densities change from **[7.575759, 7.907208] / [7.907208, 6.779662]** to **[4.545456, 5.648006] / [5.648006, 5.084746]**. Better visibility/cache reconstruction permits smaller Medium model charts while large surfaces gain density. The equal-source diagnostic's median resolved floor-axis density is **11.854167 / 15.854167** at Medium/High; wall medians are **11.5 / 15.5**.
 
 ## 13. Sample counts
 
@@ -181,7 +171,7 @@ Clean offline measurements use **12 bounded bake workers**, sequential processes
 
 A clean single production **Hollow High** build changes **236.69 → 305.56 seconds (+29.1%)**. This includes the new moon and increased large-model density; it is not the equal-source control. Its direct/visibility stage changes **1.80 → 25.87 s**, indirect **214.84 → 246.71 s**, prop geometry/chart planning **7.62 → 20.01 s**, architecture/chart planning **270.23 → 272.51 ms**, and atlas assembly **80.58 → 91.33 ms**.
 
-Direct lighting and visibility are evaluated together and reported as a combined stage. Geometry/chart preparation also includes planning; it is not falsely labelled pure allocation. Stage medians need not sum exactly to overall medians, which additionally include scene preparation, validation, navigation and package serialization. The extra production cost is offline. [All individual samples and stage records](lighting-quality-pass/offline-samples.json), build logs and original/final compiler hashes are preserved. Full seven-map rebuild timings in the rebuild records include multi-variant/switchable/reflection preparation and are not used as isolated bake A/B benchmarks.
+Direct lighting and visibility are evaluated together and reported as a combined stage. Geometry/chart preparation also includes planning; it is not falsely labelled pure allocation. Stage medians need not sum exactly to overall medians, which additionally include scene preparation, validation, navigation and package serialization. The extra production cost is offline. All individual samples and stage records, build logs and original/final compiler hashes are preserved. Full seven-map rebuild timings in the rebuild records include multi-variant/switchable/reflection preparation and are not used as isolated bake A/B benchmarks.
 
 ## 15. Runtime CPU/GPU performance
 
@@ -205,7 +195,7 @@ The following values are medians of three per-run medians; p95 values are median
 
 GPU results come from native **Metal System Trace**, eight-second recordings attached after successful Hollow load and a two-second settle; the stable trace window is seconds 1–7. Overlapping active hardware channels are unioned, then divided by scene encoder count. This is device occupied work per rendered frame, not display FPS or end-to-end latency. Main-scene spans are reported separately. One trace per side/quality does not support interpreting sub-percent changes as improvements or regressions.
 
-Draw calls, reflection pass counts, VBO bytes and index bytes are identical across each matched CPU camera (Hollow 761 draws, pool window 274, Zoo fridge 25; reflections zero). No new dynamic global-light loop or shadow pass is added. Global energy is already in the existing atlas, probes or Low static vertices. These results establish the measured fixed-camera cost on this M2 Pro, not a guarantee for every GPU/camera. [Raw warmed CPU samples](lighting-quality-pass/cpu-warmed-samples.json), per-frame CSVs and [GPU summaries](lighting-quality-pass/gpu-samples.json) are preserved.
+Draw calls, reflection pass counts, VBO bytes and index bytes are identical across each matched CPU camera (Hollow 761 draws, pool window 274, Zoo fridge 25; reflections zero). No new dynamic global-light loop or shadow pass is added. Global energy is already in the existing atlas, probes or Low static vertices. These results establish the measured fixed-camera cost on this M2 Pro, not a guarantee for every GPU/camera. Raw warmed CPU samples, per-frame CSVs and GPU summaries are preserved.
 
 ## 16. Memory
 
@@ -221,7 +211,7 @@ This M2 Pro has **16 GiB unified memory**, not separate dedicated VRAM. Each res
 | home_showcase | 16 → 32 | 16 → 32 |
 | level0_pit | 48 → 64 | 64 → 80 |
 
-Places Demo includes its base and switchable layer set; all other rows use base-only atlases. Hollow High changes **seven → eight pages**, adding **16 MiB**, while Medium remains six pages. Model Zoo High adds one page. Home and Pit each add a page; Demo Medium saves a page in each layer set. These costs are not concealed as a universal memory improvement. [Package bytes, hashes, charts, sample totals and atlas resources](lighting-quality-pass/package-resource-comparison.json) include all seven packages.
+Places Demo includes its base and switchable layer set; all other rows use base-only atlases. Hollow High changes **seven → eight pages**, adding **16 MiB**, while Medium remains six pages. Model Zoo High adds one page. Home and Pit each add a page; Demo Medium saves a page in each layer set. These costs are not concealed as a universal memory improvement. Package bytes, hashes, charts, sample totals and atlas resources include all seven packages.
 
 Native Metal allocation covers all device resources rather than the atlas alone. The duration-weighted median and stable-window peak are:
 
@@ -240,7 +230,7 @@ Existing atlas endpoint/isolated-gutter controls and the real gable mesh-to-char
 
 ## 18. Validation and package currency
 
-The authoritative **`sh tools/verify.sh` exits 0**, with the current source, compiler and packages. The [complete log](lighting-quality-pass/verify-final.log), [exit result](lighting-quality-pass/verify-final-result.json) and [validation summary](lighting-quality-pass/validation-summary.json) are preserved.
+The dated final **`sh tools/verify.sh` exited 0** with its matching source, compiler and packages.
 
 | Validation | Result |
 | --- | --- |
@@ -259,7 +249,7 @@ The authoritative **`sh tools/verify.sh` exits 0**, with the current source, com
 | New Python tools: `python3 -m py_compile` | Passed after final edits |
 | `git diff --check` | Passed after report/evidence finalization |
 
-All seven packages are rebuilt with Low/off, Medium and High/full variants and matching source/asset fingerprints: **places_demo, model_zoo, lantern_hollow, movement_test, geometry_intentional, home_showcase, level0_pit**. The last three packages are intentionally ignored local development artifacts. [Exact currency results](lighting-quality-pass/package-currency.json) and [local decode results](lighting-quality-pass/local-package-validation.json).
+All seven packages are rebuilt with Low/off, Medium and High/full variants and matching source/asset fingerprints: **places_demo, model_zoo, lantern_hollow, movement_test, geometry_intentional, home_showcase, level0_pit**. The last three packages are intentionally ignored local development artifacts. All selected variants passed currentness and full decode.
 
 Earlier runs interrupted for stale geometry-revision and Hollow page-count assertions are not counted as passes. Those assertions now reflect revision 3 and the validated eight-page Hollow High plan. The final complete gate has no failed tests.
 
@@ -269,71 +259,14 @@ Finite density and diffuse gather counts remain deliberate stylized budgets. Tin
 
 Cutout models retain their existing inexpensive caster contract. Directional sources are baked static illumination; `bake:false` sources are inactive, and this work does not add animated day/night shadows. Low keeps coarse static vertex/box visibility and has no Medium/High diffuse probe solution. It can look brighter and less detailed than the HDR bake. Tangent-space normal textures remain a runtime response detail rather than a bake input.
 
-The eight-page budget remains binding; several production High packages are at that limit. A higher large-model density was evaluated and rejected because Hollow could not fit. The final coherent policy fits all seven maps. Native runtime results measure warmed fixed-camera rendering on this host, not all-camera gameplay, other GPUs or a guarantee against every authored micro-gap. No source imagery, local-light strength, ambient constant or roof geometry was changed to mask errors.
+The tested eight-page budget was binding; several production High packages are at that limit. A higher large-model density was evaluated and rejected because Hollow could not fit. The dated final policy fit all seven tested maps. Subsequent model-lighting work
+changes chart sharing, physical resolution and bounded Full capacity; these
+measurements must not be treated as the current density policy. Native runtime results measure warmed fixed-camera rendering on this host, not all-camera gameplay, other GPUs or a guarantee against every authored micro-gap. No source imagery, local-light strength, ambient constant or roof geometry was changed to mask errors.
 
+## Reproduction
 
-## Changed files
-
-Engine, compiler and regressions:
-
-- `src/compiler.rs`
-- `src/gltf.rs`
-- `src/gltf/tests.rs`
-- `src/level.rs`
-- `src/level/tests.rs`
-- `src/lighting.rs`
-- `src/lighting/bake.rs`
-- `src/lighting/lightmap/cache.rs`
-- `src/lighting/lightmap/mod.rs`
-- `src/lighting/lightmap/plan.rs`
-- `src/lighting/lightmap/tests.rs`
-- `src/lighting/transport.rs`
-- `src/lighting/transport/tests.rs`
-- `src/lighting/visibility.rs`
-- `src/lighting_audit_cases.rs`
-- `src/loader.rs`
-- `src/loader/tests.rs`
-- `src/render/common/api.rs`
-- `src/render/common/architecture.rs`
-- `src/render/common/geometry.rs`
-- `src/render/common/light_transport.rs`
-- `src/render/common/mod.rs`
-- `src/render/common/props.rs`
-- `src/static_prop_lighting_tests.rs`
-- `src/lighting/directional.rs`
-- `src/lighting/directional/tests.rs`
-- `src/lighting/transport/coverage.rs`
-- `src/lighting/transport/diagnostics.rs`
-- `src/lighting/transport/filter.rs`
-- `src/lighting/transport/tests/quality.rs`
-
-Map and generated packages:
-
-- `assets/levels/lantern_hollow.json`
-- `assets/levels/lantern_hollow.placesmap`
-- `assets/levels/model_zoo.placesmap`
-- `assets/levels/movement_test.placesmap`
-- `assets/levels/places_demo.placesmap`
-
-Developer tools:
-
-- `tools/levels/build_lantern_hollow.py`
-- `tools/verify.sh`
-- `tools/bench/capture_lighting_quality.py`
-- `tools/bench/inspect_lighting_dump.py`
-- `tools/bench/inspect_metal_trace.py`
-- `tools/bench/lighting_quality_views.json`
-- `tools/levels/build_lighting_quality.py`
-
-Fixture:
-
-- `tests/fixtures/levels/lighting_quality.json`
-
-Documentation:
-
-- `docs/MAP_AUTHORING_GUIDE.md`
-- `docs/PACKAGE_FORMAT.md`
-- `docs/VERIFICATION.md`
-- `docs/reports/lighting-quality-pass.md`
-
-Local rebuilt packages: `levels/geometry_intentional.placesmap`, `levels/home_showcase.placesmap`, `levels/level0_pit.placesmap` (ignored development artifacts). The `docs/reports/lighting-quality-pass/` evidence directory contains 39 native images with matching logs, the complete capture index, causal measurements, audits, package resource/currency/decode results and validation/performance records. The index enumerates the image files individually. No commit was created.
+Use `tools/levels/build_lighting_quality.py` for the twenty analytic controls,
+`tools/bench/capture_lighting_quality.py` for native views, and the compiler
+stage/ray diagnostic commands described above. Equal-source comparisons require
+matching authored inputs and physical light sources; production moon changes
+must remain separately labelled.

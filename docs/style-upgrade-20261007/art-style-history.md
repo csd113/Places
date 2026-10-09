@@ -1,219 +1,67 @@
-# Seven Art-style milestones
+# Seven completed Art-style milestones
 
-[Chronological visual journal](README.md) · [Original audit](../art-style/README.md)
-· [Final integration](../art-style/stage7/README.md)
+October 8–9, 2026. This history shows what each milestone established and preserves its practical limits. The images are genuine original native captures copied without changing their bytes. The [scene index](README.md) covers the preceding Pool/Home/Outdoors/Winter reconstruction; [current verification](../VERIFICATION.md) and the separate [model-lighting correction](../model-lighting-root-cause-and-fix.md) describe the later working implementation.
 
-This gallery assembles the existing native captures. The Pool, Home, Outdoors
-and Winter asset passes remain earlier entries in the same journal. No earlier
-image, concept, camera receipt or runnable milestone is replaced. Stages 1–6
-were captured on 2026-10-08 UTC. Stage 7’s accepted hero after captures are
-from 2026-10-09 UTC; wider integration acceptance remains in progress. Images are native
-macOS Metal framebuffer PNGs, without retouching.
+## 1 — Establish the baseline
 
-The matched hero views use FOV 60°, a 640×360 logical window /1280×720 drawable,
-High texture/filter quality, Full lightmaps/reflections and bloom. Source and
-capture manifests preserve authored environment, exact transforms, readiness,
-binary/package/catalogue hashes and precommit source context. A later published
-implementation link identifies the corresponding frozen changes; it does not
-rewrite a capture's original revision field.
+[Stage 1](../art-style/README.md) creates a fixed room/hall/garden benchmark and native/offline diagnostics. It identifies receiver-grid seams, static/live response differences and legitimate authored darkness. It claims no lighting improvement.
 
-## 1 — establish the original baseline
+## 2 — Retain colour and HDR
 
-| Original baseline | Independent native repeat |
+[Stage 2](../art-style/stage2/README.md) decodes colour once, preserves energy above 1, uses alpha-aware linear mips and consistent scalar/alpha/normal handling. The lights, exposure and artwork are held; remaining sofa seams and live contact are separate causes.
+
+| Before | Final |
 | --- | --- |
-| ![Original room](../art-style/baseline/high/room.png) | ![Original room repeated](../art-style/repeat/high/room.png) |
+| ![Before](../images/art-style/original-room.png) | ![Final](../images/art-style/stage2-final-room.png) |
 
-This is an audit and reproducibility milestone, with no claimed visual gain.
-The subsequent diagnostic foundation preserves the original pixels. The room
-exposes the sofa's diagonal chart seam, flat spawned chair and dark night view.
-[Capture identity](../art-style/baseline/high/manifest.json) retains the
-prequeue revision `22a78fc43822900cd866869f93c55d7796e2c812`.
-[Diagnostic implementation 2050fb2](https://github.com/csd113/Places/commit/2050fb23f1c6be75b0ee1b248b1a2623b36e37f7)
-and [handoff](../art-style/handoff.md) explain its normal-output preservation.
-[Stage 1 runnable receipt](../art-style/stage2/stage1-snapshot.json) preserves
-the original room in `debug-maps/art-style-hero/milestones/stage1`.
+## 3 — Join transport across construction cuts
 
-## 2 — retain colour and HDR through the pipeline
+[Stage 3](../art-style/stage3/README.md) uses physical surface support and actual finite-segment blockers/transmission. Direct/indirect/filter/fill and chart/caster evidence separate errors from legitimate plant/rail/contact darkness. Straight neutral transmission does not implement refraction.
 
-| Stage 1 / Stage 2 before | Stage 2 after |
+| Before | Final |
 | --- | --- |
-| ![Before colour correction](../art-style/stage2/before/high/room.png) | ![After colour correction](../art-style/stage2/after/sealed-high/room.png) |
+| ![Before](../images/art-style/stage3-before-contact.png) | ![Final](../images/art-style/stage3-final-contact.png) |
 
-Pale furniture, walls and wood become more legible under unchanged lights.
-Colour images decode once; bake and scene sums retain linear HDR. The sofa seam
-and entity grounding remain for their owning stages.
-[Before](../art-style/stage2/before/high/manifest.json) /
-[after](../art-style/stage2/after/sealed-high/manifest.json) retain exact identities.
-[Implementation b34e1dd](https://github.com/csd113/Places/commit/b34e1dd6d8dcdf43280a35c9644bcb567905e492)
-· [gallery and limits](../art-style/stage2/README.md)
-· [runnable Stage 2 receipt](../art-style/stage2/stage2-snapshot.json).
+## 4 — Connect moving objects to light
 
-## 3 — join real lighting across construction cuts
+[Stage 4](../art-style/stage4/README.md) separates selected direct from residual probe light, uses inset spatial anchors and actual rigid caster triangles, and retains zero-source v 3 fields. Real door visibility changes and restores. Skinned bound proxies and static atlases during motion remain approximations; ready endpoints do not measure every loading frame.
 
-| Stage 2 before | Stage 3 after |
+| Before | Final |
 | --- | --- |
-| ![Before transport correction](../art-style/stage3/before/high/contact.png) | ![Continuous sofa lighting](../art-style/stage3/after/published-high/contact.png) |
-| ![Room before transport correction](../art-style/stage3/before/high/room.png) | ![Room after transport correction](../art-style/stage3/after/published-high/room.png) |
+| ![Before](../images/art-style/stage4-before-chairs.png) | ![Final](../images/art-style/stage4-final-chairs.png) |
 
-The diagonal sofa seam disappears while cushions, grounding and warm light remain.
-PNG reflectance and numeric alpha enter transport; the additive gable control's
-missing geometry is repaired generically. This does not establish new entity GI.
-[Before](../art-style/stage3/before/high/manifest.json) /
-[after](../art-style/stage3/after/published-high/manifest.json).
-[Implementation b937724](https://github.com/csd113/Places/commit/b9377244249fa21fa12975ae8d93297e41111ebd)
-· [gallery and limits](../art-style/stage3/README.md)
-· [runnable Stage 3 receipt](../art-style/stage3/stage3-snapshot.json).
+## 5 — Control highlights and atmosphere
 
-## 4 — connect movable objects to their surroundings
+[Stage 5](../art-style/stage5/README.md) preserves hue in bright output, uses covered emission for selective bloom and supports authored night/fog/sky/water controls. Night/weather arrangements are intentional variants, not matched-source brightness gains. Intersecting transparency, silhouette AA and tiny alpha mips remain bounded limitations.
 
-| Stage 3 before | Stage 4 after |
+| Before | Final |
 | --- | --- |
-| ![Before entity lighting](../art-style/stage4/before/high/entities.png) | ![Spatial chair response and contact](../art-style/stage4/after/support-final/high/entities.png) |
-| ![Room before entity lighting](../art-style/stage4/before/high/room.png) | ![Room after entity lighting](../art-style/stage4/after/support-final/high/room.png) |
+| ![Before](../images/art-style/stage5-before-room.png) | ![Final](../images/art-style/stage5-final-room.png) |
 
-The spawned chair gains spatial practical-light response and a softer floor
-relationship. Actual door/crossing controls and live quality loops establish
-bounded behavior. Static atlases during motion and skinned bounds proxies remain
-approximations. The final solver-15 zero-source repair retains spatial residual
-fields without changing these accepted pixels.
-[Before](../art-style/stage4/before/high/manifest.json) /
-[after](../art-style/stage4/after/support-final/high/manifest.json).
-[Implementation 2615b9b](https://github.com/csd113/Places/commit/2615b9bc787a116bca1d9bc9d9deb855ed87724d)
-· [solver repair 7d80433](https://github.com/csd113/Places/commit/7d80433ccb77d828a8c519ffa8da935fcbcac4c4)
-· [gallery and limits](../art-style/stage4/README.md)
-· [final runnable receipt](../art-style/stage4/stage4-v2-snapshot.json).
+## 6 — Furnish content and preserve currency
 
-## 5 — control highlights, transparent emission and water
+[Stage 6](../art-style/stage6/README.md) adds reusable domestic detail/refined chair and automatically captures runtime spawn-template dependencies. Same-size content mutations invalidate package-open identity; safe metadata changes reuse prepared work. Twenty-two edit controls agree with forced output. Historical isolated caster-kernel improvement is not whole-engine FPS.
 
-| Stage 4 before | Stage 5 after |
+| Before | Final |
 | --- | --- |
-| ![Room before presentation](../art-style/stage5/before/original/room.png) | ![Room after presentation](../art-style/stage5/after/original/room.png) |
-| ![Corrected water baseline](../art-style/stage5/before/control-corrected/water.png) | ![Prepared water response](../art-style/stage5/after/control/water.png) |
+| ![Before](../images/art-style/stage6-before-room.png) | ![Final](../images/art-style/stage6-final-room.png) |
 
-Warm highlight colour survives; translucent emission has restrained coverage.
-Water shares prepared incident lighting with its surroundings. Night/aurora/storm
-arrangements are separate authored comparisons, not matched before/after gains.
-The failed incomplete-asset controls and ghost snapshots remain rejected and
-preserved; this gallery uses the explicitly corrected evidence.
-[Original before](../art-style/stage5/before/original/manifest.json) /
-[after](../art-style/stage5/after/original/manifest.json).
-[Implementation 5a44e9d](https://github.com/csd113/Places/commit/5a44e9d3c461bd427830c5815738ba841342fc6a)
-· [gallery, corrections and limits](../art-style/stage5/README.md)
-· [original runnable receipt](../art-style/stage5/stage5-original-snapshot.json)
-· [corrected ghost receipt](../art-style/stage5/stage5-transparency-v2-snapshot.json).
+## 7 — Integrate the supported inventory
 
-## 6 — furnish the hero and make rebuilds trustworthy
+[Stage 7](../art-style/stage7/README.md) completes 48 supported Off/Medium/Full package and native-load cases within 50 inventoried source paths. It repairs genuine probe coverage, roof/ghost/overlap findings and retains atlas availability and package safety. Exact PLMP v6 storage reduces dense aggregate size without removing any ordered corner or authored object.
 
-| Stage 5 control / Stage 6 before | Stage 6 after |
+Publication [a1e7122](https://github.com/csd113/Places/commit/a1e7122bba5df549c2e82c16371bcc57db99e976) passed [CI 37906450891](https://github.com/csd113/Places/actions/runs/37906450891). Forty-eight failed/blocked native obligations pass directly; four Home obligations use qualified animated-image acceptance. Static pixels outside the conditional idle projection and actual entity/spatial payloads agree, while untraced pose/time/VBO equality is unclaimed. Linux/Windows physical GPU execution, exact total memory/plateau and gameplay FPS remain outside the proof.
+
+| Before | Final |
 | --- | --- |
-| ![Room before refinement](../art-style/stage6/before/refinement-control/room.png) | ![Furnished room](../art-style/stage6/after/refined/room.png) |
-| ![Chairs before refinement](../art-style/stage6/before/refinement-control/entities.png) | ![Additive softened chair](../art-style/stage6/after/refined/entities.png) |
+| ![Before](../images/art-style/stage6-final-room.png) | ![Final](../images/art-style/stage7-final-room.png) |
 
-Oak, fitted rug, cushion, plants, art and passage casing add domestic density.
-An additive bevelled chair preserves the original model. Dependency closure now
-includes runtime spawn choices; exact hashes and tool provenance make rebuilds
-reliable. The isolated moving receiver kernel improves 34.6%; this is not a
-whole-engine GPU or FPS claim. Casing feet, silhouette detail and conservative
-global receiver refresh remain limitations.
-[Before](../art-style/stage6/before/refinement-control/manifest.json) /
-[after](../art-style/stage6/after/refined/manifest.json).
-[Implementation daa9642](https://github.com/csd113/Places/commit/daa9642fbe2e9cae91d95f667bcf50e1fefe585b)
-· [gallery and limits](../art-style/stage6/README.md)
-· [runnable receipt](../art-style/stage6/stage6-snapshot.json)
-· [isolated replay verification](../art-style/stage6/snapshot-verification.json).
+## Original baseline to final historical hero
 
-## 7 — final compatibility integration
+The hero's materials, furnishing density and contact improve over the original audit while source identity and actual lighting limits remain assessable. Representative integration screenshots did not prove that every production receiver or close camera case was correct; the later model-lighting investigation addresses those separately.
 
-The [accepted final hero receipt](../art-style/stage7/validation/hero-final-acceptance-v1.json)
-records nine genuine native after captures on 2026-10-09 UTC. This compatibility
-integration retains the earlier art and lighting work. Five views — hall, corner,
-surfaces, night and water — are byte-identical to the Stage 6 result. Room, window,
-contact and entities have small, bounded wood-material response differences;
-the largest whole-image RGB mean absolute difference is 0.008652 on a 0–255 scale.
-The source adopts existing material-family scalars; this milestone does not add
-a new art-refinement pass.
-
-| Stage 6 replay / Stage 7 before | Stage 7 final hero |
+| Before | Final |
 | --- | --- |
-| ![Room and furnishings before](../art-style/stage7/before/high/room.png) | ![Room and furnishings retained after integration](../art-style/stage7/after/high/room.png) |
-| ![Window and garden balance before](../art-style/stage7/before/high/window.png) | ![Window and garden balance retained after integration](../art-style/stage7/after/high/window.png) |
-| ![Fluorescent hall before](../art-style/stage7/before/high/hall.png) | ![Fluorescent hall retained after integration](../art-style/stage7/after/high/hall.png) |
-| ![Sofa and table contact before](../art-style/stage7/before/high/contact.png) | ![Sofa and table contact retained after integration](../art-style/stage7/after/high/contact.png) |
-| ![Original and refined chairs before](../art-style/stage7/before/high/entities.png) | ![Original and refined chairs retained after integration](../art-style/stage7/after/high/entities.png) |
-| ![Ceiling and opening corner before](../art-style/stage7/before/high/corner.png) | ![Ceiling and opening corner retained after integration](../art-style/stage7/after/high/corner.png) |
-| ![Materials and translucent emission before](../art-style/stage7/before/high/surfaces.png) | ![Materials and translucent emission retained after integration](../art-style/stage7/after/high/surfaces.png) |
-| ![Exterior practicals before](../art-style/stage7/before/high/night.png) | ![Exterior practicals retained after integration](../art-style/stage7/after/high/night.png) |
-| ![Prepared water response before](../art-style/stage7/before/high/water.png) | ![Prepared water response retained after integration](../art-style/stage7/after/high/water.png) |
+| ![Before](../images/art-style/original-room.png) | ![Final](../images/art-style/stage7-final-room.png) |
 
-[Before identity](../art-style/stage7/before/high/manifest.json) /
-[after identity](../art-style/stage7/after/high/manifest.json) retain the exact
-nine transforms, High settings, 1280×720 drawable, ready time and raw PNG hashes.
-The [before preservation receipt](../art-style/stage7/before-preservation.json)
-binds the replay to Stage 6. The [current source freeze](../art-style/stage7/source-input-identities-v14.json)
-binds the integration inputs. The after capture keeps its actual precommit
-revision `26486b8538424f013c243ae6edea8720ac07d7f2` and dirty-diff identity;
-publication will be recorded separately. Requested VSync is off, while the
-actual Metal renderer receipt reports Fifo. These images establish appearance,
-without a gameplay-FPS claim.
-
-The [first supported-map native pass](../art-style/stage7/validation/native-execution-v1.md)
-retains genuine six-theme and Zoo frames as well as its failed geometry,
-endpoint and empty-scene controls. Its overall result remains a failure.
-The [affected68 receipt](../art-style/stage7/validation/native-affected-execution-v2.md)
-retains 56 passes, two Home whole-image failures and ten unnecessary conditional
-steps. [All 52 original obligations](../art-style/stage7/validation/native-affected-obligation-closure-v3.md)
-have 48 direct passes and four qualified Home results. Source-derived animated
-bounds and actual payload equality support static/rigid lighting restoration;
-complete animated pose/pixel parity remains unproved. [Integration costs and limits](../art-style/stage7/performance.md)
-retain their measurement scopes.
-
-- [Stage 7 implementation 4ef8c88](https://github.com/csd113/Places/commit/4ef8c8857b759b5b5f19357f437e7a9367456e59); [source binding](../art-style/stage7/source-publication.json) verifies 606 committed inputs and nine explicitly local preserved inputs.
-- Final publication / exact-head CI and ownership release: authoritative outside-target
-  `debug-maps/art-style-hero/evidence/stage7-completion.json`, recorded after the gate.
-  The tracked index does not guess a self-referential final commit hash.
-- [Stage 7 hero 52-file receipt](../art-style/stage7/stage7-snapshot.json),
-  [all 48-map 617-file receipt](../art-style/stage7/stage7-integration-snapshot.json)
-  and [isolated replay/load](../art-style/stage7/snapshot-verification.json) pass
-  outside `target/`. Room/surface replays are exact against accepted final PNGs.
-- [All 28 deferred dispositions](../art-style/stage7/validation/deferred-ledger-final-v1.json)
-  retain their history and limits; additional native roots have a
-  [canonical supplement](../art-style/stage7/validation/deferred-ledger-supplement-final-v1.json).
-
-The successor reports about kitchen cupboards/sink/refrigerator, Home corridor
-wall/ceiling joins in `places_demo`, and Hallows skeletons becoming full-bright
-at close range remain separate and unresolved.
-
-## Original baseline → final hero
-
-These six pairs use the untouched original baseline and its exact original
-camera/settings, followed by the accepted Stage 7 final hero. They show the
-cumulative colour, transport, entity response, presentation and furnishing work
-from the earlier milestones. They are not six new Stage 7 refinement gains.
-The later surfaces, night and water controls did not exist in the original
-six-view baseline and are shown only in the matched Stage 7 table above.
-
-| Original baseline | Final integrated hero |
-| --- | --- |
-| ![Original room and furnishings](../art-style/baseline/high/room.png) | ![Final room and furnishings](../art-style/stage7/after/high/room.png) |
-| ![Original window and garden balance](../art-style/baseline/high/window.png) | ![Final window and garden balance](../art-style/stage7/after/high/window.png) |
-| ![Original fluorescent hall](../art-style/baseline/high/hall.png) | ![Final fluorescent hall](../art-style/stage7/after/high/hall.png) |
-| ![Original sofa and table contact](../art-style/baseline/high/contact.png) | ![Final sofa and table contact](../art-style/stage7/after/high/contact.png) |
-| ![Original original and refined chairs](../art-style/baseline/high/entities.png) | ![Final original and refined chairs](../art-style/stage7/after/high/entities.png) |
-| ![Original ceiling and opening corner](../art-style/baseline/high/corner.png) | ![Final ceiling and opening corner](../art-style/stage7/after/high/corner.png) |
-
-[Original source/capture identity](../art-style/baseline/high/manifest.json) /
-[final source/capture identity](../art-style/stage7/after/high/manifest.json)
-preserve their respective revisions and hashes. Artwork and authored source
-changed across the earlier stages; matching cameras and settings do not imply
-identical content. The [seven-stage evidence index](../art-style/stage7/seven-stage-evidence-index.json)
-provides the accepted per-stage reports, measured gains and costs, exact
-publication boundaries, runnable receipts and unresolved limits.
-
-## Runnable history
-
-The [independent Stage 7 entry audit](../art-style/stage7/validation/prior-preservation-entry.json)
-checks all 23 accepted bundles /1,010 files against their immutable receipts,
-the seven concept PNGs and eleven original baseline/repeat images. Every accepted
-bundle is outside `target/`; historical incomplete candidates remain retained
-without an acceptance claim. Each linked receipt supplies an exact asset root,
-launch and replay command. The source commit alone is never the runnable record.
+[Historical cost methods](../art-style/stage7/performance.md) distinguish captures/readback from ordinary gameplay, and earlier stage cost reports retain their own measured scopes. The curated native images and technical reports carry the conclusions and their qualifications.

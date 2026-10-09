@@ -1,0 +1,78 @@
+{
+  "format_version": 1,
+  "level": "home_showcase",
+  "source": "levels/home_showcase.json",
+  "package": "levels/home_showcase.placesmap",
+  "settings": {
+    "bindings": {
+      "forward": "W",
+      "backward": "S",
+      "strafe_left": "A",
+      "strafe_right": "D",
+      "look_up": "UP",
+      "look_down": "DOWN",
+      "look_left": "LEFT",
+      "look_right": "RIGHT",
+      "jump": "SPACE",
+      "crouch": "C",
+      "interact": "E"
+    },
+    "look_speed_h": 90,
+    "look_speed_v": 60,
+    "walk_speed": 3,
+    "invert_look": false,
+    "mouse_sensitivity": 0.12,
+    "quality": "high",
+    "texture_filtering": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true,
+    "use_low_quality_lighting": false,
+    "vsync": false,
+    "fov_degrees": 60,
+    "window_mode": "windowed",
+    "window_width": 640,
+    "window_height": 360
+  },
+  "capture": {
+    "ready_world_seconds": 0.5,
+    "warmup_frames": 15,
+    "limit_frames": 3000,
+    "expected_drawable": [
+      1280,
+      720
+    ]
+  },
+  "views": [
+    {
+      "name": "showcase_fridge_upper_unoccluded",
+      "spawn": [
+        6.5,
+        1.6,
+        7.3,
+        90
+      ],
+      "camera": [
+        90,
+        0
+      ],
+      "target": "Original core:fridge prop11 upper freezer door, perpendicular west approach on south side of half-wall",
+      "purpose": "Camera clearance from west wall=.35m and north half-wall=.50m; actual front\u2248x7.2. At source-derived .70m perpendicular distance the upper door fits standing 1.6m eye at FOV60. Unvalidated until native capture; preserve actual eye and source target."
+    },
+    {
+      "name": "showcase_fridge_lower_unoccluded",
+      "spawn": [
+        6.5,
+        1.6,
+        7.3,
+        90
+      ],
+      "camera": [
+        90,
+        -44
+      ],
+      "target": "Original core:fridge prop11 entire tall lower refrigerator door, including bottom edge and handle, not compact-panel proxy",
+      "purpose": "Same unobstructed south-side standing eye; lower-door vertical angular extent is approximately -65..-23degrees, inside -44\u00b130degree FOV. Capture actual complete lower door; native visibility is the pass condition."
+    }
+  ]
+}

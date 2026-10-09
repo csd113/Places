@@ -1,6 +1,6 @@
 # Stage 6 contracts — 2026-10-08 UTC
 
-[Native milestone](README.md) · [Costs and budgets](performance.md) · [Handoff](handoff.md)
+[Native milestone](README.md) · [Costs and budgets](performance.md) · [Final milestone](README.md)
 
 ## Reusable hero content
 

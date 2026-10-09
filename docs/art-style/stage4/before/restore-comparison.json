@@ -1,8 +1,0 @@
-{
-  "before": "docs/art-style/stage4/before/high/entities.png",
-  "restored": "docs/art-style/stage4/before/restore-high/entities.png",
-  "different_pixels": 0,
-  "mean_channel_difference": 0.0,
-  "max_channel_difference": 0,
-  "meaning": "Prior Stage3 native High\u2192Low\u2192High capture at readyframe180 vs native steadyHigh at0.5s; no edited pixels"
-}

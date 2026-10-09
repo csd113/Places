@@ -4449,7 +4449,7 @@ impl WgpuRenderer {
                 "bloom_allowed": self.bloom_requested && !self.visual_diagnostic_active(),
                 "diagnostic_identity_post": self.visual_diagnostic_active(),
                 "display_encoding": if self.visual_diagnostic_active() {
-                    "mapped diagnostic values treated as linear; one sRGB encoding; no exposure, shoulder, grade or bloom"
+                    "numeric diagnostic RGB converted to linear with inverse sRGB, then one presentation encoding; no exposure, shoulder, grade or bloom"
                 } else { "linear HDR + bloom, fixed exposure, hue-preserving shoulder, sRGB, display grade" },
                 "sky_decals_effects_suppressed": self.visual_diagnostic_active()},
             "unavailable": {"decomposition": "direct/indirect/filter/fill remain offline solver exports",

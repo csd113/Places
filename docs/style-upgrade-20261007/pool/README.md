@@ -87,28 +87,15 @@ previews or composited mockups. Click any image for the full 1280×720 PNG.
 
 | View | Before | After | What changed |
 | --- | --- | --- | --- |
-| Wide Pool | ![Wide before](before/wide.png) | ![Wide after](after/wide.png) | Blue recess, pale deck/walls, single rails, coherent construction boundaries and calmer palette. |
-| Basin | ![Basin before](before/basin.png) | ![Basin after](after/basin.png) | Readable blue ceramic, navy lanes and basin-edge separation. |
-| Walls | ![Walls before](before/walls.png) | ![Walls after](after/walls.png) | Larger pale tiles, blue wainscot, framed glass and slender blue piers. |
-| Ceiling / windows | ![Ceiling before](before/ceiling_windows.png) | ![Ceiling after](after/ceiling_windows.png) | Neutral fine-seamed ceiling, opal fixtures, casing and construction shadow line. |
-| Water edge | ![Edge before](before/edge.png) | ![Edge after](after/edge.png) | Pale dry coping, repeated grate segments, blue walls and submerged stair silhouette. |
-| Connected steps / service leaf | ![Steps before](before/stairs.png) | ![Steps after](after/stairs.png) | Existing walkable connected steps retained, utility leaf replaces flat panel. |
-| Ladder from water | ![Ladder before](before/ladder.png) | ![Ladder after](after/ladder.png) | Closed chrome stock and darker tread inserts against blue tile. |
-| Furniture | ![Furniture before](before/furniture.png) | ![Furniture after](after/furniture.png) | Round resin table, arms and vertically slotted crowned chair back. |
-| Curtains | ![Curtains before](before/curtains.png) | ![Curtains after](after/curtains.png) | Cream folds/header/hem, slender metal supports and missing bench. |
-| Close deck / coping | ![Tile before](before/tile_close.png) | ![Tile after](after/tile_close.png) | Quiet mineral flecks survive runtime sampling; larger coping separates deck from recess. |
-| Submerged treads | ![Basin stairs before](before/basin_stairs.png) | ![Basin stairs after](after/basin_stairs.png) | Five real 300 mm risers rather than an undecorated basin edge. |
-| Complete ladder | ![Ladder deck before](before/ladder_deck.png) | ![Ladder deck after](after/ladder_deck.png) | Full inverted-U grabs, bolted returns and tread proportions from the dry deck. |
-| Major new prop | ![Bench before](before/bench.png) | ![Bench after](after/bench.png) | Four-slat trestle bench occupies reference-appropriate changing-bay space. |
+| Wide Pool | ![Wide before](../../images/style-upgrade/pool-before-wide.png) | ![Wide after](../../images/style-upgrade/pool-after-wide.png) | Blue recess, pale deck/walls, single rails, coherent construction boundaries and calmer palette. |
+| Basin | ![Basin before](../../images/style-upgrade/pool-before-basin.png) | ![Basin after](../../images/style-upgrade/pool-after-basin.png) | Readable blue ceramic, navy lanes and basin-edge separation. |
 
 Camera positions and angles are identical in each pair. `PLACES_SPAWN` is
 `x,z,yaw`; the unchanged floor resolver sets eye height. `PLACES_CAMERA` is
-`yaw,pitch` in degrees. [Before](before/manifest.json) and
-[after](after/manifest.json) manifests give every camera, renderer identity
-and PNG SHA-256. Settings: High, full lightmaps/reflections, High filtering,
+`yaw,pitch` in degrees. The comparison used matched cameras, renderer identity and settings. Settings: High, full lightmaps/reflections, High filtering,
 bloom on, 60° FOV, 640×360 logical window / 1280×720 drawable, vsync off;
 15 warmup frames, a 100-frame cap, capture/exit at frame 60 (45 CSV samples). The comparison
-uses the same renderer implementation and Apple M2 Pro Metal adapter.
+uses the same renderer implementation and Apple M 2 Pro Metal adapter.
 
 The first native candidate exposed a sign/gutter intersection and casing that
 narrowed hot-tub egress. Both signs were moved clear of the grate/tile band. Window
@@ -131,9 +118,7 @@ These are recorded limits, with no global water/lighting/movement rewrite.
 
 ## Cost and technical evidence
 
-[Model audit](model-audit.json) records bounds, topology, UV area, winding,
-texture alpha/dimensions and file hashes. [Costs](costs.json) records per-family
-triangles, source sizes and the native comparison counters.
+Model inspection covers bounds, topology, UV area, winding, texture alpha/dimensions and file identity. The measurements below cover per-family triangles, source sizes and native comparison counters.
 
 Twelve remade/new GLBs total **4,168 triangles**, versus **3,354** across the
 nine replaced families (+814, including the three missing props). Their disk
@@ -148,8 +133,7 @@ images remain 256²; the three new families add .75 MiB of base-level decoded
 atlas pixels before mipmaps. The compiled demo grows **96,267,473 →
 98,762,970 bytes** (+2.6%) and the final normal bake takes 223.951 seconds
 with eight workers. Repeated grate and bench instances reuse model assets.
-Both stages use one reflection pass. Short frame samples are retained in the
-cost JSON but are not a controlled FPS claim.
+Both stages use one reflection pass. The 45-frame capture sample is not a controlled FPS measurement.
 
 All modified models have zero degenerates, boundary edges, inconsistent
 winding, duplicate triangle faces, coincident quads and zero-area UV faces.
@@ -161,17 +145,10 @@ are retained. Fitted atlases avoid world tiling on furniture; periodic surface
 sheets pass the seam gate. Native captures were inspected for floating feet,
 rim/ladder alignment, grout scale, clipping, holes and flicker.
 
-## Validation and retained review payload
+## Historical validation and compatibility
 
-See [validation](validation.md) for exact final command outcomes and package
-identities. Catalog validation, focused Pool tests, texture seam/dimension
-checks, model integrity, Zoo generator currency and the demo geometry gate
-are required. Rust formatting, configured Clippy and workspace tests are
-also run. Only the demo and two shipped packages directly embedding changed
-Pool assets are rebaked; unrelated historical packages remain untouched.
+The October 7 catalog contains 302 assets, 169 placeables and five themes with zero warnings. Seven focused Python checks and seam checks for seven sheets pass. Thirteen matched High native views load without missing models or textures. Water stairs, ladder and hot-tub exit controls reach the original dry-deck eye height within 0.1 m. Water/climb definitions, rooms, doors, routes, effects and non-Pool architecture remain unchanged.
 
-Independent native before/after payloads and raw logs are preserved outside
-`target` at [debug-maps/pool-style-20261007](../../../debug-maps/pool-style-20261007/README.md).
-Historical debug maps and external Consolidation/Office evidence are intact.
-Reusable Cargo outputs remain available for the next serial pass. Active
-caffeinate protection is handed off with the checkout rather than stopped.
+The three affected normal packages build: Demo 98,762,970 bytes / 223.951 s, Movement 42,370,590 bytes / 44.891 s and Zoo 84,702,370 bytes / 234.337 s. Strict workspace Clippy and formatting pass. The library has 2,021 passing tests and 23 ignored tests, with other game/compiler targets passing; the full workspace command nevertheless exits 101 because three quiet package-discovery assertions encounter inherited stale optional local packages. That dated command is not a full passing gate. The later [Stage 7 inventory integration](../../art-style/stage7/README.md) closes package currency across the supported inventory.
+
+The published Pool revision [476dfb4](https://github.com/csd113/Places/commit/476dfb4e603da2dbaaf78a1016243ca20f4e1858) passes its [CI run](https://github.com/csd113/Places/actions/runs/37672078580). The [asset specification](../../ASSET_SPECIFICATION.md) and [map guide](../../MAP_AUTHORING_GUIDE.md) retain the reusable authoring contracts; the comparison above remains a dated native visual result.

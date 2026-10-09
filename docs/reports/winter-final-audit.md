@@ -3,8 +3,7 @@
 Certification date: 2026-10-07. Baseline: `a3110c4c79fc3cfefcc0f02c1f8098650231fe88`
 on `Winter-expansion`. This pass reviews the implemented toolkit, actual concept
 art, native rendering and the preceding snowfall, blizzard and integration
-handoffs. It introduces no new environment feature. Publication and cleanup
-identity are recorded in the final task handoff and the local evidence archive.
+results. It introduces no new environment feature.
 
 ## Completed features and compatibility
 
@@ -121,8 +120,7 @@ missed. Whole-frame means (ms) were:
 
 The sign and size of these differences vary with host activity/pacing; they
 cannot establish isolated weather GPU cost or a speedup. Earlier campaigns'
-8–9/16–17 ms pacing jitter is not erased by this fresh run. Raw repetitions and
-pooled samples are recorded in `performance.json`.
+8–9/16–17 ms pacing jitter is not erased by this fresh run. The pooled samples retain the original pacing variability.
 
 Two earlier attempts were correctly rejected for unavailable native surfaces
 (381 ready/92 missed on a traversal; then 0 ready/87 missed). The console was
@@ -130,7 +128,6 @@ unlocked and the temporary power assertion active. The user confirmed the
 review window could remain visible; the subsequent complete campaign passed
 unchanged presentation guards. Both rejected traces remain preserved. The
 separate legacy-package helper failure and its correction are also retained.
-
 
 ## Exact validation
 
@@ -163,43 +160,25 @@ asserted test outcomes. Historical Prompt 8's aggregate was originally 187
 passes/11 locked-display skips, followed by a successful focused native rerun of
 26 passes/0 skips; this audit's complete gate independently has zero skips.
 
-Representative unmodified native captures: [calm square](winter-final-audit-evidence/calm-square.png),
-[severe nearby lights](winter-final-audit-evidence/severe-near.png),
-[sheltered severe interior](winter-final-audit-evidence/severe-interior.png), and
-[Office after severe Winter](winter-final-audit-evidence/non-winter-after-severe.png).
+Representative unmodified native captures: [calm square](../images/reports/winter-final-audit-evidence/calm-square.png),
+[severe nearby lights](../images/reports/winter-final-audit-evidence/severe-near.png),
+[sheltered severe interior](../images/reports/winter-final-audit-evidence/severe-interior.png), and
+[Office after severe Winter](../images/reports/winter-final-audit-evidence/non-winter-after-severe.png).
 
-Compact, committed inventories and exact results are in
-[`winter-final-audit-evidence/`](winter-final-audit-evidence/). Full logs, raw
-native images, frame/player/weather traces, rejected attempts and manifests are
-in `debug-maps/winter-audit-20261007/evidence/` (local, Git-ignored).
+## Reproduction
 
-## Preservation and launch paths
-
-The new frozen archive contains matching sources, all assets/packages, player,
-compiler and SDL binaries, and reviewed calm/severe launch settings. Run without
-building or using `target`:
+Frozen matching inputs can be launched without rebuilding:
 
 ```sh
 python3 debug-maps/winter-audit-20261007/evidence/launch.py winter
 python3 debug-maps/winter-audit-20261007/evidence/launch.py blizzard_review --quality high
 ```
 
-Existing `debug-maps/{snowfall-20261007,blizzard-20261007,winter-integration-20261007}`
-review launchers remain under each `evidence/launch.py`. Compiler and movement
-launchers remain at `debug-maps/compiler-audit-20261003/launch.py` and
-`debug-maps/movement-audit-20261003/launch.py`; invoke either without a map argument
-to list its saved fixtures. Their complete packages, sources, assets and binaries
-are retained. The two external Consolidation and Office Refinement evidence
-archives are intact. Their recorded SHA manifests, all prior winter manifests,
-and the compiler/movement package/source collections were checked.
-
-Before the authorized `cargo clean`, unique historical evidence under `target`
-is preserved in `debug-maps/winter-audit-20261007/evidence/recovered-target/`, with
-a relocation/hash manifest. Historical embedded path strings still refer to the
-original location. Historical snapshot caches are conservatively retained with
-their evidence. The final handoff records actual cleanup and post-clean launches.
-Only this task's temporary `caffeinate -di` assertion is released at completion;
-persistent power, display and lock settings are unchanged.
+The saved source/package/asset roots, player/compiler and SDL are required for
+the dated comparison. `tools/bench/capture_snowfall.py` supplies maintained native
+view, route, quality-cycle, growth and completed-frame assertions. Expected
+rejections and locked/occluded presentation attempts are excluded from the
+accepted results; their guards remain effective.
 
 ## Remaining limitations
 
@@ -220,4 +199,4 @@ persistent power, display and lock settings are unchanged.
 Substantially changed files: `tools/verify.sh`, `.github/workflows/rust.yml`,
 `tools/bench/capture_snowfall.py`, `tests/test_bench_metrics.py`,
 `tests/test_weather.py`, `docs/VERIFICATION.md`, `docs/ASSET_SPECIFICATION.md`, this
-report/compact evidence and `debug-maps/winter-audit-20261007/README.md`.
+report and `debug-maps/winter-audit-20261007/README.md`.

@@ -1,0 +1,90 @@
+{
+  "format_version": 1,
+  "level": "lantern_hollow",
+  "source": "assets/levels/lantern_hollow.json",
+  "package": "assets/levels/lantern_hollow.placesmap",
+  "settings": {
+    "bindings": {
+      "forward": "W",
+      "backward": "S",
+      "strafe_left": "A",
+      "strafe_right": "D",
+      "look_up": "UP",
+      "look_down": "DOWN",
+      "look_left": "LEFT",
+      "look_right": "RIGHT",
+      "jump": "SPACE",
+      "crouch": "C",
+      "interact": "E"
+    },
+    "look_speed_h": 90,
+    "look_speed_v": 60,
+    "walk_speed": 3,
+    "invert_look": false,
+    "mouse_sensitivity": 0.12,
+    "quality": "high",
+    "texture_filtering": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true,
+    "use_low_quality_lighting": false,
+    "vsync": false,
+    "fov_degrees": 60,
+    "window_mode": "windowed",
+    "window_width": 640,
+    "window_height": 360
+  },
+  "capture": {
+    "ready_world_seconds": 0.5,
+    "warmup_frames": 15,
+    "limit_frames": 3000,
+    "expected_drawable": [
+      1280,
+      720
+    ]
+  },
+  "views": [
+    {
+      "name": "house0_kitchen",
+      "spawn": [
+        -27.3,
+        1.7,
+        3.8,
+        270
+      ],
+      "camera": [
+        270,
+        -14
+      ],
+      "purpose": "Actual Hollow cottage 0 run: upper/base cabinet, core sink, stove and fridge"
+    },
+    {
+      "name": "house0_cabinet_sink",
+      "spawn": [
+        -29.7,
+        1.7,
+        3.0,
+        270
+      ],
+      "camera": [
+        270,
+        -15
+      ],
+      "purpose": "Close actual cabinet/sink; native state must verify eye not displaced by furniture"
+    },
+    {
+      "name": "house0_fridge",
+      "spawn": [
+        -29.3,
+        1.7,
+        5.1,
+        270
+      ],
+      "camera": [
+        270,
+        -13
+      ],
+      "purpose": "Core fridge in second production lighting context"
+    }
+  ]
+}

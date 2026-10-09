@@ -37,7 +37,7 @@ def main() -> int:
                         help='Additional assets-relative file needed by runtime-only spawns')
     parser.add_argument('--catalog', type=Path, default=ROOT/'assets/catalog.json',
                         help='Compatible catalog, including a preserved before-state catalog')
-    parser.add_argument('--manifest', type=Path, default=ROOT/'docs/art-style/hero-manifest.json')
+    parser.add_argument('--manifest', type=Path, default=ROOT/'tests/fixtures/native/hero-manifest.json')
     args = parser.parse_args()
     out = args.out.resolve()
     if out.exists():

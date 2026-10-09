@@ -101,6 +101,22 @@ pub struct LightmapBuildOptions {
 }
 
 impl LightmapBuildOptions {
+    /// Keep the quality's density and gutters while bounding its page count
+    /// by the actual base and switchable groups the compiler will serialize.
+    fn with_prepared_page_budget(mut self, level: &LevelDef, lighting: &LevelLighting) -> Self {
+        if self.mode == LightmapMode::On {
+            let switchable = super::light_transport::switchable_lights(level, lighting).len();
+            self.config.max_pages =
+                self.config
+                    .max_pages
+                    .min(crate::package::lightmaps::preparation_page_limit(
+                        self.config.page_edge,
+                        switchable,
+                    ));
+        }
+        self
+    }
+
     /// The options one quality level implies for a mode.
     ///
     /// The lightmap configuration and the bake come from the level; the profile
@@ -283,6 +299,7 @@ impl LevelBuild {
                 .saturating_add(allocation_bytes(&batch.vertices))
                 .saturating_add(allocation_bytes(&batch.indices))
                 .saturating_add(allocation_bytes(&batch.submeshes))
+                .saturating_add(allocation_bytes(&batch.source_primitives))
                 .saturating_add(allocation_bytes(&batch.textures));
             for image in &batch.textures {
                 if images.insert(Arc::as_ptr(image)) {
@@ -657,7 +674,7 @@ pub fn prepare_level_geometry_with_lightmaps(
     catalog: &crate::loader::PropCatalog,
     assets: &mut crate::props::PropAssets,
     materials: &MaterialTable,
-    options: LightmapBuildOptions,
+    mut options: LightmapBuildOptions,
     cache: Option<&mut LightmapCache>,
 ) -> PreparedLightmapBuild {
     let started = std::time::Instant::now();
@@ -671,6 +688,7 @@ pub fn prepare_level_geometry_with_lightmaps(
     };
     let lighting = LevelLighting::bake_with(level, bake);
     let lighting_millis = elapsed_millis(started);
+    options = options.with_prepared_page_budget(level, &lighting);
 
     let surfaces = LevelSurfaces::new(level);
     let props_started = std::time::Instant::now();
@@ -821,8 +839,9 @@ pub fn prepare_level_geometry_with_lightmaps(
 pub fn lightmap_content_key(
     level: &LevelDef,
     lighting: &LevelLighting,
-    options: LightmapBuildOptions,
+    mut options: LightmapBuildOptions,
 ) -> String {
+    options = options.with_prepared_page_budget(level, lighting);
     let mut extra = Vec::with_capacity(32);
     extra.extend_from_slice(&lighting.occlusion_fingerprint().to_le_bytes());
     extra.push(options.bake.sampling.taps_per_axis);
@@ -1130,6 +1149,86 @@ mod tests {
 
     fn build_materials(level: &LevelDef) -> MaterialTable {
         logical_materials(level)
+    }
+
+    #[test]
+    fn prepared_page_budget_preserves_density_and_counts_authored_off_switches() {
+        let mut level = tiny_level();
+        let mut fixture = level.ceiling_lights.first().expect("fixture").clone();
+        fixture.switchable = true;
+        fixture.enabled = false;
+        for (switches, full, medium) in [
+            (0_usize, 11, 8),
+            (1, 10, 8),
+            (2, 6, 6),
+            (3, 5, 5),
+            (4, 4, 4),
+        ] {
+            level.ceiling_lights = (0_usize..switches).map(|_| fixture.clone()).collect();
+            let lighting = LevelLighting::bake(&level);
+            for (quality, cap) in [
+                (LightmapQuality::Full, full),
+                (LightmapQuality::Medium, medium),
+            ] {
+                let requested = LightmapBuildOptions::for_lightmaps(quality);
+                let effective = requested.with_prepared_page_budget(&level, &lighting);
+                assert_eq!(effective.config.max_pages, cap);
+                assert_eq!(
+                    effective.config.texels_per_metre,
+                    requested.config.texels_per_metre
+                );
+                assert_eq!(effective.config.padding, requested.config.padding);
+                assert_eq!(
+                    effective.with_prepared_page_budget(&level, &lighting),
+                    effective
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn public_content_key_uses_the_same_prepared_page_budget_as_the_plan() {
+        let mut level = tiny_level();
+        level
+            .ceiling_lights
+            .first_mut()
+            .expect("fixture")
+            .switchable = true;
+        let lighting = LevelLighting::bake(&level);
+        let requested = LightmapBuildOptions::for_lightmaps(LightmapQuality::Full);
+        let mut capped = requested;
+        capped.config.max_pages = 10;
+        assert_eq!(
+            lightmap_content_key(&level, &lighting, requested),
+            lightmap_content_key(&level, &lighting, capped)
+        );
+        capped.config.max_pages = 9;
+        assert_ne!(
+            lightmap_content_key(&level, &lighting, requested),
+            lightmap_content_key(&level, &lighting, capped)
+        );
+    }
+
+    #[test]
+    fn invalid_prepared_page_budget_fails_before_any_chart_is_emitted() {
+        let mut level = tiny_level();
+        level.rooms.clear();
+        level.ceiling_lights.clear();
+        let mut options = LightmapBuildOptions::for_lightmaps(LightmapQuality::Full);
+        options.config.page_edge = 0;
+        let prepared = prepare_level_geometry_with_lightmaps(
+            &level,
+            &crate::loader::PropCatalog::builtin(),
+            &mut crate::props::PropAssets::default(),
+            &build_materials(&level),
+            options,
+            None,
+        );
+        assert_eq!(
+            prepared.build.lightmap_failure,
+            Some(LightmapFailure::InvalidConfig)
+        );
+        assert!(prepared.fill.is_none());
     }
 
     #[test]

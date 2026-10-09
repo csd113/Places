@@ -1,0 +1,37 @@
+[
+  {
+    "frame": 1,
+    "actions": [
+      {
+        "action": "camera",
+        "position": [
+          57.2,
+          0.70000005,
+          6.6
+        ],
+        "yaw": 325,
+        "pitch": -16
+      }
+    ]
+  },
+  {
+    "frame": 120,
+    "capture": "debug-maps/model-lighting-replay/demo-quality/00-low.png"
+  },
+  {
+    "frame": 360,
+    "capture": "debug-maps/model-lighting-replay/demo-quality/01-medium.png"
+  },
+  {
+    "frame": 600,
+    "capture": "debug-maps/model-lighting-replay/demo-quality/02-high.png"
+  },
+  {
+    "frame": 840,
+    "capture": "debug-maps/model-lighting-replay/demo-quality/03-low-restored.png"
+  },
+  {
+    "frame": 1080,
+    "capture": "debug-maps/model-lighting-replay/demo-quality/04-high-restored.png"
+  }
+]

@@ -62,7 +62,8 @@ def main():
             audit['rocker_min_z']=minimum_z
         results.append(audit)
     assert len(results)==10
-    out=ROOT/'docs/reports/domestic-model-remake/geometry-validation.json'
+    out=ROOT/'debug-maps/domestic-model-remake/geometry-validation.json'
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(results,indent=2)+'\n')
     print('PASS: ten closed meshes, finite positions/UVs, outward winding, source textures, switch toggle sweep')
 

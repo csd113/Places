@@ -1,0 +1,58 @@
+[
+  {
+    "frame": 30,
+    "capture": "debug-maps/model-lighting-replay/crouch/00-crouched-far.png"
+  },
+  {
+    "frame": 90,
+    "capture": "debug-maps/model-lighting-replay/crouch/01-approach-far.png"
+  },
+  {
+    "frame": 180,
+    "capture": "debug-maps/model-lighting-replay/crouch/02-approach-medium.png"
+  },
+  {
+    "frame": 240,
+    "capture": "debug-maps/model-lighting-replay/crouch/03-approach-pre.png"
+  },
+  {
+    "frame": 280,
+    "capture": "debug-maps/model-lighting-replay/crouch/04-approach-near.png"
+  },
+  {
+    "frame": 288,
+    "capture": "debug-maps/model-lighting-replay/crouch/05-onset-candidate.png"
+  },
+  {
+    "frame": 300,
+    "capture": "debug-maps/model-lighting-replay/crouch/06-collision-close.png"
+  },
+  {
+    "frame": 330,
+    "capture": "debug-maps/model-lighting-replay/crouch/07-close-hold.png"
+  },
+  {
+    "frame": 360,
+    "capture": "debug-maps/model-lighting-replay/crouch/08-before-retreat.png"
+  },
+  {
+    "frame": 378,
+    "capture": "debug-maps/model-lighting-replay/crouch/09-retreat-near.png"
+  },
+  {
+    "frame": 400,
+    "capture": "debug-maps/model-lighting-replay/crouch/10-retreat-post.png"
+  },
+  {
+    "frame": 480,
+    "capture": "debug-maps/model-lighting-replay/crouch/11-retreat-medium.png"
+  },
+  {
+    "frame": 600,
+    "capture": "debug-maps/model-lighting-replay/crouch/12-retreat-far.png"
+  },
+  {
+    "frame": 660,
+    "capture": "debug-maps/model-lighting-replay/crouch/13-return-hold.png"
+  }
+]

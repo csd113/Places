@@ -92,18 +92,21 @@ fn triangle_interval(
 }
 
 fn compatible_surface(
+    scene: &TransportScene,
     reference: &TransportTriangle,
     candidate: &TransportTriangle,
+    candidate_surface: u32,
     receiver: &TransportReceiver,
     point: [f32; 3],
 ) -> bool {
     same_lighting_plane(reference, candidate)
         && reference.transmissive == candidate.transmissive
-        && receiver
-            .albedo
-            .iter()
-            .zip(candidate.albedo)
-            .all(|(left, right)| (*left - right).abs() <= 1.0e-5)
+        && scene.same_surface_material(
+            receiver.surface,
+            candidate_surface,
+            receiver.albedo,
+            candidate.albedo,
+        )
         && dot(receiver.normal, candidate.shading_normal_at(point)) >= 1.0 - 8.0 * f32::EPSILON
 }
 
@@ -163,7 +166,7 @@ pub(super) fn supported_point(
             else {
                 continue;
             };
-            if !compatible_surface(reference, candidate, receiver, from) {
+            if !compatible_surface(scene, reference, candidate, *index, receiver, from) {
                 continue;
             }
             if let Some(interval) = triangle_interval(candidate, from, to) {
@@ -204,17 +207,17 @@ pub(super) fn direct_pass(
     workers: usize,
     cancel: Option<&AtomicBool>,
 ) -> Result<(Vec<super::Accumulator>, usize), LightmapFailure> {
-    let centres = parallel_map(receivers.len(), workers, cancel, |index| {
-        receivers
-            .get(index)
-            .map_or_else(DirectSample::default, |receiver| {
-                evaluate(scene, receiver, emitters, global, taps)
-            })
-    })?;
-    let mut rays = centres
-        .iter()
-        .fold(0_usize, |sum, sample| sum.saturating_add(sample.rays));
     if taps <= 1 {
+        let centres = parallel_map(receivers.len(), workers, cancel, |index| {
+            receivers
+                .get(index)
+                .map_or_else(DirectSample::default, |receiver| {
+                    evaluate(scene, receiver, emitters, global, taps)
+                })
+        })?;
+        let rays = centres
+            .iter()
+            .fold(0_usize, |sum, sample| sum.saturating_add(sample.rays));
         return Ok((
             centres.into_iter().map(|sample| sample.light).collect(),
             rays,
@@ -242,17 +245,14 @@ pub(super) fn direct_pass(
         scene,
         domains,
         receivers,
-        centres: &centres,
         emitters,
         global,
         taps,
     };
     let refined = parallel_map(receivers.len(), workers, cancel, |index| pass.refine(index))?;
-    rays = rays.saturating_add(
-        refined
-            .iter()
-            .fold(0_usize, |sum, sample| sum.saturating_add(sample.rays)),
-    );
+    let rays = refined
+        .iter()
+        .fold(0_usize, |sum, sample| sum.saturating_add(sample.rays));
     Ok((
         refined.into_iter().map(|sample| sample.light).collect(),
         rays,
@@ -271,7 +271,6 @@ struct FootprintPass<'a> {
     scene: &'a TransportScene,
     domains: Vec<Domain<'a>>,
     receivers: &'a [TransportReceiver],
-    centres: &'a [DirectSample],
     emitters: &'a [usize],
     global: bool,
     taps: u8,
@@ -329,8 +328,7 @@ impl FootprintPass<'_> {
     }
 
     fn refine(&self, index: usize) -> DirectSample {
-        let (Some(centre), Some(receiver)) = (self.centres.get(index), self.receivers.get(index))
-        else {
+        let Some(receiver) = self.receivers.get(index) else {
             return DirectSample::default();
         };
         let domain_index = self
@@ -338,7 +336,7 @@ impl FootprintPass<'_> {
             .partition_point(|domain| domain.first <= index)
             .saturating_sub(1);
         let Some(domain) = self.domains.get(domain_index) else {
-            return DirectSample { rays: 0, ..*centre };
+            return evaluate(self.scene, receiver, self.emitters, self.global, self.taps);
         };
         let width = usize::try_from(domain.chart.width).unwrap_or(1).max(1);
         let height = usize::try_from(domain.chart.height).unwrap_or(1).max(1);
@@ -352,50 +350,19 @@ impl FootprintPass<'_> {
             .patch
             .point_at(texel_axis(column, width), texel_axis(row, height));
         let axis = if self.taps >= 3 { 4_u16 } else { 2_u16 };
-        let corner = (0.5 - 0.5 / f32::from(axis)) * domain.pitch;
         let mut intervals = Vec::with_capacity(8);
-        let stencil = [
-            (-corner, -corner),
-            (corner, -corner),
-            (-corner, corner),
-            (corner, corner),
-        ]
-        .map(|(du, dv)| self.sample(domain, receiver, point, du, dv, &mut intervals));
-        let probe_rays = stencil
-            .iter()
-            .fold(0_usize, |sum, sample| sum.saturating_add(sample.rays));
-        if stencil
-            .iter()
-            .all(|sample| sample.visibility == centre.visibility)
-        {
-            return DirectSample {
-                rays: probe_rays,
-                ..*centre
-            };
-        }
-        let mut result = DirectSample {
-            rays: probe_rays,
-            visibility: centre.visibility,
-            ..DirectSample::default()
-        };
-        let last = axis.saturating_sub(1);
+        // Equal centre/corner silhouettes do not prove uniform coverage:
+        // thin openings and model details can leave lit interior samples.
+        // Integrate the complete bounded physical stencil. No separate centre
+        // pass or repeated corner rays are needed for these quality levels.
+        let mut result = DirectSample::default();
         let weight = 1.0 / f32::from(axis.pow(2));
         for sample_v in 0..axis {
             for sample_u in 0..axis {
-                let cached = match (sample_u, sample_v) {
-                    (0, 0) => stencil.first(),
-                    (u, 0) if u == last => stencil.get(1),
-                    (0, v) if v == last => stencil.get(2),
-                    (u, v) if u == last && v == last => stencil.get(3),
-                    _ => None,
-                };
-                let sample = cached.copied().unwrap_or_else(|| {
-                    let du = ((f32::from(sample_u) + 0.5) / f32::from(axis) - 0.5) * domain.pitch;
-                    let dv = ((f32::from(sample_v) + 0.5) / f32::from(axis) - 0.5) * domain.pitch;
-                    let sample = self.sample(domain, receiver, point, du, dv, &mut intervals);
-                    result.rays = result.rays.saturating_add(sample.rays);
-                    sample
-                });
+                let du = ((f32::from(sample_u) + 0.5) / f32::from(axis) - 0.5) * domain.pitch;
+                let dv = ((f32::from(sample_v) + 0.5) / f32::from(axis) - 0.5) * domain.pitch;
+                let sample = self.sample(domain, receiver, point, du, dv, &mut intervals);
+                result.rays = result.rays.saturating_add(sample.rays);
                 add_scaled(&mut result.light, &sample.light, weight);
             }
         }

@@ -159,8 +159,8 @@ fn surface_response_is_drawn_except_on_low() {
 
 /// The lightmap half of a level is a real quality decision, not a label: the
 /// three levels resolve the documented density, page size, padding and tap
-/// count, and all three bake the same patch set (one shared chart-span cap and
-/// the same page budget).
+/// count, and all three bake the same patch set with a shared chart-span cap
+/// and their documented page budgets.
 #[test]
 fn lightmap_configs_are_the_documented_low_medium_high_values() {
     use crate::lighting::lightmap::LightmapConfig;
@@ -184,9 +184,9 @@ fn lightmap_configs_are_the_documented_low_medium_high_values() {
     assert_eq!(high.padding, 2);
     assert_eq!(high.usable_edge(), 1_020);
 
-    for (config, pages) in [(low, 8), (medium, 8), (high, 10)] {
-        // The measured Full policy needs ten pages; lower profiles retain
-        // eight. Every profile stays within the shared renderer capacity.
+    for (config, pages) in [(low, 8), (medium, 8), (high, 11)] {
+        // Full permits eleven base pages; preparation applies the actual
+        // illumination-group byte bound. Lower profiles retain eight pages.
         assert_eq!(config.max_pages, pages);
         assert_eq!(config.bytes_per_texel, 16);
         assert_eq!(config.max_chart_span_m(), low.max_chart_span_m());

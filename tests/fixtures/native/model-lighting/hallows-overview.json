@@ -1,0 +1,189 @@
+{
+  "format_version": 1,
+  "level": "lantern_hollow",
+  "source": "assets/levels/lantern_hollow.json",
+  "package": "assets/levels/lantern_hollow.placesmap",
+  "settings": {
+    "bindings": {
+      "forward": "W",
+      "backward": "S",
+      "strafe_left": "A",
+      "strafe_right": "D",
+      "look_up": "UP",
+      "look_down": "DOWN",
+      "look_left": "LEFT",
+      "look_right": "RIGHT",
+      "jump": "SPACE",
+      "crouch": "C",
+      "interact": "E"
+    },
+    "look_speed_h": 90,
+    "look_speed_v": 60,
+    "walk_speed": 3,
+    "invert_look": false,
+    "mouse_sensitivity": 0.12,
+    "quality": "high",
+    "texture_filtering": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true,
+    "use_low_quality_lighting": false,
+    "vsync": false,
+    "fov_degrees": 60,
+    "window_mode": "windowed",
+    "window_width": 640,
+    "window_height": 360
+  },
+  "capture": {
+    "ready_world_seconds": 0.5,
+    "warmup_frames": 15,
+    "limit_frames": 3000,
+    "expected_drawable": [
+      1280,
+      720
+    ]
+  },
+  "views": [
+    {
+      "name": "skeleton_far",
+      "spawn": [
+        -16.7009,
+        1.7,
+        -19.7478,
+        0
+      ],
+      "camera": [
+        0,
+        -3.100491
+      ],
+      "target": "campfire_skeleton_1",
+      "horizontal_distance_m": 12,
+      "purpose": "Actual held-seated production skeleton; candidate pre/post labels must be replaced by observed onset bracket after native inspection"
+    },
+    {
+      "name": "skeleton_medium",
+      "spawn": [
+        -16.7009,
+        1.7,
+        -25.7478,
+        0
+      ],
+      "camera": [
+        0,
+        -6.18293
+      ],
+      "target": "campfire_skeleton_1",
+      "horizontal_distance_m": 6,
+      "purpose": "Actual held-seated production skeleton; candidate pre/post labels must be replaced by observed onset bracket after native inspection"
+    },
+    {
+      "name": "skeleton_candidate_pre",
+      "spawn": [
+        -16.7009,
+        1.7,
+        -28.7478,
+        0
+      ],
+      "camera": [
+        0,
+        -12.225123
+      ],
+      "target": "campfire_skeleton_1",
+      "horizontal_distance_m": 3,
+      "purpose": "Actual held-seated production skeleton; candidate pre/post labels must be replaced by observed onset bracket after native inspection"
+    },
+    {
+      "name": "skeleton_candidate_post",
+      "spawn": [
+        -16.7009,
+        1.7,
+        -29.7478,
+        0
+      ],
+      "camera": [
+        0,
+        -18.004162
+      ],
+      "target": "campfire_skeleton_1",
+      "horizontal_distance_m": 2,
+      "purpose": "Actual held-seated production skeleton; candidate pre/post labels must be replaced by observed onset bracket after native inspection"
+    },
+    {
+      "name": "skeleton_close",
+      "spawn": [
+        -16.7009,
+        1.7,
+        -30.8478,
+        0
+      ],
+      "camera": [
+        0,
+        -35.837653
+      ],
+      "target": "campfire_skeleton_1",
+      "horizontal_distance_m": 0.9,
+      "purpose": "Actual held-seated production skeleton; candidate pre/post labels must be replaced by observed onset bracket after native inspection"
+    },
+    {
+      "name": "skeleton_retreat_medium",
+      "spawn": [
+        -16.7009,
+        1.7,
+        -25.7478,
+        0
+      ],
+      "camera": [
+        0,
+        -6.18293
+      ],
+      "target": "campfire_skeleton_1",
+      "horizontal_distance_m": 6,
+      "purpose": "Actual held-seated production skeleton; candidate pre/post labels must be replaced by observed onset bracket after native inspection"
+    },
+    {
+      "name": "skeleton_retreat_far",
+      "spawn": [
+        -16.7009,
+        1.7,
+        -19.7478,
+        0
+      ],
+      "camera": [
+        0,
+        -3.100491
+      ],
+      "target": "campfire_skeleton_1",
+      "horizontal_distance_m": 12,
+      "purpose": "Actual held-seated production skeleton; candidate pre/post labels must be replaced by observed onset bracket after native inspection"
+    },
+    {
+      "name": "campfire_group",
+      "spawn": [
+        -18,
+        1.7,
+        -28,
+        0
+      ],
+      "camera": [
+        0,
+        -9
+      ],
+      "purpose": "All seven original seated skeletons and the authored campfire"
+    },
+    {
+      "name": "skeleton5_face_close",
+      "spawn": [
+        -18.1933,
+        1.7,
+        -35.1,
+        0
+      ],
+      "camera": [
+        0,
+        -23.5
+      ],
+      "target": "campfire_skeleton_5",
+      "purpose": "Inside ring, frontal original seated skeleton; no spawned substitute"
+    }
+  ]
+}

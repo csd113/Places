@@ -15,7 +15,7 @@ are unchanged. Stage 2 changes the interpretation and preservation of values.
 | Catalog tint, glTF baseColorFactor/COLOR_0, light colour, emissive factor | Linear numeric RGB factors. Existing numeric authoring defaults are retained; do not additionally decode these factors. |
 | CPU albedo for transport | Decode texture RGB once; architecture uses tint × mean decoded texture, excluding face shade and receiver illumination. Model triangles use centroid vertex factor × clamped centroid UV sample. Reflectance remains in 0…1. |
 | Solver / stored irradiance | Nonnegative linear HDR energy and signed direction moments; receiving albedo is excluded. Existing intensity units are relative engine units, not physical lux or nits. World coordinates and ranges are metres, Y up. |
-| CPU vertex lighting | Existing bounded legacy distribution equations remain; resulting numeric light is linear. RGB product remains float through upload rather than clipping/quantizing to UNORM8. |
+| CPU vertex lighting | Existing bounded legacy distribution equations remain; resulting numeric light is linear. RGB product remains float through upload rather than clipping/quantizing to UNORM 8. |
 | Texture upload | Colour `Rgba8UnormSrgb`; numeric data `Rgba8Unorm`. Semantic, source/content revision, size class and quality participate in cache identity. Hardware decodes colour before bilinear/trilinear filtering. |
 | Material shader | Linear albedo × linear light, plus shared sheen, reflection and emission. No irradiance soft clip, byte clamp or unlit bypass. Fog/storm authored display colours decode once before linear mixing. |
 | Scene / emission / bloom / planar / probe | `Rgba16Float`, eight bytes per texel. Reflection prefiltering averages HDR without exposure/curve/clamping. |
@@ -52,8 +52,8 @@ Per-triangle UV tangents preserve the existing low-poly convention. Architectura
 normal maps use that numeric frame. glTF normalTexture import is still unsupported;
 no generated detail or new tangent-map framework is added.
 
-`WorldVertex` is 76 bytes: position 0, normal 12, UV 24, Float32x4 colour 32,
-UNORM16x2 lightmap UV 48, page 52, tangent 56, handedness 68, padding 72.
+`WorldVertex` is 76 bytes: position 0, normal 12, UV 24, Float 32x 4 colour 32,
+UNORM 16x 2 lightmap UV 48, page 52, tangent 56, handedness 68, padding 72.
 `EnvironmentUniform` adds a 48-byte padded normal matrix at offset 2848, total
 2896 bytes. Model placement JSON supports positive uniform scale; retained glTF
 node/skin transforms and renderer model matrices support non-uniform transforms.
@@ -79,8 +79,8 @@ converted. Numeric factors and material response are shared; lighting inputs
 remain static atlas versus bounds-centre prepared entity irradiance/fallback.
 Stage 4 owns probe transport, spatial coverage and contact improvements.
 
-Props record v4 stores specular RGB and roughness; v3 reads with explicit matte
-response (zero specular, roughness 1). Probe positions v3 declares HDR cube storage (`probes-hdr` capability); v2 legacy RGBA8 cubes
+Props record v 4 stores specular RGB and roughness; v 3 reads with explicit matte
+response (zero specular, roughness 1). Probe positions v 3 declares HDR cube storage (`probes-hdr` capability); v 2 legacy RGBA8 cubes
 are decoded to linear at load, preserving their already bounded historical data.
 Their old clipping cannot be recovered, so final non-hero rebuilds belong to
 Stage 7. Geometry revision 4 and solver revision 12 invalidate prepared bake

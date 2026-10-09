@@ -1,7 +1,0 @@
-The CLI cwd regression was a test assumption about path spelling. Discovery returned the same ten ordered ID/source rows; launching from /source produced relative paths and launching elsewhere produced absolute paths. The test now resolves each concrete package path against that command’s cwd and canonicalizes it before comparing full ordered tuples. Embedded fallback retains its empty path. Missing packages, different same-named files, non-package rows, output noise, ID/source/order drift and staged dependency mismatch still fail.
-
-Focused host default, host all-features and Linux all-features list_levels runs each passed 4/4 tests. The earlier failed Linux log and separate inherited-sccache startup failure remain preserved. Host retry disabled only RUSTC_WRAPPER. Both platforms’ normal release compiler/player hashes remained byte exact; host f3f27db9…/f5d3a2fe… match the retained C2 identities.
-
-Freeze v11 verification found only the owned tests/list_levels.rs delta. No production source, package, helper, catalog or Git/index changes occurred. No bake, GPU work or broad library rerun was needed. All allocated commands completed and joined; file and Cargo/CPU/target custody are released. Primary latest strict/config checks and remaining Linux integration targets are pending.
-
-Exact commands, log hashes, binary hashes, source identity and preserved failures are in [cli-cwd-root-v1.json](cli-cwd-root-v1.json) and [focused receipts](cli-cwd-root-v1-focused.json).

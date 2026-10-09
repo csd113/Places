@@ -729,8 +729,9 @@ const WALL_COINCIDENCE_EPS: f32 = 1e-3;
 /// 4 = linear colour interpretation and flat fallback model attributes;
 /// 5 = inclusive receiver endpoints and consistent boundary-roof ownership;
 /// 6 = incident-HDR water floor charts and folded circular fan quads;
-/// 7 = exact wall-span endpoint maxima from the span's own roof.
-pub const GEOMETRY_REVISION: u32 = 7;
+/// 7 = exact wall-span endpoint maxima from the span's own roof;
+/// 8 = native shared static-model charts and finer bounded physical sampling.
+pub const GEOMETRY_REVISION: u32 = 8;
 
 /// One material run of a coalesced wall group: a rectangle in the group's own
 /// (length, height) space over which the visible material is constant.

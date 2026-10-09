@@ -110,7 +110,7 @@ struct FreeRect {
 
 /// Places chart rectangles on square pages with a deterministic
 /// best-short-side-fit MAXRECTS policy for architecture and disjoint guillotine
-/// pages for the many small model-triangle charts.
+/// pages for the many small model charts.
 ///
 /// At the shared page limit,
 /// props can consume proven free rectangles on architecture pages.
@@ -165,13 +165,19 @@ impl ChartAllocator {
 
     /// Allocates a physical receiver chart at a bounded surface density.
     /// Large model surfaces use a coarser lighting LOD without changing the
-    /// geometry, transport visibility or directional reconstruction.
+    /// geometry, transport visibility or directional reconstruction. Explicit
+    /// model requests are bounded to twice architecture's density; invalid
+    /// densities fail closed rather than creating one-texel receiver aliases.
     pub fn allocate_at_density(&mut self, patch: &LightmapPatch, density: f32) -> Option<Chart> {
         if self.failed {
             return None;
         }
+        let Some(surface_density) = self.config.bounded_surface_density(patch.kind, density) else {
+            self.failed = true;
+            return None;
+        };
         let config = LightmapConfig {
-            texels_per_metre: density.min(self.config.texels_per_metre),
+            texels_per_metre: surface_density,
             ..self.config
         };
         let (width, height) = config.chart_texels(patch);

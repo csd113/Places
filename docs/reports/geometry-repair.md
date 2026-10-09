@@ -1,5 +1,8 @@
 # Remaining model geometry repairs
 
+Historical acceptance: September 2026 model geometry repair. Counts, timings and validation below describe
+that tested version; the canonical guides govern current contracts.
+
 Inspected all 48 repository GLBs: the 16 assets from the preceding polish pass were preserved byte-for-byte; the other 32 received topology and visual review. Repaired 18 and left 14 sound models unchanged. No textures, materials, rigs, animations, catalog entries, pivots, or node transforms were changed. No commits were created.
 
 Existing triangle UVs and vertex colors are preserved. Added closure faces reuse neighboring atlas regions. Exact duplicate vertex records and obsolete geometry buffers were removed from edited GLBs; UV and shading seams remain separate. All edited models remain at 60–472 triangles.
@@ -49,7 +52,7 @@ Paths below are relative to the repository root. The JSON manifest contains exac
 - All 48 embedded PNG payloads and every source PNG under `assets/` match their pre-task SHA-256 hashes.
 - Zero degenerate triangles and zero inconsistent winding across two-face shared edges in all 32 reviewed models. Re-running the repair tool proposes no further edits.
 - The manifest’s `flipped_triangles` field is a generic signed-volume suggestion, not an unresolved-error count: open washer cavities and doubled curtain cloth intentionally override that heuristic. The asset-specific repair pass is idempotent.
-- Models are assembled game props, not Boolean-unioned manufacturing meshes. Touching/overlapping components remain, as do deliberately doubled curtain cloth and independent textured planes. Position-welded non-manifold-edge counts therefore remain on some assemblies; they are recorded, not hidden, in `geometry-repair/models.json`.
+- Models are assembled game props, not Boolean-unioned manufacturing meshes. Touching/overlapping components remain, as do deliberately doubled curtain cloth and independent textured planes. Position-welded non-manifold-edge counts therefore remain on some assemblies; they remain explicit audit findings.
 - The sink retains seven boundary edges around its open carcass/trim assembly; the washer retains 26 around its frame/cavity assembly. The stove and TV each retain four edges on their independent textured surface plane. These were not blindly capped. The drum itself is now a closed material shell around an open mouth.
 - No rigging or animation work was required in this pass. The previous character assets and animations remain unchanged.
 
@@ -61,12 +64,9 @@ Paths below are relative to the repository root. The JSON manifest contains exac
 - `tools/props/test_geometry.py`: four regression checks for closed-shell orientation, float32 planar surfaces, cavity direction and UV/color seams.
 - `tools/props/README.md`: geometry maintenance instructions and rebuild caveat.
 - `docs/reports/geometry-repair.md`: this report.
-- `docs/reports/geometry-repair/files.json`: complete changed/produced file list.
-- `docs/reports/geometry-repair/models.json`: all 32 inspection results and final GLB/embedded-image hashes.
 - `docs/reports/geometry-repair/inspection-1.png`, `inspection-2.png`, `inspection-3.png`: front/top and rear/underside inspection sheets with back-face culling enabled.
-- `docs/reports/geometry-repair/validation.txt`: final validation results.
 
-## Inspection sheets
+## Offline inspection
 
 Each model occupies two adjacent cells: front/top, then rear/underside. These use the project’s software preview renderer with back-face culling added for inspection. They are development previews, not runtime texture assets.
 
@@ -74,12 +74,8 @@ Each model occupies two adjacent cells: front/top, then rear/underside. These us
 2. Washing machine, vending machine; water cooler, pool chair; corner curtain, end curtain.
 3. Straight curtain, corner guardrail; end guardrail, straight guardrail; pool ladder, pool table.
 
-![Inspection 1](geometry-repair/inspection-1.png)
-
-![Inspection 2](geometry-repair/inspection-2.png)
-
-![Inspection 3](geometry-repair/inspection-3.png)
+![Offline software inspection with backface culling](../images/reports/geometry-repair/inspection-1.png)
 
 ## Validation
 
-See `geometry-repair/validation.txt` for commands and results. Asset format/catalog validation, source/embedded texture preservation, regression checks and the targeted engine import/budget test pass. Formatting and strict Clippy pass. Full workspace tests: **1265 passed, 0 failed, 8 ignored**.
+Asset format/catalog validation, source/embedded texture preservation, regression checks and the targeted engine import/budget test pass. Formatting and strict Clippy pass. Full workspace tests: **1265 passed, 0 failed, 8 ignored**.

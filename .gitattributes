@@ -2,6 +2,7 @@
 apps/places-pocketchip/THIRD_PARTY_LICENSES.txt -whitespace
 /assets/levels/lantern_hollow.placesmap filter=lfs diff=lfs merge=lfs -text
 /assets/levels/places_demo.placesmap filter=lfs diff=lfs merge=lfs -text
+/assets/levels/model_zoo.placesmap filter=lfs diff=lfs merge=lfs -text
 
 # Preserve bundled upstream license copies byte-for-byte in the audit playground.
 /debug-maps/movement-audit-20261003/licenses/SDL3-LICENSE.txt -whitespace
@@ -11,52 +12,3 @@ apps/places-pocketchip/THIRD_PARTY_LICENSES.txt -whitespace
 /debug-maps/compiler-audit-20261003/packages/*.placesmap filter=lfs diff=lfs merge=lfs -text
 /debug-maps/compiler-audit-20261003/licenses/SDL3-LICENSE.txt -whitespace
 /debug-maps/compiler-audit-20261003/licenses/THIRD_PARTY_LICENSES.txt -whitespace
-
-
-# Preserve exact pinned Stage7 terminal/audit bytes; source whitespace stays strict.
-/docs/art-style/stage7/execution/final-content-composed-controls-v1.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/final-content-default-workspace-v1.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/geometry-focused.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/hallows-atlas-profile-v1.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/linux-container-sdk-v1.log whitespace=-blank-at-eol,-blank-at-eof,cr-at-eol
-/docs/art-style/stage7/execution/normal-desktop-gate-v5-supervisor.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/normal-desktop-gate-v6-supervisor.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/normal-desktop-gate-v7-supervisor.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/normal-desktop-gate-v8.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/package-rss-v7-supervisor.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/package-rss-v8-supervisor.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/post-gate-resume-v1-supervisor.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/post-gate-resume-v2-supervisor.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/post-gate-resume-v3-supervisor.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/post-gate-serial-v1-supervisor.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/probe-focused-v2.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/rust-preflight-v2-supervisor.log whitespace=-blank-at-eol,-blank-at-eof,cr-at-eol
-/docs/art-style/stage7/execution/rust-preflight-v2.log whitespace=-blank-at-eol,-blank-at-eof,cr-at-eol
-/docs/art-style/stage7/execution/rust-preflight-v3-supervisor.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/rust-preflight-v4.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/rust-preflight-v5-supervisor.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/rust-preflight-v6-supervisor.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/rust-preflight-v7-supervisor.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/rust-preflight-v8.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/rust-preflight-v9.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/rust-source-preflight-v10-supervisor.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/rust-source-preflight-v11-supervisor.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/rust-source-preflight-v12-supervisor.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/rust-source-preflight-v13.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/rust-source-preflight-v14.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/rust-source-preflight-v15-supervisor.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/rust-source-preflight-v16-supervisor.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/rust-source-preflight-v17-supervisor.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/rust-source-preflight-v18.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/test-expectations-focused-v1-supervisor.log whitespace=-blank-at-eof
-/docs/art-style/stage7/execution/windows-sdk-stdlib-v1.log whitespace=-blank-at-eol,-blank-at-eof,cr-at-eol
-/docs/art-style/stage7/validation/cli-cwd-root-v1-host-all-features.log whitespace=-blank-at-eof
-/docs/art-style/stage7/validation/cli-cwd-root-v1-host-default-direct.log whitespace=-blank-at-eof
-/docs/art-style/stage7/validation/cli-cwd-root-v1-host-default.log whitespace=-blank-at-eof
-/docs/art-style/stage7/validation/cli-cwd-root-v1-linux-all-features.log whitespace=-blank-at-eof
-/docs/art-style/stage7/validation/directional-pixel-root-v1-corrected-v2/run.log whitespace=-blank-at-eof
-/docs/art-style/stage7/validation/directional-pixel-root-v1-final/run.log whitespace=-blank-at-eof
-/docs/art-style/stage7/validation/directional-pixel-root-v1-original-metal/run.log whitespace=-blank-at-eol,-blank-at-eof,cr-at-eol
-/docs/art-style/stage7/validation/directional-pixel-root-v1-original/run.log whitespace=-blank-at-eol,-blank-at-eof,cr-at-eol
-/docs/art-style/stage7/validation/renderer-final-diff-review-v3.json whitespace=-blank-at-eof
-/docs/art-style/stage7/validation/renderer-final-diff-review-v3.md whitespace=-blank-at-eof

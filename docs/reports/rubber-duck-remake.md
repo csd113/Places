@@ -1,5 +1,8 @@
 # Rubber duck remake
 
+Historical acceptance: September 2026 duck remake. Counts, timings and validation below describe
+that tested version; the canonical guides govern current contracts.
+
 Replaced the duck with a continuous low-poly body/neck/head shell, broader
 orange bill, raised tapered tail, shallow moulded wings and small dark eyes.
 The flat base, +Z facing direction, catalog ID and floating placement behavior
@@ -19,7 +22,6 @@ Files changed or produced:
 - `tools/props/parts/duck_remade.py` — reproducible model builder.
 - `tools/props/parts/pool.py` — routes the duck entry to the new builder.
 - `docs/ASSET_SPECIFICATION.md` — records the new duck texture contract.
-- This report and `docs/reports/rubber-duck-remake/{sheet_1.png,validation.json,build-validation.txt}`.
 
 Validation passed:
 

@@ -36,6 +36,44 @@ use super::{MAX_LIGHTMAP_METADATA_BYTES, MAX_LIGHTMAP_PAGE_EDGE, MAX_LIGHTMAP_PA
 ///   Version-2 data is rejected.
 pub const LIGHTMAPS_RECORD_VERSION: u16 = 3;
 
+/// Pages the prepared atlas can encode without violating any typed container
+/// bound. Every switchable source repeats both planes of every resident page.
+/// Planning uses this before allocating charts, so a valid physical plan never
+/// becomes an oversized record only after the expensive transport solve.
+pub(crate) fn preparation_page_limit(page_edge: u32, switchable: usize) -> usize {
+    if page_edge == 0
+        || page_edge > MAX_LIGHTMAP_PAGE_EDGE
+        || switchable > super::MAX_SWITCHABLE_LIGHTS
+    {
+        return 0;
+    }
+    let Some(groups) = u64::try_from(switchable)
+        .ok()
+        .and_then(|count| count.checked_add(1))
+    else {
+        return 0;
+    };
+    let Some(layers_per_page) = groups.checked_mul(2) else {
+        return 0;
+    };
+    let Some(bytes_per_page) = Ktx2Rgba16f::image_bytes(page_edge).checked_mul(layers_per_page)
+    else {
+        return 0;
+    };
+    let record_payload =
+        super::MAX_LIGHTMAP_ATLAS_BYTES.saturating_sub(ktx2::single_level_header_bytes());
+    let byte_limit = record_payload
+        .min(ktx2::MAX_PAYLOAD_BYTES)
+        .checked_div(bytes_per_page)
+        .unwrap_or(0);
+    let layer_limit = u64::from(ktx2::MAX_LAYERS)
+        .checked_div(layers_per_page)
+        .unwrap_or(0);
+    usize::try_from(byte_limit.min(layer_limit))
+        .unwrap_or(0)
+        .min(MAX_LIGHTMAP_PAGES)
+}
+
 /// The lightmap metadata that travels beside the KTX2 pages.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LightmapsMeta {
@@ -467,6 +505,36 @@ mod tests {
     )]
 
     use super::*;
+
+    #[test]
+    fn prepared_page_budget_accounts_for_every_illumination_group() {
+        for (switchable, pages) in [(0, 20), (1, 10), (2, 6), (3, 5), (4, 4)] {
+            assert_eq!(preparation_page_limit(1_024, switchable), pages);
+        }
+        assert_eq!(preparation_page_limit(4_096, 0), 1);
+        assert_eq!(preparation_page_limit(4_096, 1), 0);
+        assert_eq!(preparation_page_limit(1, 4), MAX_LIGHTMAP_PAGES);
+        for (edge, switches) in [
+            (0, 0),
+            (4_097, 0),
+            (u32::MAX, 0),
+            (1_024, 5),
+            (1_024, usize::MAX),
+        ] {
+            assert_eq!(preparation_page_limit(edge, switches), 0);
+        }
+    }
+
+    #[test]
+    fn planner_header_reservation_matches_the_actual_atlas_encoder() {
+        let bytes = ktx2::write_rgba16f_2d_array(1, &[vec![0; 8], vec![0; 8]])
+            .expect("two atlas planes encode");
+        assert_eq!(
+            u64::try_from(bytes.len()).expect("record length"),
+            ktx2::single_level_header_bytes().saturating_add(16)
+        );
+        assert_eq!(ktx2::single_level_header_bytes(), 196);
+    }
 
     #[test]
     fn a_round_trip_preserves_hdr_texels_and_switchable_groups() {

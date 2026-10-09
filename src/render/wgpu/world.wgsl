@@ -512,18 +512,41 @@ fn lit_linear(base_linear: vec3<f32>, vertex_color: vec3<f32>, light: vec3<f32>,
     return base_linear * vertex_color * light * (1.0 - emission_vertex);
 }
 
+// Preserve direction before length/cross-product arithmetic. Screen-space
+// derivatives shrink as the camera approaches or render resolution increases;
+// authored normals change magnitude under the inverse-transpose model transform.
+fn rescale_direction(direction: vec3<f32>) -> vec3<f32> {
+    let scale = max(max(abs(direction.x), abs(direction.y)), abs(direction.z));
+    return direction / select(1.0, scale, scale > 0.0);
+}
+
+fn unit_direction_or_zero(direction: vec3<f32>) -> vec3<f32> {
+    let scaled = rescale_direction(direction);
+    // Nonzero scaled vectors have a component of magnitude one. The zero
+    // vector therefore stays finite without normalizing it or using an epsilon.
+    return scaled * inverseSqrt(max(dot(scaled, scaled), 1.0));
+}
+
 // The world-space material normal: the geometric normal, flipped for a
 // back-facing fragment exactly like the reference's `gl_FrontFacing`, then
 // perturbed by the tangent-space normal map when the material binds one.
 fn material_normal(in: VsOut, front_facing: bool) -> vec3<f32> {
     // Entity imports have no normal channel. Derive the diffuse normal from
     // actual posed world geometry, oriented toward the visible side.
-    let geometric = cross(dpdy(in.world_position), dpdx(in.world_position));
-    var normal = normalize(select(vec3<f32>(0.0, 1.0, 0.0), in.world_normal, dot(in.world_normal, in.world_normal) > 1.0e-12));
+    // Derivatives remain outside conditional control flow. Scale each vector
+    // before crossing so a valid tiny/large surface cannot underflow/overflow.
+    let position_dx = dpdx(in.world_position);
+    let position_dy = dpdy(in.world_position);
+    let authored_normal = unit_direction_or_zero(in.world_normal);
+    let has_authored_normal = any(in.world_normal != vec3<f32>(0.0));
+    var normal = select(vec3<f32>(0.0, 1.0, 0.0), authored_normal, has_authored_normal);
     if (!front_facing) { normal = -normal; }
-    if (dot(in.world_normal, in.world_normal) <= 1.0e-12 && dot(geometric, geometric) > 1.0e-12) {
-        normal = normalize(geometric);
-        if (dot(normal, camera.position - in.world_position) < 0.0) { normal = -normal; }
+    if (!has_authored_normal) {
+        let geometric = unit_direction_or_zero(cross(rescale_direction(position_dy), rescale_direction(position_dx)));
+        if (any(geometric != vec3<f32>(0.0))) {
+            normal = geometric;
+            if (dot(normal, camera.position - in.world_position) < 0.0) { normal = -normal; }
+        }
     }
     let normal_on = (material.flags & MATERIAL_FLAG_RESPONSE_ENABLED) != 0u
         && (material.flags & MATERIAL_FLAG_NORMAL_ENABLED) != 0u;

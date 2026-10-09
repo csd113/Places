@@ -1,25 +1,10 @@
 # Lantern Hollow showcase acceptance
 
-Current acceptance, launch instructions, Rust 1.99 validation, package identities
-and final recovery location are recorded in
-[Places desktop finalization — 2026-10-02](places-finalization-2026-10-02.md).
-The sole checkout is `/Users/connordawkins/Documents/GitHub/Places` on `working`;
-the original isolated showcase checkout has been removed. The showcase itself
-was merged into `main` at `a53696eed70b45b397f83dc58265aeeb740158a5`.
-The formerly blocked 26 presentation tests now pass with zero skips, and all
-16 presented performance runs are complete. The four current packages include
-Movement Test and subsequent movement/porch repairs.
-
-Launch **Lantern Hollow** from Level Select. The saved validated binary remains
-available after build cleanup:
-
-```sh
-/Users/connordawkins/Documents/Codex/Recovery/Places-finalization-2026-10-02/launch-lantern-hollow.sh
-```
-
-The implementation and initial bake measurements below describe the original
-October 1 acceptance. Its historical fingerprints, timings, test totals and
-locked-desktop status are superseded by the October 2 report for current state.
+Historical acceptance: October 1, 2026. The October 2
+[desktop finalization](places-finalization-2026-10-02.md) completed the initially
+blocked presentation and performance checks. The initial bake/layout timings
+below remain dated results; current density and package limits belong to the
+canonical lighting/quality guides. Launch Lantern Hollow from Level Select.
 
 ## Authored content
 
@@ -196,27 +181,13 @@ reports zero missing texture draws. High and High-with-Low both retain
 65,710,744 bytes of architecture texture residency and High filtering, compared
 with Low's 9,087,640 bytes: the override retains selected-quality textures.
 
-The Mac locked before the final presentation suite. Eleven of the 26 Metal
-bootstrap tests therefore explicitly skipped; fifteen passed. An unlock was
-requested, but the console remains locked. The locked load-only runs report
-zero presented draw calls; their printed FPS is excluded from acceptance.
-The prepared 16-run street/fire steady-state benchmark (120 warmup frames,
-600 measured frames, two repeats, four settings) must run after unlocking.
-No steady-state frame-rate claim is made and full desktop acceptance is pending.
-
-Deterministic camera coordinates: `tools/bench/lantern_hollow_views.json`.
-Native capture runner: `tools/bench/capture_lantern_hollow.py`. Logs, routes,
-load traces, GPU audits, before/after images and all final screenshots are
-preserved outside `target` in the recovery directory below.
-
-## Historical retained build
-
-The original October 1 binaries, diagnostics and screenshots remain preserved
-at `/Users/connordawkins/Documents/Codex/Recovery/Places-showcase-delivery-2026-10-01`
-with their verified manifest. They are historical evidence, not the current
-Rust 1.99 deliverable. Current binaries and fresh evidence use the October 2
-recovery root and instructions in the finalization report. The removed isolated
-checkout paths from the original capture logs are not current launch paths.
+The initial load-only runs had zero presented draws and were excluded from
+frame-rate acceptance. The subsequent October 2 finalization completed all
+26 native checks with zero skips and all 16 presented street/fire measurements.
+The table above remains the original load/install measurement, not those later
+presented results. Native camera definitions and capture commands are maintained
+in `tools/bench/lantern_hollow_views.json` and
+`tools/bench/capture_lantern_hollow.py`.
 
 ## Scope limits
 
@@ -230,22 +201,17 @@ shadows; tree trunks retain physical collision. Furniture, cliffs, gates,
 boulders and stumps retain authored occlusion and actual cast shadows. Existing
 PS1/PS2/Source-inspired art and desktop-only target remain unchanged.
 
-## Delivery and GitHub history
+## Source and package reproduction
 
-The original reference Library identity is `libfile_1b892869b4788191953c42232339f73c`;
-its actual PNG was inspected locally during authoring and is not embedded in the
-repository. Original native captures and the five existing Library image
-identities are retained. Fresh October 2 images and the current Library TLS
-upload blocker are documented in the finalization report.
-
-Lantern Hollow and Places Demo exceed GitHub's ordinary-file limit and use Git
-LFS. Before building a fresh clone, materialize the packages:
+The original attached reference was inspected during authoring. Its source image
+and matched native controls belong to the preserved authoring inputs. The
+showcase was integrated at `a53696eed70b45b397f83dc58265aeeb740158a5`.
+Lantern Hollow and Places Demo use Git LFS; materialize packages before building
+a fresh clone:
 
 ```sh
 git lfs install
 git lfs pull
+cargo build --release
+PLACES_LEVEL=lantern_hollow ./target/release/places
 ```
-
-The original showcase publication and main merge completed at
-`a53696eed70b45b397f83dc58265aeeb740158a5`. Later finalization is scoped to `working`.
-The original unrelated edits and stash were preserved during integration.

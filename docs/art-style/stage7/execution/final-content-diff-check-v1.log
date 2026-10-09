@@ -1,4 +1,0 @@
-Error cleaning Git LFS object: open /Users/connordawkins/Documents/GitHub/Places/.git/lfs/tmp/2588499412: operation not permitted
-error: packet write failed: Broken pipe
-error: external filter 'git-lfs filter-process' failed
-fatal: assets/levels/lantern_hollow.placesmap: clean filter 'lfs' failed

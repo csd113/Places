@@ -1,3 +1,0 @@
-places-compile: no Metal adapter for the offline probe capture: No suitable graphics adapter found; noop not requested, vulkan not requested, metal found no adapters, dx12 not requested, gl not requested, webgpu not requested
-        0.16 real         0.20 user         0.02 sys
-time: sysctl kern.clockrate: Operation not permitted

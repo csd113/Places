@@ -1,7 +1,0 @@
-{
-  "basis": "HEAD catalog plus winter:tex_sky_aurora_01 only; concurrent uncommitted asset catalog edits excluded",
-  "baseline_revision": "be7740fcea1c952b9a364d0bf29483e1a8ee0f72",
-  "catalog_sha256": "86dd373e7d716ac700c70063afe6ee4d84fef2e003eb6f8ab4614a2ef4383a25",
-  "snapshot": "target/aurora-evidence/sky-assets/catalog.json",
-  "asset_files": "Existing asset directories linked to the checkout; Winter dependencies exclude edited office/painting assets."
-}

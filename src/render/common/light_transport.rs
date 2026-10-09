@@ -18,6 +18,8 @@
 //! tagged with its light index so the solver can solve its contribution into
 //! its own prepared layer set.
 
+use std::collections::BTreeMap;
+
 use crate::level::{LevelDef, WaterVolumes};
 use crate::lighting::LevelLighting;
 use crate::lighting::lightmap::{Chart, LightmapPatch};
@@ -26,7 +28,7 @@ use crate::lighting::transport::{
     TransportTriangle, TransportWaterBody, receiver_targets,
 };
 use crate::materials::{AlphaMode, MaterialTable, RawImage};
-use crate::render::{LevelMesh, MATERIAL_NONE, PropMeshBatch, SurfaceKind, Vertex};
+use crate::render::{LevelMesh, MATERIAL_NONE, PropMeshBatch, SurfaceKey, SurfaceKind, Vertex};
 
 /// World-space tolerance, in metres, for matching a triangle's corners to a
 /// water volume's surface plane and footprint.
@@ -43,6 +45,43 @@ pub struct TransportSceneStats {
     pub emitters: usize,
     /// Emitters tagged switchable.
     pub switchable_emitters: usize,
+}
+
+/// Identity follows the source material/primitive, rather than the texture
+/// colour sampled at a triangle centroid. IDs are local to one prepared scene.
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+enum SurfaceMaterial {
+    Architecture(SurfaceKey),
+    Prop { model: String, primitive: usize },
+    UnknownProp { batch: usize, primitive: usize },
+}
+
+#[derive(Default)]
+struct SurfaceAttributes {
+    alpha: Vec<Option<TransportAlphaSurface>>,
+    materials: Vec<u32>,
+    identities: BTreeMap<SurfaceMaterial, u32>,
+    unknown_batches: usize,
+}
+
+impl SurfaceAttributes {
+    fn material(&mut self, source: SurfaceMaterial) -> u32 {
+        let next = u32::try_from(self.identities.len())
+            .unwrap_or(u32::MAX)
+            .saturating_add(1);
+        *self.identities.entry(source).or_insert(next)
+    }
+
+    fn push(&mut self, material: u32, alpha: Option<TransportAlphaSurface>) {
+        self.materials.push(material);
+        self.alpha.push(alpha);
+    }
+
+    const fn unknown_batch(&mut self) -> usize {
+        let identity = self.unknown_batches;
+        self.unknown_batches = self.unknown_batches.saturating_add(1);
+        identity
+    }
 }
 
 /// Builds the transport scene for one prepared build.
@@ -66,7 +105,7 @@ pub fn build_transport_scene(
 ) -> Option<(TransportScene, TransportSceneStats)> {
     let mut stats = TransportSceneStats::default();
     let mut triangles: Vec<TransportTriangle> = Vec::new();
-    let mut surface_alpha = Vec::new();
+    let mut surfaces = SurfaceAttributes::default();
     let mut owners = Vec::new();
     // Water bodies transmit and attenuate; the drawn surface triangles are
     // matched against the same resolved volumes the player swims in. A dry
@@ -81,14 +120,14 @@ pub fn build_transport_scene(
         materials,
         &water,
         &mut triangles,
-        &mut surface_alpha,
+        &mut surfaces,
         &mut stats,
         &mut owners,
     );
     append_prop_triangles(
         batches,
         &mut triangles,
-        &mut surface_alpha,
+        &mut surfaces,
         &mut stats,
         &mut owners,
     );
@@ -122,7 +161,8 @@ pub fn build_transport_scene(
     stats.emitters = emitters.len();
     let scene = TransportScene::new(triangles, emitters)?
         .with_runtime_direct_lights(runtime_direct)
-        .with_surface_alpha(surface_alpha)?
+        .with_surface_alpha(surfaces.alpha)?
+        .with_surface_materials(surfaces.materials)?
         .with_water(
             water
                 .volumes()
@@ -698,7 +738,7 @@ fn append_architecture_triangles(
     materials: &MaterialTable,
     water: &WaterVolumes,
     triangles: &mut Vec<TransportTriangle>,
-    surface_alpha: &mut Vec<Option<TransportAlphaSurface>>,
+    surfaces: &mut SurfaceAttributes,
     stats: &mut TransportSceneStats,
     owners: &mut Vec<crate::lighting::transport::diagnostics::CasterRange>,
 ) {
@@ -714,6 +754,7 @@ fn append_architecture_triangles(
         let first = triangles.len();
         let material = material_albedo(materials, range.key.material);
         let material_id = material_id(materials, range.key.material);
+        let identity = surfaces.material(SurfaceMaterial::Architecture(range.key));
         for chunk in range.indices.as_chunks::<3>().0 {
             let (Some(a), Some(b), Some(c)) = (chunk.first(), chunk.get(1), chunk.get(2)) else {
                 continue;
@@ -731,18 +772,21 @@ fn append_architecture_triangles(
                     let corners = [va.pos, vb.pos, vc.pos];
                     let water_surface = is_water_surface(corners, material_id, water);
                     triangles.push(triangle.with_transmissive(water_surface));
-                    surface_alpha.push(if water_surface {
-                        None
-                    } else {
-                        materials.entry(range.key.material).and_then(|entry| {
-                            alpha_surface(
-                                entry.alpha,
-                                entry.image.clone(),
-                                [va, vb, vc],
-                                TransportTextureAddress::Repeat,
-                            )
-                        })
-                    });
+                    surfaces.push(
+                        identity,
+                        if water_surface {
+                            None
+                        } else {
+                            materials.entry(range.key.material).and_then(|entry| {
+                                alpha_surface(
+                                    entry.alpha,
+                                    entry.image.clone(),
+                                    [va, vb, vc],
+                                    TransportTextureAddress::Repeat,
+                                )
+                            })
+                        },
+                    );
                 }
                 None => stats.skipped_triangles = stats.skipped_triangles.saturating_add(1),
             }
@@ -766,7 +810,7 @@ fn append_architecture_triangles(
 fn append_prop_triangles(
     batches: &[PropMeshBatch],
     triangles: &mut Vec<TransportTriangle>,
-    surface_alpha: &mut Vec<Option<TransportAlphaSurface>>,
+    surfaces: &mut SurfaceAttributes,
     stats: &mut TransportSceneStats,
     owners: &mut Vec<crate::lighting::transport::diagnostics::CasterRange>,
 ) {
@@ -775,7 +819,28 @@ fn append_prop_triangles(
             continue;
         }
         let first = triangles.len();
-        for submesh in &batch.submeshes {
+        let unknown_batch = surfaces.unknown_batch();
+        for (primitive, submesh) in batch.submeshes.iter().enumerate() {
+            // Finished batches omit empty primitives. Only the retained
+            // original source slot can be shared safely across those batches.
+            // Decoded packages have no offline sidecar: keep their materials
+            // scoped to this batch rather than guessing from draw ordinal.
+            let source_primitive = if batch.source_primitives.len() == batch.submeshes.len() {
+                batch.source_primitives.get(primitive).copied()
+            } else {
+                None
+            };
+            let material = source_primitive.map_or(
+                SurfaceMaterial::UnknownProp {
+                    batch: unknown_batch,
+                    primitive,
+                },
+                |source_slot| SurfaceMaterial::Prop {
+                    model: batch.model.clone(),
+                    primitive: source_slot,
+                },
+            );
+            let identity = surfaces.material(material);
             let start = usize::try_from(submesh.first_index).unwrap_or(usize::MAX);
             let count = usize::try_from(submesh.index_count).unwrap_or(usize::MAX);
             let end = start.saturating_add(count);
@@ -805,15 +870,18 @@ fn append_prop_triangles(
                     Some(triangle) => {
                         triangles
                             .push(triangle.with_shading_normals([va.normal, vb.normal, vc.normal]));
-                        surface_alpha.push(alpha_surface(
-                            submesh.alpha,
-                            submesh
-                                .texture
-                                .and_then(|texture| batch.textures.get(usize::from(texture)))
-                                .cloned(),
-                            [va, vb, vc],
-                            TransportTextureAddress::Clamp,
-                        ));
+                        surfaces.push(
+                            identity,
+                            alpha_surface(
+                                submesh.alpha,
+                                submesh
+                                    .texture
+                                    .and_then(|texture| batch.textures.get(usize::from(texture)))
+                                    .cloned(),
+                                [va, vb, vc],
+                                TransportTextureAddress::Clamp,
+                            ),
+                        );
                     }
                     None => stats.skipped_triangles = stats.skipped_triangles.saturating_add(1),
                 }
@@ -838,6 +906,10 @@ pub(super) fn dynamic_mesh_visibility_scene(
     let batch = PropMeshBatch {
         model: mesh.model_path.clone(),
         casts_static_lighting: true,
+        // DynamicMesh filters empty source primitives too. Its isolated ray
+        // scene can preserve material continuity within each draw submesh
+        // without pretending the compressed ordinal is an original source ID.
+        source_primitives: Vec::new(),
         textures: mesh.textures.clone(),
         submeshes: mesh
             .submeshes
@@ -856,15 +928,17 @@ pub(super) fn dynamic_mesh_visibility_scene(
         bounds: mesh.bounds,
     };
     let mut triangles = Vec::new();
-    let mut alpha = Vec::new();
+    let mut surfaces = SurfaceAttributes::default();
     append_prop_triangles(
         &[batch],
         &mut triangles,
-        &mut alpha,
+        &mut surfaces,
         &mut TransportSceneStats::default(),
         &mut Vec::new(),
     );
-    TransportScene::new(triangles, Vec::new())?.with_surface_alpha(alpha)
+    TransportScene::new(triangles, Vec::new())?
+        .with_surface_alpha(surfaces.alpha)?
+        .with_surface_materials(surfaces.materials)
 }
 
 /// The level material id one surface key resolves to, or `None` when the key
@@ -1723,11 +1797,115 @@ mod tests {
     }
 
     #[test]
+    fn retained_source_materials_do_not_alias_after_an_empty_first_primitive() {
+        // Both batches draw ordinal zero. The second has lost original source
+        // primitive zero, while its retained sidecar still identifies slot one.
+        let batch = |source_primitives: Vec<usize>, colour: [f32; 4]| PropMeshBatch {
+            model: "source-material-control".to_owned(),
+            casts_static_lighting: true,
+            source_primitives,
+            textures: Vec::new(),
+            submeshes: vec![crate::render::PropSubmeshBatch {
+                response: crate::materials::MaterialResponse::NONE,
+                texture: None,
+                emission: crate::materials::MaterialEmission::NONE,
+                alpha: crate::materials::MaterialAlpha::OPAQUE,
+                first_index: 0,
+                index_count: 3,
+            }],
+            vertices: vec![
+                Vertex::new([0.0, 0.0, 0.0], colour, [0.0, 0.0]),
+                Vertex::new([1.0, 0.0, 0.0], colour, [1.0, 0.0]),
+                Vertex::new([1.0, 1.0, 0.0], colour, [1.0, 1.0]),
+            ],
+            indices: vec![0, 1, 2],
+            bounds: crate::spatial::Aabb::EMPTY,
+        };
+        let mut triangles = Vec::new();
+        let mut surfaces = SurfaceAttributes::default();
+        append_prop_triangles(
+            &[
+                batch(vec![0], [0.6; 4]),
+                batch(vec![1], [0.9; 4]),
+                batch(vec![1], [0.7; 4]),
+                batch(Vec::new(), [0.6; 4]),
+                batch(Vec::new(), [0.6; 4]),
+                batch(vec![0, 1], [0.6; 4]),
+            ],
+            &mut triangles,
+            &mut surfaces,
+            &mut TransportSceneStats::default(),
+            &mut Vec::new(),
+        );
+        let first_source = *surfaces.materials.first().expect("original primitive zero");
+        let retained_source = *surfaces
+            .materials
+            .get(1)
+            .expect("retained original primitive one");
+        let continuation = *surfaces
+            .materials
+            .get(2)
+            .expect("same original source in another batch");
+        let first_unknown = *surfaces.materials.get(3).expect("first decoded batch");
+        let second_unknown = *surfaces.materials.get(4).expect("second decoded batch");
+        let malformed = *surfaces
+            .materials
+            .get(5)
+            .expect("misaligned sidecar is conservative");
+        assert_ne!(
+            first_source, retained_source,
+            "filtered draw ordinal zero cannot merge two original source materials"
+        );
+        assert_eq!(
+            retained_source, continuation,
+            "the same original material continues across prepared batches and sampled colour variation"
+        );
+        assert_ne!(
+            first_unknown, second_unknown,
+            "unknown decoded batches cannot guess shared material identity"
+        );
+        assert_ne!(
+            malformed, first_source,
+            "a partial or misaligned sidecar cannot guess an original source identity"
+        );
+        append_prop_triangles(
+            &[batch(Vec::new(), [0.6; 4])],
+            &mut triangles,
+            &mut surfaces,
+            &mut TransportSceneStats::default(),
+            &mut Vec::new(),
+        );
+        let later_unknown = *surfaces
+            .materials
+            .last()
+            .expect("later appended unknown batch");
+        assert_ne!(
+            later_unknown, first_unknown,
+            "unknown batch scope must remain unique across separate append calls"
+        );
+        assert_ne!(
+            later_unknown, second_unknown,
+            "a later unknown batch must not alias either preceding unknown batch"
+        );
+        assert_eq!(
+            triangles.len(),
+            surfaces.materials.len(),
+            "source identities stay aligned with accepted triangles"
+        );
+        assert_eq!(
+            triangles.len(),
+            surfaces.alpha.len(),
+            "alpha and material identities share accepted triangle order"
+        );
+    }
+
+    #[test]
     fn alpha_prop_cards_preserve_covered_pixels_and_opaque_fallbacks() {
         for mode in [AlphaMode::Opaque, AlphaMode::Cutout, AlphaMode::Blend] {
             let batch = PropMeshBatch {
                 model: "alpha-contract".to_owned(),
                 casts_static_lighting: true,
+                source_primitives: vec![0],
                 textures: Vec::new(),
                 submeshes: vec![crate::render::PropSubmeshBatch {
                     response: crate::materials::MaterialResponse::NONE,
@@ -1750,30 +1928,39 @@ mod tests {
                 bounds: crate::spatial::Aabb::EMPTY,
             };
             let mut triangles = Vec::new();
-            let mut alpha = Vec::new();
+            let mut surfaces = SurfaceAttributes::default();
             let mut animated = batch.clone();
             animated.casts_static_lighting = false;
             append_prop_triangles(
                 &[animated],
                 &mut triangles,
-                &mut alpha,
+                &mut surfaces,
                 &mut TransportSceneStats::default(),
                 &mut Vec::new(),
             );
             assert_eq!(triangles, []);
-            assert_eq!(alpha, []);
+            assert!(
+                surfaces.alpha.is_empty(),
+                "animated geometry has no static alpha surfaces"
+            );
+            assert!(
+                surfaces.materials.is_empty(),
+                "animated geometry has no static material identities"
+            );
             append_prop_triangles(
                 &[batch],
                 &mut triangles,
-                &mut alpha,
+                &mut surfaces,
                 &mut TransportSceneStats::default(),
                 &mut Vec::new(),
             );
             assert_eq!(triangles.len(), 2);
             let scene = TransportScene::new(triangles, Vec::new())
                 .expect("scene")
-                .with_surface_alpha(alpha)
-                .expect("aligned alpha");
+                .with_surface_alpha(surfaces.alpha)
+                .expect("aligned alpha")
+                .with_surface_materials(surfaces.materials)
+                .expect("aligned material identities");
             assert_eq!(
                 scene.occluded([0.0, 1.0, -1.0], [0.0, 1.0, 1.0]),
                 mode != AlphaMode::Blend
@@ -1803,7 +1990,7 @@ mod tests {
             &materials,
             &WaterVolumes::new(),
             &mut triangles,
-            &mut Vec::new(),
+            &mut SurfaceAttributes::default(),
             &mut TransportSceneStats::default(),
             &mut Vec::new(),
         );

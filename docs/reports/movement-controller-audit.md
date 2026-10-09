@@ -1,5 +1,8 @@
 # Places movement controller audit
 
+Historical acceptance: 2026-10-03 controller audit. Counts, timings and validation below describe
+that tested version; the canonical guides govern current contracts.
+
 2026-10-03. Canonical `working` checkout, starting at `540d111920cea71a43ac98f3e3ae175ab28a99bd`. The released lighting baseline was recorded separately as `665bfae2f665d912784d6802b8bd404d81dd6c11`. The previous lighting owner explicitly released the checkout, native jobs, and shared targets before implementation. Lighting/rendering/assets were preserved; production map geometry was not changed. The changes repair the existing upright-cylinder controller without a physics dependency or map/prop special cases.
 
 ## Root causes
@@ -104,12 +107,27 @@ Commands ran with the pinned repository toolchain and `RUSTC_WRAPPER=`; offline 
 | Saved debug-map build/currentness/decode/native load | 36 maps; all currentness/decode checks passed; all 36 opened with the saved build, saved assets, and local SDL, with screenshots and trajectories. |
 | `git diff --check` | Exit 0 in the native gate; read-only check also passed with LFS clean filtering bypassed. |
 
-Passing negative-fixture tests intentionally print malformed asset/worker errors; these are not unexplained validation failures. The four shipped packages remain current. Recent lighting files were hash-checked against the owner's preserved snapshot: only `src/level.rs` (controller surface queries) and the small movement clarification in `docs/MAP_AUTHORING_GUIDE.md` differ; the other 275 files matched exactly before publication. The publication whitespace check then required trimming terminal blank lines in two saved lighting logs; their byte-exact originals are preserved here as `.original.gz`. No lighting implementation or asset content changed.
-
-[Saved evidence](movement-controller-audit/) contains failed before regressions, native before/after trajectories and selected images, timestep output, benchmark samples, exact validation logs, and final build hashes. [The durable playground](../../debug-maps/movement-audit-20261003/README.md) lists all 36 maps, their purposes, authoring sources, compiled packages, initial positions, saved assets/builds/SDL, and launch commands. Nothing required to explore the collection lives under target or a disposable temporary directory.
+Passing negative-fixture tests intentionally print malformed asset/worker errors; these are not unexplained validation failures. The four shipped packages remain current. Lighting files were hash-checked against the preserved baseline: only `src/level.rs` (controller surface queries) and the small movement clarification in `docs/MAP_AUTHORING_GUIDE.md` differ; the other 275 files matched exactly before publication. No lighting implementation or asset content changed.
 
 ## Remaining limits
 
 The engine uses boxes, oriented doors, segmented curved colliders, and analytic floor/ceiling heightfields. It does not expose a general triangle-mesh player collider; rotated prop collision remains the authored conservative AABB contract. Triangle seam behavior therefore cannot be presented as a repaired mesh solver. The existing supported ramp slope limit and stair pitch-line walking convention are preserved; invalid above-limit ramp authoring remains rejected instead of adding arbitrary steep mesh surfaces to this controller.
 
 Malformed fully enclosed spawn geometry with no clear candidate within 3.6 m reports a warning instead of an unbounded escape. The existing 0.1 s simulation-time cap remains. f32 world-coordinate precision limits are handled by a representable horizontal skin; they are not a claim of arbitrary-coordinate exact arithmetic. The manual held-key limitation is described above. No production map/prop special cases or unresolved failures in the corrected regression scenarios remain.
+
+## Native reproduction
+
+```sh
+python3 debug-maps/movement-audit-20261003/launch.py
+```
+
+The saved collection contains 36 authoring/package controls with matching assets,
+player and SDL. Native trajectories sample every five rendered frames; frame
+rates vary, so those positions are not uniform-time numerical trajectories.
+Exclude initial menu/boot zero-coordinate rows. Standing head height is eye Y
+plus 0.2 m. Deterministic timestep regressions supply the quantitative movement
+invariants independently of the recorded images.
+
+| Pit stacked-balcony reproduction | Before repair | After repair |
+| --- | --- | --- |
+| Native route endpoints; differing player heights are intentional | [Before](../images/reports/movement-controller-audit/native-before/pit_stacked_balcony.png) | [After](../images/reports/movement-controller-audit/native-after/pit_stacked_balcony.png) |
