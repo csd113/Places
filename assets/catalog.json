@@ -25,6 +25,11 @@
       "id": "winter",
       "display_name": "Winter",
       "description": "Snowy night settlement with modeled evergreen snow, modular drifts, rock caps, architecture snow and icicles."
+    },
+    {
+      "id": "beach",
+      "display_name": "Beach",
+      "description": "Warm low-poly tropical coast: cream sand, turquoise polygon-cell water, banded palms, timber beach structures and a pastel seaside town."
     }
   ],
   "assets": [
@@ -5488,6 +5493,807 @@
       "opacity": 0.82,
       "specular": 0.2,
       "shine": 0.2
+    },
+    {
+      "id": "beach:tex_sand_01",
+      "display_name": "Beach Sand Texture",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/beach/textures/floors/sand_01.png",
+      "surface": "floor",
+      "description": "Opaque seamless broad-facet artwork: 1024-square source and 512-square runtime PNG."
+    },
+    {
+      "id": "beach:tex_water_01",
+      "display_name": "Beach Water Texture",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/beach/textures/water/water_01.png",
+      "surface": "floor",
+      "description": "Opaque seamless broad-facet artwork: 1024-square source and 512-square runtime PNG."
+    },
+    {
+      "id": "beach:tex_rock_01",
+      "display_name": "Beach Rock Texture",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/beach/textures/walls/rock_01.png",
+      "surface": "wall",
+      "description": "Opaque seamless broad-facet artwork: 1024-square source and 512-square runtime PNG."
+    },
+    {
+      "id": "beach:tex_stucco_01",
+      "display_name": "Beach Stucco Texture",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/beach/textures/walls/stucco_01.png",
+      "surface": "wall",
+      "description": "Opaque seamless broad-facet artwork: 1024-square source and 512-square runtime PNG."
+    },
+    {
+      "id": "beach:tex_wood_plank_01",
+      "display_name": "Beach Wood Plank Texture",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/beach/textures/floors/wood_plank_01.png",
+      "surface": "floor",
+      "description": "Opaque seamless broad-facet artwork: 1024-square source and 512-square runtime PNG."
+    },
+    {
+      "id": "beach:tex_palm_trunk_01",
+      "display_name": "Beach Palm Trunk Texture",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/beach/textures/walls/palm_trunk_01.png",
+      "surface": "wall",
+      "description": "Opaque seamless broad-facet artwork: 1024-square source and 512-square runtime PNG."
+    },
+    {
+      "id": "beach:tex_palm_leaf_01",
+      "display_name": "Beach Palm Leaf Texture",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/beach/textures/walls/palm_leaf_01.png",
+      "surface": "wall",
+      "description": "Opaque seamless broad-facet artwork: 1024-square source and 512-square runtime PNG."
+    },
+    {
+      "id": "beach:tex_grass_01",
+      "display_name": "Beach Grass Texture",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/beach/textures/floors/grass_01.png",
+      "surface": "floor",
+      "description": "Opaque seamless broad-facet artwork: 1024-square source and 512-square runtime PNG."
+    },
+    {
+      "id": "beach:tex_roof_yellow_01",
+      "display_name": "Beach Roof Yellow Texture",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/beach/textures/ceilings/roof_yellow_01.png",
+      "surface": "ceiling",
+      "description": "Opaque seamless broad-facet artwork: 1024-square source and 512-square runtime PNG."
+    },
+    {
+      "id": "beach:tex_foam_01",
+      "display_name": "Beach Foam Texture",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/beach/textures/water/foam_01.png",
+      "surface": "floor",
+      "description": "Opaque seamless broad-facet artwork: 1024-square source and 512-square runtime PNG."
+    },
+    {
+      "id": "beach:tex_sky_day_01",
+      "display_name": "Beach Day Panorama",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "sky",
+      "model": "environment/beach/textures/sky/sky_day_01.png",
+      "description": "Seamless opaque 2048x1024 equirectangular day sky with a pale horizon, chunky faceted clouds and a small sun at bearing/elevation +45 degrees."
+    },
+    {
+      "id": "beach:sand_01",
+      "display_name": "Beach Sand",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "beach:tex_sand_01",
+      "tile_metres": 4,
+      "description": "Matte broad-facet Beach surface; lighting is supplied by the existing HDR bake and renderer."
+    },
+    {
+      "id": "beach:rock_01",
+      "display_name": "Beach Rock",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "beach:tex_rock_01",
+      "tile_metres": 4,
+      "description": "Matte broad-facet Beach surface; lighting is supplied by the existing HDR bake and renderer."
+    },
+    {
+      "id": "beach:stucco_01",
+      "display_name": "Beach Stucco",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "beach:tex_stucco_01",
+      "tile_metres": 2,
+      "description": "Matte broad-facet Beach surface; lighting is supplied by the existing HDR bake and renderer."
+    },
+    {
+      "id": "beach:wood_plank_01",
+      "display_name": "Beach Wood Plank",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "beach:tex_wood_plank_01",
+      "tile_metres": 1.2,
+      "description": "Matte broad-facet Beach surface; lighting is supplied by the existing HDR bake and renderer."
+    },
+    {
+      "id": "beach:palm_trunk_01",
+      "display_name": "Beach Palm Trunk",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "beach:tex_palm_trunk_01",
+      "tile_metres": 1.8,
+      "description": "Matte broad-facet Beach surface; lighting is supplied by the existing HDR bake and renderer."
+    },
+    {
+      "id": "beach:palm_leaf_01",
+      "display_name": "Beach Palm Leaf",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "beach:tex_palm_leaf_01",
+      "tile_metres": 1,
+      "description": "Matte broad-facet Beach surface; lighting is supplied by the existing HDR bake and renderer."
+    },
+    {
+      "id": "beach:grass_01",
+      "display_name": "Beach Grass",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "beach:tex_grass_01",
+      "tile_metres": 4,
+      "description": "Matte broad-facet Beach surface; lighting is supplied by the existing HDR bake and renderer."
+    },
+    {
+      "id": "beach:roof_yellow_01",
+      "display_name": "Beach Roof Yellow",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "ceiling",
+      "texture": "beach:tex_roof_yellow_01",
+      "tile_metres": 1.2,
+      "description": "Matte broad-facet Beach surface; lighting is supplied by the existing HDR bake and renderer."
+    },
+    {
+      "id": "beach:foam_01",
+      "display_name": "Beach Foam",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "beach:tex_foam_01",
+      "tile_metres": 4,
+      "description": "Matte broad-facet Beach surface; lighting is supplied by the existing HDR bake and renderer."
+    },
+    {
+      "id": "beach:water_shallow_01",
+      "display_name": "Beach Water Shallow",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "beach:tex_water_01",
+      "tile_metres": 4,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "specular": 0.3,
+      "shine": 0.4,
+      "alpha_mode": "blend",
+      "opacity": 1,
+      "reflection_mode": "probe",
+      "reflection_strength": 0.2,
+      "description": "Polygon-cell sea water; authored WaterDef opacity and depth attenuation supply transparent coverage using the existing water renderer."
+    },
+    {
+      "id": "beach:water_deep_01",
+      "display_name": "Beach Water Deep",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "beach:tex_water_01",
+      "tile_metres": 4,
+      "tint": [
+        0.6,
+        0.5,
+        1
+      ],
+      "specular": 0.3,
+      "shine": 0.4,
+      "alpha_mode": "blend",
+      "opacity": 1,
+      "reflection_mode": "probe",
+      "reflection_strength": 0.2,
+      "description": "Polygon-cell sea water; authored WaterDef opacity and depth attenuation supply transparent coverage using the existing water renderer."
+    },
+    {
+      "id": "beach:sand_patch",
+      "display_name": "Cream Beach Sand Patch",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/sand_patch.glb",
+      "size": [
+        8.0,
+        0.22,
+        6.0
+      ],
+      "color": "#ead2a8",
+      "category": "Terrain",
+      "solid": false,
+      "description": "Faceted Beach visual; author walking support and structural collision separately."
+    },
+    {
+      "id": "beach:grassy_bank",
+      "display_name": "Green Inland Bank",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/grassy_bank.glb",
+      "size": [
+        8.0,
+        0.75,
+        5.0
+      ],
+      "color": "#74b041",
+      "category": "Terrain",
+      "solid": false,
+      "description": "Faceted Beach visual; author walking support and structural collision separately."
+    },
+    {
+      "id": "beach:coastal_rock",
+      "display_name": "Faceted Coastal Rock",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/coastal_rock.glb",
+      "size": [
+        1.2,
+        1.2,
+        1.05
+      ],
+      "color": "#737b90",
+      "category": "Rocks",
+      "solid": false,
+      "description": "Faceted Beach visual; author walking support and structural collision separately."
+    },
+    {
+      "id": "beach:coastal_rock_wide",
+      "display_name": "Low Coastal Boulder",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/coastal_rock_wide.glb",
+      "size": [
+        2.6,
+        1.5,
+        2.0
+      ],
+      "color": "#737b90",
+      "category": "Rocks",
+      "solid": false,
+      "description": "Faceted Beach visual; author walking support and structural collision separately."
+    },
+    {
+      "id": "beach:island",
+      "display_name": "Green-capped Coastal Island",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/island.glb",
+      "size": [
+        10.0,
+        3.6,
+        7.0
+      ],
+      "color": "#737b90",
+      "category": "Terrain",
+      "solid": false,
+      "description": "Faceted Beach visual; author walking support and structural collision separately."
+    },
+    {
+      "id": "beach:sea_arch",
+      "display_name": "Grass-capped Sea Arch",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/sea_arch.glb",
+      "size": [
+        13.0,
+        5.8,
+        4.5
+      ],
+      "color": "#737b90",
+      "category": "Terrain",
+      "solid": false,
+      "description": "Faceted Beach visual; author walking support and structural collision separately."
+    },
+    {
+      "id": "beach:palm",
+      "display_name": "Banded Bent Palm",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/palm.glb",
+      "size": [
+        4.8,
+        6.0,
+        4.4
+      ],
+      "color": "#74b041",
+      "category": "Vegetation",
+      "solid": false,
+      "description": "Faceted Beach visual; author walking support and structural collision separately."
+    },
+    {
+      "id": "beach:palm_small",
+      "display_name": "Small Banded Palm",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/palm_small.glb",
+      "size": [
+        3.5,
+        4.2,
+        3.2
+      ],
+      "color": "#74b041",
+      "category": "Vegetation",
+      "solid": false,
+      "description": "Faceted Beach visual; author walking support and structural collision separately."
+    },
+    {
+      "id": "beach:town_shrub",
+      "display_name": "Town Shrub Cluster",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/town_shrub.glb",
+      "size": [
+        1.3,
+        0.8,
+        1.15
+      ],
+      "color": "#74b041",
+      "category": "Vegetation",
+      "solid": false,
+      "description": "Faceted Beach visual; author walking support and structural collision separately."
+    },
+    {
+      "id": "beach:shoreline_foam",
+      "display_name": "Curved Shore Foam",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/shoreline_foam.glb",
+      "size": [
+        8.0,
+        0.04,
+        1.1
+      ],
+      "color": "#faf5e8",
+      "category": "Terrain",
+      "solid": false,
+      "description": "Faceted Beach visual; author walking support and structural collision separately."
+    },
+    {
+      "id": "beach:lighthouse",
+      "display_name": "Beach Lighthouse",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/lighthouse.glb",
+      "size": [
+        2.72,
+        7.7,
+        2.72
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:crate",
+      "display_name": "Beach Crate",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/crate.glb",
+      "size": [
+        0.82,
+        0.82,
+        0.82
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": true
+    },
+    {
+      "id": "beach:dock",
+      "display_name": "Beach Dock",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/dock.glb",
+      "size": [
+        4.4,
+        1.6,
+        2.2
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:kiosk",
+      "display_name": "Beach Kiosk",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/kiosk.glb",
+      "size": [
+        3.2,
+        3.64,
+        2.9
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:stilt_house_blue",
+      "display_name": "Beach Stilt House Blue",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/stilt_house_blue.glb",
+      "size": [
+        5.4,
+        6.08,
+        4.7
+      ],
+      "color": "#328aca",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:hut_brown",
+      "display_name": "Beach Hut Brown",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/hut_brown.glb",
+      "size": [
+        3.5,
+        3.55,
+        3.24
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:umbrella",
+      "display_name": "Beach Umbrella",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/umbrella.glb",
+      "size": [
+        2.4,
+        2.55,
+        2.4
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:lounge_chair",
+      "display_name": "Beach Lounge Chair",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/lounge_chair.glb",
+      "size": [
+        0.74,
+        1.1,
+        1.51
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": true
+    },
+    {
+      "id": "beach:signpost",
+      "display_name": "Beach Signpost",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/signpost.glb",
+      "size": [
+        1.2,
+        1.76,
+        0.2
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:town_house_cream",
+      "display_name": "Beach Town House Cream",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/town_house_cream.glb",
+      "size": [
+        4.6,
+        5.4,
+        3.9
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:town_house_blue",
+      "display_name": "Beach Town House Blue",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/town_house_blue.glb",
+      "size": [
+        4.2,
+        5.45,
+        3.75
+      ],
+      "color": "#328aca",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:town_house_coral",
+      "display_name": "Beach Town House Coral",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/town_house_coral.glb",
+      "size": [
+        3.8,
+        4.0,
+        3.6
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:town_arch",
+      "display_name": "Beach Town Arch",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/town_arch.glb",
+      "size": [
+        3.6,
+        2.8,
+        0.42
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:town_stairs",
+      "display_name": "Beach Town Stairs",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/town_stairs.glb",
+      "size": [
+        1.4,
+        2.4,
+        4.2
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:town_terrace",
+      "display_name": "Beach Town Terrace",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/town_terrace.glb",
+      "size": [
+        4.0,
+        0.9,
+        3.0
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:town_parapet",
+      "display_name": "Beach Town Parapet",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/town_parapet.glb",
+      "size": [
+        2.4,
+        0.74,
+        0.25
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": true
+    },
+    {
+      "id": "beach:bunting",
+      "display_name": "Beach Bunting",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/bunting.glb",
+      "size": [
+        4.4,
+        0.45,
+        0.024
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:seagull",
+      "display_name": "Beach Seagull",
+      "asset_class": "entity",
+      "theme": "beach",
+      "asset_type": "entity",
+      "entity_type": "character",
+      "source": "file",
+      "model": "entities/beach_seagull/model/beach_seagull.glb",
+      "size": [
+        1.096,
+        0.747,
+        0.886
+      ],
+      "color": "#f6ecd6",
+      "category": "Beach Animals",
+      "solid": false,
+      "description": "Idle and flying seagull with dark wingtips and yellow beak/legs. Start playback with an explicit play_animation action."
+    },
+    {
+      "id": "beach:crab",
+      "display_name": "Beach Crab",
+      "asset_class": "entity",
+      "theme": "beach",
+      "asset_type": "entity",
+      "entity_type": "character",
+      "source": "file",
+      "model": "entities/beach_crab/model/beach_crab.glb",
+      "size": [
+        0.83209,
+        0.381,
+        0.561201
+      ],
+      "color": "#f46753",
+      "category": "Beach Animals",
+      "solid": false,
+      "description": "Stalk-eyed coral crab with pincers; idle and in-place walking clips. Start playback with an explicit play_animation action."
+    },
+    {
+      "id": "beach:fish",
+      "display_name": "Beach Fish",
+      "asset_class": "entity",
+      "theme": "beach",
+      "asset_type": "entity",
+      "entity_type": "character",
+      "source": "file",
+      "model": "entities/beach_fish/model/beach_fish.glb",
+      "size": [
+        0.294,
+        0.377,
+        0.638
+      ],
+      "color": "#fed95d",
+      "category": "Beach Animals",
+      "solid": false,
+      "description": "Yellow/turquoise fish with dorsal fin and forked tail; looping swim clip. Start playback with an explicit play_animation action."
     }
   ]
 }

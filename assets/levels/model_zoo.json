@@ -301,6 +301,56 @@
       "height": 7.3,
       "material": "core:pool_tile_deck_01",
       "ceiling_material": "core:pool_ceiling_01"
+    },
+    {
+      "x": 49.2,
+      "z": 61.35,
+      "width": 0.5999999999999943,
+      "depth": 20.0,
+      "floor_y": 0,
+      "height": 7.3,
+      "material": "core:pool_tile_deck_01",
+      "ceiling_material": "core:pool_ceiling_01"
+    },
+    {
+      "x": 52.599999999999994,
+      "z": 61.35,
+      "width": 20.600000000000005,
+      "depth": 20.0,
+      "floor_y": 0,
+      "height": 7.3,
+      "material": "core:pool_tile_deck_01",
+      "ceiling_material": "core:pool_ceiling_01"
+    },
+    {
+      "x": 49.8,
+      "z": 61.35,
+      "width": 2.8,
+      "depth": 4.600000000000001,
+      "floor_y": 0,
+      "height": 7.3,
+      "material": "core:pool_tile_deck_01",
+      "ceiling_material": "core:pool_ceiling_01"
+    },
+    {
+      "x": 49.8,
+      "z": 68.75,
+      "width": 2.8,
+      "depth": 12.59999999999999,
+      "floor_y": 0,
+      "height": 7.3,
+      "material": "core:pool_tile_deck_01",
+      "ceiling_material": "core:pool_ceiling_01"
+    },
+    {
+      "x": 49.8,
+      "z": 65.95,
+      "width": 2.8,
+      "depth": 2.8,
+      "floor_y": -1.2,
+      "height": 8.5,
+      "material": "core:pool_tile_basin_01",
+      "ceiling_material": "core:pool_ceiling_01"
     }
   ],
   "walls": [
@@ -340,6 +390,30 @@
           "sill": 0.0
         }
       ]
+    },
+    {
+      "x": 49.2,
+      "z": 60.95,
+      "width": 24.4,
+      "depth": 0.4,
+      "height": 7.3,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 49.2,
+      "z": 81.35,
+      "width": 24.4,
+      "depth": 0.4,
+      "height": 7.3,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 73.2,
+      "z": 61.35,
+      "width": 0.4,
+      "depth": 20.0,
+      "height": 7.3,
+      "material": "core:pool_tile_wall_01"
     }
   ],
   "floor_regions": [
@@ -362,6 +436,17 @@
       "surface_y": -0.2,
       "bottom_y": -1.5,
       "swimming": true
+    },
+    {
+      "x": 49.82,
+      "z": 65.97,
+      "width": 2.76,
+      "depth": 2.76,
+      "surface_y": -0.2,
+      "bottom_y": -1.2,
+      "swimming": false,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.34
     }
   ],
   "ladders": [
@@ -2594,6 +2679,216 @@
       "fixture": "core:pool_light_round",
       "x": 44.85,
       "z": 138.85,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:0:0",
+      "fixture": "core:pool_light_round",
+      "x": 51.2,
+      "z": 63.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:0:1",
+      "fixture": "core:pool_light_round",
+      "x": 55.2,
+      "z": 63.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:0:2",
+      "fixture": "core:pool_light_round",
+      "x": 59.2,
+      "z": 63.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:0:3",
+      "fixture": "core:pool_light_round",
+      "x": 63.2,
+      "z": 63.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:0:4",
+      "fixture": "core:pool_light_round",
+      "x": 67.2,
+      "z": 63.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:0:5",
+      "fixture": "core:pool_light_round",
+      "x": 71.2,
+      "z": 63.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:1:0",
+      "fixture": "core:pool_light_round",
+      "x": 51.2,
+      "z": 67.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:1:1",
+      "fixture": "core:pool_light_round",
+      "x": 55.2,
+      "z": 67.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:1:2",
+      "fixture": "core:pool_light_round",
+      "x": 59.2,
+      "z": 67.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:1:3",
+      "fixture": "core:pool_light_round",
+      "x": 63.2,
+      "z": 67.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:1:4",
+      "fixture": "core:pool_light_round",
+      "x": 67.2,
+      "z": 67.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:1:5",
+      "fixture": "core:pool_light_round",
+      "x": 71.2,
+      "z": 67.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:2:0",
+      "fixture": "core:pool_light_round",
+      "x": 51.2,
+      "z": 71.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:2:1",
+      "fixture": "core:pool_light_round",
+      "x": 55.2,
+      "z": 71.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:2:2",
+      "fixture": "core:pool_light_round",
+      "x": 59.2,
+      "z": 71.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:2:3",
+      "fixture": "core:pool_light_round",
+      "x": 63.2,
+      "z": 71.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:2:4",
+      "fixture": "core:pool_light_round",
+      "x": 67.2,
+      "z": 71.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:2:5",
+      "fixture": "core:pool_light_round",
+      "x": 71.2,
+      "z": 71.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:3:0",
+      "fixture": "core:pool_light_round",
+      "x": 51.2,
+      "z": 75.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:3:1",
+      "fixture": "core:pool_light_round",
+      "x": 55.2,
+      "z": 75.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:3:2",
+      "fixture": "core:pool_light_round",
+      "x": 59.2,
+      "z": 75.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:3:3",
+      "fixture": "core:pool_light_round",
+      "x": 63.2,
+      "z": 75.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:3:4",
+      "fixture": "core:pool_light_round",
+      "x": 67.2,
+      "z": 75.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:3:5",
+      "fixture": "core:pool_light_round",
+      "x": 71.2,
+      "z": 75.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:4:0",
+      "fixture": "core:pool_light_round",
+      "x": 51.2,
+      "z": 79.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:4:1",
+      "fixture": "core:pool_light_round",
+      "x": 55.2,
+      "z": 79.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:4:2",
+      "fixture": "core:pool_light_round",
+      "x": 59.2,
+      "z": 79.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:4:3",
+      "fixture": "core:pool_light_round",
+      "x": 63.2,
+      "z": 79.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:4:4",
+      "fixture": "core:pool_light_round",
+      "x": 67.2,
+      "z": 79.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:beach-light:4:5",
+      "fixture": "core:pool_light_round",
+      "x": 71.2,
+      "z": 79.35,
       "brightness": 0.52
     }
   ],
@@ -9443,6 +9738,926 @@
       ],
       "scale": 0.5,
       "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:beach-bunting:ceiling",
+      "display_name": "Beach Bunting",
+      "model": "beach:bunting",
+      "x": 51.2,
+      "z": 63.35,
+      "size": [
+        4.4,
+        0.45,
+        0.024
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.7272727272727273,
+      "y": 6.973
+    },
+    {
+      "id": "zoo:beach-coastal_rock:floor",
+      "display_name": "Faceted Coastal Rock",
+      "model": "beach:coastal_rock",
+      "x": 55.2,
+      "z": 63.35,
+      "size": [
+        1.2,
+        1.2,
+        1.05
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 1.0
+    },
+    {
+      "id": "zoo:beach-coastal_rock_wide:floor",
+      "display_name": "Low Coastal Boulder",
+      "model": "beach:coastal_rock_wide",
+      "x": 59.2,
+      "z": 63.35,
+      "size": [
+        2.6,
+        1.5,
+        2.0
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 1.0
+    },
+    {
+      "id": "zoo:beach-crab:floor",
+      "display_name": "Beach Crab",
+      "model": "beach:crab",
+      "x": 63.2,
+      "z": 63.35,
+      "size": [
+        0.832,
+        0.381,
+        0.561
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        },
+        {
+          "component": "animation",
+          "clip": "idle",
+          "looped": true,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 1.0
+    },
+    {
+      "id": "zoo:beach-crate:floor",
+      "display_name": "Beach Crate",
+      "model": "beach:crate",
+      "x": 67.2,
+      "z": 63.35,
+      "size": [
+        0.82,
+        0.82,
+        0.82
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 1.0
+    },
+    {
+      "id": "zoo:beach-dock:floor",
+      "display_name": "Beach Dock",
+      "model": "beach:dock",
+      "x": 71.2,
+      "z": 63.35,
+      "size": [
+        4.4,
+        1.6,
+        2.2
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.7272727272727273
+    },
+    {
+      "id": "zoo:beach-fish:water",
+      "display_name": "Beach Fish",
+      "model": "beach:fish",
+      "x": 51.2,
+      "z": 67.35,
+      "size": [
+        0.294,
+        0.377,
+        0.638
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        },
+        {
+          "component": "animation",
+          "clip": "swim",
+          "looped": true,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 1.0,
+      "y": 0.45
+    },
+    {
+      "id": "zoo:beach-grassy_bank:floor",
+      "display_name": "Green Inland Bank",
+      "model": "beach:grassy_bank",
+      "x": 55.2,
+      "z": 67.35,
+      "size": [
+        8.0,
+        0.75,
+        5.0
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.4
+    },
+    {
+      "id": "zoo:beach-hut_brown:floor",
+      "display_name": "Beach Hut Brown",
+      "model": "beach:hut_brown",
+      "x": 59.2,
+      "z": 67.35,
+      "size": [
+        3.5,
+        3.55,
+        3.24
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.9014084507042255
+    },
+    {
+      "id": "zoo:beach-island:floor",
+      "display_name": "Green-capped Coastal Island",
+      "model": "beach:island",
+      "x": 63.2,
+      "z": 67.35,
+      "size": [
+        10.0,
+        3.6,
+        7.0
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.32
+    },
+    {
+      "id": "zoo:beach-kiosk:floor",
+      "display_name": "Beach Kiosk",
+      "model": "beach:kiosk",
+      "x": 67.2,
+      "z": 67.35,
+      "size": [
+        3.2,
+        3.64,
+        2.9
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.8791208791208791
+    },
+    {
+      "id": "zoo:beach-lighthouse:floor",
+      "display_name": "Beach Lighthouse",
+      "model": "beach:lighthouse",
+      "x": 71.2,
+      "z": 67.35,
+      "size": [
+        2.72,
+        7.7,
+        2.72
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.4155844155844156
+    },
+    {
+      "id": "zoo:beach-lounge_chair:floor",
+      "display_name": "Beach Lounge Chair",
+      "model": "beach:lounge_chair",
+      "x": 51.2,
+      "z": 71.35,
+      "size": [
+        0.74,
+        1.1,
+        1.51
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 1.0
+    },
+    {
+      "id": "zoo:beach-palm:floor",
+      "display_name": "Banded Bent Palm",
+      "model": "beach:palm",
+      "x": 55.2,
+      "z": 71.35,
+      "size": [
+        4.8,
+        6.0,
+        4.4
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.5333333333333333
+    },
+    {
+      "id": "zoo:beach-palm_small:floor",
+      "display_name": "Small Banded Palm",
+      "model": "beach:palm_small",
+      "x": 59.2,
+      "z": 71.35,
+      "size": [
+        3.5,
+        4.2,
+        3.2
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.7619047619047619
+    },
+    {
+      "id": "zoo:beach-sand_patch:floor",
+      "display_name": "Cream Beach Sand Patch",
+      "model": "beach:sand_patch",
+      "x": 63.2,
+      "z": 71.35,
+      "size": [
+        8.0,
+        0.22,
+        6.0
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.4
+    },
+    {
+      "id": "zoo:beach-sea_arch:floor",
+      "display_name": "Grass-capped Sea Arch",
+      "model": "beach:sea_arch",
+      "x": 67.2,
+      "z": 71.35,
+      "size": [
+        13.0,
+        5.8,
+        4.5
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.24615384615384617
+    },
+    {
+      "id": "zoo:beach-seagull:floor",
+      "display_name": "Beach Seagull",
+      "model": "beach:seagull",
+      "x": 71.2,
+      "z": 71.35,
+      "size": [
+        1.096,
+        0.747,
+        0.886
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        },
+        {
+          "component": "animation",
+          "clip": "idle",
+          "looped": true,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 1.0
+    },
+    {
+      "id": "zoo:beach-shoreline_foam:floor",
+      "display_name": "Curved Shore Foam",
+      "model": "beach:shoreline_foam",
+      "x": 51.2,
+      "z": 75.35,
+      "size": [
+        8.0,
+        0.04,
+        1.1
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.4
+    },
+    {
+      "id": "zoo:beach-signpost:floor",
+      "display_name": "Beach Signpost",
+      "model": "beach:signpost",
+      "x": 55.2,
+      "z": 75.35,
+      "size": [
+        1.2,
+        1.76,
+        0.2
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 1.0
+    },
+    {
+      "id": "zoo:beach-stilt_house_blue:floor",
+      "display_name": "Beach Stilt House Blue",
+      "model": "beach:stilt_house_blue",
+      "x": 59.2,
+      "z": 75.35,
+      "size": [
+        5.4,
+        6.08,
+        4.7
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.5263157894736842
+    },
+    {
+      "id": "zoo:beach-town_arch:floor",
+      "display_name": "Beach Town Arch",
+      "model": "beach:town_arch",
+      "x": 63.2,
+      "z": 75.35,
+      "size": [
+        3.6,
+        2.8,
+        0.42
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.888888888888889
+    },
+    {
+      "id": "zoo:beach-town_house_blue:floor",
+      "display_name": "Beach Town House Blue",
+      "model": "beach:town_house_blue",
+      "x": 67.2,
+      "z": 75.35,
+      "size": [
+        4.2,
+        5.45,
+        3.75
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.5871559633027523
+    },
+    {
+      "id": "zoo:beach-town_house_coral:floor",
+      "display_name": "Beach Town House Coral",
+      "model": "beach:town_house_coral",
+      "x": 71.2,
+      "z": 75.35,
+      "size": [
+        3.8,
+        4.0,
+        3.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.8
+    },
+    {
+      "id": "zoo:beach-town_house_cream:floor",
+      "display_name": "Beach Town House Cream",
+      "model": "beach:town_house_cream",
+      "x": 51.2,
+      "z": 79.35,
+      "size": [
+        4.6,
+        5.4,
+        3.9
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.5925925925925926
+    },
+    {
+      "id": "zoo:beach-town_parapet:floor",
+      "display_name": "Beach Town Parapet",
+      "model": "beach:town_parapet",
+      "x": 55.2,
+      "z": 79.35,
+      "size": [
+        2.4,
+        0.74,
+        0.25
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 1.0
+    },
+    {
+      "id": "zoo:beach-town_shrub:floor",
+      "display_name": "Town Shrub Cluster",
+      "model": "beach:town_shrub",
+      "x": 59.2,
+      "z": 79.35,
+      "size": [
+        1.3,
+        0.8,
+        1.15
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 1.0
+    },
+    {
+      "id": "zoo:beach-town_stairs:floor",
+      "display_name": "Beach Town Stairs",
+      "model": "beach:town_stairs",
+      "x": 63.2,
+      "z": 79.35,
+      "size": [
+        1.4,
+        2.4,
+        4.2
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.7619047619047619
+    },
+    {
+      "id": "zoo:beach-town_terrace:floor",
+      "display_name": "Beach Town Terrace",
+      "model": "beach:town_terrace",
+      "x": 67.2,
+      "z": 79.35,
+      "size": [
+        4.0,
+        0.9,
+        3.0
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.8
+    },
+    {
+      "id": "zoo:beach-umbrella:floor",
+      "display_name": "Beach Umbrella",
+      "model": "beach:umbrella",
+      "x": 71.2,
+      "z": 79.35,
+      "size": [
+        2.4,
+        2.55,
+        2.4
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 1.0
     }
   ],
   "decals": [
@@ -9720,6 +10935,62 @@
       ]
     }
   ],
+  "timers": [
+    {
+      "id": "zoo:beach-crab:start",
+      "seconds": 0.05,
+      "autostart": true,
+      "bindings": [
+        {
+          "on": "timer",
+          "actions": [
+            {
+              "action": "play_animation",
+              "target": "zoo:beach-crab:floor",
+              "clip": "idle",
+              "loop": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:beach-fish:start",
+      "seconds": 0.05,
+      "autostart": true,
+      "bindings": [
+        {
+          "on": "timer",
+          "actions": [
+            {
+              "action": "play_animation",
+              "target": "zoo:beach-fish:water",
+              "clip": "swim",
+              "loop": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:beach-seagull:start",
+      "seconds": 0.05,
+      "autostart": true,
+      "bindings": [
+        {
+          "on": "timer",
+          "actions": [
+            {
+              "action": "play_animation",
+              "target": "zoo:beach-seagull:floor",
+              "clip": "idle",
+              "loop": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
   "volumes": [],
   "spawn_templates": [
     {
@@ -9855,6 +11126,38 @@
       "width": 4.0,
       "depth": 6.0,
       "note": "The showroom's exit passage opens onto the void by design."
+    },
+    {
+      "check": "missing-wall",
+      "x": 49.5,
+      "z": 61.35,
+      "width": 0.6,
+      "depth": 20.0,
+      "note": "An open annex ownership seam beside the real fish basin."
+    },
+    {
+      "check": "missing-wall",
+      "x": 52.3,
+      "z": 61.35,
+      "width": 0.6,
+      "depth": 20.0,
+      "note": "An open annex ownership seam beside the real fish basin."
+    },
+    {
+      "check": "missing-wall",
+      "x": 49.8,
+      "z": 65.65,
+      "width": 2.8,
+      "depth": 0.6,
+      "note": "The fish display has an intentionally open basin rim."
+    },
+    {
+      "check": "missing-wall",
+      "x": 49.8,
+      "z": 68.45,
+      "width": 2.8,
+      "depth": 0.6,
+      "note": "The fish display has an intentionally open basin rim."
     }
   ]
 }

@@ -39,6 +39,9 @@ def main():
         'pumpkin-skeleton',
         'sheet-ghost',
         'sheet-ghost-cat',
+        'beach_seagull',
+        'beach_crab',
+        'beach_fish',
     ):
         model = Model(REPO_ROOT / f'assets/entities/{name}/model/{name}.glb')
         animations = {a['name']: a for a in model.animations}

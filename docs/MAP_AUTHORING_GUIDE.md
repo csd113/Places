@@ -7289,6 +7289,52 @@ rebuild errors. Genuine old packages without provenance retain their compatible
 immutable-bundle contract. The runtime cache keys prepared manifest identity and
 quality; no file hashing, source compilation or static bake occurs per frame.
 
+## Beach construction pieces
+
+The `beach:` catalog provides 27 static visuals, three animated animals, ten
+surface PNG families, two sea materials and a seamless day panorama. The
+[Beach kit](../assets/environment/beach/README.md) maps B01–B18 to resource IDs
+and gives deterministic source locations. This is an authoring kit; composing
+the connected `beach_demo` is a separate phase.
+
+`tools/levels/beach_components.py` supplies `shore_segment(x, sea_z, shore_z,
+width)` and `daylight()` as existing v3 arrays. The shore has real lowered
+support, two gentle ramps and separate deep/shallow WaterDef volumes. Ramps
+are narrow enough that their longer dimension runs north/south, as the current
+engine requires. The containing room begins at the seabed so underwater entity
+anchors receive prepared lighting, while raised dry support reaches world Y=0.
+Water X edges are inset 2 cm to clear the 1 cm room-edge tolerance, keeping
+corners inside their own room when
+adjacent strips have different shore positions. Inset water within separately
+lowered room basins too: exact shared edges resolve to the earlier room.
+Place adjoining strips to follow a curved coast; use the
+scalloped foam GLB along their visual edge. Decorative terrain never substitutes
+for a floor. Keep raised deck regions outside ramps to preserve one support
+owner at each point.
+
+`tools/props/parts/beach_structures.py::placed_components` emits separate
+visual, blocker and support arrays for dock, hollow timber buildings, town
+portals, terraces and rotated stairs. Inputs are a world base position, the
+containing room's `floor_y`, quarter-turn yaw and unique instance identity.
+Its optional `floor_at(x,z)` callback resolves pre-existing lowered regions or
+ramps; returned prop Y offsets already compensate for the helper's own support.
+Merge the arrays into real containing rooms and author safe approaches/landings.
+Separate tight pier/curved-header blockers preserve standing headroom through
+the visible portals. Twelve tread regions supply
+stair traversal for any quarter turn; no unsupported stair direction is used.
+Thin companion surfaces sit inside visible stock, avoiding duplicate faces.
+
+`beach_nature.py::placed_components("sea_arch", ...)` supplies separate tight
+piers/header blockers around the real opening, with the same world-base and
+floor callback contract. Author its supported approach or seabed separately.
+Other nature visuals need separate collision where reachable; palm bounds in
+`PALM_TRUNKS` measure the bent trunk rather than canopy. Animal READMEs contain
+explicit initialization actions and their measured looping pose envelopes.
+Perched gulls use Y=0 relative to actual deck support; fish use a positive Y
+offset above a submerged floor. Flying and swimming stay within their authored
+lighting anchors. The day helper matches panorama sun direction; lighting uses
+the existing directional, ambient, HDR bake and probe paths.
+
 ## Add a new texture
 
 1. Create the PNG: square, opaque, tileable, ≤1024 (256 preferred), 8-bit.

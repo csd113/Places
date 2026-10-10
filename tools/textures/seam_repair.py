@@ -443,10 +443,11 @@ def measure(pixels: bytes, width: int, height: int, channels: int) -> dict[str, 
     return result
 
 
-def file_verdict(measured: dict[str, dict[str, AxisMetrics]]) -> tuple[bool, list[str]]:
-    """Returns (passes, failure reasons) over every axis, channel and metric."""
+def file_verdict(measured: dict[str, dict[str, AxisMetrics]],
+                 *, axes: tuple[str, ...] = ("lr", "tb")) -> tuple[bool, list[str]]:
+    """Check repeated axes; panoramas repeat longitude and clamp latitude."""
     reasons: list[str] = []
-    for axis in ("lr", "tb"):
+    for axis in axes:
         for name, metrics in measured[axis].items():
             raw, smooth = metrics.summaries()
             raw_ok = _accepts(metrics.raw_wrap, metrics.raw_interior)

@@ -71,10 +71,21 @@ fn sky_uv(ndc: vec2<f32>) -> vec2<f32> {
     return vec2<f32>(u, v);
 }
 
+fn sample_sky(ndc: vec2<f32>) -> vec4<f32> {
+    let uv = sky_uv(ndc);
+    let dx = dpdx(uv);
+    let dy = dpdy(uv);
+    // atan2 jumps by one turn at the panorama join. Remove that jump from
+    // the footprint so both sides select the same mip while retaining filtering.
+    let continuous_dx = vec2<f32>(dx.x - round(dx.x), dx.y);
+    let continuous_dy = vec2<f32>(dy.x - round(dy.x), dy.y);
+    return textureSampleGrad(sky_texture, sky_sampler, uv, continuous_dx, continuous_dy);
+}
+
 // The surface (sRGB) entry point: the authored display value converted once.
 @fragment
 fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
-    let base = textureSample(sky_texture, sky_sampler, sky_uv(in.ndc));
+    let base = sample_sky(in.ndc);
     return vec4<f32>(mix(base.rgb * sky.params.x, srgb_to_linear(sky.storm.rgb), sky.storm.a), 1.0);
 }
 
@@ -82,7 +93,7 @@ fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
 // directly, the same convention the world and decal raw stages use.
 @fragment
 fn fs_main_raw(in: VsOut) -> @location(0) vec4<f32> {
-    let base = textureSample(sky_texture, sky_sampler, sky_uv(in.ndc));
+    let base = sample_sky(in.ndc);
     return vec4<f32>(target_color(mix(base.rgb * sky.params.x, srgb_to_linear(sky.storm.rgb), sky.storm.a)), 1.0);
 }
 

@@ -399,3 +399,73 @@ gameplay certification or performance measurement was attempted. No native
 presentation limitation was tested in this phase. All final completion-gate
 claims remain for the sequential implementation phases, with any blocked test
 reported explicitly rather than marked complete.
+
+## 7. Phase 2 asset integration
+
+The [Beach kit](../assets/environment/beach/README.md) covers B01–B18 with
+27 static GLBs, three skinned animals, five looping clips and 29 retained PNGs
+(source/runtime surfaces and atlases, plus the day panorama). Its 52 catalog
+resources comprise 30 placeables, 11 textures and 11 materials. Total asset
+geometry is 7,786 triangles. The seven labelled surface families and the
+depicted roof, grass, foam, umbrella and chair finishes are represented.
+
+Deterministic generators load committed native artwork. Independent review
+accepted all 30 meshes, fitted UVs, outward closed components, source texture
+identity and the complete concept inventory. Separate structural recipes
+cover dock support, hollow buildings, town portals, rotated stair treads and
+the sea arch's tight pier/header blockers. Standing portal sweeps passed;
+decorative rock/island/terrain visuals still require authored support wherever
+the player can reach them.
+
+The shore helper provides real seabed room containment, raised dry support,
+gentle ramps and the existing water renderer. Its water corners clear the
+engine's 1 cm room-edge tolerance. The daylight panorama and directional sun
+share their bearing/elevation. The three animals have explicit playback
+actions in the generated Model Zoo annex; all original Zoo placements,
+routes, rooms and numeric fixture values remain unchanged. The fish basin is
+a real lowered room, with water inset from its ownership seams.
+
+Maintained animal clip sweeps now sample runtime-equivalent spherical
+rotations, STEP keys and complete XYZ pose bounds. A narrow shared sky shader
+fix keeps mip derivatives continuous across the panorama's U wrap in both
+fragment paths. An actual native camera exposed the old dashed seam despite
+matching PNG edges; the corrected capture changes only the wrap strip.
+No HDR storage, water simulation or NPC framework changes were introduced.
+
+Local validation passed catalog/asset checks, deterministic exports, 120 Hz
+pose bounds and maintained clip-boundary sweeps. Formatting, workspace checks,
+debug/release strict Clippy and workspace tests passed: 2,203 library tests
+plus seven additional tests with all features, and 2,197 plus seven with the
+default features. The complete Python suite passed 304 tests. The bundled
+Medium/Full atlas preflight and both native Low-lighting resource checks passed.
+The final rebuilt player passed embedded-Demo and reflection-probe smoke checks.
+
+All ten installed packages were refreshed through the normal compiler workflow
+after the sky fix, then passed current-provenance verification, full-record
+validation and archive CRC checks. Unchanged builds reused their exact bytes.
+Every runtime payload hash matches the preserved pre-refresh package; only
+compiler provenance changed. The compiler identity remained stable after the
+final ordinary release rebuild.
+
+Thirty-two actual asset-view receipts cover High, Medium and Low, including
+the corrected panorama join. All new animal payloads use prepared lighting
+with eight valid anchors at Medium/High. Low retains the existing reduced
+lighting and reflection behavior. Twelve targeted original-hero receipts
+show all six camera pairs byte-identical before/after the sky fix. These are
+asset validation captures, not final demo or performance certification.
+
+Five curated, unmodified final native captures show the
+[coast](images/two-environments/beach/phase2-coast.png),
+[town](images/two-environments/beach/phase2-town.png),
+[furniture](images/two-environments/beach/phase2-furniture.png),
+[animals](images/two-environments/beach/phase2-animals.png) and
+[submerged fish](images/two-environments/beach/phase2-fish.png).
+
+Phase 3 must compose the connected `beach_demo`, including safe hut thresholds,
+stairs/landings, dock approaches, rocks/island support and continuous coast/water
+seams. Keep one supported floor owner per point. Use real seabed-containing
+rooms for submerged fish, floor-relative actor Y, explicit clip-start actions
+and unique module identities. Inspect continuous water across adjoining strips;
+the small ownership inset is a construction safeguard, not final coastline
+composition. Playable traversal, final quality/performance campaigns and the
+finished hero remain Phase 3 work. No Aero work has started.

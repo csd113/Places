@@ -129,7 +129,10 @@ fn shipped_catalog_classifies_environments_themes_and_entities() {
         .iter()
         .map(|theme| theme.id.as_str())
         .collect();
-    assert_eq!(themes, ["office", "pool", "home", "outdoor", "winter"]);
+    assert_eq!(
+        themes,
+        ["office", "pool", "home", "outdoor", "winter", "beach"]
+    );
     assert!(
         catalog
             .themes()

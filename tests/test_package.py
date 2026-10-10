@@ -861,6 +861,7 @@ class EnvironmentTextureTests(unittest.TestCase):
             entry["model"]
             for entry in catalog_entries("texture")
             if entry.get("asset_class") == "environment"
+            and entry.get("surface") != "sky"
         ]
         self.assertGreaterEqual(
             len(surfaces), 10, "the environment surface set is incomplete"
@@ -877,6 +878,22 @@ class EnvironmentTextureTests(unittest.TestCase):
             check=False,
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_every_sky_panorama_joins_on_longitude(self):
+        """Sky sampling wraps U and clamps V; horizon and zenith differ."""
+        sys.path.insert(0, str(PACKAGE / "tools" / "textures"))
+        from seam_repair import file_verdict, measure, read_png
+
+        skies = [entry for entry in catalog_entries("texture")
+                 if entry.get("surface") == "sky"]
+        self.assertTrue(skies, "the catalog declares no sky panoramas")
+        for texture in skies:
+            image = read_png(str(PACKAGE / "assets" / texture["model"]))
+            passes, reasons = file_verdict(
+                measure(image.pixels, image.width, image.height, image.channels),
+                axes=("lr",),
+            )
+            self.assertTrue(passes, f"{texture['id']}: {reasons}")
 
     def test_the_six_core_material_ids_still_exist(self):
         by_id = {entry["id"]: entry for entry in catalog_entries()}

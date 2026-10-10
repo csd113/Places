@@ -308,6 +308,16 @@ fn test_shipped_surface_textures_tile() {
         ("pool_wall", "core:tex_pool_tile_wall_01"),
         ("pool_ceiling", "core:tex_pool_ceiling_01"),
         ("pool_water", "core:tex_pool_water_01"),
+        ("beach_sand", "beach:tex_sand_01"),
+        ("beach_water", "beach:tex_water_01"),
+        ("beach_rock", "beach:tex_rock_01"),
+        ("beach_stucco", "beach:tex_stucco_01"),
+        ("beach_wood", "beach:tex_wood_plank_01"),
+        ("beach_trunk", "beach:tex_palm_trunk_01"),
+        ("beach_leaf", "beach:tex_palm_leaf_01"),
+        ("beach_grass", "beach:tex_grass_01"),
+        ("beach_roof", "beach:tex_roof_yellow_01"),
+        ("beach_foam", "beach:tex_foam_01"),
     ] {
         let image = texture_image(texture);
         assert_axis_tiles(name, &image, true);

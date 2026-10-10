@@ -1080,6 +1080,43 @@ complete bases remain in preserved review copies and preceding commits.
 evidence. No Outdoors source file is changed by that Winter reconciliation.
 
 
+### 8.11 Beach concept reconstruction
+
+The Beach kit keeps existing asset classes and importer behavior. Its 27
+static models use metres, +Y up, +Z forward, horizontally centred floor-contact
+origins and opaque closed faceted geometry. Their fitted shared atlas retains
+a fixed 4×4 layout: sand/grass/rock/stucco, wood/plank/palmtrunk/palmleaf,
+blue/coral/yellow/ivory, dark/turquoise/window/foam. The 1024² master and exact
+256² Lanczos native derivative live in `environment/beach/props/models/`;
+every GLB embeds the native PNG unchanged. Pale town coral is model vertex
+tint over ivory; umbrella sectors and chair upholstery use their fitted cells.
+Flat geometric normals are intentional under the established importer fallback.
+There are no new tangent/normal-map or emissive contracts.
+
+Seven labelled surface families plus grass, yellow roof and foam have opaque
+1024² square masters and seamless 512² runtime PNGs under the Beach texture
+subtree. Opposite edges agree exactly. They use broad clean material marks,
+without baked directional lighting. The shallow/deep water definitions share
+one polygon-cell PNG; BLEND coverage belongs to the existing material/WaterDef
+workflow, not image alpha. The sky is opaque seamless 2048×1024 equirectangular
+art, with +Y zenith at V=0, −Z at U=.5, sun bearing/elevation +45°/+45° and
+no baked landscape. Its matching authoring light points toward [−.5, −√.5, .5].
+
+Three animal rigs live in their own `entities/beach_<animal>/` subtrees. Each
+owns an opaque 1024² source and fitted 256² box-average derivative, embedded
+unchanged in its GLB. Their five looping clips preserve the runtime bind
+half-extent ×1.15 +.05 m culling and lighting envelopes at every sampled pose.
+Explicit `play_animation` actions initialize idle/fly, idle/walk and swim;
+`animation.playing` alone is insufficient. See the per-animal READMEs for
+measured dimensions, UV regions, pose bounds and floor-relative placement.
+
+Normal builds load committed PNGs. `tools/textures/beach_art.py --author` and
+animal `--author-textures` are deliberate offline authoring commands. Their
+`--check` modes reproduce both sources and derivatives without replacing them.
+[Beach kit](../assets/environment/beach/README.md) records inventory and support
+helpers. Decorative terrain, hollow structures and dock GLBs do not create
+walking collision; the map owner must install the separate authored support.
+
 ## 9. Emissive textures and masks
 
 Places does **not** use dedicated emissive colour textures. Emission is
