@@ -1,34 +1,60 @@
-# Beach and Frutiger Aero implementation plan
+# Beach and Frutiger Aero final program report
 
-Phase 1 discovery, October 9, 2026. Verified against `Art-style` at
-`8a263b1c6914f3a570d3196faf8476080f396d85`, Rust/Cargo **1.99.0**, SDL3/wgpu.
-This is a content implementation specification, not a claim that either demo
-exists or has passed gameplay/visual certification. Phases 2–5 run sequentially.
-Retain current HDR and baked precision; the separate
-[storage investigation](compiled-map-size-investigation.md) and
-[HDR audit](hdr-visual-value-audit.md) are outside this program's implementation scope.
+Final Phase 5 integration on `Art-style`, October 10, 2026. Both demos are playable, independently reviewed against their concept sheets and refined; all local final gates passed.
+Both original concept sheets were inspected at original resolution by the primary
+and independent visual reviewer. Independent lighting/material and traversal/technical
+reviews also accepted the final demos. All B01–B18 and A01–A15 families are implemented
+and naturally placed. This report consolidates all five
+phases; the authoring and asset contracts remain in their canonical guides.
 
-## 1. Verified references and coverage
+## Playable deliverables
 
-The two newest concept sheets by local modification time are the expected sets.
-Both were inspected in full at original resolution by the primary and independent
-art specialists. No additional Beach/Aero variants, theme READMEs or design notes
-were found. Existing environment notes describe the older five themes.
+| Demo | Authoring source | Shipped playable package | Generator |
+| --- | --- | --- | --- |
+| Beach | `assets/levels/beach_demo.json` | `assets/levels/beach_demo.placesmap` | `tools/levels/build_beach.py` |
+| Frutiger Aero | `assets/levels/frutiger_aero_demo.json` | `assets/levels/frutiger_aero_demo.placesmap` | `tools/levels/build_frutiger_aero.py` |
 
-| Reference, relative to repository root | Pixels | SHA-256 |
+Beach is a connected 48×52 m cove with sand, submerged support, pier, hollow
+waterfront buildings, town arches/stairs and a planted inland return. Aero connects
+its 12×12 m atrium, 10×4 m corridor, 10×11 m reception and 32×8 m garden terrace.
+Both use real structural support and tight local collision around hollow models.
+Scenery boundaries keep landmarks within the 100 m camera range.
+
+After the authorized final clean, use the retained ordinary player:
+
+```sh
+player=tools/bench/results/environment-program-20261009/phase5-final-tools/places
+PLACES_ASSET_ROOT="$PWD" PLACES_LEVEL=beach_demo "$player"
+PLACES_ASSET_ROOT="$PWD" PLACES_LEVEL=frutiger_aero_demo "$player"
+```
+
+For a fresh checkout, `cargo build --release` recreates `target/release/places`.
+
+The final ordinary tools and self-contained runnable snapshots are preserved
+outside `target` in `tools/bench/results/environment-program-20261009/phase5-final-tools/`
+and `phase5-final-runnable/`. That ignored evidence queue also holds manifests,
+exact package/tool identities and recoverable raw evidence, rather than duplicating
+large audits in the public documentation. The separately supplied storage/HDR
+audits and all nine unrelated inputs remain unchanged.
+
+## Reference coverage and assets
+
+| Immutable concept | Pixels | SHA-256 |
 | --- | --- | --- |
-| `assets/environment/Low-Poly Tropical Beach Concept Board.png` | 1536×1024 | `6f6f97f68890c15ddf5c5fa977757f62f28d4635865bffb87ef17286c846df03` |
-| `assets/environment/Frutiger Aero Places Concept Sheet.png` | 1448×1086 | `4cc998ad3535219dd2d938c495f4274bad92712c5464715c618c0abc8d8bb34a` |
+| `assets/environment/Low-Poly Tropical Beach Concept Board.png` |1536×1024|`6f6f97f68890c15ddf5c5fa977757f62f28d4635865bffb87ef17286c846df03`|
+| `assets/environment/Frutiger Aero Places Concept Sheet.png` |1448×1086|`4cc998ad3535219dd2d938c495f4274bad92712c5464715c618c0abc8d8bb34a`|
 
-The sheets are currently **untracked user inputs**. Preserve their bytes and paths;
-publish them unchanged with their corresponding implementation phase. Do not crop
-the boards into shipping textures or mistake their preview skies for panoramas.
-The following coverage keys must carry through asset integration, demo placement
-and final certification. Scene-only landmarks count alongside labeled prop strips.
+The [Beach kit](../assets/environment/beach/README.md) contains 27 static GLBs,
+three skinned animal families, five clips and 29 retained PNGs. Its 52 catalog
+resources comprise 30 placeables, 11 textures and 11 materials; asset geometry totals
+7,786 triangles. Seven labelled surface families—sand, water, rock, stucco, wood,
+palm trunk and palm leaf—plus roof, grass, foam, upholstery and umbrella resources
+are committed artwork. Source paths are `assets/environment/beach/` and
+`assets/entities/beach_{seagull,crab,fish}/`.
 
-### Beach — sunny, colorful, relaxing
+### Beach
 
-| Key | Required depicted content and acceptance details | Natural showcase location |
+| Key | Implemented reference content | Natural showcase location |
 | --- | --- | --- |
 | B01 | Cream faceted sand, gently curved shore, green ground behind palms, irregular white foam edge | Main beach and shallow entry |
 | B02 | Cyan/turquoise shallows, deeper blue sea, broad clean polygon-cell water pattern | Shore and pier; submerged floor remains real geometry |
@@ -49,22 +75,15 @@ and final certification. Scene-only landmarks count alongside labeled prop strip
 | B17 | **Fish: swim**; yellow face/bands, turquoise body/fins, dorsal fin, forked tail | Clear shallow water beside pier |
 | B18 | Bright blue daylight sky, pale horizon, chunky faceted white/icy-blue cumulus and small sun | Seamless panoramic sky; real island geometry supplies parallax |
 
-The board explicitly labels seven square surface families: **sand, water, rock,
-stucco wall, wood plank, palm trunk, palm leaf**. Reconstruct all seven as real
-PNG artwork; the printed 1024² labels describe the concept, while runtime asset
-class contracts and measured visibility determine production resolution. Roof,
-grass, upholstery and umbrella colors also need fitted/tiled resources where used.
-Sunlight and cool shaded faces are depicted; no artificial Beach light fixture
-or complex NPC behavior is required. Animation labels specify clips, not timing.
+The [Aero kit](../assets/environment/frutiger_aero/README.md) contains 23 GLBs
+(6,864 triangles), 26 PNGs, six materials and five reusable decal entries. Clean
+white paneling, aqua tile, cyan glass/upholstery/water, restrained silver trim,
+lime graphics and green foliage retain the depicted silhouettes and fitted UVs.
+The below-grade scenery foundation reuses the committed Beach grass PNG.
 
-Palette reference samples: blue `#1f74c7`, cyan `#22acdc`, turquoise `#54d3d6`,
-sand `#ead2a8`, ivory `#ede7db`, grass `#74b041`, lime `#bbd868`,
-coral `#f46753`, yellow `#fed95d`. These are shaded-art samples, not baked
-illumination or mandatory material multipliers.
+### Frutiger Aero
 
-### Frutiger Aero — nature, clean materials, optimistic space
-
-| Key / sheet label | Required depicted content and acceptance details | Natural showcase location |
+| Key / sheet label | Implemented reference content | Natural showcase location |
 | --- | --- | --- |
 | A01 / 01 | Broad rounded white frame with panel seams, cyan glazing, returning end and angular green leaf motif | Atrium glazing/bays |
 | A02 / 02 | Wide faceted round-crown white portal, straight jambs, **lime inner band**, small cyan base insert, open center | Atrium/corridor threshold |
@@ -82,698 +101,220 @@ illumination or mandatory material multipliers.
 | A14 / graphics | Leaf branding; atrium “NATURE / PEOPLE / TECHNOLOGY / TOGETHER”; corridor “CLEANER / SPACES / BRIGHTER / TOMORROWS”; reception “PLACES / A BRIGHTER / TOMORROW / TOGETHER” | Fitted signage, banners and graphic panels |
 | A15 / backdrop | Bright pale-blue cloudy sky, distant blue city towers and green landscape beyond glazing | Nontraversable scenic perimeter/backdrop |
 
-Required material families: clean off-white ceramic/plastic paneling, aqua tile,
-cyan glass, cyan upholstery, restrained silver trim, lime/mint graphics,
-green foliage/brown branches and cyan water. Palette samples: white `#f5f0ea`,
-aqua `#02b3e7`, sky `#38affc`, turquoise `#02b7a7`, lime `#6dca36`,
-mint `#80d2ba`, silver `#95999f`. Preserve legible clean color blocks and
-controlled highlights; no grime or photographic material treatment.
+All imagery loads from real committed PNGs. Surface tiling, fitted graphics,
+alpha, aspect ratios, +Y-up/+Z-front orientation and model base/UV contracts follow
+[ASSET_SPECIFICATION.md](ASSET_SPECIFICATION.md). Both daylight panoramas are
+seamless 2:1 equirectangular skies with cloudy faceted artwork; the authored sun
+matches the panorama bearing/elevation. No concept-board crop is used as a texture.
 
-No animals, people, terrain kit, river or locomoting entity is depicted. The
-header globe/bubbles/leaves are a supporting motif, already represented by the
-sculpture and graphics. “Dynamic and calming” does not specify motion: a subtle
-local sphere bob is an optional, documented interpretation, not a missing NPC.
-The city is scenery, not a requirement to build a traversable metropolis.
+## Animation and rendering contracts
 
-## 2. Verified facilities, gaps and implementation decisions
+Beach explicitly initializes gull `idle`/`fly`, crab `idle`/`walk` and fish `swim`.
+The walking crab follows a one-metre sand route at approximately 0.16 m/s with idle
+pauses and a turn/return. The other flight/swim clips animate locally around fixed
+world anchors; they are bounded presentations, without airborne/swimming navigation.
+Full 120 Hz pose sweeps preserve all XYZ culling envelopes, with minimum margin
+57.7 mm for gulls, 74.3 mm for crab and 64.8 mm for fish. Underwater fish keep more than
+0.52 m clearance over the real seabed throughout their clip.
 
-Follow [map authoring](MAP_AUTHORING_GUIDE.md),
-[asset contracts](ASSET_SPECIFICATION.md), [asset architecture](../assets/README.md)
-and [desktop verification](VERIFICATION.md). Implementation wins over older
-summary tables. Current geometry revision is **8**, solver **17**, cache **14**;
-package major 1, schema 3, PLMP6/PLPF3 remain the baseline.
+Baked directional sunlight, soft visibility, direct/indirect HDR transport,
+spatial irradiance probes, projected character grounding, reflection probes,
+water tint/attenuation, slight fog and optional bloom use the existing renderer.
+The Aero fixtures retain legitimate housing shadows and explicit local emitters.
+World material normal maps and current model-lighting precision are preserved.
+Exposure/ambient settings, global precision and production Rust renderer are
+unchanged in Phase 5; skeleton/kitchen/corridor fixes remain protected.
 
-| Facility / actual implementation | Reuse and limits governing these demos |
+Phase 2 corrected the panorama U-wrap derivative seam. Phase 3 corrected world-Y
+versus seabed-relative authored light positions and Low sunlight depth handling.
+Phase 4 added tested GLB BLEND/opacity authoring while preserving legacy outputs.
+Phase 5 corrects environment content without a movement or lighting-engine rewrite.
+
+## Final corrective work
+
+- Beach’s coarse 1/8 m shore joints drew conspicuous transverse sand bands. The
+  central curved shore now uses capped outer tangents and binary-exact 1/64 m joins,
+  with 64 supported bands, maximum 9.375 mm upper / 25 mm submerged lateral risers and
+  one continuous seabed room. The new regression checks at least 50 actual joins
+  on each grade. All 303 existing solid proxy transforms remain unchanged.
+- Foam formerly inherited narrow collision-band scale and became a ruler-thin
+  line. Sixteen independently placed broader fitted ribbons restore the irregular
+  white silhouette without adding geometry/texture assets. A reachable wider town
+  view now shows the stairs, arches, yellow roofs, bunting and shrubs together.
+- The glass sphere stack was smoky gray. Icy-cyan/white facets and .45 BLEND alpha
+  preserve the geometry and leaf detail with compact scalar sheen. The material’s
+  roughness .055 and metallic .12 are stylized authoring inputs, not full refraction.
+- Aero ceiling mottling was real prepared light, rather than albedo, flipped
+  normals or reflection noise. Existing direct/indirect/filtered/filled stage
+  diagnostics traced it to fixture-support/fill patterns. Ring housing is physically
+  recessed into the ceiling; eight small square rect emitters per ring lie within
+  its actual faceted luminous annulus and avoid the opaque centre. Sampled ceiling
+  variation improved; mild residual baked variation remains. No brightness floor,
+  ambient boost, disabled shadow or global quality reduction was introduced.
+- Green banks previously ended against sky below the glazing, including east
+  reception and corridor garden views. One closed nonsolid/nonoccluding scenic
+  foundation joins the landscape, 6 cm below every playable floor. Replacing adjoining
+  boxes also removed 16 buried coincident-face checker warnings at their source.
+
+Rejected dense shore/room-partition and fixture candidates are retained recoverably;
+atlas fallback or missing probe coverage was never accepted as a final bake.
+
+## Curated native screenshots
+
+These 17 PNGs are unmodified 1280×720 ordinary native wgpu captures, independently
+inspected against the original sheets. Old phase screenshots are recoverable in
+Git history and the evidence archive. `hero.png` identifies each promotional view.
+
+| Beach | Aero |
 | --- | --- |
-| Catalog: `assets/catalog.json`, `src/assets.rs`, `src/loader.rs` | Add data themes `beach` and `frutiger_aero`, globally unique prefixed IDs; no theme restriction or Rust enum is needed. Neither family currently exists. PNG → catalog texture/material → map reference; GLB → catalog prop/entity → instance. |
-| Geometry/tooling: `tools/props/mesh.py`, `glb.py`, `build.py`; `tools/entities/rig.py` | Use existing deterministic builders and closed geometry helpers. **Writer gaps:** prop materials emit OPAQUE/MASK only although runtime accepts BLEND, and the writer lacks NORMAL output. Phase 4 needs narrowly tested BLEND/opacity export; preserve intended faceting, adding optional normal export only if native inspection establishes a smooth-shading need. Preserve old output. |
-| GLB: `src/gltf.rs`, `src/render/wgpu/material.rs` | Embedded PNG, multi-material primitives, optional normals, skin/rigid-node clips/morphs, scalar sheen and emission work. GLB props currently have **no probe/planar reflection routing or normal-map import**. Only `KHR_materials_emissive_strength` is accepted; transmission/IOR/clearcoat are unsupported. Use geometry, normals and sheen for curved glossy objects; do not promise refractive glass. |
-| Architecture: `src/level.rs`, `src/collision.rs` | Rooms, open ceilings, regions, ramps/stairs, openings, arches, arc walls and pillars exist. Arbitrary GLB terrain is visual geometry, not a walkable floor. Roof profiles have no dome; author the glazed dome as a decorative GLB over an open-ceiling room. Hollow models use `solid:false` and explicit surrounding structural collision. |
-| Lighting: `src/lighting/`, `src/render/common/light_transport.rs`, `character.rs` | Baked direct/indirect HDR and spatial irradiance probes exist. `global_illuminators` provide baked directional sun with visibility/softness; sky ambient is separate. Entities receive bounds-based spatial lighting and bounded practical direct lights. There are no realtime shadow maps. Animated character meshes do not cast their current pose into baked world shadows; use existing projected contact grounding and retain static shadow-important scenery. |
-| Materials: `src/materials/`, `src/render/wgpu/world.wgsl` | Architectural normal maps, emission, specular/shine, probe reflections and one nearest visible half-resolution planar plane exist. Shine does not itself enable reflections. Emission does not create a light: pair the Aero pod GLB with explicit `props[].lights`. No new fixture family is necessary. |
-| Transparency: `src/render/wgpu/world.rs`, `src/lighting/transport/alpha.rs` | Shared stable back-to-front batch/object sorting, straight alpha with depth testing/no blend depth writes; no intersecting-triangle sorting or refraction. Keep panes separated and inspect from both sides. `occludes:false` does not erase drawn triangles from prepared transport; actual MASK/BLEND governs light transmission. Avoid stacked nested glass shells. |
-| Sky/atmosphere: `src/render/wgpu/sky.rs`, `src/environment.rs` | Real equirectangular panorama, brightness, separately authored sky ambient/color; distance/height fog and regional fog. Sky imagery does not supply sun illumination and is absent from reflection capture. Keep fog slight in these bright environments; far plane is 100 m. |
-| Water: `src/render/common/water.rs`, `src/level.rs`, `src/game.rs` | Flat rectangle or 48-segment circle, wading/swimming/surfacing, separate floors/slopes/rims. Depth attenuation sets uniform volume opacity, not pixel-depth refraction. No waves/caustics simulation. Beach clarity/cells/foam come from real PNGs and geometry; Aero basin uses `swimming:false`. |
-| Animation: `src/entities/`, `src/render/common/animation.rs`, `character.rs` | Named clips and explicit `play_animation` actions exist. Uncontrolled skinned placements follow player locomotion; uncued rigid clips hold bind pose. Ground routes snap to floor and cannot supply flying/swimming navigation. `animation.playing:true` alone does not emit a renderer cue: initialize gull/fish through an autostart timer action (`clip`, `loop:true`) with an animation component. Component speed does not affect named cues: author timing in clips. Crab routes provide walk/idle cues; avoid a permanent override. |
-| Runtime/package: `src/compiler.rs`, `src/package/world.rs`, `src/loader.rs` | Compile off/medium/full variants before play. Runtime discovers every bundled `assets/levels/*.placesmap`; JSON is authoring only. The entire catalog hash is pinned by current packages: **even additive catalog edits stale existing packages**. Rebuild affected installed packages before tests/runtime/publication; never bypass identity validation. |
+|[Promotional hero](images/two-environments/beach/hero.png)|[Promotional hero](images/two-environments/frutiger-aero/hero.png)|
+|[Shoreline/water](images/two-environments/beach/shoreline.png)|[Atrium architecture](images/two-environments/frutiger-aero/architecture.png)|
+|[Sea arch/lighthouse/sky](images/two-environments/beach/sea_sky.png)|[Water/sculpture](images/two-environments/frutiger-aero/water.png)|
+|[Waterfront structures](images/two-environments/beach/structures.png)|[Corridor/materials/lights](images/two-environments/frutiger-aero/corridor.png)|
+|[Town/stairs/bunting](images/two-environments/beach/town.png)|[Reception/terminals](images/two-environments/frutiger-aero/reception.png)|
+|[Inland garden](images/two-environments/beach/garden.png)|[Seating/glazing](images/two-environments/frutiger-aero/seating.png)|
+|[Gulls](images/two-environments/beach/gulls.png)|[Kiosk/graphics](images/two-environments/frutiger-aero/kiosk.png)|
+|[Crabs](images/two-environments/beach/crabs.png)|[Garden terrace](images/two-environments/frutiger-aero/terrace.png)|
+|[Fish](images/two-environments/beach/fish.png)| |
 
-Useful existing construction references, rather than generic visual replacements:
-`core:crate`, Outdoor closed boulders/ridge/bushes and `outdoor:collision_peg`;
-Pool circular basin/recess and glass/water materials; Outdoor branching trees;
-Home/Pool seating primitives. Existing pool water, muted glass, trees, furniture
-and night sky differ visibly from these sheets. Keep them unchanged and author
-local Beach/Aero versions. The existing material reflection path can serve
-architectural glass/tile/water; do not overbuild a reflection system for spheres.
+## Final verification
 
-Asset locations: `assets/environment/beach/` and
-`assets/environment/frutiger_aero/` with `textures/<surface>/`, `textures/sky/`,
-`props/models/`, and fitted graphic/decal resources. Beach rigs belong under
-`assets/entities/<animal-id>/` with source PNG, GLB and clip/placement README.
-Use matching `beach:`/`frutiger_aero:` catalog namespaces. Preserve concept paths.
-Register new `PROPS` modules in `tools/props/parts/__init__.py`; update blanket
-builder exclusions for independently authored entities. Add new animals to the
-entity validator and clip-boundary enumeration. Do not assume catalog inclusion
-automatically expands those maintenance tools.
-New builders should load committed PNG artwork, rather than regenerate imagery
-on startup or blanket-rebuild unrelated hand-finished models.
+`RUSTC_WRAPPER='' CARGO_BUILD_JOBS=12 sh tools/verify.sh` passed on the frozen
+final inputs. Its Rust gate ran `cargo fmt --all --check`,
+`cargo check --locked --workspace --all-targets --all-features`, debug and release
+`cargo clippy --locked --workspace --all-targets --all-features -- -D warnings`
+(the release invocation adds `--release`) and
+`cargo test --locked --workspace --all-features`: **2,205 library + 7 other tests
+passed**, zero failed. Separate `cargo test --locked --workspace` passed
+**2,199 library + 7 other tests**. Each ordinary run reported 32 ignored cases;
+the required ignored atlas case and two native Low-lighting cases were then run
+explicitly and passed. The other **29 ignored cases were not run**.
 
-Surface sheets must satisfy square/tiling/alpha contracts; fitted model atlases
-normally use 256² native PNGs, embedded with equivalent standalone sources,
-UVs in 0..1, +Y up/+Z front and appropriate base origins. Daytime skies are
-seamless **2:1 POT equirectangular**, at most 2048×1024, top row at zenith.
-Choose economical geometry that retains the distinctive silhouettes. Observe
-existing differentiated prop/entity budgets in `src/level.rs` and the asset spec;
-large facilities should be meaningful modules, not arbitrary cap-evading pieces.
-Update the specification before introducing an uncovered asset class.
+The same desktop gate passed asset validation, 12-worker inventory, GLB/clip checks,
+all generated-source checks and `python3 -m unittest discover -s tests -p 'test_*.py'`:
+**330 passed, zero skipped**. `regression_maps.py --run-packages` inventoried
+52 sources: all 50 supported maps passed current-package validation, one intended
+CPU-boundary witness and one named loader rejection behaved as expected.
+`python3 tools/bench/native_regression_maps.py --campaign
+target/verification/map-regression-20261010T140437Z-8745 --out
+tools/bench/results/environment-program-20261009/phase5-final-inventory-native
+--binary tools/bench/results/environment-program-20261009/phase5-final-tools/places`
+then loaded/captured **all 50 supported maps**, with zero failures. All **12 installed
+packages** passed `places-compile verify <source> --package <package> --require-current
+--json`, `places-compile validate <package> --json` and independent ZIP CRC checks.
+The final inventory helper's single-root glob initially omitted five installed
+packages; completing just those five resolved its count assertion without repeating
+successful suites or hiding a test failure.
 
-### Preserve the recent lighting correction
+Actual held-controller routes covered **35 Beach routes / 1,265 samples** and
+**20 Aero routes / 819 samples**: walking, jumps, slopes, deep/shallow water entry
+and exit, pier return, doorways, furniture and scenery boundaries. All **55 routes /
+2,084 samples** passed. Aero endpoints and collision data preserve Phase 4 exactly;
+all five exported Beach clips initialize and play. Two additional native hero
+captures using only the retained snapshot asset root verified cleanup-safe playability.
 
-Read [the root-cause correction](model-lighting-root-cause-and-fix.md) before
-changing shared lighting or geometry writers. Keep safe recovery ray origins,
-source-primitive material identity and coplanar chart continuity, physical
-footprint integration and scale-safe shader normal normalization. Small opaque
-props receive High 32 / Medium 24 intervals/m; any transformed axis over 3 m
-selects large-model High 2 / Medium 1.5, and cutout cards use 1. Keep rail/panel
-detail in sensibly sized modules, inspect broad walls separately, and check bake
-atlas overflow/fallback warnings. Full has at most eleven pages per contribution
-group, bounded further by encoded group cost; Medium has eight. Never hide
-smudges with brightness floors, model multipliers or indiscriminate ambient boosts.
-Place pod emitter taps clear of the opaque housing: `occludes:false` does not
-prevent triangle self-blocking. Inspect actual illumination below the finished pod.
+Final integration inspected 35 High views and 24 selected Medium/Low views, plus
+live quality restoration, bloom off/on/off, approach/retreat and timed animal
+poses. Established Hero’s six matched High views are byte-identical to Phase 4
+with the exact bloom-on, frame 60, fixed 1/60 protocol. Aero reciprocal controls
+restore identical pixels. Beach animation differences are confined to actual
+moving animals; fixed-anchor spatial payloads remain stable across camera moves.
+These captures verify sampled behavior, rather than every possible input/pose.
 
-## 3. Two composed, playable demos
+The source geometry checker reports zero errors for both demos: Aero zero warnings;
+Beach one tiny 0.00025 m² opposed-face overlap at the submerged pier/shore closure
+(run 57.3 mm, maximum 8.6 mm height), with no overlapping walking top or new collider.
+Existing narrow intent annotations describe genuine kit boundaries and buried
+shore caps. Normal final package bakes have no warnings or atlas fallbacks.
 
-The dimensions/positions below are chosen gameplay layouts, not measurements
-from the illustrations. Finalize the source and then pin capture coordinates.
-Use one authoritative generator per demo:
-`tools/levels/build_beach.py` → `assets/levels/beach_demo.json`, and
-`tools/levels/build_frutiger_aero.py` → `assets/levels/frutiger_aero_demo.json`.
-Each gets `--check` deterministic source verification; sibling `.placesmap`
-files are the shipped playable results.
+## Measured costs
 
-### beach_demo
+Measured on Apple M2 Pro / Metal, 12 logical CPUs, 16 GiB, macOS 27.0.1 (26A434).
+Quiet serial ordinary-release runs used a 640×360 logical / 1280×720 drawable
+window, VSync/bloom off, fixed 1/60 simulation, GPU completion waits, 120 warmup
+and 600 measured frames, three repeats per row and retained OS/GPU caches.
+All 18 runs had nonzero submissions and at least 720 actual ready presents;
+locked, occluded or unpresented results were not accepted.
 
-Approximately **48×50 m**, x −24..24, z −30..20; sea north (−Z), warm sand
-south, grassy palm fringe inland. Hero spawn near `[-4,0,10]`, yaw 0°, slight
-downward pitch: palm framing, bright shallows and open sand foreground,
-lighthouse/arch northwest, pier and yellow-roof blue buildings right.
-Keep landmarks inside the 100 m camera range and the shore uncluttered.
+| Scene / quality | Median loop ms | P95 loop ms | Draws / submitted triangles | Median process peak RSS MiB |
+| --- | ---: | ---: | ---: | ---: |
+| Beach hero / High |5.689|15.896|89 / 19,466|1,086.8|
+| Aero hero / High |6.579|14.093|83 / 18,546|593.3|
+| Aero corridor / High |6.555|14.848|62 / 8,468|595.9|
+| Existing Hero room / High |5.730|14.938|31 / 4,954|396.5|
 
-Main route: palm-framed beach → umbrella/chairs → kiosk/pier → small east town
-courtyard → stairs/terrace → beach. Put supplies/signs near real destinations;
-show every B-key naturally. Distant island/lighthouse provide the dramatic
-silhouette; beach rocks give close inspection. Back/side terrain and town walls
-hide the perimeter, with buried collision containment where necessary.
+Aero hero Low / Medium loops were 5.950 / 5.526 ms, P95 15.383 / 15.260 ms;
+scene targets were 480×270 / 640×360, with the same 1280×720 drawable. Their
+process peak RSS medians were 156.3 / 580.7 MiB. Whole-update means were
+1.499 ms Beach and .076 ms Aero High (medians of repeats); these include ordinary
+simulation and animation work, rather than isolated clip costs. Beach retains
+74 animated joints / 8,628 animated vertex slots. Native world batches contain
+13 translucent Beach / 2 translucent Aero ranges; fragment overdraw is unmeasured.
 
-Build supported walkable sand, shallow bottom and dock deck using rooms,
-regions and ramps; visual coastal meshes refine silhouette without becoming
-fictional floor collision. Fit nearshore water below dry sand, with a gradual
-supported entry/exit and actual submerged floor. Keep dock posts separate from
-deck support so one big box does not block the pier. Test dry-to-wade-to-swim
-and reverse, slopes, stair landings, structure openings, jumps and boundaries.
-Player radius is 0.30 m, height 1.8 m; normal step 0.4 m, water exit step 0.5 m.
+`python3 tools/bench/loading.py --binary
+tools/bench/results/environment-program-20261009/phase5-final-tools/places --out
+tools/bench/results/environment-program-20261009/phase5-final-loading --levels
+beach_demo frutiger_aero_demo --repeat 3 --window-size 640x360 --timeout 120` produced 12 actual presented
+High scene starts. Median first usable scene was **2.199 / 2.178 s Beach** and
+**1.644 / 1.625 s Aero**, empty / warm application cache respectively; OS/GPU
+caches remained intact. These include process startup and GPU upload.
 
-Crab uses a dry ground route with walk/idle pauses; separate gull instances show
-perched idle and airborne wing animation; underwater fish shows tail motion and
-small local turning/bobbing. Use `solid:false` for gull/fish. Explicit clips must
-ignore player locomotion. **Clip translation does not move world bounds or light
-anchors**: keep every posed vertex within the render culling envelope, bind half
-extent ×1.15 +0.05 m per axis. Prefer rigid wing/tail nodes and verify all phases;
-large bird or fish patrols would require a real bounds/anchor extension and are
-not promised by this plan. Palms stay static unless optional sway's baked-shadow
-limitation is explicitly accepted.
+| Final package / normal bake | Beach | Aero |
+| --- | ---: | ---: |
+| Compressed `.placesmap` bytes |43,285,251|26,349,811|
+| Compile seconds, all normal variants |334.699|126.659|
+| High atlas pages / resident MiB |9 / 144|4 / 64|
+| Medium atlas pages / resident MiB |7 / 112|4 / 64|
+| High world textures / decoded prop source MiB |6.667 / 7.504|16.000 / 5.754|
+| High VBO / index bytes |5,473,064 / 158,688|4,839,376 / 141,804|
+| Spatial probes / valid probes |4,864 / 81|13,760 / 1,142|
 
-Use sunny directional illumination, cool sky fill, restrained fog and controlled
-exposure. Align sky sun and light direction. Foam and broad water-cell artwork
-must stay clean at Low. No physical sea simulation is required or claimed.
+Final bakes froze catalog/source and retained geometry/preparation caches, used
+12 transport workers, and preserved normal Off/Medium/Full quality, probe coverage
+and deterministic provenance. Both retained two reflection-probe locations.
+Aero's final package is larger than Phase 4's 18,485,830 bytes; accepted visual
+corrections were preserved instead of reducing bake quality for size savings.
 
-Pinned review views: **hero**, pier/hut, town/stairs/arches, shallow foam/fish,
-lighthouse/sea arch, inland palms/terrain, and close animal animation views.
-Test identical view/FOV/time at Low/Medium/High plus settled quality restoration.
+Draw/triangle counters describe base-scene submissions, including depth-occluded
+ranges; sky, emission, post-processing and UI are excluded. GPU-wait loop time
+includes completion/presentation work and is not an isolated GPU timestamp,
+display FPS guarantee or cross-platform comparison. Resident resource inventories
+are separate allocations, rather than total GPU/driver memory. No theoretical
+savings are reported.
 
-### frutiger_aero_demo
+## Remaining limits
 
-Single floor y=0, about **32×12 m**: atrium x=0..12/z=0..12, 5.2 m volume;
-corridor x=12..22/z=4..8, 3.4 m; lounge x=22..32/z=1..11, 3.4 m.
-Hero spawn near `[2,0,10]`, looking toward the three-sphere fountain at `[6,*,6]`:
-white/cyan floor, bright tree/bench framing, glazed ribbed dome and skyline depth.
-Preserve airy circulation around an approximately 3 m fountain.
+Fine stylized shore/foam joins and some bank contact edges remain visible at close
+range, especially Low. Fish are subdued by water attenuation. Gull flight and fish swimming remain
+anchored clips; current animated poses do not cast realtime world shadows.
+Aero retains mild baked ceiling variation. GLB glass uses compact sheen and
+stable object/batch alpha sorting without refraction, per-triangle intersecting
+sorting, probe/planar routing or imported normal maps. Architectural reflections
+use the existing material path. Aero’s sheet requires no animal family or NPC.
 
-Explore atrium perimeter seating → lime arch → lit leaf-glass corridor → canopy
-→ lounge/reception and secondary divided seating. Kiosk at entry, folded
-partition by seating, accent/banner behind curved counter, terminals on counter;
-planters reinforce bays without blocking the route. Include every A-key.
-Corridor ends in a framed threshold/double-door presentation into the lounge,
-rather than an isolated display room. Exterior blue towers/greenery and sky
-finish window views without expanding the playable city.
+GPU timestamps, true fragment overdraw, isolated animation/transparency costs,
+same-position dynamic/static lighting parity and other native backends/platforms
+remain unmeasured. Those are stated instrument limits; no such measurements are
+claimed. No critical visual, traversal or runtime blocker remains in the accepted final samples.
 
-Build real structural floors/walls/openings with the current map format; roof,
-counter, rounded frames and canopy are dedicated models. Glazed passages use
-split frame collision or supported arch/column/solid-pane primitives. Generic
-solid boxes must not close portal holes. Inspect collisions against visible
-frames, benches, planters, reception and fountain rim from both sides.
+## Phase identities and publication
 
-Use soft daylight, restrained glossy tile/white panels, saturated controlled
-cyan/lime, cyan pod light and warmer lounge downlights. Gloss/BLEND must earn
-their cost through native comparison. Use opaque glossy faceted spheres as the
-robust initial sculpture, with real blended water; inspect against the reference
-before considering translucent sphere surfaces. The final spheres must read as
-bright glass-like bubbles; blue stone/solid-ball appearance fails art review and
-requires refinement. Avoid nested glass shells.
-Small optional sphere motion uses existing clip machinery and is
-documented as interpretation. No Aero creature animation is required.
-
-Pinned review views: **atrium hero**, corridor light rhythm/signage, reception,
-close glass/leaf/skyline, lime arch, canopy/partition, and sculpture/material
-detail. Review dome transparency from inside/outside and at crossing angles;
-include High/Medium/Low and independent reflections-off for honest fallback.
-
-## 4. Sequential ownership and phase gates
-
-Primary alone owns Git/index, catalog integration, shared toolkit files,
-authoritative docs, compiler output and native runs. Asset specialists own
-disjoint theme-specific builder/PNG/GLB subtrees; entity specialist owns only
-new Beach rig subtrees. Integrate their completed work before builds. Reviewers
-remain read-only. Run one heavy build/bake/benchmark at a time with at most
-12 workers. Never change branch, touch main, overwrite other work, or force-add
-ignored output. Preserve the untracked storage/HDR reports and experiments.
-
-| Phase | Dependencies, owned outputs and completion gate |
+| Phase | Accepted commit |
 | --- | --- |
-| 1 — discovery | This independently reviewed document only. References hashed/visually inspected; source claims and commands verified; no production edits/builds or claimed native acceptance. Commit/push on Art-style. |
-| 2 — Beach assets | Read Phase 1. Split static models, seven surface families/sky/foam, and three animal rigs. Primary integrates catalog/spec/docs and any necessary narrow authoring support. Cover B01–B18, including scene-only architecture/landmarks. Validate/export actual assets and preview through native tooling where available; update generated Model Zoo and current bundled packages after catalog freeze. Commit/push working integration. |
-| 3 — Beach demo | Consume Phase 2 asset/clip coverage. One map owner builds the connected scene; primary owns compilation/captures; read-only art reviewer compares the board. Require genuine load/exploration, reliable movement/collision, complete coverage, coherent lighting, reviewed hero/secondary captures and resource measurements. Correct before commit/push. |
-| 4 — Aero assets/demo | Consume earlier contracts/corrections. Split architecture, props/graphics, textures/sky; primary owns BLEND writer integration, catalog and composed map. Cover A01–A15, rebuild bundled dependencies after freeze, then native material/collision/composition refinement. Require a playable visually reviewed demo and measured overhead before commit/push. |
-| 5 — corrective certification | Independently review both full routes against references, correct omissions/defects, repeat meaningful captures/tests, check animation/proximity lighting and hero regression, finalize measurements/coverage and one consolidated implementation report. Keep prominently named hero PNGs per theme. Clean only disposable task outputs; final commit/push and exact remote/CI verification. |
-
-Catalog changes require deliberate package publication in Phases 2 and 4.
-Regenerate `model_zoo.json` from its catalog-driven generator, then rebuild
-bundled packages. Add explicit ceiling/water/table/wall classifications for new
-Zoo displays, and avoid ID collisions after its colon-to-hyphen conversion.
-Expand the exact bundled-ID assertions in `tests/test_package.py`. Add demo
-generator checks to `tools/verify.sh`, and one-view inventory manifests named
-`assets__levels__beach_demo.json` and `assets__levels__frutiger_aero_demo.json`
-under `tests/fixtures/native/map-manifests/` for the all-map native gate.
-Preserve historical custom packages; rebuild only active
-installed custom packages against current assets, or review through their
-preserved matching asset roots. `tools/verify.sh` additionally inventories all
-supported sources for the full gate; this discovery phase does not run it.
-All ten currently installed archives carry catalog provenance. Build collections
-in `assets/levels` and `levels` sequentially after freezing the compiler/catalog;
-preserve custom sources and prior runnable evidence. Current dependency closure
-omits an explicit decal-sheet loop: force rebuilds for same-path decal PNG edits
-or repair that narrow closure with regression coverage. Rebuild the final player
-after bundled-package updates (Places Demo is embedded), then confirm the
-compiler executable identity stayed unchanged, as the desktop gate does.
-New `.placesmap` sizes must be measured before staging. Use repository Git LFS
-conventions where large new archives require them, without storage-format edits.
-
-## 5. Executable validation and honest evidence
-
-Commands below were verified from current scripts/source; they are **future
-implementation gates**, not Phase 1 test results. From repository root:
-
-```sh
-cargo build --release
-python3 tools/assets/validate.py
-python3 tools/textures/build.py --check
-python3 tools/props/build.py --check
-python3 tools/assets/audit.py --workers 12 --out tools/bench/results/environment-program/assets.json
-python3 tools/entities/rig.py --check <new-entity.glb>
-python3 tools/entities/check_clip_boundaries.py
-python3 tools/entities/validate_entities.py --workers 8
-python3 tools/levels/build_model_zoo.py --check --no-cache
-python3 tools/levels/build_beach.py --check
-python3 tools/levels/build_frutiger_aero.py --check
-./target/release/places --check-geometry --level assets/levels/beach_demo.json
-./target/release/places --check-geometry --level assets/levels/frutiger_aero_demo.json
-./target/release/places-compile build-collection assets/levels --workers 12
-./target/release/places-compile build-collection levels --workers 12
-./target/release/places-compile validate assets/levels/beach_demo.placesmap
-./target/release/places-compile verify assets/levels/beach_demo.json --package assets/levels/beach_demo.placesmap --require-current
-./target/release/places-compile validate assets/levels/frutiger_aero_demo.placesmap
-./target/release/places-compile verify assets/levels/frutiger_aero_demo.json --package assets/levels/frutiger_aero_demo.placesmap --require-current
-cargo build --release --bin places
-./target/release/places --list-levels
-cargo fmt --all --check
-cargo clippy --workspace --all-targets --all-features -- -D warnings
-cargo test --workspace
-sh tools/check-rust.sh
-python3 -m unittest tests.test_package
-git diff --check
-```
-
-Angle-bracket operands are substitutions; run only commands for assets/maps
-already introduced by that phase. New generators/manifests are planned outputs,
-not currently available files. The entity sweep is currently a maintained
-enumeration: extend it and clip checks to include the new animals and their
-flight/swim envelopes instead of assuming a global check includes them.
-Focused relevant tests include GLB/material/prop tests, coplanar chart and
-coverage regressions, model-lighting normal/recovery tests, and real controller
-routes for both demos. Use [native model-lighting controls](../tests/fixtures/native/model-lighting/README.md)
-for approach/retreat and quality restoration; do not claim CPU tests exercise
-fragment normals. Shared changes also require the existing Art-style hero views.
-
-Phase 5 additionally runs the authoritative desktop gate and its separate
-native inventory smoke campaign, without a visual overhaul of old environments:
-
-```sh
-sh tools/verify.sh
-python3 tools/bench/native_regression_maps.py --campaign <completed-package-campaign> --out <new-native-directory>
-```
-
-Use the completed package campaign produced by the desktop gate; do not rebake
-it solely to run the native smoke campaign. Preserve and compare compiler
-SHA-256 before/after the final player rebuild.
-
-Create functional camera manifests alongside `tests/fixtures/native/hero-manifest.json`
-for each new demo. Reuse the native capture tool, for example:
-
-```sh
-python3 tools/bench/capture_art_style_hero.py --manifest tests/fixtures/native/beach-manifest.json --quality high --out tools/bench/results/beach-final/high
-python3 tools/bench/capture_art_style_hero.py --manifest tests/fixtures/native/frutiger-aero-manifest.json --quality high --out tools/bench/results/aero-final/high
-python3 tools/bench/capture_art_style_hero.py --manifest tests/fixtures/native/beach-manifest.json --quality high --views hero --frames 600 --finish-gpu --out tools/bench/results/beach-final/performance
-PLACES_ASSET_ROOT="$PWD" PLACES_LEVEL=beach_demo ./target/release/places
-PLACES_ASSET_ROOT="$PWD" PLACES_LEVEL=frutiger_aero_demo ./target/release/places
-```
-
-Pin FOV 60°, verified 1280×720 drawable resolution, exposure, quality, simulation
-time and camera in manifests. Capture Low/Medium/High in separate fresh output
-directories; use real held-controller scripts/state logs for traversal. A camera
-eye override alone is not proof that the player can reach that location.
-Keep final genuine, unchanged screenshots under
-`docs/images/two-environments/beach/` and `frutiger_aero/`, with `hero.png` in each.
-Image grids/differences are supporting diagnostics, not replacements for normal
-native-image inspection and a real playable route.
-
-Measure optimized release runs sequentially with a visible, unoccluded desktop.
-Reject locked/minimized/occluded timings; report unavailable presentation and
-carry that verification forward. Separate capture readback from performance;
-`--finish-gpu` is completion timing, not GPU timestamp profiling. Record median
-frame/load/bake time with settings and package/binary identities. Use
-`python3 tools/bench/scene_budget.py --package <map> --log <native-log> --variant <off|medium|full> --out <new-json>` for actual
-draw/triangle/resident inventories; it excludes some passes and does not measure
-transparent fragment overdraw or total GPU memory. Inspect package bytes, atlas
-occupancy/fallback and decoded texture memory. Compare against the existing hero
-at the same settings; optimize accidental duplication or clear bottlenecks,
-never trade important appearance for marginal theoretical savings.
-
-For loading and clean compile measurements, use the maintained tools with fresh
-output directories (the compiler repeat intentionally measures forced bakes):
-
-```sh
-python3 tools/bench/loading.py --binary target/release/places --levels beach_demo frutiger_aero_demo --repeat 3 --out <new-directory>
-python3 tools/bench/compiler_bench.py --binary target/release/places-compile --maps assets/levels/beach_demo.json assets/levels/frutiger_aero_demo.json --workers 12 --repeat 3 --out <new-directory>
-```
-
-Match scene-budget variants to actual quality: Low → off, Medium → medium,
-High → full; the default full cannot certify a Low/Medium log.
-
-## 6. Phase 1 outcome and remaining verification
-
-Both reference sets, major asset families, scene landmarks and animation labels
-are accounted for. The plans reuse current architecture and identify actual
-writer, geometry, reflection, water and animation limitations. Phase 1 changed
-documentation only; no asset generation, map compile, native runtime capture,
-gameplay certification or performance measurement was attempted. No native
-presentation limitation was tested in this phase. All final completion-gate
-claims remain for the sequential implementation phases, with any blocked test
-reported explicitly rather than marked complete.
-
-## 7. Phase 2 asset integration
-
-The [Beach kit](../assets/environment/beach/README.md) covers B01–B18 with
-27 static GLBs, three skinned animals, five looping clips and 29 retained PNGs
-(source/runtime surfaces and atlases, plus the day panorama). Its 52 catalog
-resources comprise 30 placeables, 11 textures and 11 materials. Total asset
-geometry is 7,786 triangles. The seven labelled surface families and the
-depicted roof, grass, foam, umbrella and chair finishes are represented.
-
-Deterministic generators load committed native artwork. Independent review
-accepted all 30 meshes, fitted UVs, outward closed components, source texture
-identity and the complete concept inventory. Separate structural recipes
-cover dock support, hollow buildings, town portals, rotated stair treads and
-the sea arch's tight pier/header blockers. Standing portal sweeps passed;
-decorative rock/island/terrain visuals still require authored support wherever
-the player can reach them.
-
-The shore helper provides real seabed room containment, raised dry support,
-gentle ramps and the existing water renderer. Its water corners clear the
-engine's 1 cm room-edge tolerance. The daylight panorama and directional sun
-share their bearing/elevation. The three animals have explicit playback
-actions in the generated Model Zoo annex; all original Zoo placements,
-routes, rooms and numeric fixture values remain unchanged. The fish basin is
-a real lowered room, with water inset from its ownership seams.
-
-Maintained animal clip sweeps now sample runtime-equivalent spherical
-rotations, STEP keys and complete XYZ pose bounds. A narrow shared sky shader
-fix keeps mip derivatives continuous across the panorama's U wrap in both
-fragment paths. An actual native camera exposed the old dashed seam despite
-matching PNG edges; the corrected capture changes only the wrap strip.
-No HDR storage, water simulation or NPC framework changes were introduced.
-
-Local validation passed catalog/asset checks, deterministic exports, 120 Hz
-pose bounds and maintained clip-boundary sweeps. Formatting, workspace checks,
-debug/release strict Clippy and workspace tests passed: 2,203 library tests
-plus seven additional tests with all features, and 2,197 plus seven with the
-default features. The complete Python suite passed 304 tests. The bundled
-Medium/Full atlas preflight and both native Low-lighting resource checks passed.
-The final rebuilt player passed embedded-Demo and reflection-probe smoke checks.
-
-All ten installed packages were refreshed through the normal compiler workflow
-after the sky fix, then passed current-provenance verification, full-record
-validation and archive CRC checks. Unchanged builds reused their exact bytes.
-Every runtime payload hash matches the preserved pre-refresh package; only
-compiler provenance changed. The compiler identity remained stable after the
-final ordinary release rebuild.
-
-Thirty-two actual asset-view receipts cover High, Medium and Low, including
-the corrected panorama join. All new animal payloads use prepared lighting
-with eight valid anchors at Medium/High. Low retains the existing reduced
-lighting and reflection behavior. Twelve targeted original-hero receipts
-show all six camera pairs byte-identical before/after the sky fix. These are
-asset validation captures, not final demo or performance certification.
-
-Five curated, unmodified final native captures show the
-[coast](images/two-environments/beach/phase2-coast.png),
-[town](images/two-environments/beach/phase2-town.png),
-[furniture](images/two-environments/beach/phase2-furniture.png),
-[animals](images/two-environments/beach/phase2-animals.png) and
-[submerged fish](images/two-environments/beach/phase2-fish.png).
-
-Phase 3 must compose the connected `beach_demo`, including safe hut thresholds,
-stairs/landings, dock approaches, rocks/island support and continuous coast/water
-seams. Keep one supported floor owner per point. Use real seabed-containing
-rooms for submerged fish, floor-relative actor Y, explicit clip-start actions
-and unique module identities. Inspect continuous water across adjoining strips;
-the small ownership inset is a construction safeguard, not final coastline
-composition. Playable traversal, final quality/performance campaigns and the
-finished hero remain Phase 3 work. No Aero work has started.
-
-## 8. Phase 3 Beach demo
-
-The Beach is a connected 48×52 m cove: shoreline and seating lead to the
-supported pier/kiosk, waterfront buildings, pastel courtyard and stair lookout.
-Sand paths cross the grassy palm fringe; capped headlands and buried containment
-finish the perimeter. The sea arch is swimmable in both directions. The lighthouse
-and outer islands provide visible scenery beyond the playable cove.
-
-Authoritative source: [`build_beach.py`](../tools/levels/build_beach.py) generates
-[`beach_demo.json`](../assets/levels/beach_demo.json); the normal compiler publishes
-[`beach_demo.placesmap`](../assets/levels/beach_demo.placesmap), with Off/Medium/Full
-variants. Launch with `PLACES_ASSET_ROOT="$PWD" PLACES_LEVEL=beach_demo target/release/places`.
-The [camera manifest](../tests/fixtures/native/beach-manifest.json) captures the
-hero at spawn X20/Z4.8, yaw −62°, looking 2° up, FOV60°, bloom off and 1280×720
-drawable pixels (640×360 logical on this Retina host). The authored spawn stores
-position and yaw; the capture supplies its pitch.
-
-| Coverage | Composed placement |
-| --- | --- |
-| B01–B02 | Curved faceted sand/foam shore, supported shallow/deep seabed, turquoise cove and blue distant sea |
-| B03–B04 | Close beach rocks, capped headlands, open sea arch and red-capped lighthouse island |
-| B05–B06 | Bent palms frame the hero and fringe; X-braced delivery crates serve the pier/buildings |
-| B07–B09 | Continuous timber pier, open yellow-roof kiosk, blue stilt house and brown plank hut |
-| B10–B12 | Two umbrella/chair seating vignettes and a right-pointing timber arrow at the town route |
-| B13–B14 | Cream/blue/coral town, open arches/gate, exterior stairs, terrace/parapet, shrubs and orange/blue bunting |
-| B15–B17 | Perched idle and airborne fly gulls; dry-sand walk/idle crab route and idle crab; two submerged swimming fish |
-| B18 | Seamless faceted daylight panorama, pale horizon and small sun aligned at +45° bearing/elevation |
-
-All 27 static models and three animal families appear naturally. The seven labelled
-surface families plus grass, roof, upholstery and umbrella finishes retain their
-committed PNGs. Autostart actions explicitly loop the named animal clips; the crab
-alternates short grounded walks with idle pauses. Flying/swimming animals remain
-anchored within their verified clip envelopes.
-
-Support regions and ramps have one floor owner per point. Hollow structures use
-individual posts/walls/roofs and clear portal lanes. Deck entries have ramps;
-the lower shore grade is .4 to let the existing swimming controller recover
-without camera penetration. Fish were moved into deeper supported water after
-that slope adjustment. Boundaries contain both jumps and swimming.
-
-Two narrow model refinements fix defects exposed by native pixels: the blue
-house front posts are inset 8 mm from the wall face, and touching fitted dock
-planks remove subpixel vertical-gap stippling. Both retain their source artwork,
-UV contract and overall bounds. Only Beach and Model Zoo depend on these models.
-A narrow Low lighting correction restores the existing directional sun on
-architectural faces and both water shapes. Native ray picking traced the black
-coastal crossbars to sun-facing 3.75 cm ramp risers receiving only room fill;
-corrected native Low pixels now show restrained sand risers and turquoise water.
-Prepared Medium/Full branches are unchanged. No physics, HDR precision or storage
-format change was introduced; recent kitchen/corridor/skeleton corrections remain intact.
-
-Forty-eight final ordinary-player views cover 16 cameras at all three qualities.
-Independent reviewers accepted the actual pixels, all 29 controller routes and
-1,119 loaded state samples. The forward-only water exit reaches dry sand without
-Jump, with minimum sampled eye-to-seabed clearance +0.507 m. Routes cover sand,
-grass, raised entries, stair ascent/descent, pier return, lateral wading, both arch
-directions, rock/roof jumps, palms and four boundaries. Three timed pairs verify
-gull idle/fly, crab walk/idle and fish swim. Low→Medium→High→Low→High restores the
-correct resources and appearance; all four matched controls are byte-identical.
-Nine reciprocal proximity views keep gull lighting stable. These are sampled
-native paths and poses, rather than a claim about every possible player input.
-
-Final formatting/checks, strict debug/release Clippy and both workspace test
-configurations passed: 2,205+7 tests with all features, 2,199+7 with defaults,
-32 ignored in each. The asset audit, deterministic props/generators, 14 Beach
-source checks, atlas preflight and two native Low checks passed. Normal package
-regression accepted 49 supported sources, one expected named loader rejection
-and one CPU-boundary witness. The 318-case Python run passed 317; its sole stale
-night-sky assertion was corrected for Beach and all seven Weather tests passed
-on focused rerun. The full Python command was not repeated. No unresolved test
-failure remains. All 11 installed packages are current, fully validated,
-CRC-clean and reuse exact bytes. Existing Medium/Full runtime records are
-byte-identical across the sunlight fix, as are 32 Beach Medium/High PNGs and
-six original High hero pairs.
-Level 0 Pit retains eight pre-existing probe warnings with identical runtime records;
-Beach compilation reports no warnings.
-
-On Apple M2 Pro / Metal (16 GiB), 24 serial normal-release timing samples each
-used 120 warmup and 600 measured frames, fixed 1/60 s simulation, no capture
-readback, bloom/VSync off and explicit GPU completion waits. Every sample has
-720 actual ready presents and nonzero geometry; no competing owned job ran.
-The table gives the median of three runs' loop medians and P95s. Drawable output
-is 1280×720 throughout. These wall timings include completion/presentation work;
-they are not GPU timestamps or guaranteed display FPS. Geometry counters are
-last-frame base-scene submissions, including depth-occluded ranges; sky,
-emission, post-processing and UI are excluded.
-
-| View / quality | Scene pixels | Median loop / P95 (ms) | Scene draws / vertices |
-| --- | --- | --- | --- |
-| Beach hero / Low | 480×270 | 6.02 / 15.58 | 91 / 71,766 |
-| Beach hero / Medium | 640×360 | 6.47 / 15.73 | 91 / 71,160 |
-| Beach hero / High | 1280×720 | 7.03 / 16.60 | 91 / 71,160 |
-| Beach town / High | 1280×720 | 6.86 / 16.70 | 108 / 80,806 |
-| Beach gulls / High | 1280×720 | 7.46 / 16.68 | 26 / 7,819 |
-| Existing hero room / Low | 480×270 | 5.71 / 16.51 | 31 / 19,538 |
-| Existing hero room / Medium | 640×360 | 5.91 / 17.31 | 31 / 19,464 |
-| Existing hero room / High | 1280×720 | 6.11 / 15.03 | 31 / 19,464 |
-
-The High hero submits 76,866 indices (25,622 triangles). Native static world/prop
-buffers use 6,763,696 vertex bytes and 195,588 index bytes; characters have separate
-buffers. World textures occupy 6,990,500 bytes at Medium/High and 1,747,620 at Low.
-Source prop textures decode to 7.50 MiB across 31 cached models. Seven/nine
-lightmap pages occupy 112/144 MiB; these separate inventories are not total GPU
-memory. Six actors use 74 palette joints and 8,628 vertex slots; whole update
-means at the hero are 0.57/1.22/1.30 ms, with isolated animation time and fragment
-overdraw unmeasured.
-
-The frozen normal all-variant Beach compile took 393.5 s wall / 393.3 s compiler,
-12 workers, retained caches and a required compiler-identity cache miss. The
-ordinary release rebuild took 1m51s. The package is 43,569,902 bytes. Three empty-
-application-cache and three warm-cache High/VSync-on launches reached their first
-usable scene in median 2.172/2.163 s; OS/GPU caches were retained. Peak
-loading RSS was 1.07 GiB. No extra bake was run just for measurements.
-
-**Final native hero**
-
-![Beach hero: palm-framed shoreline, arch, lighthouse and pier kiosk](images/two-environments/beach/phase3-hero.png)
-
-The unmodified final gameplay set also shows the
-[shoreline](images/two-environments/beach/phase3-shoreline.png),
-[sea/sky](images/two-environments/beach/phase3-sea_sky.png),
-[structures](images/two-environments/beach/phase3-structures.png),
-[town](images/two-environments/beach/phase3-town.png),
-[garden](images/two-environments/beach/phase3-garden.png),
-[gulls](images/two-environments/beach/phase3-gulls.png),
-[crabs](images/two-environments/beach/phase3-crabs.png) and
-[submerged fish](images/two-environments/beach/phase3-fish.png).
-
-No critical defect remains in the reviewed space. Low retains reduced lighting,
-coarser pixels, faint real coast joins and subdued fish; anchored flight/swim clips
-and distant scenery are intentional. Other platforms/backends were not run.
-Phase 3 construction and local acceptance preceded the Phase4 work recorded below.
-
-## 9. Phase 4 Frutiger Aero demo
-
-The Aero space connects a 12 m glazed atrium, luminous corridor, rounded reception
-and garden terrace. A leaf-and-bubble fountain anchors the hero; lime portals,
-repeated ceiling rings and a glass barrel lead through reception to the terrace
-and back to the atrium. Finished glazing, parapets and distant green/city scenery
-make the boundaries deliberate. All 23 new models appear at their intended scale
-in the playable space. Model Zoo gains a compact annex; its 248 older prop
-placements remain unchanged.
-
-**Final native hero**
-
-![Frutiger Aero hero: leaf fountain beneath a rounded glazed dome](images/two-environments/frutiger-aero/phase4-hero.png)
-
-[`build_frutiger_aero.py`](../tools/levels/build_frutiger_aero.py) generates
-[`frutiger_aero_demo.json`](../assets/levels/frutiger_aero_demo.json); the normal
-compiler publishes [`frutiger_aero_demo.placesmap`](../assets/levels/frutiger_aero_demo.placesmap)
-with Off/Medium/Full variants. Launch with
-`PLACES_ASSET_ROOT="$PWD" PLACES_LEVEL=frutiger_aero_demo target/release/places`.
-The [camera manifest](../tests/fixtures/native/frutiger-aero-manifest.json) records
-spawn X2.5/Z10.1, yaw38°, capture pitch5°, FOV60°, bloom off and 1280×720 drawable
-pixels (640×360 logical on this Retina host). Source spawn stores position/yaw;
-the capture supplies pitch.
-
-| Reference | Implemented construction and placement |
-| --- | --- |
-| A01 | Rounded white/cyan leaf wall bays, tall atrium glazing and reception windows |
-| A02 | Faceted lime portals connect atrium, corridor and garden |
-| A03 | Exactly three folded cyan glass panels in the atrium |
-| A04 | Octagonal suspended light pod, three cables attached to the dome |
-| A05 | Branched faceted trees, leaf clusters and aqua planters in all connected areas |
-| A06 | Curved white bench shells, two cyan cushions, sloping arms and short feet |
-| A07 | Leaf kiosk bearing “A BRIGHTER TOMORROW” with a rounded base |
-| A08 | Circular white basin, real shallow cyan water and three faceted leaf bubbles |
-| A09 | Hollow cyan barrel canopy at reception entrance |
-| A10 | Lime leaf accent panel with white diagonal stripe |
-| A11 | Full 12 m glazed dome, 16 ribs and radial soffit |
-| A12 | Repeated rounded corridor rings and terminal double doors, closed service variant |
-| A13 | Curved reception counter, two terminals, rounded soffit and three warm downlights |
-| A14 | Three distinct optimism/nature banners and corridor decal |
-| A15 | Fresh green scenic banks, varied blue city towers and seamless airy daylight sky |
-
-The asset set contains 23 GLBs (6,864 triangles), 26 committed PNGs, six surface
-materials and five reusable decal entries. Four surfaces retain periodic master/
-runtime pairs; dedicated graphic atlases retain fitted 1:2 face cells and stock
-swatches. The sky is U-periodic, top-down and oriented to the existing +45° sun.
-The immutable concept sheet's SHA256 remains
-`4cc998ad3535219dd2d938c495f4274bad92712c5464715c618c0abc8d8bb34a`.
-No character or locomotion animation is depicted; the fountain uses the existing
-water presentation. The [asset README](../assets/environment/frutiger_aero/README.md)
-records the complete model/texture contracts.
-
-A narrow Python GLB writer change adds BLEND and scalar opacity using existing
-runtime transparency. Default opaque/MASK bytes, embedded texture alpha and
-material slots retain their semantics; focused tests pin historical exports.
-No production Rust renderer, movement, lighting precision, storage format or
-reflection framework changed. Closed faceted glass uses restrained opacity;
-no nested-glass sorting guarantee is made. Smooth highlights reuse existing
-normals, direct lights and material controls. Whites retain physical fill;
-exposure/tone/saturation controls match the accepted Beach baseline.
-
-Structural collision follows jambs, folded panes, seat stock, individual dome
-ribs and fitted roof strips rather than sealing openings with visual bounds.
-The fountain's shallow slab/rim permits jumping in and walking back out. Roof
-carriers fit inside actual curved glass stock, with subpixel carrier meshes
-independent of explicit collision extents. This removes the dark carrier dots
-visible through transparent glazing, diagnosed by native pixel projection. Real room floors retain
-one owner per point. No duplicate rendered basin floor or movement redesign was
-introduced. The reception downlight caps sit 20 mm below their housing;
-a native close view exposed and corrected coincident triangle faces.
-
-Independent review accepted A01–A15 against actual reference and native pixels:
-54 High/Medium/Low overviews, 27 lighting/transparency/proximity controls and
-20 controller endpoints. The 20 routes contain 817 loaded state samples (951
-raw rows), including the connected loop, both narrow canopy directions,
-reception service lane, bench jump/exit, fountain entry/exit and perimeter
-boundaries. All sampled body-clearance/support and intended endpoint checks
-pass. Six live quality captures restore byte-identical High and Low images;
-four reciprocal proximity pairs remain byte-identical. Dynamic/static captures
-use different world positions, so they do not prove equal irradiance at a shared
-point. These are sampled paths and views, rather than every possible input.
-
-Six current Hero views match six original native controls exactly. Three High
-and three Low Beach views match the accepted Phase3 pixels exactly, including
-underwater fish. All ten pre-existing installed packages outside Zoo retain
-identical runtime archive members; their catalog provenance alone changes.
-Beach is now 43,569,899 bytes, three compressed provenance bytes smaller than
-Phase3. Catalog extension required an isolated original catalog to validate the
-original Hero controls; the production currentness guard remains intact.
-The exact-theme fixture now includes Aero, and daylight fixtures explicitly
-include both Beach and Aero while preserving their original assertions.
-
-`RUSTC_WRAPPER= CARGO_BUILD_JOBS=12 sh tools/verify.sh` passed the actual
-configured desktop gate: asset validation/audit, deterministic prop and source
-checks, normal package regression, formatting/checks, strict debug/release Clippy,
-all-features Rust tests (2,205 library + 7 additional, 32 ignored), the explicit
-bundled atlas preflight, all 329 Python tests and both native Low-resource tests.
-The package campaign accepted 50 supported sources, one expected named loader
-rejection and one CPU-boundary witness. Original export assertions and fixture
-checks remain intact; the new writer tests include exact legacy GLB hashes.
-
-`RUSTC_WRAPPER= CARGO_BUILD_JOBS=12 cargo test --locked --workspace` also passed:
-2,199 library + 7 additional tests, 32 ignored, 945.91 s library time. The final
-12 installed packages pass `places-compile verify --require-current`, full
-`validate`, ZIP CRC and `build --workers 12` exact-byte reuse checks. Player and
-compiler hashes stay unchanged. Staged and working-tree whitespace checks pass.
-The earlier stale exact-theme failure was explicitly corrected; this is the
-fresh complete rerun. Phase3's historical 317/318 Python result above is not
-retroactively relabeled.
-
-The frozen normal all-variant Aero build used 12 workers and retained caches:
-62.75 s wall / 62.43 s compiler, with no warnings. Its package is 18,485,830 bytes.
-Medium/Full have two lightmap pages, 13,959 charts, 4,860 irradiance probes and two
-reflection points; Off omits prepared lightmaps/irradiance. Each variant retains
-506 collision wall boxes and one connected navigation region. The ordinary
-release rebuild took 1m45s. Final Zoo integration compiled separately after asset
-freeze; pre-existing maps required only their valid catalog provenance refresh.
-
-On Apple M2 Pro (12 CPU/19 GPU cores, 16 GiB), Metal, 18 serial ordinary-release
-samples each use 120 warmup + 600 measured frames, fixed 1/60 s simulation, GPU
-completion waits, bloom/VSync off and no capture readback. Each has 720 actual
-ready presents, nonzero geometry and an explicitly unlocked console before and
-after; no competing owned build/test/native job ran. The active mode is Immediate
-(the startup renderer receipt initially says Fifo before settings apply).
-Drawable output stays 1280×720. OS/GPU caches remain warm; these completion/
-presentation wall timings are not GPU timestamps or guaranteed display FPS.
-The table gives the median of three loop medians and three loop P95s, with
-last-frame base-scene submission counters excluding sky/emission/post/UI and
-including depth-occluded ranges. Comparisons are from this session; differences
-from Phase3 wall timings do not establish a rendering speedup.
-
-| View / quality | Scene pixels | Median loop / P95 (ms) | Scene draws / submitted triangles |
-| --- | --- | --- | --- |
-| Aero hero / Low | 480×270 | 5.46 / 15.55 | 80 / 20,346 |
-| Aero hero / Medium | 640×360 | 4.42 / 15.25 | 80 / 18,538 |
-| Aero hero / High | 1280×720 | 6.58 / 14.29 | 80 / 18,538 |
-| Aero corridor / High | 1280×720 | 6.83 / 14.82 | 60 / 8,462 |
-| Beach hero / High | 1280×720 | 5.45 / 16.23 | 91 / 25,622 |
-| Existing hero room / High | 1280×720 | 5.27 / 14.94 | 31 / 4,954 |
-
-The High hero submits 55,614 indices and reports 145,842 visible vertex slots;
-static world/prop buffers hold 4,837,552 vertex bytes and 141,732 index bytes.
-World textures occupy 5,941,924 / 11,184,804 / 15,379,108 bytes at Low/Medium/High.
-Source prop images decode to 5.75 MiB across 24 cached models (including the
-existing collision carrier); Medium/Full lightmaps occupy 32 MiB. These are
-separate inventories, not total GPU memory. Aero whole-update means at the hero
-are .079/.084/.085 ms; no character animation workload is introduced.
-
-A CPU projection of the hero's 982 transparent source triangles covers 59.4% of
-pixel centers, averaging 1.41 geometric layers per screen pixel with maximum 8.
-This estimate includes geometry hidden behind opaque depth and omits actual
-fragment rejection, texture alpha and driver work; true GPU overdraw and isolated
-transparency cost remain unmeasured. There is no expensive new reflection or
-refraction pass.
-
-The curated unmodified gameplay set also shows
-[architecture](images/two-environments/frutiger-aero/phase4-architecture.png),
-[water/glass](images/two-environments/frutiger-aero/phase4-water.png),
-[the corridor](images/two-environments/frutiger-aero/phase4-corridor.png),
-[reception](images/two-environments/frutiger-aero/phase4-reception.png),
-[seating](images/two-environments/frutiger-aero/phase4-seating.png),
-[the kiosk](images/two-environments/frutiger-aero/phase4-kiosk.png) and
-[the terrace](images/two-environments/frutiger-aero/phase4-terrace.png).
-
-No critical defect remains in the reviewed space. Medium/High retain mild
-prepared-light variation on the corridor ceiling: actual lightmap-off controls
-remove it, while reflection-off controls are identical. Clean textures, normals
-and glass were independently checked; no exposure/ambient workaround was added.
-Low intentionally reduces lighting and scene resolution. Fragment/GPU timing and
-other platforms/backends remain unmeasured. Phase5 should independently certify
-both environments, reassess that small ceiling variation, refine any material
-composition defects found and perform final cross-environment polish. Phase5 has
-not started. Unrelated HDR/storage investigations and unique debug evidence remain
-intact; the retained queue wake assertion and runnable tools are handed forward.
+|1 — discovery/contracts|`ef219f23e2d4e3b13708c81a8ec0b5d629d1070c`|
+|2 — Beach assets|`1bd47995930d6c3eef8c9e029f7a4eded20e231b`|
+|3 — playable Beach|`572decd76f7b577ab1a30be8a5dec50864bad4cf`|
+|4 — playable Aero|`c840889ed9734e8eb3b0d0672db652700e00e19b`|
+|5 — corrections/certification|`5d93828c1c4f4f93823fb5e340ba5f3b0bff2d7e`|
+
+Phase 5’s report-publication commit, exact remote SHA and terminal CI are recorded
+in the final delivery receipt. All work stays on `Art-style`; no main merge or
+release is part of this program. After terminal publication acceptance, disposable intermediates and unique debug
+maps are archived recoverably with file hashes before removal; the authorized
+`cargo clean` runs only after a fresh ownership check. Final runnable snapshots,
+ordinary tools, curated images and essential evidence remain outside `target`.
+The delivery receipt records cleanup and released custody.
+
+Canonical contracts: [map authoring](MAP_AUTHORING_GUIDE.md),
+[asset specification](ASSET_SPECIFICATION.md), [desktop gate](VERIFICATION.md),
+[model-lighting correction](model-lighting-root-cause-and-fix.md).
