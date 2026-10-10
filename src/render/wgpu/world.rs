@@ -53,10 +53,11 @@
 //! No other sign flips, no vertex-stage Y negation, no reversed winding: the
 //! world geometry is already wound so that its front face is the side its
 //! normal points to (right-hand rule over `p0 -> p1 -> p2`), which is wgpu's
-//! `FrontFace::Ccw` for a right-handed projection. No production pipeline
-//! culls — the reference never enabled `GL_CULL_FACE` and its two-sided shading
-//! flips the normal on back faces — so every world variant is two-sided and
-//! every pipeline keeps the same winding.
+//! `FrontFace::Ccw` for a right-handed projection. Architectural ranges remain
+//! two-sided, including opaque panes and void shells.
+//! Opaque entity primitives honor glTF sidedness when their transform path is
+//! safe; reflected placements reverse the front-face convention. The shader
+//! flips normals for intentional two-sided back faces.
 
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
@@ -1580,6 +1581,34 @@ fn sort_transparency(items: &mut [(TransparentItem, [f32; 3])], eye: glam::Vec3)
     });
 }
 
+/// Entity raster policy; unknown transforms stay conservatively two-sided.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum EntityCullMode {
+    TwoSided,
+    Regular,
+    Reflected,
+}
+
+const fn entity_cull_mode(
+    pass: BatchPass,
+    double_sided: bool,
+    reflected: Option<bool>,
+) -> EntityCullMode {
+    match (pass, double_sided, reflected) {
+        (BatchPass::Opaque, false, Some(false)) => EntityCullMode::Regular,
+        (BatchPass::Opaque, false, Some(true)) => EntityCullMode::Reflected,
+        _ => EntityCullMode::TwoSided,
+    }
+}
+
+/// Transform parity used by entity pipelines. Singular or invalid matrices
+/// cannot establish a front side and retain the two-sided fallback.
+pub(super) fn culling_reflected(model: Mat4) -> Option<bool> {
+    let determinant = model.determinant();
+    (model.is_finite() && determinant.is_finite() && determinant.abs() > 1.0e-8)
+        .then_some(determinant < 0.0)
+}
+
 /// One world pipeline variant's distinguishing state.
 ///
 /// The six material passes share the shader module, vertex layout, depth
@@ -1615,19 +1644,10 @@ const TRANSLUCENT_BLEND: wgpu::BlendState = wgpu::BlendState {
     },
 };
 
-/// The five material-pass pipeline variants.
-///
-/// Declarative and GPU-free so the states are unit-testable. `cull_opaque`
-/// selects the main-pass opaque state (back-face culled) or the reference's
-/// capture state (no culling anywhere: `GL_CULL_FACE` is never
-/// enabled, and a mirror or a probe face must see the same two-sided room the
-/// reference captured).
-///
-/// The material-defined cut-out and translucent passes are two-sided in every
-/// set, exactly like the reference. Every variant keeps the same winding. A
-/// single-sided opaque surface viewed from behind would be culled in the main
-/// pass where the reference would shade it; no shipped content has one, and the
-/// capture sets do not cull at all.
+/// Six material-pass pipeline variants. Opaque scene and emission variants
+/// share the requested sidedness. Cutout and blend retain their two-sided
+/// coverage contract; callers select culled opaque variants per entity primitive.
+/// Architectural and static-prop ranges use the two-sided set.
 ///
 /// The emissive variants mirror the reference's `u_emission_only` path: the
 /// same material states, the emissive term alone, written with depth writes off
@@ -1670,7 +1690,11 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
             fragment_entry_raw: WORLD_EMISSION_FRAGMENT_ENTRY,
             blend: None,
             depth_write: false,
-            cull: None,
+            cull: if cull_opaque {
+                Some(wgpu::Face::Back)
+            } else {
+                None
+            },
         },
         WorldPipelineVariant {
             label: "places-wgpu-world-emission-blend",
@@ -1756,6 +1780,53 @@ fn build_world_pipeline(
     })
 }
 
+fn world_uniform_binding(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+    label: &str,
+    size: u64,
+) -> (wgpu::Buffer, wgpu::BindGroup) {
+    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some(label),
+        size,
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    let binding = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some(label),
+        layout,
+        entries: &[wgpu::BindGroupEntry {
+            binding: 0,
+            resource: buffer.as_entire_binding(),
+        }],
+    });
+    (buffer, binding)
+}
+
+/// Opaque scene/emission pipelines with matching ordinary and reflected facing.
+fn build_entity_pipelines(
+    device: &wgpu::Device,
+    layout: &wgpu::PipelineLayout,
+    shader: &wgpu::ShaderModule,
+    format: wgpu::TextureFormat,
+    front: wgpu::FrontFace,
+    raw: bool,
+) -> [wgpu::RenderPipeline; 4] {
+    let [opaque, _, _, emission, _, _] = world_pipeline_variants(true);
+    let reflected = match front {
+        wgpu::FrontFace::Ccw => wgpu::FrontFace::Cw,
+        wgpu::FrontFace::Cw => wgpu::FrontFace::Ccw,
+    };
+    let build =
+        |face, variant| build_world_pipeline(device, layout, shader, format, face, raw, variant);
+    [
+        build(front, opaque),
+        build(front, emission),
+        build(reflected, opaque),
+        build(reflected, emission),
+    ]
+}
+
 /// The world material render pipelines and their camera + texture + material
 /// bindings.
 ///
@@ -1776,6 +1847,10 @@ fn build_world_pipeline(
 ///   into the raw bloom source.
 /// * **emission-blend** — straight coverage blending for transparent emission.
 pub struct WorldPipeline {
+    opaque_culled: wgpu::RenderPipeline,
+    opaque_culled_reflected: wgpu::RenderPipeline,
+    emission_culled: wgpu::RenderPipeline,
+    emission_culled_reflected: wgpu::RenderPipeline,
     opaque: wgpu::RenderPipeline,
     cutout: wgpu::RenderPipeline,
     translucent: wgpu::RenderPipeline,
@@ -1816,11 +1891,8 @@ impl WorldPipeline {
             material_layout,
             environment_layout,
             wgpu::FrontFace::Ccw,
-            // The reference never enables `GL_CULL_FACE`, and the level holds
-            // content that is single-sided and visible from its back (a draped
-            // curtain/plane in the pool view), so the parity choice is the
-            // reference's: shade both sides everywhere. `gl_FrontFacing` flips
-            // the normal.
+            // World/static ranges contain two-sided panes, curtains and void
+            // shells. Entity primitives select their own culled pipeline.
             false,
             // The main pipeline writes the sRGB surface.
             false,
@@ -1888,36 +1960,19 @@ impl WorldPipeline {
             ],
             immediate_size: 0,
         });
-        let camera_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("places-wgpu-world-camera"),
-            size: CAMERA_UNIFORM_SIZE,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("places-wgpu-world-camera"),
-            layout: &bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: camera_buffer.as_entire_binding(),
-            }],
-        });
-        // A wgpu buffer starts zeroed, so a capture that runs before the first
-        // frame's update sees an empty light set.
-        let lights_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("places-wgpu-world-lights"),
-            size: DYNAMIC_LIGHTS_UNIFORM_SIZE,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        let lights_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("places-wgpu-world-lights"),
-            layout: &lights_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: lights_buffer.as_entire_binding(),
-            }],
-        });
+        let (camera_buffer, bind_group) = world_uniform_binding(
+            device,
+            &bind_group_layout,
+            "places-wgpu-world-camera",
+            CAMERA_UNIFORM_SIZE,
+        );
+        // Zero-initialized capture buffers see no attached lights.
+        let (lights_buffer, lights_bind_group) = world_uniform_binding(
+            device,
+            &lights_layout,
+            "places-wgpu-world-lights",
+            DYNAMIC_LIGHTS_UNIFORM_SIZE,
+        );
         let [
             opaque_variant,
             cutout_variant,
@@ -1937,7 +1992,24 @@ impl WorldPipeline {
                 variant,
             )
         };
+        let [
+            opaque_culled,
+            emission_culled,
+            opaque_culled_reflected,
+            emission_culled_reflected,
+        ] = build_entity_pipelines(
+            device,
+            &pipeline_layout,
+            &shader,
+            format,
+            front_face,
+            raw_target,
+        );
         Self {
+            opaque_culled,
+            opaque_culled_reflected,
+            emission_culled,
+            emission_culled_reflected,
             opaque: build(opaque_variant),
             cutout: build(cutout_variant),
             translucent: build(translucent_variant),
@@ -1976,6 +2048,24 @@ impl WorldPipeline {
             BatchPass::Cutout => &self.emission_cutout,
             BatchPass::Opaque => &self.emission,
             BatchPass::Translucent => &self.emission_blend,
+        }
+    }
+
+    /// Selects sidedness only for opaque entity materials with a safe transform.
+    const fn entity_pipeline_for(
+        &self,
+        pass: BatchPass,
+        emission: bool,
+        double_sided: bool,
+        reflected: Option<bool>,
+    ) -> &wgpu::RenderPipeline {
+        match entity_cull_mode(pass, double_sided, reflected) {
+            EntityCullMode::Regular if emission => &self.emission_culled,
+            EntityCullMode::Regular => &self.opaque_culled,
+            EntityCullMode::Reflected if emission => &self.emission_culled_reflected,
+            EntityCullMode::Reflected => &self.opaque_culled_reflected,
+            EntityCullMode::TwoSided if emission => self.emission_pipeline_for(pass),
+            EntityCullMode::TwoSided => self.pipeline_for(pass),
         }
     }
 
@@ -2192,7 +2282,7 @@ impl WorldPipeline {
                     inputs
                         .characters
                         .map_or_else(WorldDrawTotals::default, |characters| {
-                            Self::encode_character_submeshes(
+                            self.encode_character_submeshes(
                                 pass,
                                 inputs,
                                 characters,
@@ -2331,6 +2421,12 @@ impl WorldPipeline {
                 {
                     continue;
                 }
+                pass.set_pipeline(self.entity_pipeline_for(
+                    wanted,
+                    emission_only,
+                    dynamic.submesh_double_sided(object, submesh),
+                    dynamic.culling_reflected(object),
+                ));
                 totals.emissive_visible |= dynamic.submesh_emissive(object, submesh);
                 let Some(material_slot) = dynamic.material_slot(object, submesh) else {
                     continue;
@@ -2396,7 +2492,7 @@ impl WorldPipeline {
         let mut totals = WorldDrawTotals::default();
         self.bind_character_state(pass, emission_only, wanted);
         for character in 0..characters.character_count() {
-            totals.absorb(Self::encode_character_submeshes(
+            totals.absorb(self.encode_character_submeshes(
                 pass,
                 inputs,
                 characters,
@@ -2426,10 +2522,10 @@ impl WorldPipeline {
 
     /// Encodes one character's submeshes of one pass.
     ///
-    /// Associated rather than a method: the per-character body binds only
-    /// frame-level state the caller already bound, so it needs no access to
-    /// the pipeline set.
+    /// Each primitive selects its material-sidedness pipeline; frame-level
+    /// camera and light groups were bound by the caller.
     fn encode_character_submeshes<'a>(
+        &'a self,
         pass: &mut wgpu::RenderPass<'a>,
         inputs: WorldEncodeInputs<'a>,
         characters: &'a super::character::WgpuCharacters,
@@ -2461,6 +2557,12 @@ impl WorldPipeline {
             {
                 continue;
             }
+            pass.set_pipeline(self.entity_pipeline_for(
+                wanted,
+                emission_only,
+                characters.submesh_double_sided(character, submesh),
+                characters.culling_reflected(character),
+            ));
             totals.emissive_visible |= characters.submesh_emissive(character, submesh);
             let Some(material_slot) = characters.material_slot(character, submesh) else {
                 continue;
@@ -2557,7 +2659,7 @@ impl WorldPipeline {
 
     /// Encodes the frame's prop draws.
     ///
-    /// One draw per submesh, culled by the batch bounds, with the prop's own
+    /// One draw per submesh, culled by its conservative draw bounds, with the prop's own
     /// clamped sheet on group 1 and its plain `(sheet, emission, alpha)`
     /// material on group 2. `emission_only` is the emissive pass: only submeshes
     /// whose material emits are submitted. A submesh whose glTF material is
@@ -4051,6 +4153,51 @@ mod tests {
     }
 
     #[test]
+    fn entity_culling_preserves_two_sided_and_uncertain_paths() {
+        assert_eq!(
+            entity_cull_mode(BatchPass::Opaque, false, Some(false)),
+            EntityCullMode::Regular
+        );
+        assert_eq!(
+            entity_cull_mode(BatchPass::Opaque, false, Some(true)),
+            EntityCullMode::Reflected
+        );
+        assert_eq!(
+            entity_cull_mode(BatchPass::Opaque, true, Some(false)),
+            EntityCullMode::TwoSided
+        );
+        assert_eq!(
+            entity_cull_mode(BatchPass::Opaque, false, None),
+            EntityCullMode::TwoSided
+        );
+        for pass in [BatchPass::Cutout, BatchPass::Translucent] {
+            assert_eq!(
+                entity_cull_mode(pass, false, Some(false)),
+                EntityCullMode::TwoSided
+            );
+        }
+        assert_eq!(
+            culling_reflected(Mat4::from_scale(glam::Vec3::new(-2.0, 0.5, 3.0))),
+            Some(true)
+        );
+        assert_eq!(
+            culling_reflected(Mat4::from_scale(glam::Vec3::new(2.0, 0.5, 3.0))),
+            Some(false)
+        );
+        assert_eq!(
+            culling_reflected(Mat4::from_scale(glam::Vec3::new(0.0, 1.0, 1.0))),
+            None
+        );
+        assert_eq!(
+            culling_reflected(Mat4::from_scale(glam::Vec3::splat(f32::NAN))),
+            None
+        );
+        for variant in world_pipeline_variants(false) {
+            assert_eq!(variant.cull, None);
+        }
+    }
+
+    #[test]
     fn the_six_pipelines_preserve_depth_and_coverage_contracts() {
         let [
             opaque,
@@ -4090,10 +4237,11 @@ mod tests {
             emission_cutout.fragment_entry,
             WORLD_EMISSION_CUTOUT_FRAGMENT_ENTRY
         );
+        assert_eq!(emission.cull, Some(wgpu::Face::Back));
+        assert_eq!(emission_cutout.cull, None);
         for variant in [emission, emission_cutout] {
             assert!(!variant.depth_write, "the emissive pass writes no depth");
             assert!(variant.blend.is_none(), "the emissive pass does not blend");
-            assert_eq!(variant.cull, None, "the reference never culls");
         }
         assert_eq!(emission_blend.blend, Some(TRANSLUCENT_BLEND));
         assert!(!emission_blend.depth_write);

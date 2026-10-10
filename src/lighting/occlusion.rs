@@ -968,6 +968,7 @@ mod tests {
             indices,
             textures: Vec::new(),
             submeshes: vec![PropSubmesh {
+                double_sided: true,
                 response: crate::materials::MaterialResponse::NONE,
                 alpha: crate::materials::MaterialAlpha::OPAQUE,
                 material: 0,
@@ -1644,6 +1645,7 @@ mod tests {
             textures: Vec::new(),
             submeshes: vec![
                 PropSubmesh {
+                    double_sided: true,
                     response: crate::materials::MaterialResponse::NONE,
                     alpha: crate::materials::MaterialAlpha::OPAQUE,
                     material: 0,
@@ -1653,6 +1655,7 @@ mod tests {
                     index_count: 6,
                 },
                 PropSubmesh {
+                    double_sided: true,
                     response: crate::materials::MaterialResponse::NONE,
                     alpha: crate::materials::MaterialAlpha::OPAQUE,
                     material: 1,

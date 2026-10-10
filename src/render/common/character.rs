@@ -1118,7 +1118,8 @@ impl Character {
         self.spatial_lighting.as_deref()
     }
 
-    /// World-space culling bounds, conservative for every pose.
+    /// Padded bind-pose envelope for scene queries and grounding.
+    /// The GPU renderer measures the uploaded pose separately for frustum culling.
     #[must_use]
     pub const fn world_bounds(&self) -> Aabb {
         self.world_bounds
@@ -1760,7 +1761,7 @@ fn model_lighting_centre(asset: &LoadedPropAsset) -> Vec3 {
     })
 }
 
-/// Conservative world-space culling bounds for a placed character.
+/// Padded bind-pose envelope for a placed character's scene queries.
 fn character_bounds(asset: &LoadedPropAsset, transform: &Mat4) -> Aabb {
     let Some((low, high)) = asset.model.bounds() else {
         return Aabb::EMPTY;

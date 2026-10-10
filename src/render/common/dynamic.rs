@@ -160,6 +160,8 @@ pub struct DynamicId(u32);
 /// normal material property, not a special case.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DynamicSubmesh {
+    /// Imported sidedness with conservative skin/morph bind-pose fallback.
+    pub double_sided: bool,
     /// Shared scalar material response for every mesh route.
     pub response: crate::materials::MaterialResponse,
     /// Index into [`DynamicMesh::textures`], or `None` for an untextured
@@ -261,6 +263,11 @@ impl DynamicMesh {
             .enumerate()
             .filter(|(_, submesh)| submesh.index_count > 0)
             .map(|(index, submesh)| DynamicSubmesh {
+                // This route freezes the bind/default morph pose and does not
+                // retain enough rig data to establish its outward orientation.
+                double_sided: submesh.double_sided
+                    || model.skin.is_some()
+                    || !model.morph_targets.is_empty(),
                 response: submesh.response,
                 texture: submesh.texture,
                 emission: submesh.emission,
@@ -1454,6 +1461,7 @@ mod tests {
             indices: vec![0, 1, 2],
             textures: Vec::new(),
             submeshes: vec![PropSubmesh {
+                double_sided: true,
                 response: crate::materials::MaterialResponse::NONE,
                 alpha: crate::materials::MaterialAlpha::OPAQUE,
                 material: 0,
@@ -1473,6 +1481,34 @@ mod tests {
             model_path: "core/test_triangle.glb".to_string(),
             model: synthetic_model(emission),
         })
+    }
+
+    #[test]
+    fn dynamic_bind_poses_keep_unsupported_skin_and_morph_orientation_two_sided() {
+        let mut asset = LoadedPropAsset {
+            model_path: "single-sided.glb".to_string(),
+            model: synthetic_model(MaterialEmission::NONE),
+        };
+        asset.model.submeshes[0].double_sided = false;
+        assert!(!DynamicMesh::from_asset(&asset).unwrap().submeshes[0].double_sided);
+        asset.model.skin = Some(crate::gltf::PropSkin {
+            joints: vec![0],
+            inverse_bind: vec![Mat4::from_scale(Vec3::new(-1.0, 1.0, 1.0))],
+            nodes: Vec::new(),
+            root: None,
+            mesh_node: None,
+        });
+        assert!(DynamicMesh::from_asset(&asset).unwrap().submeshes[0].double_sided);
+        asset.model.skin = None;
+        asset
+            .model
+            .morph_targets
+            .push(crate::gltf::PropMorphTarget {
+                position: Vec::new(),
+                normal: Vec::new(),
+                tangent: Vec::new(),
+            });
+        assert!(DynamicMesh::from_asset(&asset).unwrap().submeshes[0].double_sided);
     }
 
     #[test]

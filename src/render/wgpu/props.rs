@@ -11,7 +11,8 @@
 //! * one plain-opaque GPU material per distinct `(sheet, emission)` submesh,
 //!   because a prop's emission is per primitive and the model parser reads no
 //!   normal map, alpha mode or reflection contract;
-//! * one draw per submesh, culled by the batch bounds.
+//! * one draw per submesh, culled by its indexed primitive bounds for opaque
+//!   and cutout; blended draws retain batch bounds and sorting centres.
 //!
 //! Props are opaque by construction (`common::materials::batch_pass_for` maps
 //! `PropFallback` and every non-architectural family to the opaque pass), and
@@ -55,7 +56,8 @@ pub struct PropDraw {
     pub index_count: u32,
     /// Distinct vertices the draw indexes.
     pub vertex_count: u32,
-    /// World-space bounds of every instance in the batch.
+    /// Bounds of this indexed primitive across placed instances.
+    /// Blended draws retain the whole batch bounds for stable sorting.
     pub bounds: Aabb,
     /// Slot into [`WgpuProps::textures`].
     pub texture: usize,
@@ -137,6 +139,40 @@ fn prop_texture_slot(
         .filter(|index| *index < texture_count)
         .and_then(|index| texture_base.checked_add(index))
         .unwrap_or(fallback)
+}
+
+/// Bounds and distinct referenced vertices of one immutable primitive range.
+/// Invalid metadata falls back to the whole batch rather than hiding geometry.
+fn prop_draw_geometry(batch: &PropMeshBatch, first: u32, count: u32) -> Option<(Aabb, u32)> {
+    let start = usize::try_from(first).ok()?;
+    let end = start.checked_add(usize::try_from(count).ok()?)?;
+    let indices = batch.indices.get(start..end)?;
+    let mut bounds = Aabb::EMPTY;
+    let mut seen = vec![false; batch.vertices.len()];
+    let mut vertices = 0u32;
+    for index in indices {
+        let slot = usize::from(*index);
+        let vertex = batch.vertices.get(slot)?;
+        if !vertex.pos.iter().all(|value| value.is_finite()) {
+            return None;
+        }
+        bounds.expand(vertex.pos);
+        let visited = seen.get_mut(slot)?;
+        if !*visited {
+            vertices = vertices.saturating_add(1);
+            *visited = true;
+        }
+    }
+    if bounds.is_empty() {
+        return None;
+    }
+    // Match the conservative guard used for CPU/GPU camera matrix rounding.
+    for (min, max) in bounds.min.iter_mut().zip(bounds.max.iter_mut()) {
+        let margin = min.abs().max(max.abs()).mul_add(8.0 * f32::EPSILON, 1.0e-4);
+        *min -= margin;
+        *max += margin;
+    }
+    Some((bounds, vertices))
 }
 
 impl PropUpload {
@@ -283,17 +319,31 @@ impl PropUpload {
                     identities.push(identity);
                     materials.len().saturating_sub(1)
                 });
+            let pass = BatchPass::of(submesh.alpha);
+            let (primitive_bounds, vertex_count) =
+                prop_draw_geometry(batch, submesh.first_index, submesh.index_count).unwrap_or_else(
+                    || {
+                        (
+                            batch.bounds,
+                            u32::try_from(batch.vertices.len()).unwrap_or(u32::MAX),
+                        )
+                    },
+                );
+            // Preserve the existing batch-centre transparent sorting contract.
+            let bounds = if pass == BatchPass::Translucent {
+                batch.bounds
+            } else {
+                primitive_bounds
+            };
             draws.push(PropDraw {
                 chunk: chunk_index,
                 index_start: submesh.first_index,
                 index_count: submesh.index_count,
-                vertex_count: chunks
-                    .get(chunk_index)
-                    .map_or(0, |mesh_chunk| mesh_chunk.vertex_count),
-                bounds: batch.bounds,
+                vertex_count,
+                bounds,
                 texture,
                 material,
-                pass: BatchPass::of(submesh.alpha),
+                pass,
                 emissive: record.is_emissive(),
             });
         }
@@ -407,6 +457,48 @@ mod tests {
 
     use super::*;
     use crate::render::common::mesh::Vertex;
+
+    #[test]
+    fn primitive_bounds_exclude_other_materials_and_count_shared_indices() {
+        let batch = PropMeshBatch {
+            model: String::new(),
+            casts_static_lighting: true,
+            textures: Vec::new(),
+            submeshes: Vec::new(),
+            source_primitives: Vec::new(),
+            vertices: vec![
+                Vertex::new([-1.0, 0.0, -0.02], [1.0; 4], [0.0; 2]),
+                Vertex::new([1.0, 0.0, -1.0], [1.0; 4], [0.0; 2]),
+                Vertex::new([0.0, 1.0, -1.0], [1.0; 4], [0.0; 2]),
+                Vertex::new([100.0, 0.0, 0.0], [1.0; 4], [0.0; 2]),
+            ],
+            indices: vec![0, 1, 2, 0, 2, 1],
+            bounds: Aabb {
+                min: [-1.0, 0.0, -1.0],
+                max: [100.0, 1.0, 0.0],
+            },
+        };
+        let result = prop_draw_geometry(&batch, 0, 6);
+        let (bounds, vertices) = result.unwrap_or((Aabb::EMPTY, 0));
+        assert_eq!(vertices, 3);
+        assert!(
+            bounds.min.first().is_some_and(|v| *v < -1.0)
+                && bounds.max.first().is_some_and(|v| *v < 1.001),
+            "a numeric guard must not include the unrelated distant material"
+        );
+        assert!(
+            bounds.max.get(2).is_some_and(|v| *v > -0.02),
+            "near-plane rounding stays conservative"
+        );
+        let (_, frustum) = crate::render::RenderCamera::new(glam::Vec3::ZERO, 0.0, 0.0, 60.0)
+            .view_projection(crate::render::common::view::DrawableSize::new(640, 360));
+        assert!(
+            result.is_some_and(|(visible_bounds, _)| frustum.intersects_aabb(&visible_bounds)),
+            "near-plane-crossing triangles stay visible"
+        );
+        assert_eq!(prop_draw_geometry(&batch, u32::MAX, 3), None);
+        assert_eq!(prop_draw_geometry(&batch, 0, 0), None);
+    }
 
     #[test]
     fn an_empty_batch_list_uploads_nothing() {

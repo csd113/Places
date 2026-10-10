@@ -304,6 +304,7 @@ fn shared_prop_quad_rejects_nonmanifold_edge_and_ill_conditioned_domain() {
 
 fn asset(source: &[[Vertex; 3]; 2], split_primitives: bool) -> crate::props::LoadedPropAsset {
     let primitive = crate::gltf::PropSubmesh {
+        double_sided: true,
         response: crate::materials::MaterialResponse::default(),
         material: 0,
         texture: None,
@@ -330,6 +331,7 @@ fn asset(source: &[[Vertex; 3]; 2], split_primitives: bool) -> crate::props::Loa
                 vec![
                     primitive,
                     crate::gltf::PropSubmesh {
+                        double_sided: true,
                         first_index: 3,
                         ..primitive
                     },

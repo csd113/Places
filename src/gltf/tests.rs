@@ -2385,3 +2385,18 @@ fn scalar_response_has_compatible_defaults_and_rejects_invalid_controls() {
         assert!(imported_response(Some(&bad), [1.0; 4]).is_err());
     }
 }
+
+#[test]
+fn material_sidedness_uses_gltf_default_and_rejects_non_boolean_values() {
+    for (material, expected) in [
+        (r"{}", false),
+        (r#"{"doubleSided":false}"#, false),
+        (r#"{"doubleSided":true}"#, true),
+    ] {
+        let model = parse_glb(&triangle_document(material, 0)).expect("valid material");
+        assert_eq!(model.submeshes[0].double_sided, expected);
+    }
+    let error = parse_glb(&triangle_document(r#"{"doubleSided":"true"}"#, 0))
+        .expect_err("invalid sidedness");
+    assert!(error.0.contains("doubleSided is not a boolean"));
+}

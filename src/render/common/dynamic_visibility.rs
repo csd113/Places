@@ -319,6 +319,7 @@ mod tests {
                 .to_vec(),
                 indices: vec![0, 1, 2, 0, 2, 3],
                 submeshes: vec![PropSubmesh {
+                    double_sided: true,
                     alpha,
                     response: crate::materials::MaterialResponse::NONE,
                     material: 0,

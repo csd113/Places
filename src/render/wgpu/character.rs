@@ -32,7 +32,9 @@ use super::texture::{CacheOutcome, GpuTexture, TextureCache};
 use super::world::{EnvironmentUniform, WORLD_VERTEX_STRIDE, WorldVertex};
 use crate::materials::TextureOrigin;
 use crate::quality::{QualityLevel, TextureClass};
-use crate::render::common::character::{Character, CharacterScene, character_vertex};
+use crate::render::common::character::{
+    Character, CharacterAnimator, CharacterScene, character_vertex,
+};
 use crate::render::common::materials::BatchPass;
 use crate::spatial::Aabb;
 
@@ -51,6 +53,8 @@ struct CharacterMeshGpu {
     materials: Vec<usize>,
     /// Emission flag per submesh.
     emissive: Vec<bool>,
+    /// Rest transforms and clips preserve a usable outward orientation.
+    culling_safe: bool,
 }
 
 /// The pass one source submesh's alpha contract maps to for a character.
@@ -80,6 +84,8 @@ struct CharacterSubmeshGpu {
     /// opaque treatment; a `BLEND` material (the sheet ghost's exported
     /// `alphaMode`) selects the sorted translucent character pass.
     pass: BatchPass,
+    /// The primitive explicitly asks to render both sides.
+    double_sided: bool,
 }
 
 /// Which neutral-scene character a GPU entry belongs to.
@@ -108,7 +114,9 @@ struct CharacterGpu {
     uploaded_revision: u64,
     /// The placement matrix the environment uniform currently holds.
     uploaded_transform: Mat4,
-    /// World-space culling bounds from the last applied transform.
+    /// Model-space bounds of the vertices currently in the GPU buffer.
+    pose_bounds: Aabb,
+    /// Current pose bounds transformed by the uploaded placement.
     world_bounds: Aabb,
 }
 
@@ -166,6 +174,68 @@ pub struct CharacterUploadContext<'a> {
     pub probe_fallback: &'a wgpu::TextureView,
     pub planar_fallback: &'a wgpu::TextureView,
     pub level: QualityLevel,
+}
+
+/// Bounds follow the submitted pose, with only a numeric guard for CPU/GPU
+/// matrix rounding. The absolute term is 0.1 mm; the relative term covers a
+/// few float operations when placements use larger world coordinates.
+fn posed_world_bounds(pose: &Aabb, transform: &Mat4) -> Aabb {
+    let mut bounds = crate::render::common::props::transform_bounds(pose, transform);
+    if !bounds.is_empty() {
+        for (min, max) in bounds.min.iter_mut().zip(bounds.max.iter_mut()) {
+            let margin = min.abs().max(max.abs()).mul_add(8.0 * f32::EPSILON, 1.0e-4);
+            *min -= margin;
+            *max += margin;
+        }
+    }
+    bounds
+}
+
+const CULLING_DETERMINANT_MIN: f32 = 1.0e-8;
+
+fn positive_orientation(matrix: &Mat4) -> bool {
+    let determinant = matrix.determinant();
+    matrix.is_finite() && determinant.is_finite() && determinant > CULLING_DETERMINANT_MIN
+}
+
+/// Imported reflected/singular bind hierarchies, scaling clips and morphs have
+/// no stable global winding contract, so their opaque primitives remain two-sided.
+/// Ordinary skeletal rotation deformation retains the authored material side.
+fn character_mesh_culling_safe(model: &crate::gltf::PropModel) -> bool {
+    model.morph_targets.is_empty()
+        && node_hierarchy_culling_safe(&model.nodes)
+        && model.skin.as_ref().is_none_or(|skin| {
+            node_hierarchy_culling_safe(&skin.nodes)
+                && skin.inverse_bind.iter().all(positive_orientation)
+        })
+        && model.animations.iter().all(|clip| {
+            clip.channels
+                .iter()
+                .all(|channel| channel.path != crate::gltf::AnimationPath::Scale)
+        })
+}
+
+fn node_hierarchy_culling_safe(nodes: &[crate::gltf::PropNode]) -> bool {
+    nodes.iter().all(|node| {
+        let mut global = node.local_transform();
+        if !positive_orientation(&global) {
+            return false;
+        }
+        let mut ancestor = node.parent;
+        // Parsing rejects cycles; the cap also keeps malformed test/future
+        // callers conservative without allocating another hierarchy cache.
+        for _ in 0..nodes.len() {
+            let Some(parent) = ancestor else {
+                return positive_orientation(&global);
+            };
+            let Some(parent_node) = nodes.get(usize::from(parent)) else {
+                return false;
+            };
+            global = parent_node.local_transform().mul_mat4(&global);
+            ancestor = parent_node.parent;
+        }
+        false
+    })
 }
 
 impl WgpuCharacters {
@@ -258,7 +328,7 @@ impl WgpuCharacters {
                     .with_spatial_lighting(character.spatial_lighting())
                     .with_opacity(character.opacity()),
             );
-            Self::fill_vertices(character, &mut value.scratch);
+            let pose_bounds = Self::fill_vertices(character, &mut value.scratch);
             ctx.queue
                 .write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(&value.scratch));
             value.characters.push(CharacterGpu {
@@ -268,7 +338,8 @@ impl WgpuCharacters {
                 environment,
                 uploaded_revision: character.animator().revision(),
                 uploaded_transform: character.transform(),
-                world_bounds: character.world_bounds(),
+                pose_bounds,
+                world_bounds: posed_world_bounds(&pose_bounds, &character.transform()),
             });
         }
         value.finish_stats();
@@ -357,6 +428,7 @@ impl WgpuCharacters {
                 first_index: source.first_index,
                 index_count: source.index_count,
                 pass,
+                double_sided: source.double_sided,
             });
         }
         if submeshes.is_empty() {
@@ -375,29 +447,45 @@ impl WgpuCharacters {
             submeshes,
             materials,
             emissive,
+            culling_safe: character_mesh_culling_safe(model),
         })
     }
 
     /// Fills the reusable scratch buffer with one character's posed vertices.
     ///
     /// Skins in model space with the animator's current deltas and attaches
-    /// material albedo; no allocation once the buffer has been sized.
-    fn fill_vertices(character: &Character, out: &mut Vec<WorldVertex>) {
-        let model = &character.asset().model;
+    /// material albedo while measuring exactly the positions uploaded; no
+    /// allocation once the buffer has been sized.
+    fn fill_vertices(character: &Character, out: &mut Vec<WorldVertex>) -> Aabb {
+        Self::fill_posed_vertices(
+            &character.asset().model,
+            character.animator(),
+            character.albedo(),
+            out,
+        )
+    }
+
+    fn fill_posed_vertices(
+        model: &crate::gltf::PropModel,
+        animator: &CharacterAnimator,
+        albedo: &[[f32; 4]],
+        out: &mut Vec<WorldVertex>,
+    ) -> Aabb {
         out.clear();
+        let mut bounds = Aabb::EMPTY;
         for (index, vertex) in model.vertices.iter().enumerate() {
             let joints = model.joints.get(index).copied().unwrap_or([0; 4]);
             let weights = model.weights.get(index).copied().unwrap_or([0.0; 4]);
-            let position = character
-                .animator()
-                .skin_position(joints, weights, vertex.pos);
-            let albedo = character.albedo().get(index).copied().unwrap_or([1.0; 4]);
-            let mut posed = character_vertex(albedo, vertex.uv, position);
+            let position = animator.skin_position(joints, weights, vertex.pos);
+            bounds.expand(position);
+            let colour = albedo.get(index).copied().unwrap_or([1.0; 4]);
+            let mut posed = character_vertex(colour, vertex.uv, position);
             posed.normal = vertex.normal.map_or([0.0; 3], |normal| {
-                character.animator().skin_normal(joints, weights, normal)
+                animator.skin_normal(joints, weights, normal)
             });
             out.push(WorldVertex::from(posed));
         }
+        bounds
     }
 
     /// Fills the per-frame counters.
@@ -484,16 +572,16 @@ impl WgpuCharacters {
                     .with_opacity(scene_character.opacity()),
             );
             gpu.uploaded_transform = scene_character.transform();
-            if transform_changed {
-                gpu.world_bounds = scene_character.world_bounds();
+            let pose_changed = scene_character.animator().revision() != gpu.uploaded_revision;
+            if pose_changed {
+                gpu.pose_bounds = Self::fill_vertices(scene_character, &mut self.scratch);
+                queue.write_buffer(&gpu.vertex_buffer, 0, bytemuck::cast_slice(&self.scratch));
+                gpu.uploaded_revision = scene_character.animator().revision();
+                uploaded = uploaded.saturating_add(1);
             }
-            if scene_character.animator().revision() == gpu.uploaded_revision {
-                continue;
+            if transform_changed || pose_changed {
+                gpu.world_bounds = posed_world_bounds(&gpu.pose_bounds, &gpu.uploaded_transform);
             }
-            Self::fill_vertices(scene_character, &mut self.scratch);
-            queue.write_buffer(&gpu.vertex_buffer, 0, bytemuck::cast_slice(&self.scratch));
-            gpu.uploaded_revision = scene_character.animator().revision();
-            uploaded = uploaded.saturating_add(1);
         }
         uploaded
     }
@@ -560,6 +648,28 @@ impl WgpuCharacters {
         let entry = self.characters.get(character)?;
         let mesh = self.meshes.get(entry.mesh)?;
         mesh.submeshes.get(submesh).map(|mesh_part| mesh_part.pass)
+    }
+
+    /// The material's two-sided contract; missing data stays conservative.
+    #[must_use]
+    pub fn submesh_double_sided(&self, character: usize, submesh: usize) -> bool {
+        self.characters
+            .get(character)
+            .and_then(|entry| self.meshes.get(entry.mesh))
+            .and_then(|mesh| mesh.submeshes.get(submesh))
+            .is_none_or(|mesh_part| mesh_part.double_sided)
+    }
+
+    /// Selects placement winding only for an eligible bind hierarchy and
+    /// clips. Singular/non-finite placements remain two-sided as well.
+    #[must_use]
+    pub fn culling_reflected(&self, character: usize) -> Option<bool> {
+        let entry = self.characters.get(character)?;
+        let mesh = self.meshes.get(entry.mesh)?;
+        if !mesh.culling_safe {
+            return None;
+        }
+        super::world::culling_reflected(entry.uploaded_transform)
     }
 
     /// True when one character has at least one submesh in `pass`.
@@ -630,13 +740,223 @@ impl WgpuCharacters {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::entity::PoseCue;
     use crate::materials::{AlphaMode, MaterialAlpha};
+
+    fn mannequin_model() -> Result<crate::gltf::PropModel, String> {
+        crate::gltf::parse_glb(include_bytes!(
+            "../../../assets/entities/mannequin/model/mannequin.glb"
+        ))
+        .map_err(|error| error.to_string())
+    }
+
+    fn contains_position(bounds: &Aabb, position: [f32; 3]) -> bool {
+        position
+            .iter()
+            .zip(bounds.min.iter().zip(bounds.max.iter()))
+            .all(|(value, (min, max))| value >= min && value <= max)
+    }
+
+    fn play_pose(animator: &mut CharacterAnimator, name: &str) {
+        assert!(
+            animator.update_cued(
+                10.0,
+                &PoseCue::Clip {
+                    name: name.to_string(),
+                    once: true,
+                    paused: false,
+                },
+            ),
+            "the shipped pose must update the animator"
+        );
+    }
+
+    #[test]
+    fn uploaded_pose_bounds_keep_extended_arms_visible_at_the_near_plane() -> Result<(), String> {
+        let model = mannequin_model()?;
+        let mut animator = CharacterAnimator::new(&model).ok_or("mannequin rig is missing")?;
+        let mut vertices = Vec::with_capacity(model.vertices.len());
+        let vertex_capacity = vertices.capacity();
+        let standing = WgpuCharacters::fill_posed_vertices(&model, &animator, &[], &mut vertices);
+        play_pose(&mut animator, "pose_arms_forward");
+        let forward = WgpuCharacters::fill_posed_vertices(&model, &animator, &[], &mut vertices);
+        assert!(
+            forward.max.get(2).is_some_and(|z| *z > 0.65),
+            "the shipped forward pose extends well past the bind box: {forward:?}"
+        );
+        assert!(
+            vertices
+                .iter()
+                .all(|vertex| contains_position(&forward, vertex.position)),
+            "every submitted position must fit the current pose bounds"
+        );
+
+        // These are the old 15%-plus-5-cm bind-pose limits for this shipped
+        // model. The camera looks +Z: arms beyond its near plane are visible
+        // although the old padded bind box is entirely behind the camera.
+        let old_bounds = Aabb {
+            min: [-0.2915, -0.179, -0.23078],
+            max: [0.2915, 1.899, 0.23078],
+        };
+        let projection = Mat4::perspective_rh(
+            60.0_f32.to_radians(),
+            1280.0 / 720.0,
+            crate::render::common::SCENE_NEAR_M,
+            20.0,
+        );
+        let view = Mat4::look_at_rh(
+            glam::Vec3::new(0.0, 1.4, 0.4),
+            glam::Vec3::new(0.0, 1.4, 1.4),
+            glam::Vec3::Y,
+        );
+        let frustum = crate::spatial::Frustum::from_view_projection(
+            &projection.mul_mat4(&view),
+            crate::spatial::DepthRange::ZeroToOne,
+        );
+        assert!(
+            !frustum.intersects_aabb(&old_bounds),
+            "the old padded bind box reproduces the erroneous rejection"
+        );
+        assert!(
+            vertices
+                .iter()
+                .any(|vertex| { frustum.intersects_aabb(&Aabb::from_point(vertex.position)) }),
+            "the actual extended pose has submitted positions inside the view"
+        );
+        assert!(
+            frustum.intersects_aabb(&posed_world_bounds(&forward, &Mat4::IDENTITY)),
+            "the submitted pose must survive the matching CPU frustum test"
+        );
+
+        play_pose(&mut animator, "pose_arms_up");
+        let raised = WgpuCharacters::fill_posed_vertices(&model, &animator, &[], &mut vertices);
+        assert!(
+            raised.max.get(1).is_some_and(|y| *y > 2.1),
+            "the raised hands exceed the old 1.899-m padded bind height"
+        );
+        play_pose(&mut animator, "pose_stand");
+        let restored = WgpuCharacters::fill_posed_vertices(&model, &animator, &[], &mut vertices);
+        assert!(
+            glam::Vec3::from_array(restored.min).distance(glam::Vec3::from_array(standing.min))
+                < 1.0e-5
+                && glam::Vec3::from_array(restored.max)
+                    .distance(glam::Vec3::from_array(standing.max))
+                    < 1.0e-5,
+            "a later pose must replace stale bounds"
+        );
+        assert_eq!(
+            vertices.capacity(),
+            vertex_capacity,
+            "skinning and bounds measurement reuse the pre-sized vertex storage"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn cached_pose_bounds_follow_placement_without_skinning_again() -> Result<(), String> {
+        let model = mannequin_model()?;
+        let mut animator = CharacterAnimator::new(&model).ok_or("mannequin rig is missing")?;
+        play_pose(&mut animator, "pose_arms_forward");
+        let mut vertices = Vec::with_capacity(model.vertices.len());
+        let pose = WgpuCharacters::fill_posed_vertices(&model, &animator, &[], &mut vertices);
+        let initial = posed_world_bounds(&pose, &Mat4::IDENTITY);
+        let placement = Mat4::from_scale_rotation_translation(
+            glam::Vec3::splat(2.5),
+            glam::Quat::from_rotation_y(0.8),
+            glam::Vec3::new(7.0, -0.5, -3.0),
+        );
+        let moved = posed_world_bounds(&pose, &placement);
+        assert_ne!(
+            initial, moved,
+            "placement changes must replace world bounds"
+        );
+        for vertex in &vertices {
+            let position = placement
+                .transform_point3(glam::Vec3::from_array(vertex.position))
+                .to_array();
+            assert!(
+                contains_position(&moved, position),
+                "rotated/scaled submitted positions must remain inside the moved bounds"
+            );
+        }
+        assert_eq!(
+            posed_world_bounds(&pose, &Mat4::IDENTITY),
+            initial,
+            "moving a held pose must not retain the previous placement"
+        );
+        assert!(
+            posed_world_bounds(&Aabb::EMPTY, &placement).is_empty(),
+            "an empty uploaded pose has no draw bounds"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn unsupported_rig_orientation_stays_two_sided() -> Result<(), String> {
+        let model = mannequin_model()?;
+        assert!(
+            character_mesh_culling_safe(&model),
+            "the shipped mannequin has an orientation-preserving bind hierarchy"
+        );
+        let mut reflected = model.clone();
+        reflected
+            .skin
+            .as_mut()
+            .and_then(|skin| skin.inverse_bind.first_mut())
+            .ok_or("mannequin inverse bind is missing")?
+            .clone_from(&Mat4::from_scale(glam::Vec3::new(-1.0, 1.0, 1.0)));
+        assert!(
+            !character_mesh_culling_safe(&reflected),
+            "a reflected inverse bind cannot use the single-sided pipeline"
+        );
+        let mut singular = model.clone();
+        singular
+            .nodes
+            .first_mut()
+            .ok_or("mannequin node is missing")?
+            .scale = [0.0, 1.0, 1.0];
+        assert!(
+            !character_mesh_culling_safe(&singular),
+            "a singular retained node must remain two-sided"
+        );
+        let mut scaling = model.clone();
+        scaling
+            .animations
+            .first_mut()
+            .and_then(|clip| clip.channels.first_mut())
+            .ok_or("mannequin animation channel is missing")?
+            .path = crate::gltf::AnimationPath::Scale;
+        assert!(
+            !character_mesh_culling_safe(&scaling),
+            "scale clips can cross a singular or reflected pose"
+        );
+        let mut morphed = model;
+        morphed.morph_targets.push(crate::gltf::PropMorphTarget {
+            position: Vec::new(),
+            normal: Vec::new(),
+            tangent: Vec::new(),
+        });
+        assert!(
+            !character_mesh_culling_safe(&morphed),
+            "arbitrary morphs have no proven winding contract"
+        );
+        Ok(())
+    }
 
     #[test]
     fn an_empty_scene_reports_nothing() {
         let characters = WgpuCharacters::default();
         assert_eq!(characters.character_count(), 0);
         assert_eq!(characters.stats().draws, 0);
+        assert!(
+            characters.submesh_double_sided(0, 0),
+            "unknown materials remain two-sided"
+        );
+        assert_eq!(
+            characters.culling_reflected(0),
+            None,
+            "unknown character orientation stays conservative"
+        );
     }
 
     #[test]

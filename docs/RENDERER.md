@@ -258,9 +258,11 @@ clip_wgpu = C * clip,  C = [0  1    0   0]
 
 Places geometry is wound so a face's front side is the side its geometric normal points to, by the right-hand rule over `p0 → p1 → p2` ("every world face is wound to point out of the solid"); the normal is `cross(p1 - p0, p2 - p0)`, exactly the counter-clockwise front-face rule for a right-handed projection.
 
-- The **opaque** pipeline uses `FrontFace::Ccw` and `Some(Face::Back)`, deliberately: the winding convention is the contract, and culling is validated against the canonical views.
+- Architectural and prepared static-prop draws stay two-sided: opaque panes, curtains and void shells require back views. Opaque dynamic/character primitives use `Some(Face::Back)` only when the imported glTF material is single-sided and the transform path is eligible. Reflected placements reverse the front-face convention. Scene and emission use the same sidedness; reflected/singular rigs, scaling clips and morph targets retain a conservative two-sided fallback.
 - The **cut-out and translucent** pipelines use `cull_mode: None`, because a window pane is a legitimate two-sided surface drawn from both rooms, with the shading normal flipped by the fragment stage's `@builtin(front_facing)`.
 - Depth compare is `CompareFunction::LessEqual`; depth writes are on for opaque and cut-out and off for translucent. No reversed-Z, no infinite projection, no logarithmic depth. `PLACES_BENCH_NOCULL` disables the CPU **frustum** test only, never pipeline culling.
+- CPU frustum filtering still rejects whole draws. Static opaque/cutout prop draws use bounds of their own indexed primitive; translucent props keep the existing batch-centre sorting contract. Character bounds follow the positions actually uploaded at every pose revision and reuse the cached model-space box for placement-only changes. A small numerical margin prevents rounding at the view planes from shrinking these boxes. Back-face culling reduces rasterized triangles; it does not promise fewer vertex shader invocations.
+
 - The pipeline's colour target is the configured surface format; `ensure_world_pipeline` rebuilds it only when that format changes (a recreated surface can legitimately report a different one). No format is hard-coded, and the camera binding, buffers and geometry are format-independent.
 - Every frame computes the projection from the current physical drawable size, so aspect and FOV follow a resize, a HiDPI backing-scale change, minimize and restore with no world-buffer work. The camera uniform is rewritten only when the matrix or eye moved.
 
@@ -503,14 +505,14 @@ Classification is the neutral `batch_pass_for` rule:
 
 | Material | Pass | Pipeline state |
 |---|---|---|
-| `opaque` (default) | opaque | depth write on, no blend, back-face culled |
+| `opaque` (default) | opaque | depth write on, no blend; architecture/static props two-sided, eligible single-sided entities back-face culled |
 | `cutout` | cut-out | depth write on, no blend, `discard` below `cutoff`, two-sided |
 | `blend`, `opacity > 0` | translucent | `SRC_ALPHA`/`ONE_MINUS_SRC_ALPHA`, add, depth test LEQUAL, **depth write off**, two-sided, sorted |
 | `blend`, `opacity == 0` | opaque | drawn as a normal opaque surface |
 
 Only Floor/Ceiling/Wall ranges with a level material can be cut-out or translucent; fixtures, prop placeholders and decals are opaque by kind and stay out of the world alpha passes. The alpha formula is the straight `texel.a × vertex.a × opacity`; static vertices carry alpha 1, preserved in the `Unorm8x4` upload.
 
-The cut-out pass is a separate fragment entry point (`fs_cutout`) and pipeline, not a branch in the opaque shader, because a `discard` disables early depth testing for every draw that uses the program. The condition is `alpha < cutoff` (strictly less; equality is kept), with the cutoff from the material (default 0.5); depth writes stay on and blending off. The translucent pipeline uses straight alpha, no colour × alpha in the shader, depth test on, depth writes off, and runs after the opaque and cut-out passes. Its blend state is explicit `SrcAlpha`/`OneMinusSrcAlpha`/`Add` for **both** the colour and alpha channels. Translucent draws are ordered per draw (never per triangle) by the squared distance from the camera to the draw's AABB centre, farthest first, with stable ties preserving the packed draw order. Both alpha passes use `cull_mode: None` with the `front_facing` normal flip, while opaque architecture keeps its deliberate back-face culling. Special glass passes, refraction and reflective glass do not exist.
+The cut-out pass is a separate fragment entry point (`fs_cutout`) and pipeline, not a branch in the opaque shader, because a `discard` disables early depth testing for every draw that uses the program. The condition is `alpha < cutoff` (strictly less; equality is kept), with the cutoff from the material (default 0.5); depth writes stay on and blending off. The translucent pipeline uses straight alpha, no colour × alpha in the shader, depth test on, depth writes off, and runs after the opaque and cut-out passes. Its blend state is explicit `SrcAlpha`/`OneMinusSrcAlpha`/`Add` for **both** the colour and alpha channels. Translucent draws are ordered per draw (never per triangle) by the squared distance from the camera to the draw's AABB centre, farthest first, with stable ties preserving the packed draw order. Both alpha passes use `cull_mode: None` with the `front_facing` normal flip, while opaque entity sidedness follows the eligibility rules in §4.6. Architecture stays two-sided even when a pane is opaque. Special glass passes, refraction and reflective glass do not exist.
 
 ### 6.6 Fallbacks and reflection eligibility
 

@@ -6089,6 +6089,7 @@ fn runtime_emissive_model() -> crate::gltf::PropModel {
         indices: vec![0, 1, 2],
         textures: Vec::new(),
         submeshes: vec![PropSubmesh {
+            double_sided: true,
             response: crate::materials::MaterialResponse::NONE,
             alpha: crate::materials::MaterialAlpha::OPAQUE,
             material: 0,

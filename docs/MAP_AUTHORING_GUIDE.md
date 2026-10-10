@@ -2846,6 +2846,12 @@ embedded in the GLB; they are not separate catalog assets.
   texture draws its `baseColorFactor` through the shared white sheet),
   `baseColorFactor`, `emissiveFactor`, `emissiveTexture`, and
   `KHR_materials_emissive_strength` (the only extension accepted).
+* `doubleSided` is retained with the glTF default `false`. Eligible opaque
+  dynamic and animated entity primitives honor it in scene and emission passes.
+  `true`, MASK foliage and BLEND surfaces keep both sides. Reflected/singular
+  rigs, scaling clips and morph targets remain conservatively two-sided.
+  Prepared static prop records do not carry this field and retain the existing
+  two-sided contract; no current static shipped prop opts into a single side.
 * Embedded PNG images only, one decoded copy per distinct image actually used; no
   external `.bin`, no external/data-URI textures, no Draco/WebP extensions.
 * UVs must be finite and inside `-0.01..=1.01` — props use **non-tiling** UVs.

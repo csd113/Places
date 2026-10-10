@@ -118,6 +118,9 @@ pub struct PropVertex {
 /// One primitive's slice of the model: a material assignment and an index range.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PropSubmesh {
+    /// glTF material sidedness. Omitted `doubleSided` defaults to false.
+    /// Retained in memory for entity raster state; prepared prop records stay unchanged.
+    pub double_sided: bool,
     /// Shared scalar material response for every mesh route.
     pub response: crate::materials::MaterialResponse,
     /// Index into the document's material list (stable, even for skipped materials).
@@ -702,6 +705,7 @@ struct ResolvedMaterial {
     emission: MaterialEmission,
     /// Material alpha contract, already sanitised.
     alpha: MaterialAlpha,
+    double_sided: bool,
 }
 
 impl Default for ResolvedMaterial {
@@ -712,6 +716,7 @@ impl Default for ResolvedMaterial {
             texture: None,
             emission: MaterialEmission::NONE,
             alpha: MaterialAlpha::OPAQUE,
+            double_sided: false,
         }
     }
 }
@@ -1170,6 +1175,7 @@ impl<'a> Doc<'a> {
         })?;
         append_indices(&mut self.indices, &local_indices, base, block_vertices)?;
         self.submeshes.push(PropSubmesh {
+            double_sided: resolved.double_sided,
             response: resolved.response,
             material: u16::try_from(material).map_err(|error| {
                 GltfError::new(format!("material index does not fit in 16 bits: {error}"))
@@ -1395,12 +1401,22 @@ impl<'a> Doc<'a> {
         let emission = self.resolve_emission(material, index)?;
         let alpha = Self::resolve_alpha(material, index)?;
         let response = imported_response(pbr, color)?;
+        let double_sided = match material.get("doubleSided") {
+            None => false,
+            Some(serde_json::Value::Bool(value)) => *value,
+            Some(_) => {
+                return Err(GltfError::new(format!(
+                    "material {index} doubleSided is not a boolean"
+                )));
+            }
+        };
         let resolved = ResolvedMaterial {
             response,
             color,
             texture,
             emission,
             alpha,
+            double_sided,
         };
         if let Some(slot) = self.material_cache.get_mut(index) {
             *slot = Some(resolved);
