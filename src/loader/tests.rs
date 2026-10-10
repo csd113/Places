@@ -4857,8 +4857,8 @@ fn the_geometry_revision_is_part_of_both_build_fingerprints() {
 
     // The shipped revision is the one the fix introduced, not a placeholder.
     assert_eq!(
-        revision, 8,
-        "shared static-model chart UVs and physical density require geometry revision 8"
+        revision, 9,
+        "neighbor-clipped ramp side emission requires geometry revision 9"
     );
 }
 

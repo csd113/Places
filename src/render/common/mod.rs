@@ -731,7 +731,8 @@ const WALL_COINCIDENCE_EPS: f32 = 1e-3;
 /// 6 = incident-HDR water floor charts and folded circular fan quads;
 /// 7 = exact wall-span endpoint maxima from the span's own roof;
 /// 8 = native shared static-model charts and finer bounded physical sampling.
-pub const GEOMETRY_REVISION: u32 = 8;
+/// 9 = neighbor-clipped ramp sides, including partial footprints and crossings.
+pub const GEOMETRY_REVISION: u32 = 9;
 
 /// One material run of a coalesced wall group: a rectangle in the group's own
 /// (length, height) space over which the visible material is constant.

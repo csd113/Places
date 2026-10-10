@@ -7478,6 +7478,468 @@ fn test_the_home_showcase_draws_every_architectural_material() {
     assert!(seen, "the living room's baseboard must be drawn");
 }
 
+/// Small open-room fixtures exercise the public mesh path for both ramp axes.
+/// A distinct edge material isolates ramp skirts from adjacent region skirts.
+fn ramp_side_test_level(features: &str, axis: crate::level::WallAxis) -> LevelDef {
+    let mut authored: serde_json::Value = serde_json::from_str(
+        r#"{
+            "format_version": 3, "id": "ramp_join", "name": "Ramp Join",
+            "spawn": {"x": 1.0, "z": 1.0},
+            "rooms": [{"x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0,
+                       "height": 10.0, "floor_y": 3.0, "ceiling": {"kind": "open"}}]
+        }"#,
+    )
+    .expect("base ramp fixture parses");
+    let additions: serde_json::Value = serde_json::from_str(features).expect("ramp features parse");
+    for (key, value) in additions.as_object().expect("features are an object") {
+        authored[key] = value.clone();
+    }
+    for key in ["ramps", "floor_regions", "stairs"] {
+        let Some(pieces) = authored
+            .get_mut(key)
+            .and_then(serde_json::Value::as_array_mut)
+        else {
+            continue;
+        };
+        for piece in pieces {
+            if key == "ramps" {
+                piece["edge_material"] = serde_json::json!("core:wallpaper_stained_01");
+            }
+            if axis == crate::level::WallAxis::Z {
+                let x = piece["x"].clone();
+                let width = piece["width"].clone();
+                piece["x"] = piece["z"].clone();
+                piece["z"] = x;
+                piece["width"] = piece["depth"].clone();
+                piece["depth"] = width;
+            }
+        }
+    }
+    LevelDef::from_json(&authored.to_string()).expect("ramp side fixture parses")
+}
+
+/// Ramp edge triangles on one exact side plane, with their outward winding.
+fn ramp_side_test_triangles(
+    mesh: &LevelMesh,
+    level: &LevelDef,
+    axis: crate::level::WallAxis,
+    at: f32,
+    sign: f32,
+) -> Vec<[Vertex; 3]> {
+    let normal = match axis {
+        crate::level::WallAxis::X => [0.0, 0.0, sign],
+        crate::level::WallAxis::Z => [sign, 0.0, 0.0],
+    };
+    material_vertices(mesh, level, "core:wallpaper_stained_01")
+        .as_chunks::<3>()
+        .0
+        .iter()
+        .filter(|triangle| {
+            let on_plane = triangle.iter().all(|vertex| {
+                let across = match axis {
+                    crate::level::WallAxis::X => vertex.pos[2],
+                    crate::level::WallAxis::Z => vertex.pos[0],
+                };
+                (across - at).abs() < 1e-4
+            });
+            let [a, b, c] = triangle.map(|vertex| glam::Vec3::from(vertex.pos));
+            // Reciprocal-length normalization can round an axis component
+            // slightly below 1.0. Measure actual winding instead of filtering
+            // valid small wedges out through exact unit-normal equality.
+            on_plane && (b - a).cross(c - a).dot(glam::Vec3::from(normal)) > 0.0
+        })
+        .copied()
+        .collect()
+}
+
+fn ramp_side_test_area(triangles: &[[Vertex; 3]]) -> f32 {
+    triangles
+        .iter()
+        .map(|triangle| {
+            let [a, b, c] = triangle.map(|vertex| glam::Vec3::from(vertex.pos));
+            (b - a).cross(c - a).length() * 0.5
+        })
+        .sum()
+}
+
+#[test]
+fn adjacent_ramps_with_equal_surfaces_emit_no_shared_sides() {
+    for axis in [crate::level::WallAxis::X, crate::level::WallAxis::Z] {
+        let level = ramp_side_test_level(
+            r#"{"ramps": [
+                {"x": 2.0, "z": 2.0, "width": 6.0, "depth": 1.0, "offset_y": 1.0, "rise": 2.0},
+                {"x": 2.0, "z": 3.0, "width": 6.0, "depth": 1.0, "offset_y": 1.0, "rise": 2.0}
+            ]}"#,
+            axis,
+        );
+        let mesh = build_level_geometry(&level);
+        for sign in [-1.0_f32, 1.0] {
+            assert!(
+                ramp_side_test_triangles(&mesh, &level, axis, 3.0, sign).is_empty(),
+                "equal neighboring slopes must not emit a buried shared skirt"
+            );
+        }
+        assert!(
+            ramp_side_test_area(&ramp_side_test_triangles(&mesh, &level, axis, 2.0, -1.0)) > 11.9,
+            "the exterior side still closes against the room floor"
+        );
+    }
+}
+
+#[test]
+fn shifted_continuous_neighbor_clips_only_its_actual_contact_interval() {
+    for axis in [crate::level::WallAxis::X, crate::level::WallAxis::Z] {
+        let level = ramp_side_test_level(
+            r#"{"ramps": [
+                {"x": 2.0, "z": 2.0, "width": 6.0, "depth": 1.0, "offset_y": 1.0, "rise": 2.0},
+                {"x": 1.0, "z": 3.0, "width": 8.0, "depth": 1.0, "offset_y": 0.6666667, "rise": 2.6666667}
+            ]}"#,
+            axis,
+        );
+        let mesh = build_level_geometry(&level);
+        assert!(
+            ramp_side_test_triangles(&mesh, &level, axis, 3.0, 1.0).is_empty(),
+            "the short ramp is fully covered by the same shifted height function"
+        );
+        let neighbor = ramp_side_test_triangles(&mesh, &level, axis, 3.0, -1.0);
+        assert!(
+            !neighbor.is_empty(),
+            "the longer ramp retains its two exposed tails"
+        );
+        for triangle in neighbor {
+            let along = triangle.map(|vertex| match axis {
+                crate::level::WallAxis::X => vertex.pos[0],
+                crate::level::WallAxis::Z => vertex.pos[2],
+            });
+            assert!(
+                along.iter().all(|value| *value <= 2.0) || along.iter().all(|value| *value >= 8.0),
+                "a longer neighbor's skirt must stop exactly at its abutting ramp"
+            );
+        }
+    }
+}
+
+#[test]
+fn crossing_ramp_slopes_emit_each_exposed_half_once() {
+    for axis in [crate::level::WallAxis::X, crate::level::WallAxis::Z] {
+        let level = ramp_side_test_level(
+            r#"{"ramps": [
+                {"x": 2.0, "z": 2.0, "width": 6.0, "depth": 1.0, "offset_y": 1.0, "rise": 2.0},
+                {"x": 2.0, "z": 3.0, "width": 6.0, "depth": 1.0, "offset_y": 3.0, "rise": -2.0}
+            ]}"#,
+            axis,
+        );
+        let mesh = build_level_geometry(&level);
+        for sign in [-1.0_f32, 1.0] {
+            let triangles = ramp_side_test_triangles(&mesh, &level, axis, 3.0, sign);
+            assert_eq!(
+                triangles.len(),
+                1,
+                "each exposed wedge is one real triangle"
+            );
+            assert!(
+                (ramp_side_test_area(&triangles) - 3.0).abs() < 1e-4,
+                "each crossing wedge must have the real exposed area"
+            );
+            for vertex in triangles.into_iter().flatten() {
+                let along = match axis {
+                    crate::level::WallAxis::X => vertex.pos[0],
+                    crate::level::WallAxis::Z => vertex.pos[2],
+                };
+                assert!(
+                    if sign < 0.0 {
+                        along <= 5.0
+                    } else {
+                        along >= 5.0
+                    },
+                    "the face must end at the slope crossing, not run below its neighbor"
+                );
+                assert!(
+                    (4.0..=6.0).contains(&vertex.pos[1]),
+                    "a shared face cannot extend below either ramp"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn partial_region_support_retains_only_the_real_ramp_step() {
+    for axis in [crate::level::WallAxis::X, crate::level::WallAxis::Z] {
+        let level = ramp_side_test_level(
+            r#"{
+                "ramps": [{"x": 2.0, "z": 2.0, "width": 6.0, "depth": 1.0, "offset_y": 1.0, "rise": 2.0}],
+                "floor_regions": [{"x": 4.0, "z": 3.0, "width": 2.0, "depth": 1.0, "offset_y": 2.0}]
+            }"#,
+            axis,
+        );
+        let mesh = build_level_geometry(&level);
+        let triangles = ramp_side_test_triangles(&mesh, &level, axis, 3.0, 1.0);
+        assert_eq!(
+            triangles.len(),
+            5,
+            "two room skirts and one exposed region wedge remain"
+        );
+        assert!(
+            (ramp_side_test_area(&triangles) - 49.0 / 6.0).abs() < 1e-4,
+            "the side retains only the room skirts and shallow exposed support wedge"
+        );
+        let mut supported = 0_usize;
+        for triangle in triangles {
+            let along = triangle.map(|vertex| match axis {
+                crate::level::WallAxis::X => vertex.pos[0],
+                crate::level::WallAxis::Z => vertex.pos[2],
+            });
+            if along.iter().all(|value| (4.0..=6.0).contains(value)) {
+                supported += 1;
+                assert!(
+                    along.iter().all(|value| *value >= 5.0 - 1e-4)
+                        && along.iter().any(|value| (*value - 5.0).abs() < 1e-4),
+                    "the supported wedge starts at the f32 slope crossing near 5: {along:?}"
+                );
+                assert!(
+                    triangle.iter().all(|vertex| vertex.pos[1] >= 5.0),
+                    "the supported wedge stops at the region floor"
+                );
+                assert!(
+                    triangle.iter().any(|vertex| vertex.pos[1] > 5.3),
+                    "the real shallow rise above the support remains visible"
+                );
+            } else {
+                assert!(
+                    along.iter().all(|value| *value <= 4.0)
+                        || along.iter().all(|value| *value >= 6.0),
+                    "the region's covered part cannot retain a full-height skirt: {along:?}"
+                );
+            }
+        }
+        assert_eq!(
+            supported, 1,
+            "the small real height difference remains visible"
+        );
+    }
+}
+
+#[test]
+fn stair_neighbor_knots_preserve_each_small_exposed_ramp_wedge() {
+    for axis in [crate::level::WallAxis::X, crate::level::WallAxis::Z] {
+        let level = ramp_side_test_level(
+            r#"{
+                "ramps": [{"x": 2.0, "z": 2.0, "width": 6.0, "depth": 1.0, "offset_y": 1.1, "rise": 1.2}],
+                "stairs": [{"x": 2.0, "z": 3.0, "width": 6.0, "depth": 1.0, "offset_y": 1.0, "rise": 1.2, "steps": 4}]
+            }"#,
+            axis,
+        );
+        let mesh = build_level_geometry(&level);
+        let triangles = ramp_side_test_triangles(&mesh, &level, axis, 3.0, 1.0);
+        assert_eq!(
+            triangles.len(),
+            4,
+            "each tread has its own clipped ramp wedge"
+        );
+        assert!(
+            (ramp_side_test_area(&triangles) - 0.1).abs() < 1e-4,
+            "the stair neighbor exposes only four shallow wedges"
+        );
+        for triangle in triangles {
+            let height = triangle.map(|vertex| vertex.pos[1]);
+            let low = height.into_iter().fold(f32::INFINITY, f32::min);
+            let high = height.into_iter().fold(f32::NEG_INFINITY, f32::max);
+            assert!(
+                (high - low - 0.1).abs() < 1e-4,
+                "a tread cannot expose the lower flight's full rise"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_nearby_disconnected_ramp_does_not_cover_an_exposed_side() {
+    let axis = crate::level::WallAxis::X;
+    let level = ramp_side_test_level(
+        r#"{"ramps": [
+            {"x": 2.0, "z": 2.0, "width": 6.0, "depth": 1.0, "offset_y": 1.0, "rise": 2.0},
+            {"x": 2.0, "z": 3.01, "width": 6.0, "depth": 1.0, "offset_y": 1.0, "rise": 2.0}
+        ]}"#,
+        axis,
+    );
+    let mesh = build_level_geometry(&level);
+    let exposed = ramp_side_test_triangles(&mesh, &level, axis, 3.0, 1.0);
+    assert!(
+        (ramp_side_test_area(&exposed) - 12.0).abs() < 1e-4,
+        "a nearby ramp separated by a real gap cannot hide this side"
+    );
+}
+
+#[test]
+fn standalone_ramp_sides_and_end_caps_keep_their_real_height() {
+    for axis in [crate::level::WallAxis::X, crate::level::WallAxis::Z] {
+        let level = ramp_side_test_level(
+            r#"{"ramps": [{"x": 2.0, "z": 2.0, "width": 6.0, "depth": 1.0, "offset_y": 1.0, "rise": 2.0}]}"#,
+            axis,
+        );
+        let mesh = build_level_geometry(&level);
+        for (at, sign) in [(2.0_f32, -1.0_f32), (3.0, 1.0)] {
+            let side = ramp_side_test_triangles(&mesh, &level, axis, at, sign);
+            assert_eq!(side.len(), 2, "a standalone skirt remains one quad");
+            assert!(
+                (ramp_side_test_area(&side) - 12.0).abs() < 1e-4,
+                "the standalone side retains its original exposed area"
+            );
+        }
+        let end_axis = match axis {
+            crate::level::WallAxis::X => crate::level::WallAxis::Z,
+            crate::level::WallAxis::Z => crate::level::WallAxis::X,
+        };
+        for (at, sign, area) in [(2.0_f32, -1.0_f32, 1.0_f32), (8.0, 1.0, 3.0)] {
+            let end = ramp_side_test_triangles(&mesh, &level, end_axis, at, sign);
+            assert_eq!(end.len(), 2, "an elevated standalone end remains one cap");
+            assert!(
+                (ramp_side_test_area(&end) - area).abs() < 1e-4,
+                "the standalone end cap retains its original exposed area"
+            );
+        }
+    }
+}
+
+#[test]
+fn standalone_recessed_ramp_keeps_its_closed_outward_skirts() {
+    for axis in [crate::level::WallAxis::X, crate::level::WallAxis::Z] {
+        let level = ramp_side_test_level(
+            r#"{"ramps": [{"x": 2.0, "z": 2.0, "width": 6.0, "depth": 1.0, "rise": -1.2}]}"#,
+            axis,
+        );
+        let mesh = build_level_geometry(&level);
+        for (at, sign) in [(2.0_f32, -1.0_f32), (3.0, 1.0)] {
+            let side = ramp_side_test_triangles(&mesh, &level, axis, at, sign);
+            assert_eq!(
+                side.len(),
+                1,
+                "a recessed standalone skirt is one outward triangle"
+            );
+            assert!(
+                (ramp_side_test_area(&side) - 3.6).abs() < 1e-4,
+                "the unchanged room floor must preserve the recessed wedge's backing"
+            );
+        }
+    }
+}
+
+#[test]
+fn authored_flat_region_at_room_height_cannot_supply_recessed_ramp_backing() {
+    for axis in [crate::level::WallAxis::X, crate::level::WallAxis::Z] {
+        let level = ramp_side_test_level(
+            r#"{
+                "ramps": [{"x": 2.0, "z": 2.0, "width": 6.0, "depth": 1.0, "rise": -1.2}],
+                "floor_regions": [{"x": 2.0, "z": 3.0, "width": 6.0, "depth": 1.0, "offset_y": 0.0}]
+            }"#,
+            axis,
+        );
+        let mesh = build_level_geometry(&level);
+        assert!(
+            ramp_side_test_triangles(&mesh, &level, axis, 3.0, 1.0).is_empty(),
+            "an authored neighbor at the room floor keeps its real profile"
+        );
+        let opposite = ramp_side_test_triangles(&mesh, &level, axis, 2.0, -1.0);
+        assert_eq!(
+            opposite.len(),
+            1,
+            "only the unchanged own room supplies wedge backing"
+        );
+        assert!(
+            (ramp_side_test_area(&opposite) - 3.6).abs() < 1e-4,
+            "the exterior standalone skirt retains its historical backing"
+        );
+    }
+}
+
+#[test]
+fn a_distinct_room_at_the_same_height_cannot_supply_recessed_ramp_backing() {
+    for axis in [crate::level::WallAxis::X, crate::level::WallAxis::Z] {
+        let mut level = ramp_side_test_level(
+            r#"{"ramps": [{"x": 2.0, "z": 2.0, "width": 6.0, "depth": 1.0, "rise": -1.2}]}"#,
+            axis,
+        );
+        let mut adjacent = level.rooms[0].clone();
+        match axis {
+            crate::level::WallAxis::X => {
+                level.rooms[0].depth = 3.0;
+                adjacent.z = 3.0;
+                adjacent.depth = 9.0;
+            }
+            crate::level::WallAxis::Z => {
+                level.rooms[0].width = 3.0;
+                adjacent.x = 3.0;
+                adjacent.width = 9.0;
+            }
+        }
+        level.rooms.push(adjacent);
+        let mesh = build_level_geometry(&level);
+        assert!(
+            ramp_side_test_triangles(&mesh, &level, axis, 3.0, 1.0).is_empty(),
+            "room ownership, rather than equal floor heights, controls standalone backing"
+        );
+        assert_eq!(
+            ramp_side_test_triangles(&mesh, &level, axis, 2.0, -1.0).len(),
+            1,
+            "the ramp's own unchanged room still backs its recessed side"
+        );
+    }
+}
+
+#[test]
+fn ramps_at_outer_room_boundaries_retain_their_outward_wedge_closure() {
+    let cases = [
+        (
+            r#"{"ramps": [{"x": 2.0, "z": 2.0, "width": 6.0, "depth": 1.0, "offset_y": 1.0, "rise": 2.0}]}"#,
+            6.0_f32,
+            (4.0_f32, 6.0_f32),
+            12.0_f32,
+        ),
+        (
+            r#"{"ramps": [{"x": 2.0, "z": 2.0, "width": 6.0, "depth": 1.0, "rise": -1.2}]}"#,
+            3.6,
+            (1.8, 3.0),
+            3.6,
+        ),
+    ];
+    for axis in [crate::level::WallAxis::X, crate::level::WallAxis::Z] {
+        for (features, area, heights, interior_area) in cases {
+            for (at, sign) in [(0.0_f32, -1.0_f32), (12.0, 1.0)] {
+                let mut level = ramp_side_test_level(features, axis);
+                let origin = if sign < 0.0 { at } else { at - 1.0 };
+                match axis {
+                    crate::level::WallAxis::X => level.ramps[0].z = origin,
+                    crate::level::WallAxis::Z => level.ramps[0].x = origin,
+                }
+                let mesh = build_level_geometry(&level);
+                let exterior = ramp_side_test_triangles(&mesh, &level, axis, at, sign);
+                assert_eq!(
+                    exterior.len(),
+                    1,
+                    "the exterior ramp side remains one outward wedge: {axis:?}, {sign}"
+                );
+                assert!(
+                    (ramp_side_test_area(&exterior) - area).abs() < 1e-4,
+                    "the exterior side closes at the original low endpoint"
+                );
+                let ys = exterior.iter().flatten().map(|vertex| vertex.pos[1]);
+                let low = ys.clone().fold(f32::INFINITY, f32::min);
+                let high = ys.fold(f32::NEG_INFINITY, f32::max);
+                assert!(
+                    (low - heights.0).abs() < 1e-4 && (high - heights.1).abs() < 1e-4,
+                    "the exterior backing uses ramp endpoints rather than the room floor"
+                );
+                let interior = ramp_side_test_triangles(&mesh, &level, axis, at - sign, -sign);
+                assert!(
+                    (ramp_side_test_area(&interior) - interior_area).abs() < 1e-4,
+                    "the opposite side retains its own-room backing"
+                );
+            }
+        }
+    }
+}
+
 // ---------------------------------------------------------------------- water
 
 /// A sun-facing coastal riser cannot be ambient-only beside its lit ramp top.

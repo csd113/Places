@@ -565,8 +565,201 @@ fn emit_ramp_surface(
     buckets.add_quads(key, scratch);
 }
 
-/// The ramp's two closed sides, each dropping from the sloped edge to the floor
-/// just outside it.
+/// One ramp side's horizontal frame. Contact is directional across its edge:
+/// the ramp's own footprint never supplies its neighbour, and a gap does not
+/// become support merely because it lies inside a probe distance.
+#[derive(Clone, Copy)]
+struct RampSide {
+    axis: WallAxis,
+    at: f32,
+    sign: f32,
+    span: (f32, f32),
+    uv_top: f32,
+}
+
+impl RampSide {
+    /// The along-edge interval where a footprint actually meets this side.
+    fn contact_span(self, bounds: (f32, f32, f32, f32)) -> Option<(f32, f32)> {
+        let (x0, x1, z0, z1) = bounds;
+        let (along, across) = match self.axis {
+            WallAxis::X => ((x0, x1), (z0, z1)),
+            WallAxis::Z => ((z0, z1), (x0, x1)),
+        };
+        let touches = if self.sign < 0.0 {
+            across.0 < self.at && across.1 >= self.at
+        } else {
+            across.0 <= self.at && across.1 > self.at
+        };
+        let span = (along.0.max(self.span.0), along.1.min(self.span.1));
+        (touches && span.0 < span.1).then_some(span)
+    }
+
+    /// Whether a footprint owns the interior of this side's current interval.
+    fn covered_at(self, bounds: (f32, f32, f32, f32), along: f32) -> bool {
+        self.contact_span(bounds)
+            .is_some_and(|span| along > span.0 && along < span.1)
+    }
+
+    /// A point on the exact side plane, rather than an offset sampling plane.
+    const fn point(self, along: f32, y: f32) -> [f32; 3] {
+        match self.axis {
+            WallAxis::X => [along, y, self.at],
+            WallAxis::Z => [self.at, y, along],
+        }
+    }
+
+    const fn normal(self) -> [f32; 3] {
+        match self.axis {
+            WallAxis::X => [0.0, 0.0, self.sign],
+            WallAxis::Z => [self.sign, 0.0, 0.0],
+        }
+    }
+}
+
+/// Every point where neighbour ownership or its height function can change.
+fn ramp_side_knots(level: &LevelDef, side: RampSide) -> Vec<f32> {
+    let mut knots = vec![side.span.0, side.span.1];
+    let mut add = |along: f32| {
+        if along.is_finite() && along > side.span.0 && along < side.span.1 {
+            knots.push(along);
+        }
+    };
+    let footprints = level
+        .room_iter()
+        .map(crate::level::RoomDef::bounds)
+        .chain(
+            level
+                .floor_regions
+                .iter()
+                .map(crate::level::FloorRegionDef::bounds),
+        )
+        .chain(level.ramps.iter().map(RampDef::bounds))
+        .chain(level.stairs.iter().map(StairDef::bounds));
+    for bounds in footprints {
+        if let Some(span) = side.contact_span(bounds) {
+            add(span.0);
+            add(span.1);
+        }
+    }
+    for stair in &level.stairs {
+        if stair.axis() == side.axis && side.contact_span(stair.bounds()).is_some() {
+            for step in 1..stair.step_count() {
+                add(stair.tread_span(step).0);
+            }
+        }
+    }
+    knots.sort_by(f32::total_cmp);
+    knots.dedup_by(|a, b| a.total_cmp(b).is_eq());
+    knots
+}
+
+/// The exact neighboring profile and whether it is the unchanged room floor,
+/// which also supplies the historical backing plane for a recessed ramp.
+struct RampSideNeighbor {
+    heights: (f32, f32),
+    underlying_room: Option<usize>,
+}
+
+/// Resolve ownership inside an interval, then evaluate both boundary endpoints
+/// against that same owner. Querying each endpoint independently would borrow a
+/// higher-precedence neighbour's height at a region edge or stair nosing.
+fn ramp_side_neighbor_heights(
+    context: &EmitContext<'_, '_>,
+    side: RampSide,
+    span: (f32, f32),
+) -> Option<RampSideNeighbor> {
+    let midpoint = f32::midpoint(span.0, span.1);
+    let (room_index, room) = context
+        .surfaces
+        .rooms()
+        .iter()
+        .enumerate()
+        .find(|(_, room)| side.covered_at(room.bounds(), midpoint))?;
+    let floor = if room.floor_y.is_finite() {
+        room.floor_y
+    } else {
+        0.0
+    };
+    let first = side.point(span.0, 0.0);
+    let last = side.point(span.1, 0.0);
+    if let Some(ramp) = context
+        .level
+        .ramps
+        .iter()
+        .rev()
+        .find(|ramp| side.covered_at(ramp.bounds(), midpoint))
+    {
+        return Some(RampSideNeighbor {
+            heights: (
+                floor + ramp.offset_at(first[0], first[2]),
+                floor + ramp.offset_at(last[0], last[2]),
+            ),
+            underlying_room: None,
+        });
+    }
+    let middle = side.point(midpoint, 0.0);
+    let offset = context
+        .level
+        .stairs
+        .iter()
+        .rev()
+        .find(|stair| side.covered_at(stair.bounds(), midpoint))
+        .map_or_else(
+            || {
+                context
+                    .level
+                    .floor_regions
+                    .iter()
+                    .rev()
+                    .find(|region| side.covered_at(region.bounds(), midpoint))
+                    .map(crate::level::FloorRegionDef::offset)
+            },
+            |stair| Some(stair.offset_at(middle[0], middle[2])),
+        );
+    let height = floor + offset.unwrap_or(0.0);
+    Some(RampSideNeighbor {
+        heights: (height, height),
+        underlying_room: offset.is_none().then_some(room_index),
+    })
+}
+
+/// Two linear edge heights over one interval with stable neighbour ownership.
+#[derive(Clone, Copy)]
+struct RampSideSpan {
+    span: (f32, f32),
+    top: (f32, f32),
+    bottom: (f32, f32),
+}
+
+impl RampSideSpan {
+    /// Clip at a crossing of the two slopes, retaining only the interval where
+    /// this ramp stands above its neighbour. The adjoining ramp owns the face
+    /// on the other interval, so the shared edge is never emitted twice.
+    fn exposed(mut self) -> Option<Self> {
+        let first = self.top.0 - self.bottom.0;
+        let last = self.top.1 - self.bottom.1;
+        if first <= 1e-4 && last <= 1e-4 {
+            return None;
+        }
+        if first < 0.0 || last < 0.0 {
+            let fraction = first / (first - last);
+            let along = (self.span.1 - self.span.0).mul_add(fraction, self.span.0);
+            let y = (self.top.1 - self.top.0).mul_add(fraction, self.top.0);
+            if first < 0.0 {
+                self.span.0 = along;
+                self.top.0 = y;
+                self.bottom.0 = y;
+            } else {
+                self.span.1 = along;
+                self.top.1 = y;
+                self.bottom.1 = y;
+            }
+        }
+        Some(self)
+    }
+}
+
+/// The ramp's two sides drop only to the actual surface beside each interval.
 fn emit_ramp_sides(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
@@ -577,100 +770,116 @@ fn emit_ramp_sides(
     edge_tile: f32,
 ) {
     let (x0, x1, z0, z1) = ramp.bounds();
+    let Some(own_room) = context
+        .surfaces
+        .room_index_at(f32::midpoint(x0, x1), f32::midpoint(z0, z1))
+    else {
+        return;
+    };
     let axis = ramp.axis();
     let (across_low, across_high) = match axis {
         WallAxis::X => (z0, z1),
         WallAxis::Z => (x0, x1),
     };
-    let surface_at = |fraction: f32| room_floor + ramp.rise().mul_add(fraction, ramp.base_offset());
-    for side in [-1.0f32, 1.0] {
-        // The floor beside the ramp can step along the run: a ramp arriving at
-        // a raised platform reads the platform's own height at its far end.
-        // Sampling only that end used to collapse the whole skirt to nothing,
-        // leaving the wedge open. Sample along the run and bottom the skirt at
-        // the lowest floor it stands beside, so the face always closes down to
-        // (or below) whatever it meets.
-        let mut bottom = f32::INFINITY;
-        for sample in 0..=4u8 {
-            // four samples, far below 2^24
-            let fraction = f32::from(sample) / 4.0;
-            let (px, pz) = ramp.side_probe(side, fraction, ADJACENT_PROBE_M);
-            bottom = bottom.min(
-                context
-                    .surfaces
-                    .floor_y_at(px, pz)
-                    .unwrap_or_else(|| surface_at(fraction)),
+    let span = match axis {
+        WallAxis::X => (x0, x1),
+        WallAxis::Z => (z0, z1),
+    };
+    for sign in [-1.0f32, 1.0] {
+        let side = RampSide {
+            axis,
+            at: if sign < 0.0 { across_low } else { across_high },
+            sign,
+            span,
+            uv_top: room_floor + ramp.high_offset(),
+        };
+        for endpoints in ramp_side_knots(context.level, side).windows(2) {
+            let &[start, end] = endpoints else { continue };
+            // An unmodified room floor backs the solid wedge of a standalone
+            // recessed ramp at its lowest endpoint. Authored neighbors retain
+            // their exact profiles, including when they stand above this ramp.
+            // With no room outside the side, the original exterior closure
+            // bottoms at the ramp's low endpoint, independently of room floor.
+            let bottom = ramp_side_neighbor_heights(context, side, (start, end)).map_or_else(
+                || {
+                    let backing = room_floor + ramp.low_offset();
+                    (backing, backing)
+                },
+                |neighbor| {
+                    if neighbor.underlying_room == Some(own_room) {
+                        let backing = neighbor.heights.0.min(room_floor + ramp.low_offset());
+                        (backing, backing)
+                    } else {
+                        neighbor.heights
+                    }
+                },
             );
+            let first = side.point(start, 0.0);
+            let last = side.point(end, 0.0);
+            let profile = RampSideSpan {
+                span: (start, end),
+                top: (
+                    room_floor + ramp.offset_at(first[0], first[2]),
+                    room_floor + ramp.offset_at(last[0], last[2]),
+                ),
+                bottom,
+            };
+            if let Some(exposed) = profile.exposed() {
+                emit_ramp_side_span(
+                    context, buckets, scratch, side, exposed, edge_key, edge_tile,
+                );
+            }
         }
-        let top_low = surface_at(0.0);
-        let top_high = surface_at(1.0);
-        let clamped_bottom = bottom.min(top_low).min(top_high);
-        if top_low - clamped_bottom <= 1e-4 && top_high - clamped_bottom <= 1e-4 {
-            continue;
-        }
-        let at = if side < 0.0 { across_low } else { across_high };
-        let expected = match axis {
-            WallAxis::X => [0.0, 0.0, side],
-            WallAxis::Z => [side, 0.0, 0.0],
-        };
-        let span = match axis {
-            WallAxis::X => (x0, x1),
-            WallAxis::Z => (z0, z1),
-        };
-        let mut points: [[f32; 3]; 4] = match axis {
-            WallAxis::X => [
-                [span.0, clamped_bottom, at],
-                [span.1, clamped_bottom, at],
-                [span.1, top_high, at],
-                [span.0, top_low, at],
-            ],
-            WallAxis::Z => [
-                [at, clamped_bottom, span.0],
-                [at, clamped_bottom, span.1],
-                [at, top_high, span.1],
-                [at, top_low, span.0],
-            ],
-        };
-        let along_of = |point: [f32; 3]| match axis {
+    }
+}
+
+/// Emit one exposed segment, preserving the ramp's world texture frame and
+/// vertical gradient. Collapsed upper/bottom pairs take the same bottom shade.
+fn emit_ramp_side_span(
+    context: &EmitContext<'_, '_>,
+    buckets: &mut SpatialBuckets<SurfaceKey>,
+    scratch: &mut Vec<Vertex>,
+    side: RampSide,
+    profile: RampSideSpan,
+    key: SurfaceKey,
+    tile: f32,
+) {
+    let mut points = [
+        side.point(profile.span.0, profile.bottom.0),
+        side.point(profile.span.1, profile.bottom.1),
+        side.point(profile.span.1, profile.top.1),
+        side.point(profile.span.0, profile.top.0),
+    ];
+    let mut top = [
+        false,
+        false,
+        profile.top.1 - profile.bottom.1 > 1e-4,
+        profile.top.0 - profile.bottom.0 > 1e-4,
+    ];
+    let mut uv = map_corners(points, |point| {
+        let along = match side.axis {
             WallAxis::X => point[0],
             WallAxis::Z => point[2],
         };
-        // A corner belongs to the face's upper edge when it sits on the sloped
-        // line from `(span.0, top_low)` to `(span.1, top_high)` and that line
-        // stands clear of the face's bottom. A ramp end that lands flush on a
-        // floor collapses the upper edge onto the bottom there: that corner is
-        // classified as a bottom corner, and its duplicate carries the same
-        // flag. The winding normalisation may reverse the corner order and the
-        // triangle fold drops one of the two coincident corners, so a flag that
-        // differed between the duplicates could survive on the wrong corner and
-        // rotate the wall gradient to run along the run instead of up the face
-        // — a shade step exactly at the junction with the floor.
-        let mut top_flags: [bool; 4] = map_corners(points, |point| {
-            let along = along_of(point);
-            let fraction = ((along - span.0) / (span.1 - span.0)).clamp(0.0, 1.0);
-            let edge = (top_high - top_low).mul_add(fraction, top_low);
-            edge - clamped_bottom > 1e-4 && (point[1] - edge).abs() <= 1e-4
-        });
-        let mut uv: [[f32; 2]; 4] = map_corners(points, |point| {
-            tiled_uv(along_of(point), top_low.max(top_high) - point[1], edge_tile)
-        });
-        orient(&mut points, &mut uv, &mut top_flags, expected);
-        emit_face(
-            context,
-            buckets,
-            scratch,
-            ArchitectureFace {
-                points,
-                uv,
-                top: top_flags,
-                normal: expected,
-                vertical: true,
-                up: false,
-                key: edge_key,
-                kind: PatchKind::Skirt,
-            },
-        );
-    }
+        tiled_uv(along, side.uv_top - point[1], tile)
+    });
+    let normal = side.normal();
+    orient(&mut points, &mut uv, &mut top, normal);
+    emit_face(
+        context,
+        buckets,
+        scratch,
+        ArchitectureFace {
+            points,
+            uv,
+            top,
+            normal,
+            vertical: true,
+            up: false,
+            key,
+            kind: PatchKind::Skirt,
+        },
+    );
 }
 
 /// The ramp's two end faces: closed against the floors they meet, and skipped
