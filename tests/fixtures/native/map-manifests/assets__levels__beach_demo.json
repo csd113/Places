@@ -1,0 +1,78 @@
+{
+  "format_version": 1,
+  "level": "beach_demo",
+  "source": "assets/levels/beach_demo.json",
+  "package": "assets/levels/beach_demo.placesmap",
+  "base_revision": "1bd47995930d6c3eef8c9e029f7a4eded20e231b",
+  "settings": {
+    "bindings": {
+      "forward": "W",
+      "backward": "S",
+      "strafe_left": "A",
+      "strafe_right": "D",
+      "look_up": "UP",
+      "look_down": "DOWN",
+      "look_left": "LEFT",
+      "look_right": "RIGHT",
+      "jump": "SPACE",
+      "crouch": "C",
+      "interact": "E"
+    },
+    "look_speed_h": 90,
+    "look_speed_v": 60,
+    "walk_speed": 3,
+    "invert_look": false,
+    "mouse_sensitivity": 0.12,
+    "quality": "high",
+    "texture_filtering": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": false,
+    "use_low_quality_lighting": false,
+    "vsync": false,
+    "fov_degrees": 60,
+    "window_mode": "windowed",
+    "window_width": 640,
+    "window_height": 360
+  },
+  "bake": {
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ],
+    "workers": 12,
+    "force_for_cold_measurement": true,
+    "algorithm": "unchanged normal compiler defaults; see package inspect for prepared settings"
+  },
+  "environment": {
+    "sky": "beach:tex_sky_day_01",
+    "sun": "beach_sun aligned bearing/elevation +45 degrees",
+    "fog": "source environment is authoritative",
+    "animation": "explicit looping gull/crab/fish clips; short grounded crab route"
+  },
+  "capture": {
+    "ready_world_seconds": 0.5,
+    "warmup_frames": 15,
+    "limit_frames": 2400,
+    "expected_drawable": [
+      1280,
+      720
+    ]
+  },
+  "views": [
+    {
+      "name": "hero",
+      "spawn": [
+        20,
+        4.8,
+        -62
+      ],
+      "camera": [
+        -62,
+        2
+      ],
+      "purpose": "Promotional spawn: palm framing, blue waterfront, pier, open sea arch and lighthouse"
+    }
+  ]
+}

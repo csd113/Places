@@ -1584,13 +1584,14 @@ fn test_the_default_level_is_the_shipped_demo() {
     assert_eq!(
         bundled,
         vec![
+            "beach_demo",
             "lantern_hollow",
             "model_zoo",
             "movement_test",
             "places_demo",
             "winter"
         ],
-        "the bundled levels include the showcases, Movement Test and Winter"
+        "the bundled levels include the showcases, Movement Test, Winter and Beach"
     );
 
     let loaded = manager.load_default().expect("the shipped demo loads");

@@ -159,8 +159,8 @@ class ShippedLevelTests(unittest.TestCase):
         shipped = {path.stem: load_level(path) for path in level_files()}
         self.assertEqual(
             set(shipped),
-            {"places_demo", "model_zoo", "lantern_hollow", "movement_test", "winter"},
-            "the showcases, Movement Test and Winter are bundled levels",
+            {"places_demo", "model_zoo", "lantern_hollow", "movement_test", "winter", "beach_demo"},
+            "the showcases, Movement Test, Winter and Beach are bundled levels",
         )
         demo = shipped["places_demo"]
         self.assertEqual(demo["id"], "places_demo")
@@ -188,7 +188,7 @@ class ShippedLevelTests(unittest.TestCase):
         packages = {path.stem: path for path in package_files()}
         self.assertEqual(
             set(packages),
-            {"places_demo", "model_zoo", "lantern_hollow", "movement_test", "winter"},
+            {"places_demo", "model_zoo", "lantern_hollow", "movement_test", "winter", "beach_demo"},
             "each bundled level has a compiled package",
         )
         for stem, path in packages.items():
@@ -262,15 +262,24 @@ class ShippedLevelTests(unittest.TestCase):
             f"the Model Zoo is stale: {completed.stdout}{completed.stderr}",
         )
 
-    def test_every_shipped_level_has_rooms_walls_light_and_an_inside_spawn(self):
+    def test_every_shipped_level_has_rooms_lighting_and_an_inside_spawn(self):
         for path in level_files():
             level = load_level(path)
             rooms = rooms_of(level)
             self.assertGreaterEqual(len(rooms), 1, f"{path.name} has no rooms")
-            self.assertGreaterEqual(len(level["walls"]), 1, f"{path.name} has no walls")
-            self.assertGreaterEqual(
-                len(level["ceiling_lights"]), 1, f"{path.name} has no fixtures"
-            )
+            if level["id"] == "beach_demo":
+                self.assertTrue(all(room.get("ceiling", {}).get("kind") == "open" for room in rooms))
+                self.assertTrue(any(light["kind"] == "directional" and light["intensity"] > 0
+                                    and light.get("enabled", True) and light.get("bake", True)
+                                    for light in level.get("global_illuminators", [])),
+                                "Beach has no daylight source")
+                self.assertEqual(level["sky"]["texture"], "beach:tex_sky_day_01")
+                self.assertTrue(level.get("props"), "Beach has no structural scenery")
+            else:
+                self.assertGreaterEqual(len(level.get("walls", [])), 1, f"{path.name} has no walls")
+                self.assertGreaterEqual(
+                    len(level.get("ceiling_lights", [])), 1, f"{path.name} has no fixtures"
+                )
             spawn = level["spawn"]
             inside = any(
                 room["x"] <= spawn["x"] <= room["x"] + room["width"]
@@ -292,12 +301,12 @@ class ShippedLevelTests(unittest.TestCase):
             for room in rooms_of(level):
                 used.add(room.get("material", defaults["floor"]))
                 used.add(room.get("ceiling_material", defaults["ceiling"]))
-            for wall in level["walls"]:
+            for wall in level.get("walls", []):
                 used.add(wall.get("material", defaults["wall"]))
                 used.update(wall.get("faces", {}).values())
             for patch in level.get("floor_patches", []):
                 used.add(patch["material"])
-            for light in level["ceiling_lights"]:
+            for light in level.get("ceiling_lights", []):
                 used.add(light["fixture"])
             unknown = {mid for mid in used if mid.startswith("core:")} - known_materials
             self.assertEqual(unknown, set(), f"{path.name} uses unknown core ids")
@@ -340,7 +349,7 @@ class ShippedLevelTests(unittest.TestCase):
             minimum_width, minimum_height = (
                 (0.7, 1.85) if level["id"] == "movement_test" else (1.0, 1.9)
             )
-            for index, wall in enumerate(level["walls"]):
+            for index, wall in enumerate(level.get("walls", [])):
                 length = max(wall["width"], wall["depth"])
                 for opening in wall.get("openings", []):
                     self.assertGreater(opening["width"], 0.0)
@@ -361,7 +370,7 @@ class ShippedLevelTests(unittest.TestCase):
     def test_light_intensities_are_sane(self):
         for path in level_files():
             level = load_level(path)
-            for light in level["ceiling_lights"]:
+            for light in level.get("ceiling_lights", []):
                 brightness = light.get("brightness")
                 if brightness is None:
                     continue

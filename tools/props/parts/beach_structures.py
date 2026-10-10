@@ -304,7 +304,9 @@ def dock(p):
     for z in (-.78, .78):
         box(p, (0, .675, z), (4.1, .22, .20), wood)
     for i in range(13):
-        box(p, (-1.974+i*.329, .855, 0), (.319, .15, 2.08), plank)
+        # Joined tops retain fitted plank grain without subpixel dark side
+        # faces stippling the deck from the lookout's oblique view.
+        box(p, (-1.974+i*.329, .855, 0), (.329, .15, 2.08), plank)
     for x in (-1.90, 1.90):
         beam(p, (x, .30, -.86), (x, .70, -.37), .12, .12, wood)
         beam(p, (x, .30, .86), (x, .70, .37), .12, .12, wood)
@@ -336,7 +338,10 @@ def stilt_house_blue(p):
     wood, plank, blue = (t.uv(n, inset=2) for n in ("wood", "plank", "blue"))
     for x in (-1.92, 1.92):
         for z in (-1.52, 0, 1.52):
-            box(p, (x, 1.015, z), (.22, 2.03, .22), wood)
+            # Front posts sit inside the blue wall skin above the deck.
+            # Their former +Z plane at 1.63 coincided with the wall face.
+            post_z = z-.008 if z > 0 else z
+            box(p, (x, 1.015, post_z), (.22, 2.03, .22), wood)
     for z in (-1.52, 0, 1.52):
         box(p, (0, .79, z), (4.12, .24, .24), wood)
     box(p, (0, .98, 0), (4.34, .16, 3.48), plank)

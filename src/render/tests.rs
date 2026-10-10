@@ -7480,6 +7480,97 @@ fn test_the_home_showcase_draws_every_architectural_material() {
 
 // ---------------------------------------------------------------------- water
 
+/// A sun-facing coastal riser cannot be ambient-only beside its lit ramp top.
+#[test]
+fn vertex_lit_architectural_faces_receive_directional_sun() {
+    let mut authored = serde_json::json!({
+        "format_version": 3_u32, "id": "ramp_sun", "name": "Ramp Sun",
+        "spawn": {"x": 2_f64, "z": 2_f64},
+        "rooms": [{"x": 0_f64, "z": 0_f64, "width": 6_f64, "depth": 6_f64,
+                   "height": 6_f64, "ceiling": {"kind": "open"}}],
+        "ramps": [{"x": 1_f64, "z": 1_f64, "width": 2_f64, "depth": 3_f64, "rise": 1_f64}],
+        "global_illuminators": [{"id": "sun", "kind": "directional",
+            "direction": [-1_f64, -1_f64, 0_f64], "color": [1_f64, 0.8_f64, 0.6_f64], "intensity": 0.7_f64,
+            "cast_shadows": false}]
+    });
+    let sun = LevelDef::from_json(&authored.to_string()).expect("sunlit ramp parses");
+    authored["global_illuminators"] = serde_json::json!([]);
+    let fill = LevelDef::from_json(&authored.to_string()).expect("fill-only ramp parses");
+    let lit = batch_slice(&build_level_geometry(&sun), SurfaceKind::Wall);
+    let unlit = batch_slice(&build_level_geometry(&fill), SurfaceKind::Wall);
+    assert_eq!(
+        lit.len(),
+        unlit.len(),
+        "sun retains architectural triangles"
+    );
+    let mut facing = 0_usize;
+    for (day, ambient) in lit.iter().zip(unlit) {
+        assert_eq!(day.pos, ambient.pos);
+        assert_eq!(day.normal, ambient.normal);
+        if day.normal == [1.0, 0.0, 0.0] {
+            facing += 1;
+            assert!(day.color[0] > ambient.color[0] + 0.1, "riser lost sunlight");
+        } else if day.normal == [-1.0, 0.0, 0.0] {
+            assert_eq!(day.color, ambient.color, "back face retains its room fill");
+        }
+    }
+    assert!(
+        facing > 0,
+        "the regression must sample a real sun-facing ramp side"
+    );
+}
+
+/// Vertex-lit water must receive the same directional sun as its basin.
+/// Both shapes previously sampled only room fill, losing daylight at Low.
+#[test]
+fn vertex_lit_water_receives_directional_sun_for_both_shapes() {
+    for shape in ["rect", "circle"] {
+        let mut authored = serde_json::json!({
+            "format_version": 3_u32, "id": "water_sun", "name": "Water Sun",
+            "spawn": {"x": 2_f64, "z": 2_f64},
+            "rooms": [{"x": 0_f64, "z": 0_f64, "width": 4_f64, "depth": 4_f64,
+                       "floor_y": -2_f64, "height": 6_f64, "ceiling": {"kind": "open"}}],
+            "water": [{"shape": shape, "x": 1_f64, "z": 1_f64, "width": 2_f64, "depth": 2_f64,
+                       "radius": 1_f64, "surface_y": 0_f64, "bottom_y": -2_f64, "opacity": 0.37_f64}],
+            "global_illuminators": [{"id": "sun", "kind": "directional",
+                "direction": [0_f64, -1_f64, 0_f64], "color": [1_f64, 0.8_f64, 0.6_f64], "intensity": 0.7_f64,
+                "cast_shadows": false}]
+        });
+        if shape == "rect" {
+            authored["water"][0]["radius"] = serde_json::Value::Null;
+        }
+        let sun = LevelDef::from_json(&authored.to_string()).expect("sunlit water parses");
+        authored["global_illuminators"] = serde_json::json!([]);
+        let fill = LevelDef::from_json(&authored.to_string()).expect("fill-only water parses");
+        let materials = logical_materials(&sun);
+        let water = materials
+            .index_of(crate::level::DEFAULT_WATER_MATERIAL)
+            .expect("water resolves");
+        let key = SurfaceKey::new(SurfaceKind::Floor, water);
+        let lit_mesh = build_level_geometry(&sun);
+        let fill_mesh = build_level_geometry(&fill);
+        let lit = lit_mesh.triangles_for_key(key);
+        let unlit = fill_mesh.triangles_for_key(key);
+        assert!(!lit.is_empty(), "{shape} emits a real surface");
+        assert_eq!(lit.len(), unlit.len());
+        for (day, ambient) in lit.iter().zip(unlit) {
+            assert_eq!(day.pos, ambient.pos);
+            assert_eq!(
+                day.color[3], ambient.color[3],
+                "sun cannot change water opacity"
+            );
+            assert!(
+                day.color[1] > ambient.color[1] + 0.1,
+                "{shape} lost directional sunlight"
+            );
+            assert!(
+                day.color[2] > ambient.color[2] + 0.1,
+                "{shape} lost directional sunlight"
+            );
+        }
+    }
+}
+
 /// A minimal level with one authored water volume over a recessed basin.
 ///
 /// An 8x8 m room at `floor_y: 0.0`; the basin region (1..7 on both axes) drops

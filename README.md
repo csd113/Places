@@ -111,6 +111,13 @@ generated from `assets/catalog.json` by
 `python3 tools/levels/build_model_zoo.py` (with `--check`, `--stats` and
 `--workers`), so adding an asset adds a display instead of going stale.
 
+`assets/levels/beach_demo.json` authors **Beach**: a sunny tropical cove with
+swimmable shallows, a timber pier, pastel seaside town, ocean lookout and quiet
+palm garden. The sea arch and lighthouse frame its coastal views; gulls, crabs
+and fish use the existing animation system. Generate its source with
+`python3 tools/levels/build_beach.py`, compile its sibling package normally,
+then launch with `PLACES_LEVEL=beach_demo`.
+
 `assets/levels/lantern_hollow.json` authors **Lantern Hollow**: four furnished
 cottages beside a road, branching trails through a dense nighttime forest, a
 small pond and a rocky campfire clearing with seven seated skeletons. Three

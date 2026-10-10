@@ -1,0 +1,500 @@
+{
+  "format_version": 1,
+  "level": "beach_demo",
+  "source": "assets/levels/beach_demo.json",
+  "package": "assets/levels/beach_demo.placesmap",
+  "base_revision": "1bd47995930d6c3eef8c9e029f7a4eded20e231b",
+  "settings": {
+    "bindings": {
+      "forward": "W",
+      "backward": "S",
+      "strafe_left": "A",
+      "strafe_right": "D",
+      "look_up": "UP",
+      "look_down": "DOWN",
+      "look_left": "LEFT",
+      "look_right": "RIGHT",
+      "jump": "SPACE",
+      "crouch": "C",
+      "interact": "E"
+    },
+    "look_speed_h": 90,
+    "look_speed_v": 60,
+    "walk_speed": 3,
+    "invert_look": false,
+    "mouse_sensitivity": 0.12,
+    "quality": "high",
+    "texture_filtering": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": false,
+    "use_low_quality_lighting": false,
+    "vsync": false,
+    "fov_degrees": 60,
+    "window_mode": "windowed",
+    "window_width": 640,
+    "window_height": 360
+  },
+  "bake": {
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ],
+    "workers": 12,
+    "force_for_cold_measurement": true,
+    "algorithm": "unchanged normal compiler defaults; see package inspect for prepared settings"
+  },
+  "environment": {
+    "sky": "beach:tex_sky_day_01",
+    "sun": "beach_sun aligned bearing/elevation +45 degrees",
+    "fog": "source environment is authoritative",
+    "animation": "explicit looping gull/crab/fish clips; short grounded crab route"
+  },
+  "capture": {
+    "ready_world_seconds": 0.5,
+    "warmup_frames": 15,
+    "limit_frames": 2400,
+    "expected_drawable": [
+      1280,
+      720
+    ]
+  },
+  "views": [
+    {
+      "name": "sand_walk",
+      "spawn": [
+        0,
+        8,
+        90
+      ],
+      "camera": [
+        90,
+        -15
+      ],
+      "purpose": "Real held-controller Beach traversal: sand_walk",
+      "move_script": "forward@0-1",
+      "capture_frame": 66
+    },
+    {
+      "name": "grass_path",
+      "spawn": [
+        -10.9,
+        14,
+        180
+      ],
+      "camera": [
+        180,
+        -15
+      ],
+      "purpose": "Real held-controller Beach traversal: grass_path",
+      "move_script": "forward@0-2",
+      "capture_frame": 126
+    },
+    {
+      "name": "shore_enter",
+      "spawn": [
+        0,
+        3,
+        0
+      ],
+      "camera": [
+        0,
+        -15
+      ],
+      "purpose": "Real held-controller Beach traversal: shore_enter",
+      "move_script": "forward@0-3",
+      "capture_frame": 186
+    },
+    {
+      "name": "water_exit",
+      "spawn": [
+        0,
+        -3,
+        180
+      ],
+      "camera": [
+        180,
+        -15
+      ],
+      "purpose": "Real held-controller Beach traversal: water_exit",
+      "move_script": "jump@0-4,forward@0-4",
+      "capture_frame": 246
+    },
+    {
+      "name": "pier_walk",
+      "spawn": [
+        8,
+        6.8,
+        0
+      ],
+      "camera": [
+        0,
+        -15
+      ],
+      "purpose": "Real held-controller Beach traversal: pier_walk",
+      "move_script": "forward@0-4.5",
+      "capture_frame": 276
+    },
+    {
+      "name": "blue_house",
+      "spawn": [
+        12,
+        10,
+        0
+      ],
+      "camera": [
+        0,
+        -15
+      ],
+      "purpose": "Real held-controller Beach traversal: blue_house",
+      "move_script": "forward@0-2",
+      "capture_frame": 126
+    },
+    {
+      "name": "hut",
+      "spawn": [
+        21,
+        14,
+        0
+      ],
+      "camera": [
+        0,
+        -15
+      ],
+      "purpose": "Real held-controller Beach traversal: hut",
+      "move_script": "forward@0-2",
+      "capture_frame": 126
+    },
+    {
+      "name": "cream_house",
+      "spawn": [
+        18,
+        20.4,
+        0
+      ],
+      "camera": [
+        0,
+        -15
+      ],
+      "purpose": "Real held-controller Beach traversal: cream_house",
+      "move_script": "forward@0-2.2",
+      "capture_frame": 138
+    },
+    {
+      "name": "blue_town",
+      "spawn": [
+        17.2,
+        21.8,
+        180
+      ],
+      "camera": [
+        180,
+        -15
+      ],
+      "purpose": "Real held-controller Beach traversal: blue_town",
+      "move_script": "forward@0-1.6",
+      "capture_frame": 102
+    },
+    {
+      "name": "coral_house",
+      "spawn": [
+        19,
+        22,
+        90
+      ],
+      "camera": [
+        90,
+        -15
+      ],
+      "purpose": "Real held-controller Beach traversal: coral_house",
+      "move_script": "forward@0-1.3",
+      "capture_frame": 84
+    },
+    {
+      "name": "town_gate",
+      "spawn": [
+        8,
+        26.2,
+        0
+      ],
+      "camera": [
+        0,
+        -15
+      ],
+      "purpose": "Real held-controller Beach traversal: town_gate",
+      "move_script": "forward@0-1.5",
+      "capture_frame": 96
+    },
+    {
+      "name": "lookout_up",
+      "spawn": [
+        12,
+        22.3,
+        0
+      ],
+      "camera": [
+        0,
+        -15
+      ],
+      "purpose": "Real held-controller Beach traversal: lookout_up",
+      "move_script": "forward@0-1.85",
+      "capture_frame": 117
+    },
+    {
+      "name": "lookout_down",
+      "spawn": [
+        12,
+        16.4,
+        180
+      ],
+      "camera": [
+        180,
+        -15
+      ],
+      "purpose": "Real held-controller Beach traversal: lookout_down",
+      "move_script": "forward@0-2.4",
+      "capture_frame": 150
+    },
+    {
+      "name": "wide_rock_jump",
+      "spawn": [
+        3.5,
+        16,
+        0
+      ],
+      "camera": [
+        0,
+        -15
+      ],
+      "purpose": "Real held-controller Beach traversal: wide_rock_jump",
+      "move_script": "forward@0-1.5,jump@0.4-0.46",
+      "capture_frame": 96
+    },
+    {
+      "name": "small_rock_jump",
+      "spawn": [
+        -5.5,
+        13,
+        0
+      ],
+      "camera": [
+        0,
+        -15
+      ],
+      "purpose": "Real held-controller Beach traversal: small_rock_jump",
+      "move_script": "forward@0-1.5,jump@0.4-0.46",
+      "capture_frame": 96
+    },
+    {
+      "name": "palm_trunk",
+      "spawn": [
+        -20,
+        16,
+        0
+      ],
+      "camera": [
+        0,
+        -15
+      ],
+      "purpose": "Real held-controller Beach traversal: palm_trunk",
+      "move_script": "forward@0-1.5",
+      "capture_frame": 96
+    },
+    {
+      "name": "west_boundary",
+      "spawn": [
+        -22,
+        18,
+        -90
+      ],
+      "camera": [
+        -90,
+        -15
+      ],
+      "purpose": "Real held-controller Beach traversal: west_boundary",
+      "move_script": "forward@0-2,jump@0.5-0.56",
+      "capture_frame": 126
+    },
+    {
+      "name": "east_boundary",
+      "spawn": [
+        22.5,
+        20,
+        90
+      ],
+      "camera": [
+        90,
+        -15
+      ],
+      "purpose": "Real held-controller Beach traversal: east_boundary",
+      "move_script": "forward@0-2,jump@0.5-0.56",
+      "capture_frame": 126
+    },
+    {
+      "name": "inland_boundary",
+      "spawn": [
+        0,
+        25.5,
+        180
+      ],
+      "camera": [
+        180,
+        -15
+      ],
+      "purpose": "Real held-controller Beach traversal: inland_boundary",
+      "move_script": "forward@0-2,jump@0.5-0.56",
+      "capture_frame": 126
+    },
+    {
+      "name": "swim_boundary",
+      "spawn": [
+        0,
+        -9,
+        0
+      ],
+      "camera": [
+        0,
+        -15
+      ],
+      "purpose": "Real held-controller Beach traversal: swim_boundary",
+      "move_script": "forward@0-6,jump@0-6",
+      "capture_frame": 366
+    },
+    {
+      "name": "sea_arch",
+      "spawn": [
+        -10,
+        -6,
+        -90
+      ],
+      "camera": [
+        -90,
+        -15
+      ],
+      "purpose": "Real held-controller Beach traversal: sea_arch",
+      "move_script": "forward@0-8,jump@0-8",
+      "capture_frame": 486
+    },
+    {
+      "name": "hut_ceiling",
+      "spawn": [
+        21,
+        11,
+        0
+      ],
+      "camera": [
+        0,
+        -15
+      ],
+      "purpose": "Real held-controller Beach traversal: hut_ceiling",
+      "move_script": "jump@0.2-0.26",
+      "capture_frame": 90
+    },
+    {
+      "name": "kiosk_ceiling",
+      "spawn": [
+        8,
+        -8.3,
+        0
+      ],
+      "camera": [
+        0,
+        -15
+      ],
+      "purpose": "Real held-controller Beach traversal: kiosk_ceiling",
+      "move_script": "jump@0.2-0.26",
+      "capture_frame": 90
+    },
+    {
+      "name": "sea_arch_return",
+      "spawn": [
+        -22,
+        -6,
+        90
+      ],
+      "camera": [
+        90,
+        -15
+      ],
+      "purpose": "Real eastward swim through sea arch",
+      "move_script": "forward@0-8,jump@0-8",
+      "capture_frame": 486
+    },
+    {
+      "name": "sideways_wade",
+      "spawn": [
+        -22.5,
+        1.48,
+        90
+      ],
+      "camera": [
+        90,
+        -15
+      ],
+      "purpose": "Curved shore shared-edge wade and retreat",
+      "move_script": "forward@0-1,backward@1.1-2.1",
+      "capture_frame": 132
+    },
+    {
+      "name": "east_sideways_wade",
+      "spawn": [
+        20.5,
+        0.3,
+        -90
+      ],
+      "camera": [
+        -90,
+        -15
+      ],
+      "purpose": "Opposite curved shore edge wade",
+      "move_script": "forward@0-1,backward@1.1-2.1",
+      "capture_frame": 132
+    },
+    {
+      "name": "outer_sideways_wade",
+      "spawn": [
+        23.5,
+        1.93,
+        -90
+      ],
+      "camera": [
+        -90,
+        -15
+      ],
+      "purpose": "Maximum .30m lower-shore lateral step and retreat",
+      "move_script": "forward@0-.7,backward@.8-1.5",
+      "capture_frame": 96
+    },
+    {
+      "name": "deep_water_exit",
+      "spawn": [
+        0,
+        -8,
+        180
+      ],
+      "camera": [
+        180,
+        0
+      ],
+      "purpose": "Return from a genuinely swimming cove depth to dry shore using forward only",
+      "move_script": "forward@0-8",
+      "capture_frame": 486
+    },
+    {
+      "name": "pier_return",
+      "spawn": [
+        8,
+        6.8,
+        0
+      ],
+      "camera": [
+        0,
+        0
+      ],
+      "purpose": "Full pier/head/kiosk entry and return to dry approach",
+      "move_script": "forward@0-6,backward@6.1-12.1",
+      "capture_frame": 732
+    }
+  ]
+}

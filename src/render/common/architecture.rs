@@ -300,7 +300,10 @@ fn emit_face_inner(
             let corner_base = base.get(index).copied().unwrap_or_default();
             shade(
                 corner_base,
-                context.lighting.sample(point[0], point[1], point[2]),
+                context
+                    .lighting
+                    .sample(point[0], point[1], point[2])
+                    .plus(context.lighting.global_surface_light(point, face.normal)),
             )
         })
     };

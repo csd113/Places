@@ -20,6 +20,7 @@ python3 tools/levels/build_outdoor_route.py --check
 python3 tools/levels/build_lantern_hollow.py --check
 python3 tools/levels/build_lighting_quality.py --check
 python3 tools/levels/build_winter.py --check
+python3 tools/levels/build_beach.py --check
 python3 tools/levels/build_capacity_fixtures.py --check
 # Inventory source paths recursively, including local maps and nested controls.
 # Build first: discovery tests must consume current packages and dependencies.

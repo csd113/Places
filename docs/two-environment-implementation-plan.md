@@ -469,3 +469,136 @@ and unique module identities. Inspect continuous water across adjoining strips;
 the small ownership inset is a construction safeguard, not final coastline
 composition. Playable traversal, final quality/performance campaigns and the
 finished hero remain Phase 3 work. No Aero work has started.
+
+## 8. Phase 3 Beach demo
+
+The Beach is a connected 48×52 m cove: shoreline and seating lead to the
+supported pier/kiosk, waterfront buildings, pastel courtyard and stair lookout.
+Sand paths cross the grassy palm fringe; capped headlands and buried containment
+finish the perimeter. The sea arch is swimmable in both directions. The lighthouse
+and outer islands provide visible scenery beyond the playable cove.
+
+Authoritative source: [`build_beach.py`](../tools/levels/build_beach.py) generates
+[`beach_demo.json`](../assets/levels/beach_demo.json); the normal compiler publishes
+[`beach_demo.placesmap`](../assets/levels/beach_demo.placesmap), with Off/Medium/Full
+variants. Launch with `PLACES_ASSET_ROOT="$PWD" PLACES_LEVEL=beach_demo target/release/places`.
+The [camera manifest](../tests/fixtures/native/beach-manifest.json) captures the
+hero at spawn X20/Z4.8, yaw −62°, looking 2° up, FOV60°, bloom off and 1280×720
+drawable pixels (640×360 logical on this Retina host). The authored spawn stores
+position and yaw; the capture supplies its pitch.
+
+| Coverage | Composed placement |
+| --- | --- |
+| B01–B02 | Curved faceted sand/foam shore, supported shallow/deep seabed, turquoise cove and blue distant sea |
+| B03–B04 | Close beach rocks, capped headlands, open sea arch and red-capped lighthouse island |
+| B05–B06 | Bent palms frame the hero and fringe; X-braced delivery crates serve the pier/buildings |
+| B07–B09 | Continuous timber pier, open yellow-roof kiosk, blue stilt house and brown plank hut |
+| B10–B12 | Two umbrella/chair seating vignettes and a right-pointing timber arrow at the town route |
+| B13–B14 | Cream/blue/coral town, open arches/gate, exterior stairs, terrace/parapet, shrubs and orange/blue bunting |
+| B15–B17 | Perched idle and airborne fly gulls; dry-sand walk/idle crab route and idle crab; two submerged swimming fish |
+| B18 | Seamless faceted daylight panorama, pale horizon and small sun aligned at +45° bearing/elevation |
+
+All 27 static models and three animal families appear naturally. The seven labelled
+surface families plus grass, roof, upholstery and umbrella finishes retain their
+committed PNGs. Autostart actions explicitly loop the named animal clips; the crab
+alternates short grounded walks with idle pauses. Flying/swimming animals remain
+anchored within their verified clip envelopes.
+
+Support regions and ramps have one floor owner per point. Hollow structures use
+individual posts/walls/roofs and clear portal lanes. Deck entries have ramps;
+the lower shore grade is .4 to let the existing swimming controller recover
+without camera penetration. Fish were moved into deeper supported water after
+that slope adjustment. Boundaries contain both jumps and swimming.
+
+Two narrow model refinements fix defects exposed by native pixels: the blue
+house front posts are inset 8 mm from the wall face, and touching fitted dock
+planks remove subpixel vertical-gap stippling. Both retain their source artwork,
+UV contract and overall bounds. Only Beach and Model Zoo depend on these models.
+A narrow Low lighting correction restores the existing directional sun on
+architectural faces and both water shapes. Native ray picking traced the black
+coastal crossbars to sun-facing 3.75 cm ramp risers receiving only room fill;
+corrected native Low pixels now show restrained sand risers and turquoise water.
+Prepared Medium/Full branches are unchanged. No physics, HDR precision or storage
+format change was introduced; recent kitchen/corridor/skeleton corrections remain intact.
+
+Forty-eight final ordinary-player views cover 16 cameras at all three qualities.
+Independent reviewers accepted the actual pixels, all 29 controller routes and
+1,119 loaded state samples. The forward-only water exit reaches dry sand without
+Jump, with minimum sampled eye-to-seabed clearance +0.507 m. Routes cover sand,
+grass, raised entries, stair ascent/descent, pier return, lateral wading, both arch
+directions, rock/roof jumps, palms and four boundaries. Three timed pairs verify
+gull idle/fly, crab walk/idle and fish swim. Low→Medium→High→Low→High restores the
+correct resources and appearance; all four matched controls are byte-identical.
+Nine reciprocal proximity views keep gull lighting stable. These are sampled
+native paths and poses, rather than a claim about every possible player input.
+
+Final formatting/checks, strict debug/release Clippy and both workspace test
+configurations passed: 2,205+7 tests with all features, 2,199+7 with defaults,
+32 ignored in each. The asset audit, deterministic props/generators, 14 Beach
+source checks, atlas preflight and two native Low checks passed. Normal package
+regression accepted 49 supported sources, one expected named loader rejection
+and one CPU-boundary witness. The 318-case Python run passed 317; its sole stale
+night-sky assertion was corrected for Beach and all seven Weather tests passed
+on focused rerun. The full Python command was not repeated. No unresolved test
+failure remains. All 11 installed packages are current, fully validated,
+CRC-clean and reuse exact bytes. Existing Medium/Full runtime records are
+byte-identical across the sunlight fix, as are 32 Beach Medium/High PNGs and
+six original High hero pairs.
+Level 0 Pit retains eight pre-existing probe warnings with identical runtime records;
+Beach compilation reports no warnings.
+
+On Apple M2 Pro / Metal (16 GiB), 24 serial normal-release timing samples each
+used 120 warmup and 600 measured frames, fixed 1/60 s simulation, no capture
+readback, bloom/VSync off and explicit GPU completion waits. Every sample has
+720 actual ready presents and nonzero geometry; no competing owned job ran.
+The table gives the median of three runs' loop medians and P95s. Drawable output
+is 1280×720 throughout. These wall timings include completion/presentation work;
+they are not GPU timestamps or guaranteed display FPS. Geometry counters are
+last-frame base-scene submissions, including depth-occluded ranges; sky,
+emission, post-processing and UI are excluded.
+
+| View / quality | Scene pixels | Median loop / P95 (ms) | Scene draws / vertices |
+| --- | --- | --- | --- |
+| Beach hero / Low | 480×270 | 6.02 / 15.58 | 91 / 71,766 |
+| Beach hero / Medium | 640×360 | 6.47 / 15.73 | 91 / 71,160 |
+| Beach hero / High | 1280×720 | 7.03 / 16.60 | 91 / 71,160 |
+| Beach town / High | 1280×720 | 6.86 / 16.70 | 108 / 80,806 |
+| Beach gulls / High | 1280×720 | 7.46 / 16.68 | 26 / 7,819 |
+| Existing hero room / Low | 480×270 | 5.71 / 16.51 | 31 / 19,538 |
+| Existing hero room / Medium | 640×360 | 5.91 / 17.31 | 31 / 19,464 |
+| Existing hero room / High | 1280×720 | 6.11 / 15.03 | 31 / 19,464 |
+
+The High hero submits 76,866 indices (25,622 triangles). Native static world/prop
+buffers use 6,763,696 vertex bytes and 195,588 index bytes; characters have separate
+buffers. World textures occupy 6,990,500 bytes at Medium/High and 1,747,620 at Low.
+Source prop textures decode to 7.50 MiB across 31 cached models. Seven/nine
+lightmap pages occupy 112/144 MiB; these separate inventories are not total GPU
+memory. Six actors use 74 palette joints and 8,628 vertex slots; whole update
+means at the hero are 0.57/1.22/1.30 ms, with isolated animation time and fragment
+overdraw unmeasured.
+
+The frozen normal all-variant Beach compile took 393.5 s wall / 393.3 s compiler,
+12 workers, retained caches and a required compiler-identity cache miss. The
+ordinary release rebuild took 1m51s. The package is 43,569,902 bytes. Three empty-
+application-cache and three warm-cache High/VSync-on launches reached their first
+usable scene in median 2.172/2.163 s; OS/GPU caches were retained. Peak
+loading RSS was 1.07 GiB. No extra bake was run just for measurements.
+
+**Final native hero**
+
+![Beach hero: palm-framed shoreline, arch, lighthouse and pier kiosk](images/two-environments/beach/phase3-hero.png)
+
+The unmodified final gameplay set also shows the
+[shoreline](images/two-environments/beach/phase3-shoreline.png),
+[sea/sky](images/two-environments/beach/phase3-sea_sky.png),
+[structures](images/two-environments/beach/phase3-structures.png),
+[town](images/two-environments/beach/phase3-town.png),
+[garden](images/two-environments/beach/phase3-garden.png),
+[gulls](images/two-environments/beach/phase3-gulls.png),
+[crabs](images/two-environments/beach/phase3-crabs.png) and
+[submerged fish](images/two-environments/beach/phase3-fish.png).
+
+No critical defect remains in the reviewed space. Low retains reduced lighting,
+coarser pixels, faint real coast joins and subdued fish; anchored flight/swim clips
+and distant scenery are intentional. Other platforms/backends were not run.
+Phase 3 construction and local acceptance are complete; Phase 4 remains unstarted.

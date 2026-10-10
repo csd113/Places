@@ -19,7 +19,10 @@ use crate::level::{MaterialRef, WaterShape, WaterVolumes};
 use crate::spatial::SpatialBuckets;
 
 use super::geometry::EmitContext;
-use super::{MaterialSlot, SurfaceKey, Vertex, count_to_f32, shade, stamp_lightmap_quad, tiled_uv};
+use super::{
+    MaterialSlot, SurfaceKey, Vertex, count_to_f32, lit_corners, shade, stamp_lightmap_quad,
+    tiled_uv,
+};
 use crate::lighting::lightmap::PatchKind;
 
 /// Fan segments one circular water surface draws with.
@@ -72,8 +75,7 @@ pub fn emit_water(
                 let colours = if context.vertex_colors_are_material_only() {
                     [tint; 4]
                 } else {
-                    corners
-                        .map(|corner| shade(tint, context.lighting.sample(corner[0], y, corner[2])))
+                    lit_corners(tint, corners, context.lighting)
                 };
                 // World-space UVs at the material's tiling, like every floor
                 // sheet: a quad's UVs continue the pool deck's metre grid
@@ -103,7 +105,14 @@ pub fn emit_water(
                     if context.vertex_colors_are_material_only() {
                         tint
                     } else {
-                        shade(tint, context.lighting.sample(point[0], y, point[2]))
+                        shade(
+                            tint,
+                            context.lighting.sample(point[0], y, point[2]).plus(
+                                context
+                                    .lighting
+                                    .global_surface_light(point, [0.0, 1.0, 0.0]),
+                            ),
+                        )
                     }
                 };
                 let centre_colour = colour_at(centre);
