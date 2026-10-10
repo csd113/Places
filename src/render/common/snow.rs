@@ -13,6 +13,7 @@ use crate::weather::{MAX_SNOW_PARTICLES, SnowfallDef};
 struct Seed {
     origin: Vec3,
     speed: f32,
+    motion_origin: Vec3,
     size: f32,
     phase: f32,
     rate: f32,
@@ -39,11 +40,16 @@ pub struct SnowStats {
 #[derive(Debug)]
 pub struct SnowScene {
     config: SnowfallDef,
+    authored_config: SnowfallDef,
+    authored_storm: super::storm::StormUniform,
     pub storm: super::storm::StormUniform,
     seeds: Vec<Seed>,
     shelters: Vec<Shelter>,
     pub texture: usize,
     opacity: f32,
+    strength: f32,
+    motion_seconds: f32,
+    motion_active: bool,
 }
 
 impl SnowScene {
@@ -56,13 +62,10 @@ impl SnowScene {
                 let key = u32::try_from(index).unwrap_or(0);
                 let sample = |lane| random(key.wrapping_mul(8).wrapping_add(lane));
                 Seed {
-                    origin: Vec3::new(
-                        sample(0) * config.radius * 2.0,
-                        sample(1) * config.height,
-                        sample(2) * config.radius * 2.0,
-                    ),
-                    speed: lerp(config.speed, sample(3)),
-                    size: lerp(config.size, sample(4).powi(2)),
+                    origin: Vec3::new(sample(0), sample(1), sample(2)),
+                    speed: sample(3),
+                    motion_origin: Vec3::ZERO,
+                    size: sample(4).powi(2),
                     phase: sample(5) * std::f32::consts::TAU,
                     rate: sample(6).mul_add(0.35, 0.25),
                 }
@@ -90,14 +93,118 @@ impl SnowScene {
                 profile: CeilingProfileDef::Flat,
             });
         }
+        let storm = super::storm::StormUniform::build(level, config);
         Self {
             config: config.clone(),
-            storm: super::storm::StormUniform::build(level, config),
+            authored_config: config.clone(),
+            authored_storm: storm,
+            storm,
             seeds,
             shelters,
             texture,
             opacity,
+            strength: 0.0,
+            motion_seconds: 0.0,
+            motion_active: false,
         }
+    }
+
+    /// Blends prepared numeric endpoints in place. Normalized seeds, shelters,
+    /// strings and texture storage are retained for the entire visit.
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Validated bounded weather interpolation; exact endpoints use authored values"
+    )]
+    pub fn apply_strength(&mut self, alternate: &Self, strength: f32, seconds: f32) {
+        if strength.to_bits() == self.strength.to_bits() {
+            return;
+        }
+        self.reanchor_motion(seconds);
+        let previous_radius = self.config.radius;
+        let previous_height = self.config.height;
+        self.strength = strength;
+        self.config
+            .blend_from(&self.authored_config, &alternate.authored_config, strength);
+        let horizontal_scale = self.config.radius / previous_radius;
+        let vertical_scale = self.config.height / previous_height;
+        let phase_scale = Vec3::new(horizontal_scale, vertical_scale, horizontal_scale);
+        for seed in &mut self.seeds {
+            // Scale the traveled phase uniformly. Adding the original seed's
+            // dimension delta after wrapping would collapse phases into sheets.
+            seed.motion_origin *= phase_scale;
+        }
+        if strength <= 0.0 {
+            self.storm = self.authored_storm;
+            return;
+        }
+        self.storm = if self.authored_storm.count[0] > 0 {
+            self.authored_storm
+        } else {
+            alternate.authored_storm
+        };
+        self.storm.color_density = [
+            self.config.fog_color[0],
+            self.config.fog_color[1],
+            self.config.fog_color[2],
+            self.config.storm_severity * 2.0 / self.config.visibility_m,
+        ];
+    }
+
+    /// Preserve each seed's traveled phase before changing velocity or tile
+    /// dimensions. Its history stays within one tile, and new velocity uses
+    /// elapsed time since this anchor rather than the entire session age.
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Finite clock and validated positive tile dimensions bound each retained motion phase"
+    )]
+    fn reanchor_motion(&mut self, animation_seconds: f32) {
+        let seconds = if animation_seconds.is_finite() {
+            animation_seconds.max(0.0)
+        } else {
+            0.0
+        };
+        if seconds < self.motion_seconds {
+            self.motion_seconds = 0.0;
+            self.motion_active = false;
+        }
+        let elapsed = if self.motion_active {
+            seconds - self.motion_seconds
+        } else {
+            seconds
+        };
+        let width = self.config.radius * 2.0;
+        for seed in &mut self.seeds {
+            let fall_rate = lerp(self.config.speed, seed.speed);
+            let origin = if self.motion_active {
+                seed.motion_origin
+            } else {
+                seed.origin * Vec3::new(width, self.config.height, width)
+            };
+            let moving = origin
+                + Vec3::new(
+                    self.config.wind[0] * elapsed,
+                    -fall_rate * elapsed,
+                    self.config.wind[1] * elapsed,
+                );
+            seed.motion_origin = Vec3::new(
+                moving.x.rem_euclid(width),
+                moving.y.rem_euclid(self.config.height),
+                moving.z.rem_euclid(width),
+            );
+        }
+        self.motion_seconds = seconds;
+        self.motion_active = true;
+    }
+
+    #[cfg(test)]
+    pub(super) const fn configuration(&self) -> &SnowfallDef {
+        &self.config
+    }
+
+    /// The active authored horizontal snow velocity, also used by native diagnostics.
+    #[must_use]
+    pub const fn wind(&self) -> [f32; 2] {
+        self.config.wind
     }
 
     #[must_use]
@@ -123,14 +230,29 @@ impl SnowScene {
     fn pose(&self, seed: Seed, seconds: f32, camera: Vec3) -> EffectPose {
         let width = self.config.radius * 2.0;
         let phase = seconds.mul_add(seed.rate, seed.phase);
-        let moving = seed.origin
+        let origin = if self.motion_active {
+            seed.motion_origin
+        } else {
+            Vec3::new(
+                seed.origin.x * self.config.radius * 2.0,
+                seed.origin.y * self.config.height,
+                seed.origin.z * self.config.radius * 2.0,
+            )
+        };
+        let elapsed = if self.motion_active {
+            seconds - self.motion_seconds
+        } else {
+            seconds
+        };
+        let fall_rate = lerp(self.config.speed, seed.speed);
+        let moving = origin
             + Vec3::new(
-                phase.sin().mul_add(0.22, self.config.wind[0] * seconds),
-                -seed.speed * seconds,
+                phase.sin().mul_add(0.22, self.config.wind[0] * elapsed),
+                -fall_rate * elapsed,
                 phase
                     .mul_add(0.73, seed.phase)
                     .sin()
-                    .mul_add(0.18, self.config.wind[1] * seconds),
+                    .mul_add(0.18, self.config.wind[1] * elapsed),
             );
         let half_height = self.config.height * 0.5;
         let relative = Vec3::new(
@@ -144,7 +266,7 @@ impl SnowScene {
         let near = smooth((distance - 0.65) / 0.6);
         EffectPose {
             position: (camera + relative).to_array(),
-            size: seed.size,
+            size: lerp(self.config.size, seed.size),
             alpha: self.config.opacity * self.opacity * radial * vertical * near,
         }
     }
@@ -209,7 +331,11 @@ impl SnowScene {
             stats.evaluated = stats.evaluated.saturating_add(1);
             let mut pose = self.pose(*seed, seconds, camera);
             let position = Vec3::from_array(pose.position);
-            let velocity = Vec3::new(self.config.wind[0], -seed.speed, self.config.wind[1]);
+            let velocity = Vec3::new(
+                self.config.wind[0],
+                -lerp(self.config.speed, seed.speed),
+                self.config.wind[1],
+            );
             let streak = velocity * (self.config.storm_severity * 0.035);
             let extent = Vec3::splat(pose.size) + streak.abs();
             if pose.alpha <= 0.002
@@ -378,6 +504,350 @@ mod tests {
     }
 
     #[test]
+    fn weather_preset_timeline_preserves_phase_distribution_at_every_quality()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let level: LevelDef =
+            serde_json::from_str(include_str!("../../../assets/levels/winter.json"))?;
+        let base = level.weather.as_ref().ok_or("Winter needs base weather")?;
+        let endpoint = level
+            .weather_alternate
+            .as_ref()
+            .ok_or("Winter needs alternate weather")?;
+        let mut snow = SnowScene::build(&level, base.snowfall(), 0, 1.0);
+        let alternate = SnowScene::build(&level, endpoint.snowfall(), 0, 1.0);
+        let seed_address = snow.seeds.as_ptr();
+        let seed_capacity = snow.seeds.capacity();
+        let mut playback = crate::weather::WeatherPlayback::new(None);
+        let mut seconds = 0.0_f32;
+        for frame in 1_u16..=1500 {
+            // Native E edges for moderate -> calm -> mild -> moderate -> severe
+            // -> calm, including the two-second transitions between presets.
+            let requested_strength = match frame {
+                61 | 571 => Some(0.35),
+                241 | 1201 => Some(0.0),
+                385 => Some(0.15),
+                763 => Some(1.0),
+                _ => None,
+            };
+            if let Some(target_strength) = requested_strength {
+                assert!(playback.set_strength(target_strength, 2.0));
+            }
+            let next_seconds = f32::from(frame) / 60.0;
+            playback.advance(next_seconds - seconds);
+            snow.apply_strength(&alternate, playback.strength(), next_seconds);
+            if frame.is_multiple_of(60)
+                || matches!(
+                    frame,
+                    185 | 365 | 510 | 700 | 900 | 970 | 1040 | 1100 | 1350
+                )
+            {
+                assert_phase_distribution(&snow, next_seconds);
+            }
+            if matches!(frame, 970 | 1040 | 1100) {
+                assert_eq!(playback.strength().to_bits(), 1.0_f32.to_bits());
+                assert_same_phase_quality_coverage(&snow, next_seconds);
+            }
+            seconds = next_seconds;
+        }
+        assert_eq!(playback.strength().to_bits(), 0.0_f32.to_bits());
+        assert_calm_motion_configuration(&snow);
+        assert_eq!(
+            snow.seeds.as_ptr(),
+            seed_address,
+            "presets retain the original seed allocation"
+        );
+        assert_eq!(
+            snow.seeds.capacity(),
+            seed_capacity,
+            "presets never grow seed storage"
+        );
+        Ok(())
+    }
+
+    fn assert_phase_distribution(snow: &SnowScene, seconds: f32) {
+        let width = snow.config.radius * 2.0;
+        for fraction in [2, 3, 4] {
+            let prefix = snow.budget().saturating_mul(fraction) / 4;
+            let mut bins = [[0_usize; 6]; 3];
+            for seed in snow.seeds.iter().take(prefix) {
+                let position = snow.pose(*seed, seconds, Vec3::ZERO).position;
+                for ((coordinate, period), buckets) in position
+                    .into_iter()
+                    .zip([width, snow.config.height, width])
+                    .zip(&mut bins)
+                {
+                    let normalized = period.mul_add(0.5, coordinate) / period;
+                    assert!(
+                        (0.0..=1.0).contains(&normalized),
+                        "seed remains within its wrapped volume"
+                    );
+                    for (bucket, edge) in buckets.iter_mut().zip(1_u8..=6) {
+                        if normalized <= f32::from(edge) / 6.0 {
+                            *bucket = bucket.saturating_add(1);
+                            break;
+                        }
+                    }
+                }
+            }
+            for (axis, buckets) in bins.iter().enumerate() {
+                assert!(
+                    buckets
+                        .iter()
+                        .all(|count| *count >= prefix / 12 && *count <= prefix / 3),
+                    "phase coverage collapsed at clock {seconds}, prefix {prefix}, axis {axis}: {buckets:?}"
+                );
+            }
+        }
+    }
+
+    fn assert_same_phase_quality_coverage(snow: &SnowScene, seconds: f32) {
+        let camera = Vec3::new(-11.5, 1.6, -3.5);
+        let render_camera = super::super::camera::RenderCamera::new(
+            camera,
+            180_f32.to_radians(),
+            12_f32.to_radians(),
+            60.0,
+        );
+        let (projection, frustum) =
+            render_camera.view_projection(super::super::view::DrawableSize::new(640, 360));
+        let mut vertices = Vec::with_capacity(snow.budget().saturating_mul(4));
+        let capacity = vertices.capacity();
+        let mut previous_submitted = 0_usize;
+        for (quality, fraction) in [
+            (QualityLevel::Low, 2),
+            (QualityLevel::Medium, 3),
+            (QualityLevel::High, 4),
+        ] {
+            vertices.clear();
+            let stats = snow.append(
+                seconds,
+                camera,
+                Some(projection),
+                &frustum,
+                quality,
+                &mut vertices,
+            );
+            let prefix = snow.budget().saturating_mul(fraction) / 4;
+            assert_eq!(
+                stats.evaluated, prefix,
+                "quality retains its authored seed prefix"
+            );
+            assert!(
+                stats.submitted >= prefix / 40,
+                "severe outside snow must cover the same phase at {quality:?}, clock {seconds}: {stats:?}"
+            );
+            assert!(
+                stats.submitted >= previous_submitted,
+                "higher quality includes the same visible seeds"
+            );
+            assert_eq!(
+                stats
+                    .submitted
+                    .saturating_add(stats.sheltered)
+                    .saturating_add(stats.culled),
+                prefix,
+                "all retained particles remain accounted for"
+            );
+            assert_eq!(
+                vertices.capacity(),
+                capacity,
+                "quality appends never grow scratch storage"
+            );
+            previous_submitted = stats.submitted;
+        }
+    }
+
+    #[test]
+    fn weather_strength_ramps_keep_aged_motion_bounded_and_retained()
+    -> Result<(), serde_json::Error> {
+        for age in [0.0, 300.0, 900.0] {
+            for fixed_dimensions in [false, true] {
+                for automatic in [false, true] {
+                    assert_aged_ramp_motion(age, fixed_dimensions, automatic)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn assert_aged_ramp_motion(
+        age: f32,
+        fixed_dimensions: bool,
+        automatic: bool,
+    ) -> Result<(), serde_json::Error> {
+        let level: LevelDef =
+            serde_json::from_str(include_str!("../../../assets/levels/winter.json"))?;
+        let mut snow = scene()?;
+        let mut endpoint = SnowfallDef::blizzard();
+        if fixed_dimensions {
+            endpoint.radius = snow.config.radius;
+            endpoint.height = snow.config.height;
+        }
+        let alternate = SnowScene::build(&level, &endpoint, 0, 1.0);
+        let mut playback = ramp_playback(automatic);
+        let seed_address = snow.seeds.as_ptr();
+        let seed_capacity = snow.seeds.capacity();
+        let camera = Vec3::new(0.0, 1.6, 0.0);
+        let mut previous = Vec::with_capacity(snow.budget());
+        let mut seconds = age;
+        for frame in 1_u16..=240 {
+            if frame == 121 && !automatic {
+                assert!(playback.set_strength(0.0, 2.0));
+            }
+            let next_seconds = age + f32::from(frame) / 60.0;
+            let delta = next_seconds - seconds;
+            let previous_config = MotionBounds {
+                wind: snow.config.wind,
+                speed: snow.config.speed,
+                width: snow.config.radius * 2.0,
+                height: snow.config.height,
+            };
+            previous.clear();
+            previous.extend(
+                snow.seeds
+                    .iter()
+                    .map(|seed| snow.pose(*seed, seconds, camera)),
+            );
+            playback.advance(delta);
+            snow.apply_strength(&alternate, playback.strength(), next_seconds);
+            assert_ramp_displacement(
+                &snow,
+                &previous,
+                &previous_config,
+                next_seconds,
+                delta,
+                camera,
+            );
+            seconds = next_seconds;
+        }
+        assert!(
+            playback.strength().abs() < 1.0e-6,
+            "a full aged ramp returns to calm"
+        );
+        assert_calm_motion_configuration(&snow);
+        let paused: Vec<_> = snow
+            .seeds
+            .iter()
+            .map(|seed| snow.pose(*seed, seconds, camera))
+            .collect();
+        playback.advance(0.0);
+        snow.apply_strength(&alternate, playback.strength(), seconds);
+        assert!(
+            snow.seeds
+                .iter()
+                .zip(paused)
+                .all(|(seed, pose)| snow.pose(*seed, seconds, camera) == pose),
+            "paused strength updates preserve the motion anchor"
+        );
+        assert_eq!(
+            snow.seeds.as_ptr(),
+            seed_address,
+            "strength ramps retain the original seed allocation"
+        );
+        assert_eq!(
+            snow.seeds.capacity(),
+            seed_capacity,
+            "strength ramps never grow seed storage"
+        );
+        Ok(())
+    }
+
+    fn ramp_playback(automatic: bool) -> crate::weather::WeatherPlayback {
+        let mut playback =
+            crate::weather::WeatherPlayback::new(Some(crate::weather::WeatherCycleDef {
+                max_strength: 0.35,
+                period_seconds: 4.0,
+                transition_seconds: 2.0,
+                ..crate::weather::WeatherCycleDef::default()
+            }));
+        if automatic {
+            assert!(playback.set_cycle(true));
+        } else {
+            assert!(playback.set_strength(0.35, 2.0));
+        }
+        playback
+    }
+
+    fn assert_calm_motion_configuration(snow: &SnowScene) {
+        assert_eq!(
+            snow.config.wind, snow.authored_config.wind,
+            "calm wind returns exactly"
+        );
+        assert_eq!(
+            snow.config.speed, snow.authored_config.speed,
+            "calm fall speed returns exactly"
+        );
+        assert_eq!(
+            snow.config.radius.to_bits(),
+            snow.authored_config.radius.to_bits(),
+            "calm radius returns exactly"
+        );
+        assert_eq!(
+            snow.config.height.to_bits(),
+            snow.authored_config.height.to_bits(),
+            "calm height returns exactly"
+        );
+    }
+
+    struct MotionBounds {
+        wind: [f32; 2],
+        speed: [f32; 2],
+        width: f32,
+        height: f32,
+    }
+
+    fn assert_ramp_displacement(
+        snow: &SnowScene,
+        previous: &[EffectPose],
+        prior: &MotionBounds,
+        seconds: f32,
+        delta: f32,
+        camera: Vec3,
+    ) {
+        let width = snow.config.radius * 2.0;
+        let height = snow.config.height;
+        let horizontal_bound =
+            3.0_f32.mul_add((width - prior.width).abs(), 0.15_f32.mul_add(delta, 0.003));
+        let vertical_bound = 3.0_f32.mul_add((height - prior.height).abs(), 0.003);
+        let wrapped = |value: f32, period: f32| {
+            period.mul_add(-0.5, period.mul_add(0.5, value).rem_euclid(period))
+        };
+        for (seed, before) in snow.seeds.iter().zip(previous) {
+            let after = snow.pose(*seed, seconds, camera);
+            let displacement = Vec3::new(
+                after.position[0] - before.position[0],
+                after.position[1] - before.position[1],
+                after.position[2] - before.position[2],
+            );
+            assert!(
+                prior.wind[0]
+                    .mul_add(-delta, wrapped(displacement.x, width))
+                    .abs()
+                    <= horizontal_bound,
+                "X motion exceeded authored wind, flutter and bounded resizing at clock {seconds}"
+            );
+            assert!(
+                prior.wind[1]
+                    .mul_add(-delta, wrapped(displacement.z, width))
+                    .abs()
+                    <= horizontal_bound,
+                "Z motion exceeded authored wind, flutter and bounded resizing at clock {seconds}"
+            );
+            assert!(
+                lerp(prior.speed, seed.speed)
+                    .mul_add(delta, wrapped(displacement.y, height))
+                    .abs()
+                    <= vertical_bound,
+                "fall motion exceeded authored speed and bounded resizing at clock {seconds}"
+            );
+            assert!(
+                seed.motion_origin.is_finite() && seed.motion_origin.abs().max_element() < 65.0,
+                "retained seed phases remain bounded independently of session age"
+            );
+        }
+    }
+
+    #[test]
     fn fall_is_downward_varied_and_frame_rate_independent() -> Result<(), serde_json::Error> {
         let scene = scene()?;
         let camera = Vec3::new(0.0, 1.6, 12.0);
@@ -391,8 +861,7 @@ mod tests {
                     "fall must be downward"
                 );
                 assert!(
-                    (seed
-                        .speed
+                    (lerp(scene.config.speed, seed.speed)
                         .mul_add(0.1, next.position[1] - first.position[1]))
                     .abs()
                         < 0.0001,
@@ -405,12 +874,12 @@ mod tests {
         let slow = scene
             .seeds
             .iter()
-            .map(|seed| seed.speed)
+            .map(|seed| lerp(scene.config.speed, seed.speed))
             .fold(f32::INFINITY, f32::min);
         let fast = scene
             .seeds
             .iter()
-            .map(|seed| seed.speed)
+            .map(|seed| lerp(scene.config.speed, seed.speed))
             .fold(0.0_f32, f32::max);
         assert!(fast - slow > 0.5, "flakes must have varied speeds");
         Ok(())

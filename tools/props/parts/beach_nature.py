@@ -13,6 +13,7 @@ from pathlib import Path
 from geometry import _cross, _dot, _sub, inspect
 from mesh import PropBuilder
 from parts.refreshed import load_atlas_from
+from parts.beach_coast import cove_foam_profile, cove_foam_bounds
 
 ROOT = Path(__file__).resolve().parents[3] / "assets/environment/beach/props/models"
 REGIONS = (
@@ -31,6 +32,7 @@ SIZES = {
     "palm_small": (3.5, 4.2, 3.2),
     "town_shrub": (1.3, 0.8, 1.15),
     "shoreline_foam": (8.0, 0.04, 1.1),
+    "cove_foam": (48.0, .015, cove_foam_bounds()[1]-cove_foam_bounds()[0]),
 }
 
 
@@ -604,9 +606,32 @@ def shoreline_foam(p):
     p.add_note("irregular curved opaque ivory foam ribbon, 4 cm sealed depth; position slightly above shoreline")
 
 
+def cove_foam(p):
+    tex = _atlas(p)
+    uv = tex.uv("foam", inset=2)
+    rows = cove_foam_profile()
+    # Connected closed strip: each shared knot is emitted once as a boundary,
+    # with no vertical cap between adjacent scallops.
+    for a, b in zip(rows, rows[1:]):
+        low_a = [(x, 0, z) for x, z in a]
+        low_b = [(x, 0, z) for x, z in b]
+        high_a = [(x, .015, z) for x, z in a]
+        high_b = [(x, .015, z) for x, z in b]
+        p.mesh.quad(low_a[0], low_b[0], low_b[1], low_a[1], uv=uv, color=WHITE)
+        p.mesh.quad(high_a[0], high_a[1], high_b[1], high_b[0], uv=uv, color=WHITE)
+        for side in (0, 1):
+            p.mesh.quad(low_a[side], high_a[side], high_b[side], low_b[side], uv=uv, color=WHITE)
+    for row in (rows[0], rows[-1]):
+        a, b = row
+        p.mesh.quad((a[0], 0, a[1]), (b[0], 0, b[1]),
+                    (b[0], .015, b[1]), (a[0], .015, a[1]), uv=uv, color=WHITE)
+    _finish(p)
+    p.add_note("one continuous cove foam shell matching the supported coast, 65 scalloped knots, no internal end caps")
+
+
 PROPS = {"beach:" + name: build for name, build in {
     "sand_patch": sand_patch, "grassy_bank": grassy_bank,
     "coastal_rock": coastal_rock, "coastal_rock_wide": coastal_rock_wide,
     "island": island, "sea_arch": sea_arch, "palm": palm, "palm_small": palm_small,
-    "town_shrub": town_shrub, "shoreline_foam": shoreline_foam,
+    "town_shrub": town_shrub, "shoreline_foam": shoreline_foam, "cove_foam": cove_foam,
 }.items()}

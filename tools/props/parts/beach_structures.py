@@ -35,6 +35,7 @@ SIZES = {
     "town_arch": (3.60, 2.80, 0.42),
     "town_stairs": (1.40, 2.40, 4.20),
     "town_terrace": (4.00, 0.90, 3.00),
+    "town_terrace_base": (4.00, 2.22, 3.00),
     "town_parapet": (2.40, 0.74, 0.25),
     "bunting": (4.40, 0.45, 0.024),
 }
@@ -522,6 +523,57 @@ def town_parapet(p):
     finish(p, "cream stucco parapet run with proud coping, 2.40 m modular length")
 
 
+def town_terrace_base(p):
+    t = atlas(p)
+    cream = t.uv("ivory", inset=2)
+    # One closed union: each central arch joins the full-depth side walls
+    # without buried interface caps or T-junctions at their shared corners.
+    curve = [(1.40*math.cos(math.pi*i/8), 1.45+.55*math.sin(math.pi*i/8))
+             for i in range(9)]
+    # Facet-to-top quads give each narrow arch strip one supported lightmap
+    # domain. Ear clipping made a 2 m fan with a 21 mm triangle altitude.
+    contour = [(-1.70, 0), (-1.70, 1.45), (-1.70, 2.22)]
+    contour += [(x, 2.22) for x, _y in reversed(curve)]
+    contour += [(1.70, 2.22), (1.70, 1.45), (1.70, 0), (1.40, 0)]
+    contour += curve + [(-1.40, 0)]
+    for low, high in ((-1.50, -1.22), (1.22, 1.50)):
+        rings = [[(x, y, z) for x, y in contour] for z in (low, high)]
+        for z in (low, high):
+            for (ax, ay), (bx, by) in zip(curve, curve[1:]):
+                p.mesh.quad((ax, ay, z), (bx, by, z),
+                            (bx, 2.22, z), (ax, 2.22, z), uv=cream, color=WHITE)
+            for side in (-1, 1):
+                inner, outer = side*1.40, side*1.70
+                for bottom, top in ((0, 1.45), (1.45, 2.22)):
+                    p.mesh.quad((inner, bottom, z), (outer, bottom, z),
+                                (outer, top, z), (inner, top, z), uv=cream, color=WHITE)
+        for i, a in enumerate(contour):
+            nxt = (i+1) % len(contour)
+            b = contour[nxt]
+            if abs(a[0]) == 1.70 and a[0] == b[0]:
+                continue  # Internal contact with the uninterrupted side wall.
+            p.mesh.quad(rings[0][i], rings[0][nxt], rings[1][nxt], rings[1][i],
+                        uv=cream, color=WHITE)
+    for side in (-1, 1):
+        outer, inner = side*2.00, side*1.70
+        for low, high in ((-1.50, -1.22), (-1.22, 1.22), (1.22, 1.50)):
+            # Splitting these skins at the arch edges avoids T-junctions.
+            for bottom, top in ((0, 1.45), (1.45, 2.22)):
+                p.mesh.quad((outer, bottom, low), (outer, top, low),
+                            (outer, top, high), (outer, bottom, high), uv=cream, color=WHITE)
+            for y in (0, 2.22):
+                p.mesh.quad((inner, y, low), (outer, y, low),
+                            (outer, y, high), (inner, y, high), uv=cream, color=WHITE)
+        for bottom, top in ((0, 1.45), (1.45, 2.22)):
+            p.mesh.quad((inner, bottom, -1.22), (inner, top, -1.22),
+                        (inner, top, 1.22), (inner, bottom, 1.22), uv=cream, color=WHITE)
+            for z in (-1.50, 1.50):
+                p.mesh.quad((inner, bottom, z), (outer, bottom, z),
+                            (outer, top, z), (inner, top, z), uv=cream, color=WHITE)
+    inspect(p.mesh.positions, p.mesh.indices, repair=True)
+    finish(p, "continuous cream arched lookout base; open 2.8 m passage, 2 m crown and grounded side walls support the 2.22 m deck")
+
+
 def bunting(p):
     t = atlas(p)
     dark = t.uv("wood", inset=2)
@@ -549,6 +601,7 @@ PROPS = {"beach:" + name: build for name, build in {
     "town_house_cream": town_house_cream, "town_house_blue": town_house_blue,
     "town_house_coral": town_house_coral, "town_arch": town_arch,
     "town_stairs": town_stairs, "town_terrace": town_terrace,
+    "town_terrace_base": town_terrace_base,
     "town_parapet": town_parapet, "bunting": bunting,
 }.items()}
 
@@ -640,6 +693,11 @@ def structural_components(name):
     elif name == "town_terrace":
         result["support"] = dict(kind="floor_region", x=-2., z=-1.5, width=4., depth=3.,
                                  surface_y=.18, edge_material="beach:stucco_01")
+    elif name == "town_terrace_base":
+        result["collision_boxes"] = [
+            b for z in (-1.36, 1.36)
+            for b in _arch_collision_boxes(4., 2.22, 2.80, 2., .55, .28, z=z)]
+        result["collision_boxes"] += [[x, 0, 0, .294, 2.217, 2.434] for x in (-1.85, 1.85)]
     elif name in ("town_house_cream", "town_house_blue", "town_house_coral", "town_arch"):
         width, depth, height, opening, crown, rise = {
             "town_house_cream": (3.92, 3.25, 4.46, 1.63, 2.39, .67),

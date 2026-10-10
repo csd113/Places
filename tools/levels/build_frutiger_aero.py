@@ -90,6 +90,9 @@ def build_level():
 
     def arch(x, z, identity, yaw=0):
         prop('lime_arch', x, z, identity, yaw=yaw)
+        # The standalone 3.4 m portal needs a matching curved spandrel in the
+        # taller atrium wall; its clear arch aperture remains untouched.
+        prop('portal_spandrel', x, z, identity+'_spandrel', y=1.834, yaw=yaw)
 
     arch(12, 6, 'atrium_corridor_arch', yaw=90)
     arch(6, 11.9, 'atrium_terrace_arch')

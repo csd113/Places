@@ -255,6 +255,9 @@ pub struct EffectScene {
     groups: Vec<EffectDrawGroup>,
     clock: f32,
     snow: Option<super::snow::SnowScene>,
+    alternate_snow: Option<super::snow::SnowScene>,
+    weather: crate::weather::WeatherPlayback,
+    weather_blendable: bool,
 }
 
 impl Default for EffectScene {
@@ -271,6 +274,9 @@ impl Default for EffectScene {
             groups: Vec::new(),
             clock: f32::NAN,
             snow: None,
+            alternate_snow: None,
+            weather: crate::weather::WeatherPlayback::default(),
+            weather_blendable: false,
         }
     }
 }
@@ -330,24 +336,37 @@ impl EffectScene {
             emitter.seed = index_to_f32(index) * EMITTER_PHASE_STRIDE;
         }
         scene.rebuild_groups();
-        if let Some(weather) = &level.weather {
-            let config = weather.snowfall();
-            let disabled = std::env::var("PLACES_BENCH").as_deref() == Ok("1")
-                && std::env::var("PLACES_BENCH_WEATHER_OFF").as_deref() == Ok("1");
-            if !disabled
-                && config.validate().is_ok()
-                && let Some(material) =
-                    resolve_effect_material(&mut scene.textures, materials, config.material.trim())
+        let disabled = std::env::var("PLACES_BENCH").as_deref() == Ok("1")
+            && std::env::var("PLACES_BENCH_WEATHER_OFF").as_deref() == Ok("1");
+        if !disabled && let Some(weather) = &level.weather {
+            scene.snow = scene.resolve_snow(level, weather, materials);
+            if scene.snow.is_some()
+                && let Some(alternate) = &level.weather_alternate
             {
-                scene.snow = Some(super::snow::SnowScene::build(
-                    level,
-                    config,
-                    material.slot,
-                    material.opacity,
-                ));
+                scene.alternate_snow = scene.resolve_snow(level, alternate, materials);
+                scene.weather_blendable = crate::weather::strength_compatible(weather, alternate);
             }
         }
+        scene.weather = crate::weather::WeatherPlayback::new(level.weather_cycle);
         scene
+    }
+
+    fn resolve_snow(
+        &mut self,
+        level: &LevelDef,
+        weather: &crate::weather::WeatherDef,
+        materials: &MaterialTable,
+    ) -> Option<super::snow::SnowScene> {
+        let config = weather.snowfall();
+        config.validate().ok()?;
+        let material =
+            resolve_effect_material(&mut self.textures, materials, config.material.trim())?;
+        Some(super::snow::SnowScene::build(
+            level,
+            config,
+            material.slot,
+            material.opacity,
+        ))
     }
 
     /// Number of emitters.
@@ -404,15 +423,82 @@ impl EffectScene {
     /// All possible steam and snow particles, including disabled emitters.
     #[must_use]
     pub fn buffer_particles(&self) -> usize {
-        self.emitters.iter().fold(
-            self.snow.as_ref().map_or(0, super::snow::SnowScene::budget),
-            |total, emitter| total.saturating_add(emitter.count),
-        )
+        let snow_budget = self
+            .snow
+            .as_ref()
+            .map_or(0, super::snow::SnowScene::budget)
+            .max(
+                self.alternate_snow
+                    .as_ref()
+                    .map_or(0, super::snow::SnowScene::budget),
+            );
+        self.emitters.iter().fold(snow_budget, |total, emitter| {
+            total.saturating_add(emitter.count)
+        })
     }
 
     #[must_use]
     pub const fn snow(&self) -> Option<&super::snow::SnowScene> {
-        self.snow.as_ref()
+        if !self.weather_blendable && self.weather.strength() >= 1.0 {
+            self.alternate_snow.as_ref()
+        } else {
+            self.snow.as_ref()
+        }
+    }
+
+    /// Selects a prepared weather scene without rebuilding seeds or resources.
+    /// The scene itself survives live quality changes, including this selection.
+    pub fn set_weather_alternate(&mut self, alternate: bool) -> bool {
+        if self.alternate_snow.is_none() {
+            return false;
+        }
+        let strength: f32 = if alternate { 1.0 } else { 0.0 };
+        let changed = self.weather.strength().to_bits() != strength.to_bits()
+            || self.weather.target().to_bits() != strength.to_bits()
+            || self.weather.cycle_enabled();
+        let _selected = self.weather.set_strength(strength, 0.0);
+        self.blend_weather();
+        changed
+    }
+
+    pub fn set_weather_strength(&mut self, strength: f32, transition_seconds: f32) -> bool {
+        if !self.weather_blendable || !self.weather.set_strength(strength, transition_seconds) {
+            return false;
+        }
+        self.blend_weather();
+        true
+    }
+
+    pub fn set_weather_cycle(&mut self, enabled: bool) -> bool {
+        self.weather_blendable && self.weather.set_cycle(enabled)
+    }
+
+    /// Weather playback follows playing simulation time, including pauses.
+    pub fn update_weather(&mut self, delta_seconds: f32) {
+        self.weather.advance(delta_seconds);
+        self.blend_weather();
+    }
+
+    fn blend_weather(&mut self) {
+        if self.weather_blendable
+            && let (Some(snow), Some(alternate)) = (&mut self.snow, &self.alternate_snow)
+        {
+            snow.apply_strength(alternate, self.weather.strength(), self.clock);
+        }
+    }
+
+    #[must_use]
+    pub const fn weather_state(&self) -> (f32, f32, bool) {
+        (
+            self.weather.strength(),
+            self.weather.target(),
+            self.weather.cycle_enabled(),
+        )
+    }
+
+    #[must_use]
+    pub const fn weather_control_seconds(&self) -> f32 {
+        self.weather.control_seconds()
     }
 
     #[must_use]
@@ -454,6 +540,9 @@ impl EffectScene {
         }
         self.emitters.clear();
         self.snow = None;
+        self.alternate_snow = None;
+        self.weather = crate::weather::WeatherPlayback::default();
+        self.weather_blendable = false;
         self.groups.clear();
     }
 
@@ -463,6 +552,9 @@ impl EffectScene {
     pub fn clear_all(&mut self) {
         self.emitters.clear();
         self.snow = None;
+        self.alternate_snow = None;
+        self.weather = crate::weather::WeatherPlayback::default();
+        self.weather_blendable = false;
         self.textures.clear();
         self.groups.clear();
     }
@@ -866,6 +958,287 @@ mod tests {
 
     fn one_emitter() -> EffectScene {
         scene(&[steam_effect(3.0, 3.0)])
+    }
+
+    fn weather_scene() -> EffectScene {
+        let mut level = level_with_effects(&[]);
+        level.weather = Some(crate::weather::WeatherDef::Snow(
+            crate::weather::SnowfallDef {
+                count: 64,
+                wind: [0.3, -0.1],
+                opacity: 0.6,
+                ..crate::weather::SnowfallDef::default()
+            },
+        ));
+        level.weather_alternate = Some(crate::weather::WeatherDef::Snow(
+            crate::weather::SnowfallDef {
+                count: 2048,
+                ..crate::weather::SnowfallDef::blizzard()
+            },
+        ));
+        let materials = materials(&level);
+        let mut scene = EffectScene::build(&level, &materials);
+        let _clock_changed = scene.update(2.0);
+        scene
+    }
+
+    fn graded_weather_scene() -> EffectScene {
+        let mut level = level_with_effects(&[]);
+        level.weather = Some(crate::weather::WeatherDef::Snow(
+            crate::weather::SnowfallDef {
+                count: 2048,
+                ..crate::weather::SnowfallDef::default()
+            },
+        ));
+        level.weather_alternate = Some(crate::weather::WeatherDef::Snow(
+            crate::weather::SnowfallDef {
+                count: 2048,
+                ..crate::weather::SnowfallDef::blizzard()
+            },
+        ));
+        let materials = materials(&level);
+        let mut scene = EffectScene::build(&level, &materials);
+        let _clock_changed = scene.update(2.0);
+        scene
+    }
+
+    fn append_weather(
+        scene: &EffectScene,
+        quality: crate::quality::QualityLevel,
+        out: &mut Vec<EffectVertex>,
+    ) -> super::super::snow::SnowStats {
+        let camera = Vec3::new(12.0, 1.6, 3.0);
+        let projection = glam::Mat4::perspective_rh(60_f32.to_radians(), 16.0 / 9.0, 0.1, 100.0)
+            * glam::Mat4::look_at_rh(camera, Vec3::new(12.0, 1.6, 2.0), Vec3::Y);
+        let frustum = crate::spatial::Frustum::from_view_projection(
+            &projection,
+            crate::spatial::DepthRange::ZeroToOne,
+        );
+        out.clear();
+        scene.snow().expect("weather prepared").append(
+            scene.clock(),
+            camera,
+            Some(projection),
+            &frustum,
+            quality,
+            out,
+        )
+    }
+
+    #[test]
+    fn weather_selection_changes_sky_and_extinction_without_losing_shelters() {
+        let mut scene = weather_scene();
+        let calm = scene.snow().expect("fresh calm scene");
+        let calm_storm = calm.storm;
+        let calm_sky = calm.sky_storm();
+        assert_eq!(calm_sky[3], 0.0, "fresh scene starts calm");
+        assert!(
+            scene.set_weather_alternate(true),
+            "first press selects severe weather"
+        );
+        let storm = scene.snow().expect("severe scene prepared");
+        assert_eq!(
+            storm.sky_storm()[3],
+            1.0,
+            "the sky uses active severe configuration"
+        );
+        let indoor = Vec3::new(3.0, 1.6, 3.0);
+        assert_eq!(
+            storm.storm.transmission(indoor, Vec3::new(5.0, 1.6, 3.0)),
+            1.0,
+            "the room shelters indoor sightlines"
+        );
+        assert!(
+            storm.storm.transmission(indoor, Vec3::new(12.0, 1.6, 3.0)) < 0.2,
+            "exterior distance contributes to whiteout"
+        );
+        assert!(
+            scene.set_weather_alternate(false),
+            "second press restores calm"
+        );
+        let restored = scene.snow().expect("calm retained");
+        assert_eq!(restored.storm, calm_storm, "no stale storm extinction");
+        assert_eq!(restored.sky_storm(), calm_sky, "no stale sky blend");
+    }
+
+    #[test]
+    fn weather_selection_restores_exact_calm_and_retains_bounded_resources_at_every_quality() {
+        let mut scene = weather_scene();
+        let calm_address = std::ptr::from_ref(scene.snow().expect("calm prepared"));
+        let material_capacity = scene.textures.capacity();
+        let particle_capacity = scene.buffer_particles();
+        assert_eq!(
+            particle_capacity, 2048,
+            "reserve the larger alternate budget once"
+        );
+        let mut vertices = Vec::with_capacity(particle_capacity.saturating_mul(4));
+        let vertex_capacity = vertices.capacity();
+        for (quality, expected_prefix) in [
+            (crate::quality::QualityLevel::Low, 1024),
+            (crate::quality::QualityLevel::Medium, 1536),
+            (crate::quality::QualityLevel::High, 2048),
+        ] {
+            let calm_stats = append_weather(&scene, quality, &mut vertices);
+            assert!(
+                calm_stats.submitted > 0,
+                "fixture compares real calm billboards"
+            );
+            let calm_vertices = vertices.clone();
+            for _ in 0_u8..16 {
+                assert!(
+                    scene.set_weather_alternate(true),
+                    "select prepared alternate"
+                );
+                assert!(
+                    !scene.set_weather_alternate(true),
+                    "unchanged selection is idempotent"
+                );
+                let storm_stats = append_weather(&scene, quality, &mut vertices);
+                assert_eq!(
+                    storm_stats.evaluated, expected_prefix,
+                    "quality uses active seed prefix"
+                );
+                assert!(scene.set_weather_alternate(false), "restore authored calm");
+                assert_eq!(
+                    std::ptr::from_ref(scene.snow().expect("calm retained")),
+                    calm_address,
+                    "restore exact original scene"
+                );
+                let restored_stats = append_weather(&scene, quality, &mut vertices);
+                assert_eq!(
+                    restored_stats.evaluated, calm_stats.evaluated,
+                    "calm count returns exactly"
+                );
+                assert_eq!(
+                    bytemuck::cast_slice::<EffectVertex, u8>(&vertices),
+                    bytemuck::cast_slice::<EffectVertex, u8>(&calm_vertices),
+                    "calm wind, sizes, opacity and phase return exactly"
+                );
+                assert_eq!(vertices.capacity(), vertex_capacity, "scratch never grows");
+                assert_eq!(
+                    scene.textures.capacity(),
+                    material_capacity,
+                    "materials never accumulate"
+                );
+                assert_eq!(
+                    scene.buffer_particles(),
+                    particle_capacity,
+                    "GPU budget remains fixed"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn weather_strength_morphs_prepared_values_and_preserves_exact_calm_storage() {
+        let mut scene = graded_weather_scene();
+        let budget = scene.buffer_particles();
+        let textures = scene.textures.len();
+        let seeds = scene.snow.as_ref().expect("base prepared").budget();
+        let mut vertices = Vec::with_capacity(budget.saturating_mul(4));
+        let _baseline_stats =
+            append_weather(&scene, crate::quality::QualityLevel::High, &mut vertices);
+        let calm_config = serde_json::to_value(scene.snow().expect("base").configuration())
+            .expect("authored finite calm config serializes");
+        let calm_storm = scene.snow().expect("base").storm;
+        let calm_sky = scene.snow().expect("base").sky_storm();
+        let capacity = vertices.capacity();
+        assert!(scene.set_weather_strength(0.35, 2.0));
+        let _moved = scene.update(3.0);
+        scene.update_weather(1.0);
+        assert!((scene.weather_state().0 - 0.175).abs() < 1.0e-6);
+        let snow = scene.snow().expect("active scene");
+        assert!((snow.wind()[0] - (8.0_f32 - 0.18).mul_add(0.175, 0.18)).abs() < 1.0e-6);
+        assert!((snow.storm.color_density[3] - 0.07).abs() < 1.0e-6);
+        assert!((snow.sky_storm()[3] - 0.175_f32.sqrt()).abs() < 1.0e-6);
+        assert!(
+            snow.storm.count[0] > 0,
+            "intermediate weather retains prepared roof planes"
+        );
+        scene.update_weather(0.0);
+        assert!(
+            (scene.weather_state().0 - 0.175).abs() < 1.0e-6,
+            "paused playback does not advance"
+        );
+        let _moved_again = scene.update(4.0);
+        scene.update_weather(1.0);
+        for quality in [
+            crate::quality::QualityLevel::Low,
+            crate::quality::QualityLevel::Medium,
+            crate::quality::QualityLevel::High,
+        ] {
+            let _stats = append_weather(&scene, quality, &mut vertices);
+            assert_eq!(
+                scene.weather_state().0.to_bits(),
+                0.35_f32.to_bits(),
+                "quality selection preserves strength and target"
+            );
+            assert_eq!(vertices.capacity(), capacity);
+        }
+        assert!(scene.set_weather_strength(0.0, 2.0));
+        let _restoring_motion = scene.update(5.0);
+        scene.update_weather(1.0);
+        let _restored_motion = scene.update(6.0);
+        scene.update_weather(1.0);
+        let _restored = append_weather(&scene, crate::quality::QualityLevel::High, &mut vertices);
+        assert_eq!(
+            serde_json::to_value(scene.snow().expect("base retained").configuration())
+                .expect("restored finite calm config serializes"),
+            calm_config,
+            "all authored numeric calm settings return exactly while motion retains history"
+        );
+        assert_eq!(scene.snow().expect("base retained").storm, calm_storm);
+        assert_eq!(scene.snow().expect("base retained").sky_storm(), calm_sky);
+        assert_eq!(scene.snow.as_ref().expect("seeds retained").budget(), seeds);
+        assert_eq!(scene.buffer_particles(), budget);
+        assert_eq!(scene.textures.len(), textures);
+        assert_eq!(vertices.capacity(), capacity);
+    }
+
+    #[test]
+    fn weather_cycle_keeps_prepared_resources_and_manual_override_across_quality_prefixes() {
+        let mut scene = graded_weather_scene();
+        scene.weather =
+            crate::weather::WeatherPlayback::new(Some(crate::weather::WeatherCycleDef {
+                period_seconds: 8.0,
+                transition_seconds: 2.0,
+                max_strength: 0.45,
+                ..crate::weather::WeatherCycleDef::default()
+            }));
+        let budget = scene.buffer_particles();
+        let mut vertices = Vec::with_capacity(budget.saturating_mul(4));
+        assert!(scene.set_weather_cycle(true));
+        for _ in 0_u8..3 {
+            scene.update_weather(1.0);
+        }
+        assert!((scene.weather_state().0 - 0.225).abs() < 1.0e-6);
+        let retained_state = scene.weather_state();
+        for quality in [
+            crate::quality::QualityLevel::Low,
+            crate::quality::QualityLevel::Medium,
+            crate::quality::QualityLevel::High,
+        ] {
+            let _stats = append_weather(&scene, quality, &mut vertices);
+            assert_eq!(scene.weather_state(), retained_state);
+        }
+        assert!(scene.set_weather_strength(0.15, 2.0));
+        for _ in 0_u8..32 {
+            scene.update_weather(1.0);
+        }
+        assert_eq!(scene.weather_state().0.to_bits(), 0.15_f32.to_bits());
+        assert!(
+            !scene.weather_state().2,
+            "automatic timer never overrides the manual selection"
+        );
+        assert_eq!(scene.buffer_particles(), budget);
+        assert_eq!(vertices.capacity(), budget.saturating_mul(4));
+        assert!(scene.set_weather_cycle(true));
+        assert!(scene.set_weather_alternate(false));
+        assert_eq!(
+            scene.weather_state(),
+            (0.0, 0.0, false),
+            "legacy toggle also cancels timer"
+        );
     }
 
     // ------------------------------------------------------------- resolution
@@ -1280,6 +1653,9 @@ mod tests {
             groups: Vec::new(),
             clock: f32::NAN,
             snow: None,
+            alternate_snow: None,
+            weather: crate::weather::WeatherPlayback::default(),
+            weather_blendable: false,
         };
         let mut vertices = Vec::new();
         let _billboard_stats =

@@ -1643,6 +1643,8 @@ fn empty_level() -> LevelDef {
         sky: None,
         environment: None,
         weather: None,
+        weather_alternate: None,
+        weather_cycle: None,
         global_illuminators: Vec::new(),
         doors: Vec::new(),
         effects: Vec::new(),

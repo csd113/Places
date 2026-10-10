@@ -195,6 +195,8 @@ fn test_estimate_geometry_saturates_on_extreme_input() {
         sky: None,
         environment: None,
         weather: None,
+        weather_alternate: None,
+        weather_cycle: None,
         global_illuminators: Vec::new(),
         doors: Vec::new(),
         effects: Vec::new(),
@@ -1977,6 +1979,17 @@ fn test_action_defs_parse_as_tagged_objects() {
     let reset: ActionDef =
         serde_json::from_str(r#"{ "action": "reset_to_start" }"#).expect("reset_to_start parses");
     assert_eq!(reset, ActionDef::ResetToStart);
+
+    let weather: ActionDef =
+        serde_json::from_str(r#"{ "action": "toggle_weather" }"#).expect("toggle_weather parses");
+    assert_eq!(weather, ActionDef::ToggleWeather);
+    assert_eq!(weather.kind(), "toggle_weather");
+    assert_eq!(weather.target(), None);
+    let prompt: ActionDef =
+        serde_json::from_str(r#"{ "action": "set_prompt", "prompt": "Disable blizzard" }"#)
+            .expect("set_prompt parses");
+    assert_eq!(prompt.kind(), "set_prompt");
+    assert_eq!(prompt.target(), None);
 
     // The v3 action set replaced the reserved `play_audio` tag with
     // `play_sound`; the removed tag is an unknown action now, never a silently

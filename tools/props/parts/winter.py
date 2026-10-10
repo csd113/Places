@@ -7,7 +7,7 @@ the level retains each structure's original collider.
 """
 from __future__ import annotations
 
-from functools import partial
+from functools import lru_cache, partial
 import math
 from pathlib import Path
 import random
@@ -20,6 +20,11 @@ OUTDOOR = ROOT / 'assets/environment/outdoor/props/models'
 WINTER = ROOT / 'assets/environment/winter/props/models'
 SNOW = (244, 248, 255)
 ICE = (193, 218, 243)
+ROOF_SCALE = 1.4
+ROOF_SNOW_END_OVERHANG = .008
+ROOF_SNOW_LIP = .04
+ROOF_SNOW_HIGH_Z = -.9
+ROOF_SNOW_SHINGLE_END_Z = 1.1
 
 SIZES = {
     'tree_snow_01': (3.2, 6.8, 3.2),
@@ -39,6 +44,8 @@ SIZES = {
     'snow_roof_edge': (2.4, .16, .36),
     'snow_porch_edge': (1.8, .10, .3),
     'snow_roof_slope': (3.4, 1.41, 2),
+    'snow_roof_blanket': (6.8 + 2*ROOF_SNOW_END_OVERHANG/ROOF_SCALE, 1.42517377,
+                          1.3 + ROOF_SNOW_LIP/ROOF_SCALE - ROOF_SNOW_HIGH_Z),
     'snow_rail_top': (1.2, .075, .11),
     'snow_post_cap': (.12, .085, .12),
     'railing_snow_straight': (1.8, 1.125, .16),
@@ -76,6 +83,29 @@ def surface_height(triangles, x, z):
         if min(u, v, 1-u-v) >= -1e-6:
             heights.append(u*a[1] + v*b[1] + (1-u-v)*c[1])
     return max(heights) if heights else None
+
+
+@lru_cache(maxsize=None)
+def roof_support_profile(family='01'):
+    """Read the real shingle plane and fascia nose from a shipped roof bay.
+
+    Return (height at Z=0, downward Z pitch, fascia Z, fascia top Y).
+    The largest upward-facing triangle is the shingle field, rather than a
+    small trim bracket. Both blanket geometry and scene anchors use it.
+    """
+    model = glb.read_glb((OUTDOOR / f'house_{family}_roof_slope.glb').read_bytes())
+    triangles = list(_triangles(model))
+    plane = max((t for t in triangles if _normal(*t)[1] > 1e-8),
+                key=lambda t: _normal(*t)[1])
+    a, _, _ = plane
+    normal = _normal(*plane)
+    if abs(normal[0]/normal[1]) > 1e-6:
+        raise ValueError('Winter roof bays require an X-aligned ridge')
+    intercept = a[1] + (normal[0]*a[0] + normal[2]*a[2])/normal[1]
+    pitch = normal[2]/normal[1]
+    fascia_z = max(q[2] for q in model.positions)
+    fascia_top = max(q[1] for q in model.positions if abs(q[2]-fascia_z) < 1e-6)
+    return intercept, pitch, fascia_z, fascia_top
 
 
 def _canonical(p, name):
@@ -262,7 +292,7 @@ def build_drift(p, wall=False):
     p.add_note('60 triangles; unequal wind-shaped shoulders per family, closed grounded drift; sink base 8 mm')
 
 
-def _strip(p, width, height, depth, *, x=0, y=0, z=0, slope=0, seed=33):
+def _strip(p, width, height, depth, *, x=0, y=0, z=0, slope=0, seed=33, base_sink=0):
     rng = random.Random(seed)
     # One irregular ridge avoids repeated pyramids and deep serrated grooves.
     # End heights agree so adjacent modular lengths meet without a step.
@@ -274,7 +304,8 @@ def _strip(p, width, height, depth, *, x=0, y=0, z=0, slope=0, seed=33):
         px = x+width*along
         front = (px, y+slope*depth/2, z-depth/2)
         back = (px, y-slope*depth/2, z+depth/2)
-        sections.append((front, back, (px, front[1]+h*.72, front[2]),
+        sections.append(((px, front[1]-base_sink, front[2]), (px, back[1]-base_sink, back[2]),
+                         (px, front[1]+h*.72, front[2]),
                          (px, y+h-slope*(ridge_z-z), ridge_z),
                          (px, back[1]+h*.72, back[2])))
 
@@ -307,6 +338,81 @@ def build_cap(p, roof=False):
     height = .125 if roof else p.height
     _strip(p, p.width, height, p.depth, y=slope*p.depth/2, slope=slope)
     p.add_note('closed connected cap; base contacts support, non-solid modular addition')
+
+
+def build_roof_blanket(p):
+    """One sealed full-house load follows shingles, fascia and exposed lip.
+
+    A single shell replaces overlapping slope bays and separate eave strips.
+    Its end faces overhang the stock roof by 8 mm at the scene's 1.4 scale.
+    The base origin is the fascia top; placement sinks it by another 8 mm.
+    """
+    _snow(p)
+    intercept, pitch, fascia_z, fascia_top = roof_support_profile()
+    support_z = (ROOF_SNOW_HIGH_Z, ROOF_SNOW_SHINGLE_END_Z,
+                 fascia_z, fascia_z + ROOF_SNOW_LIP/ROOF_SCALE)
+    center_z = (support_z[0]+support_z[-1])/2
+    base_y = (intercept-pitch*support_z[0]-fascia_top,
+              intercept-pitch*support_z[1]-fascia_top, 0, 0)
+    rng = random.Random(33)
+    sections = []
+    for i, along in enumerate((-.5, -.36, -.19, -.035, .18, .37, .5)):
+        height = .125*(.78 if i in (0, 6) else 1 if i == 3 else rng.uniform(.82, .97))
+        base = [(p.width*along, y, z-center_z) for y, z in zip(base_y, support_z)]
+        top = [(x, y+height*load, z) for (x, y, z), load in
+               zip(base, (.72, 1, .95, .72))]
+        sections.append((base, top))
+
+    def fitted_uv(points):
+        # Each half retains the old 3.4 m cap's U density (plus the 8 mm
+        # scene overhang). V keeps its native 2 m density, folding exactly
+        # at the existing shingle/fascia boundary. Mirrored coordinates
+        # agree on shared edges and stay inside the fitted 0..1 contract.
+        uv = []
+        for x, _, z in points:
+            v = (z+center_z-support_z[0])/(support_z[1]-support_z[0])
+            uv.append((1-abs(x)/(p.width/2), v if v <= 1 else 2-v))
+        return uv
+
+    def clipped_half(points, side):
+        clipped = []
+        previous = points[-1]
+        for point in points:
+            if (side*point[0] >= 0) != (side*previous[0] >= 0):
+                fraction = -previous[0]/(point[0]-previous[0])
+                clipped.append((0, previous[1]+fraction*(point[1]-previous[1]),
+                                previous[2]+fraction*(point[2]-previous[2])))
+            if side*point[0] >= 0:
+                clipped.append(point)
+            previous = point
+        return clipped
+
+    def emit(points):
+        if min(q[0] for q in points) < 0 < max(q[0] for q in points):
+            # A quad's two triangles need not be coplanar. Clip each real
+            # triangle at the U fold so its surface remains exactly intact.
+            for triangle in (points[:3], (points[0], points[2], points[3])):
+                for side in (-1, 1):
+                    polygon = clipped_half(triangle, side)
+                    if len(polygon) == 3:
+                        p.mesh.triangle(*polygon, uvs=fitted_uv(polygon), color=SNOW)
+                    else:
+                        p.mesh.quad(*polygon, uv=fitted_uv(polygon), color=SNOW)
+        else:
+            p.mesh.quad(*points, uv=fitted_uv(points), color=SNOW)
+
+    for (a, ta), (b, tb) in zip(sections, sections[1:]):
+        for j in range(len(support_z)-1):
+            emit([a[j], b[j], b[j+1], a[j+1]])
+            emit([ta[j], ta[j+1], tb[j+1], tb[j]])
+        emit([a[0], ta[0], tb[0], b[0]])
+        emit([a[-1], b[-1], tb[-1], ta[-1]])
+    for index in (0, len(sections)-1):
+        base, top = sections[index]
+        for j in range(len(support_z)-1):
+            points = [base[j], base[j+1], top[j+1], top[j]]
+            emit(points if index == 0 else list(reversed(points)))
+    p.add_note('140 triangles; continuous measured shingle/fascia snow blanket, sealed full-house end caps, exposed 4 cm lip and continuous mirrored snow UVs at the original cap density')
 
 
 def build_railing(p, name):
@@ -356,6 +462,8 @@ for name in SIZES:
     elif name.startswith('railing_snow') or name == 'fence_post_snow':
         base = 'fence_post' if name == 'fence_post_snow' else 'porch_railing_' + name.removeprefix('railing_snow_')
         build = partial(build_railing, name=base)
+    elif name == 'snow_roof_blanket':
+        build = build_roof_blanket
     elif name.startswith('icicle_'):
         build = partial(build_icicles, count=7 if name.endswith('mixed') else 3 if name.endswith('sparse') else 1)
     else:

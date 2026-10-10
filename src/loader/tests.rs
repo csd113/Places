@@ -47,6 +47,8 @@ fn test_validate_level_success() {
         sky: None,
         environment: None,
         weather: None,
+        weather_alternate: None,
+        weather_cycle: None,
         global_illuminators: Vec::new(),
         doors: Vec::new(),
         effects: Vec::new(),
@@ -126,6 +128,8 @@ fn test_validate_level_invalid_version() {
         sky: None,
         environment: None,
         weather: None,
+        weather_alternate: None,
+        weather_cycle: None,
         global_illuminators: Vec::new(),
         doors: Vec::new(),
         effects: Vec::new(),
@@ -235,6 +239,8 @@ fn test_validate_level_preserves_overlapping_geometry() {
         sky: None,
         environment: None,
         weather: None,
+        weather_alternate: None,
+        weather_cycle: None,
         global_illuminators: Vec::new(),
         doors: Vec::new(),
         effects: Vec::new(),
@@ -371,6 +377,8 @@ fn test_missing_pack_materials_use_the_diagnostic_texture_with_an_error() {
         sky: None,
         environment: None,
         weather: None,
+        weather_alternate: None,
+        weather_cycle: None,
         global_illuminators: Vec::new(),
         doors: Vec::new(),
         effects: Vec::new(),
@@ -2870,6 +2878,139 @@ fn interact_prop_json(id: &str, actions: &str) -> String {
               "components": [ {{ "component": "interactable" }} ],
               "bindings": [ {{ "on": "interact", "actions": [{actions}] }} ] }}"#
     )
+}
+
+#[test]
+fn weather_toggle_requires_two_valid_authored_configurations() {
+    let mut level = binding_level(&format!(
+        "\"props\": [{}]",
+        interact_prop_json("weather_switch", r#"{ "action": "toggle_weather" }"#)
+    ));
+    let missing = validate_level(&level).expect_err("weather toggle needs both configurations");
+    assert!(
+        missing.contains("toggle_weather"),
+        "unexpected error: {missing}"
+    );
+    level.weather = Some(crate::weather::WeatherDef::Snow(
+        crate::weather::SnowfallDef::default(),
+    ));
+    let no_alternate = validate_level(&level).expect_err("weather toggle needs an alternate");
+    assert!(
+        no_alternate.contains("weather_alternate"),
+        "unexpected error: {no_alternate}"
+    );
+    level.weather_alternate = Some(crate::weather::WeatherDef::Snow(
+        crate::weather::SnowfallDef::blizzard(),
+    ));
+    validate_level(&level).expect("both authored configurations are valid");
+    level.weather = None;
+    let no_default = validate_level(&level).expect_err("alternate needs authored default");
+    assert!(
+        no_default.contains("authored default weather"),
+        "unexpected error: {no_default}"
+    );
+    level.weather = Some(crate::weather::WeatherDef::Snow(
+        crate::weather::SnowfallDef::default(),
+    ));
+    level.weather_alternate = Some(crate::weather::WeatherDef::Snow(
+        crate::weather::SnowfallDef {
+            count: 2049,
+            ..crate::weather::SnowfallDef::blizzard()
+        },
+    ));
+    let invalid =
+        validate_level(&level).expect_err("alternate validates before resource allocation");
+    assert!(
+        invalid.contains("weather_alternate: weather count"),
+        "unexpected error: {invalid}"
+    );
+    level.weather_alternate = Some(crate::weather::WeatherDef::Snow(
+        crate::weather::SnowfallDef::blizzard(),
+    ));
+    let room = level.rooms.first().expect("fixture has a room").clone();
+    level.rooms = vec![room; crate::weather::MAX_STORM_SHELTERS.saturating_add(1)];
+    let shelter_overflow =
+        validate_level(&level).expect_err("alternate must preserve every shelter");
+    assert!(
+        shelter_overflow.contains("at most 32"),
+        "unexpected error: {shelter_overflow}"
+    );
+}
+
+#[test]
+fn set_prompt_requires_nonblank_text_and_an_interactable_target() {
+    let valid = binding_level(&format!(
+        "\"props\": [{}]",
+        interact_prop_json(
+            "switch",
+            r#"{ "action": "set_prompt", "prompt": "Disable blizzard" }"#
+        )
+    ));
+    validate_level(&valid).expect("interactable prompts are map-authored controls");
+    let blank = binding_level(&format!(
+        "\"props\": [{}]",
+        interact_prop_json("switch", r#"{ "action": "set_prompt", "prompt": "  " }"#)
+    ));
+    let blank_error = validate_level(&blank).expect_err("prompt cannot be blank");
+    assert!(
+        blank_error.contains("prompt must not be blank"),
+        "unexpected error: {blank_error}"
+    );
+    let missing_capability = binding_level(&format!(
+        "\"props\": [{}, {{\"id\":\"crate\",\"model\":\"core:crate\",\"x\":5,\"z\":5}}]",
+        interact_prop_json(
+            "switch",
+            r#"{ "action": "set_prompt", "target": "crate", "prompt": "Next" }"#
+        )
+    ));
+    let target_error =
+        validate_level(&missing_capability).expect_err("target must carry interaction");
+    assert!(
+        target_error.contains("an `interactable` component"),
+        "unexpected error: {target_error}"
+    );
+}
+
+#[test]
+fn weather_strength_and_cycle_require_compatible_prepared_endpoints() {
+    let weather = r#""weather":{"kind":"snow"},"weather_alternate":{"kind":"snow","storm_severity":1,"wind":[8,3]}"#;
+    let prop = interact_prop_json(
+        "switch",
+        r#"{"action":"set_weather_strength","strength":0.35,"transition_seconds":2}"#,
+    );
+    let mut valid = binding_level(&format!(
+        r#"{weather},"props":[{prop}],"weather_cycle":{{"enabled":false,"max_strength":0.45,"period_seconds":120,"transition_seconds":15}}"#
+    ));
+    validate_level(&valid).expect("bounded prepared weather blend validates");
+    valid.weather_alternate = Some(crate::weather::WeatherDef::Snow(
+        crate::weather::SnowfallDef {
+            count: 2048,
+            ..crate::weather::SnowfallDef::blizzard()
+        },
+    ));
+    assert!(
+        validate_level(&valid)
+            .expect_err("count mismatch")
+            .contains("equal count and material")
+    );
+    let missing = binding_level(&format!(r#""props":[{prop}]"#));
+    assert!(
+        validate_level(&missing)
+            .expect_err("missing endpoints")
+            .contains("equal count and material")
+    );
+    for action in [
+        r#"{"action":"set_weather_strength","strength":1.1}"#,
+        r#"{"action":"set_weather_strength","strength":0.5,"transition_seconds":-1}"#,
+        r#"{"action":"set_weather_cycle","enabled":true}"#,
+    ] {
+        let invalid_switch = interact_prop_json("switch", action);
+        let invalid = binding_level(&format!(r#"{weather},"props":[{invalid_switch}]"#));
+        assert!(
+            validate_level(&invalid).is_err(),
+            "invalid playback action must fail"
+        );
+    }
 }
 
 /// The positive path: a level that authors at least one of every new record --

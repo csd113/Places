@@ -1001,7 +1001,7 @@ impl FrameLoop<'_> {
 
         if self.load_intent.is_some() && self.game.app_state() == AppState::Playing {
             self.game.set_app_state(AppState::Paused);
-            self.input_handler.clear_gameplay_inputs();
+            self.clear_loading_inputs(matches!(self.load_intent, Some(LoadIntent::Graphics)));
             self.game.reset_timing();
         }
         // Update player movement (only active during AppState::Playing)
@@ -1045,6 +1045,7 @@ impl FrameLoop<'_> {
         // lightmap rebuild.
         let visual_delta = self.visual_delta_seconds();
         let _update_stats = self.renderer.update_dynamic(visual_delta);
+        self.advance_weather();
         // Animated characters follow the player's locomotion state unless a
         // map-authored route or interaction addresses them by instance id
         // (`game.entity_frames()`); the renderer re-skins only the characters
@@ -1065,6 +1066,19 @@ impl FrameLoop<'_> {
         let frame_update_done = Instant::now();
 
         self.render_and_present(frame_begin, frame_update_done);
+    }
+
+    /// Advances weather controls only while the loaded world is playing.
+    fn advance_weather(&mut self) {
+        let delta = if self.load_intent.is_none() && self.game.app_state() == AppState::Playing {
+            self.game.sim_delta_seconds()
+        } else {
+            0.0
+        };
+        self.renderer.update_weather(delta);
+        self.game
+            .world_mut()
+            .set_weather_state(self.renderer.weather_state());
     }
 
     /// Advances controlled visual time only while the diagnostic world is playing.
@@ -1171,6 +1185,20 @@ impl FrameLoop<'_> {
         let commands = self.game.entities_mut().take_commands();
         for command in commands {
             match command {
+                crate::entities::WorldCommand::SetWeatherAlternate { alternate } => {
+                    let _weather_changed = self.renderer.set_weather_alternate(alternate);
+                }
+                crate::entities::WorldCommand::SetWeatherStrength {
+                    strength,
+                    transition_seconds,
+                } => {
+                    let _weather_changed = self
+                        .renderer
+                        .set_weather_strength(strength, transition_seconds);
+                }
+                crate::entities::WorldCommand::SetWeatherCycle { enabled } => {
+                    let _weather_changed = self.renderer.set_weather_cycle(enabled);
+                }
                 crate::entities::WorldCommand::SpawnDynamic {
                     entity,
                     model,
@@ -1935,6 +1963,16 @@ impl FrameLoop<'_> {
         self.game.is_running()
     }
 
+    fn handle_graphics_key_release(&mut self, event: &Event) -> bool {
+        matches!(self.load_intent, Some(LoadIntent::Graphics))
+            && self.load_return_state == AppState::Playing
+            && self.game.app_state() == AppState::Paused
+            && self.window_focused
+            && self
+                .input_handler
+                .handle_graphics_key_release(event, &self.settings.bindings)
+    }
+
     /// Handles one SDL event; returns `false` when the pump should stop.
     fn handle_event(&mut self, event: &Event) -> bool {
         if let Some(received) = self
@@ -2008,6 +2046,10 @@ impl FrameLoop<'_> {
         // Rebinding consumes keyboard input before overlay/menu/gameplay keys.
         if let Some(action) = self.ui_state.rebinding_action {
             self.handle_rebinding_event(event, action);
+            return true;
+        }
+
+        if self.handle_graphics_key_release(event) {
             return true;
         }
 
@@ -2385,7 +2427,7 @@ impl FrameLoop<'_> {
                 if self.game.app_state() == AppState::Playing {
                     self.game.set_app_state(AppState::Paused);
                 }
-                self.input_handler.clear_gameplay_inputs();
+                self.clear_loading_inputs(matches!(intent, LoadIntent::Graphics));
                 self.game.reset_timing();
                 self.ui_state
                     .set_status("Preparing level... Esc to cancel".to_string(), false);
@@ -2407,6 +2449,17 @@ impl FrameLoop<'_> {
                     self.game.set_app_state(self.load_return_state);
                 }
             }
+        }
+    }
+
+    /// A live graphics transaction retains only the current Interact hold.
+    /// Ordinary loads, menus and unfocused windows still release everything.
+    const fn clear_loading_inputs(&mut self, graphics: bool) {
+        if graphics && matches!(self.load_return_state, AppState::Playing) && self.window_focused {
+            self.input_handler
+                .clear_gameplay_inputs_preserving_interact();
+        } else {
+            self.input_handler.clear_gameplay_inputs();
         }
     }
 
@@ -2644,7 +2697,7 @@ impl FrameLoop<'_> {
             self.startup = StartupPhase::Ready;
         }
         self.game.set_app_state(self.load_return_state);
-        self.input_handler.clear_gameplay_inputs();
+        self.clear_loading_inputs(graphics);
         self.game.reset_timing();
     }
 
@@ -2733,7 +2786,7 @@ impl FrameLoop<'_> {
         self.load_source = None;
         self.load_phase = None;
         self.ui_state.clear_status();
-        self.input_handler.clear_gameplay_inputs();
+        self.clear_loading_inputs(matches!(intent, LoadIntent::Graphics));
         self.game.reset_timing();
         if self.launch_overrides {
             self.launch_overrides = false;

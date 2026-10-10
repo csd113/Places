@@ -14,6 +14,8 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'props'))
 from string_lights import SPANS, attachment_height, lights
+from parts.winter import (ROOF_SCALE, ROOF_SNOW_HIGH_Z, ROOF_SNOW_LIP,
+                          roof_support_profile)
 
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / 'assets/levels/winter.json'
@@ -37,6 +39,9 @@ def build_level() -> dict:
         # Artwork is a background only; the existing cool fill and moon stay independent.
         'sky': {'texture': 'winter:tex_sky_aurora_01', 'brightness': .85, 'ambient': .24},
         'weather': {'kind': 'snow'},
+        'weather_alternate': json.loads(REVIEW_OUTPUT.read_text())['weather'],
+        'weather_cycle': {'enabled': False, 'min_strength': 0, 'max_strength': .45,
+                          'period_seconds': 120, 'transition_seconds': 15},
         'global_illuminators': [{'id': 'winter_moon', 'kind': 'directional',
             'direction': [-.36, -.8, -.48], 'color': [.58, .72, 1], 'intensity': .18,
             'cast_shadows': True, 'bake': True, 'angular_size_degrees': .5}],
@@ -52,6 +57,10 @@ def build_level() -> dict:
         if scale != 1: p['scale'] = round(scale, 4)
         if solid:
             p.update(solid=True, size=size or catalog[model]['size'])
+        elif size is not None:
+            # Aim bounds also use size on non-solid controls. Dropping it
+            # creates overlapping metre-sized fallback interaction boxes.
+            p['size'] = size
         p.update(extra)
         level['props'].append(p)
 
@@ -131,8 +140,11 @@ def build_level() -> dict:
             for side, dz, yaw in (('front', 1.82, 0), ('back', -1.82, 180)):
                 prop(f'outdoor:house_{family}_roof_slope', cx + dx, z + 3 + dz,
                      f'home_{i}_roof_{bay}_{side}', y=2.7, yaw=yaw, scale=1.4)
+            intercept, pitch, _, _ = roof_support_profile(family)
+            ridge_edge_z = catalog[f'outdoor:house_{family}_roof_ridge']['size'][2]*ROOF_SCALE/2
+            ridge_y = 2.7 + ROOF_SCALE*(intercept-pitch*(ridge_edge_z-1.82)/ROOF_SCALE)-.008
             prop(f'outdoor:house_{family}_roof_ridge', cx + dx, z + 3,
-                 f'home_{i}_ridge_{bay}', y=4.996, scale=1.4)
+                 f'home_{i}_ridge_{bay}', y=ridge_y, scale=ROOF_SCALE)
         for side, dx, yaw in (('west', -4.65, 270), ('east', 4.65, 90)):
             base = .045217 if family == '01' else .060122
             prop(f'outdoor:house_{family}_gable', cx + dx, z + 3,
@@ -153,6 +165,67 @@ def build_level() -> dict:
         prop('core:bookshelf', x + 7, z + 4.8, f'home_{i}_shelf', solid=True)
         if i:
             patch(cx - .85, front, 1.7, 4)
+
+    # A visible timber-backed control inside the raised lodge, beside its
+    # open entrance. The front faces the room; y remains floor-relative.
+    box('lodge_weather_backing', [-10.43, .86, -10.338],
+        [-10.07, 2.55, -10.297], 'winter:timber_01', solid=False)
+    main_control = 'winter_blizzard_button'
+    timer_control = 'winter_weather_timer'
+
+    def state_check(target, name, value):
+        return {'check': 'state', 'target': target, 'name': name, 'equals': value}
+
+    def feedback(enabled, timed=False):
+        return [{'action': 'set_state', 'target': main_control, 'name': 'blizzard', 'value': enabled},
+                {'action': 'set_prompt', 'target': main_control,
+                 'prompt': 'Stop blizzard' if enabled else 'Enable moderate blizzard'},
+                {'action': 'set_state', 'target': timer_control, 'name': 'cycle', 'value': timed},
+                {'action': 'set_prompt', 'target': timer_control,
+                 'prompt': 'Stop timed snowfall' if timed else 'Start timed snowfall'}]
+
+    def strength_action(strength):
+        return {'action': 'set_weather_strength', 'strength': strength, 'transition_seconds': 2}
+
+    def main_lever():
+        return {'action': 'toggle_animation', 'target': main_control, 'clip': 'toggle'}
+
+    prop('home:wall_switch', -10.25, -10.34, 'winter_blizzard_button',
+         y=1.15, yaw=180, scale=1.5, size=[.18, .18, .10],
+         display_name='Blizzard control',
+         components=[{'component': 'interactable', 'prompt': 'Enable moderate blizzard', 'reach': 2.1},
+                     {'component': 'animation', 'clip': 'toggle', 'looped': False, 'playing': False},
+                     {'component': 'state', 'name': 'blizzard', 'value': False}],
+         bindings=[{'on': 'interact',
+                    'when': [state_check(main_control, 'blizzard', enabled)],
+                    'actions': [strength_action(0 if enabled else .35), main_lever(),
+                                *feedback(not enabled)]}
+                   for enabled in (False, True)])
+    # Presets use the same existing rocker artwork, below the main switch.
+    # Conditional lever updates keep the main indicator on across preset changes.
+    for name, strength, y in (('mild', .15, .292), ('moderate', .35, .572), ('severe', 1, .852)):
+        prop('home:wall_switch', -10.25, -10.34, f'winter_weather_{name}',
+             y=y, yaw=180, scale=1.2, size=[.18, .18, .10],
+             display_name=f'{name.title()} blizzard preset',
+             components=[{'component': 'interactable', 'prompt': f'Set {name} blizzard', 'reach': 2.1}],
+             bindings=[{'on': 'interact', 'when': [state_check(main_control, 'blizzard', enabled)],
+                        'actions': [strength_action(strength),
+                                    *([] if enabled else [main_lever()]), *feedback(True)]}
+                       for enabled in (False, True)])
+    timer_bindings = [
+        {'on': 'interact', 'when': [state_check(timer_control, 'cycle', False),
+                                   state_check(main_control, 'blizzard', enabled)],
+         'actions': [{'action': 'set_weather_cycle', 'enabled': True},
+                     *([] if enabled else [main_lever()]), *feedback(True, timed=True)]}
+        for enabled in (False, True)]
+    timer_bindings.append({'on': 'interact', 'when': [state_check(timer_control, 'cycle', True)],
+                           'actions': [{'action': 'set_weather_cycle', 'enabled': False},
+                                       strength_action(0), main_lever(), *feedback(False)]})
+    prop('home:wall_switch', -10.25, -10.34, timer_control,
+         y=1.63, yaw=180, scale=1.5, size=[.18, .18, .10], display_name='Timed snowfall',
+         components=[{'component': 'interactable', 'prompt': 'Start timed snowfall', 'reach': 2.1},
+                     {'component': 'state', 'name': 'cycle', 'value': False}],
+         bindings=timer_bindings)
 
     # Partition ground at cottage bounds, with intermediate tile edges to
     # keep outdoor light grids compact. No snow floor hides under an interior.
@@ -341,13 +414,13 @@ def build_level() -> dict:
     # ledges. Leave ridges, several roof edges and sheltered timber exposed.
     for i, (x, z, floor, family) in enumerate(HOMES):
         cx, front = x+4.5, z+6
-        for bay, dx in enumerate((-2.38, 2.38)):
-            for side, dz, yaw in (('front', 1.96, 0), ('back', -1.96, 180)):
-                mounted('snow_roof_slope', cx+dx, z+3+dz, f'home_{i}_snow_roof_{bay}_{side}',
-                        floor+2.7+.20846*1.4-.008, yaw=yaw, scale=1.4)
+        _, _, fascia_z, fascia_top = roof_support_profile(family)
+        blanket_center = (ROOF_SNOW_HIGH_Z+fascia_z+ROOF_SNOW_LIP/ROOF_SCALE)/2
+        for side, direction, yaw in (('front', 1, 0), ('back', -1, 180)):
+            mounted('snow_roof_blanket', cx, z+3+direction*(1.82+blanket_center*ROOF_SCALE),
+                    f'home_{i}_snow_roof_{side}', floor+2.7+fascia_top*ROOF_SCALE-.008,
+                    yaw=yaw, scale=ROOF_SCALE)
         for j, dx in enumerate((-3.6, -1.2, 1.2, 3.6)):
-            mounted('snow_roof_edge', cx+dx, front+.5, f'home_{i}_snow_eave_{j}',
-                    floor+2.7+.16*1.4-.008)
             # The lodge's awning shelters this eave. Cottage corner loads stay
             # clear of door lamps and the entrance hood beneath the centre.
             if i and j in (0, 3):
@@ -447,20 +520,28 @@ def build_level() -> dict:
                 anchor_y-attachment_height(variant), occludes=False,
                 yaw=yaw, lights=lights(variant, intensity, radius))
 
-    # Small timber brackets project from the fascia past the snowy door hood.
-    # The glass stays clear of the snow/hood and its hanging icicle roots.
+    # Short fascia arms and visible upstands support strings above the hood.
+    # Keep the native bulb tips 2 cm above its real top and ahead of the roof.
     for i in (1, 2):
-        x, z, floor, _ = HOMES[i]
+        x, z, floor, family = HOMES[i]
+        _, _, fascia_z, fascia_top = roof_support_profile(family)
+        fascia_y = floor+2.7+fascia_top*ROOF_SCALE
+        fascia_front = z+3+1.82+fascia_z*ROOF_SCALE
+        string_z = fascia_front+.06
+        anchor_y = floor+2.20+catalog['winter:door_hood_snow']['size'][1]+.02+attachment_height('short')
         for side in (-1, 1):
             anchor = x+4.5+side*1.4
-            box(f'home_{i}_string_bracket_{side}', [anchor-.055, floor+2.725, z+6+.43],
-                [anchor+.055, floor+2.795, z+6+.89], 'winter:timber_01', solid=False)
-        string('short', x+4.5, z+6+.86, f'home_{i}_string', floor+2.76)
+            box(f'home_{i}_string_bracket_{side}', [anchor-.055, fascia_y-.049, fascia_front-.08],
+                [anchor+.055, fascia_y+.021, string_z+.055], 'winter:timber_01', solid=False)
+            box(f'home_{i}_string_upstand_{side}', [anchor-.035, fascia_y-.024, string_z-.035],
+                [anchor+.035, anchor_y+.03, string_z+.035], 'winter:timber_01', solid=False)
+        string('short', x+4.5, string_z, f'home_{i}_string', anchor_y)
     # Lodge spans hang between the existing awning posts and below the two
     # front rails. Keep the gap above the ramp open and the icicle line clear.
     string('long', -11.5, -7.78, 'lodge_porch_string', 3.25)
-    for i, x in enumerate((-13.575, -8.475)):
-        string('short', x, -7.55, f'lodge_rail_string_{i}', 1.54, .10, 3.0)
+    for i, rail in enumerate(level['guardrails'][:2]):
+        string('short', rail['x']+rail['length']/2, rail['z']+.04,
+               f'lodge_rail_string_{i}', rail['y']+rail['height']-.11, .10, 3.0)
 
     # Ordinary narrow timber posts support the square and one path crossing.
     # Their bases sit outside the packed walking lines and seating footprints.
@@ -484,7 +565,20 @@ def main() -> int:
     # Preserve the existing severe mode's exact identity and weather settings;
     # its current scene must follow Winter, while its frozen evidence stays put.
     review = json.loads(REVIEW_OUTPUT.read_text())
-    severe = {**level, **{key: review[key] for key in ('id', 'name', 'weather')}}
+    severe = {**level, **{key: review[key] for key in ('id', 'name', 'weather')},
+              'weather_alternate': level['weather']}
+    severe['props'] = json.loads(json.dumps(level['props']))
+    button = next(prop for prop in severe['props'] if prop['id'] == 'winter_blizzard_button')
+    next(c for c in button['components'] if c['component'] == 'interactable')['prompt'] = 'Stop blizzard'
+    next(c for c in button['components'] if c['component'] == 'state')['value'] = True
+    # The severe review reverses the endpoint pair; preserve each control's
+    # meaning rather than treating strength one as severe in that fixture.
+    severe['weather_cycle'] = {**level['weather_cycle'], 'min_strength': .55, 'max_strength': 1}
+    for placed in severe['props']:
+        for binding in placed.get('bindings', []):
+            for action in binding['actions']:
+                if action['action'] == 'set_weather_strength':
+                    action['strength'] = round(1 - action['strength'], 4)
     for path, source in ((OUTPUT, level), (REVIEW_OUTPUT, severe)):
         expected = serialise(source)
         if args.check:

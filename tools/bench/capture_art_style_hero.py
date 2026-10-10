@@ -116,7 +116,10 @@ def main() -> int:
     parser.add_argument("--move-script", help="Existing held-control script; records actual player state")
     parser.add_argument("--fixed-delta", type=float, help="Explicit benchmark simulation step in (0, 0.1] seconds; real telemetry remains measured")
     parser.add_argument("--camera-position", help="Independent benchmark render eye x,y,z; the gameplay player remains at spawn")
+    parser.add_argument("--follow-player-camera", action="store_true", help="Render actual controller yaw/pitch during movement instead of the manifest's fixed angles")
     parser.add_argument("--play", action="store_true")
+    parser.add_argument("--weather-trace", action="store_true", help="Record active weather and reserved resource counters")
+    parser.add_argument("--native-actions", type=Path, help="Existing bounded native load/settings acceptance script")
     args = parser.parse_args()
     if args.fixed_delta is not None and (not math.isfinite(args.fixed_delta) or not 0 < args.fixed_delta <= 0.1):
         parser.error("Fixed delta must be finite and in (0, 0.1] seconds")
@@ -202,6 +205,8 @@ def main() -> int:
                        PLACES_SPAWN=",".join(map(str, view["spawn"])),
                        PLACES_CAMERA=",".join(map(str, view["camera"])), PLACES_VERBOSE="1",
                        DYLD_LIBRARY_PATH=str(binary.parent))
+            if args.follow_player_camera:
+                env.pop("PLACES_CAMERA")
             if args.move_script:
                 env["PLACES_MOVE_SCRIPT"] = args.move_script
                 if out:
@@ -212,6 +217,12 @@ def main() -> int:
                 env["PLACES_BENCH_CAMERA_POSITION"] = args.camera_position
             if args.diagnostic:
                 env["PLACES_VISUAL_DIAGNOSTIC"] = args.diagnostic
+            if args.native_actions:
+                env["PLACES_BENCH_ACTIONS"] = str(args.native_actions.resolve())
+                if out:
+                    env["PLACES_LOAD_TRACE"] = str(out / (view["name"] + "-load.jsonl"))
+            if args.weather_trace and out:
+                env["PLACES_WEATHER_TRACE"] = str(out / (view["name"] + "-weather.csv"))
             if args.entity_light_trace:
                 env["PLACES_ENTITY_LIGHT_TRACE"] = "all"
             if args.finish_gpu:

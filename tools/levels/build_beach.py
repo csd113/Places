@@ -14,23 +14,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT), str(ROOT / 'tools/props')]
-from tools.levels.beach_components import daylight, shore_segment
+from tools.levels.beach_components import daylight, shore_segment, coast_z, cove_foam_bounds
 from tools.props.parts.beach_structures import placed_components
 from tools.props.parts.beach_nature import placed_components as nature_components
 
 OUTPUT = ROOT / 'assets/levels/beach_demo.json'
 FLOOR = -2.2
 COAST_WIDTH = .75
-
-
-def coast_z(x):
-    # Binary-exact joints retain watertight support while keeping the visible
-    # upper shore's lateral risers below one centimetre.
-    distance = abs(x+1)
-    tangent = 25/6
-    bend = (.01*distance*distance if distance <= tangent
-            else .01*tangent*tangent + (distance-tangent)/12)
-    return round((-.9 + bend)*64)/64
 
 
 COAST = tuple((x, coast_z(x+COAST_WIDTH/2))
@@ -108,7 +98,7 @@ def build_level():
             water.update(x=x, width=COAST_WIDTH)
             # One continuous turquoise cove. Distant ocean scenery retains
             # the deeper blue family; room/volume depth still drives extinction.
-            water.update(material='beach:water_shallow_01', opacity=.60)
+            water.update(material='beach:water_shallow_01', opacity=.52)
             level['water'].append(water)
     # Pier pier/approach owns this lane; never overlap it with a shoreline ramp.
     pier_cut = (6.96875, -10.25, 2.0625, 17.875)
@@ -239,9 +229,12 @@ def build_level():
     module('town_house_coral', 22, 22, 'town_coral', yaw=270)
     module('town_arch', 8, 24, 'town_gate')
     module('town_stairs', 12, 20, 'lookout_stairs', yaw=180)
+    module('town_terrace_base', 12, 16.4, 'lookout_base')
     module('town_terrace', 12, 16.4, 'lookout_terrace', base=2.22)
     module('town_parapet', 12, 14.78, 'lookout_parapet', base=2.395)
-    prop('bunting', 17.4, 21.2, 'town_bunting', base=3.45)
+    # A slightly extended native span connects the cream front wall to the blue
+    # front wall. Its end cord sits inside real stucco, below both roof lines.
+    prop('bunting', 18, 21.0575, 'town_bunting', base=3.90, yaw=90, scale=4.5/4.4)
     for i, (x, z) in enumerate(((15.5, 19), (20, 24.3), (6.3, 23), (9.8, 23))):
         prop('town_shrub', x, z, f'town_shrub_{i}')
 
@@ -291,15 +284,12 @@ def build_level():
     # sloping borders only in planted beds outside the walking lines.
     prop('grassy_bank', 3, 30, 'garden_bank', base=-.10)
     prop('sand_patch', -19, 9, 'headland_sand', base=-.25)
-    # Foam is scenery, independent of the narrow collision support bands.
-    # Longer fitted ribbons preserve the asset's irregular breadth rather
-    # than shrinking its Z silhouette into a ruler-thin line.
-    for i in range(16):
-        x = -22.5 + i*3
-        slope = max(-1/12, min(1/12, .02*(x+1)))
-        prop('shoreline_foam', x, coast_z(x)+.75, f'foam_{i}', base=-.12,
-             yaw=-math.degrees(math.atan(slope)), scale=math.sqrt(1+slope*slope)*3.08/8,
-             occludes=False)
+    # One closed scalloped cove edge has no repeated end caps or overlapping
+    # tops. The kit's short ribbon remains useful on the distant island.
+    foam_low, foam_high = cove_foam_bounds()
+    prop('cove_foam', 0, (foam_low+foam_high)/2, 'cove_foam', base=-.12, occludes=False)
+    prop('shoreline_foam', 2, -19.9, 'island_foam', base=-.12, scale=.40,
+         occludes=False)
 
     # Named clips are started explicitly, retaining fixed fly/swim anchors.
     def animal(name, clip, x, z, base, identity, yaw=0, scale=1):
@@ -316,8 +306,8 @@ def build_level():
         dict(step='move_to', x=-5, z=7, speed=.160624564),
         dict(step='play', clip='idle', seconds=2.4, loop=True),
         dict(step='move_to', x=-6, z=7, speed=.160624564)]))
-    animal('fish', 'swim', .7, -5.6, -1.08, 'shallows_fish', yaw=65)
-    animal('fish', 'swim', 1.5, -5.8, -1.23, 'shallows_fish_pair', yaw=-25, scale=.8)
+    animal('fish', 'swim', .7, -5.6, -.88, 'shallows_fish', yaw=65)
+    animal('fish', 'swim', 1.5, -5.8, -1.03, 'shallows_fish_pair', yaw=-25, scale=.8)
 
     # Opaque distant sea uses the actual single-surface water renderer, with
     # no box side/bottom faces to sort over its top. Five disjoint volumes

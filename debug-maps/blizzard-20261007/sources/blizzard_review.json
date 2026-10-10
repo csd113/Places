@@ -37,6 +37,16 @@
     "storm_severity": 1,
     "visibility_m": 5
   },
+  "weather_alternate": {
+    "kind": "snow"
+  },
+  "weather_cycle": {
+    "enabled": false,
+    "min_strength": 0.55,
+    "max_strength": 1,
+    "period_seconds": 120,
+    "transition_seconds": 15
+  },
   "global_illuminators": [
     {
       "id": "winter_moon",
@@ -1077,7 +1087,7 @@
       "model": "outdoor:house_02_roof_ridge",
       "x": -13.88,
       "z": -13,
-      "y": 4.996,
+      "y": 4.8744,
       "scale": 1.4
     },
     {
@@ -1102,7 +1112,7 @@
       "model": "outdoor:house_02_roof_ridge",
       "x": -9.12,
       "z": -13,
-      "y": 4.996,
+      "y": 4.8744,
       "scale": 1.4
     },
     {
@@ -1251,7 +1261,7 @@
       "model": "outdoor:house_01_roof_ridge",
       "x": 10.12,
       "z": -27,
-      "y": 4.996,
+      "y": 4.8744,
       "scale": 1.4
     },
     {
@@ -1276,7 +1286,7 @@
       "model": "outdoor:house_01_roof_ridge",
       "x": 14.88,
       "z": -27,
-      "y": 4.996,
+      "y": 4.8744,
       "scale": 1.4
     },
     {
@@ -1425,7 +1435,7 @@
       "model": "outdoor:house_04_roof_ridge",
       "x": -14.88,
       "z": 7,
-      "y": 4.996,
+      "y": 4.8744,
       "scale": 1.4
     },
     {
@@ -1450,7 +1460,7 @@
       "model": "outdoor:house_04_roof_ridge",
       "x": -10.12,
       "z": 7,
-      "y": 4.996,
+      "y": 4.8744,
       "scale": 1.4
     },
     {
@@ -1569,6 +1579,631 @@
         1.0,
         1.8,
         0.35
+      ]
+    },
+    {
+      "id": "winter_blizzard_button",
+      "model": "home:wall_switch",
+      "x": -10.25,
+      "z": -10.34,
+      "y": 1.15,
+      "rotation_degrees": 180,
+      "scale": 1.5,
+      "size": [
+        0.18,
+        0.18,
+        0.1
+      ],
+      "display_name": "Blizzard control",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Stop blizzard",
+          "reach": 2.1
+        },
+        {
+          "component": "animation",
+          "clip": "toggle",
+          "looped": false,
+          "playing": false
+        },
+        {
+          "component": "state",
+          "name": "blizzard",
+          "value": true
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "when": [
+            {
+              "check": "state",
+              "target": "winter_blizzard_button",
+              "name": "blizzard",
+              "equals": false
+            }
+          ],
+          "actions": [
+            {
+              "action": "set_weather_strength",
+              "strength": 0.65,
+              "transition_seconds": 2
+            },
+            {
+              "action": "toggle_animation",
+              "target": "winter_blizzard_button",
+              "clip": "toggle"
+            },
+            {
+              "action": "set_state",
+              "target": "winter_blizzard_button",
+              "name": "blizzard",
+              "value": true
+            },
+            {
+              "action": "set_prompt",
+              "target": "winter_blizzard_button",
+              "prompt": "Stop blizzard"
+            },
+            {
+              "action": "set_state",
+              "target": "winter_weather_timer",
+              "name": "cycle",
+              "value": false
+            },
+            {
+              "action": "set_prompt",
+              "target": "winter_weather_timer",
+              "prompt": "Start timed snowfall"
+            }
+          ]
+        },
+        {
+          "on": "interact",
+          "when": [
+            {
+              "check": "state",
+              "target": "winter_blizzard_button",
+              "name": "blizzard",
+              "equals": true
+            }
+          ],
+          "actions": [
+            {
+              "action": "set_weather_strength",
+              "strength": 1,
+              "transition_seconds": 2
+            },
+            {
+              "action": "toggle_animation",
+              "target": "winter_blizzard_button",
+              "clip": "toggle"
+            },
+            {
+              "action": "set_state",
+              "target": "winter_blizzard_button",
+              "name": "blizzard",
+              "value": false
+            },
+            {
+              "action": "set_prompt",
+              "target": "winter_blizzard_button",
+              "prompt": "Enable moderate blizzard"
+            },
+            {
+              "action": "set_state",
+              "target": "winter_weather_timer",
+              "name": "cycle",
+              "value": false
+            },
+            {
+              "action": "set_prompt",
+              "target": "winter_weather_timer",
+              "prompt": "Start timed snowfall"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "winter_weather_mild",
+      "model": "home:wall_switch",
+      "x": -10.25,
+      "z": -10.34,
+      "y": 0.292,
+      "rotation_degrees": 180,
+      "scale": 1.2,
+      "size": [
+        0.18,
+        0.18,
+        0.1
+      ],
+      "display_name": "Mild blizzard preset",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Set mild blizzard",
+          "reach": 2.1
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "when": [
+            {
+              "check": "state",
+              "target": "winter_blizzard_button",
+              "name": "blizzard",
+              "equals": false
+            }
+          ],
+          "actions": [
+            {
+              "action": "set_weather_strength",
+              "strength": 0.85,
+              "transition_seconds": 2
+            },
+            {
+              "action": "toggle_animation",
+              "target": "winter_blizzard_button",
+              "clip": "toggle"
+            },
+            {
+              "action": "set_state",
+              "target": "winter_blizzard_button",
+              "name": "blizzard",
+              "value": true
+            },
+            {
+              "action": "set_prompt",
+              "target": "winter_blizzard_button",
+              "prompt": "Stop blizzard"
+            },
+            {
+              "action": "set_state",
+              "target": "winter_weather_timer",
+              "name": "cycle",
+              "value": false
+            },
+            {
+              "action": "set_prompt",
+              "target": "winter_weather_timer",
+              "prompt": "Start timed snowfall"
+            }
+          ]
+        },
+        {
+          "on": "interact",
+          "when": [
+            {
+              "check": "state",
+              "target": "winter_blizzard_button",
+              "name": "blizzard",
+              "equals": true
+            }
+          ],
+          "actions": [
+            {
+              "action": "set_weather_strength",
+              "strength": 0.85,
+              "transition_seconds": 2
+            },
+            {
+              "action": "set_state",
+              "target": "winter_blizzard_button",
+              "name": "blizzard",
+              "value": true
+            },
+            {
+              "action": "set_prompt",
+              "target": "winter_blizzard_button",
+              "prompt": "Stop blizzard"
+            },
+            {
+              "action": "set_state",
+              "target": "winter_weather_timer",
+              "name": "cycle",
+              "value": false
+            },
+            {
+              "action": "set_prompt",
+              "target": "winter_weather_timer",
+              "prompt": "Start timed snowfall"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "winter_weather_moderate",
+      "model": "home:wall_switch",
+      "x": -10.25,
+      "z": -10.34,
+      "y": 0.572,
+      "rotation_degrees": 180,
+      "scale": 1.2,
+      "size": [
+        0.18,
+        0.18,
+        0.1
+      ],
+      "display_name": "Moderate blizzard preset",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Set moderate blizzard",
+          "reach": 2.1
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "when": [
+            {
+              "check": "state",
+              "target": "winter_blizzard_button",
+              "name": "blizzard",
+              "equals": false
+            }
+          ],
+          "actions": [
+            {
+              "action": "set_weather_strength",
+              "strength": 0.65,
+              "transition_seconds": 2
+            },
+            {
+              "action": "toggle_animation",
+              "target": "winter_blizzard_button",
+              "clip": "toggle"
+            },
+            {
+              "action": "set_state",
+              "target": "winter_blizzard_button",
+              "name": "blizzard",
+              "value": true
+            },
+            {
+              "action": "set_prompt",
+              "target": "winter_blizzard_button",
+              "prompt": "Stop blizzard"
+            },
+            {
+              "action": "set_state",
+              "target": "winter_weather_timer",
+              "name": "cycle",
+              "value": false
+            },
+            {
+              "action": "set_prompt",
+              "target": "winter_weather_timer",
+              "prompt": "Start timed snowfall"
+            }
+          ]
+        },
+        {
+          "on": "interact",
+          "when": [
+            {
+              "check": "state",
+              "target": "winter_blizzard_button",
+              "name": "blizzard",
+              "equals": true
+            }
+          ],
+          "actions": [
+            {
+              "action": "set_weather_strength",
+              "strength": 0.65,
+              "transition_seconds": 2
+            },
+            {
+              "action": "set_state",
+              "target": "winter_blizzard_button",
+              "name": "blizzard",
+              "value": true
+            },
+            {
+              "action": "set_prompt",
+              "target": "winter_blizzard_button",
+              "prompt": "Stop blizzard"
+            },
+            {
+              "action": "set_state",
+              "target": "winter_weather_timer",
+              "name": "cycle",
+              "value": false
+            },
+            {
+              "action": "set_prompt",
+              "target": "winter_weather_timer",
+              "prompt": "Start timed snowfall"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "winter_weather_severe",
+      "model": "home:wall_switch",
+      "x": -10.25,
+      "z": -10.34,
+      "y": 0.852,
+      "rotation_degrees": 180,
+      "scale": 1.2,
+      "size": [
+        0.18,
+        0.18,
+        0.1
+      ],
+      "display_name": "Severe blizzard preset",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Set severe blizzard",
+          "reach": 2.1
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "when": [
+            {
+              "check": "state",
+              "target": "winter_blizzard_button",
+              "name": "blizzard",
+              "equals": false
+            }
+          ],
+          "actions": [
+            {
+              "action": "set_weather_strength",
+              "strength": 0,
+              "transition_seconds": 2
+            },
+            {
+              "action": "toggle_animation",
+              "target": "winter_blizzard_button",
+              "clip": "toggle"
+            },
+            {
+              "action": "set_state",
+              "target": "winter_blizzard_button",
+              "name": "blizzard",
+              "value": true
+            },
+            {
+              "action": "set_prompt",
+              "target": "winter_blizzard_button",
+              "prompt": "Stop blizzard"
+            },
+            {
+              "action": "set_state",
+              "target": "winter_weather_timer",
+              "name": "cycle",
+              "value": false
+            },
+            {
+              "action": "set_prompt",
+              "target": "winter_weather_timer",
+              "prompt": "Start timed snowfall"
+            }
+          ]
+        },
+        {
+          "on": "interact",
+          "when": [
+            {
+              "check": "state",
+              "target": "winter_blizzard_button",
+              "name": "blizzard",
+              "equals": true
+            }
+          ],
+          "actions": [
+            {
+              "action": "set_weather_strength",
+              "strength": 0,
+              "transition_seconds": 2
+            },
+            {
+              "action": "set_state",
+              "target": "winter_blizzard_button",
+              "name": "blizzard",
+              "value": true
+            },
+            {
+              "action": "set_prompt",
+              "target": "winter_blizzard_button",
+              "prompt": "Stop blizzard"
+            },
+            {
+              "action": "set_state",
+              "target": "winter_weather_timer",
+              "name": "cycle",
+              "value": false
+            },
+            {
+              "action": "set_prompt",
+              "target": "winter_weather_timer",
+              "prompt": "Start timed snowfall"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "winter_weather_timer",
+      "model": "home:wall_switch",
+      "x": -10.25,
+      "z": -10.34,
+      "y": 1.63,
+      "rotation_degrees": 180,
+      "scale": 1.5,
+      "size": [
+        0.18,
+        0.18,
+        0.1
+      ],
+      "display_name": "Timed snowfall",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Start timed snowfall",
+          "reach": 2.1
+        },
+        {
+          "component": "state",
+          "name": "cycle",
+          "value": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "when": [
+            {
+              "check": "state",
+              "target": "winter_weather_timer",
+              "name": "cycle",
+              "equals": false
+            },
+            {
+              "check": "state",
+              "target": "winter_blizzard_button",
+              "name": "blizzard",
+              "equals": false
+            }
+          ],
+          "actions": [
+            {
+              "action": "set_weather_cycle",
+              "enabled": true
+            },
+            {
+              "action": "toggle_animation",
+              "target": "winter_blizzard_button",
+              "clip": "toggle"
+            },
+            {
+              "action": "set_state",
+              "target": "winter_blizzard_button",
+              "name": "blizzard",
+              "value": true
+            },
+            {
+              "action": "set_prompt",
+              "target": "winter_blizzard_button",
+              "prompt": "Stop blizzard"
+            },
+            {
+              "action": "set_state",
+              "target": "winter_weather_timer",
+              "name": "cycle",
+              "value": true
+            },
+            {
+              "action": "set_prompt",
+              "target": "winter_weather_timer",
+              "prompt": "Stop timed snowfall"
+            }
+          ]
+        },
+        {
+          "on": "interact",
+          "when": [
+            {
+              "check": "state",
+              "target": "winter_weather_timer",
+              "name": "cycle",
+              "equals": false
+            },
+            {
+              "check": "state",
+              "target": "winter_blizzard_button",
+              "name": "blizzard",
+              "equals": true
+            }
+          ],
+          "actions": [
+            {
+              "action": "set_weather_cycle",
+              "enabled": true
+            },
+            {
+              "action": "set_state",
+              "target": "winter_blizzard_button",
+              "name": "blizzard",
+              "value": true
+            },
+            {
+              "action": "set_prompt",
+              "target": "winter_blizzard_button",
+              "prompt": "Stop blizzard"
+            },
+            {
+              "action": "set_state",
+              "target": "winter_weather_timer",
+              "name": "cycle",
+              "value": true
+            },
+            {
+              "action": "set_prompt",
+              "target": "winter_weather_timer",
+              "prompt": "Stop timed snowfall"
+            }
+          ]
+        },
+        {
+          "on": "interact",
+          "when": [
+            {
+              "check": "state",
+              "target": "winter_weather_timer",
+              "name": "cycle",
+              "equals": true
+            }
+          ],
+          "actions": [
+            {
+              "action": "set_weather_cycle",
+              "enabled": false
+            },
+            {
+              "action": "set_weather_strength",
+              "strength": 1,
+              "transition_seconds": 2
+            },
+            {
+              "action": "toggle_animation",
+              "target": "winter_blizzard_button",
+              "clip": "toggle"
+            },
+            {
+              "action": "set_state",
+              "target": "winter_blizzard_button",
+              "name": "blizzard",
+              "value": false
+            },
+            {
+              "action": "set_prompt",
+              "target": "winter_blizzard_button",
+              "prompt": "Enable moderate blizzard"
+            },
+            {
+              "action": "set_state",
+              "target": "winter_weather_timer",
+              "name": "cycle",
+              "value": false
+            },
+            {
+              "action": "set_prompt",
+              "target": "winter_weather_timer",
+              "prompt": "Start timed snowfall"
+            }
+          ]
+        }
       ]
     },
     {
@@ -3914,66 +4549,21 @@
       "occludes": false
     },
     {
-      "id": "home_0_snow_roof_0_front",
-      "model": "winter:snow_roof_slope",
-      "x": -13.88,
-      "z": -11.04,
-      "y": 2.9838,
+      "id": "home_0_snow_roof_front",
+      "model": "winter:snow_roof_blanket",
+      "x": -11.5,
+      "z": -10.88,
+      "y": 2.916,
       "scale": 1.4
     },
     {
-      "id": "home_0_snow_roof_0_back",
-      "model": "winter:snow_roof_slope",
-      "x": -13.88,
-      "z": -14.96,
-      "y": 2.9838,
+      "id": "home_0_snow_roof_back",
+      "model": "winter:snow_roof_blanket",
+      "x": -11.5,
+      "z": -15.12,
+      "y": 2.916,
       "rotation_degrees": 180,
       "scale": 1.4
-    },
-    {
-      "id": "home_0_snow_roof_1_front",
-      "model": "winter:snow_roof_slope",
-      "x": -9.12,
-      "z": -11.04,
-      "y": 2.9838,
-      "scale": 1.4
-    },
-    {
-      "id": "home_0_snow_roof_1_back",
-      "model": "winter:snow_roof_slope",
-      "x": -9.12,
-      "z": -14.96,
-      "y": 2.9838,
-      "rotation_degrees": 180,
-      "scale": 1.4
-    },
-    {
-      "id": "home_0_snow_eave_0",
-      "model": "winter:snow_roof_edge",
-      "x": -15.1,
-      "z": -9.5,
-      "y": 2.916
-    },
-    {
-      "id": "home_0_snow_eave_1",
-      "model": "winter:snow_roof_edge",
-      "x": -12.7,
-      "z": -9.5,
-      "y": 2.916
-    },
-    {
-      "id": "home_0_snow_eave_2",
-      "model": "winter:snow_roof_edge",
-      "x": -10.3,
-      "z": -9.5,
-      "y": 2.916
-    },
-    {
-      "id": "home_0_snow_eave_3",
-      "model": "winter:snow_roof_edge",
-      "x": -7.9,
-      "z": -9.5,
-      "y": 3.516
     },
     {
       "id": "home_0_window_0",
@@ -3998,45 +4588,21 @@
       "rotation_degrees": 90
     },
     {
-      "id": "home_1_snow_roof_0_front",
-      "model": "winter:snow_roof_slope",
-      "x": 10.12,
-      "z": -25.04,
-      "y": 2.9838,
+      "id": "home_1_snow_roof_front",
+      "model": "winter:snow_roof_blanket",
+      "x": 12.5,
+      "z": -24.88,
+      "y": 2.916,
       "scale": 1.4
     },
     {
-      "id": "home_1_snow_roof_0_back",
-      "model": "winter:snow_roof_slope",
-      "x": 10.12,
-      "z": -28.96,
-      "y": 2.9838,
+      "id": "home_1_snow_roof_back",
+      "model": "winter:snow_roof_blanket",
+      "x": 12.5,
+      "z": -29.12,
+      "y": 2.916,
       "rotation_degrees": 180,
       "scale": 1.4
-    },
-    {
-      "id": "home_1_snow_roof_1_front",
-      "model": "winter:snow_roof_slope",
-      "x": 14.88,
-      "z": -25.04,
-      "y": 2.9838,
-      "scale": 1.4
-    },
-    {
-      "id": "home_1_snow_roof_1_back",
-      "model": "winter:snow_roof_slope",
-      "x": 14.88,
-      "z": -28.96,
-      "y": 2.9838,
-      "rotation_degrees": 180,
-      "scale": 1.4
-    },
-    {
-      "id": "home_1_snow_eave_0",
-      "model": "winter:snow_roof_edge",
-      "x": 8.9,
-      "z": -23.5,
-      "y": 2.916
     },
     {
       "id": "home_1_eave_icicles_0",
@@ -4044,27 +4610,6 @@
       "x": 8.9,
       "z": -23.4,
       "y": 2.065
-    },
-    {
-      "id": "home_1_snow_eave_1",
-      "model": "winter:snow_roof_edge",
-      "x": 11.3,
-      "z": -23.5,
-      "y": 2.916
-    },
-    {
-      "id": "home_1_snow_eave_2",
-      "model": "winter:snow_roof_edge",
-      "x": 13.7,
-      "z": -23.5,
-      "y": 2.916
-    },
-    {
-      "id": "home_1_snow_eave_3",
-      "model": "winter:snow_roof_edge",
-      "x": 16.1,
-      "z": -23.5,
-      "y": 2.916
     },
     {
       "id": "home_1_eave_icicles_3",
@@ -4156,45 +4701,21 @@
       "rotation_degrees": 90
     },
     {
-      "id": "home_2_snow_roof_0_front",
-      "model": "winter:snow_roof_slope",
-      "x": -14.88,
-      "z": 8.96,
-      "y": 2.9838,
+      "id": "home_2_snow_roof_front",
+      "model": "winter:snow_roof_blanket",
+      "x": -12.5,
+      "z": 9.12,
+      "y": 2.916,
       "scale": 1.4
     },
     {
-      "id": "home_2_snow_roof_0_back",
-      "model": "winter:snow_roof_slope",
-      "x": -14.88,
-      "z": 5.04,
-      "y": 2.9838,
+      "id": "home_2_snow_roof_back",
+      "model": "winter:snow_roof_blanket",
+      "x": -12.5,
+      "z": 4.88,
+      "y": 2.916,
       "rotation_degrees": 180,
       "scale": 1.4
-    },
-    {
-      "id": "home_2_snow_roof_1_front",
-      "model": "winter:snow_roof_slope",
-      "x": -10.12,
-      "z": 8.96,
-      "y": 2.9838,
-      "scale": 1.4
-    },
-    {
-      "id": "home_2_snow_roof_1_back",
-      "model": "winter:snow_roof_slope",
-      "x": -10.12,
-      "z": 5.04,
-      "y": 2.9838,
-      "rotation_degrees": 180,
-      "scale": 1.4
-    },
-    {
-      "id": "home_2_snow_eave_0",
-      "model": "winter:snow_roof_edge",
-      "x": -16.1,
-      "z": 10.5,
-      "y": 2.916
     },
     {
       "id": "home_2_eave_icicles_0",
@@ -4202,27 +4723,6 @@
       "x": -16.1,
       "z": 10.6,
       "y": 2.065
-    },
-    {
-      "id": "home_2_snow_eave_1",
-      "model": "winter:snow_roof_edge",
-      "x": -13.7,
-      "z": 10.5,
-      "y": 2.916
-    },
-    {
-      "id": "home_2_snow_eave_2",
-      "model": "winter:snow_roof_edge",
-      "x": -11.3,
-      "z": 10.5,
-      "y": 2.916
-    },
-    {
-      "id": "home_2_snow_eave_3",
-      "model": "winter:snow_roof_edge",
-      "x": -8.9,
-      "z": 10.5,
-      "y": 2.916
     },
     {
       "id": "home_2_eave_icicles_3",
@@ -4712,8 +5212,8 @@
       "id": "home_1_string",
       "model": "winter:string_lights_short",
       "x": 12.5,
-      "z": -23.14,
-      "y": 2.39,
+      "z": -23.3,
+      "y": 2.77,
       "occludes": false,
       "lights": [
         {
@@ -4770,8 +5270,8 @@
       "id": "home_2_string",
       "model": "winter:string_lights_short",
       "x": -12.5,
-      "z": 10.86,
-      "y": 2.39,
+      "z": 10.7,
+      "y": 2.77,
       "occludes": false,
       "lights": [
         {
@@ -4950,8 +5450,8 @@
       "id": "lodge_rail_string_0",
       "model": "winter:string_lights_short",
       "x": -13.575,
-      "z": -7.55,
-      "y": 1.17,
+      "z": -7.61,
+      "y": 0.57,
       "occludes": false,
       "lights": [
         {
@@ -5007,9 +5507,9 @@
     {
       "id": "lodge_rail_string_1",
       "model": "winter:string_lights_short",
-      "x": -8.475,
-      "z": -7.55,
-      "y": 1.17,
+      "x": -9.425,
+      "z": -7.61,
+      "y": 0.57,
       "occludes": false,
       "lights": [
         {
@@ -6160,6 +6660,23 @@
       "occludes": true
     },
     {
+      "id": "lodge_weather_backing",
+      "min": [
+        -10.43,
+        0.86,
+        -10.338
+      ],
+      "max": [
+        -10.07,
+        2.55,
+        -10.297
+      ],
+      "material": "winter:timber_01",
+      "faces": "outward",
+      "solid": false,
+      "occludes": false
+    },
+    {
       "id": "lodge_awning",
       "min": [
         -15.2,
@@ -6197,13 +6714,30 @@
       "id": "home_1_string_bracket_-1",
       "min": [
         11.045,
-        2.725,
-        -23.57
+        2.87499999499321,
+        -23.4400000667572
       ],
       "max": [
         11.155,
-        2.795,
-        -23.11
+        2.9449999949932097,
+        -23.245000066757203
+      ],
+      "material": "winter:timber_01",
+      "faces": "outward",
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "home_1_string_upstand_-1",
+      "min": [
+        11.065,
+        2.89999999499321,
+        -23.335000066757203
+      ],
+      "max": [
+        11.135,
+        3.17,
+        -23.265000066757203
       ],
       "material": "winter:timber_01",
       "faces": "outward",
@@ -6214,13 +6748,30 @@
       "id": "home_1_string_bracket_1",
       "min": [
         13.845,
-        2.725,
-        -23.57
+        2.87499999499321,
+        -23.4400000667572
       ],
       "max": [
         13.955,
-        2.795,
-        -23.11
+        2.9449999949932097,
+        -23.245000066757203
+      ],
+      "material": "winter:timber_01",
+      "faces": "outward",
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "home_1_string_upstand_1",
+      "min": [
+        13.865,
+        2.89999999499321,
+        -23.335000066757203
+      ],
+      "max": [
+        13.935,
+        3.17,
+        -23.265000066757203
       ],
       "material": "winter:timber_01",
       "faces": "outward",
@@ -6231,13 +6782,30 @@
       "id": "home_2_string_bracket_-1",
       "min": [
         -13.955,
-        2.725,
-        10.43
+        2.87499999499321,
+        10.559999933242798
       ],
       "max": [
         -13.845,
-        2.795,
-        10.89
+        2.9449999949932097,
+        10.754999933242798
+      ],
+      "material": "winter:timber_01",
+      "faces": "outward",
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "home_2_string_upstand_-1",
+      "min": [
+        -13.935,
+        2.89999999499321,
+        10.664999933242798
+      ],
+      "max": [
+        -13.865,
+        3.17,
+        10.734999933242799
       ],
       "material": "winter:timber_01",
       "faces": "outward",
@@ -6248,13 +6816,30 @@
       "id": "home_2_string_bracket_1",
       "min": [
         -11.155,
-        2.725,
-        10.43
+        2.87499999499321,
+        10.559999933242798
       ],
       "max": [
         -11.045,
-        2.795,
-        10.89
+        2.9449999949932097,
+        10.754999933242798
+      ],
+      "material": "winter:timber_01",
+      "faces": "outward",
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "home_2_string_upstand_1",
+      "min": [
+        -11.135,
+        2.89999999499321,
+        10.664999933242798
+      ],
+      "max": [
+        -11.065,
+        3.17,
+        10.734999933242799
       ],
       "material": "winter:timber_01",
       "faces": "outward",

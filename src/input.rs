@@ -418,6 +418,37 @@ impl InputHandler {
         self.state.release_all();
     }
 
+    /// Clears movement, mouse motion and pending presses while retaining only
+    /// the current interaction hold across a focused graphics transaction.
+    pub const fn clear_gameplay_inputs_preserving_interact(&mut self) {
+        let interact_held = self.state.held & Control::Interact.bit();
+        self.state.release_all();
+        self.state.held = interact_held;
+    }
+
+    /// Tracks releases during a graphics transaction's temporary pause.
+    /// Presses and mouse motion continue to follow the ordinary screen gates.
+    pub fn handle_graphics_key_release(&mut self, event: &Event, bindings: &KeyBindings) -> bool {
+        if matches!(
+            event,
+            Event::KeyUp {
+                keycode: _,
+                timestamp: _,
+                window_id: _,
+                scancode: _,
+                keymod: _,
+                repeat: _,
+                which: _,
+                raw: _
+            }
+        ) {
+            self.handle_gameplay_event(event, bindings);
+            true
+        } else {
+            false
+        }
+    }
+
     /// Handles gameplay events using active `KeyBindings`.
     pub fn handle_gameplay_event(&mut self, event: &Event, bindings: &KeyBindings) {
         if let Event::MouseMotion {

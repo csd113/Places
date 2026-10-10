@@ -699,7 +699,7 @@ impl LadderDef {
 /// with a silently ignored effect.
 ///
 /// A `target` names the entity the action acts on. Every target except
-/// `reset_to_start`, `spawn_entity` and `start_sequence` is `Option<String>`:
+/// `reset_to_start`, `toggle_weather`, `spawn_entity` and `start_sequence` is `Option<String>`:
 /// omitted means the acting entity (the entity that emitted the event, or the
 /// entity a sequence runs on).
 ///
@@ -752,6 +752,26 @@ pub enum ActionDef {
         target: Option<String>,
         /// True turns the light on.
         on: bool,
+    },
+    /// Select the level's alternate weather, or restore its authored default.
+    ToggleWeather,
+    /// Blend the authored weather endpoints, cancelling the optional cycle.
+    SetWeatherStrength {
+        /// 0 restores `weather`, 1 selects `weather_alternate`.
+        strength: f32,
+        /// Playing seconds to ease from the current strength; omission is instant.
+        #[serde(default)]
+        transition_seconds: f32,
+    },
+    /// Resume or stop the level's authored weather cycle.
+    SetWeatherCycle { enabled: bool },
+    /// Change the next-use prompt on an entity with an interactable component.
+    SetPrompt {
+        /// Entity id; omitted means the acting entity.
+        #[serde(default)]
+        target: Option<String>,
+        /// Non-blank text shown beside the bound interaction key.
+        prompt: String,
     },
     /// Lock a door: it refuses to open until unlocked.
     Lock {
@@ -926,6 +946,16 @@ impl ActionDef {
             Self::Enable { target: _ } => "enable",
             Self::Disable { target: _ } => "disable",
             Self::SetLight { target: _, on: _ } => "set_light",
+            Self::ToggleWeather => "toggle_weather",
+            Self::SetWeatherStrength {
+                strength: _,
+                transition_seconds: _,
+            } => "set_weather_strength",
+            Self::SetWeatherCycle { enabled: _ } => "set_weather_cycle",
+            Self::SetPrompt {
+                target: _,
+                prompt: _,
+            } => "set_prompt",
             Self::Lock { target: _ } => "lock",
             Self::Unlock { target: _ } => "unlock",
             Self::PlayAnimation {
@@ -992,6 +1022,7 @@ impl ActionDef {
             | Self::Enable { target }
             | Self::Disable { target }
             | Self::SetLight { target, on: _ }
+            | Self::SetPrompt { target, prompt: _ }
             | Self::Lock { target }
             | Self::Unlock { target }
             | Self::PlayAnimation {
@@ -1038,7 +1069,13 @@ impl ActionDef {
                 name: _,
             }
             | Self::DespawnEntity { target: _ }
-            | Self::ResetToStart => None,
+            | Self::ResetToStart
+            | Self::ToggleWeather
+            | Self::SetWeatherStrength {
+                strength: _,
+                transition_seconds: _,
+            }
+            | Self::SetWeatherCycle { enabled: _ } => None,
         }
     }
 }
@@ -6365,6 +6402,13 @@ pub struct LevelDef {
     /// Optional presentation-only weather; omission preserves every existing default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub weather: Option<crate::weather::WeatherDef>,
+    /// Optional alternate presentation selected by the `toggle_weather` action.
+    /// A newly loaded world always begins with `weather`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub weather_alternate: Option<crate::weather::WeatherDef>,
+    /// Optional cycle; omission leaves manual weather controls in charge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub weather_cycle: Option<crate::weather::WeatherCycleDef>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub global_illuminators: Vec<GlobalIlluminatorDef>,
     /// Optional regional fog volumes, in authoring order.

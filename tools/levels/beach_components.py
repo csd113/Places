@@ -8,6 +8,9 @@ from __future__ import annotations
 import math
 
 
+from tools.props.parts.beach_coast import coast_z, cove_foam_profile, cove_foam_bounds
+
+
 def shore_segment(x: float, sea_z: float, shore_z: float, width: float) -> dict:
     """A north-facing dry/wade/swim strip with real floor and gentle ramps.
 

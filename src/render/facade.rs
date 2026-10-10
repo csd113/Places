@@ -395,6 +395,29 @@ impl Renderer {
         self.renderer.set_effect_enabled(authored_index, enabled)
     }
 
+    /// Selects the already prepared alternate weather, retaining the world.
+    pub fn set_weather_alternate(&mut self, alternate: bool) -> bool {
+        self.renderer.set_weather_alternate(alternate)
+    }
+
+    pub fn set_weather_strength(&mut self, strength: f32, transition_seconds: f32) -> bool {
+        self.renderer
+            .set_weather_strength(strength, transition_seconds)
+    }
+
+    pub fn set_weather_cycle(&mut self, enabled: bool) -> bool {
+        self.renderer.set_weather_cycle(enabled)
+    }
+
+    pub fn update_weather(&mut self, delta_seconds: f32) {
+        self.renderer.update_weather(delta_seconds);
+    }
+
+    #[must_use]
+    pub const fn weather_state(&self) -> (f32, f32, bool) {
+        self.renderer.weather_state()
+    }
+
     /// Advances every animated character's pose and re-uploads the ones that
     /// moved.
     ///

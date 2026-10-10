@@ -112,8 +112,14 @@ class WinterAssetTests(unittest.TestCase):
         props = level['props']
         models = {p['model'] for p in props}
         for name in winter.SIZES:
-            if not name.startswith('railing_snow') and name not in ('fence_post_snow', 'snow_porch_edge', 'snow_door_overhang'):
+            if not name.startswith('railing_snow') and name not in (
+                    'fence_post_snow', 'snow_porch_edge', 'snow_door_overhang',
+                    'snow_roof_slope', 'snow_roof_edge'):
                 self.assertIn('winter:'+name, models)
+        # Small roof/eave modules remain reusable library/Zoo assets; the
+        # maintained houses use continuous blankets without duplicated ends.
+        self.assertNotIn('winter:snow_roof_slope', models)
+        self.assertNotIn('winter:snow_roof_edge', models)
         # The original simple hood overlay stays in the library/Zoo. Both
         # exposed cottage entrances now require the braced construction with
         # its own supported snow nose, rather than stacking the old cap on it.

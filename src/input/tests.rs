@@ -356,6 +356,74 @@ fn clear_gameplay_inputs_discards_mouse_motion_too() {
     assert_exact(dy, 0.0);
 }
 
+#[test]
+fn graphics_clear_retains_only_current_interact_hold_and_never_resurrects_focus_input() {
+    let bindings = KeyBindings::default();
+    let mut handler = InputHandler::new();
+    handler.handle_gameplay_event(&key_down(Keycode::E), &bindings);
+    handler.handle_gameplay_event(&key_down(Keycode::W), &bindings);
+    handler.handle_gameplay_event(&mouse_motion(5.0, 5.0), &bindings);
+    handler.handle_gameplay_event(&Event::Quit { timestamp: 0 }, &bindings);
+    handler.clear_gameplay_inputs_preserving_interact();
+    assert_eq!(
+        handler.state().held,
+        Control::Interact.bit(),
+        "only Interact crosses graphics upload"
+    );
+    assert!(
+        !handler.state().was_pressed(Control::Interact),
+        "a retained hold is not a new press"
+    );
+    let (dx, dy) = handler.state_mut().take_mouse_motion();
+    assert_exact(dx, 0.0);
+    assert_exact(dy, 0.0);
+    assert!(handler.quit_requested(), "graphics clearing preserves quit");
+    handler.clear_gameplay_inputs();
+    handler.clear_gameplay_inputs_preserving_interact();
+    assert_eq!(
+        handler.state().held,
+        0,
+        "focus loss and ordinary clears cannot be resurrected"
+    );
+}
+
+#[test]
+fn graphics_pause_tracks_release_but_gates_repress_and_mouse_motion() {
+    let bindings = KeyBindings::default();
+    let mut handler = InputHandler::new();
+    handler.handle_gameplay_event(&key_down(Keycode::E), &bindings);
+    handler.clear_gameplay_inputs_preserving_interact();
+    assert!(
+        handler.handle_graphics_key_release(&key_up(Keycode::E), &bindings),
+        "release crosses temporary graphics pause"
+    );
+    assert!(
+        !handler.handle_graphics_key_release(&key_down(Keycode::E), &bindings),
+        "press stays behind the pause gate"
+    );
+    assert!(
+        !handler.handle_graphics_key_release(&mouse_motion(5.0, 5.0), &bindings),
+        "mouse stays behind the pause gate"
+    );
+    handler.clear_gameplay_inputs_preserving_interact();
+    assert!(
+        !handler.state().is_held(Control::Interact),
+        "commit observes the real release"
+    );
+    assert!(
+        !handler.state().was_pressed(Control::Interact),
+        "a paused repress queues no action"
+    );
+    let (dx, dy) = handler.state_mut().take_mouse_motion();
+    assert_exact(dx, 0.0);
+    assert_exact(dy, 0.0);
+    handler.handle_gameplay_event(&key_down(Keycode::E), &bindings);
+    assert!(
+        handler.state().was_pressed(Control::Interact),
+        "genuine repress after resume is a fresh edge"
+    );
+}
+
 /// A rebound interact key drives only Interact, OS auto-repeat never re-fires
 /// the held bit, and releasing all gameplay inputs (pause, focus loss, level
 /// load) drops a held Interact.

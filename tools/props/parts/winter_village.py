@@ -117,7 +117,8 @@ def hood(p):
     snow(p)
     # Only the projecting nose lies beyond the main roof's shelter. The
     # inner roof and wall brackets remain bare timber.
-    _strip(p, 1.94, .125, .30, z=.30, y=.445-(.08/.78)*.30, slope=.08/.78)
+    _strip(p, 1.94, .125, .30, z=.30, y=.445-(.08/.78)*.30, slope=.08/.78,
+           base_sink=.008)
     fit(p)
     p.add_note('projecting closed timber hood, two diagonal supports and thick snow roof; high side faces the wall (-Z)')
 

@@ -314,8 +314,34 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     if let Some(environment) = level.environment {
         environment.validate()?;
     }
-    if let Some(weather) = &level.weather {
-        weather.snowfall().validate()?;
+    if level.weather_alternate.is_some() && level.weather.is_none() {
+        return Err("weather_alternate requires authored default weather".to_string());
+    }
+    if let Some(cycle) = &level.weather_cycle {
+        cycle.validate()?;
+        if !level
+            .weather
+            .as_ref()
+            .zip(level.weather_alternate.as_ref())
+            .is_some_and(|(base, alternate)| crate::weather::strength_compatible(base, alternate))
+        {
+            return Err("weather_cycle requires weather and weather_alternate with equal count and material".to_string());
+        }
+    }
+    for (name, authored_weather) in [
+        ("weather", level.weather.as_ref()),
+        ("weather_alternate", level.weather_alternate.as_ref()),
+    ] {
+        let Some(weather) = authored_weather else {
+            continue;
+        };
+        weather.snowfall().validate().map_err(|error| {
+            if name == "weather" {
+                error
+            } else {
+                format!("{name}: {error}")
+            }
+        })?;
         if weather.snowfall().storm_severity > 0.0
             && crate::weather::shelter_count(level) > crate::weather::MAX_STORM_SHELTERS
         {
@@ -2299,6 +2325,11 @@ struct LevelIndex<'a> {
     /// Sequence id -> every entity the sequence can run on, discovered from
     /// the authored `start_sequence` sites.
     sequence_owners: HashMap<String, Vec<String>>,
+    /// The world has two authored weather configurations to toggle between.
+    weather_toggleable: bool,
+    /// Continuous weather controls can reuse one seed and texture budget.
+    weather_blendable: bool,
+    weather_cycle: bool,
 }
 
 impl<'a> LevelIndex<'a> {
@@ -2389,7 +2420,16 @@ impl EntityFacts<'_> {
 fn validate_instance_ids(level: &LevelDef) -> Result<LevelIndex<'_>, String> {
     let mut seen: HashSet<&str> = HashSet::new();
     let mut first: HashMap<&str, String> = HashMap::new();
-    let mut index = LevelIndex::default();
+    let mut index = LevelIndex {
+        weather_toggleable: level.weather.is_some() && level.weather_alternate.is_some(),
+        weather_blendable: level
+            .weather
+            .as_ref()
+            .zip(level.weather_alternate.as_ref())
+            .is_some_and(|(base, alternate)| crate::weather::strength_compatible(base, alternate)),
+        weather_cycle: level.weather_cycle.is_some(),
+        ..LevelIndex::default()
+    };
 
     let prop_ids = level.prop_instance_ids();
     for (i, id) in prop_ids.iter().enumerate() {
@@ -3438,6 +3478,50 @@ fn validate_action(
 ) -> Result<(), String> {
     match action {
         ActionDef::ResetToStart => {}
+        ActionDef::ToggleWeather => {
+            if !index.weather_toggleable {
+                return Err(format!(
+                    "{} requires weather and weather_alternate",
+                    action_context_label(action_context)
+                ));
+            }
+        }
+        ActionDef::SetWeatherStrength {
+            strength,
+            transition_seconds,
+        } => {
+            crate::weather::validate_strength(*strength, *transition_seconds)?;
+            if !index.weather_blendable {
+                return Err(format!(
+                    "{} requires weather and weather_alternate with equal count and material",
+                    action_context_label(action_context)
+                ));
+            }
+        }
+        ActionDef::SetWeatherCycle { enabled: _ } => {
+            if !index.weather_cycle {
+                return Err(format!(
+                    "{} requires weather_cycle",
+                    action_context_label(action_context)
+                ));
+            }
+        }
+        ActionDef::SetPrompt { target, prompt } => {
+            if prompt.trim().is_empty() {
+                return Err(format!(
+                    "{} prompt must not be blank",
+                    action_context_label(action_context)
+                ));
+            }
+            check_action_target(
+                action_context,
+                target.as_deref(),
+                implicit,
+                index,
+                "a target with an `interactable` component",
+                |facts| facts.has_interactable,
+            )?;
+        }
         ActionDef::Open { target }
         | ActionDef::Close { target }
         | ActionDef::Lock { target }

@@ -118,6 +118,49 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
             len(grown_level["ceiling_lights"]), len(base_level["ceiling_lights"])
         )
 
+    def test_refinement_displays_preserve_every_existing_placement_and_world_field(self):
+        additions = {'beach:cove_foam', 'beach:town_terrace_base',
+                     'frutiger_aero:portal_spandrel', 'winter:snow_roof_blanket'}
+        baseline_catalog = copy.deepcopy(self.catalog)
+        baseline_catalog['assets'] = [entry for entry in baseline_catalog['assets']
+                                      if entry['id'] not in additions]
+        baseline = self.level_for(baseline_catalog)
+        grown = self.level_for(self.catalog)
+        old_props = {prop['id']: prop for prop in baseline['props']}
+        new_props = {prop['id']: prop for prop in grown['props']}
+        for identity, prop in old_props.items():
+            self.assertEqual(new_props[identity], prop, identity)
+        for field in baseline.keys() - {'props'}:
+            self.assertEqual(grown[field], baseline[field], field)
+        extra = [prop for prop in grown['props'] if prop['id'] not in old_props]
+        self.assertEqual({prop['model'] for prop in extra}, additions)
+        self.assertEqual(len(extra), 4)
+        entries = {entry['id']: entry for entry in self.catalog['assets']}
+        for prop in extra:
+            self.assertEqual(prop['id'], zoo.instance_id(entries[prop['model']], 'floor'))
+            self.assertEqual(prop['display_name'], entries[prop['model']]['display_name'])
+            self.assertEqual(prop['components'], [{'component': 'interactable', 'prompt': 'Show name'}])
+            self.assertEqual(prop['bindings'], [{'on': 'interact', 'actions': [{'action': 'toggle_label'}]}])
+            self.assertFalse(prop['solid'])
+            # Full bounds stay within real annex ownership, including the
+            # extremely wide coast strip's deliberately reduced exhibit.
+            width, height, depth = (size*prop['scale'] for size in entries[prop['model']]['size'])
+            self.assertTrue(any(room['x'] <= prop['x']-width/2
+                                and room['x']+room['width'] >= prop['x']+width/2
+                                and room['z'] <= prop['z']-depth/2
+                                and room['z']+room['depth'] >= prop['z']+depth/2
+                                and room['height'] >= height for room in grown['rooms']))
+
+    def test_removing_a_supplemental_display_leaves_the_other_slots_fixed(self):
+        baseline = self.level_for(self.catalog)
+        removed = copy.deepcopy(self.catalog)
+        removed['assets'] = [entry for entry in removed['assets'] if entry['id'] != 'beach:cove_foam']
+        reduced = self.level_for(removed)
+        self.assertEqual(reduced['props'], [prop for prop in baseline['props']
+                                          if prop['model'] != 'beach:cove_foam'])
+        for field in baseline.keys() - {'props'}:
+            self.assertEqual(reduced[field], baseline[field], field)
+
     def test_layout_expands_when_the_floor_rows_fill(self):
         base_level = self.level_for(self.catalog)
         base_depth = hall_extents(base_level)[1]

@@ -492,11 +492,35 @@ impl WgpuEffects {
         if !self.vertices.is_empty() {
             queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
         }
+        let capacity_growth = self
+            .vertices
+            .capacity()
+            .saturating_sub(capacity)
+            .saturating_add(self.groups.capacity().saturating_sub(group_capacity));
+        self.write_weather_trace(scene, camera_position, &snow, started, capacity_growth);
+    }
+
+    fn write_weather_trace(
+        &mut self,
+        scene: &EffectScene,
+        camera_position: [f32; 3],
+        snow: &crate::render::common::snow::SnowStats,
+        started: Option<std::time::Instant>,
+        capacity_growth: usize,
+    ) {
         if let (Some(trace), Some(start)) = (self.weather_trace.as_mut(), started) {
             use std::io::Write as _;
+            let (sky_mix, density, wind_x, wind_z) =
+                scene.snow().map_or((0.0, 0.0, 0.0, 0.0), |weather| {
+                    let [_, _, _, sky_mix] = weather.sky_storm();
+                    let [_, _, _, density] = weather.storm.color_density;
+                    let [wind_x, wind_z] = weather.wind();
+                    (sky_mix, density, wind_x, wind_z)
+                });
+            let (strength, target, cycle_enabled) = scene.weather_state();
             if writeln!(
                 trace,
-                "{:.6},{},{},{},{},{},{},{},{:.6},{},{:.3}",
+                "{:.6},{},{},{},{},{},{},{},{:.6},{},{:.3},{},{},{},{},{},{},{},{},{},{},{},{}",
                 scene.clock(),
                 camera_position[0],
                 camera_position[1],
@@ -506,11 +530,20 @@ impl WgpuEffects {
                 snow.sheltered,
                 snow.culled,
                 snow.coverage,
-                self.vertices
-                    .capacity()
-                    .saturating_sub(capacity)
-                    .saturating_add(self.groups.capacity().saturating_sub(group_capacity)),
-                start.elapsed().as_secs_f64() * 1_000_000.0_f64
+                capacity_growth,
+                start.elapsed().as_secs_f64() * 1_000_000.0_f64,
+                sky_mix,
+                density,
+                wind_x,
+                wind_z,
+                self.stats.particles,
+                self.vertices.capacity(),
+                self.groups.capacity(),
+                self.textures.len(),
+                strength,
+                target,
+                u8::from(cycle_enabled),
+                scene.weather_control_seconds()
             )
             .is_err()
             {
@@ -596,7 +629,7 @@ fn weather_trace(enabled: bool) -> Option<std::fs::File> {
     // scene. Write immediately so both handles observe one ordered CSV stream.
     let mut writer = file;
     if empty {
-        writeln!(writer, "seconds,x,y,z,evaluated,submitted,sheltered,culled,quad_screen_coverage,capacity_growth,sync_us").ok()?;
+        writeln!(writer, "seconds,x,y,z,evaluated,submitted,sheltered,culled,quad_screen_coverage,capacity_growth,sync_us,sky_storm_mix,storm_density,wind_x,wind_z,particle_capacity,vertex_capacity,group_capacity,effect_textures,weather_strength,weather_target,weather_cycle_enabled,weather_control_seconds").ok()?;
     }
     Some(writer)
 }

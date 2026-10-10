@@ -5812,6 +5812,1140 @@
       "occludes": false
     },
     {
+      "id": "lookout_base",
+      "model": "beach:town_terrace_base",
+      "x": 12,
+      "z": 16.4,
+      "y": -2.395,
+      "rotation_degrees": 0,
+      "size": [
+        4.0,
+        2.22,
+        3.0
+      ],
+      "solid": false
+    },
+    {
+      "id": "lookout_base_solid_0",
+      "model": "outdoor:collision_peg",
+      "x": 10.3,
+      "z": 15.04,
+      "y": -2.392,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        11.88,
+        44.28000000000001,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_1",
+      "model": "outdoor:collision_peg",
+      "x": 13.7,
+      "z": 15.04,
+      "y": -2.392,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        11.88,
+        44.28000000000001,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_2",
+      "model": "outdoor:collision_peg",
+      "x": 13.386678918189475,
+      "z": 15.04,
+      "y": -0.889381,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        0.532843272420993,
+        14.227620560996005,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_3",
+      "model": "outdoor:collision_peg",
+      "x": 13.360036754568426,
+      "z": 15.04,
+      "y": -0.836762,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        0.532843272420993,
+        13.175241121992011,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_4",
+      "model": "outdoor:collision_peg",
+      "x": 13.333394590947375,
+      "z": 15.04,
+      "y": -0.784143,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        0.532843272420993,
+        12.122861682988013,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_5",
+      "model": "outdoor:collision_peg",
+      "x": 13.306752427326327,
+      "z": 15.04,
+      "y": -0.731524,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        0.532843272420993,
+        11.070482243984014,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_6",
+      "model": "outdoor:collision_peg",
+      "x": 13.255496114033972,
+      "z": 15.04,
+      "y": -0.686916,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        1.5174092592731725,
+        10.178318034725006,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_7",
+      "model": "outdoor:collision_peg",
+      "x": 13.179625651070314,
+      "z": 15.04,
+      "y": -0.642308,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        1.5174092592731725,
+        9.286153825465998,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_8",
+      "model": "outdoor:collision_peg",
+      "x": 13.103755188106655,
+      "z": 15.04,
+      "y": -0.597699,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        1.517409259273177,
+        8.39398961620699,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_9",
+      "model": "outdoor:collision_peg",
+      "x": 13.027884725142997,
+      "z": 15.04,
+      "y": -0.553091,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        1.5174092592731725,
+        7.501825406947984,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_10",
+      "model": "outdoor:collision_peg",
+      "x": 12.933175407617412,
+      "z": 15.04,
+      "y": -0.523285,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.2709634417502045,
+        6.90570034080495,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_11",
+      "model": "outdoor:collision_peg",
+      "x": 12.819627235529902,
+      "z": 15.04,
+      "y": -0.493479,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.2709634417502045,
+        6.309575274661916,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_12",
+      "model": "outdoor:collision_peg",
+      "x": 12.706079063442392,
+      "z": 15.04,
+      "y": -0.463673,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.2709634417502045,
+        5.713450208518882,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_13",
+      "model": "outdoor:collision_peg",
+      "x": 12.592530891354881,
+      "z": 15.04,
+      "y": -0.433866,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.2709634417502045,
+        5.117325142375848,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_14",
+      "model": "outdoor:collision_peg",
+      "x": 12.468787204647235,
+      "z": 15.04,
+      "y": -0.4234,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.6787840265556273,
+        4.907993856781885,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_15",
+      "model": "outdoor:collision_peg",
+      "x": 12.334848003319454,
+      "z": 15.04,
+      "y": -0.412933,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.678784026555628,
+        4.698662571187926,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_16",
+      "model": "outdoor:collision_peg",
+      "x": 12.200908801991671,
+      "z": 15.04,
+      "y": -0.402467,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.678784026555628,
+        4.489331285593967,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_17",
+      "model": "outdoor:collision_peg",
+      "x": 12.06696960066389,
+      "z": 15.04,
+      "y": -0.392,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.6787840265556273,
+        4.279999999999999,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_18",
+      "model": "outdoor:collision_peg",
+      "x": 11.93303039933611,
+      "z": 15.04,
+      "y": -0.392,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.678784026555628,
+        4.279999999999999,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_19",
+      "model": "outdoor:collision_peg",
+      "x": 11.799091198008329,
+      "z": 15.04,
+      "y": -0.402467,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.6787840265556278,
+        4.489331285593967,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_20",
+      "model": "outdoor:collision_peg",
+      "x": 11.665151996680546,
+      "z": 15.04,
+      "y": -0.412933,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.678784026555628,
+        4.698662571187926,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_21",
+      "model": "outdoor:collision_peg",
+      "x": 11.531212795352765,
+      "z": 15.04,
+      "y": -0.4234,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.678784026555628,
+        4.907993856781885,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_22",
+      "model": "outdoor:collision_peg",
+      "x": 11.407469108645119,
+      "z": 15.04,
+      "y": -0.433866,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.2709634417502045,
+        5.117325142375848,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_23",
+      "model": "outdoor:collision_peg",
+      "x": 11.293920936557608,
+      "z": 15.04,
+      "y": -0.463673,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.2709634417502023,
+        5.713450208518882,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_24",
+      "model": "outdoor:collision_peg",
+      "x": 11.1803727644701,
+      "z": 15.04,
+      "y": -0.493479,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.2709634417502045,
+        6.309575274661916,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_25",
+      "model": "outdoor:collision_peg",
+      "x": 11.066824592382588,
+      "z": 15.04,
+      "y": -0.523285,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.2709634417502045,
+        6.9057003408049455,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_26",
+      "model": "outdoor:collision_peg",
+      "x": 10.972115274857003,
+      "z": 15.04,
+      "y": -0.553091,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        1.5174092592731725,
+        7.5018254069479795,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_27",
+      "model": "outdoor:collision_peg",
+      "x": 10.896244811893347,
+      "z": 15.04,
+      "y": -0.597699,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        1.517409259273177,
+        8.393989616206987,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_28",
+      "model": "outdoor:collision_peg",
+      "x": 10.820374348929686,
+      "z": 15.04,
+      "y": -0.642308,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        1.517409259273177,
+        9.286153825465998,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_29",
+      "model": "outdoor:collision_peg",
+      "x": 10.744503885966028,
+      "z": 15.04,
+      "y": -0.686916,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        1.5174092592731725,
+        10.178318034725006,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_30",
+      "model": "outdoor:collision_peg",
+      "x": 10.693247572673673,
+      "z": 15.04,
+      "y": -0.731524,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        0.532843272420993,
+        11.070482243984014,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_31",
+      "model": "outdoor:collision_peg",
+      "x": 10.666605409052625,
+      "z": 15.04,
+      "y": -0.784143,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        0.532843272420993,
+        12.122861682988013,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_32",
+      "model": "outdoor:collision_peg",
+      "x": 10.639963245431574,
+      "z": 15.04,
+      "y": -0.836762,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        0.532843272420993,
+        13.175241121992011,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_33",
+      "model": "outdoor:collision_peg",
+      "x": 10.613321081810525,
+      "z": 15.04,
+      "y": -0.889381,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        0.532843272420993,
+        14.227620560996005,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_34",
+      "model": "outdoor:collision_peg",
+      "x": 10.3,
+      "z": 17.759999999999998,
+      "y": -2.392,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        11.88,
+        44.28000000000001,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_35",
+      "model": "outdoor:collision_peg",
+      "x": 13.7,
+      "z": 17.759999999999998,
+      "y": -2.392,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        11.88,
+        44.28000000000001,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_36",
+      "model": "outdoor:collision_peg",
+      "x": 13.386678918189475,
+      "z": 17.759999999999998,
+      "y": -0.889381,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        0.532843272420993,
+        14.227620560996005,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_37",
+      "model": "outdoor:collision_peg",
+      "x": 13.360036754568426,
+      "z": 17.759999999999998,
+      "y": -0.836762,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        0.532843272420993,
+        13.175241121992011,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_38",
+      "model": "outdoor:collision_peg",
+      "x": 13.333394590947375,
+      "z": 17.759999999999998,
+      "y": -0.784143,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        0.532843272420993,
+        12.122861682988013,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_39",
+      "model": "outdoor:collision_peg",
+      "x": 13.306752427326327,
+      "z": 17.759999999999998,
+      "y": -0.731524,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        0.532843272420993,
+        11.070482243984014,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_40",
+      "model": "outdoor:collision_peg",
+      "x": 13.255496114033972,
+      "z": 17.759999999999998,
+      "y": -0.686916,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        1.5174092592731725,
+        10.178318034725006,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_41",
+      "model": "outdoor:collision_peg",
+      "x": 13.179625651070314,
+      "z": 17.759999999999998,
+      "y": -0.642308,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        1.5174092592731725,
+        9.286153825465998,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_42",
+      "model": "outdoor:collision_peg",
+      "x": 13.103755188106655,
+      "z": 17.759999999999998,
+      "y": -0.597699,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        1.517409259273177,
+        8.39398961620699,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_43",
+      "model": "outdoor:collision_peg",
+      "x": 13.027884725142997,
+      "z": 17.759999999999998,
+      "y": -0.553091,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        1.5174092592731725,
+        7.501825406947984,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_44",
+      "model": "outdoor:collision_peg",
+      "x": 12.933175407617412,
+      "z": 17.759999999999998,
+      "y": -0.523285,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.2709634417502045,
+        6.90570034080495,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_45",
+      "model": "outdoor:collision_peg",
+      "x": 12.819627235529902,
+      "z": 17.759999999999998,
+      "y": -0.493479,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.2709634417502045,
+        6.309575274661916,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_46",
+      "model": "outdoor:collision_peg",
+      "x": 12.706079063442392,
+      "z": 17.759999999999998,
+      "y": -0.463673,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.2709634417502045,
+        5.713450208518882,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_47",
+      "model": "outdoor:collision_peg",
+      "x": 12.592530891354881,
+      "z": 17.759999999999998,
+      "y": -0.433866,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.2709634417502045,
+        5.117325142375848,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_48",
+      "model": "outdoor:collision_peg",
+      "x": 12.468787204647235,
+      "z": 17.759999999999998,
+      "y": -0.4234,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.6787840265556273,
+        4.907993856781885,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_49",
+      "model": "outdoor:collision_peg",
+      "x": 12.334848003319454,
+      "z": 17.759999999999998,
+      "y": -0.412933,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.678784026555628,
+        4.698662571187926,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_50",
+      "model": "outdoor:collision_peg",
+      "x": 12.200908801991671,
+      "z": 17.759999999999998,
+      "y": -0.402467,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.678784026555628,
+        4.489331285593967,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_51",
+      "model": "outdoor:collision_peg",
+      "x": 12.06696960066389,
+      "z": 17.759999999999998,
+      "y": -0.392,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.6787840265556273,
+        4.279999999999999,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_52",
+      "model": "outdoor:collision_peg",
+      "x": 11.93303039933611,
+      "z": 17.759999999999998,
+      "y": -0.392,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.678784026555628,
+        4.279999999999999,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_53",
+      "model": "outdoor:collision_peg",
+      "x": 11.799091198008329,
+      "z": 17.759999999999998,
+      "y": -0.402467,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.6787840265556278,
+        4.489331285593967,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_54",
+      "model": "outdoor:collision_peg",
+      "x": 11.665151996680546,
+      "z": 17.759999999999998,
+      "y": -0.412933,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.678784026555628,
+        4.698662571187926,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_55",
+      "model": "outdoor:collision_peg",
+      "x": 11.531212795352765,
+      "z": 17.759999999999998,
+      "y": -0.4234,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.678784026555628,
+        4.907993856781885,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_56",
+      "model": "outdoor:collision_peg",
+      "x": 11.407469108645119,
+      "z": 17.759999999999998,
+      "y": -0.433866,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.2709634417502045,
+        5.117325142375848,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_57",
+      "model": "outdoor:collision_peg",
+      "x": 11.293920936557608,
+      "z": 17.759999999999998,
+      "y": -0.463673,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.2709634417502023,
+        5.713450208518882,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_58",
+      "model": "outdoor:collision_peg",
+      "x": 11.1803727644701,
+      "z": 17.759999999999998,
+      "y": -0.493479,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.2709634417502045,
+        6.309575274661916,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_59",
+      "model": "outdoor:collision_peg",
+      "x": 11.066824592382588,
+      "z": 17.759999999999998,
+      "y": -0.523285,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        2.2709634417502045,
+        6.9057003408049455,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_60",
+      "model": "outdoor:collision_peg",
+      "x": 10.972115274857003,
+      "z": 17.759999999999998,
+      "y": -0.553091,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        1.5174092592731725,
+        7.5018254069479795,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_61",
+      "model": "outdoor:collision_peg",
+      "x": 10.896244811893347,
+      "z": 17.759999999999998,
+      "y": -0.597699,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        1.517409259273177,
+        8.393989616206987,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_62",
+      "model": "outdoor:collision_peg",
+      "x": 10.820374348929686,
+      "z": 17.759999999999998,
+      "y": -0.642308,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        1.517409259273177,
+        9.286153825465998,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_63",
+      "model": "outdoor:collision_peg",
+      "x": 10.744503885966028,
+      "z": 17.759999999999998,
+      "y": -0.686916,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        1.5174092592731725,
+        10.178318034725006,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_64",
+      "model": "outdoor:collision_peg",
+      "x": 10.693247572673673,
+      "z": 17.759999999999998,
+      "y": -0.731524,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        0.532843272420993,
+        11.070482243984014,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_65",
+      "model": "outdoor:collision_peg",
+      "x": 10.666605409052625,
+      "z": 17.759999999999998,
+      "y": -0.784143,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        0.532843272420993,
+        12.122861682988013,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_66",
+      "model": "outdoor:collision_peg",
+      "x": 10.639963245431574,
+      "z": 17.759999999999998,
+      "y": -0.836762,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        0.532843272420993,
+        13.175241121992011,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_67",
+      "model": "outdoor:collision_peg",
+      "x": 10.613321081810525,
+      "z": 17.759999999999998,
+      "y": -0.889381,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        0.532843272420993,
+        14.227620560996005,
+        5.36
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_68",
+      "model": "outdoor:collision_peg",
+      "x": 10.15,
+      "z": 16.4,
+      "y": -2.395,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        5.879999999999999,
+        44.339999999999996,
+        48.68
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "lookout_base_solid_69",
+      "model": "outdoor:collision_peg",
+      "x": 13.85,
+      "z": 16.4,
+      "y": -2.395,
+      "rotation_degrees": 0,
+      "scale": 0.05,
+      "size": [
+        5.879999999999999,
+        44.339999999999996,
+        48.68
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
       "id": "lookout_terrace",
       "model": "beach:town_terrace",
       "x": 12,
@@ -5938,12 +7072,12 @@
     {
       "id": "town_bunting",
       "model": "beach:bunting",
-      "x": 17.4,
-      "z": 21.2,
-      "rotation_degrees": 0,
-      "scale": 1,
+      "x": 18,
+      "z": 21.0575,
+      "rotation_degrees": 90,
+      "scale": 1.0227272727272727,
       "solid": false,
-      "y": 3.45
+      "y": 3.9
     },
     {
       "id": "town_shrub_0",
@@ -7622,180 +8756,26 @@
       "y": -0.25
     },
     {
-      "id": "foam_0",
-      "model": "beach:shoreline_foam",
-      "x": -22.5,
-      "z": 1.46875,
-      "rotation_degrees": 4.763641690726177,
-      "scale": 0.38633449273625275,
+      "id": "cove_foam",
+      "model": "beach:cove_foam",
+      "x": 0,
+      "z": 0.8208596898384728,
+      "rotation_degrees": 0,
+      "scale": 1,
       "solid": false,
       "occludes": false,
-      "y": 0.072188
+      "y": -0.074379
     },
     {
-      "id": "foam_1",
+      "id": "island_foam",
       "model": "beach:shoreline_foam",
-      "x": -19.5,
-      "z": 1.21875,
-      "rotation_degrees": 4.763641690726177,
-      "scale": 0.38633449273625275,
+      "x": 2,
+      "z": -19.9,
+      "rotation_degrees": 0,
+      "scale": 0.4,
       "solid": false,
       "occludes": false,
-      "y": 0.072188
-    },
-    {
-      "id": "foam_2",
-      "model": "beach:shoreline_foam",
-      "x": -16.5,
-      "z": 0.96875,
-      "rotation_degrees": 4.763641690726177,
-      "scale": 0.38633449273625275,
-      "solid": false,
-      "occludes": false,
-      "y": 0.072188
-    },
-    {
-      "id": "foam_3",
-      "model": "beach:shoreline_foam",
-      "x": -13.5,
-      "z": 0.71875,
-      "rotation_degrees": 4.763641690726177,
-      "scale": 0.38633449273625275,
-      "solid": false,
-      "occludes": false,
-      "y": 0.072188
-    },
-    {
-      "id": "foam_4",
-      "model": "beach:shoreline_foam",
-      "x": -10.5,
-      "z": 0.46875,
-      "rotation_degrees": 4.763641690726177,
-      "scale": 0.38633449273625275,
-      "solid": false,
-      "occludes": false,
-      "y": 0.072188
-    },
-    {
-      "id": "foam_5",
-      "model": "beach:shoreline_foam",
-      "x": -7.5,
-      "z": 0.21875,
-      "rotation_degrees": 4.763641690726177,
-      "scale": 0.38633449273625275,
-      "solid": false,
-      "occludes": false,
-      "y": 0.072188
-    },
-    {
-      "id": "foam_6",
-      "model": "beach:shoreline_foam",
-      "x": -4.5,
-      "z": -0.03125,
-      "rotation_degrees": 4.004172940709388,
-      "scale": 0.385942097341039,
-      "solid": false,
-      "occludes": false,
-      "y": 0.072188
-    },
-    {
-      "id": "foam_7",
-      "model": "beach:shoreline_foam",
-      "x": -1.5,
-      "z": -0.140625,
-      "rotation_degrees": 0.5729386976834859,
-      "scale": 0.38501924951877403,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_8",
-      "model": "beach:shoreline_foam",
-      "x": 1.5,
-      "z": -0.09375,
-      "rotation_degrees": -2.862405226111748,
-      "scale": 0.38548094959414014,
-      "solid": false,
-      "occludes": false,
-      "y": 0.072188
-    },
-    {
-      "id": "foam_9",
-      "model": "beach:shoreline_foam",
-      "x": 4.5,
-      "z": 0.140625,
-      "rotation_degrees": -4.763641690726177,
-      "scale": 0.38633449273625275,
-      "solid": false,
-      "occludes": false,
-      "y": 0.072188
-    },
-    {
-      "id": "foam_10",
-      "model": "beach:shoreline_foam",
-      "x": 7.5,
-      "z": 0.390625,
-      "rotation_degrees": -4.763641690726177,
-      "scale": 0.38633449273625275,
-      "solid": false,
-      "occludes": false,
-      "y": -0.345
-    },
-    {
-      "id": "foam_11",
-      "model": "beach:shoreline_foam",
-      "x": 10.5,
-      "z": 0.640625,
-      "rotation_degrees": -4.763641690726177,
-      "scale": 0.38633449273625275,
-      "solid": false,
-      "occludes": false,
-      "y": 0.072188
-    },
-    {
-      "id": "foam_12",
-      "model": "beach:shoreline_foam",
-      "x": 13.5,
-      "z": 0.890625,
-      "rotation_degrees": -4.763641690726177,
-      "scale": 0.38633449273625275,
-      "solid": false,
-      "occludes": false,
-      "y": 0.072188
-    },
-    {
-      "id": "foam_13",
-      "model": "beach:shoreline_foam",
-      "x": 16.5,
-      "z": 1.140625,
-      "rotation_degrees": -4.763641690726177,
-      "scale": 0.38633449273625275,
-      "solid": false,
-      "occludes": false,
-      "y": 0.072188
-    },
-    {
-      "id": "foam_14",
-      "model": "beach:shoreline_foam",
-      "x": 19.5,
-      "z": 1.390625,
-      "rotation_degrees": -4.763641690726177,
-      "scale": 0.38633449273625275,
-      "solid": false,
-      "occludes": false,
-      "y": 0.072188
-    },
-    {
-      "id": "foam_15",
-      "model": "beach:shoreline_foam",
-      "x": 22.5,
-      "z": 1.640625,
-      "rotation_degrees": -4.763641690726177,
-      "scale": 0.38633449273625275,
-      "solid": false,
-      "occludes": false,
-      "y": 0.072188
+      "y": 2.08
     },
     {
       "id": "pier_gull",
@@ -7882,7 +8862,7 @@
           "playing": false
         }
       ],
-      "y": 0.61
+      "y": 0.81
     },
     {
       "id": "shallows_fish_pair",
@@ -7901,7 +8881,7 @@
           "playing": false
         }
       ],
-      "y": 0.565
+      "y": 0.765
     },
     {
       "id": "boundary_west",
@@ -7977,7 +8957,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -7989,7 +8969,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8001,7 +8981,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8013,7 +8993,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8025,7 +9005,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8037,7 +9017,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8049,7 +9029,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8061,7 +9041,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8073,7 +9053,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8085,7 +9065,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8097,7 +9077,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8109,7 +9089,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8121,7 +9101,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8133,7 +9113,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8145,7 +9125,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8157,7 +9137,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8169,7 +9149,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8181,7 +9161,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8193,7 +9173,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8205,7 +9185,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8217,7 +9197,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8229,7 +9209,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8241,7 +9221,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8253,7 +9233,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8265,7 +9245,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8277,7 +9257,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8289,7 +9269,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8301,7 +9281,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8313,7 +9293,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8325,7 +9305,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8337,7 +9317,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8349,7 +9329,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8361,7 +9341,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8373,7 +9353,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8385,7 +9365,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8397,7 +9377,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8409,7 +9389,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8421,7 +9401,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8433,7 +9413,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8445,7 +9425,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8457,7 +9437,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8469,7 +9449,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8481,7 +9461,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8493,7 +9473,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8505,7 +9485,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8517,7 +9497,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8529,7 +9509,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8541,7 +9521,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8553,7 +9533,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8565,7 +9545,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8577,7 +9557,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8589,7 +9569,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8601,7 +9581,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8613,7 +9593,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8625,7 +9605,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8637,7 +9617,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8649,7 +9629,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8661,7 +9641,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8673,7 +9653,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8685,7 +9665,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8697,7 +9677,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8709,7 +9689,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8721,7 +9701,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8733,7 +9713,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8745,7 +9725,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8757,7 +9737,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8769,7 +9749,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8781,7 +9761,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8793,7 +9773,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8805,7 +9785,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8817,7 +9797,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8829,7 +9809,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8841,7 +9821,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8853,7 +9833,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8865,7 +9845,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8877,7 +9857,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8889,7 +9869,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8901,7 +9881,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8913,7 +9893,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8925,7 +9905,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8937,7 +9917,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8949,7 +9929,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8961,7 +9941,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8973,7 +9953,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8985,7 +9965,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -8997,7 +9977,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9009,7 +9989,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9021,7 +10001,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9033,7 +10013,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9045,7 +10025,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9057,7 +10037,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9069,7 +10049,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9081,7 +10061,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9093,7 +10073,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9105,7 +10085,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9117,7 +10097,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9129,7 +10109,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9141,7 +10121,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9153,7 +10133,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9165,7 +10145,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9177,7 +10157,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9189,7 +10169,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9201,7 +10181,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9213,7 +10193,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9225,7 +10205,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9237,7 +10217,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9249,7 +10229,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9261,7 +10241,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9273,7 +10253,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9285,7 +10265,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9297,7 +10277,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9309,7 +10289,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9321,7 +10301,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9333,7 +10313,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9345,7 +10325,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9357,7 +10337,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9369,7 +10349,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9381,7 +10361,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9393,7 +10373,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9405,7 +10385,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9417,7 +10397,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9429,7 +10409,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9441,7 +10421,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9453,7 +10433,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9465,7 +10445,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9477,7 +10457,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9489,7 +10469,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9501,7 +10481,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9513,7 +10493,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9525,7 +10505,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9537,7 +10517,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9549,7 +10529,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9561,7 +10541,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9573,7 +10553,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },
@@ -9585,7 +10565,7 @@
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
-      "opacity": 0.6,
+      "opacity": 0.52,
       "attenuation_per_metre": 0.1,
       "swimming": true
     },

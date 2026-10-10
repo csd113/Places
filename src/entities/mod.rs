@@ -105,6 +105,18 @@ pub struct WorldContext<'a> {
 /// One renderer/audio command produced by the world.
 #[derive(Clone, Debug, PartialEq)]
 pub enum WorldCommand {
+    /// Select one of the two prepared, map-authored weather configurations.
+    SetWeatherAlternate {
+        /// True selects `weather_alternate`; false restores `weather`.
+        alternate: bool,
+    },
+    /// Ease between the prepared weather endpoints; manual changes stop cycles.
+    SetWeatherStrength {
+        strength: f32,
+        transition_seconds: f32,
+    },
+    /// Resume or stop the level's optional authored cycle.
+    SetWeatherCycle { enabled: bool },
     /// Spawn a runtime dynamic object for `entity` (its runtime key).
     SpawnDynamic {
         /// The entity's runtime render key.
@@ -284,6 +296,14 @@ pub struct WorldTick {
     pub frames_dirty: bool,
 }
 
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+enum WeatherEndpoints {
+    #[default]
+    Absent,
+    Discrete,
+    Continuous,
+}
+
 /// The whole runtime for one loaded world.
 pub struct EntityWorld {
     generation: u64,
@@ -306,6 +326,13 @@ pub struct EntityWorld {
     bindings: Vec<ResolvedBinding>,
     events: EventQueue,
     commands: Vec<WorldCommand>,
+    /// Weather selection belongs to this loaded session, never saved settings.
+    weather_strength: f32,
+    weather_target: f32,
+    weather_cycle_enabled: bool,
+    weather_cycle_default: bool,
+    weather_cycle_available: bool,
+    weather_endpoints: WeatherEndpoints,
     moves: Vec<MoveGoal>,
     /// Entities spawned at runtime and still alive, in spawn order.
     live_spawns: Vec<EntityHandle>,
@@ -323,6 +350,8 @@ pub struct EntityWorld {
     authored_lights: Vec<(EntityHandle, bool)>,
     /// Authored state bags, restored by a reset.
     authored_states: Vec<(EntityHandle, ObjectState)>,
+    /// Authored interaction prompts, restored with the other map controls.
+    authored_prompts: Vec<(EntityHandle, String)>,
     water: WaterVolumes,
     ladders: Ladders,
     floor: WalkableFloor,
@@ -383,6 +412,12 @@ impl EntityWorld {
             bindings: Vec::new(),
             events: EventQueue::new(),
             commands: Vec::new(),
+            weather_strength: 0.0,
+            weather_target: 0.0,
+            weather_cycle_enabled: false,
+            weather_cycle_default: false,
+            weather_cycle_available: false,
+            weather_endpoints: WeatherEndpoints::Absent,
             moves: Vec::new(),
             live_spawns: Vec::new(),
             dynamic_keys: Vec::new(),
@@ -392,6 +427,7 @@ impl EntityWorld {
             spawns_this_tick: 0,
             authored_lights: Vec::new(),
             authored_states: Vec::new(),
+            authored_prompts: Vec::new(),
             water: WaterVolumes::new(),
             ladders: Ladders::new(),
             floor: WalkableFloor::default(),
@@ -422,6 +458,23 @@ impl EntityWorld {
         self.sequence_runs.clear();
         self.events.clear();
         self.commands.clear();
+        self.weather_strength = 0.0;
+        self.weather_target = 0.0;
+        self.weather_cycle_available = level.weather_cycle.is_some();
+        self.weather_cycle_default = level.weather_cycle.is_some_and(|cycle| cycle.enabled);
+        self.weather_cycle_enabled = self.weather_cycle_default;
+        let continuous_weather = level
+            .weather
+            .as_ref()
+            .zip(level.weather_alternate.as_ref())
+            .is_some_and(|(base, alternate)| crate::weather::strength_compatible(base, alternate));
+        self.weather_endpoints = if continuous_weather {
+            WeatherEndpoints::Continuous
+        } else if level.weather.is_some() && level.weather_alternate.is_some() {
+            WeatherEndpoints::Discrete
+        } else {
+            WeatherEndpoints::Absent
+        };
         self.moves.clear();
         self.live_spawns.clear();
         self.dynamic_keys.clear();
@@ -431,6 +484,7 @@ impl EntityWorld {
         self.spawns_this_tick = 0;
         self.authored_lights.clear();
         self.authored_states.clear();
+        self.authored_prompts.clear();
         self.ai.clear();
         self.stimuli.clear();
         self.sim_time = 0.0;
@@ -465,6 +519,12 @@ impl EntityWorld {
             .iter()
             .map(|(handle, state)| (handle, state.clone()))
             .collect();
+        self.authored_prompts = self
+            .components
+            .interactables
+            .iter()
+            .map(|(handle, component)| (handle, component.prompt.clone()))
+            .collect();
         self.rebuild_interactables(level);
         self.rebuild_door_colliders();
         self.rebuild_entity_frames();
@@ -473,6 +533,21 @@ impl EntityWorld {
     /// Re-seeds every runtime to its authored start state without replacing the
     /// world: the `reset_to_start` contract.
     pub fn reset_runtime(&mut self) {
+        if self.weather_strength > 0.0
+            || self.weather_target > 0.0
+            || self.weather_cycle_enabled
+            || self.weather_cycle_default
+        {
+            self.weather_strength = 0.0;
+            self.weather_target = 0.0;
+            self.weather_cycle_enabled = self.weather_cycle_default;
+            self.commands
+                .push(WorldCommand::SetWeatherAlternate { alternate: false });
+            if self.weather_cycle_default {
+                self.commands
+                    .push(WorldCommand::SetWeatherCycle { enabled: true });
+            }
+        }
         for (handle, authored) in &self.authored_lights {
             if let Some(light) = self.components.lights.get_mut(*handle)
                 && light.enabled != *authored
@@ -486,6 +561,12 @@ impl EntityWorld {
                 state.clone_from(authored);
             }
         }
+        for (handle, authored) in &self.authored_prompts {
+            if let Some(component) = self.components.interactables.get_mut(*handle) {
+                component.prompt.clone_from(authored);
+            }
+        }
+        self.rebuild_interactables_from_tables();
         self.sequence_runs.clear();
         let controls: Vec<EntityHandle> = self
             .components
@@ -525,6 +606,16 @@ impl EntityWorld {
         self.rebuild_door_colliders();
         self.sync_routed_interactables();
         self.rebuild_entity_frames();
+    }
+
+    /// Scalar renderer feedback keeps legacy toggles consistent with the
+    /// strength actually displayed after transitions and automatic cycles.
+    pub const fn set_weather_state(&mut self, state: (f32, f32, bool)) {
+        (
+            self.weather_strength,
+            self.weather_target,
+            self.weather_cycle_enabled,
+        ) = state;
     }
 
     /// Re-arms every binding: `once` bindings may fire again and cooldowns are
@@ -1782,6 +1873,70 @@ impl EntityWorld {
             ActionDef::ResetToStart => {
                 report.actions_run = report.actions_run.saturating_add(1);
                 report.player_reset = true;
+            }
+            ActionDef::ToggleWeather => {
+                if self.weather_endpoints == WeatherEndpoints::Absent {
+                    report.unsupported = report.unsupported.saturating_add(1);
+                    return;
+                }
+                let alternate = self.weather_strength <= 0.0;
+                self.weather_strength = if alternate { 1.0 } else { 0.0 };
+                self.weather_target = self.weather_strength;
+                self.weather_cycle_enabled = false;
+                self.commands
+                    .push(WorldCommand::SetWeatherAlternate { alternate });
+                report.actions_run = report.actions_run.saturating_add(1);
+            }
+            ActionDef::SetWeatherStrength {
+                strength,
+                transition_seconds,
+            } => {
+                if self.weather_endpoints != WeatherEndpoints::Continuous
+                    || crate::weather::validate_strength(*strength, *transition_seconds).is_err()
+                {
+                    report.unsupported = report.unsupported.saturating_add(1);
+                    return;
+                }
+                self.weather_target = *strength;
+                if *transition_seconds <= 0.0 {
+                    self.weather_strength = *strength;
+                }
+                self.weather_cycle_enabled = false;
+                self.commands.push(WorldCommand::SetWeatherStrength {
+                    strength: *strength,
+                    transition_seconds: *transition_seconds,
+                });
+                report.actions_run = report.actions_run.saturating_add(1);
+            }
+            ActionDef::SetWeatherCycle { enabled } => {
+                if !self.weather_cycle_available
+                    || self.weather_endpoints != WeatherEndpoints::Continuous
+                {
+                    report.unsupported = report.unsupported.saturating_add(1);
+                    return;
+                }
+                self.weather_cycle_enabled = *enabled;
+                self.commands
+                    .push(WorldCommand::SetWeatherCycle { enabled: *enabled });
+                report.actions_run = report.actions_run.saturating_add(1);
+            }
+            ActionDef::SetPrompt { target, prompt } => {
+                let Some(id) = self.resolve_target(target.as_deref(), actor) else {
+                    report.missing_targets = report.missing_targets.saturating_add(1);
+                    return;
+                };
+                let target_handle = self.handle_of(&id);
+                let prompt_component = target_handle.and_then(|resolved_handle| {
+                    self.components.interactables.get_mut(resolved_handle)
+                });
+                let prompt_text = prompt.trim();
+                let Some(component) = prompt_component.filter(|_| !prompt_text.is_empty()) else {
+                    report.unsupported = report.unsupported.saturating_add(1);
+                    return;
+                };
+                prompt_text.clone_into(&mut component.prompt);
+                let _prompt_published = self.interactables.set_prompt(&id, prompt_text);
+                report.actions_run = report.actions_run.saturating_add(1);
             }
             ActionDef::Open { target } | ActionDef::Close { target } => {
                 let request_open = matches!(action, ActionDef::Open { target: _ });
@@ -4245,6 +4400,120 @@ mod tests {
             }}"#
         );
         LevelDef::from_json(&json).expect("the test level parses")
+    }
+
+    #[test]
+    fn weather_actions_toggle_once_restore_on_reset_and_start_calm_on_resolve() {
+        let level = base_level(
+            r#""weather": { "kind": "snow" },
+               "weather_alternate": { "kind": "snow", "storm_severity": 1, "wind": [8, 3] }"#,
+        );
+        let mut world = EntityWorld::from_level(&level);
+        assert!(
+            world.take_commands().is_empty(),
+            "a fresh load has no transient command"
+        );
+        for alternate in [true, false, true] {
+            let report = world.dispatch_actions(&[ActionDef::ToggleWeather], None);
+            assert_eq!(
+                report.actions_run, 1,
+                "one action selects one weather state"
+            );
+            assert_eq!(
+                world.take_commands(),
+                [WorldCommand::SetWeatherAlternate { alternate }]
+            );
+        }
+        world.reset_runtime();
+        assert_eq!(
+            world.take_commands(),
+            [WorldCommand::SetWeatherAlternate { alternate: false }]
+        );
+        let report = world.dispatch_actions(&[ActionDef::ToggleWeather], None);
+        assert_eq!(report.actions_run, 1, "a reset re-arms the calm default");
+        world.resolve(&level);
+        assert!(
+            world.take_commands().is_empty(),
+            "load discards the prior session's pending commands"
+        );
+        let resolved_report = world.dispatch_actions(&[ActionDef::ToggleWeather], None);
+        assert_eq!(
+            resolved_report.actions_run, 1,
+            "a reloaded world can toggle"
+        );
+        assert_eq!(
+            world.take_commands(),
+            [WorldCommand::SetWeatherAlternate { alternate: true }]
+        );
+        world.resolve(&base_level(r#""props": []"#));
+        let unsupported = world.dispatch_actions(&[ActionDef::ToggleWeather], None);
+        assert_eq!(
+            unsupported.unsupported, 1,
+            "unvalidated runtime actions fail safely"
+        );
+        assert!(
+            world.take_commands().is_empty(),
+            "ordinary levels produce no weather commands"
+        );
+    }
+
+    #[test]
+    fn weather_strength_cycle_and_feedback_keep_manual_toggles_authoritative() {
+        let level = base_level(
+            r#""weather":{"kind":"snow"},"weather_alternate":{"kind":"snow","storm_severity":1,"wind":[8,3]},"weather_cycle":{"max_strength":0.45,"period_seconds":120,"transition_seconds":15}"#,
+        );
+        let mut world = EntityWorld::from_level(&level);
+        let report = world.dispatch_actions(
+            &[ActionDef::SetWeatherStrength {
+                strength: 0.35,
+                transition_seconds: 2.0,
+            }],
+            None,
+        );
+        assert_eq!(report.actions_run, 1);
+        assert_eq!(
+            world.take_commands(),
+            [WorldCommand::SetWeatherStrength {
+                strength: 0.35,
+                transition_seconds: 2.0
+            }]
+        );
+        world.set_weather_state((0.175, 0.35, false));
+        let _toggle = world.dispatch_actions(&[ActionDef::ToggleWeather], None);
+        assert_eq!(
+            world.take_commands(),
+            [WorldCommand::SetWeatherAlternate { alternate: false }],
+            "a partially displayed storm toggles off"
+        );
+        let _cycle = world.dispatch_actions(&[ActionDef::SetWeatherCycle { enabled: true }], None);
+        assert_eq!(
+            world.take_commands(),
+            [WorldCommand::SetWeatherCycle { enabled: true }]
+        );
+        world.set_weather_state((0.25, 0.45, true));
+        let _off = world.dispatch_actions(&[ActionDef::ToggleWeather], None);
+        assert_eq!(
+            world.take_commands(),
+            [WorldCommand::SetWeatherAlternate { alternate: false }],
+            "timer state cannot leave a stale boolean toggle"
+        );
+        assert!(!world.weather_cycle_enabled);
+        world.set_weather_state((0.0, 0.0, true));
+        let _on = world.dispatch_actions(&[ActionDef::ToggleWeather], None);
+        assert_eq!(
+            world.take_commands(),
+            [WorldCommand::SetWeatherAlternate { alternate: true }]
+        );
+        assert!(!world.weather_cycle_enabled);
+        world.reset_runtime();
+        assert_eq!(
+            world.take_commands(),
+            [WorldCommand::SetWeatherAlternate { alternate: false }]
+        );
+        world.resolve(&level);
+        assert_eq!(world.weather_strength.to_bits(), 0.0_f32.to_bits());
+        assert!(!world.weather_cycle_enabled);
+        assert_eq!(world.take_commands(), []);
     }
 
     /// One tick with a stationary player at `feet`.

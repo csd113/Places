@@ -586,6 +586,15 @@ WINTER_APRON_DISPLAYS = tuple('winter:' + name for name in (
     'door_hood_snow', 'window_frame', 'ice_fragment',
 ))
 
+# These four refinement assets use unused slots in the existing Aero annex.
+# Keeping them outside the older sorted packs preserves the hall, fish basin,
+# annex exhibits and lighting grid. Tuple order fixes each supplemental slot.
+SUPPLEMENTAL_DISPLAYS = (
+    'frutiger_aero:portal_spandrel', 'beach:cove_foam',
+    'beach:town_terrace_base', 'winter:snow_roof_blanket',
+)
+SUPPLEMENTAL_FIRST_SLOT = 23
+
 
 def ordered_displays(catalog: Dict) -> List[Dict]:
     """Every display the zoo must contain, in a deterministic order.
@@ -600,7 +609,8 @@ def ordered_displays(catalog: Dict) -> List[Dict]:
         if entry["id"].startswith(("beach:", "frutiger_aero:")):
             continue
         if entry["id"] in (POOL_APRON_DISPLAYS + HOME_APRON_DISPLAYS
-                           + OUTDOOR_APRON_DISPLAYS + WINTER_APRON_DISPLAYS):
+                           + OUTDOOR_APRON_DISPLAYS + WINTER_APRON_DISPLAYS
+                           + SUPPLEMENTAL_DISPLAYS):
             continue
         klass = display_class(entry)
         role = klass
@@ -641,7 +651,8 @@ def add_beach_displays(layout: "Layout", entries: Dict[str, Dict]) -> Tuple[List
     and its map scale remain unchanged. Hollow structures stay non-solid.
     Animals start through explicit actions, including the fish's swim cue.
     """
-    beach = sorted((entry for entry in entries.values() if entry["id"].startswith("beach:")),
+    beach = sorted((entry for entry in entries.values() if entry["id"].startswith("beach:")
+                    and entry["id"] not in SUPPLEMENTAL_DISPLAYS),
                    key=lambda entry: entry["id"])
     if not beach:
         return [], [], [], []
@@ -724,9 +735,13 @@ def add_aero_displays(layout: "Layout", entries: Dict[str, Dict], beach_walls: L
     Architectural/backdrop assets are reduced only in this catalogue exhibit;
     the connected production demo uses their complete scale and collision.
     """
-    aero = sorted((entry for entry in entries.values() if entry["id"].startswith("frutiger_aero:")),
+    aero = sorted((entry for entry in entries.values() if entry["id"].startswith("frutiger_aero:")
+                   and entry["id"] not in SUPPLEMENTAL_DISPLAYS),
                   key=lambda entry: entry["id"])
-    if not aero:
+    supplemental = [(SUPPLEMENTAL_FIRST_SLOT+index, entries[asset_id])
+                    for index, asset_id in enumerate(SUPPLEMENTAL_DISPLAYS)
+                    if asset_id in entries]
+    if not aero and not supplemental:
         return [], [], []
     pitch, columns = 4.0, 6
     x0 = layout.plan["width"]+24
@@ -740,7 +755,12 @@ def add_aero_displays(layout: "Layout", entries: Dict[str, Dict], beach_walls: L
     lights = [dict(id=f"zoo:aero-light:{row}:{column}", fixture="core:pool_light_round",
                    x=x0+(column+.5)*pitch, z=z0+(row+.5)*pitch, brightness=.52)
               for row in range(5) for column in range(columns)]
-    for index, entry in enumerate(aero):
+    # The ordinary exhibits keep their prior slots; reserve the four spare
+    # slots even when a supplemental asset is absent from an isolated catalog.
+    display_slots = [(index if index < SUPPLEMENTAL_FIRST_SLOT
+                      else index+len(SUPPLEMENTAL_DISPLAYS), entry)
+                     for index, entry in enumerate(aero)]
+    for index, entry in display_slots + supplemental:
         scale = min(1.0, 3.2/max(entry["size"]))
         x, z = x0+(index % columns+.5)*pitch, z0+(index // columns+.5)*pitch
         ceiling = entry["id"] in CEILING_MOUNTS or entry["id"] == "frutiger_aero:atrium_dome"

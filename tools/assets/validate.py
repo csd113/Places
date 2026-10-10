@@ -94,6 +94,10 @@ ACTION_TAGS = (
     "enable",
     "disable",
     "set_light",
+    "toggle_weather",
+    "set_weather_strength",
+    "set_weather_cycle",
+    "set_prompt",
     "lock",
     "unlock",
     "play_animation",
@@ -827,9 +831,10 @@ def level_ids(level: dict):
             f"effects[{index}] material",
         )
 
-    weather = level.get("weather")
-    if isinstance(weather, dict):
-        yield str(weather.get("material", "core:snowflake_01")).strip(), "weather material"
+    for name in ("weather", "weather_alternate"):
+        weather = level.get(name)
+        if isinstance(weather, dict):
+            yield str(weather.get("material", "core:snowflake_01")).strip(), f"{name} material"
 
 
 def validate_doors(level: dict, where: str, errors: list[str]) -> None:
@@ -936,7 +941,52 @@ def validate_sky(level: dict, where: str, errors: list[str]) -> None:
 
 def validate_weather(level: dict, where: str, errors: list[str]) -> None:
     """Mirror the engine's bounded opt-in snow configuration."""
-    weather = level.get("weather")
+    if level.get("weather_alternate") is not None and level.get("weather") is None:
+        errors.append(f"{where}: weather_alternate requires authored default weather")
+    for name in ("weather", "weather_alternate"):
+        _validate_weather_config(level.get(name), level, f"{where}: {name}", errors)
+    cycle = level.get("weather_cycle")
+    if cycle is not None:
+        _validate_weather_cycle(cycle, f"{where}: weather_cycle", errors)
+        if not _weather_blendable(level):
+            errors.append(f"{where}: weather_cycle requires weather and weather_alternate with equal count and material")
+
+
+def _weather_blendable(level: dict) -> bool:
+    base, alternate = level.get("weather"), level.get("weather_alternate")
+    if not isinstance(base, dict) or not isinstance(alternate, dict):
+        return False
+    base_material = base.get("material", "core:snowflake_01")
+    alternate_material = alternate.get("material", "core:snowflake_01")
+    return (base.get("count", 1400) == alternate.get("count", 1400)
+            and isinstance(base_material, str) and isinstance(alternate_material, str)
+            and base_material.strip() == alternate_material.strip())
+
+
+def _validate_weather_cycle(cycle: object, where: str, errors: list[str]) -> None:
+    if not isinstance(cycle, dict):
+        errors.append(f"{where}: must be an object")
+        return
+    allowed = {"enabled", "min_strength", "max_strength", "period_seconds", "transition_seconds"}
+    if cycle.keys() - allowed:
+        errors.append(f"{where}: unknown fields: {sorted(cycle.keys() - allowed)}")
+    if not isinstance(cycle.get("enabled", False), bool):
+        errors.append(f"{where}: enabled must be a boolean")
+    for key, default, low, high in (("min_strength", 0, 0, 1), ("max_strength", 1, 0, 1),
+                                    ("period_seconds", 60, 1, 3600), ("transition_seconds", 4, 0, 300)):
+        value = cycle.get(key, default)
+        if not is_finite_number(value) or not low <= value <= high:
+            errors.append(f"{where}: {key} must be finite and {low}..{high}")
+    low, high = cycle.get("min_strength", 0), cycle.get("max_strength", 1)
+    if is_finite_number(low) and is_finite_number(high) and low >= high:
+        errors.append(f"{where}: min_strength must be less than max_strength")
+    period, transition = cycle.get("period_seconds", 60), cycle.get("transition_seconds", 4)
+    if is_finite_number(period) and is_finite_number(transition) and transition > period * .5:
+        errors.append(f"{where}: needs two transitions within its period")
+
+
+def _validate_weather_config(weather: object, level: dict, where: str, errors: list[str]) -> None:
+    """Both configurations obey the same bounds and preserve the same shelters."""
     if weather is None:
         return
     if not isinstance(weather, dict) or weather.get("kind") != "snow":
@@ -1730,6 +1780,9 @@ def _index_level_entities(level: dict, where: str, errors: List[str]) -> Dict:
         "groups": groups,
         "points": points,
         "prop_ids": prop_ids,
+        "weather_toggleable": level.get("weather") is not None and level.get("weather_alternate") is not None,
+        "weather_blendable": _weather_blendable(level),
+        "weather_cycle": level.get("weather_cycle") is not None,
     }
 
 
@@ -1824,7 +1877,28 @@ def _validate_actions(
                     f"`{tag}` requires {requirement}"
                 )
 
-        if tag in ("open", "close", "lock", "unlock"):
+        if tag == "toggle_weather":
+            if not index["weather_toggleable"]:
+                errors.append(f"{entry} ('toggle_weather') requires weather and weather_alternate")
+        elif tag == "set_weather_strength":
+            strength, duration = action.get("strength"), action.get("transition_seconds", 0)
+            if not is_finite_number(strength) or not 0 <= strength <= 1:
+                errors.append(f"{entry}: weather strength must be finite and 0..1")
+            if not is_finite_number(duration) or not 0 <= duration <= 300:
+                errors.append(f"{entry}: weather transition_seconds must be finite and 0..300")
+            if not index["weather_blendable"]:
+                errors.append(f"{entry} ('set_weather_strength') requires weather and weather_alternate with equal count and material")
+        elif tag == "set_weather_cycle":
+            if not isinstance(action.get("enabled"), bool):
+                errors.append(f"{entry}: set_weather_cycle enabled must be a boolean")
+            if not index["weather_cycle"]:
+                errors.append(f"{entry} ('set_weather_cycle') requires weather_cycle")
+        elif tag == "set_prompt":
+            prompt = action.get("prompt")
+            if not isinstance(prompt, str) or not prompt.strip():
+                errors.append(f"{entry} ('set_prompt') prompt must not be blank")
+            require("a target with an `interactable` component", lambda facts: facts["has_interactable"])
+        elif tag in ("open", "close", "lock", "unlock"):
             require("a door target", lambda facts: facts["is_door"])
         elif tag == "toggle":
             require(

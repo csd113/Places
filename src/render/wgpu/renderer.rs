@@ -1599,6 +1599,30 @@ impl WgpuRenderer {
         self.effects.len()
     }
 
+    /// Changes particle motion, outdoor extinction and sky blend together.
+    /// Both weather states already share the uploaded effect resources.
+    pub fn set_weather_alternate(&mut self, alternate: bool) -> bool {
+        self.effects.set_weather_alternate(alternate)
+    }
+
+    pub fn set_weather_strength(&mut self, strength: f32, transition_seconds: f32) -> bool {
+        self.effects
+            .set_weather_strength(strength, transition_seconds)
+    }
+
+    pub fn set_weather_cycle(&mut self, enabled: bool) -> bool {
+        self.effects.set_weather_cycle(enabled)
+    }
+
+    pub fn update_weather(&mut self, delta_seconds: f32) {
+        self.effects.update_weather(delta_seconds);
+    }
+
+    #[must_use]
+    pub const fn weather_state(&self) -> (f32, f32, bool) {
+        self.effects.weather_state()
+    }
+
     /// Uploads the effect scene's GPU buffers and sheets.
     ///
     /// Called once per level install, and again on a quality rebuild of the
@@ -2211,6 +2235,12 @@ impl WgpuRenderer {
             characters.inherit_playback_from(&mut self.characters);
         }
         let animation_seconds = self.animation_seconds;
+        // A graphics transaction keeps the visited weather selection. A real
+        // reload of the same level id starts from its freshly authored default.
+        if !inherit_playback && self.level_id.as_deref() == Some(loaded.level.id.as_str()) {
+            self.effects = EffectScene::build(&loaded.level, &loaded.materials);
+            self.animation_seconds = 0.0;
+        }
         self.prop_catalog = loaded.catalog.as_ref().clone();
         self.prop_assets = assets;
         self.textures = textures;

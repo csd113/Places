@@ -11615,6 +11615,126 @@
         }
       ],
       "scale": 0.7619047619047619
+    },
+    {
+      "id": "zoo:frutiger_aero-portal_spandrel:floor",
+      "display_name": "Frutiger Aero Portal Spandrel",
+      "model": "frutiger_aero:portal_spandrel",
+      "x": 95.2,
+      "z": 75.35,
+      "size": [
+        3.6,
+        2.366,
+        0.24
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.888888888888889
+    },
+    {
+      "id": "zoo:beach-cove_foam:floor",
+      "display_name": "Beach Cove Foam",
+      "model": "beach:cove_foam",
+      "x": 75.2,
+      "z": 79.35,
+      "size": [
+        48.0,
+        0.015,
+        2.235
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.06666666666666667
+    },
+    {
+      "id": "zoo:beach-town_terrace_base:floor",
+      "display_name": "Beach Town Terrace Base",
+      "model": "beach:town_terrace_base",
+      "x": 79.2,
+      "z": 79.35,
+      "size": [
+        4.0,
+        2.22,
+        3.0
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.8
+    },
+    {
+      "id": "zoo:winter-snow_roof_blanket:floor",
+      "display_name": "Winter Continuous Roof Snow",
+      "model": "winter:snow_roof_blanket",
+      "x": 83.2,
+      "z": 79.35,
+      "size": [
+        6.811,
+        1.425,
+        2.229
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.46979865771812085
     }
   ],
   "decals": [

@@ -34,6 +34,7 @@ SIZES = {
     "fountain_basin": (3.2, .46, 3.2), "bubble_sculpture": (1.351268, 2.70, 1.236373),
     "glass_canopy": (3.2, 3.4, 3.6), "accent_panel": (1.1, 2.2, .07),
     "atrium_dome": (12.0, 2.447466, 12.0), "ceiling_ring": (1.3, .13, 1.3),
+    "portal_spandrel": (3.6, 2.366, .24),
     "double_doors": (2.8, 3.2, .34), "double_doors_open": (2.8, 3.2, 1.345823),
     "reception_counter": (4.5, 1.38, 1.477571), "reception_soffit": (5.2, .34, 2.1),
     "banner_atrium": (1.2, 2.4, .06), "banner_corridor": (1.2, 2.4, .06),
@@ -122,12 +123,50 @@ def rounded_box(p, center, size, uv, radius=.12, segments=3):
     loft(p, rings, uv)
 
 
+def square_frame_outline(width, height, corner_run=.20):
+    """Subdivided square exterior, without rounded gaps at module joins."""
+    result = []
+    for x, y, start in ((width/2-corner_run, height/2-corner_run, 0),
+                        (-width/2+corner_run, height/2-corner_run, math.pi/2),
+                        (-width/2+corner_run, -height/2+corner_run, math.pi),
+                        (width/2-corner_run, -height/2+corner_run, 3*math.pi/2)):
+        for step in range(5):
+            angle = start+step*math.pi/8
+            dx, dy = math.cos(angle), math.sin(angle)
+            extent = max(abs(dx), abs(dy))
+            dx, dy = dx/extent, dy/extent
+            # Exact corners and shared planes survive six-decimal GLB export.
+            dx = math.copysign(1, dx) if abs(abs(dx)-1) < 1e-12 else dx
+            dy = math.copysign(1, dy) if abs(abs(dy)-1) < 1e-12 else dy
+            result.append((x+corner_run*dx, y+corner_run*dy))
+    return result
+
+
 def ring(p, outer, inner, y, height, uv, segments=16):
     """Closed annular stock, preserving the true central hole."""
     start = len(p.mesh.indices)
     rows = [[(r*math.cos(math.tau*i/segments), yy, r*math.sin(math.tau*i/segments))
              for i in range(segments)] for yy, r in
             ((y, outer), (y+height, outer), (y, inner), (y+height, inner))]
+    for i in range(segments):
+        j = (i+1) % segments
+        for a, b in ((0, 1), (2, 3), (0, 2), (1, 3)):
+            p.mesh.quad(rows[a][i], rows[a][j], rows[b][j], rows[b][i], uv=uv, color=WHITE)
+    indices = p.mesh.indices[start:]
+    inspect(p.mesh.positions, indices, repair=True)
+    p.mesh.indices[start:] = indices
+
+
+def square_circle_soffit(p, half_width, inner, y, height, uv, segments=16):
+    """Closed square-to-circle roof stock, including all four corner wedges."""
+    start = len(p.mesh.indices)
+    circle = [(math.cos(math.tau*i/segments), math.sin(math.tau*i/segments))
+              for i in range(segments)]
+    rows = [[(r*dx, yy, r*dz) for dx, dz in circle]
+            for yy, r in ((y, inner), (y+height, inner))]
+    rows += [[(half_width*dx/max(abs(dx), abs(dz)), yy,
+               half_width*dz/max(abs(dx), abs(dz))) for dx, dz in circle]
+             for yy in (y, y+height)]
     for i in range(segments):
         j = (i+1) % segments
         for a, b in ((0, 1), (2, 3), (0, 2), (1, 3)):
@@ -180,8 +219,10 @@ def _wall_bay(p, tall=False):
     h = 4.2 if tall else 3.4
     material(p)
     # A broad rounded frame with a folded returning right end, not a flat wall.
-    outer = rounded_outline(3.6, h, .20, 3)
-    inner = rounded_outline(2.98, h-.70, .12, 3)
+    # Rounded apertures sit inside square modular stock. Rounded exterior
+    # corners previously left a visible triangular hole at every joined bay.
+    outer = square_frame_outline(3.6, h)
+    inner = rounded_outline(2.98, h-.70, .12, 4)
     outer = [(x, y+h/2) for x, y in outer]
     inner = [(x, y+h/2) for x, y in inner]
     start = len(p.mesh.indices)
@@ -198,7 +239,9 @@ def _wall_bay(p, tall=False):
     indices = p.mesh.indices[start:]
     inspect(p.mesh.positions, indices, repair=True)
     p.mesh.indices[start:] = indices
-    rounded_box(p, (1.68, h/2, -.145), (.24, h-.02, .55), t.uv("white", 3), .10, 2)
+    # The returning stock ends 4 mm behind the main face. Its former +Z=.13
+    # face overlapped the broad frame exactly and flickered as black seams.
+    rounded_box(p, (1.68, h/2, -.147), (.24, h-.02, .546), t.uv("white", 3), .10, 2)
     # Sparse real construction joints keep the broad frame readable.
     material(p, "trim", roughness=.48, metallic=.18)
     for x in (-1.16, .36, 1.13):
@@ -232,6 +275,26 @@ def lime_arch(p):
     finish(p, "A02: eight-facet round crown, straight jambs, lime inner band and aqua base inserts; 2.54 m clear opening")
 
 
+def portal_spandrel(p):
+    t = atlas(p)
+    material(p)
+    # Six millimetres of seating inside the opaque outer arch avoid an exposed
+    # contact face; the underside follows that arch rather than its aperture.
+    lower = [(1.8*math.cos(math.pi*i/8),
+              1.84+1.56*math.sin(math.pi*i/8)-.006) for i in range(9)]
+    uv = t.uv("white", 3)
+    for z in (-.12, .12):
+        for (ax, ay), (bx, by) in zip(lower, lower[1:]):
+            # One chart per arch facet, without long skinny ear-fan caps.
+            p.mesh.quad((ax, ay, z), (bx, by, z),
+                        (bx, 4.2, z), (ax, 4.2, z), uv=uv, color=WHITE)
+    contour = [(x, 4.2) for x, _y in reversed(lower)] + lower
+    for (ax, ay), (bx, by) in zip(contour, contour[1:]+contour[:1]):
+        p.mesh.quad((ax, ay, -.12), (bx, by, -.12),
+                    (bx, by, .12), (ax, ay, .12), uv=uv, color=WHITE)
+    finish(p, "A11 portal closure: white spandrel seated in the outer lime-arch crown, reaching the 4.2 m atrium perimeter; open passage remains below")
+
+
 def glass_partition(p):
     t = atlas(p)
     # Three panels folded in a shallow, deliberately legible zigzag.
@@ -244,9 +307,14 @@ def glass_partition(p):
             beam(p, (a[0], y, a[1]), (b[0], y, b[1]), .055, .07, t.uv("white", 3))
     material(p, "leaf", roughness=.76)
     for i, (a, b) in enumerate(zip(endpoints, endpoints[1:])):
-        center = ((a[0]+b[0])/2, .97+(.12 if i==1 else 0), (a[1]+b[1])/2+.03)
-        leaf(p, center, (.44, .55, .76)[i], (.84, 1.0, 1.30)[i], .014,
-             t.uv("foliage" if i%2==0 else "lime", 3), angle=(-.21, .30, -.24)[i])
+        vx, vz = b[0]-a[0], b[1]-a[1]
+        length = math.hypot(vx, vz)
+        nx, nz = -vz/length, vx/length
+        center = ((a[0]+b[0])/2+nx*.011, .97+(.12 if i==1 else 0),
+                  (a[1]+b[1])/2+nz*.011)
+        leaf(p, center, (.44, .55, .76)[i], (.84, 1.0, 1.30)[i], .003,
+             t.uv("foliage" if i%2==0 else "lime", 3), angle=(-.21, .30, -.24)[i],
+             yaw=math.atan2(-vz, vx))
     material(p, "glass", alpha_mode="blend", opacity=.17, roughness=.13)
     for a, b in zip(endpoints, endpoints[1:]):
         vx, vz = b[0]-a[0], b[1]-a[1]
@@ -440,7 +508,7 @@ def accent_panel(p):
 def atrium_dome(p):
     t = atlas(p)
     material(p)
-    ring(p, 6.0, 5.65, 0, .20, t.uv("white", 3), 16)
+    square_circle_soffit(p, 6.0, 5.65, 0, .20, t.uv("white", 3), 16)
     radii = (5.92, 5.35, 4.25, 2.55, .20)
     ys = tuple(.16+2.22*(1-(r/5.92)**2) for r in radii)
     # Sixteen pale radial ribs are connected swept stock, not floating sticks.
@@ -478,7 +546,7 @@ def atrium_dome(p):
     indices = p.mesh.indices[start:]
     inspect(p.mesh.positions, indices, repair=True)
     p.mesh.indices[start:] = indices
-    finish(p, "A11: 12 m glazed dome with 16 connected pale radial ribs and open circular soffit; mount base over open-ceiling atrium")
+    finish(p, "A11: 12 m glazed dome with 16 connected pale radial ribs and a closed square-to-circular soffit; mount base over open-ceiling atrium")
 
 
 def ceiling_ring(p):
@@ -694,6 +762,15 @@ def structural_components(name):
                       _facet_height(bx, 3.6, 3.4, 1.84))-.004
             if top > base:
                 stock.append(((ax+bx)/2, base, 0, bx-ax, top-base, .43, 0))
+    elif name == "portal_spandrel":
+        # Collider stock follows the curve above the outer arch. Never use a
+        # full rectangle that would lower the actual passage headroom.
+        count = 48
+        for i in range(count):
+            ax, bx = -1.795+i*3.59/count, -1.795+(i+1)*3.59/count
+            base = max(_facet_height(ax, 3.6, 3.4, 1.84),
+                       _facet_height(bx, 3.6, 3.4, 1.84))-1.834+.004
+            stock.append(((ax+bx)/2, base, 0, bx-ax, 2.362-base, .23, 0))
     elif name == "glass_partition":
         points = [(-1.72, .32), (-.58, -.32), (.58, .32), (1.72, -.32)]
         for a, b in zip(points, points[1:]):

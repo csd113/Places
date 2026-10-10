@@ -1731,6 +1731,789 @@
       "occludes": false
     },
     {
+      "id": "atrium_corridor_arch_spandrel",
+      "model": "frutiger_aero:portal_spandrel",
+      "x": 12,
+      "z": 6,
+      "y": 1.834,
+      "rotation_degrees": 90,
+      "size": [
+        3.6,
+        2.366,
+        0.24
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_0",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 7.757604166666667,
+      "y": 2.191654490712425,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        66.8115169762525,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_1",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 7.6828125,
+      "y": 2.463770919035797,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555607,
+        57.74096936547344,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_2",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 7.608020833333333,
+      "y": 2.560780073124128,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        54.50733089586241,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_3",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 7.533229166666667,
+      "y": 2.657789227212459,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        51.27369242625138,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_4",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 7.4584375000000005,
+      "y": 2.75479838130079,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555607,
+        48.040053956640335,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_5",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 7.3836458333333335,
+      "y": 2.851807535389121,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        44.806415487029305,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_6",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 7.308854166666666,
+      "y": 2.947859008588341,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        41.60469971372198,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_7",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 7.2340625,
+      "y": 2.9911699766879156,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        40.16100077706949,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_8",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 7.159270833333333,
+      "y": 3.0344809447874903,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555568,
+        38.717301840416994,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_9",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 7.084479166666666,
+      "y": 3.0777919128870646,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        37.27360290376452,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_10",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 7.0096875,
+      "y": 3.1211028809866392,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555496,
+        35.82990396711203,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_11",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 6.934895833333333,
+      "y": 3.1644138490862135,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555567,
+        34.38620503045956,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_12",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 6.860104166666667,
+      "y": 3.207724817185788,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555567,
+        32.94250609380707,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_13",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 6.7853125,
+      "y": 3.251035785285363,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555567,
+        31.498807157154577,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_14",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 6.710520833333334,
+      "y": 3.287959497679892,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        30.268016744003614,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_15",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 6.635729166666667,
+      "y": 3.3008528868265703,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        29.838237105780998,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_16",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 6.5609375,
+      "y": 3.3137462759732492,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555607,
+        29.408457467558367,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_17",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 6.4861458333333335,
+      "y": 3.3266396651199277,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555607,
+        28.97867782933575,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_18",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 6.4113541666666665,
+      "y": 3.3395330542666066,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555456,
+        28.548898191113118,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_19",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 6.3365625,
+      "y": 3.352426443413285,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555607,
+        28.1191185528905,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_20",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 6.261770833333333,
+      "y": 3.365319832559964,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        27.68933891466787,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_21",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 6.186979166666667,
+      "y": 3.3782132217066425,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        27.259559276445255,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_22",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 6.1121875,
+      "y": 3.391106610853321,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        26.82977963822264,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_23",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 6.037395833333333,
+      "y": 3.404,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555607,
+        26.40000000000001,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_24",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 5.962604166666667,
+      "y": 3.404,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555607,
+        26.40000000000001,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_25",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 5.8878125,
+      "y": 3.3911066108533214,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        26.829779638222625,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_26",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 5.813020833333334,
+      "y": 3.3782132217066425,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555456,
+        27.259559276445255,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_27",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 5.738229166666667,
+      "y": 3.365319832559964,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555568,
+        27.68933891466787,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_28",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 5.6634375,
+      "y": 3.352426443413285,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        28.1191185528905,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_29",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 5.5886458333333335,
+      "y": 3.3395330542666066,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        28.548898191113118,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_30",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 5.5138541666666665,
+      "y": 3.3266396651199277,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        28.97867782933575,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_31",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 5.4390625,
+      "y": 3.3137462759732492,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        29.408457467558367,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_32",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 5.364270833333333,
+      "y": 3.3008528868265707,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555568,
+        29.838237105780983,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_33",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 5.289479166666666,
+      "y": 3.287959497679892,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        30.268016744003614,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_34",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 5.2146875,
+      "y": 3.251035785285363,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        31.498807157154577,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_35",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 5.139895833333333,
+      "y": 3.207724817185788,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555568,
+        32.94250609380707,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_36",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 5.065104166666666,
+      "y": 3.1644138490862135,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555385,
+        34.38620503045956,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_37",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 4.9903125,
+      "y": 3.1211028809866392,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        35.82990396711203,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_38",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 4.915520833333334,
+      "y": 3.077791912887065,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        37.273602903764505,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_39",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 4.840729166666667,
+      "y": 3.0344809447874903,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555568,
+        38.717301840416994,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_40",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 4.7659375,
+      "y": 2.9911699766879156,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        40.16100077706949,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_41",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 4.691145833333334,
+      "y": 2.9478590085883414,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        41.60469971372196,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_42",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 4.6163541666666665,
+      "y": 2.851807535389121,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555568,
+        44.806415487029305,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_43",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 4.5415624999999995,
+      "y": 2.7547983813007892,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555385,
+        48.040053956640364,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_44",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 4.466770833333333,
+      "y": 2.657789227212459,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        51.27369242625138,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_45",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 4.391979166666667,
+      "y": 2.560780073124128,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        54.50733089586241,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_46",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 4.3171875,
+      "y": 2.4637709190357966,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555568,
+        57.740969365473454,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_corridor_arch_spandrel_solid_47",
+      "model": "outdoor:collision_peg",
+      "x": 12.0,
+      "z": 4.242395833333333,
+      "y": 2.1916544907124247,
+      "rotation_degrees": 90,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        66.81151697625252,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
       "id": "atrium_terrace_arch",
       "model": "frutiger_aero:lime_arch",
       "x": 6,
@@ -2541,6 +3324,789 @@
         2.493055555555553,
         1.1261712599737554,
         14.333333333333334
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel",
+      "model": "frutiger_aero:portal_spandrel",
+      "x": 6,
+      "z": 11.9,
+      "y": 1.834,
+      "rotation_degrees": 0,
+      "size": [
+        3.6,
+        2.366,
+        0.24
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_0",
+      "model": "outdoor:collision_peg",
+      "x": 4.242395833333333,
+      "z": 11.9,
+      "y": 2.191654490712425,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        66.8115169762525,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_1",
+      "model": "outdoor:collision_peg",
+      "x": 4.3171875,
+      "z": 11.9,
+      "y": 2.463770919035797,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555607,
+        57.74096936547344,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_2",
+      "model": "outdoor:collision_peg",
+      "x": 4.391979166666667,
+      "z": 11.9,
+      "y": 2.560780073124128,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        54.50733089586241,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_3",
+      "model": "outdoor:collision_peg",
+      "x": 4.466770833333333,
+      "z": 11.9,
+      "y": 2.657789227212459,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        51.27369242625138,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_4",
+      "model": "outdoor:collision_peg",
+      "x": 4.5415624999999995,
+      "z": 11.9,
+      "y": 2.75479838130079,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555607,
+        48.040053956640335,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_5",
+      "model": "outdoor:collision_peg",
+      "x": 4.6163541666666665,
+      "z": 11.9,
+      "y": 2.851807535389121,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        44.806415487029305,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_6",
+      "model": "outdoor:collision_peg",
+      "x": 4.691145833333334,
+      "z": 11.9,
+      "y": 2.947859008588341,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        41.60469971372198,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_7",
+      "model": "outdoor:collision_peg",
+      "x": 4.7659375,
+      "z": 11.9,
+      "y": 2.9911699766879156,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        40.16100077706949,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_8",
+      "model": "outdoor:collision_peg",
+      "x": 4.840729166666667,
+      "z": 11.9,
+      "y": 3.0344809447874903,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555568,
+        38.717301840416994,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_9",
+      "model": "outdoor:collision_peg",
+      "x": 4.915520833333334,
+      "z": 11.9,
+      "y": 3.0777919128870646,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        37.27360290376452,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_10",
+      "model": "outdoor:collision_peg",
+      "x": 4.9903125,
+      "z": 11.9,
+      "y": 3.1211028809866392,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555496,
+        35.82990396711203,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_11",
+      "model": "outdoor:collision_peg",
+      "x": 5.065104166666667,
+      "z": 11.9,
+      "y": 3.1644138490862135,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555567,
+        34.38620503045956,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_12",
+      "model": "outdoor:collision_peg",
+      "x": 5.139895833333333,
+      "z": 11.9,
+      "y": 3.207724817185788,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555567,
+        32.94250609380707,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_13",
+      "model": "outdoor:collision_peg",
+      "x": 5.2146875,
+      "z": 11.9,
+      "y": 3.251035785285363,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555567,
+        31.498807157154577,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_14",
+      "model": "outdoor:collision_peg",
+      "x": 5.289479166666666,
+      "z": 11.9,
+      "y": 3.287959497679892,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        30.268016744003614,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_15",
+      "model": "outdoor:collision_peg",
+      "x": 5.364270833333333,
+      "z": 11.9,
+      "y": 3.3008528868265703,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        29.838237105780998,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_16",
+      "model": "outdoor:collision_peg",
+      "x": 5.4390625,
+      "z": 11.9,
+      "y": 3.3137462759732492,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555607,
+        29.408457467558367,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_17",
+      "model": "outdoor:collision_peg",
+      "x": 5.5138541666666665,
+      "z": 11.9,
+      "y": 3.3266396651199277,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555607,
+        28.97867782933575,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_18",
+      "model": "outdoor:collision_peg",
+      "x": 5.5886458333333335,
+      "z": 11.9,
+      "y": 3.3395330542666066,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555456,
+        28.548898191113118,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_19",
+      "model": "outdoor:collision_peg",
+      "x": 5.6634375,
+      "z": 11.9,
+      "y": 3.352426443413285,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555607,
+        28.1191185528905,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_20",
+      "model": "outdoor:collision_peg",
+      "x": 5.738229166666667,
+      "z": 11.9,
+      "y": 3.365319832559964,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        27.68933891466787,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_21",
+      "model": "outdoor:collision_peg",
+      "x": 5.813020833333333,
+      "z": 11.9,
+      "y": 3.3782132217066425,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        27.259559276445255,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_22",
+      "model": "outdoor:collision_peg",
+      "x": 5.8878125,
+      "z": 11.9,
+      "y": 3.391106610853321,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        26.82977963822264,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_23",
+      "model": "outdoor:collision_peg",
+      "x": 5.962604166666667,
+      "z": 11.9,
+      "y": 3.404,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555607,
+        26.40000000000001,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_24",
+      "model": "outdoor:collision_peg",
+      "x": 6.037395833333333,
+      "z": 11.9,
+      "y": 3.404,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555607,
+        26.40000000000001,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_25",
+      "model": "outdoor:collision_peg",
+      "x": 6.1121875,
+      "z": 11.9,
+      "y": 3.3911066108533214,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        26.829779638222625,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_26",
+      "model": "outdoor:collision_peg",
+      "x": 6.186979166666666,
+      "z": 11.9,
+      "y": 3.3782132217066425,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555456,
+        27.259559276445255,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_27",
+      "model": "outdoor:collision_peg",
+      "x": 6.261770833333333,
+      "z": 11.9,
+      "y": 3.365319832559964,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555568,
+        27.68933891466787,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_28",
+      "model": "outdoor:collision_peg",
+      "x": 6.3365625,
+      "z": 11.9,
+      "y": 3.352426443413285,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        28.1191185528905,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_29",
+      "model": "outdoor:collision_peg",
+      "x": 6.4113541666666665,
+      "z": 11.9,
+      "y": 3.3395330542666066,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        28.548898191113118,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_30",
+      "model": "outdoor:collision_peg",
+      "x": 6.4861458333333335,
+      "z": 11.9,
+      "y": 3.3266396651199277,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        28.97867782933575,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_31",
+      "model": "outdoor:collision_peg",
+      "x": 6.5609375,
+      "z": 11.9,
+      "y": 3.3137462759732492,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        29.408457467558367,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_32",
+      "model": "outdoor:collision_peg",
+      "x": 6.635729166666667,
+      "z": 11.9,
+      "y": 3.3008528868265707,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555568,
+        29.838237105780983,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_33",
+      "model": "outdoor:collision_peg",
+      "x": 6.710520833333334,
+      "z": 11.9,
+      "y": 3.287959497679892,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        30.268016744003614,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_34",
+      "model": "outdoor:collision_peg",
+      "x": 6.7853125,
+      "z": 11.9,
+      "y": 3.251035785285363,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        31.498807157154577,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_35",
+      "model": "outdoor:collision_peg",
+      "x": 6.860104166666667,
+      "z": 11.9,
+      "y": 3.207724817185788,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555568,
+        32.94250609380707,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_36",
+      "model": "outdoor:collision_peg",
+      "x": 6.934895833333334,
+      "z": 11.9,
+      "y": 3.1644138490862135,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555385,
+        34.38620503045956,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_37",
+      "model": "outdoor:collision_peg",
+      "x": 7.0096875,
+      "z": 11.9,
+      "y": 3.1211028809866392,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        35.82990396711203,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_38",
+      "model": "outdoor:collision_peg",
+      "x": 7.084479166666666,
+      "z": 11.9,
+      "y": 3.077791912887065,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        37.273602903764505,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_39",
+      "model": "outdoor:collision_peg",
+      "x": 7.159270833333333,
+      "z": 11.9,
+      "y": 3.0344809447874903,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555568,
+        38.717301840416994,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_40",
+      "model": "outdoor:collision_peg",
+      "x": 7.2340625,
+      "z": 11.9,
+      "y": 2.9911699766879156,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        40.16100077706949,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_41",
+      "model": "outdoor:collision_peg",
+      "x": 7.308854166666666,
+      "z": 11.9,
+      "y": 2.9478590085883414,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        41.60469971372196,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_42",
+      "model": "outdoor:collision_peg",
+      "x": 7.3836458333333335,
+      "z": 11.9,
+      "y": 2.851807535389121,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555568,
+        44.806415487029305,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_43",
+      "model": "outdoor:collision_peg",
+      "x": 7.4584375000000005,
+      "z": 11.9,
+      "y": 2.7547983813007892,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.4930555555555385,
+        48.040053956640364,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_44",
+      "model": "outdoor:collision_peg",
+      "x": 7.533229166666667,
+      "z": 11.9,
+      "y": 2.657789227212459,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        51.27369242625138,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_45",
+      "model": "outdoor:collision_peg",
+      "x": 7.608020833333333,
+      "z": 11.9,
+      "y": 2.560780073124128,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        54.50733089586241,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_46",
+      "model": "outdoor:collision_peg",
+      "x": 7.6828125,
+      "z": 11.9,
+      "y": 2.4637709190357966,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555568,
+        57.740969365473454,
+        7.666666666666667
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "atrium_terrace_arch_spandrel_solid_47",
+      "model": "outdoor:collision_peg",
+      "x": 7.757604166666667,
+      "z": 11.9,
+      "y": 2.1916544907124247,
+      "rotation_degrees": 0,
+      "scale": 0.03,
+      "size": [
+        2.493055555555553,
+        66.81151697625252,
+        7.666666666666667
       ],
       "solid": true,
       "occludes": false

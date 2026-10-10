@@ -1,4 +1,5 @@
 """Snow authoring, asset contracts and validator regressions."""
+import copy
 import json
 from pathlib import Path
 import sys
@@ -79,6 +80,67 @@ class WeatherTests(unittest.TestCase):
         refs = list(validate.level_ids({'weather': {'kind': 'snow'}}))
         self.assertIn(('core:snowflake_01', 'weather material'), refs)
 
+    def test_alternate_weather_validates_independently_and_packages_its_material(self):
+        storm = {'kind': 'snow', 'storm_severity': 1, 'wind': [8, 3],
+                 'material': 'core:steam_01'}
+        level = {'weather': {'kind': 'snow'}, 'weather_alternate': storm}
+        errors = []
+        validate.validate_weather(level, 'fixture', errors)
+        self.assertEqual(errors, [])
+        refs = list(validate.level_ids(level))
+        self.assertIn(('core:snowflake_01', 'weather material'), refs)
+        self.assertIn(('core:steam_01', 'weather_alternate material'), refs)
+        for patch in ({'count': 0}, {'storm_severity': -1}, {'visibility_m': 1},
+                      {'wind': [21, 0]}, {'kind': 'rain'}, {'cout': 10}):
+            errors = []
+            validate.validate_weather({**level, 'weather_alternate': {**storm, **patch}},
+                                      'fixture', errors)
+            self.assertTrue(errors, patch)
+            self.assertTrue(any('weather_alternate' in error for error in errors), errors)
+        errors = []
+        validate.validate_weather({'weather_alternate': storm}, 'fixture', errors)
+        self.assertTrue(any('requires authored default weather' in error for error in errors))
+        errors = []
+        validate.validate_weather({**level, 'rooms': [{}] * 33}, 'fixture', errors)
+        self.assertTrue(any('at most 32' in error for error in errors))
+
+    def test_toggle_weather_action_requires_both_authored_states(self):
+        switch = {'id': 'weather_switch', 'model': 'core:switch', 'x': 1, 'z': 1,
+                  'components': [{'component': 'interactable'}],
+                  'bindings': [{'on': 'interact', 'actions': [{'action': 'toggle_weather'}]}]}
+        level = {'props': [switch]}
+        for weather in ({}, {'weather': {'kind': 'snow'}},
+                        {'weather_alternate': {'kind': 'snow'}}):
+            errors = []
+            validate.validate_interactions({**level, **weather}, 'fixture', errors)
+            self.assertTrue(any('requires weather and weather_alternate' in error
+                                for error in errors), errors)
+        errors = []
+        validate.validate_interactions({**level, 'weather': {'kind': 'snow'},
+                                       'weather_alternate': {'kind': 'snow', 'storm_severity': 1}},
+                                      'fixture', errors)
+        self.assertEqual(errors, [])
+
+    def test_prompt_action_requires_interaction_and_nonblank_text(self):
+        switch = {'id': 'weather_switch', 'model': 'home:wall_switch', 'x': 1, 'z': 1,
+                  'components': [{'component': 'interactable'}],
+                  'bindings': [{'on': 'interact', 'actions': [
+                      {'action': 'set_prompt', 'prompt': 'Disable blizzard'}]}]}
+        errors = []
+        validate.validate_interactions({'props': [switch]}, 'fixture', errors)
+        self.assertEqual(errors, [])
+        for prompt in (' ', None, 3):
+            switch['bindings'][0]['actions'][0]['prompt'] = prompt
+            errors = []
+            validate.validate_interactions({'props': [switch]}, 'fixture', errors)
+            self.assertTrue(any('prompt must not be blank' in error for error in errors), errors)
+        switch['bindings'][0]['actions'][0] = {'action': 'set_prompt', 'target': 'crate',
+                                             'prompt': 'Next'}
+        crate = {'id': 'crate', 'model': 'core:crate', 'x': 2, 'z': 2}
+        errors = []
+        validate.validate_interactions({'props': [switch, crate]}, 'fixture', errors)
+        self.assertTrue(any('interactable' in error for error in errors), errors)
+
     def test_blizzard_configuration_and_shelter_limit(self):
         storm = {'kind': 'snow', 'storm_severity': 1, 'visibility_m': 5, 'wind': [8, 3]}
         errors = []
@@ -94,10 +156,86 @@ class WeatherTests(unittest.TestCase):
         validate.validate_weather({'weather': storm, 'rooms': [{}] * 33}, 'fixture', errors)
         self.assertTrue(errors)
 
+    def test_weather_cycle_is_opt_in_bounded_and_uses_compatible_resources(self):
+        level = {'weather': {'kind': 'snow'}, 'weather_alternate': {'kind': 'snow', 'storm_severity': 1},
+                 'weather_cycle': {'enabled': False, 'max_strength': .45, 'period_seconds': 120,
+                                   'transition_seconds': 15}}
+        errors = []
+        validate.validate_weather(level, 'fixture', errors)
+        self.assertEqual(errors, [])
+        for patch in ({'enabled': 1}, {'min_strength': .6, 'max_strength': .3},
+                      {'period_seconds': 0}, {'period_seconds': float('inf')},
+                      {'transition_seconds': 61}, {'min_strength': -.1}, {'max_strength': 1.1},
+                      {'period': 60}):
+            errors = []
+            validate.validate_weather({**level, 'weather_cycle': {**level['weather_cycle'], **patch}},
+                                      'fixture', errors)
+            self.assertTrue(errors, patch)
+        for patch in ({'count': 2048}, {'material': 'core:steam_01'}):
+            errors = []
+            validate.validate_weather({**level, 'weather_alternate': {**level['weather_alternate'], **patch}},
+                                      'fixture', errors)
+            self.assertTrue(any('equal count and material' in error for error in errors), errors)
+
+    def test_weather_strength_and_cycle_actions_validate_parameters_and_dependencies(self):
+        switch = {'id': 'weather_switch', 'model': 'home:wall_switch', 'x': 1, 'z': 1,
+                  'components': [{'component': 'interactable'}],
+                  'bindings': [{'on': 'interact', 'actions': []}]}
+        level = {'props': [switch], 'weather': {'kind': 'snow'},
+                 'weather_alternate': {'kind': 'snow', 'storm_severity': 1}, 'weather_cycle': {}}
+        for action in ({'action': 'set_weather_strength', 'strength': .35, 'transition_seconds': 2},
+                       {'action': 'set_weather_strength', 'strength': 0},
+                       {'action': 'set_weather_cycle', 'enabled': True}):
+            switch['bindings'][0]['actions'] = [action]
+            errors = []
+            validate.validate_interactions(level, 'fixture', errors)
+            self.assertEqual(errors, [], action)
+        for action in ({'action': 'set_weather_strength', 'strength': True},
+                       {'action': 'set_weather_strength', 'strength': -.1},
+                       {'action': 'set_weather_strength', 'strength': .5, 'transition_seconds': -1},
+                       {'action': 'set_weather_strength', 'strength': .5, 'transition_seconds': float('nan')},
+                       {'action': 'set_weather_cycle', 'enabled': 1}):
+            switch['bindings'][0]['actions'] = [action]
+            errors = []
+            validate.validate_interactions(level, 'fixture', errors)
+            self.assertTrue(errors, action)
+        switch['bindings'][0]['actions'] = [{'action': 'set_weather_cycle', 'enabled': True}]
+        errors = []
+        validate.validate_interactions({**level, 'weather_cycle': None}, 'fixture', errors)
+        self.assertTrue(any('requires weather_cycle' in error for error in errors), errors)
+        switch['bindings'][0]['actions'] = [{'action': 'set_weather_strength', 'strength': .35}]
+        errors = []
+        validate.validate_interactions({**level, 'weather_alternate': {'kind': 'snow', 'count': 2048}},
+                                      'fixture', errors)
+        self.assertTrue(any('equal count and material' in error for error in errors), errors)
+
     def test_blizzard_review_preserves_winter_content(self):
         original = json.loads((ROOT / 'assets/levels/winter.json').read_text())
         review = json.loads((ROOT / 'debug-maps/blizzard-20261007/sources/blizzard_review.json').read_text())
-        for key in original.keys() - {'id', 'name', 'weather'}:
+        for key in original.keys() - {'id', 'name', 'weather', 'weather_alternate',
+                                     'weather_cycle', 'props'}:
             self.assertEqual(original[key], review[key], key)
+        self.assertEqual(review['weather_cycle'], {
+            **original['weather_cycle'],
+            'min_strength': round(1 - original['weather_cycle']['max_strength'], 4),
+            'max_strength': round(1 - original['weather_cycle']['min_strength'], 4),
+        })
+        for calm_prop, storm_prop in zip(original['props'], review['props'], strict=True):
+            expected = copy.deepcopy(calm_prop)
+            for binding in expected.get('bindings', []):
+                for action in binding['actions']:
+                    if action['action'] == 'set_weather_strength':
+                        action['strength'] = round(1 - action['strength'], 4)
+            if calm_prop['id'] == 'winter_blizzard_button':
+                interactable = next(c for c in expected['components']
+                                    if c['component'] == 'interactable')
+                state = next(c for c in expected['components'] if c['component'] == 'state')
+                self.assertEqual(interactable['prompt'], 'Enable moderate blizzard')
+                self.assertFalse(state['value'])
+                interactable['prompt'] = 'Stop blizzard'
+                state['value'] = True
+            self.assertEqual(expected, storm_prop)
+        self.assertEqual(review.get('weather_alternate'), original.get('weather'))
+        self.assertEqual(original.get('weather_alternate'), review.get('weather'))
         self.assertEqual(review['weather']['storm_severity'], 1)
         self.assertEqual(review['weather'].get('count', 1400), 1400)

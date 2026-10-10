@@ -6892,6 +6892,74 @@
       "asset_type": "material",
       "source": "definition",
       "description": "Diffuse pale ceiling panels with restrained broad response, using the committed white panel artwork."
+    },
+    {
+      "id": "beach:town_terrace_base",
+      "display_name": "Beach Town Terrace Base",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/town_terrace_base.glb",
+      "size": [
+        4.0,
+        2.22,
+        3.0
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:cove_foam",
+      "display_name": "Beach Cove Foam",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/beach/props/models/cove_foam.glb",
+      "size": [
+        48.0,
+        0.015,
+        2.2353039290701924
+      ],
+      "color": "#f4eee0",
+      "category": "Beach Nature",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:portal_spandrel",
+      "display_name": "Frutiger Aero Portal Spandrel",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/frutiger_aero/props/models/portal_spandrel.glb",
+      "size": [
+        3.6,
+        2.366,
+        0.24
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "winter:snow_roof_blanket",
+      "display_name": "Winter Continuous Roof Snow",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/snow_roof_blanket.glb",
+      "size": [
+        6.811428571428571,
+        1.42517377,
+        2.2285714285714286
+      ],
+      "color": "#e6f2fa",
+      "category": "Winter Snow Attachments",
+      "solid": false
     }
   ]
 }
