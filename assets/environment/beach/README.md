@@ -10,22 +10,22 @@ lighting, water, HDR storage or NPC system is introduced.
 
 | Concept | Registered resources |
 | --- | --- |
-| B01 | `sand_patch`, `grassy_bank`, `shoreline_foam`; sand/grass/foam surfaces and real shore support |
+| B01 | `sand_patch`, `grassy_bank`, `shoreline_foam`, connected `cove_foam`; sand/grass/foam surfaces and real shore support |
 | B02 | Polygon-cell `tex_water_01`, `water_shallow_01`, `water_deep_01`; existing WaterDef volumes |
 | B03 | `coastal_rock`, `coastal_rock_wide`, `island`, open `sea_arch` |
 | B04 | Tapered `lighthouse`, gallery, fitted windows and red conical cap |
 | B05 | `palm`, `palm_small`: bent banded trunks and ten pointed folded fronds |
 | B06–B09 | X-braced `crate`, square-post `dock`, open yellow-hip-roof `kiosk`, `stilt_house_blue`, `hut_brown` |
 | B10–B12 | Coral/ivory `umbrella`, blue timber `lounge_chair`, right-arrow `signpost` |
-| B13 | `town_house_cream`, `town_house_blue`, pale `town_house_coral`, `town_arch`, `town_stairs`, `town_terrace`, `town_parapet` |
+| B13 | `town_house_cream`, `town_house_blue`, pale `town_house_coral`, `town_arch`, `town_stairs`, `town_terrace`, closed `town_terrace_base`, `town_parapet` |
 | B14 | `town_shrub`, palms, orange/blue `bunting` |
 | B15 | `beach:seagull`: `idle` / `fly` |
 | B16 | `beach:crab`: `idle` / `walk` |
 | B17 | `beach:fish`: `swim` |
 | B18 | Seamless `tex_sky_day_01`: pale horizon, faceted clouds, small sun |
 
-There are 27 static GLBs and three independently skinned animal GLBs, with
-five looping clips. Static geometry totals 6,348 triangles; animals add 1,438.
+There are 29 static GLBs and three independently skinned animal GLBs, with
+five looping clips. Static geometry totals 7,120 triangles; animals add 1,438.
 The largest static export is a 782-triangle palm. Registration adds 11 texture
 resources and 11 material definitions. All pre-existing catalog entries remain
 unchanged. The Model Zoo uses a compact annex through its existing east exit;
@@ -121,3 +121,8 @@ offset above their lowered floor. Start each intended clip with an explicit
 `play_animation` action; `animation.playing` alone does not start the renderer.
 Crab walking is in place, with measured reference speed about 0.160625 m/s.
 Existing short routes can translate it; no complex patrol system is needed.
+
+The October 10 refinement connects the cove foam into one coast-following mesh,
+supports the raised town terrace with a closed masonry arcade, and seats both
+bunting anchors in real facade stock. See `docs/environment-refinement.md`
+for native views, traversal and measurements.

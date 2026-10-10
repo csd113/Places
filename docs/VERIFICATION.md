@@ -5,8 +5,8 @@ Vulkan on Linux, Direct3D 12 on Windows) behind the SDL3 platform layer. Run
 from the repository root on a desktop session. The release's platform status is
 recorded in the matrix in §7.
 
-October 9, 2026 contract audit: the current source uses package major 1, level
-schema 3, geometry revision 8, solver revision 17, PLMP v6 and PLPF v3. Runtime
+October 10, 2026 refinement contract audit: the current source uses package major 1, level
+schema 3, geometry revision 9, solver revision 17, PLMP v6 and PLPF v3. Runtime
 Low/Medium/High presets select Off/Medium/Full lightmaps and reflections; both
 advanced settings and texture filtering remain independent. The atlas capacity
 is at most eleven pages per contribution group for Full; lower profiles retain

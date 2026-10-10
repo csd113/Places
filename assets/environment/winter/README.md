@@ -23,7 +23,7 @@ another file asset pointing at the same GLB or PNG.
 
 ## Snow-covered static kit
 
-`tools/props/parts/winter.py` registers 28 ordinary prop builders. They load
+`tools/props/parts/winter.py` registers 29 ordinary prop builders. They load
 committed PNGs and shipped base models; they never regenerate texture imagery.
 Build selected winter IDs through `python3 tools/props/build.py --only <ids>`.
 The level generator remains deterministic (`tools/levels/build_winter.py`).
@@ -37,6 +37,7 @@ The level generator remains deterministic (`tools/levels/build_winter.py`).
 | `snow_door_overhang`, `snow_awning` | `[1.6,.14,.55]`, `[2.4,.18,2.6]`; hoods and terrace roof |
 | `snow_stair_edge`, `snow_ledge` | `[.38,.085,.8]`, `[1.2,.10,.24]`; cleared stair centres, window ledges |
 | `snow_roof_edge`, `snow_porch_edge` | `[2.4,.16,.36]`, `[1.8,.10,.3]`; shallow connected irregular crowns |
+| `snow_roof_blanket` | `[6.811429,1.425174,2.228571]`; continuous pitched coat and eave lip for the current house assembly |
 | `snow_roof_slope` | `[3.4,1.41,2]`; pitch `1.67/2.6`, high at −Z |
 | `snow_rail_top`, `snow_post_cap` | `[1.2,.075,.11]`, `[.12,.085,.12]`; additions to existing structural rails |
 | `railing_snow_straight`, `railing_snow_corner`, `railing_snow_end` | `[1.8,1.125,.16]`, `[.3,1.125,.3]`, `[.3,1.135,.16]`; canonical porch modules plus top snow |
@@ -223,3 +224,16 @@ Prompt: “square seamless top-down opaque retro low-poly frozen pond albedo;
 quiet blue-gray ice, subtle cloudy polygonal variation, sparse angular hairline
 cracks and pale highlights, even neutral illumination; no scene, snow, objects,
 text, photographic detail, mirror reflection or baked shadows.”
+
+The October 10 refinement uses one continuous `snow_roof_blanket` per roof
+slope, seated ridge stock, and facade/rail clips mounted in supporting timber.
+The earlier slope/edge kit remains available in the Zoo. Winter opens with
+normal snowfall. Enter the raised lodge west of the central square; beside its
+front door, aim at **Blizzard control** and press **E** to alternate moderate
+blizzard and calm snow over two seconds. Three lower rockers select mild (0.15),
+moderate (0.35) or severe (1.0) strength. The upper **Timed snowfall** rocker
+starts a gentle 120-second cycle between calm and 0.45 strength, with 15-second
+ramps and 45-second dwells; press it again to ease back to calm. Manual controls
+cancel the cycle. Aim prompts show the next action. Gameplay pause freezes the
+transitions and timer; live graphics changes retain them. Reload restores calm
+snow with the timer off. See `docs/environment-refinement.md` for validation and evidence.

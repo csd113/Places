@@ -1921,3 +1921,25 @@ python3 tools/props/animate_spooner_man.py [--check]                # the entity
 
 Per §2, regeneration never replaces shipped artwork whose dimensions differ
 from its painter's output unless `--force` is passed; a plain run is safe.
+
+### October 10 environment refinement additions
+
+Four geometry assets reuse their themes' unchanged fitted opaque 256² PNG atlases:
+Beach `town_terrace_base` and `cove_foam`, Aero `portal_spandrel`, and Winter
+`snow_roof_blanket`. They retain +Y up, +Z front, floor/base origin and UVs in 0..1.
+The 48 m cove foam is one closed scalloped shell shared with the supported coast
+profile; it contains no repeated internal end caps. The Winter blanket spans both
+roof bays, with end overhangs and an eave lip derived from actual shingle stock.
+The four models' embedded atlas pixels match their unchanged standalone PNGs;
+the Winter exporter losslessly re-encodes the existing snow artwork. The
+Winter blanket uses a continuous mirrored atlas unwrap at 3.4 m per U repeat and
+2 m per V repeat, retaining its authored surface. No new raster class, alpha
+behavior or texture resolution is introduced.
+
+The Winter sky retains its 2048×1024 opaque RGB, equirectangular U-repeat/V-clamp
+contract. `tools/textures/normalize_sky_seam.py` is an explicit offline correction
+for the saved PNG: it joins only the left/right columns, feathering at most 16
+columns per side. It preserves every interior pixel, dimensions, PNG mode, alpha
+and metadata; it never joins the vertical poles. The shipped correction changes
+at most 4/255 per channel. All four catalog sky sheets have exact U edge matches.
+The normal runtime loads these committed PNGs through the existing sampler.

@@ -16,7 +16,7 @@ by `tools/levels/build_frutiger_aero.py`; the player loads its sibling package.
 | A08 / 08 | `fountain_basin`, `bubble_sculpture`: open circular basin and three translucent faceted bubbles with leaves |
 | A09 / 09 | `glass_canopy`: true open barrel-vault cyan tube and white end frames |
 | A10 / 10 | `accent_panel`: diagonal white stripe and lime leaves on tall cyan panel |
-| A11 | `atrium_dome`: 12 m glazed roof, 16 connected ribs and circular soffit |
+| A11 | `atrium_dome`: 12 m glazed roof, 16 connected ribs and a square outer soffit around the circular glazing |
 | A12 | `ceiling_ring`, `double_doors`, `double_doors_open`: corridor ring and gray terminal doors |
 | A13 | `reception_counter`, `reception_soffit`: curved aqua-based counter, two terminals, rounded canopy and warm downlights |
 | A14 | `banner_atrium`, `banner_corridor`, `banner_reception`, five fitted decal sheets |
@@ -24,7 +24,7 @@ by `tools/levels/build_frutiger_aero.py`; the player loads its sibling package.
 
 All model IDs use the `frutiger_aero:` prefix. Geometry is deliberately faceted,
 in metres, +Y up and +Z front, with centered horizontal bounds and a floor
-contact origin. The 23 models total 6,864 triangles. The 1,152-triangle dome
+contact origin. The 24 models total 6,996 triangles. The 1,152-triangle dome
 retains meaningful structural detail within the existing 1,500-triangle asset
 ceiling; other modules remain below the 800-triangle review threshold.
 
@@ -36,7 +36,7 @@ There are no new animation clips or character assets.
 
 `tools/props/parts/frutiger_aero.py` loads the committed atlas and exports the
 models. `structural_components` / `placed_components` provide tight collision
-stock for bays, faceted arches, folded panels, seats, planters, doors, tube and
+stock for bays, faceted arches and fitted `portal_spandrel` headers, folded panels, seats, planters, doors, tube and
 counter. Hollow visuals remain `solid:false`; never collide their whole bounds.
 The canopy uses facet-aligned roof stock and 18 µm carrier meshes: its explicit
 physical extents remain full size while opaque carrier pixels stay subpixel
@@ -75,3 +75,8 @@ this kit. The open doors are a static accessible variant.
 
 Validation and genuine native evidence are recorded in the single program
 report: `docs/two-environment-implementation-plan.md`.
+
+The October 10 refinement fits the dome soffit to the atrium corners, closes
+the white stock above both lime portals, squares the outer bay frames, and
+seats leaf marks on the folded panes. Native evidence and current checks are
+recorded in `docs/environment-refinement.md`.

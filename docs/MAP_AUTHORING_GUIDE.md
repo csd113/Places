@@ -12,6 +12,7 @@ Repository-wide checks: [authoritative desktop verification](VERIFICATION.md).
 | Outdoors reconstruction verification | Section 34 checked against the October 7 Outdoors catalog, fitted PNGs, closed model builders, source placements, native wgpu captures and asset integrity audit. Engine format and lighting model are unchanged. |
 | Checks that must pass before a code or asset change ships | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check` (see [Validation Workflow](#27-validation-workflow) for what each proves) |
 | Aero prop authoring verification | October 10, 2026: opt-in BLEND/finite opacity writer checked against importer and byte-preserving OPAQUE/MASK fixtures; existing runtime rendering and transport remain unchanged. |
+| Environment refinement verification | October 10, 2026: neighbor-clipped ramp side geometry revision 9 and reusable `weather_alternate`, `weather_cycle`, `toggle_weather`, `set_weather_strength`, `set_weather_cycle`, `set_prompt` checked against current authoring/runtime sources and focused regression tests. Native acceptance and final gates are recorded in [environment-refinement.md](environment-refinement.md). |
 | Primary benchmark level | `assets/levels/places_demo.json` |
 
 > This revision describes the **current** engine: the Low/Medium/High quality
@@ -1644,8 +1645,9 @@ How the two behave:
   platform is closed by that platform's own skirt, and the platform's rim does
   not wall the landing off (the rim rule samples the walking surface on either
   side of a grid edge).
-* **Their sides are real skirts.** A ramp's two sides drop from the sloped edge
-  to the lowest floor they meet, and a staircase's sides close each step down to
+* **Their sides are real skirts.** A ramp's two sides are split at neighboring surface boundaries and drop
+  only to the actual adjacent floor, ramp or stair tread; equal adjoining slopes
+  emit no buried side. A staircase's sides close each step down to
   the floor line beside it, so a flight or slope is never an open wedge. The side
   is not a collider: the height rule keeps the player off it because the walkable
   floor inside the footprint is the piece's own surface.
@@ -4919,6 +4921,10 @@ whose target cannot do the thing is a named load error.
 | `steam` component + `enable`/`disable` | `target?` | an entity with a `steam` component | turns the authored emitter's billboards on or off through the renderer (a disabled emitter's level effect stays, it just stops drawing) |
 | water volume + `enable`/`disable` | `target?` | a water-volume entity (`water_<n>`) | removes the volume from the controller's water sampling: the baked surface still draws, the player walks or falls through |
 | `set_state` | `target?`, `name` (required), `value` (required bool/int/float/string) | the target must already author that state, or be a timer/volume (the runtime owns those states) | write a typed state |
+| `toggle_weather` | — | — | immediately alternate the authored `weather` / `weather_alternate` configurations for this session; both are required; cancels a cycle |
+| `set_weather_strength` | `strength` | `transition_seconds: 0` | smoothly interpolate compatible weather endpoints at strength 0–1 over 0–300 seconds; cancels a cycle |
+| `set_weather_cycle` | `enabled` | — | start or stop the authored `weather_cycle`; stopping holds the current strength unless paired with a manual action |
+| `set_prompt` | `target?`, `prompt` (nonblank) | an entity with an `interactable` component | replace the aimed-at interaction prompt; reset/reload restores the authored prompt |
 | `toggle_label` | `target?` | a placed **prop** (only a placed prop shows a label) | show/hide the instance's floating display name |
 | `start_sequence` | `sequence` (required, known id), `target?` (omitted = the actor) | the entity the sequence should run on | start/replace a sequence on the target |
 | `stop_sequence` | `target?` | any entity | stop the sequence running on the target |
@@ -5725,6 +5731,50 @@ compiled semantics and its material/PNG travels through ordinary dependencies.
 | `visibility_m` | 5 | finite 2–100 m; at severity 1 removes 98.2% of outdoor contrast at this distance |
 | `fog_color` | `[0.68, 0.73, 0.79]` | three finite display-space 0–1 components |
 | `material` | `core:snowflake_01` | catalog material with a full-UV flake PNG (§7.1a of the asset specification) |
+
+A level may additionally author `weather_alternate` using this same configuration
+contract. It requires `weather`; both configurations and material dependencies are
+validated and prepared once. `toggle_weather` swaps them for the current session,
+including snow motion, storm extinction and sky. Shared effect buffers reserve the
+larger seed budget once; selection never reloads or rebakes the map. Live graphics
+changes preserve the selection and clock. A fresh load or `reset_to_start` restores
+`weather`; no weather state is written to saved settings. A switch may pair state
+conditions with `toggle_weather`, `toggle_animation`, `set_prompt` and `set_state`
+for distinct on/off feedback through ordinary E key edges.
+
+Continuous controls require matching seed counts and trimmed material ids in both
+endpoints. `set_weather_strength` blends numeric snowfall, wind, fog, visibility
+and sky parameters in place, retaining seeds, textures and shelter coefficients.
+Exact strength 0 restores the authored normal configuration. These controls and
+the optional timer advance only during gameplay; pause and loading freeze them.
+Live graphics changes preserve playback. Manual strength/toggle actions cancel
+cycling until an explicit `set_weather_cycle` enables it again.
+
+Optional `weather_cycle` requires both compatible endpoints. Its fields are:
+
+| Field | Default | Contract |
+| --- | --- | --- |
+| `enabled` | false | start automatically on fresh load when true |
+| `min_strength` / `max_strength` | 0 / 1 | finite 0–1, minimum strictly below maximum |
+| `period_seconds` | 60 | finite 1–3600 seconds; includes two equal dwells and two ramps |
+| `transition_seconds` | 4 | finite 0–300 seconds, no greater than half the period |
+
+Enabling first eases from the current strength to the minimum, then begins a
+minimum dwell, rising ramp, maximum dwell and falling ramp. A zero-duration ramp
+switches at the dwell boundary. Reload or `reset_to_start` restores authored
+weather and the authored cycle-enabled setting; nothing is saved to preferences.
+
+Winter's timber-backed panel is inside the raised lodge, east of its entrance:
+world X/Z `(-10.25, -10.34)`. Enter up the front ramp, turn toward the door's east
+jamb, approach and press **E** while aiming at a rocker. The large **Blizzard
+control** centred at world Y 1.89 m alternates moderate strength 0.35 and calm over
+two seconds. Its prompt is “Enable moderate blizzard” / “Stop blizzard”. Three
+lower rockers select mild 0.15, moderate 0.35 or severe 1.0 over two seconds.
+The upper **Timed snowfall** rocker starts/stops the optional 120-second cycle
+between 0 and 0.45, with 15-second ramps and 45-second dwells. Stopping eases to
+calm; any manual control cancels the timer. Fresh Winter is calm with the timer
+off. The alternate retains the existing severe review's wind `[8, 3]`, 6 m snow
+radius and 5 m visibility. Ceilings and porch slabs retain shelter protection.
 
 Flakes fall downward with independently seeded speed, size and sinusoidal drift.
 Their world positions stay fixed under camera translation until an invisible
@@ -7264,7 +7314,7 @@ A tube that reads bright but casts a restrained local pool (the demo's far corri
 `./target/release/places-compile build-collection levels/` compiles every source
 in a directory, reporting per-source failures without blocking the others.
 
-Current package major is 1, level schema 3, geometry revision 8 and transport
+Current package major is 1, level schema 3, geometry revision 9 and transport
 solver revision 17. PLMP v6 shares exact vertex/frame bytes without changing
 decoded material response, normals, UVs, lighting or character caster claims;
 literal v3/v4/v5 remain readable with their documented defaults. Both encoded
