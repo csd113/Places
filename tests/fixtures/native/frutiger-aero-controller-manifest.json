@@ -1,0 +1,387 @@
+{
+  "format_version": 1,
+  "level": "frutiger_aero_demo",
+  "source": "assets/levels/frutiger_aero_demo.json",
+  "package": "assets/levels/frutiger_aero_demo.placesmap",
+  "base_revision": "572decd76f7b577ab1a30be8a5dec50864bad4cf",
+  "settings": {
+    "bindings": {
+      "forward": "W",
+      "backward": "S",
+      "strafe_left": "A",
+      "strafe_right": "D",
+      "look_up": "UP",
+      "look_down": "DOWN",
+      "look_left": "LEFT",
+      "look_right": "RIGHT",
+      "jump": "SPACE",
+      "crouch": "C",
+      "interact": "E"
+    },
+    "look_speed_h": 90,
+    "look_speed_v": 60,
+    "walk_speed": 3,
+    "invert_look": false,
+    "mouse_sensitivity": 0.12,
+    "quality": "high",
+    "texture_filtering": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": false,
+    "use_low_quality_lighting": false,
+    "vsync": false,
+    "fov_degrees": 60,
+    "window_mode": "windowed",
+    "window_width": 640,
+    "window_height": 360
+  },
+  "bake": {
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ],
+    "workers": 12,
+    "force_for_cold_measurement": true,
+    "algorithm": "unchanged normal compiler defaults; see package inspect for prepared settings"
+  },
+  "environment": {
+    "sky": "frutiger_aero:tex_sky_day_01",
+    "sun": "aero_sun aligned bearing/elevation +45 degrees",
+    "fog": "source environment is authoritative",
+    "animation": "No creature/locomotion animation is depicted or required; normal water system retained"
+  },
+  "capture": {
+    "ready_world_seconds": 0.5,
+    "warmup_frames": 15,
+    "limit_frames": 2400,
+    "expected_drawable": [
+      1280,
+      720
+    ]
+  },
+  "views": [
+    {
+      "name": "arch_out",
+      "spawn": [
+        10.5,
+        6,
+        90
+      ],
+      "camera": [
+        90,
+        -12
+      ],
+      "purpose": "Real held-controller Aero collision route arch_out",
+      "move_script": "forward@0-1.3",
+      "capture_frame": 90,
+      "expected": "Reach corridor x14.4\u00b1.25; no stuck/jump needed"
+    },
+    {
+      "name": "arch_return",
+      "spawn": [
+        13.5,
+        6,
+        -90
+      ],
+      "camera": [
+        -90,
+        -12
+      ],
+      "purpose": "Real held-controller Aero collision route arch_return",
+      "move_script": "forward@0-1.3",
+      "capture_frame": 90,
+      "expected": "Reach atrium x9.6\u00b1.25"
+    },
+    {
+      "name": "corridor_walk",
+      "spawn": [
+        14,
+        6,
+        90
+      ],
+      "camera": [
+        90,
+        -12
+      ],
+      "purpose": "Real held-controller Aero collision route corridor_walk",
+      "move_script": "forward@0-2.2",
+      "capture_frame": 150,
+      "expected": "Pass planter at z6; reach x20.6\u00b1.25"
+    },
+    {
+      "name": "doors_tube_out",
+      "spawn": [
+        20.8,
+        6,
+        90
+      ],
+      "camera": [
+        90,
+        -12
+      ],
+      "purpose": "Real held-controller Aero collision route doors_tube_out",
+      "move_script": "forward@0-2.2",
+      "capture_frame": 150,
+      "expected": "Cross gray open leaves and barrel roof; reach x27.4\u00b1.25"
+    },
+    {
+      "name": "doors_tube_return",
+      "spawn": [
+        27.2,
+        6,
+        -90
+      ],
+      "camera": [
+        -90,
+        -12
+      ],
+      "purpose": "Real held-controller Aero collision route doors_tube_return",
+      "move_script": "forward@0-2.2",
+      "capture_frame": 150,
+      "expected": "Reciprocal crossing reach x20.6\u00b1.25"
+    },
+    {
+      "name": "terrace_arch_out",
+      "spawn": [
+        6,
+        10,
+        180
+      ],
+      "camera": [
+        180,
+        -12
+      ],
+      "purpose": "Real held-controller Aero collision route terrace_arch_out",
+      "move_script": "forward@0-1.5",
+      "capture_frame": 108,
+      "expected": "Cross green arch onto terrace z14.5\u00b1.25"
+    },
+    {
+      "name": "terrace_arch_return",
+      "spawn": [
+        6,
+        14.3,
+        0
+      ],
+      "camera": [
+        0,
+        -12
+      ],
+      "purpose": "Real held-controller Aero collision route terrace_arch_return",
+      "move_script": "forward@0-1.4",
+      "capture_frame": 102,
+      "expected": "Cross green arch to atrium z10.1\u00b1.25"
+    },
+    {
+      "name": "reception_terrace",
+      "spawn": [
+        27,
+        7.3,
+        180
+      ],
+      "camera": [
+        180,
+        -12
+      ],
+      "purpose": "Real held-controller Aero collision route reception_terrace",
+      "move_script": "forward@0-2.5",
+      "capture_frame": 168,
+      "expected": "Reach terrace z14.8\u00b1.25 past 3m south opening"
+    },
+    {
+      "name": "terrace_long_walk",
+      "spawn": [
+        26,
+        14.8,
+        -90
+      ],
+      "camera": [
+        -90,
+        -12
+      ],
+      "purpose": "Real held-controller Aero collision route terrace_long_walk",
+      "move_script": "forward@0-6.5",
+      "capture_frame": 408,
+      "expected": "Reach x6.5\u00b1.25 along connected garden"
+    },
+    {
+      "name": "counter_approach",
+      "spawn": [
+        28,
+        6,
+        0
+      ],
+      "camera": [
+        0,
+        -12
+      ],
+      "purpose": "Real held-controller Aero collision route counter_approach",
+      "move_script": "forward@0-1.8",
+      "capture_frame": 126,
+      "expected": "Stop against curved counter; no penetration, feet0"
+    },
+    {
+      "name": "counter_staff_lane",
+      "spawn": [
+        26.6,
+        1.75,
+        90
+      ],
+      "camera": [
+        90,
+        -12
+      ],
+      "purpose": "Real held-controller Aero collision route counter_staff_lane",
+      "move_script": "forward@0-.9",
+      "capture_frame": 90,
+      "expected": "Pass behind crescent counter; reach29.3\u00b1.25"
+    },
+    {
+      "name": "bench_jump",
+      "spawn": [
+        2.4,
+        3.35,
+        0
+      ],
+      "camera": [
+        0,
+        -12
+      ],
+      "purpose": "Real held-controller Aero collision route bench_jump",
+      "move_script": "forward@0-.38,jump@.05-.11",
+      "capture_frame": 150,
+      "expected": "Rise/land on seat, feet\u2248.64, view readable cushion contact; tune bounded input if needed"
+    },
+    {
+      "name": "fountain_enter",
+      "spawn": [
+        5.08,
+        8.2,
+        0
+      ],
+      "camera": [
+        0,
+        -12
+      ],
+      "purpose": "Real held-controller Aero collision route fountain_enter",
+      "move_script": "forward@0-.70,jump@.03-.09",
+      "capture_frame": 150,
+      "expected": "Cross rim then land basin support\u2248.10; non-swimming; no floor sink"
+    },
+    {
+      "name": "fountain_leave",
+      "spawn": [
+        5.08,
+        1.695,
+        6.05,
+        180
+      ],
+      "camera": [
+        180,
+        -12
+      ],
+      "purpose": "Real held-controller Aero collision route fountain_leave",
+      "move_script": "forward@0-.75,jump@.05-.11",
+      "capture_frame": 150,
+      "expected": "Jump out of shallow basin to dry0floor; tune if rim collision requires earlier jump"
+    },
+    {
+      "name": "north_glass_stop",
+      "spawn": [
+        5.4,
+        1,
+        0
+      ],
+      "camera": [
+        0,
+        -12
+      ],
+      "purpose": "Real held-controller Aero collision route north_glass_stop",
+      "move_script": "forward@0-.8",
+      "capture_frame": 90,
+      "expected": "Stop centerz\u2248.554 against actual pane, no room escape"
+    },
+    {
+      "name": "terrace_boundary",
+      "spawn": [
+        16,
+        18.8,
+        180
+      ],
+      "camera": [
+        180,
+        -12
+      ],
+      "purpose": "Real held-controller Aero collision route terrace_boundary",
+      "move_script": "forward@0-1,jump@.2-.26",
+      "capture_frame": 90,
+      "expected": "Stop z\u226419.5 despite jump, never exit boundary"
+    },
+    {
+      "name": "partition_stop",
+      "spawn": [
+        4,
+        4.3,
+        -90
+      ],
+      "camera": [
+        -90,
+        -12
+      ],
+      "purpose": "Real held-controller Aero collision route partition_stop",
+      "move_script": "forward@0-.5",
+      "capture_frame": 90,
+      "expected": "Hit folded middle pane, no visual penetration"
+    },
+    {
+      "name": "planter_stop",
+      "spawn": [
+        1.2,
+        3.8,
+        0
+      ],
+      "camera": [
+        0,
+        -12
+      ],
+      "purpose": "Real held-controller Aero collision route planter_stop",
+      "move_script": "forward@0-1.0",
+      "capture_frame": 90,
+      "expected": "Stop nearz2.88 at pot front, no step into soil/trunk"
+    },
+    {
+      "name": "connected_loop",
+      "spawn": [
+        2.5,
+        10.1,
+        90
+      ],
+      "camera": [
+        90,
+        -12
+      ],
+      "purpose": "Continuous held-controller hero to terrace, reception, gray doors/tube, corridor and atrium circuit without player resets",
+      "move_script": "forward@0-1.1666667,look_right@1.2-2.2,forward@2.25-3.95,look_left@4-5,forward@5.05-12.05,look_left@12.1-13.1,forward@13.15-16.216667,look_left@16.25-17.25,forward@17.3-23.3",
+      "capture_frame": 1500,
+      "expected": "Return through corridor arch to atrium near x9,z6 with feet0, no resets or stuck controller"
+    },
+    {
+      "name": "bench_leave",
+      "spawn": [
+        2.4,
+        2.24,
+        2.45,
+        180
+      ],
+      "camera": [
+        180,
+        -12
+      ],
+      "purpose": "Walk off supported bench cushion onto the regular atrium floor",
+      "move_script": "forward@0-.5",
+      "capture_frame": 150,
+      "expected": "Leave .64m seat and land on dry floor0 without jumping or falling through support"
+    }
+  ]
+}

@@ -1,0 +1,299 @@
+{
+  "format_version": 1,
+  "level": "frutiger_aero_demo",
+  "source": "assets/levels/frutiger_aero_demo.json",
+  "package": "assets/levels/frutiger_aero_demo.placesmap",
+  "base_revision": "572decd76f7b577ab1a30be8a5dec50864bad4cf",
+  "settings": {
+    "bindings": {
+      "forward": "W",
+      "backward": "S",
+      "strafe_left": "A",
+      "strafe_right": "D",
+      "look_up": "UP",
+      "look_down": "DOWN",
+      "look_left": "LEFT",
+      "look_right": "RIGHT",
+      "jump": "SPACE",
+      "crouch": "C",
+      "interact": "E"
+    },
+    "look_speed_h": 90,
+    "look_speed_v": 60,
+    "walk_speed": 3,
+    "invert_look": false,
+    "mouse_sensitivity": 0.12,
+    "quality": "high",
+    "texture_filtering": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": false,
+    "use_low_quality_lighting": false,
+    "vsync": false,
+    "fov_degrees": 60,
+    "window_mode": "windowed",
+    "window_width": 640,
+    "window_height": 360
+  },
+  "bake": {
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ],
+    "workers": 12,
+    "force_for_cold_measurement": true,
+    "algorithm": "unchanged normal compiler defaults; see package inspect for prepared settings"
+  },
+  "environment": {
+    "sky": "frutiger_aero:tex_sky_day_01",
+    "sun": "aero_sun aligned bearing/elevation +45 degrees",
+    "fog": "source environment is authoritative",
+    "animation": "No creature/locomotion animation is depicted or required; normal water system retained"
+  },
+  "capture": {
+    "ready_world_seconds": 0.5,
+    "warmup_frames": 15,
+    "limit_frames": 2400,
+    "expected_drawable": [
+      1280,
+      720
+    ]
+  },
+  "views": [
+    {
+      "name": "hero",
+      "spawn": [
+        2.5,
+        10.1,
+        38
+      ],
+      "camera": [
+        38,
+        5
+      ],
+      "purpose": "Hero: bubble fountain, dome, white frames, aqua tiles and nature banner"
+    },
+    {
+      "name": "architecture",
+      "spawn": [
+        8.6,
+        9.4,
+        -23
+      ],
+      "camera": [
+        -23,
+        26
+      ],
+      "purpose": "Glazed dome and segmented northern/western bays"
+    },
+    {
+      "name": "water",
+      "spawn": [
+        6,
+        9.4,
+        0
+      ],
+      "camera": [
+        0,
+        -18
+      ],
+      "purpose": "Real circular water, white rim and three faceted cyan bubbles"
+    },
+    {
+      "name": "bubble_side",
+      "spawn": [
+        9.4,
+        6,
+        -90
+      ],
+      "camera": [
+        -90,
+        0
+      ],
+      "purpose": "Translucent sculpture reciprocal side with leaf"
+    },
+    {
+      "name": "seating",
+      "spawn": [
+        27.8,
+        9.8,
+        90
+      ],
+      "camera": [
+        90,
+        -16
+      ],
+      "purpose": "Clear waiting-area view of the full curved seating shell, twin cushions and short feet"
+    },
+    {
+      "name": "partition",
+      "spawn": [
+        5,
+        4.3,
+        -90
+      ],
+      "camera": [
+        -90,
+        -5
+      ],
+      "purpose": "Three folded cyan panels with three angular leaves"
+    },
+    {
+      "name": "kiosk",
+      "spawn": [
+        3.5,
+        8,
+        -90
+      ],
+      "camera": [
+        -90,
+        -2
+      ],
+      "purpose": "Welcome kiosk branding, lime inset and squat plinth"
+    },
+    {
+      "name": "corridor",
+      "spawn": [
+        12.8,
+        6,
+        90
+      ],
+      "camera": [
+        90,
+        6
+      ],
+      "purpose": "Lime arch, repeated cyan ceiling rings, leaf glazing, planters and terminal double doors"
+    },
+    {
+      "name": "tube",
+      "spawn": [
+        27,
+        6,
+        -90
+      ],
+      "camera": [
+        -90,
+        8
+      ],
+      "purpose": "Open gray terminal leaves and faceted cyan barrel canopy"
+    },
+    {
+      "name": "reception",
+      "spawn": [
+        27.8,
+        7.8,
+        0
+      ],
+      "camera": [
+        0,
+        7
+      ],
+      "purpose": "Curved reception counter, two terminals, rounded soffit and PLACES banner"
+    },
+    {
+      "name": "accent",
+      "spawn": [
+        29.1,
+        4.1,
+        90
+      ],
+      "camera": [
+        90,
+        0
+      ],
+      "purpose": "Broad diagonal white stripe and lime leaves on tall cyan panel"
+    },
+    {
+      "name": "terrace",
+      "spawn": [
+        6,
+        14.2,
+        180
+      ],
+      "camera": [
+        180,
+        4
+      ],
+      "purpose": "Accessible garden terrace with vegetation, bench and contained boundary"
+    },
+    {
+      "name": "skyline",
+      "spawn": [
+        6,
+        2,
+        0
+      ],
+      "camera": [
+        0,
+        10
+      ],
+      "purpose": "Distant blue towers, greenery and pale cloud sky through glass"
+    },
+    {
+      "name": "dome_outside",
+      "spawn": [
+        6,
+        16,
+        0
+      ],
+      "camera": [
+        0,
+        28
+      ],
+      "purpose": "Glazed dome from connected terrace"
+    },
+    {
+      "name": "sky_sun",
+      "spawn": [
+        12,
+        15,
+        45
+      ],
+      "camera": [
+        45,
+        45
+      ],
+      "purpose": "Panorama sun matches directional light"
+    },
+    {
+      "name": "banner_atrium",
+      "spawn": [
+        9,
+        3.5,
+        0
+      ],
+      "camera": [
+        0,
+        7
+      ],
+      "purpose": "Dedicated atrium fitted banner face and exact branding"
+    },
+    {
+      "name": "banner_corridor",
+      "spawn": [
+        28.8,
+        8.1,
+        90
+      ],
+      "camera": [
+        90,
+        0
+      ],
+      "purpose": "Dedicated corridor banner face viewed from reception"
+    },
+    {
+      "name": "banner_reception",
+      "spawn": [
+        28,
+        5.2,
+        0
+      ],
+      "camera": [
+        0,
+        6
+      ],
+      "purpose": "Dedicated reception fitted banner face behind counter"
+    }
+  ]
+}

@@ -13,3 +13,5 @@ apps/places-pocketchip/THIRD_PARTY_LICENSES.txt -whitespace
 /debug-maps/compiler-audit-20261003/packages/*.placesmap filter=lfs diff=lfs merge=lfs -text
 /debug-maps/compiler-audit-20261003/licenses/SDL3-LICENSE.txt -whitespace
 /debug-maps/compiler-audit-20261003/licenses/THIRD_PARTY_LICENSES.txt -whitespace
+
+/assets/levels/frutiger_aero_demo.placesmap filter=lfs diff=lfs merge=lfs -text

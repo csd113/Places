@@ -238,7 +238,10 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
     // 2278, all under the 3000-triangle skinned-character ceiling).
     // Winter evergreens preserve all 708 canonical triangles and add closed,
     // supported bough coats: 1284/1380 triangles, both under 1500.
+    // Aero dome retains 16 structural ribs, a closed glazed shell and radial soffit
+    // at meaningful 12 m scale: 1152 triangles, under the existing 1500 ceiling.
     let detailed_props = [
+        "frutiger_aero:atrium_dome",
         "spooner-man",
         "mannequin",
         "rat",

@@ -589,13 +589,15 @@ class Mesh:
 
     def material(self, name: str, emissive=None, strength: float = 1.0, color=None,
                  alpha_mode: str | None = None, alpha_cutoff: float | None = None,
-                 use_texture: bool = True, roughness: float = 1.0, metallic: float = 0.0) -> int:
+                 use_texture: bool = True, roughness: float = 1.0, metallic: float = 0.0,
+                 opacity: float = 1.0) -> int:
         """Registers (or returns) a material slot.
 
         ``emissive`` is an RGB triple in 0..1, ``strength`` the
         ``KHR_materials_emissive_strength`` multiplier and ``color`` an
         0..255 RGB triple written as ``baseColorFactor``. ``alpha_mode`` is
-        ``None``/``"opaque"`` or ``"mask"`` with an optional ``alpha_cutoff``
+        ``None``/``"opaque"``, ``"blend"`` with scalar ``opacity``, or
+        ``"mask"`` with an optional ``alpha_cutoff``
         (glTF default 0.5); a masked material draws through the game's
         alpha-tested cutout pass, which is how foliage cards work.
         ``use_texture=False`` uses the runtime's committed white PNG, allowing
@@ -604,9 +606,14 @@ class Mesh:
         differently is a builder bug and raises.
         """
         mode = None if alpha_mode in (None, "opaque") else str(alpha_mode)
-        if mode not in (None, "mask"):
-            raise ValueError(f"material {name!r} alpha_mode must be 'opaque' or 'mask'")
-        cutoff = None if mode is None else (0.5 if alpha_cutoff is None else float(alpha_cutoff))
+        if mode not in (None, "mask", "blend"):
+            raise ValueError(f"material {name!r} alpha_mode must be 'opaque', 'mask' or 'blend'")
+        opacity = float(opacity)
+        if not math.isfinite(opacity) or not 0.0 <= opacity <= 1.0:
+            raise ValueError(f"material {name!r} opacity must be finite and in 0..=1")
+        if mode != "blend" and opacity != 1.0:
+            raise ValueError(f"material {name!r} scalar opacity requires alpha_mode='blend'")
+        cutoff = None if mode != "mask" else (0.5 if alpha_cutoff is None else float(alpha_cutoff))
         if cutoff is not None and not 0.0 <= cutoff <= 1.0:
             raise ValueError(f"material {name!r} alpha_cutoff must be in 0..=1")
         if not 0.0 <= roughness <= 1.0 or not 0.0 <= metallic <= 1.0:
@@ -621,6 +628,10 @@ class Mesh:
             "use_texture": bool(use_texture),
             "roughness": float(roughness), "metallic": float(metallic),
         }
+        # Omit the default so existing opaque/MASK slot dictionaries and
+        # serialized GLBs retain their exact historical output.
+        if opacity != 1.0:
+            slot["opacity"] = opacity
         for index, existing in enumerate(self.materials):
             if existing["name"] == slot["name"]:
                 if existing != slot:

@@ -30,6 +30,11 @@
       "id": "beach",
       "display_name": "Beach",
       "description": "Warm low-poly tropical coast: cream sand, turquoise polygon-cell water, banded palms, timber beach structures and a pastel seaside town."
+    },
+    {
+      "id": "frutiger_aero",
+      "display_name": "Frutiger Aero",
+      "description": "Airy optimistic early2000s clean white/aqua/green architecture and natural branding."
     }
   ],
   "assets": [
@@ -6294,6 +6299,599 @@
       "category": "Beach Animals",
       "solid": false,
       "description": "Yellow/turquoise fish with dorsal fin and forked tail; looping swim clip. Start playback with an explicit play_animation action."
+    },
+    {
+      "id": "frutiger_aero:tex_white_panel_01",
+      "display_name": "White Panel",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/frutiger_aero/textures/walls/white_panel_01.png",
+      "surface": "wall",
+      "description": "1024-square retained master and 512-square seamless runtime artwork; ordinary builds load committed PNGs."
+    },
+    {
+      "id": "frutiger_aero:tex_aqua_tile_01",
+      "display_name": "Aqua Tile",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/frutiger_aero/textures/floors/aqua_tile_01.png",
+      "surface": "floor",
+      "description": "1024-square retained master and 512-square seamless runtime artwork; ordinary builds load committed PNGs."
+    },
+    {
+      "id": "frutiger_aero:tex_cyan_glass_01",
+      "display_name": "Cyan Glass",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/frutiger_aero/textures/walls/cyan_glass_01.png",
+      "surface": "wall",
+      "description": "Seamless 512-square cyan glass with straight alpha52..64; retained1024-square master, no painted highlights."
+    },
+    {
+      "id": "frutiger_aero:tex_cyan_water_01",
+      "display_name": "Cyan Water",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/frutiger_aero/textures/water/cyan_water_01.png",
+      "surface": "floor",
+      "description": "1024-square retained master and 512-square seamless runtime artwork; ordinary builds load committed PNGs."
+    },
+    {
+      "id": "frutiger_aero:tex_sky_day_01",
+      "display_name": "Sky Day",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/frutiger_aero/textures/sky/sky_day_01.png",
+      "surface": "sky",
+      "description": "Opaque U-periodic 2048x1024 equirectangular day panorama; +45 degree sun bearing/elevation."
+    },
+    {
+      "id": "frutiger_aero:decal_atrium_banner_01",
+      "display_name": "Atrium Banner",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "environment/frutiger_aero/decals/atrium_banner_01.png",
+      "description": "Exact concept typography/leaf artwork, POT fitted RGBA cutout; transparent margins and placement aspect preserved."
+    },
+    {
+      "id": "frutiger_aero:decal_corridor_typography_01",
+      "display_name": "Corridor Typography",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "environment/frutiger_aero/decals/corridor_typography_01.png",
+      "description": "Exact concept typography/leaf artwork, POT fitted RGBA cutout; transparent margins and placement aspect preserved."
+    },
+    {
+      "id": "frutiger_aero:decal_reception_banner_01",
+      "display_name": "Reception Banner",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "environment/frutiger_aero/decals/reception_banner_01.png",
+      "description": "Exact concept typography/leaf artwork, POT fitted RGBA cutout; transparent margins and placement aspect preserved."
+    },
+    {
+      "id": "frutiger_aero:decal_kiosk_typography_01",
+      "display_name": "Kiosk Typography",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "environment/frutiger_aero/decals/kiosk_typography_01.png",
+      "description": "Exact concept typography/leaf artwork, POT fitted RGBA cutout; transparent margins and placement aspect preserved."
+    },
+    {
+      "id": "frutiger_aero:decal_leaf_brand_01",
+      "display_name": "Leaf Brand",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "environment/frutiger_aero/decals/leaf_brand_01.png",
+      "description": "Exact concept typography/leaf artwork, POT fitted RGBA cutout; transparent margins and placement aspect preserved."
+    },
+    {
+      "id": "frutiger_aero:white_panel_01",
+      "display_name": "Aero White Panel",
+      "surface": "wall",
+      "texture": "frutiger_aero:tex_white_panel_01",
+      "tile_metres": 2.4,
+      "specular": 0.18,
+      "shine": 0.3,
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "material",
+      "source": "definition",
+      "description": "Clean concept albedo and controlled sheen through existing material facilities; no exposure compensation."
+    },
+    {
+      "id": "frutiger_aero:white_floor_01",
+      "display_name": "Aero White Floor",
+      "surface": "floor",
+      "texture": "frutiger_aero:tex_white_panel_01",
+      "tile_metres": 2.4,
+      "specular": 0.28,
+      "shine": 0.42,
+      "reflection_mode": "probe",
+      "reflection_strength": 0.16,
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "material",
+      "source": "definition",
+      "description": "Clean concept albedo and controlled sheen through existing material facilities; no exposure compensation."
+    },
+    {
+      "id": "frutiger_aero:aqua_tile_01",
+      "display_name": "Aero Aqua Tile",
+      "surface": "floor",
+      "texture": "frutiger_aero:tex_aqua_tile_01",
+      "tile_metres": 2.4,
+      "grid_metres": 0.6,
+      "specular": 0.32,
+      "shine": 0.5,
+      "reflection_mode": "probe",
+      "reflection_strength": 0.16,
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "material",
+      "source": "definition",
+      "description": "Clean concept albedo and controlled sheen through existing material facilities; no exposure compensation."
+    },
+    {
+      "id": "frutiger_aero:cyan_glass_01",
+      "display_name": "Aero Cyan Glass",
+      "surface": "wall",
+      "texture": "frutiger_aero:tex_cyan_glass_01",
+      "tile_metres": 2.4,
+      "alpha_mode": "blend",
+      "opacity": 0.9,
+      "specular": 0.28,
+      "shine": 0.72,
+      "reflection_mode": "probe",
+      "reflection_strength": 0.12,
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "material",
+      "source": "definition",
+      "description": "Clean concept albedo and controlled sheen through existing material facilities; no exposure compensation."
+    },
+    {
+      "id": "frutiger_aero:cyan_water_01",
+      "display_name": "Aero Cyan Water",
+      "surface": "floor",
+      "texture": "frutiger_aero:tex_cyan_water_01",
+      "tile_metres": 2.4,
+      "alpha_mode": "blend",
+      "opacity": 1.0,
+      "specular": 0.4,
+      "shine": 0.75,
+      "reflection_mode": "probe",
+      "reflection_strength": 0.18,
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "material",
+      "source": "definition",
+      "description": "Controlled Aero sheen through the existing material/reflection path. WaterDef opacity/depth supplies water coverage; no new reflection or refraction system."
+    },
+    {
+      "id": "frutiger_aero:wall_bay",
+      "display_name": "Frutiger Aero Wall Bay",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/frutiger_aero/props/models/wall_bay.glb",
+      "size": [
+        3.6,
+        3.4,
+        0.556
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:wall_bay_tall",
+      "display_name": "Frutiger Aero Wall Bay Tall",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/frutiger_aero/props/models/wall_bay_tall.glb",
+      "size": [
+        3.6,
+        4.2,
+        0.556
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:lime_arch",
+      "display_name": "Frutiger Aero Lime Arch",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/frutiger_aero/props/models/lime_arch.glb",
+      "size": [
+        3.6,
+        3.4,
+        0.463
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:glass_partition",
+      "display_name": "Frutiger Aero Glass Partition",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/frutiger_aero/props/models/glass_partition.glb",
+      "size": [
+        3.495,
+        2.5,
+        0.695
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:light_pod",
+      "display_name": "Frutiger Aero Light Pod",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/frutiger_aero/props/models/light_pod.glb",
+      "size": [
+        2.4,
+        3.6,
+        2.4
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:tree_planter",
+      "display_name": "Frutiger Aero Tree Planter",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/frutiger_aero/props/models/tree_planter.glb",
+      "size": [
+        1.586167,
+        3.00887,
+        1.628473
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": true
+    },
+    {
+      "id": "frutiger_aero:seating_pod",
+      "display_name": "Frutiger Aero Seating Pod",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/frutiger_aero/props/models/seating_pod.glb",
+      "size": [
+        2.4,
+        1.04,
+        1.1
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": true
+    },
+    {
+      "id": "frutiger_aero:display_kiosk",
+      "display_name": "Frutiger Aero Display Kiosk",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/frutiger_aero/props/models/display_kiosk.glb",
+      "size": [
+        1.0,
+        2.4,
+        0.597
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": true
+    },
+    {
+      "id": "frutiger_aero:fountain_basin",
+      "display_name": "Frutiger Aero Fountain Basin",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/frutiger_aero/props/models/fountain_basin.glb",
+      "size": [
+        3.2,
+        0.46,
+        3.2
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:bubble_sculpture",
+      "display_name": "Frutiger Aero Bubble Sculpture",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/frutiger_aero/props/models/bubble_sculpture.glb",
+      "size": [
+        1.351268,
+        2.7,
+        1.236373
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:glass_canopy",
+      "display_name": "Frutiger Aero Glass Canopy",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/frutiger_aero/props/models/glass_canopy.glb",
+      "size": [
+        3.2,
+        3.4,
+        3.6
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:accent_panel",
+      "display_name": "Frutiger Aero Accent Panel",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/frutiger_aero/props/models/accent_panel.glb",
+      "size": [
+        1.1,
+        2.2,
+        0.07
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": true
+    },
+    {
+      "id": "frutiger_aero:atrium_dome",
+      "display_name": "Frutiger Aero Atrium Dome",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/frutiger_aero/props/models/atrium_dome.glb",
+      "size": [
+        12.0,
+        2.447466,
+        12.0
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:ceiling_ring",
+      "display_name": "Frutiger Aero Ceiling Ring",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/frutiger_aero/props/models/ceiling_ring.glb",
+      "size": [
+        1.3,
+        0.13,
+        1.3
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:double_doors",
+      "display_name": "Frutiger Aero Double Doors",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/frutiger_aero/props/models/double_doors.glb",
+      "size": [
+        2.8,
+        3.2,
+        0.34
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:double_doors_open",
+      "display_name": "Frutiger Aero Double Doors Open",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/frutiger_aero/props/models/double_doors_open.glb",
+      "size": [
+        2.8,
+        3.2,
+        1.345823
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:reception_counter",
+      "display_name": "Frutiger Aero Reception Counter",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/frutiger_aero/props/models/reception_counter.glb",
+      "size": [
+        4.5,
+        1.38,
+        1.477571
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:reception_soffit",
+      "display_name": "Frutiger Aero Reception Soffit",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/frutiger_aero/props/models/reception_soffit.glb",
+      "size": [
+        5.2,
+        0.34,
+        2.1
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:banner_atrium",
+      "display_name": "Frutiger Aero Banner Atrium",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/frutiger_aero/props/models/banner_atrium.glb",
+      "size": [
+        1.2,
+        2.4,
+        0.06
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:banner_corridor",
+      "display_name": "Frutiger Aero Banner Corridor",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/frutiger_aero/props/models/banner_corridor.glb",
+      "size": [
+        1.2,
+        2.4,
+        0.06
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:banner_reception",
+      "display_name": "Frutiger Aero Banner Reception",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/frutiger_aero/props/models/banner_reception.glb",
+      "size": [
+        1.2,
+        2.4,
+        0.06
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:city_backdrop",
+      "display_name": "Frutiger Aero City Backdrop",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/frutiger_aero/props/models/city_backdrop.glb",
+      "size": [
+        23.85,
+        8.6,
+        2.841
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:green_backdrop",
+      "display_name": "Frutiger Aero Green Backdrop",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/frutiger_aero/props/models/green_backdrop.glb",
+      "size": [
+        24.0,
+        1.3,
+        5.0
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:white_ceiling_01",
+      "display_name": "Aero Matte Ceiling",
+      "surface": "ceiling",
+      "texture": "frutiger_aero:tex_white_panel_01",
+      "tile_metres": 2.4,
+      "specular": 0.05,
+      "shine": 0.08,
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "material",
+      "source": "definition",
+      "description": "Diffuse pale ceiling panels with restrained broad response, using the committed white panel artwork."
     }
   ]
 }

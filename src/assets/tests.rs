@@ -131,7 +131,15 @@ fn shipped_catalog_classifies_environments_themes_and_entities() {
         .collect();
     assert_eq!(
         themes,
-        ["office", "pool", "home", "outdoor", "winter", "beach"]
+        [
+            "office",
+            "pool",
+            "home",
+            "outdoor",
+            "winter",
+            "beach",
+            "frutiger_aero"
+        ]
     );
     assert!(
         catalog

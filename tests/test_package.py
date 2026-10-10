@@ -159,8 +159,8 @@ class ShippedLevelTests(unittest.TestCase):
         shipped = {path.stem: load_level(path) for path in level_files()}
         self.assertEqual(
             set(shipped),
-            {"places_demo", "model_zoo", "lantern_hollow", "movement_test", "winter", "beach_demo"},
-            "the showcases, Movement Test, Winter and Beach are bundled levels",
+            {"places_demo", "model_zoo", "lantern_hollow", "movement_test", "winter", "beach_demo", "frutiger_aero_demo"},
+            "the showcases, Movement Test, Winter, Beach and Aero are bundled levels",
         )
         demo = shipped["places_demo"]
         self.assertEqual(demo["id"], "places_demo")
@@ -188,7 +188,7 @@ class ShippedLevelTests(unittest.TestCase):
         packages = {path.stem: path for path in package_files()}
         self.assertEqual(
             set(packages),
-            {"places_demo", "model_zoo", "lantern_hollow", "movement_test", "winter", "beach_demo"},
+            {"places_demo", "model_zoo", "lantern_hollow", "movement_test", "winter", "beach_demo", "frutiger_aero_demo"},
             "each bundled level has a compiled package",
         )
         for stem, path in packages.items():
@@ -275,6 +275,12 @@ class ShippedLevelTests(unittest.TestCase):
                                 "Beach has no daylight source")
                 self.assertEqual(level["sky"]["texture"], "beach:tex_sky_day_01")
                 self.assertTrue(level.get("props"), "Beach has no structural scenery")
+            elif level["id"] == "frutiger_aero_demo":
+                self.assertEqual(level["sky"]["texture"], "frutiger_aero:tex_sky_day_01")
+                self.assertTrue(any(room.get("ceiling", {}).get("kind") == "open" for room in rooms))
+                self.assertTrue(any(light["kind"] == "directional" and light["intensity"] > 0
+                                    for light in level.get("global_illuminators", [])))
+                self.assertTrue(any(prop.get("lights") for prop in level["props"]))
             else:
                 self.assertGreaterEqual(len(level.get("walls", [])), 1, f"{path.name} has no walls")
                 self.assertGreaterEqual(

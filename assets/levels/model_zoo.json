@@ -351,6 +351,15 @@
       "height": 8.5,
       "material": "core:pool_tile_basin_01",
       "ceiling_material": "core:pool_ceiling_01"
+    },
+    {
+      "x": 73.2,
+      "z": 61.35,
+      "width": 24,
+      "depth": 20,
+      "height": 7.3,
+      "material": "core:pool_tile_deck_01",
+      "ceiling_material": "core:pool_ceiling_01"
     }
   ],
   "walls": [
@@ -413,6 +422,39 @@
       "width": 0.4,
       "depth": 20.0,
       "height": 7.3,
+      "material": "core:pool_tile_wall_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 8,
+          "width": 4,
+          "height": 3,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": 73.2,
+      "z": 60.95,
+      "width": 24.4,
+      "depth": 0.4,
+      "height": 7.3,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 73.2,
+      "z": 81.35,
+      "width": 24.4,
+      "depth": 0.4,
+      "height": 7.3,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 97.2,
+      "z": 61.35,
+      "width": 0.4,
+      "depth": 20,
+      "height": 7.3,
       "material": "core:pool_tile_wall_01"
     }
   ],
@@ -447,6 +489,17 @@
       "swimming": false,
       "material": "beach:water_shallow_01",
       "opacity": 0.34
+    },
+    {
+      "shape": "circle",
+      "x": 93.9,
+      "z": 66.05,
+      "radius": 1.3,
+      "surface_y": 0.37,
+      "bottom_y": 0.1,
+      "swimming": false,
+      "material": "frutiger_aero:cyan_water_01",
+      "opacity": 0.44
     }
   ],
   "ladders": [
@@ -2888,6 +2941,216 @@
       "id": "zoo:beach-light:4:5",
       "fixture": "core:pool_light_round",
       "x": 71.2,
+      "z": 79.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:0:0",
+      "fixture": "core:pool_light_round",
+      "x": 75.2,
+      "z": 63.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:0:1",
+      "fixture": "core:pool_light_round",
+      "x": 79.2,
+      "z": 63.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:0:2",
+      "fixture": "core:pool_light_round",
+      "x": 83.2,
+      "z": 63.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:0:3",
+      "fixture": "core:pool_light_round",
+      "x": 87.2,
+      "z": 63.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:0:4",
+      "fixture": "core:pool_light_round",
+      "x": 91.2,
+      "z": 63.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:0:5",
+      "fixture": "core:pool_light_round",
+      "x": 95.2,
+      "z": 63.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:1:0",
+      "fixture": "core:pool_light_round",
+      "x": 75.2,
+      "z": 67.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:1:1",
+      "fixture": "core:pool_light_round",
+      "x": 79.2,
+      "z": 67.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:1:2",
+      "fixture": "core:pool_light_round",
+      "x": 83.2,
+      "z": 67.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:1:3",
+      "fixture": "core:pool_light_round",
+      "x": 87.2,
+      "z": 67.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:1:4",
+      "fixture": "core:pool_light_round",
+      "x": 91.2,
+      "z": 67.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:1:5",
+      "fixture": "core:pool_light_round",
+      "x": 95.2,
+      "z": 67.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:2:0",
+      "fixture": "core:pool_light_round",
+      "x": 75.2,
+      "z": 71.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:2:1",
+      "fixture": "core:pool_light_round",
+      "x": 79.2,
+      "z": 71.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:2:2",
+      "fixture": "core:pool_light_round",
+      "x": 83.2,
+      "z": 71.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:2:3",
+      "fixture": "core:pool_light_round",
+      "x": 87.2,
+      "z": 71.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:2:4",
+      "fixture": "core:pool_light_round",
+      "x": 91.2,
+      "z": 71.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:2:5",
+      "fixture": "core:pool_light_round",
+      "x": 95.2,
+      "z": 71.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:3:0",
+      "fixture": "core:pool_light_round",
+      "x": 75.2,
+      "z": 75.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:3:1",
+      "fixture": "core:pool_light_round",
+      "x": 79.2,
+      "z": 75.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:3:2",
+      "fixture": "core:pool_light_round",
+      "x": 83.2,
+      "z": 75.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:3:3",
+      "fixture": "core:pool_light_round",
+      "x": 87.2,
+      "z": 75.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:3:4",
+      "fixture": "core:pool_light_round",
+      "x": 91.2,
+      "z": 75.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:3:5",
+      "fixture": "core:pool_light_round",
+      "x": 95.2,
+      "z": 75.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:4:0",
+      "fixture": "core:pool_light_round",
+      "x": 75.2,
+      "z": 79.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:4:1",
+      "fixture": "core:pool_light_round",
+      "x": 79.2,
+      "z": 79.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:4:2",
+      "fixture": "core:pool_light_round",
+      "x": 83.2,
+      "z": 79.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:4:3",
+      "fixture": "core:pool_light_round",
+      "x": 87.2,
+      "z": 79.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:4:4",
+      "fixture": "core:pool_light_round",
+      "x": 91.2,
+      "z": 79.35,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:aero-light:4:5",
+      "fixture": "core:pool_light_round",
+      "x": 95.2,
       "z": 79.35,
       "brightness": 0.52
     }
@@ -10658,6 +10921,700 @@
         }
       ],
       "scale": 1.0
+    },
+    {
+      "id": "zoo:frutiger_aero-accent_panel:floor",
+      "display_name": "Frutiger Aero Accent Panel",
+      "model": "frutiger_aero:accent_panel",
+      "x": 75.2,
+      "z": 63.35,
+      "size": [
+        1.1,
+        2.2,
+        0.07
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 1.0
+    },
+    {
+      "id": "zoo:frutiger_aero-atrium_dome:ceiling",
+      "display_name": "Frutiger Aero Atrium Dome",
+      "model": "frutiger_aero:atrium_dome",
+      "x": 79.2,
+      "z": 63.35,
+      "size": [
+        12.0,
+        2.447,
+        12.0
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.26666666666666666,
+      "y": 6.647
+    },
+    {
+      "id": "zoo:frutiger_aero-banner_atrium:floor",
+      "display_name": "Frutiger Aero Banner Atrium",
+      "model": "frutiger_aero:banner_atrium",
+      "x": 83.2,
+      "z": 63.35,
+      "size": [
+        1.2,
+        2.4,
+        0.06
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 1.0
+    },
+    {
+      "id": "zoo:frutiger_aero-banner_corridor:floor",
+      "display_name": "Frutiger Aero Banner Corridor",
+      "model": "frutiger_aero:banner_corridor",
+      "x": 87.2,
+      "z": 63.35,
+      "size": [
+        1.2,
+        2.4,
+        0.06
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 1.0
+    },
+    {
+      "id": "zoo:frutiger_aero-banner_reception:floor",
+      "display_name": "Frutiger Aero Banner Reception",
+      "model": "frutiger_aero:banner_reception",
+      "x": 91.2,
+      "z": 63.35,
+      "size": [
+        1.2,
+        2.4,
+        0.06
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 1.0
+    },
+    {
+      "id": "zoo:frutiger_aero-bubble_sculpture:floor",
+      "display_name": "Frutiger Aero Bubble Sculpture",
+      "model": "frutiger_aero:bubble_sculpture",
+      "x": 95.2,
+      "z": 63.35,
+      "size": [
+        1.351,
+        2.7,
+        1.236
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 1.0
+    },
+    {
+      "id": "zoo:frutiger_aero-ceiling_ring:ceiling",
+      "display_name": "Frutiger Aero Ceiling Ring",
+      "model": "frutiger_aero:ceiling_ring",
+      "x": 75.2,
+      "z": 67.35,
+      "size": [
+        1.3,
+        0.13,
+        1.3
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 1.0,
+      "y": 7.17
+    },
+    {
+      "id": "zoo:frutiger_aero-city_backdrop:floor",
+      "display_name": "Frutiger Aero City Backdrop",
+      "model": "frutiger_aero:city_backdrop",
+      "x": 79.2,
+      "z": 67.35,
+      "size": [
+        23.85,
+        8.6,
+        2.841
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.13417190775681342
+    },
+    {
+      "id": "zoo:frutiger_aero-display_kiosk:floor",
+      "display_name": "Frutiger Aero Display Kiosk",
+      "model": "frutiger_aero:display_kiosk",
+      "x": 83.2,
+      "z": 67.35,
+      "size": [
+        1.0,
+        2.4,
+        0.597
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 1.0
+    },
+    {
+      "id": "zoo:frutiger_aero-double_doors:floor",
+      "display_name": "Frutiger Aero Double Doors",
+      "model": "frutiger_aero:double_doors",
+      "x": 87.2,
+      "z": 67.35,
+      "size": [
+        2.8,
+        3.2,
+        0.34
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 1.0
+    },
+    {
+      "id": "zoo:frutiger_aero-double_doors_open:floor",
+      "display_name": "Frutiger Aero Double Doors Open",
+      "model": "frutiger_aero:double_doors_open",
+      "x": 91.2,
+      "z": 67.35,
+      "size": [
+        2.8,
+        3.2,
+        1.346
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 1.0
+    },
+    {
+      "id": "zoo:frutiger_aero-fountain_basin:floor",
+      "display_name": "Frutiger Aero Fountain Basin",
+      "model": "frutiger_aero:fountain_basin",
+      "x": 95.2,
+      "z": 67.35,
+      "size": [
+        3.2,
+        0.46,
+        3.2
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 1.0
+    },
+    {
+      "id": "zoo:frutiger_aero-glass_canopy:floor",
+      "display_name": "Frutiger Aero Glass Canopy",
+      "model": "frutiger_aero:glass_canopy",
+      "x": 75.2,
+      "z": 71.35,
+      "size": [
+        3.2,
+        3.4,
+        3.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.888888888888889
+    },
+    {
+      "id": "zoo:frutiger_aero-glass_partition:floor",
+      "display_name": "Frutiger Aero Glass Partition",
+      "model": "frutiger_aero:glass_partition",
+      "x": 79.2,
+      "z": 71.35,
+      "size": [
+        3.495,
+        2.5,
+        0.695
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.9155937052932761
+    },
+    {
+      "id": "zoo:frutiger_aero-green_backdrop:floor",
+      "display_name": "Frutiger Aero Green Backdrop",
+      "model": "frutiger_aero:green_backdrop",
+      "x": 83.2,
+      "z": 71.35,
+      "size": [
+        24.0,
+        1.3,
+        5.0
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.13333333333333333
+    },
+    {
+      "id": "zoo:frutiger_aero-light_pod:ceiling",
+      "display_name": "Frutiger Aero Light Pod",
+      "model": "frutiger_aero:light_pod",
+      "x": 87.2,
+      "z": 71.35,
+      "size": [
+        2.4,
+        3.6,
+        2.4
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.888888888888889,
+      "y": 4.1
+    },
+    {
+      "id": "zoo:frutiger_aero-lime_arch:floor",
+      "display_name": "Frutiger Aero Lime Arch",
+      "model": "frutiger_aero:lime_arch",
+      "x": 91.2,
+      "z": 71.35,
+      "size": [
+        3.6,
+        3.4,
+        0.463
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.888888888888889
+    },
+    {
+      "id": "zoo:frutiger_aero-reception_counter:floor",
+      "display_name": "Frutiger Aero Reception Counter",
+      "model": "frutiger_aero:reception_counter",
+      "x": 95.2,
+      "z": 71.35,
+      "size": [
+        4.5,
+        1.38,
+        1.478
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.7111111111111111
+    },
+    {
+      "id": "zoo:frutiger_aero-reception_soffit:ceiling",
+      "display_name": "Frutiger Aero Reception Soffit",
+      "model": "frutiger_aero:reception_soffit",
+      "x": 75.2,
+      "z": 75.35,
+      "size": [
+        5.2,
+        0.34,
+        2.1
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.6153846153846154,
+      "y": 7.091
+    },
+    {
+      "id": "zoo:frutiger_aero-seating_pod:floor",
+      "display_name": "Frutiger Aero Seating Pod",
+      "model": "frutiger_aero:seating_pod",
+      "x": 79.2,
+      "z": 75.35,
+      "size": [
+        2.4,
+        1.04,
+        1.1
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 1.0
+    },
+    {
+      "id": "zoo:frutiger_aero-tree_planter:floor",
+      "display_name": "Frutiger Aero Tree Planter",
+      "model": "frutiger_aero:tree_planter",
+      "x": 83.2,
+      "z": 75.35,
+      "size": [
+        1.586,
+        3.009,
+        1.628
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 1.0
+    },
+    {
+      "id": "zoo:frutiger_aero-wall_bay:floor",
+      "display_name": "Frutiger Aero Wall Bay",
+      "model": "frutiger_aero:wall_bay",
+      "x": 87.2,
+      "z": 75.35,
+      "size": [
+        3.6,
+        3.4,
+        0.556
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.888888888888889
+    },
+    {
+      "id": "zoo:frutiger_aero-wall_bay_tall:floor",
+      "display_name": "Frutiger Aero Wall Bay Tall",
+      "model": "frutiger_aero:wall_bay_tall",
+      "x": 91.2,
+      "z": 75.35,
+      "size": [
+        3.6,
+        4.2,
+        0.556
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.7619047619047619
     }
   ],
   "decals": [

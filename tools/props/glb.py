@@ -492,8 +492,15 @@ def _write_extended_glb(mesh, texture_png: bytes, name: str, materials: List[dic
         pbr.update({"metallicFactor": entry.get("metallic", 0.0), "roughnessFactor": entry.get("roughness", 1.0)})
         if entry.get("use_texture", True):
             pbr["baseColorTexture"] = {"index": 0}
+        opacity = float(entry.get("opacity", 1.0))
+        if not math.isfinite(opacity) or not 0.0 <= opacity <= 1.0:
+            raise GltfError("material opacity must be finite and in 0..=1")
+        if entry.get("alpha_mode") != "blend" and opacity != 1.0:
+            raise GltfError("scalar opacity requires a blended material")
         if entry.get("color") is not None:
-            pbr["baseColorFactor"] = [round(float(channel) / 255.0, 6) for channel in entry["color"]] + [1.0]
+            pbr["baseColorFactor"] = [round(float(channel) / 255.0, 6) for channel in entry["color"]] + [round(opacity, 6)]
+        elif opacity != 1.0:
+            pbr["baseColorFactor"] = [1.0, 1.0, 1.0, round(opacity, 6)]
         material: Dict[str, Any] = {
             "name": str(entry.get("name") or f"{name}_mat_{index}"),
             "pbrMetallicRoughness": pbr,
@@ -509,6 +516,8 @@ def _write_extended_glb(mesh, texture_png: bytes, name: str, materials: List[dic
             material["alphaMode"] = "MASK"
             cutoff = entry.get("alpha_cutoff")
             material["alphaCutoff"] = round(0.5 if cutoff is None else float(cutoff), 6)
+        elif entry.get("alpha_mode") == "blend":
+            material["alphaMode"] = "BLEND"
         material["doubleSided"] = True
         materials_json.append(material)
 

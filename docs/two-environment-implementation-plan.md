@@ -601,4 +601,179 @@ The unmodified final gameplay set also shows the
 No critical defect remains in the reviewed space. Low retains reduced lighting,
 coarser pixels, faint real coast joins and subdued fish; anchored flight/swim clips
 and distant scenery are intentional. Other platforms/backends were not run.
-Phase 3 construction and local acceptance are complete; Phase 4 remains unstarted.
+Phase 3 construction and local acceptance preceded the Phase4 work recorded below.
+
+## 9. Phase 4 Frutiger Aero demo
+
+The Aero space connects a 12 m glazed atrium, luminous corridor, rounded reception
+and garden terrace. A leaf-and-bubble fountain anchors the hero; lime portals,
+repeated ceiling rings and a glass barrel lead through reception to the terrace
+and back to the atrium. Finished glazing, parapets and distant green/city scenery
+make the boundaries deliberate. All 23 new models appear at their intended scale
+in the playable space. Model Zoo gains a compact annex; its 248 older prop
+placements remain unchanged.
+
+**Final native hero**
+
+![Frutiger Aero hero: leaf fountain beneath a rounded glazed dome](images/two-environments/frutiger-aero/phase4-hero.png)
+
+[`build_frutiger_aero.py`](../tools/levels/build_frutiger_aero.py) generates
+[`frutiger_aero_demo.json`](../assets/levels/frutiger_aero_demo.json); the normal
+compiler publishes [`frutiger_aero_demo.placesmap`](../assets/levels/frutiger_aero_demo.placesmap)
+with Off/Medium/Full variants. Launch with
+`PLACES_ASSET_ROOT="$PWD" PLACES_LEVEL=frutiger_aero_demo target/release/places`.
+The [camera manifest](../tests/fixtures/native/frutiger-aero-manifest.json) records
+spawn X2.5/Z10.1, yaw38°, capture pitch5°, FOV60°, bloom off and 1280×720 drawable
+pixels (640×360 logical on this Retina host). Source spawn stores position/yaw;
+the capture supplies pitch.
+
+| Reference | Implemented construction and placement |
+| --- | --- |
+| A01 | Rounded white/cyan leaf wall bays, tall atrium glazing and reception windows |
+| A02 | Faceted lime portals connect atrium, corridor and garden |
+| A03 | Exactly three folded cyan glass panels in the atrium |
+| A04 | Octagonal suspended light pod, three cables attached to the dome |
+| A05 | Branched faceted trees, leaf clusters and aqua planters in all connected areas |
+| A06 | Curved white bench shells, two cyan cushions, sloping arms and short feet |
+| A07 | Leaf kiosk bearing “A BRIGHTER TOMORROW” with a rounded base |
+| A08 | Circular white basin, real shallow cyan water and three faceted leaf bubbles |
+| A09 | Hollow cyan barrel canopy at reception entrance |
+| A10 | Lime leaf accent panel with white diagonal stripe |
+| A11 | Full 12 m glazed dome, 16 ribs and radial soffit |
+| A12 | Repeated rounded corridor rings and terminal double doors, closed service variant |
+| A13 | Curved reception counter, two terminals, rounded soffit and three warm downlights |
+| A14 | Three distinct optimism/nature banners and corridor decal |
+| A15 | Fresh green scenic banks, varied blue city towers and seamless airy daylight sky |
+
+The asset set contains 23 GLBs (6,864 triangles), 26 committed PNGs, six surface
+materials and five reusable decal entries. Four surfaces retain periodic master/
+runtime pairs; dedicated graphic atlases retain fitted 1:2 face cells and stock
+swatches. The sky is U-periodic, top-down and oriented to the existing +45° sun.
+The immutable concept sheet's SHA256 remains
+`4cc998ad3535219dd2d938c495f4274bad92712c5464715c618c0abc8d8bb34a`.
+No character or locomotion animation is depicted; the fountain uses the existing
+water presentation. The [asset README](../assets/environment/frutiger_aero/README.md)
+records the complete model/texture contracts.
+
+A narrow Python GLB writer change adds BLEND and scalar opacity using existing
+runtime transparency. Default opaque/MASK bytes, embedded texture alpha and
+material slots retain their semantics; focused tests pin historical exports.
+No production Rust renderer, movement, lighting precision, storage format or
+reflection framework changed. Closed faceted glass uses restrained opacity;
+no nested-glass sorting guarantee is made. Smooth highlights reuse existing
+normals, direct lights and material controls. Whites retain physical fill;
+exposure/tone/saturation controls match the accepted Beach baseline.
+
+Structural collision follows jambs, folded panes, seat stock, individual dome
+ribs and fitted roof strips rather than sealing openings with visual bounds.
+The fountain's shallow slab/rim permits jumping in and walking back out. Roof
+carriers fit inside actual curved glass stock, with subpixel carrier meshes
+independent of explicit collision extents. This removes the dark carrier dots
+visible through transparent glazing, diagnosed by native pixel projection. Real room floors retain
+one owner per point. No duplicate rendered basin floor or movement redesign was
+introduced. The reception downlight caps sit 20 mm below their housing;
+a native close view exposed and corrected coincident triangle faces.
+
+Independent review accepted A01–A15 against actual reference and native pixels:
+54 High/Medium/Low overviews, 27 lighting/transparency/proximity controls and
+20 controller endpoints. The 20 routes contain 817 loaded state samples (951
+raw rows), including the connected loop, both narrow canopy directions,
+reception service lane, bench jump/exit, fountain entry/exit and perimeter
+boundaries. All sampled body-clearance/support and intended endpoint checks
+pass. Six live quality captures restore byte-identical High and Low images;
+four reciprocal proximity pairs remain byte-identical. Dynamic/static captures
+use different world positions, so they do not prove equal irradiance at a shared
+point. These are sampled paths and views, rather than every possible input.
+
+Six current Hero views match six original native controls exactly. Three High
+and three Low Beach views match the accepted Phase3 pixels exactly, including
+underwater fish. All ten pre-existing installed packages outside Zoo retain
+identical runtime archive members; their catalog provenance alone changes.
+Beach is now 43,569,899 bytes, three compressed provenance bytes smaller than
+Phase3. Catalog extension required an isolated original catalog to validate the
+original Hero controls; the production currentness guard remains intact.
+The exact-theme fixture now includes Aero, and daylight fixtures explicitly
+include both Beach and Aero while preserving their original assertions.
+
+`RUSTC_WRAPPER= CARGO_BUILD_JOBS=12 sh tools/verify.sh` passed the actual
+configured desktop gate: asset validation/audit, deterministic prop and source
+checks, normal package regression, formatting/checks, strict debug/release Clippy,
+all-features Rust tests (2,205 library + 7 additional, 32 ignored), the explicit
+bundled atlas preflight, all 329 Python tests and both native Low-resource tests.
+The package campaign accepted 50 supported sources, one expected named loader
+rejection and one CPU-boundary witness. Original export assertions and fixture
+checks remain intact; the new writer tests include exact legacy GLB hashes.
+
+`RUSTC_WRAPPER= CARGO_BUILD_JOBS=12 cargo test --locked --workspace` also passed:
+2,199 library + 7 additional tests, 32 ignored, 945.91 s library time. The final
+12 installed packages pass `places-compile verify --require-current`, full
+`validate`, ZIP CRC and `build --workers 12` exact-byte reuse checks. Player and
+compiler hashes stay unchanged. Staged and working-tree whitespace checks pass.
+The earlier stale exact-theme failure was explicitly corrected; this is the
+fresh complete rerun. Phase3's historical 317/318 Python result above is not
+retroactively relabeled.
+
+The frozen normal all-variant Aero build used 12 workers and retained caches:
+62.75 s wall / 62.43 s compiler, with no warnings. Its package is 18,485,830 bytes.
+Medium/Full have two lightmap pages, 13,959 charts, 4,860 irradiance probes and two
+reflection points; Off omits prepared lightmaps/irradiance. Each variant retains
+506 collision wall boxes and one connected navigation region. The ordinary
+release rebuild took 1m45s. Final Zoo integration compiled separately after asset
+freeze; pre-existing maps required only their valid catalog provenance refresh.
+
+On Apple M2 Pro (12 CPU/19 GPU cores, 16 GiB), Metal, 18 serial ordinary-release
+samples each use 120 warmup + 600 measured frames, fixed 1/60 s simulation, GPU
+completion waits, bloom/VSync off and no capture readback. Each has 720 actual
+ready presents, nonzero geometry and an explicitly unlocked console before and
+after; no competing owned build/test/native job ran. The active mode is Immediate
+(the startup renderer receipt initially says Fifo before settings apply).
+Drawable output stays 1280×720. OS/GPU caches remain warm; these completion/
+presentation wall timings are not GPU timestamps or guaranteed display FPS.
+The table gives the median of three loop medians and three loop P95s, with
+last-frame base-scene submission counters excluding sky/emission/post/UI and
+including depth-occluded ranges. Comparisons are from this session; differences
+from Phase3 wall timings do not establish a rendering speedup.
+
+| View / quality | Scene pixels | Median loop / P95 (ms) | Scene draws / submitted triangles |
+| --- | --- | --- | --- |
+| Aero hero / Low | 480×270 | 5.46 / 15.55 | 80 / 20,346 |
+| Aero hero / Medium | 640×360 | 4.42 / 15.25 | 80 / 18,538 |
+| Aero hero / High | 1280×720 | 6.58 / 14.29 | 80 / 18,538 |
+| Aero corridor / High | 1280×720 | 6.83 / 14.82 | 60 / 8,462 |
+| Beach hero / High | 1280×720 | 5.45 / 16.23 | 91 / 25,622 |
+| Existing hero room / High | 1280×720 | 5.27 / 14.94 | 31 / 4,954 |
+
+The High hero submits 55,614 indices and reports 145,842 visible vertex slots;
+static world/prop buffers hold 4,837,552 vertex bytes and 141,732 index bytes.
+World textures occupy 5,941,924 / 11,184,804 / 15,379,108 bytes at Low/Medium/High.
+Source prop images decode to 5.75 MiB across 24 cached models (including the
+existing collision carrier); Medium/Full lightmaps occupy 32 MiB. These are
+separate inventories, not total GPU memory. Aero whole-update means at the hero
+are .079/.084/.085 ms; no character animation workload is introduced.
+
+A CPU projection of the hero's 982 transparent source triangles covers 59.4% of
+pixel centers, averaging 1.41 geometric layers per screen pixel with maximum 8.
+This estimate includes geometry hidden behind opaque depth and omits actual
+fragment rejection, texture alpha and driver work; true GPU overdraw and isolated
+transparency cost remain unmeasured. There is no expensive new reflection or
+refraction pass.
+
+The curated unmodified gameplay set also shows
+[architecture](images/two-environments/frutiger-aero/phase4-architecture.png),
+[water/glass](images/two-environments/frutiger-aero/phase4-water.png),
+[the corridor](images/two-environments/frutiger-aero/phase4-corridor.png),
+[reception](images/two-environments/frutiger-aero/phase4-reception.png),
+[seating](images/two-environments/frutiger-aero/phase4-seating.png),
+[the kiosk](images/two-environments/frutiger-aero/phase4-kiosk.png) and
+[the terrace](images/two-environments/frutiger-aero/phase4-terrace.png).
+
+No critical defect remains in the reviewed space. Medium/High retain mild
+prepared-light variation on the corridor ceiling: actual lightmap-off controls
+remove it, while reflection-off controls are identical. Clean textures, normals
+and glass were independently checked; no exposure/ambient workaround was added.
+Low intentionally reduces lighting and scene resolution. Fragment/GPU timing and
+other platforms/backends remain unmeasured. Phase5 should independently certify
+both environments, reassess that small ceiling variation, refine any material
+composition defects found and perform final cross-environment polish. Phase5 has
+not started. Unrelated HDR/storage investigations and unique debug evidence remain
+intact; the retained queue wake assertion and runnable tools are handed forward.

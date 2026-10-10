@@ -1,0 +1,78 @@
+{
+  "format_version": 1,
+  "level": "frutiger_aero_demo",
+  "source": "assets/levels/frutiger_aero_demo.json",
+  "package": "assets/levels/frutiger_aero_demo.placesmap",
+  "base_revision": "572decd76f7b577ab1a30be8a5dec50864bad4cf",
+  "settings": {
+    "bindings": {
+      "forward": "W",
+      "backward": "S",
+      "strafe_left": "A",
+      "strafe_right": "D",
+      "look_up": "UP",
+      "look_down": "DOWN",
+      "look_left": "LEFT",
+      "look_right": "RIGHT",
+      "jump": "SPACE",
+      "crouch": "C",
+      "interact": "E"
+    },
+    "look_speed_h": 90,
+    "look_speed_v": 60,
+    "walk_speed": 3,
+    "invert_look": false,
+    "mouse_sensitivity": 0.12,
+    "quality": "high",
+    "texture_filtering": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": false,
+    "use_low_quality_lighting": false,
+    "vsync": false,
+    "fov_degrees": 60,
+    "window_mode": "windowed",
+    "window_width": 640,
+    "window_height": 360
+  },
+  "bake": {
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ],
+    "workers": 12,
+    "force_for_cold_measurement": true,
+    "algorithm": "unchanged normal compiler defaults; see package inspect for prepared settings"
+  },
+  "environment": {
+    "sky": "frutiger_aero:tex_sky_day_01",
+    "sun": "aero_sun aligned bearing/elevation +45 degrees",
+    "fog": "source environment is authoritative",
+    "animation": "No creature/locomotion animation is depicted or required; normal water system retained"
+  },
+  "capture": {
+    "ready_world_seconds": 0.5,
+    "warmup_frames": 15,
+    "limit_frames": 2400,
+    "expected_drawable": [
+      1280,
+      720
+    ]
+  },
+  "views": [
+    {
+      "name": "hero",
+      "spawn": [
+        2.5,
+        10.1,
+        38
+      ],
+      "camera": [
+        38,
+        5
+      ],
+      "purpose": "Hero: bubble fountain, dome, white frames, aqua tiles and nature banner"
+    }
+  ]
+}

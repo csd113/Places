@@ -24,9 +24,10 @@ class WeatherTests(unittest.TestCase):
             for level in (source, packaged):
                 self.assertIsNone(level.get('weather'), path)
                 sky = level.get('sky')
-                if path.stem == 'beach_demo':
+                if path.stem in ('beach_demo', 'frutiger_aero_demo'):
                     self.assertIsNotNone(sky, path)
-                    self.assertEqual(sky['texture'], 'beach:tex_sky_day_01', path)
+                    theme = 'beach' if path.stem == 'beach_demo' else 'frutiger_aero'
+                    self.assertEqual(sky['texture'], theme+':tex_sky_day_01', path)
                 elif sky:
                     self.assertEqual(sky['texture'], 'outdoor:tex_sky_stars_01', path)
                 # Model Zoo intentionally exhibits the reusable winter props;

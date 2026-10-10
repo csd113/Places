@@ -8,6 +8,12 @@ current renderer/compiler. Asset aspect, UV, orientation and alpha contracts
 remain unchanged; recorded stage images and platform campaigns retain their
 original provenance.
 
+October 10, 2026 Aero authoring: shared prop writer now accepts opt-in BLEND
+and finite scalar opacity, preserving existing exports and model UV/PNG alpha
+contracts. The 256-square Aero atlas retains its 1024-square master; surface
+512-square derivatives retain 1024-square masters, fitted signage keeps its
+1:2 or 1:1 aspect, and the sky uses the existing 2048×1024 panorama class.
+
 This document is the canonical specification for every visual asset Places
 draws from an image: world surface textures, decals, fixture faces, prop and
 entity textures, normal maps, emissive masks and the non-runtime imagery that
@@ -762,6 +768,10 @@ normal runtime texture         256x256 native
   A glTF `baseColorFactor` alpha is folded into the vertex
   colours by the importer, so the blend contract itself carries opacity `1.0`;
   per-instance fade is a runtime component, not an asset property.
+  The shared prop writer authors this through
+  `p.material(..., alpha_mode="blend", opacity=0.28)`. Scalar opacity must be
+  finite in 0..1 and belongs only to BLEND; the writer preserves existing
+  opaque/MASK bytes and leaves PNG alpha unchanged. RGB tint remains optional.
 * An emissive material is one slot of a model and lights nothing by itself
   (`emissiveFactor`/`KHR_materials_emissive_strength`, optional
   `emissiveTexture` mask). The Halloween entities use this for the carved
@@ -1116,6 +1126,37 @@ animal `--author-textures` are deliberate offline authoring commands. Their
 [Beach kit](../assets/environment/beach/README.md) records inventory and support
 helpers. Decorative terrain, hollow structures and dock GLBs do not create
 walking collision; the map owner must install the separate authored support.
+
+### 8.12 Frutiger Aero concept reconstruction
+
+The 23 static modules retain metres, +Y up, +Z front, centred horizontal bounds
+and floor-contact origins. Their closed, deliberately faceted geometry uses
+the existing model import and lighting contracts. Hollow glazing uses explicit
+BLEND scalar opacity; framing remains opaque, and the embedded PNGs remain
+alpha 255. Separate fitted structural stock supplies map collision for openings,
+furniture, curved boundaries and the shallow basin. Never collide a hollow
+module's entire visual bounds.
+
+The shared 256² native atlas retains its 1024² master: sixteen palette cells
+in the top quarter, four branding panels in the middle half, and accent/leaf/
+ring/terminal artwork in the bottom quarter. Five dedicated atlas/master pairs
+(`accent_panel_atlas`, `kiosk_atlas`, `banner_atrium`, `banner_corridor`,
+`banner_reception`) preserve 1:2 artwork in their left 128×256 native / 512×1024
+master region, with white/lime/cyan/silver stock swatches on the right. All are
+opaque, top-down, +Z upright, UV-clamped, and Lanczos derived from 1024² masters.
+Do not repack these regions without updating their model UVs.
+
+Four periodic 512² surfaces retain 1024² masters. Cyan glass has straight alpha
+52–64; white panel, aqua tile and cyan water are opaque. Five fitted RGBA decals
+retain transparent margins: atrium/reception/kiosk are 512×1024, corridor/leaf
+512². The opaque 2048×1024 U-periodic equirectangular sky has its sun at bearing/
+elevation +45°/+45°, matched by the authored directional light. Normal builds
+load committed PNGs; `tools/textures/frutiger_aero_art.py --check` reproduces all
+26 source/native images without writing. The kit adds no depicted creature or
+locomotion animation and uses the existing water presentation.
+
+[Aero kit](../assets/environment/frutiger_aero/README.md) records the complete
+coverage and collision/UV contracts.
 
 ## 9. Emissive textures and masks
 
