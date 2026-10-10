@@ -34,7 +34,7 @@ def build_level():
                  environment=dict(presentation=dict(exposure=1, tone_knee=.8, saturation=1.04, contrast=1.02),
                                   fog=dict(color=[.66, .84, .94], density=.002, reference_y=1, height_gain=.01)))
     for key in ('rooms', 'walls', 'floor_regions', 'floor_patches', 'ramps', 'stairs',
-                'props', 'water', 'decals', 'ceiling_lights', 'geometry_intent', 'thresholds', 'guardrails'):
+                'props', 'water', 'decals', 'ceiling_lights', 'geometry_intent', 'thresholds', 'guardrails', 'void_walls'):
         level[key] = []
     level['rooms'] = [
         dict(x=0, z=0, width=12, depth=12, height=7, ceiling=dict(kind='open'), material=FLOOR),
@@ -129,9 +129,15 @@ def build_level():
     for index, x in enumerate((13.8, 17.4, 21.0)):
         bay(x, 7.90, 'corridor_window_'+str(index), yaw=180)
     for index, x in enumerate((13.4, 15.8, 18.2, 20.6)):
-        prop('ceiling_ring', x, 6, 'corridor_ring_'+str(index), y=3.25,
-             lights=[dict(shape='rect', half_width=.38, half_depth=.38, offset=[0, -.08, 0], color=[.72, .94, 1],
-                          intensity=.25, range=4.5, falloff='smooth')])
+        # Embed the white housing in the ceiling and distribute the real
+        # emitter over its visible annulus. The old rectangular taps sat under
+        # the opaque centre disk and produced a nine-tap support pattern above
+        # the housing. Total authored energy remains .25 per fixture.
+        prop('ceiling_ring', x, 6, 'corridor_ring_'+str(index), y=3.336,
+             lights=[dict(shape='rect', half_width=.025, half_depth=.025,
+                          offset=[.53*math.cos(math.tau*i/8), -.005, .53*math.sin(math.tau*i/8)],
+                          color=[.72, .94, 1], intensity=.25/8, range=4.5, falloff='smooth')
+                     for i in range(8)])
     planter(18.8, 4.75, 'corridor_planter')
     prop('double_doors_open', 22.503, 6, 'open_terminal_doors', yaw=90)
     prop('glass_canopy', 24.4, 6, 'reception_glass_tube', yaw=90)
@@ -184,6 +190,13 @@ def build_level():
     prop('green_backdrop', 12, -5.8, 'north_green_landscape')
     prop('city_backdrop', -11, 8, 'west_blue_city', yaw=90)
     prop('green_backdrop', -4.0, 8, 'west_green_landscape', yaw=90)
+    # Ground the scenic banks and skyline beyond the glazed containment.
+    # One closed foundation ends below every playable floor. Its top bridges
+    # bank feet to glazing; the hidden area under rooms avoids coincident
+    # interior faces from several adjoining scenery boxes.
+    level['void_walls'].append(dict(id='scenic_foundation',
+        min=[-24, -3, -24], max=[40, -.06, 35],
+        material='beach:grass_01', faces='outward', solid=False, occludes=False))
     # Kit glazed envelopes own player containment; annotations describe actual
     # structural intent rather than suppressing a door or support defect.
     for x, z, w, d, note in ((-.3, -.3, 12.6, .7, 'Glazed northern kit wall, tight pane collision.'),

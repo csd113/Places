@@ -21,8 +21,19 @@ from tools.props.parts.beach_nature import placed_components as nature_component
 OUTPUT = ROOT / 'assets/levels/beach_demo.json'
 FLOOR = -2.2
 COAST_WIDTH = .75
-# Eighth-metre joins are exactly representable by the loader's f32 geometry.
-COAST = tuple((x, round((-.9 + .01*(x+COAST_WIDTH/2+1)**2)*8)/8)
+
+
+def coast_z(x):
+    # Binary-exact joints retain watertight support while keeping the visible
+    # upper shore's lateral risers below one centimetre.
+    distance = abs(x+1)
+    tangent = 25/6
+    bend = (.01*distance*distance if distance <= tangent
+            else .01*tangent*tangent + (distance-tangent)/12)
+    return round((-.9 + bend)*64)/64
+
+
+COAST = tuple((x, coast_z(x+COAST_WIDTH/2))
               for x in (-24 + index*COAST_WIDTH for index in range(64)))
 HERO = (20, 4.8, -62)
 
@@ -72,9 +83,9 @@ def build_level():
     level.update(daylight())
     level['environment'] = dict(presentation=dict(exposure=1, tone_knee=.8, saturation=1.04, contrast=1.02),
                                fog=dict(color=[.61, .82, .90], density=.002, reference_y=1, height_gain=.01))
+    # One continuous seabed volume preserves irradiance probe coverage.
     level['rooms'] = [dict(x=-24, z=-24, width=48, depth=52, floor_y=FLOOR,
-                           height=17, ceiling=dict(kind='open'), material='beach:sand_01',
-                           comment='One floor owner for the continuous beach, seabed and submerged lighting anchors.')]
+                           height=17, ceiling=dict(kind='open'), material='beach:sand_01')]
     # Inclusive shared edges resolve to the deeper support, so continuous
     # water never becomes buried under a neighbour's dry shore on that line.
     for x, shore in sorted(COAST, key=lambda item: item[1]):
@@ -91,8 +102,8 @@ def build_level():
         region['z'] = max(ramp['z'] + ramp['depth'] for ramp in pieces['ramps'])
         region['depth'] = 28 - region['z']
         level['floor_regions'].append(region)
-        # A shared room removes the helper's neighbour-room edge ambiguity.
-        # Water surfaces therefore meet exactly, without 4 cm black strips.
+        # Shared-edge water volumes meet exactly in the continuous seabed room,
+        # without the helper's neighbour-room 4 cm inset.
         for water in pieces['water']:
             water.update(x=x, width=COAST_WIDTH)
             # One continuous turquoise cove. Distant ocean scenery retains
@@ -280,10 +291,14 @@ def build_level():
     # sloping borders only in planted beds outside the walking lines.
     prop('grassy_bank', 3, 30, 'garden_bank', base=-.10)
     prop('sand_patch', -19, 9, 'headland_sand', base=-.25)
-    for i, (x, shore) in enumerate(COAST):
-        slope = .02*(x+COAST_WIDTH/2+1)
-        prop('shoreline_foam', x+COAST_WIDTH/2, shore+.75, f'foam_{i}', base=-.12,
-             yaw=-math.degrees(math.atan(slope)), scale=math.sqrt(1+slope*slope)*COAST_WIDTH/8,
+    # Foam is scenery, independent of the narrow collision support bands.
+    # Longer fitted ribbons preserve the asset's irregular breadth rather
+    # than shrinking its Z silhouette into a ruler-thin line.
+    for i in range(16):
+        x = -22.5 + i*3
+        slope = max(-1/12, min(1/12, .02*(x+1)))
+        prop('shoreline_foam', x, coast_z(x)+.75, f'foam_{i}', base=-.12,
+             yaw=-math.degrees(math.atan(slope)), scale=math.sqrt(1+slope*slope)*3.08/8,
              occludes=False)
 
     # Named clips are started explicitly, retaining fixed fly/swim anchors.
@@ -336,11 +351,11 @@ def build_level():
     # The checker sees the joined bands' closed vertical caps as reversed
     # faces. They are inside neighbouring supported solids, never duplicated
     # walking tops. Keep these declarations on the cap planes themselves.
-    for edge in (-24 + index*COAST_WIDTH for index in range(65)):
+    for edge in (-24 + index*COAST_WIDTH for index in range(len(COAST)+1)):
         for check in ('reversed-face', 'coplanar-sliver'):
             level['geometry_intent'].append(dict(check=check, x=edge-.005, z=-24,
                 width=.01, depth=52,
-                note='Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm.'))
+                note='Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm.'))
     for x, z, w, d in ((-35, 27.995, 70, .01), (-35, 7.995, 11, .01), (24, 7.995, 11, .01)):
         for check in ('reversed-face', 'coplanar-sliver'):
             level['geometry_intent'].append(dict(check=check, x=x, z=z, width=w, depth=d,

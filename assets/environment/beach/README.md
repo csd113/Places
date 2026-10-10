@@ -1,8 +1,9 @@
 # Beach asset kit
 
-Phase 2 reconstructs the immutable Tropical Beach board in the existing asset
-formats. It supplies construction pieces for Phase 3; the finished connected
-`beach_demo` is not part of this phase. All IDs use `beach:`. Models use metres,
+The kit reconstructs the immutable Tropical Beach board in the existing asset
+formats. Its finished connected demo is `assets/levels/beach_demo.json`, authored
+by `tools/levels/build_beach.py`; the player loads its sibling package.
+All IDs use `beach:`. Models use metres,
 +Y up, +Z forward, horizontally centred base origins, opaque PNG albedo and
 the existing flat geometric-normal path. No runtime texture generation or new
 lighting, water, HDR storage or NPC system is introduced.

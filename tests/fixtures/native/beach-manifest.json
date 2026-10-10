@@ -268,6 +268,19 @@
         45
       ],
       "purpose": "Verify the daylight panorama sun at the authored directional-light bearing and elevation"
+    },
+    {
+      "name": "town_wide",
+      "spawn": [
+        9.5,
+        26.2,
+        48
+      ],
+      "camera": [
+        48,
+        6
+      ],
+      "purpose": "Reachable wider pastel-town composition with arches, lookout stairs, shrubs and bunting"
     }
   ]
 }

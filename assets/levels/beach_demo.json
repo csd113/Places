@@ -24,49 +24,39 @@
       "ceiling": {
         "kind": "open"
       },
-      "material": "beach:sand_01",
-      "comment": "One floor owner for the continuous beach, seabed and submerged lighting anchors."
+      "material": "beach:sand_01"
     }
   ],
   "floor_regions": [
     {
-      "x": -3.75,
-      "z": 1.125,
+      "x": -1.5,
+      "z": 1.09375,
       "width": 0.75,
-      "depth": 26.875,
-      "offset_y": 2.2,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -3.0,
-      "z": 1.125,
-      "width": 0.75,
-      "depth": 26.875,
+      "depth": 26.90625,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": -2.25,
-      "z": 1.125,
+      "z": 1.109375,
       "width": 0.75,
-      "depth": 26.875,
-      "offset_y": 2.2,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -1.5,
-      "z": 1.125,
-      "width": 0.75,
-      "depth": 26.875,
+      "depth": 26.890625,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": -0.75,
+      "z": 1.109375,
+      "width": 0.75,
+      "depth": 26.890625,
+      "offset_y": 2.2,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -3.0,
       "z": 1.125,
       "width": 0.75,
       "depth": 26.875,
@@ -85,18 +75,45 @@
     },
     {
       "x": 0.75,
-      "z": 1.125,
+      "z": 1.140625,
       "width": 0.75,
-      "depth": 26.875,
+      "depth": 26.859375,
+      "offset_y": 2.2,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -3.75,
+      "z": 1.15625,
+      "width": 0.75,
+      "depth": 26.84375,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 1.5,
-      "z": 1.125,
+      "z": 1.1875,
       "width": 0.75,
-      "depth": 26.875,
+      "depth": 26.8125,
+      "offset_y": 2.2,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -4.5,
+      "z": 1.203125,
+      "width": 0.75,
+      "depth": 26.796875,
+      "offset_y": 2.2,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 2.25,
+      "z": 1.234375,
+      "width": 0.75,
+      "depth": 26.765625,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
@@ -111,28 +128,28 @@
       "edge_material": "beach:sand_01"
     },
     {
-      "x": -4.5,
-      "z": 1.25,
-      "width": 0.75,
-      "depth": 26.75,
-      "offset_y": 2.2,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 2.25,
-      "z": 1.25,
-      "width": 0.75,
-      "depth": 26.75,
-      "offset_y": 2.2,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
       "x": 3.0,
-      "z": 1.25,
+      "z": 1.296875,
       "width": 0.75,
-      "depth": 26.75,
+      "depth": 26.703125,
+      "offset_y": 2.2,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -6.0,
+      "z": 1.3125,
+      "width": 0.75,
+      "depth": 26.6875,
+      "offset_y": 2.2,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 3.75,
+      "z": 1.359375,
+      "width": 0.75,
+      "depth": 26.640625,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
@@ -147,43 +164,34 @@
       "edge_material": "beach:sand_01"
     },
     {
-      "x": -6.0,
-      "z": 1.375,
+      "x": 4.5,
+      "z": 1.421875,
       "width": 0.75,
-      "depth": 26.625,
-      "offset_y": 2.2,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 3.75,
-      "z": 1.375,
-      "width": 0.75,
-      "depth": 26.625,
+      "depth": 26.578125,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": -7.5,
-      "z": 1.5,
+      "z": 1.4375,
       "width": 0.75,
-      "depth": 26.5,
-      "offset_y": 2.2,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 4.5,
-      "z": 1.5,
-      "width": 0.75,
-      "depth": 26.5,
+      "depth": 26.5625,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 5.25,
+      "z": 1.484375,
+      "width": 0.75,
+      "depth": 26.515625,
+      "offset_y": 2.2,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -8.25,
       "z": 1.5,
       "width": 0.75,
       "depth": 26.5,
@@ -192,46 +200,28 @@
       "edge_material": "beach:sand_01"
     },
     {
-      "x": -9.0,
-      "z": 1.625,
-      "width": 0.75,
-      "depth": 26.375,
-      "offset_y": 2.2,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -8.25,
-      "z": 1.625,
-      "width": 0.75,
-      "depth": 26.375,
-      "offset_y": 2.2,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
       "x": 6.0,
-      "z": 1.625,
+      "z": 1.546875,
       "width": 0.75,
-      "depth": 26.375,
+      "depth": 26.453125,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
-      "x": -9.75,
-      "z": 1.75,
+      "x": -9.0,
+      "z": 1.5625,
       "width": 0.75,
-      "depth": 26.25,
+      "depth": 26.4375,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 6.75,
-      "z": 1.75,
+      "z": 1.609375,
       "width": 0.21875,
-      "depth": 26.25,
+      "depth": 26.390625,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
@@ -246,10 +236,10 @@
       "edge_material": "beach:sand_01"
     },
     {
-      "x": -10.5,
-      "z": 1.875,
+      "x": -9.75,
+      "z": 1.625,
       "width": 0.75,
-      "depth": 26.125,
+      "depth": 26.375,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
@@ -259,6 +249,15 @@
       "z": 7.625,
       "width": 0.75,
       "depth": 20.375,
+      "offset_y": 2.2,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -10.5,
+      "z": 1.6875,
+      "width": 0.75,
+      "depth": 26.3125,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
@@ -274,18 +273,18 @@
     },
     {
       "x": -11.25,
-      "z": 2.125,
+      "z": 1.75,
       "width": 0.75,
-      "depth": 25.875,
+      "depth": 26.25,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 9.03125,
-      "z": 2.125,
+      "z": 1.796875,
       "width": 0.71875,
-      "depth": 25.875,
+      "depth": 26.203125,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
@@ -301,72 +300,63 @@
     },
     {
       "x": -12.0,
-      "z": 2.25,
+      "z": 1.8125,
       "width": 0.75,
-      "depth": 25.75,
-      "offset_y": 2.2,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -12.75,
-      "z": 2.375,
-      "width": 0.75,
-      "depth": 25.625,
+      "depth": 26.1875,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 9.75,
-      "z": 2.375,
+      "z": 1.859375,
       "width": 0.75,
-      "depth": 25.625,
+      "depth": 26.140625,
+      "offset_y": 2.2,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -12.75,
+      "z": 1.875,
+      "width": 0.75,
+      "depth": 26.125,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 10.5,
-      "z": 2.5,
+      "z": 1.921875,
       "width": 0.75,
-      "depth": 25.5,
+      "depth": 26.078125,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": -13.5,
-      "z": 2.625,
+      "z": 1.9375,
       "width": 0.75,
-      "depth": 25.375,
-      "offset_y": 2.2,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -14.25,
-      "z": 2.75,
-      "width": 0.75,
-      "depth": 25.25,
+      "depth": 26.0625,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 11.25,
-      "z": 2.75,
+      "z": 1.984375,
       "width": 0.25,
-      "depth": 25.25,
+      "depth": 26.015625,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 11.5,
-      "z": 2.75,
+      "z": 1.984375,
       "width": 0.5,
-      "depth": 5.996,
+      "depth": 6.761625,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
@@ -381,19 +371,28 @@
       "edge_material": "beach:sand_01"
     },
     {
+      "x": -14.25,
+      "z": 2.0,
+      "width": 0.75,
+      "depth": 26.0,
+      "offset_y": 2.2,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
       "x": 12.5,
-      "z": 2.875,
+      "z": 2.046875,
       "width": 0.25,
-      "depth": 25.125,
+      "depth": 25.953125,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 12.0,
-      "z": 2.875,
+      "z": 2.046875,
       "width": 0.5,
-      "depth": 5.871,
+      "depth": 6.699125,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
@@ -409,207 +408,207 @@
     },
     {
       "x": -15.0,
-      "z": 3.0,
+      "z": 2.0625,
       "width": 0.75,
-      "depth": 25.0,
-      "offset_y": 2.2,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -15.75,
-      "z": 3.125,
-      "width": 0.75,
-      "depth": 24.875,
+      "depth": 25.9375,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 12.75,
-      "z": 3.125,
+      "z": 2.109375,
       "width": 0.75,
-      "depth": 24.875,
+      "depth": 25.890625,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
-      "x": -16.5,
-      "z": 3.375,
+      "x": -15.75,
+      "z": 2.125,
       "width": 0.75,
-      "depth": 24.625,
+      "depth": 25.875,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 13.5,
-      "z": 3.375,
+      "z": 2.171875,
       "width": 0.75,
-      "depth": 24.625,
+      "depth": 25.828125,
+      "offset_y": 2.2,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -16.5,
+      "z": 2.1875,
+      "width": 0.75,
+      "depth": 25.8125,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 14.25,
-      "z": 3.5,
+      "z": 2.234375,
       "width": 0.75,
-      "depth": 24.5,
+      "depth": 25.765625,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": -17.25,
-      "z": 3.625,
+      "z": 2.25,
       "width": 0.75,
-      "depth": 24.375,
+      "depth": 25.75,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 15.0,
-      "z": 3.75,
+      "z": 2.296875,
       "width": 0.75,
-      "depth": 24.25,
+      "depth": 25.703125,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": -18.0,
-      "z": 3.875,
+      "z": 2.3125,
       "width": 0.75,
-      "depth": 24.125,
+      "depth": 25.6875,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 15.75,
-      "z": 4.0,
+      "z": 2.359375,
       "width": 0.75,
-      "depth": 24.0,
+      "depth": 25.640625,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": -18.75,
-      "z": 4.125,
+      "z": 2.375,
       "width": 0.75,
-      "depth": 23.875,
+      "depth": 25.625,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 16.5,
-      "z": 4.25,
+      "z": 2.421875,
       "width": 0.75,
-      "depth": 23.75,
+      "depth": 25.578125,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": -19.5,
-      "z": 4.375,
+      "z": 2.4375,
       "width": 0.75,
-      "depth": 23.625,
-      "offset_y": 2.2,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -20.25,
-      "z": 4.625,
-      "width": 0.75,
-      "depth": 23.375,
+      "depth": 25.5625,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 17.25,
-      "z": 4.625,
+      "z": 2.484375,
       "width": 0.75,
-      "depth": 23.375,
+      "depth": 25.515625,
+      "offset_y": 2.2,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -20.25,
+      "z": 2.5,
+      "width": 0.75,
+      "depth": 25.5,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 18.0,
-      "z": 4.875,
+      "z": 2.546875,
       "width": 0.75,
-      "depth": 23.125,
+      "depth": 25.453125,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": -21.0,
-      "z": 5.0,
+      "z": 2.5625,
       "width": 0.75,
-      "depth": 23.0,
+      "depth": 25.4375,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 18.75,
-      "z": 5.125,
+      "z": 2.609375,
       "width": 0.75,
-      "depth": 22.875,
+      "depth": 25.390625,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": -21.75,
-      "z": 5.25,
+      "z": 2.625,
       "width": 0.75,
-      "depth": 22.75,
+      "depth": 25.375,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 19.5,
-      "z": 5.5,
+      "z": 2.671875,
       "width": 0.75,
-      "depth": 22.5,
+      "depth": 25.328125,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": -22.5,
-      "z": 5.625,
+      "z": 2.6875,
       "width": 0.75,
-      "depth": 22.375,
+      "depth": 25.3125,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 20.25,
-      "z": 5.75,
+      "z": 2.734375,
       "width": 0.25,
-      "depth": 22.25,
+      "depth": 25.265625,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 20.5,
-      "z": 5.75,
+      "z": 2.734375,
       "width": 0.5,
-      "depth": 6.391,
+      "depth": 9.406625,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
@@ -625,27 +624,27 @@
     },
     {
       "x": -23.25,
-      "z": 5.875,
+      "z": 2.75,
       "width": 0.75,
-      "depth": 22.125,
+      "depth": 25.25,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 21.5,
-      "z": 6.125,
+      "z": 2.796875,
       "width": 0.25,
-      "depth": 21.875,
+      "depth": 25.203125,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 21.0,
-      "z": 6.125,
+      "z": 2.796875,
       "width": 0.5,
-      "depth": 6.016,
+      "depth": 9.344125,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
@@ -661,36 +660,36 @@
     },
     {
       "x": -24.0,
-      "z": 6.25,
+      "z": 2.8125,
       "width": 0.75,
-      "depth": 21.75,
+      "depth": 25.1875,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 21.75,
-      "z": 6.5,
+      "z": 2.859375,
       "width": 0.75,
-      "depth": 21.5,
+      "depth": 25.140625,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 22.5,
-      "z": 6.75,
+      "z": 2.921875,
       "width": 0.75,
-      "depth": 21.25,
+      "depth": 25.078125,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
       "x": 23.25,
-      "z": 7.125,
+      "z": 2.984375,
       "width": 0.75,
-      "depth": 20.875,
+      "depth": 25.015625,
       "offset_y": 2.2,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
@@ -915,8 +914,8 @@
   "floor_patches": [],
   "ramps": [
     {
-      "x": -3.75,
-      "z": -6.875,
+      "x": -1.5,
+      "z": -6.90625,
       "width": 0.75,
       "depth": 4,
       "offset_y": 0,
@@ -925,8 +924,48 @@
       "edge_material": "beach:sand_01"
     },
     {
-      "x": -3.75,
-      "z": -2.875,
+      "x": -1.5,
+      "z": -2.90625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -2.25,
+      "z": -6.890625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -2.25,
+      "z": -2.890625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -0.75,
+      "z": -6.890625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -0.75,
+      "z": -2.890625,
       "width": 0.75,
       "depth": 4,
       "offset_y": 1.6,
@@ -946,66 +985,6 @@
     },
     {
       "x": -3.0,
-      "z": -2.875,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -2.25,
-      "z": -6.875,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -2.25,
-      "z": -2.875,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -1.5,
-      "z": -6.875,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -1.5,
-      "z": -2.875,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -0.75,
-      "z": -6.875,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -0.75,
       "z": -2.875,
       "width": 0.75,
       "depth": 4,
@@ -1036,7 +1015,7 @@
     },
     {
       "x": 0.75,
-      "z": -6.875,
+      "z": -6.859375,
       "width": 0.75,
       "depth": 4,
       "offset_y": 0,
@@ -1046,7 +1025,27 @@
     },
     {
       "x": 0.75,
-      "z": -2.875,
+      "z": -2.859375,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -3.75,
+      "z": -6.84375,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -3.75,
+      "z": -2.84375,
       "width": 0.75,
       "depth": 4,
       "offset_y": 1.6,
@@ -1056,7 +1055,7 @@
     },
     {
       "x": 1.5,
-      "z": -6.875,
+      "z": -6.8125,
       "width": 0.75,
       "depth": 4,
       "offset_y": 0,
@@ -1066,7 +1065,47 @@
     },
     {
       "x": 1.5,
-      "z": -2.875,
+      "z": -2.8125,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -4.5,
+      "z": -6.796875,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -4.5,
+      "z": -2.796875,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 2.25,
+      "z": -6.765625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 2.25,
+      "z": -2.765625,
       "width": 0.75,
       "depth": 4,
       "offset_y": 1.6,
@@ -1095,48 +1134,8 @@
       "edge_material": "beach:sand_01"
     },
     {
-      "x": -4.5,
-      "z": -6.75,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -4.5,
-      "z": -2.75,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 2.25,
-      "z": -6.75,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 2.25,
-      "z": -2.75,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
       "x": 3.0,
-      "z": -6.75,
+      "z": -6.703125,
       "width": 0.75,
       "depth": 4,
       "offset_y": 0,
@@ -1146,7 +1145,47 @@
     },
     {
       "x": 3.0,
-      "z": -2.75,
+      "z": -2.703125,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -6.0,
+      "z": -6.6875,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -6.0,
+      "z": -2.6875,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 3.75,
+      "z": -6.640625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 3.75,
+      "z": -2.640625,
       "width": 0.75,
       "depth": 4,
       "offset_y": 1.6,
@@ -1175,68 +1214,8 @@
       "edge_material": "beach:sand_01"
     },
     {
-      "x": -6.0,
-      "z": -6.625,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -6.0,
-      "z": -2.625,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 3.75,
-      "z": -6.625,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 3.75,
-      "z": -2.625,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -7.5,
-      "z": -6.5,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -7.5,
-      "z": -2.5,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
       "x": 4.5,
-      "z": -6.5,
+      "z": -6.578125,
       "width": 0.75,
       "depth": 4,
       "offset_y": 0,
@@ -1246,7 +1225,27 @@
     },
     {
       "x": 4.5,
-      "z": -2.5,
+      "z": -2.578125,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -7.5,
+      "z": -6.5625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -7.5,
+      "z": -2.5625,
       "width": 0.75,
       "depth": 4,
       "offset_y": 1.6,
@@ -1256,6 +1255,26 @@
     },
     {
       "x": 5.25,
+      "z": -6.515625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 5.25,
+      "z": -2.515625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -8.25,
       "z": -6.5,
       "width": 0.75,
       "depth": 4,
@@ -1265,7 +1284,7 @@
       "edge_material": "beach:sand_01"
     },
     {
-      "x": 5.25,
+      "x": -8.25,
       "z": -2.5,
       "width": 0.75,
       "depth": 4,
@@ -1275,48 +1294,8 @@
       "edge_material": "beach:sand_01"
     },
     {
-      "x": -9.0,
-      "z": -6.375,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -9.0,
-      "z": -2.375,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -8.25,
-      "z": -6.375,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -8.25,
-      "z": -2.375,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
       "x": 6.0,
-      "z": -6.375,
+      "z": -6.453125,
       "width": 0.75,
       "depth": 4,
       "offset_y": 0,
@@ -1326,49 +1305,69 @@
     },
     {
       "x": 6.0,
+      "z": -2.453125,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -9.0,
+      "z": -6.4375,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -9.0,
+      "z": -2.4375,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 6.75,
+      "z": -6.390625,
+      "width": 0.21875,
+      "depth": 4.0,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 6.75,
+      "z": -2.390625,
+      "width": 0.21875,
+      "depth": 4.0,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -9.75,
+      "z": -6.375,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -9.75,
       "z": -2.375,
       "width": 0.75,
       "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -9.75,
-      "z": -6.25,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -9.75,
-      "z": -2.25,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 6.75,
-      "z": -6.25,
-      "width": 0.21875,
-      "depth": 4.0,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 6.75,
-      "z": -2.25,
-      "width": 0.21875,
-      "depth": 4.0,
       "offset_y": 1.6,
       "rise": 0.6,
       "material": "beach:sand_01",
@@ -1376,6 +1375,106 @@
     },
     {
       "x": -10.5,
+      "z": -6.3125,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -10.5,
+      "z": -2.3125,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -11.25,
+      "z": -6.25,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -11.25,
+      "z": -2.25,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 9.03125,
+      "z": -6.203125,
+      "width": 0.71875,
+      "depth": 4.0,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 9.03125,
+      "z": -2.203125,
+      "width": 0.71875,
+      "depth": 4.0,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -12.0,
+      "z": -6.1875,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -12.0,
+      "z": -2.1875,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 9.75,
+      "z": -6.140625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 9.75,
+      "z": -2.140625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -12.75,
       "z": -6.125,
       "width": 0.75,
       "depth": 4,
@@ -1385,7 +1484,7 @@
       "edge_material": "beach:sand_01"
     },
     {
-      "x": -10.5,
+      "x": -12.75,
       "z": -2.125,
       "width": 0.75,
       "depth": 4,
@@ -1395,7 +1494,147 @@
       "edge_material": "beach:sand_01"
     },
     {
-      "x": -11.25,
+      "x": 10.5,
+      "z": -6.078125,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 10.5,
+      "z": -2.078125,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -13.5,
+      "z": -6.0625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -13.5,
+      "z": -2.0625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 11.25,
+      "z": -6.015625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 11.25,
+      "z": -2.015625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -14.25,
+      "z": -6.0,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -14.25,
+      "z": -2.0,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 12.0,
+      "z": -5.953125,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 12.0,
+      "z": -1.953125,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -15.0,
+      "z": -5.9375,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -15.0,
+      "z": -1.9375,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 12.75,
+      "z": -5.890625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 12.75,
+      "z": -1.890625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -15.75,
       "z": -5.875,
       "width": 0.75,
       "depth": 4,
@@ -1405,7 +1644,7 @@
       "edge_material": "beach:sand_01"
     },
     {
-      "x": -11.25,
+      "x": -15.75,
       "z": -1.875,
       "width": 0.75,
       "depth": 4,
@@ -1415,27 +1654,67 @@
       "edge_material": "beach:sand_01"
     },
     {
-      "x": 9.03125,
-      "z": -5.875,
-      "width": 0.71875,
-      "depth": 4.0,
+      "x": 13.5,
+      "z": -5.828125,
+      "width": 0.75,
+      "depth": 4,
       "offset_y": 0,
       "rise": 1.6,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
-      "x": 9.03125,
-      "z": -1.875,
-      "width": 0.71875,
-      "depth": 4.0,
+      "x": 13.5,
+      "z": -1.828125,
+      "width": 0.75,
+      "depth": 4,
       "offset_y": 1.6,
       "rise": 0.6,
       "material": "beach:sand_01",
       "edge_material": "beach:sand_01"
     },
     {
-      "x": -12.0,
+      "x": -16.5,
+      "z": -5.8125,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -16.5,
+      "z": -1.8125,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 14.25,
+      "z": -5.765625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 14.25,
+      "z": -1.765625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -17.25,
       "z": -5.75,
       "width": 0.75,
       "depth": 4,
@@ -1445,7 +1724,7 @@
       "edge_material": "beach:sand_01"
     },
     {
-      "x": -12.0,
+      "x": -17.25,
       "z": -1.75,
       "width": 0.75,
       "depth": 4,
@@ -1455,7 +1734,67 @@
       "edge_material": "beach:sand_01"
     },
     {
-      "x": -12.75,
+      "x": 15.0,
+      "z": -5.703125,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 15.0,
+      "z": -1.703125,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -18.0,
+      "z": -5.6875,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -18.0,
+      "z": -1.6875,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 15.75,
+      "z": -5.640625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 15.75,
+      "z": -1.640625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -18.75,
       "z": -5.625,
       "width": 0.75,
       "depth": 4,
@@ -1465,7 +1804,7 @@
       "edge_material": "beach:sand_01"
     },
     {
-      "x": -12.75,
+      "x": -18.75,
       "z": -1.625,
       "width": 0.75,
       "depth": 4,
@@ -1475,8 +1814,8 @@
       "edge_material": "beach:sand_01"
     },
     {
-      "x": 9.75,
-      "z": -5.625,
+      "x": 16.5,
+      "z": -5.578125,
       "width": 0.75,
       "depth": 4,
       "offset_y": 0,
@@ -1485,8 +1824,8 @@
       "edge_material": "beach:sand_01"
     },
     {
-      "x": 9.75,
-      "z": -1.625,
+      "x": 16.5,
+      "z": -1.578125,
       "width": 0.75,
       "depth": 4,
       "offset_y": 1.6,
@@ -1495,7 +1834,47 @@
       "edge_material": "beach:sand_01"
     },
     {
-      "x": 10.5,
+      "x": -19.5,
+      "z": -5.5625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -19.5,
+      "z": -1.5625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 17.25,
+      "z": -5.515625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 17.25,
+      "z": -1.515625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -20.25,
       "z": -5.5,
       "width": 0.75,
       "depth": 4,
@@ -1505,7 +1884,7 @@
       "edge_material": "beach:sand_01"
     },
     {
-      "x": 10.5,
+      "x": -20.25,
       "z": -1.5,
       "width": 0.75,
       "depth": 4,
@@ -1515,7 +1894,67 @@
       "edge_material": "beach:sand_01"
     },
     {
-      "x": -13.5,
+      "x": 18.0,
+      "z": -5.453125,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 18.0,
+      "z": -1.453125,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -21.0,
+      "z": -5.4375,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -21.0,
+      "z": -1.4375,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 18.75,
+      "z": -5.390625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 18.75,
+      "z": -1.390625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -21.75,
       "z": -5.375,
       "width": 0.75,
       "depth": 4,
@@ -1525,7 +1964,7 @@
       "edge_material": "beach:sand_01"
     },
     {
-      "x": -13.5,
+      "x": -21.75,
       "z": -1.375,
       "width": 0.75,
       "depth": 4,
@@ -1535,448 +1974,8 @@
       "edge_material": "beach:sand_01"
     },
     {
-      "x": -14.25,
-      "z": -5.25,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -14.25,
-      "z": -1.25,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 11.25,
-      "z": -5.25,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 11.25,
-      "z": -1.25,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 12.0,
-      "z": -5.125,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 12.0,
-      "z": -1.125,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -15.0,
-      "z": -5.0,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -15.0,
-      "z": -1.0,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -15.75,
-      "z": -4.875,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -15.75,
-      "z": -0.875,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 12.75,
-      "z": -4.875,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 12.75,
-      "z": -0.875,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -16.5,
-      "z": -4.625,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -16.5,
-      "z": -0.625,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 13.5,
-      "z": -4.625,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 13.5,
-      "z": -0.625,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 14.25,
-      "z": -4.5,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 14.25,
-      "z": -0.5,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -17.25,
-      "z": -4.375,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -17.25,
-      "z": -0.375,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 15.0,
-      "z": -4.25,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 15.0,
-      "z": -0.25,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -18.0,
-      "z": -4.125,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -18.0,
-      "z": -0.125,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 15.75,
-      "z": -4.0,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 15.75,
-      "z": 0.0,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -18.75,
-      "z": -3.875,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -18.75,
-      "z": 0.125,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 16.5,
-      "z": -3.75,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 16.5,
-      "z": 0.25,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -19.5,
-      "z": -3.625,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -19.5,
-      "z": 0.375,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -20.25,
-      "z": -3.375,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -20.25,
-      "z": 0.625,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 17.25,
-      "z": -3.375,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 17.25,
-      "z": 0.625,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 18.0,
-      "z": -3.125,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 18.0,
-      "z": 0.875,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -21.0,
-      "z": -3.0,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -21.0,
-      "z": 1.0,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 18.75,
-      "z": -2.875,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 18.75,
-      "z": 1.125,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -21.75,
-      "z": -2.75,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -21.75,
-      "z": 1.25,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
       "x": 19.5,
-      "z": -2.5,
+      "z": -5.328125,
       "width": 0.75,
       "depth": 4,
       "offset_y": 0,
@@ -1986,7 +1985,7 @@
     },
     {
       "x": 19.5,
-      "z": 1.5,
+      "z": -1.328125,
       "width": 0.75,
       "depth": 4,
       "offset_y": 1.6,
@@ -1996,7 +1995,7 @@
     },
     {
       "x": -22.5,
-      "z": -2.375,
+      "z": -5.3125,
       "width": 0.75,
       "depth": 4,
       "offset_y": 0,
@@ -2006,7 +2005,7 @@
     },
     {
       "x": -22.5,
-      "z": 1.625,
+      "z": -1.3125,
       "width": 0.75,
       "depth": 4,
       "offset_y": 1.6,
@@ -2016,7 +2015,7 @@
     },
     {
       "x": 20.25,
-      "z": -2.25,
+      "z": -5.265625,
       "width": 0.75,
       "depth": 4,
       "offset_y": 0,
@@ -2026,7 +2025,7 @@
     },
     {
       "x": 20.25,
-      "z": 1.75,
+      "z": -1.265625,
       "width": 0.75,
       "depth": 4,
       "offset_y": 1.6,
@@ -2036,7 +2035,7 @@
     },
     {
       "x": -23.25,
-      "z": -2.125,
+      "z": -5.25,
       "width": 0.75,
       "depth": 4,
       "offset_y": 0,
@@ -2046,79 +2045,79 @@
     },
     {
       "x": -23.25,
-      "z": 1.875,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 21.0,
-      "z": -1.875,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 21.0,
-      "z": 2.125,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -24.0,
-      "z": -1.75,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": -24.0,
-      "z": 2.25,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 21.75,
-      "z": -1.5,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 0,
-      "rise": 1.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 21.75,
-      "z": 2.5,
-      "width": 0.75,
-      "depth": 4,
-      "offset_y": 1.6,
-      "rise": 0.6,
-      "material": "beach:sand_01",
-      "edge_material": "beach:sand_01"
-    },
-    {
-      "x": 22.5,
       "z": -1.25,
       "width": 0.75,
       "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 21.0,
+      "z": -5.203125,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 21.0,
+      "z": -1.203125,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -24.0,
+      "z": -5.1875,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -24.0,
+      "z": -1.1875,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 21.75,
+      "z": -5.140625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 21.75,
+      "z": -1.140625,
+      "width": 0.75,
+      "depth": 4,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": 22.5,
+      "z": -5.078125,
+      "width": 0.75,
+      "depth": 4,
       "offset_y": 0,
       "rise": 1.6,
       "material": "beach:sand_01",
@@ -2126,7 +2125,7 @@
     },
     {
       "x": 22.5,
-      "z": 2.75,
+      "z": -1.078125,
       "width": 0.75,
       "depth": 4,
       "offset_y": 1.6,
@@ -2136,7 +2135,7 @@
     },
     {
       "x": 23.25,
-      "z": -0.875,
+      "z": -5.015625,
       "width": 0.75,
       "depth": 4,
       "offset_y": 0,
@@ -2146,7 +2145,7 @@
     },
     {
       "x": 23.25,
-      "z": 3.125,
+      "z": -1.015625,
       "width": 0.75,
       "depth": 4,
       "offset_y": 1.6,
@@ -6005,7 +6004,7 @@
       "model": "outdoor:collision_peg",
       "x": -17.075526,
       "z": -1.2448515775025815,
-      "y": -0.599747,
+      "y": -1.02346,
       "rotation_degrees": 90,
       "scale": 0.05,
       "size": [
@@ -6037,7 +6036,7 @@
       "model": "outdoor:collision_peg",
       "x": -17.075526,
       "z": -1.4935932611868452,
-      "y": -0.449706,
+      "y": -0.935604,
       "rotation_degrees": 90,
       "scale": 0.05,
       "size": [
@@ -6069,7 +6068,7 @@
       "model": "outdoor:collision_peg",
       "x": -17.075526,
       "z": -1.6711348140400064,
-      "y": 1.590316,
+      "y": 1.060032,
       "rotation_degrees": 90,
       "scale": 0.05,
       "size": [
@@ -6101,7 +6100,7 @@
       "model": "outdoor:collision_peg",
       "x": -17.075526,
       "z": -1.732272915961249,
-      "y": 1.67951,
+      "y": 1.133942,
       "rotation_degrees": 90,
       "scale": 0.05,
       "size": [
@@ -6133,7 +6132,7 @@
       "model": "outdoor:collision_peg",
       "x": -17.075526,
       "z": -1.809059327552558,
-      "y": 2.104834,
+      "y": 1.554834,
       "rotation_degrees": 90,
       "scale": 0.05,
       "size": [
@@ -6165,7 +6164,7 @@
       "model": "outdoor:collision_peg",
       "x": -17.075526,
       "z": -1.83029468818901,
-      "y": 2.134825,
+      "y": 1.584825,
       "rotation_degrees": 90,
       "scale": 0.05,
       "size": [
@@ -6197,7 +6196,7 @@
       "model": "outdoor:collision_peg",
       "x": -17.075526,
       "z": -1.8660894215125747,
-      "y": 2.287701,
+      "y": 1.737701,
       "rotation_degrees": 90,
       "scale": 0.05,
       "size": [
@@ -6229,7 +6228,7 @@
       "model": "outdoor:collision_peg",
       "x": -17.075526,
       "z": -1.9460719197999854,
-      "y": 2.373474,
+      "y": 1.823474,
       "rotation_degrees": 90,
       "scale": 0.05,
       "size": [
@@ -6261,7 +6260,7 @@
       "model": "outdoor:collision_peg",
       "x": -17.075526,
       "z": -2.0310330668175594,
-      "y": 2.792134,
+      "y": 2.242134,
       "rotation_degrees": 90,
       "scale": 0.05,
       "size": [
@@ -6293,7 +6292,7 @@
       "model": "outdoor:collision_peg",
       "x": -17.075526,
       "z": -2.1461771282246396,
-      "y": 2.908149,
+      "y": 2.358149,
       "rotation_degrees": 90,
       "scale": 0.05,
       "size": [
@@ -6325,7 +6324,7 @@
       "model": "outdoor:collision_peg",
       "x": -17.075526,
       "z": -2.408284205706296,
-      "y": 3.39819,
+      "y": 2.84819,
       "rotation_degrees": 90,
       "scale": 0.05,
       "size": [
@@ -6357,7 +6356,7 @@
       "model": "outdoor:collision_peg",
       "x": -17.075526,
       "z": -2.4628105673794076,
-      "y": 3.493775,
+      "y": 2.943775,
       "rotation_degrees": 90,
       "scale": 0.05,
       "size": [
@@ -6389,7 +6388,7 @@
       "model": "outdoor:collision_peg",
       "x": -17.075526,
       "z": -2.489151995103853,
-      "y": 3.542257,
+      "y": 2.992257,
       "rotation_degrees": 90,
       "scale": 0.05,
       "size": [
@@ -6421,7 +6420,7 @@
       "model": "outdoor:collision_peg",
       "x": -17.075526,
       "z": -2.497672728285454,
-      "y": 3.555805,
+      "y": 3.005805,
       "rotation_degrees": 90,
       "scale": 0.05,
       "size": [
@@ -6453,7 +6452,7 @@
       "model": "outdoor:collision_peg",
       "x": -17.075526,
       "z": -2.6726744929627184,
-      "y": 3.637287,
+      "y": 3.087287,
       "rotation_degrees": 90,
       "scale": 0.05,
       "size": [
@@ -6581,7 +6580,7 @@
       "model": "outdoor:collision_peg",
       "x": -17.075526,
       "z": -5.262145466892736,
-      "y": 6.005817,
+      "y": 5.810675,
       "rotation_degrees": 90,
       "scale": 0.05,
       "size": [
@@ -6597,7 +6596,7 @@
       "model": "outdoor:collision_peg",
       "x": -17.075526,
       "z": -5.314899822863229,
-      "y": 6.085863,
+      "y": 5.911823,
       "rotation_degrees": 90,
       "scale": 0.05,
       "size": [
@@ -6946,7 +6945,7 @@
       "rotation_degrees": 0,
       "scale": 1,
       "solid": false,
-      "y": 0.045
+      "y": -0.06
     },
     {
       "id": "land_rock_5_solid",
@@ -6962,7 +6961,7 @@
       "solid": true,
       "occludes": false,
       "rotation_degrees": 0,
-      "y": 0.045
+      "y": -0.06
     },
     {
       "id": "palm_0",
@@ -7030,7 +7029,7 @@
       "rotation_degrees": 30,
       "scale": 1,
       "solid": false,
-      "y": 0.0375
+      "y": 0.0
     },
     {
       "id": "palm_1_trunk_0",
@@ -7625,87 +7624,87 @@
     {
       "id": "foam_0",
       "model": "beach:shoreline_foam",
-      "x": -23.625,
-      "z": 5.0,
-      "rotation_degrees": 24.34675185470492,
-      "scale": 0.10290130212254665,
+      "x": -22.5,
+      "z": 1.46875,
+      "rotation_degrees": 4.763641690726177,
+      "scale": 0.38633449273625275,
       "solid": false,
       "occludes": false,
-      "y": 0.0675
+      "y": 0.072188
     },
     {
       "id": "foam_1",
       "model": "beach:shoreline_foam",
-      "x": -22.875,
-      "z": 4.625,
-      "rotation_degrees": 23.629377730656817,
-      "scale": 0.1023295851361698,
+      "x": -19.5,
+      "z": 1.21875,
+      "rotation_degrees": 4.763641690726177,
+      "scale": 0.38633449273625275,
       "solid": false,
       "occludes": false,
-      "y": 0.0675
+      "y": 0.072188
     },
     {
       "id": "foam_2",
       "model": "beach:shoreline_foam",
-      "x": -22.125,
-      "z": 4.375,
-      "rotation_degrees": 22.904057803636906,
-      "scale": 0.10177408848960832,
+      "x": -16.5,
+      "z": 0.96875,
+      "rotation_degrees": 4.763641690726177,
+      "scale": 0.38633449273625275,
       "solid": false,
       "occludes": false,
-      "y": 0.0675
+      "y": 0.072188
     },
     {
       "id": "foam_3",
       "model": "beach:shoreline_foam",
-      "x": -21.375,
-      "z": 4.0,
-      "rotation_degrees": 22.170895633834437,
-      "scale": 0.10123507919572951,
+      "x": -13.5,
+      "z": 0.71875,
+      "rotation_degrees": 4.763641690726177,
+      "scale": 0.38633449273625275,
       "solid": false,
       "occludes": false,
-      "y": 0.0675
+      "y": 0.072188
     },
     {
       "id": "foam_4",
       "model": "beach:shoreline_foam",
-      "x": -20.625,
-      "z": 3.75,
-      "rotation_degrees": 21.430007301752386,
-      "scale": 0.10071282197300216,
+      "x": -10.5,
+      "z": 0.46875,
+      "rotation_degrees": 4.763641690726177,
+      "scale": 0.38633449273625275,
       "solid": false,
       "occludes": false,
-      "y": 0.0675
+      "y": 0.072188
     },
     {
       "id": "foam_5",
       "model": "beach:shoreline_foam",
-      "x": -19.875,
-      "z": 3.375,
-      "rotation_degrees": 20.6815216782009,
-      "scale": 0.1002075787447767,
+      "x": -7.5,
+      "z": 0.21875,
+      "rotation_degrees": 4.763641690726177,
+      "scale": 0.38633449273625275,
       "solid": false,
       "occludes": false,
-      "y": 0.0675
+      "y": 0.072188
     },
     {
       "id": "foam_6",
       "model": "beach:shoreline_foam",
-      "x": -19.125,
-      "z": 3.125,
-      "rotation_degrees": 19.925580658184323,
-      "scale": 0.09971960812267877,
+      "x": -4.5,
+      "z": -0.03125,
+      "rotation_degrees": 4.004172940709388,
+      "scale": 0.385942097341039,
       "solid": false,
       "occludes": false,
-      "y": 0.0675
+      "y": 0.072188
     },
     {
       "id": "foam_7",
       "model": "beach:shoreline_foam",
-      "x": -18.375,
-      "z": 2.875,
-      "rotation_degrees": 19.1623393549719,
-      "scale": 0.09924916487565841,
+      "x": -1.5,
+      "z": -0.140625,
+      "rotation_degrees": 0.5729386976834859,
+      "scale": 0.38501924951877403,
       "solid": false,
       "occludes": false,
       "y": 0.0675
@@ -7713,618 +7712,90 @@
     {
       "id": "foam_8",
       "model": "beach:shoreline_foam",
-      "x": -17.625,
-      "z": 2.625,
-      "rotation_degrees": 18.39196625070539,
-      "scale": 0.09879649938644397,
+      "x": 1.5,
+      "z": -0.09375,
+      "rotation_degrees": -2.862405226111748,
+      "scale": 0.38548094959414014,
       "solid": false,
       "occludes": false,
-      "y": 0.0675
+      "y": 0.072188
     },
     {
       "id": "foam_9",
       "model": "beach:shoreline_foam",
-      "x": -16.875,
-      "z": 2.375,
-      "rotation_degrees": 17.614643300007042,
-      "scale": 0.0983618570973557,
+      "x": 4.5,
+      "z": 0.140625,
+      "rotation_degrees": -4.763641690726177,
+      "scale": 0.38633449273625275,
       "solid": false,
       "occludes": false,
-      "y": 0.0675
+      "y": 0.072188
     },
     {
       "id": "foam_10",
       "model": "beach:shoreline_foam",
-      "x": -16.125,
-      "z": 2.125,
-      "rotation_degrees": 16.830565983210597,
-      "scale": 0.09794547794763485,
+      "x": 7.5,
+      "z": 0.390625,
+      "rotation_degrees": -4.763641690726177,
+      "scale": 0.38633449273625275,
       "solid": false,
       "occludes": false,
-      "y": 0.0675
+      "y": -0.345
     },
     {
       "id": "foam_11",
       "model": "beach:shoreline_foam",
-      "x": -15.375,
-      "z": 1.875,
-      "rotation_degrees": 16.03994330604967,
-      "scale": 0.09754759580464106,
+      "x": 10.5,
+      "z": 0.640625,
+      "rotation_degrees": -4.763641690726177,
+      "scale": 0.38633449273625275,
       "solid": false,
       "occludes": false,
-      "y": 0.0675
+      "y": 0.072188
     },
     {
       "id": "foam_12",
       "model": "beach:shoreline_foam",
-      "x": -14.625,
-      "z": 1.75,
-      "rotation_degrees": 15.24299774290158,
-      "scale": 0.09716843789145538,
+      "x": 13.5,
+      "z": 0.890625,
+      "rotation_degrees": -4.763641690726177,
+      "scale": 0.38633449273625275,
       "solid": false,
       "occludes": false,
-      "y": 0.0675
+      "y": 0.072188
     },
     {
       "id": "foam_13",
       "model": "beach:shoreline_foam",
-      "x": -13.875,
-      "z": 1.5,
-      "rotation_degrees": 14.439965121002714,
-      "scale": 0.09680822421359986,
+      "x": 16.5,
+      "z": 1.140625,
+      "rotation_degrees": -4.763641690726177,
+      "scale": 0.38633449273625275,
       "solid": false,
       "occludes": false,
-      "y": 0.0675
+      "y": 0.072188
     },
     {
       "id": "foam_14",
       "model": "beach:shoreline_foam",
-      "x": -13.125,
-      "z": 1.375,
-      "rotation_degrees": 13.631094443421542,
-      "scale": 0.09646716698774058,
+      "x": 19.5,
+      "z": 1.390625,
+      "rotation_degrees": -4.763641690726177,
+      "scale": 0.38633449273625275,
       "solid": false,
       "occludes": false,
-      "y": 0.0675
+      "y": 0.072188
     },
     {
       "id": "foam_15",
       "model": "beach:shoreline_foam",
-      "x": -12.375,
-      "z": 1.125,
-      "rotation_degrees": 12.816647648997437,
-      "scale": 0.09614547007537913,
+      "x": 22.5,
+      "z": 1.640625,
+      "rotation_degrees": -4.763641690726177,
+      "scale": 0.38633449273625275,
       "solid": false,
       "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_16",
-      "model": "beach:shoreline_foam",
-      "x": -11.625,
-      "z": 1.0,
-      "rotation_degrees": 11.996899307923577,
-      "scale": 0.09584332842465157,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_17",
-      "model": "beach:shoreline_foam",
-      "x": -10.875,
-      "z": 0.875,
-      "rotation_degrees": 11.17213625216715,
-      "scale": 0.09556092752344246,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_18",
-      "model": "beach:shoreline_foam",
-      "x": -10.125,
-      "z": 0.625,
-      "rotation_degrees": 10.34265714047461,
-      "scale": 0.0952984428670827,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_19",
-      "model": "beach:shoreline_foam",
-      "x": -9.375,
-      "z": 0.5,
-      "rotation_degrees": 9.508771958297848,
-      "scale": 0.09505603944392815,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_20",
-      "model": "beach:shoreline_foam",
-      "x": -8.625,
-      "z": 0.375,
-      "rotation_degrees": 8.670801453590961,
-      "scale": 0.09483387124211276,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_21",
-      "model": "beach:shoreline_foam",
-      "x": -7.875,
-      "z": 0.375,
-      "rotation_degrees": 7.829076510059608,
-      "scale": 0.0946320807807301,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_22",
-      "model": "beach:shoreline_foam",
-      "x": -7.125,
-      "z": 0.25,
-      "rotation_degrees": 6.98393746008529,
-      "scale": 0.0944507986686223,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_23",
-      "model": "beach:shoreline_foam",
-      "x": -6.375,
-      "z": 0.125,
-      "rotation_degrees": 6.135733340186793,
-      "scale": 0.0942901431938441,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_24",
-      "model": "beach:shoreline_foam",
-      "x": -5.625,
-      "z": 0.125,
-      "rotation_degrees": 5.284821092509015,
-      "scale": 0.09415021994671932,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_25",
-      "model": "beach:shoreline_foam",
-      "x": -4.875,
-      "z": 0.0,
-      "rotation_degrees": 4.431564716435844,
-      "scale": 0.09403112147922424,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_26",
-      "model": "beach:shoreline_foam",
-      "x": -4.125,
-      "z": 0.0,
-      "rotation_degrees": 3.576334374997351,
-      "scale": 0.09393292700321132,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_27",
-      "model": "beach:shoreline_foam",
-      "x": -3.375,
-      "z": -0.125,
-      "rotation_degrees": 2.719505461272505,
-      "scale": 0.09385570212973543,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_28",
-      "model": "beach:shoreline_foam",
-      "x": -2.625,
-      "z": -0.125,
-      "rotation_degrees": 1.861457630466729,
-      "scale": 0.09379949865146202,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_29",
-      "model": "beach:shoreline_foam",
-      "x": -1.875,
-      "z": -0.125,
-      "rotation_degrees": 1.0025738037600627,
-      "scale": 0.09376435436982769,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_30",
-      "model": "beach:shoreline_foam",
-      "x": -1.125,
-      "z": -0.125,
-      "rotation_degrees": 0.14323915036830656,
-      "scale": 0.09375029296829224,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_31",
-      "model": "beach:shoreline_foam",
-      "x": -0.375,
-      "z": -0.125,
-      "rotation_degrees": -0.7161599454704085,
-      "scale": 0.09375732393267006,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_32",
-      "model": "beach:shoreline_foam",
-      "x": 0.375,
-      "z": -0.125,
-      "rotation_degrees": -1.5752369256830545,
-      "scale": 0.09378544251916512,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_33",
-      "model": "beach:shoreline_foam",
-      "x": 1.125,
-      "z": -0.125,
-      "rotation_degrees": -2.4336061007201217,
-      "scale": 0.0938346297703605,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_34",
-      "model": "beach:shoreline_foam",
-      "x": 1.875,
-      "z": -0.125,
-      "rotation_degrees": -3.2908836860672928,
-      "scale": 0.09390485257903675,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_35",
-      "model": "beach:shoreline_foam",
-      "x": 2.625,
-      "z": 0.0,
-      "rotation_degrees": -4.146688825966009,
-      "scale": 0.09399606379931888,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_36",
-      "model": "beach:shoreline_foam",
-      "x": 3.375,
-      "z": 0.0,
-      "rotation_degrees": -5.000644597558434,
-      "scale": 0.09410820240428369,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_37",
-      "model": "beach:shoreline_foam",
-      "x": 4.125,
-      "z": 0.125,
-      "rotation_degrees": -5.852378988915622,
-      "scale": 0.09424119368880374,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_38",
-      "model": "beach:shoreline_foam",
-      "x": 4.875,
-      "z": 0.25,
-      "rotation_degrees": -6.701525844729484,
-      "scale": 0.09439494951606589,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_39",
-      "model": "beach:shoreline_foam",
-      "x": 5.625,
-      "z": 0.25,
-      "rotation_degrees": -7.547725773843111,
-      "scale": 0.09456936860588434,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_40",
-      "model": "beach:shoreline_foam",
-      "x": 6.375,
-      "z": 0.375,
-      "rotation_degrees": -8.39062701325258,
-      "scale": 0.09476433686263849,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_41",
-      "model": "beach:shoreline_foam",
-      "x": 7.125,
-      "z": 0.5,
-      "rotation_degrees": -9.22988624372772,
-      "scale": 0.09497972774040062,
-      "solid": false,
-      "occludes": false,
-      "y": -0.345
-    },
-    {
-      "id": "foam_42",
-      "model": "beach:shoreline_foam",
-      "x": 7.875,
-      "z": 0.625,
-      "rotation_degrees": -10.065169352759845,
-      "scale": 0.09521540264259049,
-      "solid": false,
-      "occludes": false,
-      "y": -0.345
-    },
-    {
-      "id": "foam_43",
-      "model": "beach:shoreline_foam",
-      "x": 8.625,
-      "z": 0.75,
-      "rotation_degrees": -10.896152141141132,
-      "scale": 0.09547121135329553,
-      "solid": false,
-      "occludes": false,
-      "y": -0.345
-    },
-    {
-      "id": "foam_44",
-      "model": "beach:shoreline_foam",
-      "x": 9.375,
-      "z": 0.875,
-      "rotation_degrees": -11.722520970102265,
-      "scale": 0.09574699249723526,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_45",
-      "model": "beach:shoreline_foam",
-      "x": 10.125,
-      "z": 1.125,
-      "rotation_degrees": -12.543973346572107,
-      "scale": 0.09604257402522395,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_46",
-      "model": "beach:shoreline_foam",
-      "x": 10.875,
-      "z": 1.25,
-      "rotation_degrees": -13.360218444764485,
-      "scale": 0.09635777372189866,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_47",
-      "model": "beach:shoreline_foam",
-      "x": 11.625,
-      "z": 1.5,
-      "rotation_degrees": -14.170977562933093,
-      "scale": 0.09669239973242791,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_48",
-      "model": "beach:shoreline_foam",
-      "x": 12.375,
-      "z": 1.625,
-      "rotation_degrees": -14.975984514756693,
-      "scale": 0.09704625110490166,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_49",
-      "model": "beach:shoreline_foam",
-      "x": 13.125,
-      "z": 1.875,
-      "rotation_degrees": -15.774985955414072,
-      "scale": 0.09741911834512067,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_50",
-      "model": "beach:shoreline_foam",
-      "x": 13.875,
-      "z": 2.125,
-      "rotation_degrees": -16.567741642974916,
-      "scale": 0.09781078398055414,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_51",
-      "model": "beach:shoreline_foam",
-      "x": 14.625,
-      "z": 2.25,
-      "rotation_degrees": -17.35402463626132,
-      "scale": 0.09822102313031374,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_52",
-      "model": "beach:shoreline_foam",
-      "x": 15.375,
-      "z": 2.5,
-      "rotation_degrees": -18.133621430820384,
-      "scale": 0.0986496040780987,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_53",
-      "model": "beach:shoreline_foam",
-      "x": 16.125,
-      "z": 2.75,
-      "rotation_degrees": -18.906332035086606,
-      "scale": 0.09909628884519656,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_54",
-      "model": "beach:shoreline_foam",
-      "x": 16.875,
-      "z": 3.0,
-      "rotation_degrees": -19.67196998920056,
-      "scale": 0.09956083376077474,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_55",
-      "model": "beach:shoreline_foam",
-      "x": 17.625,
-      "z": 3.375,
-      "rotation_degrees": -20.430362329285575,
-      "scale": 0.10004299002686606,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_56",
-      "model": "beach:shoreline_foam",
-      "x": 18.375,
-      "z": 3.625,
-      "rotation_degrees": -21.181349500266236,
-      "scale": 0.10054250427563272,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_57",
-      "model": "beach:shoreline_foam",
-      "x": 19.125,
-      "z": 3.875,
-      "rotation_degrees": -21.924785220541175,
-      "scale": 0.10105911911668647,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_58",
-      "model": "beach:shoreline_foam",
-      "x": 19.875,
-      "z": 4.25,
-      "rotation_degrees": -22.660536301999308,
-      "scale": 0.10159257367244234,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_59",
-      "model": "beach:shoreline_foam",
-      "x": 20.625,
-      "z": 4.5,
-      "rotation_degrees": -23.3884824289949,
-      "scale": 0.10214260409968812,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_60",
-      "model": "beach:shoreline_foam",
-      "x": 21.375,
-      "z": 4.875,
-      "rotation_degrees": -24.108515899975323,
-      "scale": 0.10270894409575841,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_61",
-      "model": "beach:shoreline_foam",
-      "x": 22.125,
-      "z": 5.25,
-      "rotation_degrees": -24.820541335489082,
-      "scale": 0.1032913253879077,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_62",
-      "model": "beach:shoreline_foam",
-      "x": 22.875,
-      "z": 5.5,
-      "rotation_degrees": -25.524475356294374,
-      "scale": 0.10388947820467974,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
-    },
-    {
-      "id": "foam_63",
-      "model": "beach:shoreline_foam",
-      "x": 23.625,
-      "z": 5.875,
-      "rotation_degrees": -26.220246235243543,
-      "scale": 0.10450313172826749,
-      "solid": false,
-      "occludes": false,
-      "y": 0.0675
+      "y": 0.072188
     },
     {
       "id": "pier_gull",
@@ -8430,7 +7901,7 @@
           "playing": false
         }
       ],
-      "y": 0.54
+      "y": 0.565
     },
     {
       "id": "boundary_west",
@@ -8499,10 +7970,10 @@
   ],
   "water": [
     {
-      "x": -3.75,
+      "x": -1.5,
       "z": -24,
       "width": 0.75,
-      "depth": 19.125,
+      "depth": 19.09375,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -8511,8 +7982,56 @@
       "swimming": true
     },
     {
-      "x": -3.75,
-      "z": -4.875,
+      "x": -1.5,
+      "z": -4.90625,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -2.25,
+      "z": -24,
+      "width": 0.75,
+      "depth": 19.109375,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -2.25,
+      "z": -4.890625,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -0.75,
+      "z": -24,
+      "width": 0.75,
+      "depth": 19.109375,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -0.75,
+      "z": -4.890625,
       "width": 0.75,
       "depth": 4.9,
       "surface_y": -0.12,
@@ -8536,78 +8055,6 @@
     },
     {
       "x": -3.0,
-      "z": -4.875,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -2.25,
-      "z": -24,
-      "width": 0.75,
-      "depth": 19.125,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -2.25,
-      "z": -4.875,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -1.5,
-      "z": -24,
-      "width": 0.75,
-      "depth": 19.125,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -1.5,
-      "z": -4.875,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -0.75,
-      "z": -24,
-      "width": 0.75,
-      "depth": 19.125,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -0.75,
       "z": -4.875,
       "width": 0.75,
       "depth": 4.9,
@@ -8646,7 +8093,7 @@
       "x": 0.75,
       "z": -24,
       "width": 0.75,
-      "depth": 19.125,
+      "depth": 19.140625,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -8656,7 +8103,31 @@
     },
     {
       "x": 0.75,
-      "z": -4.875,
+      "z": -4.859375,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -3.75,
+      "z": -24,
+      "width": 0.75,
+      "depth": 19.15625,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -3.75,
+      "z": -4.84375,
       "width": 0.75,
       "depth": 4.9,
       "surface_y": -0.12,
@@ -8670,7 +8141,7 @@
       "x": 1.5,
       "z": -24,
       "width": 0.75,
-      "depth": 19.125,
+      "depth": 19.1875,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -8680,7 +8151,55 @@
     },
     {
       "x": 1.5,
-      "z": -4.875,
+      "z": -4.8125,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -4.5,
+      "z": -24,
+      "width": 0.75,
+      "depth": 19.203125,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -4.5,
+      "z": -4.796875,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": 2.25,
+      "z": -24,
+      "width": 0.75,
+      "depth": 19.234375,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": 2.25,
+      "z": -4.765625,
       "width": 0.75,
       "depth": 4.9,
       "surface_y": -0.12,
@@ -8715,10 +8234,10 @@
       "swimming": true
     },
     {
-      "x": -4.5,
+      "x": 3.0,
       "z": -24,
       "width": 0.75,
-      "depth": 19.25,
+      "depth": 19.296875,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -8727,8 +8246,8 @@
       "swimming": true
     },
     {
-      "x": -4.5,
-      "z": -4.75,
+      "x": 3.0,
+      "z": -4.703125,
       "width": 0.75,
       "depth": 4.9,
       "surface_y": -0.12,
@@ -8739,10 +8258,10 @@
       "swimming": true
     },
     {
-      "x": 2.25,
+      "x": -6.0,
       "z": -24,
       "width": 0.75,
-      "depth": 19.25,
+      "depth": 19.3125,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -8751,8 +8270,8 @@
       "swimming": true
     },
     {
-      "x": 2.25,
-      "z": -4.75,
+      "x": -6.0,
+      "z": -4.6875,
       "width": 0.75,
       "depth": 4.9,
       "surface_y": -0.12,
@@ -8763,10 +8282,10 @@
       "swimming": true
     },
     {
-      "x": 3.0,
+      "x": 3.75,
       "z": -24,
       "width": 0.75,
-      "depth": 19.25,
+      "depth": 19.359375,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -8775,8 +8294,8 @@
       "swimming": true
     },
     {
-      "x": 3.0,
-      "z": -4.75,
+      "x": 3.75,
+      "z": -4.640625,
       "width": 0.75,
       "depth": 4.9,
       "surface_y": -0.12,
@@ -8811,10 +8330,10 @@
       "swimming": true
     },
     {
-      "x": -6.0,
+      "x": 4.5,
       "z": -24,
       "width": 0.75,
-      "depth": 19.375,
+      "depth": 19.421875,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -8823,32 +8342,8 @@
       "swimming": true
     },
     {
-      "x": -6.0,
-      "z": -4.625,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 3.75,
-      "z": -24,
-      "width": 0.75,
-      "depth": 19.375,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 3.75,
-      "z": -4.625,
+      "x": 4.5,
+      "z": -4.578125,
       "width": 0.75,
       "depth": 4.9,
       "surface_y": -0.12,
@@ -8862,7 +8357,7 @@
       "x": -7.5,
       "z": -24,
       "width": 0.75,
-      "depth": 19.5,
+      "depth": 19.4375,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -8872,31 +8367,7 @@
     },
     {
       "x": -7.5,
-      "z": -4.5,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 4.5,
-      "z": -24,
-      "width": 0.75,
-      "depth": 19.5,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 4.5,
-      "z": -4.5,
+      "z": -4.5625,
       "width": 0.75,
       "depth": 4.9,
       "surface_y": -0.12,
@@ -8910,7 +8381,7 @@
       "x": 5.25,
       "z": -24,
       "width": 0.7167500000000002,
-      "depth": 19.5,
+      "depth": 19.484375,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -8934,7 +8405,7 @@
       "x": 5.96675,
       "z": -8.123000000000001,
       "width": 0.03324999999999978,
-      "depth": 3.623000000000001,
+      "depth": 3.607375000000001,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -8944,6 +8415,30 @@
     },
     {
       "x": 5.25,
+      "z": -4.515625,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -8.25,
+      "z": -24,
+      "width": 0.75,
+      "depth": 19.5,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -8.25,
       "z": -4.5,
       "width": 0.75,
       "depth": 4.9,
@@ -8955,54 +8450,6 @@
       "swimming": true
     },
     {
-      "x": -9.0,
-      "z": -24,
-      "width": 0.75,
-      "depth": 19.625,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -9.0,
-      "z": -4.375,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -8.25,
-      "z": -24,
-      "width": 0.75,
-      "depth": 19.625,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -8.25,
-      "z": -4.375,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
       "x": 6.0,
       "z": -24,
       "width": 0.75,
@@ -9018,7 +8465,7 @@
       "x": 6.0,
       "z": -8.123000000000001,
       "width": 0.75,
-      "depth": 3.748000000000001,
+      "depth": 3.669875000000001,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -9028,7 +8475,7 @@
     },
     {
       "x": 6.0,
-      "z": -4.375,
+      "z": -4.453125,
       "width": 0.75,
       "depth": 4.9,
       "surface_y": -0.12,
@@ -9039,10 +8486,10 @@
       "swimming": true
     },
     {
-      "x": -9.75,
+      "x": -9.0,
       "z": -24,
       "width": 0.75,
-      "depth": 19.75,
+      "depth": 19.5625,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -9051,8 +8498,8 @@
       "swimming": true
     },
     {
-      "x": -9.75,
-      "z": -4.25,
+      "x": -9.0,
+      "z": -4.4375,
       "width": 0.75,
       "depth": 4.9,
       "surface_y": -0.12,
@@ -9078,7 +8525,7 @@
       "x": 6.75,
       "z": -8.123000000000001,
       "width": 0.21675000000000022,
-      "depth": 3.873000000000001,
+      "depth": 3.732375000000001,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -9100,7 +8547,7 @@
     },
     {
       "x": 6.75,
-      "z": -4.25,
+      "z": -4.390625,
       "width": 0.21675000000000022,
       "depth": 4.9,
       "surface_y": -0.12,
@@ -9111,10 +8558,10 @@
       "swimming": true
     },
     {
-      "x": -10.5,
+      "x": -9.75,
       "z": -24,
       "width": 0.75,
-      "depth": 19.875,
+      "depth": 19.625,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -9123,8 +8570,8 @@
       "swimming": true
     },
     {
-      "x": -10.5,
-      "z": -4.125,
+      "x": -9.75,
+      "z": -4.375,
       "width": 0.75,
       "depth": 4.9,
       "surface_y": -0.12,
@@ -9139,6 +8586,30 @@
       "z": -24,
       "width": 0.75,
       "depth": 13.873,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -10.5,
+      "z": -24,
+      "width": 0.75,
+      "depth": 19.6875,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -10.5,
+      "z": -4.3125,
+      "width": 0.75,
+      "depth": 4.9,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -9162,7 +8633,7 @@
       "x": -11.25,
       "z": -24,
       "width": 0.75,
-      "depth": 20.125,
+      "depth": 19.75,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -9172,7 +8643,7 @@
     },
     {
       "x": -11.25,
-      "z": -3.875,
+      "z": -4.25,
       "width": 0.75,
       "depth": 4.9,
       "surface_y": -0.12,
@@ -9198,7 +8669,7 @@
       "x": 9.03325,
       "z": -8.123000000000001,
       "width": 0.7167499999999993,
-      "depth": 4.248000000000001,
+      "depth": 3.919875000000001,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -9220,7 +8691,7 @@
     },
     {
       "x": 9.03325,
-      "z": -3.875,
+      "z": -4.203125,
       "width": 0.7167499999999993,
       "depth": 4.9,
       "surface_y": -0.12,
@@ -9234,7 +8705,7 @@
       "x": -12.0,
       "z": -24,
       "width": 0.75,
-      "depth": 20.25,
+      "depth": 19.8125,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -9244,31 +8715,7 @@
     },
     {
       "x": -12.0,
-      "z": -3.75,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -12.75,
-      "z": -24,
-      "width": 0.75,
-      "depth": 20.375,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -12.75,
-      "z": -3.625,
+      "z": -4.1875,
       "width": 0.75,
       "depth": 4.9,
       "surface_y": -0.12,
@@ -9282,7 +8729,7 @@
       "x": 10.033249999999999,
       "z": -24,
       "width": 0.4667500000000011,
-      "depth": 20.375,
+      "depth": 19.859375,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -9306,7 +8753,7 @@
       "x": 9.75,
       "z": -8.123000000000001,
       "width": 0.2832499999999989,
-      "depth": 4.498000000000001,
+      "depth": 3.982375000000001,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -9316,6 +8763,414 @@
     },
     {
       "x": 9.75,
+      "z": -4.140625,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -12.75,
+      "z": -24,
+      "width": 0.75,
+      "depth": 19.875,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -12.75,
+      "z": -4.125,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": 10.5,
+      "z": -24,
+      "width": 0.75,
+      "depth": 19.921875,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": 10.5,
+      "z": -4.078125,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -13.5,
+      "z": -24,
+      "width": 0.75,
+      "depth": 19.9375,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -13.5,
+      "z": -4.0625,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": 11.25,
+      "z": -24,
+      "width": 0.75,
+      "depth": 19.984375,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": 11.25,
+      "z": -4.015625,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -14.25,
+      "z": -24,
+      "width": 0.75,
+      "depth": 20.0,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -14.25,
+      "z": -4.0,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": 12.0,
+      "z": -24,
+      "width": 0.75,
+      "depth": 20.046875,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": 12.0,
+      "z": -3.953125,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -15.0,
+      "z": -24,
+      "width": 0.75,
+      "depth": 20.0625,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -15.0,
+      "z": -3.9375,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": 12.75,
+      "z": -24,
+      "width": 0.75,
+      "depth": 20.109375,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": 12.75,
+      "z": -3.890625,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -15.75,
+      "z": -24,
+      "width": 0.75,
+      "depth": 20.125,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -15.75,
+      "z": -3.875,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": 13.5,
+      "z": -24,
+      "width": 0.75,
+      "depth": 20.171875,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": 13.5,
+      "z": -3.828125,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -16.5,
+      "z": -24,
+      "width": 0.75,
+      "depth": 20.1875,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -16.5,
+      "z": -3.8125,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": 14.25,
+      "z": -24,
+      "width": 0.75,
+      "depth": 20.234375,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": 14.25,
+      "z": -3.765625,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -17.25,
+      "z": -24,
+      "width": 0.75,
+      "depth": 20.25,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -17.25,
+      "z": -3.75,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": 15.0,
+      "z": -24,
+      "width": 0.75,
+      "depth": 20.296875,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": 15.0,
+      "z": -3.703125,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -18.0,
+      "z": -24,
+      "width": 0.75,
+      "depth": 20.3125,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -18.0,
+      "z": -3.6875,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": 15.75,
+      "z": -24,
+      "width": 0.75,
+      "depth": 20.359375,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": 15.75,
+      "z": -3.640625,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -18.75,
+      "z": -24,
+      "width": 0.75,
+      "depth": 20.375,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -18.75,
       "z": -3.625,
       "width": 0.75,
       "depth": 4.9,
@@ -9327,7 +9182,79 @@
       "swimming": true
     },
     {
-      "x": 10.5,
+      "x": 16.5,
+      "z": -24,
+      "width": 0.75,
+      "depth": 20.421875,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": 16.5,
+      "z": -3.578125,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -19.5,
+      "z": -24,
+      "width": 0.75,
+      "depth": 20.4375,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -19.5,
+      "z": -3.5625,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": 17.25,
+      "z": -24,
+      "width": 0.75,
+      "depth": 20.484375,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": 17.25,
+      "z": -3.515625,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -20.25,
       "z": -24,
       "width": 0.75,
       "depth": 20.5,
@@ -9339,7 +9266,7 @@
       "swimming": true
     },
     {
-      "x": 10.5,
+      "x": -20.25,
       "z": -3.5,
       "width": 0.75,
       "depth": 4.9,
@@ -9351,7 +9278,79 @@
       "swimming": true
     },
     {
-      "x": -13.5,
+      "x": 18.0,
+      "z": -24,
+      "width": 0.75,
+      "depth": 20.546875,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": 18.0,
+      "z": -3.453125,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -21.0,
+      "z": -24,
+      "width": 0.75,
+      "depth": 20.5625,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -21.0,
+      "z": -3.4375,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": 18.75,
+      "z": -24,
+      "width": 0.75,
+      "depth": 20.609375,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": 18.75,
+      "z": -3.390625,
+      "width": 0.75,
+      "depth": 4.9,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "opacity": 0.6,
+      "attenuation_per_metre": 0.1,
+      "swimming": true
+    },
+    {
+      "x": -21.75,
       "z": -24,
       "width": 0.75,
       "depth": 20.625,
@@ -9363,7 +9362,7 @@
       "swimming": true
     },
     {
-      "x": -13.5,
+      "x": -21.75,
       "z": -3.375,
       "width": 0.75,
       "depth": 4.9,
@@ -9375,526 +9374,10 @@
       "swimming": true
     },
     {
-      "x": -14.25,
+      "x": 19.5,
       "z": -24,
       "width": 0.75,
-      "depth": 20.75,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -14.25,
-      "z": -3.25,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 11.25,
-      "z": -24,
-      "width": 0.75,
-      "depth": 20.75,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 11.25,
-      "z": -3.25,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 12.0,
-      "z": -24,
-      "width": 0.75,
-      "depth": 20.875,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 12.0,
-      "z": -3.125,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -15.0,
-      "z": -24,
-      "width": 0.75,
-      "depth": 21.0,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -15.0,
-      "z": -3.0,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -15.75,
-      "z": -24,
-      "width": 0.75,
-      "depth": 21.125,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -15.75,
-      "z": -2.875,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 12.75,
-      "z": -24,
-      "width": 0.75,
-      "depth": 21.125,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 12.75,
-      "z": -2.875,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -16.5,
-      "z": -24,
-      "width": 0.75,
-      "depth": 21.375,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -16.5,
-      "z": -2.625,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 13.5,
-      "z": -24,
-      "width": 0.75,
-      "depth": 21.375,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 13.5,
-      "z": -2.625,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 14.25,
-      "z": -24,
-      "width": 0.75,
-      "depth": 21.5,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 14.25,
-      "z": -2.5,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -17.25,
-      "z": -24,
-      "width": 0.75,
-      "depth": 21.625,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -17.25,
-      "z": -2.375,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 15.0,
-      "z": -24,
-      "width": 0.75,
-      "depth": 21.75,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 15.0,
-      "z": -2.25,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -18.0,
-      "z": -24,
-      "width": 0.75,
-      "depth": 21.875,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -18.0,
-      "z": -2.125,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 15.75,
-      "z": -24,
-      "width": 0.75,
-      "depth": 22.0,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 15.75,
-      "z": -2.0,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -18.75,
-      "z": -24,
-      "width": 0.75,
-      "depth": 22.125,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -18.75,
-      "z": -1.875,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 16.5,
-      "z": -24,
-      "width": 0.75,
-      "depth": 22.25,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 16.5,
-      "z": -1.75,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -19.5,
-      "z": -24,
-      "width": 0.75,
-      "depth": 22.375,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -19.5,
-      "z": -1.625,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -20.25,
-      "z": -24,
-      "width": 0.75,
-      "depth": 22.625,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -20.25,
-      "z": -1.375,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 17.25,
-      "z": -24,
-      "width": 0.75,
-      "depth": 22.625,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 17.25,
-      "z": -1.375,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 18.0,
-      "z": -24,
-      "width": 0.75,
-      "depth": 22.875,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 18.0,
-      "z": -1.125,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -21.0,
-      "z": -24,
-      "width": 0.75,
-      "depth": 23.0,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -21.0,
-      "z": -1.0,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 18.75,
-      "z": -24,
-      "width": 0.75,
-      "depth": 23.125,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 18.75,
-      "z": -0.875,
-      "width": 0.75,
-      "depth": 4.9,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -21.75,
-      "z": -24,
-      "width": 0.75,
-      "depth": 23.25,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": -21.75,
-      "z": -0.75,
-      "width": 0.75,
-      "depth": 4.9,
+      "depth": 20.671875,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -9904,19 +9387,7 @@
     },
     {
       "x": 19.5,
-      "z": -24,
-      "width": 0.75,
-      "depth": 23.5,
-      "surface_y": -0.12,
-      "bottom_y": -2.2,
-      "material": "beach:water_shallow_01",
-      "opacity": 0.6,
-      "attenuation_per_metre": 0.1,
-      "swimming": true
-    },
-    {
-      "x": 19.5,
-      "z": -0.5,
+      "z": -3.328125,
       "width": 0.75,
       "depth": 4.9,
       "surface_y": -0.12,
@@ -9930,7 +9401,7 @@
       "x": -22.5,
       "z": -24,
       "width": 0.75,
-      "depth": 23.625,
+      "depth": 20.6875,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -9940,7 +9411,7 @@
     },
     {
       "x": -22.5,
-      "z": -0.375,
+      "z": -3.3125,
       "width": 0.75,
       "depth": 4.9,
       "surface_y": -0.12,
@@ -9954,7 +9425,7 @@
       "x": 20.25,
       "z": -24,
       "width": 0.75,
-      "depth": 23.75,
+      "depth": 20.734375,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -9964,7 +9435,7 @@
     },
     {
       "x": 20.25,
-      "z": -0.25,
+      "z": -3.265625,
       "width": 0.75,
       "depth": 4.9,
       "surface_y": -0.12,
@@ -9978,7 +9449,7 @@
       "x": -23.25,
       "z": -24,
       "width": 0.75,
-      "depth": 23.875,
+      "depth": 20.75,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -9988,7 +9459,7 @@
     },
     {
       "x": -23.25,
-      "z": -0.125,
+      "z": -3.25,
       "width": 0.75,
       "depth": 4.9,
       "surface_y": -0.12,
@@ -10002,7 +9473,7 @@
       "x": 21.0,
       "z": -24,
       "width": 0.75,
-      "depth": 24.125,
+      "depth": 20.796875,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -10012,7 +9483,7 @@
     },
     {
       "x": 21.0,
-      "z": 0.125,
+      "z": -3.203125,
       "width": 0.75,
       "depth": 4.9,
       "surface_y": -0.12,
@@ -10026,7 +9497,7 @@
       "x": -24.0,
       "z": -24,
       "width": 0.75,
-      "depth": 24.25,
+      "depth": 20.8125,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -10036,7 +9507,7 @@
     },
     {
       "x": -24.0,
-      "z": 0.25,
+      "z": -3.1875,
       "width": 0.75,
       "depth": 4.9,
       "surface_y": -0.12,
@@ -10050,7 +9521,7 @@
       "x": 21.75,
       "z": -24,
       "width": 0.75,
-      "depth": 24.5,
+      "depth": 20.859375,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -10060,7 +9531,7 @@
     },
     {
       "x": 21.75,
-      "z": 0.5,
+      "z": -3.140625,
       "width": 0.75,
       "depth": 4.9,
       "surface_y": -0.12,
@@ -10074,7 +9545,7 @@
       "x": 22.5,
       "z": -24,
       "width": 0.75,
-      "depth": 24.75,
+      "depth": 20.921875,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -10084,7 +9555,7 @@
     },
     {
       "x": 22.5,
-      "z": 0.75,
+      "z": -3.078125,
       "width": 0.75,
       "depth": 4.9,
       "surface_y": -0.12,
@@ -10098,7 +9569,7 @@
       "x": 23.25,
       "z": -24,
       "width": 0.75,
-      "depth": 25.125,
+      "depth": 20.984375,
       "surface_y": -0.12,
       "bottom_y": -2.2,
       "material": "beach:water_shallow_01",
@@ -10108,7 +9579,7 @@
     },
     {
       "x": 23.25,
-      "z": 1.125,
+      "z": -3.015625,
       "width": 0.75,
       "depth": 4.9,
       "surface_y": -0.12,
@@ -10355,7 +9826,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10363,7 +9834,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10371,7 +9842,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10379,7 +9850,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10387,7 +9858,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10395,7 +9866,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10403,7 +9874,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10411,7 +9882,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10419,7 +9890,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10427,7 +9898,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10435,7 +9906,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10443,7 +9914,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10451,7 +9922,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10459,7 +9930,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10467,7 +9938,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10475,7 +9946,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10483,7 +9954,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10491,7 +9962,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10499,7 +9970,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10507,7 +9978,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10515,7 +9986,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10523,7 +9994,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10531,7 +10002,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10539,7 +10010,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10547,7 +10018,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10555,7 +10026,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10563,7 +10034,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10571,7 +10042,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10579,7 +10050,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10587,7 +10058,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10595,7 +10066,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10603,7 +10074,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10611,7 +10082,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10619,7 +10090,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10627,7 +10098,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10635,7 +10106,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10643,7 +10114,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10651,7 +10122,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10659,7 +10130,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10667,7 +10138,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10675,7 +10146,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10683,7 +10154,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10691,7 +10162,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10699,7 +10170,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10707,7 +10178,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10715,7 +10186,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10723,7 +10194,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10731,7 +10202,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10739,7 +10210,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10747,7 +10218,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10755,7 +10226,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10763,7 +10234,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10771,7 +10242,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10779,7 +10250,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10787,7 +10258,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10795,7 +10266,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10803,7 +10274,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10811,7 +10282,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10819,7 +10290,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10827,7 +10298,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10835,7 +10306,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10843,7 +10314,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10851,7 +10322,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10859,7 +10330,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10867,7 +10338,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10875,7 +10346,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10883,7 +10354,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10891,7 +10362,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10899,7 +10370,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10907,7 +10378,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10915,7 +10386,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10923,7 +10394,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10931,7 +10402,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10939,7 +10410,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10947,7 +10418,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10955,7 +10426,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10963,7 +10434,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10971,7 +10442,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10979,7 +10450,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -10987,7 +10458,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -10995,7 +10466,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11003,7 +10474,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -11011,7 +10482,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11019,7 +10490,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -11027,7 +10498,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11035,7 +10506,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -11043,7 +10514,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11051,7 +10522,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -11059,7 +10530,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11067,7 +10538,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -11075,7 +10546,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11083,7 +10554,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -11091,7 +10562,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11099,7 +10570,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -11107,7 +10578,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11115,7 +10586,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -11123,7 +10594,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11131,7 +10602,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -11139,7 +10610,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11147,7 +10618,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -11155,7 +10626,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11163,7 +10634,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -11171,7 +10642,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11179,7 +10650,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -11187,7 +10658,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11195,7 +10666,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -11203,7 +10674,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11211,7 +10682,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -11219,7 +10690,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11227,7 +10698,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -11235,7 +10706,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11243,7 +10714,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -11251,7 +10722,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11259,7 +10730,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -11267,7 +10738,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11275,7 +10746,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -11283,7 +10754,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11291,7 +10762,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -11299,7 +10770,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11307,7 +10778,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -11315,7 +10786,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11323,7 +10794,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -11331,7 +10802,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11339,7 +10810,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -11347,7 +10818,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11355,7 +10826,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -11363,7 +10834,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11371,7 +10842,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",
@@ -11379,7 +10850,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "coplanar-sliver",
@@ -11387,7 +10858,7 @@
       "z": -24,
       "width": 0.01,
       "depth": 52,
-      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 30 cm."
+      "note": "Back-to-back vertical shore-band caps; one walking top per point, lateral steps at most 2.5 cm."
     },
     {
       "check": "reversed-face",

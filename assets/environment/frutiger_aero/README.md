@@ -53,7 +53,9 @@ for the accent, kiosk and three banners. Their fitted 1:2 faces occupy the left
 128×256 pixels (512×1024 in the master), with white/lime/cyan/silver stock
 swatches on the right. They remain opaque, top-down, +Z upright and UV-clamped.
 Scalar BLEND opacity .17/.16/.13 controls
-panel/tube/dome glazing; bubbles use .55. PNG atlas alpha stays 255.
+panel/tube/dome glazing; bubbles use .45 with pale cyan/white facets and the
+existing compact sheen control (roughness .055, metallic factor .12).
+PNG atlas alpha stays 255.
 
 Four 512² seamless surface PNGs retain 1024² masters: white panel, aqua tile,
 cyan glass and cyan water. Glass carries straight alpha 52–64. Five fitted POT

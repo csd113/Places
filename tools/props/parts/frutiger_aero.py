@@ -377,13 +377,13 @@ def _sphere(p, center, radius, tex, segments=12, bands=5):
             # glass vocabulary instead of reading as vertical block stripes.
             for face, vertices in enumerate(((upper[i], lower[i], lower[nxt]),
                                               (upper[i], lower[nxt], upper[nxt]))):
-                region = ("sky", "cyan", "light_cyan", "sky", "mint", "cyan")[(i*7+j*3+face)%6]
+                region = ("light_cyan", "sky", "light_cyan", "white", "light_cyan", "cyan")[(i*7+j*3+face)%6]
                 uv = tex.uv(region, 3)
                 u0, v0, u1, v1 = uv
                 p.mesh.triangle(*vertices, [(u0, v0), (u0, v1), (u1, v1)], WHITE)
     for y, ring_points in ((center[1]+radius, rings[0]), (center[1]-radius, rings[-1])):
         for i in range(segments):
-            uv = tex.uv("sky" if i%3 else "light_cyan", 3)
+            uv = tex.uv("light_cyan" if i%3 else "white", 3)
             u0, v0, u1, v1 = uv
             p.mesh.triangle((center[0], y, center[2]), ring_points[i], ring_points[(i+1)%segments],
                             [((u0+u1)/2, v0), (u0, v1), (u1, v1)], WHITE)
@@ -398,7 +398,9 @@ def bubble_sculpture(p):
     for center, angle in (((-.42, .54, .20), -.30), ((.43, .49, .13), .34)):
         leaf(p, center, .38, .63, .035, t.uv("lime", 3), angle=angle)
     # No inner sphere/cubemap shell: a single closed faceted surface per bubble.
-    material(p, "bubble", alpha_mode="blend", opacity=.55, roughness=.055)
+    # Pale cyan facets and the existing compact sheen retain the reference's
+    # icy glass vocabulary while the single shell transmits the scene.
+    material(p, "bubble", alpha_mode="blend", opacity=.45, roughness=.055, metallic=.12)
     for center, radius in (((.10, .55, .02), .55), ((-.11, 1.44, -.015), .65),
                            ((.11, 2.38, .035), .32)):
         _sphere(p, center, radius, t)

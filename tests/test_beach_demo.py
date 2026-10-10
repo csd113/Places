@@ -102,9 +102,31 @@ class BeachDemoTests(unittest.TestCase):
         self.assertEqual(expected-present, set())
         self.assertEqual(len(self.props), len(self.level["props"]))
 
-    def test_one_room_and_nonoverlapping_ramp_support(self):
-        self.assertEqual(len(self.level["rooms"]), 1)
-        self.assertEqual(self.level["rooms"][0]["ceiling"]["kind"], "open")
+    def test_continuous_seabed_plane_and_nonoverlapping_ramp_support(self):
+        rooms = self.level["rooms"]
+        self.assertEqual(len(rooms), 1)
+        for room in rooms:
+            self.assertEqual(room["ceiling"]["kind"], "open")
+            self.assertEqual(room["floor_y"], -2.2)
+            self.assertGreater(room["width"], 0)
+            self.assertGreater(room["depth"], 0)
+            self.assertGreaterEqual(room["x"], -24)
+            self.assertGreaterEqual(room["z"], -24)
+            self.assertLessEqual(room["x"]+room["width"], 24)
+            self.assertLessEqual(room["z"]+room["depth"], 28)
+        x_edges = sorted({-24, 24} | {edge for room in rooms
+                         for edge in (room["x"], room["x"]+room["width"])})
+        z_edges = sorted({-24, 28} | {edge for room in rooms
+                         for edge in (room["z"], room["z"]+room["depth"])})
+        # Every arrangement cell has exactly one owner: this proves the full
+        # 48x52m footprint has neither gaps nor overlapping room interiors.
+        for x0, x1 in zip(x_edges, x_edges[1:]):
+            for z0, z1 in zip(z_edges, z_edges[1:]):
+                owners = [room for room in rooms
+                          if contains(room, (x0+x1)/2, (z0+z1)/2)]
+                self.assertEqual(len(owners), 1, (x0, x1, z0, z1))
+        self.assertAlmostEqual(sum(room["width"]*room["depth"] for room in rooms),
+                               48*52, places=7)
         pieces = self.level["ramps"]+self.level["floor_regions"]
         for index, ramp in enumerate(self.level["ramps"]):
             run = max(ramp["width"], ramp["depth"])
@@ -153,6 +175,36 @@ class BeachDemoTests(unittest.TestCase):
                 left = authored_floor(self.level, x-.001, z)
                 right = authored_floor(self.level, x+.001, z)
                 self.assertLessEqual(abs(left-right), .4+1e-5, (x, z, left, right))
+
+    def test_coast_joins_keep_upper_sand_risers_below_one_centimetre(self):
+        # A legally walkable shore can still draw conspicuous transverse sand
+        # bars. At an uncut join, both supports are affine along Z, so their
+        # greatest separation is at an overlap endpoint; no dense grid is needed.
+        coastal = [ramp for ramp in self.level['ramps']
+                   if ramp.get('material') == 'beach:sand_01']
+        checked = {1.6: 0, .6: 0}
+        for rise, limit in ((1.6, .025), (.6, .009375)):
+            ramps = [ramp for ramp in coastal if abs(ramp['rise']-rise) < 1e-7]
+            starts = {ramp['x']: ramp for ramp in ramps}
+            for left in ramps:
+                edge = left['x']+left['width']
+                right = starts.get(edge)
+                if right is None or abs(left['width']-right['width']) > 1e-7:
+                    continue  # The pier's disjoint cuts have separate contracts.
+                near = max(left['z'], right['z'])
+                far = min(left['z']+left['depth'], right['z']+right['depth'])
+                if near >= far:
+                    continue
+                for z in (near, far):
+                    a = authored_floor(self.level, edge-1e-6, z)
+                    b = authored_floor(self.level, edge+1e-6, z)
+                    self.assertIsNotNone(a, (edge, z))
+                    self.assertIsNotNone(b, (edge, z))
+                    self.assertLessEqual(abs(a-b), limit+1e-5,
+                                         ('transverse sand riser', rise, edge, z, a, b))
+                checked[rise] += 1
+        self.assertGreaterEqual(checked[1.6], 50, 'The actual lower coast joins must be checked')
+        self.assertGreaterEqual(checked[.6], 50, 'The actual upper coast joins must be checked')
 
     def test_scenic_outside_room_props_keep_their_world_bases(self):
         # PropDef::solid_collider and rendered entities use floor.unwrap_or(0).

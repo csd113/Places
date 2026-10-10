@@ -4459,7 +4459,7 @@
       "model": "frutiger_aero:ceiling_ring",
       "x": 13.4,
       "z": 6,
-      "y": 3.25,
+      "y": 3.336,
       "rotation_degrees": 0,
       "size": [
         1.3,
@@ -4471,19 +4471,145 @@
       "lights": [
         {
           "shape": "rect",
-          "half_width": 0.38,
-          "half_depth": 0.38,
+          "half_width": 0.025,
+          "half_depth": 0.025,
           "offset": [
-            0,
-            -0.08,
-            0
+            0.53,
+            -0.005,
+            0.0
           ],
           "color": [
             0.72,
             0.94,
             1
           ],
-          "intensity": 0.25,
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            0.37476659402887025,
+            -0.005,
+            0.3747665940288702
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            3.245314017740486e-17,
+            -0.005,
+            0.53
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            -0.3747665940288702,
+            -0.005,
+            0.37476659402887025
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            -0.53,
+            -0.005,
+            6.490628035480972e-17
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            -0.3747665940288703,
+            -0.005,
+            -0.3747665940288702
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            -9.735942053221457e-17,
+            -0.005,
+            -0.53
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            0.37476659402887014,
+            -0.005,
+            -0.3747665940288703
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
           "range": 4.5,
           "falloff": "smooth"
         }
@@ -4494,7 +4620,7 @@
       "model": "frutiger_aero:ceiling_ring",
       "x": 15.8,
       "z": 6,
-      "y": 3.25,
+      "y": 3.336,
       "rotation_degrees": 0,
       "size": [
         1.3,
@@ -4506,19 +4632,145 @@
       "lights": [
         {
           "shape": "rect",
-          "half_width": 0.38,
-          "half_depth": 0.38,
+          "half_width": 0.025,
+          "half_depth": 0.025,
           "offset": [
-            0,
-            -0.08,
-            0
+            0.53,
+            -0.005,
+            0.0
           ],
           "color": [
             0.72,
             0.94,
             1
           ],
-          "intensity": 0.25,
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            0.37476659402887025,
+            -0.005,
+            0.3747665940288702
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            3.245314017740486e-17,
+            -0.005,
+            0.53
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            -0.3747665940288702,
+            -0.005,
+            0.37476659402887025
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            -0.53,
+            -0.005,
+            6.490628035480972e-17
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            -0.3747665940288703,
+            -0.005,
+            -0.3747665940288702
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            -9.735942053221457e-17,
+            -0.005,
+            -0.53
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            0.37476659402887014,
+            -0.005,
+            -0.3747665940288703
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
           "range": 4.5,
           "falloff": "smooth"
         }
@@ -4529,7 +4781,7 @@
       "model": "frutiger_aero:ceiling_ring",
       "x": 18.2,
       "z": 6,
-      "y": 3.25,
+      "y": 3.336,
       "rotation_degrees": 0,
       "size": [
         1.3,
@@ -4541,19 +4793,145 @@
       "lights": [
         {
           "shape": "rect",
-          "half_width": 0.38,
-          "half_depth": 0.38,
+          "half_width": 0.025,
+          "half_depth": 0.025,
           "offset": [
-            0,
-            -0.08,
-            0
+            0.53,
+            -0.005,
+            0.0
           ],
           "color": [
             0.72,
             0.94,
             1
           ],
-          "intensity": 0.25,
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            0.37476659402887025,
+            -0.005,
+            0.3747665940288702
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            3.245314017740486e-17,
+            -0.005,
+            0.53
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            -0.3747665940288702,
+            -0.005,
+            0.37476659402887025
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            -0.53,
+            -0.005,
+            6.490628035480972e-17
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            -0.3747665940288703,
+            -0.005,
+            -0.3747665940288702
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            -9.735942053221457e-17,
+            -0.005,
+            -0.53
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            0.37476659402887014,
+            -0.005,
+            -0.3747665940288703
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
           "range": 4.5,
           "falloff": "smooth"
         }
@@ -4564,7 +4942,7 @@
       "model": "frutiger_aero:ceiling_ring",
       "x": 20.6,
       "z": 6,
-      "y": 3.25,
+      "y": 3.336,
       "rotation_degrees": 0,
       "size": [
         1.3,
@@ -4576,19 +4954,145 @@
       "lights": [
         {
           "shape": "rect",
-          "half_width": 0.38,
-          "half_depth": 0.38,
+          "half_width": 0.025,
+          "half_depth": 0.025,
           "offset": [
-            0,
-            -0.08,
-            0
+            0.53,
+            -0.005,
+            0.0
           ],
           "color": [
             0.72,
             0.94,
             1
           ],
-          "intensity": 0.25,
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            0.37476659402887025,
+            -0.005,
+            0.3747665940288702
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            3.245314017740486e-17,
+            -0.005,
+            0.53
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            -0.3747665940288702,
+            -0.005,
+            0.37476659402887025
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            -0.53,
+            -0.005,
+            6.490628035480972e-17
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            -0.3747665940288703,
+            -0.005,
+            -0.3747665940288702
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            -9.735942053221457e-17,
+            -0.005,
+            -0.53
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
+          "range": 4.5,
+          "falloff": "smooth"
+        },
+        {
+          "shape": "rect",
+          "half_width": 0.025,
+          "half_depth": 0.025,
+          "offset": [
+            0.37476659402887014,
+            -0.005,
+            -0.3747665940288703
+          ],
+          "color": [
+            0.72,
+            0.94,
+            1
+          ],
+          "intensity": 0.03125,
           "range": 4.5,
           "falloff": "smooth"
         }
@@ -9185,5 +9689,24 @@
     }
   ],
   "thresholds": [],
-  "guardrails": []
+  "guardrails": [],
+  "void_walls": [
+    {
+      "id": "scenic_foundation",
+      "min": [
+        -24,
+        -3,
+        -24
+      ],
+      "max": [
+        40,
+        -0.06,
+        35
+      ],
+      "material": "beach:grass_01",
+      "faces": "outward",
+      "solid": false,
+      "occludes": false
+    }
+  ]
 }
