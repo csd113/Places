@@ -68,6 +68,7 @@ use std::time::Instant;
 use glam::Vec3;
 use sdl3::event::{Event, WindowEvent};
 use sdl3::keyboard::Keycode;
+use sdl3::mouse::{MouseButton, MouseWheelDirection};
 use sdl3::video::{Display, FullscreenType, Window};
 use sdl3::{EventPump, Sdl, VideoSubsystem};
 
@@ -995,6 +996,8 @@ impl FrameLoop<'_> {
         // frame; it is two enum checks when nothing is in flight.
         self.refresh_graphics_status_hint();
         self.refresh_display_status();
+        self.sync_menu_pointer();
+        self.sync_mouse_capture();
         if self.game.frame_count() == 1 {
             perf::startup_mark("input responsive");
         }
@@ -1870,6 +1873,166 @@ impl FrameLoop<'_> {
                 .mouse()
                 .set_relative_mouse_mode(self.window, desired);
         }
+        if self.sdl.mouse().is_cursor_showing() == desired {
+            self.sdl.mouse().show_cursor(!desired);
+        }
+    }
+
+    fn sync_menu_pointer(&mut self) {
+        self.ui_state.loading_map = self.startup == StartupPhase::Ready
+            && matches!(
+                self.load_intent,
+                Some(LoadIntent::Play | LoadIntent::Background)
+            );
+        self.ui_state.keep_selection_visible(self.game.app_state());
+        self.ui_state.sync_pointer_context(
+            self.game.app_state(),
+            self.window.size(),
+            self.window.size_in_pixels(),
+            self.window_focused && self.startup == StartupPhase::Ready,
+        );
+    }
+
+    /// All menu clicks use the rendered layout and the renderer's actual
+    /// viewport conversion. No desktop coordinates or hard-coded DPI factor.
+    fn menu_hit(&self, x: f32, y: f32) -> Option<ui::MenuHit> {
+        if !self.window_focused
+            || self.startup != StartupPhase::Ready
+            || self.game.app_state() == AppState::Playing
+        {
+            return None;
+        }
+        let (width, height) = self.window.size_in_pixels();
+        let point = DrawableSize::new(width, height).window_to_ui(self.window.size(), [x, y])?;
+        ui::menu_layout(
+            self.game.app_state(),
+            self.ui_state,
+            self.settings,
+            self.display_status,
+        )
+        .hit_test(point)
+    }
+
+    fn handle_menu_pointer(&mut self, event: &Event) -> bool {
+        self.sync_menu_pointer();
+        if let Event::MouseButtonDown {
+            mouse_btn: MouseButton::Left,
+            x,
+            y,
+            timestamp: _,
+            window_id: _,
+            which: _,
+            clicks: _,
+        }
+        | Event::MouseButtonUp {
+            mouse_btn: MouseButton::Left,
+            x,
+            y,
+            timestamp: _,
+            window_id: _,
+            which: _,
+            clicks: _,
+        } = event
+        {
+            let hit = self.menu_hit(*x, *y);
+            let down = matches!(
+                event,
+                Event::MouseButtonDown {
+                    timestamp: _,
+                    window_id: _,
+                    which: _,
+                    mouse_btn: _,
+                    clicks: _,
+                    x: _,
+                    y: _
+                }
+            );
+            if let Some(clicked) = self.ui_state.pointer.button(down, hit) {
+                self.activate_menu_hit(clicked);
+                self.sync_menu_pointer();
+                self.sync_mouse_capture();
+            }
+            return true;
+        }
+        if self.game.app_state() == AppState::Playing {
+            return false;
+        }
+        if let Event::MouseMotion {
+            x,
+            y,
+            xrel,
+            yrel,
+            timestamp: _,
+            window_id: _,
+            which: _,
+            mousestate: _,
+        } = event
+        {
+            // SDL emits stationary/synthetic events when capture changes. They
+            // must not replace keyboard selection or hover on menu opening.
+            if self.window_focused && (xrel.abs() > 0.0 || yrel.abs() > 0.0) {
+                let hit = self.menu_hit(*x, *y);
+                if self.ui_state.pointer.motion([*x, *y], hit)
+                    && let Some(hovered) = hit
+                    && matches!(
+                        hovered.intent,
+                        ui::MenuIntent::Activate | ui::MenuIntent::Adjust(_)
+                    )
+                {
+                    self.ui_state
+                        .select_menu_index(self.game.app_state(), hovered.index);
+                }
+            }
+            return true;
+        }
+        if let Event::MouseWheel {
+            y,
+            direction,
+            mouse_x,
+            mouse_y,
+            timestamp: _,
+            window_id: _,
+            which: _,
+            x: _,
+            integer_x: _,
+            integer_y: _,
+        } = event
+        {
+            if self.window_focused
+                && !self.ui_state.loading_map
+                && self.ui_state.rebinding_action.is_none()
+                && self.menu_hit(*mouse_x, *mouse_y).is_some()
+                && y.is_finite()
+                && *y != 0.0
+            {
+                let flipped = *direction == MouseWheelDirection::Flipped;
+                self.ui_state.scroll_menu(
+                    self.game.app_state(),
+                    if (*y > 0.0) == flipped { 1 } else { -1 },
+                );
+            }
+            return true;
+        }
+        false
+    }
+
+    fn activate_menu_hit(&mut self, clicked: ui::MenuHit) {
+        match clicked.intent {
+            ui::MenuIntent::CancelRebind => self.ui_state.cancel_rebinding(),
+            ui::MenuIntent::CancelLoad => self.cancel_loading(),
+            ui::MenuIntent::Scroll(direction) => {
+                self.ui_state.scroll_menu(self.game.app_state(), direction);
+            }
+            ui::MenuIntent::Activate | ui::MenuIntent::Adjust(_) => {
+                self.ui_state
+                    .select_menu_index(self.game.app_state(), clicked.index);
+                if let ui::MenuIntent::Adjust(direction) = clicked.intent {
+                    self.adjust_settings(direction);
+                } else {
+                    self.activate();
+                }
+            }
+        }
     }
 
     fn handle_scripted_action(&mut self, received: perf::actions::Received) -> bool {
@@ -1973,6 +2136,33 @@ impl FrameLoop<'_> {
                 .handle_graphics_key_release(event, &self.settings.bindings)
     }
 
+    fn handle_menu_window_event(&mut self, event: &Event) -> bool {
+        if let Event::Window {
+            win_event,
+            timestamp: _,
+            window_id: _,
+        } = event
+        {
+            if matches!(win_event, WindowEvent::FocusLost) {
+                self.window_focused = false;
+                // A key released while another window had focus may never
+                // deliver its KeyUp. Releasing everything keeps a held Jump,
+                // Crouch or Interact from surviving the refocus.
+                self.input_handler.clear_gameplay_inputs();
+            } else if matches!(win_event, WindowEvent::FocusGained) {
+                self.window_focused = true;
+                self.ui_state
+                    .pointer
+                    .focus(self.event_pump.mouse_state().left());
+            }
+            self.ui_state.pointer.invalidate();
+            self.sync_mouse_capture();
+            return true;
+        }
+
+        false
+    }
+
     /// Handles one SDL event; returns `false` when the pump should stop.
     fn handle_event(&mut self, event: &Event) -> bool {
         if let Some(received) = self
@@ -1988,24 +2178,15 @@ impl FrameLoop<'_> {
             return false;
         }
 
-        // Window focus is tracked before any screen-specific handling so a
-        // focus change is never swallowed by a rebind or a menu branch:
-        // `sync_mouse_capture` reconciles relative mouse mode from it.
-        if let Event::Window {
-            win_event,
-            timestamp: _,
-            window_id: _,
-        } = event
-        {
-            if matches!(win_event, WindowEvent::FocusLost) {
-                self.window_focused = false;
-                // A key released while another window had focus may never
-                // deliver its KeyUp. Releasing everything keeps a held Jump,
-                // Crouch or Interact from surviving the refocus.
-                self.input_handler.clear_gameplay_inputs();
-            } else if matches!(win_event, WindowEvent::FocusGained) {
-                self.window_focused = true;
-            }
+        if self.handle_menu_window_event(event) {
+            return true;
+        }
+
+        if self.handle_menu_pointer(event) {
+            return true;
+        }
+
+        if !self.window_focused {
             return true;
         }
 
@@ -2041,6 +2222,12 @@ impl FrameLoop<'_> {
                 self.cancel_loading();
                 return true;
             }
+        }
+
+        // A map load has one Cancel action; keyboard and pointer cannot
+        // start another operation behind the loading panel.
+        if self.ui_state.loading_map {
+            return true;
         }
 
         // Rebinding consumes keyboard input before overlay/menu/gameplay keys.
@@ -2098,8 +2285,11 @@ impl FrameLoop<'_> {
                     .handle_gameplay_event(event, &self.settings.bindings);
             }
         } else if let Some(nav) = InputHandler::poll_menu_nav_event(event) {
+            self.ui_state.pointer.keyboard();
             self.handle_menu_nav(nav);
         }
+        self.sync_menu_pointer();
+        self.sync_mouse_capture();
         true
     }
 
@@ -2779,6 +2969,10 @@ impl FrameLoop<'_> {
         // request with the renderer's real state and schedules what remains.
         log_prop_usage(self.renderer);
         *self.current_level = Some(loaded);
+        self.ui_state.current_map = self
+            .current_level
+            .as_ref()
+            .map(|world| world.level.name.clone());
         // The first committed world is the menu background; the normal menu
         // may be revealed from now on. It is also the fallback a later
         // replacement can be cancelled back to.
@@ -2867,7 +3061,7 @@ impl FrameLoop<'_> {
                     );
                 } else {
                     self.ui_state
-                        .set_status("No new levels found (put .json or .zip in import/)", false);
+                        .set_status("No new maps found in the import folder.", false);
                 }
             }
             Err(err) => {

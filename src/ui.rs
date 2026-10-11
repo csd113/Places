@@ -7,6 +7,11 @@ use crate::game::AppState;
 use crate::render::Vertex;
 use crate::settings::{KeyBindings, Settings, WindowMode};
 
+mod menu;
+mod pointer;
+pub use menu::{MenuHit, MenuIntent, MenuLayout, menu_layout};
+pub use pointer::MenuPointer;
+
 /// Which Settings screen is open.
 ///
 /// The root is a table of contents; the three sections group the actual
@@ -145,6 +150,11 @@ pub struct UiState {
     /// colour it without parsing their own text.
     pub status_is_error: bool,
     pub level_entries: Vec<String>,
+    pub current_map: Option<String>,
+    pub level_scroll: usize,
+    pub settings_scroll: usize,
+    pub pointer: MenuPointer,
+    pub loading_map: bool,
 }
 
 impl UiState {
@@ -203,6 +213,11 @@ fn ui_signature(
     ui_state.status_message.as_deref().hash(&mut hasher);
     ui_state.status_is_error.hash(&mut hasher);
     ui_state.level_entries.hash(&mut hasher);
+    ui_state.current_map.hash(&mut hasher);
+    ui_state.level_scroll.hash(&mut hasher);
+    ui_state.settings_scroll.hash(&mut hasher);
+    ui_state.pointer.hover.hash(&mut hasher);
+    ui_state.loading_map.hash(&mut hasher);
     display.hash(&mut hasher);
     version.hash(&mut hasher);
 
@@ -421,21 +436,7 @@ pub fn fit_text(text: &str, max_width: f32, scale: f32) -> String {
     format!("{kept}...")
 }
 
-/// Horizontal x that centres `text` at `scale` inside `[left, right]`.
-#[must_use]
-fn centered_x(text: &str, scale: f32, left: f32, right: f32) -> f32 {
-    let offset = (right - left - text_width(text, scale)).mul_add(0.5, left);
-    offset.max(left)
-}
-
-/// Draws one centred legend line inside the panel bounds.
-fn draw_legend(vertices: &mut Vec<Vertex>, text: &str, left: f32, right: f32, y: f32) {
-    let x = centered_x(text, 1.0, left, right);
-    draw_text(vertices, text, x, y, 1.0, [0.55, 0.55, 0.50]);
-}
-
-/// Generates 2D UI overlay vertices in the 480x272 reference space for the
-/// active `AppState`. `Renderer::render_ui` scales this space to the drawable.
+/// Menu vertices and pointer regions share the same reference-space layout.
 #[must_use]
 pub fn build_ui_geometry(
     app_state: AppState,
@@ -444,356 +445,18 @@ pub fn build_ui_geometry(
     display: &DisplayStatus,
     version: &str,
 ) -> Vec<Vertex> {
-    let mut vertices = Vec::new();
-
-    match app_state {
-        AppState::Playing => {
-            // No full-screen menu; optional version or overlay if needed
-        }
-        AppState::MainMenu => main_menu_geometry(&mut vertices, ui_state, version),
-        AppState::LevelSelect => level_select_geometry(&mut vertices, ui_state),
-        AppState::Paused => pause_menu_geometry(&mut vertices, ui_state),
-        AppState::Settings | AppState::PauseSettings => {
-            settings_geometry(&mut vertices, ui_state, settings, display);
-        }
-    }
-
-    vertices
+    menu::geometry(app_state, ui_state, settings, display, version)
 }
 
-/// Y offset of menu row `index` in the 480x272 reference space.
-///
-/// Menus hold at most a few dozen rows, so the `u16` conversion is exact and
-/// the row offset is lossless.
-fn row_y(index: usize, line_h: f32, start_y: f32) -> f32 {
-    f32::from(u16::try_from(index).unwrap_or(u16::MAX)).mul_add(line_h, start_y)
-}
-
-/// Main menu: scrim, title, three items and the control legend.
-fn main_menu_geometry(vertices: &mut Vec<Vertex>, ui_state: &UiState, version: &str) {
-    // Partially transparent dark scrim background panel (70% opacity)
-    let opacity = 0.70;
-    // Border outline strips (non-overlapping with inner panel)
-    add_rect_rgba(
-        vertices,
-        20.0,
-        20.0,
-        460.0,
-        22.0,
-        [0.08, 0.08, 0.07, opacity],
-    );
-    add_rect_rgba(
-        vertices,
-        20.0,
-        250.0,
-        460.0,
-        252.0,
-        [0.08, 0.08, 0.07, opacity],
-    );
-    add_rect_rgba(
-        vertices,
-        20.0,
-        22.0,
-        22.0,
-        250.0,
-        [0.08, 0.08, 0.07, opacity],
-    );
-    add_rect_rgba(
-        vertices,
-        458.0,
-        22.0,
-        460.0,
-        250.0,
-        [0.08, 0.08, 0.07, opacity],
-    );
-    // Inner panel
-    add_rect_rgba(
-        vertices,
-        22.0,
-        22.0,
-        458.0,
-        250.0,
-        [0.12, 0.11, 0.10, opacity],
-    );
-
-    // Title
-    draw_text(
-        vertices,
-        "Places",
-        centered_x("Places", 2.0, 22.0, 458.0),
-        36.0,
-        2.0,
-        [0.92, 0.88, 0.45],
-    );
-    draw_text(
-        vertices,
-        "an experience",
-        centered_x("an experience", 1.0, 22.0, 458.0),
-        58.0,
-        1.0,
-        [0.65, 0.65, 0.60],
-    );
-
-    // Menu Items
-    let items = ["Level Select", "Settings", "Exit"];
-    let start_y = 95.0;
-    let line_h = 24.0;
-
-    for (i, &item) in items.iter().enumerate() {
-        let y = row_y(i, line_h, start_y);
-        let is_sel = i == ui_state.main_menu_idx;
-
-        if is_sel {
-            add_rect(vertices, 38.0, y - 2.0, 260.0, y + 14.0, [0.25, 0.23, 0.16]);
-            let line = format!("> {item}");
-            draw_text(vertices, &line, 40.0, y, 1.0, [1.0, 0.95, 0.40]);
-        } else {
-            let line = format!("  {item}");
-            draw_text(vertices, &line, 40.0, y, 1.0, [0.85, 0.85, 0.80]);
-        }
-    }
-
-    // Version bottom-left, aligned with the menu items above it.
-    let ver_text = format!("v{version}");
-    draw_text(vertices, &ver_text, 40.0, 235.0, 1.0, [0.5, 0.5, 0.5]);
-
-    // Controls help bottom.
-    draw_legend(vertices, "W/S: Move   ENTER: Select", 22.0, 458.0, 235.0);
-}
-
-/// Startup preparation screen shown until the first world backs the menu.
-///
-/// Uses the main menu's panel, typography and palette, replacing its items
-/// with the live preparation status: the ordinary menu is never presented
-/// against a scene that does not contain the requested level yet. The window
-/// stays responsive here; this is the visible state during initial
-/// preparation, not the finished menu.
+/// Startup preparation uses the same heading and status treatment as menus.
 #[must_use]
 pub fn loading_geometry(ui_state: &UiState, version: &str) -> Vec<Vertex> {
-    let mut vertices = Vec::new();
-    // The same scrim border and inner panel the main menu draws, so the
-    // startup screen does not introduce a second visual language.
-    let opacity = 0.70;
-    add_rect_rgba(
-        &mut vertices,
-        20.0,
-        20.0,
-        460.0,
-        22.0,
-        [0.08, 0.08, 0.07, opacity],
-    );
-    add_rect_rgba(
-        &mut vertices,
-        20.0,
-        250.0,
-        460.0,
-        252.0,
-        [0.08, 0.08, 0.07, opacity],
-    );
-    add_rect_rgba(
-        &mut vertices,
-        20.0,
-        22.0,
-        22.0,
-        250.0,
-        [0.08, 0.08, 0.07, opacity],
-    );
-    add_rect_rgba(
-        &mut vertices,
-        458.0,
-        22.0,
-        460.0,
-        250.0,
-        [0.08, 0.08, 0.07, opacity],
-    );
-    add_rect_rgba(
-        &mut vertices,
-        22.0,
-        22.0,
-        458.0,
-        250.0,
-        [0.12, 0.11, 0.10, opacity],
-    );
-
-    draw_text(
-        &mut vertices,
-        "Places",
-        centered_x("Places", 2.0, 22.0, 458.0),
-        36.0,
-        2.0,
-        [0.92, 0.88, 0.45],
-    );
-    draw_text(
-        &mut vertices,
-        "an experience",
-        centered_x("an experience", 1.0, 22.0, 458.0),
-        58.0,
-        1.0,
-        [0.65, 0.65, 0.60],
-    );
-
-    // The live preparation status takes the place of the menu's items.
-    let status = ui_state
-        .status_message
-        .as_deref()
-        .unwrap_or("Preparing level...");
-    let status_text = fit_text(status, 400.0, 1.0);
-    let status_color = if ui_state.status_is_error {
-        [1.0, 0.4, 0.3]
-    } else {
-        [0.85, 0.85, 0.80]
-    };
-    draw_text(
-        &mut vertices,
-        &status_text,
-        centered_x(&status_text, 1.0, 22.0, 458.0),
-        128.0,
-        1.0,
-        status_color,
-    );
-
-    let ver_text = format!("v{version}");
-    draw_text(&mut vertices, &ver_text, 40.0, 235.0, 1.0, [0.5, 0.5, 0.5]);
-    vertices
+    menu::loading(ui_state, version)
 }
 
-/// Level selection: scrolling list of installed levels, status line and legend.
-fn level_select_geometry(vertices: &mut Vec<Vertex>, ui_state: &UiState) {
-    add_rect(vertices, 20.0, 20.0, 460.0, 252.0, [0.08, 0.08, 0.07]);
-    add_rect(vertices, 22.0, 22.0, 458.0, 250.0, [0.12, 0.11, 0.10]);
-
-    draw_text(
-        vertices,
-        "LEVEL SELECT",
-        centered_x("LEVEL SELECT", 2.0, 22.0, 458.0),
-        38.0,
-        2.0,
-        [0.92, 0.88, 0.45],
-    );
-
-    level_select_items(vertices, ui_state);
-
-    if ui_state.level_entries.is_empty() {
-        draw_text(
-            vertices,
-            "No level files installed - import one below.",
-            40.0,
-            190.0,
-            1.0,
-            [0.6, 0.6, 0.55],
-        );
-    }
-
-    if let Some(ref msg) = ui_state.status_message {
-        let col = if ui_state.status_is_error {
-            [1.0, 0.4, 0.3]
-        } else {
-            [0.4, 0.9, 0.4]
-        };
-        // The list panel is 440 px wide; a loader diagnostic can be longer.
-        let line = fit_text(msg, 420.0, 1.0);
-        draw_text(vertices, &line, 40.0, 212.0, 1.0, col);
-    }
-
-    draw_legend(
-        vertices,
-        "W/S: Move   ENTER: Select   ESC: Back",
-        22.0,
-        458.0,
-        235.0,
-    );
-}
-
-/// The scrolling level list body: at most six rows plus the trailing actions.
-///
-/// An empty list (no installed demo and no drop-in levels) shows only the
-/// trailing actions, so selection, drawing and activation all agree on the
-/// same row indices.
-fn level_select_items(vertices: &mut Vec<Vertex>, ui_state: &UiState) {
-    let mut items: Vec<String> = ui_state.level_entries.clone();
-    items.push("Import Levels".to_string());
-    items.push("Back".to_string());
-
-    // Show at most 6 items per page with scrolling
-    let max_visible = 6;
-    let total = items.len();
-    let scroll_offset = if total <= max_visible || ui_state.level_select_idx < max_visible {
-        0
-    } else if ui_state.level_select_idx >= total.saturating_sub(max_visible) {
-        total.saturating_sub(max_visible)
-    } else {
-        ui_state
-            .level_select_idx
-            .saturating_sub(max_visible.saturating_sub(1))
-    };
-
-    let start_y = 75.0;
-    let line_h = 22.0;
-
-    for (vi, (i, label)) in items
-        .iter()
-        .enumerate()
-        .skip(scroll_offset)
-        .take(max_visible)
-        .enumerate()
-    {
-        let y = row_y(vi, line_h, start_y);
-        let is_sel = i == ui_state.level_select_idx;
-        // `> ` or `  ` plus the row indent, then the label; a long name is
-        // shortened so it cannot run past the panel.
-        let fitted_label = fit_text(label, 320.0, 1.0);
-
-        if is_sel {
-            add_rect(vertices, 38.0, y - 2.0, 380.0, y + 14.0, [0.25, 0.23, 0.16]);
-            let line = format!("> {fitted_label}");
-            draw_text(vertices, &line, 40.0, y, 1.0, [1.0, 0.95, 0.40]);
-        } else {
-            let line = format!("  {fitted_label}");
-            draw_text(vertices, &line, 40.0, y, 1.0, [0.85, 0.85, 0.80]);
-        }
-    }
-}
-
-/// Pause menu: panel, title, three items and the legend.
-fn pause_menu_geometry(vertices: &mut Vec<Vertex>, ui_state: &UiState) {
-    // Opaque pause panel over the frozen scene.
-    add_rect(vertices, 80.0, 40.0, 400.0, 230.0, [0.06, 0.06, 0.05]);
-    add_rect(vertices, 82.0, 42.0, 398.0, 228.0, [0.12, 0.11, 0.10]);
-
-    draw_text(
-        vertices,
-        "PAUSED",
-        centered_x("PAUSED", 2.0, 82.0, 398.0),
-        58.0,
-        2.0,
-        [0.92, 0.88, 0.45],
-    );
-
-    let items = ["Resume", "Settings", "Return to Main Menu"];
-    let start_y = 105.0;
-    let line_h = 24.0;
-
-    for (i, &item) in items.iter().enumerate() {
-        let y = row_y(i, line_h, start_y);
-        let is_sel = i == ui_state.pause_menu_idx;
-
-        if is_sel {
-            add_rect(vertices, 98.0, y - 2.0, 340.0, y + 14.0, [0.25, 0.23, 0.16]);
-            let line = format!("> {item}");
-            draw_text(vertices, &line, 100.0, y, 1.0, [1.0, 0.95, 0.40]);
-        } else {
-            let line = format!("  {item}");
-            draw_text(vertices, &line, 100.0, y, 1.0, [0.85, 0.85, 0.80]);
-        }
-    }
-
-    draw_legend(
-        vertices,
-        "W/S: Move   ENTER: Select   ESC: Resume",
-        82.0,
-        398.0,
-        205.0,
-    );
+/// Lossless row offsets for the small menu lists.
+fn row_y(index: usize, line_h: f32, start_y: f32) -> f32 {
+    f32::from(u16::try_from(index).unwrap_or(u16::MAX)).mul_add(line_h, start_y)
 }
 
 /// The three section entries the Settings root offers, in menu order.
@@ -818,11 +481,6 @@ impl SettingsPage {
 
 /// Suffix appended to a value pinned by a startup override.
 const OVERRIDE_MARKER: &str = " *";
-
-/// Horizontal x the value column is right-aligned to, in the reference space.
-const VALUE_RIGHT: f32 = 450.0;
-/// Left x the row text starts at.
-const ROW_LEFT: f32 = 25.0;
 
 const fn on_off(value: bool) -> &'static str {
     if value { "On" } else { "Off" }
@@ -1071,124 +729,6 @@ fn controls_rows(settings: &Settings) -> Vec<SettingsRow> {
     );
     push_row(&mut rows, "Back", String::new(), SettingsRowKind::Back);
     rows
-}
-
-/// Settings screen: panel, rebinding/status prompt, page rows and legend.
-fn settings_geometry(
-    vertices: &mut Vec<Vertex>,
-    ui_state: &UiState,
-    settings: &Settings,
-    display: &DisplayStatus,
-) {
-    add_rect(vertices, 10.0, 10.0, 470.0, 262.0, [0.08, 0.08, 0.07]);
-    add_rect(vertices, 12.0, 12.0, 468.0, 260.0, [0.12, 0.11, 0.10]);
-
-    let page = ui_state.settings_page;
-    draw_text(vertices, page.title(), 25.0, 20.0, 2.0, [0.92, 0.88, 0.45]);
-
-    // Rebinding prompt or status message.
-    if let Some(action) = ui_state.rebinding_action {
-        add_rect(vertices, 22.0, 18.0, 462.0, 32.0, [0.35, 0.15, 0.10]);
-        let label = crate::settings::action_label(action);
-        let prompt = fit_text(&format!("PRESS KEY FOR {label} (ESC: CANCEL)"), 432.0, 1.0);
-        draw_text(vertices, &prompt, 26.0, 21.0, 1.0, [1.0, 0.9, 0.3]);
-    } else if let Some(ref msg) = ui_state.status_message {
-        let col = if ui_state.status_is_error {
-            [1.0, 0.4, 0.3]
-        } else {
-            [0.4, 0.9, 0.4]
-        };
-        let line = fit_text(msg, 320.0, 1.0);
-        draw_text(vertices, &line, 160.0, 22.0, 1.0, col);
-    }
-
-    settings_item_rows(vertices, ui_state, settings, display);
-
-    let legend = match page {
-        SettingsPage::Root => "W/S: Move   ENTER: Open   ESC: Back",
-        SettingsPage::Graphics | SettingsPage::Display => "A/D: Change   ENTER: Apply   ESC: Back",
-        SettingsPage::Controls => "ENTER: Rebind   A/D: Change   ESC: Back",
-    };
-    draw_legend(vertices, legend, 22.0, 458.0, 250.0);
-
-    if page == SettingsPage::Graphics {
-        draw_legend(
-            vertices,
-            "Low lighting keeps texture quality/filtering.",
-            22.0,
-            458.0,
-            226.0,
-        );
-    }
-
-    // A footnote line the rows have room for: where the graphics values come
-    // from when a startup override pinned them, or which controls are fixed.
-    let footnote = match page {
-        SettingsPage::Graphics if any_graphics_override(settings) => "* = startup override",
-        SettingsPage::Graphics => "Off restores saved lighting preferences.",
-        SettingsPage::Root | SettingsPage::Display => "",
-        SettingsPage::Controls => "Fixed: ESC Pause   W/S/A/D Menu   - Overlay",
-    };
-    if !footnote.is_empty() {
-        draw_legend(vertices, footnote, 22.0, 458.0, 238.0);
-    }
-}
-
-/// One row per settings item, showing the current binding or value.
-///
-/// Labels are left-aligned and values right-aligned; a label long enough to
-/// reach the value column pushes the value right instead of overlapping it.
-fn settings_item_rows(
-    vertices: &mut Vec<Vertex>,
-    ui_state: &UiState,
-    settings: &Settings,
-    display: &DisplayStatus,
-) {
-    let rows = settings_rows(
-        ui_state.settings_page,
-        settings,
-        display,
-        ui_state.advanced_expanded,
-    );
-    // The Controls page gained a row per binding over time (Jump, Crouch,
-    // Interact); 11 px keeps the 18-row page inside the 272 px reference frame
-    // and clear of the footnote line.
-    let start_y = 40.0;
-    let line_h = 11.0;
-
-    for (i, row) in rows.iter().enumerate() {
-        let y = row_y(i, line_h, start_y);
-        let is_sel = i == ui_state.settings_idx;
-        let label_color = if is_sel {
-            [1.0, 0.95, 0.40]
-        } else {
-            [0.85, 0.85, 0.80]
-        };
-        let value_color = if is_sel {
-            [1.0, 0.95, 0.40]
-        } else {
-            [0.62, 0.70, 0.72]
-        };
-
-        if is_sel {
-            add_rect(
-                vertices,
-                23.0,
-                y - 1.0,
-                VALUE_RIGHT,
-                y + 10.0,
-                [0.25, 0.23, 0.16],
-            );
-        }
-        let prefix = if is_sel { "> " } else { "  " };
-        let text = format!("{prefix}{}", row.label);
-        draw_text(vertices, &text, ROW_LEFT, y, 1.0, label_color);
-        if !row.value.is_empty() {
-            let value_x = (VALUE_RIGHT - text_width(&row.value, 1.0))
-                .max(ROW_LEFT + text_width(&text, 1.0) + 8.0);
-            draw_text(vertices, &row.value, value_x, y, 1.0, value_color);
-        }
-    }
 }
 
 /// Cycles, toggles or rebinds the selected settings row.
