@@ -1596,6 +1596,7 @@ fn test_curated_level_sources_preserve_the_known_map_ids() {
             "model_zoo",
             "places_demo",
             "pool_showcase",
+            "retro_arcade_demo",
             "winter"
         ],
         "the curated authored maps remain available without compiled output"
@@ -1801,7 +1802,7 @@ fn test_shipped_prop_catalog_covers_shipped_levels() {
         }
     }
     assert_eq!(
-        levels_checked, 8_i32,
+        levels_checked, 9_i32,
         "check the complete curated source lineup"
     );
     assert!(props_checked >= 1_i32, "expected at least one placed prop");

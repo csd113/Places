@@ -138,7 +138,8 @@ fn shipped_catalog_classifies_environments_themes_and_entities() {
             "outdoor",
             "winter",
             "beach",
-            "frutiger_aero"
+            "frutiger_aero",
+            "arcade"
         ]
     );
     assert!(
