@@ -115,7 +115,7 @@ def main() -> int:
         if len(spawned) != 1 or spawned[0]["model"] != "home:dining_chair" or spawned[0]["scale"] != 1:
             parser.error("Chair sequence must contain exactly the planned unit-scale key9007 dining chair")
         position = spawned[0]["position"]
-        chair = dict(path="dynamic:environment/home/props/models/dining_chair.glb",
+        chair = dict(path="dynamic:environments/home/props/dining_chair.glb",
                      centre=[position[0], position[1] + 0.451, position[2]], tolerance_m=0.15,
                      centre_scope="Declared .902m chair bounds height; capture1 pins the actual centre and identity thereafter.")
     captures = inspect(args.log.read_text(), json.loads(args.expected.read_text()),

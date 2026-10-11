@@ -113,7 +113,7 @@ def load_office_sheet(folder: str, name: str, dimensions=(1024, 1024)) -> Canvas
     from pathlib import Path
     from seam_repair import read_png
 
-    source = Path(__file__).resolve().parents[2] / "assets/environment/office/textures" / folder / name
+    source = Path(__file__).resolve().parents[2] / "assets/environments/office/textures" / folder / name
     image = read_png(str(source))
     if (image.width, image.height) != dimensions:
         raise ValueError(f"{name} must retain its {dimensions} contract")
@@ -259,27 +259,27 @@ def build_ceiling_stained() -> Canvas:
 
 ART = {
     "core:tex_wallpaper_yellow_01": {
-        "model": "environment/office/textures/walls/wallpaper_yellow_01.png",
+        "model": "environments/office/textures/walls/wallpaper_yellow_01.png",
         "build": build_wallpaper_yellow,
     },
     "core:tex_wallpaper_stained_01": {
-        "model": "environment/office/textures/walls/wallpaper_stained_01.png",
+        "model": "environments/office/textures/walls/wallpaper_stained_01.png",
         "build": build_wallpaper_stained,
     },
     "core:tex_carpet_beige_01": {
-        "model": "environment/office/textures/floors/carpet_beige_01.png",
+        "model": "environments/office/textures/floors/carpet_beige_01.png",
         "build": build_carpet_beige,
     },
     "core:tex_carpet_damp_01": {
-        "model": "environment/office/textures/floors/carpet_damp_01.png",
+        "model": "environments/office/textures/floors/carpet_damp_01.png",
         "build": build_carpet_damp,
     },
     "core:tex_ceiling_panel_01": {
-        "model": "environment/office/textures/ceilings/ceiling_panel_01.png",
+        "model": "environments/office/textures/ceilings/ceiling_panel_01.png",
         "build": build_ceiling_panel,
     },
     "core:tex_ceiling_stained_01": {
-        "model": "environment/office/textures/ceilings/ceiling_stained_01.png",
+        "model": "environments/office/textures/ceilings/ceiling_stained_01.png",
         "build": build_ceiling_stained,
     },
 }

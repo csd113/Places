@@ -2,7 +2,7 @@
   "format_version": 1,
   "level": "entity_showcase",
   "source": "tests/fixtures/levels/entity_showcase.json",
-  "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__entity_showcase.placesmap",
+  "package": "target/verification/maps/tests__fixtures__levels__entity_showcase.placesmap",
   "settings": {
     "bindings": {
       "forward": "W",

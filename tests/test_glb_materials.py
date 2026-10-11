@@ -15,7 +15,7 @@ from mesh import Mesh  # noqa: E402
 
 def document(mesh):
     mesh.box((0, 0, 0), (1, 1, 1), uv=(0, 0, 1, 1))
-    data = write_glb(mesh, (ROOT / "assets/core/textures/white_01.png").read_bytes())
+    data = write_glb(mesh, (ROOT / "assets/shared/textures/white_01.png").read_bytes())
     length = struct.unpack_from("<I", data, 12)[0]
     return json.loads(data[20:20 + length])
 
@@ -53,7 +53,7 @@ class BlendMaterialTests(unittest.TestCase):
             "opaque": "0f2ab87aa6f69e1450105a0aff9e3345fe6f44f85276cd14125f271e929662e6",
             "mask": "f0b94d03862f39b057f354c61ec2ee9b382d0bbd53ab9328ebb9499fe3edd4b7",
         }
-        texture = (ROOT / "assets/core/textures/white_01.png").read_bytes()
+        texture = (ROOT / "assets/shared/textures/white_01.png").read_bytes()
         for mode, digest in expected.items():
             with self.subTest(mode=mode):
                 mesh = Mesh()
@@ -83,7 +83,7 @@ class BlendMaterialTests(unittest.TestCase):
                                  opacity=0.4 if mode == "blend" else 1.0)
             mesh.begin_material(slot)
             mesh.box((slot, 0, 0), (1, 1, 1), uv=(0, 0, 1, 1))
-        data = write_glb(mesh, (ROOT / "assets/core/textures/white_01.png").read_bytes())
+        data = write_glb(mesh, (ROOT / "assets/shared/textures/white_01.png").read_bytes())
         length = struct.unpack_from("<I", data, 12)[0]
         doc = json.loads(data[20:20 + length])
         self.assertNotIn("alphaMode", doc["materials"][0])
@@ -108,13 +108,13 @@ class BlendMaterialTests(unittest.TestCase):
     def test_raw_writer_materials_are_validated(self):
         mesh = Mesh()
         mesh.box((0, 0, 0), (1, 1, 1), uv=(0, 0, 1, 1))
-        texture = (ROOT / "assets/core/textures/white_01.png").read_bytes()
+        texture = (ROOT / "assets/shared/textures/white_01.png").read_bytes()
         for opacity in [float("nan"), -1, 2]:
             with self.assertRaises(GltfError):
                 write_glb(mesh, texture, materials=[{"alpha_mode": "blend", "opacity": opacity}])
 
     def test_embedded_texture_alpha_is_preserved(self):
-        texture = (ROOT / "assets/core/textures/glass/glass_clear_01.png").read_bytes()
+        texture = (ROOT / "assets/shared/textures/glass/glass_clear_01.png").read_bytes()
         mesh = Mesh()
         mesh.material("glass", alpha_mode="blend", opacity=0.35)
         mesh.box((0, 0, 0), (1, 1, 1), uv=(0, 0, 1, 1))

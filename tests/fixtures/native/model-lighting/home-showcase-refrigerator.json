@@ -2,7 +2,7 @@
   "format_version": 1,
   "level": "home_showcase",
   "source": "levels/home_showcase.json",
-  "package": "levels/home_showcase.placesmap",
+  "package": "assets/levels/home_showcase.placesmap",
   "settings": {
     "bindings": {
       "forward": "W",

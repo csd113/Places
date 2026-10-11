@@ -1478,7 +1478,7 @@ mod tests {
 
     fn synthetic_asset(emission: MaterialEmission) -> Arc<LoadedPropAsset> {
         Arc::new(LoadedPropAsset {
-            model_path: "core/test_triangle.glb".to_string(),
+            model_path: "shared/test_triangle.glb".to_string(),
             model: synthetic_model(emission),
         })
     }
@@ -1514,7 +1514,7 @@ mod tests {
     #[test]
     fn model_space_normals_and_scalar_response_survive_dynamic_upload_input() {
         let mut asset = LoadedPropAsset {
-            model_path: "core/test_triangle.glb".to_string(),
+            model_path: "shared/test_triangle.glb".to_string(),
             model: synthetic_model(MaterialEmission::NONE),
         };
         asset.model.vertices[0].normal = Some([0.0, 1.0, 0.0]);
@@ -1915,7 +1915,7 @@ mod tests {
         let mut scene = DynamicScene::new();
         for index in 0..=MAX_DYNAMIC_MESHES {
             let asset = Arc::new(LoadedPropAsset {
-                model_path: format!("core/test_{index}.glb"),
+                model_path: format!("shared/test_{index}.glb"),
                 model: synthetic_model(MaterialEmission::NONE),
             });
             let spawned = scene.spawn(&asset, [0.0, 0.0, 0.0], 0.0, 1.0, 0.0);
@@ -1936,7 +1936,7 @@ mod tests {
     #[test]
     fn a_model_with_nothing_drawable_never_spawns() {
         let asset = Arc::new(LoadedPropAsset {
-            model_path: "core/empty.glb".to_string(),
+            model_path: "shared/empty.glb".to_string(),
             model: PropModel {
                 vertices: Vec::new(),
                 indices: Vec::new(),

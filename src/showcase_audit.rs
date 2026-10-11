@@ -11,7 +11,7 @@
 use super::*;
 
 fn level() -> LevelDef {
-    LevelDef::from_json(include_str!("../assets/levels/lantern_hollow.json"))
+    LevelDef::from_json(include_str!("../levels/lantern_hollow.json"))
         .expect("Lantern Hollow parses")
 }
 

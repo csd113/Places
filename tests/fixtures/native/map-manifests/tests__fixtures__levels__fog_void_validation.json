@@ -2,7 +2,7 @@
   "format_version": 1,
   "level": "fog_void_validation",
   "source": "tests/fixtures/levels/fog_void_validation.json",
-  "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__fog_void_validation.placesmap",
+  "package": "target/verification/maps/tests__fixtures__levels__fog_void_validation.placesmap",
   "settings": {
     "bindings": {
       "forward": "W",

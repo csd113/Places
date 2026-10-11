@@ -163,7 +163,7 @@ class CompilerBenchTests(unittest.TestCase):
             module.edited_source(original, "unsupported")
 
 
-    def test_hero_incremental_inputs_change_intended_fields_and_assets_stay_separate(self):
+    def test_transport_incremental_inputs_change_intended_fields_and_assets_stay_separate(self):
         spec = importlib.util.spec_from_file_location("compiler_incremental", ROOT / "tools/bench/compiler_incremental.py")
         module = importlib.util.module_from_spec(spec)
         sys.path.insert(0, str(ROOT / "tools/bench"))
@@ -171,15 +171,15 @@ class CompilerBenchTests(unittest.TestCase):
             spec.loader.exec_module(module)
         finally:
             sys.path.pop(0)
-        hero = json.loads((ROOT / "tests/fixtures/levels/art_style_hero_transparency.json").read_text())
-        before = json.dumps(hero, sort_keys=True)
+        source = json.loads((ROOT / "tests/fixtures/levels/material_transport.json").read_text())
+        before = json.dumps(source, sort_keys=True)
         for case in ["presentation", "geometry", "entity", "combined"]:
-            changed = module.edited_source(hero, case)
-            self.assertNotEqual(changed, hero)
-            self.assertEqual(json.dumps(hero, sort_keys=True), before)
-        self.assertEqual(module.edited_source(hero, "texture"), hero)
-        self.assertEqual(module.edited_source(hero, "model"), hero)
-        self.assertNotEqual(module.edited_source(hero, "material")["defaults"]["wall"], hero["defaults"]["wall"])
+            changed = module.edited_source(source, case)
+            self.assertNotEqual(changed, source)
+            self.assertEqual(json.dumps(source, sort_keys=True), before)
+        self.assertEqual(module.edited_source(source, "texture"), source)
+        self.assertEqual(module.edited_source(source, "model"), source)
+        self.assertNotEqual(module.edited_source(source, "material")["defaults"]["wall"], source["defaults"]["wall"])
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "assets"
             root.mkdir()

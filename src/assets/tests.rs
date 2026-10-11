@@ -59,7 +59,7 @@ fn shipped_catalog_classifies_environments_themes_and_entities() {
     assert!(office.is_placeable());
     assert_eq!(
         office.model.as_deref(),
-        Some("environment/office/props/models/desk.glb")
+        Some("environments/office/props/desk.glb")
     );
 
     let fixture = catalog
@@ -73,7 +73,7 @@ fn shipped_catalog_classifies_environments_themes_and_entities() {
     assert_eq!(fixture.source, AssetSource::File);
     assert_eq!(
         catalog.fixture_sheet_path("core:fluorescent_panel_01"),
-        Some("environment/office/textures/lights/fluorescent_panel_01.png")
+        Some("environments/office/textures/lights/fluorescent_panel_01.png")
     );
     assert!(!fixture.is_placeable());
 
@@ -109,7 +109,7 @@ fn shipped_catalog_classifies_environments_themes_and_entities() {
     assert_eq!(texture.source, AssetSource::File);
     assert_eq!(
         catalog.texture_path("core:tex_carpet_beige_01"),
-        Some("environment/office/textures/floors/carpet_beige_01.png")
+        Some("environments/office/textures/floors/carpet_beige_01.png")
     );
 
     // The Home theme's own fixture is catalogued with its visible face, exactly
@@ -117,11 +117,11 @@ fn shipped_catalog_classifies_environments_themes_and_entities() {
     // lamp rather than the fallback sheet.
     assert_eq!(
         catalog.fixture_sheet_path("home:ceiling_light_round"),
-        Some("environment/home/textures/lights/ceiling_light_round_01.png")
+        Some("environments/home/textures/lights/ceiling_light_round_01.png")
     );
     assert_eq!(
         catalog.texture_path("home:tex_hardwood_oak_01"),
-        Some("environment/home/textures/floors/hardwood_oak_01.png")
+        Some("environments/home/textures/floors/hardwood_oak_01.png")
     );
 
     let themes: Vec<&str> = catalog
@@ -185,7 +185,7 @@ fn duplicate_logical_ids_are_rejected() {
             { "id": "spooner-man", "asset_class": "entity", "asset_type": "entity",
               "model": "entities/spooner-man/model/spooner-man.glb" },
             { "id": "spooner-man", "asset_class": "environment", "asset_type": "prop",
-              "model": "core/props/models/spooner-man.glb" }
+              "model": "shared/props/spooner-man.glb" }
         ]
     }"##;
     let error = AssetCatalog::from_json_str(json).expect_err("duplicate ids must fail");
@@ -208,9 +208,9 @@ fn duplicate_logical_ids_are_rejected() {
     let duplicate_texture = r##"{
         "assets": [
             { "id": "core:tex_a", "asset_class": "environment", "asset_type": "texture",
-              "source": "file", "model": "environment/office/textures/walls/a.png" },
+              "source": "file", "model": "environments/office/textures/walls/a.png" },
             { "id": "core:tex_a", "asset_class": "environment", "asset_type": "texture",
-              "source": "file", "model": "environment/office/textures/walls/b.png" }
+              "source": "file", "model": "environments/office/textures/walls/b.png" }
         ]
     }"##;
     let texture_error =
@@ -223,7 +223,7 @@ fn duplicate_logical_ids_are_rejected() {
     let duplicate_material = r##"{
         "assets": [
             { "id": "core:tex_a", "asset_class": "environment", "asset_type": "texture",
-              "source": "file", "model": "environment/office/textures/walls/a.png" },
+              "source": "file", "model": "environments/office/textures/walls/a.png" },
             { "id": "core:mat_a", "asset_class": "environment", "asset_type": "material",
               "source": "definition", "texture": "core:tex_a" },
             { "id": "core:mat_a", "asset_class": "environment", "asset_type": "material",
@@ -244,10 +244,10 @@ fn future_themes_and_classes_parse_without_an_engine_change() {
         "themes": [{ "id": "hotel", "display_name": "Hotel" }],
         "assets": [
             { "id": "hotel:chair", "display_name": "Hotel Chair", "asset_class": "environment",
-              "theme": "hotel", "asset_type": "prop", "model": "environment/hotel/props/models/chair.glb",
+              "theme": "hotel", "asset_type": "prop", "model": "environments/hotel/props/chair.glb",
               "size": [0.5, 0.9, 0.5], "category": "Furniture", "solid": true },
             { "id": "future:cart", "asset_class": "utility", "asset_type": "vehicle",
-              "model": "core/vehicles/models/cart.glb" }
+              "model": "shared/vehicles/models/cart.glb" }
         ]
     }"##;
     let catalog = AssetCatalog::from_json_str(json).expect("a future catalog parses");
@@ -347,8 +347,8 @@ fn every_file_asset_exists_exactly_once() {
         "spooner-man"
     );
     assert!(
-        !root.join("props/models/spooner-man.glb").exists(),
-        "the removed assets/props/models/spooner-man.glb must not be present"
+        !root.join("props/spooner-man.glb").exists(),
+        "the removed assets/props/spooner-man.glb must not be present"
     );
     assert!(
         !root.join("catalog.json").is_dir() && root.join("catalog.json").is_file(),
@@ -363,7 +363,7 @@ fn levels_only_reference_catalog_ids() {
     let mut props = 0_i32;
     let mut spooner_levels = 0_i32;
 
-    for dir in ["assets/levels", "tests/fixtures/levels"] {
+    for dir in ["levels", "tests/fixtures/levels"] {
         let entries = fs::read_dir(dir).unwrap_or_else(|error| panic!("{dir} must exist: {error}"));
         for file in entries.flatten() {
             let path = file.path();
@@ -447,7 +447,7 @@ fn renderer_and_catalog_agree_on_surface_and_decal_ids() {
     // Every catalogued surface material must resolve through the material
     // table to a decoded PNG: no material is allowed to depend on a
     // renderer-known id or a code-generated sheet any more.
-    let level = LevelDef::from_json(include_str!("../../assets/levels/places_demo.json"))
+    let level = LevelDef::from_json(include_str!("../../levels/places_demo.json"))
         .expect("places_demo parses");
     let mut cache = crate::materials::TextureCache::new();
     let root = resolve_asset_root().expect("assets/ is discoverable");
@@ -585,7 +585,7 @@ fn renderer_and_catalog_agree_on_surface_and_decal_ids() {
 fn level_material_references_cover_floor_regions_too() {
     let catalog = shipped_catalog();
     let mut checked = 0usize;
-    for dir in ["assets/levels", "tests/fixtures/levels"] {
+    for dir in ["levels", "tests/fixtures/levels"] {
         let entries = fs::read_dir(dir).unwrap_or_else(|error| panic!("{dir}: {error}"));
         for file in entries.flatten() {
             let path = file.path();
@@ -835,11 +835,11 @@ fn the_shared_white_sheet_is_a_committed_opaque_white_png() {
     assert_eq!(entry.source, AssetSource::File);
     assert_eq!(
         catalog.texture_path("core:tex_white_01"),
-        Some("core/textures/white_01.png")
+        Some("shared/textures/white_01.png")
     );
 
     let root = resolve_asset_root().expect("assets/ is discoverable");
-    let bytes = std::fs::read(root.join("core/textures/white_01.png"))
+    let bytes = std::fs::read(root.join("shared/textures/white_01.png"))
         .expect("the committed white sheet must exist on disk");
     assert!(
         bytes.starts_with(b"\x89PNG\r\n\x1a\n"),
@@ -896,10 +896,10 @@ fn emissive_catalog_json(extra: &str) -> String {
             "assets": [
                 {{ "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
                   "source": "file",
-                  "model": "environment/office/textures/ceilings/ceiling_panel_01.png" }},
+                  "model": "environments/office/textures/ceilings/ceiling_panel_01.png" }},
                 {{ "id": "core:tex_mask", "asset_class": "environment", "asset_type": "texture",
                   "source": "file",
-                  "model": "environment/office/textures/floors/carpet_beige_01.png" }},
+                  "model": "environments/office/textures/floors/carpet_beige_01.png" }},
                 {{ "id": "core:mat", "asset_class": "environment", "asset_type": "material",
                   "source": "definition", "texture": "core:tex_albedo"{extra} }}
             ]
@@ -1009,7 +1009,7 @@ fn catalog_rejects_emission_outside_material_definitions() {
     let on_prop = r##"{
         "assets": [
             { "id": "core:prop", "asset_class": "environment", "asset_type": "prop",
-              "source": "file", "model": "core/props/models/couch.glb",
+              "source": "file", "model": "shared/props/couch.glb",
               "emissive": [1.0, 1.0, 1.0] }
         ]
     }"##;
@@ -1020,7 +1020,7 @@ fn catalog_rejects_emission_outside_material_definitions() {
     let generated = r##"{
         "assets": [
             { "id": "core:tex_a", "asset_class": "environment", "asset_type": "texture",
-              "source": "file", "model": "environment/office/textures/walls/a.png" },
+              "source": "file", "model": "environments/office/textures/walls/a.png" },
             { "id": "core:mat", "asset_class": "environment", "asset_type": "material",
               "source": "generated", "texture": "core:tex_a",
               "emissive": [1.0, 1.0, 1.0] }

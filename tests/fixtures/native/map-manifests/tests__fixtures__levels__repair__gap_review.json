@@ -2,7 +2,7 @@
   "format_version": 1,
   "level": "repair_gap_review",
   "source": "tests/fixtures/levels/repair/gap_review.json",
-  "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__repair__gap_review.placesmap",
+  "package": "target/verification/maps/tests__fixtures__levels__repair__gap_review.placesmap",
   "settings": {
     "bindings": {
       "forward": "W",
@@ -59,9 +59,9 @@
     }
   ],
   "prior_blank_control": {
-    "receipt": "debug-maps/art-style-hero/evidence/stage7-native-regression-v1/budget48/tests__fixtures__levels__repair__gap_review/feature-capture/manifest.json",
+    "receipt": "local/retained/debug-maps/art-style-hero/evidence/stage7-native-regression-v1/budget48/tests__fixtures__levels__repair__gap_review/feature-capture/manifest.json",
     "receipt_sha256": "2a49ee426cbe590f1e108722e62ee5122a7a17cae913b03828357f3a3a3c8ec3",
-    "image": "debug-maps/art-style-hero/evidence/stage7-native-regression-v1/budget48/tests__fixtures__levels__repair__gap_review/feature-capture/spawn.png",
+    "image": "local/retained/debug-maps/art-style-hero/evidence/stage7-native-regression-v1/budget48/tests__fixtures__levels__repair__gap_review/feature-capture/spawn.png",
     "image_sha256": "74beded43980a4e45626f3b74db141437c1ae38dfed338476b87c13c8a18c718",
     "original_view": {
       "name": "spawn",

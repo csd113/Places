@@ -2,7 +2,7 @@
   "format_version": 1,
   "level": "prop_showcase",
   "source": "tests/fixtures/levels/prop_showcase.json",
-  "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__prop_showcase.placesmap",
+  "package": "target/verification/maps/tests__fixtures__levels__prop_showcase.placesmap",
   "settings": {
     "bindings": {
       "forward": "W",

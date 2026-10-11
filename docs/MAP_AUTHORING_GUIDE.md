@@ -8,12 +8,12 @@ Repository-wide checks: [authoritative desktop verification](VERIFICATION.md).
 | Level format version documented | `3` (`format_version` in every level JSON) |
 | Asset catalog format version documented | `2` (`format_version` in `assets/catalog.json`) |
 | Stage 7 integration audit | October 9, 2026: checked colour/HDR, measured Full ten-page/lower eight-page atlas policy, independent quality controls, panes, PLPF v3/solver 16, geometry revision 7 and compiler/runtime dependency identity against the current source. Wall spans evaluate exact endpoints against their own roof owner. Platform execution claims remain dated evidence in [VERIFICATION.md](VERIFICATION.md). |
-| Verification | Sky panorama limits and quality uploads re-verified against `src/assets.rs`, `src/materials/image.rs`, `src/quality.rs` and `src/render/wgpu/sky.rs` (October 2026 working tree). Movement support and rim backing in §10 re-verified against `src/game.rs`, `src/level.rs` and the permanent movement-map tests (October 2026 working tree). Verified against the working tree at version 0.7.0. Section 33 was checked against `src/nav/`, `src/ai/`, `src/package/navigation.rs`, `src/loader.rs`, `src/compiler.rs`, `assets/levels/places_demo.json` and the fixed-step tests `nav::tests`, `ai::tests` and `game::tests::demo_home_encounter_*`. The v3 contract (components, event bindings, trigger volumes, timers, sequences and spawns) was checked against `src/level.rs`, `src/loader.rs`, `src/entities/`, `assets/levels/places_demo.json`, `assets/levels/model_zoo.json`, `levels/*.json` and the generator/converter tools. The `fade`/`glow` components in §29 were checked against `src/level.rs` (`FadeDef`/`GlowDef`), `src/loader.rs` (`validate_component_value`), `src/entities/components.rs` (`Fade`/`Glow`), `src/entity.rs` (`EntityFrame`) and `tools/assets/validate.py`. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/geometry_check.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
+| Verification | Sky panorama limits and quality uploads re-verified against `src/assets.rs`, `src/materials/image.rs`, `src/quality.rs` and `src/render/wgpu/sky.rs` (October 2026 working tree). Movement support and rim backing in §10 re-verified against `src/game.rs`, `src/level.rs` and the permanent movement-map tests (October 2026 working tree). Verified against the working tree at version 0.7.0. Section 33 was checked against `src/nav/`, `src/ai/`, `src/package/navigation.rs`, `src/loader.rs`, `src/compiler.rs`, `levels/places_demo.json` and the fixed-step tests `nav::tests`, `ai::tests` and `game::tests::demo_home_encounter_*`. The v3 contract (components, event bindings, trigger volumes, timers, sequences and spawns) was checked against `src/level.rs`, `src/loader.rs`, `src/entities/`, `levels/places_demo.json`, `levels/model_zoo.json`, `levels/*.json` and the generator/converter tools. The `fade`/`glow` components in §29 were checked against `src/level.rs` (`FadeDef`/`GlowDef`), `src/loader.rs` (`validate_component_value`), `src/entities/components.rs` (`Fade`/`Glow`), `src/entity.rs` (`EntityFrame`) and `tools/assets/validate.py`. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/geometry_check.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
 | Outdoors reconstruction verification | Section 34 checked against the October 7 Outdoors catalog, fitted PNGs, closed model builders, source placements, native wgpu captures and asset integrity audit. Engine format and lighting model are unchanged. |
 | Checks that must pass before a code or asset change ships | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check` (see [Validation Workflow](#27-validation-workflow) for what each proves) |
 | Aero prop authoring verification | October 10, 2026: opt-in BLEND/finite opacity writer checked against importer and byte-preserving OPAQUE/MASK fixtures; existing runtime rendering and transport remain unchanged. |
-| Environment refinement verification | October 10, 2026: neighbor-clipped ramp side geometry revision 9 and reusable `weather_alternate`, `weather_cycle`, `toggle_weather`, `set_weather_strength`, `set_weather_cycle`, `set_prompt` checked against current authoring/runtime sources and focused regression tests. Native acceptance and final gates are recorded in [environment-refinement.md](environment-refinement.md). |
-| Primary benchmark level | `assets/levels/places_demo.json` |
+| Environment refinement verification | October 10, 2026: neighbor-clipped ramp side geometry revision 9 and reusable `weather_alternate`, `weather_cycle`, `toggle_weather`, `set_weather_strength`, `set_weather_cycle`, `set_prompt` checked against current authoring/runtime sources and focused regression tests. Native acceptance and final gates are recorded in [environment-refinement.md](reports/environment-refinement.md). |
+| Primary benchmark level | `levels/places_demo.json` |
 
 > This revision describes the **current** engine: the Low/Medium/High quality
 > levels, the generic engine-level light model, true emissive materials,
@@ -47,7 +47,7 @@ This guide describes **Implemented Now** capabilities only, unless a section exp
 says otherwise. Where the engine's design documents describe future work, the guide
 lists it as **Not implemented** and never shows planned syntax as usable.
 
-**Places Demo is the benchmark.** `assets/levels/places_demo.json` is the project's
+**Places Demo is the benchmark.** `levels/places_demo.json` is the project's
 canonical showcase and the technical reference for established authoring patterns.
 A new map does not have to resemble it aesthetically — it is not a mandatory visual
 template — but when in doubt about how a feature is authored, the demo (and the
@@ -78,7 +78,7 @@ When any two sources disagree, resolve in this order:
    `lighting_partition_audit.rs`, `lighting_vertical_audit.rs`). Tests pin the
    accepted contract.
 3. **Asset catalog** — `assets/catalog.json`, plus `assets/README.md`.
-4. **Known-good shipped content** — `assets/levels/places_demo.json`,
+4. **Known-good shipped content** — `levels/places_demo.json`,
    `tests/fixtures/levels/*.json`.
 5. **This guide** — update it when 1–4 change.
 6. **Design proposals** — aspirational
@@ -105,7 +105,7 @@ Authoritative paths:
 | Post-processing / fog | `src/render/common/postprocess.rs`, `src/render/common/atmosphere.rs`, `src/render/common/framebuffer.rs` |
 | Quality levels / settings | `src/quality.rs`, `src/settings.rs` |
 | Catalog | `assets/catalog.json` |
-| Benchmark level | `assets/levels/places_demo.json` |
+| Benchmark level | `levels/places_demo.json` |
 | Regression fixtures | `tests/fixtures/levels/` |
 
 ### Quick implemented-vs-unimplemented reference
@@ -687,9 +687,11 @@ A misspelled enum is a parse error, not a silently ignored key.
 **Where levels live.** Players load compiled `.placesmap` packages only.
 `assets/levels/*.placesmap` ships with the game; `levels/*.placesmap` are drop-in
 packages (under the writable state root, normally next to the asset root). Both appear
-in the Level Select menu. The `.json` sources beside the bundled packages are kept for
-authors and are never playable rows; discovery enumerates playable packages only and
-skips sources silently, so the normal startup log stays clean. A raw source is only
+in the Level Select menu. The eight maintained `.json` sources live directly in
+`levels/`, with their compiler/export allowlist in `levels/lineup.txt`. Packages
+are ignored build outputs: run `sh tools/build-maps.sh` after a fresh checkout.
+JSON is never a playable row; discovery enumerates packages only and skips
+sources silently, so the normal startup log stays clean. A raw source is only
 reported when you explicitly try to open or import it: that fails with the compiler
 command (`places-compile build <source.json>`), because compiling is always an
 offline, author-side step. `tests/fixtures/levels/` is for engine regression fixtures
@@ -762,7 +764,7 @@ constant in `src/level.rs`, not an inline literal.
 | Estimated floor area | ≤ 64 000 000 m² (`MAX_LEVEL_FLOOR_AREA_M2`) | Loader rejection (its own estimate, computed from room rectangles) |
 | Estimated generated vertices | ≤ 24 000 000 (`MAX_LEVEL_VERTICES`) | Loader rejection (its own upper-bound estimate) |
 | Distinct decoded texture bytes | ≤ 1 GiB (`MAX_LEVEL_TEXTURE_BYTES`) | Loader rejection per level, after resolution and before upload |
-| Standalone level JSON file size | ≤ 32 MiB (`MAX_LEVEL_JSON_BYTES`) | Rejected before parsing; the embedded fallback demo is exempt |
+| Standalone level JSON file size | ≤ 32 MiB (`MAX_LEVEL_JSON_BYTES`) | Rejected before parsing |
 | Package archive: entries / entry / aggregate | ≤ 512 entries / ordinary entry ≤ 256 MiB; mesh/props ≤ 512 MiB, atlas ≤ 320 MiB + 64 KiB, other typed records may be tighter / aggregate ≤ 1 GiB uncompressed | Package rejected at open (see [PACKAGE_FORMAT.md](PACKAGE_FORMAT.md)) |
 | Package variants | one per lightmap quality (`off`/`medium`/`full`) | Package rejected at open |
 | Package blob hashes | SHA-256 must match the name and the manifest | Blob rejected before decoding |
@@ -1917,7 +1919,7 @@ level JSON
        └─ catalog material entry   (asset_type: "material", source: "definition")
             └─ texture logical id     e.g. "core:tex_wallpaper_yellow_01"
                  └─ catalog texture entry (asset_type: "texture", source: "file")
-                      └─ PNG file     assets/environment/office/textures/walls/wallpaper_yellow_01.png
+                      └─ PNG file     assets/environments/office/textures/walls/wallpaper_yellow_01.png
 ```
 
 Materials are **definitions**, not files. A material entry may carry the fields below.
@@ -2551,13 +2553,13 @@ map author needs no per-asset filtering choice (see
 ### Naming and directories
 
 ```text
-assets/environment/<theme>/textures/walls/<name>_01.png
-assets/environment/<theme>/textures/floors/<name>_01.png
-assets/environment/<theme>/textures/ceilings/<name>_01.png
-assets/environment/<theme>/textures/lights/<name>.png     fixture faces
-assets/environment/<theme>/decals/<name>_01.png           decal sheets
-assets/core/decals/<name>_01.png                          shared decal sheets
-assets/core/props/models/<name>.glb                       shared props
+assets/environments/<theme>/textures/walls/<name>_01.png
+assets/environments/<theme>/textures/floors/<name>_01.png
+assets/environments/<theme>/textures/ceilings/<name>_01.png
+assets/environments/<theme>/textures/lights/<name>.png     fixture faces
+assets/environments/<theme>/decals/<name>_01.png           decal sheets
+assets/shared/decals/<name>_01.png                          shared decal sheets
+assets/shared/props/<name>.glb                       shared props
 assets/entities/<id>/model/<id>.glb                       entities
 assets/diagnostic/textures/*.png                          engine test artwork (do not ship)
 ```
@@ -2584,11 +2586,11 @@ entry.)
 
 | Resource | Where | Purpose |
 | --- | --- | --- |
-| Missing-texture diagnostic (64×64 magenta/black) | `assets/core/textures/missing_01.png` (embedded by the engine) | Visible fallback for any broken surface/decal/fixture texture. |
-| Validation decal atlas (256×256; only `core:decal_test_01`) | `assets/core/decals/validation_atlas_01.png` | Fixed atlas slots, alpha and bottom-up row convention; the existing atlas UV mapping is preserved. |
-| White sheet (1024×1024 opaque white fill, file-backed) | `assets/core/textures/white_01.png` (loaded by `src/render/wgpu/texture.rs`) | Untextured geometry (fixture housings, UI quads). |
-| HUD font atlas (128×64) | `assets/core/ui/font_01.png` | Project-owned bitmap UI font with sixteen 8×8 ASCII cells per row and the reserved white UI cell. |
-| Emergency white sheet (2×2) | `assets/core/textures/white_fallback_01.png` | Embedded opaque white fallback if the primary embedded white PNG cannot decode. |
+| Missing-texture diagnostic (64×64 magenta/black) | `assets/shared/textures/missing_01.png` (embedded by the engine) | Visible fallback for any broken surface/decal/fixture texture. |
+| Validation decal atlas (256×256; only `core:decal_test_01`) | `assets/shared/decals/validation_atlas_01.png` | Fixed atlas slots, alpha and bottom-up row convention; the existing atlas UV mapping is preserved. |
+| White sheet (1024×1024 opaque white fill, file-backed) | `assets/shared/textures/white_01.png` (loaded by `src/render/wgpu/texture.rs`) | Untextured geometry (fixture housings, UI quads). |
+| HUD font atlas (128×64) | `assets/shared/ui/font_01.png` | Project-owned bitmap UI font with sixteen 8×8 ASCII cells per row and the reserved white UI cell. |
+| Emergency white sheet (2×2) | `assets/shared/textures/white_fallback_01.png` | Embedded opaque white fallback if the primary embedded white PNG cannot decode. |
 | Lightmap atlas (Full up to eleven pages per contribution group; lower profiles eight) | `src/lighting/lightmap/`, packaged KTX2 payloads | Incident linear HDR and signed moments computed offline from geometry/material/light inputs. Loaded from the prepared package; the 320 MiB +64 KiB typed bound and unchanged aggregate/shape guards apply. PNG dumps are diagnostics, not artwork. |
 
 Everything else the renderer draws from an image comes from a PNG under `assets/`.
@@ -2617,10 +2619,10 @@ Asset classes in the current catalog:
 
 | Class | In shipped data? | Contents |
 | --- | --- | --- |
-| `environment` | Yes (all theme + generic content) | Surfaces, props, decals, fixture faces — including the shared props that live under `assets/core/`. |
+| `environment` | Yes (all theme + generic content) | Surfaces, props, decals, fixture faces — including the shared props that live under `assets/shared/`. |
 | `diagnostic` | Yes | `assets/diagnostic/` engine test textures and the generated decal `core:decal_test_01`. |
 | `entity` | Yes (one entry) | `spooner-man`. |
-| `core` | No shipped entry uses it | Supported and accepted (engine-level shared resources); the `assets/core/` **directory** holds generic props such as `core:couch`, but their catalog class is `environment`. Class is independent of directory. |
+| `core` | No shipped entry uses it | Supported and accepted (engine-level shared resources); the `assets/shared/` **directory** holds generic props such as `core:couch`, but their catalog class is `environment`. Class is independent of directory. |
 
 Three themes ship: **`office`**, **`pool`** and **`home`**, declared in `assets/catalog.json`'s
 `themes` array. A theme is an organizational collection with a display name and a
@@ -2686,7 +2688,7 @@ is a vaulted loft rather than the concept's outdoor residential balcony.
 
 1. Add a `themes` record:
    `{ "id": "hotel", "display_name": "Hotel", "description": "…" }`.
-2. Create `assets/environment/hotel/…` with the textures/props/decals you need.
+2. Create `assets/environments/hotel/…` with the textures/props/decals you need.
 3. Register assets with `"theme": "hotel"`.
 4. `tools/assets/validate.py` calls the theme known because it is declared; the Rust
    runtime never required it in the first place.
@@ -2776,7 +2778,7 @@ and the `hotel:` ids in the recipes are illustrative placeholders, not shipped i
 { "id": "pool:tex_tile_blue_01", "display_name": "Blue Pool Tile Texture",
   "asset_class": "environment", "theme": "pool", "asset_type": "texture",
   "source": "file", "surface": "floor",
-  "model": "environment/pool/textures/floors/pool_tile_blue_01.png" }
+  "model": "environments/pool/textures/floors/pool_tile_blue_01.png" }
 ```
 
 ```json
@@ -2789,14 +2791,14 @@ and the `hotel:` ids in the recipes are illustrative placeholders, not shipped i
 ```json
 { "id": "pool:decal_slip_01", "display_name": "Slippery Floor Sign",
   "asset_class": "environment", "theme": "pool", "asset_type": "decal",
-  "source": "file", "model": "environment/pool/decals/slip_01.png" }
+  "source": "file", "model": "environments/pool/decals/slip_01.png" }
 ```
 
 ```json
 { "id": "core:fluorescent_panel_01", "display_name": "Fluorescent Panel",
   "asset_class": "environment", "theme": "office", "asset_type": "light",
   "source": "file",
-  "model": "environment/office/textures/lights/fluorescent_panel_01.png" }
+  "model": "environments/office/textures/lights/fluorescent_panel_01.png" }
 ```
 
 ### Catalog validation behavior
@@ -3033,7 +3035,7 @@ The timber GLB provides depth; the separate decal preserves the supplied
 900×546 photograph under High's 1024-pixel decal budget rather than the
 256-pixel prop budget. Its 1024-square transparent sheet fits a 2.048 m square
 quad, leaving 1.800×1.092 m of visible artwork. Keep the frame and decal
-placements together; see [Asset Specification §7.1](ASSET_SPECIFICATION.md#71-framed-hanging-paintings)
+placements together; see [Asset Specification §7.2](ASSET_SPECIFICATION.md#72-framed-hanging-paintings)
 for the wall-plane offset, orientation and scaling contract. The demo's
 frame instance exposes the title through the existing E/toggle-label binding.
 
@@ -3042,8 +3044,8 @@ frame instance exposes the title through the existing E/toggle-label binding.
 1. Author a **POT** RGBA PNG cut-out (alpha-0 background, alpha-255 artwork). For
    project artwork, add a builder + `ART` entry in `tools/textures/decal_art.py`; for
    hand-painted art, just create the file.
-2. Save it under `assets/environment/<theme>/decals/<name>_01.png` (or
-   `assets/core/decals/` for shared art).
+2. Save it under `assets/environments/<theme>/decals/<name>_01.png` (or
+   `assets/shared/decals/` for shared art).
 3. Add the catalog entry: `asset_type: "decal"`, `source: "file"`, `model` = the
    `.png` path.
 4. Place it in the level's `decals` array with a valid `surface`.
@@ -3174,7 +3176,7 @@ does not stop the search. The same chosen grid supplies target positions and
 baked coefficients. Unrecoverable spaces still produce warnings;
 runtime support and opaque visibility remain unchanged. `PLACES_PROBE_DUMP_DIR=<directory>`
 enables deterministic JSON diagnostics; use `--force` and a separate directory
-per source/build. See [Probe baker audit](PROBE_BAKER_AUDIT.md) and
+per source/build. See [Probe baker audit](reports/probe-baker-audit.md) and
 [the PLPF contract](PACKAGE_FORMAT.md#61-irradiance-field-for-moving-objects).
 
 Current PLPF v3 keeps combined light and a selected local-direct sidecar. Entities
@@ -3383,7 +3385,7 @@ player uploads these prepared package layers and multiplies receiver albedo once
   Hallows Full plan needs eleven pages: 176 MiB for the base group. The
   320 MiB +64 KiB typed record, group/shape and aggregate bounds remain enforced;
   extra page capacity does not waive them. See
-  [the correction report](model-lighting-root-cause-and-fix.md) for current
+  [the correction report](reports/model-lighting-root-cause-and-fix.md) for current
   verification status, distinct from the dated Stage 7 evidence.
 * Medium/Full finite-source transport uses the selected solver's shaped taps
   with per-tap visibility/cosine and complete bounded receiver coverage. The
@@ -3480,7 +3482,7 @@ an ordinary static prop and participates in the bake).
 
 A level can make a surface's **emission** move over time: a backlit sign that
 breathes, a tube on a failing ballast. It is a level-level array, keyed by
-material id. This is real content from `assets/levels/places_demo.json` (the
+material id. This is real content from `levels/places_demo.json` (the
 `comment` keys shown there are ignored extras; they are omitted here):
 
 ```json
@@ -3524,10 +3526,10 @@ code**.
 
 | Fixture ID | Mount type | Visible artwork (PNG) | Shape / footprint | Important authoring notes |
 | --- | --- | --- | --- | --- |
-| `core:fluorescent_panel_01` | ceiling (default) | `environment/office/textures/lights/fluorescent_panel_01.png` (1024×512) | Recessed troffer, outer footprint 1.2 × 0.6 m (half extents 0.6 × 0.3); rotation swaps axes | The default family **and the fallback for every unknown id**. A real housing frames the diffuser: side walls drop 0.045 m from the ceiling plane, a bottom frame borders the aperture, a top flange closes the body, and the fitted 2:1 sheet (aperture 1.12 × 0.56 m) is recessed 0.012 m above the frame's bottom. Only the diffuser glows; the housing is a fixed mid grey. Hangs 0.01 m below the local ceiling; under a gable it follows the eave/ceiling above its footprint. Grid alignment (section 21) snaps its centre to the ceiling material's panel grid at load by default. |
-| `core:pool_light_round` | ceiling | `environment/pool/textures/lights/pool_light_round_01.png` (128×128) | Disc, 0.44 m diameter (half extent 0.22); rotation-invariant | Round recessed downlight. Same ceiling-plane derivation as the panel. |
-| `home:ceiling_light_round` | ceiling (default) | `environment/home/textures/lights/ceiling_light_round_01.png` (256×256) | Disc, 0.32 m diameter (half extent 0.16); rotation-invariant | Round residential flush mount: a shallow white drum with a glowing diffuser disc, hanging 0.07 m below the ceiling plane. Its pool is the disc's bounding square, as with the pool downlight. |
-| `core:pool_light_wall` | **wall** — requires `"mount": "wall"` and a finite world `"y"` | `environment/pool/textures/lights/pool_light_wall_01.png` (128×64) | Rectangle 0.4 × 0.18 m (half extents 0.20 × 0.09) centred on (x, y, z) | Faces `rotation_degrees`: 0 = +Z, 90 = +X, 180 = −Z, 270 = −X. Place the point on the wall plane; the body extends ~0.11 m forward. Light is emitted from the rectangle's front. |
+| `core:fluorescent_panel_01` | ceiling (default) | `environments/office/textures/lights/fluorescent_panel_01.png` (1024×512) | Recessed troffer, outer footprint 1.2 × 0.6 m (half extents 0.6 × 0.3); rotation swaps axes | The default family **and the fallback for every unknown id**. A real housing frames the diffuser: side walls drop 0.045 m from the ceiling plane, a bottom frame borders the aperture, a top flange closes the body, and the fitted 2:1 sheet (aperture 1.12 × 0.56 m) is recessed 0.012 m above the frame's bottom. Only the diffuser glows; the housing is a fixed mid grey. Hangs 0.01 m below the local ceiling; under a gable it follows the eave/ceiling above its footprint. Grid alignment (section 21) snaps its centre to the ceiling material's panel grid at load by default. |
+| `core:pool_light_round` | ceiling | `environments/pool/textures/lights/pool_light_round_01.png` (128×128) | Disc, 0.44 m diameter (half extent 0.22); rotation-invariant | Round recessed downlight. Same ceiling-plane derivation as the panel. |
+| `home:ceiling_light_round` | ceiling (default) | `environments/home/textures/lights/ceiling_light_round_01.png` (256×256) | Disc, 0.32 m diameter (half extent 0.16); rotation-invariant | Round residential flush mount: a shallow white drum with a glowing diffuser disc, hanging 0.07 m below the ceiling plane. Its pool is the disc's bounding square, as with the pool downlight. |
+| `core:pool_light_wall` | **wall** — requires `"mount": "wall"` and a finite world `"y"` | `environments/pool/textures/lights/pool_light_wall_01.png` (128×64) | Rectangle 0.4 × 0.18 m (half extents 0.20 × 0.09) centred on (x, y, z) | Faces `rotation_degrees`: 0 = +Z, 90 = +X, 180 = −Z, 270 = −X. Place the point on the wall plane; the body extends ~0.11 m forward. Light is emitted from the rectangle's front. |
 
 Ceiling fixture rotation is quantised to a 0°/90° axis swap; only wall sconces rotate
 continuously. Unknown fixture ids load as the office panel with the untextured white
@@ -3573,7 +3575,7 @@ Fixture geometry is code. To add a family, touch each of these:
    bottom frame, top flange) into `housing`.
 3. `src/render/common/geometry.rs` (`emit_fixtures`) — add the `match` arm that calls the new
    emitter.
-4. Add the PNG under `assets/environment/<theme>/textures/lights/` (POT, opaque,
+4. Add the PNG under `assets/environments/<theme>/textures/lights/` (POT, opaque,
    match the face aspect).
 5. Add a `light` catalog entry whose `model` is that PNG (no separate `texture`
    entry).
@@ -5192,7 +5194,7 @@ stops across the level. The existing reflection tests continue to exercise the s
 ### Places Demo examples
 
 The shipped demo authors real v3 entities; use them as the reference (all in
-`assets/levels/places_demo.json`):
+`levels/places_demo.json`):
 
 ```json
 { "id": "water_cooler", "display_name": "Water Cooler", "model": "core:water_cooler",
@@ -5588,7 +5590,7 @@ targets on one press.
 
 ### Triggered door (externally controlled)
 
-`levels/level0_pit.json` authors the `pit_gate` leaf with **no** interactable
+`tests/fixtures/levels/level0_pit.json` authors the `pit_gate` leaf with **no** interactable
 component or binding, so it is never an interaction target, and drives it from
 two volumes: one opens it as the player approaches, the other closes it once
 they are through.
@@ -5833,10 +5835,11 @@ and occluding roof slabs; both validators reject excess rather than silently
 losing shelters. As for snow, arbitrary prop/dynamic roofs are not traced.
 There is no screen-space noise or veil and no new texture/camera shake effect.
 
-Winter keeps its calm default. The separately compiled
-`debug-maps/blizzard-20261007/sources/blizzard_review.json` is a severe Winter
-review configuration, preserving all original terrain, buildings, pond, trees,
-lights and sky. Its README provides compilation, native captures and launches.
+Winter keeps its calm default. `tools/levels/config/winter_severe_weather.json`
+preserves the severe diagnostic settings. `tools/bench/capture_winter_integration.py`
+derives the severe control from `levels/winter.json` into its explicit output
+directory, compiles it normally, and captures the same terrain and buildings.
+This focused control is outside the playable lineup.
 
 Benchmark diagnostics: with `PLACES_BENCH=1`, `PLACES_WEATHER_TRACE=<csv>` records
 camera, evaluated/submitted/sheltered/culled counts, sum of projected quad areas
@@ -5876,10 +5879,10 @@ static mesh and derives collision, then reports what is measurably wrong.
 
 ```text
 # Human report (errors and warnings)
-cargo run --release -- --check-geometry --level assets/levels/places_demo.json
+cargo run --release -- --check-geometry --level levels/places_demo.json
 
 # Machine-readable report and marker files
-cargo run --release -- --check-geometry --level levels/level0_pit.json \
+cargo run --release -- --check-geometry --level tests/fixtures/levels/level0_pit.json \
     --json target/report.json \
     --markers target/markers.json \
     --markers-obj target/markers.obj
@@ -5957,7 +5960,7 @@ read-only planner and the order-preserving applier, both offline:
 
 ```sh
 # 1. Plan (read-only; never writes the map).
-./target/release/places --repair-geometry --level assets/levels/places_demo.json \
+./target/release/places --repair-geometry --level levels/places_demo.json \
     --plan target/demo-plan.json
 
 # 2. Verify the plan against the file on disk (hash and old values).
@@ -5965,7 +5968,7 @@ python3 tools/levels/repair_alignment.py --plan target/demo-plan.json --check
 
 # 3. Apply atomically, then re-check and prove a second plan is empty.
 python3 tools/levels/repair_alignment.py --plan target/demo-plan.json --apply
-./target/release/places --check-geometry --level assets/levels/places_demo.json
+./target/release/places --check-geometry --level levels/places_demo.json
 ```
 
 A high-confidence repair moves only the authored wall that lost the authority
@@ -6011,7 +6014,7 @@ prove full face coverage or watertight collision.
 
 ## 32. The Model Zoo and the capacity fixtures
 
-`assets/levels/model_zoo.json` is the generated showroom: one large, well-lit
+`levels/model_zoo.json` is the generated showroom: one large, well-lit
 pool hall (pool deck floor, pool wall tile, pool ceiling, a grid of pool
 downlights) that displays **every registered placeable model** at least once,
 plus the demonstrations that need more than one copy. It is bundled with the
@@ -6240,7 +6243,7 @@ cannot pin an agent in a held pose.
 
 ### 33.5 The home encounter (the worked example)
 
-`assets/levels/places_demo.json` authors the complete encounter with ordinary
+`levels/places_demo.json` authors the complete encounter with ordinary
 data only:
 
 * `rat_release_switch` is a `home:wall_switch` beside the hall door whose
@@ -6780,9 +6783,9 @@ engine code. The demo's dynamic-light budget is 8, and these six glow lights
 
 ## 36. Winter static snow kit
 
-The maintained Winter source is `assets/levels/winter.json`, generated by
+The maintained Winter source is `levels/winter.json`, generated by
 `tools/levels/build_winter.py`. Its 28 reusable snow props and mounting table
-are documented in `assets/environment/winter/README.md` and
+are documented in `assets/environments/winter/README.md` and
 `docs/ASSET_SPECIFICATION.md` §8.7. Use the ordinary prop exporter, material
 resolver, lighting bake and map compiler; this kit adds no runtime geometry
 or image generation, weather or movement features.
@@ -7353,9 +7356,9 @@ quality; no file hashing, source compilation or static bake occurs per frame.
 
 The `beach:` catalog provides 27 static visuals, three animated animals, ten
 surface PNG families, two sea materials and a seamless day panorama. The
-[Beach kit](../assets/environment/beach/README.md) maps B01–B18 to resource IDs
+[Beach kit](assets/ENVIRONMENTS.md#beach) maps B01–B18 to resource IDs
 and gives deterministic source locations. The connected
-`assets/levels/beach_demo.json` is generated by `tools/levels/build_beach.py`.
+`levels/beach_demo.json` is generated by `tools/levels/build_beach.py`.
 
 `tools/levels/beach_components.py` supplies `shore_segment(x, sea_z, shore_z,
 width)` and `daylight()` as existing v3 arrays. The shore has real lowered
@@ -7406,10 +7409,10 @@ the existing directional, ambient, HDR bake and probe paths.
 
 The `frutiger_aero:` kit provides 23 static modules, six material roles, four
 periodic surface families, five fitted decals and a day panorama. Its connected
-`assets/levels/frutiger_aero_demo.json` is generated by
+`levels/frutiger_aero_demo.json` is generated by
 `tools/levels/build_frutiger_aero.py`: glazed domed atrium, branded corridor,
 walk-through tube, reception and looping garden terrace. The
-[Aero kit](../assets/environment/frutiger_aero/README.md) maps all fifteen
+[Aero kit](assets/ENVIRONMENTS.md#frutiger-aero) maps all fifteen
 reference groups to actual resources and records their UV contracts.
 
 `tools/props/parts/frutiger_aero.py::placed_components` accepts world X/Z,
@@ -7424,7 +7427,7 @@ remain authoritative; the kit requires no creature or locomotion animation.
 ## Add a new texture
 
 1. Create the PNG: square, opaque, tileable, ≤1024 (256 preferred), 8-bit.
-2. Save under `assets/environment/<theme>/textures/{walls,floors,ceilings}/<name>_01.png`.
+2. Save under `assets/environments/<theme>/textures/{walls,floors,ceilings}/<name>_01.png`.
 3. Add a `texture` catalog entry with `model` = the path relative to `assets/`.
 4. Validate: `python3 tools/textures/build.py --check` and
    `python3 tools/assets/validate.py`.
@@ -7433,7 +7436,7 @@ remain authoritative; the kit requires no creature or locomotion animation.
 { "id": "hotel:tex_wallpaper_green_01", "display_name": "Hotel Green Wallpaper Texture",
   "asset_class": "environment", "theme": "hotel", "asset_type": "texture",
   "source": "file", "surface": "wall",
-  "model": "environment/hotel/textures/walls/wallpaper_green_01.png" }
+  "model": "environments/hotel/textures/walls/wallpaper_green_01.png" }
 ```
 
 ## Add a new material
@@ -7479,7 +7482,7 @@ A lit sign face:
 ```json
 { "id": "hotel:luggage_cart", "display_name": "Luggage Cart",
   "asset_class": "environment", "theme": "hotel", "asset_type": "prop",
-  "source": "file", "model": "environment/hotel/props/models/luggage_cart.glb",
+  "source": "file", "model": "environments/hotel/props/luggage_cart.glb",
   "size": [1.2, 1.1, 0.6], "color": "#6b5a44", "category": "Furniture",
   "solid": true }
 ```
@@ -7493,7 +7496,7 @@ sorting limits; it does not add refraction or nested-glass guarantees.
 ## Add a new decal
 
 1. Create a POT RGBA cut-out PNG (background alpha 0, artwork alpha 255).
-2. Save under `assets/environment/<theme>/decals/<name>_01.png`.
+2. Save under `assets/environments/<theme>/decals/<name>_01.png`.
 3. Add a `decal` catalog entry with `model` = the `.png`.
 4. Place it in a level's `decals` array with `surface`.
 5. Validate with the texture and catalog checks.
@@ -7501,7 +7504,7 @@ sorting limits; it does not add refraction or nested-glass guarantees.
 ```json
 { "id": "hotel:decal_evacuation_01", "display_name": "Evacuation Route Sign",
   "asset_class": "environment", "theme": "hotel", "asset_type": "decal",
-  "source": "file", "model": "environment/hotel/decals/evacuation_route_01.png" }
+  "source": "file", "model": "environments/hotel/decals/evacuation_route_01.png" }
 ```
 
 ## Add a ramp or a staircase
@@ -7605,7 +7608,7 @@ A new *fixture id* always needs a code mesh family (section
 2. Implement the emitter in `src/render/common/fixtures.rs` and dispatch it in
    `src/render/common/geometry.rs::emit_fixtures`.
 3. Add a POT opaque face PNG under
-   `assets/environment/<theme>/textures/lights/`.
+   `assets/environments/<theme>/textures/lights/`.
 4. Add the `light` catalog entry with `model` = the PNG.
 5. Update the family-pinning tests listed in the procedure.
 6. If the family needs a pool shape that is not a rectangle, describe it in the
@@ -7654,8 +7657,8 @@ the fixture must be the only one claiming that sheet.
 
 1. Add a `themes` record to `assets/catalog.json`:
    `{ "id": "hotel", "display_name": "Hotel", "description": "…" }`.
-2. Create the new theme directory `assets/environment/hotel/` with
-   `textures/{walls,floors,ceilings,lights}/`, `props/models/`, `decals/` as
+2. Create the new theme directory `assets/environments/hotel/` with
+   `textures/{walls,floors,ceilings,lights}/`, `props/`, `decals/` as
    needed.
 3. Register each asset with `"theme": "hotel"` (or leave `theme` off for generic
    assets that do not belong to it).

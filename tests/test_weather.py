@@ -1,7 +1,9 @@
 """Snow authoring, asset contracts and validator regressions."""
 import copy
 import json
+import os
 from pathlib import Path
+import struct
 import sys
 import unittest
 import zipfile
@@ -9,39 +11,44 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/assets'))
 sys.path.insert(0, str(ROOT / 'tools/props'))
+sys.path.insert(0, str(ROOT / 'tools/levels'))
+import build_winter
 import validate
 from tex import decode_png
 
 
+def assert_non_winter_climate(test, level, stem):
+    catalog = {a['id']: a for a in json.loads((ROOT / 'assets/catalog.json').read_text())['assets']}
+    test.assertIsNone(level.get('weather'), stem)
+    sky = level.get('sky')
+    if stem in ('beach_demo', 'frutiger_aero_demo'):
+        test.assertIsNotNone(sky, stem)
+        theme = 'beach' if stem == 'beach_demo' else 'frutiger_aero'
+        test.assertEqual(sky['texture'], theme+':tex_sky_day_01', stem)
+    elif sky:
+        test.assertEqual(sky['texture'], 'outdoor:tex_sky_stars_01', stem)
+    # Model Zoo intentionally exhibits the reusable winter props;
+    # its walkable ground and climate still use ordinary materials.
+    for key, value in level.items():
+        if key != 'props':
+            test.assertNotIn('winter:', json.dumps(value), (stem, key))
+    materials = {asset_id for asset_id, _ in validate.level_ids(level)}
+    test.assertFalse(any(catalog.get(m, {}).get('ground_surface') == 'ice'
+                         for m in materials), stem)
+
+
 class WeatherTests(unittest.TestCase):
-    def test_non_winter_sources_and_packages_keep_their_climate_and_ground(self):
-        catalog = {a['id']: a for a in json.loads((ROOT / 'assets/catalog.json').read_text())['assets']}
-        for path in (ROOT / 'assets/levels').glob('*.json'):
-            if path.stem == 'winter':
-                continue
-            source = json.loads(path.read_text())
-            with zipfile.ZipFile(path.with_suffix('.placesmap')) as archive:
-                packaged = json.loads(archive.read('semantics.json'))
-            for level in (source, packaged):
-                self.assertIsNone(level.get('weather'), path)
-                sky = level.get('sky')
-                if path.stem in ('beach_demo', 'frutiger_aero_demo'):
-                    self.assertIsNotNone(sky, path)
-                    theme = 'beach' if path.stem == 'beach_demo' else 'frutiger_aero'
-                    self.assertEqual(sky['texture'], theme+':tex_sky_day_01', path)
-                elif sky:
-                    self.assertEqual(sky['texture'], 'outdoor:tex_sky_stars_01', path)
-                # Model Zoo intentionally exhibits the reusable winter props;
-                # its walkable ground and climate still use ordinary materials.
-                for key, value in level.items():
-                    if key != 'props':
-                        self.assertNotIn('winter:', json.dumps(value), (path, key))
-                materials = {asset_id for asset_id, _ in validate.level_ids(level)}
-                self.assertFalse(any(catalog.get(m, {}).get('ground_surface') == 'ice'
-                                     for m in materials), path)
+    def test_non_winter_sources_keep_their_climate_and_ground(self):
+        sources = sorted((ROOT / 'levels').glob('*.json'))
+        self.assertTrue(sources, 'maintained level sources must exist')
+        for path in sources:
+            if path.stem != 'winter':
+                assert_non_winter_climate(self, json.loads(path.read_text()), path.stem)
 
     def test_weather_is_only_opted_in_by_winter(self):
-        for path in (ROOT / 'assets/levels').glob('*.json'):
+        sources = sorted((ROOT / 'levels').glob('*.json'))
+        self.assertTrue(sources, 'maintained level sources must exist')
+        for path in sources:
             level = json.loads(path.read_text())
             if level['id'] == 'winter':
                 self.assertEqual(level['weather'], {'kind': 'snow'})
@@ -209,9 +216,13 @@ class WeatherTests(unittest.TestCase):
                                       'fixture', errors)
         self.assertTrue(any('equal count and material' in error for error in errors), errors)
 
-    def test_blizzard_review_preserves_winter_content(self):
-        original = json.loads((ROOT / 'assets/levels/winter.json').read_text())
-        review = json.loads((ROOT / 'debug-maps/blizzard-20261007/sources/blizzard_review.json').read_text())
+    def test_derived_severe_control_preserves_winter_content(self):
+        original = json.loads((ROOT / 'levels/winter.json').read_text())
+        snapshot = copy.deepcopy(original)
+        review = build_winter.build_severe_review(original)
+        self.assertEqual(original, snapshot, 'deriving the control must not mutate Winter')
+        self.assertEqual(original['weather_alternate'],
+                         json.loads(build_winter.SEVERE_WEATHER.read_text()))
         for key in original.keys() - {'id', 'name', 'weather', 'weather_alternate',
                                      'weather_cycle', 'props'}:
             self.assertEqual(original[key], review[key], key)
@@ -239,3 +250,52 @@ class WeatherTests(unittest.TestCase):
         self.assertEqual(original.get('weather_alternate'), review.get('weather'))
         self.assertEqual(review['weather']['storm_severity'], 1)
         self.assertEqual(review['weather'].get('count', 1400), 1400)
+
+
+@unittest.skipUnless(os.environ.get('PLACES_WEATHER_PACKAGE_DIR'),
+                     'set PLACES_WEATHER_PACKAGE_DIR after compiling maintained levels')
+class PackagedWeatherTests(unittest.TestCase):
+    def assert_stored_weather(self, actual, authored, context):
+        """Compare every authored value at the engine's exact f32 precision."""
+        if isinstance(authored, float):
+            expected = struct.unpack('<f', struct.pack('<f', authored))[0]
+            self.assertEqual(actual, expected, context)
+        elif isinstance(authored, list):
+            self.assertIsInstance(actual, list, context)
+            self.assertEqual(len(actual), len(authored), context)
+            for index, (stored, value) in enumerate(zip(actual, authored, strict=True)):
+                self.assert_stored_weather(stored, value, (context, index))
+        elif isinstance(authored, dict):
+            self.assertIsInstance(actual, dict, context)
+            self.assertEqual(actual.keys(), authored.keys(), context)
+            for key, value in authored.items():
+                self.assertIn(key, actual, context)
+                self.assert_stored_weather(actual[key], value, (context, key))
+        else:
+            self.assertEqual(actual, authored, context)
+
+    def test_explicit_packages_preserve_authored_climate_and_ground(self):
+        directory = Path(os.environ['PLACES_WEATHER_PACKAGE_DIR'])
+        self.assertTrue(directory.is_dir(), directory)
+        from tests.built_maps import selected_sources
+        sources = selected_sources()
+        self.assertTrue(sources, 'maintained level sources must exist')
+        for source in sources:
+            path = directory / source.with_suffix('.placesmap').name
+            self.assertTrue(path.is_file(), f'compile {source} before package validation')
+            with zipfile.ZipFile(path) as archive:
+                manifest = json.loads(archive.read('manifest.json'))
+                level = json.loads(archive.read('semantics.json'))
+            self.assertEqual(manifest['id'], source.stem, path)
+            self.assertEqual(level['id'], source.stem, path)
+            if source.stem == 'winter':
+                self.assertEqual(level['weather']['kind'], 'snow')
+                for key, value in json.loads(build_winter.SEVERE_WEATHER.read_text()).items():
+                    self.assert_stored_weather(level['weather_alternate'][key], value, (path, key))
+                self.assert_stored_weather(level['weather_cycle'],
+                                           json.loads(source.read_text())['weather_cycle'], path)
+            else:
+                assert_non_winter_climate(self, level, source.stem)
+            errors = []
+            validate.validate_weather(level, str(path), errors)
+            self.assertEqual(errors, [], path)

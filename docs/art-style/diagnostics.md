@@ -127,7 +127,7 @@ physical package identity agrees. These commands regenerate a compatible package
 ```sh
 RUSTC_WRAPPER= cargo build --release --features visual-diagnostics
 # Prepare a package from the maintained source fixture.
-target/release/places-compile build tests/fixtures/levels/art_style_hero.json \
+target/release/places-compile build tests/fixtures/levels/architecture_after.json \
   --out /tmp/ordinary-hero.placesmap --workers 12 --force --json
 # Export the prepared package; the export itself needs no rebake or GPU.
 target/release/places-compile export-lighting /tmp/ordinary-hero.placesmap \
@@ -135,10 +135,11 @@ target/release/places-compile export-lighting /tmp/ordinary-hero.placesmap \
 # One opt-in hero solve records all ordinary variants. Use a new dump root.
 PLACES_LIGHTING_DUMP_DIR=/tmp/hero-live-lighting \
 PLACES_LIGHTING_RAYS=tests/fixtures/native/caster-ray-requests.json \
-  target/release/places-compile build tests/fixtures/levels/art_style_hero.json \
+  target/release/places-compile build tests/fixtures/levels/architecture_after.json \
   --out /tmp/diagnostic-hero.placesmap --workers 12 --force --json
 python3 tools/bench/capture_art_style_hero.py \
   --binary target/release/places --manifest tests/fixtures/native/hero-diagnostics-manifest.json \
+  --package /tmp/diagnostic-hero.placesmap \
   --diagnostic baked-light --views contact --out /tmp/hero-native-light
 # Optional offline inspector needs NumPy/Pillow; neither is a game dependency.
 python3 tools/bench/inspect_lighting_dump.py /tmp/hero-live-lighting/full \

@@ -17,7 +17,7 @@ solid flags and texture pixels are preserved.
 ## Files
 
 Replaced GLBs and added matching PNG sources under
-`assets/environment/pool/props/models/`, for each basename:
+`assets/environments/pool/props/`, for each basename:
 
 - `pool_guardrail_straight`
 - `pool_guardrail_end`

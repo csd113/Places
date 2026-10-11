@@ -107,7 +107,7 @@ class AeroAssetContinuityTests(unittest.TestCase):
             self.assertLess(base+height+1.834, 4.2)
 
     def test_portal_caps_follow_individual_facets_without_skinny_fans(self):
-        path = ROOT / 'assets/environment/frutiger_aero/props/models/portal_spandrel.glb'
+        path = ROOT / 'assets/environments/frutiger_aero/props/portal_spandrel.glb'
         for kind, mesh in (('source', authored_mesh('portal_spandrel')),
                            ('exported', read_glb(path.read_bytes()))):
             with self.subTest(kind=kind):

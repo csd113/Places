@@ -8,7 +8,7 @@ import math
 
 from parts.refreshed import load_atlas_from, orient_outward, solid_box, solid_cylinder
 
-ROOT=Path(__file__).resolve().parents[3]/'assets/environment/outdoor/props/models'
+ROOT=Path(__file__).resolve().parents[3]/'assets/environments/outdoor/props'
 WHITE=(255,255,255)
 
 

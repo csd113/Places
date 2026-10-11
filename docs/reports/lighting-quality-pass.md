@@ -49,7 +49,7 @@ The user identified the four houses in Lantern Hollow. Two fixed interior views 
 
 House 0's fridge door has a false diagonal between original Medium charts **10313 and 10314**, on the front face at `x=-30.47`. Their shared direct samples agree; their raw bounced field differs by **0.0833693743** and filtered field by **0.0473701954** in a linear RGB channel. Across **71 identical physical positions**, the final raw discrepancy is **0.0002478659** (**99.7% reduction**); filtered discrepancy is **0.0129529238** (**72.7% reduction**). The remaining small prop-local filter difference is acknowledged in section 19. The corresponding clean quad cache control previously differed by 0.01875 when only the hit triangle changed; it now agrees within `1e-5`. Full samples and chart coordinates.
 
-The selected black door samples have positively identified physical casters: **all 30 queried rays hit the fridge's own handles or hinges**, **0.77–4.04 cm** from their receivers. Triangle **12667** is the middle hinge, **12630** the upper handle, **12650/12651** the upper hinge and **12678** the lower hinge. Owner `model:core/props/models/fridge.glb`, world corners, origin, direction, distance and triangle ID are preserved in the exact selected hits. Those small legitimate shadows were overrepresented by binary texel-centre visibility; adaptive footprint coverage corrects their reconstruction. The separate full-door diagonal originates in indirect transport and has no roof caster.
+The selected black door samples have positively identified physical casters: **all 30 queried rays hit the fridge's own handles or hinges**, **0.77–4.04 cm** from their receivers. Triangle **12667** is the middle hinge, **12630** the upper handle, **12650/12651** the upper hinge and **12678** the lower hinge. Owner `model:shared/props/fridge.glb`, world corners, origin, direction, distance and triangle ID are preserved in the exact selected hits. Those small legitimate shadows were overrepresented by binary texel-centre visibility; adaptive footprint coverage corrects their reconstruction. The separate full-door diagonal originates in indirect transport and has no roof caster.
 
 ## 7. Roof involvement
 
@@ -120,11 +120,10 @@ constant. The representative pairs below are original native PNGs.
 
 | Control | Before | After |
 | --- | --- | --- |
-| Zoo fridge, High | [Before](../images/reports/lighting-quality-pass/production-before-zoo_fridge-high.png) | [After](../images/reports/lighting-quality-pass/production-after-zoo_fridge-high.png) |
 | Vertical strips, High, equal local source | [Before](../images/reports/lighting-quality-pass/local-control-before-vertical_strips-high.png) | [After](../images/reports/lighting-quality-pass/local-control-after-vertical_strips-high.png) |
 
-The fridge images still show the coarse legitimate handle/contact-shadow
-footprints described in the limitations. They demonstrate the dated diagonal
+The archived Zoo-fridge pair still shows the coarse legitimate handle/contact-shadow
+footprints described in the limitations. It demonstrates the dated diagonal
 correction, not complete acceptance of later reported kitchen smears.
 
 ## 12. World-space texel density

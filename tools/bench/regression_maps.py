@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Inventory every maintained and local map; run the normal package regression path.
+"""Inventory maintained maps and engine fixtures; run their normal compiler path.
 
 Inventory is read-only unless --out is supplied. --run-packages is an explicit,
 serialized campaign using an already built compiler; it never invokes cargo,
@@ -19,11 +19,11 @@ import time
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
-MAP_ROOTS = ("assets/levels", "levels", "tests/fixtures/levels")
+MAP_ROOTS = ("levels", "tests/fixtures/levels")
 PROGRESSIVE_SOURCES = (
-    "tests/fixtures/levels/home_showcase.json", "tests/fixtures/levels/office_asset_review.json",
-    "tests/fixtures/levels/pool_showcase.json", "tests/fixtures/levels/outdoor_kit_showcase.json",
-    "assets/levels/winter.json", "assets/levels/lantern_hollow.json",
+    "levels/home_showcase.json", "tests/fixtures/levels/office_asset_review.json",
+    "levels/pool_showcase.json", "tests/fixtures/levels/outdoor_kit_showcase.json",
+    "levels/winter.json", "levels/lantern_hollow.json",
 )
 SPECIAL = {
     "tests/fixtures/levels/invalid/geometry_invalid.json": (
@@ -57,7 +57,7 @@ def inventory(root: Path = ROOT) -> list[dict]:
             relative = source.relative_to(root).as_posix()
             level = json.loads(source.read_text())
             classification, reason = SPECIAL.get(relative, ("playable", "Normal catalogue-authored source."))
-            sibling = source.with_suffix(".placesmap")
+            sibling = root / "assets/levels" / (source.stem + ".placesmap") if directory == "levels" else source.with_suffix(".placesmap")
             rows.append(dict(key=relative.removesuffix(".json").replace("/", "__"),
                              source=relative, source_sha256=digest(source), level=level["id"],
                              classification=classification, scope_reason=reason,
@@ -97,8 +97,8 @@ def planned_commands(row: dict, compiler: Path, out: Path, root: Path = ROOT,
     if row["source"] is None:
         return [[str(compiler), "validate", str(root / row["package"]), "--json"]]
     source = root / row["source"]
-    installed = row["source"].startswith(("assets/levels/", "levels/"))
-    package = source.with_suffix(".placesmap") if installed and install_source_packages else (
+    installed = row["source"].startswith("levels/")
+    package = root / "assets/levels" / (source.stem + ".placesmap") if installed and install_source_packages else (
         prepared_root or out / "packages") / (row["key"] + ".placesmap")
     build = [str(compiler), "build", str(source), "--out", str(package),
              "--asset-root", str(root / "assets"), "--workers", "12", "--json"]
@@ -180,7 +180,7 @@ def main() -> int:
     parser.add_argument("--prepared-root", type=Path,
                         help="Stable fixture package directory for safe unchanged reuse; receipts remain under new --out")
     parser.add_argument("--install-source-packages", action="store_true",
-                        help="Explicitly build shipped/local source siblings; requires preserved entry packages and content freeze")
+                        help="Build curated outputs in assets/levels; fixtures use the prepared or campaign directory")
     parser.add_argument("--run-packages", action="store_true")
     args = parser.parse_args()
     if args.run_packages and not args.out:

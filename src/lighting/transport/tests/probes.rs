@@ -525,7 +525,7 @@ fn validated_probe_phase_cannot_recover_blocked_wall_floor_or_closed_prop() {
 
 #[test]
 fn demo_probe_phase_recovers_authored_corridor_air_without_losing_rooms() {
-    let level = LevelDef::from_json(include_str!("../../../../assets/levels/places_demo.json"))
+    let level = LevelDef::from_json(include_str!("../../../../levels/places_demo.json"))
         .expect("actual Demo source");
     let lighting = LevelLighting::bake(&level);
     let materials = crate::render::logical_materials(&level);

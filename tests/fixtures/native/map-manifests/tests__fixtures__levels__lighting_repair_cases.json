@@ -2,7 +2,7 @@
   "format_version": 1,
   "level": "lighting_repair_cases",
   "source": "tests/fixtures/levels/lighting_repair_cases.json",
-  "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__lighting_repair_cases.placesmap",
+  "package": "target/verification/maps/tests__fixtures__levels__lighting_repair_cases.placesmap",
   "settings": {
     "bindings": {
       "forward": "W",

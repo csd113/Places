@@ -156,7 +156,7 @@ mod tests {
     #[test]
     fn authored_presentation_reaches_resolve_once() -> Result<(), serde_json::Error> {
         let mut level: crate::level::LevelDef = serde_json::from_str(include_str!(
-            "../../../tests/fixtures/levels/art_style_hero.json"
+            "../../../tests/fixtures/levels/material_transport.json"
         ))?;
         let mut controls = crate::environment::EnvironmentDef::default();
         controls.presentation.exposure = 1.25;

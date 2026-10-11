@@ -17,18 +17,18 @@ frame. The frame reuses the existing bookshelf PNG atlas and has 48 triangles.
 
 ## Files
 
-- `assets/core/decals/temptation_adam_eve_01.png`
-- `assets/core/props/models/painting_frame_landscape_01.glb`
+- `assets/shared/decals/temptation_adam_eve_01.png`
+- `assets/shared/props/painting_frame_landscape_01.glb`
 - `assets/catalog.json`
-- `assets/levels/places_demo.json` and `assets/levels/places_demo.placesmap`
-- `assets/levels/model_zoo.json` and `assets/levels/model_zoo.placesmap`
+- `levels/places_demo.json` and `assets/levels/places_demo.placesmap`
+- `levels/model_zoo.json` and `assets/levels/model_zoo.placesmap`
 - `tools/props/parts/decor.py`
 - `tools/textures/decal_art.py`
 - `tools/levels/build_model_zoo.py`
 - `src/loader/tests.rs` (add the painting to the existing expected decal list)
 - `docs/ASSET_SPECIFICATION.md`
 - `docs/MAP_AUTHORING_GUIDE.md`
-- `assets/environment/home/README.md`
+- `assets/environments/home/README.md`
 
 ## Validation
 

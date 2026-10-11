@@ -1047,7 +1047,7 @@ mod lighting_reuse_tests {
         .map_err(|error| error.to_string())?;
         let lighting = LevelLighting::bake(&level);
         let mut assets = crate::props::PropAssets::load_default();
-        let asset = assets.resolve("environment/office/props/models/chair.glb")?;
+        let asset = assets.resolve("environments/office/props/chair.glb")?;
         let source = &asset.model.vertices;
         let shared = lighting_sources(source);
         let independent: Vec<usize> = (0..source.len()).collect();

@@ -62,12 +62,12 @@ world and reused Winter's sky texture from the existing GPU cache.
 | `python3 -m unittest tests.test_winter tests.test_winter_assets` | PASS: ten tests; rerun after final artwork |
 | `python3 tools/assets/validate.py` | PASS: zero warnings |
 | `python3 tools/textures/build.py --check --quiet` | PASS: existing source-resolution/manual-art advisories, including the intentional sky source |
-| `python3 tools/textures/seam_repair.py --check assets/environment/winter/textures/sky/sky_aurora_01.png` | PASS |
+| `python3 tools/textures/seam_repair.py --check assets/environments/winter/textures/sky/sky_aurora_01.png` | PASS |
 | `python3 tools/levels/build_winter.py --check` | PASS |
-| `target/release/places-compile build assets/levels/winter.json --workers 4` | PASS: off/medium/full rebuilt |
-| `target/release/places-compile verify assets/levels/winter.json --package assets/levels/winter.placesmap --require-current` | PASS |
+| `target/release/places-compile build levels/winter.json --workers 4` | PASS: off/medium/full rebuilt |
+| `target/release/places-compile verify levels/winter.json --package assets/levels/winter.placesmap --require-current` | PASS |
 | `target/release/places-compile validate assets/levels/winter.placesmap` | PASS: three variants, 19 entries, 66 dependencies |
-| `target/release/places --check-geometry --level assets/levels/winter.json --json target/aurora-evidence/geometry.json` | PASS: zero errors/warnings; existing outdoor intent annotations retained |
+| `target/release/places --check-geometry --level levels/winter.json --json target/aurora-evidence/geometry.json` | PASS: zero errors/warnings; existing outdoor intent annotations retained |
 | `git diff --check` | PASS |
 
 The full Rust suite and native captures used a fixed catalog/source/asset

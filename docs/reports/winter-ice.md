@@ -59,12 +59,12 @@ maps retain their existing behavior. No dependencies or unrelated maps changed.
 | `python3 tools/assets/validate.py` | PASS; 284 assets, 162 placeables, zero warnings |
 | `python3 tools/props/build.py --check` | PASS |
 | `python3 tools/textures/build.py --check --quiet` | PASS; existing source-resolution/manual-art manifest advisories, including the intentional ice artwork |
-| `python3 tools/textures/seam_repair.py --check assets/environment/winter/textures/floors/ice_01.png` | PASS |
+| `python3 tools/textures/seam_repair.py --check assets/environments/winter/textures/floors/ice_01.png` | PASS |
 | `python3 tools/levels/build_winter.py --check` | PASS; deterministic and current |
-| `target/release/places-compile build assets/levels/winter.json --workers 12 --json` | PASS; all three lighting variants rebuilt |
-| `target/release/places-compile verify assets/levels/winter.json --package assets/levels/winter.placesmap --require-current --json` | PASS; current, no differences |
+| `target/release/places-compile build levels/winter.json --workers 12 --json` | PASS; all three lighting variants rebuilt |
+| `target/release/places-compile verify levels/winter.json --package assets/levels/winter.placesmap --require-current --json` | PASS; current, no differences |
 | `target/release/places-compile validate assets/levels/winter.placesmap --json` | PASS; three variants, 19 entries, 63 dependencies |
-| `target/release/places --check-geometry --level assets/levels/winter.json --json target/ice-evidence/geometry.json` | PASS; zero errors/warnings, existing outdoor intent annotations retained |
+| `target/release/places --check-geometry --level levels/winter.json --json target/ice-evidence/geometry.json` | PASS; zero errors/warnings, existing outdoor intent annotations retained |
 | `git diff --check` | PASS |
 
 The two full-suite failures are
@@ -140,12 +140,13 @@ Package SHA256:
 Release binary SHA256:
 `9bead0d18b7eca4e4d58636266f29c6a2796992f24d95dae24f57fa11c34d862`.
 
-![Frozen pond and shoreline snow](../images/reports/winter-ice/high-pond.png)
+
+The dated frozen-pond native frame is retained locally. The physical surface, movement measurements and capture reproduction below retain this pass’s evidence.
 
 ## Image source
 
 The final workspace asset is
-`assets/environment/winter/textures/floors/ice_01.png`. It was generated with the
+`assets/environments/winter/textures/floors/ice_01.png`. It was generated with the
 built-in `image_gen.imagegen` tool, resized offline to the required 1024² floor
 contract and repaired with the existing offline seam tool. It is an opaque RGB
 PNG; translucency belongs to the material. No runtime image generation was added.

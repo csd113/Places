@@ -139,6 +139,12 @@ if [ ! -x "$BIN" ]; then
     exit 1
 fi
 
+if [ ! -x "$REPO/target/release/places-compile" ]; then
+    fail "build the release compiler with 'cargo build --release --bin places-compile'"
+fi
+# Fail before publication when a source-only checkout has no current maps.
+python3 "$REPO/tools/levels/compile.py" --check
+
 echo "packaging Places $VERSION -> $OUT_ABS"
 mkdir -p "$OUT_ABS"
 STAGE=""
@@ -157,11 +163,16 @@ mkdir -p "$STAGE/Places" "$STAGE/Places.app/Contents/MacOS" "$STAGE/Places.app/C
 # The flat distribution: executable beside its asset root.
 cp "$BIN" "$STAGE/Places/$NAME"
 cp "$REPO/README.md" "$REPO/THIRD_PARTY_LICENSES.txt" "$STAGE/Places/"
-cp -R "$REPO/assets" "$STAGE/Places/assets"
-mkdir -p "$STAGE/Places/levels"
-# Only compiled packages are playable. Authoring sources stay in the repository;
-# shipping one without its package would offer the player a row it cannot load.
-cp "$REPO"/levels/*.placesmap "$STAGE/Places/levels/" 2>/dev/null || true
+mkdir -p "$STAGE/Places/assets/levels" "$STAGE/Places/levels"
+cp "$REPO/assets/catalog.json" "$STAGE/Places/assets/"
+# References and master source artwork belong to authoring, not runtime exports.
+for directory in shared environments entities diagnostic; do
+    cp -R "$REPO/assets/$directory" "$STAGE/Places/assets/$directory"
+done
+find "$STAGE/Places/assets" -type f -name '*_master.png' -delete
+while IFS= read -r identity; do
+    cp "$REPO/assets/levels/$identity.placesmap" "$STAGE/Places/assets/levels/"
+done < "$REPO/levels/lineup.txt"
 
 # The macOS bundle: the same payload under Contents/Resources.
 cp "$BIN" "$STAGE/Places.app/Contents/MacOS/$NAME"
@@ -181,9 +192,8 @@ cat >"$STAGE/Places.app/Contents/Info.plist" <<PLIST
 </dict>
 </plist>
 PLIST
-cp -R "$REPO/assets" "$STAGE/Places.app/Contents/Resources/assets"
+cp -R "$STAGE/Places/assets" "$STAGE/Places.app/Contents/Resources/assets"
 mkdir -p "$STAGE/Places.app/Contents/Resources/levels"
-cp "$REPO"/levels/*.placesmap "$STAGE/Places.app/Contents/Resources/levels/" 2>/dev/null || true
 cp "$REPO/README.md" "$REPO/THIRD_PARTY_LICENSES.txt" "$STAGE/Places.app/Contents/Resources/"
 
 # Publish: replace exactly the two owned products, leaving every unrelated

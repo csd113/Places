@@ -6,14 +6,37 @@ world the offline compiler produced from an authoring source. The player does
 not compile maps, bake light, pack charts, capture reflections or generate
 static navigation; it decodes these records and uploads them.
 
-The authoring workflow is explicit:
+The repository tracks authored maps in `levels/`, with the eight maintained IDs
+listed in `levels/lineup.txt`. Compiled `.placesmap` files are untracked build
+outputs. Rust builds and source tests work before any map is compiled; the
+player needs compiled packages to play.
+
+From a fresh checkout, build the release tools and the complete maintained
+lineup explicitly:
 
 ```sh
-# edit a source, then
-./target/release/places-compile build assets/levels/places_demo.json
-# and launch
+cargo build --locked --release
+python3 tools/levels/compile.py --workers 8
 ./target/release/places
 ```
+
+`sh tools/build-maps.sh` builds the release compiler and runs the same lineup
+tool. It compiles Off/Medium/Full variants with normal reflection capture into
+`assets/levels/`, verifies each package against current inputs, and validates
+every record. After editing one source, build its output explicitly:
+
+```sh
+./target/release/places-compile build levels/places_demo.json \
+    --out assets/levels/places_demo.placesmap --asset-root assets
+```
+
+The player discovers bundled packages in `assets/levels/` and installed packages
+in its writable `levels/` directory. Authored JSON never becomes a playable row.
+There is no compiled Demo inside the executable: an absent Demo reports the
+explicit build/import action, and installing a valid package restores loading.
+`tools/package.sh` requires the full maintained lineup to be current before it
+exports the player and runtime assets; it never compiles maps on the player's
+behalf.
 
 `places-compile` reuses an existing package when the source, the referenced
 asset identities and the compiler version are unchanged; `--force` rebuilds.
@@ -63,7 +86,7 @@ never triggers procedural geometry generation.
   "required_capabilities": ["geometry", "props", "lighting", "collision",
                             "lightmaps-hdr", "irradiance-probes", "probes-hdr"],
   "dependencies": [
-    { "kind": "model", "path": "core/props/models/table.glb",
+    { "kind": "model", "path": "shared/props/table.glb",
       "sha256": "<sha256>", "bytes": 123816 }
   ],
   "entries": [
@@ -98,8 +121,10 @@ never triggers procedural geometry generation.
   package reads from the installed asset bundle (`kind: "model"`/`"texture"`,
   root-relative path) or embeds itself (`kind: "embedded"`). A package whose
   declared dependency is missing or has a different size or SHA-256 is refused
-  at load with an error naming it (a truly asset-less install has nothing to check
-  against and logs once, preserving the embedded-fallback boot).
+  at load with an error naming it. Opening an archive without an asset root can
+  validate its internal records and logs that installed dependencies cannot be
+  checked; it does not establish that external models or textures are available.
+  Embedded community texture entries remain part of the archive format.
   `places-compile validate` re-hashes every dependency and reports any content
   difference. Models include every placed prop and every runtime spawn template,
   including unused templates selectable by an override. GLBs embed their PNG
@@ -591,7 +616,7 @@ or corner; unreachable support remains zero. Valid dark samples remain dark.
 
 Solver revision 16 changes the bake identity and invalidates package/lightmap
 fingerprints; rebuild current outputs. See
-[Probe baker audit](PROBE_BAKER_AUDIT.md) for diagnostics, regression evidence and
+[Probe baker audit](reports/probe-baker-audit.md) for diagnostics, regression evidence and
 remaining compiler/runtime limitations, and [Stage 4 contracts](art-style/stage4/contracts.md)
 for current entity direct/visibility/resource behavior.
 

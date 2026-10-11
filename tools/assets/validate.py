@@ -17,8 +17,8 @@ The checks here are the tooling half of the asset architecture:
   like the material's own ``texture``);
 * ``spooner-man`` is a single canonical entity resource under
   ``entities/spooner-man/``, never a duplicate prop file;
-* the shipped level in ``assets/levels/``, the drop-in levels in ``levels/``
-  and the engine regression fixtures in ``tests/fixtures/levels/`` only
+* maintained sources in ``levels/`` and engine regression fixtures in
+  ``tests/fixtures/levels/`` only
   reference ids the catalog declares, and their optional ``ceiling_lights[]``
   pool/emission fields, ``ceiling_lights[].enabled`` switch and
   ``props[].lights`` sources obey the documented shapes, dimensions and ranges;
@@ -51,7 +51,6 @@ PACKAGE_ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 ASSET_ROOT = os.path.join(PACKAGE_ROOT, "assets")
 CATALOG_PATH = os.path.join(ASSET_ROOT, "catalog.json")
 LEVEL_DIRS = (
-    os.path.join(ASSET_ROOT, "levels"),
     os.path.join(PACKAGE_ROOT, "levels"),
     os.path.join(PACKAGE_ROOT, "tests", "fixtures", "levels"),
 )
@@ -714,9 +713,9 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
             canonical = os.path.join(asset_root, model)
             if not os.path.isfile(canonical):
                 errors.append(f"spooner-man: canonical resource '{model}' is missing")
-            duplicate = os.path.join(asset_root, "props", "models", "spooner-man.glb")
+            duplicate = os.path.join(asset_root, "shared", "props", "spooner-man.glb")
             if os.path.isfile(duplicate):
-                errors.append("spooner-man: a duplicate copy exists at assets/props/models/spooner-man.glb")
+                errors.append("spooner-man: a duplicate copy exists at assets/shared/props/spooner-man.glb")
         if spooner.get("theme") is not None:
             errors.append("spooner-man: an entity must not carry an environment theme")
 

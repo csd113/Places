@@ -2,7 +2,7 @@
   "format_version": 1,
   "level": "repair_clean",
   "source": "tests/fixtures/levels/repair/clean.json",
-  "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__repair__clean.placesmap",
+  "package": "target/verification/maps/tests__fixtures__levels__repair__clean.placesmap",
   "settings": {
     "bindings": {
       "forward": "W",

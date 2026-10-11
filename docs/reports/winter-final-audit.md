@@ -160,10 +160,7 @@ asserted test outcomes. Historical Prompt 8's aggregate was originally 187
 passes/11 locked-display skips, followed by a successful focused native rerun of
 26 passes/0 skips; this audit's complete gate independently has zero skips.
 
-Representative unmodified native captures: [calm square](../images/reports/winter-final-audit-evidence/calm-square.png),
-[severe nearby lights](../images/reports/winter-final-audit-evidence/severe-near.png),
-[sheltered severe interior](../images/reports/winter-final-audit-evidence/severe-interior.png), and
-[Office after severe Winter](../images/reports/winter-final-audit-evidence/non-winter-after-severe.png).
+The calm-square, severe-near, sheltered-interior and Office-after-severe native frames are retained locally with their dated acceptance evidence. The [later refinement report](environment-refinement.md) keeps representative current weather controls; it is a separate review from this audit.
 
 ## Reproduction
 

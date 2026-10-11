@@ -785,9 +785,9 @@ fn every_solved_value_is_finite_and_non_negative() {
 #[ignore = "stage audit of maintained packages; run with PLACES_VERBOSE=1"]
 fn maintained_transport_stage_audit() {
     for source in [
-        "assets/levels/places_demo.json",
+        "levels/places_demo.json",
         "tests/fixtures/levels/lighting_repair_cases.json",
-        "tests/fixtures/levels/home_showcase.json",
+        "levels/home_showcase.json",
     ] {
         println!("AUDIT_SOURCE {source}");
         let level =

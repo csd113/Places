@@ -14,7 +14,7 @@ The runtime-only audit and baker audit were reconciled in this combined result.
 The earlier runtime pass deliberately retained low-energy outdoor bake problems
 and a doorway ownership step; the final fresh-map controls below test their
 combined corrections. Runtime-only stale-package failures are superseded by the
-rebuilt integration gate. The [baker report](../PROBE_BAKER_AUDIT.md) records the
+rebuilt integration gate. The [baker report](probe-baker-audit.md) records the
 transport investigation.
 
 ## Root causes and reconciliation

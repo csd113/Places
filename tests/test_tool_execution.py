@@ -111,7 +111,7 @@ class ExecutionTests(unittest.TestCase):
         from tools.props import build
         with self.assertRaises(SystemExit):
             build.model_path({'id': 'bad', 'model': '../../outside.glb'})
-        self.assertTrue(Path(build.model_path({'id':'safe', 'model':'core/props/safe.glb'})).is_relative_to(ROOT/'assets'))
+        self.assertTrue(Path(build.model_path({'id':'safe', 'model':'shared/props/safe.glb'})).is_relative_to(ROOT/'assets'))
 
     def test_atomic_replace_has_no_leftover(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -160,19 +160,33 @@ class ExecutionTests(unittest.TestCase):
         from tools.props.resize_embedded_textures import encode_png
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
+            package_root = root / 'package-root'
+            installed = package_root / 'levels'
+            installed.mkdir(parents=True)
+            for level in ('places_demo', 'prop_stress', 'prop_showcase', 'test_room'):
+                (installed / (level + '.placesmap')).write_bytes(b'explicit package mock; never decoded')
             binaries = []
             for side, color in [('before', 0), ('after', 255)]:
                 binary = root / side / 'places'
                 binary.parent.mkdir()
                 png = encode_png(1, 1, bytes([color, 0, 0, 255]))
-                binary.write_text(f'#!{sys.executable}\nimport os\nfrom pathlib import Path\nassert os.environ["PLACES_BENCH"] == "1"\nPath(os.environ["PLACES_CAPTURE"]).write_bytes({png!r})\n')
+                binary.write_text(
+                    f'#!{sys.executable}\n'
+                    'import os\nfrom pathlib import Path\n'
+                    'assert os.environ["PLACES_BENCH"] == "1"\n'
+                    'level = os.environ["PLACES_LEVEL"]\n'
+                    'package = Path(os.environ["PLACES_STATE_ROOT"]) / "levels" / (level + ".placesmap")\n'
+                    'assert package.read_bytes() == b"explicit package mock; never decoded"\n'
+                    'print("[loading] committed " + level, flush=True)\n'
+                    f'Path(os.environ["PLACES_CAPTURE"]).write_bytes({png!r})\n')
                 binary.chmod(0o755)
                 binaries.append(binary)
             command = [sys.executable, str(ROOT/'tools/bench/visual_check.py'),
                        '--baseline', str(binaries[0]), '--current', str(binaries[1]),
-                       '--out', str(root/'captures'), '--workers', '2', '--strict']
+                       '--out', str(root/'captures'), '--levels', str(package_root),
+                       '--workers', '2', '--strict']
             for workers in (1, 4, 12):
-                command[-2] = str(workers)
+                command[command.index('--workers') + 1] = str(workers)
                 result = subprocess.run(command, capture_output=True, text=True, timeout=30)
                 self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
                 self.assertEqual(result.stdout.count('REGRESSION'), 11)
@@ -187,13 +201,34 @@ class ExecutionTests(unittest.TestCase):
         from tools.bench.visual_check import capture
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
+            (root / 'levels').mkdir()
+            (root / 'levels/demo.placesmap').write_bytes(b'explicit package mock; never decoded')
             stale = root / 'places__shot.png'
             stale.write_bytes(b'stale')
             with patch('tools.bench.visual_check.subprocess.run',
-                       return_value=subprocess.CompletedProcess([], 1, '', 'failed')):
+                       return_value=subprocess.CompletedProcess([], 1, '', 'failed')) as launch:
                 with self.assertRaises(SystemExit):
                     capture(Path('/example/places'), ('shot', 'demo', {}), root, root)
+                launch.assert_called_once()
             self.assertFalse(stale.exists())
+
+    def test_capture_rejects_success_without_the_requested_world_receipt(self):
+        from unittest.mock import patch
+        from tools.bench.visual_check import capture
+        from tools.props.resize_embedded_textures import encode_png
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'levels').mkdir()
+            (root / 'levels/demo.placesmap').write_bytes(b'explicit package mock; never decoded')
+
+            def wrong_world(command, **kwargs):
+                Path(kwargs['env']['PLACES_CAPTURE']).write_bytes(encode_png(1, 1, bytes([0, 0, 0, 255])))
+                return subprocess.CompletedProcess(command, 0, '[loading] committed another_world\n', '')
+
+            with patch('tools.bench.visual_check.subprocess.run', side_effect=wrong_world) as launch:
+                with self.assertRaisesRegex(SystemExit, 'another_world'):
+                    capture(Path('/example/places'), ('shot', 'demo', {}), root, root)
+                launch.assert_called_once()
 
     def test_seam_batch_error_publishes_nothing(self):
         from tools.props.resize_embedded_textures import encode_png

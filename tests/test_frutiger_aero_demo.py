@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class AeroDemoTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.level = json.loads((ROOT/'assets/levels/frutiger_aero_demo.json').read_text())
+        cls.level = json.loads((ROOT/'levels/frutiger_aero_demo.json').read_text())
         cls.solids = [(p['id'], collider_box(cls.level, p)) for p in cls.level['props'] if p.get('solid')]
 
     def test_generator_is_current(self):

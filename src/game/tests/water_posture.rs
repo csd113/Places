@@ -151,7 +151,7 @@ fn positive_surface_bob_settles_onto_the_standing_depth_boundary() {
 
 #[test]
 fn the_upright_swimmer_follows_the_real_beach_ramp_back_to_shore() {
-    let level = LevelDef::from_json(include_str!("../../../assets/levels/beach_demo.json"))
+    let level = LevelDef::from_json(include_str!("../../../levels/beach_demo.json"))
         .expect("the actual Beach parses");
     let mut game = game_for(&level);
     play_at(&mut game, 0.0, -2.2, -8.0, 180.0, 1.0 / 60.0);

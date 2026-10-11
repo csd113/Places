@@ -16,8 +16,8 @@ import glb
 from parts.refreshed import load_atlas_from
 
 ROOT = Path(__file__).resolve().parents[3]
-OUTDOOR = ROOT / 'assets/environment/outdoor/props/models'
-WINTER = ROOT / 'assets/environment/winter/props/models'
+OUTDOOR = ROOT / 'assets/environments/outdoor/props'
+WINTER = ROOT / 'assets/environments/winter/props'
 SNOW = (244, 248, 255)
 ICE = (193, 218, 243)
 ROOF_SCALE = 1.4

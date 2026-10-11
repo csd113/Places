@@ -6,8 +6,8 @@ plan against the current bytes, applies its JSON-pointer edits with order
 preserving serialization, checks the result, and refuses anything it cannot
 prove. These tests drive the real ``places`` executable (set ``PLACES_BIN`` to
 choose one; release is preferred) on scratch copies of the repair fixtures under
-``target/agent-work/06-wall-alignment-audit-and-repair/runs/agent-a/`` — no
-maintained source is ever touched.
+the system temporary directory (or ``PLACES_REPAIR_TEST_ROOT`` for an explicit
+scratch root) — no maintained source is ever touched.
 
 Covered: dry-run mutates nothing, apply is atomic, concurrent change and stale
 ``old`` values are refused, malformed pointers are refused, a non-clean
@@ -32,21 +32,19 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(TEST_DIR, ".."))
 REPAIR_TOOL = os.path.join(ROOT, "tools", "levels", "repair_alignment.py")
 FIXTURES = os.path.join(ROOT, "tests", "fixtures", "levels", "repair")
-DEMO = os.path.join(ROOT, "assets", "levels", "places_demo.json")
+DEMO = os.path.join(ROOT, "levels", "places_demo.json")
 MAINTAINED = (
-    os.path.join(ROOT, "assets", "levels", "places_demo.json"),
-    os.path.join(ROOT, "assets", "levels", "model_zoo.json"),
-    os.path.join(ROOT, "levels", "level0_pit.json"),
+    os.path.join(ROOT, "levels", "places_demo.json"),
+    os.path.join(ROOT, "levels", "model_zoo.json"),
+    os.path.join(ROOT, "tests", "fixtures", "levels", "level0_pit.json"),
 )
-SCRATCH = os.path.join(
-    ROOT, "target", "agent-work", "06-wall-alignment-audit-and-repair", "runs", "agent-a", "python-tests"
-)
+SCRATCH = os.environ.get("PLACES_REPAIR_TEST_ROOT")
 
 # Job 06 defect D1 belongs to the historical Home envelope, which subsequent
 # Home authoring replaced. Keep its geometry independent of current demo array
 # indices. This compact repaired control preserves the authored fields (only
 # comments omitted) from the retained pre-Home source:
-# debug-maps/pool-style-20261007/evidence/before/assets/levels/places_demo.json
+# debug-maps/pool-style-20261007/evidence/before/levels/places_demo.json
 # Original walls [32, 35, 19], baseboards [1, 5, 6, 9, 10], floor_regions [11]
 # and rooms [5, 6] are reindexed here; no ignored evidence file is needed at run
 # time. Reverse the same eight accepted scalar edits to seed the known defect.
@@ -139,7 +137,8 @@ class RepairScratch(unittest.TestCase):
     """Base class: one scratch directory per test, cleaned up afterwards."""
 
     def setUp(self) -> None:
-        os.makedirs(SCRATCH, exist_ok=True)
+        if SCRATCH:
+            os.makedirs(SCRATCH, exist_ok=True)
         self.work = tempfile.mkdtemp(prefix="repair-", dir=SCRATCH)
 
     def tearDown(self) -> None:

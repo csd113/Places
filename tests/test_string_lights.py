@@ -18,7 +18,7 @@ class StringLightTests(unittest.TestCase):
     def test_closed_modular_meshes_preserve_bulb_size_and_emission_isolation(self):
         for variant, (length, sag, count) in SPANS.items():
             with self.subTest(variant=variant):
-                path = ROOT / f'assets/environment/winter/props/models/string_lights_{variant}.glb'
+                path = ROOT / f'assets/environments/winter/props/string_lights_{variant}.glb'
                 model = glb.read_glb(path.read_bytes())
                 report = geometry.inspect(model.positions, model.indices)
                 for field in ('degenerate', 'boundary_edges', 'nonmanifold_edges',
@@ -47,7 +47,7 @@ class StringLightTests(unittest.TestCase):
                                               nodes=p.nodes, animations=p.clips), path.read_bytes())
 
     def test_mounts_are_supported_clear_of_walks_and_light_budget_stays_local(self):
-        level = json.loads((ROOT / 'assets/levels/winter.json').read_text())
+        level = json.loads((ROOT / 'levels/winter.json').read_text())
         spans = [p for p in level['props'] if p['model'].startswith('winter:string_lights_')]
         self.assertEqual(len(spans), 8)
         self.assertEqual(sum(len(p['lights']) for p in spans), 38)

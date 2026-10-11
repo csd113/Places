@@ -44,7 +44,7 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
     // truncated catalogue from passing silently.
     assert!(
         entries.len() >= 30,
-        "the pack is the core/office set plus the Pool family (at least 30 props); \
+        "the pack is the shared/office set plus the Pool family (at least 30 props); \
          the catalogue now lists {}",
         entries.len()
     );
@@ -313,8 +313,8 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
 #[test]
 fn a_missing_model_is_reported_once_and_never_retried() {
     let mut assets = PropAssets::with_root("target/definitely-not-here");
-    let first = assets.resolve("environment/office/props/models/chair.glb");
-    let second = assets.resolve("environment/office/props/models/chair.glb");
+    let first = assets.resolve("environments/office/props/chair.glb");
+    let second = assets.resolve("environments/office/props/chair.glb");
     assert!(first.is_err() && second.is_err());
     assert_eq!(first.unwrap_err(), second.unwrap_err());
     let stats = assets.stats();
@@ -326,10 +326,10 @@ fn a_missing_model_is_reported_once_and_never_retried() {
 fn assets_are_shared_between_instances() {
     let mut assets = PropAssets::load_default();
     let first = assets
-        .resolve("environment/office/props/models/chair.glb")
+        .resolve("environments/office/props/chair.glb")
         .expect("chair loads");
     let second = assets
-        .resolve("environment/office/props/models/chair.glb")
+        .resolve("environments/office/props/chair.glb")
         .expect("chair loads");
     assert!(
         Arc::ptr_eq(&first, &second),

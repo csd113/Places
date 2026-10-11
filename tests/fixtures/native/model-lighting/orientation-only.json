@@ -16,7 +16,7 @@
   },
   {
     "frame": 60,
-    "capture": "debug-maps/model-lighting-replay/orientation/same-eye-25deg.png"
+    "capture": "target/verification/model-lighting-replay/orientation/same-eye-25deg.png"
   },
   {
     "frame": 121,
@@ -35,7 +35,7 @@
   },
   {
     "frame": 180,
-    "capture": "debug-maps/model-lighting-replay/orientation/same-eye-43deg.png"
+    "capture": "target/verification/model-lighting-replay/orientation/same-eye-43deg.png"
   },
   {
     "frame": 241,
@@ -54,6 +54,6 @@
   },
   {
     "frame": 300,
-    "capture": "debug-maps/model-lighting-replay/orientation/restored-eye-25deg.png"
+    "capture": "target/verification/model-lighting-replay/orientation/restored-eye-25deg.png"
   }
 ]

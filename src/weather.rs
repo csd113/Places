@@ -573,7 +573,7 @@ mod tests {
     #[test]
     fn defaults_are_opt_in_and_round_trip_in_semantics() -> Result<(), Box<dyn std::error::Error>> {
         let mut level: crate::level::LevelDef =
-            serde_json::from_str(include_str!("../assets/levels/winter.json"))?;
+            serde_json::from_str(include_str!("../levels/winter.json"))?;
         let snow = level
             .weather
             .as_ref()
@@ -610,7 +610,7 @@ mod tests {
             "existing packages retain absent weather"
         );
         let demo: crate::level::LevelDef =
-            serde_json::from_str(include_str!("../assets/levels/places_demo.json"))?;
+            serde_json::from_str(include_str!("../levels/places_demo.json"))?;
         assert!(
             demo.weather.is_none(),
             "non-Winter defaults remain unchanged"
@@ -622,7 +622,7 @@ mod tests {
     fn alternate_round_trip_preserves_default_and_packages_both_materials()
     -> Result<(), Box<dyn std::error::Error>> {
         let mut level: crate::level::LevelDef =
-            serde_json::from_str(include_str!("../assets/levels/winter.json"))?;
+            serde_json::from_str(include_str!("../levels/winter.json"))?;
         let authored_default = serde_json::to_value(&level.weather)?;
         let alternate = WeatherDef::Snow(SnowfallDef {
             material: crate::level::DEFAULT_STEAM_MATERIAL.to_string(),
@@ -704,7 +704,7 @@ mod tests {
                 .ok_or("not object")?
                 .extend(patch.as_object().ok_or("not patch")?.clone());
             let mut level: crate::level::LevelDef =
-                serde_json::from_str(include_str!("../assets/levels/winter.json"))?;
+                serde_json::from_str(include_str!("../levels/winter.json"))?;
             level.weather = Some(serde_json::from_value(value)?);
             assert!(
                 crate::loader::validate_level(&level).is_err(),

@@ -66,7 +66,7 @@ def build_stop_sign(p: PropBuilder) -> None:
     the plate's bounding square onto the painted octagon, so the mesh samples
     the paint one-to-one and the square's corners are never visible.
     """
-    source = Path(__file__).resolve().parents[3] / "assets/core/props/models/stop_sign.png"
+    source = Path(__file__).resolve().parents[3] / "assets/shared/props/stop_sign.png"
     tex = load_atlas_from(p, source, ("sign", "pole", "bracket", "back"))
 
     sign_uv = tex.uv("sign", inset=2)
@@ -129,7 +129,7 @@ def build_exit_sign(p: PropBuilder) -> None:
     +Z is the readable front. The full 0.45 x 0.57 x 0.08 m bounds and
     bottom-origin placement contract remain unchanged.
     """
-    source = Path(__file__).resolve().parents[3] / "assets/core/props/models/exit_sign.png"
+    source = Path(__file__).resolve().parents[3] / "assets/shared/props/exit_sign.png"
     tex = load_atlas_from(p, source, ())
     tex.region("face", (0, 0, 256, 128))
     tex.region("body", (0, 128, 128, 128))

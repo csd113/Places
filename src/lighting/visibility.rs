@@ -3822,8 +3822,8 @@ mod tests {
         reason = "one developer report table"
     )] // one developer report table
     fn measure_home_corridor_bake() {
-        let json = std::fs::read_to_string("assets/levels/places_demo.json")
-            .expect("places_demo is readable");
+        let json =
+            std::fs::read_to_string("levels/places_demo.json").expect("places_demo is readable");
         let level = LevelDef::from_json(&json).expect("places_demo parses");
         let lit = crate::lighting::LevelLighting::bake_with(
             &level,

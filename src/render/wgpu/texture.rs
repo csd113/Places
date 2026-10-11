@@ -40,12 +40,12 @@ const MAX_TEXTURE_WORKERS: usize = 8;
 
 /// The shared untextured fallback, as committed artwork.
 ///
-/// The same `assets/core/textures/white_01.png` the reference renderer loaded
+/// The same `assets/shared/textures/white_01.png` the reference renderer loaded
 /// at startup (and embedded for an assets-less install): an opaque white
 /// sheet sampled clamped and nearest, with no mip chain. It is a real
 /// repository asset, not a generated fill; the decode below is the only path
 /// that turns it into pixels.
-const FALLBACK_WHITE_PNG: &[u8] = include_bytes!("../../../assets/core/textures/white_01.png");
+const FALLBACK_WHITE_PNG: &[u8] = include_bytes!("../../../assets/shared/textures/white_01.png");
 
 /// The logical id of that sheet in the catalog.
 const FALLBACK_TEXTURE_KEY: &str = "core:tex_white_01";

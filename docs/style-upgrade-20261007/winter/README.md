@@ -2,7 +2,7 @@
 
 Starting revision: [`026eedb`](https://github.com/csd113/Places/commit/026eedb1995669e3c8951c1da447d88edc0fe316), on the existing `Winter-expansion` branch after the completed Outdoors pass. This is the fourth entry in the [sequential visual journal](../README.md). [Reconstruction history](https://github.com/csd113/Places/commits/Winter-expansion/docs/style-upgrade-20261007/winter) locates `rebuild winter assets toward concept art`; the later complete inventory/test gate is recorded in [Stage 7](../../art-style/stage7/README.md).
 
-The actual immutable [Winter Expansion Environment Concept Sheet](../../../assets/environment/winter/Winter%20Expansion%20Environment%20Concept%20Sheet.png) was inspected before authoring. Its SHA-256 remains `484921678b5f56203f3790f7cb5f9b4a83ae8a8b0dfb48c76aadc43c11a45550`. The earlier Pool, Home and Outdoors reconstruction remains separately documented.
+The actual immutable [Winter Expansion Environment Concept Sheet](../../../assets/references/winter/Winter%20Expansion%20Environment%20Concept%20Sheet.png) was inspected before authoring. Its SHA-256 remains `484921678b5f56203f3790f7cb5f9b4a83ae8a8b0dfb48c76aadc43c11a45550`. The earlier Pool, Home and Outdoors reconstruction remains separately documented.
 
 ## Reference and baseline
 
@@ -45,12 +45,8 @@ The first native candidate exposed a floor-relative mounting error: raised lodge
 
 ## Matched native views
 
-All PNGs below are unmodified actual native wgpu/Metal pixels. The clean before copy includes its matching assets, packages and release binaries. The after copy includes final art/packages with matching binaries. Provenance pins camera, spawn, package/binary/image hashes and settings. `tools/bench/capture_winter_style.py` freezes twelve High cameras, four matched Low cameras and four severe cameras. High uses full lightmaps/reflections, bloom, 60° FOV and a 640×360 logical / 1280×720 drawable window. Stationary shots capture at 1.5 s; the elevated overview captures the first native presented view. Snow positions can differ with native startup timing.
+The earlier cottage/pond PNGs are retained locally as unmodified native wgpu/Metal pixels; the [later refinement report](../../reports/environment-refinement.md) contains the selected current views. The clean before copy includes its matching assets, packages and release binaries. The after copy includes final art/packages with matching binaries. Provenance pins camera, spawn, package/binary/image hashes and settings. `tools/bench/capture_winter_style.py` freezes twelve High cameras, four matched Low cameras and four severe cameras. High uses full lightmaps/reflections, bloom, 60° FOV and a 640×360 logical / 1280×720 drawable window. Stationary shots capture at 1.5 s; the elevated overview captures the first native presented view. Snow positions can differ with native startup timing.
 
-| View | Before | After |
-| --- | --- | --- |
-| Cottage / stone / braced hood | ![Before cottage](../../images/style-upgrade/winter-before-cottage.png) | ![After cottage](../../images/style-upgrade/winter-after-cottage.png) |
-| Pond / frozen boundary | ![Before pond](../../images/style-upgrade/winter-before-pond.png) | ![After pond](../../images/style-upgrade/winter-after-pond.png) |
 
 Ordinary Low views retain the same cameras with lightmaps/reflections Off. These are useful additional evidence for fitted artwork and geometry; no image exposure correction is applied.
 

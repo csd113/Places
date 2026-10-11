@@ -31,7 +31,7 @@ set -eu
 
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
 BIN="${PLACES_BIN:-$REPO/target/release/places}"
-OUT="${PLACES_CAPTURE_DIR:-$REPO/debug-maps/renderer-baseline-captures}"
+OUT="${PLACES_CAPTURE_DIR:-$REPO/target/verification/renderer-baseline-captures}"
 STATE="${PLACES_BASELINE_STATE:-$REPO/target/renderer-baseline-state}"
 
 if [ ! -x "$BIN" ]; then

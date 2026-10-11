@@ -16,7 +16,7 @@
   },
   {
     "frame": 60,
-    "capture": "debug-maps/model-lighting-replay/camera/approach-12.png"
+    "capture": "target/verification/model-lighting-replay/camera/approach-12.png"
   },
   {
     "frame": 121,
@@ -35,7 +35,7 @@
   },
   {
     "frame": 180,
-    "capture": "debug-maps/model-lighting-replay/camera/approach-6.png"
+    "capture": "target/verification/model-lighting-replay/camera/approach-6.png"
   },
   {
     "frame": 241,
@@ -54,7 +54,7 @@
   },
   {
     "frame": 300,
-    "capture": "debug-maps/model-lighting-replay/camera/approach-3.png"
+    "capture": "target/verification/model-lighting-replay/camera/approach-3.png"
   },
   {
     "frame": 361,
@@ -73,7 +73,7 @@
   },
   {
     "frame": 420,
-    "capture": "debug-maps/model-lighting-replay/camera/approach-1.png"
+    "capture": "target/verification/model-lighting-replay/camera/approach-1.png"
   },
   {
     "frame": 481,
@@ -92,7 +92,7 @@
   },
   {
     "frame": 540,
-    "capture": "debug-maps/model-lighting-replay/camera/approach-0p8.png"
+    "capture": "target/verification/model-lighting-replay/camera/approach-0p8.png"
   },
   {
     "frame": 601,
@@ -111,7 +111,7 @@
   },
   {
     "frame": 660,
-    "capture": "debug-maps/model-lighting-replay/camera/approach-0p7.png"
+    "capture": "target/verification/model-lighting-replay/camera/approach-0p7.png"
   },
   {
     "frame": 721,
@@ -130,7 +130,7 @@
   },
   {
     "frame": 780,
-    "capture": "debug-maps/model-lighting-replay/camera/approach-0p6.png"
+    "capture": "target/verification/model-lighting-replay/camera/approach-0p6.png"
   },
   {
     "frame": 841,
@@ -149,7 +149,7 @@
   },
   {
     "frame": 900,
-    "capture": "debug-maps/model-lighting-replay/camera/approach-0p5.png"
+    "capture": "target/verification/model-lighting-replay/camera/approach-0p5.png"
   },
   {
     "frame": 961,
@@ -168,7 +168,7 @@
   },
   {
     "frame": 1020,
-    "capture": "debug-maps/model-lighting-replay/camera/approach-0p4.png"
+    "capture": "target/verification/model-lighting-replay/camera/approach-0p4.png"
   },
   {
     "frame": 1081,
@@ -187,7 +187,7 @@
   },
   {
     "frame": 1140,
-    "capture": "debug-maps/model-lighting-replay/camera/retreat-0p5.png"
+    "capture": "target/verification/model-lighting-replay/camera/retreat-0p5.png"
   },
   {
     "frame": 1201,
@@ -206,7 +206,7 @@
   },
   {
     "frame": 1260,
-    "capture": "debug-maps/model-lighting-replay/camera/retreat-0p6.png"
+    "capture": "target/verification/model-lighting-replay/camera/retreat-0p6.png"
   },
   {
     "frame": 1321,
@@ -225,7 +225,7 @@
   },
   {
     "frame": 1380,
-    "capture": "debug-maps/model-lighting-replay/camera/retreat-0p7.png"
+    "capture": "target/verification/model-lighting-replay/camera/retreat-0p7.png"
   },
   {
     "frame": 1441,
@@ -244,7 +244,7 @@
   },
   {
     "frame": 1500,
-    "capture": "debug-maps/model-lighting-replay/camera/retreat-0p8.png"
+    "capture": "target/verification/model-lighting-replay/camera/retreat-0p8.png"
   },
   {
     "frame": 1561,
@@ -263,7 +263,7 @@
   },
   {
     "frame": 1620,
-    "capture": "debug-maps/model-lighting-replay/camera/retreat-1.png"
+    "capture": "target/verification/model-lighting-replay/camera/retreat-1.png"
   },
   {
     "frame": 1681,
@@ -282,7 +282,7 @@
   },
   {
     "frame": 1740,
-    "capture": "debug-maps/model-lighting-replay/camera/retreat-3.png"
+    "capture": "target/verification/model-lighting-replay/camera/retreat-3.png"
   },
   {
     "frame": 1801,
@@ -301,7 +301,7 @@
   },
   {
     "frame": 1860,
-    "capture": "debug-maps/model-lighting-replay/camera/retreat-6.png"
+    "capture": "target/verification/model-lighting-replay/camera/retreat-6.png"
   },
   {
     "frame": 1921,
@@ -320,6 +320,6 @@
   },
   {
     "frame": 1980,
-    "capture": "debug-maps/model-lighting-replay/camera/retreat-12.png"
+    "capture": "target/verification/model-lighting-replay/camera/retreat-12.png"
   }
 ]

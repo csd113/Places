@@ -2,11 +2,8 @@
 
 Stage 7 completed on 2026-10-09 with explicit animated-image and platform qualifications. [Implementation 4ef8c88](https://github.com/csd113/Places/commit/4ef8c8857b759b5b5f19357f437e7a9367456e59) was published as [a1e7122](https://github.com/csd113/Places/commit/a1e7122bba5df549c2e82c16371bcc57db99e976); the exact-publication [CI run 37906450891](https://github.com/csd113/Places/actions/runs/37906450891) succeeded. Earlier stopped campaigns remain historical failures, not retroactive passes.
 
-The stage integrates the preceding colour, surface transport, live-entity, atmosphere, content and cache work across the supported inventory. It preserves the furnished hero and its approved artwork. The later [production model-lighting correction](../../model-lighting-root-cause-and-fix.md) is separate: Stage 7's representative controls did not investigate kitchen cupboards/sinks/fridges, specific Home ceiling joins or the close Hallows skeleton report.
+The stage integrates the preceding colour, surface transport, live-entity, atmosphere, content and cache work across the supported inventory. It preserves the furnished hero and its approved artwork. The later [production model-lighting correction](../../reports/model-lighting-root-cause-and-fix.md) is separate: Stage 7's representative controls did not investigate kitchen cupboards/sinks/fridges, specific Home ceiling joins or the close Hallows skeleton report.
 
-| Before | Final |
-| --- | --- |
-| ![Before](../../images/art-style/stage6-final-room.png) | ![Final](../../images/art-style/stage7-final-room.png) |
 
 ## Final inventory and outcomes
 
@@ -42,8 +39,6 @@ Static atlases stay baked during actor motion; skinned shadows use bound proxies
 
 ## Historical supported native examples
 
-![Prepared surface controls in the final Stage 7 hero](../../images/art-style/stage7-final-surfaces.png)
+![Final historical hero](../../images/art-style/stage7-final-room.png)
 
-![Hallows in the completed Stage 7 integration](../../images/art-style/stage7-hallows.png)
-
-![Winter in the completed Stage 7 integration](../../images/art-style/stage7-winter.png)
+Additional surface, Hallows and Winter frames are retained locally. The supported-case accounting, payload comparisons and limitations above remain the acceptance record.

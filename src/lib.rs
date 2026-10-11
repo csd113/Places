@@ -3179,10 +3179,27 @@ impl FrameLoop<'_> {
         ));
     }
 
+    /// Frame-based screenshots also support the settled source-only menu.
+    /// Timed lighting captures continue to require a prepared world.
+    fn capture_ready_screen(&mut self, world_ready: bool) {
+        let capture_ready = world_ready
+            || (self.capture_path.is_some()
+                && self.capture_at_seconds.is_none()
+                && self.current_level.is_none()
+                && self.load_intent.is_none()
+                && self.startup == StartupPhase::Ready
+                && self.game.app_state() == AppState::MainMenu);
+        if capture_ready {
+            self.ready_frames = self.ready_frames.saturating_add(1);
+        }
+        self.capture_if_due(capture_ready);
+    }
+
     /// Takes the one-shot `PLACES_CAPTURE` frame when it is due.
     ///
-    /// The capture waits for a ready world so it records the finished screen,
-    /// never a preparation frame, and is due at the ready frame named by
+    /// The capture waits for a ready world or a settled source-only main menu
+    /// so it records the finished screen, never a preparation frame. It is due
+    /// at the ready frame named by
     /// `PLACES_CAPTURE_FRAME` or the ready-world second named by
     /// `PLACES_CAPTURE_TIME` (the first frame at or after it).
     fn capture_if_due(&mut self, ready: bool) {
@@ -3352,10 +3369,7 @@ impl FrameLoop<'_> {
         }
 
         let ready = self.current_level.is_some() && self.load_intent.is_none();
-        if ready {
-            self.ready_frames = self.ready_frames.saturating_add(1);
-        }
-        self.capture_if_due(ready);
+        self.capture_ready_screen(ready);
 
         // Swap window buffer (double buffered, VSync synchronized). The
         // renderer presents its acquired surface texture.
@@ -3502,7 +3516,11 @@ fn initial_level(level_manager: &loader::LevelManager) -> (Option<loader::LevelE
         })
     });
     if requested.is_some() && !direct {
-        logging::warn("Requested level was not found; loading Places Demo");
+        logging::warn(if initial_entry.is_some() {
+            "Requested level was not found; loading Places Demo"
+        } else {
+            "Requested level was not found; compile maps with `sh tools/build-maps.sh` or import a .placesmap package"
+        });
     }
     (initial_entry, direct)
 }
@@ -3528,7 +3546,7 @@ fn dispatch_geometry_cli(args: &[String]) -> Result<(), Box<dyn std::error::Erro
 /// exits before any window is created.
 ///
 /// One tab-separated row per playable entry: level id, source (`bundled`,
-/// `installed`, `embedded`) and package path (empty for the embedded fallback).
+/// `installed`) and package path.
 /// The rows are the same list the Level Select menu builds, so a quiet startup
 /// from any working directory or a staged packaged layout can be checked
 /// without a display or a GPU. Returns true when the flag was handled.

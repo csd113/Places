@@ -701,7 +701,7 @@ fn test_framebuffer_size_changes_update_scale() {
 
 #[test]
 fn test_build_geometry_from_the_shipped_demo() {
-    let json = include_str!("../../assets/levels/places_demo.json");
+    let json = include_str!("../../levels/places_demo.json");
     let level = LevelDef::from_json(json).expect("valid places_demo json");
     let mesh = build_level_geometry(&level);
     assert!(mesh.vertex_count != 0);
@@ -2000,7 +2000,7 @@ fn real_props_are_lit_per_vertex_and_stay_batched() {
     // Flat missing-NORMAL models contribute triangle corners; authored normals
     // preserve the indexed source layout. Neither path may alter source UVs.
     let asset = assets
-        .resolve("environment/office/props/models/chair.glb")
+        .resolve("environments/office/props/chair.glb")
         .expect("chair loads");
     let model = &asset.model;
     let flat = model.vertices.iter().any(|vertex| vertex.normal.is_none());
@@ -2381,10 +2381,7 @@ fn real_prop_geometry_replaces_the_placeholder_box() {
     // The box placeholder is gone: the chair renders as real geometry.
     assert_eq!(mesh.batches.prop_batch.count, 0_i32);
     assert_eq!(batches.len(), 1, "one draw batch per distinct model");
-    assert_eq!(
-        batches[0].model,
-        "environment/office/props/models/chair.glb"
-    );
+    assert_eq!(batches[0].model, "environments/office/props/chair.glb");
     assert!(
         !batches[0].vertices.is_empty(),
         "batches[0].vertices must contain entries"
@@ -2520,13 +2517,15 @@ fn the_showcase_level_renders_every_core_prop_with_real_geometry() {
     // covers the outdoor theme's ground, lamps, tree and facade parts. Themes
     // organize content; this is the one place a "placed somewhere" check is
     // legitimate.
-    let pool_showcase = fixture_level("pool_showcase");
+    let pool_showcase =
+        crate::level::LevelDef::from_json(include_str!("../../levels/pool_showcase.json"))
+            .expect("Pool showcase parses");
     let outdoor_showcase = fixture_level("outdoor_kit_showcase");
     // The Halloween entity fixture covers the three Halloween entities (the
     // ordinary skeleton and the other existing entities stay in the generic
     // showcases).
     let halloween = fixture_level("halloween_entities");
-    let zoo = crate::level::LevelDef::from_json(include_str!("../../assets/levels/model_zoo.json"))
+    let zoo = crate::level::LevelDef::from_json(include_str!("../../levels/model_zoo.json"))
         .expect("generated Zoo parses");
     let mut used: std::collections::HashSet<&str> = std::collections::HashSet::new();
     used.extend(zoo.props.iter().map(|prop| prop.model.as_str()));
@@ -2681,7 +2680,7 @@ fn the_stress_level_batches_repeats_into_one_draw_per_model_and_cell() {
     // spread across whatever cells they occupy, never duplicated per cell.
     let chair_vertices: usize = batches
         .iter()
-        .filter(|batch| batch.model == "environment/office/props/models/chair.glb")
+        .filter(|batch| batch.model == "environments/office/props/chair.glb")
         .map(|batch| batch.vertices.len())
         .sum();
     assert!(
@@ -4674,7 +4673,7 @@ fn a_wall_with_no_twin_is_emitted_exactly_as_authored() {
 
 /// The shipped official demo.
 fn shipped_demo() -> crate::level::LevelDef {
-    crate::level::LevelDef::from_json(include_str!("../../assets/levels/places_demo.json"))
+    crate::level::LevelDef::from_json(include_str!("../../levels/places_demo.json"))
         .expect("the shipped places_demo parses")
 }
 
@@ -5154,7 +5153,7 @@ fn every_level_shares_the_patch_set_at_different_densities() {
     // fixture: it stays inside the two-page atlas at every density, so this
     // asserts the patch set and the density, not the page budget. Places Demo
     // is checked separately below, because it has grown past the Low atlas.
-    let level = fixture_level("home_showcase");
+    let level = home_showcase();
     let high = lightmap_build(&level, crate::quality::QualityLevel::High, LightmapMode::On);
     let medium = lightmap_build(
         &level,
@@ -5935,7 +5934,7 @@ fn the_dynamic_demonstration_machine_stays_a_static_prop() {
     // demonstration turns is spawned by `render::dynamic` at runtime and must
     // never appear in the level file -- and it is spawned *inside* the
     // machine, spinning in place behind the porthole.
-    let path = "assets/levels/places_demo.json";
+    let path = "levels/places_demo.json";
     let content = std::fs::read_to_string(path)
         .unwrap_or_else(|error| panic!("{path} must be readable: {error}"));
     let level = crate::level::LevelDef::from_json(&content)
@@ -5986,7 +5985,7 @@ fn the_dynamic_demonstration_drum_spins_inside_the_static_machine() {
     // its body: the transformed bounds stay within the machine's catalogue box
     // and behind its front panel, and the drum turns while the machine's
     // static transform does not move.
-    let path = "assets/levels/places_demo.json";
+    let path = "levels/places_demo.json";
     let content = std::fs::read_to_string(path)
         .unwrap_or_else(|error| panic!("{path} must be readable: {error}"));
     let level = crate::level::LevelDef::from_json(&content)
@@ -6299,15 +6298,9 @@ fn the_runtime_spawn_api_replaces_moves_and_despawns_by_key() {
     // panicking, and a direct path the asset cache resolves works like a
     // registry id.
     assert!(!renderer.spawn_runtime_model(9, "core:not_a_shipped_prop", [0.0; 3], 0.0, 1.0));
-    assert!(!renderer.spawn_runtime_model(
-        9,
-        "core/props/models/not_a_model.glb",
-        [0.0; 3],
-        0.0,
-        1.0
-    ));
+    assert!(!renderer.spawn_runtime_model(9, "shared/props/not_a_model.glb", [0.0; 3], 0.0, 1.0));
     assert_eq!(renderer.runtime_spawn_count(), 0);
-    assert!(renderer.spawn_runtime_model(9, "core/props/models/crate.glb", [0.0; 3], 0.0, 1.0));
+    assert!(renderer.spawn_runtime_model(9, "shared/props/crate.glb", [0.0; 3], 0.0, 1.0));
     assert_eq!(renderer.runtime_spawn_count(), 1);
     assert!(renderer.despawn_runtime_model(9));
     assert_eq!(renderer.runtime_spawn_count(), 0);
@@ -7297,10 +7290,8 @@ fn the_demos_matte_linoleum_keeps_its_probe_and_its_material_default() {
 /// The committed Home showcase: every generic architectural piece and every
 /// Home material in one level.
 fn home_showcase() -> crate::level::LevelDef {
-    crate::level::LevelDef::from_json(include_str!(
-        "../../tests/fixtures/levels/home_showcase.json"
-    ))
-    .expect("the Home showcase fixture parses")
+    crate::level::LevelDef::from_json(include_str!("../../levels/home_showcase.json"))
+        .expect("the Home showcase fixture parses")
 }
 
 #[test]
@@ -8427,7 +8418,7 @@ fn demo_claimed_model_paths(catalog: &crate::loader::PropCatalog) -> Vec<String>
 /// here every placement of every one of those models is claimed.
 #[test]
 fn the_places_demo_level_places_its_animated_props_once() {
-    let content = std::fs::read_to_string("assets/levels/places_demo.json")
+    let content = std::fs::read_to_string("levels/places_demo.json")
         .expect("the demo level must be readable");
     let level = LevelDef::from_json(&content).expect("the demo level parses");
     let catalog = shipped_catalog();
@@ -9291,7 +9282,7 @@ fn a_floating_duck_never_becomes_a_character() {
 /// single animated joint; its delta rotation is the observable pose.
 #[test]
 fn a_scrub_cue_reverses_from_the_current_pose_and_holds_its_ends() {
-    let bytes = std::fs::read("assets/environment/home/props/models/wall_switch.glb")
+    let bytes = std::fs::read("assets/environments/home/props/wall_switch.glb")
         .expect("the shipped wall switch is readable");
     let model = crate::gltf::parse_glb(&bytes).expect("the wall switch parses");
     let mut animator = CharacterAnimator::new(&model).expect("a rigid animator");
@@ -9343,7 +9334,7 @@ fn a_scrub_cue_reverses_from_the_current_pose_and_holds_its_ends() {
 /// so the character path must not loop its non-locomotion clip.
 #[test]
 fn an_idle_rigid_prop_holds_its_bind_pose() {
-    let bytes = std::fs::read("assets/environment/home/props/models/wall_switch.glb")
+    let bytes = std::fs::read("assets/environments/home/props/wall_switch.glb")
         .expect("the shipped wall switch is readable");
     let model = crate::gltf::parse_glb(&bytes).expect("the wall switch parses");
     let catalog = shipped_catalog();
@@ -10256,7 +10247,7 @@ fn a_roomless_moving_object_reads_the_environment_not_a_rooms_probe() {
 #[test]
 fn the_shipped_night_route_does_not_hide_dark_compiler_data() {
     use crate::render::common::light_transport::moving_object_light;
-    let level = LevelDef::from_json(include_str!("../../assets/levels/places_demo.json"))
+    let level = LevelDef::from_json(include_str!("../../levels/places_demo.json"))
         .expect("valid places_demo json");
     let lighting = LevelLighting::bake(&level);
     // The routed pumpkin / skeleton positions from the shipped level: both

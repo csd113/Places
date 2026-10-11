@@ -81,7 +81,7 @@ class BeachTests(unittest.TestCase):
                         self.assertIs(room, owner)
 
     def test_all_new_animals_have_explicit_zoo_playback_actions(self):
-        zoo = json.loads((ROOT / "assets/levels/model_zoo.json").read_text())
+        zoo = json.loads((ROOT / "levels/model_zoo.json").read_text())
         animals = {p["model"]: p for p in zoo["props"]
                    if p["model"] in ("beach:seagull", "beach:crab", "beach:fish")}
         self.assertEqual(len(animals), 3)
@@ -91,7 +91,7 @@ class BeachTests(unittest.TestCase):
                                 for a in actions))
 
     def test_zoo_animal_lighting_anchors_belong_to_real_rooms(self):
-        zoo = json.loads((ROOT / "assets/levels/model_zoo.json").read_text())
+        zoo = json.loads((ROOT / "levels/model_zoo.json").read_text())
         for animal in zoo["props"]:
             if animal["model"] not in ("beach:seagull", "beach:crab", "beach:fish"):
                 continue
@@ -110,7 +110,7 @@ class BeachTests(unittest.TestCase):
                 self.assertLessEqual(centre, base+room["height"])
 
     def test_zoo_fish_water_corners_belong_to_the_lowered_room(self):
-        zoo = json.loads((ROOT / "assets/levels/model_zoo.json").read_text())
+        zoo = json.loads((ROOT / "levels/model_zoo.json").read_text())
         water = next(w for w in zoo["water"] if w.get("material") == "beach:water_shallow_01")
         for x in (water["x"], water["x"]+water["width"]):
             for z in (water["z"], water["z"]+water["depth"]):

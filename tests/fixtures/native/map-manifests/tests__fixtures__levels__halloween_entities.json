@@ -2,7 +2,7 @@
   "format_version": 1,
   "level": "halloween_entities",
   "source": "tests/fixtures/levels/halloween_entities.json",
-  "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__halloween_entities.placesmap",
+  "package": "target/verification/maps/tests__fixtures__levels__halloween_entities.placesmap",
   "settings": {
     "bindings": {
       "forward": "W",

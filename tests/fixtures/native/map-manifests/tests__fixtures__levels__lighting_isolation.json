@@ -2,7 +2,7 @@
   "format_version": 1,
   "level": "lighting_isolation",
   "source": "tests/fixtures/levels/lighting_isolation.json",
-  "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__lighting_isolation.placesmap",
+  "package": "target/verification/maps/tests__fixtures__levels__lighting_isolation.placesmap",
   "settings": {
     "bindings": {
       "forward": "W",

@@ -25,23 +25,8 @@ use crate::materials::{MaterialTable, PackMaterials, resolve_materials};
 /// Re-exported so the rest of the crate keeps its historical import paths.
 pub use crate::materials::{RawImage, TextureCache, decode_png, encode_png, parse_materials_json};
 
-/// The official demo, embedded as a compiled package so the game still boots
-/// when no level files are installed on disk. `Places Demo` is the only level
-/// shipped with the game; the embedded copy is the same package the repository
-/// ships, so the fallback cannot drift from the installed content.
-const FALLBACK_DEMO_PACKAGE: &[u8] = include_bytes!("../assets/levels/places_demo.placesmap");
-
-/// Stable id of the one official level, used by discovery and the runtime.
+/// Stable id of the official demo, used by discovery and the runtime.
 pub const DEMO_LEVEL_ID: &str = "places_demo";
-
-/// The compiled demo package embedded in the executable.
-///
-/// Exposed so the loading worker can decode the fallback world's records from
-/// the same bytes discovery probes, with no second copy of the package.
-#[must_use]
-pub const fn embedded_demo_package() -> &'static [u8] {
-    FALLBACK_DEMO_PACKAGE
-}
 
 /// Source type of an installed level.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -52,10 +37,6 @@ pub enum LevelSourceType {
     /// A compiled package installed in the writable drop-in `levels/`
     /// directory (or copied there by the Import action).
     Installed,
-    /// The demo compiled into the executable, used when no installed copy of
-    /// Places Demo exists on disk, so the demo is always offered no matter what
-    /// is installed.
-    Embedded,
 }
 
 impl LevelSourceType {
@@ -65,18 +46,15 @@ impl LevelSourceType {
         match self {
             Self::Bundled => "bundled",
             Self::Installed => "installed",
-            Self::Embedded => "embedded",
         }
     }
 }
 
-/// Menu precedence of a source: bundled packages first, then installed ones,
-/// then the embedded fallback.
+/// Menu precedence of a source: bundled packages before installed ones.
 const fn source_rank(source_type: LevelSourceType) -> u8 {
     match source_type {
         LevelSourceType::Bundled => 0,
         LevelSourceType::Installed => 1,
-        LevelSourceType::Embedded => 2,
     }
 }
 
@@ -6027,20 +6005,6 @@ impl LevelManager {
             unique.push(entry);
         }
 
-        // Places Demo is always offered. When no installed package was
-        // discovered (no asset tree, or the installed copy is malformed), the
-        // embedded package is exposed as an ordinary entry so the Level Select
-        // menu and `PLACES_LEVEL=places_demo` both keep working.
-        if !unique.iter().any(|entry| entry.id == DEMO_LEVEL_ID) {
-            unique.push(LevelEntry {
-                id: DEMO_LEVEL_ID.to_string(),
-                name: "Places Demo".to_string(),
-                author: "Places Team".to_string(),
-                source_type: LevelSourceType::Embedded,
-                path: PathBuf::new(),
-            });
-        }
-
         self.entries = unique;
     }
 
@@ -6102,56 +6066,16 @@ impl LevelManager {
         })
     }
 
-    /// Loads the official demo, or the embedded package when it is not
-    /// installed.
-    ///
-    /// `Places Demo` is the only level bundled with the game, so it is also the
-    /// default level the game boots into. External/user levels are unaffected:
-    /// they are discovered alongside it and can be selected from the menu.
+    /// Loads the compiled official demo from the discovered packages.
     ///
     /// # Errors
     ///
-    /// Returns a message when the demo cannot be loaded, or when neither an
-    /// installed nor an embedded demo package opens and validates.
+    /// Returns the package's load error, or an explicit compilation instruction
+    /// when Places Demo has not been built or installed.
     pub fn load_default(&self) -> Result<LoadedLevel, String> {
-        let Some(entry) = self.entries.iter().find(|e| e.id == DEMO_LEVEL_ID) else {
-            return self.load_embedded_demo();
-        };
-        match self.load_level(entry) {
-            Ok(loaded) => Ok(loaded),
-            Err(error) => {
-                if entry.source_type == LevelSourceType::Embedded {
-                    return Err(error);
-                }
-                // A broken installed copy must not turn into a failed boot:
-                // the embedded package is the recovery copy.
-                crate::logging::warn(format!(
-                    "[levels] installed Places Demo failed to load ({error}); using the embedded copy"
-                ));
-                self.load_embedded_demo()
-            }
-        }
-    }
-
-    /// Loads the compiled demo embedded in the executable.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error only if the embedded package does not open; it is
-    /// compiled into the binary, so that is a build defect, not player input.
-    fn load_embedded_demo(&self) -> Result<LoadedLevel, String> {
-        let opened = crate::package::world::open_bytes(FALLBACK_DEMO_PACKAGE)
-            .map_err(|error| format!("embedded Places Demo package is invalid: {error}"))?;
-        self.assembled_level(
-            LevelEntry {
-                id: DEMO_LEVEL_ID.into(),
-                name: "Places Demo".into(),
-                author: "Places Team".into(),
-                source_type: LevelSourceType::Embedded,
-                path: PathBuf::new(),
-            },
-            opened,
-        )
+        let entry = self.entries.iter().find(|entry| entry.id == DEMO_LEVEL_ID)
+            .ok_or_else(|| "Places Demo is not compiled; run `sh tools/build-maps.sh` from the repository, or import places_demo.placesmap".to_owned())?;
+        self.load_level(entry)
     }
 
     /// Resolves materials and fixture sheets for a validated package's level.
@@ -6251,7 +6175,6 @@ impl LevelManager {
                 let opened = crate::package::world::open(&entry.path)?;
                 self.assembled_level(entry.clone(), opened)
             }
-            LevelSourceType::Embedded => self.load_embedded_demo(),
         }
     }
 

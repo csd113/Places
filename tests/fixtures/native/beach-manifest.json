@@ -1,7 +1,7 @@
 {
   "format_version": 1,
   "level": "beach_demo",
-  "source": "assets/levels/beach_demo.json",
+  "source": "levels/beach_demo.json",
   "package": "assets/levels/beach_demo.placesmap",
   "base_revision": "1bd47995930d6c3eef8c9e029f7a4eded20e231b",
   "settings": {

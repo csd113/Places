@@ -1768,9 +1768,8 @@ fn chart_texels_are_clamped_to_the_usable_edge() {
 /// and page size, never where the geometry is cut.
 #[test]
 fn the_shipped_demo_fits_the_page_budget_at_both_profiles() {
-    let level =
-        crate::level::LevelDef::from_json(include_str!("../../../assets/levels/places_demo.json"))
-            .expect("the shipped places_demo parses");
+    let level = crate::level::LevelDef::from_json(include_str!("../../../levels/places_demo.json"))
+        .expect("the shipped places_demo parses");
     let mut sets = Vec::new();
     for profile in crate::quality::QualityProfile::ALL {
         let config = profile.lightmap_config();
@@ -1856,8 +1855,7 @@ fn patch_set(lightmaps: &LevelLightmaps) -> Vec<PatchIdentity> {
 
 /// A synthetic two-storey tower whose two 55 x 55 m floors plus their ceilings
 /// need more than the historical two-page budget but fit the former eight. It
-/// pins the capacity contract on a clean checkout, where the drop-in Pit is not
-/// present.
+/// pins the capacity boundary independently of the tracked Pit fixture.
 fn large_tower_level() -> crate::level::LevelDef {
     large_tower_level_with_storeys(2)
 }
@@ -1929,10 +1927,9 @@ fn build_with_config(
 /// silently, and the 2026 raise to eight pages must hold a three-storey tower
 /// that four pages cannot.
 ///
-/// The synthetic towers pin every half of that contract on each checkout. The
-/// drop-in `levels/level0_pit.json` is a per-user file that is not committed, so
-/// when it is present its real build is checked too; when it is absent the test
-/// still covers the capacity boundary.
+/// The synthetic towers pin the capacity boundaries on each checkout. The
+/// tracked `tests/fixtures/levels/level0_pit.json` fixture also checks the real
+/// build against the shipped budget.
 #[test]
 fn the_pit_bakes_into_the_shipped_page_budget_at_full() {
     let profile = QualityProfile::Full;
@@ -2024,27 +2021,25 @@ fn the_three_storey_tower_needs_the_raised_page_budget() {
         maps.pages.len()
     );
 
-    // The real drop-in level, when the user has it installed.
-    if let Ok(content) = std::fs::read_to_string("levels/level0_pit.json") {
-        let level = crate::level::LevelDef::from_json(&content).expect("the drop-in Pit parses");
-        let real = build_level(&level, profile);
-        assert_eq!(
-            real.lightmap_failure, None,
-            "The Pit must bake cleanly at Full"
-        );
-        let real_maps = real
-            .lightmaps
-            .as_deref()
-            .unwrap_or_else(|| panic!("Full must produce an atlas for The Pit"));
-        assert!(
-            real_maps.pages.len() <= config.max_pages,
-            "The Pit: {} pages over the {}-page budget",
-            real_maps.pages.len(),
-            config.max_pages
-        );
+    let content = include_str!("../../../tests/fixtures/levels/level0_pit.json");
+    let level = crate::level::LevelDef::from_json(content).expect("the tracked Pit fixture parses");
+    let real = build_level(&level, profile);
+    assert_eq!(
+        real.lightmap_failure, None,
+        "The Pit must bake cleanly at Full"
+    );
+    let real_maps = real
+        .lightmaps
+        .as_deref()
+        .unwrap_or_else(|| panic!("Full must produce an atlas for The Pit"));
+    assert!(
+        real_maps.pages.len() <= config.max_pages,
+        "The Pit: {} pages over the {}-page budget",
+        real_maps.pages.len(),
+        config.max_pages
+    );
 
-        assert_architecture_is_lightmapped(&real, real_maps);
-    }
+    assert_architecture_is_lightmapped(&real, real_maps);
 }
 
 /// Every architectural vertex of a lightmapped build must sample a resident
@@ -2266,9 +2261,8 @@ fn reordering_equivalent_lights_does_not_change_the_bake() {
     reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests and developer measurement output"
 )]
 fn measure_demo_chart_statistics() {
-    let level =
-        crate::level::LevelDef::from_json(include_str!("../../../assets/levels/places_demo.json"))
-            .expect("the shipped places_demo parses");
+    let level = crate::level::LevelDef::from_json(include_str!("../../../levels/places_demo.json"))
+        .expect("the shipped places_demo parses");
     // The patch set is profile-independent (the chart-span cap is shared), so
     // one successful build at Full collects the whole demo's patches.
     let materials = crate::render::logical_materials(&level);

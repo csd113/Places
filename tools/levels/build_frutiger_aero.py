@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT / 'tools/props')]
 from parts.frutiger_aero import placed_components
 
-OUTPUT = ROOT / 'assets/levels/frutiger_aero_demo.json'
+OUTPUT = ROOT / 'levels/frutiger_aero_demo.json'
 WHITE = 'frutiger_aero:white_panel_01'
 FLOOR = 'frutiger_aero:white_floor_01'
 AQUA = 'frutiger_aero:aqua_tile_01'

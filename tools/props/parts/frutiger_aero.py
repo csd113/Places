@@ -13,7 +13,7 @@ from geometry import inspect
 from parts.beach_structures import beam, extrude, loft
 from parts.refreshed import load_atlas_from, solid_box, solid_cylinder
 
-ROOT = Path(__file__).resolve().parents[3] / "assets/environment/frutiger_aero/props/models"
+ROOT = Path(__file__).resolve().parents[3] / "assets/environments/frutiger_aero/props"
 WHITE = (255, 255, 255)
 PALETTE = (
     "white", "aqua", "cyan", "lime", "mint", "silver", "branch", "foliage",
@@ -706,7 +706,7 @@ def catalog_entries():
     return [dict(id="frutiger_aero:"+name,
                  display_name="Frutiger Aero "+name.replace("_", " ").title(),
                  asset_class="environment", theme="frutiger_aero", asset_type="prop",
-                 source="file", model=f"environment/frutiger_aero/props/models/{name}.glb",
+                 source="file", model=f"environments/frutiger_aero/props/{name}.glb",
                  size=list(size), color="#f5f0ea", category="Frutiger Aero",
                  solid=name in ("tree_planter", "seating_pod", "display_kiosk", "accent_panel"))
             for name, size in SIZES.items()]

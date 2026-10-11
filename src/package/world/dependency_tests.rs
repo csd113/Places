@@ -9,8 +9,8 @@ use crate::package::{DependencyKind, PackageDependency, PackageEntry, VariantEnt
 use std::io::Write as _;
 use std::path::PathBuf;
 
-const MODEL: &str = "environment/home/props/models/dining_chair.glb";
-const TEXTURE: &str = "environment/home/textures/walls/wall_paint_warm_01.png";
+const MODEL: &str = "environments/home/props/dining_chair.glb";
+const TEXTURE: &str = "environments/home/textures/walls/wall_paint_warm_01.png";
 
 type FixtureRecord = (&'static str, &'static str, Vec<u8>);
 
@@ -259,33 +259,49 @@ fn package_open_keeps_named_missing_and_resized_dependency_failures() {
 }
 
 #[test]
-fn the_embedded_demo_requires_catalog_then_assets_only_with_an_installed_root() {
-    let opened = open_at(crate::loader::embedded_demo_package(), None)
-        .expect("embedded fallback in a truly asset-less install");
-    assert_eq!(opened.level.id, crate::loader::DEMO_LEVEL_ID);
-    let missing_root = evidence_directory("empty-assets");
-    let catalog_error = open_at(crate::loader::embedded_demo_package(), Some(&missing_root))
+fn packages_require_catalog_then_assets_when_an_installed_root_exists() {
+    let directory = evidence_directory("root-requirements");
+    let root = directory.join("assets");
+    crate::test_support::remove_dir_if_present(&root);
+    let dependencies = installed_dependencies(&root);
+    let catalog = std::fs::read("assets/catalog.json").expect("prepared catalog fixture");
+    let inputs = serde_json::to_vec(&serde_json::json!({
+        "revision": 1_u32,
+        "catalog_sha256": crate::package::hash::sha256_hex(&catalog),
+        "source_sha256": "runtime ignores source",
+        "tool_sha256": "runtime ignores tool",
+        "capture_probes": false
+    }))
+    .expect("catalog provenance");
+    let bytes = dependency_archive_with_inputs(dependencies, Some(("compiler-inputs", inputs)));
+    crate::test_support::remove_dir_if_present(&root);
+    std::fs::create_dir_all(&root).expect("empty installed root");
+
+    let opened = open_at(&bytes, None).expect("package semantics without an installed asset root");
+    assert_eq!(opened.level.id, "dependency_contract");
+    let catalog_error = open_at(&bytes, Some(&root))
         .expect_err("an installed root cannot skip the prepared catalog identity");
     assert!(
         catalog_error.contains("package catalog.json")
             && catalog_error.contains("could not be verified"),
         "{catalog_error}"
     );
-    let copied_catalog_bytes =
-        std::fs::copy("assets/catalog.json", missing_root.join("catalog.json"))
-            .expect("install the exact catalog prepared with the embedded package");
+    std::fs::write(root.join("catalog.json"), &catalog).expect("install the prepared catalog");
     assert_eq!(
-        copied_catalog_bytes,
-        std::fs::metadata("assets/catalog.json")
-            .expect("prepared catalog metadata")
-            .len(),
+        std::fs::read(root.join("catalog.json")).expect("installed catalog"),
+        catalog,
         "the complete prepared catalog was installed"
     );
-    let error = open_at(crate::loader::embedded_demo_package(), Some(&missing_root))
+    let error = open_at(&bytes, Some(&root))
         .expect_err("an installed root cannot silently skip missing dependencies");
     assert!(
         error.contains("package dependency") && error.contains("missing"),
         "{error}"
+    );
+    let _restored_dependencies = installed_dependencies(&root);
+    drop(
+        open_at(&bytes, Some(&root))
+            .expect("restored catalog and dependencies recover the package"),
     );
 }
 

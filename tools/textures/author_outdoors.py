@@ -9,8 +9,8 @@ import math
 import random
 from PIL import Image, ImageDraw
 
-ROOT = Path(__file__).resolve().parents[2] / 'assets/environment/outdoor'
-MODEL = ROOT / 'props/models'
+ROOT = Path(__file__).resolve().parents[2] / 'assets/environments/outdoor'
+MODEL = ROOT / 'props'
 
 
 def save(im, path):
@@ -105,8 +105,8 @@ def main():
                 d.line((xy,0,xy,1024),fill=(128,132,139),width=5)
                 d.line((0,xy,1024,xy),fill=(128,132,139),width=5)
                 d.line((xy+5,0,xy+5,1024),fill=(184,186,187),width=2)
-        save(periodic(im),ROOT/f'textures/ground/{name}_master.png')
-        save(periodic(im.resize((512,512),Image.Resampling.LANCZOS)),ROOT/f'textures/ground/{name}_01.png')
+        save(periodic(im),ROOT/f'textures/floors/{name}_master.png')
+        save(periodic(im.resize((512,512),Image.Resampling.LANCZOS)),ROOT/f'textures/floors/{name}_01.png')
     bark=((102,77,53),'bark'); wood=((166,151,121),'wood')
     for name,leaf1,leaf2 in [('tree_01',(87,113,66),(110,132,75)),('tree_02',(100,124,69),(122,140,78)),('tree_03',(45,72,58),(65,91,62)),('bush_round',(97,119,65),(126,141,75)),('bush_low',(74,105,62),(97,120,68))]:
         atlas(name,[bark,wood,(leaf1,'leaf'),(leaf2,'leaf')])
@@ -146,8 +146,8 @@ def main():
                 else:a=max(0,min(1,(max(u,v)-.22)/.65))*min(1,u*10,v*10)
                 a=a*a*(3-2*a)
                 pixels.append((*im.getpixel((x,y))[:3],round(a*255)))
-        im.putdata(pixels);save(im,ROOT/f'textures/decals/path_{kind}_master.png')
-        save(im.resize((256,128) if kind=='edge' else (128,128),Image.Resampling.LANCZOS),ROOT/f'textures/decals/path_{kind}_01.png')
+        im.putdata(pixels);save(im,ROOT/f'decals/path_{kind}_master.png')
+        save(im.resize((256,128) if kind=='edge' else (128,128),Image.Resampling.LANCZOS),ROOT/f'decals/path_{kind}_01.png')
     # Fitted barrier face is a real red/cream striped sheet, behind actual stock.
     p=MODEL/'road_barrier_master.png';im=Image.open(p).convert('RGB')
     face=Image.new('RGB',(512,512),(226,220,202));d=ImageDraw.Draw(face)

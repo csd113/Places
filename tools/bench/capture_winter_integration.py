@@ -2,7 +2,7 @@
 """Capture and walk the same polished Winter scene in calm and severe weather.
 
 Uses the real native player and existing held-control diagnostics. Compile both
-packages first; the severe source retains Prompt 7's exact weather settings.
+packages first; severe controls are derived from the maintained Winter source.
 """
 from __future__ import annotations
 
@@ -12,10 +12,13 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
+import sys
 
 import capture_snowfall as native
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / 'tools/levels'))
+from build_winter import build_severe_review
 EXTRA = {
     'walk-rock': ([5, -18, 90], [90, -8], 'forward@0-2,backward@2.2-2.8', 3),
     'walk-rail': ([15.2, -10, 90], [90, -8], 'forward@0-2,backward@2.2-2.8', 3),
@@ -65,10 +68,17 @@ def main() -> None:
         if mode not in ('calm', 'severe'):
             parser.error('mode must be calm or severe')
         level = 'winter' if mode == 'calm' else 'blizzard_review'
-        source = ROOT / ('assets/levels/winter.json' if mode == 'calm' else
-                         'debug-maps/blizzard-20261007/sources/blizzard_review.json')
-        package = ROOT / ('assets/levels/winter.placesmap' if mode == 'calm' else
-                          'levels/blizzard_review.placesmap')
+        source = ROOT / 'levels/winter.json'
+        package = ROOT / 'assets/levels/winter.placesmap'
+        if mode == 'severe':
+            diagnostic = args.out.resolve() / 'inputs'
+            diagnostic.mkdir(parents=True, exist_ok=True)
+            source = diagnostic / 'blizzard_review.json'
+            source.write_text(json.dumps(build_severe_review(json.loads(
+                (ROOT / 'levels/winter.json').read_text())), indent=2) + '\n')
+            package = diagnostic / 'blizzard_review.placesmap'
+            subprocess.run([str(ROOT / 'target/release/places-compile'), 'build', str(source),
+                            '--out', str(package), '--asset-root', str(ROOT / 'assets')], check=True)
         subprocess.run([str(ROOT / 'target/release/places-compile'), 'verify', str(source),
                         '--package', str(package), '--require-current'], check=True)
         for quality in args.qualities.split(','):
@@ -76,7 +86,8 @@ def main() -> None:
             out.mkdir(parents=True, exist_ok=True)
             summaries = []
             for name in args.views.split(','):
-                summary = native.run(out, quality, name, level=level)
+                summary = native.run(out, quality, name, level=level,
+                                     package=package if mode == 'severe' else None)
                 if name.startswith('walk-'):
                     summary['traversal'] = route_result(out / (summary['label']+'-player.csv'), name)
                 summaries.append(summary)

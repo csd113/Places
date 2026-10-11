@@ -2,7 +2,7 @@
   "format_version": 1,
   "level": "capacity_dense",
   "source": "tests/fixtures/levels/capacity_dense.json",
-  "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__capacity_dense.placesmap",
+  "package": "target/verification/maps/tests__fixtures__levels__capacity_dense.placesmap",
   "settings": {
     "bindings": {
       "forward": "W",

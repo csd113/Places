@@ -49,13 +49,13 @@ python3 tools/bench/compiler_compare.py --baseline baseline/places-compile \
     --repeat 3 --label "documented desktop background load; own jobs sequential"
 python3 tools/bench/compiler_bench.py --binary target/release/places-compile \
     --out tools/bench/results/compiler-clean --repeat 3 \
-    --maps tests/fixtures/levels/test_room.json assets/levels/places_demo.json \
-           assets/levels/lantern_hollow.json
+    --maps tests/fixtures/levels/test_room.json levels/places_demo.json \
+           levels/lantern_hollow.json
 python3 tools/bench/compiler_bench.py --binary target/release/places-compile \
     --out tools/bench/results/compiler-scaling --repeat 3 --workers 1 2 4 8 12 \
     --maps tests/fixtures/levels/test_room.json
 python3 tools/bench/compiler_incremental.py --binary target/release/places-compile \
-    --out debug-maps/compiler-audit/incremental --repeat 3 --expect-metadata-reuse
+    --out target/verification/compiler-audit/incremental --repeat 3 --expect-metadata-reuse
 python3 tools/bench/compare_packages.py baseline.placesmap candidate.placesmap
 python3 -m unittest discover -s tests -p test_compiler_bench.py
 ```
@@ -153,7 +153,7 @@ the same isolated harness as a bundled one:
 ```sh
 python3 tools/bench/loading.py --binary target/release/places \
     --out target/agent-work/loading-private --levels level0_pit \
-    --install-package levels/level0_pit.placesmap --window-size 1512x850
+    --install-package target/verification/maps/tests__fixtures__levels__level0_pit.placesmap --window-size 1512x850
 ```
 
 Steady-state rendering is measured by a different instrument: the per-frame CSV
@@ -239,21 +239,21 @@ profiles at once. It owns its view table, a pinned `settings.json` under
 per profile:
 
 ```sh
-sh tools/bench/capture_baseline_views.sh                        # -> debug-maps/renderer-baseline-captures/{high,low}
+sh tools/bench/capture_baseline_views.sh                        # -> target/verification/renderer-baseline-captures/{high,low}
 PLACES_QUALITY=low sh tools/bench/capture_baseline_views.sh    # one profile only
 PLACES_BIN=target/release/places \
     PLACES_CAPTURE_DIR=target/agent-work/baseline-current \
     sh tools/bench/capture_baseline_views.sh                    # a comparison build
 ```
 
-The frozen PNGs live in [the native reference fixtures](../../tests/fixtures/native/gles2-reference/).
+The frozen PNGs live in [the native reference fixtures](../../tests/fixtures/native/gles2-reference).
 Their camera/settings contract is documented in [BASELINE.md](../../docs/renderer-baseline/BASELINE.md),
-and three curated High/Low pairs live in [the renderer reference gallery](../../docs/images/renderer-reference/).
+and three curated High/Low pairs live in [the renderer reference gallery](../../docs/images/renderer-reference).
 `PLACES_QUALITY=high` and `PLACES_QUALITY=low` select one
 profile, and any other value is
 rejected. Delete the state root before a run to
 force a cold lightmap bake rather than reusing its cache. The script's own
-default writes current captures to ignored `debug-maps/renderer-baseline-captures/{high,low}`.
+default writes current captures to ignored `target/verification/renderer-baseline-captures/{high,low}`.
 Use `PLACES_CAPTURE_DIR` to retain separate runs; `compare_baseline.py` reads
 `tests/fixtures/native/gles2-reference/{high,low}` as its default reference.
 
@@ -417,26 +417,28 @@ and leaves the comparison evidence. Comparing packages is excluded from timings.
 native game build at authored frame 1. It uses isolated payloads linked to a
 preserved asset collection, verifies the exact package SHA and selected lighting
 variant in native logs, and compares decoded PNG pixels. Choose a new evidence
-directory on each invocation so earlier captures remain intact:
+directory on each invocation so earlier captures remain intact. This historical
+example requires the preserved local compiler-audit collection; it is not a
+fresh-checkout dependency:
 
 ```sh
 python3 tools/bench/capture_compiler.py --binary target/release/places \
-  --collection debug-maps/compiler-audit-20261003 \
+  --collection local/retained/debug-maps/compiler-audit-20261003 \
   --before tools/bench/results/compiler-audit-20261003/baseline-native \
   --after tools/bench/results/compiler-audit-20261003/optimized-final-native \
-  --out debug-maps/compiler-audit-20261003/captures/native-comparison
+  --out target/verification/compiler-native-comparison
 ```
 
 ## Hero incremental inputs and quality paths
 
-The maintained [hero camera manifest](../../tests/fixtures/native/hero-manifest.json)
+The focused architecture fixture [camera manifest](../../tests/fixtures/native/hero-manifest.json)
 is the default for `capture_art_style_hero.py` and `snapshot_art_style_hero.py`.
-The [hero diagnostics manifest](../../tests/fixtures/native/hero-diagnostics-manifest.json)
+The corresponding [diagnostics manifest](../../tests/fixtures/native/hero-diagnostics-manifest.json)
 is available through `--manifest` for the diagnostic capture views.
-`native_regression_maps.py` reads the [map camera manifests](../../tests/fixtures/native/map-manifests/)
+`native_regression_maps.py` reads the [map camera manifests](../../tests/fixtures/native/map-manifests)
 by default. These are reusable capture inputs; each run writes its receipts and
 images to a new evidence directory. The domestic model validator writes its
-machine report to ignored `debug-maps/domestic-model-remake/geometry-validation.json`.
+machine report to ignored `target/verification/domestic-model-remake/geometry-validation.json`.
 
 The [Stage 6 contracts](../../docs/art-style/stage6/contracts.md) document source,
 resolved dependency, catalogue, tool and capture identity. `cache_decisions` in

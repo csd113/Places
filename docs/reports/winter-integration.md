@@ -11,7 +11,7 @@ movement or non-Winter map source was changed. The [final Winter audit](winter-f
 ## Art direction and changes
 
 The actual pixels in
-`assets/environment/winter/Winter Expansion Environment Concept Sheet.png`
+`assets/references/winter/Winter Expansion Environment Concept Sheet.png`
 were inspected before authoring. The reference's snowy evergreen silhouettes,
 quiet pond, cold blue negative space, small amber destinations, timber buildings
 and supported, selective snow informed the pass.
@@ -44,13 +44,8 @@ three quality settings. No weather or lighting-engine redesign was introduced.
 
 ## Native before/after evidence
 
-These are actual SDL3/wgpu Metal captures on the M2 Pro. Each pair uses the same
-camera, timing, player binary and weather. The original PNG bytes are unedited.
+The earlier lodge/pond pairs are retained locally as actual SDL3/wgpu Metal captures on the M2 Pro. Each pair uses the same camera, timing, player binary and weather. The original PNG bytes are unedited. The [later refinement report](environment-refinement.md) illustrates subsequent accepted work, rather than replacing these historical controls.
 
-| View | Before | After |
-| --- | --- | --- |
-| Lodge approach/sheltered snow | [Before](../images/reports/winter-integration-evidence/before-lodge.png) | [After](../images/reports/winter-integration-evidence/after-lodge.png) |
-| Pond/shore composition | [Before](../images/reports/winter-integration-evidence/before-pond.png) | [After](../images/reports/winter-integration-evidence/after-pond.png) |
 
 These original same-binary native comparisons hold camera and weather constant.
 The accepted campaign contains 68 view/route checks and a live quality cycle.

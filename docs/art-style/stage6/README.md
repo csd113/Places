@@ -4,9 +4,6 @@
 
 Domestic details and the additive refined chair enrich the hero while compiler dependency discovery, streamed content hashing and conservative cache decisions make changed content dependable.
 
-| Before | Final |
-| --- | --- |
-| ![Before](../../images/art-style/stage6-before-room.png) | ![Final](../../images/art-style/stage6-final-room.png) |
 
 ## Implemented behavior and limits
 

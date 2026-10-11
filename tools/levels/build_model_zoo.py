@@ -44,7 +44,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 APP_ROOT = Path(__file__).resolve().parent.parent.parent
 ASSETS_DIR = APP_ROOT / "assets"
 CATALOG_PATH = ASSETS_DIR / "catalog.json"
-OUTPUT_PATH = ASSETS_DIR / "levels" / "model_zoo.json"
+OUTPUT_PATH = APP_ROOT / "levels" / "model_zoo.json"
 CACHE_DIR = APP_ROOT / "cache"
 CACHE_PATH = CACHE_DIR / "zoo_inspection.json"
 ENTITIES_DIR = Path(__file__).resolve().parent.parent / "entities"

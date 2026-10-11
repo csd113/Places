@@ -6,8 +6,8 @@ the second serial entry in the [visual development journal](../README.md).
 Reconstruction commit: [`0ca1c92`](https://github.com/csd113/Places/commit/0ca1c926d233f11dbad645e62148cfd1980f85ec);
 the numerical validation follow-up is described below.
 Both immutable Home sheets were inspected as actual pixels before authoring:
-[Home Environment Asset Sheet](../../../assets/environment/home/Home%20Environment%20Asset%20Sheet.png)
-and [Warm Low-Poly Home Asset Sheet](../../../assets/environment/home/Places_%20Warm%20Low-Poly%20Home%20Asset%20Sheet.png).
+[Home Environment Asset Sheet](../../../assets/references/home/Home%20Environment%20Asset%20Sheet.png)
+and [Warm Low-Poly Home Asset Sheet](../../../assets/references/home/Places_%20Warm%20Low-Poly%20Home%20Asset%20Sheet.png).
 
 ## Reference and the original scene
 
@@ -92,7 +92,7 @@ source, Hallows assets and entities remain unchanged, and the old package is
 preserved in the before archive. Movement Test's source is likewise unchanged.
 
 The CRT picture was produced with the installed imagegen skill's built-in
-tool, then saved as the real [city PNG](../../../assets/environment/home/props/art/city_dusk_01.png).
+tool, then saved as the real [city PNG](../../../assets/environments/home/props/art/city_dusk_01.png).
 Its prompt asked for a flat, faceted, quiet residential city at dusk: peach
 horizon, muted violet sky, charcoal apartment silhouettes, warm windows and
 treetops; readable at 128 pixels, with no frame, text, logo or photorealism.
@@ -107,7 +107,8 @@ click for the native 1280×720 image.
 | View | Before | After | Result |
 | --- | --- | --- | --- |
 | Living group | ![Living before](../../images/style-upgrade/home-before-living.png) | ![Living after](../../images/style-upgrade/home-after-living.png) | Cream seating, low shelf table, domestic console/CRT and restrained dressing. |
-| Kitchen | ![Kitchen before](../../images/style-upgrade/home-before-kitchen.png) | ![Kitchen after](../../images/style-upgrade/home-after-kitchen.png) | Real Shaker build, matching sink/cooker, warm ceramic and counter fittings. |
+
+The additional kitchen pair is retained locally; it records the real Shaker build, matching sink/cooker, warm ceramic and counter fittings.
 
 The comparison uses `PLACES_SPAWN=x,z,yaw`, absolute yaw/pitch and the same renderer identity. Floor/support resolution sets eye height consistently. High quality,
 full lightmaps/reflections, High filtering, bloom on, 60° FOV, 640×360 logical
@@ -195,4 +196,4 @@ Formatting and strict Clippy pass. The first workspace run reports 2,016 library
 
 The first [Home CI run](https://github.com/csd113/Places/actions/runs/37693916111) failed formatting. The [corrected run](https://github.com/csd113/Places/actions/runs/37694798789) passes formatting, debug/release builds and strict Clippy, with 2,020 library passes, 23 ignored and the independent wall-reference failure described above. Its subsequent focused repair passes; this report does not claim an unobserved final Home CI. [Stage 7](../../art-style/stage7/README.md) records the later complete inventory/test gate and qualified animated Home acceptance.
 
-Two non-Home placement warnings remain inherited at this checkpoint: Office trim at `[1.215,0.09,0.162]` and the Outdoors porch at `[13.5,0.24,-90.95]`. The dated after kitchen image still shows diagonal smearing on cupboard and refrigerator panels, alongside darker/coarser narrow recesses than the concept sheet. The later [production model-lighting correction](../../model-lighting-root-cause-and-fix.md) investigates that distinct rendering issue; this asset reconstruction does not claim to have solved it.
+Two non-Home placement warnings remain inherited at this checkpoint: Office trim at `[1.215,0.09,0.162]` and the Outdoors porch at `[13.5,0.24,-90.95]`. The dated after kitchen image still shows diagonal smearing on cupboard and refrigerator panels, alongside darker/coarser narrow recesses than the concept sheet. The later [production model-lighting correction](../../reports/model-lighting-root-cause-and-fix.md) investigates that distinct rendering issue; this asset reconstruction does not claim to have solved it.

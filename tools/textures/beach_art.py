@@ -22,7 +22,7 @@ from artkit import write_png
 from home_art import load_sheet
 
 ASSET_ROOT = Path(__file__).resolve().parents[2] / "assets"
-ROOT = ASSET_ROOT / "environment/beach"
+ROOT = ASSET_ROOT / "environments/beach"
 MASTER_SIZE = 1024
 SURFACE_SIZE = 512
 NATIVE_SIZE = 256
@@ -67,14 +67,14 @@ SURFACES = {
 }
 ART = {
     f"beach:tex_{name}": {
-        "model": f"environment/beach/textures/{directory}/{name}.png",
-        "build": lambda model=f"environment/beach/textures/{directory}/{name}.png": load_sheet(model),
+        "model": f"environments/beach/textures/{directory}/{name}.png",
+        "build": lambda model=f"environments/beach/textures/{directory}/{name}.png": load_sheet(model),
     }
     for name, (directory, _) in SURFACES.items()
 }
 ART["beach:tex_sky_day_01"] = {
-    "model": "environment/beach/textures/sky/sky_day_01.png",
-    "build": lambda: load_sheet("environment/beach/textures/sky/sky_day_01.png"),
+    "model": "environments/beach/textures/sky/sky_day_01.png",
+    "build": lambda: load_sheet("environments/beach/textures/sky/sky_day_01.png"),
 }
 
 
@@ -320,7 +320,7 @@ def outputs():
         result[ROOT / f"textures/{directory}/{name}.png"] = _periodic(
             master.resize((SURFACE_SIZE, SURFACE_SIZE), Image.Resampling.LANCZOS))
     palette_master = atlas()
-    result[ROOT / "props/models/beach_palette_master.png"] = palette_master
+    result[ROOT / "props/beach_palette_master.png"] = palette_master
     # Resize each fixed cell independently so the native atlas has no inter-cell
     # Lanczos ringing. The one-pixel outer gutter repeats its own cell colour.
     native = Image.new("RGBA", (NATIVE_SIZE, NATIVE_SIZE))
@@ -328,7 +328,7 @@ def outputs():
         x, y = index % 4 * 256, index // 4 * 256
         cell = palette_master.crop((x, y, x + 256, y + 256)).resize((64, 64), Image.Resampling.LANCZOS)
         native.paste(cell, (index % 4 * 64, index // 4 * 64))
-    result[ROOT / "props/models/beach_palette.png"] = native
+    result[ROOT / "props/beach_palette.png"] = native
     result[ROOT / "textures/sky/sky_day_01.png"] = sky()
     return result
 

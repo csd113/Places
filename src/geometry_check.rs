@@ -4,8 +4,8 @@
 //! Run it from the game binary:
 //!
 //! ```text
-//! places --check-geometry --level assets/levels/places_demo.json
-//! places --check-geometry --level levels/level0_pit.json --json report.json
+//! places --check-geometry --level levels/places_demo.json
+//! places --check-geometry --level tests/fixtures/levels/level0_pit.json --json report.json
 //! places --check-geometry --level places_demo --markers-obj markers.obj
 //! places --repair-geometry --level places_demo --plan plan.json
 //! ```
@@ -870,7 +870,7 @@ impl CheckReport {
 /// The CLI options of `--check-geometry`.
 #[derive(Clone, Debug)]
 pub struct CliOptions {
-    /// Level path or id (`places_demo`, `assets/levels/places_demo.json`, ...).
+    /// Level path or id (`places_demo`, `levels/places_demo.json`, ...).
     pub level: String,
     /// Write the machine-readable report here, in addition to the human one.
     pub json: Option<PathBuf>,
@@ -960,10 +960,7 @@ fn resolve_source(level: &str) -> Result<(PathBuf, String), String> {
     let candidates: Vec<PathBuf> = if level.to_ascii_lowercase().ends_with(".json") {
         vec![PathBuf::from(level)]
     } else {
-        vec![
-            PathBuf::from(format!("assets/levels/{level}.json")),
-            PathBuf::from(format!("levels/{level}.json")),
-        ]
+        vec![PathBuf::from(format!("levels/{level}.json"))]
     };
     for candidate in candidates {
         match std::fs::read_to_string(&candidate) {
@@ -3477,7 +3474,7 @@ pub const REPAIR_VERSION: u32 = 1;
 /// The CLI options of `--repair-geometry`.
 #[derive(Clone, Debug)]
 pub struct RepairCliOptions {
-    /// Level path or id (`places_demo`, `assets/levels/places_demo.json`, ...).
+    /// Level path or id (`places_demo`, `levels/places_demo.json`, ...).
     pub level: String,
     /// Write the machine-readable plan here, in addition to the human one.
     pub plan: Option<PathBuf>,
@@ -4918,12 +4915,12 @@ mod tests {
     }
 
     #[test]
-    fn hero_collision_partitions_have_real_face_support() {
+    fn material_transport_collision_partitions_have_real_face_support() {
         let (_, report) = fixture(
-            include_str!("../tests/fixtures/levels/art_style_hero.json"),
-            "art_style_hero",
+            include_str!("../tests/fixtures/levels/material_transport.json"),
+            "material_transport",
         );
-        assert!(report.validated, "the unchanged hero must validate");
+        assert!(report.validated, "the transport fixture must validate");
         assert!(
             !has(&report, "ghost-collider", Severity::Warning),
             "mesh support must survive the legitimate wall collision partitions: {:?}",
@@ -5081,10 +5078,7 @@ mod tests {
 
     #[test]
     fn the_shipped_demo_has_no_confirmed_geometry_defects() {
-        let (level, report) = fixture(
-            include_str!("../assets/levels/places_demo.json"),
-            "places_demo",
-        );
+        let (level, report) = fixture(include_str!("../levels/places_demo.json"), "places_demo");
         assert!(report.validated);
         let joints = wall_joints(&level);
         assert_eq!(joints.len(), 0_usize, "{joints:#?}");
@@ -5487,10 +5481,10 @@ mod tests {
                 "geometry_intentional",
                 include_str!("../tests/fixtures/levels/geometry_intentional.json"),
             ),
-            ("model_zoo", include_str!("../assets/levels/model_zoo.json")),
+            ("model_zoo", include_str!("../levels/model_zoo.json")),
             (
                 "home_showcase",
-                include_str!("../tests/fixtures/levels/home_showcase.json"),
+                include_str!("../levels/home_showcase.json"),
             ),
             (
                 "level0_pit",

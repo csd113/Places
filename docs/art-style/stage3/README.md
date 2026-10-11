@@ -20,9 +20,8 @@ The dark resin table remains beyond its source range, and central dark samples c
 
 ## Real gable coverage
 
-| Before | Final |
-| --- | --- |
-| ![Before](../../images/art-style/stage3-before-annex.png) | ![Final](../../images/art-style/stage3-final-annex.png) |
+The matched annex frames are retained in the local image archive. The transport findings above and the [diagnostics](diagnostics.md) retain the receiver/blocker evidence and reproduction methods.
+
 
 ## Historical implementation and checks
 

@@ -2,7 +2,7 @@
   "format_version": 1,
   "level": "test_room",
   "source": "tests/fixtures/levels/test_room.json",
-  "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__test_room.placesmap",
+  "package": "target/verification/maps/tests__fixtures__levels__test_room.placesmap",
   "settings": {
     "bindings": {
       "forward": "W",

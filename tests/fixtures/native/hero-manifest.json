@@ -1,9 +1,8 @@
 {
   "format_version": 1,
-  "level": "art_style_hero",
-  "source": "tests/fixtures/levels/art_style_hero.json",
-  "package": "debug-maps/art-style-hero/evidence/art_style_hero.placesmap",
-  "base_revision": "22a78fc43822900cd866869f93c55d7796e2c812",
+  "level": "architecture_after",
+  "source": "tests/fixtures/levels/architecture_after.json",
+  "package": "target/verification/maps/tests__fixtures__levels__architecture_after.placesmap",
   "settings": {
     "bindings": {
       "forward": "W",

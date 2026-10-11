@@ -27,6 +27,40 @@ use crate::render::{LightmapBuildOptions, PropMeshBatch, Vertex};
 const STUMP: &str = "outdoor:showcase_stump_seat";
 const ROCK: &str = "outdoor:showcase_boulder";
 
+/// Reproduce retained-source archive limits without generated checkout inputs.
+/// A fresh output requires a new package while leaving valid compiler caches
+/// available; these CPU record tests do not need reflection capture.
+fn compile_retained_full_package(
+    identity: &str,
+    asset_root: &std::path::Path,
+) -> (std::path::PathBuf, std::path::PathBuf) {
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("fixture timestamp")
+        .as_nanos();
+    let scratch = std::env::temp_dir().join(format!(
+        "places-static-prop-{identity}-{}-{timestamp}",
+        std::process::id()
+    ));
+    std::fs::create_dir(&scratch).expect("fresh isolated package directory");
+    let package = scratch.join(format!("{identity}.placesmap"));
+    let request = crate::compiler::BuildRequest {
+        source: std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("levels")
+            .join(format!("{identity}.json")),
+        out: package.clone(),
+        asset_root: asset_root.to_path_buf(),
+        variants: vec![crate::quality::LightmapQuality::Full],
+        workers: 2,
+        force: false,
+        capture_probes: false,
+    };
+    let report = crate::compiler::build(&request).expect("retained source compiles on the CPU");
+    assert!(report.rebuilt, "the isolated package must be newly built");
+    assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+    (scratch, package)
+}
+
 fn scene(model: &str, blocker: &str, brightness: f32) -> LevelDef {
     LevelDef::from_json(&format!(
         r#"{{"format_version":3,"id":"static_model_receiver","name":"Static model receiver",
@@ -183,7 +217,7 @@ fn mean(values: &[f32]) -> f32 {
 
 #[test]
 fn winter_string_bulbs_bake_warm_prop_illumination_and_respect_opaque_walls() {
-    let winter = LevelDef::from_json(include_str!("../assets/levels/winter.json"))
+    let winter = LevelDef::from_json(include_str!("../levels/winter.json"))
         .expect("the authored Winter source parses");
     let mut string = winter
         .props
@@ -707,7 +741,10 @@ fn bundled_static_models_fit_medium_and_full_atlas_plans() {
     let root = crate::assets::resolve_asset_root().unwrap();
     let catalog = PropCatalog::load_from_path(&root.join("catalog.json")).unwrap();
     for id in ["lantern_hollow", "model_zoo", "places_demo"] {
-        let json = std::fs::read_to_string(root.join("levels").join(format!("{id}.json"))).unwrap();
+        let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("levels")
+            .join(format!("{id}.json"));
+        let json = std::fs::read_to_string(source).unwrap();
         let mut level = LevelDef::from_json(&json).unwrap();
         crate::loader::prepare_level(&mut level, catalog.assets(), None);
         let materials = crate::render::logical_materials(&level);
@@ -1276,7 +1313,7 @@ fn assert_adjacent_model_reservations(
 #[test]
 fn real_dense_showcase_metadata_exceeds_material_budget_and_loads_under_its_own_limit() {
     let root = crate::assets::resolve_asset_root().unwrap();
-    let package = root.join("levels/lantern_hollow.placesmap");
+    let (scratch, package) = compile_retained_full_package("lantern_hollow", &root);
     let validated = crate::compiler::validate(&package)
         .expect("the compiler validator must accept the same bounded dense chart metadata");
     assert!(
@@ -1350,6 +1387,7 @@ fn real_dense_showcase_metadata_exceeds_material_budget_and_loads_under_its_own_
             "{suffix} must retain per-surface atlas coordinates through real package decoding"
         );
     }
+    std::fs::remove_dir_all(scratch).expect("remove isolated dense-showcase package");
 }
 
 /// Interpolate the real emitted triangles, independently of the patch frame.
@@ -1744,7 +1782,7 @@ fn strongly_tapered_planar_quads_are_valid_but_real_bowties_and_folded_planes_ar
 #[test]
 fn real_full_demo_atlas_loads_with_its_ktx_container_overhead() {
     let root = crate::assets::resolve_asset_root().unwrap();
-    let package = root.join("levels/places_demo.placesmap");
+    let (scratch, package) = compile_retained_full_package("places_demo", &root);
     let opened = crate::package::world::open(&package).unwrap();
     let full = opened.manifest.variant("full").unwrap();
     let pages = full.entries.lightmaps.as_ref().unwrap();
@@ -1781,4 +1819,5 @@ fn real_full_demo_atlas_loads_with_its_ktx_container_overhead() {
     assert_eq!(atlas.pages.len(), 10);
     assert_eq!(atlas.switchable.len(), 1);
     assert_eq!(atlas.layer_count(), 40);
+    std::fs::remove_dir_all(scratch).expect("remove isolated Demo atlas package");
 }

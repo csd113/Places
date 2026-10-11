@@ -52,7 +52,7 @@ class HeroCaptureContract(unittest.TestCase):
                 quality="low", lightmaps="off", reflections="off", texture_filtering="low"))
 
     def test_comparison_uses_identical_existing_model_without_special_renderer_paths(self):
-        source = json.loads((ROOT / "tests/fixtures/levels/art_style_hero.json").read_text())
+        source = json.loads((ROOT / "tests/fixtures/levels/material_transport.json").read_text())
         static = next(prop for prop in source["props"] if prop["id"] == "comparison_static_chair")
         template = next(prop for prop in source["spawn_templates"] if prop["id"] == "comparison_chair")
         self.assertEqual(static["model"], template["model"])

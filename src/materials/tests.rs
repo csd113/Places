@@ -294,7 +294,7 @@ fn two_materials_sharing_a_texture_share_one_resolved_texture() {
         "themes": [{ "id": "office" }],
         "assets": [
             { "id": "core:tex_shared", "asset_class": "environment", "asset_type": "texture",
-              "source": "file", "model": "environment/office/textures/ceilings/ceiling_panel_01.png" },
+              "source": "file", "model": "environments/office/textures/ceilings/ceiling_panel_01.png" },
             { "id": "core:mat_a", "asset_class": "environment", "asset_type": "material",
               "source": "definition", "texture": "core:tex_shared" },
             { "id": "core:mat_b", "asset_class": "environment", "asset_type": "material",
@@ -550,7 +550,7 @@ fn catalog_rejects_materials_with_dangling_or_non_png_textures() {
             { "id": "core:mat", "asset_class": "environment", "asset_type": "material",
               "source": "definition", "texture": "core:prop" },
             { "id": "core:prop", "asset_class": "environment", "asset_type": "prop",
-              "source": "file", "model": "core/props/models/couch.glb" }
+              "source": "file", "model": "shared/props/couch.glb" }
         ]
     }"##;
     let type_error = AssetCatalog::from_json_str(not_a_texture).expect_err("wrong type");
@@ -559,7 +559,7 @@ fn catalog_rejects_materials_with_dangling_or_non_png_textures() {
     let not_png = r##"{
         "assets": [
             { "id": "core:tex_bad", "asset_class": "environment", "asset_type": "texture",
-              "source": "file", "model": "core/textures/bad.jpg" }
+              "source": "file", "model": "shared/textures/bad.jpg" }
         ]
     }"##;
     let format_error = AssetCatalog::from_json_str(not_png).expect_err("not a png");
@@ -580,7 +580,7 @@ fn catalog_rejects_materials_without_a_texture_and_bad_material_metadata() {
     let bad_tile = r##"{
         "assets": [
             { "id": "core:tex_a", "asset_class": "environment", "asset_type": "texture",
-              "source": "file", "model": "core/textures/a.png" },
+              "source": "file", "model": "shared/textures/a.png" },
             { "id": "core:mat", "asset_class": "environment", "asset_type": "material",
               "source": "definition", "texture": "core:tex_a", "tile_metres": 0.0 }
         ]
@@ -591,7 +591,7 @@ fn catalog_rejects_materials_without_a_texture_and_bad_material_metadata() {
     let bad_tint = r##"{
         "assets": [
             { "id": "core:tex_a", "asset_class": "environment", "asset_type": "texture",
-              "source": "file", "model": "core/textures/a.png" },
+              "source": "file", "model": "shared/textures/a.png" },
             { "id": "core:mat", "asset_class": "environment", "asset_type": "material",
               "source": "definition", "texture": "core:tex_a", "tint": [1.5, 0.0, 0.0] }
         ]
@@ -602,7 +602,7 @@ fn catalog_rejects_materials_without_a_texture_and_bad_material_metadata() {
     let texture_on_prop = r##"{
         "assets": [
             { "id": "core:p", "asset_class": "environment", "asset_type": "prop",
-              "source": "file", "model": "core/props/models/couch.glb",
+              "source": "file", "model": "shared/props/couch.glb",
               "texture": "core:tex_a" }
         ]
     }"##;
@@ -634,10 +634,10 @@ fn emissive_catalog() -> AssetCatalog {
         "assets": [
             { "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
               "source": "file",
-              "model": "environment/office/textures/ceilings/ceiling_panel_01.png" },
+              "model": "environments/office/textures/ceilings/ceiling_panel_01.png" },
             { "id": "core:tex_mask", "asset_class": "environment", "asset_type": "texture",
               "source": "file",
-              "model": "environment/office/textures/floors/carpet_beige_01.png" },
+              "model": "environments/office/textures/floors/carpet_beige_01.png" },
             { "id": "core:mat_glow_a", "asset_class": "environment", "asset_type": "material",
               "source": "definition", "texture": "core:tex_albedo",
               "emissive": [0.25, 0.5, 1.0], "emissive_intensity": 2.0,
@@ -742,7 +742,7 @@ fn emissive_material_without_a_mask_has_no_mask_index() {
         "assets": [
             { "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
               "source": "file",
-              "model": "environment/office/textures/ceilings/ceiling_panel_01.png" },
+              "model": "environments/office/textures/ceilings/ceiling_panel_01.png" },
             { "id": "core:mat_glow", "asset_class": "environment", "asset_type": "material",
               "source": "definition", "texture": "core:tex_albedo",
               "emissive": [0.5, 0.5, 0.5] }
@@ -775,10 +775,10 @@ fn missing_emissive_mask_falls_back_to_the_diagnostic_texture() {
         "assets": [
             { "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
               "source": "file",
-              "model": "environment/office/textures/ceilings/ceiling_panel_01.png" },
+              "model": "environments/office/textures/ceilings/ceiling_panel_01.png" },
             { "id": "core:tex_mask", "asset_class": "environment", "asset_type": "texture",
               "source": "file",
-              "model": "environment/office/textures/masks/does_not_exist.png" },
+              "model": "environments/office/textures/masks/does_not_exist.png" },
             { "id": "core:mat_glow", "asset_class": "environment", "asset_type": "material",
               "source": "definition", "texture": "core:tex_albedo",
               "emissive": [1.0, 1.0, 1.0], "emissive_mask": "core:tex_mask" }
@@ -885,9 +885,9 @@ fn response_catalog() -> AssetCatalog {
         "assets": [
             { "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
               "source": "file",
-              "model": "environment/office/textures/ceilings/ceiling_panel_01.png" },
+              "model": "environments/office/textures/ceilings/ceiling_panel_01.png" },
             { "id": "core:tex_normal", "asset_class": "environment", "asset_type": "texture",
-              "source": "file", "model": "core/textures/normals/normal_panel_01.png" },
+              "source": "file", "model": "shared/textures/normals/normal_panel_01.png" },
             { "id": "core:mat_plain", "asset_class": "environment", "asset_type": "material",
               "source": "definition", "texture": "core:tex_albedo" },
             { "id": "core:mat_gloss", "asset_class": "environment", "asset_type": "material",
@@ -1002,7 +1002,7 @@ fn sheen_without_an_authored_glossiness_keeps_the_documented_default() {
         "assets": [
             { "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
               "source": "file",
-              "model": "environment/office/textures/ceilings/ceiling_panel_01.png" },
+              "model": "environments/office/textures/ceilings/ceiling_panel_01.png" },
             { "id": "core:mat_sheen", "asset_class": "environment", "asset_type": "material",
               "source": "definition", "texture": "core:tex_albedo", "specular": 0.4 }
         ]
@@ -1026,7 +1026,7 @@ fn shine_catalog() -> AssetCatalog {
         "assets": [
             { "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
               "source": "file",
-              "model": "environment/office/textures/ceilings/ceiling_panel_01.png" },
+              "model": "environments/office/textures/ceilings/ceiling_panel_01.png" },
             { "id": "core:mat_matte", "asset_class": "environment", "asset_type": "material",
               "source": "definition", "texture": "core:tex_albedo",
               "specular": 0.4, "shine": 0.0 },
@@ -1098,7 +1098,7 @@ fn shine_outside_the_unit_range_is_a_named_catalog_error() {
                 "assets": [
                     {{ "id": "core:tex_albedo", "asset_class": "environment",
                        "asset_type": "texture", "source": "file",
-                       "model": "environment/office/textures/ceilings/ceiling_panel_01.png" }},
+                       "model": "environments/office/textures/ceilings/ceiling_panel_01.png" }},
                     {{ "id": "core:mat_bad", "asset_class": "environment",
                        "asset_type": "material", "source": "definition",
                        "texture": "core:tex_albedo", "shine": {value} }}
@@ -1196,7 +1196,7 @@ fn an_opacity_or_cutoff_without_a_mode_is_a_catalog_error() {
         "assets": [
             { "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
               "source": "file",
-              "model": "environment/office/textures/ceilings/ceiling_panel_01.png" },
+              "model": "environments/office/textures/ceilings/ceiling_panel_01.png" },
             { "id": "core:mat_bad", "asset_class": "environment", "asset_type": "material",
               "source": "definition", "texture": "core:tex_albedo", "opacity": 0.4 }
         ]
@@ -1211,7 +1211,7 @@ fn an_unknown_alpha_mode_is_rejected_by_name() {
         "assets": [
             { "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
               "source": "file",
-              "model": "environment/office/textures/ceilings/ceiling_panel_01.png" },
+              "model": "environments/office/textures/ceilings/ceiling_panel_01.png" },
             { "id": "core:mat_bad", "asset_class": "environment", "asset_type": "material",
               "source": "definition", "texture": "core:tex_albedo",
               "alpha_mode": "translucent" }
@@ -1227,7 +1227,7 @@ fn a_normal_map_that_cannot_resolve_degrades_the_whole_material() {
         "assets": [
             { "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
               "source": "file",
-              "model": "environment/office/textures/ceilings/ceiling_panel_01.png" },
+              "model": "environments/office/textures/ceilings/ceiling_panel_01.png" },
             { "id": "core:mat_broken", "asset_class": "environment", "asset_type": "material",
               "source": "definition", "texture": "core:tex_albedo",
               "specular": 0.5, "shine": 0.8,

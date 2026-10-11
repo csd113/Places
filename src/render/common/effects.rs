@@ -1319,7 +1319,7 @@ mod tests {
 
     #[test]
     fn the_shipped_demo_resolves_its_authored_plumes() {
-        let level = LevelDef::from_json(include_str!("../../../assets/levels/places_demo.json"))
+        let level = LevelDef::from_json(include_str!("../../../levels/places_demo.json"))
             .expect("the shipped demo parses");
         let materials = materials(&level);
         let scene = EffectScene::build(&level, &materials);

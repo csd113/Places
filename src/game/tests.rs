@@ -446,7 +446,7 @@ fn test_menu_state_transitions() {
 /// platform's open edge refuses the drop.
 #[test]
 fn test_controller_climbs_the_home_staircase_and_the_ramp() {
-    let content = std::fs::read_to_string("tests/fixtures/levels/home_showcase.json")
+    let content = std::fs::read_to_string("levels/home_showcase.json")
         .expect("the Home showcase fixture is present");
     let level = LevelDef::from_json(&content).expect("the Home showcase parses");
 
@@ -657,7 +657,7 @@ fn test_controller_descends_a_maximum_slope_ramp_without_stalling() {
 /// platform rim, the columns or the guardrail.
 #[test]
 fn test_controller_traverses_the_home_split_level_both_ways() {
-    let content = std::fs::read_to_string("tests/fixtures/levels/home_showcase.json")
+    let content = std::fs::read_to_string("levels/home_showcase.json")
         .expect("the Home showcase fixture is present");
     let level = LevelDef::from_json(&content).expect("the Home showcase parses");
     let mut game = game_for(&level);
@@ -722,7 +722,7 @@ fn capture_stairs_walk_trace() {
     let Ok(path) = std::env::var("PLACES_STAIRS_TRACE") else {
         return;
     };
-    let content = std::fs::read_to_string("assets/levels/places_demo.json")
+    let content = std::fs::read_to_string("levels/places_demo.json")
         .expect("the Places demo level is present");
     let level = LevelDef::from_json(&content).expect("the Places demo parses");
     let stair = level.stairs.first().expect("the demo has one staircase");
@@ -1742,7 +1742,7 @@ fn a_shallow_pool_keeps_the_standing_posture() {
 
 /// The shipped Places Demo, parsed from the repository level file.
 fn demo_level() -> LevelDef {
-    let content = std::fs::read_to_string("assets/levels/places_demo.json")
+    let content = std::fs::read_to_string("levels/places_demo.json")
         .expect("the Places demo level is present");
     LevelDef::from_json(&content).expect("the Places demo parses")
 }
@@ -3307,12 +3307,10 @@ fn a_floor_rim_never_drags_a_surface_swimmer_down() {
     );
 }
 
-/// The Pit's source: the local drop-in when installed, else the tracked
-/// fixture, so the normal suite stays hermetic on a fresh checkout.
+/// The Pit's tracked regression fixture keeps the suite hermetic on every checkout.
 fn pit_level_source() -> String {
-    std::fs::read_to_string("levels/level0_pit.json")
-        .or_else(|_| std::fs::read_to_string("tests/fixtures/levels/level0_pit.json"))
-        .expect("The Pit source or its tracked fixture is present")
+    std::fs::read_to_string("tests/fixtures/levels/level0_pit.json")
+        .expect("The Pit's tracked regression fixture is present")
 }
 
 /// The Pit's real carpet holes are 3.2 m deep recesses: walking in loses
@@ -4405,7 +4403,7 @@ fn the_pit_carpet_holes_reset_and_the_carpet_is_safe() {
     assert_eq!(repeat.reset_count(), 2, "repeated Pit resets stay bounded");
 }
 
-/// The Pit level (a per-user drop-in) must pass the same validation the game
+/// The Pit regression fixture must pass the same validation the game
 /// applies, including the new trigger schema.
 fn validate_pit_level(level: &LevelDef) {
     crate::loader::validate_level(level).expect("The Pit validates");
@@ -5416,8 +5414,8 @@ fn reset_clears_toggle_scrubs_and_playing_animations() {
 
 #[test]
 fn demo_spoonerman_completes_six_seated_destinations_without_blocking() {
-    let level = LevelDef::from_json(include_str!("../../assets/levels/places_demo.json"))
-        .expect("demo parses");
+    let level =
+        LevelDef::from_json(include_str!("../../levels/places_demo.json")).expect("demo parses");
     let mut game = game_for(&level);
     game.set_app_state(AppState::Playing);
     game.sim_delta_seconds = MAX_SIM_DELTA;
@@ -6761,7 +6759,7 @@ fn a_locked_door_refuses_interaction_until_unlocked_by_a_binding() {
 fn the_demo_sauna_chain_runs_end_to_end() {
     let source = std::fs::read_to_string(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/assets/levels/places_demo.json"
+        "/levels/places_demo.json"
     ))
     .expect("the demo source is readable");
     let level = LevelDef::from_json(&source).expect("the demo source parses");

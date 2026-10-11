@@ -13,38 +13,38 @@ Paths below are relative to the repository root. The JSON manifest contains exac
 
 | Model file | Triangles before → after | Result |
 |---|---:|---|
-| `assets/core/props/models/armchair.glb` | 368 → 368 | Inspected; no geometry repair needed. |
-| `assets/core/props/models/bed.glb` | 230 → 276 | Closed frame, foot, headboard, mattress, blanket and pillow undersides; corrected mixed winding. |
-| `assets/core/props/models/bookshelf.glb` | 180 → 180 | Inspected; no geometry repair needed. |
-| `assets/core/props/models/cardboard_box.glb` | 12 → 12 | Inspected; no geometry repair needed. |
-| `assets/core/props/models/couch.glb` | 588 → 588 | Inspected; no geometry repair needed. |
-| `assets/core/props/models/crate.glb` | 60 → 60 | Corrected inward-facing crate and batten surfaces. |
-| `assets/core/props/models/fridge.glb` | 108 → 108 | Inspected; no geometry repair needed. |
-| `assets/core/props/models/lamp.glb` | 448 → 448 | Inspected; no geometry repair needed. |
-| `assets/core/props/models/plant.glb` | 512 → 512 | Inspected; no geometry repair needed. |
-| `assets/core/props/models/rug.glb` | 12 → 12 | Inspected; no geometry repair needed. |
-| `assets/core/props/models/sink.glb` | 208 → 230 | Closed door backs/undersides and faucet/drain component ends; corrected winding; retained the basin opening. |
-| `assets/core/props/models/stove.glb` | 126 → 144 | Closed cabinet, oven-door and knob component gaps; corrected winding; retained the cooking-surface plane. |
-| `assets/core/props/models/table.glb` | 136 → 136 | Inspected; no geometry repair needed. |
-| `assets/core/props/models/tv.glb` | 68 → 86 | Moved the screen 21 mm back into the bezel; closed housing underside and bezel backs/undersides; corrected winding. |
-| `assets/core/props/models/washer_drum.glb` | 144 → 154 | Joined the outer shell across the 40 mm rim gap, closed its base, and oriented the basket surfaces correctly; mouth remains open. |
-| `assets/core/props/models/washing_machine.glb` | 140 → 150 | Closed top-cover/control-strip/dial gaps; corrected body winding; explicitly oriented cavity surfaces toward the opening. |
-| `assets/environment/home/props/models/cabinet_base.glb` | 102 → 102 | Inspected; no geometry repair needed. |
-| `assets/environment/home/props/models/cabinet_wall.glb` | 70 → 70 | Inspected; no geometry repair needed. |
-| `assets/environment/office/props/models/cabinet.glb` | 192 → 192 | Inspected; no geometry repair needed. |
-| `assets/environment/office/props/models/chair.glb` | 392 → 392 | Inspected; no geometry repair needed. |
-| `assets/environment/office/props/models/desk.glb` | 96 → 96 | Inspected; no geometry repair needed. |
-| `assets/environment/office/props/models/vending_machine.glb` | 106 → 110 | Closed selection-column gaps and corrected inward surfaces. |
-| `assets/environment/office/props/models/water_cooler.glb` | 192 → 206 | Closed bottle-neck and tap backs; corrected the bottle and cabinet winding. |
-| `assets/environment/pool/props/models/pool_chair.glb` | 216 → 218 | Closed the seat underside and corrected its inward component. |
-| `assets/environment/pool/props/models/pool_curtain_corner.glb` | 202 → 218 | Closed support/carrier component bottoms and corrected frame winding; preserved both sides of the folded cloth. |
-| `assets/environment/pool/props/models/pool_curtain_end.glb` | 130 → 142 | Closed support/carrier component bottoms and corrected frame winding; preserved both sides of the folded cloth. |
-| `assets/environment/pool/props/models/pool_curtain_straight.glb` | 258 → 284 | Closed support/carrier component bottoms and corrected frame winding; preserved both sides of the folded cloth. |
-| `assets/environment/pool/props/models/pool_guardrail_corner.glb` | 262 → 262 | Corrected inward post/cap surfaces; preserved module dimensions and rail connections. |
-| `assets/environment/pool/props/models/pool_guardrail_end.glb` | 164 → 164 | Corrected inward post/cap surfaces; preserved module dimensions and rail connections. |
-| `assets/environment/pool/props/models/pool_guardrail_straight.glb` | 230 → 230 | Corrected inward post/cap surfaces; preserved module dimensions and rail connections. |
-| `assets/environment/pool/props/models/pool_ladder.glb` | 464 → 472 | Closed tread-insert undersides and corrected foot-boot winding. |
-| `assets/environment/pool/props/models/pool_table.glb` | 174 → 176 | Closed the table underside and corrected winding. |
+| `assets/shared/props/armchair.glb` | 368 → 368 | Inspected; no geometry repair needed. |
+| `assets/shared/props/bed.glb` | 230 → 276 | Closed frame, foot, headboard, mattress, blanket and pillow undersides; corrected mixed winding. |
+| `assets/shared/props/bookshelf.glb` | 180 → 180 | Inspected; no geometry repair needed. |
+| `assets/shared/props/cardboard_box.glb` | 12 → 12 | Inspected; no geometry repair needed. |
+| `assets/shared/props/couch.glb` | 588 → 588 | Inspected; no geometry repair needed. |
+| `assets/shared/props/crate.glb` | 60 → 60 | Corrected inward-facing crate and batten surfaces. |
+| `assets/shared/props/fridge.glb` | 108 → 108 | Inspected; no geometry repair needed. |
+| `assets/shared/props/lamp.glb` | 448 → 448 | Inspected; no geometry repair needed. |
+| `assets/shared/props/plant.glb` | 512 → 512 | Inspected; no geometry repair needed. |
+| `assets/shared/props/rug.glb` | 12 → 12 | Inspected; no geometry repair needed. |
+| `assets/shared/props/sink.glb` | 208 → 230 | Closed door backs/undersides and faucet/drain component ends; corrected winding; retained the basin opening. |
+| `assets/shared/props/stove.glb` | 126 → 144 | Closed cabinet, oven-door and knob component gaps; corrected winding; retained the cooking-surface plane. |
+| `assets/shared/props/table.glb` | 136 → 136 | Inspected; no geometry repair needed. |
+| `assets/shared/props/tv.glb` | 68 → 86 | Moved the screen 21 mm back into the bezel; closed housing underside and bezel backs/undersides; corrected winding. |
+| `assets/shared/props/washer_drum.glb` | 144 → 154 | Joined the outer shell across the 40 mm rim gap, closed its base, and oriented the basket surfaces correctly; mouth remains open. |
+| `assets/shared/props/washing_machine.glb` | 140 → 150 | Closed top-cover/control-strip/dial gaps; corrected body winding; explicitly oriented cavity surfaces toward the opening. |
+| `assets/environments/home/props/cabinet_base.glb` | 102 → 102 | Inspected; no geometry repair needed. |
+| `assets/environments/home/props/cabinet_wall.glb` | 70 → 70 | Inspected; no geometry repair needed. |
+| `assets/environments/office/props/cabinet.glb` | 192 → 192 | Inspected; no geometry repair needed. |
+| `assets/environments/office/props/chair.glb` | 392 → 392 | Inspected; no geometry repair needed. |
+| `assets/environments/office/props/desk.glb` | 96 → 96 | Inspected; no geometry repair needed. |
+| `assets/environments/office/props/vending_machine.glb` | 106 → 110 | Closed selection-column gaps and corrected inward surfaces. |
+| `assets/environments/office/props/water_cooler.glb` | 192 → 206 | Closed bottle-neck and tap backs; corrected the bottle and cabinet winding. |
+| `assets/environments/pool/props/pool_chair.glb` | 216 → 218 | Closed the seat underside and corrected its inward component. |
+| `assets/environments/pool/props/pool_curtain_corner.glb` | 202 → 218 | Closed support/carrier component bottoms and corrected frame winding; preserved both sides of the folded cloth. |
+| `assets/environments/pool/props/pool_curtain_end.glb` | 130 → 142 | Closed support/carrier component bottoms and corrected frame winding; preserved both sides of the folded cloth. |
+| `assets/environments/pool/props/pool_curtain_straight.glb` | 258 → 284 | Closed support/carrier component bottoms and corrected frame winding; preserved both sides of the folded cloth. |
+| `assets/environments/pool/props/pool_guardrail_corner.glb` | 262 → 262 | Corrected inward post/cap surfaces; preserved module dimensions and rail connections. |
+| `assets/environments/pool/props/pool_guardrail_end.glb` | 164 → 164 | Corrected inward post/cap surfaces; preserved module dimensions and rail connections. |
+| `assets/environments/pool/props/pool_guardrail_straight.glb` | 230 → 230 | Corrected inward post/cap surfaces; preserved module dimensions and rail connections. |
+| `assets/environments/pool/props/pool_ladder.glb` | 464 → 472 | Closed tread-insert undersides and corrected foot-boot winding. |
+| `assets/environments/pool/props/pool_table.glb` | 174 → 176 | Closed the table underside and corrected winding. |
 
 ## Geometry checks and limits
 

@@ -17,150 +17,55 @@ stable logical ids onto all of it.
 
 ![An office interior](docs/screenshots/01-office.png)
 
-## Overview
+## Build and run
 
-The engine is deliberately small and the content is deliberately editable:
-
-* **Rooms, walls and openings** are authored as rectangles in a JSON level.
-  Walls can be cut with doors, windows, passages and vents.
-* **Baked RGB lighting stored as a lightmap atlas.** Every fixture bakes a room
-  baseline plus a local pool, stored per *texel* in an atlas for static floors,
-  ceilings, walls and skirts — so a fixture reads as a pool of light with a soft
-  edge instead of a plateau. Coloured fixtures tint both the visible panel and
-  the illumination, and the per-vertex bake remains as an exact fallback.
-* **Props occlude the light.** A placed prop's own geometry joins the bake, so
-  the floor under a machine darkens, a fridge blocks the pool behind it and
-  furniture grounds itself against the wall it stands on — with nothing to
-  author.
-* **A separate dynamic-object path.** Objects whose transform changes every
-  frame render outside the static batches and the bake: upload the model once,
-  pass a transform per object, probe the baked light at its position. Moving one
-  never rebuilds geometry, batching or lightmaps.
-* **Partitions split the baseline.** When an opaque internal wall divides a
-  room's footprint, each side gets its own baseline from the fixtures it can
-  reach; a doorway still blends a bounded amount through its aperture, and a
-  wall that stops short of the ceiling is not a partition. An open room bakes
-  the same way it always did.
-* **Walls are lighting boundaries.** A fixture's light only reaches what its
-  panel can see: an opaque wall blocks the pool behind it, and a doorway,
-  window, passage or vent transmits light through exactly the hole it cuts.
-* **Floors and ceilings are boundaries too.** Stacked rooms do not light each
-  other through a solid slab, in colour or brightness, while a raised platform,
-  a lowered basin and an intentional vertical opening stay open. A ceiling
-  fixture on a chosen storey authors a world `y`.
-* **Vertical geometry.** A room has its own floor elevation, clear height and
-  ceiling profile (flat or gable); `floor_regions` recess or raise rectangular
-  parts of a room, which is how the empty pool basin and the region staircases
-  are built.
-* **External artwork.** Surface materials, decal sheets and light fixture
-  faces are ordinary PNGs under `assets/`. Replace
-  the file, restart, see the new pixels — no Rust change and no recompilation.
-* **A real catalog.** Levels never store a file path. They name a logical id
-  (`core:desk`, `core:pool_tile_deck_01`, `spooner-man`) and `assets/catalog.json`
-  resolves it to a file, a material definition or a generated resource.
-* **Restrained post-processing.** The scene is drawn into an offscreen target and
-  resolved into the display image: bloom that follows *emission* rather than
-  brightness, a tone shoulder that leaves everything below 0.75 untouched,
-  distance fog and a barely-there grade. The HUD draws after it, so the UI is
-  never touched by any of it, and `Low` skips the whole stage.
-* **Selective reflections.** A material can ask for a static **probe** (a small
-  cubemap baked once per level load, one texture read a fragment) or a **planar
-  mirror** (a real second view of the level through the surface's own plane, at
-  most one plane per frame). Both are weighted by the sheen the material already
-  authors, so a rough or dull surface suppresses its reflection instead of
-  mirroring, and `shine` (`0.0` matte .. `1.0` glossy) is an authorable material
-  property with an optional per-surface override in a level.
-* **Animated emissions.** A level can make a material's emission `pulse` or
-  `flicker`, deterministically and within a bounded depth — a backlit sign
-  breathing, a tube on a failing ballast.
-
-The renderer itself is documented in [docs/RENDERER.md](docs/RENDERER.md) and
-the overall architecture in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-## Screenshots
-
-These captures show the earlier Office/Pool route. For the current Home wing
-see the demo below; the complete current renderer reference is
-[docs/RENDERER.md](docs/RENDERER.md), and
-[docs/renderer-baseline/BASELINE.md](docs/renderer-baseline/BASELINE.md) is the
-frozen historical capture record of the former renderer, kept for comparison.
-
-| | |
-| --- | --- |
-| ![Office](docs/screenshots/01-office.png) Office: warm fluorescent panels over carpet and printed wallpaper, with the pool windows on the right. | ![Office window](docs/screenshots/02-office-window.png) The office looks one storey down into the pool through a window aperture. |
-| ![Stair transition](docs/screenshots/03-stair-transition.png) The stair hall turns red; the pool is visible through both a passage and a window beside it. | ![Pool](docs/screenshots/04-pool.png) The empty pool: recessed basin, ladder, guardrails, patio set, NO DIVING sign, cool light. |
-| ![Final doorway](docs/screenshots/05-final-doorway.png) The last doorway frames the unmade world. | ![Unmade world](docs/screenshots/06-unmade-world.png) Beyond it: a floor, a ceiling, a few fixtures, and nothing. |
-
-## The demo
-
-`assets/levels/places_demo.json` is the official showcase's authoring source.
-It compiles to `assets/levels/places_demo.placesmap`, the package the player
-loads. It is one continuous route through everything the project currently does:
-
-```text
-office reception  →  workroom  →  doorways and windows
-      →  red stair hall (1.5 m down)  →  pool hall (recessed basin)
-      →  two steps up  →  quiet corridor  →  Home archway  →  two-storey living area and balcony
-```
-
-`assets/levels/model_zoo.json` is the second bundled level: a large, well-lit
-pool showroom that displays **every** registered placeable model at least once,
-plus the mannequin, skeleton, rat, Spooner-Man, wall-switch, light-prop,
-table-setting, floating-duck and curved-architecture demonstrations. It is
-generated from `assets/catalog.json` by
-`python3 tools/levels/build_model_zoo.py` (with `--check`, `--stats` and
-`--workers`), so adding an asset adds a display instead of going stale.
-
-`assets/levels/beach_demo.json` authors **Beach**: a sunny tropical cove with
-swimmable shallows, a timber pier, pastel seaside town, ocean lookout and quiet
-palm garden. The sea arch and lighthouse frame its coastal views; gulls, crabs
-and fish use the existing animation system. Generate its source with
-`python3 tools/levels/build_beach.py`, compile its sibling package normally,
-then launch with `PLACES_LEVEL=beach_demo`.
-
-`assets/levels/lantern_hollow.json` authors **Lantern Hollow**: four furnished
-cottages beside a road, branching trails through a dense nighttime forest, a
-small pond and a rocky campfire clearing with seven seated skeletons. Three
-sheet-ghost cats and a sheet ghost drift in the woods. Visible rock faces and
-closed road gates contain the playable area. Regenerate its source with
-`python3 tools/levels/build_lantern_hollow.py` and check it with `--check`.
-Compile the sibling package before choosing Lantern Hollow in Level Select:
+Rust 1.99.0 is pinned in `rust-toolchain.toml`. Install SDL3 and `pkg-config`
+([desktop prerequisites](#desktop-prerequisites)), then run from the repository:
 
 ```sh
-./target/release/places-compile build assets/levels/lantern_hollow.json --asset-root assets
-PLACES_ASSET_ROOT="$PWD" PLACES_LEVEL=lantern_hollow ./target/release/places
-```
-
-The four cottage doors start open and toggle with **E**. The pond uses the
-ordinary crouch/swim controls; every trail converges on the campfire.
-
-Walk the demo from the main menu, or boot straight into either level:
-
-```sh
-cargo run                                   # then: Level Select → Places Demo
-PLACES_LEVEL=places_demo cargo run         # straight into the demo
-PLACES_LEVEL=model_zoo cargo run           # straight into the Model Zoo
-PLACES_LEVEL=places_demo ./Places/places    # from a packaged build
-```
-
-The player loads only compiled packages. After editing a source, recompile it
-before launching:
-
-```sh
-cargo build --release
-./target/release/places-compile build assets/levels/places_demo.json
+cargo build --locked --release
+sh tools/build-maps.sh --workers 8
+./target/release/places --list-levels
 PLACES_LEVEL=places_demo ./target/release/places
 ```
 
-`places-compile` reuses a package whose source, asset identities and compiler
-version are unchanged; `--force` rebuilds. See
-[docs/PACKAGE_FORMAT.md](docs/PACKAGE_FORMAT.md).
+Git contains authored JSON maps, PNG artwork, GLB models and generators.
+**Compiled `.placesmap` files are local outputs and are never tracked.** The
+explicit build step prepares Off, Medium and Full lightmaps and reflection
+captures in `assets/levels/`. Cargo can build the compiler and run the source
+checks before any package exists. The player loads packages; it never compiles.
+A missing map leaves the menu available for Import and reports the build command.
 
-Route, if you want it: from the spawn, walk forward through the doorway into the
-workroom, keep straight through the second doorway and down the stairs, follow
-the passage into the pool hall, cross the deck to the far side, and take the two
-steps up into the dim corridor, then continue through the archway into Home.
-The staircase reaches its upper balcony and bedroom.
+After changing one source or one of its assets:
+
+```sh
+./target/release/places-compile build levels/places_demo.json \
+  --out assets/levels/places_demo.placesmap --asset-root assets --workers 8
+```
+
+The compiler reuses current output and rebuilds changed dependencies. See
+[developer orientation](docs/DEVELOPMENT.md) for the layout, checks and export
+workflow; read the [map authoring guide](docs/MAP_AUTHORING_GUIDE.md) and
+[asset specification](docs/ASSET_SPECIFICATION.md) before authoring content.
+
+## Maps
+
+[levels/](levels/README.md) contains the curated source lineup:
+`places_demo`, `model_zoo`, `pool_showcase`, `home_showcase`, `lantern_hollow`,
+`winter`, `beach_demo` and `frutiger_aero_demo`. Model Zoo shows the complete
+catalog. Office is covered inside Places Demo; a dedicated Office showcase is
+still missing. Regression scenes live under `tests/fixtures/levels/` and are
+excluded from the distribution.
+
+The Demo connects the Office, Pool, Home and night route. Winter has an ice
+pond and weather controls; Beach and Aero have their own day environments.
+The [refinement report](docs/reports/environment-refinement.md) records current
+native acceptance. Earlier Office/Pool screenshots remain documented as
+historical views:
+
+| Office | Pool |
+| --- | --- |
+| ![Office](docs/screenshots/02-office-window.png) | ![Pool](docs/screenshots/04-pool.png) |
 
 ## Controls
 
@@ -206,546 +111,41 @@ Resolution, sensitivity, look inversion and bindings all take effect without
 restarting or reloading the level. Changing the overall quality cascades the
 three Advanced defaults; each may then be overridden independently, and an
 override never changes the Quality label. See
-[Rendering notes](#rendering-notes) for what each option changes.
+[renderer reference](docs/RENDERER.md) for what each option changes.
 
 
-## Build and run
+## Desktop prerequisites
 
-### Setting up
+macOS is the verified host: `brew install sdl3 pkg-config`.
+Linux needs SDL3 development headers, `pkg-config`, the Vulkan loader and a
+native driver (for example `libsdl3-dev pkg-config libvulkan1 mesa-vulkan-drivers`
+on Debian/Ubuntu). Windows needs SDL3, a C/C++ build toolchain and Direct3D 12.
+Linux and Windows setup is reviewed against the build configuration; the
+[verification matrix](docs/VERIFICATION.md) records what has actually run.
 
-Places is developed on macOS and is portable by construction: SDL3 owns the
-window, input, DPI and display layer on every target, and the build selects one
-wgpu backend from the target platform — Metal on macOS, Vulkan on Linux,
-Direct3D 12 on Windows. Nothing else in the codebase is platform-specific.
+Python 3 with Pillow and NumPy supports the offline asset and image tools.
+The game and map compiler do not load those Python dependencies.
 
-The Linux and Windows instructions below are reviewed against the build
-configuration but are not executed by the project's verification host. The
-current verification status, the per-row platform matrix and the procedure used
-to fill it in are in [docs/VERIFICATION.md](docs/VERIFICATION.md).
+## Export and custom maps
 
-Rust 1.99.0 is the pinned and verified development toolchain (edition 2024).
-Cargo requires Rust 1.99 or newer; `rust-toolchain.toml` selects 1.99.0 with
-Clippy and rustfmt without changing your machine-wide default.
+After building the player and curated maps, `sh tools/package.sh` creates
+`target/package/Places/` and `target/package/Places.app/`. Export checks every
+curated package against its source before publishing. It ships the catalog,
+runtime assets and exactly the curated packages; local review maps, concept
+boards, masters and build caches are excluded.
 
-### Desktop prerequisites
+A portable payload runs from any working directory. `PLACES_ASSET_ROOT` selects
+an alternate asset root; `PLACES_STATE_ROOT` selects writable settings, import
+and custom-map storage. Compile custom JSON with `places-compile build`, then
+import its `.placesmap` or copy it into the state root's `levels/` directory.
 
-**macOS** (the verified host). You need SDL3 (3.2 or newer) and `pkg-config`:
+## Developer references
 
-```sh
-brew install sdl3 pkg-config
-cargo run
-```
+- [Developer orientation and cleanup](docs/DEVELOPMENT.md)
+- [Architecture](docs/ARCHITECTURE.md) and [renderer](docs/RENDERER.md)
+- [Map authoring](docs/MAP_AUTHORING_GUIDE.md), [asset contracts](docs/ASSET_SPECIFICATION.md)
+  and [offline tooling](docs/OFFLINE_TOOLING.md)
+- [Package format](docs/PACKAGE_FORMAT.md) and [verification](docs/VERIFICATION.md)
+- [Documentation index](docs/README.md) and [changelog](CHANGELOG.md)
 
-**Linux** (reviewed, not executed on the project host). Install the SDL3
-development package, `pkg-config`, and the Vulkan loader with a driver, for
-example:
-
-```sh
-# Debian / Ubuntu
-sudo apt install libsdl3-dev pkg-config libvulkan1 mesa-vulkan-drivers
-# Fedora
-sudo dnf install SDL3-devel pkg-config vulkan-loader mesa-vulkan-drivers
-# Arch
-sudo pacman -S sdl3 pkgconf vulkan-icd-loader
-cargo run
-```
-
-**Windows** (reviewed, not executed on the project host). Install SDL3 — for
-example with vcpkg (`vcpkg install sdl3:x64-windows`) or from a prebuilt SDL3
-development package — and a C/C++ toolchain: the MSVC build tools with the C++
-workload (the `stable-msvc` Rust toolchain) or MinGW-w64. The backend is
-Direct3D 12.
-
-```powershell
-cargo run
-```
-
-`cargo run` resolves `assets/`, `levels/` and `settings.json` from the
-repository root, and also from the executable's own directory, so running the
-game from a subdirectory works too. A compiled build locates its payload from
-its own path and does not depend on the working directory at all.
-
-A first launch is self-initializing: the game creates the drop-in `levels/` and
-`import/` directories and writes a default `settings.json` next to its payload
-(or below `$PLACES_STATE_ROOT` when that is set), so nothing has to be prepared
-by hand. Places Demo is always available, even if no asset tree and no level
-files exist at all. Normal startup prints nothing; `PLACES_VERBOSE=1` turns the
-developer telemetry (package/asset/level/lighting/build lines) back on for a
-run. Genuine problems — a missing asset root, a skipped level file, an
-unresolved material — are always reported, once each.
-
-The authoritative verification gate is [docs/VERIFICATION.md](docs/VERIFICATION.md).
-Run `sh tools/verify.sh` from the repository root with a desktop display available.
-
-## Distribution layout
-
-A packaged build is a directory with the executable and its payload:
-
-```text
-Places/
-    places                  the executable
-    assets/                 catalog.json, levels/, models, textures, decals
-        catalog.json
-        levels/places_demo.placesmap   compiled showcase (source .json kept for authors)
-        levels/model_zoo.placesmap     compiled generated zoo
-        core/ environment/ entities/ diagnostic/
-    levels/                 drop-in compiled packages (*.placesmap); created on first run
-    import/                 files waiting to be imported; created on first run
-    settings.json           written on first run
-    cache/                  tooling cache (Model Zoo inspection; never created by the player)
-```
-
-Build one with:
-
-```sh
-cargo build --release
-tools/package.sh                  # -> target/package/Places and target/package/Places.app
-```
-
-`tools/package.sh` also writes the macOS bundle form,
-`Places.app/Contents/MacOS/places` with the same payload under
-`Contents/Resources/`. Both forms run from any working directory. The asset root
-is resolved in this order and the result is printed at startup:
-
-```text
-$PLACES_ASSET_ROOT                    explicit override (the directory containing assets/)
-exe_dir, exe_dir/.. .. exe_dir/../../..   a flat install, and an older bin/<triple>/app layout
-exe_dir/../Resources                   a macOS .app bundle
-assets, ./assets, ../assets            the working directory (development)
-$CARGO_MANIFEST_DIR/assets             development builds only, never a release binary
-```
-
-A release binary therefore cannot read the source tree it was built from, and a
-missing asset root is reported loudly with the full list of locations checked
-rather than silently degrading. `assets/levels/` is scanned for shipped packages
-and `levels/` for drop-in ones; both appear in the same Level Select menu. The
-writable side — `settings.json`, `levels/`, `import/` and `cache/` — always
-lives below the package root (the parent of `assets/`), or below
-`$PLACES_STATE_ROOT` when that is set, never in whatever directory the process
-happens to be started from.
-
-## Assets, themes and ids
-
-`assets/catalog.json` is the authoritative registry. Levels reference **logical
-ids**, never paths, so a file can move without editing a level. There are three
-environment themes — `office`, `pool` and `home` — and a theme documents and
-groups content without restricting placement: an Office fixture may light a Pool
-room, and an entity may stand anywhere. The tables below cover the Office and
-Pool families; `home:` ids (lighting, seating and kitchen content) are listed in
-the catalog itself.
-
-| Office | id |
-| --- | --- |
-| Wallpaper (maintained / damaged) | `core:wallpaper_yellow_01` / `core:wallpaper_stained_01` |
-| Carpet (maintained / damp) | `core:carpet_beige_01` / `core:carpet_damp_01` |
-| Suspended ceiling (maintained / stained) | `core:ceiling_panel_01` / `core:ceiling_stained_01` |
-| Fluorescent ceiling panel | `core:fluorescent_panel_01` |
-| Desk, chair, cabinet, water cooler, vending machine | `core:desk`, `core:chair`, `core:cabinet`, `core:water_cooler`, `core:vending_machine` |
-
-| Pool | id |
-| --- | --- |
-| Deck, basin, wall tile, ceiling | `core:pool_tile_deck_01`, `core:pool_tile_basin_01`, `core:pool_tile_wall_01`, `core:pool_ceiling_01` |
-| Patio table / chair | `core:pool_table`, `core:pool_chair` |
-| Curtain (straight / end / corner) | `core:pool_curtain_straight`, `core:pool_curtain_end`, `core:pool_curtain_corner` |
-| Ladder | `core:pool_ladder` |
-| Guardrail (straight / end / corner) | `core:pool_guardrail_straight`, `core:pool_guardrail_end`, `core:pool_guardrail_corner` |
-| Round downlight / wall luminaire | `core:pool_light_round`, `core:pool_light_wall` |
-| NO DIVING sign | `core:decal_no_diving_01` |
-
-Generic props (`core:couch`, `core:bed`, `core:table`, appliances, …) carry no
-theme and are used by the official demo. `spooner-man` is an `entity`, not
-a prop, and places through the same system.
-
-### Textures and materials
-
-A level names a *material*; the catalog maps that material to a *texture* asset
-that owns the PNG, plus a world-space tiling period and a static tint. Replace
-the PNG under `assets/environment/<theme>/textures/` (or a decal sheet under
-`assets/environment/pool/decals/`, `assets/core/decals/`, or a light fixture's
-face under `assets/environment/<theme>/textures/lights/`) and restart the game.
-
-Every surface, decal and fixture PNG is an ordinary editable file; the painters
-and builders under `tools/` regenerate the shipped set deterministically, but
-hand-painted artwork is just as valid. Add a new surface material without
-touching Rust: add the PNG, add a `texture` entry and a `material` entry to the
-catalog, then name the material from a level. A material may also name a `normal_texture` (a
-tangent-space normal map, generated or hand-painted like any other sheet), a
-`specular` strength and a `shine` glossiness for its sheen (a level may override
-the glossiness per surface), and an `alpha_mode` with an optional `opacity` for
-translucency. A light fixture's *mesh* is still code, but its face
-is the PNG its catalog entry names. `assets/README.md` documents the catalog
-format, the material/texture split and the asset budgets.
-
-**Colour space.** The renderer has no gamma handling: textures are sampled as
-authored and multiplied by a display-space baked shade. That is deliberate — the
-shipped artwork, the material tints and every lighting constant were calibrated
-together in that space. See "Rendering notes" below.
-
-## Levels and creator content
-
-A level is a JSON document. Rooms are rectangles with an optional numeric floor
-elevation, a clear height and a ceiling profile; walls are rectangles with
-optional per-face materials and openings cut out of them.
-
-```jsonc
-{
-  "format_version": 3,
-  "id": "my_level",
-  "name": "My Level",
-  "spawn": { "x": 2.0, "z": 5.0, "yaw_degrees": 0.0 },
-  "defaults": { "wall": "core:wallpaper_yellow_01",
-                "floor": "core:carpet_beige_01",
-                "ceiling": "core:ceiling_panel_01" },
-  "rooms": [
-    { "x": 0.0, "z": 0.0, "width": 9.0, "depth": 7.0,
-      "height": 2.7, "floor_y": 0.0 }
-  ],
-  "walls": [
-    { "x": 0.0, "z": 0.0, "width": 9.0, "depth": 0.3,
-      "openings": [ { "kind": "window", "offset": 2.0, "width": 2.0,
-                      "height": 1.3, "sill": 1.7 } ] }
-  ],
-  "floor_regions": [
-    { "x": 2.0, "z": 2.0, "width": 4.0, "depth": 3.0, "offset_y": -1.5,
-      "material": "core:pool_tile_basin_01",
-      "edge_material": "core:pool_tile_wall_01" }
-  ],
-  "ceiling_lights": [
-    { "fixture": "core:fluorescent_panel_01", "x": 4.5, "z": 3.5,
-      "brightness": 0.7, "color": [1.0, 0.94, 0.82] }
-  ],
-  "props": [
-    { "model": "core:desk", "x": 2.0, "z": 5.0, "rotation_degrees": 0.0,
-      "solid": true, "size": [1.6, 0.75, 0.7] }
-  ],
-  "decals": [
-    { "x": 4.5, "z": 2.0, "width": 0.9, "height": 0.9,
-      "material": "core:decal_no_diving_01", "surface": "floor" }
-  ]
-}
-```
-
-Compile the source, then drop the resulting `.placesmap` into `levels/` (or use
-the in-game Import action) and it appears in the Level Select menu:
-
-```sh
-./target/release/places-compile build my_level.json
-./target/release/places-compile validate my_level.placesmap
-```
-
-Raw `.json`/`.zip` sources are never playable rows: the Import action points at
-the exact compiler command instead. A package that fails to open or validate is
-skipped and reported on the console rather than crashing the game.
-`assets/levels/README.md` indexes the shipped levels and explains where the
-regression fixtures live.
-
-**Creating or modifying a map?** `docs/MAP_AUTHORING_GUIDE.md` is the canonical
-authoring reference: the currently implemented level format, asset catalog,
-materials, textures, props, lighting, validation workflow and common failure
-modes.
-
-Notable supported details:
-
-* **Openings** are cut from the wall's minimum corner: `offset` along the wall's
-  length, `width` along the wall, `height` above `sill`. `kind` is `door`,
-  `window`, `passage` or `vent`; collision follows the geometry, so `sill: 0`
-  is walk-through whatever the kind is.
-* **Walls are not generated from rooms.** An unenclosed room shows the void
-  through the gap, so shell every room you want to walk inside of.
-* **A walkable step is 0.4 m.** While grounded, a larger rise is refused, but a
-  drop of any size is walked off and becomes a real fall: ledges, pool decks
-  and floor holes all lose support, and a jump can clear a step and gravity
-  takes over from there. A standing jump rises 0.85 m — the 0.75 m office desk
-  top plus 0.10 m of clearance — at every supported frame rate, and a fall
-  lands on the walkable floor or a solid prop top rather than passing through
-  it.
-* **Water is a level primitive.** A `water` volume is a rectangle with a
-  surface height; the surface draws as a translucent member of the sorted
-  blend pass, and the controller wades, swims and surfaces through the same
-  rectangle the renderer draws. Holding Jump in deep water rises to the
-  surface and holds there; releasing it sinks again.
-* **Ladders are a level primitive.** A `ladders` volume is the space the
-  climber moves through: a footprint, a bottom and top world Y and the yaw the
-  climber faces. Walking into the climbable face with movement intent attaches
-  the player (no key), holding forward climbs, releasing holds, backing away
-  or jumping detaches, and the climb tops out onto the real floor at `top_y`.
-  The visual rails are a prop; the ladder volume is what the controller uses.
-* **Crouching halves the body.** `C` toggles a 0.9 m stance with a 0.8 m eye
-  offset; the feet stay anchored, and standing up is refused when a ceiling,
-  frame or prop underside is in the way.
-* **Objects and volumes can act.** Every authored object carries typed
-  components: an `interactable` object can be aimed at and pressing `E`
-  (rebindable) runs the entity's own event bindings — a bounded, typed action
-  batch such as `toggle_label`, `toggle`, `set_light`, `play_animation`,
-  `start_sequence`, `spawn_entity` or `reset_to_start`. `volumes[]` add
-  `enter_volume`/`exit_volume` edges with swept fast-fall detection. Bindings
-  may carry conditions, `once` and cooldowns, and actions feed further events,
-  so a switch → door → timer → sequence chain is map data. Timers, sequences
-  and spawn templates/points/groups are authored records too; a group with
-  `at_most_one_active` is the reusable encounter rule. Every placed instance
-  has a stable id, so two copies of one model stay independent. `play_sound`
-  and `change_material` are parsed and validated only where their component and
-  resource exist; see `docs/MAP_AUTHORING_GUIDE.md`.
-* **Ceilings** are flat by default; `{"kind": "gable", "ridge": "x",
-  "ridge_rise": 2.0}` adds a pitched ceiling, and gable-end walls follow the
-  slope unless they author their own height.
-
-## Project structure
-
-```text
-src/                 the game crate (`places`)
-    assets.rs        the catalog: ids, classes, themes, resource paths
-    level.rs         the authored level format (components, bindings, actions, sequences, spawns)
-    entities/        the component-oriented entity runtime (identity, components,
-                     events, timers, sequences, spawns, the world tick)
-    loader.rs        package discovery and validation, materials resolution
-    package/         the compiled map format: reader/writer, records, KTX2, player loader
-    compiler.rs      the offline compiler's build pipeline
-    bin/places-compile.rs  the offline compiler CLI
-    lighting/        the bake: partition areas, baselines, fixture pools, visibility
-    render/          the renderer: common/ (renderer-neutral preparation),
-                     wgpu/ (the renderer: device/surface lifecycle and every
-                     current feature), and the narrow Renderer facade
-    materials/       PNG decode, texture cache, material and decal resolution
-    game.rs          player state, movement, collision and the world tick
-    door.rs          the door phase machine, lock state and live collider
-    interact.rs      interaction targeting and the world-anchored labels
-    ui.rs            the menu, level select and settings screens
-assets/              the shipped content (catalog, levels, models, textures, decals)
-levels/              drop-in compiled packages (.placesmap)
-tools/               asset, texture, prop and level generators and validators
-tests/               the Python suites and their fixtures
-docs/                ARCHITECTURE.md, RENDERER.md, VERIFICATION.md and the guides
-docs/screenshots/    the images in this README
-docs/renderer-baseline/  readable record of the former renderer
-tests/fixtures/native/gles2-reference/  frozen 25-view Full/Low comparison inputs
-```
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the layer diagram, the
-module map and the renderer ownership rules, and
-[docs/RENDERER.md](docs/RENDERER.md) for the renderer reference.
-
-## Current development status
-
-Working and shipped:
-
-* first-person exploration with collision, floor-elevation traversal, gravity
-  and a frame-rate-independent jump;
-* proper mouse capture with relative look, released by any menu or focus loss
-  and re-captured on return (keyboard-only play is unaffected);
-* three environment themes with external PNG surfaces, three external decal
-  sheets and one generated validation marking;
-* baked RGB lighting driven by generic engine-level light sources (point,
-  rectangle and line shapes) with per-light colour, intensity, range, falloff
-  and enabled state; fixtures and props own lights, and neither materials nor
-  fixture families imply one;
-* baked lightmaps for static world geometry with a quality-profile density, an
-  exact vertex-lit fallback, and a deterministic content-keyed cache;
-* automatic static-prop occlusion (contact darkening, blocked pools, grounded
-  corners) derived from each placed model's own triangles;
-* a separate dynamic-object render path proven by the washing-machine drum
-  turning inside the appliance in Places Demo;
-* reusable water volumes with a translucent surface and wading/swimming/
-  surface states, authored in the level JSON and sampled by both the renderer
-  and the controller;
-* skinned entity models through the normal asset pipeline: the Spoonerman rig
-  renders with its skeleton, and its locomotion pose follows the player's
-  idle / walking / airborne / swimming state, with glTF animation clips played
-  when a model provides them;
-* true material emission (`emissive`, `emissive_intensity`, `emissive_mask`),
-  independent of environmental illumination: a surface or fixture face can read
-  fully bright while casting nothing, and a light can cast while nothing glows;
-* a lightweight surface response on top of that lighting: an optional normal map
-  (`normal_texture`, `normal_strength`), a sheen (`specular`, `specular_color`,
-  `shine`), all of it additive and view-dependent — dull paint, plastic,
-  metal, glossy tile, linoleum and wet floors read differently without a
-  physically based material model;
-* real transparency: a material's `alpha_mode` (`opaque`, `cutout` or `blend`)
-  decides whether its texture's alpha channel is ignored, alpha-tested, or
-  blended in a sorted pass with depth writes off, and window openings can carry
-  a `glass` material so a window holds an actual pane instead of being a hole;
-* an offscreen scene path: the 3D scene renders into a colour+depth target and
-  is presented to the window by a fullscreen quad, with the UI still drawn at
-  the drawable's own resolution;
-* Three runtime quality profiles (High, Medium, Low) that use the same assets,
-  with lower levels downscaling textures once at level load and the profile
-  switchable while playing;
-* a sectioned pause-menu Settings screen (Graphics, Display, Controls) backed by
-  one runtime settings state, with Graphics Quality, Bloom, VSync and the
-  Advanced group (Texture Filtering, Lightmaps, Reflections) applying
-  immediately, plus Window Mode and Resolution;
-* a 1920×1080 windowed desktop default that adapts to the display work area and
-  renders through the Retina drawable, never a stretched low-resolution target;
-* multi-material / multi-primitive GLB props with per-primitive textures and
-  emission;
-* wall-boundary lighting isolation, including light through openings;
-* rooms with per-room floor elevation, clear height, flat and gable ceilings;
-* recessed and raised floor regions with real transition geometry;
-* props and entities placed by logical id, with authored collision boxes;
-* one official demo level, and compact regression fixtures that back the
-  automated tests without shipping;
-* the generated **Model Zoo**, a bundled showroom that displays every
-  registered placeable model exactly as the catalog defines it, together with
-  the pose, route, interaction and mount demonstrations — regenerated from the
-  catalog, never hand-edited;
-* a collision index that keeps movement, support, headroom, aiming, labels and
-  entity routes bounded as a level grows past five thousand instances;
-* a clean packaged distribution and a catalog-driven content pipeline.
-
-Known limitations, all deliberate:
-
-* no gameplay systems — no objectives, inventory, enemies or scripting;
-* no realtime dynamic lights and no realtime shadow maps; reflections are a
-  static probe baked per level load or at most one half-resolution planar mirror
-  per frame, never a dynamic scene reflection;
-* no physically based material model: the surface response is a normal map plus
-  a view-dependent sheen shaped by `shine` (`0.0` matte .. `1.0` glossy, with an
-  optional per-surface override in a level), not a BRDF, and it has no light
-  direction to place a highlighted specular from;
-* no refraction, no transmission through glass to the lighting bake, no
-  per-object alpha on GLB props (a prop's glTF `alphaMode` is not read yet);
-* dynamic objects are engine-spawned, not authorable from a level, and are lit
-  by one probe of the static bake (no shadows, no self-occlusion);
-* lightmaps are baked and cached, never hand-authored, and a bake that cannot
-  fit its page budget falls back to vertex lighting;
-* emission reaches surfaces and fixture faces; emissive decals and cone/spot
-  lights are not implemented yet;
-* Spoonerman ships seven authored clips and follows a slow six-destination demo
-  route. Per-instance cues drive playback; rigs without clips use the procedural
-  locomotion fallback;
-* the surface response is drawn at Full quality only: Low keeps the same
-  materials, albedo, emission and alpha and leaves the normal/sheen term out;
-* floor regions are rectangular and flat; separate `ramps` and `stairs`
-  primitives provide sloped and stepped traversal;
-* no traversal between stacked rooms, and no ceiling or floor openings;
-* decals cannot cross a floor or ceiling height change, and a gable ceiling
-  takes no decals;
-* rooms and straight walls are rectangular; `arc_walls` and circular `pillars`
-  provide curved geometry with segment-derived collision;
-* the renderer draws the complete frame — the baked lightmap atlas (and the
-  vertex-lit fallback), props, dynamics, fixtures, emission, decals, probes and
-  the planar mirror, fog, bloom/post and the HUD — with the material surface
-  response. See [docs/RENDERER.md](docs/RENDERER.md). The former GLES2
-  renderer is preserved at the `renderer-gles2-reference` tag; see
-  [docs/RENDERER_REFERENCE.md](docs/RENDERER_REFERENCE.md).
-
-## Rendering notes
-
-The renderer draws the world in one pass: a baked vertex colour multiplied by a
-sampled texel, plus a material emission term, plus an optional surface-response
-term (`texture2D(u_texture, v_uv) * v_color * light + sheen + reflection + emission`). The
-emissive term is added *after* the light multiply, so darkness cannot extinguish
-it, and it never becomes illumination — environmental light comes only from the
-generic light sources a level places. The response term is a view-dependent
-Fresnel sheen scaled by the same baked light (there is no light direction in the
-bake, so there is no highlighted specular to place), shaped by the material's
-`shine` and an optional normal map perturbing the shading normal: a low-shine
-surface keeps a broad grazing sheen and a faint, blurred reflection, a high-shine
-one a tight highlight and a recognizable image. A separate decal pass alpha-tests
-a cut-out sheet over the surface it belongs to. Lighting is computed once per
-level load, never per frame.
-
-The scene is rendered into an offscreen colour+depth target and resolved into the
-display image by one fullscreen pass; the HUD is drawn afterwards, into the
-presented image, at the drawable's own resolution, so it stays sharp and outside
-every post-processing stage. The targets track the drawable's size and aspect
-ratio (nothing is stretched) and fall back to drawing straight into the
-framebuffer if the offscreen targets cannot be created.
-
-The resolve stage adds bloom, exposure and a subtle grade, and it is the only
-place a scene pixel becomes a display pixel. Bloom is drawn from the world's
-**emissive term alone** — never from brightness — so a brightly lit wall cannot
-glow; the tone curve is a soft shoulder above 0.75 that leaves the baked
-lighting's own contrast untouched below it; and the fog is a scalar mix in the
-world shader. Bloom is a **player setting** (Settings → Graphics → Bloom), not
-part of the quality profile, so `High + Bloom Off` and `Low + Bloom On` are both
-valid; with Bloom off no emissive or blur pass is submitted and the bloom targets
-are released, and with `Low` plus Bloom off the resolve stage is the identity and
-presents the scene with the plain copy quad. `PLACES_NO_BLOOM=1` /
-`PLACES_NO_REFLECTIONS=1` still measure each stage alone for a benchmark run.
-
-Reflections are opt-in per material: a **probe** reads a small cubemap baked once
-per level load, a **planar** mirror draws a real second view of the level through
-the surface's own plane (at most one plane per frame, half resolution, `Full`
-only). Both are weighted by the sheen the material already authors, so a rough or
-dull surface suppresses its reflection instead of mirroring. Reflections are a
-player setting too (Settings → Graphics → Reflections); turning them off removes
-the planar pass, the probe bake and the reflection texture binds from the frame
-without a level reload.
-
-
-Transparent surfaces are drawn after everything opaque, sorted back to front by
-the distance from the camera to their spatial batch, with depth testing on and
-depth writes off; alpha-tested surfaces are drawn with the opaque world through a
-separate fragment stage so the opaque pass keeps early depth testing.
-
-Three runtime quality levels decide how much of an accepted source texture
-reaches the GPU and how large the scene target is. **High** is the historical
-Places runtime size (surface, fixture and decal sheets up to 1024, prop sheets
-up to 256) and uploads shipped assets unchanged. **Medium** halves sheets to 512
-and masks to 256 and renders the scene at half the drawable; **Low** uses the
-same assets and box-filters each one once at level load (sheets 256, prop sheets
-128, emissive masks 128) and renders the scene no wider than the historical 480
-px reference width. Downscaling is a load-time step that is cached with the
-texture it produced, never a per-frame cost, and `"quality"` in `settings.json`
-(or `PLACES_QUALITY=low|medium|high` for one run) selects
-the level. The level is a selector in Settings → Graphics and can be changed
-while playing: the change is applied as one diffed transaction, the resident
-level's CPU build is retained, and only the resources the change actually needs
-are re-fitted or rebuilt, with the player, camera and game state untouched. An
-uncached lightmap atlas fills on a worker thread while the previous lighting
-keeps rendering, so the window never freezes waiting for a bake.
-
-The overall level also cascades the three **Advanced** settings to their preset
-defaults (Low → Filtering Low / Lightmaps Off / Reflections Off, Medium →
-Medium / Medium / Medium, High → High / Full / Full). The player may override
-each independently — Texture Filtering changes sampler handles and no pixel
-data, Lightmaps swaps the baked atlas for the vertex-lit fallback or a smaller
-bake, and Reflections removes the probes and the planar pass — and an override
-never changes the level's label. Bloom and VSync stay ordinary top-level rows,
-independent of the level.
-
-A decal owns its depth plane by construction, in two halves that level authors
-never have to think about:
-
-* `DECAL_SURFACE_OFFSET_M` displaces every decal 0.2 mm along its surface
-  normal. That is a real geometric separation, sub-pixel at any practical
-  viewing distance, so the base texture cannot win a pixel in the near and mid
-  field no matter how the rasteriser fits its plane equations.
-* `DECAL_POLYGON_OFFSET` adds a slope-scaled depth bias in the decal pass, so
-  the far field and grazing angles stay in front of the parent surface after the
-  physical offset is below the depth buffer's resolution. The slope-scaled term
-  tracks the interpolation error, which grows with the depth slope.
-
-Both are defined once — `DECAL_SURFACE_OFFSET_M` and `DECAL_POLYGON_OFFSET`
-in `src/render/common/decals.rs` — and applied in one place,
-`render::add_decal_quad`, so a decal authored later inherits the fix
-automatically.
-
-There is no sRGB or gamma handling, and adding some is not the small fix it
-looks like:
-
-* A shader-only "decode both factors, multiply, re-encode" pair is
-  **algebraically an identity** — `encode(decode(a) · decode(b)) = a · b` — so it
-  cannot change a single multiply. (Verified: patching both fragment shaders to
-  do exactly that produced a byte-identical frame.)
-* The place a linear pipeline genuinely differs is where the bake **adds**
-  terms on the CPU: room baseline + fixture pool + doorway blend. Summing those
-  in linear space would darken every fixture pool by roughly 17–28 % on the
-  shipped constants and would compress the channel ratios that make the coloured
-  rooms read as coloured, so it is a re-calibration of the whole lighting and
-  art set, not a correctness toggle.
-
-The current pipeline is calibrated as a whole. Historical investigations
-remain available in Git history. The renderer reference documents the colour
-contract in full: [docs/RENDERER.md](docs/RENDERER.md).
-
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for the full history, including the
-distribution, branding, documentation and demo work.
-
-## License
-
-MIT. See [LICENSE](LICENSE). Third-party notices are in
-[THIRD_PARTY_LICENSES.txt](THIRD_PARTY_LICENSES.txt).
+MIT; see [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_LICENSES.txt).

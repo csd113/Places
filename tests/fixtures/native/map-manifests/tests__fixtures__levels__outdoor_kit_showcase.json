@@ -2,7 +2,7 @@
   "format_version": 1,
   "level": "outdoor_kit_showcase",
   "source": "tests/fixtures/levels/outdoor_kit_showcase.json",
-  "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__outdoor_kit_showcase.placesmap",
+  "package": "target/verification/maps/tests__fixtures__levels__outdoor_kit_showcase.placesmap",
   "settings": {
     "bindings": {
       "forward": "W",

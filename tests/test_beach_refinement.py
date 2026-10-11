@@ -63,7 +63,7 @@ def authored_mesh(name, module):
 class BeachRefinementTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.level = json.loads((ROOT / 'assets/levels/beach_demo.json').read_text())
+        cls.level = json.loads((ROOT / 'levels/beach_demo.json').read_text())
         cls.props = {prop['id']: prop for prop in cls.level['props']}
         cls.catalog = {entry['id']: entry for entry in
                        json.loads((ROOT / 'assets/catalog.json').read_text())['assets']}
@@ -96,7 +96,7 @@ class BeachRefinementTests(unittest.TestCase):
                 self.assertEqual({round(face[0][0], 6) for face in caps}, {-24, 24})
                 self.assertLessEqual(len(mesh.indices)//3, 600)
         shipped = self.meshes['cove_foam']
-        self.assertIn((ROOT / 'assets/environment/beach/props/models/beach_palette.png').read_bytes(),
+        self.assertIn((ROOT / 'assets/environments/beach/props/beach_palette.png').read_bytes(),
                       shipped.texture_pngs)
         self.assertTrue(all(material.get('alphaMode', 'OPAQUE') == 'OPAQUE'
                             for material in shipped.json['materials']))

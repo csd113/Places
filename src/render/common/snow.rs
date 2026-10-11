@@ -414,15 +414,13 @@ fn random(key: u32) -> f32 {
 mod tests {
     use super::*;
     fn scene() -> Result<SnowScene, serde_json::Error> {
-        let level: LevelDef =
-            serde_json::from_str(include_str!("../../../assets/levels/winter.json"))?;
+        let level: LevelDef = serde_json::from_str(include_str!("../../../levels/winter.json"))?;
         Ok(SnowScene::build(&level, &SnowfallDef::default(), 0, 1.0))
     }
     #[test]
     fn severe_streaks_and_quality_prefixes_use_bounded_retained_storage()
     -> Result<(), Box<dyn std::error::Error>> {
-        let level: LevelDef =
-            serde_json::from_str(include_str!("../../../assets/levels/winter.json"))?;
+        let level: LevelDef = serde_json::from_str(include_str!("../../../levels/winter.json"))?;
         let mut config = SnowfallDef::blizzard();
         config.intensity = 0.5;
         let scene = SnowScene::build(&level, &config, 0, 1.0);
@@ -476,8 +474,7 @@ mod tests {
 
     #[test]
     fn extinction_culls_are_not_misreported_as_roof_suppression() -> Result<(), serde_json::Error> {
-        let level: LevelDef =
-            serde_json::from_str(include_str!("../../../assets/levels/winter.json"))?;
+        let level: LevelDef = serde_json::from_str(include_str!("../../../levels/winter.json"))?;
         let mut scene = SnowScene::build(&level, &SnowfallDef::blizzard(), 0, 1.0);
         scene.shelters.clear();
         scene.storm.count = [0; 4];
@@ -506,8 +503,7 @@ mod tests {
     #[test]
     fn weather_preset_timeline_preserves_phase_distribution_at_every_quality()
     -> Result<(), Box<dyn std::error::Error>> {
-        let level: LevelDef =
-            serde_json::from_str(include_str!("../../../assets/levels/winter.json"))?;
+        let level: LevelDef = serde_json::from_str(include_str!("../../../levels/winter.json"))?;
         let base = level.weather.as_ref().ok_or("Winter needs base weather")?;
         let endpoint = level
             .weather_alternate
@@ -675,8 +671,7 @@ mod tests {
         fixed_dimensions: bool,
         automatic: bool,
     ) -> Result<(), serde_json::Error> {
-        let level: LevelDef =
-            serde_json::from_str(include_str!("../../../assets/levels/winter.json"))?;
+        let level: LevelDef = serde_json::from_str(include_str!("../../../levels/winter.json"))?;
         let mut snow = scene()?;
         let mut endpoint = SnowfallDef::blizzard();
         if fixed_dimensions {

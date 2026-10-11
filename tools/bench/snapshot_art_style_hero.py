@@ -70,7 +70,7 @@ def main() -> int:
     copies.extend(('assets/'+str(relative), ROOT/'assets'/relative) for relative in extra_assets
                   if all(name != 'assets/'+str(relative) for name, _ in copies))
     # Embedded fallbacks remain in the player; keep their real source files too.
-    for relative in ['core/textures/white_01.png', 'core/textures/missing_01.png']:
+    for relative in ['shared/textures/white_01.png', 'shared/textures/missing_01.png']:
         source = ROOT/'assets'/relative
         if source.is_file() and all(name != 'assets/'+relative for name, _ in copies):
             copies.append(('assets/'+relative, source))

@@ -46,7 +46,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
 APP_ROOT = Path(__file__).resolve().parent.parent.parent
-LEVEL_PATH = APP_ROOT / "assets" / "levels" / "places_demo.json"
+LEVEL_PATH = APP_ROOT / "levels" / "places_demo.json"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import outdoors_dressing

@@ -431,51 +431,51 @@ def build_white() -> Canvas:
 
 ART = {
     "core:tex_glass_clear_01": {
-        "model": "core/textures/glass/glass_clear_01.png",
+        "model": "shared/textures/glass/glass_clear_01.png",
         "build": build_glass_clear,
     },
     "core:tex_glass_dirty_01": {
-        "model": "core/textures/glass/glass_dirty_01.png",
+        "model": "shared/textures/glass/glass_dirty_01.png",
         "build": build_glass_dirty,
     },
     "core:tex_glass_tinted_01": {
-        "model": "core/textures/glass/glass_tinted_01.png",
+        "model": "shared/textures/glass/glass_tinted_01.png",
         "build": build_glass_tinted,
     },
     "core:tex_linoleum_01": {
-        "model": "core/textures/floors/linoleum_01.png",
+        "model": "shared/textures/floors/linoleum_01.png",
         "build": build_linoleum,
     },
     "core:tex_metal_panel_01": {
-        "model": "core/textures/walls/metal_panel_01.png",
+        "model": "shared/textures/walls/metal_panel_01.png",
         "build": build_metal_panel,
     },
     "core:tex_metal_brass_01": {
-        "model": "core/textures/metal/brass_01.png",
+        "model": "shared/textures/metal/brass_01.png",
         "build": build_brass,
     },
     "core:tex_plastic_panel_01": {
-        "model": "core/textures/walls/plastic_panel_01.png",
+        "model": "shared/textures/walls/plastic_panel_01.png",
         "build": build_plastic_panel,
     },
     "core:tex_grille_01": {
-        "model": "core/textures/walls/grille_01.png",
+        "model": "shared/textures/walls/grille_01.png",
         "build": build_grille,
     },
     "core:tex_normal_panel_01": {
-        "model": "core/textures/normals/normal_panel_01.png",
+        "model": "shared/textures/normals/normal_panel_01.png",
         "build": build_normal_panel,
     },
     "core:tex_normal_brushed_01": {
-        "model": "core/textures/normals/normal_brushed_01.png",
+        "model": "shared/textures/normals/normal_brushed_01.png",
         "build": build_normal_brushed,
     },
     "core:tex_white_01": {
-        "model": "core/textures/white_01.png",
+        "model": "shared/textures/white_01.png",
         "build": build_white,
     },
     "core:tex_steam_01": {
-        "model": "core/textures/effects/steam_01.png",
+        "model": "shared/textures/effects/steam_01.png",
         "build": build_steam,
     },
 }

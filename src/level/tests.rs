@@ -2599,7 +2599,7 @@ fn a_sink_collider_is_its_standable_deck_not_the_faucet_post() {
 /// the raised jump apex can land on.
 #[test]
 fn the_shipped_demo_counters_are_clear_above_their_tops() {
-    let content = std::fs::read_to_string("assets/levels/places_demo.json")
+    let content = std::fs::read_to_string("levels/places_demo.json")
         .expect("the Places demo level is present");
     let level = LevelDef::from_json(&content).expect("the Places demo parses");
 

@@ -479,41 +479,41 @@ def build_path_corner() -> Canvas:
 
 ART = {
     "outdoor:tex_grass_ground_01": {
-        "model": "environment/outdoor/textures/ground/grass_ground_01.png",
+        "model": "environments/outdoor/textures/floors/grass_ground_01.png",
         "build": build_grass_ground,
     },
     "outdoor:tex_dirt_gravel_01": {
-        "model": "environment/outdoor/textures/ground/dirt_gravel_01.png",
+        "model": "environments/outdoor/textures/floors/dirt_gravel_01.png",
         "build": build_dirt_gravel,
     },
     "outdoor:tex_concrete_pavement_01": {
-        "model": "environment/outdoor/textures/ground/concrete_pavement_01.png",
+        "model": "environments/outdoor/textures/floors/concrete_pavement_01.png",
         "build": build_concrete_pavement,
     },
     "outdoor:tex_house_siding_01": {
-        "model": "environment/outdoor/textures/house/siding_01.png",
+        "model": "environments/outdoor/textures/walls/siding_01.png",
         "build": build_house_siding,
     },
     "outdoor:tex_house_roof_shingle_01": {
-        "model": "environment/outdoor/textures/house/roof_shingle_01.png",
+        "model": "environments/outdoor/textures/ceilings/roof_shingle_01.png",
         "build": build_house_roof_shingle,
     },
     "outdoor:tex_sky_stars_01": {
-        "model": "environment/outdoor/textures/sky/sky_stars_01.png",
+        "model": "environments/outdoor/textures/sky/sky_stars_01.png",
         "build": build_sky_stars,
     },
     "outdoor:decal_path_edge_01": {
-        "model": "environment/outdoor/textures/decals/path_edge_01.png",
+        "model": "environments/outdoor/decals/path_edge_01.png",
         "build": build_path_edge,
         "kind": "decal",
     },
     "outdoor:decal_path_end_01": {
-        "model": "environment/outdoor/textures/decals/path_end_01.png",
+        "model": "environments/outdoor/decals/path_end_01.png",
         "build": build_path_end,
         "kind": "decal",
     },
     "outdoor:decal_path_corner_01": {
-        "model": "environment/outdoor/textures/decals/path_corner_01.png",
+        "model": "environments/outdoor/decals/path_corner_01.png",
         "build": build_path_corner,
         "kind": "decal",
     },

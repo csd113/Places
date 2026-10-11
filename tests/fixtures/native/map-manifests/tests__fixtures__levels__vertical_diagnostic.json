@@ -2,7 +2,7 @@
   "format_version": 1,
   "level": "vertical_diagnostic",
   "source": "tests/fixtures/levels/vertical_diagnostic.json",
-  "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__vertical_diagnostic.placesmap",
+  "package": "target/verification/maps/tests__fixtures__levels__vertical_diagnostic.placesmap",
   "settings": {
     "bindings": {
       "forward": "W",

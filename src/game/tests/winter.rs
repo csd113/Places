@@ -2,7 +2,7 @@
 use super::*;
 
 fn winter() -> LevelDef {
-    LevelDef::from_json(include_str!("../../../assets/levels/winter.json"))
+    LevelDef::from_json(include_str!("../../../levels/winter.json"))
         .expect("shipped Winter source parses")
 }
 

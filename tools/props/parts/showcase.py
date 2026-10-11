@@ -12,7 +12,7 @@ from pathlib import Path
 from mesh import PropBuilder
 from parts.refreshed import load_atlas_from, orient_outward, solid_box, solid_cylinder
 
-MODEL_DIR = Path(__file__).resolve().parents[3] / 'assets/environment/outdoor/props/models'
+MODEL_DIR = Path(__file__).resolve().parents[3] / 'assets/environments/outdoor/props'
 
 SIZES = {
     'road_straight': (8.0, .07, 6.0),

@@ -39,13 +39,27 @@ Per platform:
 | Linux | install SDL3 development headers and `pkg-config` (Debian/Ubuntu: `libsdl3-dev`; Fedora: `SDL3-devel`; Arch: `sdl3` + `pkgconf`) plus the Vulkan loader and a driver (`libvulkan1`/`vulkan-icd-loader`, `mesa-vulkan-drivers`) |
 | Windows | install SDL3 (for example `vcpkg install sdl3`, or a prebuilt SDL3 development package) and a C/C++ toolchain (MSVC Build Tools with the C++ workload, or MinGW-w64); the backend is Direct3D 12 |
 
-`.github/workflows/rust.yml` runs the shared Rust gate on macOS for pushes,
-pull requests and manual runs. It selects `rust-toolchain.toml`, installs SDL3
-and `pkg-config`, and calls `sh tools/check-rust.sh`. The desktop gate below
-calls that same script after asset/package preparation and the final player
-rebuild, then runs the Python and native GPU checks.
-CI runs the ordinary Rust tests; ignored GPU diagnostics and real-window
-campaigns still require the desktop gate.
+`.github/workflows/rust.yml` starts with a source-only macOS checkout for pushes,
+pull requests and manual runs. It rejects any tracked `.placesmap`, selects
+`rust-toolchain.toml`, installs SDL3, `pkg-config` and the Python dependencies,
+and runs the shared Rust gate, source Python contracts and maintained asset/
+generator checks within a 180-minute budget, including real source-built Full
+archive regressions. A dependent Ubuntu matrix derives
+its eight jobs from the validated `levels/lineup.txt`. Each uses a Debian trixie
+container with SDL3 and Mesa's software Vulkan driver to build the current
+release compiler and its map through `tools/levels/compile.py --map ID`.
+Every map retains Off/Medium/Full variants and normal reflection capture, then
+runs all package and weather assertions, with two workers and a 120-minute
+clean-build budget per map. Independent jobs keep large bakes from serializing
+the entire lineup; the default desktop command still builds all eight together.
+The map job explicitly selects the lavapipe ICD; a missing adapter fails rather
+than producing reduced packages. This establishes a software capture build, not
+native GPU or performance evidence. GitHub's
+[runner specifications](https://docs.github.com/en/actions/reference/runners/larger-runners)
+advertise macOS GPU acceleration on the larger xlarge runner, so the map job
+does not assume a Metal adapter on the standard macOS VM. Real-window smoke
+suites are explicitly excluded from the source Python phase. Ignored GPU
+diagnostics, export acceptance and real-window campaigns require the desktop gate.
 
 The Rust and Clippy policy is configured in `Cargo.toml`: warnings, future
 incompatibilities, unused results, unsafe operations and all four useful Clippy
@@ -57,12 +71,13 @@ arithmetic remains ordinary engine math.
 
 ## 2. The gate
 
-The authoritative `sh tools/verify.sh` first builds ordinary release tools and
-checks maintained assets/generators. It recursively inventories `assets/levels`,
-`levels` and `tests/fixtures/levels`; it then prepares and verifies every supported
-source before discovery tests. Preserve historical packages and receipts before
-intentionally replacing affected installed archives. The source-path inventory
-keeps duplicate level IDs distinct rather than silently deduplicating fixtures.
+The authoritative `sh tools/verify.sh` builds ordinary release tools once,
+checks maintained assets/generators, and explicitly compiles every ID in
+`levels/lineup.txt` to `assets/levels/`. It then verifies package/weather contracts,
+the shared Rust gate, Python/export/native suites and the required ignored GPU
+tests. Compiled maps are generated outputs: neither Rust binary embeds or depends
+on them. A source-only checkout has no playable maps until this explicit build
+step; missing Demo loading reports the build/import action and remains retryable.
 
 ```sh
 sh tools/verify.sh
@@ -71,7 +86,7 @@ sh tools/verify.sh
 The script stops at its first failed phase. Its current order is:
 
 ```sh
-cargo build --release
+cargo build --locked --release
 python3 tools/assets/validate.py
 python3 tools/props/build.py --check
 python3 tools/assets/audit.py --workers 12 --out target/verification/asset-inventory.json
@@ -86,16 +101,15 @@ python3 tools/levels/build_beach.py --check
 python3 tools/levels/build_frutiger_aero.py --check
 python3 tools/textures/frutiger_aero_art.py --check
 python3 tools/levels/build_capacity_fixtures.py --check
-map_gate_root="target/verification/map-regression-$(date -u +%Y%m%dT%H%M%SZ)-$$"
-python3 tools/bench/regression_maps.py --run-packages \
-  --compiler target/release/places-compile --out "$map_gate_root" \
-  --prepared-root target/verification/maps --install-source-packages
-shasum -a 256 target/release/places-compile > "$map_gate_root/compiler-before.sha256"
-cargo build --release
-shasum -a 256 target/release/places-compile > "$map_gate_root/compiler-after.sha256"
-cmp "$map_gate_root/compiler-before.sha256" "$map_gate_root/compiler-after.sha256"
+python3 tools/levels/compile.py --workers "${PLACES_VERIFY_WORKERS:-8}"
+python3 -m unittest tests.built_maps
+PLACES_WEATHER_PACKAGE_DIR="$PWD/assets/levels" \
+  python3 -m unittest tests.test_weather.PackagedWeatherTests
+# Optional full fixture compilation runs here when PLACES_VERIFY_ALL_MAPS=1.
 sh tools/check-rust.sh
 cargo test --lib bundled_static_models_fit_medium_and_full_atlas_plans -- --ignored
+PLACES_SKIP_SMOKE=0 PLACES_SMOKE_BIN="$PWD/target/release/places" \
+PLACES_TEST_EXPORT=1 PLACES_WEATHER_PACKAGE_DIR="$PWD/assets/levels" \
 python3 -m unittest discover -s tests -p 'test_*.py'
 cargo test --lib render::wgpu::renderer::low_lighting_tests -- --ignored --test-threads=1
 git diff --check
@@ -104,10 +118,33 @@ git diff --check
 `sh tools/check-rust.sh` is also the exact CI Rust gate: formatting, locked
 workspace/all-target/all-feature check, strict debug and release Clippy, then
 locked workspace/all-feature tests. The whole Python discovery includes package,
-asset, source/schema, portable packaging and native loading/window suites. An
-older binary cannot stand in for the current source and pinned toolchain.
+asset, source/schema, portable packaging and native loading/window suites. Export
+acceptance is enabled with `PLACES_TEST_EXPORT=1`, and packaged weather checks use
+the explicit `PLACES_WEATHER_PACKAGE_DIR`. The gate pins native smoke tests to the
+release player it just built. An older binary cannot stand in for the current
+source and pinned toolchain.
 
-The package runner records the complete recursive inventory, actual commands,
+The broader package regression campaign remains available for compiler, capacity
+and geometry changes:
+
+```sh
+PLACES_VERIFY_ALL_MAPS=1 sh tools/verify.sh
+```
+
+This adds the recursive `levels/` and `tests/fixtures/levels/` package campaign;
+ordinary Rust/Python fixture regressions run in every gate. It preserves duplicate
+IDs as separate source paths and writes new receipts under `target/verification/`.
+Preserve historical packages and receipts before intentionally replacing installed
+archives. Its equivalent standalone command uses the already-built compiler:
+
+```sh
+map_gate_root="target/verification/map-regression-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+python3 tools/bench/regression_maps.py --run-packages \
+  --compiler target/release/places-compile --out "$map_gate_root" \
+  --prepared-root target/verification/maps --install-source-packages
+```
+
+The package runner records the recursive inventory, actual commands,
 UTC times, exit statuses and source/tool identities in a new campaign directory.
 It retains the impossible arc-wall fixture's named loader rejection and the
 synthetic-ID positive CPU boundary witness's existing nonplayable contract.
@@ -145,14 +182,13 @@ changes conservatively rebake. A retained transient public `LightmapCache` is
 for immutable resolved inputs and must be cleared after caller-owned edits; the
 player installs prepared manifest/quality variants rather than that transient cache.
 
-After refreshing the embedded demo, rebuild the ordinary player and compiler,
-record the compiler SHA before/after, and repeat required-current plus unchanged
-builds. A current unchanged build must report `rebuilt: false` and preserve package
-bytes. The retained Stage 6 macOS release compiler excludes the player's embedded
-fallback archive; verify the final empirical executable identity rather than
-assuming dead stripping is sufficient on every build/platform.
-Diagnostic and normal builds have distinct executable identities: never substitute
-one tool for another after its package provenance was recorded.
+Build the compiler before authoring packages and retain that executable throughout
+verification. Map/asset changes require an explicit package build, with no player
+rebuild. Rust/compiler changes require rebuilding the tools first, then repeating
+required-current and unchanged builds. A current unchanged build must report
+`rebuilt: false` and preserve package bytes. Diagnostic and normal builds have
+distinct executable identities: never substitute one tool for another after its
+package provenance was recorded.
 
 The package suite runs the texture CLI `--check`; the gate does not invoke it twice.
 
@@ -166,8 +202,9 @@ Wayland hosts require `DISPLAY`/`WAYLAND_DISPLAY`. A native Windows session
 without a usable desktop fails with the binary's window error instead of being
 silently skipped. `tests/test_packaging.py` exercises the `tools/package.sh`
 destination guard against disposable fixtures, including a real packaging run
-whose unrelated siblings must survive; it needs the release binary and can be
-skipped with `PLACES_SKIP_PACKAGING=1`. `tests/test_glb_accessors.py` mirrors
+whose unrelated siblings must survive; the export case requires the release
+binary and current lineup and runs when `PLACES_TEST_EXPORT=1`.
+`tests/test_glb_accessors.py` mirrors
 the Rust GLB accessor fixtures in Python. `tests/test_bench_metrics.py` pins
 the loading-harness metric names and the settings-transition window rule.
 
@@ -176,7 +213,7 @@ behaviour is also pinned by the `geometry_check::tests` fixture suite):
 
 ```sh
 cargo run --release -- --check-geometry --level places_demo
-cargo run --release -- --check-geometry --level levels/level0_pit.json \
+cargo run --release -- --check-geometry --level tests/fixtures/levels/level0_pit.json \
     --json target/pit-geometry.json --markers-obj target/pit-markers.obj
 ```
 
@@ -190,7 +227,7 @@ with the planner and the order-preserving applier; the Rust suite additionally
 pins the five maintained sources against the `wall-joint-*` rules:
 
 ```sh
-cargo run --release -- --repair-geometry --level assets/levels/places_demo.json \
+cargo run --release -- --repair-geometry --level levels/places_demo.json \
     --plan target/demo-plan.json
 python3 tools/levels/repair_alignment.py --plan target/demo-plan.json --check
 python3 tools/levels/repair_alignment.py --plan target/demo-plan.json --apply
@@ -277,16 +314,19 @@ Generated authoring sources are not the playable content. After regenerating a
 source, recompile its package and verify it:
 
 ```sh
-./target/release/places-compile build assets/levels/model_zoo.json
+./target/release/places-compile build levels/model_zoo.json \
+    --out assets/levels/model_zoo.placesmap --asset-root assets
 ./target/release/places-compile validate assets/levels/model_zoo.placesmap
-./target/release/places-compile verify assets/levels/model_zoo.json \
-    --package assets/levels/model_zoo.placesmap
+./target/release/places-compile verify levels/model_zoo.json \
+    --package assets/levels/model_zoo.placesmap --require-current
 ```
 
 `validate` decodes every record and re-hashes every entry; `verify` compares the
 package's developer fingerprint with the source and asset identities as they are
-now. `tests/test_package.py` independently checks the bundled packages with the
-Python standard library (manifest shape, content addressing, variant payloads).
+now. `python3 -m unittest tests.built_maps` independently checks all eight compiled
+packages with the Python standard library (manifest shape, content addressing,
+variant payloads). `tests/test_package.py` runs its source/asset contracts without
+requiring existing compiled output.
 
 A player-side no-preparation check runs the built binary with a fresh, isolated
 state root and no source tree access:
@@ -294,13 +334,13 @@ state root and no source tree access:
 ```sh
 PLACES_STATE_ROOT="$PWD/target/verification/fresh-state" \
 PLACES_ASSET_ROOT="$PWD/assets" \
-PLACES_LOAD_TRACE=1 \
+PLACES_LOAD_TRACE="$PWD/target/verification/fresh-load.jsonl" \
 PLACES_LEVEL=places_demo ./target/release/places
 ```
 
 The trace must show the compiled level committed with no `[lightmaps] fill`
 step, and the state root must contain only writable player state (`levels/`,
-`import/`, `settings.json`, `cache/`). The texture generator skips shipped images whose dimensions differ
+`import/`, `settings.json`). The texture generator skips shipped images whose dimensions differ
 from its placeholder painter. Never use `--force` as a validation step. Use
 `python3 tools/props/animate_spooner_man.py` for the documented entity-only
 workflow. PNG artwork is loaded from committed assets at runtime.
@@ -493,7 +533,8 @@ On each remaining platform, from a graphical session:
 
 ```sh
 # 1. Build and confirm the native backend is the required one.
-cargo build --release
+cargo build --locked --release
+python3 tools/levels/compile.py --workers 4
 python3 -m unittest tests.test_wgpu_bootstrap
 PLACES_LEVEL=places_demo PLACES_VERBOSE=1 target/release/places
 #    -> "[renderer] wgpu | adapter: ... | backend: Vulkan|Dx12 | ..."

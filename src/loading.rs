@@ -16,7 +16,7 @@ use std::thread::JoinHandle;
 use crate::game::CollisionWorld;
 use crate::loader::{LevelEntry, LevelManager, LevelSourceType, LoadedLevel};
 use crate::package::collision::CompiledCollision;
-use crate::package::world::{ProbeCaptures, load_variant, load_variant_bytes};
+use crate::package::world::{ProbeCaptures, load_variant};
 use crate::props::PropAssets;
 use crate::quality::LightmapQuality;
 use crate::render::{CharacterScene, LevelBuild};
@@ -101,14 +101,14 @@ fn identities_match(left: &SourceIdentity, right: &SourceIdentity) -> bool {
 /// What the frame loop asks the worker to prepare.
 #[derive(Clone)]
 pub enum Source {
-    /// The default level: the bundled demo package (or the embedded copy).
+    /// The default level: the compiled bundled Demo package.
     Default,
     /// One discovered package, with the content identity captured when this
     /// request value was created.
     Entry(LevelEntry, SourceIdentity),
     /// A world whose definition and materials must be reused (graphics-only
     /// changes, e.g. a lightmap quality switch). The package is re-read from
-    /// its recorded location; the embedded fallback reads its embedded bytes.
+    /// its recorded location.
     Retained(Box<LoadedLevel>, SourceIdentity),
 }
 impl Source {
@@ -837,8 +837,7 @@ impl Loader {
     }
 }
 
-/// Decodes one package variant, resolving the embedded fallback's bytes when
-/// the entry is the embedded demo.
+/// Decodes one package variant from its discovered disk path.
 ///
 /// A package that does not declare the requested variant cannot serve it at
 /// any quality, so the error is the actionable one: it names the package, the
@@ -850,16 +849,6 @@ fn load_entry_variant(
     assets: &mut PropAssets,
 ) -> Result<crate::package::world::LoadedVariant, String> {
     match entry.source_type {
-        LevelSourceType::Embedded => {
-            let opened = crate::package::world::open_bytes(crate::loader::embedded_demo_package())?;
-            ensure_variant_supported(entry, &opened.manifest, quality)?;
-            load_variant_bytes(
-                crate::loader::embedded_demo_package(),
-                &opened.manifest,
-                quality,
-                assets,
-            )
-        }
         LevelSourceType::Bundled | LevelSourceType::Installed => {
             let opened = crate::package::world::open(&entry.path)?;
             ensure_variant_supported(entry, &opened.manifest, quality)?;

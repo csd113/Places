@@ -2,7 +2,7 @@
   "format_version": 1,
   "level": "prop_stress",
   "source": "tests/fixtures/levels/prop_stress.json",
-  "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__prop_stress.placesmap",
+  "package": "target/verification/maps/tests__fixtures__levels__prop_stress.placesmap",
   "settings": {
     "bindings": {
       "forward": "W",

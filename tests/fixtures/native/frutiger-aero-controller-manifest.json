@@ -1,7 +1,7 @@
 {
   "format_version": 1,
   "level": "frutiger_aero_demo",
-  "source": "assets/levels/frutiger_aero_demo.json",
+  "source": "levels/frutiger_aero_demo.json",
   "package": "assets/levels/frutiger_aero_demo.placesmap",
   "base_revision": "572decd76f7b577ab1a30be8a5dec50864bad4cf",
   "settings": {

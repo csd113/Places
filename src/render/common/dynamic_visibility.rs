@@ -236,7 +236,7 @@ mod tests {
             &[],
         )
         .ok_or("hero transport scene")?;
-        let asset = assets.resolve("environment/home/props/models/dining_chair.glb")?;
+        let asset = assets.resolve("environments/home/props/dining_chair.glb")?;
         let mut dynamic = DynamicScene::new();
         let mut ids = Vec::new();
         for row in 0_u16..4 {

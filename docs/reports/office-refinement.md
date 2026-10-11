@@ -6,7 +6,7 @@ that tested version; the canonical guides govern current contracts.
 The existing Office assets now have separately readable furniture construction,
 stronger material artwork and remade wallpaper. Asset IDs, material settings,
 collision footprints, map sources and the rendering architecture are preserved.
-The reference is `assets/environment/office/Liminal Office Worlds Asset Board.png`.
+The reference is `assets/references/office/Liminal Office Worlds Asset Board.png`.
 
 ## Reference analysis and inventory
 
@@ -221,8 +221,8 @@ remain compatible.
 
 ## Files changed
 
-* `assets/environment/office/README.md`; five Office prop GLBs, five native PNGs
-  and five new master PNGs under `assets/environment/office/props/models/`.
+* `assets/environments/office/README.md`; five Office prop GLBs, five native PNGs
+  and five new master PNGs under `assets/environments/office/props/`.
 * Five Office surface/fixture PNGs: both wallpapers, damp carpet, stained
   ceiling and fluorescent face. Clean carpet and clean ceiling remain intact.
 * `tools/props/parts/office_refined.py`, `tools/props/build_office_textures.py`,

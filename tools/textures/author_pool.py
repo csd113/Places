@@ -11,7 +11,7 @@ import random
 
 from PIL import Image, ImageDraw
 
-ROOT = Path(__file__).resolve().parents[2] / "assets/environment/pool"
+ROOT = Path(__file__).resolve().parents[2] / "assets/environments/pool"
 SIZE = 1024
 
 
@@ -73,9 +73,9 @@ def atlas(name, colors, seed, kind="resin"):
                 draw.line((ox+2,oy+y,ox+509,oy+y),fill=(202,202,193),width=3)
             for x in range(16,512,48):
                 draw.rectangle((ox+x,oy+5,ox+x+5,oy+11), fill=(166,171,169))
-    master = ROOT / f"props/models/{name}_master.png"
+    master = ROOT / f"props/{name}_master.png"
     save(image, master)
-    save(image.resize((256,256),Image.Resampling.LANCZOS), ROOT / f"props/models/{name}.png")
+    save(image.resize((256,256),Image.Resampling.LANCZOS), ROOT / f"props/{name}.png")
 
 
 def main():

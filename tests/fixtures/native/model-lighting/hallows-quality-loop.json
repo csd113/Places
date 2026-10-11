@@ -16,22 +16,22 @@
   },
   {
     "frame": 120,
-    "capture": "debug-maps/model-lighting-replay/hallows-quality/00-low.png"
+    "capture": "target/verification/model-lighting-replay/hallows-quality/00-low.png"
   },
   {
     "frame": 360,
-    "capture": "debug-maps/model-lighting-replay/hallows-quality/01-medium.png"
+    "capture": "target/verification/model-lighting-replay/hallows-quality/01-medium.png"
   },
   {
     "frame": 600,
-    "capture": "debug-maps/model-lighting-replay/hallows-quality/02-high.png"
+    "capture": "target/verification/model-lighting-replay/hallows-quality/02-high.png"
   },
   {
     "frame": 840,
-    "capture": "debug-maps/model-lighting-replay/hallows-quality/03-low-restored.png"
+    "capture": "target/verification/model-lighting-replay/hallows-quality/03-low-restored.png"
   },
   {
     "frame": 1080,
-    "capture": "debug-maps/model-lighting-replay/hallows-quality/04-high-restored.png"
+    "capture": "target/verification/model-lighting-replay/hallows-quality/04-high-restored.png"
   }
 ]

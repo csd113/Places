@@ -21,7 +21,7 @@ class MapRegressionInventoryTests(unittest.TestCase):
         self.assertEqual(len(rows), len(actual))
         remaining = [row["source"] for row in rows[6:]]
         self.assertEqual(remaining, sorted(remaining))
-        self.assertGreater(sum(row["level"] == "art_style_hero" for row in rows), 1)
+        self.assertTrue({"architecture_before", "architecture_after", "material_transport"}.issubset({row["level"] for row in rows}))
 
     def test_nested_controls_and_coincident_level_ids_are_not_omitted(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -64,7 +64,7 @@ class MapRegressionInventoryTests(unittest.TestCase):
             self.assertEqual(json.loads(path.read_text()), dict(first=True))
 
     def test_installation_is_explicit_and_fixtures_reuse_a_stable_prepared_root(self):
-        shipped = dict(key="shipped", source="assets/levels/demo.json", classification="playable")
+        shipped = dict(key="shipped", source="levels/demo.json", classification="playable")
         fixture = dict(key="fixture", source="tests/fixtures/levels/sample.json", classification="playable")
         compiler, out, prepared = Path("/compiler"), Path("/evidence"), Path("/stable")
         for row, expected in ((shipped, str(ROOT / "assets/levels/demo.placesmap")),

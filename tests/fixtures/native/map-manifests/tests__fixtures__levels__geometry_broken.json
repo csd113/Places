@@ -2,7 +2,7 @@
   "format_version": 1,
   "level": "geometry_broken",
   "source": "tests/fixtures/levels/geometry_broken.json",
-  "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__geometry_broken.placesmap",
+  "package": "target/verification/maps/tests__fixtures__levels__geometry_broken.placesmap",
   "settings": {
     "bindings": {
       "forward": "W",

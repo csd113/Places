@@ -28,7 +28,7 @@ fn fixture() -> LoadedLevel {
             id: level.id.clone(),
             name: level.name.clone(),
             author: String::new(),
-            source_type: crate::loader::LevelSourceType::Embedded,
+            source_type: crate::loader::LevelSourceType::Installed,
             path: std::path::PathBuf::new(),
         },
         level,
@@ -866,10 +866,10 @@ fn location_trace(
 #[test]
 #[ignore = "requires a native GPU adapter; explicit compiled-demo diagnostic"]
 fn compiled_demo_probe_to_pixel_comparison() {
-    let mut archive = zip::ZipArchive::new(std::io::Cursor::new(
-        include_bytes!("../../../assets/levels/places_demo.placesmap").as_slice(),
-    ))
-    .expect("archive");
+    let bytes = std::fs::read("assets/levels/places_demo.placesmap")
+        .expect("compile Places Demo before this explicit native diagnostic");
+    let mut archive =
+        zip::ZipArchive::new(std::io::Cursor::new(bytes.as_slice())).expect("archive");
     let manifest: serde_json::Value =
         serde_json::from_slice(&archive_bytes(&mut archive, "manifest.json")).expect("manifest");
     let mut renderer = WgpuRenderer::new_headless(DrawableSize::new(128, 128)).expect("GPU");

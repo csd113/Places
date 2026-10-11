@@ -34,6 +34,19 @@ work since the final pre-wgpu 0.7.0 baseline.
 - Retained compiler-audit packages use Git LFS; fetch LFS content when
   using those artifacts from a clone.
 
+## Unreleased — developer repository cleanup
+
+- Organize runtime assets under `assets/shared/`, `assets/environments/` and
+  `assets/entities/`; preserve artwork and model bytes and repair all consumers.
+- Consolidate asset instructions into the developer guide and environment/entity
+  profiles. Historical paths below describe their original releases.
+- Curate eight existing playable sources directly in `levels/`, including Model
+  Zoo; retain focused engine controls in `tests/fixtures/levels/`.
+- Remove all compiled `.placesmap` files from tracking. Source-only Cargo builds,
+  normal map compilation, export tooling and CI no longer require Git packages.
+- Preserve local packages, retired review material and repeated images recoverably
+  for the separately requested storage audit. No Git/LFS history purge.
+
 ## Unreleased — Lantern Hollow geometry and collision pass
 
 ### Fixed

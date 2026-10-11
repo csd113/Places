@@ -11,10 +11,9 @@ isolate one emitter's bounce. There is no standalone shadow/AO payload, and the
 runtime has no true chart-ID view. Offline chart IDs and sample metadata supply
 that evidence without mislabelling a runtime UV grid.
 
-![Native combined baked light at the sofa](../../images/art-style/stage3-contact-baked-light.png)
 
-The stored atlas-value view
-confirms that the improved sofa lies in baked data. Normals retain the intentional
+The archived native combined-light frame and stored atlas-value view
+confirm that the improved sofa lies in baked data. Normals retain the intentional
 hard planes and bevels. No albedo retouch, extra seam mesh, uniform brightness
 lift or direct-light blur is responsible.
 

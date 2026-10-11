@@ -13,9 +13,9 @@ WHITE = (255, 255, 255)
 
 
 def atlas(p, names):
-    folder = ('core/props/models' if p.id in ('core:bed', 'core:couch') else
-              'environment/office/props/models' if p.id == 'core:chair' else
-              'environment/home/props/models')
+    folder = ('shared/props' if p.id in ('core:bed', 'core:couch') else
+              'environments/office/props' if p.id == 'core:chair' else
+              'environments/home/props')
     return load_atlas_from(p, ROOT / folder / (p.id.split(':')[1] + '.png'), names)
 
 

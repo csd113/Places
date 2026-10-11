@@ -1,4 +1,4 @@
-//! Hero-only traversal and compiled navigation checks for decorative refinement.
+//! Focused architecture traversal and navigation checks for decorative refinement.
 
 use super::*;
 
@@ -28,7 +28,7 @@ fn exercise_routes(mut game: Game) -> serde_json::Value {
                             game.player_position.z,
                             PLAYER_RADIUS - CONTACT_EPS
                         ),
-                        "hero body penetrates {wall:?} at {:?}",
+                        "architecture body penetrates {wall:?} at {:?}",
                         game.player_position
                     );
                 }
@@ -37,7 +37,7 @@ fn exercise_routes(mut game: Game) -> serde_json::Value {
         let actual = Vec2::new(game.player_position.x, game.player_position.z);
         assert!(
             actual.distance(target) < 0.03,
-            "hero route: {actual:?} != {target:?}"
+            "architecture route: {actual:?} != {target:?}"
         );
         endpoints.push(game.player_position.to_array());
     }
@@ -53,24 +53,24 @@ fn exercise_routes(mut game: Game) -> serde_json::Value {
 }
 
 #[test]
-fn hero_refinement_keeps_living_room_and_hall_traversable() {
+fn architecture_refinement_keeps_living_room_and_hall_traversable() {
     for source in [
-        include_str!("../../../tests/fixtures/levels/art_style_hero_transparency.json"),
-        include_str!("../../../tests/fixtures/levels/art_style_hero_refined.json"),
+        include_str!("../../../tests/fixtures/levels/architecture_before.json"),
+        include_str!("../../../tests/fixtures/levels/architecture_after.json"),
     ] {
-        let level = LevelDef::from_json(source).expect("hero source");
+        let level = LevelDef::from_json(source).expect("architecture fixture");
         drop(exercise_routes(game_for(&level)));
     }
 }
 
 #[test]
-fn hero_decorations_do_not_add_collision_and_prior_surface_controls_survive() {
+fn architecture_decorations_do_not_add_collision_and_prior_surface_controls_survive() {
     let mut baseline: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../tests/fixtures/levels/art_style_hero_transparency.json"
+        "../../../tests/fixtures/levels/architecture_before.json"
     ))
     .expect("baseline");
     let refined: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../tests/fixtures/levels/art_style_hero_refined.json"
+        "../../../tests/fixtures/levels/architecture_after.json"
     ))
     .expect("refined");
     let template = baseline
@@ -104,6 +104,28 @@ fn hero_decorations_do_not_add_collision_and_prior_surface_controls_survive() {
     }
     let before = LevelDef::from_json(&baseline.to_string()).expect("before");
     let after = LevelDef::from_json(&refined.to_string()).expect("after");
+    assert!(!before.global_illuminators.is_empty());
+    assert!(!before.ceiling_lights.is_empty());
+    assert!(!before.floor_regions.is_empty());
+    assert!(!before.water.is_empty());
+    assert_ne!(before.void_walls.len(), 0);
+    assert!(before.baseboards.is_empty());
+    assert_eq!(after.baseboards.len(), 5);
+    for id in [
+        "living_bound_rug",
+        "sofa_throw_cushion",
+        "coffee_table_plant",
+        "living_floor_plant",
+        "living_wall_landscape",
+        "living_passage_casing",
+    ] {
+        let decoration = after
+            .props
+            .iter()
+            .find(|prop| prop.id.as_deref() == Some(id))
+            .expect("the decoration remains in the focused fixture");
+        assert!(!decoration.solid, "decorative {id} must stay passable");
+    }
     assert_eq!(
         before.collision_aabbs().len(),
         after.collision_aabbs().len()
@@ -122,8 +144,8 @@ fn hero_decorations_do_not_add_collision_and_prior_surface_controls_survive() {
 }
 
 #[test]
-#[ignore = "explicit preserved hero package and asset root required; compiled route audit"]
-fn audit_compiled_hero_routes() -> Result<(), String> {
+#[ignore = "explicit architecture fixture package and asset root required; compiled route audit"]
+fn audit_compiled_architecture_routes() -> Result<(), String> {
     let path = std::env::var("PLACES_HERO_ROUTE_PACKAGE").map_err(|error| error.to_string())?;
     let output = std::env::var("PLACES_HERO_ROUTE_OUT").map_err(|error| error.to_string())?;
     let opened = crate::package::world::open(std::path::Path::new(&path))?;
@@ -137,7 +159,7 @@ fn audit_compiled_hero_routes() -> Result<(), String> {
     let mesh = crate::nav::NavMesh::from_record(variant.navigation)?;
     let class = mesh
         .class_index(&crate::nav::reference_class())
-        .ok_or("hero lacks player nav class")?;
+        .ok_or("architecture fixture lacks player nav class")?;
     let mut scratch = crate::nav::NavScratch::new();
     for (start, goal) in [
         (Vec3::new(5.0, 0.0, 4.2), Vec3::new(9.1, 0.0, 7.2)),
@@ -158,7 +180,7 @@ fn audit_compiled_hero_routes() -> Result<(), String> {
                 ),
                 crate::nav::PathResult::Path(_)
             ),
-            "compiled hero navigation must cross the passage both ways"
+            "compiled architecture navigation must cross the passage both ways"
         );
     }
     let nav_cells = mesh.grid().cell_count();

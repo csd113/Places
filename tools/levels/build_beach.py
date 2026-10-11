@@ -18,7 +18,7 @@ from tools.levels.beach_components import daylight, shore_segment, coast_z, cove
 from tools.props.parts.beach_structures import placed_components
 from tools.props.parts.beach_nature import placed_components as nature_components
 
-OUTPUT = ROOT / 'assets/levels/beach_demo.json'
+OUTPUT = ROOT / 'levels/beach_demo.json'
 FLOOR = -2.2
 COAST_WIDTH = .75
 

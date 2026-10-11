@@ -8,7 +8,7 @@ from parts.domestic_remade import loft, section
 
 
 def build(p):
-    path=Path(__file__).resolve().parents[3]/'assets/environment/pool/props/models/rubber_duck.png'
+    path=Path(__file__).resolve().parents[3]/'assets/environments/pool/props/rubber_duck.png'
     t=load_atlas_from(p,path,('body','head','beak','eye'))
     # (height, half-width, half-depth, forward centre). Neck flows into the head.
     profile=[(0,.026,.031,-.012),(.012,.043,.049,-.012),(.035,.050,.051,-.012),

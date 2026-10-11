@@ -41,9 +41,9 @@ Usage::
     python3 tools/levels/scatter_grass.py --area 4,4,20,12 --density dense \\
         --keep-out 8,6,4,4 --seed 7 --out target/grass.json
     python3 tools/levels/scatter_grass.py --area 4,4,20,12 --density medium \\
-        --target assets/levels/yard.json --apply
+        --target levels/yard.json --apply
     python3 tools/levels/scatter_grass.py --area 4,4,20,12 --density medium \\
-        --target assets/levels/yard.json --check
+        --target levels/yard.json --check
 """
 
 from __future__ import annotations

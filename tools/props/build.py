@@ -121,7 +121,7 @@ def build_one(entry: dict, build_fn, force: bool = False, *, publish=True) -> Op
     destination = model_path(entry)
     # A hand-authored skinned/animated model must never be replaced by this
     # toolkit's static primitive build: the shipped entity carries a real rig
-    # (see assets/entities/README.md), and overwriting it would silently drop
+    # (see docs/assets/ENTITIES.md), and overwriting it would silently drop
     # the skin. A toolkit-authored animated model (the wall switch) marks its
     # asset, so its own builder may rebuild it. `--force` is the explicit
     # opt-out.

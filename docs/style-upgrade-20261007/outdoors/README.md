@@ -2,7 +2,7 @@
 
 Starting commit: [`7ecacdf`](https://github.com/csd113/Places/commit/7ecacdfbe9f9c11df2c00932248a73634e78904e), on the existing `Winter-expansion` branch after the completed Pool and Home passes. This is entry three in the [serial visual development journal](../README.md). [Reconstruction commit history](https://github.com/csd113/Places/commits/Winter-expansion/docs/style-upgrade-20261007/outdoors) locates the standalone `rebuild outdoors assets toward concept art` commit; the later inventory integration is recorded separately in [Stage 7](../../art-style/stage7/README.md).
 
-The authoritative [Quiet Night Places Concept Sheet](../../../assets/environment/outdoor/Quiet%20Night%20Places%20Concept%20Sheet.png) was inspected as actual pixels before editing. Its SHA-256 remains `479ecb9a971b2f585c0e2208274ca00fa4cebda5aca5d696e90173fad291cbd8`.
+The authoritative [Quiet Night Places Concept Sheet](../../../assets/references/outdoor/Quiet%20Night%20Places%20Concept%20Sheet.png) was inspected as actual pixels before editing. Its SHA-256 remains `479ecb9a971b2f585c0e2208274ca00fa4cebda5aca5d696e90173fad291cbd8`.
 
 ## Reference and baseline
 
@@ -54,7 +54,8 @@ The before copy was made from the clean starting revision before content changes
 | View | Before | After |
 | --- | --- | --- |
 | Path | ![Before path](../../images/style-upgrade/outdoors-before-path.png) | ![After path](../../images/style-upgrade/outdoors-after-path.png) |
-| Grove / silhouette | ![Before grove](../../images/style-upgrade/outdoors-before-grove.png) | ![After grove](../../images/style-upgrade/outdoors-after-grove.png) |
+
+The additional grove/silhouette pair is retained locally with the same capture provenance.
 
 The inherited High/Full-lightmap route remains nearly black before and after. Additional ordinary Low views, with lightmaps/reflections Off, make the constructed assets readable; they do not prove a solved High atmosphere. Fresh installations default to High (`QualityLevel::DEFAULT`). This corrects the original asset journal's inaccurate description of Low as the shipped default. The selected High images above remain unmodified.
 

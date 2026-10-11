@@ -96,8 +96,8 @@ and its end post; it is hidden assembly geometry and was conservatively retained
 
 | Asset/tool | Problem | Change and reason |
 | --- | --- | --- |
-| `core:hot_tub` / `assets/environment/pool/props/models/hot_tub.glb` | Exterior wall faced into the basin; tile cells were stretched approximately 4.7:1 before fitting. | Flipped exterior winding and fitted four atlas spans/seven vertical tile rows. Inner basin still faces inward and rim/apron face up. Physical cells are approximately 23–26 cm wide and 22 cm tall. |
-| `core:pool_table` / `assets/environment/pool/props/models/pool_table.glb` | A generic boundary closure put a second, downward-facing quad exactly on the tray top, making it black in the bake. | Removed that two-triangle closure and four now-unused vertices. All surviving position/UV/colour records and the embedded PNG/materials are unchanged. The native tabletop receives light again. Its top sheet's boundary is buried in the rim; the lower apron remains intact. |
+| `core:hot_tub` / `assets/environments/pool/props/hot_tub.glb` | Exterior wall faced into the basin; tile cells were stretched approximately 4.7:1 before fitting. | Flipped exterior winding and fitted four atlas spans/seven vertical tile rows. Inner basin still faces inward and rim/apron face up. Physical cells are approximately 23–26 cm wide and 22 cm tall. |
+| `core:pool_table` / `assets/environments/pool/props/pool_table.glb` | A generic boundary closure put a second, downward-facing quad exactly on the tray top, making it black in the bake. | Removed that two-triangle closure and four now-unused vertices. All surviving position/UV/colour records and the embedded PNG/materials are unchanged. The native tabletop receives light again. Its top sheet's boundary is buried in the rim; the lower apron remains intact. |
 | `tools/props/repair_geometry.py` | The maintenance pass treated the tray sheet boundary as a missing solid face. | Added a reviewed, fail-closed table-cap removal and excluded this particular tray boundary from hole closure, so maintenance does not recreate the defect. |
 | `tools/props/parts/pool.py` | Builder recreated the tub artwork instead of loading a standalone asset. | Loads the recovered, unchanged `hot_tub.png` and `pool_table.png` instead of recreating artwork. Keeps the tub's original two-region atlas, colours, geometry, pivot and 384 triangles. Removed the unused tub/tray painters; shared resin/metal painters for untouched assets remain unchanged. |
 | 28 native PNG records | Existing artwork was available only inside GLBs. | Extracted byte-identical existing PNGs into the corresponding asset directories. The full source list identifies every added file. Only the tub and table GLBs changed. |
@@ -145,7 +145,8 @@ No nominal-resolution upscaling or simplification was performed for cosmetic dif
 
 ![Native before/after comparison](../images/reports/asset-library-audit-2026-10-02/native-comparison.png)
 
-![Pool-table geometry-only native comparison](../images/reports/asset-library-audit-2026-10-02/pool-table-comparison.png)
+
+The additional Pool-table geometry-only pair is retained locally; the model findings and native baseline method remain below.
 
 Native baseline views used the same binary, cameras and scratch settings with the
 tracked pre-edit asset/package files from HEAD in a separate read-only package root.
@@ -287,8 +288,8 @@ lists every modified and added file, including the 28 exact PNG source records
 and this report. The implementation/documentation files are
 listed below; the PNG source list is also available separately above.
 
-- `assets/environment/pool/props/models/hot_tub.glb`
-- `assets/environment/pool/props/models/pool_table.glb`
+- `assets/environments/pool/props/hot_tub.glb`
+- `assets/environments/pool/props/pool_table.glb`
 - `assets/levels/places_demo.placesmap`
 - `assets/levels/model_zoo.placesmap`
 - `assets/README.md`

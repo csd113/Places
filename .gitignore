@@ -1,60 +1,34 @@
-/target
+# Reproducible builds, caches, captures and per-user state.
+/target/
+/cache/
+/import/
+/state/
+/local/
+/generated_images/
+/debug-maps/
+settings.json
+settings.json.invalid
+*.placesmap
+*.zip
 __pycache__/
 *.pyc
-
-# Benchmark artifacts are generated locally, never committed.
-tools/bench/results/
+.pytest_cache/
 .DS_Store
 AGENTS.md
 
-# Per-user runtime state written by the game (portable install layout).
-# `levels/` ships only its README; drop-in levels and packs are never committed.
-settings.json
-settings.json.invalid
-cache/
-import/
-levels/*.json
-levels/*.zip
-# Compiled drop-in packages are local content; bundled packages live in
-# assets/levels/ and are tracked.
-levels/*.placesmap
+# Only the curated source lineup is versioned in levels/.
+/levels/*.json
+!/levels/places_demo.json
+!/levels/model_zoo.json
+!/levels/lantern_hollow.json
+!/levels/winter.json
+!/levels/beach_demo.json
+!/levels/frutiger_aero_demo.json
+!/levels/home_showcase.json
+!/levels/pool_showcase.json
 
-.pytest_cache/
-
-# Retained local native Outdoors review payload; journal images are tracked.
-/debug-maps/outdoors-style-20261007/evidence/
-
-# Retained Winter before/after playable payloads; journal evidence is tracked.
-/debug-maps/winter-style-20261007/evidence/
-/generated_images/
-
-# Reproducible Art-style hero packages and isolated native state.
-/debug-maps/art-style-hero/evidence/
-
-# Immutable local queue milestone binaries, packages and verified asset bundles.
-/debug-maps/art-style-hero/milestones/
-
-# Preserved model-lighting native runtimes, solver dumps and recovery payloads.
-# Reviewable reports and native image evidence are tracked under docs/.
-/debug-maps/model-lighting-investigation/
-
-# Local model-authoring validation receipts.
-/debug-maps/domestic-model-remake/
-
-# Repeatable native lighting captures; inputs live under tests/fixtures/native/.
-/debug-maps/model-lighting-replay/
-
-# Current captures must never overwrite the frozen renderer comparison fixtures.
-/debug-maps/renderer-baseline-captures/
-
-/docs/model-lighting-investigation/
-/docs/art-style/baseline/
-/docs/art-style/diagnostics/
-/docs/art-style/stage7/execution/
-/docs/art-style/stage7/validation/
-
-# Published docs contain final prose and curated images. Machine receipts belong
-# under ignored target/debug-map output; functional inputs belong under tests/.
+# Machine receipts/captures stay local; documentation keeps curated images.
+/tools/bench/results/
 /docs/**/*.log
 /docs/**/*.jsonl
 /docs/**/*.csv

@@ -15,7 +15,7 @@ from mesh import PropBuilder
 from parts.refreshed import load_atlas_from
 from parts.beach_coast import cove_foam_profile, cove_foam_bounds
 
-ROOT = Path(__file__).resolve().parents[3] / "assets/environment/beach/props/models"
+ROOT = Path(__file__).resolve().parents[3] / "assets/environments/beach/props"
 REGIONS = (
     "sand", "grass", "rock", "stucco", "wood", "plank", "palmtrunk", "palmleaf",
     "blue", "coral", "yellow", "ivory", "dark", "turquoise", "window", "foam",

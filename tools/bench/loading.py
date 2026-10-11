@@ -206,7 +206,7 @@ def main() -> int:
         for repeat in range(args.repeat):
             state = out / f"{level}-{repeat}-state"
             (state / "levels").mkdir(parents=True)
-            for source in [root / "levels/level0_pit.json", *sorted((root / "tests/fixtures/levels").glob("capacity_*.json"))]:
+            for source in [root / "tests/fixtures/levels/level0_pit.json", *sorted((root / "tests/fixtures/levels").glob("capacity_*.json"))]:
                 if source.is_file():
                     shutil.copy2(source, state / "levels" / source.name)
             install_packages(args.install_package, state / "levels")

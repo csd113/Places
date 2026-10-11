@@ -2,7 +2,7 @@
   "format_version": 1,
   "level": "level0_pit",
   "source": "tests/fixtures/levels/level0_pit.json",
-  "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__level0_pit.placesmap",
+  "package": "target/verification/maps/tests__fixtures__levels__level0_pit.placesmap",
   "settings": {
     "bindings": {
       "forward": "W",

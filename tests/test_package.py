@@ -8,6 +8,7 @@ entity resource and the crate release metadata.
 from __future__ import annotations
 
 import hashlib
+import copy
 import json
 import re
 import struct
@@ -30,6 +31,9 @@ import validate  # noqa: E402
 # `tex` resolves its own `from palette import shade` from this directory.
 sys.path.insert(0, str(PACKAGE / "tools" / "props"))
 import tex  # noqa: E402
+
+sys.path.insert(0, str(PACKAGE / "tools" / "levels"))
+import convert_v3  # noqa: E402
 
 DECAL_SURFACES = {"floor", "ceiling", "wall_north", "wall_south", "wall_east", "wall_west"}
 
@@ -97,7 +101,7 @@ def catalog_ids() -> set[str]:
 
 def level_files() -> list[Path]:
     """Authoring sources for the bundled levels."""
-    return sorted((PACKAGE / "assets" / "levels").glob("*.json"))
+    return sorted((PACKAGE / "levels").glob("*.json"))
 
 
 def package_files() -> list[Path]:
@@ -159,8 +163,8 @@ class ShippedLevelTests(unittest.TestCase):
         shipped = {path.stem: load_level(path) for path in level_files()}
         self.assertEqual(
             set(shipped),
-            {"places_demo", "model_zoo", "lantern_hollow", "movement_test", "winter", "beach_demo", "frutiger_aero_demo"},
-            "the showcases, Movement Test, Winter, Beach and Aero are bundled levels",
+            {"places_demo", "model_zoo", "lantern_hollow", "winter", "beach_demo", "frutiger_aero_demo", "home_showcase", "pool_showcase"},
+            "the curated showcases are the supported source lineup",
         )
         demo = shipped["places_demo"]
         self.assertEqual(demo["id"], "places_demo")
@@ -184,73 +188,12 @@ class ShippedLevelTests(unittest.TestCase):
                 "every zoo placement uses the generator's stable id scheme",
             )
 
-    def test_the_bundled_packages_are_present_valid_and_content_addressed(self):
-        packages = {path.stem: path for path in package_files()}
-        self.assertEqual(
-            set(packages),
-            {"places_demo", "model_zoo", "lantern_hollow", "movement_test", "winter", "beach_demo", "frutiger_aero_demo"},
-            "each bundled level has a compiled package",
-        )
-        for stem, path in packages.items():
-            with zipfile.ZipFile(path) as archive:
-                names = archive.namelist()
-                self.assertIn("manifest.json", names, f"{stem} has a manifest")
-                manifest = json.loads(archive.read("manifest.json"))
-                self.assertEqual(manifest["package_format"], 1, stem)
-                self.assertEqual(manifest["id"], stem, stem)
-                self.assertTrue(manifest["dependencies"], f"{stem} declares dependencies")
-                self.assertTrue(manifest["variants"], f"{stem} has variants")
-                variant_qualities = {v["lightmap_quality"] for v in manifest["variants"]}
-                self.assertEqual(
-                    variant_qualities, {"off", "medium", "full"}, stem
-                )
-                semantics = json.loads(archive.read("semantics.json"))
-                self.assertEqual(semantics["id"], stem, stem)
-                self.assertEqual(semantics["format_version"], 3, stem)
-                # Content addressing: every declared entry's SHA-256 matches its
-                # bytes, and every blob name embeds that same hash.
-                for entry in manifest["entries"]:
-                    data = archive.read(entry["name"])
-                    digest = hashlib.sha256(data).hexdigest()
-                    self.assertEqual(digest, entry["sha256"], entry["name"])
-                    self.assertEqual(len(data), entry["bytes"], entry["name"])
-                    if entry["name"].startswith("blobs/"):
-                        self.assertEqual(entry["name"].split("/", 1)[1].split(".", 1)[0], digest)
-                for entry_name in names:
-                    if entry_name == "manifest.json":
-                        continue
-                    self.assertIn(
-                        entry_name,
-                        {entry["name"] for entry in manifest["entries"]},
-                        f"{stem} declares every archive entry",
-                    )
-                # The player never compiles: each package must carry the
-                # prepared payloads for every declared variant.
-                for variant in manifest["variants"]:
-                    for role in ("mesh", "props", "lighting", "collision", "navigation"):
-                        self.assertIn(variant["entries"][role], names, f"{stem} {role}")
-                    if variant["lightmap_quality"] != "off":
-                        self.assertIn(variant["entries"]["lightmaps"], names, stem)
-                    if "probes-rgba8" in manifest["required_capabilities"]:
-                        self.assertTrue(
-                            variant["entries"]["probes"], f"{stem} probe payload"
-                        )
-                    for payload in variant["entries"]["probes"]:
-                        self.assertEqual(payload["count"], len(payload["cubemaps"]), stem)
-                        for cubemap in payload["cubemaps"]:
-                            self.assertIn(cubemap, names, stem)
-                            self.assertEqual(
-                                int(cubemap.split("/", 1)[1].split(".", 1)[0], 16),
-                                int(hashlib.sha256(archive.read(cubemap)).hexdigest(), 16),
-                                cubemap,
-                            )
-
     def test_the_model_zoo_is_current_with_its_generator(self):
         # `--check` re-derives the level from the catalog and compares it
         # byte-for-byte, so a catalog change cannot silently leave the zoo
         # stale.
         completed = subprocess.run(
-            [sys.executable, "tools/levels/build_model_zoo.py", "--check", "--quiet"],
+            [sys.executable, "tools/levels/build_model_zoo.py", "--check", "--quiet", "--no-cache"],
             cwd=PACKAGE,
             capture_output=True,
             text=True,
@@ -419,7 +362,7 @@ class AssetCatalogTests(unittest.TestCase):
         for prop_id in office_props:
             self.assertEqual(by_id[prop_id].get("theme"), "office", prop_id)
             self.assertTrue(
-                by_id[prop_id]["model"].startswith("environment/office/"),
+                by_id[prop_id]["model"].startswith("environments/office/"),
                 f"{prop_id} is not organized under the office environment",
             )
         # Shared props stay generic rather than being forced into a theme.
@@ -441,7 +384,7 @@ class AssetCatalogTests(unittest.TestCase):
         # The official demo mixes Office, generic and Pool assets, and the prop
         # regression fixture mixes in an entity; nothing in the catalog or level
         # format gates placement by theme.
-        demo = load_level(PACKAGE / "assets" / "levels" / "places_demo.json")
+        demo = load_level(PACKAGE / "levels" / "places_demo.json")
         placed = {prop["model"] for prop in demo.get("props", [])}
         for expected in ("core:desk", "core:pool_ladder"):
             self.assertIn(expected, placed)
@@ -464,7 +407,7 @@ class AssetCatalogTests(unittest.TestCase):
         self.assertIn("entities/spooner-man/", spooner["model"])
         self.assertTrue((PACKAGE / "assets" / spooner["model"]).is_file())
         self.assertFalse(
-            (PACKAGE / "assets" / "props" / "models" / "spooner-man.glb").exists(),
+            (PACKAGE / "assets" / "shared" / "props" / "spooner-man.glb").exists(),
             "the entity has exactly one canonical resource; no prop copy may exist",
         )
         referencing = [
@@ -510,7 +453,7 @@ class AssetCatalogTests(unittest.TestCase):
         self.assertTrue(any("duplicate logical asset id" in e for e in errors), errors)
 
         # Missing file assets and missing canonical resources are errors.
-        missing = dict(placeables[0], model="environment/office/props/models/nope.glb")
+        missing = dict(placeables[0], model="environments/office/props/nope.glb")
         errors, _ = self._validate([missing])
         self.assertTrue(any("does not exist below assets/" in e for e in errors), errors)
         errors, _ = self._validate(without_spooner)
@@ -973,17 +916,17 @@ class HomeContentTests(unittest.TestCase):
             self.assertEqual(material["asset_type"], "material", material_id)
             self.assertEqual(material["source"], "definition", material_id)
             texture = by_id[material["texture"]]
-            self.assertTrue(texture["model"].startswith("environment/home/"), material_id)
+            self.assertTrue(texture["model"].startswith("environments/home/"), material_id)
             self.assertTrue((PACKAGE / "assets" / texture["model"]).is_file(), material_id)
         for prop_id in self.HOME_PROPS:
             prop = by_id[prop_id]
             self.assertEqual(prop["theme"], "home", prop_id)
-            self.assertTrue(prop["model"].startswith("environment/home/"), prop_id)
+            self.assertTrue(prop["model"].startswith("environments/home/"), prop_id)
             self.assertTrue((PACKAGE / "assets" / prop["model"]).is_file(), prop_id)
         fixture = by_id[self.HOME_FIXTURE]
         self.assertEqual(fixture["theme"], "home", self.HOME_FIXTURE)
         self.assertEqual(fixture["asset_type"], "light", self.HOME_FIXTURE)
-        self.assertTrue(fixture["model"].startswith("environment/home/"), self.HOME_FIXTURE)
+        self.assertTrue(fixture["model"].startswith("environments/home/"), self.HOME_FIXTURE)
         self.assertTrue((PACKAGE / "assets" / fixture["model"]).is_file(), self.HOME_FIXTURE)
 
     def test_the_home_surfaces_are_clean_and_hardwood_has_two_tones(self):
@@ -1095,7 +1038,7 @@ class HomeContentTests(unittest.TestCase):
 
     def test_the_home_showcase_exercises_every_generic_piece(self):
         """The Home fixture level demonstrates each new architectural piece."""
-        path = PACKAGE / "tests" / "fixtures" / "levels" / "home_showcase.json"
+        path = PACKAGE / "levels" / "home_showcase.json"
         self.assertTrue(path.is_file(), "the Home showcase fixture is missing")
         level = load_level(path)
         for key in (
@@ -1310,18 +1253,18 @@ class PoolContentTests(unittest.TestCase):
         for material_id in self.POOL_MATERIALS:
             material = by_id[material_id]
             self.assertEqual(material["theme"], "pool", material_id)
-            self.assertTrue(by_id[material["texture"]]["model"].startswith("environment/pool/"), material_id)
+            self.assertTrue(by_id[material["texture"]]["model"].startswith("environments/pool/"), material_id)
         for prop_id in self.POOL_PROPS:
             prop = by_id[prop_id]
             self.assertEqual(prop["theme"], "pool", prop_id)
-            self.assertTrue(prop["model"].startswith("environment/pool/"), prop_id)
+            self.assertTrue(prop["model"].startswith("environments/pool/"), prop_id)
             self.assertTrue((PACKAGE / "assets" / prop["model"]).is_file(), prop_id)
         for fixture_id in self.POOL_FIXTURES:
             fixture = by_id[fixture_id]
             self.assertEqual(fixture["theme"], "pool", fixture_id)
             self.assertEqual(fixture["asset_type"], "light", fixture_id)
             self.assertEqual(fixture["source"], "file", fixture_id)
-            self.assertTrue(fixture["model"].startswith("environment/pool/"), fixture_id)
+            self.assertTrue(fixture["model"].startswith("environments/pool/"), fixture_id)
             self.assertTrue(fixture["model"].endswith(".png"), fixture_id)
             self.assertTrue((PACKAGE / "assets" / fixture["model"]).is_file(), fixture_id)
 
@@ -1376,7 +1319,7 @@ class PoolContentTests(unittest.TestCase):
         )
 
     def test_the_pool_showcase_is_real_lowered_floor_geometry(self):
-        level = load_level(PACKAGE / "tests" / "fixtures" / "levels" / "pool_showcase.json")
+        level = load_level(PACKAGE / "levels" / "pool_showcase.json")
         regions = level.get("floor_regions", [])
         self.assertTrue(regions, "the pool basin must be a floor region, not a prop")
         offsets = [float(region.get("offset_y", 0.0)) for region in regions]
@@ -1399,20 +1342,20 @@ class PoolContentTests(unittest.TestCase):
                 self.assertIn("y", light, light)
 
     def test_the_pool_showcase_places_every_pool_prop(self):
-        level = load_level(PACKAGE / "tests" / "fixtures" / "levels" / "pool_showcase.json")
+        level = load_level(PACKAGE / "levels" / "pool_showcase.json")
         placed = {prop["model"] for prop in level.get("props", [])}
         for prop_id in self.POOL_PROPS:
             self.assertIn(prop_id, placed, f"pool_showcase.json must place {prop_id}")
 
     def test_every_pool_solid_prop_authors_its_collision_box(self):
-        level = load_level(PACKAGE / "tests" / "fixtures" / "levels" / "pool_showcase.json")
+        level = load_level(PACKAGE / "levels" / "pool_showcase.json")
         for prop in level.get("props", []):
             if prop.get("solid") is True:
                 self.assertIn("size", prop, f"{prop['model']} needs an explicit collision size")
                 self.assertTrue(all(value > 0 for value in prop["size"]), prop)
 
     def test_guardrails_and_the_ladder_have_collision(self):
-        level = load_level(PACKAGE / "tests" / "fixtures" / "levels" / "pool_showcase.json")
+        level = load_level(PACKAGE / "levels" / "pool_showcase.json")
         solid = {
             prop["model"]: prop
             for prop in level.get("props", [])
@@ -1465,6 +1408,63 @@ class SourceHygieneTests(unittest.TestCase):
             "| Look right | `L` |",
         ):
             self.assertNotIn(old_row, readme, f"README still lists the old row {old_row!r}")
+
+
+class LevelConversionTargetTests(unittest.TestCase):
+    """Cross-target animation controls must never rewrite the invoking prop."""
+
+    @staticmethod
+    def level(version=3, animated=True):
+        action = {"action": "toggle_animation", "target": "lever", "clip": "toggle"}
+        button = {"id": "button", "model": "home:wall_switch", "x": 1, "z": 1}
+        if version == 2:
+            button["interaction"] = {"prompt": "Toggle lever", "actions": [action]}
+        else:
+            button["components"] = [{"component": "interactable"}]
+            button["bindings"] = [{"on": "interact", "actions": [action]}]
+        lever = {"id": "lever", "model": "home:wall_switch", "x": 2, "z": 1}
+        if animated:
+            lever["components"] = [
+                {"component": "animation", "clip": "toggle", "looped": False, "playing": False}
+            ]
+        return {"format_version": version, "props": [button, lever]}
+
+    def test_existing_cross_target_animation_is_unchanged(self):
+        source = self.level()
+        original = copy.deepcopy(source)
+        converted, changed, report = convert_v3.convert_level(source, "cross-target")
+        self.assertFalse(changed)
+        self.assertEqual(report, [])
+        self.assertEqual(converted, original)
+
+    def test_missing_cross_target_animation_is_added_to_the_target(self):
+        source = self.level(animated=False)
+        original_button = copy.deepcopy(source["props"][0])
+        converted, changed, report = convert_v3.convert_level(source, "cross-target")
+        self.assertTrue(changed)
+        self.assertEqual(converted["props"][0], original_button)
+        self.assertEqual(converted["props"][1]["components"], self.level()["props"][1]["components"])
+        self.assertEqual(len(report), 1)
+        self.assertIn("props 1 gained", report[0])
+
+    def test_v2_cross_target_control_does_not_gain_animation(self):
+        converted, changed, _ = convert_v3.convert_level(self.level(version=2), "cross-target")
+        self.assertTrue(changed)
+        self.assertEqual(converted["format_version"], 3)
+        self.assertEqual(converted["props"][0]["components"],
+                         [{"component": "interactable", "prompt": "Toggle lever"}])
+        self.assertEqual(converted["props"][1], self.level()["props"][1])
+
+    def test_timer_animation_fixup_reaches_the_named_prop(self):
+        source = self.level(animated=False)
+        action = source["props"][0].pop("bindings")[0]["actions"][0]
+        source["timers"] = [{"id": "timer", "bindings": [{"on": "tick", "actions": [action]}]}]
+        original_timer = copy.deepcopy(source["timers"])
+        converted, changed, _ = convert_v3.convert_level(source, "cross-target")
+        self.assertTrue(changed)
+        self.assertEqual(converted["timers"], original_timer)
+        self.assertEqual(converted["props"][0]["components"], [{"component": "interactable"}])
+        self.assertEqual(converted["props"][1]["components"], self.level()["props"][1]["components"])
 
 
 if __name__ == "__main__":

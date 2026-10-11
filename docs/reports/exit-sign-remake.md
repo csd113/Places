@@ -10,8 +10,8 @@ Rebuilt `core:exit_sign` as a closed, low-poly fixture with a chamfered painted-
 New 256×256 opaque PNG atlas: top half is the 2:1 sign face; bottom left is off-white housing paint; bottom right is grey suspension metal. Neutral emissive factors preserve white lettering instead of tinting it green.
 
 Files:
-- `assets/core/props/models/exit_sign.glb`
-- `assets/core/props/models/exit_sign.png`
+- `assets/shared/props/exit_sign.glb`
+- `assets/shared/props/exit_sign.png`
 - `tools/props/parts/signage.py`
 - `docs/ASSET_SPECIFICATION.md`
 - `docs/reports/exit-sign-remake/exit_sign.png` — overall preview

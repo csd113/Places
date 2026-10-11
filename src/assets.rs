@@ -602,7 +602,7 @@ impl fmt::Display for AssetTheme {
 
 /// What kind of resource an asset is.
 ///
-/// Distinct from [`AssetClass`] (which environment/entity world it belongs to)
+/// Distinct from [`AssetClass`] (which environment or entity world it belongs to)
 /// and from [`AssetTheme`] (which collection organizes it). Like the other
 /// identifiers the value is validated rather than closed.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]

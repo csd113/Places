@@ -62,7 +62,7 @@ class WinterAssemblyTests(unittest.TestCase):
         cls.blanket = built_model('snow_roof_blanket')
 
     def test_control_aim_boxes_are_explicit_and_do_not_overlap(self):
-        authored = json.loads((ROOT / 'assets/levels/winter.json').read_text())
+        authored = json.loads((ROOT / 'levels/winter.json').read_text())
         controls = [p for p in authored['props'] if p['id'] in {
             'winter_blizzard_button', 'winter_weather_mild',
             'winter_weather_moderate', 'winter_weather_severe', 'winter_weather_timer'}]

@@ -2,7 +2,7 @@
   "format_version": 1,
   "level": "round_pool_and_proximity_fade",
   "source": "tests/fixtures/levels/round_pool_and_proximity_fade.json",
-  "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__round_pool_and_proximity_fade.placesmap",
+  "package": "target/verification/maps/tests__fixtures__levels__round_pool_and_proximity_fade.placesmap",
   "settings": {
     "bindings": {
       "forward": "W",
@@ -59,9 +59,9 @@
     }
   ],
   "prior_blank_control": {
-    "receipt": "debug-maps/art-style-hero/evidence/stage7-native-regression-v1/budget48/tests__fixtures__levels__round_pool_and_proximity_fade/feature-capture/manifest.json",
+    "receipt": "local/retained/debug-maps/art-style-hero/evidence/stage7-native-regression-v1/budget48/tests__fixtures__levels__round_pool_and_proximity_fade/feature-capture/manifest.json",
     "receipt_sha256": "615347796023dd64fe2ffe2209c91a6ba1ea9faae4c48515219211cace7bf581",
-    "image": "debug-maps/art-style-hero/evidence/stage7-native-regression-v1/budget48/tests__fixtures__levels__round_pool_and_proximity_fade/feature-capture/spawn.png",
+    "image": "local/retained/debug-maps/art-style-hero/evidence/stage7-native-regression-v1/budget48/tests__fixtures__levels__round_pool_and_proximity_fade/feature-capture/spawn.png",
     "image_sha256": "74beded43980a4e45626f3b74db141437c1ae38dfed338476b87c13c8a18c718",
     "original_view": {
       "name": "spawn",

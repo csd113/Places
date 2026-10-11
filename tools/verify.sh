@@ -3,7 +3,7 @@
 set -eu
 # Python native/packaging checks must use this source and toolchain, even when
 # an older release binary is already present.
-cargo build --release
+cargo build --locked --release
 python3 tools/assets/validate.py
 # The package suite executes the texture CLI --check once.
 python3 tools/props/build.py --check
@@ -24,20 +24,32 @@ python3 tools/levels/build_beach.py --check
 python3 tools/levels/build_frutiger_aero.py --check
 python3 tools/textures/frutiger_aero_art.py --check
 python3 tools/levels/build_capacity_fixtures.py --check
-# Inventory source paths recursively, including local maps and nested controls.
-# Build first: discovery tests must consume current packages and dependencies.
-map_gate_root="target/verification/map-regression-$(date -u +%Y%m%dT%H%M%SZ)-$$"
-python3 tools/bench/regression_maps.py --run-packages \
-  --compiler target/release/places-compile --out "$map_gate_root" \
-  --prepared-root target/verification/maps --install-source-packages
-shasum -a 256 target/release/places-compile > "$map_gate_root/compiler-before.sha256"
-# The player embeds the final Demo. Its rebuild must not change the compiler
-# identity used by the packages just produced.
-cargo build --release
-shasum -a 256 target/release/places-compile > "$map_gate_root/compiler-after.sha256"
-cmp "$map_gate_root/compiler-before.sha256" "$map_gate_root/compiler-after.sha256"
+# Build the explicit eight-map lineup with normal qualities and probe capture.
+# Compiled maps are generated outputs, never inputs to either Rust binary.
+python3 tools/levels/compile.py --workers "${PLACES_VERIFY_WORKERS:-8}"
+python3 -m unittest tests.built_maps
+PLACES_WEATHER_PACKAGE_DIR="$PWD/assets/levels" \
+  python3 -m unittest tests.test_weather.PackagedWeatherTests
+# The full recursive fixture campaign remains available for compiler, capacity
+# and geometry changes; ordinary Rust/Python fixture regressions always run.
+case "${PLACES_VERIFY_ALL_MAPS:-0}" in
+  0) ;;
+  1)
+    map_gate_root="target/verification/map-regression-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+    python3 tools/bench/regression_maps.py --run-packages \
+      --compiler target/release/places-compile --out "$map_gate_root" \
+      --prepared-root target/verification/maps --install-source-packages
+    ;;
+  *)
+    printf '%s\n' 'PLACES_VERIFY_ALL_MAPS must be 0 or 1' >&2
+    exit 2
+    ;;
+esac
 sh tools/check-rust.sh
 cargo test --lib bundled_static_models_fit_medium_and_full_atlas_plans -- --ignored
-python3 -m unittest discover -s tests -p 'test_*.py'
+# Enable export acceptance explicitly now that the complete lineup is current.
+PLACES_SKIP_SMOKE=0 PLACES_SMOKE_BIN="$PWD/target/release/places" \
+PLACES_TEST_EXPORT=1 PLACES_WEATHER_PACKAGE_DIR="$PWD/assets/levels" \
+  python3 -m unittest discover -s tests -p 'test_*.py'
 cargo test --lib render::wgpu::renderer::low_lighting_tests -- --ignored --test-threads=1
 git diff --check

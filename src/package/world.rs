@@ -149,7 +149,7 @@ pub fn open(path: &Path) -> Result<OpenedPackage, String> {
     open_reader(PackageReader::new(file).map_err(|error| error.to_string())?)
 }
 
-/// Opens an in-memory package, used by the embedded fallback demo.
+/// Opens an in-memory package for import and compiler controls.
 ///
 /// # Errors
 ///
@@ -253,7 +253,7 @@ fn check_catalog_build_input<R: std::io::Read + std::io::Seek>(
 /// exactly the recorded size and SHA-256. The digest streams once during this
 /// package-open pass; frame rendering never rehashes assets. A substituted or
 /// resized resource is a load error naming the dependency. A truly asset-less
-/// install (the embedded fallback boot) has nothing to check against and logs
+/// install has nothing to check against and logs
 /// once instead.
 fn check_dependencies(manifest: &Manifest, root: Option<&Path>) -> Result<(), String> {
     let Some(installed_root) = root else {
@@ -322,8 +322,7 @@ pub fn inspect(path: &Path) -> Result<Manifest, String> {
 /// For an installed package this hashes the canonical manifest record — the
 /// package's own statement of what it contains — rather than the file bytes, so
 /// the worker can coalesce requests and key its cache without reading every
-/// prepared record again. The embedded fallback hashes its embedded bytes once
-/// per process.
+/// prepared record again.
 ///
 /// # Errors
 ///
@@ -331,14 +330,6 @@ pub fn inspect(path: &Path) -> Result<Manifest, String> {
 /// malformed.
 pub fn package_identity(entry: &crate::loader::LevelEntry) -> Result<String, String> {
     match entry.source_type {
-        crate::loader::LevelSourceType::Embedded => {
-            static EMBEDDED: std::sync::OnceLock<String> = std::sync::OnceLock::new();
-            Ok(EMBEDDED
-                .get_or_init(|| {
-                    crate::package::hash::sha256_hex(crate::loader::embedded_demo_package())
-                })
-                .clone())
-        }
         crate::loader::LevelSourceType::Bundled | crate::loader::LevelSourceType::Installed => {
             let manifest = inspect(&entry.path)?;
             let canonical = manifest.to_json()?;

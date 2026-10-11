@@ -1,37 +1,42 @@
-# Drop-in maps
+# Maintained maps
 
-This directory is for user-created and external **compiled** maps. Every
-`*.placesmap` file placed here is discovered at startup and appears in the
-Level Select menu next to the bundled levels.
+These authored sources are the supported playable lineup. `lineup.txt` is the
+compiler/export allowlist; add a source and update that list deliberately.
+The player discovers compiled packages in `assets/levels/`, while user imports
+live in the writable state root's `levels/`. JSON is authoring input, never a
+playable menu row. All `.placesmap` output is ignored by Git.
 
-A `.placesmap` is produced by the offline compiler from an authoring JSON
-source. The player never compiles a map:
+| Source / ID | Purpose | Source owner |
+| --- | --- | --- |
+| `places_demo` | Official combined Office, Pool, Home and night route | Authored source plus `build_outdoor_route.py`, `refine_home.py`, `refine_pool.py` |
+| `model_zoo` | Every registered placeable, poses, routes and interactions | `build_model_zoo.py` |
+| `pool_showcase` | Standalone Pool kit, lowered basin, fixtures, collision and signage | Authored source |
+| `home_showcase` | Standalone Home rooms and generic architectural pieces | Authored source |
+| `lantern_hollow` | Outdoor night village, forest, pond and encounters | `build_lantern_hollow.py` |
+| `winter` | Snow village, lodge, aurora, ice traction and weather controls | `build_winter.py` |
+| `beach_demo` | Coastal settlement, shoreline and animals | `build_beach.py` |
+| `frutiger_aero_demo` | Day atrium, glass, water, fitted signage and interactive props | `build_frutiger_aero.py` |
+
+Generators live under `tools/levels/`; change a generator rather than its
+owned JSON. `--check` is read-only. Home and Pool are existing compact
+showcases; current detailed refinements also appear in Places Demo. The Office
+surface review under tests is a diagnostic fixture, so a dedicated Office
+walkthrough remains an enhancement request.
 
 ```sh
-# from the repository root, with a release compiler built
-./target/release/places-compile build my_level.json
-# -> my_level.placesmap beside the source
+sh tools/build-maps.sh --workers 8
+python3 tools/levels/compile.py --check
+PLACES_LEVEL=model_zoo ./target/release/places
 ```
 
-Copy the resulting `.placesmap` here, or use the in-game **Import** action,
-which accepts `.placesmap` files from `import/` and rejects raw `.json`/`.zip`
-sources with the exact compiler command to run.
+Build only one changed source with an explicit runtime output path:
 
-Bundled content lives in `assets/levels/` (read-only) and is packaged by
-`tools/package.sh`. Authoring sources such as `assets/levels/places_demo.json`
-are kept for authors but are never discovered as playable rows.
+```sh
+./target/release/places-compile build levels/winter.json \
+  --out assets/levels/winter.placesmap --asset-root assets --workers 8
+```
 
-See `docs/PACKAGE_FORMAT.md` for the record contract and
-`docs/MAP_AUTHORING_GUIDE.md` for the authoring workflow. `tools/package.sh`
-copies compiled packages present here into an export; it never packages these
-raw sources. Ignored local packages are absent from a fresh checkout.
-
-The historical `home_showcase.json`, `geometry_intentional.json` and
-`level0_pit.json` remain valid local controls. In particular, the local Home
-source retains the legacy core furniture; the separate fixture Home source
-exercises the completed Home kit. `blizzard_review.json` and
-`snowfall_contrast.json` are recovered serialized LevelDef sources, extracted
-byte for byte from their original package semantics so the reviews can be
-rebuilt through the normal compiler. These local sources and packages remain
-ignored. Their identities, provenance and individual commands are recorded in
-`docs/art-style/stage7/content-inventory.json`.
+[Regression fixtures](../tests/fixtures/levels/README.md) retain focused
+movement, geometry, entity, lighting and capacity controls without entering
+this lineup. Superseded local review sources and packages are recoverable in
+ignored `local/retained/`; fresh checkouts require none of them.

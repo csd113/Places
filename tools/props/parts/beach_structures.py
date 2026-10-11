@@ -13,7 +13,7 @@ from pathlib import Path
 from geometry import inspect
 from parts.refreshed import load_atlas_from, orient_outward, solid_box, solid_cylinder
 
-ROOT = Path(__file__).resolve().parents[3] / "assets/environment/beach/props/models"
+ROOT = Path(__file__).resolve().parents[3] / "assets/environments/beach/props"
 WHITE = (255, 255, 255)
 REGIONS = (
     "sand", "grass", "rock", "stucco", "wood", "plank", "palmtrunk", "palmleaf",
@@ -610,7 +610,7 @@ def catalog_entries():
     """Primary-owned registration input; this helper never rewrites the catalog."""
     return [dict(id="beach:"+name, display_name="Beach "+name.replace("_", " ").title(),
                  asset_class="environment", theme="beach", asset_type="prop", source="file",
-                 model=f"environment/beach/props/models/{name}.glb", size=list(size),
+                 model=f"environments/beach/props/{name}.glb", size=list(size),
                  color="#328aca" if "blue" in name else "#ead2a8", category="Beach Structures",
                  solid=name in ("crate", "lounge_chair", "town_parapet"))
             for name, size in SIZES.items()]

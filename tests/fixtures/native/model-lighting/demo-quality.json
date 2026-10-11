@@ -1,7 +1,7 @@
 {
   "format_version": 1,
   "level": "places_demo",
-  "source": "assets/levels/places_demo.json",
+  "source": "levels/places_demo.json",
   "package": "assets/levels/places_demo.placesmap",
   "settings": {
     "bindings": {

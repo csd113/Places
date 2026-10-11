@@ -2,7 +2,7 @@
   "format_version": 1,
   "level": "water_transmission",
   "source": "tests/fixtures/levels/water_transmission.json",
-  "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__water_transmission.placesmap",
+  "package": "target/verification/maps/tests__fixtures__levels__water_transmission.placesmap",
   "settings": {
     "bindings": {
       "forward": "W",

@@ -12,8 +12,8 @@ Rebuilt only `core:stop_sign`: 88 triangles, 0.45 × 1.8 × 0.06 m, +Y up / +Z f
 - Updated the source builder so rebuilding the sign preserves the fix.
 
 Files:
-- `assets/core/props/models/stop_sign.glb`
-- `assets/core/props/models/stop_sign.png`
+- `assets/shared/props/stop_sign.glb`
+- `assets/shared/props/stop_sign.png`
 - `tools/props/parts/signage.py`
 - `docs/reports/stop-sign-remake/stop_sign.png` — gameplay-style preview
 - `docs/reports/stop-sign-remake/mounting.png` — close front, rear and side views

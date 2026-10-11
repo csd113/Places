@@ -2,7 +2,7 @@
 //!
 //! A level that declares a `sky` gets one fullscreen background draw at the
 //! start of the scene body, before any world geometry. The sheet is an
-//! equirectangular 2:1 PNG (`assets/environment/outdoor/textures/sky/...`)
+//! equirectangular 2:1 PNG (`assets/environments/outdoor/textures/sky/...`)
 //! sampled by view direction, repeating in U and clamping at the poles, so a
 //! level can look at its own stars in any direction with one texture.
 //!

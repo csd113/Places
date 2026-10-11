@@ -29,21 +29,21 @@ this pass changes the models and UV mapping, not their painted artwork.
 
 GLBs replaced:
 
-- `assets/environment/home/props/models/knife.glb`
-- `assets/environment/home/props/models/fork.glb`
-- `assets/environment/home/props/models/spoon.glb`
-- `assets/environment/home/props/models/plate.glb`
-- `assets/environment/home/props/models/bowl.glb`
-- `assets/environment/home/props/models/wall_switch.glb`
-- `assets/environment/home/props/models/crt_tv.glb`
-- `assets/core/props/models/couch.glb`
-- `assets/core/props/models/bed.glb`
-- `assets/environment/office/props/models/chair.glb`
+- `assets/environments/home/props/knife.glb`
+- `assets/environments/home/props/fork.glb`
+- `assets/environments/home/props/spoon.glb`
+- `assets/environments/home/props/plate.glb`
+- `assets/environments/home/props/bowl.glb`
+- `assets/environments/home/props/wall_switch.glb`
+- `assets/environments/home/props/crt_tv.glb`
+- `assets/shared/props/couch.glb`
+- `assets/shared/props/bed.glb`
+- `assets/environments/office/props/chair.glb`
 
 New file-backed sources extracted from the previous models without pixel changes:
 
-- `assets/core/props/models/bed.png`
-- `assets/environment/office/props/models/chair.png`
+- `assets/shared/props/bed.png`
+- `assets/environments/office/props/chair.png`
 
 Authoring and validation:
 

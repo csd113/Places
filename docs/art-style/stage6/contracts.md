@@ -5,7 +5,7 @@
 ## Reusable hero content
 
 The refined hero is an additive authoring source, not a renderer exception:
-`tests/fixtures/levels/art_style_hero_refined.json`. It retains the Stage 5
+`tests/fixtures/levels/architecture_after.json`. It retains the Stage 5
 transparency control's sky, light placement, water, ice backing, snow patch,
 collision walls, timers and ghost spawn. The original and alternative authored
 night/aurora/storm sources remain intact.

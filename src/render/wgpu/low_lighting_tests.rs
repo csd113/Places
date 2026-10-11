@@ -61,7 +61,7 @@ fn fixture() -> LoadedLevel {
             id: level.id.clone(),
             name: level.name.clone(),
             author: String::new(),
-            source_type: crate::loader::LevelSourceType::Embedded,
+            source_type: crate::loader::LevelSourceType::Installed,
             path: std::path::PathBuf::new(),
         },
         level,

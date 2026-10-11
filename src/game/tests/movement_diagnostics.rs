@@ -11,8 +11,10 @@ const PATTERNS: &[&[f32]] = &[
 ];
 
 fn level() -> LevelDef {
-    LevelDef::from_json(include_str!("../../../assets/levels/movement_test.json"))
-        .expect("the permanent movement map parses")
+    LevelDef::from_json(include_str!(
+        "../../../tests/fixtures/levels/movement_test.json"
+    ))
+    .expect("the permanent movement map parses")
 }
 
 fn run(game: &mut Game, controls: &[Control], seconds: f32, pattern: &[f32]) -> bool {

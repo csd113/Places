@@ -367,7 +367,7 @@ fn diagnostic_taps(scene: &TransportScene, receiver: &TransportReceiver) -> Vec<
 
 fn production_demo_scene() -> (TransportScene, Vec<(LightmapPatch, Chart)>) {
     production_scene(
-        "assets/levels/places_demo.json",
+        "levels/places_demo.json",
         crate::quality::LightmapQuality::Full,
     )
 }
@@ -419,8 +419,8 @@ fn production_static_chart_density_audit() {
     let root = std::path::PathBuf::from(output);
     assert!(!root.exists(), "keep earlier chart evidence untouched");
     for (label, source) in [
-        ("demo", "assets/levels/places_demo.json"),
-        ("hallows", "assets/levels/lantern_hollow.json"),
+        ("demo", "levels/places_demo.json"),
+        ("hallows", "levels/lantern_hollow.json"),
     ] {
         for quality in [
             crate::quality::LightmapQuality::Medium,
@@ -906,7 +906,7 @@ fn production_kitchen_direct_visibility_attribution() {
     eprintln!(
         "[model-lighting-attribution] {}",
         serde_json::json!({
-            "map": "assets/levels/places_demo.json", "quality": "full", "samples": reports,
+            "map": "levels/places_demo.json", "quality": "full", "samples": reports,
             "first_hit_contract": "nearest opaque hit may be beyond emitter; transmittance is the actual finite-segment visibility",
             "solver_revision": SOLVER_REVISION,
             "footprint_contract": "named original physical anchors and complete125mm 4x4 control; actual plan IDs/pitch are separately discovered outputs",
@@ -1230,7 +1230,7 @@ fn production_kitchen_visible_surface_interpolation_control() {
     eprintln!(
         "[model-lighting-fine-grid] {}",
         serde_json::json!({
-            "map": "assets/levels/places_demo.json", "quality": "full", "solver_revision": SOLVER_REVISION,
+            "map": "levels/places_demo.json", "quality": "full", "solver_revision": SOLVER_REVISION,
             "oracle_contract": "exact original world grid/triangle8m controls and125mm footprint; separate discovered actual plan and current-topology8/16/32m diagnostic reconstructions; geometry and source strengths fixed",
             "panels": panels,
         })

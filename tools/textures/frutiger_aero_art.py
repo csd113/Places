@@ -23,7 +23,7 @@ from artkit import write_png
 from home_art import load_sheet
 
 ASSET_ROOT = Path(__file__).resolve().parents[2] / "assets"
-ROOT = ASSET_ROOT / "environment/frutiger_aero"
+ROOT = ASSET_ROOT / "environments/frutiger_aero"
 MASTER_SIZE = 1024
 SURFACE_SIZE = 512
 NATIVE_SIZE = 256
@@ -104,17 +104,17 @@ DECALS = {
 }
 ART = {
     f"frutiger_aero:tex_{name}": {
-        "model": f"environment/frutiger_aero/textures/{directory}/{name}.png",
-        "build": lambda model=f"environment/frutiger_aero/textures/{directory}/{name}.png": load_sheet(model),
+        "model": f"environments/frutiger_aero/textures/{directory}/{name}.png",
+        "build": lambda model=f"environments/frutiger_aero/textures/{directory}/{name}.png": load_sheet(model),
     }
     for name, (directory, _) in SURFACES.items()
 }
 ART["frutiger_aero:tex_sky_day_01"] = {
-    "model": "environment/frutiger_aero/textures/sky/sky_day_01.png",
-    "build": lambda: load_sheet("environment/frutiger_aero/textures/sky/sky_day_01.png"),
+    "model": "environments/frutiger_aero/textures/sky/sky_day_01.png",
+    "build": lambda: load_sheet("environments/frutiger_aero/textures/sky/sky_day_01.png"),
 }
 for _name in DECALS:
-    _model = f"environment/frutiger_aero/decals/{_name}.png"
+    _model = f"environments/frutiger_aero/decals/{_name}.png"
     ART[f"frutiger_aero:decal_{_name}"] = {
         "model": _model,
         "build": lambda model=_model: load_sheet(model),
@@ -410,7 +410,7 @@ def outputs():
         result[ROOT / f"textures/{directory}/{name}.png"] = _periodic(
             master.resize((SURFACE_SIZE, SURFACE_SIZE), Image.Resampling.LANCZOS))
     master = atlas()
-    result[ROOT / "props/models/frutiger_aero_atlas_master.png"] = master
+    result[ROOT / "props/frutiger_aero_atlas_master.png"] = master
     native = Image.new("RGBA", (NATIVE_SIZE, NATIVE_SIZE))
     for rect in RECTS.values():
         # Independent region resampling prevents neighbouring cell colour bleed.
@@ -418,7 +418,7 @@ def outputs():
         cell = master.crop(tuple(value * 4 for value in rect)).resize(
             (x1 - x0, y1 - y0), Image.Resampling.LANCZOS)
         native.paste(cell, (x0, y0))
-    result[ROOT / "props/models/frutiger_aero_atlas.png"] = native
+    result[ROOT / "props/frutiger_aero_atlas.png"] = native
     for name, kind in FOCUS_ATLASES.items():
         focused_master = focused_atlas(kind)
         focused_native = Image.new("RGBA", (NATIVE_SIZE, NATIVE_SIZE), (*PALETTE["white"], 255))
@@ -427,8 +427,8 @@ def outputs():
             cell = focused_master.crop(tuple(value * 4 for value in rect)).resize(
                 (x1 - x0, y1 - y0), Image.Resampling.LANCZOS)
             focused_native.paste(cell, (x0, y0))
-        result[ROOT / f"props/models/{name}_master.png"] = focused_master
-        result[ROOT / f"props/models/{name}.png"] = focused_native
+        result[ROOT / f"props/{name}_master.png"] = focused_master
+        result[ROOT / f"props/{name}.png"] = focused_native
     result[ROOT / "textures/sky/sky_day_01.png"] = sky()
     for name, kind in DECALS.items():
         width, height = (512, 512) if kind in ("corridor", "leaf") else (512, 1024)

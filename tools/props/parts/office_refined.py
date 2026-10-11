@@ -8,7 +8,7 @@ from pathlib import Path
 import glb
 from parts.refreshed import load_atlas_from, padded_box, solid_box, outward_lathe
 
-ROOT = Path(__file__).resolve().parents[3] / "assets/environment/office/props/models"
+ROOT = Path(__file__).resolve().parents[3] / "assets/environments/office/props"
 WHITE = (255, 255, 255)
 
 

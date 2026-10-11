@@ -1437,7 +1437,7 @@ mod tests {
         cache: &mut PropOcclusionCache,
     ) -> Vec<(String, Arc<crate::props::LoadedPropAsset>)> {
         let level = crate::level::LevelDef::from_json(
-            &std::fs::read_to_string("assets/levels/places_demo.json").expect("demo readable"),
+            &std::fs::read_to_string("levels/places_demo.json").expect("demo readable"),
         )
         .expect("demo parses");
         let catalog = crate::loader::PropCatalog::load_default();
@@ -1593,7 +1593,7 @@ mod tests {
     )] // developer measurement output, like the audit report
     fn measure_demo_level_box_totals() {
         for (path, label) in [
-            ("assets/levels/places_demo.json", "places_demo"),
+            ("levels/places_demo.json", "places_demo"),
             ("tests/fixtures/levels/prop_stress.json", "prop_stress"),
             ("tests/fixtures/levels/prop_showcase.json", "prop_showcase"),
         ] {

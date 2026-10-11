@@ -2,7 +2,7 @@
   "format_version": 1,
   "level": "repair_wall_step_z",
   "source": "tests/fixtures/levels/repair/wall_step_z.json",
-  "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__repair__wall_step_z.placesmap",
+  "package": "target/verification/maps/tests__fixtures__levels__repair__wall_step_z.placesmap",
   "settings": {
     "bindings": {
       "forward": "W",

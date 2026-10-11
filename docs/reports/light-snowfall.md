@@ -35,7 +35,7 @@ small architectural shelter model: arbitrary prop roofs, tree canopies and
 dynamic roofs are not ray-traced. Author a room ceiling or slab for those.
 There is no accumulation or snow collision; ground rejection uses opaque depth.
 
-`assets/core/textures/effects/snowflake_01.png` is a committed 256×256 RGBA sheet,
+`assets/shared/textures/effects/snowflake_01.png` is a committed 256×256 RGBA sheet,
 with full 0–1 UVs, zero-alpha borders, white body and a blue-grey contrast rim.
 It uses a normal blend material without emission. The built-in `imagegen` skill
 generated the master from a prompt for one irregular white snow granule with

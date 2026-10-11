@@ -17,7 +17,7 @@ use crate::materials::{AlphaMode, MAX_EMISSION_INTENSITY};
 use crate::test_support::assert_exact;
 
 /// A real, shipped prop asset: the parser must accept what the toolkit writes.
-const CHAIR_GLB: &[u8] = include_bytes!("../../assets/environment/office/props/models/chair.glb");
+const CHAIR_GLB: &[u8] = include_bytes!("../../assets/environments/office/props/chair.glb");
 /// 1x1 opaque PNG used by the synthetic fixtures below.
 const PIXEL_PNG: &[u8] = &[
     137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0,
@@ -2110,7 +2110,7 @@ fn a_missing_or_malformed_clip_marker_keeps_the_clip_defaults() {
 /// so the character path can pose the node hierarchy (the wall switch's lever).
 #[test]
 fn an_animated_unskinned_prop_parses_as_a_rigid_animated_model() {
-    let bytes = std::fs::read("assets/environment/home/props/models/wall_switch.glb")
+    let bytes = std::fs::read("assets/environments/home/props/wall_switch.glb")
         .expect("the shipped wall switch is readable");
     let model = parse_glb(&bytes).expect("the wall switch parses");
     assert!(!model.is_skinned(), "the switch has no skin");

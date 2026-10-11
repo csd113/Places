@@ -11,19 +11,19 @@ This pass refines the assets already present in the working tree. It preserves t
 |---|---|---|
 | 1 | Rat | Fuller haunch and narrower shoulders; continuous weight blending across joined anatomy and rigid soles. `assets/entities/rat/model/rat.glb` |
 | 2 | Human skeleton | Fuller cranium, shaped rib cage, narrower sternum, paired radius/ulna forms; retained articulated hands, feet and poses. `assets/entities/skeleton/model/skeleton.glb` |
-| 3 | Stop sign | Flat-top octagon with matching fitted source artwork, corrected rim winding. `assets/core/props/models/stop_sign.glb` |
-| 4 | Hanging green Exit sign | Closed bevelled housing and inset luminous face; original rods, canopy, lettering and emissive material preserved. `assets/core/props/models/exit_sign.glb` |
-| 5 | Hanging white ball light | Twelve-sided globe, corrected face winding, socket collar and retained cord/rose. `assets/environment/home/props/models/ball_light.glb` |
-| 6 | Wall light switch | Bevelled closed plate and rocker, round screw heads, recessed rocker surround; preserved hinge and `toggle` clip. `assets/environment/home/props/models/wall_switch.glb` |
-| 7 | CRT TV | Deep tapered rear housing and cooling slots; repaired repeated screen UV strips, retained curved glass and controls. `assets/environment/home/props/models/crt_tv.glb` |
-| 8 | Knife | Bevelled walnut handle and bolster; corrected blade top winding. `assets/environment/home/props/models/knife.glb` |
-| 9 | Fork | Bevelled handle, neck, head and four individually readable tines. `assets/environment/home/props/models/fork.glb` |
-| 10 | Spoon | Thin-walled, concave oval bowl replaces the sealed circular mouth; bevelled handle. `assets/environment/home/props/models/spoon.glb` |
-| 11 | Plate | Sixteen-sided rim/well silhouette and corrected winding on the ceramic shell. `assets/environment/home/props/models/plate.glb` |
-| 12 | Bowl | Deeper usable interior and sixteen-sided rim, corrected shell winding. `assets/environment/home/props/models/bowl.glb` |
-| 13 | Small potted plant | Defined glazed rim around the soil; retained seven closed folded leaves and original table-scale proportions. `assets/environment/home/props/models/plant_table.glb` |
-| 14 | Yellow rubber duck | Broad flat bill, fuller crown and low-relief folded wings; corrected body/head winding. `assets/environment/pool/props/models/rubber_duck.glb` |
-| 15 | Ceiling vent | New clean stylized grille artwork with bevel, slats and corner fixings; retained square 128×128 cut-out contract. `assets/core/decals/ceiling_vent_01.png` |
+| 3 | Stop sign | Flat-top octagon with matching fitted source artwork, corrected rim winding. `assets/shared/props/stop_sign.glb` |
+| 4 | Hanging green Exit sign | Closed bevelled housing and inset luminous face; original rods, canopy, lettering and emissive material preserved. `assets/shared/props/exit_sign.glb` |
+| 5 | Hanging white ball light | Twelve-sided globe, corrected face winding, socket collar and retained cord/rose. `assets/environments/home/props/ball_light.glb` |
+| 6 | Wall light switch | Bevelled closed plate and rocker, round screw heads, recessed rocker surround; preserved hinge and `toggle` clip. `assets/environments/home/props/wall_switch.glb` |
+| 7 | CRT TV | Deep tapered rear housing and cooling slots; repaired repeated screen UV strips, retained curved glass and controls. `assets/environments/home/props/crt_tv.glb` |
+| 8 | Knife | Bevelled walnut handle and bolster; corrected blade top winding. `assets/environments/home/props/knife.glb` |
+| 9 | Fork | Bevelled handle, neck, head and four individually readable tines. `assets/environments/home/props/fork.glb` |
+| 10 | Spoon | Thin-walled, concave oval bowl replaces the sealed circular mouth; bevelled handle. `assets/environments/home/props/spoon.glb` |
+| 11 | Plate | Sixteen-sided rim/well silhouette and corrected winding on the ceramic shell. `assets/environments/home/props/plate.glb` |
+| 12 | Bowl | Deeper usable interior and sixteen-sided rim, corrected shell winding. `assets/environments/home/props/bowl.glb` |
+| 13 | Small potted plant | Defined glazed rim around the soil; retained seven closed folded leaves and original table-scale proportions. `assets/environments/home/props/plant_table.glb` |
+| 14 | Yellow rubber duck | Broad flat bill, fuller crown and low-relief folded wings; corrected body/head winding. `assets/environments/pool/props/rubber_duck.glb` |
+| 15 | Ceiling vent | New clean stylized grille artwork with bevel, slats and corner fixings; retained square 128×128 cut-out contract. `assets/shared/decals/ceiling_vent_01.png` |
 | 16 | Curved wall geometry | Reusable 90° and 180° engine-native modules: 2 m centreline radius, 24 cm thickness, 2.8 m height, 12 facets per quarter turn. the native curved-architecture contract in the map authoring guide |
 | 17 | Circular pillar geometry | Reusable engine-native 60 cm diameter, 2.8 m height, 16-facet pillar with centre-floor origin. Same preset file. |
 | 18 | Spoonerman idle | Quieter breathing/tail movement, denser keys, exact standing endpoint; in `spooner-man.glb`, clip `idle`. |
@@ -52,7 +52,7 @@ No new rigs or joints: Spoonerman 26, rat 25, mannequin 23, skeleton 24. Skin we
 ## Previews and checks
 
 - Offline software inspection: [props, sheet 1](../images/reports/asset-polish/sheet_1.png): stop sign, exit sign, globe, switch, CRT; knife, fork, spoon, plate, bowl.
-- Actual native renderer: [in-game integration capture](../images/reports/asset-polish/game-showcase.png).
+- The additional native integration capture is retained locally; its props, vent and curved-architecture validation is described below.
 - [Architecture placement instructions](../MAP_AUTHORING_GUIDE.md).
 
 The software preview camera was corrected so signs are no longer mirrored. The Blender contact-sheet tool now explicitly selects action slots, disables imported NLA overrides and provides room for raised-arm poses. The entity deformation validator now examines every skinned primitive, including all three Spoonerman parts. `tools/entities/check_clip_boundaries.py` adds an export-level check for normalized skin weights, loop seams and sit/stand transitions.

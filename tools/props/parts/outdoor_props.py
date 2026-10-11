@@ -731,7 +731,7 @@ def _panel_cap(p: PropBuilder, *, depth: float, uv, color) -> None:
 def _panel_texture(p: PropBuilder, seed: int) -> Texture:
     from parts.refreshed import load_atlas_from
     from pathlib import Path
-    source=Path(__file__).resolve().parents[3]/'assets/environment/outdoor/props/models/house_base.png'
+    source=Path(__file__).resolve().parents[3]/'assets/environments/outdoor/props/house_base.png'
     tex=load_atlas_from(p, source, ('siding','trim','glass','jamb'))
     return tex
 

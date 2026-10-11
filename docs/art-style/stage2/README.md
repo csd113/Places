@@ -4,9 +4,6 @@
 
 The hero decodes colour into linear light once, retains HDR energy through lighting/material/reflection composition, then converts for display at presentation. Cream paint, upholstery, carpet and oak improve under the same lights, cameras, exposure constants and source artwork. No ambient or map-specific brightness correction was added.
 
-| Before | Final |
-| --- | --- |
-| ![Before](../../images/art-style/original-room.png) | ![Final](../../images/art-style/stage2-final-room.png) |
 
 ## Implemented behavior and limits
 

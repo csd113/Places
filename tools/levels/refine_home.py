@@ -28,7 +28,7 @@ def board(level, x, z, length, yaw, y, height, thickness=.028):
 
 
 def main():
-    path = ROOT / "assets/levels/places_demo.json"
+    path = ROOT / "levels/places_demo.json"
     level = json.loads(path.read_text())
     local_materials = {
         "home:wall_paint_offwhite_01": "home:wall_paint_warm_01",

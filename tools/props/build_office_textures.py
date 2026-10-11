@@ -14,7 +14,7 @@ from tex import decode_png, write_png
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from execution import atomic_write
 
-ROOT = Path(__file__).resolve().parents[2] / "assets/environment/office/props/models"
+ROOT = Path(__file__).resolve().parents[2] / "assets/environments/office/props"
 NAMES = ("desk", "chair", "cabinet", "water_cooler", "vending_machine")
 
 

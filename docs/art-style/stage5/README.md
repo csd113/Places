@@ -4,9 +4,6 @@
 
 A hue-preserving highlight shoulder, selective covered emission and authored sky/fog/water controls retain readable bright material and weather without adding incident lighting again at presentation.
 
-| Before | Final |
-| --- | --- |
-| ![Before](../../images/art-style/stage5-before-room.png) | ![Final](../../images/art-style/stage5-final-room.png) |
 
 ## Implemented behavior and limits
 
@@ -22,7 +19,8 @@ Centre/range blend ordering does not solve intersecting triangles or every effec
 
 ## Prepared water, ice, snow and emission control
 
-![Genuine final Stage 5 surface control](../../images/art-style/stage5-final-surfaces.png)
+The surface-control frame is retained locally. The bloom pixel count, byte-identical water control and qualified night/weather findings above preserve its interpretation; [contracts](contracts.md) and [performance](performance.md) retain the methods.
+
 
 ## Historical implementation and checks
 

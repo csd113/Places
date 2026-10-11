@@ -312,7 +312,7 @@ fn runtime_template_closure_covers_embedded_images_and_unused_overrides_once() {
     let (catalog, _) =
         load_catalog_identity(Path::new("assets/catalog.json")).expect("hero catalogue");
     let mut level = LevelDef::from_json(include_str!(
-        "../../../tests/fixtures/levels/art_style_hero_transparency.json"
+        "../../../tests/fixtures/levels/architecture_before.json"
     ))
     .expect("transparency hero");
     let mut alternate = level.spawn_templates[1].clone();

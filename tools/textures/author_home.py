@@ -10,7 +10,7 @@ import random
 
 from PIL import Image, ImageDraw
 
-ROOT = Path(__file__).resolve().parents[2] / "assets/environment/home"
+ROOT = Path(__file__).resolve().parents[2] / "assets/environments/home"
 SIZE = 1024
 
 
@@ -136,8 +136,8 @@ def atlas(name, bases, kinds=None):
         d.polygon([(8, 360), (160, 190), (257, 305), (340, 250), (503, 390), (503, 503), (8, 503)], fill=(106, 128, 123))
         d.polygon([(8, 415), (189, 330), (260, 399), (408, 340), (503, 425), (503, 503), (8, 503)], fill=(89, 103, 77))
         d.ellipse((332, 75, 392, 135), fill=(231, 211, 164))
-    save(im, ROOT / f"props/models/{name}_master.png")
-    save(im.resize((256, 256), Image.Resampling.LANCZOS), ROOT / f"props/models/{name}.png")
+    save(im, ROOT / f"props/{name}_master.png")
+    save(im.resize((256, 256), Image.Resampling.LANCZOS), ROOT / f"props/{name}.png")
 
 
 def main():

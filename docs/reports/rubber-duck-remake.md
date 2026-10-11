@@ -17,8 +17,8 @@ rig or animations; floating motion remains controlled by the existing level setu
 
 Files changed or produced:
 
-- `assets/environment/pool/props/models/rubber_duck.glb` — final 560-triangle model.
-- `assets/environment/pool/props/models/rubber_duck.png` — new texture, embedded in GLB.
+- `assets/environments/pool/props/rubber_duck.glb` — final 560-triangle model.
+- `assets/environments/pool/props/rubber_duck.png` — new texture, embedded in GLB.
 - `tools/props/parts/duck_remade.py` — reproducible model builder.
 - `tools/props/parts/pool.py` — routes the duck entry to the new builder.
 - `docs/ASSET_SPECIFICATION.md` — records the new duck texture contract.

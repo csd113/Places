@@ -4,7 +4,7 @@ Historical acceptance: 2026-10-06 snow-kit pass. Counts, timings and validation 
 that tested version; the canonical guides govern current contracts.
 
 This pass adds the core snow kit and integrates it into the existing Winter
-Place. Only `assets/levels/winter.json` and `winter.placesmap` change among
+Place. Only `levels/winter.json` and `winter.placesmap` change among
 level files. Model Zoo and every other map remain untouched at the user's
 explicit request. The supplied Winter concept sheet was inspected as the art
 target; `outdoor:tree_03` remains the canonical evergreen.
@@ -14,7 +14,7 @@ target; `outdoor:tree_03` remains the canonical evergreen.
 The 28 committed GLBs cover two evergreen loads, six drifts/mounds, two capped
 rocks, nine architecture/rail overlays, four canonical railing/post variants,
 and five icicle modules. Their dimensions and mounting contracts are listed in
-[the Winter kit README](../../assets/environment/winter/README.md). They use
+[the Winter kit README](../assets/ENVIRONMENTS.md#winter). They use
 real committed PNGs: a 1024² seamless terrain albedo and its 256² prop derivative.
 Snow and packed snow use ordinary world-aligned materials, matte response and
 cool restrained variation; neither has a normal map, emission or runtime image
@@ -89,7 +89,7 @@ package is current and preserved its bytes.
 | `python3 tools/assets/validate.py` | PASS; 282 assets, zero warnings |
 | `python3 tools/assets/audit.py --workers 12 --out target/winter-assets/audit.json` | PASS; zero errors |
 | `python3 tools/textures/build.py --check` | PASS; 65 sheets; source-resolution/manual-art manifest advisories, including the intentional imagegen snow source |
-| `python3 tools/textures/seam_repair.py --check assets/environment/winter/textures/floors/snow_01.png` | PASS |
+| `python3 tools/textures/seam_repair.py --check assets/environments/winter/textures/floors/snow_01.png` | PASS |
 | `python3 tools/levels/build_winter.py --check` | PASS; deterministic and current |
 | `python3 -m unittest tests.test_winter tests.test_winter_assets tests.test_glb_accessors` | PASS; 20 tests |
 | `cargo test --workspace --all-features render::wgpu::props::tests` | PASS; four binding/layout tests |
@@ -97,10 +97,10 @@ package is current and preserved its bytes.
 | `cargo clippy --workspace --all-targets --all-features -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery -D clippy::cargo` | PASS |
 | `cargo build --release` | PASS |
 | `cargo test --workspace --all-features` | 1,995 pass, two Model Zoo coverage failures, 23 ignored; 319.38 s |
-| `target/release/places-compile build assets/levels/winter.json --workers 12` | PASS; real bake and incremental verification |
-| `target/release/places-compile verify assets/levels/winter.json --package assets/levels/winter.placesmap --require-current` | PASS |
+| `target/release/places-compile build levels/winter.json --workers 12` | PASS; real bake and incremental verification |
+| `target/release/places-compile verify levels/winter.json --package assets/levels/winter.placesmap --require-current` | PASS |
 | `target/release/places-compile validate assets/levels/winter.placesmap` | PASS; all three variants, 19 entries and 62 dependencies |
-| `target/release/places --check-geometry --level assets/levels/winter.json --json target/winter-assets/geometry.json` | PASS; zero errors/warnings, foundation outdoor intent annotations unchanged |
+| `target/release/places --check-geometry --level levels/winter.json --json target/winter-assets/geometry.json` | PASS; zero errors/warnings, foundation outdoor intent annotations unchanged |
 | `python3 -m unittest tests.test_package` | 47 pass, one fails because the untouched Model Zoo lacks the new catalogue displays |
 
 The repository-wide checks deliberately retain their catalogue-coverage tests.
@@ -158,7 +158,8 @@ Package SHA256:
 Release binary SHA256:
 `6cb4289e45a79dab7bade8f09d2132a952ec1ed1aad02549e132fd81c2f6a8fa`.
 
-![Winter lodge with supported snow and icicles](../images/reports/winter-static-assets/high-lodge.png)
+The earlier lodge frame is retained locally; [later lodge comparisons](environment-refinement.md) show the subsequently accepted assembly.
+
 ![Canonical evergreen with separate branch snow](../images/reports/winter-static-assets/high-tree-lit-snow.png)
 
 Low evergreen and
@@ -167,7 +168,7 @@ same tree through the two other quality profiles.
 
 ## Reproduction
 
-The [Winter kit README](../../assets/environment/winter/README.md) inventories
+The [Winter kit README](../assets/ENVIRONMENTS.md#winter) inventories
 the native models, shared source artwork and generator commands.
 `tools/bench/capture_winter.py` exercises the real renderer across qualities;
 the final integrated acceptance is in the [Winter audit](winter-final-audit.md).

@@ -1234,15 +1234,37 @@ mod tests {
     }
 
     #[test]
-    fn raw_shipped_payload_agrees_bit_for_bit_with_runtime_decode() {
+    fn raw_compiler_payload_agrees_bit_for_bit_with_runtime_decode() {
         use std::io::Read;
-        let mut archive = zip::ZipArchive::new(std::io::Cursor::new(include_bytes!(
-            "../../assets/levels/places_demo.placesmap"
-        )))
-        .expect("archive");
+        let directory =
+            std::env::temp_dir().join(format!("places-probe-codec-fixture-{}", std::process::id()));
+        crate::test_support::remove_dir_if_present(&directory);
+        let source = r#"{
+            "format_version": 3, "id": "probe_codec_fixture", "name": "Probe codec fixture",
+            "spawn": {"x": 1.0, "z": 1.0},
+            "defaults": {"floor": "core:carpet_beige_01", "ceiling": "core:ceiling_panel_01"},
+            "rooms": [{"x": 0.0, "z": 0.0, "width": 2.0, "depth": 2.0, "height": 2.5}],
+            "ceiling_lights": [{"fixture": "core:fluorescent_panel_01", "x": 1.0, "z": 1.0}]
+        }"#;
+        let package = crate::test_support::compile_test_package(
+            &directory,
+            "probe_codec_fixture.json",
+            source,
+            &crate::quality::LightmapQuality::ALL,
+        )
+        .expect("all real compiler variants build without GPU reflection capture");
+        let mut archive =
+            zip::ZipArchive::new(std::fs::File::open(package).expect("fixture package"))
+                .expect("archive");
         let manifest: serde_json::Value =
             serde_json::from_reader(archive.by_name("manifest.json").expect("manifest"))
                 .expect("json");
+        assert_eq!(
+            manifest["variants"].as_array().expect("variants").len(),
+            3,
+            "the fixture exercises the full compiler quality collection"
+        );
+        let mut exercised_payloads = 0_usize;
         for variant in manifest["variants"].as_array().expect("variants") {
             let Some(entry) = variant["entries"]["irradiance"].as_str() else {
                 continue;
@@ -1255,7 +1277,18 @@ mod tests {
                 .expect("bytes");
             let f = ProbeField::read(&bytes).expect("runtime decode");
             assert_eq!(f.write().expect("encode"), bytes);
+            assert!(
+                !f.probes.is_empty(),
+                "a compiled field contains actual probes"
+            );
+            exercised_payloads = exercised_payloads.saturating_add(1);
         }
+        assert!(
+            exercised_payloads > 0,
+            "the compiler emitted an irradiance record"
+        );
+        drop(archive);
+        crate::test_support::remove_dir_if_present(directory);
     }
 
     #[test]

@@ -2,11 +2,10 @@
 
 Stage 1 established a repeatable native room, hall and garden benchmark. It was an audit and instrumentation milestone, with no claimed renderer or lighting improvement. Source geometry, lights, camera settings and artwork were held for the following stages.
 
-The original room and static/runtime-chair views below are genuine native Metal captures. Repeat controls restored the same settled camera/settings state; small animation differences were qualified rather than treated as static lighting errors.
+The retained original room is a genuine native Metal capture. The static/runtime-chair controls remain part of the dated findings below. Repeat controls restored the same settled camera/settings state; small animation differences were qualified rather than treated as static lighting errors.
 
-| Original room | Original static and runtime chairs |
-| --- | --- |
-| ![Original room](../images/art-style/original-room.png) | ![Original static and runtime chairs](../images/art-style/original-chairs.png) |
+![Original room](../images/art-style/original-room.png)
+
 
 ## What the baseline established
 
@@ -20,7 +19,7 @@ The compiler dump inspection corrected an indirect export that had carried combi
 
 The maintained native camera definition is [the hero manifest](../../tests/fixtures/native/hero-manifest.json). Use the normal compiler/player with compatible source, package and asset catalogue; a historical image alone does not supply a compatible runnable build. [Verification](../VERIFICATION.md) defines current build/package order, diagnostics and acceptance.
 
-[Seven-stage history](../style-upgrade-20261007/art-style-history.md) explains the completed progression. [Stage 2](stage2/README.md) establishes linear colour/HDR; [Stage 3](stage3/README.md) covers real surface/transport continuity; [Stage 4](stage4/README.md) covers live entities; [Stage 5](stage5/README.md) covers presentation/weather; [Stage 6](stage6/README.md) covers content/cache currency; [Stage 7](stage7/README.md) records completed inventory integration. The separate [model-lighting correction](../model-lighting-root-cause-and-fix.md) addresses later production kitchen, corridor and close-skeleton reports.
+[Seven-stage history](../style-upgrade-20261007/art-style-history.md) explains the completed progression. [Stage 2](stage2/README.md) establishes linear colour/HDR; [Stage 3](stage3/README.md) covers real surface/transport continuity; [Stage 4](stage4/README.md) covers live entities; [Stage 5](stage5/README.md) covers presentation/weather; [Stage 6](stage6/README.md) covers content/cache currency; [Stage 7](stage7/README.md) records completed inventory integration. The separate [model-lighting correction](../reports/model-lighting-root-cause-and-fix.md) addresses later production kitchen, corridor and close-skeleton reports.
 
 ## Historical implementation and checks
 

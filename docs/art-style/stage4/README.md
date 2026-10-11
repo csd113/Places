@@ -22,11 +22,8 @@ Characters use clamped bind-bound support and floor proxies, not full posed-body
 
 ## Actual door visibility control
 
-| Closed | Open |
-| --- | --- |
-| ![Closed](../../images/art-style/stage4-door-closed.png) | ![Open](../../images/art-style/stage4-door-open.png) |
+The closed/open door and actor frames are retained locally. The selected-source visibility sequence 0→0.96875→0, exact returned payload and qualified actor-animation results above retain the control findings; [contracts](contracts.md) describes the corresponding assertions.
 
-![Placed actor in the final Stage 4 control](../../images/art-style/stage4-final-actor.png)
 
 ## Historical implementation and checks
 

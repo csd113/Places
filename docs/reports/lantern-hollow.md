@@ -23,7 +23,7 @@ The 14 new modular models are road_straight, road_unmarked, road_dash, sidewalk,
 sidewalk_corner, curb, curb_ramp, sidewalk_transition, rock_face,
 rock_face_variant, boulder, campfire, road_gate and stump_seat. Their catalog
 IDs use `outdoor:showcase_`; their GLBs are under
-`assets/environment/outdoor/props/models/`. Two existing 128px textures are
+`assets/environments/outdoor/props/`. Two existing 128px textures are
 reused byte-for-byte. The road materials are normal albedo aliases, without
 lighting brightness floors or emissive compensation.
 

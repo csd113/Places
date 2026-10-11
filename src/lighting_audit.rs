@@ -439,9 +439,9 @@ fn bench_worst_reasonable() -> LevelDef {
     ))
 }
 
-/// The shipped official demo (the only level bundled with the game).
+/// The maintained official demo source, independent of compiled output.
 fn shipped_demo() -> LevelDef {
-    let path = "assets/levels/places_demo.json";
+    let path = "levels/places_demo.json";
     let content = std::fs::read_to_string(path)
         .unwrap_or_else(|error| panic!("{path} must be readable: {error}"));
     parse(&content)

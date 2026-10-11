@@ -1,6 +1,7 @@
 # Places documentation
 
-Start with [architecture](ARCHITECTURE.md), [renderer](RENDERER.md) and
+Start with [developer orientation and cleanup](DEVELOPMENT.md),
+[architecture](ARCHITECTURE.md), [renderer](RENDERER.md) and
 [desktop verification](VERIFICATION.md). Map and asset work follows the
 [map authoring guide](MAP_AUTHORING_GUIDE.md) and
 [asset specification](ASSET_SPECIFICATION.md); the
@@ -9,20 +10,32 @@ Start with [architecture](ARCHITECTURE.md), [renderer](RENDERER.md) and
 The [seven-stage Art-style record](style-upgrade-20261007/art-style-history.md)
 and [completed integration](art-style/stage7/README.md) preserve the historical
 results and their limits. The separate
-[model-lighting correction](model-lighting-root-cause-and-fix.md) documents the
+[model-lighting correction](reports/model-lighting-root-cause-and-fix.md) documents the
 later kitchen, corridor and skeleton defects, their causes and matched native
 before/after PNGs. Selected historical captures are under `images/`; individual
 final reports in `reports/` explain their own accepted findings and limitations.
 
-## Documentation cleanup
+## Curated image selection
+
+The October 11 selection keeps 69 tracked PNGs under `docs/images/`: essential
+before/after pairs, current environment/menu views, diagnostic composites, animal
+presentation and all six renderer reference images. Repeated campaign frames are
+retained byte for byte under
+`local/retained/repo-cleanup-20261011/docs/images/`, using their original paths.
+Reports keep their original findings, measurements and replay instructions;
+archived frames remain historical evidence rather than fresh gate results.
+Concept references and functional GLES fixtures keep their separate contracts.
+
+## Historical documentation cleanup
 
 On October 9, 2026, final reports were consolidated before retiring generated
 logs, trace dumps, receipts, intermediate narratives and redundant captures.
 The original inventory contained 6,517 files and 2,050,460 text lines, including
 the corrective mission's pending evidence. The retained guides, final reports,
 107 curated genuine PNGs and one functional asset preset occupy approximately
-21,800 text lines. No source assets or requested playable custom debug maps
-were removed.
+21,800 text lines. That earlier cleanup preserved source assets and custom debug maps. The
+[October 11 repository cleanup](DEVELOPMENT.md) subsequently retired obsolete
+dev maps under the updated curated-lineup policy.
 
 Reusable camera/sequence/ray inputs now live in `tests/fixtures/native/`.
 The former renderer's 50 original PNG comparison inputs are preserved byte for

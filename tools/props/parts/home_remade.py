@@ -7,7 +7,7 @@ from pathlib import Path
 from parts.domestic_remade import loft, section
 from parts.refreshed import load_atlas_from, padded_box, solid_box, solid_cylinder, outward_lathe
 
-ROOT = Path(__file__).resolve().parents[3] / "assets/environment/home/props/models"
+ROOT = Path(__file__).resolve().parents[3] / "assets/environments/home/props"
 WHITE = (255, 255, 255)
 
 

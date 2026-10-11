@@ -2,7 +2,7 @@
   "format_version": 1,
   "level": "office_asset_review",
   "source": "tests/fixtures/levels/office_asset_review.json",
-  "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__office_asset_review.placesmap",
+  "package": "target/verification/maps/tests__fixtures__levels__office_asset_review.placesmap",
   "settings": {
     "bindings": {
       "forward": "W",

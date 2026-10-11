@@ -19,7 +19,7 @@ def png(image):
 
 
 def derivatives():
-    winter = ROOT / 'assets/environment/winter'
+    winter = ROOT / 'assets/environments/winter'
     sheets = ('floors/snow_01', 'floors/ice_01', 'walls/stone_masonry_01', 'walls/timber_01')
     results = {}
     for name in sheets:
@@ -31,11 +31,11 @@ def derivatives():
         repaired = seam_repair.PngImage(source.width, source.height, source.colour_type,
                                        pixels, source.ancillary)
         results[target] = seam_repair.encode_png(repaired)
-    models = winter / 'props/models'
+    models = winter / 'props'
     for source, target in (('floors/snow_01', 'snow_surface'), ('floors/ice_01', 'ice_surface')):
         image = Image.open(BytesIO(results[winter / 'textures' / (source + '.png')]))
         results[models / (target + '.png')] = png(image.resize((256, 256), Image.Resampling.LANCZOS))
-    lamp = Image.open(ROOT / 'assets/environment/outdoor/props/models/lamp_stand_master.png').convert('RGB')
+    lamp = Image.open(ROOT / 'assets/environments/outdoor/props/lamp_stand_master.png').convert('RGB')
     stone = Image.open(winter / 'textures/walls/stone_masonry_01_master.png').convert('RGB')
     wood = Image.open(winter / 'textures/walls/timber_01_master.png').convert('RGB')
     crops = (stone.crop((320,280,520,370)), wood.crop((330,0,535,1024)),

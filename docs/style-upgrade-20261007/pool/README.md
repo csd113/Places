@@ -3,7 +3,7 @@
 Starting commit: `295ab2f0bdf45f63f4165d6425293c3e6f9f0802`, on
 `Winter-expansion`. This is the Pool entry in the [visual development journal](../README.md).
 The approved source is the actual PNG inside the Pool asset directory:
-[Places: Quiet Indoor Pool Asset Sheet](../../../assets/environment/pool/Places_%20Quiet%20Indoor%20Pool%20Asset%20Sheet.png).
+[Places: Quiet Indoor Pool Asset Sheet](../../../assets/references/pool/Places_%20Quiet%20Indoor%20Pool%20Asset%20Sheet.png).
 Its pixels, the map authoring guide and asset specification were inspected
 before rebuilding content. No other environment pass is included.
 
@@ -67,7 +67,7 @@ Only its Pool static dressing and Pool fixture settings change.
 | `tools/textures/water_art.py`, `decal_art.py` | Existing water and NO DIVING sources retained. |
 | `tools/props/parts/pool_remade.py`, registry in `pool.py` | Closed rail/curtain construction and rebuilt table, chair, ladder, bench, grate and service leaf. Old unused table/chair/ladder helpers remain historical source only. |
 | Existing `duck_remade.py` and `pool.py` hot-tub builder | Retained duck and circular shell, outside this remake. |
-| `tools/levels/refine_pool.py` | Idempotent tagged Pool dressing in `assets/levels/places_demo.json`; no compiler/runtime texture generation. |
+| `tools/levels/refine_pool.py` | Idempotent tagged Pool dressing in `levels/places_demo.json`; no compiler/runtime texture generation. |
 | `tools/levels/build_model_zoo.py` | Minimal three-prop Pool apron registration without reflowing existing exhibits. |
 | `tools/bench/capture_pool.py` | Fixed native renderer cameras/settings used for both stages. |
 
@@ -77,7 +77,7 @@ High uses native model atlases; Low reduces these to 128². Surface PNGs remain
 1024² authored sources under the existing runtime quality policy. All imagery
 is committed under `assets/`; no painter runs at game startup or level load.
 Mandatory aspect ratios, alpha, orientation, bounds and fitted UV layout are
-preserved and documented in the [Pool asset README](../../../assets/environment/pool/README.md)
+preserved and documented in the [Pool asset README](../../assets/ENVIRONMENTS.md#pool)
 and [asset specification](../../ASSET_SPECIFICATION.md).
 
 ## Matched native comparison
@@ -88,7 +88,8 @@ previews or composited mockups. Click any image for the full 1280×720 PNG.
 | View | Before | After | What changed |
 | --- | --- | --- | --- |
 | Wide Pool | ![Wide before](../../images/style-upgrade/pool-before-wide.png) | ![Wide after](../../images/style-upgrade/pool-after-wide.png) | Blue recess, pale deck/walls, single rails, coherent construction boundaries and calmer palette. |
-| Basin | ![Basin before](../../images/style-upgrade/pool-before-basin.png) | ![Basin after](../../images/style-upgrade/pool-after-basin.png) | Readable blue ceramic, navy lanes and basin-edge separation. |
+
+The additional basin pair is retained locally; it records readable blue ceramic, navy lanes and basin-edge separation.
 
 Camera positions and angles are identical in each pair. `PLACES_SPAWN` is
 `x,z,yaw`; the unchanged floor resolver sets eye height. `PLACES_CAMERA` is

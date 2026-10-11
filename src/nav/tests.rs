@@ -594,7 +594,7 @@ fn a_grid_beyond_the_cell_budget_is_rejected() {
 fn demo_nav() -> (LevelDef, NavMesh, NavBakeReport) {
     let source = std::fs::read_to_string(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/assets/levels/places_demo.json"
+        "/levels/places_demo.json"
     ))
     .expect("the demo source is readable");
     let level = LevelDef::from_json(&source).expect("the demo source parses");

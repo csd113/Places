@@ -2,7 +2,7 @@
   "format_version": 1,
   "level": "geometry_intentional",
   "source": "tests/fixtures/levels/geometry_intentional.json",
-  "package": "/Users/connordawkins/Documents/GitHub/Places/target/verification/maps/tests__fixtures__levels__geometry_intentional.placesmap",
+  "package": "target/verification/maps/tests__fixtures__levels__geometry_intentional.placesmap",
   "settings": {
     "bindings": {
       "forward": "W",

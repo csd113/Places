@@ -2315,7 +2315,7 @@ fn prop_occluders_do_not_create_a_dark_hole_outside_their_footprint() {
 )] // developer measurement output, like the audit report
 fn the_shipped_levels_bake_bounded_prop_occlusion() {
     for (path, label) in [
-        ("assets/levels/places_demo.json", "places_demo"),
+        ("levels/places_demo.json", "places_demo"),
         ("tests/fixtures/levels/prop_stress.json", "prop_stress"),
     ] {
         let content = std::fs::read_to_string(path).expect("shipped level must be readable");
@@ -3133,11 +3133,15 @@ fn write_lighting_developer_report() {
     let mut report = String::new();
     for (path, label, samples) in [
         (
-            "assets/levels/places_demo.json",
+            "levels/places_demo.json",
             "places_demo",
             PLACES_DEMO_SAMPLES,
         ),
-        ("levels/level0_pit.json", "level0_pit", PIT_SAMPLES),
+        (
+            "tests/fixtures/levels/level0_pit.json",
+            "level0_pit",
+            PIT_SAMPLES,
+        ),
     ] {
         let content = std::fs::read_to_string(path).expect("shipped level must be readable");
         let level = LevelDef::from_json(&content).expect("shipped level parses");
@@ -3169,12 +3173,12 @@ fn write_lighting_developer_report() {
 fn write_lighting_candidate_sweep() {
     let mut report = String::new();
     for (path, label, probes) in [
+        ("levels/places_demo.json", "places_demo", SWEEP_PROBES_DEMO),
         (
-            "assets/levels/places_demo.json",
-            "places_demo",
-            SWEEP_PROBES_DEMO,
+            "tests/fixtures/levels/level0_pit.json",
+            "level0_pit",
+            SWEEP_PROBES_PIT,
         ),
-        ("levels/level0_pit.json", "level0_pit", SWEEP_PROBES_PIT),
     ] {
         let content = std::fs::read_to_string(path).expect("shipped level must be readable");
         let level = LevelDef::from_json(&content).expect("shipped level parses");
@@ -3444,7 +3448,7 @@ fn disable_prop_lights(level: &mut LevelDef, prop_id: &str) {
 /// own fixtures while the glowing faces are unchanged.
 #[test]
 fn the_demo_exit_sign_and_ball_light_really_illuminate() {
-    let mut level = LevelDef::from_json(include_str!("../../assets/levels/places_demo.json"))
+    let mut level = LevelDef::from_json(include_str!("../../levels/places_demo.json"))
         .expect("the shipped demo parses");
     let scene_lighting = LevelLighting::bake(&level);
     let mut scene_pendant_off = level.clone();

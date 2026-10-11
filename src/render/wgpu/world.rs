@@ -3540,7 +3540,7 @@ mod tests {
         };
         use crate::render::common::{build_level_geometry, logical_materials};
 
-        let json = include_str!("../../../assets/levels/places_demo.json");
+        let json = include_str!("../../../levels/places_demo.json");
         let level = crate::level::LevelDef::from_json(json).expect("valid places_demo json");
         let materials = logical_materials(&level);
         let catalog = crate::loader::PropCatalog::builtin();
@@ -3610,7 +3610,7 @@ mod tests {
         };
         use crate::render::common::logical_materials;
 
-        let json = include_str!("../../../assets/levels/places_demo.json");
+        let json = include_str!("../../../levels/places_demo.json");
         let level = crate::level::LevelDef::from_json(json).expect("valid places_demo json");
         let materials = logical_materials(&level);
         let catalog = crate::loader::PropCatalog::builtin();
@@ -3708,7 +3708,7 @@ mod tests {
     fn the_shipped_demo_uploads_every_static_world_index_exactly_once() {
         use crate::render::common::{build_level_geometry, logical_materials};
 
-        let json = include_str!("../../../assets/levels/places_demo.json");
+        let json = include_str!("../../../levels/places_demo.json");
         let level = crate::level::LevelDef::from_json(json).expect("valid places_demo json");
         let mesh = build_level_geometry(&level);
         assert!(mesh.vertex_count > 0 && mesh.index_count > 0);
@@ -3894,7 +3894,7 @@ mod tests {
     fn a_shipped_material_resolves_through_its_texture_slot() {
         use crate::materials::resolve_materials;
 
-        let json = include_str!("../../../assets/levels/places_demo.json");
+        let json = include_str!("../../../levels/places_demo.json");
         let level = crate::level::LevelDef::from_json(json).expect("valid places_demo json");
         let catalog = crate::assets::AssetCatalog::load_default();
         let root = crate::assets::resolve_asset_root().expect("assets/ is discoverable");
@@ -3939,7 +3939,7 @@ mod tests {
         use crate::materials::{TextureOrigin, resolve_materials};
         use crate::render::common::build_level_geometry;
 
-        let json = include_str!("../../../assets/levels/places_demo.json");
+        let json = include_str!("../../../levels/places_demo.json");
         let level = crate::level::LevelDef::from_json(json).expect("valid places_demo json");
         let mesh = build_level_geometry(&level);
         let catalog = crate::assets::AssetCatalog::load_default();

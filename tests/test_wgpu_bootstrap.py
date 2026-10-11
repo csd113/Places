@@ -1379,7 +1379,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         # exactly the sheet's own texel storage and the edge is its longest
         # side. Pinning the asset's real dimensions keeps this honest without
         # freezing a historical placeholder size.
-        fallback = os.path.join(ROOT, "assets", "core", "textures", "white_01.png")
+        fallback = os.path.join(ROOT, "assets", "shared", "textures", "white_01.png")
         with open(fallback, "rb") as handle:
             header = handle.read(24)
         self.assertEqual(

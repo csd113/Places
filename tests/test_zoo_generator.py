@@ -75,7 +75,7 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
     def test_regeneration_matches_the_shipped_zoo(self):
         level = self.level_for(self.catalog)
         shipped = json.loads(
-            (PACKAGE / "assets" / "levels" / "model_zoo.json").read_text(encoding="utf-8")
+            (PACKAGE / "levels" / "model_zoo.json").read_text(encoding="utf-8")
         )
         self.assertEqual(
             zoo.serialise(level),
@@ -94,7 +94,7 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
         extra = copy.deepcopy(template)
         extra["id"] = "fixture:new_prop"
         extra["display_name"] = "Fixture New Prop"
-        extra["model"] = "core/props/models/crate.glb"
+        extra["model"] = "shared/props/crate.glb"
         extra["size"] = [0.4, 0.4, 0.4]
         grown["assets"].append(extra)
 
@@ -173,7 +173,7 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
             extra = copy.deepcopy(template)
             extra["id"] = f"fixture:bulk_{index:02d}"
             extra["display_name"] = f"Fixture Bulk {index}"
-            extra["model"] = "core/props/models/crate.glb"
+            extra["model"] = "shared/props/crate.glb"
             grown["assets"].append(extra)
 
         grown_level = self.level_for(grown)
@@ -263,7 +263,8 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
             if identity != "zoo:core-plant:floor":
                 self.assertIn(identity, ids)
         # No real asset was removed: the model still exists on disk.
-        self.assertTrue((PACKAGE / "assets" / "core" / "props" / "models" / "plant.glb").exists())
+        removed = next(entry for entry in self.catalog["assets"] if entry["id"] == removed_id)
+        self.assertTrue((PACKAGE / "assets" / removed["model"]).is_file())
 
     def test_the_catalog_id_is_the_only_input_that_decides_identity(self):
         # Reordering the catalogue's own array (a file edit that changes nothing
@@ -303,7 +304,7 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
         # abort generation: the worker reports the asset by name, the display
         # still exists and the loader's own fallback handles it at run time.
         result = zoo.inspect_asset(
-            {"id": "fixture:missing", "model": "core/props/models/does_not_exist.glb"}
+            {"id": "fixture:missing", "model": "shared/props/does_not_exist.glb"}
         )
         self.assertIsNotNone(result["error"])
         self.assertIsNone(result["rest_bounds"])

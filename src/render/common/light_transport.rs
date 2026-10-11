@@ -1182,9 +1182,9 @@ mod tests {
     #[test]
     fn authored_sky_colour_enters_incident_energy_once_and_ignores_presentation() {
         let mut level = LevelDef::from_json(include_str!(
-            "../../../tests/fixtures/levels/art_style_hero.json"
+            "../../../tests/fixtures/levels/material_transport.json"
         ))
-        .expect("hero");
+        .expect("material transport fixture");
         if let Some(sky) = level.sky.as_mut() {
             sky.ambient_color = Some([0.2, 0.4, 0.8]);
             sky.ambient = 0.25;

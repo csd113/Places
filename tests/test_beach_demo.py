@@ -13,7 +13,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "assets/levels/beach_demo.json"
+SOURCE = ROOT / "levels/beach_demo.json"
 ROOM_EDGE_EPS = .01
 PLAYER_RADIUS = .30
 PLAYER_HEIGHT = 1.8
