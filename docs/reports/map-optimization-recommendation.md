@@ -6,7 +6,8 @@
 
 **Keep the current look and HDR. Make map data independently fetchable by quality,
 reuse assets by their existing hashes, and share the repeated parts of prepared
-geometry. Keep `.placesmap` as the complete offline/import envelope.** This is the
+geometry. Retain `.placesmap` for offline import and complete map-plus-assets
+exports.** This is the
 best first project for browser delivery: it avoids transferring work the player
 does not currently need, without changing lighting or rewriting the renderer.
 
@@ -173,8 +174,9 @@ Dependencies below assume no required hashes cached; app/bootstrap bytes are ext
 
 After downloading Demo’s assets, Hollow needs only **2.57 MB of new dependencies**,
 Winter another **8.84 MB**, and Home none, in that order. An unchanged revisit may
-need zero resource body bytes if all cached content survives; it still needs
-decode/upload. Browser storage can be evicted. Cache reuse is not guaranteed,
+need zero resource body bytes if all cached content survives; decode/upload may
+still be needed if decoded or GPU resources are no longer resident. Browser
+storage can be evicted. Cache reuse is not guaranteed,
 and moving bytes into a separate bundle does not eliminate the cold download.
 
 **Fresh native baseline:** Apple M2 Pro, 16 GiB RAM, Metal, 1,280×720 drawable,
@@ -251,9 +253,11 @@ does not lower atlas GPU memory. Codec names cannot substitute for visual proof.
 
 1. **Selected-quality delivery and verified shared assets.** Add a small manifest
    index and independently compressed, immutable hash URLs, or an asynchronous
-   ZIP range reader. Preserve all qualities and complete offline `.placesmap`
-   export/import. Keep custom assets embeddable so authors can share one complete
-   bundle; extract verified reusable content into an explicit user cache. Count
+   ZIP range reader. Preserve all qualities and complete offline map-plus-assets
+   export/import. Current imported maps require installed assets; the compiler
+   does not create standalone custom-asset packages. Add explicit bundling/import
+   support if authors need one-file sharing, including custom GLBs as well as
+   textures; extract verified reusable content into an explicit user cache. Count
    relocated bytes in cold totals. Pin dependency versions/hashes and compatible
    catalog identity; report missing/mismatched assets clearly. This is the first
    browser architecture decision, with the measured 43.1% Full-only map-transfer
