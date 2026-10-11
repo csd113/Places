@@ -1,12 +1,26 @@
 # Spooner-man body refinement — 2026-10-11
 
-**Status: INCOMPLETE.** Three geometry/UV passes and native validation are
-complete. The subsequently supplied concept sheet has not been viewed or used:
-Library resolved `Places & Entities_ Low-Poly Game Atlas(1).png`
-(`libfile_e16257a56b888191975d8d6eba5af6a0`), but both supported local transfers
-failed. Its image read returned a pointer and metadata, rather than pixels.
-The older repository atlas was not substituted. Concept-art comparison remains
-an explicit follow-up.
+**Status: user-accepted on 2026-10-11 at 23:18 UTC.** The user accepted the
+published visual result as good enough and requested finishing immediately.
+The model and reproducible authoring source remain at the verified `2d7f10b`
+checkpoint; unfinished corrective experiments were retained locally, not shipped.
+
+The parent subsequently viewed the actual pixels of the exact newly supplied
+`Places & Entities_ Low-Poly Game Atlas(1).png`
+(`libfile_e16257a56b888191975d8d6eba5af6a0`) and the published native captures.
+The local author did not view that sheet: both local transfers failed and the
+image read supplied a pointer and metadata. The older repository atlas was not
+substituted. Concept art direction and comparison therefore came from the
+parent's actual pixel review.
+
+The accepted model remains longer and lower than the compact concept cat.
+The seated capture is established `sit_idle` (about 0.98 seconds into the hold),
+not a transition: it retains a diagonal torso, a sharp shoulder fold and raised
+haunch flesh. The follow-up audit identified abrupt trunk-to-limb/tail weight
+ownership and an oblique immutable seated spine; the fore elbows also remain
+32 mm behind the paws. These are user-accepted visual limits, not a claim of
+an exact concept match. Further proportion, skinning and pose work stopped at
+the user's request; no animation keys or corrective model changes were shipped.
 
 ## Result and preservation
 
@@ -89,7 +103,8 @@ The 19-second native sequence covers `idle`, `walk`, `run`, `sit_down`,
 `sit_idle`, `stand_up` and `pounce`, including return to idle. It was reviewed
 through its captured frame sequence and playing in QuickTime, with attention
 to neck, shoulder/hip bends, paw contact and the moving tail. The reviewed
-poses show continuous joins and retain the original motion. Close-up front
+poses retain the original motion, including the inherited seated limitations
+above. Close-up front
 and rear views and a separate direct-light capture also passed visual review;
 no new fullbright faces or blank-black dorsal panels appeared.
 

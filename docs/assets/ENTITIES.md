@@ -61,7 +61,7 @@ within the existing bounds tolerance. Reproduce the body with
 export under `tools/props/sources/`; verify it with
 `tools/entities/check_spooner_refinement.py`. The
 [body refinement report](../reports/spoonerman-body-refinement.md) records the
-three passes, native comparisons and the unresolved new concept-sheet access.
+three passes, native comparisons and the user-accepted remaining concept differences.
 
 | Clip | Duration | Playback | Kind / reference speed |
 | --- | --- | --- | --- |

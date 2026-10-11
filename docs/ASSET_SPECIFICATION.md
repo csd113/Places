@@ -793,7 +793,7 @@ normal runtime texture         256x256 native
   head attributes, PNG bytes, rig and motion keys remain exact. Run that
   generator with `--check` and `tools/entities/check_spooner_refinement.py`
   after body edits; see the [refinement report](reports/spoonerman-body-refinement.md)
-  for native comparisons and the pending concept-reference limitation.
+  for native comparisons and the user-accepted remaining concept differences.
 
 The refined sign/fixture/CRT builders also load standalone PNG source atlases
 beside their GLBs. Preserve their existing region frames: stop sign uses the
