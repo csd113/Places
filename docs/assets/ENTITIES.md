@@ -16,7 +16,7 @@ library. Paths are relative to `assets/entities/`:
 
 | Logical id | Model path | Catalog bind size XYZ, metres | Triangles / joints / primitives |
 | --- | --- | --- | --- |
-| `spooner-man` | `spooner-man/model/spooner-man.glb` | 0.165 × 0.389 × 0.626 | 1374 / 26 / 3 |
+| `spooner-man` | `spooner-man/model/spooner-man.glb` | 0.165 × 0.389 × 0.626 | 1950 / 26 / 3 |
 | `mannequin` | `mannequin/model/mannequin.glb` | 0.420 × 1.720 × 0.305 | 1376 / 23 / 1 |
 | `rat` | `rat/model/rat.glb` | 0.095 × 0.139 × 0.613 | 1428 / 25 / 1 |
 | `skeleton` | `skeleton/model/skeleton.glb` | 0.4266 × 1.720 × 0.315 | 1492 / 24 / 1 |
@@ -53,6 +53,16 @@ A hand-authored Blender tuxedo cat with the `cat_rig` skin. The single
 shared by every instance. Preserve its mesh, three surface sheets, hierarchy,
 inverse bind matrices and bind pose when baking motion.
 
+The body now uses authored rounded sections while its 454-triangle head,
+three PNGs, rig and seven clips retain their original data. The measured
+bind width is 0.18361 m; catalog/collision metadata above remains unchanged
+within the existing bounds tolerance. Reproduce the body with
+`tools/props/refine_spooner_man.py`, which starts from the immutable original
+export under `tools/props/sources/`; verify it with
+`tools/entities/check_spooner_refinement.py`. The
+[body refinement report](../reports/spoonerman-body-refinement.md) records the
+three passes, native comparisons and the unresolved new concept-sheet access.
+
 | Clip | Duration | Playback | Kind / reference speed |
 | --- | --- | --- | --- |
 | `idle` | 4.0 s | loop | idle |
@@ -71,8 +81,8 @@ level movement and attack behavior require separate authoring. A route cue is
 `{"step":"play","clip":"pounce","seconds":1.4,"loop":false}`.
 
 The documented skin repair uses a deterministic nearest-segment two-bone
-blend, sigma 0.02 m, excluding the central root; the repaired leg weight share
-was 42.3%. `animate_spooner_man.py --repair-skin` explicitly rebinds
+blend, sigma 0.02 m, excluding the central root; the pre-refinement export's
+repaired leg weight share was 42.3%. `animate_spooner_man.py --repair-skin` explicitly rebinds
 `JOINTS_0`/`WEIGHTS_0`; the normal baker repairs only degenerate bindings.
 Positions, UVs, images, hierarchy and inverse binds remain preserved. See the
 [motion report](../reports/spoonerman-cat-motion.md) for preservation hashes,

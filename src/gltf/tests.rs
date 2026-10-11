@@ -1954,30 +1954,43 @@ fn parses_the_shipped_spoonerman_bind_pose_and_skeleton() {
     assert_eq!(skin.nodes.len(), 28);
     assert_eq!(model.joints.len(), model.vertices.len());
     assert_eq!(model.weights.len(), model.vertices.len());
-    // The repaired bind keeps the paw geometry on the leg chains; without the
-    // repair under 2% of the vertex weight reaches a leg bone.
-    let leg_weight: f32 = model
-        .joints
-        .iter()
-        .zip(model.weights.iter())
-        .map(|(joints, weights)| {
-            joints
+    // Protect the original body-bound paw bug directly. A whole-mesh weight
+    // share changes when UV/normal seam vertices are deduplicated and says
+    // nothing about which paw moves. This adds only four bounded vertex scans
+    // to the existing asset parse, with no map compilation or new fixture.
+    for (chain, side, front) in [
+        ("leg_fl", 1.0, true),
+        ("leg_fr", -1.0, true),
+        ("leg_rl", 1.0, false),
+        ("leg_rr", -1.0, false),
+    ] {
+        let paws: Vec<usize> = model
+            .vertices
+            .iter()
+            .enumerate()
+            .filter(|(_, vertex)| {
+                vertex.pos[1] < 0.027
+                    && vertex.pos[0] * side > 0.0
+                    && (vertex.pos[2] > 0.0) == front
+            })
+            .map(|(index, _)| index)
+            .collect();
+        assert!(!paws.is_empty(), "missing {chain} paw geometry");
+        for index in paws {
+            let leg_weight: f32 = model.joints[index]
                 .iter()
-                .zip(weights.iter())
+                .zip(model.weights[index].iter())
                 .filter(|(slot, _)| {
-                    skin.nodes
+                    skin.joints
                         .get(usize::from(**slot))
-                        .is_some_and(|node| node.name.starts_with("leg_"))
+                        .and_then(|node| skin.nodes.get(usize::from(*node)))
+                        .is_some_and(|node| node.name.starts_with(chain))
                 })
                 .map(|(_, weight)| *weight)
-                .sum::<f32>()
-        })
-        .sum();
-    let total: f32 = model.weights.iter().flatten().sum();
-    assert!(
-        leg_weight / total > 0.25,
-        "leg bones must carry the paw geometry: {leg_weight} of {total}"
-    );
+                .sum();
+            assert!(leg_weight > 0.8, "{chain} paw is body-bound: {leg_weight}");
+        }
+    }
     for (joints, weights) in model.joints.iter().zip(model.weights.iter()) {
         let sum: f32 = weights.iter().sum();
         assert!(
@@ -1992,8 +2005,8 @@ fn parses_the_shipped_spoonerman_bind_pose_and_skeleton() {
         );
     }
     let (low, high) = model.bounds().expect("bind-pose bounds");
-    let expected_low = [-0.0825_f32, 0.0, -0.2967];
-    let expected_high = [0.0825_f32, 0.389, 0.329];
+    let expected_low = [-0.0918_f32, 0.0, -0.2967];
+    let expected_high = [0.0918_f32, 0.389, 0.329];
     for axis in 0..3 {
         assert!((low[axis] - expected_low[axis]).abs() < 2e-3, "{low:?}");
         assert!((high[axis] - expected_high[axis]).abs() < 2e-3, "{high:?}");

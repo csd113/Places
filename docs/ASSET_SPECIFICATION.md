@@ -788,6 +788,12 @@ normal runtime texture         256x256 native
   origin, triangle and texture budgets. The shipped Spooner-Man entity rig is
   hand-authored and maintained by `tools/props/animate_spooner_man.py`; it is
   never rebuilt from the placeable-prop builders.
+  Its body refinement is reproduced by `tools/props/refine_spooner_man.py`
+  from the immutable manual export in `tools/props/sources/`. The original
+  head attributes, PNG bytes, rig and motion keys remain exact. Run that
+  generator with `--check` and `tools/entities/check_spooner_refinement.py`
+  after body edits; see the [refinement report](reports/spoonerman-body-refinement.md)
+  for native comparisons and the pending concept-reference limitation.
 
 The refined sign/fixture/CRT builders also load standalone PNG source atlases
 beside their GLBs. Preserve their existing region frames: stop sign uses the
