@@ -1,4 +1,4 @@
-//! Regressions for chart-independent baseline recovery and maintained emitters.
+//! Regressions for chart-independent baseline recovery and bounded transport fixtures.
 use super::*;
 
 #[test]
@@ -99,50 +99,6 @@ fn coloured_fill_preserves_moments_and_has_finite_probes_and_texels() {
     for channel in 0..3 {
         let expected = before[channel] + baseline_fill(before[channel], target[channel]);
         assert!((texel.light_at([0.0, 1.0, 0.0])[channel] - expected).abs() < 1.0e-6);
-    }
-}
-
-#[test]
-fn maintained_hallway_recessed_and_hanging_fixtures_cast_direct_pools() {
-    let level =
-        LevelDef::from_json(include_str!("../../../../levels/places_demo.json")).expect("demo");
-    let lighting = LevelLighting::bake(&level);
-    let empty = TransportScene::new(Vec::new(), Vec::new()).expect("scene");
-    for (label, x, z) in [
-        ("corridor panel", 41.5, 13.0),
-        ("recessed can", 9.0, 9.0),
-        ("hall flush mount", 61.0, -5.0),
-        ("hanging ball", 56.0, 7.6),
-    ] {
-        let light = lighting
-            .lights()
-            .iter()
-            .find(|light| {
-                (light.source.position[0] - x).abs() < 0.01
-                    && (light.source.position[2] - z).abs() < 0.01
-            })
-            .expect(label);
-        assert!(light.is_active(), "{label} must be active");
-        let emitter = TransportEmitter::from_baked(light, None);
-        let under = [x, light.source.position[1] - 2.0, z];
-        let (near, _) = emitter.direct(&empty, under, 2);
-        let (far, _) = emitter.direct(&empty, [x + 5.5, under[1], z], 2);
-        assert!(
-            near[0] > 0.01 && near[0] > far[0] + 0.01,
-            "{label}: near={near:?} far={far:?}"
-        );
-        if label == "corridor panel" {
-            assert!(
-                near[0] > 0.2,
-                "the maintained corridor fixture needs useful direct illumination: {near:?}"
-            );
-        }
-    }
-    for prop in level.props.iter().filter(|prop| prop.model == "core:lamp") {
-        assert!(
-            prop.lights.is_empty(),
-            "the catalog's non-emissive decorative lamps stay unlit"
-        );
     }
 }
 

@@ -5,8 +5,8 @@ Vulkan on Linux, Direct3D 12 on Windows) behind the SDL3 platform layer. Run
 from the repository root on a desktop session. The release's platform status is
 recorded in the matrix in §7.
 
-October 10, 2026 refinement contract audit: the current source uses package major 1, level
-schema 3, geometry revision 9, solver revision 17, PLMP v6 and PLPF v3. Runtime
+October 11, 2026 refinement contract audit: the current source uses package major 1, level
+schema 3, geometry revision 9, solver revision 17, PLMP v7 and PLPF v3. Runtime
 Low/Medium/High presets select Off/Medium/Full lightmaps and reflections; both
 advanced settings and texture filtering remain independent. The atlas capacity
 is at most eleven pages per contribution group for Full; lower profiles retain
@@ -45,27 +45,20 @@ Per platform:
 | Linux | install SDL3 development headers and `pkg-config` (Debian/Ubuntu: `libsdl3-dev`; Fedora: `SDL3-devel`; Arch: `sdl3` + `pkgconf`) plus the Vulkan loader and a driver (`libvulkan1`/`vulkan-icd-loader`, `mesa-vulkan-drivers`) |
 | Windows | install SDL3 (for example `vcpkg install sdl3`, or a prebuilt SDL3 development package) and a C/C++ toolchain (MSVC Build Tools with the C++ workload, or MinGW-w64); the backend is Direct3D 12 |
 
-`.github/workflows/rust.yml` starts with a source-only macOS checkout for pushes,
-pull requests and manual runs. It rejects any tracked `.placesmap`, selects
-`rust-toolchain.toml`, installs SDL3, `pkg-config` and the Python dependencies,
-and runs the shared Rust gate, source Python contracts and maintained asset/
-generator checks within a 180-minute budget, including real source-built Full
-archive regressions. A dependent Ubuntu matrix derives
-its nine jobs from the validated `levels/lineup.txt`. Each uses a Debian trixie
-container with SDL3 and Mesa's software Vulkan driver to build the current
-release compiler and its map through `tools/levels/compile.py --map ID`.
-Every map retains Off/Medium/Full variants and normal reflection capture, then
-runs all package and weather assertions, with two workers and a 120-minute
-clean-build budget per map. Independent jobs keep large bakes from serializing
-the entire lineup; the default desktop command still builds all nine together.
-The map job explicitly selects the lavapipe ICD; a missing adapter fails rather
-than producing reduced packages. This establishes a software capture build, not
-native GPU or performance evidence. GitHub's
-[runner specifications](https://docs.github.com/en/actions/reference/runners/larger-runners)
-advertise macOS GPU acceleration on the larger xlarge runner, so the map job
-does not assume a Metal adapter on the standard macOS VM. Real-window smoke
-suites are explicitly excluded from the source Python phase. Ignored GPU
-diagnostics, export acceptance and real-window campaigns require the desktop gate.
+`.github/workflows/rust.yml` uses a source-only macOS checkout for pushes,
+pull requests and manual runs. It rejects tracked `.placesmap` files, selects the
+repository toolchain, installs SDL3, `pkg-config` and Python dependencies, and runs
+separate format, check, debug Clippy, release Clippy and bounded-fixture test stages.
+Each Rust stage reports its elapsed seconds. Source Python contracts and maintained
+asset/generator checks follow; real-window smoke suites are excluded.
+
+Hosted CI does not compile or bake lighting for shipped maps, capture their
+reflection probes or run native performance campaigns. Those are explicit desktop
+operations through
+`tools/levels/compile.py`, `tools/bench/` and the full desktop gate below. Full-map
+bakes are also absent from the Rust test suite, including ignored tests; numerical
+atlas limits, codec/security boundaries and regressions use bounded fixtures.
+No feature flag is required to get the practical source test suite.
 
 The Rust and Clippy policy is configured in `Cargo.toml`: warnings, future
 incompatibilities, unused results, unsafe operations and all four useful Clippy
@@ -113,7 +106,6 @@ PLACES_WEATHER_PACKAGE_DIR="$PWD/assets/levels" \
   python3 -m unittest tests.test_weather.PackagedWeatherTests
 # Optional full fixture compilation runs here when PLACES_VERIFY_ALL_MAPS=1.
 sh tools/check-rust.sh
-cargo test --lib bundled_static_models_fit_medium_and_full_atlas_plans -- --ignored
 PLACES_SKIP_SMOKE=0 PLACES_SMOKE_BIN="$PWD/target/release/places" \
 PLACES_TEST_EXPORT=1 PLACES_WEATHER_PACKAGE_DIR="$PWD/assets/levels" \
 python3 -m unittest discover -s tests -p 'test_*.py'
@@ -121,7 +113,7 @@ cargo test --lib render::wgpu::renderer::low_lighting_tests -- --ignored --test-
 git diff --check
 ```
 
-`sh tools/check-rust.sh` is also the exact CI Rust gate: formatting, locked
+`sh tools/check-rust.sh` runs the same Rust stages as CI: formatting, locked
 workspace/all-target/all-feature check, strict debug and release Clippy, then
 locked workspace/all-feature tests. The whole Python discovery includes package,
 asset, source/schema, portable packaging and native loading/window suites. Export

@@ -38,7 +38,6 @@ use crate::loader::PropCatalog;
 use crate::materials::MaterialTable;
 use crate::render::{
     DECAL_POLYGON_OFFSET, DECAL_SURFACE_OFFSET_M, LevelMesh, MaterialIndex, SurfaceKind,
-    build_level_geometry_with_catalog_and_materials,
 };
 
 /// One emitted triangle, reduced to its plane and its 3D corners.
@@ -305,11 +304,11 @@ fn polygon_area(points: &[[f32; 2]]) -> f32 {
     signed_area(points).abs()
 }
 
-/// Builds a level through the shipped asset pipeline (so decals resolve too).
+/// Resolves shipped materials and decals, then emits geometry without illumination.
 fn shipped_mesh(level: &LevelDef) -> LevelMesh {
     let catalog = PropCatalog::load_default();
     let materials = MaterialTable::logical(level, catalog.assets(), None);
-    build_level_geometry_with_catalog_and_materials(level, &catalog, &materials)
+    crate::architecture_audit::build_geometry_without_illumination(level, &catalog, &materials)
 }
 
 fn parse(json: &str) -> LevelDef {

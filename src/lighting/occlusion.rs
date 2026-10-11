@@ -916,7 +916,6 @@ fn push_instance_occluders(
 mod tests {
     use super::*;
     use crate::gltf::{PropSubmesh, PropVertex};
-    use std::fmt::Write as _;
 
     #[test]
     fn fully_claimed_actors_leave_no_immutable_voxel_caster() {
@@ -1429,42 +1428,6 @@ mod tests {
         }
     }
 
-    /// Every distinct model the shipped demo places, with its decoded asset.
-    ///
-    /// The receiver and cap tests below all need the real shipped assets, so
-    /// the loading is shared.
-    fn demo_models(
-        cache: &mut PropOcclusionCache,
-    ) -> Vec<(String, Arc<crate::props::LoadedPropAsset>)> {
-        let level = crate::level::LevelDef::from_json(
-            &std::fs::read_to_string("levels/places_demo.json").expect("demo readable"),
-        )
-        .expect("demo parses");
-        let catalog = crate::loader::PropCatalog::load_default();
-        let mut seen: Vec<String> = Vec::new();
-        let mut models = Vec::new();
-        for prop in &level.props {
-            // A placement that opts out of the bake (`occludes: false`, §19:
-            // alpha-cutout grass, the night tree canopy) contributes no boxes at
-            // all, so its model can never be truncated by the cap.
-            if !prop.occludes {
-                continue;
-            }
-            let Some(path) = catalog.get(&prop.model).model else {
-                continue;
-            };
-            if seen.contains(&path) {
-                continue;
-            }
-            seen.push(path.clone());
-            let Ok(asset) = cache.assets.resolve(&path) else {
-                continue;
-            };
-            models.push((path, asset));
-        }
-        models
-    }
-
     #[test]
     fn the_historical_cell_reproduces_the_historical_boxes() {
         // `occlusion_boxes_with_cell(model, PROP_OCCLUSION_CELL_M)` is exactly
@@ -1510,44 +1473,6 @@ mod tests {
     }
 
     #[test]
-    #[expect(
-        clippy::print_stdout,
-        reason = "developer measurement output, like the audit report"
-    )] // developer measurement output, like the audit report
-    fn shipped_models_stay_within_the_box_cap_on_a_finer_grid() {
-        // The profile grid must not silently truncate shipped art: a model at
-        // the cap loses its high-Z/high-X shadow. Every distinct model the
-        // shipped demo bakes as an occluder is measured at the historical
-        // 0.15 m and the finer cells a profile could select.
-        let mut cache = PropOcclusionCache::with_root("assets");
-        let models = demo_models(&mut cache);
-        assert!(!models.is_empty(), "the demo must resolve its prop models");
-        for (path, asset) in &models {
-            let mut line = format!("{path:48} tris={:4}", asset.model.triangles);
-            for cell in [0.15_f32, 0.10, 0.075, 0.05] {
-                let boxes = occlusion_boxes_with_cell(&asset.model, cell);
-                assert!(
-                    boxes.len() < MAX_PROP_OCCLUSION_BOXES_PER_MODEL,
-                    "{path}: {} boxes at {cell} m hit the {MAX_PROP_OCCLUSION_BOXES_PER_MODEL} cap",
-                    boxes.len()
-                );
-                // Below the historical cell the result is either the exact
-                // grid (when it fits the cap) or the complete coarser
-                // silhouette - never a truncated slice of the exact grid.
-                let exact = grind_model(&asset.model, cell);
-                if exact.len() < MAX_PROP_OCCLUSION_BOXES_PER_MODEL {
-                    assert_eq!(
-                        boxes, exact,
-                        "{path}: {cell} m must stay exact below the cap"
-                    );
-                }
-                let _formatted_cell = write!(line, "  {cell:.3}:{:3}", boxes.len());
-            }
-            println!("{line}");
-        }
-    }
-
-    #[test]
     fn a_model_too_detailed_for_the_cap_is_re_ground_at_a_coarser_cell() {
         // A slanted quad whose Y span varies with X fragments into one box per
         // column: at 0.075 m that is more than the cap, at 0.15 m it fits. The
@@ -1583,39 +1508,6 @@ mod tests {
             occlusion_boxes_with_cell(&model, 0.15),
             "the degraded result is the complete coarser silhouette"
         );
-    }
-
-    #[test]
-    #[ignore = "developer measurement: prints per-level occlusion box counts"]
-    #[expect(
-        clippy::print_stdout,
-        reason = "developer measurement output, like the audit report"
-    )] // developer measurement output, like the audit report
-    fn measure_demo_level_box_totals() {
-        for (path, label) in [
-            ("levels/places_demo.json", "places_demo"),
-            ("tests/fixtures/levels/prop_stress.json", "prop_stress"),
-            ("tests/fixtures/levels/prop_showcase.json", "prop_showcase"),
-        ] {
-            let level = crate::level::LevelDef::from_json(
-                &std::fs::read_to_string(path).expect("level is readable"),
-            )
-            .expect("level parses");
-            let surfaces = crate::level::LevelSurfaces::new(&level);
-            let mut cache = PropOcclusionCache::with_root("assets");
-            let mut line = format!("{label:14} props={:3}", level.props.len());
-            for cell in [0.15_f32, 0.10, 0.075, 0.05] {
-                let started = std::time::Instant::now();
-                let boxes = cache.level_occluders_with_cell(&level, &surfaces, cell);
-                let _formatted_cell_ms = write!(
-                    line,
-                    "  {cell:.3}:{:5} ({:.1} ms)",
-                    boxes.len(),
-                    started.elapsed().as_secs_f64() * 1e3_f64
-                );
-            }
-            println!("{line}");
-        }
     }
 
     #[test]

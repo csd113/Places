@@ -105,15 +105,20 @@ PLACES_SKIP_SMOKE=1 python3 -m unittest discover -s tests -p 'test_*.py'
 python3 tools/assets/validate.py
 ```
 
-Tests generate isolated packages and require no existing `.placesmap` files.
-Codec and discovery controls are small; the atlas-limit regressions compile
-the real Full Demo and Hollow sources and can take substantially longer.
-The test profile optimizes the engine's numeric loops while preserving debug
-assertions and overflow checks; release behavior and lint levels are unchanged.
-`sh tools/verify.sh` is the full desktop gate: it adds
-authoring reproducibility, compiled lineup checks, package tests and native
-smoke checks. See [verification](VERIFICATION.md) for explicit diagnostic gates.
-CI verifies a fresh source tree through the same normal compiler path.
+Rust tests use bounded deterministic fixtures and require no existing `.placesmap`
+files. They do not compile or bake full shipped maps. Test additions must justify
+unique behavior coverage and runtime/resource cost; prefer the smallest fixture
+that reproduces a concrete regression. The test profile preserves debug assertions
+and overflow checks.
+
+Automatic GitHub checks run source contracts and separate, timed Rust format,
+check, debug/release Clippy and fixture-test stages. They do not compile shipped
+maps, capture their reflection probes or run native game campaigns. Run those
+explicitly on the desktop:
+`python3 tools/levels/compile.py --map retro_arcade_demo --workers 8` compiles and
+validates one authored map. `sh tools/verify.sh` is the full desktop gate, including
+the compiled lineup, package tests and native smoke checks. See
+[verification](VERIFICATION.md) for the explicit diagnostic gates.
 
 After compiling current maps, export with `sh tools/package.sh OUTPUT_DIRECTORY`.
 It copies only the curated packages and runtime asset directories, excluding

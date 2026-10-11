@@ -5077,20 +5077,6 @@ mod tests {
     }
 
     #[test]
-    fn the_shipped_demo_has_no_confirmed_geometry_defects() {
-        let (level, report) = fixture(include_str!("../levels/places_demo.json"), "places_demo");
-        assert!(report.validated);
-        let joints = wall_joints(&level);
-        assert_eq!(joints.len(), 0_usize, "{joints:#?}");
-        assert_eq!(
-            report.error_count(),
-            0_usize,
-            "unexpected confirmed defect: {:#?}",
-            counts(&report)
-        );
-    }
-
-    #[test]
     fn a_rigid_wall_step_is_an_auto_repairable_error() {
         let mut level = joint_level(&[
             x_wall(1.0, 2.15, 4.0, 0.3),

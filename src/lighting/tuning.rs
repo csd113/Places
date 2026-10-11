@@ -79,9 +79,8 @@ pub const MAX_BRIGHTNESS: f32 = 1.0;
 /// The fill must stay large enough to carry the ceilings and upper walls a
 /// recessed fixture no longer points at: at 0.22 the demo's ceilings and
 /// walls recover to within ~10% of the historical model while the pools keep
-/// their structure. The sweep that chose these values is in
-/// `lighting::tests` (`write_lighting_candidate_sweep`); the saturating curve
-/// and the density compression are unchanged.
+/// their structure. These are historical calibration measurements; the
+/// saturating curve and the density compression are unchanged.
 pub const BASELINE_MAX: f32 = 0.52;
 
 /// Emitted colour used by fixtures that do not author one.

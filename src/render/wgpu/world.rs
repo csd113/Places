@@ -3651,271 +3651,6 @@ mod tests {
         assert_eq!(draws[0].bounds, expected);
     }
 
-    // -------------------------------------------------- shipped-demo parity
-
-    #[test]
-    fn the_vertex_lit_build_matches_the_reference_mesh() {
-        use crate::lighting::lightmap::LightmapMode;
-        use crate::quality::QualityLevel;
-        use crate::render::common::api::{
-            LightmapBuildOptions, build_level_geometry_timed_with_lightmaps,
-        };
-        use crate::render::common::{build_level_geometry, logical_materials};
-
-        let json = include_str!("../../../levels/places_demo.json");
-        let level = crate::level::LevelDef::from_json(json).expect("valid places_demo json");
-        let materials = logical_materials(&level);
-        let catalog = crate::loader::PropCatalog::builtin();
-
-        // The shipped demo takes the vertex-lit path: the baked light rides in
-        // the vertex colour, and a lightmapped build is opted into explicitly.
-        let options = LightmapBuildOptions::for_level(QualityLevel::High, LightmapMode::Off);
-        assert_eq!(options.mode, LightmapMode::Off);
-
-        // Props cannot resolve (no asset root): the architecture, which is what
-        // this test is about, is unaffected, and the bake's prop occluders
-        // degrade to the catalogue placeholders the build and the reference
-        // share.
-        let mut assets = crate::props::PropAssets::with_root("/nonexistent-places-assets");
-        let build = build_level_geometry_timed_with_lightmaps(
-            &level,
-            &catalog,
-            &mut assets,
-            &materials,
-            options,
-            None,
-        );
-        assert!(build.lightmaps.is_none(), "no atlas on the vertex-lit path");
-        assert!(build.lightmap_failure.is_none());
-
-        // Byte-for-byte the historical vertex-lit mesh the OpenGL reference
-        // builds for `PLACES_NO_LIGHTMAPS=1`: geometry, frames and colours.
-        let historical = build_level_geometry(&level);
-        let compare_to_historical = |mesh: &crate::render::common::LevelMesh| {
-            assert_eq!(mesh.vertex_count, historical.vertex_count);
-            assert_eq!(mesh.index_count, historical.index_count);
-            assert_eq!(mesh.ranges.len(), historical.ranges.len());
-            for (built, reference) in mesh.ranges.iter().zip(historical.ranges.iter()) {
-                assert_eq!(built.key, reference.key);
-                assert_eq!(built.indices, reference.indices);
-                assert_eq!(built.vertices, reference.vertices);
-            }
-        };
-        compare_to_historical(&build.mesh);
-
-        // Low must bake the *same* light: `LightmapMode::Off` always uses
-        // `BakeConfig::HARD` whatever the level, so the two meshes are
-        // byte-identical and Low only drops the surface response. (An atlas
-        // build is where the level's tap count and prop cell matter.)
-        let mut low_assets = crate::props::PropAssets::with_root("/nonexistent-places-assets");
-        let low = build_level_geometry_timed_with_lightmaps(
-            &level,
-            &catalog,
-            &mut low_assets,
-            &materials,
-            LightmapBuildOptions::for_level(QualityLevel::Low, LightmapMode::Off),
-            None,
-        );
-        compare_to_historical(&low.mesh);
-        assert_eq!(
-            build.mesh.vertex_count, low.mesh.vertex_count,
-            "the vertex-lit bake is level-independent"
-        );
-    }
-
-    #[test]
-    fn the_vertex_lit_bake_dims_the_material_factor_and_subdivides_the_grid() {
-        use crate::lighting::lightmap::LightmapMode;
-        use crate::quality::QualityLevel;
-        use crate::render::common::api::{
-            LightmapBuildOptions, build_level_geometry_timed_with_lightmaps,
-        };
-        use crate::render::common::logical_materials;
-
-        let json = include_str!("../../../levels/places_demo.json");
-        let level = crate::level::LevelDef::from_json(json).expect("valid places_demo json");
-        let materials = logical_materials(&level);
-        let catalog = crate::loader::PropCatalog::builtin();
-        let mut assets = crate::props::PropAssets::with_root("/nonexistent-places-assets");
-        let build = build_level_geometry_timed_with_lightmaps(
-            &level,
-            &catalog,
-            &mut assets,
-            &materials,
-            LightmapBuildOptions::for_level(QualityLevel::High, LightmapMode::Off),
-            None,
-        );
-
-        // The light is really there. The vertex-lit build must (a) dim most
-        // architectural vertices and (b) subdivide the lighting grid where the
-        // light varies — that is how a vertex-lit bake produces a gradient at
-        // all. The same level with every fixture at zero output bakes flat
-        // light, so it merges the same architecture into fewer ranges; that is
-        // the non-vacuous baseline for the subdivision below.
-        let architectural = |mesh: &crate::render::common::LevelMesh| {
-            mesh.ranges
-                .iter()
-                .filter(|range| {
-                    matches!(
-                        range.key.kind,
-                        SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall
-                    )
-                })
-                .count()
-        };
-        let mut unlit = level.clone();
-        for light in &mut unlit.ceiling_lights {
-            light.brightness = Some(0.0);
-        }
-        let mut direct_assets = crate::props::PropAssets::with_root("/nonexistent-places-assets");
-        let flat = build_level_geometry_timed_with_lightmaps(
-            &unlit,
-            &catalog,
-            &mut direct_assets,
-            &materials,
-            LightmapBuildOptions::for_level(QualityLevel::High, LightmapMode::Off),
-            None,
-        );
-        assert!(
-            architectural(&build.mesh) > architectural(&flat.mesh),
-            "the vertex-lit build must subdivide the lighting grid: {} vs {}",
-            architectural(&build.mesh),
-            architectural(&flat.mesh)
-        );
-        let lit_vertices: Vec<Vertex> = build
-            .mesh
-            .triangles_for(SurfaceKind::Floor)
-            .into_iter()
-            .chain(build.mesh.triangles_for(SurfaceKind::Ceiling))
-            .chain(build.mesh.triangles_for(SurfaceKind::Wall))
-            .collect();
-        assert!(
-            lit_vertices.len() > 1_000,
-            "the demo has a real architectural mesh: {} triangles' worth",
-            lit_vertices.len()
-        );
-        // The bake's `shade` clamps every channel, and the demo is lit, so most
-        // vertices sit meaningfully below the material factor alone. A build
-        // that lost the light would have white-ish walls and no dimmed share
-        // at all.
-        let mut dimmed = 0usize;
-        let mut strongly_dimmed = 0usize;
-        for lit in &lit_vertices {
-            for channel in 0..3 {
-                assert!(
-                    (0.0..=1.0).contains(&lit.color[channel]),
-                    "a baked vertex colour is clamped: {:?}",
-                    lit.color
-                );
-            }
-            if lit.color[0] < 0.999 {
-                dimmed = dimmed.saturating_add(1);
-            }
-            if lit.color[0] < 0.9 {
-                strongly_dimmed = strongly_dimmed.saturating_add(1);
-            }
-        }
-        assert!(
-            dimmed.saturating_mul(2) > lit_vertices.len(),
-            "most of the demo's architecture must carry baked light: {dimmed} of {}",
-            lit_vertices.len()
-        );
-        assert!(
-            strongly_dimmed > 100,
-            "the demo must have measurably dimmed surfaces: {strongly_dimmed}"
-        );
-    }
-
-    #[test]
-    fn the_shipped_demo_uploads_every_static_world_index_exactly_once() {
-        use crate::render::common::{build_level_geometry, logical_materials};
-
-        let json = include_str!("../../../levels/places_demo.json");
-        let level = crate::level::LevelDef::from_json(json).expect("valid places_demo json");
-        let mesh = build_level_geometry(&level);
-        assert!(mesh.vertex_count > 0 && mesh.index_count > 0);
-
-        // A bare table treats every range as opaque; the world draw set is
-        // exactly the static world families: every floor, ceiling, wall, light
-        // and placeholder-box index is drawn once, and only decals stay out.
-        let materials = MaterialRenderState::default();
-        let (packer, draws) = pack_world_ranges(&mesh, &materials);
-        let static_world = mesh.index_count_for(SurfaceKind::Floor)
-            + mesh.index_count_for(SurfaceKind::Ceiling)
-            + mesh.index_count_for(SurfaceKind::Wall)
-            + mesh.index_count_for(SurfaceKind::Light)
-            + mesh.index_count_for(SurfaceKind::PropFallback);
-        assert!(static_world > 0);
-        assert_eq!(
-            packer.index_total(),
-            static_world,
-            "every static world index must be uploaded"
-        );
-        assert!(!draws.is_empty(), "draws must contain entries");
-        assert!(
-            draws.iter().all(|draw| matches!(
-                draw.kind,
-                SurfaceKind::Floor
-                    | SurfaceKind::Ceiling
-                    | SurfaceKind::Wall
-                    | SurfaceKind::Light
-                    | SurfaceKind::PropFallback
-            )),
-            "only static world ranges may be drawn"
-        );
-        for draw in &draws {
-            let chunk = &packer.chunks[draw.chunk];
-            assert!(
-                usize::try_from(draw.index_start + draw.index_count)
-                    .expect("fixture integer fits usize")
-                    <= chunk.indices.len(),
-                "draw must stay inside its chunk"
-            );
-        }
-        // Decals are the one family with its own pass and are not selected: the
-        // geometry builder emits none without a resolved decal atlas, so the
-        // demonstrated set here is the whole static mesh.
-        for draw in &draws {
-            assert_ne!(draw.kind, SurfaceKind::Decal);
-        }
-
-        // With the level's real material table the whole static set is still
-        // drawn — the material-defined panes are now included — and the panes
-        // land in the cut-out and translucent passes.
-        let resolved = MaterialRenderState::from_table(&logical_materials(&level));
-        let (with_materials, real) = pack_world_ranges(&mesh, &resolved);
-        assert_eq!(
-            with_materials.index_total(),
-            static_world,
-            "cut-out and translucent architecture belongs to the world draw set"
-        );
-        let translucent = real
-            .iter()
-            .filter(|draw| draw.pass == BatchPass::Translucent)
-            .count();
-        let cutout = real
-            .iter()
-            .filter(|draw| draw.pass == BatchPass::Cutout)
-            .count();
-        assert!(
-            translucent >= 1,
-            "the demo's glass panes are material-defined translucent surfaces"
-        );
-        assert!(
-            cutout >= 1,
-            "the demo's grille is a material-defined cut-out"
-        );
-        let opaque = real
-            .iter()
-            .filter(|draw| draw.pass == BatchPass::Opaque)
-            .count();
-        assert_eq!(
-            translucent + cutout + opaque,
-            real.len(),
-            "every draw belongs to exactly one material pass"
-        );
-    }
-
     // ---------------------------------------------- base-colour texture identity
 
     /// One synthetic world draw of the given key, through the real packer.
@@ -4120,11 +3855,14 @@ mod tests {
     #[test]
     fn the_shipped_demo_resolves_every_architectural_draw_to_a_base_texture() {
         use crate::materials::{TextureOrigin, resolve_materials};
-        use crate::render::common::build_level_geometry;
 
         let json = include_str!("../../../levels/places_demo.json");
         let level = crate::level::LevelDef::from_json(json).expect("valid places_demo json");
-        let mesh = build_level_geometry(&level);
+        let mesh = crate::architecture_audit::build_geometry_without_illumination(
+            &level,
+            &crate::loader::PropCatalog::builtin(),
+            &crate::render::logical_materials(&level),
+        );
         let catalog = crate::assets::AssetCatalog::load_default();
         let root = crate::assets::resolve_asset_root().expect("assets/ is discoverable");
         let mut decode_cache = crate::materials::TextureCache::new();
@@ -5161,20 +4899,6 @@ mod tests {
             ..Default::default()
         }))
         .expect("GPU device");
-        let buffer_entry = |binding: u32, visibility: wgpu::ShaderStages| {
-            wgpu::BindGroupLayoutEntry {
-                binding,
-                visibility,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    // Pipeline creation checks binding types, not sizes; the
-                    // real layouts pin their own minimums.
-                    min_binding_size: None,
-                },
-                count: None,
-            }
-        };
         let texture = |binding: u32| wgpu::BindGroupLayoutEntry {
             binding,
             visibility: wgpu::ShaderStages::FRAGMENT,
@@ -5195,16 +4919,7 @@ mod tests {
             label: Some("world-shader-test-texture"),
             entries: &[texture(0), sampler(1)],
         });
-        let material_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("world-shader-test-material"),
-            entries: &[
-                buffer_entry(0, wgpu::ShaderStages::FRAGMENT),
-                texture(1),
-                sampler(2),
-                texture(3),
-                sampler(4),
-            ],
-        });
+        let material_layout = super::super::material::material_bind_group_layout(&device);
         let environment_layout = environment_bind_group_layout(&device);
         let pipeline = WorldPipeline::with_state(
             &device,

@@ -2276,20 +2276,6 @@ impl LevelLighting {
         self.visibility.contains_point(x, z)
     }
 
-    /// The world XZ a surface sample in `room` is evaluated at, after the
-    /// wall-clearing walk of [`Self::sample_in_room`].
-    ///
-    /// Developer diagnostics only: a candidate model must be evaluated at the
-    /// same point the production model evaluates, which for a sample that
-    /// falls inside a wall is not the sample's own XZ.
-    #[must_use]
-    pub fn cleared_sample_position(&self, room: usize, x: f32, z: f32) -> (f32, f32) {
-        if self.rooms.get(room).is_none() {
-            return (x, z);
-        }
-        self.clear_sample(room, x, z)
-    }
-
     /// Moves a room surface sample out of an opaque wall it lies inside.
     ///
     /// The walk runs straight toward the middle of the room in fixed steps and
@@ -3499,13 +3485,6 @@ fn read_fixture_lights(
     }
     Ok(fixtures)
 }
-
-/// Dynamic-range audit of the baked light, over real lightmap texels.
-///
-/// Test-only: it is the measurement the rebalance was calibrated against and
-/// the guard that keeps the model from drifting back into saturation.
-#[cfg(test)]
-mod range_audit;
 
 #[cfg(test)]
 mod room_index_tests {

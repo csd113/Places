@@ -13,8 +13,8 @@ none of the textures is a crop of a concept board.
 **Verification status:** final art, native visual acceptance and the full shared
 Rust checks passed. Four inspected modeling passes and all fourteen final Metal
 views are complete. Implementation and catalog-test correction commits are
-published on `arcade-env`; remote CI remains in progress at the recorded check
-below.
+published on `arcade-env`. The source-check policy correction and its remote
+verification are recorded below.
 
 ## Play and reuse
 
@@ -217,31 +217,71 @@ model. The complete catalog's decoded embedded images remain **64,917,504 bytes*
 below the unchanged 64 MiB bound.
 
 Focused source/GLB/lineup tests pass (19 tests), asset validation has zero warnings,
-and the sampling/visibility regression tests pass. The complete shared
-`sh tools/check-rust.sh` checks finished: formatter, locked workspace check,
-strict debug and release Clippy with all targets/features, and all-feature
-workspace tests. **2,281 library tests and eight binary/integration tests passed;
-zero failed; 32 existing library tests remain explicitly ignored.** Both retained
-Full-map archive regressions passed. Library tests took 4,112.54 s.
+and the sampling/visibility regression tests pass. Before the test-policy
+correction, the full shared Rust gate passed formatter, locked workspace check,
+strict debug/release Clippy and **2,281 library plus eight binary/integration
+tests**, with zero failures and 32 existing ignored library tests. Its library
+execution took **4,112.54 s** because two tests baked complete Demo/Hollow Full
+archives. That historical run is evidence already obtained, not a requirement for
+future source checks. The outer `/usr/bin/time -l` wrapper separately failed on a
+sandbox-denied `sysctl kern.clockrate`; the child Rust checks all passed.
 
-The outer `/usr/bin/time -l` measurement returned status 1 after the successful
-checks because the sandbox denied `sysctl kern.clockrate`. The same measurement
-error was independently reproduced with a child that explicitly exits 0. This
-is a timing-instrument failure; no Rust check or test failed, and no check was
-skipped or weakened.
+The user's October 11 correction removes full shipped-map bakes from the Rust
+suite entirely, including ignored report/sweep helpers, and removes the hosted
+curated-map compilation matrix. No feature gate or ignore marker hides the
+removed workloads. The practical suite retains bounded fixtures for atlas page
+limits/overflow, KTX overhead, HDR round trips, archive limits/security, chart UVs,
+material seams, shadow/visibility, probe coverage and blacklight response.
+Renderer density and Off-path parity checks use a small room; full-source geometry
+checks that remain build meshes with empty lighting instead of baking illumination.
+The local ignored `AGENTS.md` now requires every test addition to justify its
+concrete behavior, unique coverage and resource cost.
+
+The revised all-feature gate passes **2,250 library plus eight binary/integration
+tests**, with zero failures and 19 existing ignored library tests. The pruning
+removes 44 net tests, including 13 ignored tests, based on redundant or costly
+workloads rather than a count target. Library execution falls from the historical
+**4,112.54 s to 34.53 s** on this Mac. The final stage timings separate compiler
+work from test execution. The separately required `cargo test --workspace` also
+passes: **2,244 library plus eight binary/integration tests**, zero failures.
+
+| Local stage | Elapsed time | Result |
+|---|---:|---|
+| Format | 1.58 s | Passed |
+| Workspace/all-target/all-feature check | 4.45 s | Passed |
+| Strict debug Clippy | 8.79 s | Passed |
+| Strict release Clippy | 15.18 s | Passed |
+| All-feature test stage | 62.67 s | Passed; 23.54 s compilation and 34.53 s library execution |
+| Default workspace tests | 87.47 s | Passed; 48.98 s compilation and 33.89 s library execution |
+| Python source discovery | 192.38 s | 346 checks, four native-related skips, zero failures |
+
+These are local incremental-build measurements; hosted cold compilation has its
+own visible stages. The local optional `sccache` could not invoke the compiler,
+so this gate used `RUSTC_WRAPPER=` without clearing target or changing cache policy.
+
+Full-map compilation and native/performance campaigns remain explicit desktop
+operations through the existing compiler, `tools/levels/compile.py` and
+`tools/bench/`. The already-completed Arcade native captures and compiled package
+above are preserved. No production package or native campaign was rebuilt for
+test pruning. The first reduced-suite run exposed three remaining implicit
+Demo vertex-lighting wrappers, which now emit geometry with empty lighting.
 
 Published source commits are
 [`d5e34eda`](https://github.com/csd113/Places/commit/d5e34eda6c068b80404bf87124f829841175050f)
-(pack, demo and reusable response) and
+(pack, demo and reusable response),
 [`d3e2e2b`](https://github.com/csd113/Places/commit/d3e2e2b78544ac99a548f561e06358e7d1c3465e)
-(three catalog/lineup regression expectations). At **2026-10-11 19:13 UTC**,
-[source CI run 38162326542](https://github.com/csd113/Places/actions/runs/38162326542)
-was still running. The final documentation push triggers another branch run;
-[latest Arcade CI](https://github.com/csd113/Places/actions?query=branch%3Aarcade-env)
-reports its current state. The inherited
+(catalog/lineup expectations), and
+[`86bec3ef`](https://github.com/csd113/Places/commit/86bec3ef65e7dca67a9cc1bb2c98747d42d6d109)
+(visual report). The user-authorized cancellation stopped
+[run 38167204022](https://github.com/csd113/Places/actions/runs/38167204022)
+before the CI/test-policy correction. The replacement workflow has distinct timed
+format, check, debug Clippy, release Clippy and fixture-test stages; it performs no
+shipped-map compilation or probe capture.
+[Latest Arcade CI](https://github.com/csd113/Places/actions?query=branch%3Aarcade-env)
+shows the published correction's current status. The inherited
 [main run](https://github.com/csd113/Places/actions/runs/38149512939) and
 [merged-PR run](https://github.com/csd113/Places/actions/runs/38149078556)
-both completed successfully with all nine jobs.
+completed successfully with all nine former jobs.
 
 Capture identity: production binary SHA-256
 `4a03b20600e7c326862d49a30bec3014e201fad690c4bf6d7b83b5607f85d94f`;

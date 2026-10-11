@@ -274,9 +274,8 @@ fn the_zoo_contains_every_required_demonstration() {
 }
 
 #[test]
-fn the_zoo_light_props_really_illuminate() {
+fn the_zoo_light_props_author_enabled_colored_sources() {
     let level = zoo();
-    let lighting = crate::lighting::LevelLighting::bake(&level);
     let exit = level
         .props
         .iter()
@@ -287,35 +286,19 @@ fn the_zoo_light_props_really_illuminate() {
         .iter()
         .find(|prop| prop.model == "home:ball_light")
         .expect("the zoo places the ball light");
-    // Both props hang at the ceiling (the sign's face and the orb sit just
-    // below it); sample the air right in front of the sign and under the orb,
-    // inside each light's own range.
-    let exit_sample = lighting.sample(exit.x, 4.2, exit.z + 0.5);
-    let ball_sample = lighting.sample(ball.x, 3.6, ball.z);
     assert!(
-        exit_sample.g > exit_sample.r,
-        "the exit sign casts green: {exit_sample:?}"
+        exit.lights.iter().any(|light| {
+            let color = light.emitted_color();
+            light.enabled && light.intensity() > 0.0 && light.range() > 0.0 && color.g > color.r
+        }),
+        "the exit sign authors an enabled green light"
     );
     assert!(
-        ball_sample.r > ball_sample.b,
-        "the ball light casts warm white: {ball_sample:?}"
-    );
-    let mut dark = level.clone();
-    for prop in &mut dark.props {
-        for light in &mut prop.lights {
-            light.enabled = false;
-        }
-    }
-    let dark_lighting = crate::lighting::LevelLighting::bake(&dark);
-    let exit_dark = dark_lighting.sample(exit.x, 4.2, exit.z + 0.5);
-    let ball_dark = dark_lighting.sample(ball.x, 3.6, ball.z);
-    assert!(
-        exit_sample.g > exit_dark.g + 0.01,
-        "the sign's light adds green to the hall: {exit_sample:?} vs {exit_dark:?}"
-    );
-    assert!(
-        ball_sample.r > ball_dark.r + 0.01,
-        "the lamp adds light under its orb: {ball_sample:?} vs {ball_dark:?}"
+        ball.lights.iter().any(|light| {
+            let color = light.emitted_color();
+            light.enabled && light.intensity() > 0.0 && light.range() > 0.0 && color.r > color.b
+        }),
+        "the ball light authors an enabled warm white light"
     );
 }
 

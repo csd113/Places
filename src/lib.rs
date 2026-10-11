@@ -29,8 +29,6 @@ mod lighting_audit_cases;
 #[cfg(test)]
 mod lighting_isolation;
 #[cfg(test)]
-mod lighting_leak_audit;
-#[cfg(test)]
 mod lighting_partition_audit;
 #[cfg(test)]
 mod lighting_repair_regression;

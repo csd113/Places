@@ -699,30 +699,6 @@ fn test_framebuffer_size_changes_update_scale() {
     assert_exact(large.ui_viewport().scale, 1080.0 / 272.0);
 }
 
-#[test]
-fn test_build_geometry_from_the_shipped_demo() {
-    let json = include_str!("../../levels/places_demo.json");
-    let level = LevelDef::from_json(json).expect("valid places_demo json");
-    let mesh = build_level_geometry(&level);
-    assert!(mesh.vertex_count != 0);
-    assert_eq!(mesh.index_count % 6, 0, "geometry is whole quads");
-    assert!(
-        mesh.vertex_count < mesh.index_count,
-        "indexing must share corners"
-    );
-    assert!(mesh.batches.floor_batch.count > 0_i32);
-    assert!(mesh.batches.ceiling_batch.count > 0_i32);
-    assert!(mesh.batches.wall_batch.count > 0_i32);
-    assert!(mesh.batches.light_batch.count > 0_i32);
-
-    // The whole shipped demo stays a modest number of vertices.
-    assert!(
-        mesh.vertex_count < 100_000,
-        "places_demo unexpectedly large: {} vertices",
-        mesh.vertex_count
-    );
-}
-
 /// Builds a compact test level: one 10x10 m room, one 10 x 0.4 m wall
 /// spanning the full ceiling height, plus the supplied openings/props.
 fn level_with_wall(openings_json: &str, props_json: &str) -> LevelDef {
@@ -4678,7 +4654,7 @@ fn shipped_demo() -> crate::level::LevelDef {
 }
 
 #[test]
-fn the_shipped_demo_and_the_rendering_fixture_resolve_their_stain_overlays() {
+fn the_rendering_fixture_resolves_its_stain_overlays() {
     let mut rendering_fixture = fixture_level("rendering_diagnostic");
     let mesh = build_level_geometry(&rendering_fixture);
     let stained = material_vertices(&mesh, &rendering_fixture, "core:wallpaper_stained_01");
@@ -4697,83 +4673,81 @@ fn the_shipped_demo_and_the_rendering_fixture_resolve_their_stain_overlays() {
 
     // The maintained fixture now uses disjoint wall segments to avoid duplicate
     // generated trim. Retain its original overlapping input as a coalescing
-    // regression, alongside the shipped demo, without requiring that overlap
-    // in the playable source.
+    // regression without requiring that overlap in the maintained source.
     drop(rendering_fixture.walls.drain(1..3));
     rendering_fixture.walls[0].width = 31.2;
-    for level in [shipped_demo(), rendering_fixture] {
-        let name = level.id.as_str();
-        let materials = logical_materials(&level);
-        let lookup = MaterialLookup::new(&materials);
-        let units = wall_units(&level, &crate::level::LevelSurfaces::new(&level), &lookup);
-        let coalesced = units
-            .iter()
-            .filter(|unit| {
-                matches!(
-                    unit,
-                    WallUnit::Coalesced {
-                        members: _,
-                        wall: _,
-                        slices: _,
-                        runs: _
-                    }
-                )
-            })
-            .count();
-        assert!(
-            coalesced >= 1,
-            "{name}: expected the authored stain overlays to coalesce, got {coalesced}"
-        );
-        // Every coalesced unit's material runs must exactly partition its
-        // solid profile: each slice's length span is covered by runs at the
-        // slice's own height, so no face can fall back to the host material at
-        // a run boundary.
-        for unit in &units {
-            if let WallUnit::Coalesced {
-                slices,
-                runs,
-                members: _,
-                wall: _,
-            } = unit
-            {
-                assert!(
-                    !runs.as_slice().is_empty(),
-                    "runs.as_slice() must contain entries"
-                );
-                for slice in slices {
-                    let mut band: Vec<&WallMaterialRun> = runs
-                        .iter()
-                        .filter(|run| {
-                            (run.bottom - slice.bottom).abs() < 1e-3
-                                && (run.top - slice.top).abs() < 1e-3
-                                && run.start >= slice.start - 1e-3
-                                && run.end <= slice.end + 1e-3
-                        })
-                        .collect();
-                    band.sort_by(|a, b| {
-                        a.start
-                            .partial_cmp(&b.start)
-                            .unwrap_or(std::cmp::Ordering::Equal)
-                    });
-                    let mut cursor = slice.start;
-                    for run in band {
-                        assert!(
-                            (run.start - cursor).abs() < 1e-3,
-                            "{name}: a solid slice is not partitioned by its runs"
-                        );
-                        cursor = run.end;
-                    }
-                    assert!(
-                        (cursor - slice.end).abs() < 1e-3,
-                        "{name}: the runs must reach the end of their solid slice"
-                    );
+    let level = rendering_fixture;
+    let name = level.id.as_str();
+    let materials = logical_materials(&level);
+    let lookup = MaterialLookup::new(&materials);
+    let units = wall_units(&level, &crate::level::LevelSurfaces::new(&level), &lookup);
+    let coalesced = units
+        .iter()
+        .filter(|unit| {
+            matches!(
+                unit,
+                WallUnit::Coalesced {
+                    members: _,
+                    wall: _,
+                    slices: _,
+                    runs: _
                 }
+            )
+        })
+        .count();
+    assert!(
+        coalesced >= 1,
+        "{name}: expected the authored stain overlays to coalesce, got {coalesced}"
+    );
+    // Every coalesced unit's material runs must exactly partition its
+    // solid profile: each slice's length span is covered by runs at the
+    // slice's own height, so no face can fall back to the host material at
+    // a run boundary.
+    for unit in &units {
+        if let WallUnit::Coalesced {
+            slices,
+            runs,
+            members: _,
+            wall: _,
+        } = unit
+        {
+            assert!(
+                !runs.as_slice().is_empty(),
+                "runs.as_slice() must contain entries"
+            );
+            for slice in slices {
+                let mut band: Vec<&WallMaterialRun> = runs
+                    .iter()
+                    .filter(|run| {
+                        (run.bottom - slice.bottom).abs() < 1e-3
+                            && (run.top - slice.top).abs() < 1e-3
+                            && run.start >= slice.start - 1e-3
+                            && run.end <= slice.end + 1e-3
+                    })
+                    .collect();
+                band.sort_by(|a, b| {
+                    a.start
+                        .partial_cmp(&b.start)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+                let mut cursor = slice.start;
+                for run in band {
+                    assert!(
+                        (run.start - cursor).abs() < 1e-3,
+                        "{name}: a solid slice is not partitioned by its runs"
+                    );
+                    cursor = run.end;
+                }
+                assert!(
+                    (cursor - slice.end).abs() < 1e-3,
+                    "{name}: the runs must reach the end of their solid slice"
+                );
             }
         }
-        // And the normal build still succeeds with them.
-        let built_mesh = build_level_geometry(&level);
-        assert!(built_mesh.batches.wall_batch.count > 0_i32);
     }
+    // And the normal build still succeeds with them.
+    let built_mesh = build_level_geometry(&level);
+    assert!(built_mesh.batches.wall_batch.count > 0_i32);
 }
 
 // ------------------------------------- emission routing and multi-material props
@@ -5019,8 +4993,7 @@ fn a_second_instance_of_a_multi_material_prop_still_batches() {
 // ---------------------------------------------------------- lightmaps
 
 use crate::lighting::lightmap::{
-    LIGHTMAP_ATLAS_MAX_PAGES, LevelLightmaps, LightmapCache, LightmapFailure, LightmapMode,
-    LightmapTexel, PatchKind,
+    LevelLightmaps, LightmapCache, LightmapFailure, LightmapMode, LightmapTexel, PatchKind,
 };
 use crate::loader::PropCatalog;
 use crate::props::PropAssets;
@@ -5045,93 +5018,14 @@ fn lightmap_build(
     )
 }
 
-/// One immutable real demo build per quality. Assertions borrow the complete
-/// result; tests that vary inputs, exercise cache behavior, or compare repeated
-/// builds continue to construct independent worlds.
-fn demo_lightmap_build(quality: crate::quality::QualityLevel) -> &'static LevelBuild {
-    static HIGH: std::sync::OnceLock<LevelBuild> = std::sync::OnceLock::new();
-    static MEDIUM: std::sync::OnceLock<LevelBuild> = std::sync::OnceLock::new();
-    static LOW: std::sync::OnceLock<LevelBuild> = std::sync::OnceLock::new();
-    let slot = match quality {
-        crate::quality::QualityLevel::High => &HIGH,
-        crate::quality::QualityLevel::Medium => &MEDIUM,
-        crate::quality::QualityLevel::Low => &LOW,
-    };
-    slot.get_or_init(|| lightmap_build(&shipped_demo(), quality, LightmapMode::On))
-}
-
-/// True when a lightmapped vertex's quantised atlas UV lies inside one of the
-/// charts on its page.
-fn vertex_in_some_chart(lightmaps: &LevelLightmaps, vertex: &Vertex) -> bool {
-    let Some(page) = lightmaps.pages.get(usize::from(vertex.lightmap_page)) else {
-        return false;
-    };
-    let edge = crate::test_support::exact_f32(page.width);
-    let x = f32::from(vertex.lightmap[0]) / 65535.0 * edge;
-    let y = f32::from(vertex.lightmap[1]) / 65535.0 * edge;
-    lightmaps.charts.iter().any(|(_, chart)| {
-        usize::from(chart.page) == usize::from(vertex.lightmap_page)
-            && x >= crate::test_support::exact_f32(chart.x) - 0.25
-            && x <= crate::test_support::exact_f32(chart.x + chart.width) + 0.25
-            && y >= crate::test_support::exact_f32(chart.y) - 0.25
-            && y <= crate::test_support::exact_f32(chart.y + chart.height) + 0.25
-    })
-}
-
-#[test]
-fn the_demo_bakes_lightmaps_with_every_surface_vertex_charted() {
-    let build = demo_lightmap_build(crate::quality::QualityLevel::High);
-    assert_eq!(build.lightmap_failure, None, "the demo must bake cleanly");
-    let lightmaps = build
-        .lightmaps
-        .as_deref()
-        .expect("the demo must produce an atlas");
-    assert!(
-        !lightmaps.pages.is_empty(),
-        "lightmaps.pages must contain entries"
-    );
-    assert!(lightmaps.pages.len() <= LIGHTMAP_ATLAS_MAX_PAGES);
-    assert!(lightmaps.chart_count() > 0);
-    for page in &lightmaps.pages {
-        assert_eq!(page.width, 1024);
-        assert_eq!(page.height, 1024);
-        assert_eq!(page.texels.len(), 1024 * 1024);
-    }
-
-    let mut surface_vertices = 0usize;
-    let mut vertex_lit_vertices = 0usize;
-    for range in &build.mesh.ranges {
-        for vertex in &range.vertices {
-            match range.key.kind {
-                SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall => {
-                    assert!(
-                        vertex.is_lightmapped(),
-                        "a static surface vertex must carry a chart"
-                    );
-                    assert!(
-                        vertex_in_some_chart(lightmaps, vertex),
-                        "a lightmapped vertex must sample inside its own chart"
-                    );
-                    surface_vertices += 1;
-                }
-                SurfaceKind::Light | SurfaceKind::PropFallback | SurfaceKind::Decal => {
-                    assert!(
-                        !vertex.is_lightmapped(),
-                        "fixtures, prop boxes and decals stay vertex-lit"
-                    );
-                    assert_eq!(vertex.lightmap, [0, 0]);
-                    vertex_lit_vertices += 1;
-                }
-            }
-        }
-    }
-    assert!(surface_vertices > 0);
-    assert!(vertex_lit_vertices > 0, "the demo draws fixtures and props");
-}
-
 #[test]
 fn lightmaps_off_reproduces_the_historical_vertex_lit_mesh() {
-    let level = shipped_demo();
+    let level = lit_room_level(
+        4.0,
+        3.0,
+        3.0,
+        r#"[{ "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 1.5, "brightness": 0.8 }]"#,
+    );
     let off = lightmap_build(
         &level,
         crate::quality::QualityLevel::High,
@@ -5149,11 +5043,9 @@ fn lightmaps_off_reproduces_the_historical_vertex_lit_mesh() {
 
 #[test]
 fn every_level_shares_the_patch_set_at_different_densities() {
-    // The one-level/two-profiles contract, checked on the Home showcase
-    // fixture: it stays inside the two-page atlas at every density, so this
-    // asserts the patch set and the density, not the page budget. Places Demo
-    // is checked separately below, because it has grown past the Low atlas.
-    let level = home_showcase();
+    // Geometry cuts stay fixed while density and page size follow quality.
+    // One bounded room exercises the contract without baking a production map.
+    let level = lit_room_level(4.0, 3.0, 3.0, "[]");
     let high = lightmap_build(&level, crate::quality::QualityLevel::High, LightmapMode::On);
     let medium = lightmap_build(
         &level,
@@ -5161,32 +5053,30 @@ fn every_level_shares_the_patch_set_at_different_densities() {
         LightmapMode::On,
     );
     let low = lightmap_build(&level, crate::quality::QualityLevel::Low, LightmapMode::On);
+    for (quality, build) in [
+        (crate::quality::QualityLevel::High, &high),
+        (crate::quality::QualityLevel::Medium, &medium),
+        (crate::quality::QualityLevel::Low, &low),
+    ] {
+        assert_eq!(
+            build.lightmap_failure, None,
+            "{quality:?} must chart the room"
+        );
+        let lightmaps = build.lightmaps.as_deref().expect("room atlas");
+        assert!(lightmaps.chart_count() > 0);
+        assert!(lightmaps.pages.len() <= quality.lightmap_config().max_pages);
+    }
     let high_lightmaps = high.lightmaps.as_deref().expect("high bake");
     let medium_lightmaps = medium.lightmaps.as_deref().expect("medium bake");
     let low_lightmaps = low.lightmaps.as_deref().expect("low bake");
-    let patches = |lightmaps: &LevelLightmaps| {
-        lightmaps
-            .charts
-            .iter()
-            .map(|(patch, _)| {
-                (
-                    patch.kind,
-                    patch.origin,
-                    patch.u_axis,
-                    patch.v_axis,
-                    patch.room,
-                )
-            })
-            .collect::<Vec<_>>()
-    };
     assert_eq!(
-        patches(high_lightmaps),
-        patches(low_lightmaps),
+        lightmap_patch_set(high_lightmaps),
+        lightmap_patch_set(low_lightmaps),
         "Low and High bake the same patch set"
     );
     assert_eq!(
-        patches(medium_lightmaps),
-        patches(low_lightmaps),
+        lightmap_patch_set(medium_lightmaps),
+        lightmap_patch_set(low_lightmaps),
         "Medium bakes the same patch set"
     );
     assert!(
@@ -5202,38 +5092,23 @@ fn every_level_shares_the_patch_set_at_different_densities() {
     assert_eq!(low_lightmaps.pages[0].width, 512);
 }
 
-#[test]
-fn the_demo_bakes_inside_the_page_budget_on_every_level() {
-    // Every quality must chart the real shipped workload within its configured
-    // page budget, without falling back to vertex lighting.
-    for quality in [
-        crate::quality::QualityLevel::High,
-        crate::quality::QualityLevel::Medium,
-        crate::quality::QualityLevel::Low,
-    ] {
-        let build = demo_lightmap_build(quality);
-        assert_eq!(
-            build.lightmap_failure, None,
-            "{quality:?} must bake the demo cleanly"
-        );
-        let lightmaps = build
-            .lightmaps
-            .as_deref()
-            .unwrap_or_else(|| panic!("{quality:?} must produce the atlas"));
-        let config = quality.lightmap_config();
-        assert!(
-            lightmaps.pages.len() <= config.max_pages,
-            "{quality:?} must stay in its page budget"
-        );
-        assert!(
-            lightmaps
-                .pages
-                .iter()
-                .all(|page| page.width == config.page_edge),
-            "{quality:?} must use its own page edge"
-        );
-        assert!(lightmaps.chart_count() > 900, "the whole level is charted");
-    }
+/// Geometry identity excludes density and packed page placement.
+type LightmapPatchIdentity = (PatchKind, [f32; 3], [f32; 3], [f32; 3], Option<usize>);
+
+fn lightmap_patch_set(lightmaps: &LevelLightmaps) -> Vec<LightmapPatchIdentity> {
+    lightmaps
+        .charts
+        .iter()
+        .map(|(patch, _)| {
+            (
+                patch.kind,
+                patch.origin,
+                patch.u_axis,
+                patch.v_axis,
+                patch.room,
+            )
+        })
+        .collect()
 }
 
 #[test]
@@ -5334,25 +5209,20 @@ fn atlas_overflow_rebuilds_with_vertex_lighting() {
 
 #[test]
 fn every_lightmapped_vertex_uv_lands_on_its_own_chart_corner() {
-    let level = shipped_demo();
-    let materials = logical_materials(&level);
-    let build = demo_lightmap_build(crate::quality::QualityLevel::High);
-    let lightmaps = build.lightmaps.as_deref().expect("the demo bakes");
-    // A water volume is deliberately vertex-lit: its quad carries its baked
-    // light in the vertex colour and never enters the atlas, so it is exempt
-    // from the per-vertex chart-corner mapping (its own tests cover it).
-    let water = materials
-        .index_of(crate::level::DEFAULT_WATER_MATERIAL)
-        .expect("the demo's water material resolves");
+    let level = glazed_room_level();
+    let build = lightmap_build(&level, crate::quality::QualityLevel::High, LightmapMode::On);
+    let lightmaps = build.lightmaps.as_deref().expect("the bounded room bakes");
     let mut checked = 0usize;
+    let mut kinds = std::collections::HashSet::new();
     for range in &build.mesh.ranges {
         if !matches!(
             range.key.kind,
             SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall
-        ) || range.key.material == water
-        {
+        ) {
             continue;
         }
+        assert_ne!(range.vertices.len(), 0);
+        kinds.extend([range.key.kind]);
         for vertex in &range.vertices {
             assert!(vertex.is_lightmapped());
             let page = lightmaps
@@ -5398,61 +5268,16 @@ fn every_lightmapped_vertex_uv_lands_on_its_own_chart_corner() {
             checked += 1;
         }
     }
-    assert!(
-        checked > 500,
-        "the test must actually check a mesh: {checked}"
+    assert!(checked > 0, "the fixture must emit charted vertices");
+    assert_eq!(
+        kinds,
+        std::collections::HashSet::from([
+            SurfaceKind::Floor,
+            SurfaceKind::Ceiling,
+            SurfaceKind::Wall,
+        ]),
+        "the chart-corner assertion must cover all architectural families"
     );
-}
-
-#[test]
-fn atlas_texels_carry_the_solver_values_and_dilated_borders() {
-    // The HDR atlas is the solver's output: every chart texel must be finite
-    // HDR, its gutters must copy the chart's own border (the bilinear
-    // contract), and a lit demo must carry real light rather than a zero page.
-    let build = demo_lightmap_build(crate::quality::QualityLevel::High);
-    let lightmaps = build.lightmaps.as_deref().expect("demo bakes");
-    let mut checked = 0usize;
-    for (_, chart) in &lightmaps.charts {
-        let page = &lightmaps.pages[usize::from(chart.page)];
-        for row in 0..chart.height {
-            for column in 0..chart.width {
-                let texel = page
-                    .texel(chart.x + column, chart.y + row)
-                    .expect("chart texel");
-                assert!(
-                    texel.is_finite(),
-                    "chart {chart:?} texel ({column},{row}) is not finite HDR"
-                );
-                checked += 1;
-            }
-        }
-        // Two gutter texels on every side copy the nearest border texel, so a
-        // bilinear sample just outside the data rectangle can never read a
-        // neighbouring chart.
-        for gutter in 1..=2u32 {
-            for row in 0..chart.height {
-                let left = page.texel(chart.x.saturating_sub(gutter), chart.y + row);
-                let left_border = page.texel(chart.x, chart.y + row);
-                assert_eq!(
-                    left, left_border,
-                    "left gutter {gutter} must copy the border"
-                );
-                let right = page.texel(chart.x + chart.width + gutter - 1, chart.y + row);
-                let right_border = page.texel(chart.x + chart.width - 1, chart.y + row);
-                assert_eq!(
-                    right, right_border,
-                    "right gutter {gutter} must copy the border"
-                );
-            }
-        }
-    }
-    assert!(checked > 100_000, "must check real texel volume: {checked}");
-    let lit = lightmaps.pages.iter().any(|page| {
-        page.texels
-            .iter()
-            .any(|texel| texel.light_at([0.0, 1.0, 0.0])[0] > 0.1)
-    });
-    assert!(lit, "the demo's HDR atlas must carry real light");
 }
 
 /// Atlas texel statistics for one patch kind in one room, restricted to the
@@ -5520,204 +5345,6 @@ fn atlas_texels_in_box(
         (sum / (crate::test_support::exact_f64(count) * 3.0_f64) * 255.0_f64) as f32
     };
     (mean, count)
-}
-
-/// Per-texel atlas statistics over an axis-aligned world box, ignoring the
-/// patch's room hint: `(min, mean, max, zero share, texel count)` in
-/// soft-clipped display units `0..=1`.
-///
-/// This is the diagnostic companion to [`atlas_texels_in_box`]: the acceptance
-/// question "what does a particular wall/floor region of the shipped demo
-/// actually carry?" needs the raw distribution, not only its mean.
-#[expect(
-    clippy::cast_possible_truncation,
-    clippy::as_conversions,
-    reason = "The independent report accumulates display values in f64 and intentionally rounds their unit-range mean to f32."
-)]
-fn atlas_box_stats(
-    lightmaps: &LevelLightmaps,
-    kind: PatchKind,
-    min: [f32; 3],
-    max: [f32; 3],
-) -> (f32, f32, f32, f32, usize) {
-    let mut min_value = f32::INFINITY;
-    let mut max_value = f32::NEG_INFINITY;
-    let mut sum = 0.0_f64;
-    let mut zeros = 0usize;
-    let mut count = 0usize;
-    for (patch, chart) in &lightmaps.charts {
-        if patch.kind != kind {
-            continue;
-        }
-        let Some(page) = lightmaps.pages.get(usize::from(chart.page)) else {
-            continue;
-        };
-        let normal = crate::lighting::transport::patch_normal(patch);
-        for row in 0..chart.height {
-            for column in 0..chart.width {
-                let u = (crate::test_support::exact_f32(column) + 0.5)
-                    / crate::test_support::exact_f32(chart.width);
-                let v = (crate::test_support::exact_f32(row) + 0.5)
-                    / crate::test_support::exact_f32(chart.height);
-                let point = patch.point_at(u, v);
-                if point[0] < min[0]
-                    || point[0] > max[0]
-                    || point[1] < min[1]
-                    || point[1] > max[1]
-                    || point[2] < min[2]
-                    || point[2] > max[2]
-                {
-                    continue;
-                }
-                let Some(texel) = page.texel(chart.x + column, chart.y + row) else {
-                    continue;
-                };
-                let light = texel.light_at(normal);
-                let luma = 0.2126_f32.mul_add(
-                    crate::lighting::transport::soft_clip_channel(light[0]),
-                    0.7152_f32.mul_add(
-                        crate::lighting::transport::soft_clip_channel(light[1]),
-                        0.0722 * crate::lighting::transport::soft_clip_channel(light[2]),
-                    ),
-                );
-                if !luma.is_finite() {
-                    continue;
-                }
-                min_value = min_value.min(luma);
-                max_value = max_value.max(luma);
-                if luma <= 0.5 / 255.0 {
-                    zeros += 1;
-                }
-                sum += f64::from(luma);
-                count += 1;
-            }
-        }
-    }
-    let mean = if count == 0 {
-        0.0
-    } else {
-        (sum / crate::test_support::exact_f64(count)) as f32
-    };
-    let zero_share = if count == 0 {
-        0.0
-    } else {
-        crate::test_support::exact_f32(zeros) / crate::test_support::exact_f32(count)
-    };
-    (
-        if count == 0 { 0.0 } else { min_value },
-        mean,
-        if count == 0 { 0.0 } else { max_value },
-        zero_share,
-        count,
-    )
-}
-
-/// One named diagnostic box: `(name, patch kind, min, max, room, CPU sample)`.
-type DiagnosticBox = (&'static str, PatchKind, [f32; 3], [f32; 3], usize, [f32; 3]);
-
-/// Developer diagnostic: the shipped demo's solved low-end distribution at the
-/// reported problem spots. Prints one line per box and asserts every sample is
-/// a real, finite, non-negative HDR value.
-#[test]
-fn demo_lightmap_low_end_distribution_at_reported_spots() {
-    let level = shipped_demo();
-    let build = demo_lightmap_build(crate::quality::QualityLevel::High);
-    let lightmaps = build
-        .lightmaps
-        .as_deref()
-        .expect("the demo must produce an atlas");
-    let vertex = LevelLighting::bake(&level);
-    let boxes: &[DiagnosticBox] = &[
-        (
-            "office_floor_under_fixture",
-            PatchKind::Floor,
-            [2.0, -0.05, 2.0],
-            [7.0, 0.05, 5.0],
-            0,
-            [4.5, 0.0, 4.0],
-        ),
-        (
-            "office_north_wall",
-            PatchKind::Wall,
-            [1.0, 0.5, 6.5],
-            [8.0, 2.0, 7.2],
-            0,
-            [4.5, 1.5, 6.9],
-        ),
-        (
-            "office_west_corner",
-            PatchKind::Wall,
-            [0.0, 0.2, 6.4],
-            [0.6, 2.4, 7.2],
-            0,
-            [0.2, 1.2, 6.9],
-        ),
-        (
-            "home_living_floor",
-            PatchKind::Floor,
-            [54.0, -0.95, 4.0],
-            [64.0, -0.85, 14.0],
-            6,
-            [59.0, -0.9, 9.0],
-        ),
-        (
-            "home_south_wall_inner",
-            PatchKind::Wall,
-            [54.0, -0.4, 14.83],
-            [64.0, 1.6, 14.88],
-            6,
-            [59.0, 1.0, 14.9],
-        ),
-        (
-            "pool_basin_floor",
-            PatchKind::Floor,
-            [9.0, -3.05, 10.5],
-            [19.0, -2.95, 15.5],
-            3,
-            [14.0, -3.0, 13.0],
-        ),
-        (
-            "pool_deck",
-            PatchKind::Floor,
-            [2.0, -1.55, 8.0],
-            [7.0, -1.45, 11.0],
-            3,
-            [4.5, -1.5, 9.5],
-        ),
-        (
-            "corridor_floor",
-            PatchKind::Floor,
-            [45.0, -0.95, 12.0],
-            [52.0, -0.85, 14.0],
-            5,
-            [48.5, -0.9, 13.0],
-        ),
-        (
-            "sauna_floor",
-            PatchKind::Floor,
-            [27.0, -0.95, 11.5],
-            [32.0, -0.85, 14.5],
-            4,
-            [29.5, -0.9, 13.0],
-        ),
-    ];
-    for (name, kind, min, max, room, point) in boxes {
-        let (low, mean, high, zero_share, count) = atlas_box_stats(lightmaps, *kind, *min, *max);
-        let baseline = vertex.sample_in_room(*room, point[0], point[1], point[2]);
-        println!(
-            "demo_low_end {name:30} count {count:5} min {low:.3} mean {mean:.3} max {high:.3} zero {zero_share:.3} vertex ({:.3},{:.3},{:.3})",
-            baseline.r, baseline.g, baseline.b
-        );
-        assert!(count > 0, "{name} must select real texels");
-        assert!(
-            low.is_finite() && mean.is_finite() && high.is_finite(),
-            "{name} must be finite"
-        );
-        assert!(
-            high <= 1.0 + 1e-6 && low >= 0.0,
-            "{name} must stay inside the display range: {low}..{high}"
-        );
-    }
 }
 
 #[test]
@@ -5927,13 +5554,8 @@ fn a_warm_lightmap_cache_reproduces_the_cold_atlas_exactly() {
 }
 
 #[test]
-fn the_dynamic_demonstration_machine_stays_a_static_prop() {
-    // Places Demo places the washing machine the washer-drum demonstration is
-    // built around as an ordinary static prop: it is baked, it occludes, it
-    // collides, and it draws from the static prop batches. The drum the
-    // demonstration turns is spawned by `render::dynamic` at runtime and must
-    // never appear in the level file -- and it is spawned *inside* the
-    // machine, spinning in place behind the porthole.
+fn the_dynamic_demonstration_machine_is_authored_as_a_static_prop() {
+    // The machine is authored statically; its drum is spawned at runtime.
     let path = "levels/places_demo.json";
     let content = std::fs::read_to_string(path)
         .unwrap_or_else(|error| panic!("{path} must be readable: {error}"));
@@ -5954,28 +5576,6 @@ fn the_dynamic_demonstration_machine_stays_a_static_prop() {
             .any(|prop| prop.model == crate::render::DEMO_DRUM_ID),
         "{} must only exist as a dynamic object, never as a level prop",
         crate::render::DEMO_DRUM_ID
-    );
-
-    let catalog = shipped_catalog();
-    let mut assets = shipped_assets();
-    let materials = logical_materials(&level);
-    let (mesh, batches, _lighting) = build_level_geometry_with_assets_and_lighting_and_materials(
-        &level,
-        &catalog,
-        &mut assets,
-        &materials,
-    );
-    assert_eq!(
-        mesh.batches.prop_batch.count, 0_i32,
-        "the machine must draw real prop geometry, never a placeholder box"
-    );
-    let machine = catalog
-        .get(crate::render::DEMO_MACHINE_ID)
-        .model
-        .expect("the machine ships a model");
-    assert!(
-        batches.iter().any(|batch| batch.model == machine),
-        "the static machine must be instanced into a static prop batch"
     );
 }
 
@@ -6451,7 +6051,7 @@ fn every_window_cap_spans_its_opening_in_world_space() {
 }
 
 #[test]
-fn the_demo_routes_its_reflective_materials_to_a_plane_and_a_probe() {
+fn the_demo_resolves_its_authored_reflection_modes() {
     use crate::materials::{MaterialReflection, ReflectionMode, resolve_materials};
 
     let level = shipped_demo();
@@ -6490,93 +6090,56 @@ fn the_demo_routes_its_reflective_materials_to_a_plane_and_a_probe() {
         MaterialReflection::NONE,
         "an unmarked material must never reflect"
     );
+}
 
-    // The routing itself comes from the emitted geometry, so build the demo the
-    // renderer builds and check the plane it derives. The route is per range:
-    // every wet-deck range points at the pool-deck plane, a probe material's
-    // ranges point at none.
-    let mesh = &demo_lightmap_build(crate::quality::QualityLevel::High).mesh;
-    let routing =
-        super::common::reflections::routing_from_mesh(mesh, &reflections, reflections.len());
-    assert_eq!(
-        routing.planes.len(),
-        1,
-        "the demo has exactly one mirror plane: the pool deck"
-    );
-    let plane = routing.planes[0];
-    assert!(
-        (plane.normal[1] - 1.0).abs() < 1.0e-4 && plane.normal[0].abs() < 1.0e-4,
-        "the wet deck faces up, got {:?}",
-        plane.normal
-    );
-    assert!(
-        (plane.offset - 1.5).abs() < 1.0e-3,
-        "the pool deck sits at y = -1.5, got offset {}",
-        plane.offset
-    );
-    let mut wet_ranges = 0usize;
-    let mut linoleum_ranges = 0usize;
-    for (index, range) in mesh.ranges.iter().enumerate() {
-        if range.key.material == wet {
-            wet_ranges = wet_ranges.saturating_add(1);
-            assert_eq!(
-                routing.plane_of_range(index),
-                Some(0),
-                "the wet deck range {index} routes to that plane"
-            );
-        }
-        if range.key.material == linoleum {
-            linoleum_ranges = linoleum_ranges.saturating_add(1);
-            assert_eq!(
-                routing.plane_of_range(index),
-                None,
-                "a probe material never routes to a plane"
-            );
-        }
-    }
-    assert!(wet_ranges > 0, "the demo must emit wet-deck ranges");
-    assert!(
-        linoleum_ranges > 0,
-        "the demo must emit polished-linoleum ranges"
-    );
-    assert!(routing.probe_for_material[usize::try_from(linoleum).unwrap_or(usize::MAX)]);
-    assert!(!routing.probe_for_material[usize::try_from(wet).unwrap_or(usize::MAX)]);
-    assert!(
-        !routing.probe_points.is_empty(),
-        "the demo's polished floors want a probe"
-    );
-    // The probe is a real point inside the building, not a plane coefficient.
-    for point in &routing.probe_points {
-        assert!(point.iter().all(|value| value.is_finite()), "{point:?}");
-    }
+/// Two different pane materials in one bounded architectural room.
+fn glazed_room_level() -> LevelDef {
+    LevelDef::from_json(
+        r#"{
+            "format_version": 3, "id": "glazed_room", "name": "Glazed Room",
+            "spawn": { "x": 2.0, "z": 2.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 6.0, "depth": 4.0, "height": 3.0 }],
+            "walls": [{
+                "x": 1.0, "z": 0.0, "width": 4.0, "depth": 0.2,
+                "openings": [
+                    { "kind": "window", "offset": 0.5, "width": 1.0,
+                      "height": 1.2, "sill": 1.0, "glass": "core:glass_window_clear_01" },
+                    { "kind": "window", "offset": 2.5, "width": 1.0,
+                      "height": 1.2, "sill": 1.0, "glass": "core:grille_vent_01" }
+                ]
+            }]
+        }"#,
+    )
+    .expect("bounded glazing fixture parses")
 }
 
 #[test]
-fn the_demo_glazes_every_window_and_classifies_the_panes_translucent() {
-    let level = shipped_demo();
+fn glazed_openings_preserve_their_area_pass_and_lightmap() {
+    let level = glazed_room_level();
     let materials = logical_materials(&level);
     let panes: Vec<(SurfaceKey, MaterialAlpha)> = level
         .walls
         .iter()
         .flat_map(|wall| wall.openings.iter())
         .filter_map(|opening| opening.glass_material())
-        .filter_map(|id| {
-            let index = materials.index_of(id)?;
-            let alpha = materials.entry(index)?.alpha;
-            Some((SurfaceKey::new(SurfaceKind::Wall, index), alpha))
+        .map(|id| {
+            let index = materials.index_of(id).expect("pane material resolves");
+            let alpha = materials.entry(index).expect("pane entry").alpha;
+            (SurfaceKey::new(SurfaceKind::Wall, index), alpha)
         })
         .collect();
+    assert_eq!(panes.len(), 2, "both openings must carry pane geometry");
     assert_eq!(
-        panes.len(),
-        6,
-        "five windows and one transfer grille are glazed"
+        (
+            panes
+                .iter()
+                .filter(|(_, alpha)| alpha.is_translucent())
+                .count(),
+            panes.iter().filter(|(_, alpha)| alpha.is_cutout()).count(),
+        ),
+        (1, 1),
+        "the fixture must exercise both glass and alpha-tested grille routing"
     );
-    let translucent = panes
-        .iter()
-        .filter(|(_, alpha)| alpha.is_translucent())
-        .count();
-    let cutout = panes.iter().filter(|(_, alpha)| alpha.is_cutout()).count();
-    assert_eq!((translucent, cutout), (5, 1));
     for (key, alpha) in &panes {
         let expected = if alpha.is_cutout() {
             BatchPass::Cutout
@@ -6585,69 +6148,40 @@ fn the_demo_glazes_every_window_and_classifies_the_panes_translucent() {
         };
         assert_eq!(
             batch_pass_for(key.kind, key.has_material(), Some(*alpha)),
-            expected,
-            "{}",
-            materials
-                .entry(key.material)
-                .map_or("?", |entry| entry.id.as_str())
+            expected
         );
     }
 
-    // The panes are real geometry: a glassed opening contributes wall quads
-    // whose total area is exactly the opening's own area. (The mesh splits a
-    // pane into several quads where its lightmap chart or its spatial cell
-    // ends, so the count is not one per opening; the area is.) The builds are
-    // the lightmapped ones, because that is what the renderer uses.
-    let mesh = &demo_lightmap_build(crate::quality::QualityLevel::High).mesh;
+    let build = lightmap_build(&level, crate::quality::QualityLevel::High, LightmapMode::On);
+    assert_eq!(build.lightmap_failure, None);
     let opening_area: f32 = level
         .walls
         .iter()
         .flat_map(|wall| wall.openings.iter())
-        .filter(|opening| opening.glass_material().is_some())
         .map(|opening| opening.width * opening.height)
         .sum();
-    // Two openings may share one glass material, and a key's geometry is the
-    // union of everything that binds it, so the distinct keys are what carry the
-    // area.
-    let mut keys: Vec<SurfaceKey> = panes.iter().map(|(key, _)| *key).collect();
-    keys.sort_unstable();
-    keys.dedup();
-    let mut pane_area = 0.0f32;
-    for key in &keys {
-        let count = mesh.index_count_for_key(*key);
+    let mut pane_area = 0.0_f32;
+    for (key, _) in &panes {
+        let count = build.mesh.index_count_for_key(*key);
         assert!(
             count > 0 && count.is_multiple_of(6),
-            "a pane is whole quads (six indices each), got {count}"
+            "a pane must emit whole quads"
         );
-        for triangle in mesh.triangles_for_key(*key).as_chunks::<3>().0 {
-            let [a, b, c] = *triangle;
-            let edge1 = glam::Vec3::from(a.pos) - glam::Vec3::from(b.pos);
-            let edge2 = glam::Vec3::from(c.pos) - glam::Vec3::from(b.pos);
+        for triangle in build.mesh.triangles_for_key(*key).as_chunks::<3>().0 {
+            let [first, second, third] = *triangle;
+            let edge1 = glam::Vec3::from(first.pos) - glam::Vec3::from(second.pos);
+            let edge2 = glam::Vec3::from(third.pos) - glam::Vec3::from(second.pos);
             pane_area = edge1.cross(edge2).length().mul_add(0.5, pane_area);
         }
+        let vertices = build.mesh.triangles_for_key(*key);
+        assert!(
+            vertices.iter().all(Vertex::is_lightmapped),
+            "the pane must sample the atlas used by the surrounding wall"
+        );
     }
-    assert_eq!(
-        keys.len(),
-        4,
-        "three glass materials and one grille fill the demo's openings"
-    );
     assert!(
         (pane_area - opening_area).abs() <= 1.0e-3 * opening_area.max(1.0),
-        "the panes cover their openings exactly: {pane_area} vs {opening_area}"
-    );
-    let pane_vertices = mesh.triangles_for_key(panes[0].0);
-    assert!(
-        !pane_vertices.is_empty(),
-        "pane_vertices must contain entries"
-    );
-    let lightmapped = pane_vertices
-        .iter()
-        .filter(|vertex| vertex.is_lightmapped())
-        .count();
-    assert_eq!(
-        lightmapped,
-        pane_vertices.len(),
-        "a pane samples the same atlas the wall around it does"
+        "panes cover exactly their openings: {pane_area} vs {opening_area}"
     );
 }
 
@@ -7253,225 +6787,7 @@ fn a_per_surface_shine_override_reaches_the_batch_key() {
     );
 }
 
-#[test]
-fn the_demos_matte_linoleum_keeps_its_probe_and_its_material_default() {
-    // The shipped demo overrides its linoleum patch down to near-matte. That
-    // must change only the surface's glossiness: the material's waxed default
-    // and its probe reflection are untouched, and shine 0.05 must not remove
-    // the reflection the material authors.
-    use crate::materials::{MaterialReflection, ReflectionMode};
-
-    let level = shipped_demo();
-    let materials = logical_materials(&level);
-    let linoleum = materials
-        .index_of("core:linoleum_polished_01")
-        .expect("linoleum");
-    let entry = materials.entry(linoleum).expect("linoleum entry");
-    assert_eq!(entry.reflection.mode, ReflectionMode::Probe);
-    assert_ne!(entry.reflection, MaterialReflection::NONE);
-    assert!(
-        (entry.response.roughness - 0.45).abs() < 1.0e-6,
-        "the material's waxed default is still 0.55 shine"
-    );
-
-    let mesh = build_level_geometry(&level);
-    let patch_key = mesh
-        .ranges
-        .iter()
-        .map(|range| range.key)
-        .find(|key| key.material == linoleum)
-        .expect("the linoleum patch emits a range");
-    assert_eq!(patch_key.shine, Some(SurfaceShine::from_unit(0.05)));
-    assert!(
-        (patch_key.roughness(entry.response.roughness) - 0.95).abs() < 1.0e-6,
-        "the demo's institutional linoleum is matte"
-    );
-}
-
 // ------------------------------------------------- generic architecture
-
-/// The committed Home showcase: every generic architectural piece and every
-/// Home material in one level.
-fn home_showcase() -> crate::level::LevelDef {
-    crate::level::LevelDef::from_json(include_str!("../../levels/home_showcase.json"))
-        .expect("the Home showcase fixture parses")
-}
-
-#[test]
-fn test_the_home_showcase_bakes_lightmaps_with_every_surface_vertex_charted() {
-    let level = home_showcase();
-    let build = lightmap_build(&level, crate::quality::QualityLevel::High, LightmapMode::On);
-    assert_eq!(
-        build.lightmap_failure, None,
-        "the showcase must bake cleanly"
-    );
-    let lightmaps = build
-        .lightmaps
-        .as_deref()
-        .expect("the showcase must produce an atlas");
-    assert!(lightmaps.chart_count() > 0);
-    for range in &build.mesh.ranges {
-        for vertex in &range.vertices {
-            match range.key.kind {
-                SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall => {
-                    assert!(
-                        vertex.is_lightmapped(),
-                        "a static surface vertex must carry a chart"
-                    );
-                    assert!(
-                        vertex_in_some_chart(lightmaps, vertex),
-                        "a lightmapped vertex must sample inside its own chart"
-                    );
-                }
-                SurfaceKind::Light | SurfaceKind::PropFallback | SurfaceKind::Decal => {
-                    assert!(
-                        !vertex.is_lightmapped(),
-                        "fixtures, prop boxes and decals stay vertex-lit"
-                    );
-                }
-            }
-        }
-    }
-}
-
-/// Every architectural face is a real, finite, correctly wound quad, and the
-/// archway's opening is genuinely open geometry.
-#[test]
-fn test_the_home_showcase_architecture_is_well_formed() {
-    let level = home_showcase();
-    let mesh = build_level_geometry(&level);
-    assert!(mesh.vertex_count > 0);
-    // The mesh is an indexed triangle list. Faces are emitted as quads almost
-    // everywhere, but a face whose fourth corner collapses (a ramp side landing
-    // flush on a floor, a baseboard cap trimmed at a corner) is a real triangle,
-    // and every emitted triangle must still have area — checked below.
-    assert_eq!(mesh.index_count % 3, 0, "the mesh is a triangle list");
-
-    let normal = |a: [f32; 3], b: [f32; 3], c: [f32; 3]| -> [f32; 3] {
-        let u = glam::Vec3::from(b) - glam::Vec3::from(a);
-        let v = glam::Vec3::from(c) - glam::Vec3::from(a);
-        (u.cross(v)).to_array()
-    };
-    for range in &mesh.ranges {
-        let vertices: Vec<Vertex> = range
-            .indices
-            .iter()
-            .filter_map(|index| range.vertices.get(usize::from(*index)).copied())
-            .collect();
-        for triangle in vertices.as_chunks::<3>().0 {
-            let n = normal(triangle[0].pos, triangle[1].pos, triangle[2].pos);
-            assert!(
-                n.iter().all(|value| value.is_finite()),
-                "{:?} has a non-finite normal",
-                range.key.kind
-            );
-            assert!(
-                glam::Vec3::from(n).length() > 1e-6,
-                "{:?} has a degenerate triangle",
-                range.key.kind
-            );
-            match range.key.kind {
-                SurfaceKind::Floor => assert!(n[1] > 0.0, "a floor triangle faces down: {n:?}"),
-                SurfaceKind::Ceiling => assert!(n[1] < 0.0, "a ceiling triangle faces up: {n:?}"),
-                // A fixture's *sheet* face looks down into the room; its
-                // untextured housing (bezel, drum, can) has real side walls.
-                SurfaceKind::Light if range.key.has_material() => {
-                    assert!(n[1] < 0.0, "a fixture face must look down: {n:?}");
-                }
-                _ => {}
-            }
-        }
-    }
-
-    // The ramp's sloped top must be tilted, not flat: it is the one place the
-    // level's floors are not horizontal.
-    let floors = batch_slice(&mesh, SurfaceKind::Floor);
-    let tilted = floors.as_chunks::<3>().0.iter().any(|triangle| {
-        let n = normal(triangle[0].pos, triangle[1].pos, triangle[2].pos);
-        let length = glam::Vec3::from(n).length();
-        (n[1] / length) < 0.999
-    });
-    assert!(tilted, "the ramp contributes a sloped floor surface");
-
-    // The archway's opening is open: no architecture vertex sits inside the
-    // clear volume between its piers and under its springing line.
-    for triangle in mesh
-        .ranges
-        .iter()
-        .filter(|range| {
-            matches!(
-                range.key.kind,
-                SurfaceKind::Floor | SurfaceKind::Wall | SurfaceKind::Ceiling
-            )
-        })
-        .flat_map(|range| range.vertices.iter())
-    {
-        let [x, y, z] = triangle.pos;
-        let inside = x > 5.87 && x < 6.13 && z > 1.84 && z < 2.76 && y > 0.02 && y < 1.83;
-        assert!(
-            !inside,
-            "the archway's clear volume has geometry in it at {x}, {y}, {z}"
-        );
-    }
-}
-
-/// Every material a generic piece names is resolved and actually drawn.
-///
-/// This is the regression test for the scan that collects a level's material
-/// references: a piece whose material was missed renders the bare white sheet
-/// instead of its own surface, which is exactly the kind of silent fallback the
-/// generic architecture must never have.
-#[test]
-fn test_the_home_showcase_draws_every_architectural_material() {
-    let level = home_showcase();
-    let materials = logical_materials(&level);
-    let mesh = build_level_geometry(&level);
-    for id in [
-        "home:hardwood_oak_01",
-        "home:wall_paint_offwhite_01",
-        "home:baseboard_white_01",
-        "home:baseboard_wood_01",
-        "home:handrail_wood_01",
-        "home:threshold_wood_01",
-    ] {
-        let index = materials
-            .index_of(id)
-            .unwrap_or_else(|| panic!("{id} must resolve in the level's material table"));
-        assert!(
-            mesh.ranges.iter().any(|range| range.key.material == index),
-            "{id} must be drawn by at least one batch"
-        );
-    }
-
-    // The living room's north baseboard is trim: its faces stand proud of the
-    // wall plane (z = 0) by the board's own thickness, so it never shares the
-    // wall's plane.
-    let wood = materials
-        .index_of("home:baseboard_wood_01")
-        .expect("the wood baseboard resolves");
-    let mut seen = false;
-    for range in &mesh.ranges {
-        if range.key.material != wood {
-            continue;
-        }
-        let vertices: Vec<Vertex> = range
-            .indices
-            .iter()
-            .filter_map(|index| range.vertices.get(usize::from(*index)).copied())
-            .collect();
-        for vertex in &vertices {
-            let [x, y, z] = vertex.pos;
-            if (0.0..6.0).contains(&x) && (0.0..=0.09).contains(&y) {
-                assert!(
-                    z >= -1e-4,
-                    "a baseboard vertex sits behind the wall plane: {z}"
-                );
-                seen = true;
-            }
-        }
-    }
-    assert!(seen, "the living room's baseboard must be drawn");
-}
 
 /// Small open-room fixtures exercise the public mesh path for both ramp axes.
 /// A distinct edge material isolates ramp skirts from adjacent region skirts.
@@ -8188,51 +7504,6 @@ fn the_demo_authors_water_over_the_basin_and_the_walk_in_step() {
     assert!(tub.swimming);
     assert!(!tub.contains(2.4, 7.5), "a bounding-box corner is dry");
     assert!(tub.contains(4.6, 8.7), "the axis line is water");
-
-    // The volumes draw the two rectangles and the disc: two six-index quads
-    // plus one three-index fan segment per disc segment.
-    let materials = logical_materials(&level);
-    let water = materials
-        .index_of(crate::level::DEFAULT_WATER_MATERIAL)
-        .expect("the demo's water material resolves");
-    let mesh = build_level_geometry(&level);
-    let key = SurfaceKey::new(SurfaceKind::Floor, water);
-    let expected = 2 * 6 + crate::render::common::water::WATER_DISC_SEGMENTS * 3;
-    assert_eq!(
-        mesh.index_count_for_key(key),
-        expected,
-        "two quads plus one fan segment per disc segment"
-    );
-    let surface = mesh.triangles_for_key(key);
-    for vertex in &surface {
-        assert!((vertex.pos[1] + 1.65).abs() < 1e-6);
-        assert!((vertex.color[3] - 0.62).abs() < 1e-6);
-        assert_eq!(vertex.lightmap_page, LIGHTMAP_NONE);
-    }
-    assert!(
-        surface.iter().any(|vertex| vertex.pos[2] <= 10.0 + 1e-6),
-        "the basin quad reaches the basin's north edge"
-    );
-    assert!(
-        surface.iter().any(|vertex| vertex.pos[2] >= 16.9 - 1e-6),
-        "the step quad reaches the walk-in step's far edge"
-    );
-
-    // The packed world draws the water through the sorted translucent pass:
-    // the demo has no separate water pass and no water-specific pipeline.
-    let entry = materials.entry(water).expect("water material entry");
-    assert_eq!(
-        batch_pass_for(SurfaceKind::Floor, true, Some(entry.alpha)),
-        BatchPass::Translucent
-    );
-    let state = MaterialRenderState::from_table(&materials);
-    let (_, draws) = super::wgpu::world::pack_world_ranges(&mesh, &state);
-    assert!(
-        draws
-            .iter()
-            .any(|draw| draw.material == water && draw.pass == BatchPass::Translucent),
-        "the demo's water geometry is a translucent world draw"
-    );
 }
 
 /// Two pools far enough apart to fall in different spatial cells: the sorted
@@ -8385,134 +7656,6 @@ fn a_placed_spooner_man_becomes_a_character_and_a_chair_does_not() {
             .state_weight(crate::game::LocomotionState::Walking)
             > 0.0
     );
-}
-
-/// Every model path the demo's animatable placements claim, sorted: the two
-/// Spooner-Men, the four wall switches and the five night-route entities.
-fn demo_claimed_model_paths(catalog: &crate::loader::PropCatalog) -> Vec<String> {
-    let mut paths: Vec<String> = [
-        "spooner-man",
-        "home:wall_switch",
-        "carved-pumpkin",
-        "sheet-ghost",
-        "sheet-ghost-cat",
-        "pumpkin-skeleton",
-    ]
-    .iter()
-    .map(|id| {
-        catalog
-            .get(id)
-            .model
-            .unwrap_or_else(|| panic!("{id} ships a model"))
-    })
-    .collect();
-    paths.sort_unstable();
-    paths
-}
-
-/// The shipped demo level places its skinned props, and the character path
-/// claims each model without touching the rest of the prop field.
-///
-/// The demo places sixteen animatable props: two skinned Spooner-Men (the
-/// pool route actor and the home encounter predator), the night route's
-/// creatures (a routed carved pumpkin, three routed sheet ghosts, a routed
-/// ghost cat, a navigation-driven pumpkin skeleton and the three waiting
-/// house guards) and five rigid (skinless) wall switches. A model with any unclaimed placement stays in the static batch;
-/// here every placement of every one of those models is claimed.
-#[test]
-fn the_places_demo_level_places_its_animated_props_once() {
-    let content = std::fs::read_to_string("levels/places_demo.json")
-        .expect("the demo level must be readable");
-    let level = LevelDef::from_json(&content).expect("the demo level parses");
-    let catalog = shipped_catalog();
-    let mut assets = shipped_assets();
-    let lighting = LevelLighting::bake(&level);
-    let scene = CharacterScene::spawn_characters(&level, &catalog, &mut assets, &lighting);
-    assert_eq!(scene.len(), 16, "the demo places sixteen animatable props");
-    let mut ids: Vec<&str> = scene
-        .characters()
-        .iter()
-        .filter_map(|character| character.instance_id())
-        .collect();
-    ids.sort_unstable();
-    assert_eq!(
-        ids,
-        [
-            "hall_switch",
-            "kitchen_switch",
-            "night_ghost_a",
-            "night_ghost_b",
-            "night_ghost_c",
-            "night_ghost_cat",
-            "night_guard_a",
-            "night_guard_b",
-            "night_guard_c",
-            "night_pumpkin",
-            "night_skeleton",
-            "rat_release_switch",
-            "sauna_steam_switch",
-            "sauna_switch",
-            "spooner_man",
-            "spooner_man_home"
-        ]
-    );
-    let skinned: Vec<&Character> = scene
-        .characters()
-        .iter()
-        .filter(|character| character.asset().model.is_skinned())
-        .collect();
-    assert_eq!(
-        skinned.len(),
-        11,
-        "two skinned Spooner-Men, the five skinned night-route creatures and the three skinned house guards"
-    );
-    assert!(
-        skinned
-            .iter()
-            .all(|character| !character.animator().is_rigid()),
-        "the skinned characters run the locomotion driver"
-    );
-    let rigid: Vec<&Character> = scene
-        .characters()
-        .iter()
-        .filter(|character| character.animator().is_rigid())
-        .collect();
-    assert_eq!(rigid.len(), 5, "five rigid animated props");
-    let mut rigid_ids: Vec<Option<&str>> = rigid
-        .iter()
-        .map(|character| character.instance_id())
-        .collect();
-    rigid_ids.sort_unstable();
-    assert_eq!(
-        rigid_ids,
-        [
-            Some("hall_switch"),
-            Some("kitchen_switch"),
-            Some("rat_release_switch"),
-            Some("sauna_steam_switch"),
-            Some("sauna_switch")
-        ]
-    );
-
-    // The claimed models are suppressed from the static batch: exactly the
-    // models every placement of which is a character.
-    let mut claimed: Vec<String> = scene.claimed_models().to_vec();
-    claimed.sort_unstable();
-    assert_eq!(claimed, demo_claimed_model_paths(&catalog));
-
-    let character = scene
-        .characters()
-        .iter()
-        .find(|character| character.instance_id() == Some("spooner_man"))
-        .expect("spooner-man is claimed");
-    let placement = level
-        .props
-        .iter()
-        .find(|prop| prop.model == "spooner-man")
-        .expect("the demo places spooner-man");
-    let centre = character.transform().transform_point3(glam::Vec3::ZERO);
-    assert!((centre.x - placement.x).abs() < 1e-5);
-    assert!((centre.z - placement.z).abs() < 1e-5);
 }
 
 /// The static prop path still bakes the bind pose of a skinned model: real
@@ -9835,10 +8978,22 @@ fn doorway_lintel_and_coplanar_wall_slices_keep_the_parent_room() {
 }
 
 #[test]
-fn maintained_demo_step_risers_meet_their_treads_without_gaps() {
+fn stepped_floor_risers_meet_their_treads_without_gaps() {
     use crate::lighting::lightmap::{LightmapPlan, PatchKind};
 
-    let level = shipped_demo();
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3, "id": "riser_join", "name": "Riser Join",
+            "spawn": { "x": 0.5, "z": 0.5 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }],
+            "floor_regions": [
+                { "x": 1.0, "z": 1.0, "width": 1.0, "depth": 1.0, "offset_y": 0.25 },
+                { "x": 2.0, "z": 1.0, "width": 1.0, "depth": 1.0, "offset_y": 0.5 },
+                { "x": 3.0, "z": 1.0, "width": 1.0, "depth": 1.0, "offset_y": 0.75 }
+            ]
+        }"#,
+    )
+    .expect("bounded three-tread fixture parses");
     let lighting = LevelLighting::bake(&level);
     let mut plan = LightmapPlan::new(crate::quality::QualityLevel::High.lightmap_config());
     let _mesh = common::geometry::build_level_geometry_mesh_with_lightmaps(
@@ -9855,40 +9010,38 @@ fn maintained_demo_step_risers_meet_their_treads_without_gaps() {
         .iter()
         .filter_map(|(patch, _)| (patch.kind == PatchKind::Floor).then_some(patch))
         .collect();
-    let mut checked = 0_i32;
-    for (patch, _) in plan.charts() {
-        let p = patch.origin;
-        let stair_hall =
-            (19.0..=24.0).contains(&p[0]) && (1.6..=4.8).contains(&p[2]) && patch.u_axis[2] == 0.0;
-        let pool_steps =
-            (24.2..=25.0).contains(&p[0]) && (9.2..=11.0).contains(&p[2]) && patch.u_axis[0] == 0.0;
-        if patch.kind != PatchKind::Skirt || !(stair_hall || pool_steps) {
-            continue;
-        }
-        // Midpoints of both horizontal riser edges avoid unrelated room-edge
-        // corners; the emitted floor must reach each edge at exactly its Y.
-        for v in [0.0, 1.0] {
-            let point = glam::Vec3::from_array(p)
-                + glam::Vec3::from_array(patch.u_axis) * 0.5
-                + glam::Vec3::from_array(patch.v_axis) * v;
+    let risers: Vec<_> = plan
+        .charts()
+        .iter()
+        .filter_map(|(patch, _)| {
+            (patch.kind == PatchKind::Skirt
+                && crate::lighting::transport::patch_normal(patch)[0] < -0.9)
+                .then_some(patch)
+        })
+        .collect();
+    assert_eq!(risers.len(), 3, "all three front risers must be tested");
+    let mut checked = 0_usize;
+    for riser in risers {
+        for fraction in [0.0, 1.0] {
+            let point = glam::Vec3::from_array(riser.point_at(0.5, fraction));
             let touches = floors.iter().any(|floor| {
                 if floor.origin[1] != point.y {
                     return false;
                 }
                 let offset = point - glam::Vec3::from_array(floor.origin);
-                let u = glam::Vec3::from_array(floor.u_axis);
+                let u_axis = glam::Vec3::from_array(floor.u_axis);
                 let v_axis = glam::Vec3::from_array(floor.v_axis);
-                let along_u = offset.dot(u) / u.length_squared();
+                let along_u = offset.dot(u_axis) / u_axis.length_squared();
                 let along_v = offset.dot(v_axis) / v_axis.length_squared();
                 (-1e-6..=1.000_001).contains(&along_u) && (-1e-6..=1.000_001).contains(&along_v)
             });
             assert!(touches, "riser edge has no adjoining tread: {point:?}");
-            checked += 1_i32;
+            checked += 1;
         }
     }
-    assert!(
-        checked >= 12_i32,
-        "both maintained stair areas must be checked"
+    assert_eq!(
+        checked, 6,
+        "both edges of every front riser must meet a floor"
     );
 }
 
@@ -10244,48 +9397,6 @@ fn a_roomless_moving_object_reads_the_environment_not_a_rooms_probe() {
     }
 }
 
-/// The shipped night route's routed entities are the regression this rule was
-/// written for: the prepared field there is near black, while the level's
-/// authored environment (and every static prop beside them) is lit.
-#[test]
-fn the_shipped_night_route_does_not_hide_dark_compiler_data() {
-    use crate::render::common::light_transport::moving_object_light;
-    let level = LevelDef::from_json(include_str!("../../levels/places_demo.json"))
-        .expect("valid places_demo json");
-    let lighting = LevelLighting::bake(&level);
-    // The routed pumpkin / skeleton positions from the shipped level: both
-    // resolve to the night route's open-air room.
-    for (name, position) in [
-        ("pumpkin", [13.5_f32, 0.3_f32, -83.0_f32]),
-        ("skeleton", [9.6, 0.9, -52.0]),
-    ] {
-        let room = lighting
-            .room_index_at_height(position[0], position[1], position[2])
-            .unwrap_or_else(|| panic!("{name} resolves to a room"));
-        let baseline = lighting
-            .baseline_in_room(room, position[0], position[2])
-            .to_array();
-        assert!(
-            baseline[0] > crate::lighting::AMBIENT_LEVEL + 0.1,
-            "{name}: the night route has an authored ambience: {baseline:?}"
-        );
-        // The air field near both positions is near black (measured from the
-        // packaged `full` variant: 0.00-0.05), which is exactly what made the
-        // entities read 0-5/255 at Medium/High.
-        let dark = single_probe(position, [0.0; 3], i32::try_from(room).expect("room fits"));
-        let lit = moving_object_light(&lighting, Some(&dark), position);
-        for channel in 0..3 {
-            assert!(
-                lit[channel].abs() < 1.0e-6,
-                "{name} channel {channel}: valid baked darkness survives: {lit:?}"
-            );
-        }
-        let raw = dark
-            .sample_display(position, Some(room))
-            .expect("the dark probe resolves");
-        assert!(raw[0] < 0.05, "{name}: the control field is dark");
-    }
-}
 // -------------------------------------------- 2026 widened material index
 
 /// One 4-vertex wall quad range carrying `material`.

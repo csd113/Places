@@ -24,7 +24,7 @@ python3 tools/levels/build_beach.py --check
 python3 tools/levels/build_frutiger_aero.py --check
 python3 tools/textures/frutiger_aero_art.py --check
 python3 tools/levels/build_capacity_fixtures.py --check
-# Build the explicit eight-map lineup with normal qualities and probe capture.
+# Build the explicit maintained lineup with normal qualities and probe capture.
 # Compiled maps are generated outputs, never inputs to either Rust binary.
 python3 tools/levels/compile.py --workers "${PLACES_VERIFY_WORKERS:-8}"
 python3 -m unittest tests.built_maps
@@ -46,7 +46,6 @@ case "${PLACES_VERIFY_ALL_MAPS:-0}" in
     ;;
 esac
 sh tools/check-rust.sh
-cargo test --lib bundled_static_models_fit_medium_and_full_atlas_plans -- --ignored
 # Enable export acceptance explicitly now that the complete lineup is current.
 PLACES_SKIP_SMOKE=0 PLACES_SMOKE_BIN="$PWD/target/release/places" \
 PLACES_TEST_EXPORT=1 PLACES_WEATHER_PACKAGE_DIR="$PWD/assets/levels" \

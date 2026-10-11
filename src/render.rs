@@ -31,6 +31,9 @@ mod tests;
 mod wgpu;
 
 #[cfg(test)]
+pub(crate) use common::geometry::build_level_geometry_mesh;
+
+#[cfg(test)]
 pub(crate) use common::light_transport::{
     EntityLightingSource, build_transport_scene, entity_lighting, entity_spatial_lighting,
     switchable_lights,

@@ -1,4 +1,4 @@
-"""CI shards must cover curated sources without reducing package quality."""
+"""Explicit developer compilation must preserve curated source package quality."""
 import contextlib
 import importlib.util
 import io

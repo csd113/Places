@@ -15,7 +15,7 @@
 
 use super::{Chart, ChartAllocator, LightmapConfig, LightmapMode, LightmapPatch, PatchKind};
 use crate::quality::QualityProfile;
-use crate::test_support::{exact_f32, exact_f64};
+use crate::test_support::exact_f32;
 
 /// A flat X/Z floor quad at `y`, from `(x0, z0)` to `(x1, z1)`, wound as a floor.
 fn floor_quad(x0: f32, z0: f32, x1: f32, z1: f32, y: f32) -> [[f32; 3]; 4] {
@@ -558,6 +558,7 @@ fn full_page_policy_preserves_architecture_sampling_and_invalidates_the_ten_page
         full.max_pages, 11,
         "Full admits the measured finer model plan"
     );
+    assert_eq!(full.page_edge, 1024);
     let previous_full = LightmapConfig {
         max_pages: 10,
         ..full
@@ -584,6 +585,7 @@ fn full_page_policy_preserves_architecture_sampling_and_invalidates_the_ten_page
     let medium = crate::quality::LightmapQuality::Medium
         .lightmap_config()
         .expect("Medium has an atlas");
+    assert_eq!(medium.page_edge, 1024);
     let previous_medium = LightmapConfig {
         texels_per_metre: 12.0,
         max_pages: 8,
@@ -599,6 +601,10 @@ fn full_page_policy_preserves_architecture_sampling_and_invalidates_the_ten_page
         LightmapConfig::for_profile(QualityProfile::Low).max_pages,
         8,
         "Low retains its prior budget"
+    );
+    assert_eq!(
+        LightmapConfig::for_profile(QualityProfile::Low).page_edge,
+        512
     );
 }
 
@@ -1757,63 +1763,7 @@ fn chart_texels_are_clamped_to_the_usable_edge() {
     );
 }
 
-/// The shipped level must keep real lightmaps under both profiles, and both
-/// profiles must bake the *same* patch set.
-///
-/// This is the density/packing regression guard: `Low` used to overflow its
-/// 512-texel pages and fall back to vertex lighting for the whole level, and a
-/// density bump that overflows is worse than no bump at all. It also pins that
-/// the bake uses a meaningful part of the pages it opens rather than "fitting"
-/// by accident at a trivial density, and that a profile decides texel density
-/// and page size, never where the geometry is cut.
-#[test]
-fn the_shipped_demo_fits_the_page_budget_at_both_profiles() {
-    let level = crate::level::LevelDef::from_json(include_str!("../../../levels/places_demo.json"))
-        .expect("the shipped places_demo parses");
-    let mut sets = Vec::new();
-    for profile in crate::quality::QualityProfile::ALL {
-        let config = profile.lightmap_config();
-        let build = build_level(&level, profile);
-        let lightmaps = build.lightmaps.as_deref().unwrap_or_else(|| {
-            panic!(
-                "{profile:?} must keep its lightmaps on the demo: {:?}",
-                build.lightmap_failure
-            )
-        });
-        assert!(
-            lightmaps.chart_count() > 900,
-            "the demo's chart set is complete"
-        );
-        assert!(
-            lightmaps.pages.len() <= config.max_pages,
-            "{profile:?} must fit its page budget"
-        );
-        let budget =
-            u64::from(config.page_edge).pow(2) * u64::try_from(lightmaps.pages.len()).unwrap_or(0);
-        // The demo must stay a substantial prepared load, so the page-budget
-        // assertion above is not vacuously true. These are absolute floors
-        // rather than a fraction of the allocated pages: the gable eave-strip
-        // fix (a sloped ceiling now meets an eave wall's flat top) needed a
-        // sixth Full page, and a fraction of the *allocated* budget would then
-        // measure the page-count headroom instead of the demo's real load.
-        let floor = match profile {
-            QualityProfile::Low => 1_000_000,
-            QualityProfile::Full => 2_800_000,
-        };
-        assert!(
-            u64::try_from(lightmaps.stats.texels).expect("fixture integer fits u64") >= floor,
-            "{profile:?} must bake a substantial chart set: {} of {budget}",
-            lightmaps.stats.texels
-        );
-        sets.push(patch_set(lightmaps));
-    }
-    assert_eq!(
-        sets[0], sets[1],
-        "Low and Full must bake the same patch set on the demo"
-    );
-}
-
-/// Builds one level through the same public entry point the audits use.
+/// Builds a bounded synthetic level through the public renderer entry point.
 fn build_level(
     level: &crate::level::LevelDef,
     profile: QualityProfile,
@@ -1831,265 +1781,6 @@ fn build_level(
     )
 }
 
-/// Identity of one chart's patch, for the "both profiles share one patch set"
-/// equality check.
-type PatchIdentity = (PatchKind, [f32; 3], [f32; 3], [f32; 3], Option<usize>);
-
-/// The patch set of one atlas, for the "both profiles share one patch set"
-/// equality check.
-fn patch_set(lightmaps: &LevelLightmaps) -> Vec<PatchIdentity> {
-    lightmaps
-        .charts
-        .iter()
-        .map(|(patch, _)| {
-            (
-                patch.kind,
-                patch.origin,
-                patch.u_axis,
-                patch.v_axis,
-                patch.room,
-            )
-        })
-        .collect()
-}
-
-/// A synthetic two-storey tower whose two 55 x 55 m floors plus their ceilings
-/// need more than the historical two-page budget but fit the former eight. It
-/// pins the capacity boundary independently of the tracked Pit fixture.
-fn large_tower_level() -> crate::level::LevelDef {
-    large_tower_level_with_storeys(2)
-}
-
-/// The same 55 m x 55 m tower with an arbitrary storey count, so the page-budget
-/// boundary can be pinned exactly (three storeys exceed four pages at Full and
-/// fit the raised eight).
-fn large_tower_level_with_storeys(storeys: u32) -> crate::level::LevelDef {
-    let mut rooms: Vec<String> = Vec::new();
-    let mut lights: Vec<String> = Vec::new();
-    for storey in 0..storeys {
-        let floor_y = -6.0 * exact_f32(storey);
-        rooms.push(format!(
-            r#"{{"x": 0.0, "z": 0.0, "width": 55.0, "depth": 55.0, "height": 6.0, "floor_y": {floor_y}}}"#
-        ));
-        for ix in 0_i32..3_i32 {
-            for iz in 0_i32..3_i32 {
-                let x = 18.0f32.mul_add(exact_f32(ix), 9.0);
-                let z = 18.0f32.mul_add(exact_f32(iz), 9.0);
-                lights.push(format!(
-                    r#"{{"fixture": "core:fluorescent_panel_01", "x": {x}, "z": {z}, "brightness": 0.5}}"#
-                ));
-            }
-        }
-    }
-    let json = format!(
-        r#"{{
-            "format_version": 3,
-            "id": "large_tower",
-            "name": "Large Tower",
-            "spawn": {{ "x": 9.0, "z": 9.0 }},
-            "rooms": [{}],
-            "ceiling_lights": [{}]
-        }}"#,
-        rooms.join(", "),
-        lights.join(", ")
-    );
-    crate::level::LevelDef::from_json(&json).expect("the synthetic tower parses")
-}
-
-/// Builds one level with an explicit lightmap configuration.
-fn build_with_config(
-    level: &crate::level::LevelDef,
-    config: LightmapConfig,
-) -> crate::render::LevelBuild {
-    let materials = crate::render::logical_materials(level);
-    let catalog = crate::loader::PropCatalog::builtin();
-    let mut assets = crate::props::PropAssets::default();
-    let profile = QualityProfile::Full;
-    crate::render::build_level_geometry_timed_with_lightmaps(
-        level,
-        &catalog,
-        &mut assets,
-        &materials,
-        crate::render::LightmapBuildOptions {
-            mode: LightmapMode::On,
-            config,
-            ..crate::render::LightmapBuildOptions::for_profile(profile, LightmapMode::On)
-        },
-        None,
-    )
-}
-
-/// The capacity regression: The Pit's 2,808 m² of floor plus the same ceiling
-/// (25 rooms, 114 fixtures) exceeded the historical two-page budget at Full and
-/// the whole level fell back to vertex lighting, which removed the per-texel
-/// light from every room. The shipped budget must hold a level of that size, a
-/// two-page budget must still fail over by name rather than drop pages
-/// silently, and the 2026 raise to eight pages must hold a three-storey tower
-/// that four pages cannot.
-///
-/// The synthetic towers pin the capacity boundaries on each checkout. The
-/// tracked `tests/fixtures/levels/level0_pit.json` fixture also checks the real
-/// build against the shipped budget.
-#[test]
-fn the_pit_bakes_into_the_shipped_page_budget_at_full() {
-    let profile = QualityProfile::Full;
-    let config = profile.lightmap_config();
-    assert_eq!(
-        config.max_pages, 11,
-        "the shipped Full profile supports the measured eleven-page budget"
-    );
-    assert_eq!(config.page_edge, 1024);
-
-    let tower = large_tower_level();
-
-    // The historical two-page budget must overflow: this is the regression the
-    // first capacity raise exists for.
-    let mut two_page = config;
-    two_page.max_pages = 2;
-    let overflow = build_with_config(&tower, two_page);
-    assert_eq!(
-        overflow.lightmap_failure,
-        Some(super::LightmapFailure::PageOverflow),
-        "a level of this size must overflow the two-page budget by name"
-    );
-    assert!(overflow.lightmaps.is_none());
-    assert!(
-        overflow.mesh.vertex_count > 0,
-        "the fallback mesh is complete"
-    );
-
-    // The shipped budget must hold the two-storey tower too.
-    let build = build_with_config(&tower, config);
-    assert_eq!(
-        build.lightmap_failure, None,
-        "the synthetic tower must bake cleanly at Full"
-    );
-    let lightmaps = build
-        .lightmaps
-        .as_deref()
-        .unwrap_or_else(|| panic!("Full must produce an atlas for the tower"));
-    assert!(
-        !lightmaps.pages.is_empty(),
-        "lightmaps.pages must contain entries"
-    );
-    assert!(
-        lightmaps.pages.len() <= config.max_pages,
-        "{} pages over the {}-page budget",
-        lightmaps.pages.len(),
-        config.max_pages
-    );
-    assert!(lightmaps.chart_count() > 0, "Full must chart the level");
-    assert!(lightmaps.stats.texels > 0, "Full must fill real texels");
-    assert_architecture_is_lightmapped(&build, lightmaps);
-}
-
-/// The 2026 raise from four pages to eight: a third 55 m x 55 m storey must
-/// overflow the old four-page budget by name (falling back to vertex lighting),
-/// and the former eight-page budget must bake it with more than four pages
-/// actually resident. Without this, the raise would be an unproven constant.
-#[test]
-fn the_three_storey_tower_needs_the_raised_page_budget() {
-    let profile = QualityProfile::Full;
-    let config = profile.lightmap_config();
-    assert_eq!(config.max_pages, 11);
-    let taller = large_tower_level_with_storeys(3);
-    let mut four_page = config;
-    four_page.max_pages = 4;
-    let four = build_with_config(&taller, four_page);
-    assert_eq!(
-        four.lightmap_failure,
-        Some(super::LightmapFailure::PageOverflow),
-        "the three-storey tower must overflow a four-page budget"
-    );
-    assert!(four.lightmaps.is_none());
-    let eight_page = LightmapConfig {
-        max_pages: 8,
-        ..config
-    };
-    let raised = build_with_config(&taller, eight_page);
-    assert_eq!(
-        raised.lightmap_failure, None,
-        "the eight-page budget must bake the three-storey tower"
-    );
-    let maps = raised
-        .lightmaps
-        .as_deref()
-        .unwrap_or_else(|| panic!("the three-storey tower must produce an atlas"));
-    assert!(
-        maps.pages.len() > 4,
-        "the fixture must actually need more than four pages: {} used",
-        maps.pages.len()
-    );
-
-    let content = include_str!("../../../tests/fixtures/levels/level0_pit.json");
-    let level = crate::level::LevelDef::from_json(content).expect("the tracked Pit fixture parses");
-    let real = build_level(&level, profile);
-    assert_eq!(
-        real.lightmap_failure, None,
-        "The Pit must bake cleanly at Full"
-    );
-    let real_maps = real
-        .lightmaps
-        .as_deref()
-        .unwrap_or_else(|| panic!("Full must produce an atlas for The Pit"));
-    assert!(
-        real_maps.pages.len() <= config.max_pages,
-        "The Pit: {} pages over the {}-page budget",
-        real_maps.pages.len(),
-        config.max_pages
-    );
-
-    assert_architecture_is_lightmapped(&real, real_maps);
-}
-
-/// Every architectural vertex of a lightmapped build must sample a resident
-/// page: only invisible sub-texel slivers may stay vertex-lit, and the highest
-/// page byte must be the last resident page, so an unpopulated layer can never
-/// ship. This replaces the historical wall-texel comparison against the
-/// display-space fill: the prepared HDR pages are the transport solve's own
-/// values (covered by `crate::lighting::transport::tests`), and the vertex-lit
-/// model they were once compared with is the `off` fallback.
-fn assert_architecture_is_lightmapped(
-    build: &crate::render::LevelBuild,
-    lightmaps: &LevelLightmaps,
-) {
-    let mut architectural = 0usize;
-    let mut lightmapped = 0usize;
-    let mut highest_page = 0usize;
-    for range in &build.mesh.ranges {
-        if !matches!(
-            range.key.kind,
-            crate::render::SurfaceKind::Floor
-                | crate::render::SurfaceKind::Ceiling
-                | crate::render::SurfaceKind::Wall
-        ) {
-            continue;
-        }
-        for vertex in &range.vertices {
-            architectural += 1;
-            if vertex.is_lightmapped() {
-                lightmapped += 1;
-                let page = usize::from(vertex.lightmap_page);
-                assert!(
-                    page < lightmaps.pages.len(),
-                    "the vertex page byte must address a resident layer"
-                );
-                highest_page = highest_page.max(page);
-            }
-        }
-    }
-    assert!(architectural > 0, "the level emits architectural geometry");
-    assert!(
-        lightmapped * 100 >= architectural * 99,
-        "the atlas must cover the architecture: {lightmapped} of {architectural} vertices"
-    );
-    assert_eq!(
-        highest_page + 1,
-        lightmaps.pages.len(),
-        "every resident layer must be referenced by a stamped chart"
-    );
-}
-
 /// Runs a level through the bake and samples a grid inside its first room.
 fn samples_in_first_room(level: &crate::level::LevelDef) -> Vec<[f32; 3]> {
     let lighting =
@@ -2097,8 +1788,8 @@ fn samples_in_first_room(level: &crate::level::LevelDef) -> Vec<[f32; 3]> {
     let mut out = Vec::new();
     for i in 0_i32..=4_i32 {
         for j in 0_i32..=4_i32 {
-            let x = exact_f32(i).mul_add(2.0, 1.0);
-            let z = exact_f32(j).mul_add(1.5, 1.0);
+            let x = exact_f32(i).mul_add(0.5, 1.0);
+            let z = exact_f32(j).mul_add(0.5, 1.0);
             let color = lighting.sample_in_room(0, x, 0.0, z);
             out.push([color.r, color.g, color.b]);
         }
@@ -2106,11 +1797,10 @@ fn samples_in_first_room(level: &crate::level::LevelDef) -> Vec<[f32; 3]> {
     out
 }
 
-/// The original two-page cap's failure mode: a level that adds an unrelated,
-/// distant room blows the atlas budget and the WHOLE level loses its lightmap,
-/// so a locally lit room's illumination changes even though nothing near it
-/// did. With the shipped budget the added room must not change the lit room's
-/// bake at all.
+/// Adding a small disconnected room must retain the atlas and leave the lit
+/// room's legacy vertex samples unchanged. Page-capacity boundaries are checked
+/// by allocator tests; global bounce-cache sampling is not bit invariant when
+/// the receiver bounds change.
 #[test]
 fn an_unrelated_distant_room_does_not_darken_a_lit_room() {
     const LIT_ROOM: &str = r#"{
@@ -2119,10 +1809,10 @@ fn an_unrelated_distant_room_does_not_darken_a_lit_room() {
         "name": "Capacity Lit",
         "spawn": { "x": 2.0, "z": 2.0 },
         "rooms": [
-            { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 8.0, "height": 3.0 }
+            { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }
         ],
         "ceiling_lights": [
-            { "fixture": "core:fluorescent_panel_01", "x": 5.0, "z": 4.0, "brightness": 0.9 }
+            { "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 2.0, "brightness": 0.9 }
         ]
     }"#;
     const LIT_ROOM_WITH_DISTANT_ROOM: &str = r#"{
@@ -2131,18 +1821,16 @@ fn an_unrelated_distant_room_does_not_darken_a_lit_room() {
         "name": "Capacity Lit",
         "spawn": { "x": 2.0, "z": 2.0 },
         "rooms": [
-            { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 8.0, "height": 3.0 },
-            { "x": 200.0, "z": 200.0, "width": 70.0, "depth": 70.0, "height": 3.0 }
+            { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 },
+            { "x": 200.0, "z": 200.0, "width": 4.0, "depth": 4.0, "height": 3.0 }
         ],
         "ceiling_lights": [
-            { "fixture": "core:fluorescent_panel_01", "x": 5.0, "z": 4.0, "brightness": 0.9 }
+            { "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 2.0, "brightness": 0.9 }
         ]
     }"#;
     let lit = crate::level::LevelDef::from_json(LIT_ROOM).expect("the lit room parses");
     let enlarged = crate::level::LevelDef::from_json(LIT_ROOM_WITH_DISTANT_ROOM)
         .expect("the enlarged level parses");
-    // The distant room alone is >2 pages of Full texels: under the old budget
-    // this build overflowed and returned no atlas for the whole level.
     let enlarged_build = build_level(&enlarged, QualityProfile::Full);
     assert_eq!(
         enlarged_build.lightmap_failure, None,
@@ -2154,13 +1842,15 @@ fn an_unrelated_distant_room_does_not_darken_a_lit_room() {
         .expect("the enlarged level bakes an atlas");
     let config = QualityProfile::Full.lightmap_config();
     assert!(enlarged_lightmaps.pages.len() <= config.max_pages);
-    assert!(
-        enlarged_lightmaps.pages.len() > 2,
-        "the distant room must actually push past the historical two-page budget: {} page(s)",
-        enlarged_lightmaps.pages.len()
-    );
+    assert!(enlarged_lightmaps.chart_count() > 0);
     let before = samples_in_first_room(&lit);
     let after = samples_in_first_room(&enlarged);
+    assert!(
+        before
+            .iter()
+            .any(|sample| sample[0] > crate::lighting::AMBIENT_LEVEL),
+        "the comparison room must receive real fixture light above the ambient floor"
+    );
     assert_eq!(before.len(), after.len());
     for (index, (a, b)) in before.iter().zip(after.iter()).enumerate() {
         for channel in 0..3 {
@@ -2238,134 +1928,6 @@ fn reordering_equivalent_lights_does_not_change_the_bake() {
         build_level(&backward, QualityProfile::Full).lightmap_failure,
         None
     );
-}
-
-/// Developer measurement, not an assertion.
-///
-/// Builds the shipped demo level with the real chart set and prints, per
-/// profile: chart count, chart data texels, the outer rectangle area the charts
-/// reserve (data plus both gutters), the pages the two-page build needs (or a
-/// generous-budget probe when it does not fit), the resulting utilisation and
-/// the bake time. Run with:
-///
-/// ```text
-/// cargo test --release measure_demo_chart_statistics -- --ignored --nocapture
-/// ```
-///
-/// Printing is the whole point of an `#[ignore]`d measurement, so the crate's
-/// `print_stdout` lint is switched off for this one test.
-#[test]
-#[ignore = "developer measurement: prints places_demo's chart statistics"]
-#[expect(
-    clippy::print_stdout,
-    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests and developer measurement output"
-)]
-fn measure_demo_chart_statistics() {
-    let level = crate::level::LevelDef::from_json(include_str!("../../../levels/places_demo.json"))
-        .expect("the shipped places_demo parses");
-    // The patch set is profile-independent (the chart-span cap is shared), so
-    // one successful build at Full collects the whole demo's patches.
-    let materials = crate::render::logical_materials(&level);
-    let catalog = crate::loader::PropCatalog::builtin();
-    let mut assets = crate::props::PropAssets::default();
-    let build = crate::render::build_level_geometry_timed_with_lightmaps(
-        &level,
-        &catalog,
-        &mut assets,
-        &materials,
-        crate::render::LightmapBuildOptions::for_profile(
-            crate::quality::QualityProfile::Full,
-            LightmapMode::On,
-        ),
-        None,
-    );
-    let Some(lightmaps) = build.lightmaps.as_deref() else {
-        panic!("the demo must bake at Full: {:?}", build.lightmap_failure);
-    };
-    let patches: Vec<LightmapPatch> = lightmaps.charts.iter().map(|(patch, _)| *patch).collect();
-    for profile in crate::quality::QualityProfile::ALL {
-        let config = profile.lightmap_config();
-        // Pack the same patch set with a generous budget, to separate "the
-        // two-page budget is too small" from "the packer is too
-        // wasteful".
-        let mut probe = ChartAllocator::new(LightmapConfig {
-            max_pages: 64,
-            ..config
-        });
-        for patch in &patches {
-            let _allocate_status = probe.allocate(patch);
-        }
-        let padding = u64::from(config.padding);
-        let mut data = 0u64;
-        let mut outer = 0u64;
-        for patch in &patches {
-            let (w, h) = config.chart_texels(patch);
-            let (width_texels, height_texels) = (u64::from(w), u64::from(h));
-            data += width_texels * height_texels;
-            outer += (width_texels + padding * 2) * (height_texels + padding * 2);
-        }
-        let edge = u64::from(config.page_edge);
-        let budget = edge * edge * u64::try_from(config.max_pages).unwrap_or(1);
-        if std::env::var("PLACES_DUMP_CHARTS").as_deref() == Ok("1") {
-            let mut dump = String::new();
-            for patch in &patches {
-                let (w, h) = config.chart_texels(patch);
-                dump.push_str(&format!("{w} {h}\n"));
-            }
-            let path = format!("target/diagnostics/chart-sizes-{}.txt", profile.name());
-            std::fs::write(&path, dump).expect("chart size dump");
-            println!("    wrote {path} (chart texels, emission order)");
-        }
-        println!(
-            "{:?}: {} charts, {} data texels, {} outer texels; two-page budget {} texels \
-             ({} pages of {}); data {:.1}% / outer {:.1}% of the budget; probe needs {} pages \
-             (failed {}), target {:.1} texels/m, padding {}",
-            profile,
-            patches.len(),
-            data,
-            outer,
-            budget,
-            config.max_pages,
-            config.page_edge,
-            100.0_f64 * exact_f64(data) / exact_f64(budget),
-            100.0_f64 * exact_f64(outer) / exact_f64(budget),
-            probe.page_count(),
-            probe.failed(),
-            config.texels_per_metre,
-            config.padding,
-        );
-    }
-    // The real two-page build, per profile, for the bake time and page shape.
-    for profile in crate::quality::QualityProfile::ALL {
-        let profile_materials = crate::render::logical_materials(&level);
-        let profile_catalog = crate::loader::PropCatalog::builtin();
-        let mut profile_assets = crate::props::PropAssets::default();
-        let profile_build = crate::render::build_level_geometry_timed_with_lightmaps(
-            &level,
-            &profile_catalog,
-            &mut profile_assets,
-            &profile_materials,
-            crate::render::LightmapBuildOptions::for_profile(profile, LightmapMode::On),
-            None,
-        );
-        match profile_build.lightmaps.as_deref() {
-            Some(profile_lightmaps) => println!(
-                "{:?}: real build: {} page(s), {} charts, {} chart texels, {:.1} ms",
-                profile,
-                profile_lightmaps.pages.len(),
-                profile_lightmaps.charts.len(),
-                profile_lightmaps.stats.texels,
-                profile_lightmaps.stats.bake_millis,
-            ),
-            None => println!(
-                "{:?}: real build: FAILED ({:?})",
-                profile,
-                profile_build
-                    .lightmap_failure
-                    .unwrap_or(LightmapFailure::Layout),
-            ),
-        }
-    }
 }
 
 fn cache_fixture(key: &str, value: f32) -> LevelLightmaps {

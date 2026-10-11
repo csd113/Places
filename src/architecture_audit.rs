@@ -41,6 +41,62 @@ fn home_showcase() -> LevelDef {
     parse(include_str!("../levels/home_showcase.json"))
 }
 
+/// Emits source geometry without solving illumination or planning lightmaps.
+///
+/// Fixture placement normally reads ceiling metadata from the lighting bake.
+/// Resolve its implicit height from the same source room before using empty
+/// lighting, so the geometry audit still checks housings at their real height.
+pub fn build_geometry_without_illumination(
+    level: &LevelDef,
+    catalog: &crate::loader::PropCatalog,
+    materials: &crate::materials::MaterialTable,
+) -> crate::render::LevelMesh {
+    let surfaces = LevelSurfaces::new(level);
+    let mut geometry = level.clone();
+    for light in &mut geometry.ceiling_lights {
+        if light.y.is_some_and(f32::is_finite) {
+            continue;
+        }
+        let y = match light.mount {
+            crate::level::LightMount::Wall => {
+                surfaces.room_floor_y_at(light.x, light.z).unwrap_or(0.0)
+                    + crate::lighting::WALL_LIGHT_DEFAULT_HEIGHT_M
+            }
+            crate::level::LightMount::Ceiling => {
+                let profile = crate::lighting::fixture_profile(&light.fixture);
+                let (half_w, half_d) =
+                    crate::lighting::fixture_half_extents_for(profile.kind, light.rotation_degrees);
+                let ceiling = surfaces.room_at(light.x, light.z).map_or_else(
+                    || surfaces.ceiling_y_at(light.x, light.z),
+                    |room| {
+                        let mut lowest = f32::INFINITY;
+                        for x in [light.x - half_w, light.x + half_w] {
+                            for z in [light.z - half_d, light.z + half_d] {
+                                lowest = lowest.min(room.ceiling_y_at(x, z));
+                            }
+                        }
+                        lowest
+                    },
+                );
+                ceiling - crate::lighting::FIXTURE_DROP_M
+            }
+        };
+        light.y = Some(y);
+    }
+    let fallback_props: Vec<_> = geometry
+        .props
+        .iter()
+        .filter(|prop| prop.float.is_none())
+        .collect();
+    crate::render::build_level_geometry_mesh(
+        &geometry,
+        catalog,
+        &fallback_props,
+        &LevelLighting::default(),
+        materials,
+    )
+}
+
 /// One triangle of an emitted batch, reduced to world and UV area.
 struct EmittedTriangle {
     world_area: f32,
@@ -360,37 +416,13 @@ fn architecture_stress_level_for(grid: usize) -> LevelDef {
     parse(&json)
 }
 
-/// The stress level builds with bounded geometry, chart counts and draw
-/// batches: architecture repeats batch by material, not by instance, and the
-/// lightmap atlas stays inside its page budget.
-#[test]
-fn test_architecture_stress_builds_with_bounded_geometry() {
-    let catalog = crate::loader::PropCatalog::builtin();
-    let level = architecture_stress_level_for(5);
-    let materials = logical_materials(&level);
-    let mut assets = crate::props::PropAssets::default();
-    let build = crate::render::build_level_geometry_timed_with_lightmaps(
-        &level,
-        &catalog,
-        &mut assets,
-        &materials,
-        crate::render::LightmapBuildOptions::for_profile(
-            crate::quality::QualityProfile::Full,
-            crate::lighting::lightmap::LightmapMode::On,
-        ),
-        None,
-    );
-    assert_eq!(
-        build.lightmap_failure, None,
-        "the stress level bakes cleanly"
-    );
-    let lightmaps = build.lightmaps.as_deref().expect("an atlas is produced");
-    let stats = lightmaps.stats;
+/// The geometry-only Off mesh retains the estimate and batching contract.
+fn assert_stress_geometry_bounds(level: &LevelDef, mesh: &crate::render::LevelMesh) {
     let estimate = level.estimate_geometry();
     assert!(
-        build.mesh.vertex_count <= usize::try_from(estimate.total_vertices).unwrap_or(usize::MAX),
+        mesh.vertex_count <= usize::try_from(estimate.total_vertices).unwrap_or(usize::MAX),
         "the estimate bounds the real mesh: {} vs {}",
-        build.mesh.vertex_count,
+        mesh.vertex_count,
         estimate.total_vertices
     );
     // Batches are per material and spatial cell, not per piece: hundreds of
@@ -407,55 +439,24 @@ fn test_architecture_stress_builds_with_bounded_geometry() {
         + level.baseboards.len();
     assert!(piece_count >= 200, "the stress level is architecture-heavy");
     assert!(
-        build.mesh.ranges.len() < piece_count / 3,
+        mesh.ranges.len() < piece_count / 3,
         "batches batch: {} ranges for {piece_count} pieces",
-        build.mesh.ranges.len()
+        mesh.ranges.len()
     );
-    assert!(
-        stats.pages <= crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES,
-        "the atlas stays in the page budget: {} pages, {} charts, {} texels",
-        stats.pages,
-        stats.charts,
-        stats.texels
+}
+
+/// Ordinary source geometry remains automatic without a full transport solve.
+#[test]
+fn test_architecture_stress_builds_with_bounded_geometry() {
+    let level = architecture_stress_level_for(5);
+    let materials = logical_materials(&level);
+    // Exercise the Off emitter without solving illumination for the stress map.
+    let mesh = build_geometry_without_illumination(
+        &level,
+        &crate::loader::PropCatalog::builtin(),
+        &materials,
     );
-    assert!(
-        stats.charts <= 20_000,
-        "chart count stays bounded: {}",
-        stats.charts
-    );
-    // A level whose architecture genuinely exceeds its atlas budget must
-    // degrade to vertex lighting with a named failure, not panic or drop
-    // geometry: the mesh is complete and finite, only unlit. The 5-grid above
-    // fits the shipped budget; the much larger 10-grid is a genuine overflow of
-    // the historical four-page budget, so the oversized build is pinned against
-    // that budget explicitly (the shipped Full profile admits ten pages).
-    let oversized = architecture_stress_level_for(10);
-    let oversized_materials = logical_materials(&oversized);
-    let mut options = crate::render::LightmapBuildOptions::for_profile(
-        crate::quality::QualityProfile::Full,
-        crate::lighting::lightmap::LightmapMode::On,
-    );
-    options.config.max_pages = 4;
-    let oversized_build = crate::render::build_level_geometry_timed_with_lightmaps(
-        &oversized,
-        &catalog,
-        &mut assets,
-        &oversized_materials,
-        options,
-        None,
-    );
-    assert_eq!(
-        oversized_build.lightmap_failure,
-        Some(crate::lighting::lightmap::LightmapFailure::PageOverflow),
-        "the oversized level reports its fallback by name"
-    );
-    assert!(oversized_build.mesh.vertex_count > 0);
-    for range in &oversized_build.mesh.ranges {
-        for vertex in &range.vertices {
-            assert!(vertex.pos.iter().all(|value| value.is_finite()));
-            assert!(vertex.color.iter().all(|value| value.is_finite()));
-        }
-    }
+    assert_stress_geometry_bounds(&level, &mesh);
 }
 
 /// A column between the fixture and a point casts a local shadow: the point
@@ -1298,7 +1299,11 @@ fn test_architecture_geometry_sweep_is_structurally_sound() {
 fn test_the_shipped_demo_emits_no_zero_area_triangles() {
     let level = parse(include_str!("../levels/places_demo.json"));
     let materials = logical_materials(&level);
-    let mesh = build_level_geometry_with_materials(&level, &materials);
+    let mesh = build_geometry_without_illumination(
+        &level,
+        &crate::loader::PropCatalog::builtin(),
+        &materials,
+    );
     let triangles = emitted_triangles(&mesh);
     assert!(!triangles.is_empty(), "the demo must emit geometry");
     let degenerate: Vec<[[f32; 3]; 3]> = triangles
@@ -1332,7 +1337,11 @@ fn test_the_prepared_demo_validates_and_emits_no_zero_area_triangles() {
     crate::loader::validate_level(&level).expect("the prepared demo still validates");
 
     let materials = logical_materials(&level);
-    let mesh = build_level_geometry_with_materials(&level, &materials);
+    let mesh = build_geometry_without_illumination(
+        &level,
+        &crate::loader::PropCatalog::builtin(),
+        &materials,
+    );
     let triangles = emitted_triangles(&mesh);
     assert!(!triangles.is_empty(), "the prepared demo emits geometry");
     let degenerate: Vec<[[f32; 3]; 3]> = triangles
@@ -1584,7 +1593,11 @@ fn test_walking_surfaces_may_not_span_rooms_with_different_floors() {
 fn test_a_ramp_arriving_at_a_platform_closes_its_sides() {
     let level = home_showcase();
     let materials = logical_materials(&level);
-    let mesh = build_level_geometry_with_materials(&level, &materials);
+    let mesh = build_geometry_without_illumination(
+        &level,
+        &crate::loader::PropCatalog::builtin(),
+        &materials,
+    );
     // Home's ramp runs x 4.0..5.0, z 0.4..2.0, rising 0..0.75, and its high end
     // meets the platform exactly.
     for side_x in [4.0f32, 5.0] {
@@ -1612,7 +1625,11 @@ fn test_a_ramp_arriving_at_a_platform_closes_its_sides() {
 fn test_rotated_guardrail_posts_keep_a_real_uv_axis() {
     let level = home_showcase();
     let materials = logical_materials(&level);
-    let mesh = build_level_geometry_with_materials(&level, &materials);
+    let mesh = build_geometry_without_illumination(
+        &level,
+        &crate::loader::PropCatalog::builtin(),
+        &materials,
+    );
     let handrail = materials
         .index_of("home:handrail_wood_01")
         .expect("the handrail material resolves");

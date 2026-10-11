@@ -1354,7 +1354,11 @@ fn test_the_official_demo_exercises_every_showcased_feature() {
     // needs the shipped catalogue rather than the built-in fallback.
     let props = PropCatalog::load_default();
     let assets = crate::assets::AssetCatalog::load_default();
-    let mesh = crate::render::build_level_geometry_with_catalog(&level, &props);
+    let mesh = crate::architecture_audit::build_geometry_without_illumination(
+        &level,
+        &props,
+        &crate::render::logical_materials(&level),
+    );
     assert!(mesh.batches.wall_batch.count > 0_i32);
     assert!(mesh.batches.floor_batch.count > 0_i32);
     assert!(mesh.batches.light_batch.count > 0_i32);
@@ -2880,7 +2884,11 @@ fn test_prepared_demo_baseboard_geometry_sits_at_floor_level() {
     let index = materials
         .index_of("core:baseboard_office_01")
         .expect("the trim material is referenced by generated runs");
-    let mesh = crate::render::build_level_geometry_with_materials(prepared, &materials);
+    let mesh = crate::architecture_audit::build_geometry_without_illumination(
+        prepared,
+        &PropCatalog::builtin(),
+        &materials,
+    );
 
     let mut ranges = 0_i32;
     let mut vertices = 0_i32;

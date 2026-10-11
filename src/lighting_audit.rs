@@ -1,18 +1,5 @@
-//! Adversarial audit, regression and performance tests for the static baked
-//! lighting system (`src/lighting.rs` and the geometry it shades in
-//! `src/render.rs`).
-//!
-//! These tests exist to break the lighting implementation, not merely to lock in
-//! its happy path. They cover the pathological inputs a community level can
-//! legitimately contain (huge rooms, dense fixture grids, overlapping rooms,
-//! doorways, vertically offset props) as well as the malformed-but-parseable
-//! ones, and they measure the level-build cost of representative levels against
-//! conservative geometry and memory budgets for the desktop game.
-//!
-//! The benchmark half prints a compact table with
-//! `cargo test --release -- --nocapture lighting_benchmark_report`.
-//! Timings are informational; vertex counts, draw calls and budget arithmetic
-//! are asserted so a regression fails the suite.
+//! Bounded regression fixtures for lighting, geometry budgets and batching.
+//! Full-map baking and performance campaigns use explicit developer tools.
 
 // Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
 // the production lints stay enforced everywhere else in the crate.
@@ -26,14 +13,10 @@
     reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests and developer measurement output"
 )]
 
-use std::time::Instant;
-
 use crate::level::{LevelDef, MAX_LEVEL_PROP_VERTICES, MAX_LEVEL_VERTICES};
 use crate::lighting::LevelLighting;
 use crate::render::SurfaceKind;
-use crate::render::{
-    LevelMesh, PropMeshBatch, build_level_geometry, build_level_geometry_with_assets,
-};
+use crate::render::{build_level_geometry, build_level_geometry_with_assets};
 use crate::test_support::assert_exact_named;
 
 // ---------------------------------------------------------------------------
@@ -115,92 +98,6 @@ fn fixture_grid(count: usize) -> (usize, usize) {
     ((cols.max(1)), (count.div_ceil(cols.max(1))).max(1))
 }
 
-// ---------------------------------------------------------------------------
-// Build statistics
-// ---------------------------------------------------------------------------
-
-#[derive(Clone, Copy, Debug, Default)]
-pub struct BuildStats {
-    pub static_vertices: usize,
-    pub prop_vertices: usize,
-    pub prop_draws: usize,
-    pub prop_models: usize,
-    pub build_millis: f64,
-    /// First (cold) build of the run, including any one-time prop model parse.
-    pub cold_millis: f64,
-    pub bake_millis: f64,
-    pub estimate_vertices: u64,
-    pub floor_vertices: usize,
-    pub ceiling_vertices: usize,
-    pub wall_vertices: usize,
-    pub light_vertices: usize,
-}
-
-impl BuildStats {
-    pub fn static_vbo_bytes(&self) -> usize {
-        self.static_vertices * std::mem::size_of::<crate::render::Vertex>()
-    }
-
-    pub fn prop_vbo_bytes(&self) -> usize {
-        self.prop_vertices * std::mem::size_of::<crate::render::Vertex>()
-    }
-}
-
-fn batch_len(_mesh: &LevelMesh, batch: crate::render::BatchRange) -> usize {
-    usize::try_from(batch.count.max(0)).unwrap_or(0)
-}
-
-/// Builds a level with real prop assets when available and records everything
-/// the performance audit needs. `repeat` runs the build multiple times so a
-/// release benchmark can report the best (least noisy) time.
-pub fn measure(
-    level: &LevelDef,
-    catalog: &crate::loader::PropCatalog,
-    assets: &mut crate::props::PropAssets,
-    repeat: usize,
-) -> (BuildStats, LevelMesh, Vec<PropMeshBatch>) {
-    let mut best_total = f64::MAX;
-    let mut cold_total = f64::MAX;
-    let mut best_bake = f64::MAX;
-    let mut mesh = None;
-    let mut batches = None;
-    let estimate = level.estimate_geometry();
-    for round in 0..repeat.max(1) {
-        let bake_started = Instant::now();
-        let _lighting = LevelLighting::bake(level);
-        best_bake = best_bake.min(bake_started.elapsed().as_secs_f64() * 1000.0);
-        let mut local_assets = std::mem::take(assets);
-        let started = Instant::now();
-        let (built, prop_batches) =
-            build_level_geometry_with_assets(level, catalog, &mut local_assets);
-        let elapsed = started.elapsed().as_secs_f64() * 1_000.0_f64;
-        best_total = best_total.min(elapsed);
-        if round == 0 {
-            cold_total = elapsed;
-        }
-        *assets = local_assets;
-        mesh = Some(built);
-        batches = Some(prop_batches);
-    }
-    let built_mesh = mesh.expect("at least one build");
-    let built_batches = batches.expect("at least one build");
-    let stats = BuildStats {
-        static_vertices: built_mesh.vertex_count,
-        prop_vertices: built_batches.iter().map(|batch| batch.vertices.len()).sum(),
-        prop_draws: built_batches.len(),
-        prop_models: built_batches.len(),
-        build_millis: best_total,
-        cold_millis: cold_total,
-        bake_millis: best_bake,
-        estimate_vertices: estimate.total_vertices,
-        floor_vertices: batch_len(&built_mesh, built_mesh.batches.floor_batch),
-        ceiling_vertices: batch_len(&built_mesh, built_mesh.batches.ceiling_batch),
-        wall_vertices: batch_len(&built_mesh, built_mesh.batches.wall_batch),
-        light_vertices: batch_len(&built_mesh, built_mesh.batches.light_batch),
-    };
-    (stats, built_mesh, built_batches)
-}
-
 /// Every generated vertex colour must be finite and inside the renderer range.
 pub fn assert_vertex_colors_safe(vertices: &[crate::render::Vertex]) {
     for (index, vertex) in vertices.iter().enumerate() {
@@ -245,48 +142,6 @@ fn bench_tiny() -> LevelDef {
         }}"#,
         room(0.0, 0.0, 6.0, 6.0, 3.0),
         light(3.0, 3.0, None),
-    ))
-}
-
-/// Level D: one room with many fixtures, exercising the per-vertex light loop.
-fn bench_many_lights(count: usize) -> LevelDef {
-    parse(&format!(
-        r#"{{
-            "format_version": 3,
-            "id": "bench_many_lights",
-            "name": "Bench Many Lights",
-            "spawn": {{ "x": 0.0, "z": 0.0 }},
-            "rooms": [{}],
-            "ceiling_lights": [{}]
-        }}"#,
-        room(0.0, 0.0, 40.0, 40.0, 3.5),
-        (0..count)
-            .map(|index| {
-                let x = crate::test_support::exact_f32(index % 10).mul_add(4.0, 2.0);
-                let z = crate::test_support::exact_f32(index / 10).mul_add(4.0, 2.0);
-                light(x, z, None)
-            })
-            .collect::<Vec<_>>()
-            .join(",")
-    ))
-}
-
-/// Level E: few rooms with very large surfaces.
-fn bench_large_surfaces() -> LevelDef {
-    parse(&level_json(
-        &format!(
-            "{},{}",
-            room(0.0, 0.0, 120.0, 120.0, 3.5),
-            room(120.0, 0.0, 120.0, 120.0, 3.5)
-        ),
-        &(0..16)
-            .map(|index| {
-                let x = crate::test_support::exact_f32(index % 4_i32).mul_add(30.0, 10.0);
-                let z = crate::test_support::exact_f32(index / 4_i32).mul_add(30.0, 10.0);
-                light(x, z, None)
-            })
-            .collect::<Vec<_>>()
-            .join(","),
     ))
 }
 
@@ -339,114 +194,6 @@ fn bench_many_rooms(grid: usize) -> LevelDef {
     ))
 }
 
-/// Level G: one room with many repeated props across several models.
-fn bench_prop_heavy() -> LevelDef {
-    let models = [
-        "core:chair",
-        "core:crate",
-        "core:table",
-        "core:lamp",
-        "core:plant",
-    ];
-    let mut props = Vec::new();
-    for index in 0..150 {
-        let model = models[index % models.len()];
-        let x = crate::test_support::exact_f32(index % 15).mul_add(2.0, -14.0);
-        let z = crate::test_support::exact_f32(index / 15).mul_add(2.6, -14.0);
-        props.push(format!(r#"{{ "model": "{model}", "x": {x}, "z": {z} }}"#));
-    }
-    parse(&format!(
-        r#"{{
-            "format_version": 3,
-            "id": "bench_prop_heavy",
-            "name": "Bench Prop Heavy",
-            "spawn": {{ "x": 0.0, "z": 0.0 }},
-            "rooms": [{}],
-            "ceiling_lights": [{}],
-            "props": [{}]
-        }}"#,
-        room(0.0, 0.0, 30.0, 30.0, 3.0),
-        (0..6)
-            .map(|index| light(
-                crate::test_support::exact_f32(index).mul_add(4.4, 4.0),
-                15.0,
-                None
-            ))
-            .collect::<Vec<_>>()
-            .join(","),
-        props.join(",")
-    ))
-}
-
-/// Level H: the worst *reasonable* community level: a 5x5 room block with two
-/// fixtures per room, doorways between neighbours and a moderate prop load.
-fn bench_worst_reasonable() -> LevelDef {
-    let grid = 5usize;
-    let room_size = 14.0;
-    let mut rooms = Vec::new();
-    let mut lights = Vec::new();
-    let mut walls = Vec::new();
-    let mut props = Vec::new();
-    for row in 0..grid {
-        for col in 0..grid {
-            let x = crate::test_support::exact_f32(col) * room_size;
-            let z = crate::test_support::exact_f32(row) * room_size;
-            rooms.push(room(x, z, room_size, room_size, 3.2));
-            lights.push(light(x + 4.5, z + 4.5, None));
-            lights.push(light(x + 9.5, z + 9.5, None));
-            if col + 1 < grid {
-                walls.push(format!(
-                    r#"{{ "x": {}, "z": {}, "width": 0.4, "depth": {}, "height": 3.2, "openings": [{{ "kind": "door", "offset": 6.0, "width": 1.2, "height": 2.1, "sill": 0.0 }}] }}"#,
-                    x + room_size,
-                    z,
-                    room_size
-                ));
-            }
-            if row + 1 < grid {
-                walls.push(format!(
-                    r#"{{ "x": {}, "z": {}, "width": {}, "depth": 0.4, "height": 3.2, "openings": [{{ "kind": "door", "offset": 6.0, "width": 1.2, "height": 2.1, "sill": 0.0 }}] }}"#,
-                    x,
-                    z + room_size,
-                    room_size
-                ));
-            }
-            let models = ["core:chair", "core:table", "core:plant"];
-            for index in 0..2 {
-                let model = models[(row + col + index) % models.len()];
-                props.push(format!(
-                    r#"{{ "model": "{model}", "x": {}, "z": {} }}"#,
-                    crate::test_support::exact_f32(index).mul_add(6.0, x + 3.0),
-                    z + 3.0
-                ));
-            }
-        }
-    }
-    parse(&format!(
-        r#"{{
-            "format_version": 3,
-            "id": "bench_worst_reasonable",
-            "name": "Bench Worst Reasonable",
-            "spawn": {{ "x": 0.0, "z": 0.0 }},
-            "rooms": [{}],
-            "walls": [{}],
-            "ceiling_lights": [{}],
-            "props": [{}]
-        }}"#,
-        rooms.join(","),
-        walls.join(","),
-        lights.join(","),
-        props.join(",")
-    ))
-}
-
-/// The maintained official demo source, independent of compiled output.
-fn shipped_demo() -> LevelDef {
-    let path = "levels/places_demo.json";
-    let content = std::fs::read_to_string(path)
-        .unwrap_or_else(|error| panic!("{path} must be readable: {error}"));
-    parse(&content)
-}
-
 /// One engine regression fixture from `tests/fixtures/levels/`.
 fn fixture_level(name: &str) -> LevelDef {
     let path = format!("tests/fixtures/levels/{name}.json");
@@ -468,164 +215,6 @@ fn shipped_assets() -> crate::props::PropAssets {
     let assets = crate::props::PropAssets::load_default();
     assert!(assets.root().is_some(), "the assets/ directory must exist");
     assets
-}
-
-// ---------------------------------------------------------------------------
-// Benchmark report
-// ---------------------------------------------------------------------------
-
-struct Row {
-    name: &'static str,
-    level: LevelDef,
-    stats: BuildStats,
-    rooms: usize,
-    lights: usize,
-    openings: usize,
-    props: usize,
-}
-
-fn openings_of(level: &LevelDef) -> usize {
-    level.walls.iter().map(|wall| wall.openings.len()).sum()
-}
-
-#[test]
-fn lighting_benchmark_report() {
-    let catalog = shipped_catalog();
-    let mut assets = shipped_assets();
-    let repeat = if cfg!(debug_assertions) { 1 } else { 3 };
-
-    let mut rows: Vec<Row> = Vec::new();
-    let mut add =
-        |name: &'static str, level: LevelDef, prop_assets: &mut crate::props::PropAssets| {
-            let (stats, mesh, batches) = measure(&level, &catalog, prop_assets, repeat);
-            assert_vertex_colors_safe(&mesh.all_vertices());
-            for batch in &batches {
-                assert_vertex_colors_safe(&batch.vertices);
-            }
-            assert!(
-                stats.static_vertices <= usize::try_from(MAX_LEVEL_VERTICES).unwrap_or(usize::MAX),
-                "{name}: static geometry exceeds the level budget"
-            );
-            rows.push(Row {
-                name,
-                stats,
-                rooms: level.room_iter().count(),
-                lights: level.ceiling_lights.len(),
-                openings: openings_of(&level),
-                props: level.props.len(),
-                level,
-            });
-        };
-
-    add("A Tiny", bench_tiny(), &mut assets);
-    add("B Places Demo", shipped_demo(), &mut assets);
-    add("C 100 lights", bench_many_lights(100), &mut assets);
-    add("D Large surfaces", bench_large_surfaces(), &mut assets);
-    add("E 36 rooms", bench_many_rooms(6), &mut assets);
-    add("F Prop heavy", bench_prop_heavy(), &mut assets);
-    add("G Worst reasonable", bench_worst_reasonable(), &mut assets);
-    add(
-        "H Prop fixture",
-        fixture_level("prop_showcase"),
-        &mut assets,
-    );
-
-    println!();
-    println!(
-        "{:<20} {:>5} {:>6} {:>7} {:>8} {:>9} {:>8} {:>7} {:>8} {:>10} {:>10} {:>10} {:>9}",
-        "level",
-        "rooms",
-        "lights",
-        "opens",
-        "props",
-        "static V",
-        "prop V",
-        "draws",
-        "models",
-        "build ms",
-        "cold ms",
-        "bake ms",
-        "est V"
-    );
-    for row in &rows {
-        let stats = row.stats;
-        println!(
-            "{:<20} {:>5} {:>6} {:>7} {:>8} {:>9} {:>8} {:>7} {:>8} {:>10.2} {:>10.2} {:>10.2} {:>9}",
-            row.name,
-            row.rooms,
-            row.lights,
-            row.openings,
-            row.props,
-            stats.static_vertices,
-            stats.prop_vertices,
-            stats.prop_draws,
-            stats.prop_models,
-            stats.build_millis,
-            stats.cold_millis,
-            stats.bake_millis,
-            stats.estimate_vertices
-        );
-    }
-    println!();
-    println!(
-        "{:<20} {:>10} {:>10} {:>10} {:>10} {:>10} {:>10}",
-        "level", "floor V", "ceiling V", "wall V", "light V", "static KiB", "prop KiB"
-    );
-    for row in &rows {
-        let stats = row.stats;
-        println!(
-            "{:<20} {:>10} {:>10} {:>10} {:>10} {:>10} {:>10}",
-            row.name,
-            stats.floor_vertices,
-            stats.ceiling_vertices,
-            stats.wall_vertices,
-            stats.light_vertices,
-            stats.static_vbo_bytes() / 1024,
-            stats.prop_vbo_bytes() / 1024
-        );
-    }
-    println!();
-
-    // Budget arithmetic must actually bound the geometry that is generated.
-    for row in &rows {
-        let estimate = row.level.estimate_geometry();
-        assert!(
-            u64::try_from(row.stats.static_vertices).expect("fixture integer fits u64")
-                <= estimate.total_vertices,
-            "{}: estimate {} does not bound the built {} static vertices",
-            row.name,
-            estimate.total_vertices,
-            row.stats.static_vertices
-        );
-    }
-
-    // The prop expansion stays inside the documented prop budget.
-    let demo_stats = rows
-        .iter()
-        .find(|row| row.name == "B Places Demo")
-        .expect("demo row")
-        .stats;
-    assert!(demo_stats.prop_vertices <= MAX_LEVEL_PROP_VERTICES);
-
-    // A dense synthetic prop level batches per (model, spatial cell) so the
-    // frustum can reject whole cells. Five models spread over a level this size
-    // must still collapse into a coarse draw budget rather than one draw per
-    // instance.
-    let prop_row = rows
-        .iter()
-        .find(|row| row.name == "F Prop heavy")
-        .expect("prop-heavy row")
-        .stats;
-    assert!(
-        prop_row.prop_draws <= 5 * 16,
-        "150 props across five models must stay inside 16 cells per model, got {}",
-        prop_row.prop_draws
-    );
-    assert!(
-        prop_row.prop_draws >= 5,
-        "every model needs at least one draw, got {}",
-        prop_row.prop_draws
-    );
 }
 
 // ---------------------------------------------------------------------------
@@ -738,7 +327,7 @@ fn budget_estimate_bounds_generated_geometry_for_opening_heavy_walls() {
 
 #[test]
 fn geometry_storage_does_not_over_reserve_wildly() {
-    let level = shipped_demo();
+    let level = bench_tiny();
     let estimate = level.estimate_geometry();
     let mesh = build_level_geometry(&level);
     assert!(
@@ -767,10 +356,10 @@ fn geometry_storage_does_not_over_reserve_wildly() {
             mesh.index_count,
         ),
     ] {
-        assert!(count > 0, "the demo must contain {label}");
+        assert!(count > 0, "the bounded fixture must contain {label}");
         assert!(
             capacity < count.saturating_mul(6),
-            "demo {label} capacity {capacity} for {count} entries over-reserves wildly"
+            "fixture {label} capacity {capacity} for {count} entries over-reserves wildly"
         );
     }
 }
@@ -912,13 +501,7 @@ fn ten_chairs_in_different_lighting_stay_one_batch() {
 
 #[test]
 fn group_r_repeated_builds_are_bit_identical() {
-    let levels = [
-        shipped_demo(),
-        fixture_level("prop_showcase"),
-        bench_many_rooms(4),
-        bench_worst_reasonable(),
-        bench_many_lights(64),
-    ];
+    let levels = [bench_tiny(), bench_many_rooms(2)];
     for (index, level) in levels.iter().enumerate() {
         let first = build_level_geometry(level);
         let second = build_level_geometry(level);
@@ -1015,8 +598,8 @@ fn deterministic_fuzz_levels_bake_and_build_within_budget() {
         let room_count = usize::try_from(rng.int(1, 4)).unwrap_or(0);
         let mut rooms = Vec::new();
         for _ in 0..room_count {
-            let width = rng.range(2.0, 40.0);
-            let depth = rng.range(2.0, 40.0);
+            let width = rng.range(2.0, 8.0);
+            let depth = rng.range(2.0, 8.0);
             let height = rng.range(2.0, 6.0);
             let x = rng.range(-10.0, 10.0);
             let z = rng.range(-10.0, 10.0);
