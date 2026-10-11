@@ -1,0 +1,10 @@
+{
+  "kind": "snow",
+  "radius": 6,
+  "height": 6,
+  "wind": [8, 3],
+  "size": [0.025, 0.06],
+  "speed": [0.8, 1.8],
+  "storm_severity": 1,
+  "visibility_m": 5
+}

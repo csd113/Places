@@ -21,7 +21,7 @@ use crate::lighting::LevelLighting;
 use crate::lighting::lightmap::LevelLightmaps;
 use crate::materials::MaterialTable;
 use crate::package::collision::{CompiledCollision, read_collision};
-use crate::package::ktx2::{self, Ktx2Rgba8};
+use crate::package::ktx2::{self, Ktx2Rgba16f};
 use crate::package::lighting::read_lighting;
 use crate::package::lightmaps::read_lightmaps;
 use crate::package::manifest::{Manifest, ProbePayload, Variant};
@@ -34,6 +34,12 @@ use crate::package::{
 };
 use crate::quality::LightmapQuality;
 use crate::render::{LevelMesh, PropMeshBatch};
+
+#[derive(Deserialize)]
+struct CatalogBuildInput {
+    revision: u32,
+    catalog_sha256: String,
+}
 
 /// The part of a package a discovery or material pass needs: the manifest and
 /// the validated semantic level.
@@ -127,22 +133,23 @@ pub struct ProbePositions {
 /// Version of the probe positions record.
 ///
 /// Version 2 added the prefiltered mip chain; there is no reader for an older
-/// record: a version-1 package is superseded and must be rebuilt.
-pub const PROBE_POSITIONS_VERSION: u16 = 2;
+/// record: a version-1 package is superseded and must be rebuilt. Version 3
+/// stores linear HDR cubes; version 2 RGBA8 display cubes decode at load.
+pub const PROBE_POSITIONS_VERSION: u16 = 3;
 
 /// Opens a package and reads its manifest and semantics.
 ///
 /// # Errors
 ///
 /// Returns an error when the archive, manifest, semantics or level validation
-/// fails, or the semantics entry's hash does not match the manifest.
+/// fails, or a declared semantics/resource hash does not match the manifest.
 pub fn open(path: &Path) -> Result<OpenedPackage, String> {
     let file = std::fs::File::open(path)
         .map_err(|error| format!("could not open {}: {error}", path.display()))?;
     open_reader(PackageReader::new(file).map_err(|error| error.to_string())?)
 }
 
-/// Opens an in-memory package, used by the embedded fallback demo.
+/// Opens an in-memory package for import and compiler controls.
 ///
 /// # Errors
 ///
@@ -156,7 +163,15 @@ fn package_reader(bytes: &[u8]) -> Result<PackageReader<std::io::Cursor<&[u8]>>,
 }
 
 fn open_reader<R: std::io::Read + std::io::Seek>(
+    reader: PackageReader<R>,
+) -> Result<OpenedPackage, String> {
+    let root = crate::assets::resolve_asset_root();
+    open_reader_with_asset_root(reader, root.as_deref())
+}
+
+fn open_reader_with_asset_root<R: std::io::Read + std::io::Seek>(
     mut reader: PackageReader<R>,
+    root: Option<&Path>,
 ) -> Result<OpenedPackage, String> {
     let manifest_bytes = reader.read_entry("manifest.json", crate::package::MAX_MANIFEST_BYTES)?;
     let names = reader.names().to_vec();
@@ -172,18 +187,76 @@ fn open_reader<R: std::io::Read + std::io::Seek>(
     let level = LevelDef::from_json(text)
         .map_err(|error| format!("package semantics are not valid: {error}"))?;
     crate::loader::validate_level(&level)?;
-    check_dependencies(&manifest)?;
+    check_catalog_build_input(&mut reader, &manifest, root)?;
+    check_dependencies(&manifest, root)?;
     Ok(OpenedPackage { manifest, level })
+}
+
+/// Optional compiler provenance pins new packages to their prepared catalog.
+/// Older packages without this record retain their existing format contract.
+fn check_catalog_build_input<R: std::io::Read + std::io::Seek>(
+    reader: &mut PackageReader<R>,
+    manifest: &Manifest,
+    root: Option<&Path>,
+) -> Result<(), String> {
+    const NAME: &str = "build-inputs.json";
+    let Some(entry) = manifest.entry(NAME) else {
+        return Ok(());
+    };
+    if entry.role != "compiler-inputs" || entry.bytes > crate::package::MAX_MANIFEST_BYTES {
+        return Err(format!(
+            "package '{NAME}' has an invalid role or declared size"
+        ));
+    }
+    let bytes = read_named_entry(reader, manifest, NAME, crate::package::MAX_MANIFEST_BYTES)?;
+    if u64::try_from(bytes.len()).unwrap_or(u64::MAX) != entry.bytes {
+        return Err(format!(
+            "package '{NAME}' length does not match its declared size"
+        ));
+    }
+    // Source, tool and capture fields govern developer rebuilds; runtime only
+    // consumes the catalog identity from this declared revision.
+    let inputs: CatalogBuildInput = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("package '{NAME}' is malformed: {error}"))?;
+    if inputs.revision != 1 {
+        return Err(format!(
+            "package '{NAME}' revision {} is unsupported; rebuild with places-compile",
+            inputs.revision
+        ));
+    }
+    if inputs.catalog_sha256.len() != 64
+        || !inputs
+            .catalog_sha256
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        return Err(format!("package '{NAME}' has an invalid catalog SHA-256"));
+    }
+    let Some(installed_root) = root else {
+        return Ok(());
+    };
+    let actual = crate::package::hash::sha256_file(&installed_root.join("catalog.json"))
+        .map_err(|error| format!("package catalog.json could not be verified: {error}"))?;
+    if actual != inputs.catalog_sha256 {
+        return Err(format!(
+            "package catalog.json SHA-256 changed (recorded {}, installed {actual}); \
+             rebuild this package against the installed catalog with places-compile",
+            inputs.catalog_sha256
+        ));
+    }
+    Ok(())
 }
 
 /// Enforces the declared dependency identities before a package is used.
 ///
 /// With an installed asset bundle, a declared model or texture must exist with
-/// exactly the recorded size; a substituted or resized resource is a load
-/// error naming the dependency. A truly asset-less install (the embedded
-/// fallback boot) has nothing to check against and logs once instead.
-fn check_dependencies(manifest: &Manifest) -> Result<(), String> {
-    let Some(root) = crate::assets::resolve_asset_root() else {
+/// exactly the recorded size and SHA-256. The digest streams once during this
+/// package-open pass; frame rendering never rehashes assets. A substituted or
+/// resized resource is a load error naming the dependency. A truly asset-less
+/// install has nothing to check against and logs
+/// once instead.
+fn check_dependencies(manifest: &Manifest, root: Option<&Path>) -> Result<(), String> {
+    let Some(installed_root) = root else {
         crate::logging::warn_once(
             "package-dependencies-no-root",
             "[levels] no asset root: package dependency identities cannot be checked",
@@ -194,7 +267,7 @@ fn check_dependencies(manifest: &Manifest) -> Result<(), String> {
         if dependency.kind == crate::package::DependencyKind::Embedded {
             continue;
         }
-        let path = root.join(&dependency.path);
+        let path = installed_root.join(&dependency.path);
         match std::fs::metadata(&path) {
             Ok(metadata) if metadata.len() == dependency.bytes => {}
             Ok(metadata) => {
@@ -211,6 +284,19 @@ fn check_dependencies(manifest: &Manifest) -> Result<(), String> {
                     dependency.path
                 ));
             }
+        }
+        let actual = crate::package::hash::sha256_file(&path).map_err(|error| {
+            format!(
+                "package dependency '{}' could not be verified: {error}",
+                dependency.path
+            )
+        })?;
+        if actual != dependency.sha256 {
+            return Err(format!(
+                "package dependency '{}' SHA-256 changed (recorded {}, installed {actual}); \
+                 rebuild this package against the installed assets with places-compile",
+                dependency.path, dependency.sha256
+            ));
         }
     }
     Ok(())
@@ -236,8 +322,7 @@ pub fn inspect(path: &Path) -> Result<Manifest, String> {
 /// For an installed package this hashes the canonical manifest record — the
 /// package's own statement of what it contains — rather than the file bytes, so
 /// the worker can coalesce requests and key its cache without reading every
-/// prepared record again. The embedded fallback hashes its embedded bytes once
-/// per process.
+/// prepared record again.
 ///
 /// # Errors
 ///
@@ -245,14 +330,6 @@ pub fn inspect(path: &Path) -> Result<Manifest, String> {
 /// malformed.
 pub fn package_identity(entry: &crate::loader::LevelEntry) -> Result<String, String> {
     match entry.source_type {
-        crate::loader::LevelSourceType::Embedded => {
-            static EMBEDDED: std::sync::OnceLock<String> = std::sync::OnceLock::new();
-            Ok(EMBEDDED
-                .get_or_init(|| {
-                    crate::package::hash::sha256_hex(crate::loader::embedded_demo_package())
-                })
-                .clone())
-        }
         crate::loader::LevelSourceType::Bundled | crate::loader::LevelSourceType::Installed => {
             let manifest = inspect(&entry.path)?;
             let canonical = manifest.to_json()?;
@@ -365,7 +442,7 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
         Some(entry) => {
             let bytes = reader.read_blob(entry, MAX_ENTRY_BYTES)?;
             let field = crate::lighting::probes::ProbeField::read(&bytes)?;
-            validate_probe_rooms(&field, lighting.rooms().len())?;
+            validate_probe_references(&field, lighting.rooms().len(), lighting.lights().len())?;
             Some(Arc::new(field))
         }
         None => None,
@@ -384,15 +461,23 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
     })
 }
 
-fn validate_probe_rooms(
+fn validate_probe_references(
     field: &crate::lighting::probes::ProbeField,
     rooms: usize,
+    lights: usize,
 ) -> Result<(), String> {
     for probe in &field.probes {
         if probe.room >= 0_i32 && usize::try_from(probe.room).map_or(true, |room| room >= rooms) {
             return Err(format!(
                 "irradiance probe references missing room {}",
                 probe.room
+            ));
+        }
+    }
+    for source in field.runtime_direct_lights() {
+        if usize::try_from(*source).map_or(true, |index| index >= lights) {
+            return Err(format!(
+                "irradiance probe references missing direct source {source}"
             ));
         }
     }
@@ -433,14 +518,13 @@ fn read_probes<R: std::io::Read + std::io::Seek>(
 
 /// Validates one positions record against the manifest payload it belongs to.
 ///
-/// The reader accepts the current record version only: a package prepared
-/// before the offline mip chain carries version 1 and is superseded, not
-/// adapted.
+/// HDR v3 and legacy display v2 mip chains are supported. Version 1 lacks
+/// a prepared chain and is superseded. Legacy display texels decode at load.
 fn validate_positions_record(
     positions: &ProbePositions,
     payload: &ProbePayload,
 ) -> Result<(), String> {
-    if positions.record_version != PROBE_POSITIONS_VERSION {
+    if positions.record_version != PROBE_POSITIONS_VERSION && positions.record_version != 2 {
         return Err(format!(
             "probe positions record version {} is not supported",
             positions.record_version
@@ -463,9 +547,43 @@ fn validate_positions_record(
     Ok(())
 }
 
+/// Legacy RGBA8 probes stored display RGB. Decode once into the current
+/// binary16 working representation; new compiler output is always HDR.
+pub(crate) fn read_probe_image(bytes: &[u8]) -> Result<Ktx2Rgba16f, String> {
+    if let Ok(image) = ktx2::read_rgba16f(bytes) {
+        return Ok(image);
+    }
+    let image = ktx2::read_rgba8(bytes)?;
+    let levels = image
+        .levels
+        .iter()
+        .map(|level| {
+            let mut output = Vec::with_capacity(level.len().saturating_mul(2));
+            for pixel in level.as_chunks::<4>().0 {
+                let [red, green, blue, alpha] = *pixel;
+                for channel in [
+                    crate::materials::color::decode_byte(red),
+                    crate::materials::color::decode_byte(green),
+                    crate::materials::color::decode_byte(blue),
+                    f32::from(alpha) / 255.0,
+                ] {
+                    output.extend_from_slice(&ktx2::f32_to_f16_bits(channel).to_le_bytes());
+                }
+            }
+            output
+        })
+        .collect();
+    Ok(Ktx2Rgba16f {
+        edge: image.edge,
+        layers: image.layers,
+        faces: image.faces,
+        levels,
+    })
+}
+
 /// Splits a decoded cube KTX2 into its full mip chain of six face buffers.
 fn split_cube(bytes: &[u8], face_edge: u32, levels: u32) -> Result<Vec<[Vec<u8>; 6]>, String> {
-    let image: Ktx2Rgba8 = ktx2::read_rgba8(bytes)?;
+    let image = read_probe_image(bytes)?;
     if image.faces != 6 || image.layers != 0 || image.edge != face_edge {
         return Err("probe cubemap shape does not match its payload".to_string());
     }
@@ -475,7 +593,7 @@ fn split_cube(bytes: &[u8], face_edge: u32, levels: u32) -> Result<Vec<[Vec<u8>;
 /// Checks the decoded chain's level count and per-level byte length and splits
 /// every level into six face buffers.
 fn split_cube_levels(
-    image: &Ktx2Rgba8,
+    image: &Ktx2Rgba16f,
     face_edge: u32,
     levels: u32,
 ) -> Result<Vec<[Vec<u8>; 6]>, String> {
@@ -499,7 +617,7 @@ fn split_cube_levels(
                 usize::try_from(level_edge)
                     .map_err(|error| format!("probe face edge is too large: {error}"))?,
             )
-            .and_then(|value| value.checked_mul(4))
+            .and_then(|value| value.checked_mul(8))
             .ok_or_else(|| "probe face size overflows".to_string())?;
         if data.len() != face_bytes.saturating_mul(6) {
             return Err(format!(
@@ -635,6 +753,7 @@ mod tests {
     fn irradiance_labels_must_reference_a_packaged_room() {
         use crate::lighting::probes::{ProbeField, ProbeSample};
         let mut field = ProbeField {
+            local_direct: None,
             min: [0.0; 3],
             cell_m: 1.0,
             dims: [1; 3],
@@ -643,12 +762,33 @@ mod tests {
                 ..ProbeSample::default()
             }],
         };
-        assert!(validate_probe_rooms(&field, 0).is_ok());
+        assert!(validate_probe_references(&field, 0, 0).is_ok());
         field.probes[0].room = 0_i32;
-        assert!(validate_probe_rooms(&field, 1).is_ok());
-        assert!(validate_probe_rooms(&field, 0).is_err());
+        assert!(validate_probe_references(&field, 1, 0).is_ok());
+        assert!(validate_probe_references(&field, 0, 0).is_err());
         field.probes[0].room = 1_i32;
-        assert!(validate_probe_rooms(&field, 1).is_err());
+        assert!(validate_probe_references(&field, 1, 0).is_err());
+    }
+
+    #[test]
+    fn selected_probe_source_ids_must_reference_packaged_lighting() {
+        use crate::lighting::lightmap::LightmapTexel;
+        use crate::lighting::probes::{ProbeDirectField, ProbeField, ProbeSample};
+        let field = ProbeField {
+            min: [0.0; 3],
+            cell_m: 1.0,
+            dims: [1; 3],
+            probes: vec![ProbeSample {
+                room: 0,
+                ..ProbeSample::default()
+            }],
+            local_direct: Some(ProbeDirectField {
+                light_indices: vec![3],
+                probes: vec![LightmapTexel::ZERO],
+            }),
+        };
+        assert!(validate_probe_references(&field, 1, 4).is_ok());
+        assert!(validate_probe_references(&field, 1, 3).is_err());
     }
 
     /// A cube of solid `edge`-texel faces.
@@ -657,7 +797,11 @@ mod tests {
         std::array::from_fn(|_| {
             let mut face = Vec::with_capacity(bytes);
             for _ in 0..bytes / 4 {
-                face.extend_from_slice(&colour);
+                for channel in colour {
+                    face.extend_from_slice(
+                        &ktx2::f32_to_f16_bits(f32::from(channel)).to_le_bytes(),
+                    );
+                }
             }
             face
         })
@@ -690,7 +834,7 @@ mod tests {
             solid_faces(8, [1, 2, 3, 255]),
             solid_faces(4, [4, 5, 6, 255]),
         ];
-        let bytes = ktx2::write_rgba8_cube_with_mips(8, &chain).expect("encode");
+        let bytes = ktx2::write_rgba16f_cube_with_mips(8, &chain).expect("encode");
         let split = split_cube(&bytes, 8, 2).expect("split");
         assert_eq!(split.len(), 2);
         assert_eq!(split[0], chain[0]);
@@ -703,7 +847,7 @@ mod tests {
             solid_faces(8, [1, 2, 3, 255]),
             solid_faces(4, [4, 5, 6, 255]),
         ];
-        let bytes = ktx2::write_rgba8_cube_with_mips(8, &chain).expect("encode");
+        let bytes = ktx2::write_rgba16f_cube_with_mips(8, &chain).expect("encode");
         // The payload claims a chain the cube does not carry.
         assert!(split_cube(&bytes, 8, 1).is_err(), "too few levels claimed");
         assert!(
@@ -714,17 +858,40 @@ mod tests {
 
     #[test]
     fn a_wrong_level_byte_length_is_refused() {
-        let image = Ktx2Rgba8 {
+        let image = Ktx2Rgba16f {
             edge: 4,
             layers: 0,
             faces: 6,
-            levels: vec![vec![0; 4 * 4 * 4 * 6], vec![0; 3]],
+            levels: vec![vec![0; 4 * 4 * 8 * 6], vec![0; 3]],
         };
         let error = split_cube_levels(&image, 4, 2).expect_err("level 1 is too short");
         assert!(
             error.contains("level 1"),
             "the message names the level: {error}"
         );
+    }
+
+    #[test]
+    fn legacy_display_probe_decodes_rgb_once_and_keeps_numeric_alpha() {
+        let faces = std::array::from_fn(|_| [128, 64, 255, 128].repeat(16));
+        let bytes = ktx2::write_rgba8_cube_with_mips(4, &[faces]).expect("legacy cube");
+        let decoded = read_probe_image(&bytes).expect("legacy decode");
+        let expected = [
+            crate::materials::color::decode_byte(128),
+            crate::materials::color::decode_byte(64),
+            1.0,
+            128.0 / 255.0,
+        ];
+        for pixel in decoded.levels[0].as_chunks::<8>().0 {
+            for (pair, value) in pixel.as_chunks::<2>().0.iter().zip(expected) {
+                let actual = ktx2::f16_bits_to_f32(u16::from_le_bytes(*pair));
+                assert!((actual - value).abs() < 0.0003);
+            }
+        }
+        let payload = payload(4, 1, 1);
+        let mut record = positions(4, 1, vec![[0.0; 3]]);
+        record.record_version = 2;
+        validate_positions_record(&record, &payload).expect("legacy positions");
     }
 
     #[test]
@@ -755,3 +922,11 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "world/irradiance_tests.rs"]
+mod irradiance_tests;
+
+#[cfg(test)]
+#[path = "world/dependency_tests.rs"]
+mod dependency_tests;

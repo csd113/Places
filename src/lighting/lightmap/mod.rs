@@ -251,21 +251,24 @@ impl LightmapFailure {
     }
 }
 
-/// Number of atlas pages the world program can sample at once.
+/// Largest shipped atlas page budget the world program can sample at once.
 ///
-/// Every atlas page is one layer of the single `texture_2d_array` the world
-/// program binds, and the vertex's page byte selects the layer, so a bake that
-/// needs more than this cannot render its lightmaps correctly and must fall back
-/// to vertex lighting instead of dropping pages silently. Mirrors the
-/// renderer's own `LIGHTMAP_ATLAS_MAX_PAGES`.
+/// Each page occupies two RGBA16F array layers per prepared illumination group.
+/// The vertex's page byte selects that pair; switchable contributions follow
+/// the base group. The renderer shares this bound and allocates only resident
+/// pages and groups. A plan beyond its profile budget fails explicitly instead
+/// of dropping pages.
 ///
-/// Eight pages (raised from four): a 55 m × 55 m storey pair already uses most
-/// of four 1024-texel pages at Full, and the raised level caps admit maps with
-/// several such storeys. The array costs 32 MiB at Full and 8 MiB at Low, and
-/// the layers beyond the resident page count are filled white, so an unused
-/// page costs memory only. A bake that still overflows falls back to vertex
-/// lighting by name, exactly as before.
-pub const LIGHTMAP_ATLAS_MAX_PAGES: usize = 8;
+/// Full's measured coplanar model receiver plan at 32 samples/m reserves
+/// 10,171,144 texels with inclusive endpoints and gutters. The deterministic
+/// inline packer needs eleven pages to retain those physical shadow samples.
+/// This costs at most 176 MiB for the base GPU group; package byte and switch-group
+/// safety limits remain independent. Lower profiles retain their prior budget.
+pub const LIGHTMAP_ATLAS_MAX_PAGES: usize = 11;
+
+/// Low and Medium retain their established eight-page atlas budgets.
+/// Medium's 1024px base group costs at most 128 MiB; Low's 512px group 32 MiB.
+pub const LIGHTMAP_ATLAS_LOWER_MAX_PAGES: usize = 8;
 
 /// Smallest axis length, in metres, a patch may have.
 ///
@@ -289,7 +292,7 @@ pub enum PatchKind {
     Ceiling,
     Wall,
     Skirt,
-    /// A real static model triangle; receives physical transport without room fill.
+    /// A real static model triangle or coplanar quad; physical transport without room fill.
     Prop,
 }
 
@@ -314,7 +317,7 @@ impl PatchKind {
 /// `origin + u*u_axis + v*v_axis + min(u,v)*diagonal_correction`.
 /// Keeping the fourth corner matters for gable wall trapezoids: an affine
 /// rectangle would sample metres away from their real receiver positions.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
 pub struct LightmapPatch {
     /// World position of local `(u, v) = (0, 0)`.
     pub origin: [f32; 3],
@@ -329,7 +332,6 @@ pub struct LightmapPatch {
     /// A repeated last corner emits one triangle with UVs `(0,0),(1,0),(0,1)`.
     /// Samples outside that triangle reflect across its diagonal onto real
     /// geometry. This domain is independent of the surface's lighting family.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub triangle: bool,
     /// Room hint for [`crate::lighting::LevelLighting::sample_in_room`].
     ///
@@ -340,6 +342,45 @@ pub struct LightmapPatch {
     pub room: Option<usize>,
     /// Which static surface family this patch covers.
     pub kind: PatchKind,
+}
+
+// Older model records omitted the topology flag and used the Prop kind for
+// folded triangles. An explicit false must survive for new shared model quads.
+fn deserialize_topology_flag<'de, D>(deserializer: D) -> Result<Option<bool>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    <bool as serde::Deserialize>::deserialize(deserializer).map(Some)
+}
+
+impl<'de> serde::Deserialize<'de> for LightmapPatch {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(serde::Deserialize)]
+        struct Record {
+            origin: [f32; 3],
+            u_axis: [f32; 3],
+            v_axis: [f32; 3],
+            #[serde(default)]
+            diagonal_correction: [f32; 3],
+            #[serde(default, deserialize_with = "deserialize_topology_flag")]
+            triangle: Option<bool>,
+            room: Option<usize>,
+            kind: PatchKind,
+        }
+        let record = <Record as serde::Deserialize>::deserialize(deserializer)?;
+        Ok(Self {
+            origin: record.origin,
+            u_axis: record.u_axis,
+            v_axis: record.v_axis,
+            diagonal_correction: record.diagonal_correction,
+            triangle: record.triangle.unwrap_or(record.kind == PatchKind::Prop),
+            room: record.room,
+            kind: record.kind,
+        })
+    }
 }
 
 /// Why a quad cannot become a lightmap patch.
@@ -444,10 +485,10 @@ impl LightmapPatch {
     }
 
     /// Whether this chart covers one triangle, independent of its family.
-    /// The kind check preserves the triangular domain of older model records.
+    /// Legacy model records acquire their missing flag during deserialization.
     #[must_use]
-    pub fn is_triangular(&self) -> bool {
-        self.triangle || self.kind == PatchKind::Prop
+    pub const fn is_triangular(&self) -> bool {
+        self.triangle
     }
 
     /// World position corresponding exactly to the mesh's UV interpolation.
@@ -688,13 +729,13 @@ pub struct LightmapConfig {
 /// profiles**: a profile decides texel density and page size, never where the
 /// geometry is cut, which is what keeps `Full` and `Low` on one patch set.
 ///
-/// The value is a fixed historical constant (the span Low's smaller page could
-/// hold at the original 8 texels per metre). At the shipped densities it is
+/// The value reserves both inclusive endpoint samples and the Full profile's
+/// two gutters: (1024 - 4 - 1) / 16 metres. At the shipped densities it is
 /// never the binding constraint on the demo — its longest patch is 26.3 m — and
 /// a level that authors one surface longer than this still splits into several
 /// charts rather than failing: a chart wider than a page's usable edge would be
 /// clamped by [`LightmapConfig::chart_texels`].
-pub const MAX_CHART_SPAN_M: f32 = 63.75;
+pub const MAX_CHART_SPAN_M: f32 = 63.6875;
 
 impl LightmapConfig {
     /// The shipped settings of one quality profile.
@@ -703,13 +744,10 @@ impl LightmapConfig {
     /// the emitter cuts the world's surfaces in exactly the same places at both
     /// densities; only chart texel counts and page usage differ.
     ///
-    /// The densities are the highest that fit the page budget on the shipped
-    /// demo with the deterministic packer: `Full` 16 texels/m (matches the
-    /// shared cap exactly) and `Low` 10 texels/m, both measured on
-    /// `places_demo` inside its page budget (`Low` packs the demo into three
-    /// 512-texel pages at 10 texels/m; the eight-page budget still holds). A
-    /// density that does not fit the budget is worse than a lower one: the
-    /// whole level falls back to vertex lighting.
+    /// Full retains architecture's 16 texels/m, matching the shared endpoint
+    /// cap, and admits eleven pages for the measured finer model receivers.
+    /// Low retains 10 texels/m, 512px pages and its established
+    /// eight-page budget. Both preserve the same physical patches and gutters.
     #[must_use]
     pub const fn for_profile(profile: crate::quality::QualityProfile) -> Self {
         match profile {
@@ -723,7 +761,7 @@ impl LightmapConfig {
             crate::quality::QualityProfile::Low => Self {
                 texels_per_metre: 10.0,
                 page_edge: 512,
-                max_pages: LIGHTMAP_ATLAS_MAX_PAGES,
+                max_pages: LIGHTMAP_ATLAS_LOWER_MAX_PAGES,
                 padding: 1,
                 bytes_per_texel: 16,
             },
@@ -739,6 +777,23 @@ impl LightmapConfig {
             1
         } else {
             self.padding
+        }
+    }
+
+    /// Bound explicit receiver resolution without changing architectural
+    /// allocation. Models may request twice the architectural density; large
+    /// opaque surfaces and cutouts still select their established coarser rates.
+    fn bounded_surface_density(&self, kind: PatchKind, requested: f32) -> Option<f32> {
+        let maximum = self.texels_per_metre
+            * if matches!(kind, PatchKind::Prop) {
+                2.0
+            } else {
+                1.0
+            };
+        if !maximum.is_finite() || maximum <= 0.0 || !requested.is_finite() || requested <= 0.0 {
+            None
+        } else {
+            Some(requested.min(maximum))
         }
     }
 
@@ -774,12 +829,18 @@ impl LightmapConfig {
     }
 }
 
-/// Texels one axis of a chart needs for `metres` of world surface, capped.
+/// Endpoint samples one axis needs for `metres` of world surface, capped.
+/// A density describes intervals per metre; inclusive endpoints need one
+/// additional sample. A positive, finite span therefore has at least two.
 fn texels_for(metres: f32, texels_per_metre: f32, cap: u32) -> u32 {
-    if !metres.is_finite() || !texels_per_metre.is_finite() {
+    if !metres.is_finite()
+        || !texels_per_metre.is_finite()
+        || metres <= 0.0
+        || texels_per_metre <= 0.0
+    {
         return 1;
     }
-    let requested = (metres * texels_per_metre).ceil().max(1.0);
+    let requested = (metres * texels_per_metre).ceil().max(1.0) + 1.0;
     let cap_f = f32::from(u16::try_from(cap).unwrap_or(u16::MAX)).max(1.0);
     let capped = requested.min(cap_f);
     #[expect(

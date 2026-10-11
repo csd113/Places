@@ -14,7 +14,7 @@ import random
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-OUTPUT = ROOT / "assets/levels/lantern_hollow.json"
+OUTPUT = ROOT / "levels/lantern_hollow.json"
 SEED = 20260930
 HOUSE_CENTERS = (-27.0, -9.0, 9.0, 27.0)
 FIRE = (-18.0, -34.0)

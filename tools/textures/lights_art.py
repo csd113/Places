@@ -256,22 +256,22 @@ def build_home_ceiling_light_round() -> Canvas:
 
 ART = {
     "core:fluorescent_panel_01": {
-        "model": "environment/office/textures/lights/fluorescent_panel_01.png",
+        "model": "environments/office/textures/lights/fluorescent_panel_01.png",
         "build": build_fluorescent_panel,
         "kind": "light",
     },
     "core:pool_light_round": {
-        "model": "environment/pool/textures/lights/pool_light_round_01.png",
+        "model": "environments/pool/textures/lights/pool_light_round_01.png",
         "build": build_pool_light_round,
         "kind": "light",
     },
     "core:pool_light_wall": {
-        "model": "environment/pool/textures/lights/pool_light_wall_01.png",
+        "model": "environments/pool/textures/lights/pool_light_wall_01.png",
         "build": build_pool_light_wall,
         "kind": "light",
     },
     "home:ceiling_light_round": {
-        "model": "environment/home/textures/lights/ceiling_light_round_01.png",
+        "model": "environments/home/textures/lights/ceiling_light_round_01.png",
         "build": build_home_ceiling_light_round,
         "kind": "light",
     },

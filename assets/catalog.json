@@ -25,6 +25,16 @@
       "id": "winter",
       "display_name": "Winter",
       "description": "Snowy night settlement with modeled evergreen snow, modular drifts, rock caps, architecture snow and icicles."
+    },
+    {
+      "id": "beach",
+      "display_name": "Beach",
+      "description": "Warm low-poly tropical coast: cream sand, turquoise polygon-cell water, banded palms, timber beach structures and a pastel seaside town."
+    },
+    {
+      "id": "frutiger_aero",
+      "display_name": "Frutiger Aero",
+      "description": "Airy optimistic early2000s clean white/aqua/green architecture and natural branding."
     }
   ],
   "assets": [
@@ -34,7 +44,7 @@
       "asset_class": "environment",
       "asset_type": "prop",
       "source": "file",
-      "model": "core/props/models/couch.glb",
+      "model": "shared/props/couch.glb",
       "size": [
         2.0,
         0.9,
@@ -50,7 +60,7 @@
       "asset_class": "environment",
       "asset_type": "prop",
       "source": "file",
-      "model": "core/props/models/armchair.glb",
+      "model": "shared/props/armchair.glb",
       "size": [
         0.9,
         0.9,
@@ -67,7 +77,7 @@
       "theme": "office",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/office/props/models/chair.glb",
+      "model": "environments/office/props/chair.glb",
       "size": [
         0.5,
         0.9,
@@ -83,7 +93,7 @@
       "asset_class": "environment",
       "asset_type": "prop",
       "source": "file",
-      "model": "core/props/models/table.glb",
+      "model": "shared/props/table.glb",
       "size": [
         1.4,
         0.75,
@@ -100,7 +110,7 @@
       "theme": "office",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/office/props/models/desk.glb",
+      "model": "environments/office/props/desk.glb",
       "size": [
         1.6,
         0.75,
@@ -116,7 +126,7 @@
       "asset_class": "environment",
       "asset_type": "prop",
       "source": "file",
-      "model": "core/props/models/bookshelf.glb",
+      "model": "shared/props/bookshelf.glb",
       "size": [
         1.0,
         1.8,
@@ -133,7 +143,7 @@
       "theme": "office",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/office/props/models/cabinet.glb",
+      "model": "environments/office/props/cabinet.glb",
       "size": [
         0.9,
         0.85,
@@ -149,7 +159,7 @@
       "asset_class": "environment",
       "asset_type": "prop",
       "source": "file",
-      "model": "core/props/models/bed.glb",
+      "model": "shared/props/bed.glb",
       "size": [
         1.4,
         0.55,
@@ -165,7 +175,7 @@
       "asset_class": "environment",
       "asset_type": "prop",
       "source": "file",
-      "model": "core/props/models/stove.glb",
+      "model": "shared/props/stove.glb",
       "size": [
         0.6,
         0.9,
@@ -181,7 +191,7 @@
       "asset_class": "environment",
       "asset_type": "prop",
       "source": "file",
-      "model": "core/props/models/sink.glb",
+      "model": "shared/props/sink.glb",
       "size": [
         0.6,
         1.1,
@@ -197,7 +207,7 @@
       "asset_class": "environment",
       "asset_type": "prop",
       "source": "file",
-      "model": "core/props/models/fridge.glb",
+      "model": "shared/props/fridge.glb",
       "size": [
         0.7,
         1.8,
@@ -213,7 +223,7 @@
       "asset_class": "environment",
       "asset_type": "prop",
       "source": "file",
-      "model": "core/props/models/washing_machine.glb",
+      "model": "shared/props/washing_machine.glb",
       "size": [
         0.6,
         0.85,
@@ -229,7 +239,7 @@
       "asset_class": "environment",
       "asset_type": "prop",
       "source": "file",
-      "model": "core/props/models/washer_drum.glb",
+      "model": "shared/props/washer_drum.glb",
       "size": [
         0.42,
         0.3,
@@ -247,7 +257,7 @@
       "theme": "office",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/office/props/models/vending_machine.glb",
+      "model": "environments/office/props/vending_machine.glb",
       "size": [
         1.0,
         1.9,
@@ -264,7 +274,7 @@
       "theme": "office",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/office/props/models/water_cooler.glb",
+      "model": "environments/office/props/water_cooler.glb",
       "size": [
         0.35,
         1.1,
@@ -281,7 +291,7 @@
       "theme": "pool",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/pool/props/models/pool_table.glb",
+      "model": "environments/pool/props/pool_table.glb",
       "size": [
         0.8,
         0.74,
@@ -299,7 +309,7 @@
       "theme": "pool",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/pool/props/models/pool_chair.glb",
+      "model": "environments/pool/props/pool_chair.glb",
       "size": [
         0.52,
         0.85,
@@ -317,7 +327,7 @@
       "theme": "pool",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/pool/props/models/pool_ladder.glb",
+      "model": "environments/pool/props/pool_ladder.glb",
       "size": [
         0.55,
         2.2,
@@ -335,7 +345,7 @@
       "theme": "pool",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/pool/props/models/pool_curtain_straight.glb",
+      "model": "environments/pool/props/pool_curtain_straight.glb",
       "size": [
         1.2,
         2.6,
@@ -353,7 +363,7 @@
       "theme": "pool",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/pool/props/models/pool_curtain_end.glb",
+      "model": "environments/pool/props/pool_curtain_end.glb",
       "size": [
         0.6,
         2.6,
@@ -371,7 +381,7 @@
       "theme": "pool",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/pool/props/models/pool_curtain_corner.glb",
+      "model": "environments/pool/props/pool_curtain_corner.glb",
       "size": [
         0.6,
         2.6,
@@ -389,7 +399,7 @@
       "theme": "pool",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/pool/props/models/pool_guardrail_straight.glb",
+      "model": "environments/pool/props/pool_guardrail_straight.glb",
       "size": [
         2.0,
         1.05,
@@ -407,7 +417,7 @@
       "theme": "pool",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/pool/props/models/pool_guardrail_end.glb",
+      "model": "environments/pool/props/pool_guardrail_end.glb",
       "size": [
         0.6,
         1.05,
@@ -425,7 +435,7 @@
       "theme": "pool",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/pool/props/models/pool_guardrail_corner.glb",
+      "model": "environments/pool/props/pool_guardrail_corner.glb",
       "size": [
         0.6,
         1.05,
@@ -442,7 +452,7 @@
       "asset_class": "environment",
       "asset_type": "prop",
       "source": "file",
-      "model": "core/props/models/crate.glb",
+      "model": "shared/props/crate.glb",
       "size": [
         0.6,
         0.6,
@@ -458,7 +468,7 @@
       "asset_class": "environment",
       "asset_type": "prop",
       "source": "file",
-      "model": "core/props/models/cardboard_box.glb",
+      "model": "shared/props/cardboard_box.glb",
       "size": [
         0.5,
         0.5,
@@ -474,7 +484,7 @@
       "asset_class": "environment",
       "asset_type": "prop",
       "source": "file",
-      "model": "core/props/models/plant.glb",
+      "model": "shared/props/plant.glb",
       "size": [
         0.4,
         1.0,
@@ -490,7 +500,7 @@
       "asset_class": "environment",
       "asset_type": "prop",
       "source": "file",
-      "model": "core/props/models/rug.glb",
+      "model": "shared/props/rug.glb",
       "size": [
         2.0,
         0.02,
@@ -506,7 +516,7 @@
       "asset_class": "environment",
       "asset_type": "prop",
       "source": "file",
-      "model": "core/props/models/lamp.glb",
+      "model": "shared/props/lamp.glb",
       "size": [
         0.35,
         1.5,
@@ -522,7 +532,7 @@
       "asset_class": "environment",
       "asset_type": "prop",
       "source": "file",
-      "model": "core/props/models/tv.glb",
+      "model": "shared/props/tv.glb",
       "size": [
         1.1,
         0.7,
@@ -538,7 +548,7 @@
       "asset_class": "environment",
       "asset_type": "prop",
       "source": "file",
-      "model": "core/props/models/painting_frame_landscape_01.glb",
+      "model": "shared/props/painting_frame_landscape_01.glb",
       "size": [
         1.9,
         1.192,
@@ -780,7 +790,7 @@
       "theme": "office",
       "asset_type": "texture",
       "source": "file",
-      "model": "environment/office/textures/floors/carpet_beige_01.png",
+      "model": "environments/office/textures/floors/carpet_beige_01.png",
       "surface": "floor",
       "description": "Final artwork: maintained office carpet."
     },
@@ -791,7 +801,7 @@
       "theme": "office",
       "asset_type": "texture",
       "source": "file",
-      "model": "environment/office/textures/floors/carpet_damp_01.png",
+      "model": "environments/office/textures/floors/carpet_damp_01.png",
       "surface": "floor",
       "description": "Final artwork: water-damaged office carpet."
     },
@@ -802,7 +812,7 @@
       "theme": "office",
       "asset_type": "texture",
       "source": "file",
-      "model": "environment/office/textures/ceilings/ceiling_panel_01.png",
+      "model": "environments/office/textures/ceilings/ceiling_panel_01.png",
       "surface": "ceiling",
       "description": "Final artwork: maintained suspended office ceiling."
     },
@@ -813,7 +823,7 @@
       "theme": "office",
       "asset_type": "texture",
       "source": "file",
-      "model": "environment/office/textures/ceilings/ceiling_stained_01.png",
+      "model": "environments/office/textures/ceilings/ceiling_stained_01.png",
       "surface": "ceiling",
       "description": "Final artwork: water-damaged office ceiling."
     },
@@ -874,7 +884,7 @@
       "theme": "office",
       "asset_type": "texture",
       "source": "file",
-      "model": "environment/office/textures/walls/wallpaper_stained_01.png",
+      "model": "environments/office/textures/walls/wallpaper_stained_01.png",
       "surface": "wall",
       "description": "Final artwork: water-damaged office wallpaper."
     },
@@ -885,7 +895,7 @@
       "theme": "office",
       "asset_type": "texture",
       "source": "file",
-      "model": "environment/office/textures/walls/wallpaper_yellow_01.png",
+      "model": "environments/office/textures/walls/wallpaper_yellow_01.png",
       "surface": "wall",
       "description": "Final artwork: maintained liminal office wallpaper."
     },
@@ -896,7 +906,7 @@
       "theme": "pool",
       "asset_type": "texture",
       "source": "file",
-      "model": "environment/pool/textures/floors/pool_tile_deck_01.png",
+      "model": "environments/pool/textures/floors/pool_tile_deck_01.png",
       "surface": "floor",
       "description": "Commercial 15 cm deck tile at a 1.5 m repeat."
     },
@@ -907,7 +917,7 @@
       "theme": "pool",
       "asset_type": "texture",
       "source": "file",
-      "model": "environment/pool/textures/floors/pool_tile_basin_01.png",
+      "model": "environments/pool/textures/floors/pool_tile_basin_01.png",
       "surface": "floor",
       "description": "Small-format 10 cm basin tile at a 1 m repeat."
     },
@@ -918,7 +928,7 @@
       "theme": "pool",
       "asset_type": "texture",
       "source": "file",
-      "model": "environment/pool/textures/walls/pool_tile_wall_01.png",
+      "model": "environments/pool/textures/walls/pool_tile_wall_01.png",
       "surface": "wall",
       "description": "Commercial pale 20 cm wall tile at a 2 m repeat."
     },
@@ -929,7 +939,7 @@
       "theme": "pool",
       "asset_type": "texture",
       "source": "file",
-      "model": "environment/pool/textures/ceilings/pool_ceiling_01.png",
+      "model": "environments/pool/textures/ceilings/pool_ceiling_01.png",
       "surface": "ceiling",
       "description": "Sterile painted ceiling panel at a 2 m repeat."
     },
@@ -940,7 +950,7 @@
       "theme": "office",
       "asset_type": "light",
       "source": "file",
-      "model": "environment/office/textures/lights/fluorescent_panel_01.png",
+      "model": "environments/office/textures/lights/fluorescent_panel_01.png",
       "description": "Recessed twin-tube ceiling fixture used throughout the office interiors. The named PNG is the fixture's visible diffuser face, drawn once across the panel; the geometry stays generated."
     },
     {
@@ -950,7 +960,7 @@
       "theme": "pool",
       "asset_type": "light",
       "source": "file",
-      "model": "environment/pool/textures/lights/pool_light_round_01.png",
+      "model": "environments/pool/textures/lights/pool_light_round_01.png",
       "description": "Round recessed downlight for the pool room ceiling; mounts like a ceiling fixture. The named PNG is the diffuser face seen from below."
     },
     {
@@ -960,7 +970,7 @@
       "theme": "pool",
       "asset_type": "light",
       "source": "file",
-      "model": "environment/pool/textures/lights/pool_light_wall_01.png",
+      "model": "environments/pool/textures/lights/pool_light_wall_01.png",
       "description": "Wall-mounted pool luminaire; author `mount: \"wall\"` and a world `y` for each placed fixture. The named PNG is the luminaire's lens face."
     },
     {
@@ -969,7 +979,7 @@
       "asset_class": "environment",
       "asset_type": "decal",
       "source": "file",
-      "model": "core/decals/arrow_01.png",
+      "model": "shared/decals/arrow_01.png",
       "description": "Floor-direction wayfinding arrow, an external PNG cut-out that can be replaced without a Rust change."
     },
     {
@@ -978,7 +988,7 @@
       "asset_class": "environment",
       "asset_type": "decal",
       "source": "file",
-      "model": "core/decals/stripes_01.png",
+      "model": "shared/decals/stripes_01.png",
       "description": "Diagonal hazard striping, an external PNG cut-out that can be replaced without a Rust change."
     },
     {
@@ -987,7 +997,7 @@
       "asset_class": "environment",
       "asset_type": "decal",
       "source": "file",
-      "model": "core/decals/ceiling_vent_01.png",
+      "model": "shared/decals/ceiling_vent_01.png",
       "description": "Low-poly ceiling supply grille, an external PNG cut-out sized to sit centred on one 0.6 m ceiling tile."
     },
     {
@@ -997,7 +1007,7 @@
       "theme": "pool",
       "asset_type": "decal",
       "source": "file",
-      "model": "environment/pool/decals/no_diving_01.png",
+      "model": "environments/pool/decals/no_diving_01.png",
       "description": "Final pool safety sign sheet: the authoritative PNG lives under assets/ and can be replaced without a Rust change."
     },
     {
@@ -1006,7 +1016,7 @@
       "asset_class": "environment",
       "asset_type": "decal",
       "source": "file",
-      "model": "core/decals/temptation_adam_eve_01.png",
+      "model": "shared/decals/temptation_adam_eve_01.png",
       "description": "User-supplied painting photograph, preserved at 900 x 546 pixels inside a transparent 1024-square sheet. Place a 2.048 m square quad with core:painting_frame_landscape_01; the visible image is 1.800 x 1.092 m."
     },
     {
@@ -1015,7 +1025,7 @@
       "asset_class": "diagnostic",
       "asset_type": "decal",
       "source": "file",
-      "model": "core/decals/validation_atlas_01.png",
+      "model": "shared/decals/validation_atlas_01.png",
       "description": "Fixed validation atlas with the original four-cell layout and bottom-up row convention."
     },
     {
@@ -1024,7 +1034,7 @@
       "asset_class": "diagnostic",
       "asset_type": "texture",
       "source": "file",
-      "model": "core/textures/missing_01.png",
+      "model": "shared/textures/missing_01.png",
       "description": "Embedded 64x64 magenta and dark checker for broken external textures."
     },
     {
@@ -1033,7 +1043,7 @@
       "asset_class": "diagnostic",
       "asset_type": "texture",
       "source": "file",
-      "model": "core/ui/font_01.png",
+      "model": "shared/ui/font_01.png",
       "description": "Embedded 128x64 ASCII atlas with sixteen 8x8 cells per row and the reserved opaque white UI cell."
     },
     {
@@ -1042,7 +1052,7 @@
       "asset_class": "diagnostic",
       "asset_type": "texture",
       "source": "file",
-      "model": "core/textures/white_fallback_01.png",
+      "model": "shared/textures/white_fallback_01.png",
       "description": "Embedded 2x2 opaque white sheet used only if the primary white asset cannot decode."
     },
     {
@@ -1070,7 +1080,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "wall",
-      "model": "core/textures/glass/glass_clear_01.png",
+      "model": "shared/textures/glass/glass_clear_01.png",
       "description": "Nearly transparent glass sheet: a faint green-grey tint and a barely-there alpha."
     },
     {
@@ -1080,7 +1090,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "wall",
-      "model": "core/textures/glass/glass_dirty_01.png",
+      "model": "shared/textures/glass/glass_dirty_01.png",
       "description": "Unwashed glass sheet: blotchy alpha, a dried-film tint and a few drip trails."
     },
     {
@@ -1090,7 +1100,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "wall",
-      "model": "core/textures/glass/glass_tinted_01.png",
+      "model": "shared/textures/glass/glass_tinted_01.png",
       "description": "Uniformly tinted teal glass sheet at roughly half opacity."
     },
     {
@@ -1100,7 +1110,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "floor",
-      "model": "core/textures/floors/linoleum_01.png",
+      "model": "shared/textures/floors/linoleum_01.png",
       "description": "Polished linoleum sheet: pale speckled field with faint sheet seams."
     },
     {
@@ -1110,7 +1120,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "wall",
-      "model": "core/textures/walls/metal_panel_01.png",
+      "model": "shared/textures/walls/metal_panel_01.png",
       "description": "Brushed metal sheet with a panel seam and two rivet rows."
     },
     {
@@ -1120,7 +1130,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "wall",
-      "model": "core/textures/metal/brass_01.png",
+      "model": "shared/textures/metal/brass_01.png",
       "description": "Warm brass with a fine circular polish; the material carries the highlight."
     },
     {
@@ -1130,7 +1140,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "wall",
-      "model": "core/textures/walls/plastic_panel_01.png",
+      "model": "shared/textures/walls/plastic_panel_01.png",
       "description": "Moulded plastic sheet: pale, near-neutral, softly periodic."
     },
     {
@@ -1139,7 +1149,7 @@
       "asset_class": "environment",
       "asset_type": "texture",
       "source": "file",
-      "model": "core/textures/normals/normal_panel_01.png",
+      "model": "shared/textures/normals/normal_panel_01.png",
       "description": "Tangent-space normal sheet with soft moulded dimples; generic detail, not aligned to any albedo."
     },
     {
@@ -1148,7 +1158,7 @@
       "asset_class": "environment",
       "asset_type": "texture",
       "source": "file",
-      "model": "core/textures/normals/normal_brushed_01.png",
+      "model": "shared/textures/normals/normal_brushed_01.png",
       "description": "Tangent-space normal sheet with fine horizontal brushing; generic detail, not aligned to any albedo."
     },
     {
@@ -1355,7 +1365,9 @@
       "shine": 0.7,
       "alpha_mode": "blend",
       "opacity": 1.0,
-      "description": "Translucent pool water for authored water volumes: the volume's own opacity rides in the surface's vertex alpha, so the material stays fully opaque (opacity 1.0) and one material serves every pool. Modest sheen only; water never reflects as a mirror."
+      "description": "Translucent pool water: volume opacity carries coverage, incident-HDR surface charts receive lighting, and restrained rough probe highlights accompany depth-attenuated basin lighting.",
+      "reflection_mode": "probe",
+      "reflection_strength": 0.3
     },
     {
       "id": "core:tex_pool_water_01",
@@ -1364,7 +1376,7 @@
       "theme": "pool",
       "asset_type": "texture",
       "source": "file",
-      "model": "environment/pool/textures/water/pool_water_01.png",
+      "model": "environments/pool/textures/water/pool_water_01.png",
       "surface": "floor",
       "description": "Tileable pale pool water at a 2 m repeat: soft multi-scale caustics over a faint diagonal ripple. Drawn only by the water surface."
     },
@@ -1393,7 +1405,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "wall",
-      "model": "core/textures/walls/grille_01.png",
+      "model": "shared/textures/walls/grille_01.png",
       "description": "Alpha cut-out grille sheet: slats are solid, the openings between them are transparent."
     },
     {
@@ -1422,7 +1434,7 @@
       "asset_class": "core",
       "asset_type": "texture",
       "source": "file",
-      "model": "core/textures/effects/steam_01.png",
+      "model": "shared/textures/effects/steam_01.png",
       "description": "Soft white-grey wispy puff with an alpha falloff to every edge; sampled by steam effect billboards at the effect material's `tile_metres`."
     },
     {
@@ -1443,7 +1455,7 @@
       "asset_class": "core",
       "asset_type": "texture",
       "source": "file",
-      "model": "core/textures/effects/snowflake_01.png",
+      "model": "shared/textures/effects/snowflake_01.png",
       "description": "Full-UV weather flake with white centre, blue-grey rim and transparent margins."
     },
     {
@@ -1464,7 +1476,7 @@
       "asset_class": "core",
       "asset_type": "texture",
       "source": "file",
-      "model": "core/textures/white_01.png",
+      "model": "shared/textures/white_01.png",
       "description": "The shared untextured sheet: a flat opaque white fill the renderer binds to fixture housings, plain body geometry and any texture slot with nothing better to show. Not artwork and not tileable; loaded once at renderer startup as a single un-mipped level."
     },
     {
@@ -1475,7 +1487,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "wall",
-      "model": "environment/home/textures/walls/wallpaper_offwhite_01.png",
+      "model": "environments/home/textures/walls/wallpaper_offwhite_01.png",
       "description": "Clean off-white residential wallpaper: a fine paper weave with no pattern."
     },
     {
@@ -1486,7 +1498,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "wall",
-      "model": "environment/home/textures/walls/wallpaper_pattern_01.png",
+      "model": "environments/home/textures/walls/wallpaper_pattern_01.png",
       "description": "Quiet sage sprigs on warm cream paper, a 25 cm cell."
     },
     {
@@ -1497,7 +1509,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "wall",
-      "model": "environment/home/textures/walls/wall_paint_offwhite_01.png",
+      "model": "environments/home/textures/walls/wall_paint_offwhite_01.png",
       "description": "Plain painted off-white wall: a roller-stipple micro-texture, no pattern."
     },
     {
@@ -1508,7 +1520,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "wall",
-      "model": "environment/home/textures/walls/baseboard_wood_01.png",
+      "model": "environments/home/textures/walls/baseboard_wood_01.png",
       "description": "Residential wood skirting: horizontal grain, restrained, no damage."
     },
     {
@@ -1519,7 +1531,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "wall",
-      "model": "environment/home/textures/walls/baseboard_white_01.png",
+      "model": "environments/home/textures/walls/baseboard_white_01.png",
       "description": "Painted white skirting: smooth finish with a fine brush grain."
     },
     {
@@ -1530,7 +1542,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "wall",
-      "model": "environment/home/textures/walls/handrail_wood_01.png",
+      "model": "environments/home/textures/walls/handrail_wood_01.png",
       "description": "Varnished handrail wood: warm, fine straight grain."
     },
     {
@@ -1541,7 +1553,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "floor",
-      "model": "environment/home/textures/floors/threshold_wood_01.png",
+      "model": "environments/home/textures/floors/threshold_wood_01.png",
       "description": "Transition-strip hardwood: a warm oak tone with fine grain."
     },
     {
@@ -1552,7 +1564,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "floor",
-      "model": "environment/home/textures/floors/hardwood_oak_01.png",
+      "model": "environments/home/textures/floors/hardwood_oak_01.png",
       "description": "Finished oak floorboards, 20 cm planks, warm and clean."
     },
     {
@@ -1563,7 +1575,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "floor",
-      "model": "environment/home/textures/floors/hardwood_walnut_02.png",
+      "model": "environments/home/textures/floors/hardwood_walnut_02.png",
       "description": "Finished walnut floorboards, 15 cm planks, darker and cooler than the oak."
     },
     {
@@ -1574,7 +1586,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "floor",
-      "model": "environment/home/textures/floors/carpet_cream_01.png",
+      "model": "environments/home/textures/floors/carpet_cream_01.png",
       "description": "Clean cream short-pile carpet, no stains and no metre checker."
     },
     {
@@ -1585,7 +1597,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "floor",
-      "model": "environment/home/textures/floors/tile_home_01.png",
+      "model": "environments/home/textures/floors/tile_home_01.png",
       "description": "Warm 30 cm domestic ceramic with quiet mineral flecks and visible fine grout."
     },
     {
@@ -1596,7 +1608,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "ceiling",
-      "model": "environment/home/textures/ceilings/ceiling_white_01.png",
+      "model": "environments/home/textures/ceilings/ceiling_white_01.png",
       "description": "Flat white painted ceiling, near-flat with a faint roller variation."
     },
     {
@@ -1607,7 +1619,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "ceiling",
-      "model": "environment/home/textures/ceilings/ceiling_plaster_01.png",
+      "model": "environments/home/textures/ceilings/ceiling_plaster_01.png",
       "description": "Fine plaster ceiling: a very light stipple, not a popcorn texture."
     },
     {
@@ -1618,7 +1630,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "wall",
-      "model": "environment/home/textures/doors/sauna_wood_01.png",
+      "model": "environments/home/textures/doors/sauna_wood_01.png",
       "description": "Light cedar sauna boards: narrow vertical staves with soft even grain."
     },
     {
@@ -1629,7 +1641,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "wall",
-      "model": "environment/home/textures/doors/door_white_01.png",
+      "model": "environments/home/textures/doors/door_white_01.png",
       "description": "White painted door stock: a smooth finish with a faint vertical brush."
     },
     {
@@ -1849,7 +1861,7 @@
       "theme": "home",
       "asset_type": "light",
       "source": "file",
-      "model": "environment/home/textures/lights/ceiling_light_round_01.png",
+      "model": "environments/home/textures/lights/ceiling_light_round_01.png",
       "description": "Ordinary circular residential flush-mount ceiling lamp: a white diffuser disc in a shallow drum body, warm white light."
     },
     {
@@ -1859,7 +1871,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/cabinet_base.glb",
+      "model": "environments/home/props/cabinet_base.glb",
       "size": [
         0.6,
         0.9,
@@ -1877,7 +1889,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/cabinet_wall.glb",
+      "model": "environments/home/props/cabinet_wall.glb",
       "size": [
         0.6,
         0.72,
@@ -2002,7 +2014,7 @@
       "asset_class": "environment",
       "asset_type": "prop",
       "source": "file",
-      "model": "core/props/models/stop_sign.glb",
+      "model": "shared/props/stop_sign.glb",
       "size": [
         0.45,
         1.8,
@@ -2018,7 +2030,7 @@
       "asset_class": "environment",
       "asset_type": "prop",
       "source": "file",
-      "model": "core/props/models/exit_sign.glb",
+      "model": "shared/props/exit_sign.glb",
       "size": [
         0.45,
         0.57,
@@ -2035,7 +2047,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/ball_light.glb",
+      "model": "environments/home/props/ball_light.glb",
       "size": [
         0.38,
         0.8,
@@ -2053,7 +2065,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/wall_switch.glb",
+      "model": "environments/home/props/wall_switch.glb",
       "size": [
         0.086,
         0.12,
@@ -2070,7 +2082,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/crt_tv.glb",
+      "model": "environments/home/props/crt_tv.glb",
       "size": [
         0.55,
         0.48,
@@ -2087,7 +2099,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/knife.glb",
+      "model": "environments/home/props/knife.glb",
       "size": [
         0.022,
         0.016,
@@ -2105,7 +2117,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/fork.glb",
+      "model": "environments/home/props/fork.glb",
       "size": [
         0.026,
         0.012,
@@ -2123,7 +2135,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/spoon.glb",
+      "model": "environments/home/props/spoon.glb",
       "size": [
         0.036,
         0.02,
@@ -2141,7 +2153,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/plate.glb",
+      "model": "environments/home/props/plate.glb",
       "size": [
         0.22,
         0.022,
@@ -2159,7 +2171,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/bowl.glb",
+      "model": "environments/home/props/bowl.glb",
       "size": [
         0.15,
         0.065,
@@ -2177,7 +2189,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/plant_table.glb",
+      "model": "environments/home/props/plant_table.glb",
       "size": [
         0.13,
         0.28,
@@ -2195,7 +2207,7 @@
       "theme": "pool",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/pool/props/models/rubber_duck.glb",
+      "model": "environments/pool/props/rubber_duck.glb",
       "size": [
         0.1,
         0.12,
@@ -2214,7 +2226,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "floor",
-      "model": "environment/outdoor/textures/ground/grass_ground_01.png",
+      "model": "environments/outdoor/textures/floors/grass_ground_01.png",
       "description": "Tileable night lawn: short mottled blades in muted greens, no bright or dark edge band, readable under a small pool of warm lamplight."
     },
     {
@@ -2225,7 +2237,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "floor",
-      "model": "environment/outdoor/textures/ground/dirt_gravel_01.png",
+      "model": "environments/outdoor/textures/floors/dirt_gravel_01.png",
       "description": "Stylized packed dirt with scattered pale gravel; tileable in both axes and deliberately low-contrast so a feathered edge blends into grass."
     },
     {
@@ -2236,7 +2248,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "floor",
-      "model": "environment/outdoor/textures/ground/concrete_pavement_01.png",
+      "model": "environments/outdoor/textures/floors/concrete_pavement_01.png",
       "description": "Restrained poured-concrete walkway: pale grey with subtle panel grain and a few darker pores, tileable in both axes."
     },
     {
@@ -2247,7 +2259,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "wall",
-      "model": "environment/outdoor/textures/house/siding_01.png",
+      "model": "environments/outdoor/textures/walls/siding_01.png",
       "description": "Horizontal painted clapboard siding in a muted dark green-grey, tileable in both axes."
     },
     {
@@ -2258,7 +2270,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "ceiling",
-      "model": "environment/outdoor/textures/house/roof_shingle_01.png",
+      "model": "environments/outdoor/textures/ceilings/roof_shingle_01.png",
       "description": "Dark asphalt roof shingles in overlapping rows, tileable in both axes."
     },
     {
@@ -2269,7 +2281,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "sky",
-      "model": "environment/outdoor/textures/sky/sky_stars_01.png",
+      "model": "environments/outdoor/textures/sky/sky_stars_01.png",
       "description": "Equirectangular 2:1 night sky: near-black with a small number of faint stars in the upper hemisphere and no moon, Milky Way, glow or daylight horizon."
     },
     {
@@ -2344,7 +2356,7 @@
       "theme": "outdoor",
       "asset_type": "decal",
       "source": "file",
-      "model": "environment/outdoor/textures/decals/path_edge_01.png",
+      "model": "environments/outdoor/decals/path_edge_01.png",
       "alpha_mode": "blend",
       "description": "Straight path-edge feather strip: the dirt/gravel grain fades out across the strip width so a dirt patch meets grass without a hard rectangular seam. Place with width across the seam and height along the edge; rotate to face either side or a diagonal run."
     },
@@ -2355,7 +2367,7 @@
       "theme": "outdoor",
       "asset_type": "decal",
       "source": "file",
-      "model": "environment/outdoor/textures/decals/path_end_01.png",
+      "model": "environments/outdoor/decals/path_end_01.png",
       "alpha_mode": "blend",
       "description": "Rounded path-end feather: grain fades radially so a path can stop, fork or flare into gravel without a cut edge."
     },
@@ -2366,7 +2378,7 @@
       "theme": "outdoor",
       "asset_type": "decal",
       "source": "file",
-      "model": "environment/outdoor/textures/decals/path_corner_01.png",
+      "model": "environments/outdoor/decals/path_corner_01.png",
       "alpha_mode": "blend",
       "description": "Corner feather piece for a path bend or junction: two soft fades meeting at a rounded inner corner."
     },
@@ -2377,7 +2389,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/grass_patch_small.glb",
+      "model": "environments/outdoor/props/grass_patch_small.glb",
       "size": [
         0.55,
         0.3,
@@ -2395,7 +2407,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/grass_patch_large.glb",
+      "model": "environments/outdoor/props/grass_patch_large.glb",
       "size": [
         0.95,
         0.62,
@@ -2413,7 +2425,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/tree_01.glb",
+      "model": "environments/outdoor/props/tree_01.glb",
       "size": [
         4.6,
         6.4,
@@ -2431,7 +2443,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/lamp_stand.glb",
+      "model": "environments/outdoor/props/lamp_stand.glb",
       "size": [
         0.34,
         1.05,
@@ -2449,7 +2461,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/lamp_fence.glb",
+      "model": "environments/outdoor/props/lamp_fence.glb",
       "size": [
         0.32,
         0.42,
@@ -2467,7 +2479,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/lamp_wall.glb",
+      "model": "environments/outdoor/props/lamp_wall.glb",
       "size": [
         0.3,
         0.52,
@@ -2485,7 +2497,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/fence_post.glb",
+      "model": "environments/outdoor/props/fence_post.glb",
       "size": [
         0.12,
         1.05,
@@ -2503,7 +2515,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_wall_solid.glb",
+      "model": "environments/outdoor/props/house_wall_solid.glb",
       "size": [
         3.0,
         2.7,
@@ -2521,7 +2533,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_wall_window.glb",
+      "model": "environments/outdoor/props/house_wall_window.glb",
       "size": [
         3.0,
         2.7,
@@ -2539,7 +2551,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_wall_doorway.glb",
+      "model": "environments/outdoor/props/house_wall_doorway.glb",
       "size": [
         3.0,
         2.7,
@@ -2557,7 +2569,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_roof_slope.glb",
+      "model": "environments/outdoor/props/house_roof_slope.glb",
       "size": [
         3.4,
         1.75,
@@ -2575,7 +2587,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_roof_ridge.glb",
+      "model": "environments/outdoor/props/house_roof_ridge.glb",
       "size": [
         3.4,
         0.22,
@@ -2593,7 +2605,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_corner_trim.glb",
+      "model": "environments/outdoor/props/house_corner_trim.glb",
       "size": [
         0.18,
         2.7,
@@ -2611,7 +2623,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/concrete_step.glb",
+      "model": "environments/outdoor/props/concrete_step.glb",
       "size": [
         1.4,
         0.18,
@@ -2629,7 +2641,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/collision_peg.glb",
+      "model": "environments/outdoor/props/collision_peg.glb",
       "size": [
         0.06,
         0.06,
@@ -2665,7 +2677,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/tree_02.glb",
+      "model": "environments/outdoor/props/tree_02.glb",
       "size": [
         2.0,
         6.2,
@@ -2683,7 +2695,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/tree_03.glb",
+      "model": "environments/outdoor/props/tree_03.glb",
       "size": [
         3.2,
         6.8,
@@ -2701,7 +2713,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/streetlight.glb",
+      "model": "environments/outdoor/props/streetlight.glb",
       "size": [
         0.5,
         6.4,
@@ -2719,7 +2731,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/porch_railing_straight.glb",
+      "model": "environments/outdoor/props/porch_railing_straight.glb",
       "size": [
         1.8,
         1.05,
@@ -2737,7 +2749,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/porch_railing_corner.glb",
+      "model": "environments/outdoor/props/porch_railing_corner.glb",
       "size": [
         0.3,
         1.05,
@@ -2755,7 +2767,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/porch_railing_end.glb",
+      "model": "environments/outdoor/props/porch_railing_end.glb",
       "size": [
         0.3,
         1.05,
@@ -2773,7 +2785,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/porch_post.glb",
+      "model": "environments/outdoor/props/porch_post.glb",
       "size": [
         0.12,
         1.05,
@@ -2791,7 +2803,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_01_wall_solid.glb",
+      "model": "environments/outdoor/props/house_01_wall_solid.glb",
       "size": [
         3.0,
         2.7,
@@ -2809,7 +2821,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_01_wall_window.glb",
+      "model": "environments/outdoor/props/house_01_wall_window.glb",
       "size": [
         3.0,
         2.7,
@@ -2827,7 +2839,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_01_wall_doorway.glb",
+      "model": "environments/outdoor/props/house_01_wall_doorway.glb",
       "size": [
         3.0,
         2.7,
@@ -2845,7 +2857,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_01_gable.glb",
+      "model": "environments/outdoor/props/house_01_gable.glb",
       "size": [
         3.0,
         1.02,
@@ -2863,7 +2875,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_01_roof_slope.glb",
+      "model": "environments/outdoor/props/house_01_roof_slope.glb",
       "size": [
         3.4,
         1.75,
@@ -2881,7 +2893,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_01_roof_ridge.glb",
+      "model": "environments/outdoor/props/house_01_roof_ridge.glb",
       "size": [
         3.4,
         0.22,
@@ -2899,7 +2911,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_01_corner_trim.glb",
+      "model": "environments/outdoor/props/house_01_corner_trim.glb",
       "size": [
         0.18,
         2.7,
@@ -2917,7 +2929,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_01_porch_deck.glb",
+      "model": "environments/outdoor/props/house_01_porch_deck.glb",
       "size": [
         3.0,
         0.24,
@@ -2935,7 +2947,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_01_porch_post.glb",
+      "model": "environments/outdoor/props/house_01_porch_post.glb",
       "size": [
         0.14,
         2.3,
@@ -2953,7 +2965,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_02_wall_solid.glb",
+      "model": "environments/outdoor/props/house_02_wall_solid.glb",
       "size": [
         3.0,
         2.7,
@@ -2971,7 +2983,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_02_wall_window.glb",
+      "model": "environments/outdoor/props/house_02_wall_window.glb",
       "size": [
         3.0,
         2.7,
@@ -2989,7 +3001,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_02_wall_doorway.glb",
+      "model": "environments/outdoor/props/house_02_wall_doorway.glb",
       "size": [
         3.0,
         2.7,
@@ -3007,7 +3019,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_02_gable.glb",
+      "model": "environments/outdoor/props/house_02_gable.glb",
       "size": [
         3.0,
         1.02,
@@ -3025,7 +3037,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_02_roof_slope.glb",
+      "model": "environments/outdoor/props/house_02_roof_slope.glb",
       "size": [
         3.4,
         1.75,
@@ -3043,7 +3055,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_02_roof_ridge.glb",
+      "model": "environments/outdoor/props/house_02_roof_ridge.glb",
       "size": [
         3.4,
         0.22,
@@ -3061,7 +3073,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_02_corner_trim.glb",
+      "model": "environments/outdoor/props/house_02_corner_trim.glb",
       "size": [
         0.18,
         2.7,
@@ -3079,7 +3091,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_02_porch_deck.glb",
+      "model": "environments/outdoor/props/house_02_porch_deck.glb",
       "size": [
         3.0,
         0.24,
@@ -3097,7 +3109,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_02_porch_post.glb",
+      "model": "environments/outdoor/props/house_02_porch_post.glb",
       "size": [
         0.14,
         2.3,
@@ -3115,7 +3127,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_03_wall_solid.glb",
+      "model": "environments/outdoor/props/house_03_wall_solid.glb",
       "size": [
         3.0,
         2.7,
@@ -3133,7 +3145,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_03_wall_window.glb",
+      "model": "environments/outdoor/props/house_03_wall_window.glb",
       "size": [
         3.0,
         2.7,
@@ -3151,7 +3163,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_03_wall_doorway.glb",
+      "model": "environments/outdoor/props/house_03_wall_doorway.glb",
       "size": [
         3.0,
         2.7,
@@ -3169,7 +3181,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_03_gable.glb",
+      "model": "environments/outdoor/props/house_03_gable.glb",
       "size": [
         3.0,
         1.02,
@@ -3187,7 +3199,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_03_roof_slope.glb",
+      "model": "environments/outdoor/props/house_03_roof_slope.glb",
       "size": [
         3.4,
         1.75,
@@ -3205,7 +3217,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_03_roof_ridge.glb",
+      "model": "environments/outdoor/props/house_03_roof_ridge.glb",
       "size": [
         3.4,
         0.22,
@@ -3223,7 +3235,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_03_corner_trim.glb",
+      "model": "environments/outdoor/props/house_03_corner_trim.glb",
       "size": [
         0.18,
         2.7,
@@ -3241,7 +3253,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_03_porch_deck.glb",
+      "model": "environments/outdoor/props/house_03_porch_deck.glb",
       "size": [
         3.0,
         0.24,
@@ -3259,7 +3271,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_03_porch_post.glb",
+      "model": "environments/outdoor/props/house_03_porch_post.glb",
       "size": [
         0.14,
         2.3,
@@ -3277,7 +3289,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_04_wall_solid.glb",
+      "model": "environments/outdoor/props/house_04_wall_solid.glb",
       "size": [
         3.0,
         2.7,
@@ -3295,7 +3307,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_04_wall_window.glb",
+      "model": "environments/outdoor/props/house_04_wall_window.glb",
       "size": [
         3.0,
         2.7,
@@ -3313,7 +3325,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_04_wall_doorway.glb",
+      "model": "environments/outdoor/props/house_04_wall_doorway.glb",
       "size": [
         3.0,
         2.7,
@@ -3331,7 +3343,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_04_gable.glb",
+      "model": "environments/outdoor/props/house_04_gable.glb",
       "size": [
         3.0,
         1.02,
@@ -3349,7 +3361,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_04_roof_slope.glb",
+      "model": "environments/outdoor/props/house_04_roof_slope.glb",
       "size": [
         3.4,
         1.75,
@@ -3367,7 +3379,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_04_roof_ridge.glb",
+      "model": "environments/outdoor/props/house_04_roof_ridge.glb",
       "size": [
         3.4,
         0.22,
@@ -3385,7 +3397,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_04_corner_trim.glb",
+      "model": "environments/outdoor/props/house_04_corner_trim.glb",
       "size": [
         0.18,
         2.7,
@@ -3403,7 +3415,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_04_porch_deck.glb",
+      "model": "environments/outdoor/props/house_04_porch_deck.glb",
       "size": [
         3.0,
         0.24,
@@ -3421,7 +3433,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_04_porch_post.glb",
+      "model": "environments/outdoor/props/house_04_porch_post.glb",
       "size": [
         0.14,
         2.3,
@@ -3439,7 +3451,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_05_wall_solid.glb",
+      "model": "environments/outdoor/props/house_05_wall_solid.glb",
       "size": [
         3.0,
         2.7,
@@ -3457,7 +3469,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_05_wall_window.glb",
+      "model": "environments/outdoor/props/house_05_wall_window.glb",
       "size": [
         3.0,
         2.7,
@@ -3475,7 +3487,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_05_wall_doorway.glb",
+      "model": "environments/outdoor/props/house_05_wall_doorway.glb",
       "size": [
         3.0,
         2.7,
@@ -3493,7 +3505,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_05_gable.glb",
+      "model": "environments/outdoor/props/house_05_gable.glb",
       "size": [
         3.0,
         1.02,
@@ -3511,7 +3523,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_05_roof_slope.glb",
+      "model": "environments/outdoor/props/house_05_roof_slope.glb",
       "size": [
         3.4,
         1.75,
@@ -3529,7 +3541,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_05_roof_ridge.glb",
+      "model": "environments/outdoor/props/house_05_roof_ridge.glb",
       "size": [
         3.4,
         0.22,
@@ -3547,7 +3559,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_05_corner_trim.glb",
+      "model": "environments/outdoor/props/house_05_corner_trim.glb",
       "size": [
         0.18,
         2.7,
@@ -3565,7 +3577,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_05_porch_deck.glb",
+      "model": "environments/outdoor/props/house_05_porch_deck.glb",
       "size": [
         3.0,
         0.24,
@@ -3583,7 +3595,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/house_05_porch_post.glb",
+      "model": "environments/outdoor/props/house_05_porch_post.glb",
       "size": [
         0.14,
         2.3,
@@ -3601,7 +3613,7 @@
       "theme": "pool",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/pool/props/models/hot_tub.glb",
+      "model": "environments/pool/props/hot_tub.glb",
       "size": [
         2.6,
         1.56,
@@ -3619,7 +3631,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/showcase_road_straight.glb",
+      "model": "environments/outdoor/props/showcase_road_straight.glb",
       "size": [
         8.0,
         0.07,
@@ -3637,7 +3649,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/showcase_road_unmarked.glb",
+      "model": "environments/outdoor/props/showcase_road_unmarked.glb",
       "size": [
         8.0,
         0.064,
@@ -3655,7 +3667,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/showcase_road_dash.glb",
+      "model": "environments/outdoor/props/showcase_road_dash.glb",
       "size": [
         0.12,
         0.006,
@@ -3673,7 +3685,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/showcase_sidewalk.glb",
+      "model": "environments/outdoor/props/showcase_sidewalk.glb",
       "size": [
         2.4,
         0.14,
@@ -3691,7 +3703,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/showcase_sidewalk_corner.glb",
+      "model": "environments/outdoor/props/showcase_sidewalk_corner.glb",
       "size": [
         2.4,
         0.14,
@@ -3709,7 +3721,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/showcase_curb.glb",
+      "model": "environments/outdoor/props/showcase_curb.glb",
       "size": [
         0.24,
         0.14,
@@ -3727,7 +3739,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/showcase_curb_ramp.glb",
+      "model": "environments/outdoor/props/showcase_curb_ramp.glb",
       "size": [
         1.2,
         0.14,
@@ -3745,7 +3757,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/showcase_sidewalk_transition.glb",
+      "model": "environments/outdoor/props/showcase_sidewalk_transition.glb",
       "size": [
         2.4,
         0.14,
@@ -3763,7 +3775,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/showcase_rock_face.glb",
+      "model": "environments/outdoor/props/showcase_rock_face.glb",
       "size": [
         4.0,
         5.0,
@@ -3781,7 +3793,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/showcase_rock_face_variant.glb",
+      "model": "environments/outdoor/props/showcase_rock_face_variant.glb",
       "size": [
         3.4,
         4.8,
@@ -3799,7 +3811,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/showcase_boulder.glb",
+      "model": "environments/outdoor/props/showcase_boulder.glb",
       "size": [
         1.4,
         0.85,
@@ -3817,7 +3829,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/showcase_campfire.glb",
+      "model": "environments/outdoor/props/showcase_campfire.glb",
       "size": [
         1.3,
         1.25,
@@ -3835,7 +3847,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/showcase_road_gate.glb",
+      "model": "environments/outdoor/props/showcase_road_gate.glb",
       "size": [
         8.0,
         3.6,
@@ -3853,7 +3865,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/showcase_stump_seat.glb",
+      "model": "environments/outdoor/props/showcase_stump_seat.glb",
       "size": [
         0.7,
         0.45,
@@ -3906,9 +3918,9 @@
         1,
         1
       ],
-      "specular": 0,
-      "shine": 0,
-      "description": "Dedicated matte snow PNG; quiet cool variation, world-aligned seamless tiling."
+      "specular": 0.08,
+      "shine": 0.12,
+      "description": "Dedicated snow PNG with broad diffuse response and restrained soft sheen; cool shadows come from authored sky lighting."
     },
     {
       "id": "winter:snow_packed_01",
@@ -3945,11 +3957,13 @@
         1
       ],
       "specular": 0.38,
-      "shine": 0.38,
+      "shine": 0.55,
       "description": "Solid slippery blue-gray frozen water: restrained cracks and cloudy facets, translucent body and broad highlights; no mirror reflections.",
       "alpha_mode": "blend",
       "opacity": 0.84,
-      "ground_surface": "ice"
+      "ground_surface": "ice",
+      "reflection_mode": "probe",
+      "reflection_strength": 0.28
     },
     {
       "id": "winter:ice_depth_01",
@@ -3978,7 +3992,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "floor",
-      "model": "environment/winter/textures/floors/ice_01.png"
+      "model": "environments/winter/textures/floors/ice_01.png"
     },
     {
       "id": "winter:tex_sky_aurora_01",
@@ -3988,7 +4002,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "sky",
-      "model": "environment/winter/textures/sky/sky_aurora_01.png",
+      "model": "environments/winter/textures/sky/sky_aurora_01.png",
       "description": "Opaque 2:1 equirectangular deep-blue night with small stars, distant sweeping green/cyan aurora ribbons and restrained violet fringes; open blue sky, quiet wrap margins and no landscape. Background only, independent of cool moonlight and baked ambient fill."
     },
     {
@@ -3999,7 +4013,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "floor",
-      "model": "environment/winter/textures/floors/snow_01.png"
+      "model": "environments/winter/textures/floors/snow_01.png"
     },
     {
       "id": "winter:tree_snow_01",
@@ -4008,7 +4022,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/tree_snow_01.glb",
+      "model": "environments/winter/props/tree_snow_01.glb",
       "size": [
         3.2,
         6.8,
@@ -4025,7 +4039,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/tree_snow_02.glb",
+      "model": "environments/winter/props/tree_snow_02.glb",
       "size": [
         3.2,
         6.8,
@@ -4042,7 +4056,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/drift_small.glb",
+      "model": "environments/winter/props/drift_small.glb",
       "size": [
         1.2,
         0.28,
@@ -4059,7 +4073,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/drift_medium.glb",
+      "model": "environments/winter/props/drift_medium.glb",
       "size": [
         2.4,
         0.55,
@@ -4076,7 +4090,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/drift_large.glb",
+      "model": "environments/winter/props/drift_large.glb",
       "size": [
         4.4,
         0.9,
@@ -4093,7 +4107,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/drift_wall.glb",
+      "model": "environments/winter/props/drift_wall.glb",
       "size": [
         3,
         0.65,
@@ -4110,7 +4124,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/drift_fence.glb",
+      "model": "environments/winter/props/drift_fence.glb",
       "size": [
         1.8,
         0.38,
@@ -4127,7 +4141,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/mound_irregular.glb",
+      "model": "environments/winter/props/mound_irregular.glb",
       "size": [
         2.1,
         0.75,
@@ -4144,7 +4158,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/boulder_snow.glb",
+      "model": "environments/winter/props/boulder_snow.glb",
       "size": [
         1.4,
         0.97,
@@ -4161,7 +4175,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/rock_face_snow.glb",
+      "model": "environments/winter/props/rock_face_snow.glb",
       "size": [
         4,
         5.16,
@@ -4178,7 +4192,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/snow_door_overhang.glb",
+      "model": "environments/winter/props/snow_door_overhang.glb",
       "size": [
         1.6,
         0.14,
@@ -4195,7 +4209,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/snow_awning.glb",
+      "model": "environments/winter/props/snow_awning.glb",
       "size": [
         2.4,
         0.18,
@@ -4212,7 +4226,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/snow_stair_edge.glb",
+      "model": "environments/winter/props/snow_stair_edge.glb",
       "size": [
         0.38,
         0.085,
@@ -4229,7 +4243,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/snow_ledge.glb",
+      "model": "environments/winter/props/snow_ledge.glb",
       "size": [
         1.2,
         0.1,
@@ -4246,7 +4260,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/snow_roof_edge.glb",
+      "model": "environments/winter/props/snow_roof_edge.glb",
       "size": [
         2.4,
         0.16,
@@ -4263,7 +4277,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/snow_porch_edge.glb",
+      "model": "environments/winter/props/snow_porch_edge.glb",
       "size": [
         1.8,
         0.1,
@@ -4280,7 +4294,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/snow_roof_slope.glb",
+      "model": "environments/winter/props/snow_roof_slope.glb",
       "size": [
         3.4,
         1.41,
@@ -4297,7 +4311,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/snow_rail_top.glb",
+      "model": "environments/winter/props/snow_rail_top.glb",
       "size": [
         1.2,
         0.075,
@@ -4314,7 +4328,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/snow_post_cap.glb",
+      "model": "environments/winter/props/snow_post_cap.glb",
       "size": [
         0.12,
         0.085,
@@ -4331,7 +4345,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/railing_snow_straight.glb",
+      "model": "environments/winter/props/railing_snow_straight.glb",
       "size": [
         1.8,
         1.125,
@@ -4348,7 +4362,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/railing_snow_corner.glb",
+      "model": "environments/winter/props/railing_snow_corner.glb",
       "size": [
         0.3,
         1.125,
@@ -4365,7 +4379,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/railing_snow_end.glb",
+      "model": "environments/winter/props/railing_snow_end.glb",
       "size": [
         0.3,
         1.135,
@@ -4382,7 +4396,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/fence_post_snow.glb",
+      "model": "environments/winter/props/fence_post_snow.glb",
       "size": [
         0.16,
         1.135,
@@ -4399,7 +4413,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/icicle_short.glb",
+      "model": "environments/winter/props/icicle_short.glb",
       "size": [
         0.07,
         0.18,
@@ -4416,7 +4430,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/icicle_medium.glb",
+      "model": "environments/winter/props/icicle_medium.glb",
       "size": [
         0.1,
         0.36,
@@ -4433,7 +4447,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/icicle_long.glb",
+      "model": "environments/winter/props/icicle_long.glb",
       "size": [
         0.13,
         0.65,
@@ -4450,7 +4464,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/icicle_cluster_mixed.glb",
+      "model": "environments/winter/props/icicle_cluster_mixed.glb",
       "size": [
         1.2,
         0.65,
@@ -4467,7 +4481,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/icicle_cluster_sparse.glb",
+      "model": "environments/winter/props/icicle_cluster_sparse.glb",
       "size": [
         1.2,
         0.36,
@@ -4484,7 +4498,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/string_lights_short.glb",
+      "model": "environments/winter/props/string_lights_short.glb",
       "size": [
         2.8499999999999996,
         0.3950000000000001,
@@ -4501,7 +4515,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/string_lights_medium.glb",
+      "model": "environments/winter/props/string_lights_medium.glb",
       "size": [
         4.05,
         0.525,
@@ -4518,7 +4532,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/string_lights_long.glb",
+      "model": "environments/winter/props/string_lights_long.glb",
       "size": [
         6.6499999999999995,
         0.645,
@@ -4535,7 +4549,7 @@
       "theme": "pool",
       "asset_type": "texture",
       "source": "file",
-      "model": "environment/pool/textures/floors/pool_coping_01.png",
+      "model": "environments/pool/textures/floors/pool_coping_01.png",
       "surface": "floor"
     },
     {
@@ -4558,7 +4572,7 @@
       "theme": "pool",
       "asset_type": "texture",
       "source": "file",
-      "model": "environment/pool/textures/walls/pool_band_01.png",
+      "model": "environments/pool/textures/walls/pool_band_01.png",
       "surface": "wall"
     },
     {
@@ -4581,7 +4595,7 @@
       "theme": "pool",
       "asset_type": "texture",
       "source": "file",
-      "model": "environment/pool/textures/walls/pool_metal_01.png",
+      "model": "environments/pool/textures/walls/pool_metal_01.png",
       "surface": "wall"
     },
     {
@@ -4606,7 +4620,7 @@
       "theme": "pool",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/pool/props/models/pool_bench.glb",
+      "model": "environments/pool/props/pool_bench.glb",
       "size": [
         1.6,
         0.45,
@@ -4623,7 +4637,7 @@
       "theme": "pool",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/pool/props/models/pool_drain.glb",
+      "model": "environments/pool/props/pool_drain.glb",
       "size": [
         0.6,
         0.014,
@@ -4640,7 +4654,7 @@
       "theme": "pool",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/pool/props/models/pool_service_door.glb",
+      "model": "environments/pool/props/pool_service_door.glb",
       "size": [
         1.0,
         2.1,
@@ -4657,7 +4671,7 @@
       "theme": "pool",
       "asset_type": "decal",
       "source": "file",
-      "model": "environment/pool/decals/lane_01.png"
+      "model": "environments/pool/decals/lane_01.png"
     },
     {
       "id": "home:sofa",
@@ -4666,7 +4680,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/sofa.glb",
+      "model": "environments/home/props/sofa.glb",
       "size": [
         2,
         0.9,
@@ -4684,7 +4698,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/armchair.glb",
+      "model": "environments/home/props/armchair.glb",
       "size": [
         0.9,
         0.9,
@@ -4702,7 +4716,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/coffee_table.glb",
+      "model": "environments/home/props/coffee_table.glb",
       "size": [
         1.4,
         0.46,
@@ -4720,7 +4734,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/dining_table.glb",
+      "model": "environments/home/props/dining_table.glb",
       "size": [
         1.4,
         0.75,
@@ -4738,7 +4752,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/dining_chair.glb",
+      "model": "environments/home/props/dining_chair.glb",
       "size": [
         0.5,
         0.902,
@@ -4750,13 +4764,31 @@
       "description": "Domestic side chair with broad timber back slats."
     },
     {
+      "id": "home:dining_chair_refined",
+      "display_name": "Bevelled Timber Dining Chair",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/home/props/dining_chair_refined.glb",
+      "size": [
+        0.5,
+        0.902,
+        0.49
+      ],
+      "color": "#d7c9ae",
+      "category": "Furniture",
+      "solid": true,
+      "description": "Timber chair with rounded seat corners, bevelled rails and softened slat tops; original footprint and atlas retained."
+    },
+    {
       "id": "home:tv_console",
       "display_name": "Low Timber CRT Console",
       "asset_class": "environment",
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/tv_console.glb",
+      "model": "environments/home/props/tv_console.glb",
       "size": [
         1.55,
         0.55,
@@ -4774,7 +4806,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/bookshelf.glb",
+      "model": "environments/home/props/bookshelf.glb",
       "size": [
         1,
         1.8,
@@ -4792,7 +4824,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/rug.glb",
+      "model": "environments/home/props/rug.glb",
       "size": [
         2,
         0.02,
@@ -4810,7 +4842,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/floor_lamp.glb",
+      "model": "environments/home/props/floor_lamp.glb",
       "size": [
         0.35,
         1.5,
@@ -4828,7 +4860,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/mug.glb",
+      "model": "environments/home/props/mug.glb",
       "size": [
         0.117,
         0.09,
@@ -4846,7 +4878,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/book_stack.glb",
+      "model": "environments/home/props/book_stack.glb",
       "size": [
         0.262,
         0.057,
@@ -4864,7 +4896,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/cushion.glb",
+      "model": "environments/home/props/cushion.glb",
       "size": [
         0.33,
         0.32,
@@ -4882,7 +4914,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/outlet.glb",
+      "model": "environments/home/props/outlet.glb",
       "size": [
         0.085,
         0.12,
@@ -4900,7 +4932,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/cabinet_strip.glb",
+      "model": "environments/home/props/cabinet_strip.glb",
       "size": [
         0.55,
         0.026,
@@ -4918,7 +4950,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/landscape_frame.glb",
+      "model": "environments/home/props/landscape_frame.glb",
       "size": [
         0.45,
         0.5,
@@ -4936,7 +4968,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/sink.glb",
+      "model": "environments/home/props/sink.glb",
       "size": [
         0.6,
         1.1,
@@ -4954,7 +4986,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/stove.glb",
+      "model": "environments/home/props/stove.glb",
       "size": [
         0.6,
         0.918,
@@ -4973,7 +5005,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "wall",
-      "model": "environment/home/textures/walls/backsplash_01.png"
+      "model": "environments/home/textures/walls/backsplash_01.png"
     },
     {
       "id": "home:backsplash_01",
@@ -4995,7 +5027,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/kettle.glb",
+      "model": "environments/home/props/kettle.glb",
       "size": [
         0.217,
         0.201,
@@ -5012,7 +5044,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/toaster.glb",
+      "model": "environments/home/props/toaster.glb",
       "size": [
         0.25,
         0.16,
@@ -5030,7 +5062,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "wall",
-      "model": "environment/home/textures/walls/wall_paint_warm_01.png",
+      "model": "environments/home/textures/walls/wall_paint_warm_01.png",
       "description": "Plain painted off-white wall: a roller-stipple micro-texture, no pattern."
     },
     {
@@ -5055,7 +5087,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "floor",
-      "model": "environment/home/textures/floors/hardwood_oak_warm_01.png",
+      "model": "environments/home/textures/floors/hardwood_oak_warm_01.png",
       "description": "Finished oak floorboards, 20 cm planks, warm and clean."
     },
     {
@@ -5080,7 +5112,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "ceiling",
-      "model": "environment/home/textures/ceilings/ceiling_warm_01.png",
+      "model": "environments/home/textures/ceilings/ceiling_warm_01.png",
       "description": "Flat white painted ceiling, near-flat with a faint roller variation."
     },
     {
@@ -5105,7 +5137,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "ceiling",
-      "model": "environment/home/textures/ceilings/ceiling_plaster_warm_01.png",
+      "model": "environments/home/textures/ceilings/ceiling_plaster_warm_01.png",
       "description": "Fine plaster ceiling: a very light stipple, not a popcorn texture."
     },
     {
@@ -5129,7 +5161,7 @@
       "theme": "home",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/home/props/models/door_casing.glb",
+      "model": "environments/home/props/door_casing.glb",
       "size": [
         1.58,
         2.18,
@@ -5146,7 +5178,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/bush_round.glb",
+      "model": "environments/outdoor/props/bush_round.glb",
       "size": [
         1.55,
         1.05,
@@ -5163,7 +5195,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/bush_low.glb",
+      "model": "environments/outdoor/props/bush_low.glb",
       "size": [
         1.7,
         0.65,
@@ -5180,7 +5212,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/fence_two_rail.glb",
+      "model": "environments/outdoor/props/fence_two_rail.glb",
       "size": [
         2,
         1.05,
@@ -5197,7 +5229,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/masonry_pier.glb",
+      "model": "environments/outdoor/props/masonry_pier.glb",
       "size": [
         0.58,
         1.2,
@@ -5214,7 +5246,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/porch_canopy.glb",
+      "model": "environments/outdoor/props/porch_canopy.glb",
       "size": [
         3.4,
         0.72,
@@ -5231,7 +5263,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/road_barrier.glb",
+      "model": "environments/outdoor/props/road_barrier.glb",
       "size": [
         3.4,
         1.1,
@@ -5248,7 +5280,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/boundary_ridge.glb",
+      "model": "environments/outdoor/props/boundary_ridge.glb",
       "size": [
         20,
         10,
@@ -5265,7 +5297,7 @@
       "theme": "outdoor",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/outdoor/props/models/campfire_static.glb",
+      "model": "environments/outdoor/props/campfire_static.glb",
       "size": [
         1.3,
         1.25,
@@ -5283,7 +5315,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/stone_wall_snow.glb",
+      "model": "environments/winter/props/stone_wall_snow.glb",
       "size": [
         2.4,
         1.1,
@@ -5300,7 +5332,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/masonry_pier_snow.glb",
+      "model": "environments/winter/props/masonry_pier_snow.glb",
       "size": [
         0.65,
         1.25,
@@ -5317,7 +5349,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/timber_lantern.glb",
+      "model": "environments/winter/props/timber_lantern.glb",
       "size": [
         0.65,
         3.2,
@@ -5334,7 +5366,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/entrance_frame.glb",
+      "model": "environments/winter/props/entrance_frame.glb",
       "size": [
         1.74,
         2.42,
@@ -5351,7 +5383,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/door_hood_snow.glb",
+      "model": "environments/winter/props/door_hood_snow.glb",
       "size": [
         1.94,
         0.55,
@@ -5368,7 +5400,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/window_frame.glb",
+      "model": "environments/winter/props/window_frame.glb",
       "size": [
         1.26,
         1.16,
@@ -5385,7 +5417,7 @@
       "theme": "winter",
       "asset_type": "prop",
       "source": "file",
-      "model": "environment/winter/props/models/ice_fragment.glb",
+      "model": "environments/winter/props/ice_fragment.glb",
       "size": [
         1.1,
         0.075,
@@ -5403,7 +5435,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "wall",
-      "model": "environment/winter/textures/walls/stone_masonry_01.png"
+      "model": "environments/winter/textures/walls/stone_masonry_01.png"
     },
     {
       "id": "winter:stone_masonry_01",
@@ -5426,7 +5458,7 @@
       "asset_type": "texture",
       "source": "file",
       "surface": "wall",
-      "model": "environment/winter/textures/walls/timber_01.png"
+      "model": "environments/winter/textures/walls/timber_01.png"
     },
     {
       "id": "winter:timber_01",
@@ -5466,6 +5498,1468 @@
       "opacity": 0.82,
       "specular": 0.2,
       "shine": 0.2
+    },
+    {
+      "id": "beach:tex_sand_01",
+      "display_name": "Beach Sand Texture",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/beach/textures/floors/sand_01.png",
+      "surface": "floor",
+      "description": "Opaque seamless broad-facet artwork: 1024-square source and 512-square runtime PNG."
+    },
+    {
+      "id": "beach:tex_water_01",
+      "display_name": "Beach Water Texture",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/beach/textures/water/water_01.png",
+      "surface": "floor",
+      "description": "Opaque seamless broad-facet artwork: 1024-square source and 512-square runtime PNG."
+    },
+    {
+      "id": "beach:tex_rock_01",
+      "display_name": "Beach Rock Texture",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/beach/textures/walls/rock_01.png",
+      "surface": "wall",
+      "description": "Opaque seamless broad-facet artwork: 1024-square source and 512-square runtime PNG."
+    },
+    {
+      "id": "beach:tex_stucco_01",
+      "display_name": "Beach Stucco Texture",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/beach/textures/walls/stucco_01.png",
+      "surface": "wall",
+      "description": "Opaque seamless broad-facet artwork: 1024-square source and 512-square runtime PNG."
+    },
+    {
+      "id": "beach:tex_wood_plank_01",
+      "display_name": "Beach Wood Plank Texture",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/beach/textures/floors/wood_plank_01.png",
+      "surface": "floor",
+      "description": "Opaque seamless broad-facet artwork: 1024-square source and 512-square runtime PNG."
+    },
+    {
+      "id": "beach:tex_palm_trunk_01",
+      "display_name": "Beach Palm Trunk Texture",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/beach/textures/walls/palm_trunk_01.png",
+      "surface": "wall",
+      "description": "Opaque seamless broad-facet artwork: 1024-square source and 512-square runtime PNG."
+    },
+    {
+      "id": "beach:tex_palm_leaf_01",
+      "display_name": "Beach Palm Leaf Texture",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/beach/textures/walls/palm_leaf_01.png",
+      "surface": "wall",
+      "description": "Opaque seamless broad-facet artwork: 1024-square source and 512-square runtime PNG."
+    },
+    {
+      "id": "beach:tex_grass_01",
+      "display_name": "Beach Grass Texture",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/beach/textures/floors/grass_01.png",
+      "surface": "floor",
+      "description": "Opaque seamless broad-facet artwork: 1024-square source and 512-square runtime PNG."
+    },
+    {
+      "id": "beach:tex_roof_yellow_01",
+      "display_name": "Beach Roof Yellow Texture",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/beach/textures/ceilings/roof_yellow_01.png",
+      "surface": "ceiling",
+      "description": "Opaque seamless broad-facet artwork: 1024-square source and 512-square runtime PNG."
+    },
+    {
+      "id": "beach:tex_foam_01",
+      "display_name": "Beach Foam Texture",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/beach/textures/water/foam_01.png",
+      "surface": "floor",
+      "description": "Opaque seamless broad-facet artwork: 1024-square source and 512-square runtime PNG."
+    },
+    {
+      "id": "beach:tex_sky_day_01",
+      "display_name": "Beach Day Panorama",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "sky",
+      "model": "environments/beach/textures/sky/sky_day_01.png",
+      "description": "Seamless opaque 2048x1024 equirectangular day sky with a pale horizon, chunky faceted clouds and a small sun at bearing/elevation +45 degrees."
+    },
+    {
+      "id": "beach:sand_01",
+      "display_name": "Beach Sand",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "beach:tex_sand_01",
+      "tile_metres": 4,
+      "description": "Matte broad-facet Beach surface; lighting is supplied by the existing HDR bake and renderer."
+    },
+    {
+      "id": "beach:rock_01",
+      "display_name": "Beach Rock",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "beach:tex_rock_01",
+      "tile_metres": 4,
+      "description": "Matte broad-facet Beach surface; lighting is supplied by the existing HDR bake and renderer."
+    },
+    {
+      "id": "beach:stucco_01",
+      "display_name": "Beach Stucco",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "beach:tex_stucco_01",
+      "tile_metres": 2,
+      "description": "Matte broad-facet Beach surface; lighting is supplied by the existing HDR bake and renderer."
+    },
+    {
+      "id": "beach:wood_plank_01",
+      "display_name": "Beach Wood Plank",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "beach:tex_wood_plank_01",
+      "tile_metres": 1.2,
+      "description": "Matte broad-facet Beach surface; lighting is supplied by the existing HDR bake and renderer."
+    },
+    {
+      "id": "beach:palm_trunk_01",
+      "display_name": "Beach Palm Trunk",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "beach:tex_palm_trunk_01",
+      "tile_metres": 1.8,
+      "description": "Matte broad-facet Beach surface; lighting is supplied by the existing HDR bake and renderer."
+    },
+    {
+      "id": "beach:palm_leaf_01",
+      "display_name": "Beach Palm Leaf",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "beach:tex_palm_leaf_01",
+      "tile_metres": 1,
+      "description": "Matte broad-facet Beach surface; lighting is supplied by the existing HDR bake and renderer."
+    },
+    {
+      "id": "beach:grass_01",
+      "display_name": "Beach Grass",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "beach:tex_grass_01",
+      "tile_metres": 4,
+      "description": "Matte broad-facet Beach surface; lighting is supplied by the existing HDR bake and renderer."
+    },
+    {
+      "id": "beach:roof_yellow_01",
+      "display_name": "Beach Roof Yellow",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "ceiling",
+      "texture": "beach:tex_roof_yellow_01",
+      "tile_metres": 1.2,
+      "description": "Matte broad-facet Beach surface; lighting is supplied by the existing HDR bake and renderer."
+    },
+    {
+      "id": "beach:foam_01",
+      "display_name": "Beach Foam",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "beach:tex_foam_01",
+      "tile_metres": 4,
+      "description": "Matte broad-facet Beach surface; lighting is supplied by the existing HDR bake and renderer."
+    },
+    {
+      "id": "beach:water_shallow_01",
+      "display_name": "Beach Water Shallow",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "beach:tex_water_01",
+      "tile_metres": 4,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "specular": 0.3,
+      "shine": 0.4,
+      "alpha_mode": "blend",
+      "opacity": 1,
+      "reflection_mode": "probe",
+      "reflection_strength": 0.2,
+      "description": "Polygon-cell sea water; authored WaterDef opacity and depth attenuation supply transparent coverage using the existing water renderer."
+    },
+    {
+      "id": "beach:water_deep_01",
+      "display_name": "Beach Water Deep",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "beach:tex_water_01",
+      "tile_metres": 4,
+      "tint": [
+        0.6,
+        0.5,
+        1
+      ],
+      "specular": 0.3,
+      "shine": 0.4,
+      "alpha_mode": "blend",
+      "opacity": 1,
+      "reflection_mode": "probe",
+      "reflection_strength": 0.2,
+      "description": "Polygon-cell sea water; authored WaterDef opacity and depth attenuation supply transparent coverage using the existing water renderer."
+    },
+    {
+      "id": "beach:sand_patch",
+      "display_name": "Cream Beach Sand Patch",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/sand_patch.glb",
+      "size": [
+        8.0,
+        0.22,
+        6.0
+      ],
+      "color": "#ead2a8",
+      "category": "Terrain",
+      "solid": false,
+      "description": "Faceted Beach visual; author walking support and structural collision separately."
+    },
+    {
+      "id": "beach:grassy_bank",
+      "display_name": "Green Inland Bank",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/grassy_bank.glb",
+      "size": [
+        8.0,
+        0.75,
+        5.0
+      ],
+      "color": "#74b041",
+      "category": "Terrain",
+      "solid": false,
+      "description": "Faceted Beach visual; author walking support and structural collision separately."
+    },
+    {
+      "id": "beach:coastal_rock",
+      "display_name": "Faceted Coastal Rock",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/coastal_rock.glb",
+      "size": [
+        1.2,
+        1.2,
+        1.05
+      ],
+      "color": "#737b90",
+      "category": "Rocks",
+      "solid": false,
+      "description": "Faceted Beach visual; author walking support and structural collision separately."
+    },
+    {
+      "id": "beach:coastal_rock_wide",
+      "display_name": "Low Coastal Boulder",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/coastal_rock_wide.glb",
+      "size": [
+        2.6,
+        1.5,
+        2.0
+      ],
+      "color": "#737b90",
+      "category": "Rocks",
+      "solid": false,
+      "description": "Faceted Beach visual; author walking support and structural collision separately."
+    },
+    {
+      "id": "beach:island",
+      "display_name": "Green-capped Coastal Island",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/island.glb",
+      "size": [
+        10.0,
+        3.6,
+        7.0
+      ],
+      "color": "#737b90",
+      "category": "Terrain",
+      "solid": false,
+      "description": "Faceted Beach visual; author walking support and structural collision separately."
+    },
+    {
+      "id": "beach:sea_arch",
+      "display_name": "Grass-capped Sea Arch",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/sea_arch.glb",
+      "size": [
+        13.0,
+        5.8,
+        4.5
+      ],
+      "color": "#737b90",
+      "category": "Terrain",
+      "solid": false,
+      "description": "Faceted Beach visual; author walking support and structural collision separately."
+    },
+    {
+      "id": "beach:palm",
+      "display_name": "Banded Bent Palm",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/palm.glb",
+      "size": [
+        4.8,
+        6.0,
+        4.4
+      ],
+      "color": "#74b041",
+      "category": "Vegetation",
+      "solid": false,
+      "description": "Faceted Beach visual; author walking support and structural collision separately."
+    },
+    {
+      "id": "beach:palm_small",
+      "display_name": "Small Banded Palm",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/palm_small.glb",
+      "size": [
+        3.5,
+        4.2,
+        3.2
+      ],
+      "color": "#74b041",
+      "category": "Vegetation",
+      "solid": false,
+      "description": "Faceted Beach visual; author walking support and structural collision separately."
+    },
+    {
+      "id": "beach:town_shrub",
+      "display_name": "Town Shrub Cluster",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/town_shrub.glb",
+      "size": [
+        1.3,
+        0.8,
+        1.15
+      ],
+      "color": "#74b041",
+      "category": "Vegetation",
+      "solid": false,
+      "description": "Faceted Beach visual; author walking support and structural collision separately."
+    },
+    {
+      "id": "beach:shoreline_foam",
+      "display_name": "Curved Shore Foam",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/shoreline_foam.glb",
+      "size": [
+        8.0,
+        0.04,
+        1.1
+      ],
+      "color": "#faf5e8",
+      "category": "Terrain",
+      "solid": false,
+      "description": "Faceted Beach visual; author walking support and structural collision separately."
+    },
+    {
+      "id": "beach:lighthouse",
+      "display_name": "Beach Lighthouse",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/lighthouse.glb",
+      "size": [
+        2.72,
+        7.7,
+        2.72
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:crate",
+      "display_name": "Beach Crate",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/crate.glb",
+      "size": [
+        0.82,
+        0.82,
+        0.82
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": true
+    },
+    {
+      "id": "beach:dock",
+      "display_name": "Beach Dock",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/dock.glb",
+      "size": [
+        4.4,
+        1.6,
+        2.2
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:kiosk",
+      "display_name": "Beach Kiosk",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/kiosk.glb",
+      "size": [
+        3.2,
+        3.64,
+        2.9
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:stilt_house_blue",
+      "display_name": "Beach Stilt House Blue",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/stilt_house_blue.glb",
+      "size": [
+        5.4,
+        6.08,
+        4.7
+      ],
+      "color": "#328aca",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:hut_brown",
+      "display_name": "Beach Hut Brown",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/hut_brown.glb",
+      "size": [
+        3.5,
+        3.55,
+        3.24
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:umbrella",
+      "display_name": "Beach Umbrella",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/umbrella.glb",
+      "size": [
+        2.4,
+        2.55,
+        2.4
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:lounge_chair",
+      "display_name": "Beach Lounge Chair",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/lounge_chair.glb",
+      "size": [
+        0.74,
+        1.1,
+        1.51
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": true
+    },
+    {
+      "id": "beach:signpost",
+      "display_name": "Beach Signpost",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/signpost.glb",
+      "size": [
+        1.2,
+        1.76,
+        0.2
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:town_house_cream",
+      "display_name": "Beach Town House Cream",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/town_house_cream.glb",
+      "size": [
+        4.6,
+        5.4,
+        3.9
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:town_house_blue",
+      "display_name": "Beach Town House Blue",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/town_house_blue.glb",
+      "size": [
+        4.2,
+        5.45,
+        3.75
+      ],
+      "color": "#328aca",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:town_house_coral",
+      "display_name": "Beach Town House Coral",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/town_house_coral.glb",
+      "size": [
+        3.8,
+        4.0,
+        3.6
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:town_arch",
+      "display_name": "Beach Town Arch",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/town_arch.glb",
+      "size": [
+        3.6,
+        2.8,
+        0.42
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:town_stairs",
+      "display_name": "Beach Town Stairs",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/town_stairs.glb",
+      "size": [
+        1.4,
+        2.4,
+        4.2
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:town_terrace",
+      "display_name": "Beach Town Terrace",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/town_terrace.glb",
+      "size": [
+        4.0,
+        0.9,
+        3.0
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:town_parapet",
+      "display_name": "Beach Town Parapet",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/town_parapet.glb",
+      "size": [
+        2.4,
+        0.74,
+        0.25
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": true
+    },
+    {
+      "id": "beach:bunting",
+      "display_name": "Beach Bunting",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/bunting.glb",
+      "size": [
+        4.4,
+        0.45,
+        0.024
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:seagull",
+      "display_name": "Beach Seagull",
+      "asset_class": "entity",
+      "theme": "beach",
+      "asset_type": "entity",
+      "entity_type": "character",
+      "source": "file",
+      "model": "entities/beach_seagull/model/beach_seagull.glb",
+      "size": [
+        1.096,
+        0.747,
+        0.886
+      ],
+      "color": "#f6ecd6",
+      "category": "Beach Animals",
+      "solid": false,
+      "description": "Idle and flying seagull with dark wingtips and yellow beak/legs. Start playback with an explicit play_animation action."
+    },
+    {
+      "id": "beach:crab",
+      "display_name": "Beach Crab",
+      "asset_class": "entity",
+      "theme": "beach",
+      "asset_type": "entity",
+      "entity_type": "character",
+      "source": "file",
+      "model": "entities/beach_crab/model/beach_crab.glb",
+      "size": [
+        0.83209,
+        0.381,
+        0.561201
+      ],
+      "color": "#f46753",
+      "category": "Beach Animals",
+      "solid": false,
+      "description": "Stalk-eyed coral crab with pincers; idle and in-place walking clips. Start playback with an explicit play_animation action."
+    },
+    {
+      "id": "beach:fish",
+      "display_name": "Beach Fish",
+      "asset_class": "entity",
+      "theme": "beach",
+      "asset_type": "entity",
+      "entity_type": "character",
+      "source": "file",
+      "model": "entities/beach_fish/model/beach_fish.glb",
+      "size": [
+        0.294,
+        0.377,
+        0.638
+      ],
+      "color": "#fed95d",
+      "category": "Beach Animals",
+      "solid": false,
+      "description": "Yellow/turquoise fish with dorsal fin and forked tail; looping swim clip. Start playback with an explicit play_animation action."
+    },
+    {
+      "id": "frutiger_aero:tex_white_panel_01",
+      "display_name": "White Panel",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/frutiger_aero/textures/walls/white_panel_01.png",
+      "surface": "wall",
+      "description": "1024-square retained master and 512-square seamless runtime artwork; ordinary builds load committed PNGs."
+    },
+    {
+      "id": "frutiger_aero:tex_aqua_tile_01",
+      "display_name": "Aqua Tile",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/frutiger_aero/textures/floors/aqua_tile_01.png",
+      "surface": "floor",
+      "description": "1024-square retained master and 512-square seamless runtime artwork; ordinary builds load committed PNGs."
+    },
+    {
+      "id": "frutiger_aero:tex_cyan_glass_01",
+      "display_name": "Cyan Glass",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/frutiger_aero/textures/walls/cyan_glass_01.png",
+      "surface": "wall",
+      "description": "Seamless 512-square cyan glass with straight alpha52..64; retained1024-square master, no painted highlights."
+    },
+    {
+      "id": "frutiger_aero:tex_cyan_water_01",
+      "display_name": "Cyan Water",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/frutiger_aero/textures/water/cyan_water_01.png",
+      "surface": "floor",
+      "description": "1024-square retained master and 512-square seamless runtime artwork; ordinary builds load committed PNGs."
+    },
+    {
+      "id": "frutiger_aero:tex_sky_day_01",
+      "display_name": "Sky Day",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/frutiger_aero/textures/sky/sky_day_01.png",
+      "surface": "sky",
+      "description": "Opaque U-periodic 2048x1024 equirectangular day panorama; +45 degree sun bearing/elevation."
+    },
+    {
+      "id": "frutiger_aero:decal_atrium_banner_01",
+      "display_name": "Atrium Banner",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "environments/frutiger_aero/decals/atrium_banner_01.png",
+      "description": "Exact concept typography/leaf artwork, POT fitted RGBA cutout; transparent margins and placement aspect preserved."
+    },
+    {
+      "id": "frutiger_aero:decal_corridor_typography_01",
+      "display_name": "Corridor Typography",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "environments/frutiger_aero/decals/corridor_typography_01.png",
+      "description": "Exact concept typography/leaf artwork, POT fitted RGBA cutout; transparent margins and placement aspect preserved."
+    },
+    {
+      "id": "frutiger_aero:decal_reception_banner_01",
+      "display_name": "Reception Banner",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "environments/frutiger_aero/decals/reception_banner_01.png",
+      "description": "Exact concept typography/leaf artwork, POT fitted RGBA cutout; transparent margins and placement aspect preserved."
+    },
+    {
+      "id": "frutiger_aero:decal_kiosk_typography_01",
+      "display_name": "Kiosk Typography",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "environments/frutiger_aero/decals/kiosk_typography_01.png",
+      "description": "Exact concept typography/leaf artwork, POT fitted RGBA cutout; transparent margins and placement aspect preserved."
+    },
+    {
+      "id": "frutiger_aero:decal_leaf_brand_01",
+      "display_name": "Leaf Brand",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "environments/frutiger_aero/decals/leaf_brand_01.png",
+      "description": "Exact concept typography/leaf artwork, POT fitted RGBA cutout; transparent margins and placement aspect preserved."
+    },
+    {
+      "id": "frutiger_aero:white_panel_01",
+      "display_name": "Aero White Panel",
+      "surface": "wall",
+      "texture": "frutiger_aero:tex_white_panel_01",
+      "tile_metres": 2.4,
+      "specular": 0.18,
+      "shine": 0.3,
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "material",
+      "source": "definition",
+      "description": "Clean concept albedo and controlled sheen through existing material facilities; no exposure compensation."
+    },
+    {
+      "id": "frutiger_aero:white_floor_01",
+      "display_name": "Aero White Floor",
+      "surface": "floor",
+      "texture": "frutiger_aero:tex_white_panel_01",
+      "tile_metres": 2.4,
+      "specular": 0.28,
+      "shine": 0.42,
+      "reflection_mode": "probe",
+      "reflection_strength": 0.16,
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "material",
+      "source": "definition",
+      "description": "Clean concept albedo and controlled sheen through existing material facilities; no exposure compensation."
+    },
+    {
+      "id": "frutiger_aero:aqua_tile_01",
+      "display_name": "Aero Aqua Tile",
+      "surface": "floor",
+      "texture": "frutiger_aero:tex_aqua_tile_01",
+      "tile_metres": 2.4,
+      "grid_metres": 0.6,
+      "specular": 0.32,
+      "shine": 0.5,
+      "reflection_mode": "probe",
+      "reflection_strength": 0.16,
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "material",
+      "source": "definition",
+      "description": "Clean concept albedo and controlled sheen through existing material facilities; no exposure compensation."
+    },
+    {
+      "id": "frutiger_aero:cyan_glass_01",
+      "display_name": "Aero Cyan Glass",
+      "surface": "wall",
+      "texture": "frutiger_aero:tex_cyan_glass_01",
+      "tile_metres": 2.4,
+      "alpha_mode": "blend",
+      "opacity": 0.9,
+      "specular": 0.28,
+      "shine": 0.72,
+      "reflection_mode": "probe",
+      "reflection_strength": 0.12,
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "material",
+      "source": "definition",
+      "description": "Clean concept albedo and controlled sheen through existing material facilities; no exposure compensation."
+    },
+    {
+      "id": "frutiger_aero:cyan_water_01",
+      "display_name": "Aero Cyan Water",
+      "surface": "floor",
+      "texture": "frutiger_aero:tex_cyan_water_01",
+      "tile_metres": 2.4,
+      "alpha_mode": "blend",
+      "opacity": 1.0,
+      "specular": 0.4,
+      "shine": 0.75,
+      "reflection_mode": "probe",
+      "reflection_strength": 0.18,
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "material",
+      "source": "definition",
+      "description": "Controlled Aero sheen through the existing material/reflection path. WaterDef opacity/depth supplies water coverage; no new reflection or refraction system."
+    },
+    {
+      "id": "frutiger_aero:wall_bay",
+      "display_name": "Frutiger Aero Wall Bay",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/frutiger_aero/props/wall_bay.glb",
+      "size": [
+        3.6,
+        3.4,
+        0.556
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:wall_bay_tall",
+      "display_name": "Frutiger Aero Wall Bay Tall",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/frutiger_aero/props/wall_bay_tall.glb",
+      "size": [
+        3.6,
+        4.2,
+        0.556
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:lime_arch",
+      "display_name": "Frutiger Aero Lime Arch",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/frutiger_aero/props/lime_arch.glb",
+      "size": [
+        3.6,
+        3.4,
+        0.463
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:glass_partition",
+      "display_name": "Frutiger Aero Glass Partition",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/frutiger_aero/props/glass_partition.glb",
+      "size": [
+        3.495,
+        2.5,
+        0.695
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:light_pod",
+      "display_name": "Frutiger Aero Light Pod",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/frutiger_aero/props/light_pod.glb",
+      "size": [
+        2.4,
+        3.6,
+        2.4
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:tree_planter",
+      "display_name": "Frutiger Aero Tree Planter",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/frutiger_aero/props/tree_planter.glb",
+      "size": [
+        1.586167,
+        3.00887,
+        1.628473
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": true
+    },
+    {
+      "id": "frutiger_aero:seating_pod",
+      "display_name": "Frutiger Aero Seating Pod",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/frutiger_aero/props/seating_pod.glb",
+      "size": [
+        2.4,
+        1.04,
+        1.1
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": true
+    },
+    {
+      "id": "frutiger_aero:display_kiosk",
+      "display_name": "Frutiger Aero Display Kiosk",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/frutiger_aero/props/display_kiosk.glb",
+      "size": [
+        1.0,
+        2.4,
+        0.597
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": true
+    },
+    {
+      "id": "frutiger_aero:fountain_basin",
+      "display_name": "Frutiger Aero Fountain Basin",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/frutiger_aero/props/fountain_basin.glb",
+      "size": [
+        3.2,
+        0.46,
+        3.2
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:bubble_sculpture",
+      "display_name": "Frutiger Aero Bubble Sculpture",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/frutiger_aero/props/bubble_sculpture.glb",
+      "size": [
+        1.351268,
+        2.7,
+        1.236373
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:glass_canopy",
+      "display_name": "Frutiger Aero Glass Canopy",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/frutiger_aero/props/glass_canopy.glb",
+      "size": [
+        3.2,
+        3.4,
+        3.6
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:accent_panel",
+      "display_name": "Frutiger Aero Accent Panel",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/frutiger_aero/props/accent_panel.glb",
+      "size": [
+        1.1,
+        2.2,
+        0.07
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": true
+    },
+    {
+      "id": "frutiger_aero:atrium_dome",
+      "display_name": "Frutiger Aero Atrium Dome",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/frutiger_aero/props/atrium_dome.glb",
+      "size": [
+        12.0,
+        2.447466,
+        12.0
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:ceiling_ring",
+      "display_name": "Frutiger Aero Ceiling Ring",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/frutiger_aero/props/ceiling_ring.glb",
+      "size": [
+        1.3,
+        0.13,
+        1.3
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:double_doors",
+      "display_name": "Frutiger Aero Double Doors",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/frutiger_aero/props/double_doors.glb",
+      "size": [
+        2.8,
+        3.2,
+        0.34
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:double_doors_open",
+      "display_name": "Frutiger Aero Double Doors Open",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/frutiger_aero/props/double_doors_open.glb",
+      "size": [
+        2.8,
+        3.2,
+        1.345823
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:reception_counter",
+      "display_name": "Frutiger Aero Reception Counter",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/frutiger_aero/props/reception_counter.glb",
+      "size": [
+        4.5,
+        1.38,
+        1.477571
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:reception_soffit",
+      "display_name": "Frutiger Aero Reception Soffit",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/frutiger_aero/props/reception_soffit.glb",
+      "size": [
+        5.2,
+        0.34,
+        2.1
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:banner_atrium",
+      "display_name": "Frutiger Aero Banner Atrium",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/frutiger_aero/props/banner_atrium.glb",
+      "size": [
+        1.2,
+        2.4,
+        0.06
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:banner_corridor",
+      "display_name": "Frutiger Aero Banner Corridor",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/frutiger_aero/props/banner_corridor.glb",
+      "size": [
+        1.2,
+        2.4,
+        0.06
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:banner_reception",
+      "display_name": "Frutiger Aero Banner Reception",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/frutiger_aero/props/banner_reception.glb",
+      "size": [
+        1.2,
+        2.4,
+        0.06
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:city_backdrop",
+      "display_name": "Frutiger Aero City Backdrop",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/frutiger_aero/props/city_backdrop.glb",
+      "size": [
+        23.85,
+        8.6,
+        2.841
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:green_backdrop",
+      "display_name": "Frutiger Aero Green Backdrop",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/frutiger_aero/props/green_backdrop.glb",
+      "size": [
+        24.0,
+        1.3,
+        5.0
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:white_ceiling_01",
+      "display_name": "Aero Matte Ceiling",
+      "surface": "ceiling",
+      "texture": "frutiger_aero:tex_white_panel_01",
+      "tile_metres": 2.4,
+      "specular": 0.05,
+      "shine": 0.08,
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "material",
+      "source": "definition",
+      "description": "Diffuse pale ceiling panels with restrained broad response, using the committed white panel artwork."
+    },
+    {
+      "id": "beach:town_terrace_base",
+      "display_name": "Beach Town Terrace Base",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/town_terrace_base.glb",
+      "size": [
+        4.0,
+        2.22,
+        3.0
+      ],
+      "color": "#ead2a8",
+      "category": "Beach Structures",
+      "solid": false
+    },
+    {
+      "id": "beach:cove_foam",
+      "display_name": "Beach Cove Foam",
+      "asset_class": "environment",
+      "theme": "beach",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/beach/props/cove_foam.glb",
+      "size": [
+        48.0,
+        0.015,
+        2.2353039290701924
+      ],
+      "color": "#f4eee0",
+      "category": "Beach Nature",
+      "solid": false
+    },
+    {
+      "id": "frutiger_aero:portal_spandrel",
+      "display_name": "Frutiger Aero Portal Spandrel",
+      "asset_class": "environment",
+      "theme": "frutiger_aero",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/frutiger_aero/props/portal_spandrel.glb",
+      "size": [
+        3.6,
+        2.366,
+        0.24
+      ],
+      "color": "#f5f0ea",
+      "category": "Frutiger Aero",
+      "solid": false
+    },
+    {
+      "id": "winter:snow_roof_blanket",
+      "display_name": "Winter Continuous Roof Snow",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/winter/props/snow_roof_blanket.glb",
+      "size": [
+        6.811428571428571,
+        1.42517377,
+        2.2285714285714286
+      ],
+      "color": "#e6f2fa",
+      "category": "Winter Snow Attachments",
+      "solid": false
     }
   ]
 }

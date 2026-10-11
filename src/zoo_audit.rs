@@ -38,8 +38,8 @@ fn read(path: &str) -> String {
 
 /// The shipped zoo, parsed and validated.
 fn zoo() -> LevelDef {
-    let level = LevelDef::from_json(&read("assets/levels/model_zoo.json"))
-        .expect("the shipped Model Zoo parses");
+    let level =
+        LevelDef::from_json(&read("levels/model_zoo.json")).expect("the shipped Model Zoo parses");
     crate::loader::validate_level(&level).expect("the shipped Model Zoo validates");
     level
 }

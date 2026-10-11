@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Capture only Office cameras through Places' native wgpu renderer.
 
-Compile office_asset_review.json into <root>/assets/levels before use.
+Compile tests/fixtures/levels/office_asset_review.json into target/verification/maps
+before use, or select --package. Packages are staged in an isolated asset root.
 All captures, settings, logs and timing evidence remain in the chosen output.
 """
 import argparse
@@ -9,6 +10,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import time
 
@@ -40,9 +42,27 @@ def main():
     parser.add_argument("--quality", choices=("low", "medium", "high"), default="high")
     parser.add_argument("--level", choices=("office_asset_review", "places_demo"), default="office_asset_review")
     parser.add_argument("--binary", type=Path, default=Path("target/release/places"))
+    parser.add_argument("--package", type=Path, help="explicit compiled package for the selected level")
     args = parser.parse_args()
     root, out, binary = args.root.resolve(), args.out.resolve(), args.binary.resolve()
+    package = args.package.resolve() if args.package else (
+        root / "target/verification/maps/tests__fixtures__levels__office_asset_review.placesmap"
+        if args.level == "office_asset_review" else root / "assets/levels/places_demo.placesmap")
+    if not package.is_file():
+        parser.error(f"Missing compiled package: {package}; compile the selected source or supply --package")
     out.mkdir(parents=True, exist_ok=True)
+    asset_root = out / "package-root"
+    assets = asset_root / "assets"
+    assets.mkdir(parents=True, exist_ok=True)
+    for item in (root / "assets").iterdir():
+        if item.name == "levels":
+            continue
+        link = assets / item.name
+        if not link.exists():
+            link.symlink_to(item.resolve(), target_is_directory=item.is_dir())
+    bundled = assets / "levels"
+    bundled.mkdir(exist_ok=True)
+    shutil.copy2(package, bundled / (args.level + ".placesmap"))
     state = out / "state"
     state.mkdir(exist_ok=True)
     settings = dict(bindings={"forward": "W", "backward": "S", "strafe_left": "A",
@@ -62,7 +82,7 @@ def main():
         capture = out / (name + ".png")
         capture.unlink(missing_ok=True)
         env = {k: v for k, v in os.environ.items() if not k.startswith("PLACES_")}
-        env.update(PLACES_ASSET_ROOT=str(root), PLACES_STATE_ROOT=str(state),
+        env.update(PLACES_ASSET_ROOT=str(asset_root), PLACES_STATE_ROOT=str(state),
                    PLACES_LEVEL=args.level, PLACES_QUALITY=args.quality,
                    PLACES_SPAWN=spawn, PLACES_CAMERA=camera, PLACES_BENCH="1",
                    PLACES_BENCH_FRAMES="180", PLACES_BENCH_WARMUP="15",
@@ -82,6 +102,7 @@ def main():
         manifest.append(dict(name=name, spawn=spawn, camera=camera, quality=args.quality,
                              level=args.level, elapsed_seconds=time.monotonic() - start,
                              renderer=renderer,
+                             package_sha256=hashlib.sha256(package.read_bytes()).hexdigest(),
                              sha256=hashlib.sha256(capture.read_bytes()).hexdigest()))
         print(f"OK {args.quality}/{name}", flush=True)
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")

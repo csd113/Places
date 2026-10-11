@@ -1,13 +1,2 @@
-# Keep upstream license text byte-for-byte in the App Center package.
-apps/places-pocketchip/THIRD_PARTY_LICENSES.txt -whitespace
-/assets/levels/lantern_hollow.placesmap filter=lfs diff=lfs merge=lfs -text
-/assets/levels/places_demo.placesmap filter=lfs diff=lfs merge=lfs -text
-
-# Preserve bundled upstream license copies byte-for-byte in the audit playground.
-/debug-maps/movement-audit-20261003/licenses/SDL3-LICENSE.txt -whitespace
-/debug-maps/movement-audit-20261003/licenses/THIRD_PARTY_LICENSES.txt -whitespace
-
-# Keep the compiler audit's retained native packages publishable, including Hollow.
-/debug-maps/compiler-audit-20261003/packages/*.placesmap filter=lfs diff=lfs merge=lfs -text
-/debug-maps/compiler-audit-20261003/licenses/SDL3-LICENSE.txt -whitespace
-/debug-maps/compiler-audit-20261003/licenses/THIRD_PARTY_LICENSES.txt -whitespace
+# Asset images and models remain ordinary source files. Compiled .placesmap
+# outputs are ignored globally; no new map packages are sent to Git LFS.

@@ -216,7 +216,14 @@ impl LevelFog {
     /// Resolves every authored region of one level against the global colour.
     #[must_use]
     pub fn from_level(level: &LevelDef) -> Self {
-        let global = FogState::SHIPPED;
+        let global = level
+            .environment
+            .map_or(FogState::SHIPPED, |environment| FogState {
+                color: environment.fog.color,
+                density: environment.fog.density,
+                reference_y: environment.fog.reference_y,
+                height_gain: environment.fog.height_gain,
+            });
         Self {
             global,
             regions: level

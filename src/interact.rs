@@ -297,6 +297,15 @@ impl Interactables {
         self.items.get(index)
     }
 
+    /// Publishes a prompt changed by an authored action, reusing its storage.
+    pub fn set_prompt(&mut self, id: &str, prompt: &str) -> bool {
+        let Some(item) = self.items.iter_mut().find(|item| item.id == id) else {
+            return false;
+        };
+        prompt.clone_into(&mut item.prompt);
+        true
+    }
+
     /// The index of the instance called `id`, if any.
     #[must_use]
     pub fn index_of(&self, id: &str) -> Option<usize> {

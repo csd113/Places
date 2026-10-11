@@ -123,7 +123,7 @@ def main():
                 if label in ('seams' , 'holes', 'compare'):
                     images = work/'images'
                     images.mkdir()
-                    sources = sorted((baseline/'assets').glob('**/props/models/*.png'))[:4]
+                    sources = sorted((baseline/'assets').glob('**/props/*.png'))[:4]
                     if len(sources) != 4:
                         raise RuntimeError('need four real source PNGs')
                     for key, source in zip('abcd', sources):

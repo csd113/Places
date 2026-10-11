@@ -17,7 +17,7 @@ use crate::materials::{AlphaMode, MAX_EMISSION_INTENSITY};
 use crate::test_support::assert_exact;
 
 /// A real, shipped prop asset: the parser must accept what the toolkit writes.
-const CHAIR_GLB: &[u8] = include_bytes!("../../assets/environment/office/props/models/chair.glb");
+const CHAIR_GLB: &[u8] = include_bytes!("../../assets/environments/office/props/chair.glb");
 /// 1x1 opaque PNG used by the synthetic fixtures below.
 const PIXEL_PNG: &[u8] = &[
     137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0,
@@ -2110,7 +2110,7 @@ fn a_missing_or_malformed_clip_marker_keeps_the_clip_defaults() {
 /// so the character path can pose the node hierarchy (the wall switch's lever).
 #[test]
 fn an_animated_unskinned_prop_parses_as_a_rigid_animated_model() {
-    let bytes = std::fs::read("assets/environment/home/props/models/wall_switch.glb")
+    let bytes = std::fs::read("assets/environments/home/props/wall_switch.glb")
         .expect("the shipped wall switch is readable");
     let model = parse_glb(&bytes).expect("the wall switch parses");
     assert!(!model.is_skinned(), "the switch has no skin");
@@ -2357,4 +2357,46 @@ fn surface_normals_skin_with_weighted_inverse_transpose_and_normalize_after_blen
     let expected = Vec3::new(0.875, 0.625, 0.0).normalize();
     assert!(actual.distance(expected) < 1.0e-5);
     assert_eq!(morphs[0].normal, vec![[0.875, 0.0, 0.0]]);
+}
+
+#[test]
+fn scalar_response_has_compatible_defaults_and_rejects_invalid_controls() {
+    assert_eq!(
+        imported_response(None, [1.0; 4]).expect("valid scalar response"),
+        crate::materials::MaterialResponse {
+            roughness: 1.0,
+            ..crate::materials::MaterialResponse::NONE
+        }
+    );
+    let glossy = serde_json::json!({"roughnessFactor": 0.25_f64, "metallicFactor": 0.0_f64});
+    let wood =
+        imported_response(Some(&glossy), [0.5, 0.25, 0.1, 1.0]).expect("valid scalar response");
+    assert_eq!(wood.roughness, 0.25);
+    assert_eq!(wood.specular, [0.03; 3]);
+    let metallic = serde_json::json!({"roughnessFactor": 0.25_f64, "metallicFactor": 1.0_f64});
+    let metal =
+        imported_response(Some(&metallic), [0.5, 0.25, 0.1, 1.0]).expect("valid scalar response");
+    assert!(metal.specular[0] > metal.specular[1] && metal.specular[1] > metal.specular[2]);
+    for bad in [
+        serde_json::json!({"roughnessFactor": -0.01_f64}),
+        serde_json::json!({"metallicFactor": 1.01_f64}),
+        serde_json::json!({"roughnessFactor": "rough"}),
+    ] {
+        assert!(imported_response(Some(&bad), [1.0; 4]).is_err());
+    }
+}
+
+#[test]
+fn material_sidedness_uses_gltf_default_and_rejects_non_boolean_values() {
+    for (material, expected) in [
+        (r"{}", false),
+        (r#"{"doubleSided":false}"#, false),
+        (r#"{"doubleSided":true}"#, true),
+    ] {
+        let model = parse_glb(&triangle_document(material, 0)).expect("valid material");
+        assert_eq!(model.submeshes[0].double_sided, expected);
+    }
+    let error = parse_glb(&triangle_document(r#"{"doubleSided":"true"}"#, 0))
+        .expect_err("invalid sidedness");
+    assert!(error.0.contains("doubleSided is not a boolean"));
 }

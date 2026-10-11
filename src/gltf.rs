@@ -118,6 +118,11 @@ pub struct PropVertex {
 /// One primitive's slice of the model: a material assignment and an index range.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PropSubmesh {
+    /// glTF material sidedness. Omitted `doubleSided` defaults to false.
+    /// Retained in memory for entity raster state; prepared prop records stay unchanged.
+    pub double_sided: bool,
+    /// Shared scalar material response for every mesh route.
+    pub response: crate::materials::MaterialResponse,
     /// Index into the document's material list (stable, even for skipped materials).
     pub material: u16,
     /// Index into [`PropModel::textures`], or `None` for a material with no texture.
@@ -130,8 +135,7 @@ pub struct PropSubmesh {
     /// `alphaCutoff` and draws through the alpha-tested cutout pass; a
     /// `"BLEND"` material is [`AlphaMode::Blend`] (its `baseColorFactor` alpha
     /// already lives in the vertex colours) and draws through the sorted
-    /// depth-write-disabled translucent pass wherever the renderer has one
-    /// (characters and dynamic objects). `"OPAQUE"` and an omitted mode stay
+    /// depth-write-disabled translucent pass for static props, characters and dynamic objects. `"OPAQUE"` and an omitted mode stay
     /// [`AlphaMode::Opaque`].
     pub alpha: MaterialAlpha,
     /// First index into [`PropModel::indices`].
@@ -659,9 +663,40 @@ fn scene_roots(json: &serde_json::Value) -> Result<Vec<usize>, GltfError> {
     Ok(roots)
 }
 
+/// Import only authored scalar controls. Legacy omitted controls remain matte.
+/// This is a compact stylized sheen, not a full metallic BRDF.
+fn imported_response(
+    pbr: Option<&serde_json::Value>,
+    color: [f32; 4],
+) -> Result<crate::materials::MaterialResponse, GltfError> {
+    let scalar = |field: &str, default: f32| -> Result<f32, GltfError> {
+        let Some(value) = pbr.and_then(|p| p.get(field)) else {
+            return Ok(default);
+        };
+        let parsed = numeric_array::<1>(&serde_json::json!([value]), field)?;
+        let [number] = parsed;
+        if !(0.0..=1.0).contains(&number) {
+            return Err(GltfError::new(format!("{field} must be in 0..=1")));
+        }
+        Ok(number)
+    };
+    let roughness = scalar("roughnessFactor", 1.0)?;
+    let metallic = scalar("metallicFactor", 0.0)?;
+    let [r, g, b, _alpha] = color;
+    let specular = [r, g, b].map(|channel| {
+        (0.55 * metallic).mul_add(channel, 0.04 * (1.0 - metallic)) * (1.0 - roughness)
+    });
+    Ok(crate::materials::MaterialResponse {
+        specular,
+        roughness,
+        ..crate::materials::MaterialResponse::NONE
+    })
+}
+
 /// One material resolved into the values a primitive needs.
 #[derive(Clone, Copy)]
 struct ResolvedMaterial {
+    response: crate::materials::MaterialResponse,
     /// `baseColorFactor` multiplied into every vertex of the material.
     color: [f32; 4],
     /// Index into [`PropModel::textures`], or `None` for an untextured material.
@@ -670,15 +705,18 @@ struct ResolvedMaterial {
     emission: MaterialEmission,
     /// Material alpha contract, already sanitised.
     alpha: MaterialAlpha,
+    double_sided: bool,
 }
 
 impl Default for ResolvedMaterial {
     fn default() -> Self {
         Self {
+            response: crate::materials::MaterialResponse::NONE,
             color: DEFAULT_BASE_COLOR,
             texture: None,
             emission: MaterialEmission::NONE,
             alpha: MaterialAlpha::OPAQUE,
+            double_sided: false,
         }
     }
 }
@@ -1137,6 +1175,8 @@ impl<'a> Doc<'a> {
         })?;
         append_indices(&mut self.indices, &local_indices, base, block_vertices)?;
         self.submeshes.push(PropSubmesh {
+            double_sided: resolved.double_sided,
+            response: resolved.response,
             material: u16::try_from(material).map_err(|error| {
                 GltfError::new(format!("material index does not fit in 16 bits: {error}"))
             })?,
@@ -1146,6 +1186,11 @@ impl<'a> Doc<'a> {
             first_index,
             index_count,
         });
+        self.check_triangle_budget()?;
+        Ok(target_count)
+    }
+
+    fn check_triangle_budget(&self) -> Result<(), GltfError> {
         let triangles = self.indices.len() / 3;
         if triangles > MAX_PROP_TRIANGLES {
             return Err(GltfError::new(format!(
@@ -1153,7 +1198,7 @@ impl<'a> Doc<'a> {
                  the engine ceiling is {MAX_PROP_TRIANGLES}"
             )));
         }
-        Ok(target_count)
+        Ok(())
     }
 
     /// The already-assembled vertex block a primitive may reuse.
@@ -1355,11 +1400,23 @@ impl<'a> Doc<'a> {
         };
         let emission = self.resolve_emission(material, index)?;
         let alpha = Self::resolve_alpha(material, index)?;
+        let response = imported_response(pbr, color)?;
+        let double_sided = match material.get("doubleSided") {
+            None => false,
+            Some(serde_json::Value::Bool(value)) => *value,
+            Some(_) => {
+                return Err(GltfError::new(format!(
+                    "material {index} doubleSided is not a boolean"
+                )));
+            }
+        };
         let resolved = ResolvedMaterial {
+            response,
             color,
             texture,
             emission,
             alpha,
+            double_sided,
         };
         if let Some(slot) = self.material_cache.get_mut(index) {
             *slot = Some(resolved);

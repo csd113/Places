@@ -1,15 +1,20 @@
 //! SHA-256 helpers for package integrity and content-addressed blob names.
 
 use sha2::{Digest, Sha256};
+use std::io::Read as _;
 
 /// Lowercase hex SHA-256 of `bytes`.
 #[must_use]
 pub fn sha256_hex(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
+    digest_hex(&digest)
+}
+
+fn digest_hex(digest: &[u8]) -> String {
     let mut text = String::with_capacity(64);
     for byte in digest {
-        text.push(char::from_digit(u32::from(byte >> 4_i32), 16).unwrap_or('0'));
-        text.push(char::from_digit(u32::from(byte & 0x0f), 16).unwrap_or('0'));
+        text.push(char::from_digit(u32::from(*byte >> 4_i32), 16).unwrap_or('0'));
+        text.push(char::from_digit(u32::from(*byte & 0x0f), 16).unwrap_or('0'));
     }
     text
 }
@@ -32,12 +37,23 @@ pub fn sha256_from_blob_name(name: &str) -> Option<String> {
     Some(hex.to_ascii_lowercase())
 }
 
-/// SHA-256 of a file's bytes, as lowercase hex.
+/// SHA-256 of a file's bytes, as lowercase hex, with bounded streaming storage.
 ///
 /// # Errors
-/// Returns an error when the input is malformed, out of bounds or unsupported.
+/// Returns an error when the file cannot be opened or read.
 pub fn sha256_file(path: &std::path::Path) -> Result<String, String> {
-    let bytes = std::fs::read(path)
+    let mut file = std::fs::File::open(path)
         .map_err(|error| format!("could not read {}: {error}", path.display()))?;
-    Ok(sha256_hex(&bytes))
+    let mut hasher = Sha256::new();
+    let mut buffer = [0_u8; 8_192];
+    loop {
+        let count = file
+            .read(&mut buffer)
+            .map_err(|error| format!("could not read {}: {error}", path.display()))?;
+        if count == 0 {
+            break;
+        }
+        hasher.update(buffer.get(..count).ok_or("file read exceeds hash buffer")?);
+    }
+    Ok(digest_hex(&hasher.finalize()))
 }

@@ -1,9 +1,8 @@
 # Places compiler pipeline audit
 
-Status: implementation, benchmark comparisons, repository gates and native
-validation passed. Supporting measurements are in the adjacent
-`compiler-pipeline-audit-20261003.json`; complete raw evidence remains preserved
-locally outside build targets.
+The implementation, paired benchmark comparisons, repository gates and native
+validation passed in the October 3, 2026 audit. Measurements remain dated
+observations under the host conditions below.
 
 ## Measurement contract
 
@@ -37,8 +36,6 @@ The original baseline binary SHA-256 is
 An instrumented baseline produces byte-identical packages and adds phase
 timings. The frozen final benchmark compiler SHA-256 is
 `7c01a36c28ab84f1a24164bf48175a60f0c1df846c56b258e16a9bb2cc49256b`.
-Raw evidence is preserved outside build targets in
-`tools/bench/results/compiler-audit-20261003/`.
 
 ## Baseline and bottlenecks
 
@@ -219,7 +216,7 @@ tradeoff rather than an unreported memory improvement.
 All three Demo pairs passed strict physical-record equality, and each side's
 complete archive hashes are identical across repeats. Sources and quality settings
 remain identical. The first two pairs were compared automatically; the third was
-also compared while the orchestrator was held, with retained evidence.
+also compared with the recorded background host load.
 
 Hollow's repaired-architecture samples were 255.099 / 256.102 / 285.253 seconds
 with median CPU time 2,291.408 seconds and median peak RSS 2,080,751,616 bytes.
@@ -341,8 +338,7 @@ shortening the task.
 
 All commands used Rust **1.99.0 (b940084d7 2026-09-28)** and Cargo
 **1.99.0 (5f94df478 2026-08-27)**, `RUSTC_WRAPPER=` and
-`CARGO_NET_OFFLINE=true`. Compiler regression artifacts were written directly to
-the durable playground through `PLACES_COMPILER_TEST_EVIDENCE`.
+`CARGO_NET_OFFLINE=true`. Compiler regression controls retained their distinct input/package identities.
 
 | Command | Result |
 | --- | --- |
@@ -410,22 +406,19 @@ order. This can increase peak resident memory; measured figures are reported
 above. There is no claim of universal memory reduction or safe
 partial lighting reuse after physical edits.
 
-## Preservation
+## Reproduction inputs
 
-`debug-maps/compiler-audit-20261003/` retains every distinct custom authoring
-input/package, catalogue variant, analytic fixture source, unchanged assets,
-license and native launcher separately from production maps. Raw failure and
-diagnostic evidence remains locally preserved and ignored. Existing movement
-playground evidence is untouched. The native executable, relocated SDL library,
-327 unchanged asset files, source/package/catalogue hashes, licenses and capture
-traces are retained outside `target` and temporary directories. The saved native
-build hash is `cb9b11a581cf4c0255e83ec825aa3a1a8a7f055f34f9ab17a476c41d32d7bd6e`;
-`preserved-build.json` records compiler/toolchain/source/library identities.
-Large playground packages use the repository's existing Git LFS mechanism.
-Build cleanup is limited to idle Places package artifacts after preservation.
-The attempted `cargo clean --package places --target-dir target` was refused by
-Cargo (exit 101): the existing target directory has a missing/invalid
-`CACHEDIR.TAG`. Its safety guard was respected and the directory remains intact;
-no marker was fabricated and no forced deletion was used. All deliverables are
-already independently preserved outside it. This is the remaining cleanup
-blocker, not a compiler/validation failure.
+The dated comparisons require the original authoring sources, analytic fixtures,
+matching catalog/assets and valid packages, plus the saved player/compiler and
+local SDL dependency. A later checkout or screenshots alone cannot reconstruct
+these controls. The independent archive retains 29 distinct valid fixture
+packages and separately labelled expected-failure inputs.
+
+```sh
+python3 debug-maps/compiler-audit-20261003/launch.py
+```
+
+Running the preserved launcher without a map argument lists its fixtures. Use
+`tools/bench/compiler_bench.py` and the canonical verification guide for new measurements;
+retain the exact source/asset inputs and distinguish canonical runtime manifest
+identity from the hash of the full ZIP archive.

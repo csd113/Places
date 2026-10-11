@@ -1,10 +1,9 @@
 #!/bin/sh
 # Authoritative desktop gate; see docs/VERIFICATION.md. Run from the repo root.
 set -eu
-sh tools/check-rust.sh
 # Python native/packaging checks must use this source and toolchain, even when
 # an older release binary is already present.
-cargo build --release
+cargo build --locked --release
 python3 tools/assets/validate.py
 # The package suite executes the texture CLI --check once.
 python3 tools/props/build.py --check
@@ -21,34 +20,36 @@ python3 tools/levels/build_outdoor_route.py --check
 python3 tools/levels/build_lantern_hollow.py --check
 python3 tools/levels/build_lighting_quality.py --check
 python3 tools/levels/build_winter.py --check
-python3 -m unittest tests.test_showcase_assets tests.test_ghost_surface tests.test_lantern_hollow tests.test_weather tests.test_winter tests.test_winter_assets tests.test_string_lights
-cargo test --lib showcase_audit
-cargo test --lib static_prop_lighting_tests
+python3 tools/levels/build_beach.py --check
+python3 tools/levels/build_frutiger_aero.py --check
+python3 tools/textures/frutiger_aero_art.py --check
+python3 tools/levels/build_capacity_fixtures.py --check
+# Build the explicit eight-map lineup with normal qualities and probe capture.
+# Compiled maps are generated outputs, never inputs to either Rust binary.
+python3 tools/levels/compile.py --workers "${PLACES_VERIFY_WORKERS:-8}"
+python3 -m unittest tests.built_maps
+PLACES_WEATHER_PACKAGE_DIR="$PWD/assets/levels" \
+  python3 -m unittest tests.test_weather.PackagedWeatherTests
+# The full recursive fixture campaign remains available for compiler, capacity
+# and geometry changes; ordinary Rust/Python fixture regressions always run.
+case "${PLACES_VERIFY_ALL_MAPS:-0}" in
+  0) ;;
+  1)
+    map_gate_root="target/verification/map-regression-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+    python3 tools/bench/regression_maps.py --run-packages \
+      --compiler target/release/places-compile --out "$map_gate_root" \
+      --prepared-root target/verification/maps --install-source-packages
+    ;;
+  *)
+    printf '%s\n' 'PLACES_VERIFY_ALL_MAPS must be 0 or 1' >&2
+    exit 2
+    ;;
+esac
+sh tools/check-rust.sh
 cargo test --lib bundled_static_models_fit_medium_and_full_atlas_plans -- --ignored
-# The bundled packages must be current for their sources and must decode.
-cargo run --quiet --release --bin places-compile -- build assets/levels/places_demo.json --workers 12
-cargo run --quiet --release --bin places-compile -- build assets/levels/model_zoo.json --workers 12
-cargo run --quiet --release --bin places-compile -- build assets/levels/lantern_hollow.json --workers 12
-cargo run --quiet --release --bin places-compile -- build assets/levels/movement_test.json --workers 12
-cargo run --quiet --release --bin places-compile -- build assets/levels/winter.json --workers 12
-# A package must be current for its source and assets: `verify --require-current`
-# is the gate that fails when a rebuilt asset (a changed GLB or PNG) was not
-# recompiled into the shipped package.
-cargo run --quiet --release --bin places-compile -- verify assets/levels/places_demo.json --package assets/levels/places_demo.placesmap --require-current
-cargo run --quiet --release --bin places-compile -- verify assets/levels/model_zoo.json --package assets/levels/model_zoo.placesmap --require-current
-cargo run --quiet --release --bin places-compile -- verify assets/levels/lantern_hollow.json --package assets/levels/lantern_hollow.placesmap --require-current
-cargo run --quiet --release --bin places-compile -- verify assets/levels/movement_test.json --package assets/levels/movement_test.placesmap --require-current
-cargo run --quiet --release --bin places-compile -- verify assets/levels/winter.json --package assets/levels/winter.placesmap --require-current
-cargo run --quiet --release --bin places-compile -- validate assets/levels/lantern_hollow.placesmap
-cargo run --quiet --release --bin places-compile -- validate assets/levels/places_demo.placesmap
-cargo run --quiet --release --bin places-compile -- validate assets/levels/model_zoo.placesmap
-cargo run --quiet --release --bin places-compile -- validate assets/levels/movement_test.placesmap
-cargo run --quiet --release --bin places-compile -- validate assets/levels/winter.placesmap
-python3 -m unittest tests.test_package
-python3 -m unittest tests.test_packaging tests.test_glb_accessors tests.test_asset_audit
-python3 -m unittest tests.test_tool_execution tests.test_zoo_generator tests.test_bench_metrics tests.test_lightmap_harness tests.test_compiler_bench
-python3 -m unittest tests.test_geometry_repair
+# Enable export acceptance explicitly now that the complete lineup is current.
+PLACES_SKIP_SMOKE=0 PLACES_SMOKE_BIN="$PWD/target/release/places" \
+PLACES_TEST_EXPORT=1 PLACES_WEATHER_PACKAGE_DIR="$PWD/assets/levels" \
+  python3 -m unittest discover -s tests -p 'test_*.py'
 cargo test --lib render::wgpu::renderer::low_lighting_tests -- --ignored --test-threads=1
-python3 -m unittest tests.test_compiled_build
-python3 -m unittest tests.test_wgpu_bootstrap
 git diff --check

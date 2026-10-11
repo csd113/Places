@@ -2,6 +2,18 @@
 
 Repository-wide checks: [authoritative desktop verification](VERIFICATION.md).
 
+October 8, 2026 integration audit: colour/HDR, shared alpha sorting, prepared
+lighting ownership and independent quality summaries were checked against the
+current renderer/compiler. Asset aspect, UV, orientation and alpha contracts
+remain unchanged; recorded stage images and platform campaigns retain their
+original provenance.
+
+October 10, 2026 Aero authoring: shared prop writer now accepts opt-in BLEND
+and finite scalar opacity, preserving existing exports and model UV/PNG alpha
+contracts. The 256-square Aero atlas retains its 1024-square master; surface
+512-square derivatives retain 1024-square masters, fitted signage keeps its
+1:2 or 1:1 aspect, and the sky uses the existing 2048×1024 panorama class.
+
 This document is the canonical specification for every visual asset Places
 draws from an image: world surface textures, decals, fixture faces, prop and
 entity textures, normal maps, emissive masks and the non-runtime imagery that
@@ -100,8 +112,9 @@ introducing it.
 
 7. **Alpha is only used where the material system supports it.** A surface's
    alpha channel is ignored unless its material authors `alpha_mode: "cutout"`
-   or `"blend"`. Decal sheets are always alpha cut-outs. Fixture faces and
-   prop/entity textures are opaque; their alpha channel is ignored. See §16.
+   or `"blend"`. Decal sheets are always alpha cut-outs. Fixture faces are
+   opaque. Prop/entity alpha follows glTF OPAQUE, MASK or
+   BLEND on every supported mesh route (§8.5); OPAQUE ignores sheet alpha.
 
 8. **Source artwork should retain as much quality as the hard limits allow.**
    The ordinary PNG hard ceiling is 1024 px on either edge; 2:1 sky panoramas
@@ -129,82 +142,44 @@ introducing it.
 
 ```
 assets/
-  catalog.json                       authoritative registry of logical assets
-  README.md                          asset-system documentation
-  levels/                            shipped level files (assets referenced by id)
-  core/                              generic, theme-independent content
-    decals/*.png                     shared decal sheets
-    props/models/*.glb               shared props (embedded textures)
-    textures/
-      glass/*.png                    glass surface sheets
-      floors/*.png                   generic floor sheets
-      walls/*.png                    generic wall sheets
-      effects/*.png                  effect surface sheets
-      metal/*.png                    metal surface sheets
-      normals/*.png                  tangent-space normal maps
-      white_01.png                   shared untextured fallback sheet (§12.2)
-  environment/
-    <theme>/                         one directory per theme: office, pool, home
-      props/models/*.glb             theme props (embedded textures)
-      textures/
-        walls/*.png                  wall surface sheets
-        floors/*.png                 floor surface sheets
-        ceilings/*.png               ceiling surface sheets
-        lights/*.png                 light fixture faces
-        doors/*.png                  door leaf surface sheets
-        water/*.png                  water surface sheets
-      decals/*.png                   theme decal sheets
-  entities/
-    <id>/model/<id>.glb              entities (embedded textures)
-    <id>/textures/*.png              authoring source sheets kept beside the model
-  diagnostic/
-    textures/*.png                   engine test artwork; never used by shipped levels
+  catalog.json                  authoritative logical registry
+  README.md                     navigation and authoring commands
+  shared/                       theme-independent assets (class `core`)
+    props/*.glb, *.png           models and their standalone source sheets
+    textures/<surface>/*.png    surfaces, masks, normals, effects and fallback sheets
+    decals/*.png                shared fitted markings
+    ui/*.png                    fixed-layout font atlas
+  environments/<theme>/         Office, Pool, Home, Outdoor, Winter, Beach, Aero
+    props/*.glb, *.png           themed models and standalone sheets/masters
+    props/art/*.png              fitted painting artwork
+    textures/<surface>/*.png    walls, floors, ceilings, lights, doors, water, sky
+    decals/*.png                themed fitted markings
+  entities/<id>/model/*.glb      skinned entities
+  entities/<id>/textures/*.png   standalone entity sheets and masters
+  diagnostic/textures/*.png     engine test artwork, never playable content
+  references/<theme-or-entities>/  immutable concepts and authoring prompts
+  levels/*.placesmap            ignored compiler outputs; never committed
+levels/*.json                   maintained playable map sources
 ```
 
-Non-runtime imagery elsewhere:
+The logical IDs and `asset_class` values stay `core`, `environment`, `entity`
+and `diagnostic`; physical directories do not restrict use. Any map may use
+any catalog asset. The player resolves catalog paths relative to `assets/`.
+Keep prop PNGs beside their GLBs; entity sheets stay in `textures/`. GLBs embed
+runtime PNGs and the standalone equivalents remain committed. Do not create a
+second prop texture directory or repack UVs while moving files.
 
-```
-docs/screenshots/*.png               documentation captures
-icon.png                             application icon
-```
+Textures use the surface subdirectories shown above; fixture faces belong in
+`textures/lights/`, normal maps in `shared/textures/normals/`, and decals in
+`decals/`. Sky panoramas retain their 2:1 orientation and horizontal seam.
+Runtime names retain `_01` variants; masters keep their existing suffixes.
+Concept art and prompts are non-runtime references and must remain byte-identical.
+A PNG is claimed by one catalog entry; models may embed shared identical sheets.
 
-Rules:
-
-* **Theme directories organize, they never restrict.** Any material, prop,
-  decal or fixture may be used in any level regardless of theme. Generic
-  content lives under `assets/core/`; themed content under
-  `assets/environment/<theme>/`.
-* **Surface textures live in `textures/{walls,floors,ceilings}/`** according
-  to the surface they were painted for. The directory is organisational; the
-  catalog's `surface` field is documentation/validation only, and what the
-  renderer reads is the material's `texture`, `tile_metres`, `tint` and
-  alpha/response fields. A level may use any material on any surface. Door,
-  water, effect and metal sheets follow the same convention in their own
-  `textures/` subdirectories.
-* **Fixture faces live in `textures/lights/`.** They are catalog `light`
-  entries, not `texture` entries; the fixture PNG is the `model` of the light.
-* **Decal sheets live in `decals/`** — `assets/environment/<theme>/decals/`
-  for theme art, `assets/core/decals/` for shared markings. They are catalog
-  `decal` entries; the PNG is the `model`.
-* **Prop and entity textures are embedded in the GLB** under
-  `props/models/` (props) or `entities/<id>/model/` (entities). Standalone
-  native source PNGs live beside prop GLBs or in the entity's `textures/`
-  directory. Family members may share a source. The five house families keep
-  both `house_0N_native_128.png` and `house_0N_native_256.png` alongside their
-  larger `house_0N_materials.png` masters. There is no `props/textures/` directory.
-* **Normal maps live in a texture directory like any other sheet**
-  (`assets/core/textures/normals/`), and are named by a material's
-  `normal_texture` field.
-* **Emissive masks would live in a texture directory like normal maps** and
-  are named by a material's `emissive_mask` field. No shipped material
-  currently authors one.
-* **Naming**: surface/decal texture ids use a `tex_` prefix
-  (`core:tex_wallpaper_yellow_01`) while the material drops it
-  (`core:wallpaper_yellow_01`); numbered variants end `_01`; files use the
-  same lower-case `_01` naming. This convention is not enforced by tooling.
-* **A PNG is claimed by exactly one catalog entry.** Two assets cannot share
-  one file. (Three pool curtain models and three guardrail models
-  intentionally contain identical embedded texture *bytes* — see §8.3.)
+See [environment profiles](assets/ENVIRONMENTS.md) and
+[entity profiles](assets/ENTITIES.md) for kit-specific placement, rig and
+provenance details. Documentation captures live under `docs/images/` or
+`docs/screenshots/`; `icon.png` remains the application icon.
 
 ---
 
@@ -230,7 +205,7 @@ currently nothing enforces a minimum for any class.
 | Wall luminaire face | `pool_light_wall_01.png` | **2:1** | 1024×512 (current production); 128×64 painter output is contract-valid | none enforced | ignored | no | full sheet; `u` across 0.4 m width, `v` up 0.2 m height | POT both edges |
 | Flush-mount diffuser face | `ceiling_light_round_01.png` | **1:1** | 1024×1024 (current production); 256×256 painter output is contract-valid | none enforced | ignored | no | planar; sheet centre = fixture centre; inscribed circle = diffuser radius (0.16 m) | POT both edges |
 | Decal sheet | `no_diving_01.png` | **asset-defined**; placement must match it | 128×128 small markings; 1024×1024 hero signage | none enforced | **required cut-out**: alpha 0 background. A catalog decal may add `"alpha_mode": "blend"` for a soft-edged feather sheet (path-to-grass strips); the default stays the hard 0.5 cut-out | no | full sheet fitted to the level placement's width × height | POT both edges |
-| Prop / entity texture | embedded in `chair.glb` | **model-defined** (shipped 1:1) | 256×256 native (the normal shipped size); 32/64/128 legal for lighter props | none enforced | opaque by default; a glTF material may declare `alphaMode: "MASK"` (+`alphaCutoff`, default 0.5) for alpha-cutout foliage, which draws through the engine's cutout pass, or `alphaMode: "BLEND"` for a translucent material, which only the character/dynamic translucent routes draw (a blended static architecture placement is an authoring error) | no | model `TEXCOORD_0`, normalized 0..1, clamped | hard 1024 engine limit; uniform resize safe, repack is not |
+| Prop / entity texture | embedded in `chair.glb` | **model-defined** (shipped 1:1) | 256×256 native (the normal shipped size); 32/64/128 legal for lighter props | none enforced | opaque by default; glTF `MASK` (+`alphaCutoff`, default 0.5) uses cutout and `BLEND` uses translucent passes on static, character and dynamic routes; prepared static transport follows §8.5 | no | model `TEXCOORD_0`, normalized 0..1, clamped | hard 1024 engine limit; uniform resize safe, repack is not |
 | Sky sheet | `sky_aurora_01.png` / `sky_stars_01.png` | **2:1 equirectangular** | 2048×1024 preferred; stars 1024×512 | none enforced | RGB; alpha unused | **yes in u** (the horizon seam); v is a pole-to-pole span, clamped at the poles | sampled by view direction: `u` = yaw, `v` = pitch (`0` straight up). No level placement UVs | Hard maximum 2048×1024, POT both edges (`ShippedTextureKind::Sky`); the only non-square tiling-class sheet; catalog `texture` with `"surface": "sky"` |
 | Emissive mask | (none shipped) | **any**; must share the albedo's UV frame | ≤512 (High budget) | none enforced | RGB sampled, alpha ignored | follows the albedo | same UV frame as the albedo | dimensions need not equal the albedo; a mask-only texture is exempt from the square-surface dimension test |
 | Diagnostic texture | `diagnostic_alt_01.png` | deliberately varied (96×64) | n/a | n/a | deliberately varied | n/a | not used by any shipped level | test artwork only |
@@ -400,7 +375,7 @@ is one. The texture-first contract therefore covers
 everything a player reads as the fixture's *artwork* — the diffuser, lens or
 panel face — and the round Home flush mount in particular draws its whole
 visible face, rim line and centre structure from
-`environment/home/textures/lights/ceiling_light_round_01.png`.
+`environments/home/textures/lights/ceiling_light_round_01.png`.
 
 Fixture faces are **opaque by construction**: the face draws in the opaque
 pass and its alpha channel is ignored. A shipped fixture sheet is additionally
@@ -412,7 +387,7 @@ in practice.
 ### 6.1 Fluorescent ceiling panel
 
 Shipped asset: `core:fluorescent_panel_01` →
-`assets/environment/office/textures/lights/fluorescent_panel_01.png`.
+`assets/environments/office/textures/lights/fluorescent_panel_01.png`.
 
 | Property | Value |
 |---|---|
@@ -453,7 +428,7 @@ the lens artwork; both figures are current and describe different things.
 ### 6.2 Round recessed downlight (pool ceiling light)
 
 Shipped asset: `core:pool_light_round` →
-`assets/environment/pool/textures/lights/pool_light_round_01.png`.
+`assets/environments/pool/textures/lights/pool_light_round_01.png`.
 
 | Property | Value |
 |---|---|
@@ -473,7 +448,7 @@ isotropic by construction.
 ### 6.3 Wall luminaire (pool wall light)
 
 Shipped asset: `core:pool_light_wall` →
-`assets/environment/pool/textures/lights/pool_light_wall_01.png`.
+`assets/environments/pool/textures/lights/pool_light_wall_01.png`.
 
 | Property | Value |
 |---|---|
@@ -489,7 +464,7 @@ Shipped asset: `core:pool_light_wall` →
 ### 6.4 Residential flush-mount ceiling light
 
 Shipped asset: `home:ceiling_light_round` →
-`assets/environment/home/textures/lights/ceiling_light_round_01.png`.
+`assets/environments/home/textures/lights/ceiling_light_round_01.png`.
 
 | Property | Value |
 |---|---|
@@ -590,7 +565,7 @@ and the sheet is sampled once per particle.
 | Tileable | sampled `REPEAT`, and the zero edge alpha is what keeps a repeat invisible; the artwork itself is a radial puff, not a seam-matching pattern |
 | UV contract | one billboard per particle; `u`/`v` run `0..size / tile_metres`, where `size` is the effect's authored particle size and `tile_metres` the material's period. The shipped material uses `tile_metres: 0.5` |
 | Orientation | a puff is rotationally symmetric, so orientation is not part of the contract; keep the artwork centred and understated |
-| Catalog shape | a `core` `texture` entry (`core:tex_steam_01` → `core/textures/effects/steam_01.png`) plus a `source: "definition"` `material` entry (`core:steam_01`) with `alpha_mode: "blend"`, a low `opacity`, no tint, no emission and no reflection |
+| Catalog shape | a `core` `texture` entry (`core:tex_steam_01` → `shared/textures/effects/steam_01.png`) plus a `source: "definition"` `material` entry (`core:steam_01`) with `alpha_mode: "blend"`, a low `opacity`, no tint, no emission and no reflection |
 | Painting path | `tools/textures/extra_art.py::build_steam`, regenerated by `python3 tools/textures/build.py --only core:tex_steam_01`; deterministic helpers only |
 
 An effect billboard is never collidable, never occludes baked light and is not
@@ -601,7 +576,7 @@ the shape in the alpha channel.
 ### 7.1a Snow weather sheet
 
 `core:tex_snowflake_01` is a committed 256×256 square RGBA PNG at
-`assets/core/textures/effects/snowflake_01.png`. Preferred source size is
+`assets/shared/textures/effects/snowflake_01.png`. Preferred source size is
 256×256; ordinary hard limit is 1024 per edge. Full UV `0..1` fits one
 soft irregular granule to each camera-facing weather quad, independent of
 flake size and material tiling. All four edges must have zero alpha.
@@ -634,7 +609,7 @@ unchanged; Medium and Low apply the ordinary decal budgets.
 
 `core:painting_frame_landscape_01` is a **1.900 m × 1.192 m × 0.060 m** timber
 open-backed frame with a 50 mm border. It reuses the committed
-`assets/core/props/models/bookshelf.png` atlas. The painting's centre in model
+`assets/shared/props/bookshelf.png` atlas. The painting's centre in model
 space is `(0, 0.596, -0.030)`, on the wall at the frame's rear plane; the decal renderer
 adds its usual depth bias. Rotate this offset with the frame, and set the
 decal's `surface` to match its facing direction. Prop `y` is relative to the
@@ -735,23 +710,30 @@ normal runtime texture         256x256 native
 
 * The loader reads `pbrMetallicRoughness.baseColorTexture` and
   `baseColorFactor`, `emissiveFactor`, `emissiveTexture`,
-  `KHR_materials_emissive_strength`, `alphaMode` and `alphaCutoff`. It ignores
-  `metallicFactor`, `roughnessFactor`, `normalTexture`, `occlusionTexture`,
-  `metallicRoughnessTexture`, `doubleSided` and samplers.
-* **Props draw opaque unless the material declares `alphaMode: "MASK"`.** A
+  `KHR_materials_emissive_strength`, `alphaMode`, `alphaCutoff`, and scalar
+  `metallicFactor`/`roughnessFactor`. Scalar response is the existing compact
+  sheen model, not a full glTF PBR implementation. Omitted controls preserve
+  the matte legacy response (roughness 1, metal 0). It ignores `normalTexture`,
+  `occlusionTexture`, `metallicRoughnessTexture`, `doubleSided` and samplers.
+* **Props default opaque; `alphaMode: "MASK"` selects cutout.** A
   masked primitive becomes the engine's alpha-tested cutout pass at the
   authored `alphaCutoff` (glTF default 0.5); this is what grass tufts and tree
   leaf cards use. The toolkit writes full opacity into every prop sheet unless
   the builder opts in with `p.set_texture(size, alpha=True)` and
   `p.material(..., alpha_mode="mask")`.
 * **`alphaMode: "BLEND"` is the blended-material contract.** The importer reads
-  it as a real translucent material and only the routes with a translucent
-  pass draw it: skinned characters (a fading sheet-ghost entity) and dynamic
-  objects. The static prop batch pass still draws opaque and cut-out batches
-  only, so a blended model placed as static architecture is a mistake — author
-  it as an entity. A glTF `baseColorFactor` alpha is folded into the vertex
+  it as a real translucent material. Static props, skinned characters and
+  dynamic objects draw it through their translucent passes. World/prop/dynamic/
+  character draws share stable back-to-front centre sorting in scene and emission.
+  Intersecting triangles and several primitives within one object still need
+  careful placement. MASK uses the cutout pass on every route.
+  A glTF `baseColorFactor` alpha is folded into the vertex
   colours by the importer, so the blend contract itself carries opacity `1.0`;
   per-instance fade is a runtime component, not an asset property.
+  The shared prop writer authors this through
+  `p.material(..., alpha_mode="blend", opacity=0.28)`. Scalar opacity must be
+  finite in 0..1 and belongs only to BLEND; the writer preserves existing
+  opaque/MASK bytes and leaves PNG alpha unchanged. RGB tint remains optional.
 * An emissive material is one slot of a model and lights nothing by itself
   (`emissiveFactor`/`KHR_materials_emissive_strength`, optional
   `emissiveTexture` mask). The Halloween entities use this for the carved
@@ -759,9 +741,19 @@ normal runtime texture         256x256 native
   much dimmer so the painted face stays readable) and the pumpkin head; their
   actual illumination is the runtime `glow` component, never a baked static
   light.
-* A masked prop still bakes as a *solid* occluder unless its level placement
-  sets `"occludes": false`: the bake derives coarse boxes from triangles and
-  cannot see alpha. Every scatter tool writes `"occludes": false` for foliage.
+* Prepared static transport (Medium/Full lightmaps) tests real triangle-hit
+  coverage: numeric level-zero bilinear texture alpha × vertex alpha × material
+  opacity. OPAQUE always blocks, MASK blocks at or above its cutoff, and BLEND
+  transmits `1 - coverage` along a straight ray. Separate translucent layers
+  multiply transmission; a shared triangle edge counts once. BLEND does not
+  refract, tint transmitted light, or supply diffuse bounce. These semantics
+  apply to static architectural sheets and static model primitives alike;
+  model UVs clamp and architectural UVs repeat. Water retains its separate
+  volume attenuation. A genuinely open aperture contains no surface to attenuate.
+* The historical vertex-lighting/fast-occluder path still derives coarse boxes
+  without texture alpha. Foliage placements use `"occludes": false` for that
+  path; this flag does not remove drawn opaque or covered MASK triangles from
+  the prepared static solve. Collision remains independent of visual alpha.
 * `baseColorFactor` is baked into vertex colours; the renderer adds the
   material's emissive term on top, never multiplied by the baked light.
 * An `emissiveTexture` is sampled with the *same* `TEXCOORD_0` as the base
@@ -806,8 +798,8 @@ These source files are embedded during export; runtime reads the GLBs.
 The domestic remakes in `tools/props/parts/domestic_remade.py` retain those
 atlas regions and the tableware layouts. Bed and office chair now load their
 existing embedded artwork from standalone 256² PNG sources beside their GLBs:
-`core/props/models/bed.png` (frame/mattress/linen/board) and
-`environment/office/props/models/chair.png` (shell/pad/metal/dark). These are
+`shared/props/bed.png` (frame/mattress/linen/board) and
+`environments/office/props/chair.png` (shell/pad/metal/dark). These are
 unchanged extracted pixels, not newly painted textures. The switch retains its
 `toggle` clip and node names; its rocker hinge is now at `(0, 0.066, 0.022)`
 metres, with a 0.35-second, 30-degree travel. Its back remains at `z = 0`.
@@ -826,7 +818,7 @@ These use the same 1024² master → 256² native → GLB workflow; ordinary bui
 load artwork and never paint it. The basin lane decal is 1024×32 RGBA (32:1),
 with a transparent margin, and is placed at 32:1 on one flat basin floor.
 
-The remade rubber duck loads `environment/pool/props/models/rubber_duck.png`,
+The remade rubber duck loads `environments/pool/props/rubber_duck.png`,
 an opaque 256² atlas retaining body/head/beak/eye in the existing 2×2 layout.
 The cells are clean yellow, lighter yellow, orange and charcoal material
 swatches; the eye silhouette comes from small closed mesh discs, not alpha.
@@ -858,12 +850,12 @@ See the Winter journal for generated-source provenance and exact derivatives.
 
 Winter uses the existing surface/model classes, with no new shader or raster
 contract. `winter:tex_snow_01` is an opaque, seamless 1024² floor sheet at
-`environment/winter/textures/floors/snow_01.png`. Snow and packed snow share
+`environments/winter/textures/floors/snow_01.png`. Snow and packed snow share
 this source; their world-aligned repeats are 8 m and 5 m respectively. The
 packed material uses a restrained compaction tint. Both are matte and carry
 no normal map, emission or baked directional illumination.
 
-`environment/winter/props/models/snow_surface.png` is its native 256² fitted
+`environments/winter/props/snow_surface.png` is its native 256² fitted
 derivative. Modular drifts, architecture caps and icicles embed that PNG;
 their top UVs are continuous across neighbouring facets. All snow/ice shells
 are closed and outward-wound, with no blend materials.
@@ -891,12 +883,12 @@ Modular cap origins are their base-contact plane, centred in X/Z. Sink caps
 8–9 mm into their supports to avoid coplanar seams. Icicle origins are the
 lowest tip, with all roots at the catalogue height; mount the root plane
 15 mm into the underside. Prop Y remains floor-relative. See
-`assets/environment/winter/README.md` for the module dimensions and roof pitch.
+`assets/environments/winter/README.md` for the module dimensions and roof pitch.
 `python3 -m unittest tests.test_winter_assets` protects canonical identity,
 supported snow, UVs, winding, sealed topology, budgets and reproducible exports.
 
 Winter frozen-water albedo uses the existing **floor surface sheet** contract:
-`winter:tex_ice_01` at `environment/winter/textures/floors/ice_01.png` is a
+`winter:tex_ice_01` at `environments/winter/textures/floors/ice_01.png` is a
 square, opaque 1024² PNG, seamless on both axes, world `(x,z)` UVs at an 8 m
 repeat, north (-Z) at image top. Its blue-gray cloudy facets, sparse angular
 cracks and pale marks are albedo artwork with neutral lighting. The material
@@ -909,7 +901,7 @@ Validate with the standard texture budget/seam checks and native pond views.
 ### Winter string lights
 
 The three `winter:string_lights_{short,medium,long}` props share the committed
-128² opaque `environment/winter/props/models/string_lights.png`, copied
+128² opaque `environments/winter/props/string_lights.png`, copied
 losslessly from the existing home ball-light source. Its unchanged three-cell
 layout is glass, cable, clip (`Texture.auto`), with normalized fitted UVs and
 no tiling. All GLBs embed equivalent pixels. Glass uses a separate amber
@@ -958,7 +950,7 @@ bake never sees the cube and the level contributes collision and nothing else.
 
 The October 2026 Home reconstruction uses the existing prop class, with no
 new runtime image type. Its authoritative sheets remain immutable:
-`assets/environment/home/Home Environment Asset Sheet.png` and
+`assets/references/home/Home Environment Asset Sheet.png` and
 `Places_ Warm Low-Poly Home Asset Sheet.png`. The former establishes cream
 upholstery and a practical kitchen; the latter adds the low timber console,
 shelf coffee table, checked cushions, books, mug and sunset CRT programme.
@@ -997,6 +989,18 @@ the earlier shared paint/oak/ceiling sources remain byte-identical.
 Shared cedar, door-paint, timber-trim and flush-fixture
 sources remain intact. Validation uses the standard catalog, source/embedded
 pixel match, prop bounds/UV/topology, surface seam and native-render checks.
+
+Stage 6 adds `home:dining_chair_refined` as a reusable optional chair. Its
+324 triangles and 752 exported vertices replace the original chair's 204/432
+for the refined hero only. Selective seat corners, rail bevels and softened
+slat tops retain the exact 0.50 × 0.902 × 0.49 m local bounds, floor-contact
+origin, +Z orientation and opaque 256² `dining_chair.png` atlas. The new GLB
+embeds that existing PNG; no master or runtime image is resized or replaced.
+Geometric flat normals follow the established exporter/importer contract;
+no normal-map/tangent feature is introduced. The original model and builder
+remain byte-identical for prepared maps awaiting Stage 7 adoption.
+[Audits and measured hero costs](art-style/stage6/README.md) record topology,
+UVs, collision and native acceptance.
 
 ### 8.10 Outdoors concept reconstruction
 
@@ -1047,6 +1051,74 @@ complete bases remain in preserved review copies and preceding commits.
 `tree_03_snow_base.png` remains the exact prior evergreen atlas for historical
 evidence. No Outdoors source file is changed by that Winter reconciliation.
 
+
+### 8.11 Beach concept reconstruction
+
+The Beach kit keeps existing asset classes and importer behavior. Its 27
+static models use metres, +Y up, +Z forward, horizontally centred floor-contact
+origins and opaque closed faceted geometry. Their fitted shared atlas retains
+a fixed 4×4 layout: sand/grass/rock/stucco, wood/plank/palmtrunk/palmleaf,
+blue/coral/yellow/ivory, dark/turquoise/window/foam. The 1024² master and exact
+256² Lanczos native derivative live in `environments/beach/props/`;
+every GLB embeds the native PNG unchanged. Pale town coral is model vertex
+tint over ivory; umbrella sectors and chair upholstery use their fitted cells.
+Flat geometric normals are intentional under the established importer fallback.
+There are no new tangent/normal-map or emissive contracts.
+
+Seven labelled surface families plus grass, yellow roof and foam have opaque
+1024² square masters and seamless 512² runtime PNGs under the Beach texture
+subtree. Opposite edges agree exactly. They use broad clean material marks,
+without baked directional lighting. The shallow/deep water definitions share
+one polygon-cell PNG; BLEND coverage belongs to the existing material/WaterDef
+workflow, not image alpha. The sky is opaque seamless 2048×1024 equirectangular
+art, with +Y zenith at V=0, −Z at U=.5, sun bearing/elevation +45°/+45° and
+no baked landscape. Its matching authoring light points toward [−.5, −√.5, .5].
+
+Three animal rigs live in their own `entities/beach_<animal>/` subtrees. Each
+owns an opaque 1024² source and fitted 256² box-average derivative, embedded
+unchanged in its GLB. Their five looping clips preserve the runtime bind
+half-extent ×1.15 +.05 m culling and lighting envelopes at every sampled pose.
+Explicit `play_animation` actions initialize idle/fly, idle/walk and swim;
+`animation.playing` alone is insufficient. See the per-animal READMEs for
+measured dimensions, UV regions, pose bounds and floor-relative placement.
+
+Normal builds load committed PNGs. `tools/textures/beach_art.py --author` and
+animal `--author-textures` are deliberate offline authoring commands. Their
+`--check` modes reproduce both sources and derivatives without replacing them.
+[Beach kit](assets/ENVIRONMENTS.md#beach) records inventory and support
+helpers. Decorative terrain, hollow structures and dock GLBs do not create
+walking collision; the map owner must install the separate authored support.
+
+### 8.12 Frutiger Aero concept reconstruction
+
+The 23 static modules retain metres, +Y up, +Z front, centred horizontal bounds
+and floor-contact origins. Their closed, deliberately faceted geometry uses
+the existing model import and lighting contracts. Hollow glazing uses explicit
+BLEND scalar opacity; framing remains opaque, and the embedded PNGs remain
+alpha 255. Separate fitted structural stock supplies map collision for openings,
+furniture, curved boundaries and the shallow basin. Never collide a hollow
+module's entire visual bounds.
+
+The shared 256² native atlas retains its 1024² master: sixteen palette cells
+in the top quarter, four branding panels in the middle half, and accent/leaf/
+ring/terminal artwork in the bottom quarter. Five dedicated atlas/master pairs
+(`accent_panel_atlas`, `kiosk_atlas`, `banner_atrium`, `banner_corridor`,
+`banner_reception`) preserve 1:2 artwork in their left 128×256 native / 512×1024
+master region, with white/lime/cyan/silver stock swatches on the right. All are
+opaque, top-down, +Z upright, UV-clamped, and Lanczos derived from 1024² masters.
+Do not repack these regions without updating their model UVs.
+
+Four periodic 512² surfaces retain 1024² masters. Cyan glass has straight alpha
+52–64; white panel, aqua tile and cyan water are opaque. Five fitted RGBA decals
+retain transparent margins: atrium/reception/kiosk are 512×1024, corridor/leaf
+512². The opaque 2048×1024 U-periodic equirectangular sky has its sun at bearing/
+elevation +45°/+45°, matched by the authored directional light. Normal builds
+load committed PNGs; `tools/textures/frutiger_aero_art.py --check` reproduces all
+26 source/native images without writing. The kit adds no depicted creature or
+locomotion animation and uses the existing water presentation.
+
+[Aero kit](assets/ENVIRONMENTS.md#frutiger-aero) records the complete
+coverage and collision/UV contracts.
 
 ## 9. Emissive textures and masks
 
@@ -1136,7 +1208,7 @@ the current compiler builds maps against the installed asset bundle; see
 
 ### 12.2 Shared untextured white sheet
 
-`core:tex_white_01` → `assets/core/textures/white_01.png` is the renderer's
+`core:tex_white_01` → `assets/shared/textures/white_01.png` is the renderer's
 neutral fallback sheet: a flat opaque white fill. Fixture housings, plain
 body geometry and every texture slot with nothing better to bind sample it
 (§6). It carries no artwork, no level references it, and nothing derives
@@ -1168,10 +1240,10 @@ images; changing compression is safe, but changing layout or orientation is not.
 
 | Image | Catalog id and repository path | Contract |
 |---|---|---|
-| 128×64 HUD font atlas | `core:tex_ui_font_01` → `assets/core/ui/font_01.png` | Fixed 2:1 RGBA8 sheet, top-down rows; ASCII 32–126 in sixteen 8×8 cells per row. Cell zero stays opaque white for UI quads, glyph ink is white with binary alpha, unused cells remain transparent. No tiling. |
-| 256×256 validation decal atlas | `core:decal_test_01` → `assets/core/decals/validation_atlas_01.png` | Fixed square RGBA8 sheet; four 128×128 cells, eight-pixel UV gutters, only slot zero contains the existing frame and text. The PNG retains the atlas's bottom-up row convention, so its text appears vertically inverted in an ordinary image viewer. Preserve that orientation and alpha-zero background; the existing atlas UVs make it upright in game. No tiling. |
-| 64×64 missing-texture checker | `core:tex_missing` → `assets/core/textures/missing_01.png` | Fixed square opaque RGBA8 sheet; eight-pixel cells alternate `[255, 0, 255, 255]` and `[24, 24, 24, 255]`, starting magenta at the top-left. Preserve its symmetric orientation and checker period. |
-| 2×2 emergency white sheet | `core:tex_white_fallback_01` → `assets/core/textures/white_fallback_01.png` | Fixed square opaque RGBA8 sheet, every channel 255. Used only if the embedded primary white sheet cannot decode. No tiling or authored UV detail. |
+| 128×64 HUD font atlas | `core:tex_ui_font_01` → `assets/shared/ui/font_01.png` | Fixed 2:1 RGBA8 sheet, top-down rows; ASCII 32–126 in sixteen 8×8 cells per row. Cell zero stays opaque white for UI quads, glyph ink is white with binary alpha, unused cells remain transparent. No tiling. |
+| 256×256 validation decal atlas | `core:decal_test_01` → `assets/shared/decals/validation_atlas_01.png` | Fixed square RGBA8 sheet; four 128×128 cells, eight-pixel UV gutters, only slot zero contains the existing frame and text. The PNG retains the atlas's bottom-up row convention, so its text appears vertically inverted in an ordinary image viewer. Preserve that orientation and alpha-zero background; the existing atlas UVs make it upright in game. No tiling. |
+| 64×64 missing-texture checker | `core:tex_missing` → `assets/shared/textures/missing_01.png` | Fixed square opaque RGBA8 sheet; eight-pixel cells alternate `[255, 0, 255, 255]` and `[24, 24, 24, 255]`, starting magenta at the top-left. Preserve its symmetric orientation and checker period. |
+| 2×2 emergency white sheet | `core:tex_white_fallback_01` → `assets/shared/textures/white_fallback_01.png` | Fixed square opaque RGBA8 sheet, every channel 255. Used only if the embedded primary white sheet cannot decode. No tiling or authored UV detail. |
 
 These layouts are engine resources rather than map authoring targets. The
 existing atlas accessors and decal material slot remain unchanged. The shared
@@ -1183,8 +1255,8 @@ Computed lighting images are derived from level geometry and light settings:
 
 | Image | Producer | Purpose |
 |---|---|---|
-| Lightmap atlas pages | `src/lighting/lightmap/` | baked light data, regenerated at level load; never a shipped asset. A developer path can dump a page as a PNG under `target/`, but that is a diagnostic capture, not an asset. |
-| Reflection probe cubemaps | `src/render/common/reflections.rs` (routing) and `src/render/wgpu/reflections.rs` (probe cubemaps) | baked per level load |
+| Lightmap atlas pages | `src/lighting/lightmap/` + offline compiler | Incident linear HDR and signed moment pairs, prepared into package KTX2 blobs. Full plans up to eleven pages per contribution group; lower profiles retain eight. The player uploads the exact produced layers, subject to the measured 320 MiB +64 KiB typed record bound and unchanged switch-group/aggregate/shape guards. PNG dumps are diagnostics, not authored assets. |
+| Reflection probe cubemaps | `src/render/common/reflections.rs` (routing) and `src/render/wgpu/reflections.rs` (offline capture) | Packaged HDR probe captures and roughness mip chains, uploaded at level load; the player does not recapture them. |
 
 Diagnostic textures under `assets/diagnostic/textures/` are real PNGs but are
 engine test artwork: the 96×64 sheet deliberately proves arbitrary NPOT
@@ -1266,7 +1338,15 @@ a runtime edge budget per texture class:
 | Prop sheet (embedded) | 256 | 256 | 128 |
 | Emissive mask | 512 | 256 | 128 |
 | Sky panorama | 2048 | 1024 | 512 |
-| Lightmap atlas page | 1024 @ 16 texels/m | 1024 @ 12 texels/m | 512 @ 10 texels/m |
+| Preset Lightmaps | Full: 1024 @ 16 texels/m | Medium: 1024 @ 12 texels/m | Off: vertex lighting |
+| Preset Reflections | Full: 64-pixel HDR probes + planar | Medium: 48-pixel HDR probes + planar | Off |
+
+Lightmaps and Reflections are independent advanced settings: Low with Full
+lightmaps/reflections and High with them Off are supported. A level ships prepared
+Off/Medium/Full variants of the same source. The legacy two-profile planner API
+also supports 512-pixel/10-texel Low atlases; that API budget is not the runtime
+Low preset. All presets share fixed authored presentation defaults (exposure 1,
+knee 0.75, saturation 1.03, contrast 1.02), while resource budgets remain distinct.
 
 * Downscaling happens **once, at upload / level-load time**, through an
   integer-factor box filter that applies the same factor to both edges, so
@@ -1404,15 +1484,15 @@ why a surface sheet must be square.
 | Animated images | not supported; an APNG would decode as its first frame at best |
 | Grayscale | supported (expanded to RGB with alpha 255) |
 | Indexed/palette | supported (the decoder expands the palette) |
-| Colour space | **no gamma or ICC handling.** No `GL_SRGB` upload, no transfer function, no gamma chunk written or read. Sampled texels are combined in display space. |
+| Colour space | Colour PNG RGB is sRGB; sampled through `Rgba8UnormSrgb`. Normal maps and emission masks are numeric `Rgba8Unorm`. The resource role decides interpretation; PNG gamma/ICC metadata is ignored. Lighting and material arithmetic use linear HDR. |
 | Premultiplied alpha | not used; alpha is treated as straight coverage |
 | Metadata | ignored (non-pixel chunks are not read; the decoder keeps only pixels) |
 
 Authoring consequences:
 
-* Keep values in the display-space range the material system expects; the
-  material tint and baked lighting multiply the texel and there is no gamma
-  step to recover from an over-bright or over-dark authoring pass.
+* Paint albedo and emissive colour in ordinary sRGB. Do not paint a display
+  curve, exposure correction or baked illumination into the source. Material
+  factors, light colours and emission intensity are linear numeric values.
 * RGB is sufficient for any sheet whose material is `opaque`: the decoder
   expands it with alpha 255. RGBA is only needed where alpha is actually read
   (`cutout`, `blend`, decal cut-outs).
@@ -1424,7 +1504,17 @@ Authoring consequences:
 
 ## 17. Texture filtering and wrapping
 
-Filtering and wrapping are chosen by the **texture's role**, not by the asset:
+Stage 5 preserves every existing PNG/model/UV/alpha contract. Reusable catalogue
+water and ice gain restrained probe reflection; snow gains broad weak specular
+response. Prepared water charts and optional vertical-depth transmission are
+renderer/level controls, not texture changes. See [Stage 5 contracts](art-style/stage5/contracts.md).
+
+Filtering and wrapping are chosen by the **texture's role**, not by the asset.
+Colour fitting and mip generation average decoded linear RGB with alpha-weighted
+coverage, then store sRGB bytes; numeric maps use raw channel averages. Colour
+odd-edge reductions include every source texel. Alpha remains straight coverage.
+Texture-size budgets and the independent Texture Filtering setting do not
+change when Lightmaps is changed:
 
 | Role | Wrap | Mipmaps | Filtering |
 |---|---|---|---|
@@ -1436,7 +1526,7 @@ Filtering and wrapping are chosen by the **texture's role**, not by the asset:
 | White fallback sheet (`core:tex_white_01`) | `CLAMP_TO_EDGE` | no | nearest |
 | HUD font atlas | `CLAMP_TO_EDGE` | no | nearest |
 | Lightmap atlas page | `CLAMP_TO_EDGE` | no | linear |
-| Reflection probe cubemap | `CLAMP_TO_EDGE` | no | linear |
+| Reflection probe cubemap | `CLAMP_TO_EDGE` | prepared roughness mip chain | linear + explicit roughness LOD |
 
 Consequences for artists:
 
@@ -1458,31 +1548,40 @@ Consequences for artists:
 
 ## 18. Material tinting and baked lighting
 
-The default surface shading is a multiply chain in display space:
+The world shader accumulates linear HDR:
 
 ```
-lit = texture.rgb × vertex_color.rgb × light
-vertex_color = material tint × face shade
+linear_albedo = srgb_decode(texture.rgb) × vertex_color.rgb
+linear_scene = linear_albedo × linear_light + sheen + reflection + emission
 ```
 
-* `light` is the baked lightmap texel (or the vertex-lit fallback).
-* The **bake never samples the albedo**; it stores lighting only. The albedo
-  is multiplied in at draw time.
-* Emission is **added**, not multiplied into the bake:
-  `color = lit + sheen + reflection + emission`.
+* Atlas vertices carry linear material tint and the legacy architectural face
+  shade. Vertex-lit vertices additionally carry their linear lighting without
+  byte quantization. Atlas/probe irradiance remains linear HDR until shading.
+* The transport solver samples **linear albedo reflectance** for diffuse
+  bounces. Architectural reflectance is tint times mean decoded texture; it
+  excludes baked lighting and the artistic face shade. Model reflectance uses
+  the primitive's linear base factor times its clamped sheet sample. Stored
+  lightmap/probe irradiance excludes the receiving surface's albedo.
+* Material emission is additive linear radiance: sRGB emissive colour sheets
+  decode at sampling, RGB masks are numeric, and intensity multiplies before
+  accumulation. Emission does not create a light; author a light separately.
+* Scene, emission, blur and reflection resources use `Rgba16Float`. Authored
+  presentation owns fixed exposure, a hue-preserving shoulder and sRGB encoding;
+  its defaults are shared across quality (§14.1). No presentation curve is baked
+  into illumination or texture data.
+* Paint texture colour once. Where tint is authored, a pale neutral source
+  remains useful; no tint leaves the full source colour. Do not compensate for
+  the renderer with brighter assets or per-model light multipliers.
 
-Authoring consequences:
-
-* Where a material authors a tint, paint the source **pale and near-neutral**
-  so `texture × tint × light` lands in range. The office wallpaper, panels and
-  ceiling are authored this way.
-* Where a material authors no tint, the source carries the full colour (the
-  carpet is the reference case).
-* Because there is no gamma handling, do not compensate for an sRGB workflow
-  when painting; author the values as they should appear.
-* A surface's brightness in a dark room comes from the lightmap, not from
-  baking light into the albedo. Do not paint illumination into a surface
-  texture; the same sheet is reused in differently lit rooms.
+Low-poly mesh normal conventions: absent NORMAL means a flat geometric normal
+per triangle, including the vertex-lit fallback. Explicit normals preserve the
+asset's smooth/hard-edge choices. Normals use inverse-transpose transforms;
+tangents use the ordinary transform and are orthogonalized against the normal.
+Mirrored UVs carry handedness. Architectural normal maps use numeric tangent
+space with the source UV frame. glTF normal-map textures are not yet imported.
+See [the Stage 2 contract](art-style/stage2/contracts.md) for storage versions,
+legacy behavior, sampling details and precise remaining limits.
 
 ---
 
@@ -1613,8 +1712,11 @@ specification before introducing the new asset.**
 
 ## 24. Automated enforcement
 
-What exists today (all manual; there is no CI configuration in the
-repository):
+The following checks are available locally. `.github/workflows/rust.yml` also
+runs `tools/check-rust.sh` on macOS for pushes, pull requests and manual runs:
+format, locked check, strict debug/release all-feature Clippy and all-feature
+workspace tests. The full desktop script adds Python asset/package checks and
+real-window/GPU checks; see [VERIFICATION.md](VERIFICATION.md).
 
 | Rule | Enforced by | Command | Fails? |
 |---|---|---|---|
@@ -1646,7 +1748,7 @@ shape on a mask. Its failure messages name the asset, the path and the
 violated rule, for example:
 
 ```
-core:tex_pool_tile_wall_01: `environment/pool/textures/walls/pool_tile_wall_01.png`:
+core:tex_pool_tile_wall_01: `environments/pool/textures/walls/pool_tile_wall_01.png`:
 a surface sheet must be square, found 1024x2048
 ```
 
@@ -1663,7 +1765,8 @@ Known enforcement gaps (checked here, not automated):
   machine-checked (fixture orientation is pinned by render tests);
 * no dead-asset detection (unreferenced files, unused catalog entries);
 * the `--preferred` warning does not fail a build;
-* there is no CI, so every check above is run manually.
+* CI covers the shared Rust gate; a green CI run does not replace local asset
+  tooling or executed native desktop validation on the target platform.
 
 ---
 
@@ -1750,7 +1853,7 @@ python3 tools/textures/build.py --check           # PNG existence/dimensions; wa
 python3 tools/props/build.py --check              # prop GLBs exist and parse
 python3 tools/assets/audit.py --workers 12        # full inventory + integrity/source checks
 python3 tools/textures/seam_repair.py --check <png> [<png> ...]
-python3 -m unittest tests.test_package            # full asset/environment/level gate
+python3 -m unittest tests.test_package            # full asset/environments/level gate
 ```
 
 Rust:
@@ -1780,3 +1883,25 @@ python3 tools/props/animate_spooner_man.py [--check]                # the entity
 
 Per §2, regeneration never replaces shipped artwork whose dimensions differ
 from its painter's output unless `--force` is passed; a plain run is safe.
+
+### October 10 environment refinement additions
+
+Four geometry assets reuse their themes' unchanged fitted opaque 256² PNG atlases:
+Beach `town_terrace_base` and `cove_foam`, Aero `portal_spandrel`, and Winter
+`snow_roof_blanket`. They retain +Y up, +Z front, floor/base origin and UVs in 0..1.
+The 48 m cove foam is one closed scalloped shell shared with the supported coast
+profile; it contains no repeated internal end caps. The Winter blanket spans both
+roof bays, with end overhangs and an eave lip derived from actual shingle stock.
+The four models' embedded atlas pixels match their unchanged standalone PNGs;
+the Winter exporter losslessly re-encodes the existing snow artwork. The
+Winter blanket uses a continuous mirrored atlas unwrap at 3.4 m per U repeat and
+2 m per V repeat, retaining its authored surface. No new raster class, alpha
+behavior or texture resolution is introduced.
+
+The Winter sky retains its 2048×1024 opaque RGB, equirectangular U-repeat/V-clamp
+contract. `tools/textures/normalize_sky_seam.py` is an explicit offline correction
+for the saved PNG: it joins only the left/right columns, feathering at most 16
+columns per side. It preserves every interior pixel, dimensions, PNG mode, alpha
+and metadata; it never joins the vertical poles. The shipped correction changes
+at most 4/255 per channel. All four catalog sky sheets have exact U edge matches.
+The normal runtime loads these committed PNGs through the existing sampler.

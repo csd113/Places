@@ -206,7 +206,7 @@ def build_no_diving() -> Canvas:
 
 ART = {
     "core:decal_no_diving_01": {
-        "model": "environment/pool/decals/no_diving_01.png",
+        "model": "environments/pool/decals/no_diving_01.png",
         "build": build_no_diving,
         "kind": "decal",
     },
@@ -255,12 +255,12 @@ def build_stripes() -> Canvas:
 
 
 ART["core:decal_arrow_01"] = {
-    "model": "core/decals/arrow_01.png",
+    "model": "shared/decals/arrow_01.png",
     "build": build_arrow,
     "kind": "decal",
 }
 ART["core:decal_stripes_01"] = {
-    "model": "core/decals/stripes_01.png",
+    "model": "shared/decals/stripes_01.png",
     "build": build_stripes,
     "kind": "decal",
 }
@@ -289,7 +289,7 @@ def build_ceiling_vent() -> Canvas:
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "props"))
     from tex import decode_png
-    source = Path(__file__).resolve().parents[2] / "assets/core/decals/ceiling_vent_01.png"
+    source = Path(__file__).resolve().parents[2] / "assets/shared/decals/ceiling_vent_01.png"
     width, height, pixels = decode_png(source.read_bytes())
     if (width, height) != (128, 128):
         raise ValueError("ceiling vent must retain its 128x128 contract")
@@ -299,7 +299,7 @@ def build_ceiling_vent() -> Canvas:
 
 
 ART["core:decal_ceiling_vent_01"] = {
-    "model": "core/decals/ceiling_vent_01.png",
+    "model": "shared/decals/ceiling_vent_01.png",
     "build": build_ceiling_vent,
     "kind": "decal",
 }
@@ -311,7 +311,7 @@ def build_temptation_adam_eve() -> Canvas:
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "props"))
     from tex import decode_png
-    source = Path(__file__).resolve().parents[2] / "assets/core/decals/temptation_adam_eve_01.png"
+    source = Path(__file__).resolve().parents[2] / "assets/shared/decals/temptation_adam_eve_01.png"
     width, height, pixels = decode_png(source.read_bytes())
     if (width, height) != (1024, 1024):
         raise ValueError("painting must retain its padded 1024x1024 contract")
@@ -321,7 +321,7 @@ def build_temptation_adam_eve() -> Canvas:
 
 
 ART["core:decal_temptation_adam_eve_01"] = {
-    "model": "core/decals/temptation_adam_eve_01.png",
+    "model": "shared/decals/temptation_adam_eve_01.png",
     "build": build_temptation_adam_eve,
     "kind": "decal",
 }

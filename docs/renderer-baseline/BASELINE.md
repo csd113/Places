@@ -13,6 +13,17 @@ the crate name `liminal-rust`) belong to the preserved implementation at the
 [RENDERER_REFERENCE.md](../RENDERER_REFERENCE.md). They are kept verbatim so
 the record reproduces.
 
+The current checkout keeps all 50 original comparison PNGs, byte for byte, in
+`tests/fixtures/native/gles2-reference/{high,low}`. These are functional inputs
+to `compare_baseline.py`; the selected native examples below are the readable
+gallery. The historical tag keeps its original directory layout.
+
+| View | Former Full | Former Low |
+| --- | --- | --- |
+| Office | [native](../images/renderer-reference/reception-high.png) | [native](../images/renderer-reference/reception-low.png) |
+| Pool | [native](../images/renderer-reference/pool_wide-high.png) | [native](../images/renderer-reference/pool_wide-low.png) |
+| Home kitchen | [native](../images/renderer-reference/home_kitchen-high.png) | [native](../images/renderer-reference/home_kitchen-low.png) |
+
 ## 1. Repository baseline
 
 | field | value |
@@ -119,7 +130,7 @@ All four Python bench tools were run after the tooling relocation:
   120-frame run of Places Demo reports `render_mean_ms` 0.566,
   `loop_median_ms` 1.592, 150 draw calls, 31 067 vertices and writes
   `target/agent-work/bench/baseline-smoke.json`;
-* `check_holes.py docs/renderer-baseline/high/*.png`: all 25 High views report
+* `check_holes.py tests/fixtures/native/gles2-reference/high/*.png`: all 25 High views report
   0.0 % near-black pixels (exit 0);
 * `visual_check.py` comparing the build against itself (absolute binary paths
   required, see §6.1): 0 differing pixels in all 11 shots, i.e. the capture and
@@ -287,22 +298,17 @@ is listed, the spawn yaw is the camera.
 
 Storage:
 
-* `docs/renderer-baseline/high/` — 25 PNGs, Full profile;
-* `docs/renderer-baseline/low/` — 25 PNGs, Low profile, same 25 cameras;
-* each directory carries `manifest.txt`: one `name<TAB>level<TAB>spawn<TAB>
-  camera<TAB>quality` row per capture;
-* total committed size is about 19.1 MiB (High 15.6 MiB, Low 3.5 MiB); the
-  Low frames compress much better because that profile draws the scene at the
-  480 px reference width and upscales it;
-* nothing is resized, colour-corrected or re-encoded: the PNGs are exactly what
-  the game's capture path wrote.
+* `tests/fixtures/native/gles2-reference/high/` — 25 PNGs, Full profile;
+* `tests/fixtures/native/gles2-reference/low/` — 25 PNGs, Low profile, same 25 cameras;
+* the fixed camera and rendering parameters are recorded in the table above;
+  raw capture-time receipts are outside published documentation.
 
 Reproduce (repository root, release binary built):
 
 ```sh
 # Capture the current renderer in the same 25 views, both profiles.
-# Always set PLACES_CAPTURE_DIR: the script's default target is this frozen
-# directory, which must never be overwritten.
+# Set a fresh PLACES_CAPTURE_DIR for each comparison. The default is local
+# debug-maps evidence; the frozen test fixtures are never an output target.
 PLACES_CAPTURE_DIR="$PWD/target/agent-work/baseline-compare" \
     sh tools/bench/capture_baseline_views.sh
 PLACES_QUALITY=low \
@@ -311,10 +317,10 @@ PLACES_CAPTURE_DIR="$PWD/target/agent-work/baseline-compare-low" \
 
 # Compare the captures against this frozen set, per view.
 python3 tools/bench/compare_captures.py \
-    target/agent-work/baseline-compare docs/renderer-baseline
+    target/agent-work/baseline-compare tests/fixtures/native/gles2-reference
 
 # A shell/hole sanity check on the committed reference set.
-python3 tools/bench/check_holes.py docs/renderer-baseline/high/*.png
+python3 tools/bench/check_holes.py tests/fixtures/native/gles2-reference/high/*.png
 ```
 
 The frozen images themselves reproduce only from the preserved implementation:

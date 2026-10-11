@@ -342,7 +342,7 @@ def inventory(root=ROOT, workers=None):
             for asset_id in literals & entries.keys():
                 code_refs[asset_id].add(path.relative_to(root).as_posix())
     maps = []
-    for folder in ("assets/levels", "levels", "tests/fixtures/levels"):
+    for folder in ("levels", "tests/fixtures/levels"):
         for path in sorted((root / folder).rglob("*.json")):
             level = json.loads(path.read_text())
             ids = sorted((set(strings(level)) | {asset_id for asset_id, _ in asset_validation.level_ids(level)}) & entries.keys())

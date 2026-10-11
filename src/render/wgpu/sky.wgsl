@@ -1,3 +1,5 @@
+override display_target: bool = false;
+
 // Night sky: the level's data-driven background, drawn as one fullscreen
 // background pass before the world body.
 //
@@ -8,10 +10,8 @@
 // a light: nothing here contributes illumination, and a solid ceiling always
 // covers it because the world body draws over this pass with depth testing on.
 //
-// Display space is the first-order constraint, exactly like the decal stage:
-// the sheet is a plain non-sRGB texture of authored display values, the raw
-// scene target takes the product directly, and only the sRGB surface entry
-// point converts with `srgb_to_linear`.
+// The sRGB sheet decodes at sampling, and brightness multiplies linear RGB.
+// Storm display colour decodes before mixing into the linear HDR background.
 
 struct Sky {
     // Inverse clip-space view-projection; wgpu depth range (z in [0, 1]).
@@ -71,17 +71,37 @@ fn sky_uv(ndc: vec2<f32>) -> vec2<f32> {
     return vec2<f32>(u, v);
 }
 
+fn sample_sky(ndc: vec2<f32>) -> vec4<f32> {
+    let uv = sky_uv(ndc);
+    let dx = dpdx(uv);
+    let dy = dpdy(uv);
+    // atan2 jumps by one turn at the panorama join. Remove that jump from
+    // the footprint so both sides select the same mip while retaining filtering.
+    let continuous_dx = vec2<f32>(dx.x - round(dx.x), dx.y);
+    let continuous_dy = vec2<f32>(dy.x - round(dy.x), dy.y);
+    return textureSampleGrad(sky_texture, sky_sampler, uv, continuous_dx, continuous_dy);
+}
+
 // The surface (sRGB) entry point: the authored display value converted once.
 @fragment
 fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
-    let base = textureSample(sky_texture, sky_sampler, sky_uv(in.ndc));
-    return vec4<f32>(srgb_to_linear(mix(base.rgb * sky.params.x, sky.storm.rgb, sky.storm.a)), 1.0);
+    let base = sample_sky(in.ndc);
+    return vec4<f32>(mix(base.rgb * sky.params.x, srgb_to_linear(sky.storm.rgb), sky.storm.a), 1.0);
 }
 
 // The raw (non-sRGB) scene-target entry point: the authored value written
 // directly, the same convention the world and decal raw stages use.
 @fragment
 fn fs_main_raw(in: VsOut) -> @location(0) vec4<f32> {
-    let base = textureSample(sky_texture, sky_sampler, sky_uv(in.ndc));
-    return vec4<f32>(mix(base.rgb * sky.params.x, sky.storm.rgb, sky.storm.a), 1.0);
+    let base = sample_sky(in.ndc);
+    return vec4<f32>(target_color(mix(base.rgb * sky.params.x, srgb_to_linear(sky.storm.rgb), sky.storm.a)), 1.0);
+}
+
+fn linear_to_srgb(color: vec3<f32>) -> vec3<f32> {
+    return select(1.055 * pow(max(color, vec3<f32>(0.0)), vec3<f32>(1.0 / 2.4)) - 0.055, color * 12.92, color <= vec3<f32>(0.0031308));
+}
+
+fn target_color(color: vec3<f32>) -> vec3<f32> {
+    if (display_target) { return linear_to_srgb(color); }
+    return color;
 }

@@ -45,6 +45,132 @@ fn patch_local_round_trip() {
 }
 
 #[test]
+fn topology_flag_rejects_explicit_null() {
+    for kind in [PatchKind::Floor, PatchKind::Prop] {
+        let mut record = serde_json::to_value(patch(1.0, 1.0)).expect("chart metadata");
+        record["kind"] = serde_json::to_value(kind).expect("patch kind");
+        record["triangle"] = serde_json::Value::Null;
+        assert!(
+            serde_json::from_value::<LightmapPatch>(record).is_err(),
+            "legacy missing flags remain supported, but explicit null is malformed"
+        );
+    }
+}
+
+#[test]
+fn legacy_missing_model_topology_flag_remains_a_folded_triangle() {
+    let corners = [
+        [0.0, 0.0, 0.0],
+        [0.8, 0.0, 0.0],
+        [0.0, 0.6, 0.0],
+        [0.0, 0.6, 0.0],
+    ];
+    let original =
+        LightmapPatch::from_quad(PatchKind::Prop, corners, None).expect("legacy source triangle");
+    let mut record = serde_json::to_value(original).expect("triangle metadata");
+    let removed = record
+        .as_object_mut()
+        .expect("patch record")
+        .remove("triangle");
+    assert_eq!(
+        removed,
+        Some(serde_json::Value::Bool(true)),
+        "new records carry explicit topology"
+    );
+    let legacy: LightmapPatch =
+        serde_json::from_value(record).expect("legacy metadata still decodes");
+    assert_eq!(
+        legacy, original,
+        "missing Prop topology retains its historical domain"
+    );
+    assert!(
+        legacy.is_triangular(),
+        "legacy model chart cannot become a full quad"
+    );
+    assert_eq!(
+        legacy.point_at(1.0, 1.0),
+        legacy.point_at(0.0, 0.0),
+        "unused legacy chart half still folds"
+    );
+}
+
+#[test]
+fn shared_model_quad_serializes_explicit_false_and_never_folds() {
+    let corners = [
+        [0.0, 0.0, 0.0],
+        [0.8, 0.0, 0.0],
+        [0.65, 0.6, 0.0],
+        [0.1, 0.6, 0.0],
+    ];
+    let original =
+        LightmapPatch::from_quad(PatchKind::Prop, corners, None).expect("shared model quad");
+    let record = serde_json::to_value(original).expect("quad metadata");
+    assert_eq!(
+        record.get("triangle"),
+        Some(&serde_json::Value::Bool(false)),
+        "false must survive serialization to distinguish new model quads"
+    );
+    let decoded: LightmapPatch = serde_json::from_value(record).expect("quad metadata round trip");
+    assert_eq!(
+        decoded, original,
+        "native piecewise domain survives metadata round trip"
+    );
+    assert!(
+        !decoded.is_triangular(),
+        "model family no longer determines topology"
+    );
+    assert!(
+        glam::Vec3::from_array(decoded.point_at(1.0, 1.0))
+            .distance(glam::Vec3::from_array(corners[2]))
+            < 1.0e-6,
+        "far quad corner remains real geometry"
+    );
+    for u in [0.1_f32, 0.5, 0.9] {
+        for v in [0.2_f32, 0.6, 1.0] {
+            let (back_u, back_v) = decoded.local_of(decoded.point_at(u, v));
+            assert!(
+                (u - back_u).abs() < 1.0e-5 && (v - back_v).abs() < 1.0e-5,
+                "upper and lower quad halves invert without reflection"
+            );
+        }
+    }
+}
+
+#[test]
+fn legacy_architecture_defaults_to_quad_but_explicit_triangles_keep_their_domain() {
+    let original = patch(0.8, 0.6);
+    let mut record = serde_json::to_value(original).expect("architecture metadata");
+    let removed = record
+        .as_object_mut()
+        .expect("patch record")
+        .remove("triangle");
+    assert_eq!(
+        removed,
+        Some(serde_json::Value::Bool(false)),
+        "all new quad records carry topology"
+    );
+    let legacy: LightmapPatch = serde_json::from_value(record).expect("legacy architecture record");
+    assert_eq!(legacy, original, "legacy architecture remains a full quad");
+    let triangle = LightmapPatch::from_quad(
+        PatchKind::Wall,
+        [[0.0; 3], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 1.0, 0.0]],
+        Some(3),
+    )
+    .expect("explicit architecture triangle");
+    let decoded: LightmapPatch =
+        serde_json::from_slice(&serde_json::to_vec(&triangle).expect("triangle serialization"))
+            .expect("triangle decoding");
+    assert_eq!(
+        decoded, triangle,
+        "explicit architecture topology takes precedence over family"
+    );
+    assert!(
+        decoded.is_triangular(),
+        "explicit wall triangle still folds unused chart half"
+    );
+}
+
+#[test]
 fn patch_axes_follow_the_quad_winding() {
     let corners = [
         [1.0, 2.0, 3.0],
@@ -248,6 +374,90 @@ fn packing_is_deterministic_and_disjoint() {
 }
 
 #[test]
+fn architecture_free_space_keeps_prop_charts_within_the_existing_budget() {
+    let config = LightmapConfig {
+        texels_per_metre: 1.0,
+        page_edge: 32,
+        max_pages: 1,
+        padding: 2,
+        bytes_per_texel: 16,
+    };
+    let patches = [
+        (14.0, PatchKind::Floor),
+        (3.0, PatchKind::Prop),
+        (4.0, PatchKind::Prop),
+        (5.0, PatchKind::Floor),
+        (3.0, PatchKind::Prop),
+    ]
+    .map(|(span, kind)| {
+        let mut surface = patch(span, span);
+        surface.kind = kind;
+        surface
+    });
+    let pack = || {
+        let mut allocator = ChartAllocator::new(config);
+        let charts = patches
+            .iter()
+            .map(|surface| {
+                allocator
+                    .allocate(surface)
+                    .expect("free atlas area must remain usable across surface families")
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            allocator.page_count(),
+            1,
+            "mixed charts retain the original page limit"
+        );
+        assert!(
+            !allocator.failed(),
+            "reusing free architecture space must keep the plan valid"
+        );
+        charts
+    };
+    let charts = pack();
+    assert_eq!(
+        charts,
+        pack(),
+        "mixed page placement must remain deterministic"
+    );
+    for (index, (surface, chart)) in patches.iter().zip(&charts).enumerate() {
+        assert_eq!(
+            (chart.width, chart.height),
+            config.chart_texels(surface),
+            "free-space reuse cannot reduce the requested receiver density"
+        );
+        let padding = config.padding_for(surface.kind);
+        let outer = (
+            chart.x - padding,
+            chart.y - padding,
+            chart.x + chart.width + padding,
+            chart.y + chart.height + padding,
+        );
+        assert!(
+            outer.2 <= config.page_edge && outer.3 <= config.page_edge,
+            "both chart gutters must remain on their resident page"
+        );
+        for (other_surface, other_chart) in patches.iter().zip(&charts).take(index) {
+            let other_padding = config.padding_for(other_surface.kind);
+            let other = (
+                other_chart.x - other_padding,
+                other_chart.y - other_padding,
+                other_chart.x + other_chart.width + other_padding,
+                other_chart.y + other_chart.height + other_padding,
+            );
+            assert!(
+                outer.2 <= other.0
+                    || other.2 <= outer.0
+                    || outer.3 <= other.1
+                    || other.3 <= outer.1,
+                "mixed-family charts and their full gutters must never overlap"
+            );
+        }
+    }
+}
+
+#[test]
 fn the_packer_uses_best_short_side_fit() {
     // The policy in one picture: a 32 x 32 page with a tall 8 x 16 chart first.
     // Every following 8 x 8 chart takes the free rectangle whose shorter
@@ -262,7 +472,9 @@ fn the_packer_uses_best_short_side_fit() {
         bytes_per_texel: 16,
     };
     let mut allocator = ChartAllocator::new(config);
-    let tall = allocator.allocate(&patch(8.0, 16.0)).expect("tall chart");
+    // At one interval per metre, seven/fifteen metres produce 8/16
+    // inclusive samples; this test still exercises the same packed rectangles.
+    let tall = allocator.allocate(&patch(7.0, 15.0)).expect("tall chart");
     assert_eq!((tall.x, tall.y, tall.width, tall.height), (0, 0, 8, 16));
     let expected = [
         (0u32, 16u32),
@@ -281,12 +493,12 @@ fn the_packer_uses_best_short_side_fit() {
         (24, 24),
     ];
     for (x, y) in expected {
-        let chart = allocator.allocate(&patch(8.0, 8.0)).expect("short chart");
+        let chart = allocator.allocate(&patch(7.0, 7.0)).expect("short chart");
         assert_eq!((chart.x, chart.y), (x, y), "best-short-side-fit placement");
     }
     // The 32 x 32 page is now full (the tall chart plus fourteen 8 x 8 charts
     // cover all 1024 texels), and the one-page budget is spent.
-    assert!(allocator.allocate(&patch(8.0, 8.0)).is_none());
+    assert!(allocator.allocate(&patch(7.0, 7.0)).is_none());
     assert!(allocator.failed());
 }
 
@@ -340,6 +552,57 @@ fn the_shipped_page_budget_is_used_when_genuinely_needed() {
 }
 
 #[test]
+fn full_page_policy_preserves_architecture_sampling_and_invalidates_the_ten_page_cache() {
+    let full = LightmapConfig::for_profile(QualityProfile::Full);
+    assert_eq!(
+        full.max_pages, 11,
+        "Full admits the measured finer model plan"
+    );
+    let previous_full = LightmapConfig {
+        max_pages: 10,
+        ..full
+    };
+    for receiver in [patch(0.3, 0.35), patch(8.0, 6.0), patch(63.6875, 63.6875)] {
+        assert_eq!(
+            full.chart_texels(&receiver),
+            previous_full.chart_texels(&receiver),
+            "the page policy cannot change samples or gutters"
+        );
+        assert_eq!(full.padding_for(receiver.kind), 2);
+    }
+    let level = crate::level::LevelDef::from_json(
+        r#"{"format_version":3,"id":"page_policy","name":"Page policy",
+            "spawn":{"x":1,"z":1},
+            "rooms":[{"x":0,"z":0,"width":8,"depth":6,"height":3}]}"#,
+    )
+    .expect("the policy fixture parses");
+    assert_ne!(
+        content_key(&level, &full, QualityProfile::Full),
+        content_key(&level, &previous_full, QualityProfile::Full),
+        "the previous Full atlas must not survive a changed page budget"
+    );
+    let medium = crate::quality::LightmapQuality::Medium
+        .lightmap_config()
+        .expect("Medium has an atlas");
+    let previous_medium = LightmapConfig {
+        texels_per_metre: 12.0,
+        max_pages: 8,
+        ..previous_full
+    };
+    assert_eq!(medium, previous_medium, "Medium's whole policy is retained");
+    assert_eq!(
+        content_key(&level, &medium, QualityProfile::Full),
+        content_key(&level, &previous_medium, QualityProfile::Full),
+        "unchanged Medium inputs preserve their atlas key"
+    );
+    assert_eq!(
+        LightmapConfig::for_profile(QualityProfile::Low).max_pages,
+        8,
+        "Low retains its prior budget"
+    );
+}
+
+#[test]
 fn a_two_page_allocator_still_reports_the_same_overflow() {
     // The budget is a config field, not a hard-coded count: an allocator built
     // with two pages still fills two and rejects the third with the same named
@@ -371,7 +634,7 @@ fn chart_texels_match_the_density_and_are_profile_specific() {
     // Stated in metres and the profile's own density, so a retune of the
     // density cannot silently invalidate the expectation.
     let texels = |config: &LightmapConfig, metres: f32| -> u32 {
-        (metres * config.texels_per_metre).ceil() as u32
+        (metres * config.texels_per_metre).ceil() as u32 + 1
     };
     assert_eq!(
         full.chart_texels(&patch),
@@ -386,6 +649,29 @@ fn chart_texels_match_the_density_and_are_profile_specific() {
         "Full must resolve more texels than Low"
     );
     assert_eq!(full.max_chart_span_m(), low.max_chart_span_m());
+}
+
+#[test]
+fn inclusive_density_keeps_fractional_spans_and_thin_axes() {
+    let config = LightmapConfig {
+        texels_per_metre: 8.0,
+        ..LightmapConfig::for_profile(crate::quality::QualityProfile::Full)
+    };
+    // Ceil describes the interval count. Both endpoints remain available
+    // even on an authored part thinner than one physical sampling interval.
+    assert_eq!(config.chart_texels(&patch(0.462, 0.632)), (5, 7));
+    assert_eq!(config.chart_texels(&patch(0.0625, 0.125)), (2, 2));
+    let mut allocator = ChartAllocator::new(config);
+    let whole = allocator.allocate(&patch(8.0, 3.0)).expect("whole wall");
+    assert_eq!((whole.width, whole.height), (65, 25));
+    for span in [2.17, 0.41, 5.42] {
+        let chart = allocator
+            .allocate(&patch(span, 3.0))
+            .expect("arbitrary strip");
+        let intervals = f32::from(u16::try_from(chart.width - 1).expect("small chart"));
+        assert!(intervals / span >= config.texels_per_metre);
+        assert_eq!(chart.height, whole.height);
+    }
 }
 
 use super::{
@@ -590,8 +876,15 @@ fn plan_stamps_the_six_vertices_with_the_chart_mapping() {
     assert!(!plan.failed());
     let (_, chart) = plan.charts()[0];
     // A 4x2 m quad at this profile's density.
-    assert_eq!(chart.width, (4.0 * config.texels_per_metre).ceil() as u32);
-    assert_eq!(chart.height, (2.0 * config.texels_per_metre).ceil() as u32);
+    assert_eq!(
+        chart.width,
+        (4.0 * config.texels_per_metre).ceil() as u32 + 1
+    );
+    assert_eq!(
+        chart.height,
+        (2.0 * config.texels_per_metre).ceil() as u32 + 1
+    );
+    assert_eq!(plan.sample_densities(), &[config.texels_per_metre]);
     for (index, corner) in [0usize, 1, 2, 0, 2, 3].into_iter().enumerate() {
         let (u, v) = match corner {
             0 => (0.0, 0.0),
@@ -1401,15 +1694,14 @@ fn switchable_groups_follow_the_base_layers_in_a_dense_pair_layout() {
 }
 
 /// The format version is bumped whenever the atlas layout, texel encoding or key
-/// inputs change; version 13 maps chart endpoints to texel centres in the HDR transport solve (an irradiance
-/// term plus a directional moment per texel, and prepared switchable layer
-/// groups). Pinned so a future layout change has to bump it deliberately, and
-/// part of every key so a pre-12 atlas can never be reused.
+/// inputs change; version 14 shares supported coplanar prop chart domains and
+/// records explicit triangle/quad topology. Pinned so layout changes invalidate
+/// transient atlases even when all source level and model bytes are unchanged.
 #[test]
 fn the_format_version_is_current_and_is_part_of_every_key_prefix() {
     // The value itself is pinned by the cache module's version notes; the
     // contract under test is that the key carries it.
-    assert_eq!(LIGHTMAP_FORMAT_VERSION, 13);
+    assert_eq!(LIGHTMAP_FORMAT_VERSION, 14);
     let level = crate::level::LevelDef::from_json(
         r#"{
             "format_version": 3,
@@ -1460,7 +1752,7 @@ fn chart_texels_are_clamped_to_the_usable_edge() {
         config.chart_texels(&huge),
         (
             config.usable_edge(),
-            (2.0 * config.texels_per_metre).ceil() as u32
+            (2.0 * config.texels_per_metre).ceil() as u32 + 1
         )
     );
 }
@@ -1476,9 +1768,8 @@ fn chart_texels_are_clamped_to_the_usable_edge() {
 /// and page size, never where the geometry is cut.
 #[test]
 fn the_shipped_demo_fits_the_page_budget_at_both_profiles() {
-    let level =
-        crate::level::LevelDef::from_json(include_str!("../../../assets/levels/places_demo.json"))
-            .expect("the shipped places_demo parses");
+    let level = crate::level::LevelDef::from_json(include_str!("../../../levels/places_demo.json"))
+        .expect("the shipped places_demo parses");
     let mut sets = Vec::new();
     for profile in crate::quality::QualityProfile::ALL {
         let config = profile.lightmap_config();
@@ -1563,9 +1854,8 @@ fn patch_set(lightmaps: &LevelLightmaps) -> Vec<PatchIdentity> {
 }
 
 /// A synthetic two-storey tower whose two 55 x 55 m floors plus their ceilings
-/// need more than the historical two-page budget but fit the shipped eight. It
-/// pins the capacity contract on a clean checkout, where the drop-in Pit is not
-/// present.
+/// need more than the historical two-page budget but fit the former eight. It
+/// pins the capacity boundary independently of the tracked Pit fixture.
 fn large_tower_level() -> crate::level::LevelDef {
     large_tower_level_with_storeys(2)
 }
@@ -1637,17 +1927,16 @@ fn build_with_config(
 /// silently, and the 2026 raise to eight pages must hold a three-storey tower
 /// that four pages cannot.
 ///
-/// The synthetic towers pin every half of that contract on each checkout. The
-/// drop-in `levels/level0_pit.json` is a per-user file that is not committed, so
-/// when it is present its real build is checked too; when it is absent the test
-/// still covers the capacity boundary.
+/// The synthetic towers pin the capacity boundaries on each checkout. The
+/// tracked `tests/fixtures/levels/level0_pit.json` fixture also checks the real
+/// build against the shipped budget.
 #[test]
 fn the_pit_bakes_into_the_shipped_page_budget_at_full() {
     let profile = QualityProfile::Full;
     let config = profile.lightmap_config();
     assert_eq!(
-        config.max_pages, 8,
-        "the shipped profile supports the shared eight-page budget"
+        config.max_pages, 11,
+        "the shipped Full profile supports the measured eleven-page budget"
     );
     assert_eq!(config.page_edge, 1024);
 
@@ -1696,13 +1985,13 @@ fn the_pit_bakes_into_the_shipped_page_budget_at_full() {
 
 /// The 2026 raise from four pages to eight: a third 55 m x 55 m storey must
 /// overflow the old four-page budget by name (falling back to vertex lighting),
-/// and the shipped eight-page budget must bake it with more than four pages
+/// and the former eight-page budget must bake it with more than four pages
 /// actually resident. Without this, the raise would be an unproven constant.
 #[test]
 fn the_three_storey_tower_needs_the_raised_page_budget() {
     let profile = QualityProfile::Full;
     let config = profile.lightmap_config();
-    assert_eq!(config.max_pages, 8);
+    assert_eq!(config.max_pages, 11);
     let taller = large_tower_level_with_storeys(3);
     let mut four_page = config;
     four_page.max_pages = 4;
@@ -1713,7 +2002,11 @@ fn the_three_storey_tower_needs_the_raised_page_budget() {
         "the three-storey tower must overflow a four-page budget"
     );
     assert!(four.lightmaps.is_none());
-    let raised = build_with_config(&taller, config);
+    let eight_page = LightmapConfig {
+        max_pages: 8,
+        ..config
+    };
+    let raised = build_with_config(&taller, eight_page);
     assert_eq!(
         raised.lightmap_failure, None,
         "the eight-page budget must bake the three-storey tower"
@@ -1728,27 +2021,25 @@ fn the_three_storey_tower_needs_the_raised_page_budget() {
         maps.pages.len()
     );
 
-    // The real drop-in level, when the user has it installed.
-    if let Ok(content) = std::fs::read_to_string("levels/level0_pit.json") {
-        let level = crate::level::LevelDef::from_json(&content).expect("the drop-in Pit parses");
-        let real = build_level(&level, profile);
-        assert_eq!(
-            real.lightmap_failure, None,
-            "The Pit must bake cleanly at Full"
-        );
-        let real_maps = real
-            .lightmaps
-            .as_deref()
-            .unwrap_or_else(|| panic!("Full must produce an atlas for The Pit"));
-        assert!(
-            real_maps.pages.len() <= config.max_pages,
-            "The Pit: {} pages over the {}-page budget",
-            real_maps.pages.len(),
-            config.max_pages
-        );
+    let content = include_str!("../../../tests/fixtures/levels/level0_pit.json");
+    let level = crate::level::LevelDef::from_json(content).expect("the tracked Pit fixture parses");
+    let real = build_level(&level, profile);
+    assert_eq!(
+        real.lightmap_failure, None,
+        "The Pit must bake cleanly at Full"
+    );
+    let real_maps = real
+        .lightmaps
+        .as_deref()
+        .unwrap_or_else(|| panic!("Full must produce an atlas for The Pit"));
+    assert!(
+        real_maps.pages.len() <= config.max_pages,
+        "The Pit: {} pages over the {}-page budget",
+        real_maps.pages.len(),
+        config.max_pages
+    );
 
-        assert_architecture_is_lightmapped(&real, real_maps);
-    }
+    assert_architecture_is_lightmapped(&real, real_maps);
 }
 
 /// Every architectural vertex of a lightmapped build must sample a resident
@@ -1970,9 +2261,8 @@ fn reordering_equivalent_lights_does_not_change_the_bake() {
     reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests and developer measurement output"
 )]
 fn measure_demo_chart_statistics() {
-    let level =
-        crate::level::LevelDef::from_json(include_str!("../../../assets/levels/places_demo.json"))
-            .expect("the shipped places_demo parses");
+    let level = crate::level::LevelDef::from_json(include_str!("../../../levels/places_demo.json"))
+        .expect("the shipped places_demo parses");
     // The patch set is profile-independent (the chart-span cap is shared), so
     // one successful build at Full collects the whole demo's patches.
     let materials = crate::render::logical_materials(&level);

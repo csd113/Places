@@ -4,6 +4,8 @@
 Requires the optional NumPy and Pillow analysis tools; neither is a game
 dependency. Values are linear receiver RGB, with one fixed display maximum.
 The chart and density modes expose segmentation without modifying textures.
+Indirect reads the saved component; subtracting reconstructed combined values
+would not preserve the nonlinear directional reconstruction's meaning.
 """
 from __future__ import annotations
 
@@ -14,10 +16,13 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw
 
+# Mirror lightmap::LIGHTMAP_ATLAS_MAX_PAGES and the Rust dump envelope.
+MAX_DUMP_PAGES = 11
+
 
 def audit_records(records: list[dict]) -> dict:
     """Validate chart geometry and disjoint padded atlas reservations."""
-    occupied = np.zeros((8,1024,1024),dtype=bool)
+    occupied = np.zeros((MAX_DUMP_PAGES,1024,1024),dtype=bool)
     errors = []
     one_sample_axes = elongated = texels = 0
     pages = set()
@@ -27,7 +32,7 @@ def audit_records(records: list[dict]) -> dict:
         page = record["page"]
         gutter = 1 if record["kind"] == "prop" else 2
         if (any(not isinstance(v,int) for v in (x,y,width,height,page))
-                or not 0<=page<8 or width<=0 or height<=0
+                or not 0<=page<MAX_DUMP_PAGES or width<=0 or height<=0
                 or x<gutter or y<gutter or x+width+gutter>1024 or y+height+gutter>1024):
             errors.append(dict(chart=index,reason="Invalid padded atlas bounds"))
             continue
@@ -121,17 +126,11 @@ def main() -> int:
     if not selected:
         parser.error("No matching charts")
     values = None
-    direct = None
     if args.stage not in ("chart-ids", "density"):
-        path = args.dump / (("bounced" if args.stage == "indirect" else args.stage) + ".rgb-f32le")
+        path = args.dump / (args.stage + ".rgb-f32le")
         if path.stat().st_size != offset * 12:
             parser.error("Stage length does not match chart metadata")
         values = np.memmap(path, dtype="<f4", mode="r", shape=(offset, 3))
-        if args.stage == "indirect":
-            path = args.dump / "direct.rgb-f32le"
-            if path.stat().st_size != offset * 12:
-                parser.error("Direct stage length does not match chart metadata")
-            direct = np.memmap(path, dtype="<f4", mode="r", shape=(offset, 3))
     corners = [np.array(r["origin"]) + u*np.array(r["u_axis"]) + v*np.array(r["v_axis"])
                + min(u,v)*np.array(r["diagonal_correction"])
                for r in selected for u,v in ((0,0),(1,0),(0,1),(1,1)) if not r["triangle"] or u+v <= 1]
@@ -175,8 +174,6 @@ def main() -> int:
             pixels[mask] = round(min(1,density/args.maximum)*255)
         else:
             chart = values[r["offset"]:r["offset"]+chart_width*chart_height].reshape(chart_height,chart_width,3)
-            if direct is not None:
-                chart = np.maximum(0,chart-direct[r["offset"]:r["offset"]+chart_width*chart_height].reshape(chart.shape))
             x = np.clip(uv[0][mask]*chart_width-0.5,0,chart_width-1) if args.legacy_uv else np.clip(uv[0][mask],0,1)*(chart_width-1)
             y = np.clip(uv[1][mask]*chart_height-0.5,0,chart_height-1) if args.legacy_uv else np.clip(uv[1][mask],0,1)*(chart_height-1)
             ix, iy = x.astype(int), y.astype(int)

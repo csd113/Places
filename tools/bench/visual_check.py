@@ -33,6 +33,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import shutil
 import subprocess
 import sys
 import zlib
@@ -40,6 +41,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from execution import ordered_map, worker_count
+from bench.lightmap_report import stage_run_dir
 
 REPO = Path(__file__).resolve().parent.parent.parent
 
@@ -47,10 +49,8 @@ REPO = Path(__file__).resolve().parent.parent.parent
 # dark/bright baked lighting, doorways and a view along a corridor.
 #
 # The shipped demo resolves from the repository's own `assets/levels/`. The
-# `prop_*`/`test_room` regression fixtures live under `tests/fixtures/levels/`;
-# the run stages them into the capture directory the same way
-# `lightmap_report.py` does, so no fixture is copied into the repository's own
-# `levels/`. Only shipped levels and current regression fixtures are captured.
+# `prop_*`/`test_room` compiled fixtures are explicitly installed in isolated
+# capture state. Repository sources and bundled packages remain untouched.
 SHOTS: list[tuple[str, str, dict[str, str]]] = [
     # (label, level id, extra environment)
     ("places_demo_spawn", "places_demo", {}),
@@ -152,11 +152,19 @@ def capture(binary: Path, shot: tuple[str, str, dict[str, str]], out_dir: Path, 
     out_dir.mkdir(parents=True, exist_ok=True)
     path.unlink(missing_ok=True)
     command = [str(binary)]
+    state = out_dir / "state"
+    installed = state / "levels"
+    installed.mkdir(parents=True, exist_ok=True)
+    package = cwd / "levels" / (level + ".placesmap")
+    if package.is_file():
+        shutil.copy2(package, installed / package.name)
+    elif not (cwd / "assets/levels" / (level + ".placesmap")).is_file():
+        raise SystemExit(f"{label}: no compiled package for {level}; supply --packages or --levels")
     environment = {
         "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
         "PLACES_ASSET_ROOT": str(cwd),
         "PLACES_LEVEL": level,
-        "PLACES_STATE_ROOT": str(out_dir / "state"),
+        "PLACES_STATE_ROOT": str(state),
         "PLACES_CAPTURE": str(path),
         "PLACES_BENCH": "1",
     }
@@ -164,7 +172,7 @@ def capture(binary: Path, shot: tuple[str, str, dict[str, str]], out_dir: Path, 
     result = subprocess.run(
         command, cwd=cwd, env=environment, capture_output=True, text=True, timeout=180
     )
-    if result.returncode != 0 or not path.exists():
+    if result.returncode != 0 or not path.exists() or f"[loading] committed {level}" not in result.stdout + result.stderr:
         raise SystemExit(f"{label}: no capture produced\n{result.stdout}\n{result.stderr}")
     return path
 
@@ -264,6 +272,8 @@ def main() -> None:
         help="fail on any differing pixel, not just significant ones",
     )
     parser.add_argument("--workers", type=int, help="offline image comparison workers; captures stay serial")
+    parser.add_argument("--packages", type=Path, default=REPO / "target/verification/maps",
+                        help="compiled fixtures with encoded regression campaign filenames")
     args = parser.parse_args()
     try:
         worker_count(args.workers)
@@ -273,20 +283,10 @@ def main() -> None:
     cwd = args.levels or args.out
     cwd.mkdir(parents=True, exist_ok=True)
     if args.levels is None:
-        # The capture runs resolve their payload through PLACES_ASSET_ROOT, so
-        # the capture directory is staged as a package root: the shipped assets
-        # plus the regression fixture levels. Nothing is copied into the
-        # repository's own levels/.
-        for name, target in (
-            ("assets", REPO / "assets"),
-            ("levels", REPO / "tests" / "fixtures" / "levels"),
-        ):
-            link = cwd / name
-            if link.is_symlink():
-                link.unlink()
-            elif link.exists():
-                continue
-            link.symlink_to(target, target_is_directory=True)
+        try:
+            stage_run_dir(cwd, args.packages.resolve(), {level for _, level, _ in SHOTS})
+        except ValueError as error:
+            parser.error(str(error))
     args.out.mkdir(parents=True, exist_ok=True)
 
     failures = 0

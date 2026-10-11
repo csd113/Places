@@ -1,7 +1,7 @@
 # Movement diagnostics
 
-`assets/levels/movement_test.json` is the authoring source; compile it with
-`places-compile build assets/levels/movement_test.json`. The adjacent
+`tests/fixtures/levels/movement_test.json` is the authoring source; compile it with
+`places-compile build tests/fixtures/levels/movement_test.json`. The adjacent
 `movement_test.placesmap` is the playable QA map, available in Level Select and
 through `PLACES_LEVEL=movement_test`.
 
@@ -207,7 +207,7 @@ are deliberate negative-test fixtures.
 
 ### Changed files
 
-- Map source/package: `assets/levels/movement_test.json`,
+- Map source/package: `tests/fixtures/levels/movement_test.json`,
   `assets/levels/movement_test.placesmap`.
 - Recompiled collision packages: `assets/levels/places_demo.placesmap`,
   `assets/levels/model_zoo.placesmap`, `assets/levels/lantern_hollow.placesmap`.

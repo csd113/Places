@@ -7,10 +7,13 @@ Repository-wide checks: [authoritative desktop verification](VERIFICATION.md).
 | Document status | **Canonical / living.** Update it whenever the authoring contract changes (see [Maintaining This Guide](#maintaining-this-guide)). |
 | Level format version documented | `3` (`format_version` in every level JSON) |
 | Asset catalog format version documented | `2` (`format_version` in `assets/catalog.json`) |
-| Verification | Sky panorama limits and quality uploads re-verified against `src/assets.rs`, `src/materials/image.rs`, `src/quality.rs` and `src/render/wgpu/sky.rs` (October 2026 working tree). Movement support and rim backing in §10 re-verified against `src/game.rs`, `src/level.rs` and the permanent movement-map tests (October 2026 working tree). Verified against the working tree at version 0.7.0. Section 33 was checked against `src/nav/`, `src/ai/`, `src/package/navigation.rs`, `src/loader.rs`, `src/compiler.rs`, `assets/levels/places_demo.json` and the fixed-step tests `nav::tests`, `ai::tests` and `game::tests::demo_home_encounter_*`. The v3 contract (components, event bindings, trigger volumes, timers, sequences and spawns) was checked against `src/level.rs`, `src/loader.rs`, `src/entities/`, `assets/levels/places_demo.json`, `assets/levels/model_zoo.json`, `levels/*.json` and the generator/converter tools. The `fade`/`glow` components in §29 were checked against `src/level.rs` (`FadeDef`/`GlowDef`), `src/loader.rs` (`validate_component_value`), `src/entities/components.rs` (`Fade`/`Glow`), `src/entity.rs` (`EntityFrame`) and `tools/assets/validate.py`. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/geometry_check.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
+| Stage 7 integration audit | October 9, 2026: checked colour/HDR, measured Full ten-page/lower eight-page atlas policy, independent quality controls, panes, PLPF v3/solver 16, geometry revision 7 and compiler/runtime dependency identity against the current source. Wall spans evaluate exact endpoints against their own roof owner. Platform execution claims remain dated evidence in [VERIFICATION.md](VERIFICATION.md). |
+| Verification | Sky panorama limits and quality uploads re-verified against `src/assets.rs`, `src/materials/image.rs`, `src/quality.rs` and `src/render/wgpu/sky.rs` (October 2026 working tree). Movement support and rim backing in §10 re-verified against `src/game.rs`, `src/level.rs` and the permanent movement-map tests (October 2026 working tree). Verified against the working tree at version 0.7.0. Section 33 was checked against `src/nav/`, `src/ai/`, `src/package/navigation.rs`, `src/loader.rs`, `src/compiler.rs`, `levels/places_demo.json` and the fixed-step tests `nav::tests`, `ai::tests` and `game::tests::demo_home_encounter_*`. The v3 contract (components, event bindings, trigger volumes, timers, sequences and spawns) was checked against `src/level.rs`, `src/loader.rs`, `src/entities/`, `levels/places_demo.json`, `levels/model_zoo.json`, `levels/*.json` and the generator/converter tools. The `fade`/`glow` components in §29 were checked against `src/level.rs` (`FadeDef`/`GlowDef`), `src/loader.rs` (`validate_component_value`), `src/entities/components.rs` (`Fade`/`Glow`), `src/entity.rs` (`EntityFrame`) and `tools/assets/validate.py`. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/geometry_check.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
 | Outdoors reconstruction verification | Section 34 checked against the October 7 Outdoors catalog, fitted PNGs, closed model builders, source placements, native wgpu captures and asset integrity audit. Engine format and lighting model are unchanged. |
 | Checks that must pass before a code or asset change ships | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check` (see [Validation Workflow](#27-validation-workflow) for what each proves) |
-| Primary benchmark level | `assets/levels/places_demo.json` |
+| Aero prop authoring verification | October 10, 2026: opt-in BLEND/finite opacity writer checked against importer and byte-preserving OPAQUE/MASK fixtures; existing runtime rendering and transport remain unchanged. |
+| Environment refinement verification | October 10, 2026: neighbor-clipped ramp side geometry revision 9 and reusable `weather_alternate`, `weather_cycle`, `toggle_weather`, `set_weather_strength`, `set_weather_cycle`, `set_prompt` checked against current authoring/runtime sources and focused regression tests. Native acceptance and final gates are recorded in [environment-refinement.md](reports/environment-refinement.md). |
+| Primary benchmark level | `levels/places_demo.json` |
 
 > This revision describes the **current** engine: the Low/Medium/High quality
 > levels, the generic engine-level light model, true emissive materials,
@@ -44,7 +47,7 @@ This guide describes **Implemented Now** capabilities only, unless a section exp
 says otherwise. Where the engine's design documents describe future work, the guide
 lists it as **Not implemented** and never shows planned syntax as usable.
 
-**Places Demo is the benchmark.** `assets/levels/places_demo.json` is the project's
+**Places Demo is the benchmark.** `levels/places_demo.json` is the project's
 canonical showcase and the technical reference for established authoring patterns.
 A new map does not have to resemble it aesthetically — it is not a mandatory visual
 template — but when in doubt about how a feature is authored, the demo (and the
@@ -75,7 +78,7 @@ When any two sources disagree, resolve in this order:
    `lighting_partition_audit.rs`, `lighting_vertical_audit.rs`). Tests pin the
    accepted contract.
 3. **Asset catalog** — `assets/catalog.json`, plus `assets/README.md`.
-4. **Known-good shipped content** — `assets/levels/places_demo.json`,
+4. **Known-good shipped content** — `levels/places_demo.json`,
    `tests/fixtures/levels/*.json`.
 5. **This guide** — update it when 1–4 change.
 6. **Design proposals** — aspirational
@@ -102,7 +105,7 @@ Authoritative paths:
 | Post-processing / fog | `src/render/common/postprocess.rs`, `src/render/common/atmosphere.rs`, `src/render/common/framebuffer.rs` |
 | Quality levels / settings | `src/quality.rs`, `src/settings.rs` |
 | Catalog | `assets/catalog.json` |
-| Benchmark level | `assets/levels/places_demo.json` |
+| Benchmark level | `levels/places_demo.json` |
 | Regression fixtures | `tests/fixtures/levels/` |
 
 ### Quick implemented-vs-unimplemented reference
@@ -124,8 +127,8 @@ Authoritative paths:
 | Map-wired door actions (`open`, `close`, `toggle`, switchable light fixtures) | Implemented (see [§30](#30-doors-switches-and-effects)) |
 | Presentation-only ambient effects (`effects[]`, steam) | Implemented (see [§30](#30-doors-switches-and-effects)) |
 | Offscreen scene rendering presented by a fullscreen quad, UI at drawable resolution | Implemented |
-| Selective reflections: per-material `reflection_mode` (`none` / `probe` / `planar`) at 64/48/32-texel probes (High/Medium/Low) and a half-resolution planar pass (Medium and High) | Implemented |
-| Restrained post-processing: emission-driven bloom, a tone shoulder, the global distance fog and a subtle grade, with the UI drawn outside it | Implemented (post-processing and the global atmosphere are engine-global; level-authored regional fog volumes add to the atmosphere — see [§11](#fog-a-global-atmosphere-plus-level-authored-regions)) |
+| Selective reflections: per-material `reflection_mode` (`none` / `probe` / `planar`); independent Reflections Full/Medium use 64/48-texel probes and a half-resolution planar pass, Off releases both | Implemented |
+| Restrained post-processing: emission-driven bloom, a tone shoulder, the global distance fog and a subtle grade, with the UI drawn outside it | Implemented (optional `environment` authors fixed presentation and global atmosphere; regional fog volumes add to it — see [§11](#fog-a-global-atmosphere-plus-level-authored-regions)) |
 | Level-authored regional fog volumes (`fog_regions[]`, ≤ 16) | Implemented (see [§11](#fog-a-global-atmosphere-plus-level-authored-regions)) |
 | Opaque void wall / floor boxes (`void_walls[]`, ≤ 256) for hiding the void | Implemented (see [§11](#void-wall-and-floor-boxes)) |
 | Animated emissions: `animated_emissions[]` makes a material's emission pulse or flicker, deterministically | Implemented |
@@ -143,10 +146,10 @@ Authoritative paths:
 | Baked navigation (`nav_agent` bodies, per-class clearance, stairs/slopes, door portals), runtime path queries and the shared AI framework (`ai`: idle/wander/follow/flee/investigate/pursue/catch, sight and hearing, catch -> sequence) | Implemented (see [§33](#33-navigation-and-ai)); the player loads the compiler's bake and never builds one. |
 | Animation actions (`play_animation`, `toggle_animation`) | Implemented per instance; the target must carry an `animation` component. |
 | Audio actions (`play_sound`, `stop_sound`) | Implemented as a typed emitter state on an entity with an `audio` component; no audio device backend exists in this tree, so a playback request is reported once instead of playing. No shipped map authors one. |
-| Water refraction/transmission, realtime dynamic lights, realtime shadow maps | Not implemented |
+| Water refraction, realtime shadow maps and runtime static transport solves | Not implemented; straight alpha/depth transmission and bounded entity direct lights are implemented |
 | Animated entities: a placed skinned GLB follows the player's locomotion state (idle/walking/airborne/swimming); a rig with authored clips plays them, a no-clip rig uses the built-in procedural gait | Implemented (see [§16](#16-props-and-models)) |
 | Screen-space reflections; per-frame raytraced reflections; cubemap probes with realtime updates | Not implemented (static probes and one planar plane exist) |
-| GLB MASK/cutout props; BLEND on routed characters/dynamic props | Implemented; ordinary static BLEND props use the opaque fallback |
+| GLB MASK/cutout and BLEND on static props, characters and dynamic props | Implemented; shared back-to-front object/batch sorting, without intersecting-triangle sorting |
 | Emissive decals; per-placement emission overrides; cone/spot lights | Not implemented |
 | Authoring a normal map from a level (a level names a material, and the material owns the map) | Implemented (via the catalog) |
 | Sloped floors (`ramps`), staircases (`stairs`), half walls, columns, archways, guardrails, thresholds, baseboards | Implemented |
@@ -684,9 +687,11 @@ A misspelled enum is a parse error, not a silently ignored key.
 **Where levels live.** Players load compiled `.placesmap` packages only.
 `assets/levels/*.placesmap` ships with the game; `levels/*.placesmap` are drop-in
 packages (under the writable state root, normally next to the asset root). Both appear
-in the Level Select menu. The `.json` sources beside the bundled packages are kept for
-authors and are never playable rows; discovery enumerates playable packages only and
-skips sources silently, so the normal startup log stays clean. A raw source is only
+in the Level Select menu. The eight maintained `.json` sources live directly in
+`levels/`, with their compiler/export allowlist in `levels/lineup.txt`. Packages
+are ignored build outputs: run `sh tools/build-maps.sh` after a fresh checkout.
+JSON is never a playable row; discovery enumerates packages only and skips
+sources silently, so the normal startup log stays clean. A raw source is only
 reported when you explicitly try to open or import it: that fails with the compiler
 command (`places-compile build <source.json>`), because compiling is always an
 offline, author-side step. `tests/fixtures/levels/` is for engine regression fixtures
@@ -759,8 +764,8 @@ constant in `src/level.rs`, not an inline literal.
 | Estimated floor area | ≤ 64 000 000 m² (`MAX_LEVEL_FLOOR_AREA_M2`) | Loader rejection (its own estimate, computed from room rectangles) |
 | Estimated generated vertices | ≤ 24 000 000 (`MAX_LEVEL_VERTICES`) | Loader rejection (its own upper-bound estimate) |
 | Distinct decoded texture bytes | ≤ 1 GiB (`MAX_LEVEL_TEXTURE_BYTES`) | Loader rejection per level, after resolution and before upload |
-| Standalone level JSON file size | ≤ 32 MiB (`MAX_LEVEL_JSON_BYTES`) | Rejected before parsing; the embedded fallback demo is exempt |
-| Package archive: entries / entry / aggregate | ≤ 512 entries / ≤ 256 MiB / ≤ 1 GiB uncompressed | Package rejected at open (see [PACKAGE_FORMAT.md](PACKAGE_FORMAT.md)) |
+| Standalone level JSON file size | ≤ 32 MiB (`MAX_LEVEL_JSON_BYTES`) | Rejected before parsing |
+| Package archive: entries / entry / aggregate | ≤ 512 entries / ordinary entry ≤ 256 MiB; mesh/props ≤ 512 MiB, atlas ≤ 320 MiB + 64 KiB, other typed records may be tighter / aggregate ≤ 1 GiB uncompressed | Package rejected at open (see [PACKAGE_FORMAT.md](PACKAGE_FORMAT.md)) |
 | Package variants | one per lightmap quality (`off`/`medium`/`full`) | Package rejected at open |
 | Package blob hashes | SHA-256 must match the name and the manifest | Blob rejected before decoding |
 | Distinct prop models placed | ≤ 4096 (`MAX_LEVEL_PROP_MODELS`) | **Not a rejection:** later placements draw placeholder boxes |
@@ -811,7 +816,7 @@ go through the collision index (`src/collision_index.rs`), and `zoo_audit`
 pins the indexed result equal to the linear scan over the real fixtures. Notes
 that remain load-time costs: the lightmap fill is linear in chart texels ×
 nearby fixtures, and the prop vertex expansion samples lighting per vertex. See
-`docs/reports/feature-expansion-handoff.md` for the historical measurements.
+`docs/reports/feature-expansion-summary.md` for the historical measurements.
 
 ---
 
@@ -983,9 +988,22 @@ Opening offsets are measured from the minimum corner (`x.min(x+width)`,
 **Default height.** With `height` omitted, the wall top is the local clear ceiling at
 each point — which is why an unheighted wall in a gable room follows the slope. A wall
 spanning two rooms of different ceiling heights follows the ceiling above each part.
+Wall profiles, visible faces, caps and collision extents share roof ownership:
+a containing closed room retains first-room precedence; an outside centre plane
+can use the closed roof that physically touches its wall footprint at that length
+position. An adjoining open volume does not replace that roof. Room transitions
+and every owning gable ridge split the wall into linear spans. Outer corner ends
+may continue a contacting roof only over the wall's own thickness, with a floating
+point rounding bound; internal gaps cannot borrow a nearby roof. Point-based
+floor/ceiling authoring queries retain the overlap rule above. Explicit heights
+remain appropriate for freestanding barriers or deliberate rigid silhouettes.
 With `height` authored, the wall is drawn exactly `y..y+height`, even through a
 ceiling or across rooms. Validation requires a positive finite `height` when it is
 present.
+
+An explicit-height wall keeps its exposed horizontal top. Only actual coplanar
+closed flat-roof, floor or earlier-wall coverage removes those cap rectangles;
+a touching ceiling owner alone does not hide a cap outside the roof footprint.
 
 **Face names.** Read the names as normals:
 
@@ -1400,8 +1418,18 @@ own air.
 | `surface_y` | number | **yes** | — | World Y of the free surface, like a fixture's `y` — not relative to the floor. |
 | `bottom_y` | number | no | lowest walkable floor under the footprint, else `surface_y - 2.0` | World Y of the bottom, sampled inside the rectangle or the disc's own interior. Metadata and depth reporting only; physics always stands on the walkable floor. Must be finite and strictly below `surface_y`. |
 | `material` | string | no | `core:water_pool_01` | Surface material. The default is `alpha_mode: "blend"`, so any replacement must be translucent or the water reads as a solid lid. |
-| `opacity` | number | no | `0.62` | `0.0..=1.0`; the surface's vertex alpha. The material itself stays opaque, so one material serves every volume's opacity. |
+| `opacity` | number | no | `0.62` | `0.0..=1.0`; base surface coverage. The material opacity remains 1 so one material serves every volume. |
+| `attenuation_per_metre` | number | no | `0.0` | Finite 0–16. Transmission is `(1-opacity) * exp(-attenuation_per_metre * vertical_depth)`. Zero retains exact existing coverage. This stylized vertical-depth approximation changes visual coverage only, not swimming/collision; it is not screen-space thickness or refraction. |
 | `swimming` | boolean | no | `true` | `false` keeps the surface decorative: the player walks or falls through it, and no swim state can trigger. |
+
+Medium/Full water surfaces receive ordinary incident-HDR floor charts and their
+shadows, sky and practical-light sheen. Low keeps its vertex-light fallback.
+Circular fans use one upward triangle plus a folded degenerate quad triangle;
+coverage is applied once. Water and ice reuse bounded probe reflections with
+Fresnel/gloss controls. All transparent world, prop, movable and character ranges
+share stable back-to-front centre sorting, straight alpha and no depth writes.
+Intersecting triangles and large coalesced ranges still require authored
+separation. No refraction, ray tracing or new reflection pass is introduced.
 
 How it behaves:
 
@@ -1436,8 +1464,10 @@ How it behaves:
   recaptured, so a ladder launch or a surfacing swimmer clears the waterline.
 * **Swimming** moves at `0.55×` walk speed. The body sinks under the reduced
   underwater gravity (`SWIM_GRAVITY`, `-4.5 m/s²`) at a `1.1 m/s` terminal
-  until the eye rests `0.55 m` above the floor (so a `1.35 m` basin — shallower
-  than the standing eye height — still fully submerges), and holding Jump
+  until the feet rest on the floor. Water retains the ordinary upright stance:
+  `1.8 m` body and `1.6 m` eye offset when standing, or `0.9 m` body and
+  `0.8 m` eye offset after an explicit crouch. Crouch eases the eye around the
+  supported feet and standing is refused under a low ceiling. Holding Jump
   accelerates upward to `1.1 m/s` and holds the float line at
   `surface_y + 0.12 m` with a small idle bob, where the eye stays. Every
   branch is integrated in fixed `1/120 s` substeps, so entering, surfacing and
@@ -1448,23 +1478,21 @@ How it behaves:
 * **Getting out** is a bounded, cancellable climb, not a stand-up teleport. The
   walkable floor directly under the centre must be a standable exit at the
   waterline — at most one `WATER_EXIT_STEP_M` (`0.5 m`) above the surface or
-  within `EXIT_DEPTH` below it (`1.23 m` standing, `0.43 m` crouched), with the
+  within `EXIT_DEPTH` below it (`1.48 m` standing, `0.68 m` crouched), with the
   stance's body clear overhead — and the eye must be near the top of the water
   (`surface_y − 0.6 m`). The climb raises the feet at `WATER_EXIT_CLIMB_SPEED`
   (`2.2 m/s`, the ladder speed) and derives the eye, so the camera rises
-  continuously from the swim pose to the standing line (about 0.7 s from the
-  deepest pool to the demo deck) instead of snapping up ~1.6 m; the final head
-  clearance is validated once, when the climb begins. Horizontal movement keeps
+  continuously from the current feet to the support; head clearance is checked
+  at the destination and throughout ascent. Horizontal movement keeps
   the ordinary swimming collision step throughout, so the player walks onto the
   real deck with ordinary input and real collision, and no horizontal position
   is ever written. A raised exit whose top sits above the camera is a
-  **pull-up**: the disc keeps a body radius from the rim until the camera has
-  cleared the rim top by the projection near plane (`SCENE_NEAR_M`, `0.1 m`,
-  `WATER_EXIT_EYE_CLEARANCE_M`), so the rendered camera never clips into the
-  deck it is climbing onto; the climb lifts the eye at
-  `WATER_EXIT_CLIMB_SPEED` to that clearance line and holds it, the ordinary
-  swim step then carries the centre over the few frames the hold lasts, and
-  only then does the climb stand the body up. The pull-up needs the
+  **pull-up**: the disc keeps a body radius from the rim until the physical feet
+  clear its top. The climb lifts the full upright body at
+  `WATER_EXIT_CLIMB_SPEED` and holds the feet at the support; the ordinary swim
+  step then carries the centre over it and completes the exit. The camera also
+  retains projection near-plane clearance (`SCENE_NEAR_M`, `0.1 m`,
+  `WATER_EXIT_EYE_CLEARANCE_M`). The pull-up needs the
   movement key held into the rim: releasing it cancels back to the swim pose,
   exactly like reversing. Reversing back over deeper water (the floor under the
   centre stops being a standable exit) cancels back to the swim pose at the
@@ -1472,13 +1500,15 @@ How it behaves:
   still counts as swimming, so a cancelled climb never falls through the air
   beside the rim. A higher standable floor that comes under the centre against
   the same waterline (the deck past a submerged walk-in step) is adopted as the
-  climb's support, so the climb is never cancelled with the virtual feet
+  climb's support, so the climb is never cancelled with the feet
   embedded in it.
-  Because the threshold is derived from the swim band, an exit can never
-  immediately re-enter swimming and a pool edge cannot oscillate. The swimming
-  wall band sits one `0.4 m` step below the surface so a ledge within a step of
-  the waterline can be climbed, while a deeper rim stays solid, exactly like a
-  floor-region rim on land; a solid prop or wall top is never a floor exit.
+  Entry uses the same standable-floor threshold, so an exit cannot immediately
+  re-enter swimming. Collision sweeps the actual feet and stance body, including
+  underwater obstacles. Chest-deep wading uses the same bounded rim pull-up;
+  submerged floor risers and ramps use it too, retaining swimming when the
+  destination is still too deep for wading. Surface bob settles onto a support
+  from either direction, and completion uses the exact floor under the centre.
+  A solid prop or wall top is never a floor exit.
 * **Overlapping volumes** resolve like overlapping floor regions: the last one
   authored at a point wins.
 * **Validation**: non-finite values, a non-positive footprint or radius, a
@@ -1496,11 +1526,12 @@ How it behaves:
 Places Demo's pool is two adjacent volumes at one waterline: the basin
 (`x 8..20, z 10..16`, surface `-1.65`, floor `-3.0` → 1.35 m deep) and the
 submerged walk-in step (`x 10..16, z 16..16.9`, the same surface, floor
-`-1.85` → 0.2 m of wading). Jump in from the deck, swim to the step and climb
-out there, or climb the chrome ladder at the east rim. Walking off the deck is
-a real drop into the water: the plunge decelerates, buoyancy surfaces you, and
-climbing back onto the rim is a bounded 2.2 m/s climb, never a coordinate
-snap.
+`-1.85` → 0.2 m of wading). The standing player stands on the basin floor with
+eyes at `-1.4`, 0.25 m above the water. Explicit crouch permits submerging there;
+deeper water swims with either stance. Walk to the submerged step, pull up over
+the rim, or climb the chrome ladder at the east rim to leave. Walking off the
+deck is a real drop to the supporting basin floor, and pulling back onto the
+rim is a bounded 2.2 m/s climb.
 
 ### Ladders
 
@@ -1619,8 +1650,9 @@ How the two behave:
   platform is closed by that platform's own skirt, and the platform's rim does
   not wall the landing off (the rim rule samples the walking surface on either
   side of a grid edge).
-* **Their sides are real skirts.** A ramp's two sides drop from the sloped edge
-  to the lowest floor they meet, and a staircase's sides close each step down to
+* **Their sides are real skirts.** A ramp's two sides are split at neighboring surface boundaries and drop
+  only to the actual adjacent floor, ramp or stair tread; equal adjoining slopes
+  emit no buried side. A staircase's sides close each step down to
   the floor line beside it, so a flight or slope is never an open wedge. The side
   is not a collider: the height rule keeps the player off it because the walkable
   floor inside the footprint is the piece's own surface.
@@ -1869,6 +1901,16 @@ sauna through a second `sauna` door whose floor is flush on both sides.
 
 ## 11. Materials
 
+Colour PNGs are authored sRGB; material tint/base factors, light colour and
+intensity are linear values. Bake and runtime shading retain linear HDR, and
+presentation alone applies exposure and display encoding. Normal maps and
+emission masks are numeric data. Changing Lightmaps does not change texture
+size, mips or the independently selected Texture Filtering policy. See
+[Asset specification §§16–18](ASSET_SPECIFICATION.md#16-formats-and-colour) and
+[Stage 2 contracts](art-style/stage2/contracts.md). No map-specific brightness
+compensation is needed or supported by this contract.
+
+
 A level names a **material**, never a file path. The full resolution chain is:
 
 ```text
@@ -1877,7 +1919,7 @@ level JSON
        └─ catalog material entry   (asset_type: "material", source: "definition")
             └─ texture logical id     e.g. "core:tex_wallpaper_yellow_01"
                  └─ catalog texture entry (asset_type: "texture", source: "file")
-                      └─ PNG file     assets/environment/office/textures/walls/wallpaper_yellow_01.png
+                      └─ PNG file     assets/environments/office/textures/walls/wallpaper_yellow_01.png
 ```
 
 Materials are **definitions**, not files. A material entry may carry the fields below.
@@ -1963,12 +2005,13 @@ surface named, not a silent clamp. `shine` only moves a surface along the
 glossiness range: it cannot give a `specular: 0` material a sheen and it can
 never turn a surface into a mirror.
 
-The renderer multiplies: **sampled texture × material tint × baked light**, where
+The renderer multiplies: **decoded linear texture × linear material tint × linear incident light**, where
 *baked light* is the lightmap atlas texel for static world geometry (see
 [Lighting](#18-lighting)) and the baked vertex colour on the vertex-lit fallback
-path. There is no gamma handling; the shipped art, tints and lighting constants were
-calibrated together in that space. Author with the tint in mind (the office wallpaper
-tint, for example, is `[0.85, 0.80, 0.42]`, so the PNG is authored pale).
+path. Colour PNGs decode sRGB before filtering; normal maps, emission masks and
+alpha remain numeric. Presentation encodes sRGB once after HDR composition.
+Author with the linear tint in mind (the office wallpaper tint, for example,
+is `[0.85, 0.80, 0.42]`, so the PNG is authored pale).
 
 ### Emission: materials that glow
 
@@ -2085,7 +2128,7 @@ vocabulary — bumps, grime, brushed streaks and panel seams, not sculpted detai
 ### Selective reflections: which surfaces reflect
 
 Two authorable paths can show a surface the room back: a **static probe** (a small
-cubemap baked once per level load) and a **planar mirror** (a real second view of the
+cubemap captured offline and installed from the package) and a **planar mirror** (a real second view of the
 level through the surface's own plane). Neither is a screen-space effect, and
 **nothing reflects unless a material asks** via `reflection_mode`. Shine and
 reflection are separate: an extremely glossy ordinary material (`shine: 1.0`)
@@ -2102,7 +2145,7 @@ always the dedicated `planar` behaviour rather than a shine value.
 | `reflection_mode` | What it draws | Cost |
 | --- | --- | --- |
 | `none` (default) | nothing | none |
-| `probe` | the static cubemap baked at level load, read by the reflected view vector | one texture read per reflective fragment |
+| `probe` | the packaged static HDR cubemap, read by the reflected view vector | one texture read per reflective fragment |
 | `planar` | a real second view of the level, mirrored through the surface's plane | one extra scene pass per frame while that plane is on screen |
 
 Four properties are worth designing around:
@@ -2120,8 +2163,8 @@ Four properties are worth designing around:
   changes *where* the reflection comes from, so a matte override on a marked
   surface keeps the (now faint) probe or planar reflection rather than removing
   it.
-* **It is approximate.** A probe is a 64-texel-per-face cubemap at `High` (48
-  at `Medium`, 32 at `Low`) — the shape of the room, not a second render of it —
+* **It is approximate.** A probe is a 64-texel-per-face cubemap at Reflections
+  `Full` (48 at `Medium`, absent at `Off`) — the shape of the room, not a second render of it —
   and a planar reflection is drawn at half resolution. Use them where the surface
   should read as wet, polished or mirrored, not where the player will compare the
   reflection with the room.
@@ -2151,10 +2194,11 @@ Four properties are worth designing around:
   material belongs on an axis-aligned floor, wall or ceiling pane; a probe is the
   right choice for anything else.
 
-**Quality levels.** `Medium` and `High` draw the planar pass and 64/48-texel
-probes; `Low` draws the probes at 32 texels and never allocates a planar target.
-A material marked `planar` simply keeps its sheen and loses the mirror image on
-`Low`.
+**Independent reflection quality.** Reflections `Full`/`Medium` use 64/48-texel
+probes and allow the half-resolution planar pass; `Off` retires probes and the
+planar target. The overall High/Medium/Low presets select Full/Medium/Off,
+respectively, but the player may override Reflections independently. Low with
+Reflections Full is supported. An Off reflection keeps the material's sheen.
 
 Shipped examples: `core:pool_deck_wet_01` (`planar`, 0.4, the wet deck patch),
 `core:linoleum_polished_01` (`probe`, 0.25, the deliberately waxed end — Places
@@ -2174,10 +2218,10 @@ The renderer decides which pass a surface lands in, and there are exactly three:
 
 Consequences worth knowing:
 
-* Two overlapping translucent surfaces blend correctly because the pass is sorted
-  back to front by the distance from the camera to each batch. Sorting is per
-  spatial batch (the granularity the renderer already partitions the world at),
-  not per triangle.
+* World batches, static props, movable objects and characters share stable
+  back-to-front centre sorting in both scene and emission passes. Sorting is
+  per batch/object, not per intersecting triangle; large overlapping transparent
+  ranges and several primitives inside one object still need careful placement.
 * A translucent surface never occludes anything: a pane of glass is hidden by the
   wall it sits in, but does not hide the room behind it in the depth buffer.
 * Emissive translucent materials work: emission is added to the lit term before
@@ -2194,11 +2238,12 @@ Consequences worth knowing:
   `solid: false` pane is a pure visual surface — each combination (opaque solid
   panel, walk-through glass, solid glass, cut-out walk-through grille) is
   legal and explicit.
-* Transparency is alpha blending, not refraction: nothing bends, and the lighting
-  bake still treats the aperture as an open hole (see the glazing note below).
-* GLB MASK props draw through the cutout pass and transmit prepared transport
-  rays, like cutout architecture. BLEND is supported by routed characters and
-  dynamic props; ordinary static BLEND props retain the opaque fallback.
+* Transparency uses straight alpha without refraction. Prepared transport
+  attenuates blended crossings by `1 - coverage`, and cutout holes transmit
+  while covered texels block. A pane is distinct from an empty aperture.
+* GLB MASK props use the cutout pass on every route and transmit prepared rays
+  through their holes. BLEND uses the translucent pass on static, character and
+  dynamic routes; its prepared straight transmission follows the same coverage.
 
 Authoring a transparent sheet is ordinary artwork: RGBA, with the alpha channel
 carrying the coverage (a grime film, a tint, a cut-out pattern). `tile_metres`
@@ -2219,15 +2264,15 @@ one surface at the wall's centre plane. It is what turns "a hole in a wall" into
   sheen, emission and alpha mode are the material's, not the opening's. A
   `glass_shine` override can re-shine one pane without a second material.
 * The pane is the opening's own rectangle: no frame, no thickness, one surface
-  seen from both sides. It is **not lightmapped**: its four corners sample the
-  baked light directly and fold it into the vertex colour, like a fixture face or a
-  prop.
+  seen from both sides. Medium/Full panes receive incident-HDR lightmap charts;
+  Lightmaps Off keeps the supported vertex-lit fallback.
 * Collision follows the wall's solid slices (a raised window still blocks) plus
   the opening's own `solid` flag: a glazed opening with `"solid": true` adds the
   pane's thin slab, so glass can be a real barrier; the default `false` keeps a
-  pane walk-through. The lighting bake still transmits through the aperture as an
-  open hole — glass does not darken the room behind it. Tint the glass to imply
-  that in the artwork.
+  pane walk-through. Collision and lighting coverage are independent: opaque
+  panes block prepared rays, cutout holes transmit, and blended panes attenuate
+  by real alpha coverage. Tint affects drawn colour, without coloured refraction
+  or absorption in the pane's transmitted light.
 * Any alpha mode works. `blend` gives real glass; `cutout` gives a grille,
   mesh or screen with holes in it (`core:grille_vent_01` is a transfer grille,
   authored on a `vent` opening above Places Demo's office door); `opaque` gives a
@@ -2240,33 +2285,47 @@ Shipped glass materials: `core:glass_window_clear_01`, `core:glass_window_dirty_
 `core:glass_sign_flicker_01` (the same sheet, meant for `animated_emissions`), and
 `core:grille_vent_01` (cut-out).
 
-### Post-processing and grading are engine-global
+### Authored presentation and global atmosphere
 
-Bloom, the tone shoulder and the colour grade are **not level properties**. They
-are built from the quality level (`src/render/common/postprocess.rs`) and there is
-no level key, material field or room field that authors them. Two consequences are
-still useful to a map author:
+Optional `environment` controls the final image without changing stored light:
 
-* **Bloom follows emission, not brightness.** Only a surface whose material (or
-  fixture face) emits blooms; a brightly lit wall never does, because the bloom pass
-  draws the emissive term alone. If a fixture should glow, author emission on it.
-* `High` draws the level resolve (tone shoulder and grade); `Medium` keeps the
-  shoulder and leaves colour alone; `Low` presents the scene unfiltered and keeps
-  only the fog, which lives in the world shader.
-* Bloom is a **player setting** (Settings → Graphics → Bloom, default on), not a
-  level term, so every level can bloom. The default `Low` presents unfiltered
-  only when Bloom is off.
+```json
+"environment": {
+  "presentation": {"exposure": 1.0, "tone_knee": 0.75,
+                   "saturation": 1.03, "contrast": 1.02},
+  "fog": {"color": [0.60, 0.63, 0.68], "density": 0.0095,
+          "reference_y": 2.0, "height_gain": 0.045}
+}
+```
 
-### Fog: a global atmosphere plus level-authored regions
+Omission or an empty object retains these defaults. Unknown nested controls are
+rejected. Exposure is a fixed linear multiplier (0.125–8), never automatic;
+`tone_knee` (0.25–0.95) starts a smooth rational highlight shoulder. One shared
+RGB scale preserves highlight hue. Saturation and contrast (0.8–1.2) are
+restrained display-space adjustments after one sRGB conversion. Every quality
+preset shares these controls for static surfaces and entities; Low/Medium now
+retain the High default presentation. Quality still changes scene resolution,
+lighting and resource budgets. HUD composition remains outside the scene curve.
 
-Every level carries the **global atmosphere** (`src/render/common/atmosphere.rs`,
-`FogState::SHIPPED`): a squared-exponential distance term with a height gradient,
-applied in the world fragment shader after lighting, emission and reflection and
-before the display conversion. It is depth, not weather — the shipped density gives
-about 4 % at 20 m, 15 % at 40 m and 63 % at the 100 m far plane, a little denser
-near the floor, and it never turns a room smoky. The global constants are not
-level-authorable; a level that authors nothing is byte-identical to the historical
-renderer.
+Bloom is the independent player preference. Only material/fixture emission
+enters its linear HDR source. A soft threshold starts at 0.5 HDR and strength
+0.22 limits the halo: brightly lit walls never bloom. Coverage, fog and storm
+transmission also attenuate emission; transparent nonemitters attenuate bloom
+behind them. No exposure or tone curve is stored in lightmaps, probes or
+reflection targets. Development diagnostic modes bypass exposure, tone, grade,
+bloom, world fog, sky, decals and effects; their explicitly mapped linear values
+receive one sRGB encoding. `final` uses the normal image path.
+
+### Fog: authored global atmosphere plus level-authored regions
+
+`environment.fog` supplies the existing squared-exponential distance haze and
+bounded height gain before presentation. `color` is display sRGB (three 0–1
+channels), decoded once before mixing with HDR light. `density` is finite
+0–0.5 per metre; `reference_y` is finite world metres (−10000–10000), and
+`height_gain` is finite 0–1 per metre below the reference. Defaults retain the
+established global atmosphere. This haze is separate from weather extinction;
+severe snow keeps its own shelter-aware sightline transmission and fog colour.
+The infinite sky retains its background treatment and existing storm blend.
 
 On top of it a level may author `fog_regions`: world-space boxes that thicken the
 air **inside** them, per fragment. They are the supported way to build mist over a
@@ -2418,7 +2477,7 @@ layouts preserved; see the table below and Asset Specification §12.3.
 | Fixture wrapping | `CLAMP_TO_EDGE` + mipmaps; the whole sheet is fitted once across the face. |
 | Alpha | Surface sheets are opaque *unless* their material authors `alpha_mode`. The base pass has blending off, so an `opaque` material's alpha channel is ignored; `cutout` discards texels below the material's cutoff and `blend` samples it. Decals are alpha cut-outs (alpha < 0.5 discarded). Fixture faces are opaque. |
 | Normal maps | A normal map is an ordinary RGB sheet in the same asset tree; the material names it with `normal_texture`. It is a *surface* texture for quality purposes (High 1024 / Medium 512 / Low 256), tiles like its albedo and may be hand-painted or generated. |
-| Colour space | No gamma handling; texture × tint × baked light in display space. |
+| Colour space | Colour PNG RGB decodes sRGB before filtering; tint/light factors and lighting use linear HDR. Numeric normal/mask/alpha data do not decode sRGB. Presentation encodes once. |
 
 Shipped Office/Pool surface sheets are intentionally 1024×1024, square, opaque;
 `python3 tools/textures/build.py --check` reports them as "over preferred" warnings by
@@ -2430,9 +2489,9 @@ The source PNG is *not* what necessarily reaches the GPU. Three quality levels
 (`settings.json` → `"quality": "low" | "medium" | "high"`, default `high`)
 decide a **runtime** edge budget
 per texture class. The level is a selector in Settings → Graphics and can be
-changed while a level is running: the renderer releases its level-dependent GPU
-textures and rebuilds them (plus the lightmap atlas) from the level already
-resident, so the player, camera and game state are preserved:
+changed while a level is running: staged loading installs the corresponding
+prepared package variant and GPU resources, preserving player, camera and game
+state. The player never bakes a new atlas or captures a probe:
 
 | Texture class | High (default) | Medium | Low |
 | --- | --- | --- | --- |
@@ -2442,9 +2501,10 @@ resident, so the player, camera and game state are preserved:
 | Prop sheet (GLB) | 256 | 256 | 128 |
 | Emissive mask | 512 | 256 | 128 |
 | Sky panorama | 2048 | 1024 | 512 |
-| Lightmap atlas page | 1024, 16 texels/m | 1024, 12 texels/m | 512, 10 texels/m |
-| Shadow penumbra taps | 2 per axis (5) | 2 per axis (5) | 1 per axis (hard) |
-| Prop occlusion grid | 0.075 m | 0.11 m | 0.15 m |
+| Preset Lightmaps | Full: 1024, 16 texels/m | Medium: 1024, 12 texels/m | Off: vertex lighting |
+| Preset Reflections | Full: 64-pixel probes + planar | Medium: 48-pixel probes + planar | Off |
+| Prepared transport | Full solve | Medium solve | Historical vertex fallback |
+| Legacy coarse prop-occlusion grid | 0.075 m | 0.11 m | 0.15 m |
 
 * **High is the native Places runtime size.** Every shipped asset is already at
   or below it, so High uploads the decoded image unchanged — no rescaling, no
@@ -2458,10 +2518,11 @@ resident, so the player, camera and game state are preserved:
   always produces the same runtime image.
 * The source hard limit (1024 px for ordinary sheets, 2048×1024 for skies) is unchanged by any level: quality only
   decides how much of an accepted source reaches the GPU.
-* The **lightmap atlas** is baked light data, not shipped artwork (see
-  [Baked lightmaps](#baked-lightmaps)): the same level bakes at the level's
-  density, so a lower level needs no separate level or hand-authored lightmap
-  set.
+* Lightmaps and Reflections are independent advanced controls. The compiler
+  prepares Off/Medium/Full variants of the same source; the player selects a
+  packaged variant, without a separate authored level or artwork set. The
+  legacy two-profile planner API also supports 512-pixel/10-texel Low atlases,
+  but that API budget is not the runtime Low preset, which selects Off.
 * Do **not** author a separate level or asset set for a lower quality level; one
   level serves all three.
 
@@ -2492,13 +2553,13 @@ map author needs no per-asset filtering choice (see
 ### Naming and directories
 
 ```text
-assets/environment/<theme>/textures/walls/<name>_01.png
-assets/environment/<theme>/textures/floors/<name>_01.png
-assets/environment/<theme>/textures/ceilings/<name>_01.png
-assets/environment/<theme>/textures/lights/<name>.png     fixture faces
-assets/environment/<theme>/decals/<name>_01.png           decal sheets
-assets/core/decals/<name>_01.png                          shared decal sheets
-assets/core/props/models/<name>.glb                       shared props
+assets/environments/<theme>/textures/walls/<name>_01.png
+assets/environments/<theme>/textures/floors/<name>_01.png
+assets/environments/<theme>/textures/ceilings/<name>_01.png
+assets/environments/<theme>/textures/lights/<name>.png     fixture faces
+assets/environments/<theme>/decals/<name>_01.png           decal sheets
+assets/shared/decals/<name>_01.png                          shared decal sheets
+assets/shared/props/<name>.glb                       shared props
 assets/entities/<id>/model/<id>.glb                       entities
 assets/diagnostic/textures/*.png                          engine test artwork (do not ship)
 ```
@@ -2525,18 +2586,18 @@ entry.)
 
 | Resource | Where | Purpose |
 | --- | --- | --- |
-| Missing-texture diagnostic (64×64 magenta/black) | `assets/core/textures/missing_01.png` (embedded by the engine) | Visible fallback for any broken surface/decal/fixture texture. |
-| Validation decal atlas (256×256; only `core:decal_test_01`) | `assets/core/decals/validation_atlas_01.png` | Fixed atlas slots, alpha and bottom-up row convention; the existing atlas UV mapping is preserved. |
-| White sheet (1024×1024 opaque white fill, file-backed) | `assets/core/textures/white_01.png` (loaded by `src/render/wgpu/texture.rs`) | Untextured geometry (fixture housings, UI quads). |
-| HUD font atlas (128×64) | `assets/core/ui/font_01.png` | Project-owned bitmap UI font with sixteen 8×8 ASCII cells per row and the reserved white UI cell. |
-| Emergency white sheet (2×2) | `assets/core/textures/white_fallback_01.png` | Embedded opaque white fallback if the primary embedded white PNG cannot decode. |
-| Lightmap atlas (up to four pages, quality-profile sized) | `src/lighting/lightmap/` | Baked *light data*, derived at level load from the level's own lights and geometry — the texel equivalent of the baked vertex colours it replaces. Not authored artwork, and deliberately not shipped as PNGs: it changes whenever a light, prop or surface moves, and it is regenerated (never re-saved) on load. |
+| Missing-texture diagnostic (64×64 magenta/black) | `assets/shared/textures/missing_01.png` (embedded by the engine) | Visible fallback for any broken surface/decal/fixture texture. |
+| Validation decal atlas (256×256; only `core:decal_test_01`) | `assets/shared/decals/validation_atlas_01.png` | Fixed atlas slots, alpha and bottom-up row convention; the existing atlas UV mapping is preserved. |
+| White sheet (1024×1024 opaque white fill, file-backed) | `assets/shared/textures/white_01.png` (loaded by `src/render/wgpu/texture.rs`) | Untextured geometry (fixture housings, UI quads). |
+| HUD font atlas (128×64) | `assets/shared/ui/font_01.png` | Project-owned bitmap UI font with sixteen 8×8 ASCII cells per row and the reserved white UI cell. |
+| Emergency white sheet (2×2) | `assets/shared/textures/white_fallback_01.png` | Embedded opaque white fallback if the primary embedded white PNG cannot decode. |
+| Lightmap atlas (Full up to eleven pages per contribution group; lower profiles eight) | `src/lighting/lightmap/`, packaged KTX2 payloads | Incident linear HDR and signed moments computed offline from geometry/material/light inputs. Loaded from the prepared package; the 320 MiB +64 KiB typed bound and unchanged aggregate/shape guards apply. PNG dumps are diagnostics, not artwork. |
 
 Everything else the renderer draws from an image comes from a PNG under `assets/`.
 Every *surface, fixture, decal and prop texture* is still a real PNG asset under
-`assets/`, including the lightmap's albedo partners; the lightmap atlas is the only
-thing the renderer samples that is generated at runtime, and it is lighting data
-rather than texture artwork.
+`assets/`, including the lightmap's albedo partners. Prepared atlases and probe
+cubes are derived lighting data in `.placesmap` archives; the realtime planar
+target is rendered scene data. None is runtime-generated texture artwork.
 
 ### Texture budget summary
 
@@ -2558,10 +2619,10 @@ Asset classes in the current catalog:
 
 | Class | In shipped data? | Contents |
 | --- | --- | --- |
-| `environment` | Yes (all theme + generic content) | Surfaces, props, decals, fixture faces — including the shared props that live under `assets/core/`. |
+| `environment` | Yes (all theme + generic content) | Surfaces, props, decals, fixture faces — including the shared props that live under `assets/shared/`. |
 | `diagnostic` | Yes | `assets/diagnostic/` engine test textures and the generated decal `core:decal_test_01`. |
 | `entity` | Yes (one entry) | `spooner-man`. |
-| `core` | No shipped entry uses it | Supported and accepted (engine-level shared resources); the `assets/core/` **directory** holds generic props such as `core:couch`, but their catalog class is `environment`. Class is independent of directory. |
+| `core` | No shipped entry uses it | Supported and accepted (engine-level shared resources); the `assets/shared/` **directory** holds generic props such as `core:couch`, but their catalog class is `environment`. Class is independent of directory. |
 
 Three themes ship: **`office`**, **`pool`** and **`home`**, declared in `assets/catalog.json`'s
 `themes` array. A theme is an organizational collection with a display name and a
@@ -2627,7 +2688,7 @@ is a vaulted loft rather than the concept's outdoor residential balcony.
 
 1. Add a `themes` record:
    `{ "id": "hotel", "display_name": "Hotel", "description": "…" }`.
-2. Create `assets/environment/hotel/…` with the textures/props/decals you need.
+2. Create `assets/environments/hotel/…` with the textures/props/decals you need.
 3. Register assets with `"theme": "hotel"`.
 4. `tools/assets/validate.py` calls the theme known because it is declared; the Rust
    runtime never required it in the first place.
@@ -2717,7 +2778,7 @@ and the `hotel:` ids in the recipes are illustrative placeholders, not shipped i
 { "id": "pool:tex_tile_blue_01", "display_name": "Blue Pool Tile Texture",
   "asset_class": "environment", "theme": "pool", "asset_type": "texture",
   "source": "file", "surface": "floor",
-  "model": "environment/pool/textures/floors/pool_tile_blue_01.png" }
+  "model": "environments/pool/textures/floors/pool_tile_blue_01.png" }
 ```
 
 ```json
@@ -2730,14 +2791,14 @@ and the `hotel:` ids in the recipes are illustrative placeholders, not shipped i
 ```json
 { "id": "pool:decal_slip_01", "display_name": "Slippery Floor Sign",
   "asset_class": "environment", "theme": "pool", "asset_type": "decal",
-  "source": "file", "model": "environment/pool/decals/slip_01.png" }
+  "source": "file", "model": "environments/pool/decals/slip_01.png" }
 ```
 
 ```json
 { "id": "core:fluorescent_panel_01", "display_name": "Fluorescent Panel",
   "asset_class": "environment", "theme": "office", "asset_type": "light",
   "source": "file",
-  "model": "environment/office/textures/lights/fluorescent_panel_01.png" }
+  "model": "environments/office/textures/lights/fluorescent_panel_01.png" }
 ```
 
 ### Catalog validation behavior
@@ -2790,15 +2851,22 @@ embedded in the GLB; they are not separate catalog assets.
   texture draws its `baseColorFactor` through the shared white sheet),
   `baseColorFactor`, `emissiveFactor`, `emissiveTexture`, and
   `KHR_materials_emissive_strength` (the only extension accepted).
+* `doubleSided` is retained with the glTF default `false`. Eligible opaque
+  dynamic and animated entity primitives honor it in scene and emission passes.
+  `true`, MASK foliage and BLEND surfaces keep both sides. Reflected/singular
+  rigs, scaling clips and morph targets remain conservatively two-sided.
+  Prepared static prop records do not carry this field and retain the existing
+  two-sided contract; no current static shipped prop opts into a single side.
 * Embedded PNG images only, one decoded copy per distinct image actually used; no
   external `.bin`, no external/data-URI textures, no Draco/WebP extensions.
 * UVs must be finite and inside `-0.01..=1.01` — props use **non-tiling** UVs.
 * **Skins** (at most one per model, on one mesh node): `JOINTS_0` (8/16-bit),
   `WEIGHTS_0` (float32 or normalised 8/16-bit), a retained node hierarchy,
-  `joints` and `inverseBindMatrices`. The static prop path bakes the bind pose,
-  so a skinned model still draws, occludes light and passes the shipped-asset
-  checks like any other prop; a **placed** skinned model is re-posed by the
-  character path. The engine ceiling is 128 joints per model.
+  `joints` and `inverseBindMatrices`. A **placed** skinned model is re-posed by the
+  character path. Fully claimed models are excluded from immutable bind-pose
+  lighting casters and receive live entity grounding; partial or over-budget
+  groups retain the visible static fallback's caster. Collision is unchanged.
+  The engine ceiling is 128 joints per model.
 * **Animations** (optional): LINEAR and STEP samplers driving node translation,
   rotation or scale; up to 64 clips and 4096 channels per model. CUBICSPLINE
   samplers and morph-target weight channels are rejected by name. A clip whose
@@ -2967,7 +3035,7 @@ The timber GLB provides depth; the separate decal preserves the supplied
 900×546 photograph under High's 1024-pixel decal budget rather than the
 256-pixel prop budget. Its 1024-square transparent sheet fits a 2.048 m square
 quad, leaving 1.800×1.092 m of visible artwork. Keep the frame and decal
-placements together; see [Asset Specification §7.1](ASSET_SPECIFICATION.md#71-framed-hanging-paintings)
+placements together; see [Asset Specification §7.2](ASSET_SPECIFICATION.md#72-framed-hanging-paintings)
 for the wall-plane offset, orientation and scaling contract. The demo's
 frame instance exposes the title through the existing E/toggle-label binding.
 
@@ -2976,8 +3044,8 @@ frame instance exposes the title through the existing E/toggle-label binding.
 1. Author a **POT** RGBA PNG cut-out (alpha-0 background, alpha-255 artwork). For
    project artwork, add a builder + `ART` entry in `tools/textures/decal_art.py`; for
    hand-painted art, just create the file.
-2. Save it under `assets/environment/<theme>/decals/<name>_01.png` (or
-   `assets/core/decals/` for shared art).
+2. Save it under `assets/environments/<theme>/decals/<name>_01.png` (or
+   `assets/shared/decals/` for shared art).
 3. Add the catalog entry: `asset_type: "decal"`, `source: "file"`, `model` = the
    `.png` path.
 4. Place it in the level's `decals` array with a valid `surface`.
@@ -2987,12 +3055,52 @@ frame instance exposes the title through the existing E/toggle-label binding.
 
 ## 18. Lighting
 
-Places has **no dynamic lights and no realtime shadow maps**. The compiler prepares
+The compiler prepares
 per-texel lightmap atlases and the baked-vertex fallback. Authors control lighting
 with fixtures, prop lights and global directional illuminators; material emission
 does not create illumination.
 Surface response, emission, reflections and post-processing are added on top of
-that bake; none of them is a light source (see section 11).
+that bake; none of them is a light source (see section 11). Entities also receive
+bounded live selected/switchable direct sources and attached `glow` lights through
+the shared runtime path. Static atlases remain baked; there are no realtime shadow
+maps or per-frame diffuse transport solves.
+
+Prepared static transport uses the drawn geometry and material coverage.
+Offline compilation resolves source PNGs for the solve as well as the capture;
+architectural diffuse reflectance uses the mean decoded linear colour, while
+the saved incident light remains independent of the receiver's displayed albedo.
+An opaque surface blocks even when its PNG alpha is zero. A cutout surface
+blocks where numeric level-zero bilinear texture alpha × vertex alpha × material
+opacity is at or above the cutoff; holes transmit. A blended surface attenuates
+straight rays by `1 - coverage`, multiplying across separate layers. It has no
+refraction, coloured transmission, or diffuse bounce of its own. Architectural
+UVs repeat and model UVs clamp, matching their renderer routes. Water continues
+to use its authored volume attenuation independently of its visible alpha.
+An open window or door is a real geometric aperture; glass is an attenuating
+surface in that aperture. `solid` governs collision separately. The historical
+vertex/fast-occluder fallback still uses coarse boxes, so foliage's
+`occludes: false` convention remains useful there; it does not suppress actual
+opaque or covered cutout triangles in the prepared solve.
+
+Broad finite sources integrate each tap's cosine and directional moment before
+averaging. Their authored size controls penumbra; brightness, range and shape
+remain ordinary source parameters. Diffuse orders gather the previous order's
+linear incident energy times the emitting surface's linear albedo; stored
+lightmaps contain incident lighting, and the runtime multiplies receiver albedo
+once. The existing quality budgets and convergence controls are unchanged.
+
+Lightmap density describes intervals per metre: a finite positive chart span
+uses `ceil(span × density) + 1` inclusive endpoint samples, with the established
+page cap. Padding dilates each chart's own edge values. Receiver footprints use
+a canonical world-space tangent frame and the requested physical density,
+independent of chart UV winding or triangle axes. Footprints stop at real
+boundaries and may cross connected, compatible coplanar construction; they do
+not cross gaps, shading-normal changes or different authored source materials.
+Triangle-centroid texture colour is reflectance, not material identity. Untagged
+analytical scenes retain the conservative albedo boundary guard. Only diffuse
+gather energy is filtered across compatible joins; direct visibility uses a
+complete bounded physical coverage stencil. No authored overlap or extra seam strip
+is required to make neighbouring coplanar geometry continuous.
 
 **The two halves of a glowing object are separate authored values:**
 
@@ -3027,15 +3135,15 @@ examples still apply to a `Lightmaps: Off` map.
 
 Two prepared-path rules keep a solved map readable, and both are automatic:
 
-* **Water and translucent panes transmit.** A `water` volume's surface does
+* **Water and translucent panes have distinct transmission.** A `water` volume's surface does
   not block the bake: a fixture above the pool reaches the basin, and the light
   that passes into the water is attenuated with depth — a bounded per-channel
   Beer–Lambert falloff, red absorbed most, so a deep basin reads blue-green
-  while the shallow end stays brighter. A window pane, vent grille or screen
-  whose material is `blend` or `cutout` transmits exactly like the opening it
-  fills, matching the vertex-lit model; only opaque materials (including solid
-  glass) block a ray. The surface you see is unchanged: it stays a translucent
-  quad outside the atlas, as section 10 describes.
+  while the shallow end stays brighter. A blended pane attenuates by its
+  actual alpha coverage, while a cutout grille blocks its covered slats and
+  transmits through its holes. Neither is equivalent to an empty opening.
+  Opaque material always blocks. Collision's `solid` flag does not select
+  transport alpha semantics; the visible surface still follows section 10.
 * **The authored room fill is continuous.** After transport, floors, walls,
   skirts, ceilings and probes receive the receiver-local response
   `L + T * max(1 - L/(4*T), 0)^2`, where `T` is the room-area baseline above
@@ -3050,7 +3158,7 @@ Two prepared-path rules keep a solved map readable, and both are automatic:
   models). Visibility origins stay on the geometric side. Compression alone is not an irradiance integral:
   opposing grazing sources must not manufacture illumination. Each bounce
   transports only the previous order; two bounces mean `D + KD + K²D`.
-  Solver revision 11 invalidates earlier atlas and package fingerprints; sky is
+  Current solver revision 17 invalidates earlier atlas and package fingerprints; sky is
   injected only into the first diffuse order. Cache interpolation also tests
   visibility so one floor triangle spanning a divider cannot transfer light
   through that divider.
@@ -3059,10 +3167,27 @@ Two prepared-path rules keep a solved map readable, and both are automatic:
 
 The probe field uses 64 shared antipodal sphere samples, including the authored
 sky on escaping rays. Compiler validation excludes non-air and embedded probes
-and reports rooms with no valid coverage. `PLACES_PROBE_DUMP_DIR=<directory>`
+and reports rooms with no valid coverage. Solver 16 keeps the centred grid when
+all rooms have valid air support; otherwise it tests at most 63 additional
+quarter-cell phases at unchanged spacing/caps. A phase must recover room coverage
+without losing any originally covered room. All bounded phases are scored by
+room coverage, then balanced per-room valid-probe counts so a boundary singleton
+does not stop the search. The same chosen grid supplies target positions and
+baked coefficients. Unrecoverable spaces still produce warnings;
+runtime support and opaque visibility remain unchanged. `PLACES_PROBE_DUMP_DIR=<directory>`
 enables deterministic JSON diagnostics; use `--force` and a separate directory
-per source/build. See [Probe baker audit](PROBE_BAKER_AUDIT.md) and
+per source/build. See [Probe baker audit](reports/probe-baker-audit.md) and
 [the PLPF contract](PACKAGE_FORMAT.md#61-irradiance-field-for-moving-objects).
+
+Current PLPF v3 keeps combined light and a selected local-direct sidecar. Entities
+subtract that selected energy before reconstructing indirect response and evaluate
+the corresponding finite sources at their actual transformed surfaces. Eight
+bounds anchors retain spatial response and tested visibility; they do not replace
+the static atlas. Every new field preserves this v3 path, including zero selected
+source fields with aligned zero direct coefficients. Legacy v2 keeps its combined
+centre sample. Texture resolution
+and filtering remain independent of live lighting quality. The current controls,
+limits and capture workflow are in [Stage 4](art-style/stage4/contracts.md).
 
 Use `PLACES_VERBOSE=1` with the compiler to log area-weighted direct, bounced,
 filtered and filled measurements by room and surface family. `shoulder_fraction`
@@ -3115,11 +3240,16 @@ its sky ambient; its star sheet contains no visible moon.
 Gameplay Low uses vertex lighting. Medium uses nominal 12 texels/m for
 architecture, two emitter taps per axis, one diffuse order and 32 gather
 directions; High uses 16 texels/m, three emitter taps, two orders and 64 gather
-directions. Small opaque model charts use half the architecture density and
-large opaque models use one eighth; cutout charts retain 1 texel/m. Actual
-endpoint-grid density is `(chart_axis_texels - 1) / axis_metres`.
-Medium integrates 2×2 receiver-footprint samples at visibility edges; High uses
-4×4. Smooth direct fields keep their centre sample. Coplanar chart joins compare
+directions. Small opaque model charts use twice the architecture density:
+24 intervals/m for Medium and 32 for High. Large opaque models retain one eighth
+of architectural density; cutout charts retain 1 interval/m. Compatible coplanar
+triangles in one original model primitive share a native four-corner chart.
+The original common diagonal, all six drawn corners, material UVs and normal
+frames remain exact; incompatible unions retain individual triangle charts.
+Actual endpoint-grid density is `(chart_axis_texels - 1) / axis_metres`.
+Medium integrates every 2×2 receiver-footprint sample; High integrates every
+4×4 sample. Equal centre/corner visibility does not establish uniform coverage.
+Coplanar chart joins compare
 supported neighbours in world space. Only diffuse gather energy is denoised;
 its filter crosses a chart join only with matching normals/material and an
 unoccluded connection. Atlas endpoints address texel centres, and the existing
@@ -3231,30 +3361,37 @@ sample = clamp(AMBIENT_LEVEL + room/partition-area baseline
 
 ### Baked lightmaps
 
-The value above is stored per *texel* of static geometry instead of per vertex: the
-engine packs every floor, ceiling, wall face, reveal and recess skirt into a lightmap
-atlas at level load, and the surface shader multiplies its texture by the atlas. The
-lighting model, the fixtures and everything a map authors are unchanged — this is a
-storage change, not an authoring one.
+The compiler stores linear incident irradiance and signed moments per texel of
+static geometry, including panes, water and real static model triangles. The
+player uploads these prepared package layers and multiplies receiver albedo once.
 
-* Density follows the quality level: **High** bakes 16 texels per metre onto up to
-  four 1024-texel pages, **Medium** 12 texels per metre onto the same 1024-texel
-  pages, **Low** 10 texels per metre onto four 512-texel pages (`places_demo`
-  packs three of them).
-  Every level bakes the same set of surfaces; faces longer than one chart are split
-  automatically (chart span cap 63.75 m). The packer is a deterministic
-  best-short-side-fit MaxRects allocator: `places_demo` fits two High pages and
-  The Pit four, where the historical skyline packer needed five for The Pit. Four
-  pages is the renderer's sampling contract (one `texture_2d_array` whose layers the
-  vertex page byte selects), so a level that genuinely needs more keeps the
-  historical vertex-lit mesh and reports a named page-overflow failure.
-* Shadow softness follows the same level: a local pool's visibility is sampled on
-  the fixture's own emitting rectangle — **High and Medium** use a five-tap
-  quincunx (the centre plus the four quadrant corners) and **Low** the historical
-  single centre tap — so a partially blocked pool fades over a penumbra instead of
-  ending on a hard line where the level pays for it. `taps_per_axis == 1` is the
-  historical centre-only test, which is also what the vertex-lit fallback bakes
-  with.
+* Independent Lightmaps **Full** uses 16 texels/m and **Medium** 12 texels/m,
+  both with 1024-pixel pages. Full plans up to **ten base pages** per contribution
+  group; Medium retains **eight**. **Off** uses the historical vertex-lit representation. High/Medium/Low
+  presets select Full/Medium/Off; advanced choices may override them.
+  The shared chart-span cap is 63.6875 m, preserving room for inclusive endpoints
+  and gutters. The deterministic best-short-side-fit MaxRects allocator reports
+  named page overflow rather than dropping surfaces. Each resident page uses two
+  RGBA16F layers; every switchable group adds another pair per base page. The GPU
+  allocates exactly the produced layers, without reserving unused pages.
+  [The Stage 7 Hallows capacity measurement](art-style/stage7/integration-contract-audit.md)
+  finds 9,549,535 padded Full texels, exceeding nine-page capacity; the existing
+  packer reaches the mathematical minimum of ten. This costs 160 MiB of base
+  RGBA16F GPU storage at Full, compared with the prior eight-page 128 MiB policy.
+  Density, endpoint samples, gutters, chart orientation and content are retained.
+  Decoder page/byte, switch-group and aggregate safety bounds are unchanged.
+  The separate model-lighting correction now shares compatible native prop
+  charts and uses finer small-opaque sampling (High32/m, Medium24/m). Its
+  Hallows Full plan needs eleven pages: 176 MiB for the base group. The
+  320 MiB +64 KiB typed record, group/shape and aggregate bounds remain enforced;
+  extra page capacity does not waive them. See
+  [the correction report](reports/model-lighting-root-cause-and-fix.md) for current
+  verification status, distinct from the dated Stage 7 evidence.
+* Medium/Full finite-source transport uses the selected solver's shaped taps
+  with per-tap visibility/cosine and complete bounded receiver coverage. The
+  historical vertex fallback retains its centre-only coarse-box shadow path.
+  The legacy profile bake API's five-tap quincunx is not the complete prepared
+  transport solver contract; see [Prepared HDR lighting](#prepared-hdr-lighting-medium-and-full-atlases).
 * A chart's texels span their own patch: the first and last texel sit exactly on the
   patch's geometric edges. Adjacent coplanar surfaces therefore evaluate the *same*
   world point on a shared edge, so changing an albedo material across one continuous
@@ -3274,10 +3411,9 @@ storage change, not an authoring one.
   coplanar strips whose bottoms rounded opposite ways stepped at the seam.
 * `settings.json` carries `"lightmaps": "off"|"medium"|"full"` (default
   `"full"`), exposed as
-  Settings → Graphics → Lightmaps and switched live (the level's lighting is
-  rebuilt from the resident definition, with the player state preserved; an
-  uncached atlas fills on a worker while the previous lighting keeps
-  rendering). The
+  Settings → Graphics → Lightmaps and switched live by installing a prepared
+  package variant, with player state preserved. The previous resident world
+  remains installed until staged resources commit. The
   environment override `PLACES_NO_LIGHTMAPS=1` forces the historical vertex-lit
   path for a benchmark or A/B capture run.
 * If a bake cannot fit the page budget, or an atlas page cannot upload, the level
@@ -3287,18 +3423,19 @@ storage change, not an authoring one.
   so the plan leaves that quad vertex-lit and reports it in the `[lightmaps]` line
   (`left N sub-texel sliver quad(s) vertex-lit`) while the rest of the level keeps its
   atlas. A visible malformed quad (a bow-tie) still fails the build over.
-* Fixtures, prop placeholder boxes, decals and dynamic objects (door frames,
-  door leaves and the washer drum) are vertex-lit:
-  their colour keeps the baked light folded in, exactly as before. Glass panes and
-  stairs are lightmapped like the wall around them.
+* Fixtures, prop placeholder boxes and decals retain the vertex-lit path.
+  Panes, stairs, water and real static props receive prepared charts in
+  Medium/Full. Movable objects use spatial residual probes plus bounded live
+  finite-source direct light, with the legacy centre path for genuine PLPF v2.
 * Set `PLACES_DUMP_LIGHTMAPS=1` to write the baked atlas pages as PNGs under
   `target/diagnostics/atlases/` for inspection.
 
 #### Static props occlude the bake
 
-A placed prop is not air: every prop's own triangles become a small set of
-occlusion boxes for the bake, automatically and per distinct model. Nothing is
-authored and there is no per-prop occlusion flag. The boxes are ground on a
+A placed prop is not air: prepared transport uses its actual triangles and
+numeric material/PNG coverage. The vertex/fast-occluder fallback derives a small
+set of boxes per distinct model unless the placement authors `occludes: false`.
+Those fallback boxes are ground on a
 quality-level grid — **High** 0.075 m, **Medium** 0.11 m, **Low** the historical
 0.15 m — so High resolves a finer contact silhouette and the shadow a prop throws
 on the floor or wall behind it, while Medium and Low keep cheaper derivations. The
@@ -3334,8 +3471,10 @@ an ordinary static prop and participates in the bake).
   map-authored movable solid.
 * The **washer-drum demonstration** is engine-created: placing a
   `core:washing_machine` is the only way a level influences one.
-* Dynamic objects are lit by a single probe of the static bake at their current
-  position (no shadows, no realtime lights).
+* Movable receivers use eight inset bind-bounds support anchors for residual
+  irradiance, and selected finite-source direct light at real fragments. Rigid
+  moving casters use cached triangle/alpha visibility; skinned floor contacts
+  use bounds proxies. Genuine legacy PLPF v2 retains one centre probe.
 * Moving one never rebuilds geometry, batches or lightmaps, and a door leaf casts
   no baked shadow.
 
@@ -3343,7 +3482,7 @@ an ordinary static prop and participates in the bake).
 
 A level can make a surface's **emission** move over time: a backlit sign that
 breathes, a tube on a failing ballast. It is a level-level array, keyed by
-material id. This is real content from `assets/levels/places_demo.json` (the
+material id. This is real content from `levels/places_demo.json` (the
 `comment` keys shown there are ignored extras; they are omitted here):
 
 ```json
@@ -3387,10 +3526,10 @@ code**.
 
 | Fixture ID | Mount type | Visible artwork (PNG) | Shape / footprint | Important authoring notes |
 | --- | --- | --- | --- | --- |
-| `core:fluorescent_panel_01` | ceiling (default) | `environment/office/textures/lights/fluorescent_panel_01.png` (1024×512) | Recessed troffer, outer footprint 1.2 × 0.6 m (half extents 0.6 × 0.3); rotation swaps axes | The default family **and the fallback for every unknown id**. A real housing frames the diffuser: side walls drop 0.045 m from the ceiling plane, a bottom frame borders the aperture, a top flange closes the body, and the fitted 2:1 sheet (aperture 1.12 × 0.56 m) is recessed 0.012 m above the frame's bottom. Only the diffuser glows; the housing is a fixed mid grey. Hangs 0.01 m below the local ceiling; under a gable it follows the eave/ceiling above its footprint. Grid alignment (section 21) snaps its centre to the ceiling material's panel grid at load by default. |
-| `core:pool_light_round` | ceiling | `environment/pool/textures/lights/pool_light_round_01.png` (128×128) | Disc, 0.44 m diameter (half extent 0.22); rotation-invariant | Round recessed downlight. Same ceiling-plane derivation as the panel. |
-| `home:ceiling_light_round` | ceiling (default) | `environment/home/textures/lights/ceiling_light_round_01.png` (256×256) | Disc, 0.32 m diameter (half extent 0.16); rotation-invariant | Round residential flush mount: a shallow white drum with a glowing diffuser disc, hanging 0.07 m below the ceiling plane. Its pool is the disc's bounding square, as with the pool downlight. |
-| `core:pool_light_wall` | **wall** — requires `"mount": "wall"` and a finite world `"y"` | `environment/pool/textures/lights/pool_light_wall_01.png` (128×64) | Rectangle 0.4 × 0.18 m (half extents 0.20 × 0.09) centred on (x, y, z) | Faces `rotation_degrees`: 0 = +Z, 90 = +X, 180 = −Z, 270 = −X. Place the point on the wall plane; the body extends ~0.11 m forward. Light is emitted from the rectangle's front. |
+| `core:fluorescent_panel_01` | ceiling (default) | `environments/office/textures/lights/fluorescent_panel_01.png` (1024×512) | Recessed troffer, outer footprint 1.2 × 0.6 m (half extents 0.6 × 0.3); rotation swaps axes | The default family **and the fallback for every unknown id**. A real housing frames the diffuser: side walls drop 0.045 m from the ceiling plane, a bottom frame borders the aperture, a top flange closes the body, and the fitted 2:1 sheet (aperture 1.12 × 0.56 m) is recessed 0.012 m above the frame's bottom. Only the diffuser glows; the housing is a fixed mid grey. Hangs 0.01 m below the local ceiling; under a gable it follows the eave/ceiling above its footprint. Grid alignment (section 21) snaps its centre to the ceiling material's panel grid at load by default. |
+| `core:pool_light_round` | ceiling | `environments/pool/textures/lights/pool_light_round_01.png` (128×128) | Disc, 0.44 m diameter (half extent 0.22); rotation-invariant | Round recessed downlight. Same ceiling-plane derivation as the panel. |
+| `home:ceiling_light_round` | ceiling (default) | `environments/home/textures/lights/ceiling_light_round_01.png` (256×256) | Disc, 0.32 m diameter (half extent 0.16); rotation-invariant | Round residential flush mount: a shallow white drum with a glowing diffuser disc, hanging 0.07 m below the ceiling plane. Its pool is the disc's bounding square, as with the pool downlight. |
+| `core:pool_light_wall` | **wall** — requires `"mount": "wall"` and a finite world `"y"` | `environments/pool/textures/lights/pool_light_wall_01.png` (128×64) | Rectangle 0.4 × 0.18 m (half extents 0.20 × 0.09) centred on (x, y, z) | Faces `rotation_degrees`: 0 = +Z, 90 = +X, 180 = −Z, 270 = −X. Place the point on the wall plane; the body extends ~0.11 m forward. Light is emitted from the rectangle's front. |
 
 Ceiling fixture rotation is quantised to a 0°/90° axis swap; only wall sconces rotate
 continuously. Unknown fixture ids load as the office panel with the untextured white
@@ -3436,7 +3575,7 @@ Fixture geometry is code. To add a family, touch each of these:
    bottom frame, top flange) into `housing`.
 3. `src/render/common/geometry.rs` (`emit_fixtures`) — add the `match` arm that calls the new
    emitter.
-4. Add the PNG under `assets/environment/<theme>/textures/lights/` (POT, opaque,
+4. Add the PNG under `assets/environments/<theme>/textures/lights/` (POT, opaque,
    match the face aspect).
 5. Add a `light` catalog entry whose `model` is that PNG (no separate `texture`
    entry).
@@ -3537,9 +3676,12 @@ Semantics:
   same floor footprint. Clearance for a *crouched* 0.9 m body is still clearance:
   a beam whose underside is at 1.0 m over a walkable floor is solid and a
   standing player bumps it.
-* The collision box is **axis-aligned and does not rotate**. For a 90°/270° rotated
-  solid prop, author the x/z-extents swapped.
-* Rotation does rotate the rendered model around Y.
+* Author collision `size` in the model's **local frame**. `rotation_degrees`
+  rotates its horizontal half-extents, then the collider uses the enclosing
+  world-axis-aligned box (`PropDef::solid_collider`). At 90°/270° the world x/z
+  extents swap automatically; do not swap the authored local size. Oblique
+  rotations conservatively enclose the rotated footprint.
+* Rotation also rotates the rendered model around Y.
 * The **placeholder box** (unknown id, missing model or over-budget model) uses the
   level `size` when authored, else the catalog `size`, × `scale`.
 * `props` are never tested against their render mesh for placement; intentional
@@ -3644,7 +3786,7 @@ All fixtures — ceiling and wall — live in the level's `ceiling_lights` array
 | `falloff` | `"smooth"` \| `"linear"` \| `"constant"` | no | `"smooth"` | Closed enum. Lateral pool decay curve for a ceiling fixture (`smooth` = `(1 - d/range)²`), or the radial curve for a wall sconce or prop light. `constant` holds full strength to `range` then stops (a deliberately hard pool). |
 | `enabled` | boolean | no | `true` | `false` keeps the fixture's visible glow but removes **all** of its environmental illumination. |
 | `emission` | number | no | the fixture's `brightness` | Independent emissive strength of the visible face, finite, `≥ 0`, clamped to `8.0`. Lets a face read brighter (or dimmer) than the light the fixture casts. |
-| `switchable` | boolean | no | `false` | Marks the fixture as externally controllable: `{ "action": "set_light", "target": "<id>", "on": false }` or `{ "action": "toggle", "target": "<id>" }` may switch it at runtime (see §29). A switchable fixture is excluded from its room's baked baseline and contributes only its local pool; each switch state is prepared as its own selectable lightmap layer, so toggling **selects a prepared layer** — a real change of the baked illumination with no runtime rebake — and the visible face turns off with it. Moving objects and characters do **not** receive a switchable fixture's light in any state: the prepared irradiance field is solved from non-switchable emitters only, so the toggle changes the static surfaces' prepared illumination and not a moving actor's lighting. A fixture that is **not** switchable is baked once and never changes: no action can move its illumination. Emission-only motion (`animated_emissions[]`) never changes illumination either; it animates the face's additive glow only. Layer selection needs the prepared lightmap variants (the default): with Lightmaps Off the level bakes into vertex colours, so the face still switches but the baked illumination cannot change until the level is reloaded. Leave it `false` unless a map action drives it. |
+| `switchable` | boolean | no | `false` | Marks the fixture as externally controllable: `{ "action": "set_light", "target": "<id>", "on": false }` or `{ "action": "toggle", "target": "<id>" }` may switch it at runtime (see §29). A switchable fixture is excluded from its room's baked baseline and contributes only its local pool; each switch state is prepared as its own selectable lightmap layer, so toggling **selects a prepared layer** — a real change of the baked illumination with no runtime rebake — and the visible face turns off with it. Moving objects and characters using a newly compiled v3 irradiance field receive the fixture's live direct light through reserved runtime source slots; base probes exclude switchable energy, so it is added once. Switched diffuse bounce is absent from the entity base field. Genuine legacy v2 fields retain their combined center path without switched entity response. A fixture that is **not** switchable is baked once and never changes: no action can move its illumination. Emission-only motion (`animated_emissions[]`) never changes illumination either; it animates the face's additive glow only. Layer selection needs the prepared lightmap variants (the default): with Lightmaps Off the level bakes into vertex colours, so the face still switches but the baked illumination cannot change until the level is reloaded. Leave it `false` unless a map action drives it. |
 | `align` | `"grid"` \| `"none"` | no | `"grid"` | Closed enum. Grid alignment snaps a fluorescent panel's centre onto its ceiling material's visible panel grid at load (see *Ceiling grid alignment* below). `"none"` keeps the authored `x`/`z` exactly. |
 
 Ceiling fixture, office default look (Places Demo, office room with red emergency
@@ -4790,6 +4932,10 @@ whose target cannot do the thing is a named load error.
 | `steam` component + `enable`/`disable` | `target?` | an entity with a `steam` component | turns the authored emitter's billboards on or off through the renderer (a disabled emitter's level effect stays, it just stops drawing) |
 | water volume + `enable`/`disable` | `target?` | a water-volume entity (`water_<n>`) | removes the volume from the controller's water sampling: the baked surface still draws, the player walks or falls through |
 | `set_state` | `target?`, `name` (required), `value` (required bool/int/float/string) | the target must already author that state, or be a timer/volume (the runtime owns those states) | write a typed state |
+| `toggle_weather` | — | — | immediately alternate the authored `weather` / `weather_alternate` configurations for this session; both are required; cancels a cycle |
+| `set_weather_strength` | `strength` | `transition_seconds: 0` | smoothly interpolate compatible weather endpoints at strength 0–1 over 0–300 seconds; cancels a cycle |
+| `set_weather_cycle` | `enabled` | — | start or stop the authored `weather_cycle`; stopping holds the current strength unless paired with a manual action |
+| `set_prompt` | `target?`, `prompt` (nonblank) | an entity with an `interactable` component | replace the aimed-at interaction prompt; reset/reload restores the authored prompt |
 | `toggle_label` | `target?` | a placed **prop** (only a placed prop shows a label) | show/hide the instance's floating display name |
 | `start_sequence` | `sequence` (required, known id), `target?` (omitted = the actor) | the entity the sequence should run on | start/replace a sequence on the target |
 | `stop_sequence` | `target?` | any entity | stop the sequence running on the target |
@@ -5048,7 +5194,7 @@ stops across the level. The existing reflection tests continue to exercise the s
 ### Places Demo examples
 
 The shipped demo authors real v3 entities; use them as the reference (all in
-`assets/levels/places_demo.json`):
+`levels/places_demo.json`):
 
 ```json
 { "id": "water_cooler", "display_name": "Water Cooler", "model": "core:water_cooler",
@@ -5444,7 +5590,7 @@ targets on one press.
 
 ### Triggered door (externally controlled)
 
-`levels/level0_pit.json` authors the `pit_gate` leaf with **no** interactable
+`tests/fixtures/levels/level0_pit.json` authors the `pit_gate` leaf with **no** interactable
 component or binding, so it is never an interaction target, and drives it from
 two volumes: one opens it as the player approaches, the other closes it once
 they are through.
@@ -5597,6 +5743,50 @@ compiled semantics and its material/PNG travels through ordinary dependencies.
 | `fog_color` | `[0.68, 0.73, 0.79]` | three finite display-space 0–1 components |
 | `material` | `core:snowflake_01` | catalog material with a full-UV flake PNG (§7.1a of the asset specification) |
 
+A level may additionally author `weather_alternate` using this same configuration
+contract. It requires `weather`; both configurations and material dependencies are
+validated and prepared once. `toggle_weather` swaps them for the current session,
+including snow motion, storm extinction and sky. Shared effect buffers reserve the
+larger seed budget once; selection never reloads or rebakes the map. Live graphics
+changes preserve the selection and clock. A fresh load or `reset_to_start` restores
+`weather`; no weather state is written to saved settings. A switch may pair state
+conditions with `toggle_weather`, `toggle_animation`, `set_prompt` and `set_state`
+for distinct on/off feedback through ordinary E key edges.
+
+Continuous controls require matching seed counts and trimmed material ids in both
+endpoints. `set_weather_strength` blends numeric snowfall, wind, fog, visibility
+and sky parameters in place, retaining seeds, textures and shelter coefficients.
+Exact strength 0 restores the authored normal configuration. These controls and
+the optional timer advance only during gameplay; pause and loading freeze them.
+Live graphics changes preserve playback. Manual strength/toggle actions cancel
+cycling until an explicit `set_weather_cycle` enables it again.
+
+Optional `weather_cycle` requires both compatible endpoints. Its fields are:
+
+| Field | Default | Contract |
+| --- | --- | --- |
+| `enabled` | false | start automatically on fresh load when true |
+| `min_strength` / `max_strength` | 0 / 1 | finite 0–1, minimum strictly below maximum |
+| `period_seconds` | 60 | finite 1–3600 seconds; includes two equal dwells and two ramps |
+| `transition_seconds` | 4 | finite 0–300 seconds, no greater than half the period |
+
+Enabling first eases from the current strength to the minimum, then begins a
+minimum dwell, rising ramp, maximum dwell and falling ramp. A zero-duration ramp
+switches at the dwell boundary. Reload or `reset_to_start` restores authored
+weather and the authored cycle-enabled setting; nothing is saved to preferences.
+
+Winter's timber-backed panel is inside the raised lodge, east of its entrance:
+world X/Z `(-10.25, -10.34)`. Enter up the front ramp, turn toward the door's east
+jamb, approach and press **E** while aiming at a rocker. The large **Blizzard
+control** centred at world Y 1.89 m alternates moderate strength 0.35 and calm over
+two seconds. Its prompt is “Enable moderate blizzard” / “Stop blizzard”. Three
+lower rockers select mild 0.15, moderate 0.35 or severe 1.0 over two seconds.
+The upper **Timed snowfall** rocker starts/stops the optional 120-second cycle
+between 0 and 0.45, with 15-second ramps and 45-second dwells. Stopping eases to
+calm; any manual control cancels the timer. Fresh Winter is calm with the timer
+off. The alternate retains the existing severe review's wind `[8, 3]`, 6 m snow
+radius and 5 m visibility. Ceilings and porch slabs retain shelter protection.
+
 Flakes fall downward with independently seeded speed, size and sinusoidal drift.
 Their world positions stay fixed under camera translation until an invisible
 volume boundary wraps. Smooth near, radial and vertical fades suppress popping;
@@ -5645,10 +5835,11 @@ and occluding roof slabs; both validators reject excess rather than silently
 losing shelters. As for snow, arbitrary prop/dynamic roofs are not traced.
 There is no screen-space noise or veil and no new texture/camera shake effect.
 
-Winter keeps its calm default. The separately compiled
-`debug-maps/blizzard-20261007/sources/blizzard_review.json` is a severe Winter
-review configuration, preserving all original terrain, buildings, pond, trees,
-lights and sky. Its README provides compilation, native captures and launches.
+Winter keeps its calm default. `tools/levels/config/winter_severe_weather.json`
+preserves the severe diagnostic settings. `tools/bench/capture_winter_integration.py`
+derives the severe control from `levels/winter.json` into its explicit output
+directory, compiles it normally, and captures the same terrain and buildings.
+This focused control is outside the playable lineup.
 
 Benchmark diagnostics: with `PLACES_BENCH=1`, `PLACES_WEATHER_TRACE=<csv>` records
 camera, evaluated/submitted/sheltered/culled counts, sum of projected quad areas
@@ -5688,10 +5879,10 @@ static mesh and derives collision, then reports what is measurably wrong.
 
 ```text
 # Human report (errors and warnings)
-cargo run --release -- --check-geometry --level assets/levels/places_demo.json
+cargo run --release -- --check-geometry --level levels/places_demo.json
 
 # Machine-readable report and marker files
-cargo run --release -- --check-geometry --level levels/level0_pit.json \
+cargo run --release -- --check-geometry --level tests/fixtures/levels/level0_pit.json \
     --json target/report.json \
     --markers target/markers.json \
     --markers-obj target/markers.obj
@@ -5769,7 +5960,7 @@ read-only planner and the order-preserving applier, both offline:
 
 ```sh
 # 1. Plan (read-only; never writes the map).
-./target/release/places --repair-geometry --level assets/levels/places_demo.json \
+./target/release/places --repair-geometry --level levels/places_demo.json \
     --plan target/demo-plan.json
 
 # 2. Verify the plan against the file on disk (hash and old values).
@@ -5777,7 +5968,7 @@ python3 tools/levels/repair_alignment.py --plan target/demo-plan.json --check
 
 # 3. Apply atomically, then re-check and prove a second plan is empty.
 python3 tools/levels/repair_alignment.py --plan target/demo-plan.json --apply
-./target/release/places --check-geometry --level assets/levels/places_demo.json
+./target/release/places --check-geometry --level levels/places_demo.json
 ```
 
 A high-confidence repair moves only the authored wall that lost the authority
@@ -5811,11 +6002,19 @@ placeholders, no GLB interiors) and does not validate prop models, textures or
 shading. Marker files and `--json` are the reproducible localization path for
 every finding; a clean run does not prove that no geometry defect exists.
 
+The ghost-collider warning tests actual coplanar triangle/face overlap and a
+covered face centre, rather than requiring the triangle centroid inside the
+collision partition. A large triangle may support a small legitimate wall tail.
+Separate coplanar fragments cannot fill a real centre hole through their bounds.
+This remains a support heuristic: one supported face centre is sufficient, and
+conservative roof-following boxes need no invented horizontal cap. It does not
+prove full face coverage or watertight collision.
+
 ---
 
 ## 32. The Model Zoo and the capacity fixtures
 
-`assets/levels/model_zoo.json` is the generated showroom: one large, well-lit
+`levels/model_zoo.json` is the generated showroom: one large, well-lit
 pool hall (pool deck floor, pool wall tile, pool ceiling, a grid of pool
 downlights) that displays **every registered placeable model** at least once,
 plus the demonstrations that need more than one copy. It is bundled with the
@@ -5874,8 +6073,8 @@ PLACES_TOOL_WORKERS=4 python3 tools/levels/build_model_zoo.py
   grows; animated displays are placed in a reserved lane so a route can never be
   blocked by an exhibit.
 * **Baked within budget.** The continuous hall uses flat ownership cells at
-  most 16 × 18 m so its floor and ceiling charts pack into the existing eight
-  page High budget. Shared cell borders are open, with narrow checker intent
+  most 16 × 18 m so its floor and ceiling charts pack within the current eleven-page
+  Full budget. Shared cell borders are open, with narrow checker intent
   strips; the exterior shell remains enclosed apart from its authored exit.
   The basin fits within one cell. Thin snow attachments and icicles mount on
   the display wall, and all three string spans hang from the ceiling with their
@@ -5896,7 +6095,7 @@ the raised limits are measured against:
 
 | Fixture | What it binds |
 | --- | --- |
-| `capacity_dense` | 5000+ placements covering every registered model, 100+ fixtures, 18 routed entities and a real basin, in one 76 m x 56 m hall. Proves the raised instance/model/vertex/fixture budgets and gives the collision index its dense witness set. |
+| `capacity_dense` | 5000+ placements using a fixed historical 48-model witness, 100+ fixtures, 18 routed entities and a real basin, in one 76 m x 56 m hall. Proves the raised instance/model/vertex/fixture budgets and gives the collision index its dense witness set. Model Zoo owns complete current catalogue coverage; catalogue growth must not erase this fixture's collision pressure. |
 | `capacity_beyond_former_limits` | The 2026 pass's high-count source: 20 001 walls, 20 001 props, 2 025 rooms, 2 001 floor regions / patches / water volumes, and 81 582 distinct material ids (past the former 16-bit index boundary). It compiles offline to a 45.4 MiB package and is loaded through the package reader; see the Level limits section. |
 
 The generated fixtures support `--check`; the dense fixture must also pass
@@ -6044,7 +6243,7 @@ cannot pin an agent in a held pose.
 
 ### 33.5 The home encounter (the worked example)
 
-`assets/levels/places_demo.json` authors the complete encounter with ordinary
+`levels/places_demo.json` authors the complete encounter with ordinary
 data only:
 
 * `rat_release_switch` is a `home:wall_switch` beside the hall door whose
@@ -6445,15 +6644,22 @@ A level may declare one sky background:
   number of faint stars in the upper half — no moon, no glow, no horizon.
 * `brightness` (`0.0..=4.0`, default 1.0) scales the sheet at draw time. It is
   a visual control, not an exposure: the authored art is the look.
-* **The sky is a background, not a light.** A solid ceiling always covers it,
-  and a level without a `sky` keeps the historical clear-colour background
-  exactly (§5). The one environment term is `ambient`.
+* The sky texture supplies the background, while `ambient` and optional
+  `ambient_color` supply escaping-ray illumination. A solid ceiling covers the
+  background and blocks these rays. A level without `sky` retains its clear
+  colour and zero sky radiance.
 * `ambient` (`0.0..=1.0`, default 0.0) is the radiance an escaping ray sees in
   the **prepared lightmap solve** (Medium/High): a faint cool dome fill for an
   exterior with no fixtures, directional — upward faces receive it, downward
   faces almost none. `0.0` leaves the solve bit-identical to a level with no
-  sky. The Low-quality vertex-lit path keeps its own historical `0.10` ambient
-  floor and does not read `ambient`.
+  sky. Optional `ambient_color` is a finite **linear radiance** RGB in 0–1,
+  default `[0.42, 0.52, 0.72]`; incident sky equals this colour × `ambient`.
+  The same transport feeds static atlases and entity probes, including bounced
+  contributions. Runtime never adds that ambient a second time. Low's existing
+  vertex fallback keeps its own historical `0.10` ambient floor and does not
+  reproduce the prepared sky distribution. Background `brightness` and final
+  exposure are independent of stored energy; optional moon/global illuminators
+  retain their visibility/cosine paths.
 * The sky is never captured into reflection probes or the planar mirror, and it
   is not fogged: it is an infinite background. It *is* a package dependency:
   editing the sheet invalidates a compiled package like any surface texture.
@@ -6577,9 +6783,9 @@ engine code. The demo's dynamic-light budget is 8, and these six glow lights
 
 ## 36. Winter static snow kit
 
-The maintained Winter source is `assets/levels/winter.json`, generated by
+The maintained Winter source is `levels/winter.json`, generated by
 `tools/levels/build_winter.py`. Its 28 reusable snow props and mounting table
-are documented in `assets/environment/winter/README.md` and
+are documented in `assets/environments/winter/README.md` and
 `docs/ASSET_SPECIFICATION.md` §8.7. Use the ordinary prop exporter, material
 resolver, lighting bake and map compiler; this kit adds no runtime geometry
 or image generation, weather or movement features.
@@ -6690,7 +6896,8 @@ authoring. They are not invitations to change the engine as part of an authoring
 18. **Water is a volume, lighting is baked.** "Flooded" needs a `water[]` volume
     over real recessed geometry (a volume over a flat floor reads as a puddle, not
     a pool); "mood lighting" must be expressed with existing materials, geometry and
-    per-fixture colour/brightness. There is no dynamic lighting.
+    per-fixture colour/brightness. Static transport is baked; bounded live
+    entity direct/glow response does not rebake the room.
 19. **Reflections are per-material and limited.** One planar plane per frame, at most
     two probes per level, probes are static (no realtime update), and a planar material
     reused on non-planar geometry is skipped with a warning.
@@ -7108,6 +7315,8 @@ A tube that reads bright but casts a restrained local pool (the demo's far corri
    when the incremental check says the package is current.
 3. Verify the result: `./target/release/places-compile validate my_level.placesmap`
    decodes every record and re-hashes every entry;
+   `./target/release/places-compile verify my_level.json --package my_level.placesmap --require-current`
+   checks final source/catalogue/dependency/compiler currency;
    `./target/release/places-compile inspect my_level.placesmap` prints the
    manifest and resource list.
 4. Drop the `.placesmap` into `levels/` (or use the in-game Import action) and
@@ -7117,10 +7326,108 @@ A tube that reads bright but casts a restrained local pool (the demo's far corri
 `./target/release/places-compile build-collection levels/` compiles every source
 in a directory, reporting per-source failures without blocking the others.
 
+Current package major is 1, level schema 3, geometry revision 9 and transport
+solver revision 17. PLMP v6 shares exact vertex/frame bytes without changing
+decoded material response, normals, UVs, lighting or character caster claims;
+literal v3/v4/v5 remain readable with their documented defaults. Both encoded
+and expanded literal prop records retain the 512-MiB bound. PLPF v3 preserves spatial selected
+direct presence even with zero sources; v2 remains a genuine legacy centre path.
+Probe positions v3 declares HDR captures; v2's old RGBA8 data decodes to linear
+without recovering already clipped energy. These reader guarantees do not make
+historical prepared fingerprints current.
+
+Ordinary builds include placed models and every runtime spawn template in the
+dependency closure, including unused override choices. GLB SHA covers embedded
+PNG bytes; editing a standalone model-source PNG requires exporting its GLB first.
+`build-inputs.json` revision 1 binds source, catalogue, executable and capture mode
+alongside format/geometry/solver/variant identity. Missing or corrupt provenance
+requires rebuilding, and `--force` bypasses both package and prepared-product reuse.
+Metadata, navigation/AI and final presentation edits may reuse prepared products;
+physical material, image, model, geometry, source and entity changes rebuild
+conservatively. Source/assets must stay stable through each compiler invocation.
+
+At package-open the player streams external dependency SHA-256 once and checks
+new packages against the installed catalogue. Same-size substitutions are named
+rebuild errors. Genuine old packages without provenance retain their compatible
+immutable-bundle contract. The runtime cache keys prepared manifest identity and
+quality; no file hashing, source compilation or static bake occurs per frame.
+
+## Beach construction pieces
+
+The `beach:` catalog provides 27 static visuals, three animated animals, ten
+surface PNG families, two sea materials and a seamless day panorama. The
+[Beach kit](assets/ENVIRONMENTS.md#beach) maps B01–B18 to resource IDs
+and gives deterministic source locations. The connected
+`levels/beach_demo.json` is generated by `tools/levels/build_beach.py`.
+
+`tools/levels/beach_components.py` supplies `shore_segment(x, sea_z, shore_z,
+width)` and `daylight()` as existing v3 arrays. The shore has real lowered
+support, two gentle ramps and separate deep/shallow WaterDef volumes. Ramps
+are narrow enough that their longer dimension runs north/south, as the current
+engine requires. The containing room begins at the seabed so underwater entity
+anchors receive prepared lighting, while raised dry support reaches world Y=0.
+Water X edges are inset 2 cm to clear the 1 cm room-edge tolerance, keeping
+corners inside their own room when
+adjacent strips have different shore positions. Inset water within separately
+lowered room basins too: exact shared edges resolve to the earlier room.
+Place adjoining strips to follow a curved coast; use the
+scalloped foam GLB along their visual edge. Decorative terrain never substitutes
+for a floor. Keep raised deck regions outside ramps to preserve one support
+owner at each point.
+
+The demo retains one continuous 48×52 m seabed room and 64 narrow shore
+supports. Its central curved cove joins outer tangent runs capped at 1/12;
+1/64 m binary-exact shore positions limit lateral sand risers to 9.375 mm
+and underwater risers to 25 mm. Longer foam ribbons are independent scenery.
+Do not split this volume into sub-probe-width rooms: a fitting atlas alone
+does not prove that each room has valid irradiance probes.
+
+`tools/props/parts/beach_structures.py::placed_components` emits separate
+visual, blocker and support arrays for dock, hollow timber buildings, town
+portals, terraces and rotated stairs. Inputs are a world base position, the
+containing room's `floor_y`, quarter-turn yaw and unique instance identity.
+Its optional `floor_at(x,z)` callback resolves pre-existing lowered regions or
+ramps; returned prop Y offsets already compensate for the helper's own support.
+Merge the arrays into real containing rooms and author safe approaches/landings.
+Separate tight pier/curved-header blockers preserve standing headroom through
+the visible portals. Twelve tread regions supply
+stair traversal for any quarter turn; no unsupported stair direction is used.
+Thin companion surfaces sit inside visible stock, avoiding duplicate faces.
+
+`beach_nature.py::placed_components("sea_arch", ...)` supplies separate tight
+piers/header blockers around the real opening, with the same world-base and
+floor callback contract. Author its supported approach or seabed separately.
+Other nature visuals need separate collision where reachable; palm bounds in
+`PALM_TRUNKS` measure the bent trunk rather than canopy. Animal READMEs contain
+explicit initialization actions and their measured looping pose envelopes.
+Perched gulls use Y=0 relative to actual deck support; fish use a positive Y
+offset above a submerged floor. Flying and swimming stay within their authored
+lighting anchors. The day helper matches panorama sun direction; lighting uses
+the existing directional, ambient, HDR bake and probe paths.
+
+## Frutiger Aero construction pieces
+
+The `frutiger_aero:` kit provides 23 static modules, six material roles, four
+periodic surface families, five fitted decals and a day panorama. Its connected
+`levels/frutiger_aero_demo.json` is generated by
+`tools/levels/build_frutiger_aero.py`: glazed domed atrium, branded corridor,
+walk-through tube, reception and looping garden terrace. The
+[Aero kit](assets/ENVIRONMENTS.md#frutiger-aero) maps all fifteen
+reference groups to actual resources and records their UV contracts.
+
+`tools/props/parts/frutiger_aero.py::placed_components` accepts world X/Z,
+base Y, quarter-turn yaw and unique identity. It returns a non-solid visual
+plus tight separate structural stock. Preserve open arch/door/tube apertures;
+never replace them with their full bounding box. The basin uses a real circular
+WaterDef and inscribed collider strips whose .095 m top lies inside the visible
+.10 m floor slab, rather than rendered rectangular floor regions. Existing
+daylight, prepared lightmaps/probes, direct lights, gloss, BLEND and water paths
+remain authoritative; the kit requires no creature or locomotion animation.
+
 ## Add a new texture
 
 1. Create the PNG: square, opaque, tileable, ≤1024 (256 preferred), 8-bit.
-2. Save under `assets/environment/<theme>/textures/{walls,floors,ceilings}/<name>_01.png`.
+2. Save under `assets/environments/<theme>/textures/{walls,floors,ceilings}/<name>_01.png`.
 3. Add a `texture` catalog entry with `model` = the path relative to `assets/`.
 4. Validate: `python3 tools/textures/build.py --check` and
    `python3 tools/assets/validate.py`.
@@ -7129,7 +7436,7 @@ in a directory, reporting per-source failures without blocking the others.
 { "id": "hotel:tex_wallpaper_green_01", "display_name": "Hotel Green Wallpaper Texture",
   "asset_class": "environment", "theme": "hotel", "asset_type": "texture",
   "source": "file", "surface": "wall",
-  "model": "environment/hotel/textures/walls/wallpaper_green_01.png" }
+  "model": "environments/hotel/textures/walls/wallpaper_green_01.png" }
 ```
 
 ## Add a new material
@@ -7175,15 +7482,21 @@ A lit sign face:
 ```json
 { "id": "hotel:luggage_cart", "display_name": "Luggage Cart",
   "asset_class": "environment", "theme": "hotel", "asset_type": "prop",
-  "source": "file", "model": "environment/hotel/props/models/luggage_cart.glb",
+  "source": "file", "model": "environments/hotel/props/luggage_cart.glb",
   "size": [1.2, 1.1, 0.6], "color": "#6b5a44", "category": "Furniture",
   "solid": true }
 ```
 
+The prop toolkit accepts `alpha_mode="blend", opacity=0.28` on a named
+material slot. Opacity is a finite 0..1 glTF base-colour alpha multiplier;
+retain the model atlas UVs and PNG alpha. Non-BLEND slots require opacity 1.
+This uses existing translucent rendering and transport, including centre
+sorting limits; it does not add refraction or nested-glass guarantees.
+
 ## Add a new decal
 
 1. Create a POT RGBA cut-out PNG (background alpha 0, artwork alpha 255).
-2. Save under `assets/environment/<theme>/decals/<name>_01.png`.
+2. Save under `assets/environments/<theme>/decals/<name>_01.png`.
 3. Add a `decal` catalog entry with `model` = the `.png`.
 4. Place it in a level's `decals` array with `surface`.
 5. Validate with the texture and catalog checks.
@@ -7191,7 +7504,7 @@ A lit sign face:
 ```json
 { "id": "hotel:decal_evacuation_01", "display_name": "Evacuation Route Sign",
   "asset_class": "environment", "theme": "hotel", "asset_type": "decal",
-  "source": "file", "model": "environment/hotel/decals/evacuation_route_01.png" }
+  "source": "file", "model": "environments/hotel/decals/evacuation_route_01.png" }
 ```
 
 ## Add a ramp or a staircase
@@ -7295,7 +7608,7 @@ A new *fixture id* always needs a code mesh family (section
 2. Implement the emitter in `src/render/common/fixtures.rs` and dispatch it in
    `src/render/common/geometry.rs::emit_fixtures`.
 3. Add a POT opaque face PNG under
-   `assets/environment/<theme>/textures/lights/`.
+   `assets/environments/<theme>/textures/lights/`.
 4. Add the `light` catalog entry with `model` = the PNG.
 5. Update the family-pinning tests listed in the procedure.
 6. If the family needs a pool shape that is not a rectangle, describe it in the
@@ -7344,8 +7657,8 @@ the fixture must be the only one claiming that sheet.
 
 1. Add a `themes` record to `assets/catalog.json`:
    `{ "id": "hotel", "display_name": "Hotel", "description": "…" }`.
-2. Create the new theme directory `assets/environment/hotel/` with
-   `textures/{walls,floors,ceilings,lights}/`, `props/models/`, `decals/` as
+2. Create the new theme directory `assets/environments/hotel/` with
+   `textures/{walls,floors,ceilings,lights}/`, `props/`, `decals/` as
    needed.
 3. Register each asset with `"theme": "hotel"` (or leave `theme` off for generic
    assets that do not belong to it).

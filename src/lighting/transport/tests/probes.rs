@@ -258,6 +258,364 @@ fn a_capped_lattice_covers_low_air_spaces_and_uses_world_coordinates() {
 }
 
 #[test]
+fn probe_phase_preserves_covered_layout_and_rejects_coverage_tradeoffs() {
+    let original = ProbeLattice {
+        min: [0.0; 3],
+        cell: 2.0,
+        dims: [2, 1, 1],
+    };
+    let calls = std::cell::Cell::new(0_usize);
+    let owner = |[x, _, _]: [f32; 3]| {
+        calls.set(calls.get() + 1);
+        if (2.5..4.5).contains(&x) {
+            Some(0)
+        } else if (1.35..1.65).contains(&x) {
+            Some(1)
+        } else {
+            None
+        }
+    };
+    let selected = choose_probe_phase(original, 2, owner, owner);
+    assert_eq!(selected.min, [0.5, 0.0, 0.0]);
+    assert_eq!(selected.cell, original.cell);
+    assert_eq!(selected.dims, original.dims);
+    assert!(calls.get() <= 2 * 64 * original.count());
+
+    let covered = choose_probe_phase(original, 1, |_| Some(0), |_| Some(0));
+    assert_eq!(covered, original, "already covered fields retain every bit");
+
+    let narrow_owner = |[x, _, _]: [f32; 3]| {
+        if (2.9..3.1).contains(&x) {
+            Some(0)
+        } else if (1.35..1.65).contains(&x) {
+            Some(1)
+        } else {
+            None
+        }
+    };
+    assert_eq!(
+        choose_probe_phase(original, 2, narrow_owner, narrow_owner),
+        original,
+        "recovering a room cannot discard an originally covered room"
+    );
+    assert_eq!(
+        choose_probe_phase(original, 2, owner, |position| {
+            owner(position).filter(|room| *room == 0)
+        }),
+        original,
+        "a footprint inside a blocked solid never counts as recovered air"
+    );
+}
+
+#[test]
+fn probe_phase_balances_interior_population_after_boundary_recovery() {
+    let original = ProbeLattice {
+        min: [0.0; 3],
+        cell: 2.0,
+        dims: [2, 1, 4],
+    };
+    let owner = |[x, _, _]: [f32; 3]| {
+        if (2.5..4.5).contains(&x) {
+            Some(0)
+        } else if (0.4..1.65).contains(&x) {
+            Some(1)
+        } else {
+            None
+        }
+    };
+    let valid_air = |position: [f32; 3]| {
+        owner(position).filter(|room| {
+            *room == 0 || position[0] > 1.35 || (position[0] < 0.9 && position[2] < 2.0)
+        })
+    };
+    let boundary_only = ProbeLattice {
+        min: [-0.5, 0.0, 0.0],
+        ..original
+    };
+    assert_eq!(
+        probe_room_counts(boundary_only, 2, &owner, &valid_air),
+        [4, 1]
+    );
+    let selected = choose_probe_phase(original, 2, owner, valid_air);
+    assert_eq!(selected.min, [0.5, 0.0, 0.0]);
+    assert_eq!(
+        probe_room_counts(selected, 2, &owner, &valid_air),
+        [4, 4],
+        "an earlier boundary singleton cannot stop useful interior recovery"
+    );
+}
+
+fn phase_recovery_level() -> LevelDef {
+    LevelDef::from_json(
+        r#"{"format_version":3,"id":"phase_recovery","name":"Phase recovery",
+        "spawn":{"x":5,"z":2},"rooms":[
+        {"x":4.5,"z":0,"width":2,"depth":4,"height":3},
+        {"x":2.45,"z":0,"width":0.5,"depth":4,"height":3}]}"#,
+    )
+    .expect("phase recovery fixture")
+}
+
+fn phase_recovery_charts() -> Vec<(LightmapPatch, Chart)> {
+    let floor = floor_patch(0.0, 0.0, 8.0, 4.0, 2, 2);
+    let ceiling = (
+        LightmapPatch {
+            origin: [0.0, 3.0, 0.0],
+            u_axis: [8.0, 0.0, 0.0],
+            v_axis: [0.0, 0.0, 4.0],
+            diagonal_correction: [0.0; 3],
+            triangle: false,
+            room: None,
+            kind: PatchKind::Ceiling,
+        },
+        floor.1,
+    );
+    vec![floor, ceiling]
+}
+
+#[test]
+fn validated_probe_phase_shares_targets_bake_and_zero_source_plpf3() {
+    let level = phase_recovery_level();
+    let lighting = LevelLighting::bake(&level);
+    let charts = phase_recovery_charts();
+    let scene = TransportScene::new(Vec::new(), Vec::new())
+        .expect("scene")
+        .with_sky([0.2, 0.1, 0.05])
+        .with_validated_probe_targets(&level, &lighting, &charts);
+    let (original, selected) = scene.probe_layout.expect("shared layout");
+    let surfaces = crate::level::LevelSurfaces::new(&level);
+    let walls = level.collision_aabbs();
+    let owner = |[x, y, z]: [f32; 3]| lighting.room_index_at_height(x, y, z);
+    let valid_air = |position| {
+        crate::lighting::probe_placement::placement_at(
+            position, &surfaces, &lighting, &scene, &walls,
+        )
+        .0
+    };
+    assert_eq!(
+        probe_room_coverage(original, 2, &owner, &valid_air),
+        [true, false],
+        "fixture has real air extent and an originally missed narrow room"
+    );
+    assert_ne!(original.min, selected.min, "the narrow room is recovered");
+    let mut field = scene
+        .solve_with_probes(&charts, options(0, 1), None, true)
+        .expect("zero-source solve")
+        .probes
+        .expect("field");
+    assert_eq!(field.min.map(f32::to_bits), selected.min.map(f32::to_bits));
+    assert_eq!(field.cell_m, selected.cell);
+    for (index, target) in scene.probe_target.iter().enumerate() {
+        assert_eq!(
+            target.position.map(f32::to_bits),
+            field
+                .probe_position(index)
+                .expect("probe")
+                .map(f32::to_bits)
+        );
+    }
+    field.assign_rooms(|position| {
+        crate::lighting::probe_placement::placement_at(
+            position, &surfaces, &lighting, &scene, &walls,
+        )
+        .0
+    });
+    assert!(field.probes.iter().any(|probe| probe.room == 0_i32));
+    assert!(field.probes.iter().any(|probe| probe.room == 1_i32));
+    let direct = field.local_direct.as_ref().expect("spatial marker");
+    assert_eq!(direct.light_indices.len(), 0_usize);
+    assert_eq!(direct.probes.len(), field.probes.len());
+    assert!(
+        direct
+            .probes
+            .iter()
+            .all(|probe| *probe == LightmapTexel::ZERO)
+    );
+    let encoded = field.write().expect("PLPF3 encode");
+    assert_eq!(&encoded[..6], b"PLPF\x03\x00");
+    assert_eq!(ProbeField::read(&encoded).expect("PLPF3 decode"), field);
+
+    let mut mismatched = scene;
+    mismatched.probe_target[0].position[0] += 0.01;
+    assert!(matches!(
+        mismatched.solve_with_probes(&charts, options(0, 1), None, true),
+        Err(LightmapFailure::FillSize)
+    ));
+}
+
+#[test]
+fn validated_probe_phase_preserves_existing_covered_field_bytes() {
+    let level = LevelDef::from_json(
+        r#"{"format_version":3,"id":"covered_phase","name":"Covered phase",
+        "spawn":{"x":1,"z":1},"rooms":[
+        {"x":0,"z":0,"width":6,"depth":6,"height":3}]}"#,
+    )
+    .expect("covered fixture");
+    let lighting = LevelLighting::bake(&level);
+    let charts = probe_charts();
+    let legacy = TransportScene::new(room_shell(), Vec::new())
+        .expect("legacy scene")
+        .with_probe_target(probe_targets(&lighting, &charts));
+    let selected = TransportScene::new(room_shell(), Vec::new())
+        .expect("selected scene")
+        .with_validated_probe_targets(&level, &lighting, &charts);
+    let (original, chosen) = selected.probe_layout.expect("chosen layout");
+    assert_eq!(original, chosen);
+    assert_eq!(legacy.probe_target, selected.probe_target);
+    assert_eq!(
+        legacy
+            .solve_with_probes(&charts, options(0, 1), None, true)
+            .expect("legacy solve")
+            .probes
+            .expect("legacy field")
+            .write()
+            .expect("legacy bytes"),
+        selected
+            .solve_with_probes(&charts, options(0, 1), None, true)
+            .expect("selected solve")
+            .probes
+            .expect("selected field")
+            .write()
+            .expect("selected bytes")
+    );
+}
+
+#[test]
+fn validated_probe_phase_cannot_recover_blocked_wall_floor_or_closed_prop() {
+    let charts = phase_recovery_charts();
+    let mut walled = phase_recovery_level();
+    walled.walls.push(
+        serde_json::from_str(r#"{"x":2.45,"z":0,"width":0.5,"depth":4,"height":3}"#)
+            .expect("blocking wall"),
+    );
+    let mut raised = phase_recovery_level();
+    raised.floor_regions.push(
+        serde_json::from_str(r#"{"x":2.45,"z":0,"width":0.5,"depth":4,"offset_y":3}"#)
+            .expect("blocking floor region"),
+    );
+    for level in [&walled, &raised] {
+        let lighting = LevelLighting::bake(level);
+        let scene = TransportScene::new(Vec::new(), Vec::new())
+            .expect("blocked air scene")
+            .with_validated_probe_targets(level, &lighting, &charts);
+        let (original, selected) = scene.probe_layout.expect("layout");
+        assert_eq!(original, selected, "solid volume is not recovered air");
+    }
+    let level = phase_recovery_level();
+    let lighting = LevelLighting::bake(&level);
+    let transform = |[x, y, z]: [f32; 3]| [2.25 + 0.15 * x, y, z * (2.0 / 3.0)];
+    let triangles = room_shell()
+        .into_iter()
+        .map(|triangle| {
+            TransportTriangle::new(
+                transform(triangle.p0),
+                transform(triangle.p2),
+                transform(triangle.p1),
+                triangle.albedo,
+            )
+            .expect("outward-wound closed prop")
+        })
+        .collect();
+    let scene = TransportScene::new(triangles, Vec::new())
+        .expect("closed prop scene")
+        .with_validated_probe_targets(&level, &lighting, &charts);
+    assert!(!scene.probe_is_clear([2.7, 0.75, 2.0]));
+    let (original, selected) = scene.probe_layout.expect("layout");
+    assert_eq!(original, selected, "closed prop cannot count as air");
+}
+
+#[test]
+fn demo_probe_phase_recovers_authored_corridor_air_without_losing_rooms() {
+    let level = LevelDef::from_json(include_str!("../../../../levels/places_demo.json"))
+        .expect("actual Demo source");
+    let lighting = LevelLighting::bake(&level);
+    let materials = crate::render::logical_materials(&level);
+    let mesh = crate::render::build_level_geometry_with_materials(&level, &materials);
+    let (scene, _) =
+        crate::render::build_transport_scene(&level, &mesh, &[], &materials, &lighting, &[])
+            .expect("authored geometry and material coverage");
+    // Exact saved C1 lattice, before the phase repair. This test uses real
+    // source architecture; asset-less prop placeholders are additional solids.
+    let original = ProbeLattice {
+        min: [
+            f32::from_bits(0xc0fa_3690),
+            f32::from_bits(0xc047_ccb8),
+            f32::from_bits(0xc2dd_99a1),
+        ],
+        cell: f32::from_bits(0x4001_f338),
+        dims: [39, 8, 64],
+    };
+    let surfaces = crate::level::LevelSurfaces::new(&level);
+    let walls = level.collision_aabbs();
+    let owner = |[x, y, z]: [f32; 3]| lighting.room_index_at_height(x, y, z);
+    let valid_air = |position| {
+        crate::lighting::probe_placement::placement_at(
+            position, &surfaces, &lighting, &scene, &walls,
+        )
+        .0
+    };
+    let baseline = probe_room_coverage(original, lighting.rooms().len(), &owner, &valid_air);
+    assert!(!baseline[7]);
+    assert!(!baseline[10]);
+    let selected = choose_probe_phase(original, lighting.rooms().len(), owner, valid_air);
+    let covered = probe_room_coverage(selected, lighting.rooms().len(), &owner, &valid_air);
+    assert!(covered[7] && covered[10], "Home loop air is recovered");
+    assert!(
+        baseline
+            .iter()
+            .zip(&covered)
+            .all(|(old, new)| !*old || *new)
+    );
+    assert_eq!(selected.cell, original.cell);
+    assert_eq!(selected.dims, original.dims);
+    assert_eq!(
+        selected,
+        choose_probe_phase(original, lighting.rooms().len(), owner, valid_air),
+        "phase selection is deterministic"
+    );
+    let labelled: Vec<_> = (0..selected.count())
+        .map(|index| valid_air(selected.position(index)))
+        .collect();
+    let counts: Vec<_> = (0..lighting.rooms().len())
+        .map(|room| {
+            labelled
+                .iter()
+                .filter(|label| **label == Some(room))
+                .count()
+        })
+        .collect();
+    crate::logging::info(format_args!(
+        "Demo probe phase original={:?} selected={:?} baseline={baseline:?} selected_room_counts={counts:?}",
+        original.min, selected.min
+    ));
+    let field = ProbeField {
+        min: selected.min,
+        cell_m: selected.cell,
+        dims: [39, 8, 64],
+        probes: labelled
+            .into_iter()
+            .map(|label| ProbeSample {
+                axis: [0.5; 2],
+                room: label
+                    .and_then(|value| i32::try_from(value).ok())
+                    .unwrap_or(-1_i32),
+                ..ProbeSample::default()
+            })
+            .collect(),
+        local_direct: None,
+    };
+    for point in [[60.9, -0.82, -5.5], [66.3, -0.82, -13.1]] {
+        assert!(
+            field
+                .sample_filtered_with_rooms(point, None, |probe, label| {
+                    lighting.labelled_probe_visible_from(point, probe, label)
+                })
+                .is_some(),
+            "the actual runtime radius and opaque visibility recover {point:?}"
+        );
+    }
+}
+
+#[test]
 fn recovery_fill_is_visibility_gated_across_a_sealed_wall() {
     let mut triangles = room_shell();
     triangles.extend(wall(
@@ -420,4 +778,120 @@ fn neutral_probe_diffuse_illumination_is_comparable_to_nearby_static_surface() {
         (0.5..=2.0).contains(&(entity / surface)),
         "neutral normal consistency: probe {entity}, static {surface}"
     );
+}
+
+#[test]
+fn selected_runtime_source_sidecar_preserves_combined_energy_and_unselected_lights() {
+    let lights = vec![point([1.5, 2.5, 3.0], 2.0), point([4.5, 2.5, 3.0], 1.0)];
+    let ordinary = TransportScene::new(room_shell(), lights.clone()).expect("scene");
+    let selected = TransportScene::new(room_shell(), lights)
+        .expect("scene")
+        .with_runtime_direct_lights(vec![(0, 77)]);
+    let baseline = bake(&ordinary, 2, 1).probes.expect("combined");
+    let mut split = bake(&selected, 2, 1).probes.expect("split");
+    assert_eq!(
+        baseline.probes, split.probes,
+        "the bake must preserve its total coefficients"
+    );
+    assert_eq!(
+        split,
+        bake(&selected, 2, 12).probes.expect("parallel split")
+    );
+    assert_eq!(
+        split.runtime_direct_lights(),
+        &[77],
+        "scene slot is not the source ID"
+    );
+    split.assign_rooms(|_| Some(0));
+    let local = split.local_direct.as_ref().expect("selected direct");
+    for (id, (probe, selected_direct)) in split.probes.iter().zip(&local.probes).enumerate() {
+        let coords = <[usize; 3]>::from(lattice_from_index(id, split.dims_usize()))
+            .map(crate::test_support::exact_f32);
+        let position =
+            std::array::from_fn(|axis| split.min[axis] + (coords[axis] + 0.5) * split.cell_m);
+        let (weight, direction) = selected.emitters[0].direct(&selected, position, 3);
+        for channel in 0..3 {
+            assert!((selected_direct.irradiance[channel] - 0.5 * weight[channel]).abs() < 1.0e-6);
+        }
+        let expected_moment = scale(direction, 0.5 * weight.iter().sum::<f32>());
+        for (actual, expected) in selected_direct.direction.iter().zip(expected_moment) {
+            assert!((*actual - expected).abs() < 1.0e-6);
+        }
+        let residual = split
+            .sample_nonlocal_filtered_with_rooms(position, Some(0), |_, _| true)
+            .expect("residual");
+        for channel in 0..3 {
+            assert!(
+                (residual.irradiance[channel] + selected_direct.irradiance[channel]
+                    - probe.irradiance[channel])
+                    .abs()
+                    < 1.0e-6
+            );
+            assert!(
+                (residual.direction[channel] + selected_direct.direction[channel]
+                    - probe.direction[channel])
+                    .abs()
+                    < 1.0e-6
+            );
+        }
+        assert!(
+            residual.irradiance.iter().any(|value| *value > 0.0),
+            "unselected source and diffuse transport remain prepared"
+        );
+    }
+    assert_eq!(
+        ProbeField::read(&split.write().expect("serialize")).expect("read"),
+        split
+    );
+}
+
+#[test]
+fn no_selected_source_bakes_preserve_the_spatial_sidecar_contract() {
+    for (emitters, sky) in [(Vec::new(), [0.0; 3]), (Vec::new(), [0.2; 3])] {
+        let scene = TransportScene::new(Vec::new(), emitters)
+            .expect("scene")
+            .with_sky(sky);
+        let mut field = bake(&scene, 1, 1).probes.expect("field");
+        assert_eq!(field, bake(&scene, 1, 12).probes.expect("parallel field"));
+        let sidecar = field.local_direct.as_ref().expect("spatial sidecar");
+        assert_eq!(sidecar.light_indices, [0_u32; 0]);
+        assert_eq!(sidecar.probes.len(), field.probes.len());
+        assert!(
+            sidecar
+                .probes
+                .iter()
+                .all(|value| *value == LightmapTexel::ZERO)
+        );
+        let bytes = field.write().expect("serialize new field");
+        assert_eq!(u16::from_le_bytes([bytes[4], bytes[5]]), 3);
+        assert_eq!(ProbeField::read(&bytes).expect("read new field"), field);
+        field.assign_rooms(|_| Some(0));
+        for id in 0..field.probes.len() {
+            let position = field.probe_position(id).expect("lattice position");
+            assert_eq!(
+                field.sample_nonlocal_filtered_with_rooms(position, Some(0), |_, _| true),
+                field.sample(position, Some(0)),
+                "zero selected energy preserves the complete prepared field"
+            );
+        }
+    }
+}
+
+#[test]
+fn invalid_runtime_source_mapping_and_switchable_selection_fail_the_solve() {
+    let mut switched = point([3.0, 2.5, 3.0], 1.0);
+    switched.switchable = Some(0);
+    for (lights, map) in [
+        (vec![point([3.0, 2.5, 3.0], 1.0)], vec![(1, 0)]),
+        (vec![switched], vec![(0, 0)]),
+        (vec![point([3.0, 2.5, 3.0], 1.0); 2], vec![(0, 3), (1, 3)]),
+    ] {
+        let scene = TransportScene::new(room_shell(), lights)
+            .expect("scene")
+            .with_runtime_direct_lights(map);
+        assert_eq!(
+            scene.solve_with_probes(&probe_charts(), options(2, 3), None, true),
+            Err(LightmapFailure::FillNonFinite)
+        );
+    }
 }

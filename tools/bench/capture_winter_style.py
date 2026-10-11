@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import time
 
@@ -35,17 +36,31 @@ def main():
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--quality', choices=('low', 'medium', 'high'), default='high')
     parser.add_argument('--level', default='winter')
+    parser.add_argument('--package', type=Path,
+                        help='explicit compiled package; required for a derived severe review')
     parser.add_argument('--views', default=','.join(VIEWS))
     args = parser.parse_args()
     root, binary, out = args.root.resolve(), args.binary.resolve(), args.out.resolve()
+    if args.level != 'winter' and args.package is None:
+        parser.error('--package is required for a derived severe review level')
+    package = args.package.resolve() if args.package else root / 'assets/levels/winter.placesmap'
+    if not package.is_file():
+        parser.error(f'Missing compiled package: {package}; compile Winter or supply --package')
     out.mkdir(parents=True, exist_ok=True)
     state = out / 'state'
     state.mkdir(exist_ok=True)
-    # Blizzard is a drop-in review package, with the same art and scene.
-    if args.level != 'winter':
-        import shutil
-        (state / 'levels').mkdir(exist_ok=True)
-        shutil.copy2(root / 'levels' / (args.level + '.placesmap'), state / 'levels')
+    asset_root = out / 'package-root'
+    assets = asset_root / 'assets'
+    assets.mkdir(parents=True, exist_ok=True)
+    for item in (root / 'assets').iterdir():
+        if item.name == 'levels':
+            continue
+        link = assets / item.name
+        if not link.exists():
+            link.symlink_to(item.resolve(), target_is_directory=item.is_dir())
+    bundled = assets / 'levels'
+    bundled.mkdir(exist_ok=True)
+    shutil.copy2(package, bundled / (args.level + '.placesmap'))
     variant = {'low': 'off', 'medium': 'medium', 'high': 'full'}[args.quality]
     settings = dict(bindings={'forward': 'W', 'backward': 'S', 'strafe_left': 'A',
                              'strafe_right': 'D', 'look_up': 'UP', 'look_down': 'DOWN',
@@ -56,8 +71,6 @@ def main():
                     reflections=variant, bloom=True, vsync=False, fov_degrees=60,
                     window_mode='windowed', window_width=640, window_height=360)
     (state / 'settings.json').write_text(json.dumps(settings, indent=2) + '\n')
-    package = (root / 'assets/levels/winter.placesmap' if args.level == 'winter'
-               else root / 'levels' / (args.level + '.placesmap'))
     manifest_path = out / 'manifest.json'
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else []
     for name in args.views.split(','):
@@ -66,7 +79,7 @@ def main():
         if capture.exists():
             raise RuntimeError(f'Preserve existing evidence: {capture}')
         env = {k: v for k, v in os.environ.items() if not k.startswith('PLACES_')}
-        env.update(PLACES_ASSET_ROOT=str(root), PLACES_STATE_ROOT=str(state),
+        env.update(PLACES_ASSET_ROOT=str(asset_root), PLACES_STATE_ROOT=str(state),
                    PLACES_LEVEL=args.level, PLACES_QUALITY=args.quality,
                    PLACES_SPAWN=spawn, PLACES_CAMERA=camera, PLACES_BENCH='1',
                    PLACES_BENCH_FRAMES='2400', PLACES_BENCH_WARMUP='15',

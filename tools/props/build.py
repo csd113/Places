@@ -121,7 +121,7 @@ def build_one(entry: dict, build_fn, force: bool = False, *, publish=True) -> Op
     destination = model_path(entry)
     # A hand-authored skinned/animated model must never be replaced by this
     # toolkit's static primitive build: the shipped entity carries a real rig
-    # (see assets/entities/README.md), and overwriting it would silently drop
+    # (see docs/assets/ENTITIES.md), and overwriting it would silently drop
     # the skin. A toolkit-authored animated model (the wall switch) marks its
     # asset, so its own builder may rebuild it. `--force` is the explicit
     # opt-out.
@@ -229,7 +229,8 @@ def main(argv: List[str] | None = None) -> int:
             if entry.get("model") and (not args.only or entry["id"] in args.only)
         ]
         missing = [entry["id"] for entry in buildable if entry["id"] not in registry
-                   and not (entry["id"] in {"mannequin", "rat", "skeleton"}
+                   and not (entry["id"] in {"mannequin", "rat", "skeleton",
+                                            "beach:seagull", "beach:crab", "beach:fish"}
                             and os.path.isfile(model_path(entry)))]
         if missing:
             raise SystemExit("no builder or shipped model for: " + ", ".join(missing))

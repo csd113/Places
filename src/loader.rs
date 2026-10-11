@@ -18,30 +18,15 @@ use crate::level::{
     ActionDef, BASEBOARD_DEFAULT_HEIGHT_M, BASEBOARD_DEFAULT_THICKNESS_M, BaseboardDef,
     ComponentDef, ConditionDef, EventBindingDef, EventKindName, LevelDef, LevelSurfaces,
     MAX_ACTIONS_PER_SOURCE, MAX_BINDINGS_PER_ENTITY, MAX_LEVEL_FLOOR_AREA_M2, MAX_LEVEL_VERTICES,
-    TriggerVolumeDef, WALL_SLICE_EPS, WallAxis, WallDef, wall_solid_slices_profiled,
+    TriggerVolumeDef, WALL_SLICE_EPS, WallAxis, WallDef,
 };
 use crate::materials::{MaterialTable, PackMaterials, resolve_materials};
 
 /// Re-exported so the rest of the crate keeps its historical import paths.
 pub use crate::materials::{RawImage, TextureCache, decode_png, encode_png, parse_materials_json};
 
-/// The official demo, embedded as a compiled package so the game still boots
-/// when no level files are installed on disk. `Places Demo` is the only level
-/// shipped with the game; the embedded copy is the same package the repository
-/// ships, so the fallback cannot drift from the installed content.
-const FALLBACK_DEMO_PACKAGE: &[u8] = include_bytes!("../assets/levels/places_demo.placesmap");
-
-/// Stable id of the one official level, used by discovery and the runtime.
+/// Stable id of the official demo, used by discovery and the runtime.
 pub const DEMO_LEVEL_ID: &str = "places_demo";
-
-/// The compiled demo package embedded in the executable.
-///
-/// Exposed so the loading worker can decode the fallback world's records from
-/// the same bytes discovery probes, with no second copy of the package.
-#[must_use]
-pub const fn embedded_demo_package() -> &'static [u8] {
-    FALLBACK_DEMO_PACKAGE
-}
 
 /// Source type of an installed level.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -52,10 +37,6 @@ pub enum LevelSourceType {
     /// A compiled package installed in the writable drop-in `levels/`
     /// directory (or copied there by the Import action).
     Installed,
-    /// The demo compiled into the executable, used when no installed copy of
-    /// Places Demo exists on disk, so the demo is always offered no matter what
-    /// is installed.
-    Embedded,
 }
 
 impl LevelSourceType {
@@ -65,18 +46,15 @@ impl LevelSourceType {
         match self {
             Self::Bundled => "bundled",
             Self::Installed => "installed",
-            Self::Embedded => "embedded",
         }
     }
 }
 
-/// Menu precedence of a source: bundled packages first, then installed ones,
-/// then the embedded fallback.
+/// Menu precedence of a source: bundled packages before installed ones.
 const fn source_rank(source_type: LevelSourceType) -> u8 {
     match source_type {
         LevelSourceType::Bundled => 0,
         LevelSourceType::Installed => 1,
-        LevelSourceType::Embedded => 2,
     }
 }
 
@@ -311,8 +289,37 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_element_limits(level)?;
     validate_materials(level)?;
     validate_sky(level)?;
-    if let Some(weather) = &level.weather {
-        weather.snowfall().validate()?;
+    if let Some(environment) = level.environment {
+        environment.validate()?;
+    }
+    if level.weather_alternate.is_some() && level.weather.is_none() {
+        return Err("weather_alternate requires authored default weather".to_string());
+    }
+    if let Some(cycle) = &level.weather_cycle {
+        cycle.validate()?;
+        if !level
+            .weather
+            .as_ref()
+            .zip(level.weather_alternate.as_ref())
+            .is_some_and(|(base, alternate)| crate::weather::strength_compatible(base, alternate))
+        {
+            return Err("weather_cycle requires weather and weather_alternate with equal count and material".to_string());
+        }
+    }
+    for (name, authored_weather) in [
+        ("weather", level.weather.as_ref()),
+        ("weather_alternate", level.weather_alternate.as_ref()),
+    ] {
+        let Some(weather) = authored_weather else {
+            continue;
+        };
+        weather.snowfall().validate().map_err(|error| {
+            if name == "weather" {
+                error
+            } else {
+                format!("{name}: {error}")
+            }
+        })?;
         if weather.snowfall().storm_severity > 0.0
             && crate::weather::shelter_count(level) > crate::weather::MAX_STORM_SHELTERS
         {
@@ -528,6 +535,13 @@ fn validate_sky(level: &LevelDef) -> Result<(), String> {
         return Ok(());
     };
     let id = sky.texture.trim();
+    if sky.ambient_color.is_some_and(|color| {
+        color
+            .iter()
+            .any(|channel| !channel.is_finite() || !(0.0..=1.0).contains(channel))
+    }) {
+        return Err("sky ambient_color must have finite linear channels in 0..=1".into());
+    }
     if id.is_empty() {
         return Err("sky names no texture".to_string());
     }
@@ -1029,6 +1043,13 @@ fn validate_water_contract(i: usize, volume: &crate::level::WaterVolumeDef) -> R
     {
         return Err(format!(
             "Water volume {i} opacity must be a finite number between 0.0 and 1.0"
+        ));
+    }
+    if !volume.attenuation_per_metre.is_finite()
+        || !(0.0..=16.0).contains(&volume.attenuation_per_metre)
+    {
+        return Err(format!(
+            "Water volume {i} attenuation_per_metre must be finite in 0..=16"
         ));
     }
     if let Some(bottom) = volume.bottom_y
@@ -1955,14 +1976,12 @@ fn point_buried_in_wall(level: &LevelDef, x: f32, z: f32, y: f32) -> Option<usiz
         {
             continue;
         }
-        let breaks = surfaces.wall_profile_breaks(wall);
-        let clear = |offset: f32| surfaces.clear_ceiling_height_along(wall, offset);
         let (origin_x, origin_z) = wall.length_origin();
         let offset = match wall.axis() {
             WallAxis::X => x - origin_x,
             WallAxis::Z => z - origin_z,
         };
-        for slice in wall_solid_slices_profiled(wall, clear, &breaks) {
+        for slice in surfaces.wall_solid_slices(wall) {
             if offset > slice.start + WALL_SLICE_EPS
                 && offset < slice.end - WALL_SLICE_EPS
                 && y > slice.bottom + WALL_SLICE_EPS
@@ -2284,6 +2303,11 @@ struct LevelIndex<'a> {
     /// Sequence id -> every entity the sequence can run on, discovered from
     /// the authored `start_sequence` sites.
     sequence_owners: HashMap<String, Vec<String>>,
+    /// The world has two authored weather configurations to toggle between.
+    weather_toggleable: bool,
+    /// Continuous weather controls can reuse one seed and texture budget.
+    weather_blendable: bool,
+    weather_cycle: bool,
 }
 
 impl<'a> LevelIndex<'a> {
@@ -2374,7 +2398,16 @@ impl EntityFacts<'_> {
 fn validate_instance_ids(level: &LevelDef) -> Result<LevelIndex<'_>, String> {
     let mut seen: HashSet<&str> = HashSet::new();
     let mut first: HashMap<&str, String> = HashMap::new();
-    let mut index = LevelIndex::default();
+    let mut index = LevelIndex {
+        weather_toggleable: level.weather.is_some() && level.weather_alternate.is_some(),
+        weather_blendable: level
+            .weather
+            .as_ref()
+            .zip(level.weather_alternate.as_ref())
+            .is_some_and(|(base, alternate)| crate::weather::strength_compatible(base, alternate)),
+        weather_cycle: level.weather_cycle.is_some(),
+        ..LevelIndex::default()
+    };
 
     let prop_ids = level.prop_instance_ids();
     for (i, id) in prop_ids.iter().enumerate() {
@@ -3423,6 +3456,50 @@ fn validate_action(
 ) -> Result<(), String> {
     match action {
         ActionDef::ResetToStart => {}
+        ActionDef::ToggleWeather => {
+            if !index.weather_toggleable {
+                return Err(format!(
+                    "{} requires weather and weather_alternate",
+                    action_context_label(action_context)
+                ));
+            }
+        }
+        ActionDef::SetWeatherStrength {
+            strength,
+            transition_seconds,
+        } => {
+            crate::weather::validate_strength(*strength, *transition_seconds)?;
+            if !index.weather_blendable {
+                return Err(format!(
+                    "{} requires weather and weather_alternate with equal count and material",
+                    action_context_label(action_context)
+                ));
+            }
+        }
+        ActionDef::SetWeatherCycle { enabled: _ } => {
+            if !index.weather_cycle {
+                return Err(format!(
+                    "{} requires weather_cycle",
+                    action_context_label(action_context)
+                ));
+            }
+        }
+        ActionDef::SetPrompt { target, prompt } => {
+            if prompt.trim().is_empty() {
+                return Err(format!(
+                    "{} prompt must not be blank",
+                    action_context_label(action_context)
+                ));
+            }
+            check_action_target(
+                action_context,
+                target.as_deref(),
+                implicit,
+                index,
+                "a target with an `interactable` component",
+                |facts| facts.has_interactable,
+            )?;
+        }
         ActionDef::Open { target }
         | ActionDef::Close { target }
         | ActionDef::Lock { target }
@@ -5928,20 +6005,6 @@ impl LevelManager {
             unique.push(entry);
         }
 
-        // Places Demo is always offered. When no installed package was
-        // discovered (no asset tree, or the installed copy is malformed), the
-        // embedded package is exposed as an ordinary entry so the Level Select
-        // menu and `PLACES_LEVEL=places_demo` both keep working.
-        if !unique.iter().any(|entry| entry.id == DEMO_LEVEL_ID) {
-            unique.push(LevelEntry {
-                id: DEMO_LEVEL_ID.to_string(),
-                name: "Places Demo".to_string(),
-                author: "Places Team".to_string(),
-                source_type: LevelSourceType::Embedded,
-                path: PathBuf::new(),
-            });
-        }
-
         self.entries = unique;
     }
 
@@ -6003,56 +6066,16 @@ impl LevelManager {
         })
     }
 
-    /// Loads the official demo, or the embedded package when it is not
-    /// installed.
-    ///
-    /// `Places Demo` is the only level bundled with the game, so it is also the
-    /// default level the game boots into. External/user levels are unaffected:
-    /// they are discovered alongside it and can be selected from the menu.
+    /// Loads the compiled official demo from the discovered packages.
     ///
     /// # Errors
     ///
-    /// Returns a message when the demo cannot be loaded, or when neither an
-    /// installed nor an embedded demo package opens and validates.
+    /// Returns the package's load error, or an explicit compilation instruction
+    /// when Places Demo has not been built or installed.
     pub fn load_default(&self) -> Result<LoadedLevel, String> {
-        let Some(entry) = self.entries.iter().find(|e| e.id == DEMO_LEVEL_ID) else {
-            return self.load_embedded_demo();
-        };
-        match self.load_level(entry) {
-            Ok(loaded) => Ok(loaded),
-            Err(error) => {
-                if entry.source_type == LevelSourceType::Embedded {
-                    return Err(error);
-                }
-                // A broken installed copy must not turn into a failed boot:
-                // the embedded package is the recovery copy.
-                crate::logging::warn(format!(
-                    "[levels] installed Places Demo failed to load ({error}); using the embedded copy"
-                ));
-                self.load_embedded_demo()
-            }
-        }
-    }
-
-    /// Loads the compiled demo embedded in the executable.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error only if the embedded package does not open; it is
-    /// compiled into the binary, so that is a build defect, not player input.
-    fn load_embedded_demo(&self) -> Result<LoadedLevel, String> {
-        let opened = crate::package::world::open_bytes(FALLBACK_DEMO_PACKAGE)
-            .map_err(|error| format!("embedded Places Demo package is invalid: {error}"))?;
-        self.assembled_level(
-            LevelEntry {
-                id: DEMO_LEVEL_ID.into(),
-                name: "Places Demo".into(),
-                author: "Places Team".into(),
-                source_type: LevelSourceType::Embedded,
-                path: PathBuf::new(),
-            },
-            opened,
-        )
+        let entry = self.entries.iter().find(|entry| entry.id == DEMO_LEVEL_ID)
+            .ok_or_else(|| "Places Demo is not compiled; run `sh tools/build-maps.sh` from the repository, or import places_demo.placesmap".to_owned())?;
+        self.load_level(entry)
     }
 
     /// Resolves materials and fixture sheets for a validated package's level.
@@ -6152,7 +6175,6 @@ impl LevelManager {
                 let opened = crate::package::world::open(&entry.path)?;
                 self.assembled_level(entry.clone(), opened)
             }
-            LevelSourceType::Embedded => self.load_embedded_demo(),
         }
     }
 

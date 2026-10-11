@@ -129,7 +129,7 @@ def build_pool_water() -> Canvas:
 
 ART = {
     "core:tex_pool_water_01": {
-        "model": "environment/pool/textures/water/pool_water_01.png",
+        "model": "environments/pool/textures/water/pool_water_01.png",
         "build": build_pool_water,
     },
 }

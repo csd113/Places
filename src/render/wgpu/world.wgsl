@@ -1,41 +1,14 @@
-// World shader: the complete static Places world fragment assembly — base
-// texture, material response, baked light reconstructed from the prepared HDR
-// lightmap layers (or the vertex-lit fallback), emission, reflections, fog —
-// exactly where the reference assembles them, in the same raw display space.
-//
-// Scope:
-//
-// * sample the draw's base-colour texture with the material's world tiling UV
-//   (raw `Rgba8Unorm`, so the authored display bytes reach the assembly as
-//   authored);
-// * reproduce the OpenGL reference's display-space fragment assembly —
-//   `tex_color.rgb * v_color.rgb * light * (1 - emission_vertex)`
-//   `+ sheen + reflection + emission`, then fog — writing raw display-space
-//   targets directly; only the surface-facing entry points (`fs_main`,
-//   `fs_cutout`) convert once with `srgb_to_linear` for the sRGB surface;
-// * take `light` from the prepared HDR lightmap array when one is resident:
-//   each page is a pair of linear `Rgba16Float` layers (irradiance `I` and the
-//   signed direction moment `g`, alpha channels reserved) reconstructed at the
-//   material normal `n` as
-//   `max(0, I + (I / max(k, 1e-6)) * (2 * max(0, dot(g, n)) - length(g)))`
-//   with `k = I.r + I.g + I.b`, plus every enabled switchable fixture's
-//   contribution pair, then compressed by the shared display tone map; the
-//   historical vertex-lit colour is used otherwise;
-// * decode the material's normal map (when the material binds one) into the
-//   world-space material normal the sheen and reflection terms use;
-// * classify alpha: opaque, alpha-tested (`fs_cutout`) and straight-alpha
-//   blending (the same `fs_main` body, blended by the pipeline), with the
-//   per-instance `environment.opacity` folded into the fragment alpha and the
-//   emissive term so a character can fade;
-// * classify emission: the emissive pass entry points (`fs_emission`,
-//   `fs_emission_cutout`) write the emissive term alone into the raw bloom
-//   target, exactly like the reference's `u_emission_only` return.
-//
-// The light the world stage uses is *baked*: the fragment stage reconstructs
-// `light` from the resident lightmap layers and `vec3(1.0)` otherwise; there is
-// no light selection and no shadow map. On top of the baked term the shader
-// sums one bounded, unshadowed attached-light array (group 4, at most eight
-// character glows), never more. See `docs/RENDERER.md`.
+override display_target: bool = false;
+
+// Shared material shader for static, movable and character meshes.
+// Base colour sampling returns linear RGB. Vertex colour is a linear factor,
+// carrying baked light only in the vertex-lit fallback. Irradiance, attached
+// lights, sheen, reflections and emission accumulate without a display curve
+// into RGBA16F scene/capture targets. Presentation owns exposure and encoding.
+// Alpha is straight coverage. Numeric normal/mask samples remain linear data.
+// Authored fog/storm display colours decode once before linear mixing.
+// Missing model normals use the geometric triangle normal; authored normals
+// use the inverse transpose and tangents use the linear model transform.
 //
 // Coordinate convention: `camera.view_projection` is the Places camera matrix
 // with the single OpenGL -> wgpu clip-space correction already applied on the
@@ -156,6 +129,33 @@ struct Environment {
     entity_irradiance: vec4<f32>,
     entity_moment: vec4<f32>,
     storm: Storm,
+    normal_model: array<vec4<f32>, 3>,
+    entity_bounds_min: vec4<f32>,
+    entity_bounds_extent: vec4<f32>,
+    entity_anchors: array<EntityLightingAnchor, 8>,
+    entity_direct: array<EntityDirectLight, 8>,
+    contact_shadows: array<ContactShadow, 8>,
+    contact_shadow_count: vec4<u32>,
+};
+
+struct EntityLightingAnchor {
+    irradiance: vec4<f32>,
+    moment: vec4<f32>,
+    visibility: array<vec4<f32>, 8>,
+    attenuation: vec4<f32>,
+};
+
+struct EntityDirectLight {
+    position_range: vec4<f32>,
+    color_strength: vec4<f32>,
+    extent_falloff: vec4<f32>,
+    taps: array<vec4<f32>, 4>,
+};
+
+struct ContactShadow {
+    position_floor: vec4<f32>,
+    half_height: vec4<f32>,
+    incoming: vec4<f32>,
 };
 
 const MATERIAL_FLAG_NORMAL_ENABLED: u32 = 1u;
@@ -217,7 +217,7 @@ struct DynamicLight {
     position: vec3<f32>,
     // The falloff window's radius, in metres, strictly positive.
     radius: f32,
-    // Display-space colour, each channel `0..=1`.
+    // Linear light colour, each channel `0..=1`.
     color: vec3<f32>,
     // Additive intensity.
     intensity: f32,
@@ -300,6 +300,7 @@ struct VsOut {
     @location(5) world_position: vec3<f32>,
     @location(6) lightmap_uv: vec2<f32>,
     @location(7) lightmap_page: f32,
+    @location(8) local_position: vec3<f32>,
 };
 
 @vertex
@@ -309,49 +310,25 @@ fn vs_main(vertex: WorldVertex) -> VsOut {
     out.clip = camera.view_projection * world;
     out.uv = vertex.uv;
     out.color = vertex.color;
-    // The frame goes through the model's rotation. The model transform is a
-    // rigid motion, so the vectors stay unit length.
-    out.world_normal = (environment.model * vec4<f32>(vertex.normal, 0.0)).xyz;
+    // Normals use the inverse transpose; tangents use the model transform.
+    // The material stage normalizes and re-orthogonalizes the frame.
+    let normal_matrix = mat3x3<f32>(environment.normal_model[0].xyz, environment.normal_model[1].xyz, environment.normal_model[2].xyz);
+    out.world_normal = normal_matrix * vertex.normal;
     out.world_tangent = (environment.model * vec4<f32>(vertex.tangent, 0.0)).xyz;
-    out.handedness = vertex.handedness;
+    let determinant = dot(cross(environment.model[0].xyz, environment.model[1].xyz), environment.model[2].xyz);
+    out.handedness = vertex.handedness * select(1.0, -1.0, determinant < 0.0);
     out.world_position = world.xyz;
+    out.local_position = vertex.position;
     out.lightmap_uv = vertex.lightmap_uv;
     out.lightmap_page = vertex.lightmap_page;
     return out;
 }
 
-// The IEC 61966-2-1 transfer function. Every texture and offscreen target is
-// raw display space — exactly like the reference's non-sRGB framebuffer — so
-// the fragment is assembled where the reference assembled it and the sRGB
-// surface is the *only* conversion point (`srgb_to_linear` in the
-// surface-facing entry points). Sampling an sRGB texture copy and re-encoding
-// here instead would decode every filtered blend: a convexity bias measured as
-// a broad +1 display level on minified surfaces, so textures stay raw.
+// Decode authored fog/storm display colours before linear mixing.
 fn srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
     let low = c / 12.92;
     let high = pow((c + 0.055) / 1.055, vec3<f32>(2.4));
     return select(high, low, c <= vec3<f32>(0.04045));
-}
-
-// The prepared HDR lightmap's display tone map, per channel, C1-continuous at
-// the knee. Below 0.8 a value passes through unchanged (the calibrated look of
-// the shipped light levels); above it an exponential shoulder compresses
-// towards 1.0, so a genuine highlight rolls off instead of clipping. Mirrors
-// `crate::lighting::transport::soft_clip_channel` exactly.
-fn soft_clip_channel(x: f32) -> f32 {
-    if (x <= 0.8) {
-        return max(x, 0.0);
-    }
-    let shoulder = 0.2;
-    return 0.8 + shoulder * (1.0 - exp(-(x - 0.8) / shoulder));
-}
-
-fn soft_clip(color: vec3<f32>) -> vec3<f32> {
-    return vec3<f32>(
-        soft_clip_channel(color.r),
-        soft_clip_channel(color.g),
-        soft_clip_channel(color.b),
-    );
 }
 
 // One lightmap page pair sampled at `uv`: the irradiance plane at `layer` and
@@ -381,6 +358,98 @@ fn decode_lightmap(uv: vec2<f32>, layer: u32, normal: vec3<f32>) -> vec3<f32> {
     return max(vec3<f32>(0.0), irradiance + select(vec3<f32>(0.0), directional, k > 1.0e-6));
 }
 
+fn reconstruct_irradiance(energy: vec3<f32>, moment: vec3<f32>, normal: vec3<f32>) -> vec3<f32> {
+    let k = energy.r + energy.g + energy.b;
+    let lobe = 2.0 * max(0.0, dot(moment, normal)) - length(moment);
+    return max(vec3<f32>(0.0), energy + select(vec3<f32>(0.0), energy / max(k, 1.0e-6) * lobe, k > 1.0e-6));
+}
+
+fn anchor_weight(local_position: vec3<f32>, corner: u32) -> f32 {
+    let coordinate = clamp((local_position - environment.entity_bounds_min.xyz) / max(environment.entity_bounds_extent.xyz, vec3<f32>(1.0e-6)), vec3<f32>(0.0), vec3<f32>(1.0));
+    let x = select(1.0 - coordinate.x, coordinate.x, (corner & 1u) != 0u);
+    let y = select(1.0 - coordinate.y, coordinate.y, (corner & 2u) != 0u);
+    let z = select(1.0 - coordinate.z, coordinate.z, (corner & 4u) != 0u);
+    return x * y * z;
+}
+
+fn source_visibility(local_position: vec3<f32>, source: u32, tap: u32) -> f32 {
+    var visibility = 0.0;
+    for (var corner = 0u; corner < 8u; corner = corner + 1u) {
+        let anchor = environment.entity_anchors[corner];
+        visibility += anchor_weight(local_position, corner) * anchor.visibility[source][tap];
+    }
+    return clamp(visibility, 0.0, 1.0);
+}
+
+// The same source-wide authored distance calibration and finite tap pattern as
+// TransportEmitter. Visibility is spatially interpolated at bounds anchors;
+// receiver cosines and falloff use the actual transformed fragment position.
+fn entity_direct_term(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
+    var result = vec3<f32>(0.0);
+    var attenuation = vec3<f32>(0.0);
+    for (var corner = 0u; corner < 8u; corner = corner + 1u) {
+        attenuation += environment.entity_anchors[corner].attenuation.rgb * anchor_weight(in.local_position, corner);
+    }
+    for (var index = 0u; index < 8u; index = index + 1u) {
+        let source = environment.entity_direct[index];
+        if (source.color_strength.w <= 0.0) { continue; }
+        let delta = source.position_range.xyz - in.world_position;
+        let horizontal = max(abs(delta.xz) - source.extent_falloff.xy, vec2<f32>(0.0));
+        let distance = select(length(delta), length(horizontal), source.extent_falloff.w > 0.5);
+        let relative = distance / max(source.position_range.w, 1.0e-6);
+        if (relative >= 1.0) { continue; }
+        let u = 1.0 - max(relative, 0.0);
+        var falloff = u * u * (1.0 + 2.0 * max(relative, 0.0));
+        if (source.extent_falloff.z > 1.5) { falloff = 1.0; }
+        else if (source.extent_falloff.z > 0.5) { falloff = u; }
+        var cosine = 0.0;
+        for (var tap = 0u; tap < 4u; tap = tap + 1u) {
+            let sample = source.taps[tap];
+            if (sample.w <= 0.0) { continue; }
+            let incoming = sample.xyz - in.world_position;
+            let distance_to_tap = length(incoming);
+            if (distance_to_tap > 1.0e-6) {
+                cosine += sample.w * source_visibility(in.local_position, index, tap) * max(dot(normal, incoming / distance_to_tap), 0.0);
+            }
+        }
+        result += source.color_strength.rgb * source.color_strength.w * falloff * cosine;
+    }
+    return result * attenuation;
+}
+
+fn spatial_entity_indirect(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
+    var energy = vec3<f32>(0.0);
+    var moment = vec3<f32>(0.0);
+    for (var corner = 0u; corner < 8u; corner = corner + 1u) {
+        let weight = anchor_weight(in.local_position, corner);
+        energy += environment.entity_anchors[corner].irradiance.rgb * weight;
+        moment += environment.entity_anchors[corner].moment.rgb * weight;
+    }
+    return reconstruct_irradiance(energy, moment, normal);
+}
+
+fn spatial_entity_light(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
+    return spatial_entity_indirect(in, normal) + entity_direct_term(in, normal);
+}
+
+fn movable_contact_visibility(in: VsOut, normal: vec3<f32>) -> f32 {
+    // Entity bodies cannot receive their own projected contact footprint.
+    if (environment.entity_irradiance.w != 0.0 || normal.y <= 0.5) { return 1.0; }
+    var loss = 0.0;
+    for (var index = 0u; index < min(environment.contact_shadow_count.x, 8u); index = index + 1u) {
+        let shadow = environment.contact_shadows[index];
+        if (abs(in.world_position.y - shadow.position_floor.w) > 0.03) { continue; }
+        let height = max(shadow.position_floor.y - shadow.position_floor.w, 0.0);
+        let projection = -shadow.incoming.xz * height / max(shadow.incoming.y, 0.35);
+        let offset = in.world_position.xz - shadow.position_floor.xz - projection;
+        let radius = max(shadow.half_height.xy, vec2<f32>(0.05)) + vec2<f32>(0.08 + height * 0.15);
+        let elliptical = offset / radius;
+        let footprint = exp(-2.0 * dot(elliptical, elliptical));
+        loss += 0.22 * footprint * shadow.incoming.w;
+    }
+    return 1.0 - min(loss, 0.22);
+}
+
 // The reference's `light` term for one fragment, per channel.
 //
 // The OpenGL world fragment stage contains exactly one light expression:
@@ -396,7 +465,7 @@ fn decode_lightmap(uv: vec2<f32>, layer: u32, normal: vec3<f32>) -> vec3<f32> {
 // are irradiance/direction planes, so the same expression generalises: the
 // vertex's page byte selects the base pair, the uniform's switchable count and
 // mask add each enabled fixture's prepared pair, and the reconstructed HDR sum
-// runs through the display tone map. There is no light loop over fixtures, no
+// remains HDR until presentation. There is no light loop over fixtures, no
 // light array and no attenuation curve in the fragment stage: every fixture's
 // contribution is already solved into the layers. A vertex with no lightmap
 // coordinates (`page >= 254.5`, the historical vertex-lit build) keeps the
@@ -404,13 +473,16 @@ fn decode_lightmap(uv: vec2<f32>, layer: u32, normal: vec3<f32>) -> vec3<f32> {
 // The dynamic path's factor is additionally multiplied by the object's neutral
 // probe (`u_light_scale`), which is why the environment uniform carries it.
 fn surface_light(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
+    if (environment.entity_bounds_min.w > 0.5) {
+        return spatial_entity_light(in, normal);
+    }
     if (environment.entity_irradiance.w > 0.5) {
         let energy = environment.entity_irradiance.rgb;
         let moment = environment.entity_moment.xyz;
         let k = energy.r + energy.g + energy.b;
         let lobe = 2.0 * max(0.0, dot(moment, normal)) - length(moment);
         let directional = energy / max(k, 1.0e-6) * lobe;
-        return soft_clip(max(vec3<f32>(0.0), energy + select(vec3<f32>(0.0), directional, k > 1.0e-6)));
+        return max(vec3<f32>(0.0), energy + select(vec3<f32>(0.0), directional, k > 1.0e-6));
     }
     let lightmap_on = environment.lightmap_enabled * (1.0 - step(254.5, in.lightmap_page));
     if (lightmap_on <= 0.5) {
@@ -431,13 +503,28 @@ fn surface_light(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
             hdr += decode_lightmap(in.lightmap_uv, layer, normal);
         }
     }
-    return soft_clip(hdr) * environment.light_scale;
+    return hdr * environment.light_scale;
 }
 
-// The reference's lit term, in display space:
+// The reference's lit term, in linear light:
 // `tex_color.rgb * v_color.rgb * light * (1.0 - u_emission_vertex)`.
-fn lit_display(base_display: vec3<f32>, vertex_color: vec3<f32>, light: vec3<f32>, emission_vertex: f32) -> vec3<f32> {
-    return base_display * vertex_color * light * (1.0 - emission_vertex);
+fn lit_linear(base_linear: vec3<f32>, vertex_color: vec3<f32>, light: vec3<f32>, emission_vertex: f32) -> vec3<f32> {
+    return base_linear * vertex_color * light * (1.0 - emission_vertex);
+}
+
+// Preserve direction before length/cross-product arithmetic. Screen-space
+// derivatives shrink as the camera approaches or render resolution increases;
+// authored normals change magnitude under the inverse-transpose model transform.
+fn rescale_direction(direction: vec3<f32>) -> vec3<f32> {
+    let scale = max(max(abs(direction.x), abs(direction.y)), abs(direction.z));
+    return direction / select(1.0, scale, scale > 0.0);
+}
+
+fn unit_direction_or_zero(direction: vec3<f32>) -> vec3<f32> {
+    let scaled = rescale_direction(direction);
+    // Nonzero scaled vectors have a component of magnitude one. The zero
+    // vector therefore stays finite without normalizing it or using an epsilon.
+    return scaled * inverseSqrt(max(dot(scaled, scaled), 1.0));
 }
 
 // The world-space material normal: the geometric normal, flipped for a
@@ -446,12 +533,20 @@ fn lit_display(base_display: vec3<f32>, vertex_color: vec3<f32>, light: vec3<f32
 fn material_normal(in: VsOut, front_facing: bool) -> vec3<f32> {
     // Entity imports have no normal channel. Derive the diffuse normal from
     // actual posed world geometry, oriented toward the visible side.
-    let geometric = cross(dpdy(in.world_position), dpdx(in.world_position));
-    var normal = normalize(in.world_normal);
+    // Derivatives remain outside conditional control flow. Scale each vector
+    // before crossing so a valid tiny/large surface cannot underflow/overflow.
+    let position_dx = dpdx(in.world_position);
+    let position_dy = dpdy(in.world_position);
+    let authored_normal = unit_direction_or_zero(in.world_normal);
+    let has_authored_normal = any(in.world_normal != vec3<f32>(0.0));
+    var normal = select(vec3<f32>(0.0, 1.0, 0.0), authored_normal, has_authored_normal);
     if (!front_facing) { normal = -normal; }
-    if (abs(environment.entity_irradiance.w) > 0.5 && dot(geometric, geometric) > 1.0e-12) {
-        normal = normalize(geometric);
-        if (dot(normal, camera.position - in.world_position) < 0.0) { normal = -normal; }
+    if (!has_authored_normal) {
+        let geometric = unit_direction_or_zero(cross(rescale_direction(position_dy), rescale_direction(position_dx)));
+        if (any(geometric != vec3<f32>(0.0))) {
+            normal = geometric;
+            if (dot(normal, camera.position - in.world_position) < 0.0) { normal = -normal; }
+        }
     }
     let normal_on = (material.flags & MATERIAL_FLAG_RESPONSE_ENABLED) != 0u
         && (material.flags & MATERIAL_FLAG_NORMAL_ENABLED) != 0u;
@@ -469,7 +564,7 @@ fn material_normal(in: VsOut, front_facing: bool) -> vec3<f32> {
     return normal;
 }
 
-// The reference's view-dependent sheen, in display space.
+// The reference's view-dependent sheen, in linear light.
 fn surface_sheen(in: VsOut, normal: vec3<f32>, view: vec3<f32>, light: vec3<f32>) -> vec3<f32> {
     if ((material.flags & MATERIAL_FLAG_RESPONSE_ENABLED) == 0u) {
         return vec3<f32>(0.0);
@@ -481,14 +576,13 @@ fn surface_sheen(in: VsOut, normal: vec3<f32>, view: vec3<f32>, light: vec3<f32>
     return material.specular * (grazing * 0.55 + ahead * 0.45) * light;
 }
 
-// The reference's reflection term, in display space. A planar surface projects
+// The reference's reflection term, in linear light. A planar surface projects
 // the reflected frame through the mirrored camera; a probe surface reads the
 // static cubemap baked at load. Both are weighted by the authored strength (the
 // material's `specular × strength`), a Fresnel term and the gloss.
 //
-// The reflection targets are raw (non-sRGB) textures holding the same display
-// space this shader assembles, so a sample is used directly — exactly like the
-// reference read its RGBA8 attachments and cubemap.
+// Reflection targets store unexposed linear HDR radiance; sampling never
+// re-applies tone mapping, exposure or display conversion.
 fn surface_reflection(in: VsOut, normal: vec3<f32>, view: vec3<f32>) -> vec3<f32> {
     if (material.reflection_mode == 0u) {
         return vec3<f32>(0.0);
@@ -549,7 +643,7 @@ fn surface_reflection(in: VsOut, normal: vec3<f32>, view: vec3<f32>) -> vec3<f32
     return material.reflection_strength * combine * sample_color;
 }
 
-// The reference's fog term, in display space, applied to the finished surface
+// The reference's fog term, in linear light, applied to the finished surface
 // colour: emission is a surface property, not a hole punched through the air.
 //
 // The global atmosphere is the reference's height-graded distance term. On top
@@ -561,7 +655,7 @@ fn surface_reflection(in: VsOut, normal: vec3<f32>, view: vec3<f32>) -> vec3<f32
 // sum: the greatest effective contribution wins, ties keep the lowest authoring
 // index, the global density is added to the winner, and the mixed-to colour is
 // the winner's colour (else the global one). The one place fog is evaluated.
-fn fogged(color: vec3<f32>, world_position: vec3<f32>) -> vec3<f32> {
+fn atmosphere(world_position: vec3<f32>) -> vec4<f32> {
     let distance = length(camera.position - world_position);
     let below = max(0.0, environment.fog_reference_y - world_position.y);
     let global_density = environment.fog_density * (1.0 + environment.fog_height_gain * min(below, 12.0));
@@ -602,36 +696,36 @@ fn fogged(color: vec3<f32>, world_position: vec3<f32>) -> vec3<f32> {
     let density = global_density + layer_density;
     var fog_amount = density * distance;
     fog_amount = 1.0 - exp(-fog_amount * fog_amount);
-    return mix(color, layer_color, clamp(fog_amount, 0.0, 1.0));
+    return vec4<f32>(srgb_to_linear(layer_color), clamp(fog_amount, 0.0, 1.0));
 }
 
-// The emissive term, in display space: `mix(u_emission_color, v_color.rgb,
+fn fogged(color: vec3<f32>, world_position: vec3<f32>) -> vec3<f32> {
+    let fog = atmosphere(world_position);
+    return mix(color, fog.rgb, fog.a);
+}
+
+// The emissive term, in linear light: `mix(u_emission_color, v_color.rgb,
 // u_emission_vertex) * mask * tex_color.rgb * u_emission_scale`.
-fn surface_emission(in: VsOut, base_display: vec3<f32>) -> vec3<f32> {
+fn surface_emission(in: VsOut, base_linear: vec3<f32>) -> vec3<f32> {
     var mask = vec3<f32>(1.0);
     if (material.emission_mask_enabled > 0.5) {
         mask = textureSample(emission_texture, emission_sampler, in.uv).rgb;
     }
     let color = mix(material.emission_color, in.color.rgb, material.emission_vertex);
-    return color * mask * base_display * material.emission_scale;
+    return color * mask * base_linear * material.emission_scale;
 }
 
 struct Shaded {
-    // Display-space colour: the reference assembles the fragment in raw display
-    // values, and so does this shader. The entry points that write the sRGB
-    // surface convert once; the ones that write a raw scene/capture target
-    // (the reference's own framebuffer convention) write it directly, which is
-    // what makes hardware alpha blending happen in the same space the
-    // reference blended in.
+    // Linear HDR radiance before exposure and display encoding.
     color: vec3<f32>,
     alpha: f32,
 };
 
 // The complete un-shadowed world fragment: lit + sheen + reflection + emission,
-// then fog, all in display space.
+// then fog, all in linear light.
 fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
     let base = textureSample(base_texture, base_sampler, in.uv);
-    let base_display = base.rgb;
+    let base_linear = base.rgb;
     // The reference's alpha: texture x vertex-colour alpha x material opacity,
     // then the per-instance opacity. The instance factor is exactly 1.0 for
     // the static world and for every prop, so their alpha is unchanged.
@@ -643,27 +737,14 @@ fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
     // The baked light term plus the frame's attached lights. The dynamic term
     // is additive and never modifies `surface_light`, so every lightmap and
     // baked-occlusion result survives; with no attached lights it is exactly
-    // zero and the unit-light bypass below is unchanged.
-    let light = surface_light(in, normal) + dynamic_light_term(normal, in.world_position);
+    // zero. No baked energy is clipped before material evaluation.
+    let light = surface_light(in, normal) * movable_contact_visibility(in, normal) + dynamic_light_term(normal, in.world_position);
     let view = normalize(camera.position - in.world_position);
     let sheen = surface_sheen(in, normal, view, light);
     let reflection = surface_reflection(in, normal, view);
-    let emission = surface_emission(in, base_display);
-    let lit = lit_display(base_display, in.color.rgb, light, material.emission_vertex);
-    var color = fogged(lit + sheen + reflection + emission, in.world_position);
-    // The unlit bypass contract: an all-white vertex colour, the unit light
-    // factor, no sheen, no reflection, no emission and no fog (global or
-    // regional) is exactly the raw base-texture sample; the assignment spells
-    // that out so the bypass cannot drift from the assembled value.
-    if (all(in.color.rgb >= vec3<f32>(1.0))
-        && all(light >= vec3<f32>(1.0))
-        && all(sheen == vec3<f32>(0.0))
-        && all(reflection == vec3<f32>(0.0))
-        && all(emission == vec3<f32>(0.0))
-        && environment.fog_density == 0.0
-        && environment.fog_region_count == 0u) {
-        color = base_display;
-    }
+    let emission = surface_emission(in, base_linear);
+    let lit = lit_linear(base_linear, in.color.rgb, light, material.emission_vertex);
+    let color = fogged(lit + sheen + reflection + emission, in.world_position);
     var out: Shaded;
     out.color = storm_fog(camera.position, in.world_position, color);
     out.alpha = alpha;
@@ -671,39 +752,37 @@ fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
 }
 
 // The opaque and translucent fragment stage for the sRGB surface (the direct
-// path and the UI's convention): assemble in display space, convert once.
+// path): output linear RGB for hardware encoding.
 @fragment
 fn fs_main(in: VsOut, @builtin(front_facing) front_facing: bool) -> @location(0) vec4<f32> {
     let shaded = shade(in, front_facing, false);
-    return vec4<f32>(srgb_to_linear(shaded.color), shaded.alpha);
+    return vec4<f32>(shaded.color, shaded.alpha);
 }
 
 // The alpha-tested fragment stage for the sRGB surface.
 @fragment
 fn fs_cutout(in: VsOut, @builtin(front_facing) front_facing: bool) -> @location(0) vec4<f32> {
     let shaded = shade(in, front_facing, true);
-    return vec4<f32>(srgb_to_linear(shaded.color), shaded.alpha);
+    return vec4<f32>(shaded.color, shaded.alpha);
 }
 
 // The opaque and translucent fragment stage for a raw (non-sRGB) scene or
 // reflection target: the reference's own framebuffer convention, written
-// directly so blending, filtering and capture readbacks stay in display space.
+// directly so blending, filtering and capture readbacks stay in linear light.
 @fragment
 fn fs_main_raw(in: VsOut, @builtin(front_facing) front_facing: bool) -> @location(0) vec4<f32> {
     let shaded = shade(in, front_facing, false);
-    return vec4<f32>(shaded.color, shaded.alpha);
+    return vec4<f32>(target_color(shaded.color), shaded.alpha);
 }
 
 // The alpha-tested fragment stage for a raw target.
 @fragment
 fn fs_cutout_raw(in: VsOut, @builtin(front_facing) front_facing: bool) -> @location(0) vec4<f32> {
     let shaded = shade(in, front_facing, true);
-    return vec4<f32>(shaded.color, shaded.alpha);
+    return vec4<f32>(target_color(shaded.color), shaded.alpha);
 }
 
-// The emissive pass: the emissive term alone, in the raw display-space values
-// the reference's `u_emission_only` return writes into its RGBA8 bloom source.
-// The bloom targets are non-sRGB so no transfer function is applied here.
+// The emissive pass stores linear HDR radiance without a display curve.
 fn emissive_only(in: VsOut, cutout: bool) -> vec4<f32> {
     let base = textureSample(base_texture, base_sampler, in.uv);
     let alpha = base.a * in.color.a * material.opacity * environment.opacity;
@@ -712,22 +791,41 @@ fn emissive_only(in: VsOut, cutout: bool) -> vec4<f32> {
     }
     // The per-instance opacity scales the emission so a faded ghost does not
     // keep its full bloom; the attached-light term is deliberately absent here.
-    return vec4<f32>(surface_emission(in, base.rgb) * environment.opacity * storm_transmission(camera.position, in.world_position), 1.0);
+    let transmission = (1.0 - atmosphere(in.world_position).a) * storm_transmission(camera.position, in.world_position);
+    return vec4<f32>(surface_emission(in, base.rgb) * transmission, alpha);
 }
 
 @fragment
 fn fs_emission(in: VsOut, @builtin(front_facing) front_facing: bool) -> @location(0) vec4<f32> {
-    return emissive_only(in, false);
+    let emission = emissive_only(in, false);
+    return vec4<f32>(emission.rgb, 1.0);
 }
 
 @fragment
 fn fs_emission_cutout(in: VsOut, @builtin(front_facing) front_facing: bool) -> @location(0) vec4<f32> {
-    return emissive_only(in, true);
+    let emission = emissive_only(in, true);
+    return vec4<f32>(emission.rgb, 1.0);
+}
+
+// Straight-alpha bloom composition uses the same coverage as the scene. A
+// non-emitting translucent pane attenuates emission already drawn behind it.
+@fragment
+fn fs_emission_blend(in: VsOut) -> @location(0) vec4<f32> {
+    return emissive_only(in, false);
 }
 
 // Read weather directly from uniform storage. Passing the complete shelter
 // array by value makes Metal copy it into thread-private memory per fragment.
 fn storm_density() -> f32 { return environment.storm.color_density.a; }
-fn storm_color() -> vec3<f32> { return environment.storm.color_density.rgb; }
+fn storm_color() -> vec3<f32> { return srgb_to_linear(environment.storm.color_density.rgb); }
 fn storm_count() -> u32 { return environment.storm.count.x; }
 fn storm_shelter(index: u32) -> StormShelter { return environment.storm.shelters[index]; }
+
+fn linear_to_srgb(color: vec3<f32>) -> vec3<f32> {
+    return select(1.055 * pow(max(color, vec3<f32>(0.0)), vec3<f32>(1.0 / 2.4)) - 0.055, color * 12.92, color <= vec3<f32>(0.0031308));
+}
+
+fn target_color(color: vec3<f32>) -> vec3<f32> {
+    if (display_target) { return linear_to_srgb(color); }
+    return color;
+}

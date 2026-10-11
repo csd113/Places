@@ -352,7 +352,7 @@ fn cleared(level: &LevelSurfaces<'_>, solids: &[Solid], room: usize, x: f32, z: 
 }
 
 fn shipped_demo() -> LevelDef {
-    LevelDef::from_json(include_str!("../assets/levels/places_demo.json"))
+    LevelDef::from_json(include_str!("../levels/places_demo.json"))
         .expect("the shipped places_demo parses")
 }
 

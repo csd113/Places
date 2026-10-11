@@ -623,7 +623,7 @@ def _family_atlas(p: PropBuilder, family: dict, size: int, names) -> Texture:
     from pathlib import Path
     from parts.refreshed import load_atlas_from
     number=next(number for number, candidate in HOUSE_FAMILIES.items() if candidate is family)
-    source=Path(__file__).resolve().parents[3]/f'assets/environment/outdoor/props/models/house_{number}_native_{size}.png'
+    source=Path(__file__).resolve().parents[3]/f'assets/environments/outdoor/props/house_{number}_native_{size}.png'
     tex=load_atlas_from(p,source,())
     for region in names:tex.region(region,_region_rect(region,size))
     return tex

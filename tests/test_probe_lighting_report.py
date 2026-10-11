@@ -24,6 +24,55 @@ class ProbeReportTests(unittest.TestCase):
             struct.pack_into("<f",data,38,invalid)
             with self.assertRaises(ValueError): read_field(data)
 
+    def split_record(self):
+        data = bytearray(self.record())
+        struct.pack_into("<H", data, 4, 3)
+        return bytes(data) + struct.pack("<3I6f", 2, 3, 17, 4, 0.0625, 0.0005, -1, 0.5, 0)
+
+    def test_version_three_source_identity_and_direct_residual_are_preserved(self):
+        field = read_field(self.split_record())
+        self.assertEqual(field["record_version"], 3)
+        self.assertEqual(field["selected_light_indices"], (3, 17))
+        probe = field["probes"][0]
+        self.assertEqual(probe["selected_direct"][:2], (4, 0.0625))
+        self.assertEqual(probe["selected_direct_moment"], (-1, 0.5, 0))
+        self.assertEqual(probe["nonlocal_irradiance"][:2], (4, 0.0625))
+        self.assertEqual(probe["nonlocal_moment"], (-1, 0.5, 0))
+        legacy = read_field(self.record())
+        self.assertEqual(legacy["selected_light_indices"], ())
+        self.assertNotIn("selected_direct", legacy["probes"][0])
+
+    def test_version_three_invalid_source_ids_and_direct_data_are_rejected(self):
+        with self.assertRaises(ValueError): read_field(self.split_record()[:-1])
+        for offset, value, fmt in [(82, 3, "I"), (86, float("nan"), "f"), (86, 9, "f")]:
+            data = bytearray(self.split_record())
+            struct.pack_into("<" + fmt, data, offset, value)
+            with self.assertRaises(ValueError): read_field(data)
+
+    def zero_source_record(self):
+        data = bytearray(self.record())
+        struct.pack_into("<H", data, 4, 3)
+        return bytes(data) + struct.pack("<I6f", 0, 0, 0, 0, 0, 0, 0)
+
+    def test_zero_source_version_three_preserves_spatial_sidecar(self):
+        field = read_field(self.zero_source_record())
+        probe = field["probes"][0]
+        self.assertEqual(field["record_version"], 3)
+        self.assertEqual(field["selected_light_indices"], ())
+        self.assertEqual(probe["selected_direct"], (0, 0, 0))
+        self.assertEqual(probe["selected_direct_moment"], (0, 0, 0))
+        self.assertEqual(probe["nonlocal_irradiance"], probe["irradiance"])
+        self.assertEqual(probe["nonlocal_moment"], probe["moment"])
+        self.assertNotIn("selected_direct", read_field(self.record())["probes"][0])
+
+    def test_zero_source_version_three_requires_aligned_zero_coefficients(self):
+        for data in (self.zero_source_record()[:-1], self.zero_source_record()[:-24]):
+            with self.assertRaises(ValueError): read_field(data)
+        for channel in range(6):
+            data = bytearray(self.zero_source_record())
+            struct.pack_into("<f", data, 38 + 36 + 4 + channel * 4, 0.01)
+            with self.assertRaises(ValueError): read_field(data)
+
     def test_single_direction_neutral_diffuse_is_exact(self):
         self.assertEqual(reconstruct((0.25,0.125,0),(0,0.375,0),(0,1,0)),(0.5,0.25,0))
         self.assertEqual(reconstruct((0.25,0.125,0),(0,0.375,0),(0,-1,0)),(0,0,0))

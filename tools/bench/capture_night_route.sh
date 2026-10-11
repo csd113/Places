@@ -4,7 +4,7 @@
 # The demo is a bundled level: the game loads assets/levels/places_demo.placesmap
 # (the maintained package), so rebuild it before capturing:
 #
-#     cargo run --release --bin places-compile -- build assets/levels/places_demo.json
+#     cargo run --release --bin places-compile -- build levels/places_demo.json
 #     sh tools/bench/capture_night_route.sh
 #     PLACES_QUALITY=low sh tools/bench/capture_night_route.sh
 #

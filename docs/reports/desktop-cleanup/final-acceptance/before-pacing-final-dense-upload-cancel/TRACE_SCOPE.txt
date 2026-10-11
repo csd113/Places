@@ -1,1 +1,0 @@
-Pre-pacing-fix trace prefix only. Original trace size: 512156490 bytes. Summary records metrics computed from the complete trace. The complete raw trace was not added to the repository.

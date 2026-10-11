@@ -1,5 +1,8 @@
 # Spoonerman: feline animation remake
 
+Historical acceptance: September 2026 motion refinement. Counts, timings and validation below describe
+that tested version; the canonical guides govern current contracts.
+
 Reworked the existing Spoonerman rig into a four-beat walk, a haunch-supported sit/stand set, a faster bounding run, and a one-shot pounce. The canonical GLB remains in `assets/entities/spooner-man/model/spooner-man.glb`.
 
 | Clip | Duration | Playback | Change |
@@ -30,7 +33,7 @@ The first 450,412 canonical BIN bytes are byte-for-byte unchanged, including geo
 - `python3 tools/entities/check_clip_boundaries.py`: passed; loop boundaries, transition endpoints and skin weights valid.
 - `python3 tools/entities/validate_entities.py --glb assets/entities/spooner-man/model/spooner-man.glb --workers 2 --samples-per-second 60 --json`: passed with no reported problems.
 - Export independently imported and sampled in Blender; side-view motion previews and contact sheets reviewed.
-- Regeneration: byte-for-byte idempotent (final SHA-256 in `preservation.json`).
+- Regeneration: byte-for-byte idempotent.
 - Python compilation and scoped `git diff --check`: passed. No Rust tests or Cargo commands run.
 
 | Clip | Frames sampled | Lowest vertex (m) | Maximum edge stretch |
@@ -53,15 +56,14 @@ Maximum edge stretch measures deformation against the unchanged bind mesh, not b
 - `tools/props/cat_motion.py` — deterministic feline gait, IK, sitting and pounce authoring.
 - `tools/entities/check_clip_boundaries.py` — one-shot pounce and idle endpoint checks.
 - `docs/reports/spoonerman-cat-motion.md` — this report.
-- `docs/reports/spoonerman-cat-motion/preservation.json` — canonical binary hash and clip metadata.
-- `docs/reports/spoonerman-cat-motion/validation.json` — full 60 Hz sweep results.
-- `docs/reports/spoonerman-cat-motion/{walk,run,sit_down,sit_idle,stand_up,pounce}.mp4` — Blender-imported motion previews.
-- `docs/reports/spoonerman-cat-motion/contact-sheet.png` — sampled final poses.
+- The curated offline contact sheet below preserves the sampled final poses.
 
-## Motion previews
+## Offline motion inspection
 
-[Walk](spoonerman-cat-motion/walk.mp4) · [Run](spoonerman-cat-motion/run.mp4) · [Sit down](spoonerman-cat-motion/sit_down.mp4) · [Seated idle](spoonerman-cat-motion/sit_idle.mp4) · [Stand up](spoonerman-cat-motion/stand_up.mp4) · [Pounce](spoonerman-cat-motion/pounce.mp4)
+The offline Blender clips were inspected in motion. The contact sheet below
+shows sampled poses; a still image does not independently establish continuous
+playback or clip timing.
 
 Contact-sheet rows, top to bottom: walk, run, sit down, seated idle, stand up, pounce. Each row progresses through its clip from left to right.
 
-![Sampled motion](spoonerman-cat-motion/contact-sheet.png)
+![Sampled motion](../images/reports/spoonerman-cat-motion/contact-sheet.png)

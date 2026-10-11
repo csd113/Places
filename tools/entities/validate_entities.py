@@ -58,6 +58,9 @@ DEFAULT_ASSETS = (
     "assets/entities/sheet-ghost-cat/model/sheet-ghost-cat.glb",
     "assets/entities/carved-pumpkin/model/carved-pumpkin.glb",
     "assets/entities/pumpkin-skeleton/model/pumpkin-skeleton.glb",
+    "assets/entities/beach_seagull/model/beach_seagull.glb",
+    "assets/entities/beach_crab/model/beach_crab.glb",
+    "assets/entities/beach_fish/model/beach_fish.glb",
 )
 
 # Engine ceilings, mirrored from src/gltf.rs / src/level.rs.
@@ -231,7 +234,8 @@ class Model:
                     continue
                 values = self._read_accessor(sampler["output"], kind)
                 duration = max(duration, times[-1] if times else 0.0)
-                channels.append({"node": target["node"], "path": path, "times": times, "values": values})
+                channels.append({"node": target["node"], "path": path, "times": times, "values": values,
+                                 "interpolation": sampler.get("interpolation", "LINEAR")})
             clips.append({"name": animation.get("name", ""), "duration": duration, "channels": channels})
         # Attach the marker metadata by name.
         by_name = {
@@ -250,7 +254,8 @@ class Model:
 
     # -- pose evaluation ------------------------------------------------
 
-    def _interpolate(self, keys_times: Sequence[float], values: Sequence[list], time: float, looping: bool):
+    def _interpolate(self, keys_times: Sequence[float], values: Sequence[list], time: float, looping: bool,
+                     *, rotation=False, interpolation="LINEAR"):
         if not keys_times:
             return values[0] if values else None
         duration = keys_times[-1]
@@ -263,6 +268,12 @@ class Model:
             if local <= keys_times[index]:
                 span = keys_times[index] - keys_times[index - 1]
                 t = 0.0 if span <= 0.0 else (local - keys_times[index - 1]) / span
+                if interpolation == "STEP":
+                    return values[index] if t == 1.0 else values[index - 1]
+                if interpolation != "LINEAR":
+                    raise ValueError(f"entity sweep does not implement {interpolation} interpolation")
+                if rotation:
+                    return _slerp(values[index - 1], values[index], t)
                 return _lerp(values[index - 1], values[index], t)
         return values[-1]
 
@@ -279,15 +290,18 @@ class Model:
             if channels:
                 channel = channels.get("translation")
                 if channel is not None:
-                    value = self._interpolate(channel["times"], channel["values"], time, clip["loop"])
+                    value = self._interpolate(channel["times"], channel["values"], time, clip["loop"],
+                                              interpolation=channel["interpolation"])
                     translation = list(value) if value else translation
                 channel = channels.get("rotation")
                 if channel is not None:
-                    value = self._interpolate(channel["times"], channel["values"], time, clip["loop"])
+                    value = self._interpolate(channel["times"], channel["values"], time, clip["loop"],
+                                              rotation=True, interpolation=channel["interpolation"])
                     rotation = list(value) if value else rotation
                 channel = channels.get("scale")
                 if channel is not None:
-                    value = self._interpolate(channel["times"], channel["values"], time, clip["loop"])
+                    value = self._interpolate(channel["times"], channel["values"], time, clip["loop"],
+                                              interpolation=channel["interpolation"])
                     scale = list(value) if value else scale
             local = rig._mat_trs(translation, rotation, scale)
             parent = self.parent[index]
@@ -337,6 +351,23 @@ def _lerp(a: Sequence[float], b: Sequence[float], t: float) -> List[float]:
     return [x + (y - x) * t for x, y in zip(a, b)]
 
 
+def _slerp(a: Sequence[float], b: Sequence[float], t: float) -> List[float]:
+    """Shortest-arc normalized rotation, matching character.rs LINEAR keys."""
+    first = rig.quat_normalize(tuple(a))
+    second = rig.quat_normalize(tuple(b))
+    cosine = sum(x * y for x, y in zip(first, second))
+    if cosine < 0:
+        second = tuple(-value for value in second)
+        cosine = -cosine
+    if cosine > .9995:
+        return list(rig.quat_normalize(tuple(_lerp(first, second, t))))
+    angle = math.acos(min(1.0, cosine))
+    denominator = math.sin(angle)
+    result = [x * math.sin((1 - t) * angle) / denominator + y * math.sin(t * angle) / denominator
+              for x, y in zip(first, second)]
+    return list(rig.quat_normalize(tuple(result)))
+
+
 # ------------------------------------------------------------------- sweep
 
 
@@ -357,12 +388,17 @@ def summarise_frame(
     """One independent chunk: skin every sampled time and return small stats."""
     min_y = math.inf
     max_y = -math.inf
+    posed_min = [math.inf] * 3
+    posed_max = [-math.inf] * 3
     max_displacement = 0.0
     max_stretch = 0.0
     contact_frames = 0
     for time in times:
         globals_ = model._pose_globals(clip, time)
         skinned = model._skin(globals_)
+        for axis in range(3):
+            posed_min[axis] = min(posed_min[axis], min(point[axis] for point in skinned))
+            posed_max[axis] = max(posed_max[axis], max(point[axis] for point in skinned))
         frame_min = min(point[1] for point in skinned)
         frame_max = max(point[1] for point in skinned)
         min_y = min(min_y, frame_min)
@@ -389,6 +425,8 @@ def summarise_frame(
         "frames": len(times),
         "min_y_m": min_y,
         "max_y_m": max_y,
+        "posed_min_m": posed_min,
+        "posed_max_m": posed_max,
         "contact_frames": contact_frames,
         "max_displacement_m": max_displacement,
         "max_edge_stretch": max_stretch,
@@ -435,6 +473,8 @@ def merge_chunks(chunks: Iterable[dict]) -> dict:
                 "frames": 0,
                 "min_y_m": math.inf,
                 "max_y_m": -math.inf,
+                "posed_min_m": [math.inf] * 3,
+                "posed_max_m": [-math.inf] * 3,
                 "contact_frames": 0,
                 "max_displacement_m": 0.0,
                 "max_edge_stretch": 0.0,
@@ -446,6 +486,9 @@ def merge_chunks(chunks: Iterable[dict]) -> dict:
         entry["frames"] += result["frames"]
         entry["min_y_m"] = min(entry["min_y_m"], result["min_y_m"])
         entry["max_y_m"] = max(entry["max_y_m"], result["max_y_m"])
+        for axis in range(3):
+            entry["posed_min_m"][axis] = min(entry["posed_min_m"][axis], result["posed_min_m"][axis])
+            entry["posed_max_m"][axis] = max(entry["posed_max_m"][axis], result["posed_max_m"][axis])
         entry["contact_frames"] += result["contact_frames"]
         entry["max_displacement_m"] = max(entry["max_displacement_m"], result["max_displacement_m"])
         entry["max_edge_stretch"] = max(entry["max_edge_stretch"], result["max_edge_stretch"])
@@ -487,6 +530,8 @@ def sweep(
                 "vertices": len(model.positions),
                 "triangles": len(model.indices) // 3,
                 "joints": len(model.joints),
+                "bind_min_m": [min(point[axis] for point in model.bind_skin) for axis in range(3)],
+                "bind_max_m": [max(point[axis] for point in model.bind_skin) for axis in range(3)],
                 "clips": [
                     {
                         "name": clip["name"],
@@ -569,6 +614,8 @@ def sweep(
                     "frames": entry["frames"],
                     "min_y_m": entry["min_y_m"],
                     "max_y_m": entry["max_y_m"],
+                    "posed_min_m": entry["posed_min_m"],
+                    "posed_max_m": entry["posed_max_m"],
                     "contact_frames": entry["contact_frames"],
                     "max_displacement_m": entry["max_displacement_m"],
                     "max_edge_stretch": entry["max_edge_stretch"],
@@ -589,12 +636,25 @@ def sweep(
 def verify_report(report: dict) -> List[str]:
     """Independent sanity gates over the merged sweep."""
     problems = []
+    by_path = {asset["path"]: asset for asset in report["assets"]}
     for asset in report["assets"]:
         problems.extend(f"{asset['path']}: {problem}" for problem in asset["weight_problems"])
         if asset["vertices"] <= 0 or asset["triangles"] <= 0 or asset["joints"] <= 0:
             problems.append(f"{asset['path']}: empty geometry or rig")
     for clip in report["clips"]:
         label = f"{clip['asset']} clip {clip['name']}"
+        if Path(clip["asset"]).stem in ("beach_seagull", "beach_crab", "beach_fish"):
+            asset = by_path[clip["asset"]]
+            # character.rs expands the transformed bind half-extents by 1.15
+            # plus 5 cm. Local flying/swimming motion must stay in that box;
+            # root translation does not update the runtime lighting anchor.
+            for axis in range(3):
+                low, high = asset["bind_min_m"][axis], asset["bind_max_m"][axis]
+                center = (low + high) * 0.5
+                half = (high - low) * 0.5 * 1.15 + 0.05
+                if (clip["posed_min_m"][axis] < center - half - 1e-5
+                        or clip["posed_max_m"][axis] > center + half + 1e-5):
+                    problems.append(f"{label}: posed axis {axis} exceeds the runtime bind culling/lighting envelope")
         if clip["min_y_m"] < -0.03:
             problems.append(f"{label}: penetrates the floor by {-clip['min_y_m']:.4f} m")
         if clip["max_edge_stretch"] > 2.0:

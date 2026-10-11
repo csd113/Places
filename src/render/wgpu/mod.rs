@@ -47,12 +47,16 @@
 
 pub mod character;
 pub mod decals;
+#[cfg(feature = "visual-diagnostics")]
+pub mod diagnostics;
 pub mod dynamic;
 pub mod effects;
 pub mod environment;
 pub mod lightmap;
 pub mod material;
 pub mod postprocess;
+#[cfg(feature = "visual-diagnostics")]
+mod probe_visualization;
 pub mod props;
 pub mod reflections;
 pub mod renderer;

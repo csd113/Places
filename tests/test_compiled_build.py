@@ -7,8 +7,7 @@ classes of failure that only appear in a compiled build:
 * the binary must locate its payload from its own directory, not from the
   working directory it happens to be started in;
 * a genuinely fresh install must create `levels/`, `import/` and a default
-  `settings.json`, and must boot the embedded Places Demo even when no asset
-  tree is installed at all;
+  `settings.json`, and must show a usable menu when compiled maps are absent;
 * a restart must load the saved configuration;
 * malformed configuration and malformed custom levels must be reported and
   skipped without a crash;
@@ -195,9 +194,9 @@ class CompiledBuildSmokeTests(unittest.TestCase):
                 f"developer telemetry leaked into a normal run: {line}",
             )
 
-    # -- 2. Fresh empty directory: embedded demo and created state ----------
+    # -- 2. Source-only installation: menu and created state ---------------
 
-    def test_empty_install_boots_the_embedded_demo_and_creates_state(self):
+    def test_empty_install_shows_menu_and_creates_state(self):
         runtime = self.fresh_case("empty")
         binary = os.path.join(runtime, "places")
         shutil.copy2(self.binary, binary)
@@ -218,8 +217,8 @@ class CompiledBuildSmokeTests(unittest.TestCase):
         self.assertEqual(
             [json.loads(event["detail"])["current_level_id"]
              for event in events if event["event"] == "world_committed"],
-            ["places_demo"],
-            "the embedded demo must be committed and captured with no asset tree",
+            [],
+            "a source-only install must show the menu without inventing a compiled world",
         )
         self.assertTrue(os.path.isdir(os.path.join(runtime, "levels")), "levels/ not created")
         self.assertTrue(os.path.isdir(os.path.join(runtime, "import")), "import/ not created")
@@ -239,6 +238,7 @@ class CompiledBuildSmokeTests(unittest.TestCase):
         self.assertTrue(settings["lightmaps"])
         # A missing asset root is reported exactly once, not once per caller.
         self.assertEqual(output.count("no asset root found"), 1, output)
+        self.assertIn("compile maps with `sh tools/build-maps.sh`", output)
         self.assertNotIn("panicked", output)
 
     # -- 3. Restart loads the saved configuration ---------------------------
@@ -451,11 +451,11 @@ class CompiledBuildSmokeTests(unittest.TestCase):
 
     # -- 7. Places Demo is listed even with no custom levels -----------------
 
-    def test_places_demo_is_always_available(self):
+    def test_compiled_places_demo_is_available_by_id(self):
         runtime = self.make_package("demo-package")
         binary = os.path.join(runtime, "places")
         self.assertTrue(
-            os.path.isfile(os.path.join(runtime, "assets", "levels", "places_demo.json"))
+            os.path.isfile(os.path.join(runtime, "assets", "levels", "places_demo.placesmap"))
         )
         capture = os.path.join(runtime, "demo.png")
         code, output = self.run_binary(

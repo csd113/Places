@@ -12,7 +12,7 @@
 //!     ↓                  assets/catalog.json
 //! logical texture id     core:tex_carpet_beige_01
 //!     ↓                  catalog `model` path, relative to the asset root
-//! external PNG           environment/office/textures/floors/carpet_beige_01.png
+//! external PNG           environments/office/textures/floors/carpet_beige_01.png
 //!     ↓                  decoded once per session ([`TextureCache`])
 //! decoded image          Arc<RawImage>, uploaded to one GPU texture per level
 //! ```
@@ -47,6 +47,7 @@
 //! ```
 
 mod builtin;
+pub mod color;
 mod decal;
 mod emission;
 mod ground;

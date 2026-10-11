@@ -9,12 +9,27 @@ use super::{Accumulator, ProbeField, TransportReceiver, TransportScene, compress
 /// Opt-in dump directory; use a separate directory for each source/build.
 pub const DUMP_ENV: &str = "PLACES_PROBE_DUMP_DIR";
 
+pub fn enabled() -> bool {
+    super::diagnostics::directory(DUMP_ENV).is_some()
+}
+
+/// Records actual compiler rejection reasons without inferring validity from
+/// brightness. The caller supplies world positions and authored air ownership.
+///
+/// # Errors
+/// Returns a named error when the requested diagnostic cannot be written.
+pub fn dump_validity(quality: &str, placements: &impl Serialize) -> Result<(), String> {
+    write_dump(&format!("validity-{quality}.json"), placements)
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub(super) struct ProbeAudit {
     pub position: [f32; 3],
     pub target_room: i32,
     pub direct: [f32; 3],
     pub direct_moment: [f32; 3],
+    pub selected_direct: [f32; 3],
+    pub selected_direct_moment: [f32; 3],
     pub indirect: [f32; 3],
     pub indirect_moment: [f32; 3],
     pub surface_hits: usize,
@@ -31,6 +46,8 @@ impl ProbeAudit {
             target_room,
             direct: compressed_direct.irradiance,
             direct_moment: compressed_direct.direction,
+            selected_direct: [0.0; 3],
+            selected_direct_moment: [0.0; 3],
             indirect: [0.0; 3],
             indirect_moment: [0.0; 3],
             surface_hits: 0,
@@ -56,7 +73,7 @@ pub(super) fn dump_receivers(
         physical: [f32; 3],
         filled: [f32; 3],
     }
-    if std::env::var_os(DUMP_ENV).is_none() {
+    if super::diagnostics::directory(DUMP_ENV).is_none() {
         return Ok(());
     }
     let stride = receivers.len().div_ceil(65_536).max(1);
@@ -104,8 +121,12 @@ pub(super) fn dump_bake(
         probes: &'a [Option<ProbeAudit>],
         combined: Vec<[f32; 3]>,
         moments: Vec<[f32; 3]>,
+        selected_light_indices: &'a [u32],
+        selected_direct: Option<Vec<[f32; 3]>>,
+        selected_direct_moments: Option<Vec<[f32; 3]>>,
+        supported_fill: Vec<[f32; 3]>,
     }
-    if std::env::var_os(DUMP_ENV).is_none() {
+    if super::diagnostics::directory(DUMP_ENV).is_none() {
         return Ok(());
     }
     write_dump(
@@ -118,6 +139,29 @@ pub(super) fn dump_bake(
             probes: audits,
             combined: field.probes.iter().map(|probe| probe.irradiance).collect(),
             moments: field.probes.iter().map(|probe| probe.direction).collect(),
+            selected_light_indices: field.runtime_direct_lights(),
+            selected_direct: field
+                .local_direct
+                .as_ref()
+                .map(|direct| direct.probes.iter().map(|probe| probe.irradiance).collect()),
+            selected_direct_moments: field
+                .local_direct
+                .as_ref()
+                .map(|direct| direct.probes.iter().map(|probe| probe.direction).collect()),
+            supported_fill: field
+                .probes
+                .iter()
+                .zip(audits)
+                .map(|(probe, audit)| {
+                    audit.as_ref().map_or([0.0; 3], |raw| {
+                        std::array::from_fn(|channel| {
+                            probe.irradiance.get(channel).copied().unwrap_or(0.0)
+                                - raw.direct.get(channel).copied().unwrap_or(0.0)
+                                - raw.indirect.get(channel).copied().unwrap_or(0.0)
+                        })
+                    })
+                })
+                .collect(),
         },
     )
 }
@@ -127,7 +171,7 @@ pub(super) fn dump_bake(
 /// # Errors
 /// Returns a named error when the requested diagnostic cannot be written.
 pub fn dump_labels(field: &ProbeField, quality: &str) -> Result<(), String> {
-    if std::env::var_os(DUMP_ENV).is_none() {
+    if super::diagnostics::directory(DUMP_ENV).is_none() {
         return Ok(());
     }
     write_dump(
@@ -141,13 +185,15 @@ pub fn dump_labels(field: &ProbeField, quality: &str) -> Result<(), String> {
 }
 
 fn write_dump(name: &str, value: &impl Serialize) -> Result<(), String> {
-    let Some(directory) = std::env::var_os(DUMP_ENV) else {
+    let Some(dump_path) = super::diagnostics::directory(DUMP_ENV) else {
         return Ok(());
     };
-    let dump_path = std::path::PathBuf::from(directory);
     std::fs::create_dir_all(&dump_path)
         .map_err(|error| format!("probe dump directory: {error}"))?;
     let path = dump_path.join(name);
+    if path.exists() {
+        return Err(format!("probe dump refuses existing {}", path.display()));
+    }
     // A failed serialization must not publish a partial diagnostic. Creation
     // is exclusive so a pre-existing temporary file/symlink is never followed.
     let temporary = dump_path.join(format!(".{name}.{}.tmp", std::process::id()));
@@ -163,7 +209,9 @@ fn write_dump(name: &str, value: &impl Serialize) -> Result<(), String> {
         writer
             .flush()
             .map_err(|error| format!("probe dump flush: {error}"))?;
-        std::fs::rename(&temporary, &path).map_err(|error| format!("probe dump publish: {error}"))
+        std::fs::hard_link(&temporary, &path)
+            .map_err(|error| format!("probe dump publish: {error}"))?;
+        std::fs::remove_file(&temporary).map_err(|error| format!("probe dump cleanup: {error}"))
     })();
     if let Err(error) = result {
         if let Err(cleanup_error) = std::fs::remove_file(&temporary)

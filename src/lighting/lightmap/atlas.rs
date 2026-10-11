@@ -110,7 +110,10 @@ struct FreeRect {
 
 /// Places chart rectangles on square pages with a deterministic
 /// best-short-side-fit MAXRECTS policy for architecture and disjoint guillotine
-/// pages for the many small model-triangle charts.
+/// pages for the many small model charts.
+///
+/// At the shared page limit,
+/// props can consume proven free rectangles on architecture pages.
 ///
 /// The allocator is designed to run *inline*, while the mesh is being emitted:
 /// each chart is placed the moment its patch is built, using only the patches
@@ -162,13 +165,19 @@ impl ChartAllocator {
 
     /// Allocates a physical receiver chart at a bounded surface density.
     /// Large model surfaces use a coarser lighting LOD without changing the
-    /// geometry, transport visibility or directional reconstruction.
+    /// geometry, transport visibility or directional reconstruction. Explicit
+    /// model requests are bounded to twice architecture's density; invalid
+    /// densities fail closed rather than creating one-texel receiver aliases.
     pub fn allocate_at_density(&mut self, patch: &LightmapPatch, density: f32) -> Option<Chart> {
         if self.failed {
             return None;
         }
+        let Some(surface_density) = self.config.bounded_surface_density(patch.kind, density) else {
+            self.failed = true;
+            return None;
+        };
         let config = LightmapConfig {
-            texels_per_metre: density.min(self.config.texels_per_metre),
+            texels_per_metre: surface_density,
             ..self.config
         };
         let (width, height) = config.chart_texels(patch);
@@ -195,11 +204,17 @@ impl ChartAllocator {
             self.prop_pages.push(prop);
             placement = self.best_placement(outer_w, outer_h, prop);
         }
+        if placement.is_none() && prop && self.pages.len() >= self.config.max_pages {
+            // Exhausting a page family is not exhausting the atlas. Preserve
+            // the requested density and both gutters by reusing an existing
+            // architecture hole under that page's MAXRECTS ownership policy.
+            placement = self.best_placement(outer_w, outer_h, false);
+        }
         let Some((page_index, x, y)) = placement else {
             self.failed = true;
             return None;
         };
-        let placed = if prop {
+        let placed = if self.prop_pages.get(page_index).copied() == Some(true) {
             self.place_prop(page_index, x, y, outer_w, outer_h)
         } else {
             self.place(page_index, x, y, outer_w, outer_h)
@@ -245,7 +260,8 @@ impl ChartAllocator {
     /// Model triangles have many small independent charts. Dedicated pages use
     /// disjoint guillotine remainders, avoiding quadratic containment pruning on
     /// every face. Architecture keeps its established MAXRECTS layout. Both page
-    /// kinds share the same configured budget and identical chart/gutter format.
+    /// kinds share the same configured budget and identical chart/gutter format;
+    /// props placed in an architecture hole use `place` instead.
     fn place_prop(&mut self, page_index: usize, x: u32, y: u32, width: u32, height: u32) -> bool {
         let Some(page) = self.pages.get_mut(page_index) else {
             return false;

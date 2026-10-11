@@ -1,10 +1,9 @@
-# Prompt 7 — Blizzard / Whiteout Weather
+# Blizzard and whiteout weather — 2026-10-07
 
 Winter retains its normal light snowfall. A separate, launchable Winter review
 map selects a severe blizzard with directional snow, strong wind and short-range
-whiteout. This commit implements Prompt 7 only; prompts 8 and 9 remain queued.
-Starting HEAD was `d095d1edc7e33e3aa915cb2d2c05b4b5fad86f52`; its documentation
-[CI](https://github.com/csd113/Places/actions/runs/37610105298) passed.
+whiteout. The following measurements describe the initial severe-weather implementation;
+the [final Winter audit](winter-final-audit.md) records integrated acceptance.
 
 ## Configuration and implementation
 
@@ -145,19 +144,16 @@ collision, navigation, lightmap texels, irradiance and probe payloads match Wint
 only weather/identity semantics and identity-derived lightmap metadata differ.
 Both Winter and review currentness/decode checks pass.
 
-`debug-maps/blizzard-20261007/README.md` provides build/capture commands. Its
-ignored `evidence/` directory preserves sources, both calm/severe packages, all
-required assets, final player/compiler/SDL binaries, launcher, native images,
-CSV/load logs, final A/B manifests and raw validation results outside `target`.
-The preservation manifest verifies 400 matching files (666,551,912 bytes).
-Launch either mode with:
+## Reproduction
+
+Use `tools/bench/capture_snowfall.py` for accepted native camera/movement and
+weather A/B controls. Frozen matching inputs can be launched without rebuilding:
 
 ```sh
 python3 debug-maps/blizzard-20261007/evidence/launch.py winter
 python3 debug-maps/blizzard-20261007/evidence/launch.py blizzard_review --quality high
 ```
 
-Existing snowfall, movement and compiler debug archives, external Office and
-consolidation evidence, and shared build artifacts remain intact for queued
-tasks. Exact publication SHA, remote verification and CI result are recorded in
-the final handoff and local `evidence/handoff.json` after the separate commit.
+The source, matching package/assets, player/compiler and SDL are required for
+these dated controls. The [final audit](winter-final-audit.md) retains integrated
+calm/severe and sheltered-interior native examples and current acceptance limits.

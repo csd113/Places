@@ -28,7 +28,8 @@
 //!
 //! Everything is sequential `f32` accumulation with no threads, no clock and no
 //! hash iteration: two builds of the same capture produce byte-identical chains.
-//! The final value is rounded to `u8` exactly once per channel.
+//! Production output is linear RGBA16F; the legacy numeric RGBA8 fixture
+//! codec is retained only for orientation/filter tests.
 
 use glam::Vec3;
 
@@ -95,10 +96,29 @@ pub const fn mip_levels_for(edge: u32) -> u32 {
 ///
 /// Returns an error when `edge` is zero, `levels` is zero or exceeds
 /// [`mip_levels_for`], or a source face does not hold `edge * edge * 4` bytes.
+#[cfg(test)]
 pub fn prefilter_cube(
     edge: u32,
     faces: &[Vec<u8>; 6],
     levels: u32,
+) -> Result<Vec<[Vec<u8>; 6]>, String> {
+    prefilter_encoded_cube(edge, faces, levels, false)
+}
+
+/// Prefilters linear HDR faces without a display curve or unit-range clamp.
+pub fn prefilter_hdr_cube(
+    edge: u32,
+    faces: &[Vec<u8>; 6],
+    levels: u32,
+) -> Result<Vec<[Vec<u8>; 6]>, String> {
+    prefilter_encoded_cube(edge, faces, levels, true)
+}
+
+fn prefilter_encoded_cube(
+    edge: u32,
+    faces: &[Vec<u8>; 6],
+    levels: u32,
+    hdr: bool,
 ) -> Result<Vec<[Vec<u8>; 6]>, String> {
     if edge == 0 {
         return Err("probe face edge is zero".to_string());
@@ -109,7 +129,7 @@ pub fn prefilter_cube(
             "probe mip chain has {levels} levels; a {edge}-texel face allows 1..={max_levels}"
         ));
     }
-    let base_bytes = face_bytes(edge)?;
+    let base_bytes = face_bytes(edge, hdr)?;
     for (face, data) in faces.iter().enumerate() {
         if data.len() != base_bytes {
             return Err(format!(
@@ -125,15 +145,21 @@ pub fn prefilter_cube(
         let level_edge = edge >> level;
         let roughness = level_roughness(level, levels);
         let mip: [Vec<u8>; 6] = std::array::from_fn(|face| {
-            let mut out = Vec::with_capacity(face_bytes(level_edge).unwrap_or(0));
+            let mut out = Vec::with_capacity(face_bytes(level_edge, hdr).unwrap_or(0));
             for row in 0..level_edge {
                 for col in 0..level_edge {
                     let s = texel_centre(col, level_edge);
                     let t = texel_centre(row, level_edge);
                     let direction = direction_for_texel(face, s, t);
-                    let colour = cone_average(faces, edge, direction, roughness);
+                    let colour = cone_average(faces, edge, direction, roughness, hdr);
                     for channel in colour {
-                        out.push(to_u8(channel));
+                        if hdr {
+                            out.extend_from_slice(
+                                &crate::package::ktx2::f32_to_f16_bits(channel).to_le_bytes(),
+                            );
+                        } else {
+                            out.push(to_u8(channel));
+                        }
                     }
                 }
             }
@@ -179,7 +205,13 @@ fn lobe_exponent(roughness: f32) -> f32 {
 }
 
 /// Cone average of the base level around `direction`, in linear `RGBA`.
-fn cone_average(source: &[Vec<u8>; 6], edge: u32, direction: Vec3, roughness: f32) -> [f32; 4] {
+fn cone_average(
+    source: &[Vec<u8>; 6],
+    edge: u32,
+    direction: Vec3,
+    roughness: f32,
+    hdr: bool,
+) -> [f32; 4] {
     let (right, up) = tangent_basis(direction);
     // The cap opens from a point at a mirror to a hemisphere at full
     // roughness; `cos` of the half-angle bounds the polar distribution.
@@ -208,7 +240,7 @@ fn cone_average(source: &[Vec<u8>; 6], edge: u32, direction: Vec3, roughness: f3
         if weight <= 0.0 || !weight.is_finite() {
             continue;
         }
-        let sample = sample_direction(source, edge, tap_direction);
+        let sample = sample_direction(source, edge, tap_direction, hdr);
         for (channel, value) in sample.iter().enumerate() {
             if let Some(slot) = sum.get_mut(channel) {
                 *slot = weight.mul_add(*value, *slot);
@@ -225,7 +257,7 @@ fn cone_average(source: &[Vec<u8>; 6], edge: u32, direction: Vec3, roughness: f3
         }
         out
     } else {
-        sample_direction(source, edge, direction)
+        sample_direction(source, edge, direction, hdr)
     }
 }
 
@@ -294,7 +326,7 @@ fn face_uv(direction: Vec3) -> (usize, f32, f32) {
 }
 
 /// Bilinear sample of the base level for one direction, across face edges.
-fn sample_direction(source: &[Vec<u8>; 6], edge: u32, direction: Vec3) -> [f32; 4] {
+fn sample_direction(source: &[Vec<u8>; 6], edge: u32, direction: Vec3, hdr: bool) -> [f32; 4] {
     let length = direction.length();
     if length <= 0.0 || !length.is_finite() {
         return [0.0; 4];
@@ -319,7 +351,7 @@ fn sample_direction(source: &[Vec<u8>; 6], edge: u32, direction: Vec3) -> [f32; 
             // renormalising its direction selects the neighbouring face.
             let s_corner = ((x0 + dx) + 0.5).mul_add(2.0 / edge_f, -1.0);
             let t_corner = ((y0 + dy) + 0.5).mul_add(2.0 / edge_f, -1.0);
-            let corner = texel_at(source, edge, face, s_corner, t_corner);
+            let corner = texel_at(source, edge, face, s_corner, t_corner, hdr);
             for (channel, value) in corner.iter().enumerate() {
                 if let Some(slot) = out.get_mut(channel) {
                     *slot = weight.mul_add(*value, *slot);
@@ -332,7 +364,7 @@ fn sample_direction(source: &[Vec<u8>; 6], edge: u32, direction: Vec3) -> [f32; 
 
 /// One nearest-texel read at a face-local `(s, t)`, which may be past the face
 /// edge: the direction is renormalised and remapped to the face that owns it.
-fn texel_at(source: &[Vec<u8>; 6], edge: u32, face: usize, s: f32, t: f32) -> [f32; 4] {
+fn texel_at(source: &[Vec<u8>; 6], edge: u32, face: usize, s: f32, t: f32, hdr: bool) -> [f32; 4] {
     let direction = direction_for_texel(face, s, t);
     let (mapped_face, mapped_s, mapped_t) = face_uv(direction);
     let edge_f = u32_to_f32(edge);
@@ -360,14 +392,20 @@ fn texel_at(source: &[Vec<u8>; 6], edge: u32, face: usize, s: f32, t: f32) -> [f
     let Some(at) = row
         .checked_mul(row_edge)
         .and_then(|value| value.checked_add(col))
-        .and_then(|value| value.checked_mul(4))
+        .and_then(|value| value.checked_mul(if hdr { 8 } else { 4 }))
     else {
         return [0.0; 4];
     };
-    let Some(pixel) = data.get(at..at.saturating_add(4)) else {
+    let Some(pixel) = data.get(at..at.saturating_add(if hdr { 8 } else { 4 })) else {
         return [0.0; 4];
     };
-    if let [r, g, b, a] = pixel {
+    if hdr {
+        let mut out = [0.0; 4];
+        for (slot, pair) in out.iter_mut().zip(pixel.as_chunks::<2>().0) {
+            *slot = crate::package::ktx2::f16_bits_to_f32(u16::from_le_bytes(*pair));
+        }
+        out
+    } else if let [r, g, b, a] = pixel {
         [
             f32::from(*r) * (1.0 / 255.0),
             f32::from(*g) * (1.0 / 255.0),
@@ -416,12 +454,12 @@ const fn to_u8(value: f32) -> u8 {
 }
 
 /// Bytes one `edge` x `edge` RGBA8 face occupies.
-fn face_bytes(edge: u32) -> Result<usize, String> {
+fn face_bytes(edge: u32, hdr: bool) -> Result<usize, String> {
     let edge_pixels =
         usize::try_from(edge).map_err(|error| format!("probe face edge is too large: {error}"))?;
     edge_pixels
         .checked_mul(edge_pixels)
-        .and_then(|value| value.checked_mul(4))
+        .and_then(|value| value.checked_mul(if hdr { 8 } else { 4 }))
         .ok_or_else(|| "probe face size overflows".to_string())
 }
 
@@ -590,6 +628,33 @@ mod tests {
         let first = prefilter_cube(edge, &faces, mip_levels_for(edge)).expect("first");
         let second = prefilter_cube(edge, &faces, mip_levels_for(edge)).expect("second");
         assert_eq!(first, second, "the filter must be deterministic");
+    }
+
+    #[test]
+    fn hdr_filter_preserves_energy_above_one_and_is_repeatable() {
+        let pixel: Vec<u8> = [4.0_f32, 2.0, 0.5, 1.0]
+            .into_iter()
+            .flat_map(|value| crate::package::ktx2::f32_to_f16_bits(value).to_le_bytes())
+            .collect();
+        let faces = std::array::from_fn(|_| pixel.repeat(64));
+        let first = prefilter_hdr_cube(8, &faces, 4).expect("HDR chain");
+        assert_eq!(first, prefilter_hdr_cube(8, &faces, 4).expect("repeat"));
+        for level in first {
+            for face in level {
+                for texel in face.as_chunks::<8>().0 {
+                    for (bytes, expected) in texel
+                        .as_chunks::<2>()
+                        .0
+                        .iter()
+                        .zip([4.0_f32, 2.0, 0.5, 1.0])
+                    {
+                        let actual =
+                            crate::package::ktx2::f16_bits_to_f32(u16::from_le_bytes(*bytes));
+                        assert!((actual - expected).abs() < 0.01);
+                    }
+                }
+            }
+        }
     }
 
     #[test]

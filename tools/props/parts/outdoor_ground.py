@@ -148,7 +148,7 @@ def _blade_atlas(p: PropBuilder) -> Texture:
     """Loads the committed cutout atlas and registers its two blade regions."""
     from pathlib import Path
     from parts.refreshed import load_atlas_from
-    source=Path(__file__).resolve().parents[3]/'assets/environment/outdoor/props/models/grass_patch_small.png'
+    source=Path(__file__).resolve().parents[3]/'assets/environments/outdoor/props/grass_patch_small.png'
     tex=load_atlas_from(p,source,(),keep_alpha=True)
     for name,rect in BLADE_REGIONS.items():tex.region(name,rect)
     return tex

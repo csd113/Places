@@ -44,6 +44,9 @@ struct DynamicMeshGpu {
 /// One primitive of a dynamic model.
 #[derive(Clone, Copy)]
 struct DynamicSubmeshGpu {
+    double_sided: bool,
+    /// Shared scalar material response for every mesh route.
+    response: crate::materials::MaterialResponse,
     /// Index into [`DynamicMeshGpu::textures`].
     texture: usize,
     /// This primitive's own emission, before any object override.
@@ -60,6 +63,7 @@ struct DynamicSubmeshGpu {
 
 /// One live object's GPU state.
 struct DynamicObjectGpu {
+    culling_reflected: Option<bool>,
     /// Slot into [`WgpuDynamic::meshes`].
     mesh: usize,
     /// This object's environment binding: model matrix + probe scale.
@@ -173,6 +177,8 @@ impl WgpuDynamic {
                 .submeshes
                 .iter()
                 .map(|submesh| DynamicSubmeshGpu {
+                    double_sided: submesh.double_sided,
+                    response: submesh.response,
                     texture: submesh.texture.map_or(white, usize::from).min(white),
                     emission: submesh.emission,
                     alpha: submesh.alpha,
@@ -208,7 +214,8 @@ impl WgpuDynamic {
                 ctx.planar_fallback,
                 &ctx.environment
                     .with_model(object.transform())
-                    .with_entity_lighting(object.entity_lighting()),
+                    .with_entity_lighting(object.entity_lighting())
+                    .with_spatial_lighting(object.spatial_lighting()),
             );
             let Some(mesh) = value.meshes.get(mesh_index) else {
                 continue;
@@ -222,19 +229,24 @@ impl WgpuDynamic {
                     .and_then(|index| mesh.textures.get(index).cloned());
                 let record = EmissionRecord::material(emission, mask_texture.is_some());
                 let mask = mask_texture.unwrap_or_else(|| ctx.cache.fallback());
-                value.materials.push(GpuMaterial::plain_with_alpha(
+                value.materials.push(GpuMaterial::model_with_alpha(
                     ctx.device,
                     ctx.queue,
                     ctx.material_layout,
                     ctx.cache,
                     &mask,
-                    record,
-                    submesh.alpha,
+                    super::material::ModelMaterial {
+                        emission: record,
+                        alpha: submesh.alpha,
+                        response: submesh.response,
+                        response_enabled: ctx.level.draws_surface_response(),
+                    },
                 ));
                 materials.push(value.materials.len().saturating_sub(1));
                 emissive.push(record.is_emissive());
             }
             value.objects.push(DynamicObjectGpu {
+                culling_reflected: super::world::culling_reflected(object.transform()),
                 mesh: mesh_index,
                 environment,
                 world_bounds: object.world_bounds(),
@@ -333,9 +345,11 @@ impl WgpuDynamic {
             };
             let uniform = environment
                 .with_model(live.transform())
-                .with_entity_lighting(live.entity_lighting());
+                .with_entity_lighting(live.entity_lighting())
+                .with_spatial_lighting(live.spatial_lighting());
             let _update_stats = object.environment.update(queue, &uniform);
             object.world_bounds = live.world_bounds();
+            object.culling_reflected = super::world::culling_reflected(live.transform());
         }
     }
 
@@ -408,6 +422,21 @@ impl WgpuDynamic {
         let gpu_object = self.objects.get(object)?;
         let mesh = self.meshes.get(gpu_object.mesh)?;
         mesh.submeshes.get(submesh).map(|mesh_part| mesh_part.pass)
+    }
+
+    /// Unknown submesh metadata preserves two-sided rendering.
+    pub fn submesh_double_sided(&self, object: usize, submesh: usize) -> bool {
+        self.objects
+            .get(object)
+            .and_then(|entry| self.meshes.get(entry.mesh))
+            .and_then(|mesh| mesh.submeshes.get(submesh))
+            .is_none_or(|part| part.double_sided)
+    }
+
+    pub fn culling_reflected(&self, object: usize) -> Option<bool> {
+        self.objects
+            .get(object)
+            .and_then(|entry| entry.culling_reflected)
     }
 
     /// True when the object's submesh emits.

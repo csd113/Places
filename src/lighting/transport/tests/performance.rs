@@ -183,10 +183,7 @@ fn accelerated_tree_preserves_original_identity_at_edges_and_coincident_faces() 
 #[ignore = "release ray-kernel profiling on real representative map geometry"]
 fn representative_map_ray_benchmark() {
     let mut reports = Vec::new();
-    for path in [
-        "assets/levels/places_demo.json",
-        "assets/levels/lantern_hollow.json",
-    ] {
+    for path in ["levels/places_demo.json", "levels/lantern_hollow.json"] {
         let mut level =
             crate::level::LevelDef::from_json(&std::fs::read_to_string(path).expect("map"))
                 .expect("representative level");
@@ -258,6 +255,7 @@ fn representative_map_ray_benchmark() {
                 &scene.ray_nodes,
                 &scene.ray_triangles,
                 &scene.nodes,
+                &scene.surface_alpha,
                 &ray,
                 *origin,
                 direction.map(safe_inverse),

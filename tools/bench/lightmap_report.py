@@ -26,6 +26,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -33,8 +34,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent.parent
 WORK = REPO / "target" / "agent-work" / "benchmarks"
 
-# One shot per level/camera state worth measuring. The fixtures are staged into
-# the run directory's `levels/` link, exactly as the visual check does.
+# One shot per level/camera state worth measuring. Compiled fixture packages are
+# installed in the run directory's writable `levels/` directory.
 SHOTS: list[tuple[str, str, dict[str, str]]] = [
     ("demo_spawn", "places_demo", {}),
     ("demo_pool", "places_demo", {"PLACES_SPAWN": "3.5,9.0,0"}),
@@ -174,25 +175,40 @@ def parse_bench_csv(path: Path) -> dict[str, float]:
     return out
 
 
-def stage_run_dir(directory: Path) -> None:
-    """A package root the game can boot from: the real assets plus the fixture levels.
+def stage_run_dir(directory: Path, packages: Path | None = None,
+                  requested_levels: set[str] | None = None) -> None:
+    """Use real assets and install explicit compiled fixtures in isolated state.
 
-    The binary resolves its package root through `PLACES_ASSET_ROOT`, then
-    changes into it, so `assets/` and `levels/` are reached through this
-    directory and nothing temporary has to be copied into the repository's own
-    `levels/`.
+    Package filenames match the regression campaign's encoded source paths.
+    Sources and repository bundled packages are never modified.
     """
-    directory.mkdir(parents=True, exist_ok=True)
-    for name, target in (
-        ("assets", REPO / "assets"),
-        ("levels", REPO / "tests" / "fixtures" / "levels"),
-    ):
-        link = directory / name
-        if link.is_symlink():
-            link.unlink()
-        elif link.exists():
+    packages = packages or REPO / "target/verification/maps"
+    requested_levels = requested_levels if requested_levels is not None else {level for _, level, _ in SHOTS}
+    fixtures = []
+    for level in sorted(requested_levels):
+        source = REPO / "tests/fixtures/levels" / (level + ".json")
+        if not source.is_file():
+            bundled = REPO / "assets/levels" / (level + ".placesmap")
+            if not bundled.is_file():
+                raise ValueError(f"Missing bundled package: {bundled}; compile the curated lineup first")
             continue
-        link.symlink_to(target, target_is_directory=True)
+        key = source.relative_to(REPO).with_suffix("").as_posix().replace("/", "__")
+        package = packages / (key + ".placesmap")
+        if not package.is_file():
+            raise ValueError(f"Missing fixture package: {package}; compile {source} with this --out path or select --packages")
+        fixtures.append((level, package))
+    directory.mkdir(parents=True, exist_ok=True)
+    assets = directory / "assets"
+    if assets.is_symlink():
+        assets.unlink()
+    if not assets.exists():
+        assets.symlink_to(REPO / "assets", target_is_directory=True)
+    installed = directory / "levels"
+    if installed.is_symlink():
+        installed.unlink()
+    installed.mkdir(exist_ok=True)
+    for level, package in fixtures:
+        shutil.copy2(package, installed / (level + ".placesmap"))
 
 
 def run_shot(binary: Path, workdir: Path, level: str, env: dict[str, str], out_png: Path,
@@ -247,6 +263,8 @@ def main() -> int:
     parser.add_argument("--frames", type=int, default=1,
                         help="1 = capture a PNG; >1 = also record frame timings")
     parser.add_argument("--shots", default="all", help="comma-separated shot names, or all")
+    parser.add_argument("--packages", type=Path, default=REPO / "target/verification/maps",
+                        help="compiled fixture directory with encoded regression campaign filenames")
     parser.add_argument("--env", action="append", default=[],
                         help="extra KEY=VALUE for every shot")
     parser.add_argument("--cold", action="store_true",
@@ -277,7 +295,16 @@ def main() -> int:
             requested_state = run_dir / requested_state
         if requested_state.resolve() != run_dir:
             parser.error("--cold requires PLACES_STATE_ROOT to match --run-dir; external state is untouched")
-    stage_run_dir(run_dir)
+    wanted = {name.strip() for name in args.shots.split(",") if name.strip()}
+    selected = [(name, level, env) for name, level, env in SHOTS
+                if not wanted or "all" in wanted or name in wanted]
+    if not selected:
+        parser.error("no capture shots matched")
+    requested_levels = {extra["PLACES_LEVEL"]} if "PLACES_LEVEL" in extra else {level for _, level, _ in selected}
+    try:
+        stage_run_dir(run_dir, args.packages.resolve(), requested_levels)
+    except ValueError as error:
+        parser.error(str(error))
     if args.cold:
         cache = run_dir / "cache" / "lightmaps"
         if cache.is_dir():
@@ -289,12 +316,9 @@ def main() -> int:
             cache.rmdir()
             print(f"cleared {cache}")
 
-    wanted = {name.strip() for name in args.shots.split(",") if name.strip()}
     report: dict[str, object] = {"label": args.label, "binary": str(binary), "shots": {}}
     failures = 0
-    for name, level, shot_env in SHOTS:
-        if wanted and "all" not in wanted and name not in wanted:
-            continue
+    for name, level, shot_env in selected:
         png = out_dir / f"{name}.png"
         code, log = run_shot(binary, run_dir, level, shot_env, png, args.frames, extra)
         parsed = parse_logs(log)

@@ -324,7 +324,7 @@ def build_chair(p: PropBuilder) -> None:
 def build_table(p: PropBuilder) -> None:
     """Closed timber components with outward winding and a file-backed oak atlas."""
     size = p.size  # [1.4, 0.75, 0.8]
-    source = Path(__file__).resolve().parents[3] / "assets/core/props/models/table.png"
+    source = Path(__file__).resolve().parents[3] / "assets/shared/props/table.png"
     width, height, pixels = decode_png(source.read_bytes())
     if (width, height) != (256, 256):
         raise ValueError("table.png must be the 256x256 four-region oak atlas")

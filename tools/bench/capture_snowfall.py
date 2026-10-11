@@ -89,7 +89,7 @@ def validate_run(events, frames, snow, budgets, off=False, performance=False, cy
     return {'ready_presentations': ready, 'ready_not_presented': missed}
 
 
-def run(out, quality, name, off=False, performance=False, cycle=False, level='winter'):
+def run(out, quality, name, off=False, performance=False, cycle=False, level='winter', package=None):
     spawn, camera, movement, seconds = VIEWS[name]
     label = quality + '-' + name + ('-off' if off else '-on') + ('-perf' if performance else '') + ('-cycle' if cycle else '')
     state = out / ('state-' + label)
@@ -103,7 +103,7 @@ def run(out, quality, name, off=False, performance=False, cycle=False, level='wi
                 'window_mode': 'windowed', 'fov_degrees': 60}
     (state / 'settings.json').write_text(json.dumps(settings))
     package_root = ROOT
-    if level != 'winter':
+    if package is not None:
         # Runtime discovery reads assets/levels. Mount this debug package in an
         # isolated payload rather than adding it to the shipped map directory.
         package_root = state / 'payload'
@@ -113,7 +113,9 @@ def run(out, quality, name, off=False, performance=False, cycle=False, level='wi
         for item in (ROOT / 'assets').iterdir():
             if item.name != 'levels' and not (assets / item.name).exists():
                 (assets / item.name).symlink_to(item, target_is_directory=item.is_dir())
-        package = ROOT / 'levels' / (level + '.placesmap')
+        package = Path(package).resolve()
+        if not package.is_file():
+            raise FileNotFoundError(package)
         if not (levels / package.name).exists():
             (levels / package.name).symlink_to(package)
     env = {k:v for k,v in os.environ.items() if not k.startswith('PLACES_')}
@@ -181,7 +183,8 @@ def main():
     parser.add_argument('--mode', choices=('capture','perf','cycle'), default='capture')
     parser.add_argument('--qualities', default='high,medium,low')
     parser.add_argument('--views', default='square,pale-ground,dark-sky,interior,door-in,door-out,forest-turn,fast-strafe')
-    parser.add_argument('--level', default='winter', choices=('winter','snowfall_contrast','blizzard_review'))
+    parser.add_argument('--level', default='winter')
+    parser.add_argument('--package', type=Path, help='Explicit diagnostic package outside the curated lineup')
     args = parser.parse_args()
     out = args.out.resolve(); out.mkdir(parents=True,exist_ok=True)
     summaries = []
@@ -194,8 +197,8 @@ def main():
                     repeat.mkdir(exist_ok=True)
                 else:
                     repeat = out
-                summaries.append(run(repeat,quality,name,off,args.mode == 'perf',args.mode == 'cycle',args.level))
-    package = ROOT/'assets/levels/winter.placesmap' if args.level == 'winter' else ROOT/'levels'/(args.level+'.placesmap')
+                summaries.append(run(repeat,quality,name,off,args.mode == 'perf',args.mode == 'cycle',args.level,args.package))
+    package = args.package.resolve() if args.package else ROOT/'assets/levels'/(args.level+'.placesmap')
     manifest = {'binary_sha256':hashlib.sha256((ROOT/'target/release/places').read_bytes()).hexdigest(),
                 'level':args.level, 'package_sha256':hashlib.sha256(package.read_bytes()).hexdigest(),
                 'runs':summaries}

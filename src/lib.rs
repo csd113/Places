@@ -11,6 +11,7 @@ pub mod display;
 pub mod door;
 pub mod entities;
 pub mod entity;
+pub mod environment;
 #[cfg(test)]
 mod fog_void_audit;
 pub mod font;
@@ -67,6 +68,7 @@ use std::time::Instant;
 use glam::Vec3;
 use sdl3::event::{Event, WindowEvent};
 use sdl3::keyboard::Keycode;
+use sdl3::mouse::{MouseButton, MouseWheelDirection};
 use sdl3::video::{Display, FullscreenType, Window};
 use sdl3::{EventPump, Sdl, VideoSubsystem};
 
@@ -500,6 +502,10 @@ fn create_renderer(
     renderer.set_bloom_enabled(settings.bloom_enabled());
     renderer.set_texture_filtering(settings.texture_filtering_preset());
     renderer.set_culling(!bench.no_cull());
+    #[cfg(feature = "visual-diagnostics")]
+    if let Ok(selector) = std::env::var("PLACES_VISUAL_DIAGNOSTIC") {
+        renderer.set_visual_diagnostic(&selector)?;
+    }
     Ok(renderer)
 }
 
@@ -990,16 +996,24 @@ impl FrameLoop<'_> {
         // frame; it is two enum checks when nothing is in flight.
         self.refresh_graphics_status_hint();
         self.refresh_display_status();
+        self.sync_menu_pointer();
+        self.sync_mouse_capture();
         if self.game.frame_count() == 1 {
             perf::startup_mark("input responsive");
         }
 
         if self.load_intent.is_some() && self.game.app_state() == AppState::Playing {
             self.game.set_app_state(AppState::Paused);
-            self.input_handler.clear_gameplay_inputs();
+            self.clear_loading_inputs(matches!(self.load_intent, Some(LoadIntent::Graphics)));
             self.game.reset_timing();
         }
         // Update player movement (only active during AppState::Playing)
+        if self.load_intent.is_none()
+            && self.current_level.is_some()
+            && let Some(delta) = self.bench.fixed_delta_seconds()
+        {
+            self.game.set_benchmark_simulation_delta(delta);
+        }
         self.apply_move_script();
         self.game
             .update_player_movement(self.input_handler.state_mut(), self.settings);
@@ -1028,10 +1042,13 @@ impl FrameLoop<'_> {
         // applied before this frame draws, so a spawn requested by a trigger
         // or interaction is visible on the frame it happened.
         self.apply_world_commands();
+        self.apply_bench_lighting_actions();
         // Advance the dynamic objects (the demonstration drum and any other
         // spawned object) once per frame: transform only, never a geometry or
         // lightmap rebuild.
-        let _update_stats = self.renderer.update_dynamic(self.game.delta_seconds());
+        let visual_delta = self.visual_delta_seconds();
+        let _update_stats = self.renderer.update_dynamic(visual_delta);
+        self.advance_weather();
         // Animated characters follow the player's locomotion state unless a
         // map-authored route or interaction addresses them by instance id
         // (`game.entity_frames()`); the renderer re-skins only the characters
@@ -1039,7 +1056,7 @@ impl FrameLoop<'_> {
         // back as an `animation_complete` event, which is how a sequence's
         // `wait_animation` step and an authored binding learn about it.
         let characters = self.renderer.update_characters(
-            self.game.delta_seconds(),
+            visual_delta,
             self.game.locomotion_snapshot(),
             self.game.entity_frames(),
         );
@@ -1052,6 +1069,36 @@ impl FrameLoop<'_> {
         let frame_update_done = Instant::now();
 
         self.render_and_present(frame_begin, frame_update_done);
+    }
+
+    /// Advances weather controls only while the loaded world is playing.
+    fn advance_weather(&mut self) {
+        let delta = if self.load_intent.is_none() && self.game.app_state() == AppState::Playing {
+            self.game.sim_delta_seconds()
+        } else {
+            0.0
+        };
+        self.renderer.update_weather(delta);
+        self.game
+            .world_mut()
+            .set_weather_state(self.renderer.weather_state());
+    }
+
+    /// Advances controlled visual time only while the diagnostic world is playing.
+    fn visual_delta_seconds(&self) -> f32 {
+        self.bench.fixed_delta_seconds().map_or_else(
+            || self.game.delta_seconds(),
+            |delta| {
+                if self.load_intent.is_none()
+                    && self.current_level.is_some()
+                    && self.game.app_state() == AppState::Playing
+                {
+                    delta
+                } else {
+                    0.0
+                }
+            },
+        )
     }
 
     /// Applies this ready-world frame's `PLACES_MOVE_SCRIPT` holds, if any.
@@ -1141,6 +1188,20 @@ impl FrameLoop<'_> {
         let commands = self.game.entities_mut().take_commands();
         for command in commands {
             match command {
+                crate::entities::WorldCommand::SetWeatherAlternate { alternate } => {
+                    let _weather_changed = self.renderer.set_weather_alternate(alternate);
+                }
+                crate::entities::WorldCommand::SetWeatherStrength {
+                    strength,
+                    transition_seconds,
+                } => {
+                    let _weather_changed = self
+                        .renderer
+                        .set_weather_strength(strength, transition_seconds);
+                }
+                crate::entities::WorldCommand::SetWeatherCycle { enabled } => {
+                    let _weather_changed = self.renderer.set_weather_cycle(enabled);
+                }
                 crate::entities::WorldCommand::SpawnDynamic {
                     entity,
                     model,
@@ -1494,7 +1555,121 @@ impl FrameLoop<'_> {
             bench::GraphicsChange::Bloom(enabled) => {
                 let _ = self.settings.set_bloom(enabled);
             }
+            bench::GraphicsChange::LowLighting(enabled) => {
+                let _ = self.settings.set_use_low_quality_lighting(enabled);
+            }
         }
+    }
+
+    fn apply_bench_lighting_actions(&mut self) {
+        if self.load_intent.is_some() || self.current_level.is_none() {
+            return;
+        }
+        for action in self
+            .bench
+            .lighting_actions_at(self.ready_frames.saturating_add(1))
+        {
+            let applied = match &action {
+                bench::lighting_sequence::LightingAction::Camera {
+                    position,
+                    yaw,
+                    pitch,
+                } => self.bench.set_camera_override(*position, *yaw, *pitch),
+                bench::lighting_sequence::LightingAction::Player {
+                    position,
+                    yaw,
+                    pitch,
+                } => {
+                    self.game.set_benchmark_player_position(
+                        Vec3::from_array(*position),
+                        yaw.to_radians(),
+                        pitch.to_radians(),
+                    );
+                    true
+                }
+                bench::lighting_sequence::LightingAction::Spawn {
+                    key,
+                    model,
+                    character,
+                    position,
+                    yaw,
+                    scale,
+                } => {
+                    if *character {
+                        self.renderer
+                            .spawn_runtime_character(
+                                &format!("bench#{key}"),
+                                model,
+                                *position,
+                                *yaw,
+                                *scale,
+                            )
+                            .is_ok()
+                    } else {
+                        self.renderer
+                            .spawn_runtime_model(*key, model, *position, *yaw, *scale)
+                    }
+                }
+                bench::lighting_sequence::LightingAction::Move { key, position, yaw } => {
+                    self.renderer.set_runtime_transform(*key, *position, *yaw)
+                        || self.renderer.set_runtime_character_transform(
+                            &format!("bench#{key}"),
+                            *position,
+                            *yaw,
+                        )
+                }
+                bench::lighting_sequence::LightingAction::Despawn { key } => {
+                    self.renderer.despawn_runtime_model(*key)
+                        || self
+                            .renderer
+                            .despawn_runtime_character(&format!("bench#{key}"))
+                }
+                bench::lighting_sequence::LightingAction::ToggleFixture { fixture, enabled } => {
+                    self.apply_bench_fixture(*fixture, *enabled)
+                }
+                bench::lighting_sequence::LightingAction::Door { id, open } => {
+                    let target = Some(id.clone());
+                    let door_action = if *open {
+                        level::ActionDef::Open { target }
+                    } else {
+                        level::ActionDef::Close { target }
+                    };
+                    let report = self.game.dispatch_actions(&[door_action], None);
+                    report.unsupported == 0
+                        && report.missing_targets == 0
+                        && report.doors_acted == 1
+                }
+            };
+            crate::logging::info(format!(
+                "[lighting-sequence] frame={} action={action:?} applied={applied}",
+                self.ready_frames.saturating_add(1)
+            ));
+            if !applied {
+                self.fatal_error = Some("Native lighting sequence action failed".to_string());
+                self.game.stop();
+            }
+        }
+    }
+
+    fn apply_bench_fixture(&mut self, fixture: usize, enabled: bool) -> bool {
+        let Some(id) = self
+            .current_level
+            .as_ref()
+            .and_then(|loaded| loaded.level.ceiling_lights.get(fixture))
+            .and_then(|light| light.id.clone())
+        else {
+            return false;
+        };
+        let report = self.game.dispatch_actions(
+            &[level::ActionDef::SetLight {
+                target: Some(id),
+                on: enabled,
+            }],
+            None,
+        );
+        let toggles = self.game.take_light_toggles();
+        self.renderer.apply_light_toggles(&toggles);
+        report.unsupported == 0 && report.missing_targets == 0 && report.lights_toggled == 1
     }
 
     /// Performs one scripted window action from `PLACES_BENCH_WINDOW_CYCLE`.
@@ -1698,6 +1873,166 @@ impl FrameLoop<'_> {
                 .mouse()
                 .set_relative_mouse_mode(self.window, desired);
         }
+        if self.sdl.mouse().is_cursor_showing() == desired {
+            self.sdl.mouse().show_cursor(!desired);
+        }
+    }
+
+    fn sync_menu_pointer(&mut self) {
+        self.ui_state.loading_map = self.startup == StartupPhase::Ready
+            && matches!(
+                self.load_intent,
+                Some(LoadIntent::Play | LoadIntent::Background)
+            );
+        self.ui_state.keep_selection_visible(self.game.app_state());
+        self.ui_state.sync_pointer_context(
+            self.game.app_state(),
+            self.window.size(),
+            self.window.size_in_pixels(),
+            self.window_focused && self.startup == StartupPhase::Ready,
+        );
+    }
+
+    /// All menu clicks use the rendered layout and the renderer's actual
+    /// viewport conversion. No desktop coordinates or hard-coded DPI factor.
+    fn menu_hit(&self, x: f32, y: f32) -> Option<ui::MenuHit> {
+        if !self.window_focused
+            || self.startup != StartupPhase::Ready
+            || self.game.app_state() == AppState::Playing
+        {
+            return None;
+        }
+        let (width, height) = self.window.size_in_pixels();
+        let point = DrawableSize::new(width, height).window_to_ui(self.window.size(), [x, y])?;
+        ui::menu_layout(
+            self.game.app_state(),
+            self.ui_state,
+            self.settings,
+            self.display_status,
+        )
+        .hit_test(point)
+    }
+
+    fn handle_menu_pointer(&mut self, event: &Event) -> bool {
+        self.sync_menu_pointer();
+        if let Event::MouseButtonDown {
+            mouse_btn: MouseButton::Left,
+            x,
+            y,
+            timestamp: _,
+            window_id: _,
+            which: _,
+            clicks: _,
+        }
+        | Event::MouseButtonUp {
+            mouse_btn: MouseButton::Left,
+            x,
+            y,
+            timestamp: _,
+            window_id: _,
+            which: _,
+            clicks: _,
+        } = event
+        {
+            let hit = self.menu_hit(*x, *y);
+            let down = matches!(
+                event,
+                Event::MouseButtonDown {
+                    timestamp: _,
+                    window_id: _,
+                    which: _,
+                    mouse_btn: _,
+                    clicks: _,
+                    x: _,
+                    y: _
+                }
+            );
+            if let Some(clicked) = self.ui_state.pointer.button(down, hit) {
+                self.activate_menu_hit(clicked);
+                self.sync_menu_pointer();
+                self.sync_mouse_capture();
+            }
+            return true;
+        }
+        if self.game.app_state() == AppState::Playing {
+            return false;
+        }
+        if let Event::MouseMotion {
+            x,
+            y,
+            xrel,
+            yrel,
+            timestamp: _,
+            window_id: _,
+            which: _,
+            mousestate: _,
+        } = event
+        {
+            // SDL emits stationary/synthetic events when capture changes. They
+            // must not replace keyboard selection or hover on menu opening.
+            if self.window_focused && (xrel.abs() > 0.0 || yrel.abs() > 0.0) {
+                let hit = self.menu_hit(*x, *y);
+                if self.ui_state.pointer.motion([*x, *y], hit)
+                    && let Some(hovered) = hit
+                    && matches!(
+                        hovered.intent,
+                        ui::MenuIntent::Activate | ui::MenuIntent::Adjust(_)
+                    )
+                {
+                    self.ui_state
+                        .select_menu_index(self.game.app_state(), hovered.index);
+                }
+            }
+            return true;
+        }
+        if let Event::MouseWheel {
+            y,
+            direction,
+            mouse_x,
+            mouse_y,
+            timestamp: _,
+            window_id: _,
+            which: _,
+            x: _,
+            integer_x: _,
+            integer_y: _,
+        } = event
+        {
+            if self.window_focused
+                && !self.ui_state.loading_map
+                && self.ui_state.rebinding_action.is_none()
+                && self.menu_hit(*mouse_x, *mouse_y).is_some()
+                && y.is_finite()
+                && *y != 0.0
+            {
+                let flipped = *direction == MouseWheelDirection::Flipped;
+                self.ui_state.scroll_menu(
+                    self.game.app_state(),
+                    if (*y > 0.0) == flipped { 1 } else { -1 },
+                );
+            }
+            return true;
+        }
+        false
+    }
+
+    fn activate_menu_hit(&mut self, clicked: ui::MenuHit) {
+        match clicked.intent {
+            ui::MenuIntent::CancelRebind => self.ui_state.cancel_rebinding(),
+            ui::MenuIntent::CancelLoad => self.cancel_loading(),
+            ui::MenuIntent::Scroll(direction) => {
+                self.ui_state.scroll_menu(self.game.app_state(), direction);
+            }
+            ui::MenuIntent::Activate | ui::MenuIntent::Adjust(_) => {
+                self.ui_state
+                    .select_menu_index(self.game.app_state(), clicked.index);
+                if let ui::MenuIntent::Adjust(direction) = clicked.intent {
+                    self.adjust_settings(direction);
+                } else {
+                    self.activate();
+                }
+            }
+        }
     }
 
     fn handle_scripted_action(&mut self, received: perf::actions::Received) -> bool {
@@ -1791,6 +2126,43 @@ impl FrameLoop<'_> {
         self.game.is_running()
     }
 
+    fn handle_graphics_key_release(&mut self, event: &Event) -> bool {
+        matches!(self.load_intent, Some(LoadIntent::Graphics))
+            && self.load_return_state == AppState::Playing
+            && self.game.app_state() == AppState::Paused
+            && self.window_focused
+            && self
+                .input_handler
+                .handle_graphics_key_release(event, &self.settings.bindings)
+    }
+
+    fn handle_menu_window_event(&mut self, event: &Event) -> bool {
+        if let Event::Window {
+            win_event,
+            timestamp: _,
+            window_id: _,
+        } = event
+        {
+            if matches!(win_event, WindowEvent::FocusLost) {
+                self.window_focused = false;
+                // A key released while another window had focus may never
+                // deliver its KeyUp. Releasing everything keeps a held Jump,
+                // Crouch or Interact from surviving the refocus.
+                self.input_handler.clear_gameplay_inputs();
+            } else if matches!(win_event, WindowEvent::FocusGained) {
+                self.window_focused = true;
+                self.ui_state
+                    .pointer
+                    .focus(self.event_pump.mouse_state().left());
+            }
+            self.ui_state.pointer.invalidate();
+            self.sync_mouse_capture();
+            return true;
+        }
+
+        false
+    }
+
     /// Handles one SDL event; returns `false` when the pump should stop.
     fn handle_event(&mut self, event: &Event) -> bool {
         if let Some(received) = self
@@ -1806,24 +2178,15 @@ impl FrameLoop<'_> {
             return false;
         }
 
-        // Window focus is tracked before any screen-specific handling so a
-        // focus change is never swallowed by a rebind or a menu branch:
-        // `sync_mouse_capture` reconciles relative mouse mode from it.
-        if let Event::Window {
-            win_event,
-            timestamp: _,
-            window_id: _,
-        } = event
-        {
-            if matches!(win_event, WindowEvent::FocusLost) {
-                self.window_focused = false;
-                // A key released while another window had focus may never
-                // deliver its KeyUp. Releasing everything keeps a held Jump,
-                // Crouch or Interact from surviving the refocus.
-                self.input_handler.clear_gameplay_inputs();
-            } else if matches!(win_event, WindowEvent::FocusGained) {
-                self.window_focused = true;
-            }
+        if self.handle_menu_window_event(event) {
+            return true;
+        }
+
+        if self.handle_menu_pointer(event) {
+            return true;
+        }
+
+        if !self.window_focused {
             return true;
         }
 
@@ -1861,9 +2224,26 @@ impl FrameLoop<'_> {
             }
         }
 
+        // A map load has one Cancel action; keyboard and pointer cannot
+        // start another operation behind the loading panel.
+        if self.ui_state.loading_map {
+            return true;
+        }
+
         // Rebinding consumes keyboard input before overlay/menu/gameplay keys.
         if let Some(action) = self.ui_state.rebinding_action {
             self.handle_rebinding_event(event, action);
+            return true;
+        }
+
+        if self.handle_graphics_key_release(event) {
+            return true;
+        }
+
+        // Development diagnostics share the normal native capture path and
+        // never request a level rebuild or alter the player's settings.
+        #[cfg(feature = "visual-diagnostics")]
+        if self.handle_visual_diagnostic_event(event) {
             return true;
         }
 
@@ -1905,9 +2285,33 @@ impl FrameLoop<'_> {
                     .handle_gameplay_event(event, &self.settings.bindings);
             }
         } else if let Some(nav) = InputHandler::poll_menu_nav_event(event) {
+            self.ui_state.pointer.keyboard();
             self.handle_menu_nav(nav);
         }
+        self.sync_menu_pointer();
+        self.sync_mouse_capture();
         true
+    }
+
+    /// Consumes the reserved development selector key after rebinding.
+    #[cfg(feature = "visual-diagnostics")]
+    fn handle_visual_diagnostic_event(&mut self, event: &Event) -> bool {
+        if let Event::KeyDown {
+            keycode: Some(Keycode::F8),
+            repeat: false,
+            timestamp: _,
+            window_id: _,
+            scancode: _,
+            keymod: _,
+            which: _,
+            raw: _,
+        } = event
+        {
+            self.renderer.cycle_visual_diagnostic();
+            true
+        } else {
+            false
+        }
     }
 
     /// Handles a key while the Controls screen is waiting for a binding.
@@ -2213,7 +2617,7 @@ impl FrameLoop<'_> {
                 if self.game.app_state() == AppState::Playing {
                     self.game.set_app_state(AppState::Paused);
                 }
-                self.input_handler.clear_gameplay_inputs();
+                self.clear_loading_inputs(matches!(intent, LoadIntent::Graphics));
                 self.game.reset_timing();
                 self.ui_state
                     .set_status("Preparing level... Esc to cancel".to_string(), false);
@@ -2235,6 +2639,17 @@ impl FrameLoop<'_> {
                     self.game.set_app_state(self.load_return_state);
                 }
             }
+        }
+    }
+
+    /// A live graphics transaction retains only the current Interact hold.
+    /// Ordinary loads, menus and unfocused windows still release everything.
+    const fn clear_loading_inputs(&mut self, graphics: bool) {
+        if graphics && matches!(self.load_return_state, AppState::Playing) && self.window_focused {
+            self.input_handler
+                .clear_gameplay_inputs_preserving_interact();
+        } else {
+            self.input_handler.clear_gameplay_inputs();
         }
     }
 
@@ -2472,7 +2887,7 @@ impl FrameLoop<'_> {
             self.startup = StartupPhase::Ready;
         }
         self.game.set_app_state(self.load_return_state);
-        self.input_handler.clear_gameplay_inputs();
+        self.clear_loading_inputs(graphics);
         self.game.reset_timing();
     }
 
@@ -2554,6 +2969,10 @@ impl FrameLoop<'_> {
         // request with the renderer's real state and schedules what remains.
         log_prop_usage(self.renderer);
         *self.current_level = Some(loaded);
+        self.ui_state.current_map = self
+            .current_level
+            .as_ref()
+            .map(|world| world.level.name.clone());
         // The first committed world is the menu background; the normal menu
         // may be revealed from now on. It is also the fallback a later
         // replacement can be cancelled back to.
@@ -2561,7 +2980,7 @@ impl FrameLoop<'_> {
         self.load_source = None;
         self.load_phase = None;
         self.ui_state.clear_status();
-        self.input_handler.clear_gameplay_inputs();
+        self.clear_loading_inputs(matches!(intent, LoadIntent::Graphics));
         self.game.reset_timing();
         if self.launch_overrides {
             self.launch_overrides = false;
@@ -2642,7 +3061,7 @@ impl FrameLoop<'_> {
                     );
                 } else {
                     self.ui_state
-                        .set_status("No new levels found (put .json or .zip in import/)", false);
+                        .set_status("No new maps found in the import folder.", false);
                 }
             }
             Err(err) => {
@@ -2731,13 +3150,74 @@ impl FrameLoop<'_> {
         }
     }
 
+    fn trace_lighting_capture_state(&self) {
+        if !self.bench.enabled() {
+            return;
+        }
+        let player = self.game.player_position;
+        let eye = self
+            .bench
+            .camera_position_override()
+            .unwrap_or_else(|| player.to_array());
+        let (yaw, pitch) = self.bench.camera_override().unwrap_or_else(|| {
+            (
+                self.game.player_yaw.to_degrees(),
+                self.game.player_pitch.to_degrees(),
+            )
+        });
+        crate::logging::info(format!(
+            "[lighting-capture-state] {}",
+            serde_json::json!({
+                "ready_frame": self.ready_frames,
+                "simulation_seconds": self.ready_seconds,
+                "fixed_delta_seconds": self.bench.fixed_delta_seconds(),
+                "player_eye": player.to_array(),
+                "render_eye": eye,
+                "render_yaw_pitch_degrees": [yaw, pitch],
+                "fov_degrees": self.settings.fov_degrees,
+            })
+        ));
+    }
+
+    /// Frame-based screenshots also support the settled source-only menu.
+    /// Timed lighting captures continue to require a prepared world.
+    fn capture_ready_screen(&mut self, world_ready: bool) {
+        let capture_ready = world_ready
+            || (self.capture_path.is_some()
+                && self.capture_at_seconds.is_none()
+                && self.current_level.is_none()
+                && self.load_intent.is_none()
+                && self.startup == StartupPhase::Ready
+                && self.game.app_state() == AppState::MainMenu);
+        if capture_ready {
+            self.ready_frames = self.ready_frames.saturating_add(1);
+        }
+        self.capture_if_due(capture_ready);
+    }
+
     /// Takes the one-shot `PLACES_CAPTURE` frame when it is due.
     ///
-    /// The capture waits for a ready world so it records the finished screen,
-    /// never a preparation frame, and is due at the ready frame named by
+    /// The capture waits for a ready world or a settled source-only main menu
+    /// so it records the finished screen, never a preparation frame. It is due
+    /// at the ready frame named by
     /// `PLACES_CAPTURE_FRAME` or the ready-world second named by
     /// `PLACES_CAPTURE_TIME` (the first frame at or after it).
     fn capture_if_due(&mut self, ready: bool) {
+        if ready && let Some(path) = self.bench.lighting_capture_at(self.ready_frames) {
+            if path.exists() {
+                self.fatal_error =
+                    Some("Native lighting sequence refuses an existing capture".to_string());
+                self.game.stop();
+                return;
+            }
+            self.trace_lighting_capture_state();
+            write_capture(self.renderer, &path);
+            crate::logging::info(format!(
+                "[lighting-sequence] capture_attempt ready_frame={} path={}",
+                self.ready_frames,
+                path.display()
+            ));
+        }
         if !ready
             || !self
                 .actions
@@ -2756,6 +3236,7 @@ impl FrameLoop<'_> {
         let Some(path) = self.capture_path.take() else {
             return;
         };
+        self.trace_lighting_capture_state();
         write_capture(self.renderer, &path);
         perf::startup_mark("capture readback");
         self.game.stop();
@@ -2839,11 +3320,15 @@ impl FrameLoop<'_> {
             Some((yaw, pitch)) => (yaw.to_radians(), pitch.to_radians()),
             None => (cam_yaw, cam_pitch),
         };
+        let render_position = self
+            .bench
+            .camera_position_override()
+            .map_or(cam_pos, Vec3::from_array);
 
         let skip_render = self.bench.skip_render();
         if !skip_render {
             self.renderer.render_scene(render::RenderCamera::new(
-                cam_pos,
+                render_position,
                 render_yaw,
                 render_pitch,
                 self.settings.fov_degrees,
@@ -2865,7 +3350,13 @@ impl FrameLoop<'_> {
         // Menu/settings UI geometry is cached and only rebuilt when its inputs
         // change. Floating interaction labels and the aimed-at prompt are
         // appended to the same submission.
-        self.submit_ui(drawable, cam_pos, render_yaw, render_pitch, skip_render);
+        self.submit_ui(
+            drawable,
+            render_position,
+            render_yaw,
+            render_pitch,
+            skip_render,
+        );
         // `PLACES_BENCH_FINISH=1`: force submitted GPU work to drain before the
         // swap timing point, so `render_ms` is renderer completion time rather
         // than "how much of the frame the driver happened to absorb".
@@ -2878,10 +3369,7 @@ impl FrameLoop<'_> {
         }
 
         let ready = self.current_level.is_some() && self.load_intent.is_none();
-        if ready {
-            self.ready_frames = self.ready_frames.saturating_add(1);
-        }
-        self.capture_if_due(ready);
+        self.capture_ready_screen(ready);
 
         // Swap window buffer (double buffered, VSync synchronized). The
         // renderer presents its acquired surface texture.
@@ -3028,7 +3516,11 @@ fn initial_level(level_manager: &loader::LevelManager) -> (Option<loader::LevelE
         })
     });
     if requested.is_some() && !direct {
-        logging::warn("Requested level was not found; loading Places Demo");
+        logging::warn(if initial_entry.is_some() {
+            "Requested level was not found; loading Places Demo"
+        } else {
+            "Requested level was not found; compile maps with `sh tools/build-maps.sh` or import a .placesmap package"
+        });
     }
     (initial_entry, direct)
 }
@@ -3054,7 +3546,7 @@ fn dispatch_geometry_cli(args: &[String]) -> Result<(), Box<dyn std::error::Erro
 /// exits before any window is created.
 ///
 /// One tab-separated row per playable entry: level id, source (`bundled`,
-/// `installed`, `embedded`) and package path (empty for the embedded fallback).
+/// `installed`) and package path.
 /// The rows are the same list the Level Select menu builds, so a quiet startup
 /// from any working directory or a staged packaged layout can be checked
 /// without a display or a GPU. Returns true when the flag was handled.

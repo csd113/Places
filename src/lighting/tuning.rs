@@ -100,7 +100,7 @@ pub const fn ambient_color() -> LightColor {
 
 /// Colour of the sky's ambient radiance term, per linear channel.
 ///
-/// The level authors one scalar (`sky.ambient`, `0..=1`); this cool blue-grey
+/// Without an authored linear `sky.ambient_color`, this cool blue-grey
 /// is what makes a moonless night dome read as sky rather than as a grey lift.
 /// The term is only ever fed to the prepared transport solve, and only when a
 /// level declares a sky with a nonzero ambient.

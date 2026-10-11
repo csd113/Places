@@ -2,7 +2,7 @@
 # Builds a scratch asset root whose files match the committed baseline revision.
 #
 # The working tree's assets can be mid-edit while renderer work continues: a
-# capture taken now may legitimately differ from `docs/renderer-baseline/`
+# capture taken now may legitimately differ from `tests/fixtures/native/gles2-reference/`
 # because a texture or model changed, not because the renderer did. This script
 # copies `assets/` and restores every file that differs from HEAD, so a capture
 # or a comparison can be run against the exact asset tree the baseline was

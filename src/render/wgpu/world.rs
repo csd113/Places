@@ -23,7 +23,7 @@
 //!   `DataLinear` semantic, with the reference's white fallback and fetch gate;
 //! * opaque, cut-out and translucent draws are submitted in the reference's
 //!   order, translucent draws sorted back to front per frame;
-//! * the WGSL reproduces the reference's display-space material multiply.
+//! * the WGSL evaluates material and light in linear HDR.
 //!
 //! Lighting is the reference's:
 //!
@@ -31,12 +31,11 @@
 //!   light in the vertex colour, so the uploaded colour carries every room
 //!   baseline, fixture pool, opening blend and static-occluder shadow the bake
 //!   produced; the lightmap-atlas build instead reconstructs the light from the
-//!   prepared HDR layer pairs at the material normal, tone-maps it and leaves
+//!   prepared HDR layer pairs at the material normal and leaves
 //!   the vertex colour at the unlit material factor;
 //! * the camera uniform carries the world-space eye, the fragment stage
 //!   computes the reference's view-dependent sheen, and `lit + sheen` is
-//!   assembled in display space before the single conversion to the sRGB
-//!   target. See `docs/RENDERER.md`.
+//!   accumulated in linear HDR before the presentation stage. See `docs/RENDERER.md`.
 //!
 //! Props, dynamics, fixture emission, decals, the reflection captures and the
 //! planar mirror extend the same upload and shader; see the world shader's own
@@ -54,10 +53,11 @@
 //! No other sign flips, no vertex-stage Y negation, no reversed winding: the
 //! world geometry is already wound so that its front face is the side its
 //! normal points to (right-hand rule over `p0 -> p1 -> p2`), which is wgpu's
-//! `FrontFace::Ccw` for a right-handed projection. No production pipeline
-//! culls — the reference never enabled `GL_CULL_FACE` and its two-sided shading
-//! flips the normal on back faces — so every world variant is two-sided and
-//! every pipeline keeps the same winding.
+//! `FrontFace::Ccw` for a right-handed projection. Architectural ranges remain
+//! two-sided, including opaque panes and void shells.
+//! Opaque entity primitives honor glTF sidedness when their transform path is
+//! safe; reflected placements reverse the front-face convention. The shader
+//! flips normals for intentional two-sided back faces.
 
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
@@ -81,7 +81,6 @@ use crate::render::common::materials::{
 };
 use crate::render::common::mesh::{
     LevelMesh, LevelMeshRange, MaterialIndex, SurfaceKey, SurfaceKind, SurfaceShine, Vertex,
-    quantize_unit,
 };
 use crate::render::common::view::DrawableSize;
 use crate::render::common::{DynamicLightSet, MAX_DYNAMIC_LIGHTS};
@@ -100,7 +99,7 @@ pub const WORLD_FRAGMENT_ENTRY: &str = "fs_main";
 /// Name of the alpha-tested world fragment entry point for the sRGB surface.
 pub const WORLD_CUTOUT_FRAGMENT_ENTRY: &str = "fs_cutout";
 /// Name of the opaque and translucent entry point for a raw (non-sRGB) scene or
-/// reflection target, which writes display-space values directly.
+/// reflection target, which writes linear HDR values.
 pub const WORLD_FRAGMENT_ENTRY_RAW: &str = "fs_main_raw";
 /// Name of the alpha-tested entry point for a raw target.
 pub const WORLD_CUTOUT_FRAGMENT_ENTRY_RAW: &str = "fs_cutout_raw";
@@ -156,8 +155,8 @@ pub struct WorldVertex {
     pub normal: [f32; 3],
     /// World-space tiling UV, one repeat per material tiling period.
     pub uv: [f32; 2],
-    /// Material-only RGBA shade, quantised exactly like the reference upload.
-    pub color: [u8; 4],
+    /// Linear RGBA factor, including HDR lighting in the vertex-lit fallback.
+    pub color: [f32; 4],
     /// Lightmap atlas UV in 16-bit fixed point, or zero for an unlightmapped
     /// vertex (whose page byte is `LIGHTMAP_NONE`).
     pub lightmap_uv: [u16; 2],
@@ -178,12 +177,7 @@ impl From<&Vertex> for WorldVertex {
             position: vertex.pos,
             normal: vertex.normal,
             uv: vertex.uv,
-            color: [
-                quantize_unit(vertex.color[0]),
-                quantize_unit(vertex.color[1]),
-                quantize_unit(vertex.color[2]),
-                quantize_unit(vertex.color[3]),
-            ],
+            color: vertex.color,
             lightmap_uv: vertex.lightmap,
             lightmap_page: f32::from(vertex.lightmap_page),
             tangent: vertex.tangent,
@@ -203,7 +197,7 @@ const WORLD_VERTEX_ATTRIBUTES: [wgpu::VertexAttribute; 8] = wgpu::vertex_attr_ar
     WORLD_ATTRIB_POSITION => Float32x3,
     WORLD_ATTRIB_NORMAL => Float32x3,
     WORLD_ATTRIB_UV => Float32x2,
-    WORLD_ATTRIB_COLOR => Unorm8x4,
+    WORLD_ATTRIB_COLOR => Float32x4,
     WORLD_ATTRIB_LIGHTMAP_UV => Unorm16x2,
     WORLD_ATTRIB_LIGHTMAP_PAGE => Float32,
     WORLD_ATTRIB_TANGENT => Float32x3,
@@ -296,7 +290,7 @@ pub fn prepare_world_frame(camera: RenderCamera, render_size: DrawableSize) -> W
 /// ```text
 /// offset  0  view_projection  mat4x4<f32>  64 bytes
 /// offset 64  position         vec3<f32>    12 bytes
-/// offset 76  _padding         f32
+/// offset 76  diagnostic_selector f32 (WGSL `_padding`)
 /// ------------------------------------------------ 80 bytes, align 16
 /// ```
 ///
@@ -312,8 +306,9 @@ pub struct CameraUniform {
     pub view_projection: [[f32; 4]; 4],
     /// World-space eye position, the reference's `u_camera_pos`.
     pub position: [f32; 3],
-    /// Explicit padding to the 16-byte uniform alignment.
-    pub _padding: f32,
+    /// Reserved alignment lane; the development shader consumes it as a
+    /// selector. Production WGSL retains the `_padding` spelling and zero.
+    pub diagnostic_selector: f32,
 }
 
 impl CameraUniform {
@@ -323,8 +318,16 @@ impl CameraUniform {
         Self {
             view_projection: matrix.to_cols_array_2d(),
             position: [eye.x, eye.y, eye.z],
-            _padding: 0.0,
+            diagnostic_selector: 0.0,
         }
+    }
+
+    /// Uses the otherwise unread padding lane for the development selector.
+    #[cfg(feature = "visual-diagnostics")]
+    #[must_use]
+    fn with_visual_diagnostic(mut self, mode: super::diagnostics::VisualDiagnosticMode) -> Self {
+        self.diagnostic_selector = f32::from(mode.code());
+        self
     }
 }
 
@@ -335,20 +338,28 @@ pub const CAMERA_UNIFORM_SIZE: u64 = super::buffer_element_bytes::<CameraUniform
 /// reads.
 ///
 /// Bit comparison rather than `==` keeps the predicate exact (a one-ULP camera
-/// change still updates the buffer) and keeps the padding field out of the
-/// decision: the two floats the shader consumes are compared, nothing else.
+/// change still updates the buffer). The development shader additionally reads
+/// the selector in the padding lane; the production shader never reads it.
 fn camera_uniform_same_bits(left: &CameraUniform, right: &CameraUniform) -> bool {
     let bits = |matrix: [[f32; 4]; 4]| matrix.map(|column| column.map(f32::to_bits));
-    bits(left.view_projection) == bits(right.view_projection)
-        && left.position.map(f32::to_bits) == right.position.map(f32::to_bits)
+    let camera_matches = bits(left.view_projection) == bits(right.view_projection)
+        && left.position.map(f32::to_bits) == right.position.map(f32::to_bits);
+    #[cfg(feature = "visual-diagnostics")]
+    {
+        camera_matches && left.diagnostic_selector.to_bits() == right.diagnostic_selector.to_bits()
+    }
+    #[cfg(not(feature = "visual-diagnostics"))]
+    {
+        camera_matches
+    }
 }
 
 /// True when `next` must be written over `previous`.
 ///
 /// The predicate compares the *value* the shader reads — the view-projection
-/// and the eye — not the whole struct, so the padding byte can never cause a
-/// write. A still camera must not touch the buffer, and any change to either
-/// field must reach the shader (the sheen is view-dependent, so an eye that
+/// and the eye — and the feature-only diagnostic selector. A still camera must
+/// not touch the buffer, and any change to a consumed field must reach the shader
+/// (the sheen is view-dependent, so an eye that
 /// moved while the matrix rounding stayed equal still has to be uploaded).
 #[must_use]
 pub fn camera_uniform_changed(previous: Option<CameraUniform>, next: CameraUniform) -> bool {
@@ -433,7 +444,14 @@ impl FogRegionUniform {
 /// offset 1248 entity_irradiance   [f32; 4]     16 bytes
 /// offset 1264 entity_moment       [f32; 4]     16 bytes
 /// offset 1280 storm               Storm       1568 bytes
-/// ------------------------------------------------------ 2848 bytes, align 16
+/// offset 2848 normal_model        [vec4; 3]       48 bytes
+/// offset 2896 entity_bounds_min   vec4            16 bytes
+/// offset 2912 entity_bounds_extent vec4           16 bytes
+/// offset 2928 entity_anchors      [Anchor; 8]   1408 bytes
+/// offset 4336 entity_direct       [Source; 8]    896 bytes
+/// offset 5232 contact_shadows     [Shadow; 8]    384 bytes
+/// offset 5616 contact_shadow_count vec4<u32>      16 bytes
+/// ------------------------------------------------------ 5632 bytes, align 16
 /// ```
 ///
 /// Every field is the reference's own frame uniform: `u_light_scale`,
@@ -445,7 +463,7 @@ impl FogRegionUniform {
 /// `opacity` is the per-instance fade multiplier the character path installs
 /// (`1.0` for the static world and every prop, so static output is unchanged);
 /// the regional fog block is the level's authored volumes, bounded by the
-/// live count word. The struct is 2848 bytes on the wire and in Rust
+/// live count word. The struct is 5632 bytes on the wire and in Rust
 /// (`ENVIRONMENT_UNIFORM_SIZE`). `#[repr(C, align(16))]` makes the Rust layout
 /// the WGSL uniform layout explicitly; the unit tests pin it.
 #[repr(C, align(16))]
@@ -505,6 +523,15 @@ pub struct EnvironmentUniform {
     /// Signed linear first moment; reserved w is zero.
     pub entity_moment: [f32; 4],
     pub storm: crate::render::common::storm::StormUniform,
+    /// Padded columns of the inverse-transpose model matrix.
+    pub normal_model: [[f32; 4]; 3],
+    /// Model-space interpolation bounds; minimum.w enables spatial lighting.
+    pub entity_bounds_min: [f32; 4],
+    pub entity_bounds_extent: [f32; 4],
+    pub entity_anchors: [crate::render::common::light_transport::EntityLightingAnchor; 8],
+    pub entity_direct: [crate::render::common::light_transport::EntityDirectLight; 8],
+    pub contact_shadows: [crate::render::common::dynamic_lights::ContactShadowUniform; 8],
+    pub contact_shadow_count: [u32; 4],
 }
 
 impl EnvironmentUniform {
@@ -531,6 +558,11 @@ impl EnvironmentUniform {
             planar_matrix: Mat4::IDENTITY.to_cols_array_2d(),
             planar_plane: [0.0, 0.0, 1.0, 0.0],
             model: Mat4::IDENTITY.to_cols_array_2d(),
+            normal_model: [
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+            ],
             opacity: 1.0,
             tail_padding: [0.0; 3],
             fog_region_count: 0,
@@ -538,6 +570,12 @@ impl EnvironmentUniform {
             fog_regions: [FogRegionUniform::ZERO; crate::level::MAX_FOG_REGIONS],
             entity_irradiance: [0.0; 4],
             entity_moment: [0.0; 4],
+            entity_bounds_min: [0.0; 4],
+            entity_bounds_extent: [0.0; 4],
+            entity_anchors: [crate::render::common::light_transport::EntityLightingAnchor::ZERO; 8],
+            entity_direct: [crate::render::common::light_transport::EntityDirectLight::ZERO; 8],
+            contact_shadows: [crate::render::common::dynamic_lights::ContactShadowUniform::ZERO; 8],
+            contact_shadow_count: [0; 4],
             storm: crate::render::common::storm::StormUniform {
                 color_density: [0.0; 4],
                 count: [0; 4],
@@ -565,6 +603,43 @@ impl EnvironmentUniform {
             let [x, y, z] = texel.direction;
             self.entity_irradiance = [red, green, blue, 1.0];
             self.entity_moment = [x, y, z, 0.0];
+        }
+        self
+    }
+
+    /// Installs residual probes and selected practical lights together. A
+    /// legacy/Low entity explicitly clears the previous spatial payload.
+    #[must_use]
+    pub const fn with_spatial_lighting(
+        mut self,
+        spatial: Option<&crate::render::common::light_transport::EntitySpatialLighting>,
+    ) -> Self {
+        self.entity_bounds_min = [0.0; 4];
+        self.entity_bounds_extent = [0.0; 4];
+        self.entity_anchors =
+            [crate::render::common::light_transport::EntityLightingAnchor::ZERO; 8];
+        self.entity_direct = [crate::render::common::light_transport::EntityDirectLight::ZERO; 8];
+        if let Some(value) = spatial {
+            self.entity_bounds_min = value.bounds_min;
+            self.entity_bounds_extent = value.bounds_extent;
+            self.entity_anchors = value.anchors;
+            self.entity_direct = value.direct;
+        }
+        self
+    }
+
+    /// Installs the frame's bounded opaque movable grounding subjects.
+    #[must_use]
+    pub fn with_contact_shadows(
+        mut self,
+        shadows: &[crate::render::common::dynamic_lights::ContactShadowUniform],
+    ) -> Self {
+        self.contact_shadows =
+            [crate::render::common::dynamic_lights::ContactShadowUniform::ZERO; 8];
+        let count = shadows.len().min(self.contact_shadows.len());
+        self.contact_shadow_count = [u32::try_from(count).unwrap_or(0), 0, 0, 0];
+        for (slot, shadow) in self.contact_shadows.iter_mut().zip(shadows) {
+            *slot = *shadow;
         }
         self
     }
@@ -634,8 +709,16 @@ impl EnvironmentUniform {
 
     /// The same environment with an object transform installed (dynamic path).
     #[must_use]
-    pub const fn with_model(mut self, model: Mat4) -> Self {
+    pub fn with_model(mut self, model: Mat4) -> Self {
         self.model = model.to_cols_array_2d();
+        let inverse = if model.determinant().abs() > 1.0e-12 {
+            model.inverse().transpose()
+        } else {
+            Mat4::IDENTITY
+        };
+        let columns = inverse.to_cols_array_2d();
+        let [x, y, z, _translation] = columns;
+        self.normal_model = [x, y, z];
         self
     }
 
@@ -1370,6 +1453,8 @@ pub struct WorldDrawTotals {
     pub visible_batches: usize,
     /// Distinct vertices those ranges index.
     pub visible_vertices: usize,
+    /// Index elements in the submitted triangle-list draws.
+    pub visible_indices: usize,
     /// Texture bind-group changes applied (one per run of draws sharing a
     /// texture; zero for a world with no textures).
     pub texture_binds: usize,
@@ -1388,6 +1473,13 @@ pub struct WorldDrawTotals {
 }
 
 impl WorldDrawTotals {
+    /// Count an object's indexed buffer only for an alpha class that submitted it.
+    const fn record_object_vertices(&mut self, before_draws: usize, vertices: usize) {
+        if self.draw_calls > before_draws {
+            self.visible_vertices = self.visible_vertices.saturating_add(vertices);
+        }
+    }
+
     /// Folds another pass segment's counters in.
     ///
     /// The per-pass counters (`opaque_draws`, `cutout_draws`,
@@ -1397,6 +1489,7 @@ impl WorldDrawTotals {
         self.draw_calls = self.draw_calls.saturating_add(other.draw_calls);
         self.visible_batches = self.visible_batches.saturating_add(other.visible_batches);
         self.visible_vertices = self.visible_vertices.saturating_add(other.visible_vertices);
+        self.visible_indices = self.visible_indices.saturating_add(other.visible_indices);
         self.texture_binds = self.texture_binds.saturating_add(other.texture_binds);
         self.material_binds = self.material_binds.saturating_add(other.material_binds);
         self.emissive_visible |= other.emissive_visible;
@@ -1473,9 +1566,52 @@ pub fn translucent_character_order(entries: &[(usize, glam::Vec3)], eye: glam::V
     order.into_iter().map(|(index, _)| index).collect()
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TransparentItem {
+    World(u32),
+    Prop(usize),
+    Dynamic(usize),
+    Character(usize),
+}
+
+fn sort_transparency(items: &mut [(TransparentItem, [f32; 3])], eye: glam::Vec3) {
+    items.sort_by(|left, right| {
+        let distance = |point| glam::Vec3::from_array(point).distance_squared(eye);
+        distance(right.1).total_cmp(&distance(left.1))
+    });
+}
+
+/// Entity raster policy; unknown transforms stay conservatively two-sided.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum EntityCullMode {
+    TwoSided,
+    Regular,
+    Reflected,
+}
+
+const fn entity_cull_mode(
+    pass: BatchPass,
+    double_sided: bool,
+    reflected: Option<bool>,
+) -> EntityCullMode {
+    match (pass, double_sided, reflected) {
+        (BatchPass::Opaque, false, Some(false)) => EntityCullMode::Regular,
+        (BatchPass::Opaque, false, Some(true)) => EntityCullMode::Reflected,
+        _ => EntityCullMode::TwoSided,
+    }
+}
+
+/// Transform parity used by entity pipelines. Singular or invalid matrices
+/// cannot establish a front side and retain the two-sided fallback.
+pub(super) fn culling_reflected(model: Mat4) -> Option<bool> {
+    let determinant = model.determinant();
+    (model.is_finite() && determinant.is_finite() && determinant.abs() > 1.0e-8)
+        .then_some(determinant < 0.0)
+}
+
 /// One world pipeline variant's distinguishing state.
 ///
-/// The five material passes share the shader module, vertex layout, depth
+/// The six material passes share the shader module, vertex layout, depth
 /// format, winding and bind group layouts; only these fields differ.
 #[derive(Clone, Copy)]
 struct WorldPipelineVariant {
@@ -1508,26 +1644,17 @@ const TRANSLUCENT_BLEND: wgpu::BlendState = wgpu::BlendState {
     },
 };
 
-/// The five material-pass pipeline variants.
-///
-/// Declarative and GPU-free so the states are unit-testable. `cull_opaque`
-/// selects the main-pass opaque state (back-face culled) or the reference's
-/// capture state (no culling anywhere: `GL_CULL_FACE` is never
-/// enabled, and a mirror or a probe face must see the same two-sided room the
-/// reference captured).
-///
-/// The material-defined cut-out and translucent passes are two-sided in every
-/// set, exactly like the reference. Every variant keeps the same winding. A
-/// single-sided opaque surface viewed from behind would be culled in the main
-/// pass where the reference would shade it; no shipped content has one, and the
-/// capture sets do not cull at all.
+/// Six material-pass pipeline variants. Opaque scene and emission variants
+/// share the requested sidedness. Cutout and blend retain their two-sided
+/// coverage contract; callers select culled opaque variants per entity primitive.
+/// Architectural and static-prop ranges use the two-sided set.
 ///
 /// The emissive variants mirror the reference's `u_emission_only` path: the
 /// same material states, the emissive term alone, written with depth writes off
 /// into the raw bloom source. The cut-out variant keeps the reference's
 /// `discard`.
 #[must_use]
-const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 5] {
+const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6] {
     [
         WorldPipelineVariant {
             label: "places-wgpu-world-opaque",
@@ -1562,6 +1689,18 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 5]
             fragment_entry: WORLD_EMISSION_FRAGMENT_ENTRY,
             fragment_entry_raw: WORLD_EMISSION_FRAGMENT_ENTRY,
             blend: None,
+            depth_write: false,
+            cull: if cull_opaque {
+                Some(wgpu::Face::Back)
+            } else {
+                None
+            },
+        },
+        WorldPipelineVariant {
+            label: "places-wgpu-world-emission-blend",
+            fragment_entry: "fs_emission_blend",
+            fragment_entry_raw: "fs_emission_blend",
+            blend: Some(TRANSLUCENT_BLEND),
             depth_write: false,
             cull: None,
         },
@@ -1626,7 +1765,10 @@ fn build_world_pipeline(
         fragment: Some(wgpu::FragmentState {
             module: shader,
             entry_point: Some(fragment_entry),
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            compilation_options: wgpu::PipelineCompilationOptions {
+                constants: &super::surface::color_target_constants(format),
+                ..Default::default()
+            },
             targets: &[Some(wgpu::ColorTargetState {
                 format,
                 blend: variant.blend,
@@ -1636,6 +1778,53 @@ fn build_world_pipeline(
         multiview_mask: None,
         cache: None,
     })
+}
+
+fn world_uniform_binding(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+    label: &str,
+    size: u64,
+) -> (wgpu::Buffer, wgpu::BindGroup) {
+    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some(label),
+        size,
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    let binding = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some(label),
+        layout,
+        entries: &[wgpu::BindGroupEntry {
+            binding: 0,
+            resource: buffer.as_entire_binding(),
+        }],
+    });
+    (buffer, binding)
+}
+
+/// Opaque scene/emission pipelines with matching ordinary and reflected facing.
+fn build_entity_pipelines(
+    device: &wgpu::Device,
+    layout: &wgpu::PipelineLayout,
+    shader: &wgpu::ShaderModule,
+    format: wgpu::TextureFormat,
+    front: wgpu::FrontFace,
+    raw: bool,
+) -> [wgpu::RenderPipeline; 4] {
+    let [opaque, _, _, emission, _, _] = world_pipeline_variants(true);
+    let reflected = match front {
+        wgpu::FrontFace::Ccw => wgpu::FrontFace::Cw,
+        wgpu::FrontFace::Cw => wgpu::FrontFace::Ccw,
+    };
+    let build =
+        |face, variant| build_world_pipeline(device, layout, shader, format, face, raw, variant);
+    [
+        build(front, opaque),
+        build(front, emission),
+        build(reflected, opaque),
+        build(reflected, emission),
+    ]
 }
 
 /// The world material render pipelines and their camera + texture + material
@@ -1648,7 +1837,7 @@ fn build_world_pipeline(
 /// per-texture and per-material bind groups created once at upload survive a
 /// pipeline rebuild unchanged.
 ///
-/// Three scene variants and two emissive variants:
+/// Three scene variants and three emissive variants:
 ///
 /// * **opaque** — depth writes on, no blending, culling selected by the caller.
 /// * **cut-out** — the same state with the `fs_cutout` fragment entry point,
@@ -1656,12 +1845,18 @@ fn build_world_pipeline(
 /// * **translucent** — straight-alpha blending, depth writes off, two-sided.
 /// * **emission / emission-cutout** — the emissive term alone, depth writes off,
 ///   into the raw bloom source.
+/// * **emission-blend** — straight coverage blending for transparent emission.
 pub struct WorldPipeline {
+    opaque_culled: wgpu::RenderPipeline,
+    opaque_culled_reflected: wgpu::RenderPipeline,
+    emission_culled: wgpu::RenderPipeline,
+    emission_culled_reflected: wgpu::RenderPipeline,
     opaque: wgpu::RenderPipeline,
     cutout: wgpu::RenderPipeline,
     translucent: wgpu::RenderPipeline,
     emission: wgpu::RenderPipeline,
     emission_cutout: wgpu::RenderPipeline,
+    emission_blend: wgpu::RenderPipeline,
     bind_group: wgpu::BindGroup,
     camera_buffer: wgpu::Buffer,
     /// The group-4 attached-light uniform. Created zeroed and written by
@@ -1675,6 +1870,8 @@ pub struct WorldPipeline {
     format: wgpu::TextureFormat,
     /// The last uploaded camera state, so a still camera writes nothing.
     uploaded: Option<CameraUniform>,
+    #[cfg(feature = "visual-diagnostics")]
+    visual_diagnostic: super::diagnostics::VisualDiagnosticMode,
 }
 
 impl WorldPipeline {
@@ -1694,11 +1891,8 @@ impl WorldPipeline {
             material_layout,
             environment_layout,
             wgpu::FrontFace::Ccw,
-            // The reference never enables `GL_CULL_FACE`, and the level holds
-            // content that is single-sided and visible from its back (a draped
-            // curtain/plane in the pool view), so the parity choice is the
-            // reference's: shade both sides everywhere. `gl_FrontFacing` flips
-            // the normal.
+            // World/static ranges contain two-sided panes, curtains and void
+            // shells. Entity primitives select their own culled pipeline.
             false,
             // The main pipeline writes the sRGB surface.
             false,
@@ -1728,9 +1922,13 @@ impl WorldPipeline {
         cull_opaque: bool,
         raw_target: bool,
     ) -> Self {
+        #[cfg(feature = "visual-diagnostics")]
+        let shader_source = super::diagnostics::world_shader_source(WORLD_SHADER_SRC);
+        #[cfg(not(feature = "visual-diagnostics"))]
+        let shader_source = WORLD_SHADER_SRC.into();
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("places-wgpu-world-shader"),
-            source: wgpu::ShaderSource::Wgsl(WORLD_SHADER_SRC.into()),
+            source: wgpu::ShaderSource::Wgsl(shader_source),
         });
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("places-wgpu-world-camera-layout"),
@@ -1762,41 +1960,25 @@ impl WorldPipeline {
             ],
             immediate_size: 0,
         });
-        let camera_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("places-wgpu-world-camera"),
-            size: CAMERA_UNIFORM_SIZE,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("places-wgpu-world-camera"),
-            layout: &bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: camera_buffer.as_entire_binding(),
-            }],
-        });
-        // A wgpu buffer starts zeroed, so a capture that runs before the first
-        // frame's update sees an empty light set.
-        let lights_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("places-wgpu-world-lights"),
-            size: DYNAMIC_LIGHTS_UNIFORM_SIZE,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        let lights_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("places-wgpu-world-lights"),
-            layout: &lights_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: lights_buffer.as_entire_binding(),
-            }],
-        });
+        let (camera_buffer, bind_group) = world_uniform_binding(
+            device,
+            &bind_group_layout,
+            "places-wgpu-world-camera",
+            CAMERA_UNIFORM_SIZE,
+        );
+        // Zero-initialized capture buffers see no attached lights.
+        let (lights_buffer, lights_bind_group) = world_uniform_binding(
+            device,
+            &lights_layout,
+            "places-wgpu-world-lights",
+            DYNAMIC_LIGHTS_UNIFORM_SIZE,
+        );
         let [
             opaque_variant,
             cutout_variant,
             translucent_variant,
             emission_variant,
+            emission_blend_variant,
             emission_cutout_variant,
         ] = world_pipeline_variants(cull_opaque);
         let build = |variant| {
@@ -1810,23 +1992,38 @@ impl WorldPipeline {
                 variant,
             )
         };
-        let opaque = build(opaque_variant);
-        let cutout = build(cutout_variant);
-        let translucent = build(translucent_variant);
-        let emission = build(emission_variant);
-        let emission_cutout = build(emission_cutout_variant);
+        let [
+            opaque_culled,
+            emission_culled,
+            opaque_culled_reflected,
+            emission_culled_reflected,
+        ] = build_entity_pipelines(
+            device,
+            &pipeline_layout,
+            &shader,
+            format,
+            front_face,
+            raw_target,
+        );
         Self {
-            opaque,
-            cutout,
-            translucent,
-            emission,
-            emission_cutout,
+            opaque_culled,
+            opaque_culled_reflected,
+            emission_culled,
+            emission_culled_reflected,
+            opaque: build(opaque_variant),
+            cutout: build(cutout_variant),
+            translucent: build(translucent_variant),
+            emission: build(emission_variant),
+            emission_cutout: build(emission_cutout_variant),
+            emission_blend: build(emission_blend_variant),
             bind_group,
             camera_buffer,
             lights_buffer,
             lights_bind_group,
             format,
             uploaded: None,
+            #[cfg(feature = "visual-diagnostics")]
+            visual_diagnostic: super::diagnostics::VisualDiagnosticMode::Final,
         }
     }
 
@@ -1849,7 +2046,26 @@ impl WorldPipeline {
     const fn emission_pipeline_for(&self, pass: BatchPass) -> &wgpu::RenderPipeline {
         match pass {
             BatchPass::Cutout => &self.emission_cutout,
-            BatchPass::Opaque | BatchPass::Translucent => &self.emission,
+            BatchPass::Opaque => &self.emission,
+            BatchPass::Translucent => &self.emission_blend,
+        }
+    }
+
+    /// Selects sidedness only for opaque entity materials with a safe transform.
+    const fn entity_pipeline_for(
+        &self,
+        pass: BatchPass,
+        emission: bool,
+        double_sided: bool,
+        reflected: Option<bool>,
+    ) -> &wgpu::RenderPipeline {
+        match entity_cull_mode(pass, double_sided, reflected) {
+            EntityCullMode::Regular if emission => &self.emission_culled,
+            EntityCullMode::Regular => &self.opaque_culled,
+            EntityCullMode::Reflected if emission => &self.emission_culled_reflected,
+            EntityCullMode::Reflected => &self.opaque_culled_reflected,
+            EntityCullMode::TwoSided if emission => self.emission_pipeline_for(pass),
+            EntityCullMode::TwoSided => self.pipeline_for(pass),
         }
     }
 
@@ -1861,12 +2077,29 @@ impl WorldPipeline {
     /// from touching the buffer at all. See [`camera_uniform_changed`], which
     /// the test below exercises directly.
     pub fn upload_camera(&mut self, queue: &wgpu::Queue, view_projection: Mat4, eye: glam::Vec3) {
+        #[cfg(feature = "visual-diagnostics")]
+        let uniform =
+            CameraUniform::new(view_projection, eye).with_visual_diagnostic(self.visual_diagnostic);
+        #[cfg(not(feature = "visual-diagnostics"))]
         let uniform = CameraUniform::new(view_projection, eye);
         if !camera_uniform_changed(self.uploaded, uniform) {
             return;
         }
         queue.write_buffer(&self.camera_buffer, 0, bytemuck::bytes_of(&uniform));
         self.uploaded = Some(uniform);
+    }
+
+    /// Selects a development view for this pipeline's next camera upload.
+    #[cfg(feature = "visual-diagnostics")]
+    pub const fn set_visual_diagnostic(&mut self, mode: super::diagnostics::VisualDiagnosticMode) {
+        self.visual_diagnostic = mode;
+    }
+
+    /// The exact selector last uploaded to this pipeline's camera binding.
+    #[cfg(feature = "visual-diagnostics")]
+    #[must_use]
+    pub fn uploaded_visual_selector(&self) -> Option<f32> {
+        self.uploaded.map(|uniform| uniform.diagnostic_selector)
     }
 
     /// Uploads one frame's attached lights.
@@ -1949,12 +2182,10 @@ impl WorldPipeline {
         };
         let opaque = indices_of(BatchPass::Opaque);
         let cutout = indices_of(BatchPass::Cutout);
-        let translucent = translucent_order(&geometry.draws, inputs.frame.eye);
         let mut totals = WorldDrawTotals::default();
         for (indices, pass_kind) in [
             (opaque.as_slice(), BatchPass::Opaque),
             (cutout.as_slice(), BatchPass::Cutout),
-            (translucent.as_slice(), BatchPass::Translucent),
         ] {
             let class = self.encode_class(
                 pass,
@@ -1982,68 +2213,157 @@ impl WorldPipeline {
             totals.visible_vertices = totals
                 .visible_vertices
                 .saturating_add(class.visible_vertices);
+            totals.visible_indices = totals.visible_indices.saturating_add(class.visible_indices);
             totals.texture_binds = totals.texture_binds.saturating_add(class.texture_binds);
             totals.material_binds = totals.material_binds.saturating_add(class.material_binds);
             totals.emissive_visible |= class.emissive_visible;
             // The reference body order: static opaque, then props, then the
             // dynamic objects, then the characters, then the remaining static
-            // classes. Props, dynamic objects and characters are opaque and
-            // follow the same pipeline, so they splice in after the opaque
-            // class.
-            if pass_kind == BatchPass::Opaque {
-                totals.absorb(self.encode_opaque_extras(pass, inputs, false));
+            // classes. Model draws join their matching opaque/cutout class.
+            if pass_kind != BatchPass::Translucent {
+                totals.absorb(self.encode_extra_class(pass, inputs, false, pass_kind));
             }
         }
-        // Blended dynamic primitives (a moving glass panel) draw after the
-        // sorted static translucent surfaces, with depth writes off and depth
-        // testing against the opaque pass.
-        if let Some(dynamic) = inputs.dynamic {
-            totals.absorb(self.encode_dynamic(
-                pass,
-                inputs,
-                dynamic,
-                false,
-                BatchPass::Translucent,
-            ));
-        }
-        // Blended character submeshes (a fading ghost) follow the blended
-        // dynamic primitives, sorted back to front so several ghosts composite
-        // in the right order.
-        if let Some(characters) = inputs.characters {
-            totals.absorb(self.encode_translucent_characters(pass, inputs, characters, false));
-        }
+        let transparent = self.encode_transparency(pass, inputs, false);
+        totals.translucent_draws = transparent.visible_batches;
+        totals.absorb(transparent);
         totals
     }
 
-    /// Encodes the opaque extras spliced after the static opaque class, in the
-    /// reference body order: props, then dynamic objects, then characters.
-    fn encode_opaque_extras<'a>(
+    /// The scene and emission passes use one order across all transparent families.
+    /// Sorting remains per range/object; intersecting triangles need authored separation.
+    fn encode_transparency<'a>(
         &'a self,
         pass: &mut wgpu::RenderPass<'a>,
         inputs: WorldEncodeInputs<'a>,
         emission_only: bool,
     ) -> WorldDrawTotals {
+        let mut items = Self::transparent_items(inputs);
+        sort_transparency(&mut items, inputs.frame.eye);
         let mut totals = WorldDrawTotals::default();
+        for (item, _) in items {
+            let submitted = match item {
+                TransparentItem::World(index) => self.encode_class(
+                    pass,
+                    inputs,
+                    &inputs.frame.frustum,
+                    &[index],
+                    BatchPass::Translucent,
+                    emission_only,
+                ),
+                TransparentItem::Prop(index) => {
+                    inputs.props.map_or_else(WorldDrawTotals::default, |props| {
+                        self.encode_props(
+                            pass,
+                            inputs,
+                            props,
+                            emission_only,
+                            BatchPass::Translucent,
+                            Some(index),
+                        )
+                    })
+                }
+                TransparentItem::Dynamic(index) => {
+                    inputs
+                        .dynamic
+                        .map_or_else(WorldDrawTotals::default, |dynamic| {
+                            self.encode_dynamic(
+                                pass,
+                                inputs,
+                                dynamic,
+                                emission_only,
+                                BatchPass::Translucent,
+                                Some(index),
+                            )
+                        })
+                }
+                TransparentItem::Character(index) => {
+                    self.bind_character_state(pass, emission_only, BatchPass::Translucent);
+                    inputs
+                        .characters
+                        .map_or_else(WorldDrawTotals::default, |characters| {
+                            self.encode_character_submeshes(
+                                pass,
+                                inputs,
+                                characters,
+                                index,
+                                emission_only,
+                                BatchPass::Translucent,
+                            )
+                        })
+                }
+            };
+            totals.absorb(submitted);
+        }
+        totals
+    }
+
+    fn transparent_items(inputs: WorldEncodeInputs<'_>) -> Vec<(TransparentItem, [f32; 3])> {
+        let mut items = Vec::new();
+        for index in translucent_order(&inputs.geometry.draws, inputs.frame.eye) {
+            if let Some(draw) = usize::try_from(index)
+                .ok()
+                .and_then(|slot| inputs.geometry.draws.get(slot))
+            {
+                items.push((TransparentItem::World(index), draw.bounds.centre()));
+            }
+        }
         if let Some(props) = inputs.props {
-            totals.absorb(self.encode_props(pass, inputs, props, emission_only));
+            for (index, draw) in props
+                .draws()
+                .iter()
+                .enumerate()
+                .filter(|(_, draw)| draw.pass == BatchPass::Translucent && draw.index_count > 0)
+            {
+                items.push((TransparentItem::Prop(index), draw.bounds.centre()));
+            }
         }
         if let Some(dynamic) = inputs.dynamic {
-            totals.absorb(self.encode_dynamic(
-                pass,
-                inputs,
-                dynamic,
-                emission_only,
-                BatchPass::Opaque,
-            ));
+            for index in 0..dynamic.object_count() {
+                if (0..dynamic.submesh_count(index)).any(|submesh| {
+                    dynamic.submesh_pass(index, submesh) == Some(BatchPass::Translucent)
+                }) && let Some(bounds) = dynamic.world_bounds(index)
+                {
+                    items.push((TransparentItem::Dynamic(index), bounds.centre()));
+                }
+            }
         }
         if let Some(characters) = inputs.characters {
-            totals.absorb(self.encode_characters(
-                pass,
-                inputs,
-                characters,
-                emission_only,
-                BatchPass::Opaque,
-            ));
+            let entries: Vec<_> = (0..characters.character_count())
+                .filter(|index| characters.has_submesh_pass(*index, BatchPass::Translucent))
+                .filter_map(|index| {
+                    characters
+                        .world_bounds(index)
+                        .map(|bounds| (index, glam::Vec3::from_array(bounds.centre())))
+                })
+                .collect();
+            for index in translucent_character_order(&entries, inputs.frame.eye) {
+                if let Some(bounds) = characters.world_bounds(index) {
+                    items.push((TransparentItem::Character(index), bounds.centre()));
+                }
+            }
+        }
+        items
+    }
+
+    /// Encodes the opaque extras spliced after the static opaque class, in the
+    /// reference body order: props, then dynamic objects, then characters.
+    fn encode_extra_class<'a>(
+        &'a self,
+        pass: &mut wgpu::RenderPass<'a>,
+        inputs: WorldEncodeInputs<'a>,
+        emission_only: bool,
+        wanted: BatchPass,
+    ) -> WorldDrawTotals {
+        let mut totals = WorldDrawTotals::default();
+        if let Some(props) = inputs.props {
+            totals.absorb(self.encode_props(pass, inputs, props, emission_only, wanted, None));
+        }
+        if let Some(dynamic) = inputs.dynamic {
+            totals.absorb(self.encode_dynamic(pass, inputs, dynamic, emission_only, wanted, None));
+        }
+        if let Some(characters) = inputs.characters {
+            totals.absorb(self.encode_characters(pass, inputs, characters, emission_only, wanted));
         }
         totals
     }
@@ -2056,8 +2376,7 @@ impl WorldPipeline {
     /// per-frame baked-light probe; the material and texture come from the
     /// shared mesh and the object's own material slots. `emission_only` is the
     /// emissive pass; `wanted` selects the alpha class, so a blended dynamic
-    /// primitive draws in the translucent pass after the static translucent
-    /// surfaces, with depth writes off.
+    /// primitive draws in the shared translucent order, with depth writes off.
     fn encode_dynamic<'a>(
         &'a self,
         pass: &mut wgpu::RenderPass<'a>,
@@ -2065,6 +2384,7 @@ impl WorldPipeline {
         dynamic: &'a super::dynamic::WgpuDynamic,
         emission_only: bool,
         wanted: BatchPass,
+        selected: Option<usize>,
     ) -> WorldDrawTotals {
         let mut totals = WorldDrawTotals::default();
         if emission_only {
@@ -2074,7 +2394,9 @@ impl WorldPipeline {
         }
         pass.set_bind_group(0, &self.bind_group, &[]);
         pass.set_bind_group(4, &self.lights_bind_group, &[]);
-        for object in 0..dynamic.object_count() {
+        for object in (0..dynamic.object_count())
+            .filter(|object| selected.is_none_or(|index| index == *object))
+        {
             let Some(bounds) = dynamic.world_bounds(object) else {
                 continue;
             };
@@ -2088,13 +2410,23 @@ impl WorldPipeline {
             let mut bound_texture: Option<usize> = None;
             let mut bound_material: Option<usize> = None;
             let mut bound_geometry: Option<(usize, usize)> = None;
+            let before_draws = totals.draw_calls;
             for submesh in 0..dynamic.submesh_count(object) {
                 if dynamic.submesh_pass(object, submesh) != Some(wanted) {
                     continue;
                 }
-                if emission_only && !dynamic.submesh_emissive(object, submesh) {
+                if emission_only
+                    && wanted != BatchPass::Translucent
+                    && !dynamic.submesh_emissive(object, submesh)
+                {
                     continue;
                 }
+                pass.set_pipeline(self.entity_pipeline_for(
+                    wanted,
+                    emission_only,
+                    dynamic.submesh_double_sided(object, submesh),
+                    dynamic.culling_reflected(object),
+                ));
                 totals.emissive_visible |= dynamic.submesh_emissive(object, submesh);
                 let Some(material_slot) = dynamic.material_slot(object, submesh) else {
                     continue;
@@ -2129,12 +2461,13 @@ impl WorldPipeline {
                     continue;
                 };
                 pass.draw_indexed(first_index..end, 0, 0..1);
+                totals.visible_indices = totals
+                    .visible_indices
+                    .saturating_add(usize::try_from(index_count).unwrap_or(usize::MAX));
                 totals.draw_calls = totals.draw_calls.saturating_add(1);
                 totals.visible_batches = totals.visible_batches.saturating_add(1);
             }
-            totals.visible_vertices = totals
-                .visible_vertices
-                .saturating_add(dynamic.object_vertex_count(object));
+            totals.record_object_vertices(before_draws, dynamic.object_vertex_count(object));
         }
         totals
     }
@@ -2146,10 +2479,8 @@ impl WorldPipeline {
     /// which carries the placement matrix and the instance opacity; its vertex
     /// buffer already holds the CPU-skinned model-space pose, so the shader
     /// path is exactly the prop path. `emission_only` is the emissive pass, and
-    /// `wanted` filters the submesh's alpha class: the opaque call keeps
-    /// [`BatchPass::Opaque`] (which is also where a cut-out character submesh
-    /// lands, preserving its historical treatment), and the translucent pass
-    /// enters through [`Self::encode_translucent_characters`].
+    /// `wanted` filters the submesh's actual opaque/cutout alpha class; the translucent pass
+    /// enters through [`Self::encode_transparency`].
     fn encode_characters<'a>(
         &'a self,
         pass: &mut wgpu::RenderPass<'a>,
@@ -2161,53 +2492,13 @@ impl WorldPipeline {
         let mut totals = WorldDrawTotals::default();
         self.bind_character_state(pass, emission_only, wanted);
         for character in 0..characters.character_count() {
-            totals.absorb(Self::encode_character_submeshes(
+            totals.absorb(self.encode_character_submeshes(
                 pass,
                 inputs,
                 characters,
                 character,
                 emission_only,
                 wanted,
-            ));
-        }
-        totals
-    }
-
-    /// Encodes the frame's translucent character submeshes, farthest first.
-    ///
-    /// Drawn after the blended dynamic primitives and the static translucent
-    /// class with depth writes off, depth-testing against the opaque pass. The
-    /// order is the squared camera distance to the character's world centre,
-    /// farthest first, with the entry index as the deterministic tie-break, so
-    /// several ghosts composite consistently.
-    fn encode_translucent_characters<'a>(
-        &'a self,
-        pass: &mut wgpu::RenderPass<'a>,
-        inputs: WorldEncodeInputs<'a>,
-        characters: &'a super::character::WgpuCharacters,
-        emission_only: bool,
-    ) -> WorldDrawTotals {
-        let mut totals = WorldDrawTotals::default();
-        let entries: Vec<(usize, glam::Vec3)> = (0..characters.character_count())
-            .filter(|character| characters.has_submesh_pass(*character, BatchPass::Translucent))
-            .filter_map(|character| {
-                characters
-                    .world_bounds(character)
-                    .map(|bounds| (character, glam::Vec3::from_array(bounds.centre())))
-            })
-            .collect();
-        if entries.is_empty() {
-            return totals;
-        }
-        self.bind_character_state(pass, emission_only, BatchPass::Translucent);
-        for character in translucent_character_order(&entries, inputs.frame.eye) {
-            totals.absorb(Self::encode_character_submeshes(
-                pass,
-                inputs,
-                characters,
-                character,
-                emission_only,
-                BatchPass::Translucent,
             ));
         }
         totals
@@ -2231,10 +2522,10 @@ impl WorldPipeline {
 
     /// Encodes one character's submeshes of one pass.
     ///
-    /// Associated rather than a method: the per-character body binds only
-    /// frame-level state the caller already bound, so it needs no access to
-    /// the pipeline set.
+    /// Each primitive selects its material-sidedness pipeline; frame-level
+    /// camera and light groups were bound by the caller.
     fn encode_character_submeshes<'a>(
+        &'a self,
         pass: &mut wgpu::RenderPass<'a>,
         inputs: WorldEncodeInputs<'a>,
         characters: &'a super::character::WgpuCharacters,
@@ -2260,9 +2551,18 @@ impl WorldPipeline {
             if characters.submesh_pass(character, submesh) != Some(wanted) {
                 continue;
             }
-            if emission_only && !characters.submesh_emissive(character, submesh) {
+            if emission_only
+                && wanted != BatchPass::Translucent
+                && !characters.submesh_emissive(character, submesh)
+            {
                 continue;
             }
+            pass.set_pipeline(self.entity_pipeline_for(
+                wanted,
+                emission_only,
+                characters.submesh_double_sided(character, submesh),
+                characters.culling_reflected(character),
+            ));
             totals.emissive_visible |= characters.submesh_emissive(character, submesh);
             let Some(material_slot) = characters.material_slot(character, submesh) else {
                 continue;
@@ -2297,20 +2597,19 @@ impl WorldPipeline {
                 continue;
             };
             pass.draw_indexed(first_index..end, 0, 0..1);
+            totals.visible_indices = totals
+                .visible_indices
+                .saturating_add(usize::try_from(index_count).unwrap_or(usize::MAX));
             totals.draw_calls = totals.draw_calls.saturating_add(1);
             totals.visible_batches = totals.visible_batches.saturating_add(1);
         }
-        totals.visible_vertices = totals
-            .visible_vertices
-            .saturating_add(characters.character_vertex_count(character));
+        totals.record_object_vertices(0, characters.character_vertex_count(character));
         totals
     }
 
-    /// The reference's `draw_emissive_body`: the same body without decals,
-    /// every stage drawing only the surfaces whose material emits, into the
-    /// bloom source with depth writes off and no blending. The fragment entry
-    /// points write the emissive term raw; fog, lightmaps, reflections and the
-    /// albedo never run there.
+    /// Draw emission without albedo, lightmaps or reflection colour. Fog and
+    /// storm transmission attenuate it once. Transparent surfaces share scene
+    /// order and coverage, including nonemitters that cover emission behind them.
     pub fn encode_emissive<'a>(
         &'a self,
         pass: &mut wgpu::RenderPass<'a>,
@@ -2328,12 +2627,10 @@ impl WorldPipeline {
         };
         let opaque = indices_of(BatchPass::Opaque);
         let cutout = indices_of(BatchPass::Cutout);
-        let translucent = translucent_order(&geometry.draws, inputs.frame.eye);
         let mut totals = WorldDrawTotals::default();
         for (indices, pass_kind) in [
             (opaque.as_slice(), BatchPass::Opaque),
             (cutout.as_slice(), BatchPass::Cutout),
-            (translucent.as_slice(), BatchPass::Translucent),
         ] {
             let class = self.encode_class(
                 pass,
@@ -2348,30 +2645,21 @@ impl WorldPipeline {
             totals.visible_vertices = totals
                 .visible_vertices
                 .saturating_add(class.visible_vertices);
+            totals.visible_indices = totals.visible_indices.saturating_add(class.visible_indices);
             totals.texture_binds = totals.texture_binds.saturating_add(class.texture_binds);
             totals.material_binds = totals.material_binds.saturating_add(class.material_binds);
             totals.emissive_visible |= class.emissive_visible;
-            if pass_kind == BatchPass::Opaque {
-                totals.absorb(self.encode_opaque_extras(pass, inputs, true));
+            if pass_kind != BatchPass::Translucent {
+                totals.absorb(self.encode_extra_class(pass, inputs, true, pass_kind));
             }
         }
-        // A blended dynamic primitive can still emit; its emissive draw joins
-        // the bloom source after the static translucent emission.
-        if let Some(dynamic) = inputs.dynamic {
-            totals.absorb(self.encode_dynamic(pass, inputs, dynamic, true, BatchPass::Translucent));
-        }
-        // A translucent character's emissive submeshes join the bloom source
-        // here too, scaled by the instance opacity the shader applies, so a
-        // ghost's cyan core blooms through its fade instead of popping.
-        if let Some(characters) = inputs.characters {
-            totals.absorb(self.encode_translucent_characters(pass, inputs, characters, true));
-        }
+        totals.absorb(self.encode_transparency(pass, inputs, true));
         totals
     }
 
     /// Encodes the frame's prop draws.
     ///
-    /// One draw per submesh, culled by the batch bounds, with the prop's own
+    /// One draw per submesh, culled by its conservative draw bounds, with the prop's own
     /// clamped sheet on group 1 and its plain `(sheet, emission, alpha)`
     /// material on group 2. `emission_only` is the emissive pass: only submeshes
     /// whose material emits are submitted. A submesh whose glTF material is
@@ -2383,6 +2671,8 @@ impl WorldPipeline {
         inputs: WorldEncodeInputs<'a>,
         props: &'a super::props::WgpuProps,
         emission_only: bool,
+        wanted: BatchPass,
+        selected: Option<usize>,
     ) -> WorldDrawTotals {
         let mut totals = WorldDrawTotals::default();
         let mut bound_pipeline: Option<BatchPass> = None;
@@ -2392,11 +2682,19 @@ impl WorldPipeline {
         let mut bound_chunk: Option<usize> = None;
         let mut bound_texture: Option<usize> = None;
         let mut bound_material: Option<usize> = None;
-        for draw in props.draws() {
+        for draw in props
+            .draws()
+            .iter()
+            .enumerate()
+            .filter(|(index, draw)| {
+                draw.pass == wanted && selected.is_none_or(|chosen| chosen == *index)
+            })
+            .map(|(_, draw)| draw)
+        {
             if draw.index_count == 0 {
                 continue;
             }
-            if emission_only && !draw.emissive {
+            if emission_only && wanted != BatchPass::Translucent && !draw.emissive {
                 continue;
             }
             if inputs.cull && !inputs.frame.frustum.intersects_aabb(&draw.bounds) {
@@ -2439,6 +2737,9 @@ impl WorldPipeline {
                 continue;
             };
             pass.draw_indexed(draw.index_start..end, 0, 0..1);
+            totals.visible_indices = totals
+                .visible_indices
+                .saturating_add(usize::try_from(draw.index_count).unwrap_or(usize::MAX));
             totals.draw_calls = totals.draw_calls.saturating_add(1);
             totals.visible_batches = totals.visible_batches.saturating_add(1);
             totals.visible_vertices = totals
@@ -2499,7 +2800,10 @@ impl WorldPipeline {
             {
                 continue;
             }
-            if emission_only && !materials.is_emissive(material_slot) {
+            if emission_only
+                && pass_kind != BatchPass::Translucent
+                && !materials.is_emissive(material_slot)
+            {
                 continue;
             }
             if bound_material != Some(material_slot) {
@@ -2534,6 +2838,9 @@ impl WorldPipeline {
                 continue;
             };
             pass.draw_indexed(draw.index_start..end, 0, 0..1);
+            totals.visible_indices = totals
+                .visible_indices
+                .saturating_add(usize::try_from(draw.index_count).unwrap_or(usize::MAX));
             totals.draw_calls = totals.draw_calls.saturating_add(1);
             totals.visible_batches = totals.visible_batches.saturating_add(1);
             totals.visible_vertices = totals
@@ -2674,35 +2981,97 @@ mod tests {
         0.5 * ((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]))
     }
 
+    #[test]
+    fn normal_transform_is_perpendicular_after_rotation_and_nonuniform_scale() {
+        let model = Mat4::from_rotation_y(0.7) * Mat4::from_scale(glam::Vec3::new(2.0, 0.5, 1.5));
+        let environment = EnvironmentUniform::new(
+            [1.0; 3],
+            false,
+            crate::render::common::atmosphere::FogState::SHIPPED,
+        )
+        .with_model(model);
+        let [x, y, z] = environment.normal_model;
+        let normal_matrix = glam::Mat3::from_cols(
+            glam::Vec3::from_slice(&x[..3]),
+            glam::Vec3::from_slice(&y[..3]),
+            glam::Vec3::from_slice(&z[..3]),
+        );
+        let source_normal = glam::Vec3::new(1.0, 1.0, 0.0).normalize();
+        let source_tangent = glam::Vec3::new(1.0, -1.0, 0.0).normalize();
+        let actual = (normal_matrix * source_normal).normalize();
+        let tangent = model.transform_vector3(source_tangent).normalize();
+        assert!(actual.dot(tangent).abs() < 1.0e-6);
+        assert!(
+            model
+                .transform_vector3(source_normal)
+                .normalize()
+                .dot(tangent)
+                .abs()
+                > 0.5
+        );
+        assert_eq!(std::mem::offset_of!(EnvironmentUniform, normal_model), 2848);
+        assert_eq!(
+            std::mem::offset_of!(EnvironmentUniform, entity_bounds_min),
+            2896
+        );
+        assert_eq!(
+            std::mem::offset_of!(EnvironmentUniform, entity_anchors),
+            2928
+        );
+        assert_eq!(
+            std::mem::offset_of!(EnvironmentUniform, entity_direct),
+            4336
+        );
+        assert_eq!(
+            std::mem::offset_of!(EnvironmentUniform, contact_shadows),
+            5232
+        );
+        assert_eq!(
+            std::mem::offset_of!(EnvironmentUniform, contact_shadow_count),
+            5616
+        );
+    }
+
+    #[test]
+    fn empty_model_alpha_classes_do_not_count_object_vertices() {
+        let mut totals = WorldDrawTotals::default();
+        totals.record_object_vertices(0, 432);
+        assert_eq!(totals.visible_vertices, 0);
+        totals.draw_calls = 1;
+        totals.record_object_vertices(0, 432);
+        totals.record_object_vertices(1, 432);
+        assert_eq!(totals.visible_vertices, 432);
+    }
+
     // ------------------------------------------------------------- layout
 
     #[test]
-    fn the_world_vertex_is_sixty_four_bytes_with_the_declared_attributes() {
-        assert_eq!(std::mem::size_of::<WorldVertex>(), 64);
-        assert_eq!(WORLD_VERTEX_STRIDE, 64);
+    fn the_world_vertex_preserves_linear_hdr_with_the_declared_attributes() {
+        assert_eq!(std::mem::size_of::<WorldVertex>(), 76);
+        assert_eq!(WORLD_VERTEX_STRIDE, 76);
         assert_eq!(std::mem::offset_of!(WorldVertex, position), 0);
         assert_eq!(std::mem::offset_of!(WorldVertex, normal), 12);
         assert_eq!(std::mem::offset_of!(WorldVertex, uv), 24);
         assert_eq!(std::mem::offset_of!(WorldVertex, color), 32);
-        assert_eq!(std::mem::offset_of!(WorldVertex, lightmap_uv), 36);
-        assert_eq!(std::mem::offset_of!(WorldVertex, lightmap_page), 40);
-        assert_eq!(std::mem::offset_of!(WorldVertex, tangent), 44);
-        assert_eq!(std::mem::offset_of!(WorldVertex, handedness), 56);
-        assert_eq!(std::mem::offset_of!(WorldVertex, padding), 60);
+        assert_eq!(std::mem::offset_of!(WorldVertex, lightmap_uv), 48);
+        assert_eq!(std::mem::offset_of!(WorldVertex, lightmap_page), 52);
+        assert_eq!(std::mem::offset_of!(WorldVertex, tangent), 56);
+        assert_eq!(std::mem::offset_of!(WorldVertex, handedness), 68);
+        assert_eq!(std::mem::offset_of!(WorldVertex, padding), 72);
 
         let layout = world_vertex_layout();
-        assert_eq!(layout.array_stride, 64);
+        assert_eq!(layout.array_stride, 76);
         assert_eq!(layout.step_mode, wgpu::VertexStepMode::Vertex);
         assert_eq!(layout.attributes.len(), 8);
         let attributes: [(u32, wgpu::VertexFormat, u64); 8] = [
             (WORLD_ATTRIB_POSITION, wgpu::VertexFormat::Float32x3, 0),
             (WORLD_ATTRIB_NORMAL, wgpu::VertexFormat::Float32x3, 12),
             (WORLD_ATTRIB_UV, wgpu::VertexFormat::Float32x2, 24),
-            (WORLD_ATTRIB_COLOR, wgpu::VertexFormat::Unorm8x4, 32),
-            (WORLD_ATTRIB_LIGHTMAP_UV, wgpu::VertexFormat::Unorm16x2, 36),
-            (WORLD_ATTRIB_LIGHTMAP_PAGE, wgpu::VertexFormat::Float32, 40),
-            (WORLD_ATTRIB_TANGENT, wgpu::VertexFormat::Float32x3, 44),
-            (WORLD_ATTRIB_HANDEDNESS, wgpu::VertexFormat::Float32, 56),
+            (WORLD_ATTRIB_COLOR, wgpu::VertexFormat::Float32x4, 32),
+            (WORLD_ATTRIB_LIGHTMAP_UV, wgpu::VertexFormat::Unorm16x2, 48),
+            (WORLD_ATTRIB_LIGHTMAP_PAGE, wgpu::VertexFormat::Float32, 52),
+            (WORLD_ATTRIB_TANGENT, wgpu::VertexFormat::Float32x3, 56),
+            (WORLD_ATTRIB_HANDEDNESS, wgpu::VertexFormat::Float32, 68),
         ];
         for (attribute, (location, format, offset)) in layout.attributes.iter().zip(attributes) {
             assert_eq!(attribute.shader_location, location);
@@ -2734,10 +3103,8 @@ mod tests {
         assert_eq!(world.uv, vertex.uv);
         assert_eq!(world.tangent, vertex.tangent);
         assert_eq!(world.handedness, vertex.handedness);
-        // The colour is the reference's normalised byte, not the exact float:
-        // 0.1 -> 26, 0.2 -> 51, 0.3 -> 77, 1.0 -> 255 (round to nearest).
-        assert_eq!(world.color, [26, 51, 77, 255]);
-        assert_eq!(world.color, vertex.color.map(quantize_unit));
+        // Linear factors and vertex illumination retain their full range.
+        assert_eq!(world.color, vertex.color);
         // The lightmap address is carried exactly: the UV comes from the
         // vertex's 16-bit fixed point and the page byte becomes the float the
         // shader's `step(254.5, page)` test compares against.
@@ -2758,7 +3125,7 @@ mod tests {
         // The eye is at the WGSL `vec3<f32>` offset (64) with explicit padding
         // behind it, so the struct's Rust layout is the shader's uniform layout.
         assert_eq!(std::mem::offset_of!(CameraUniform, position), 64);
-        assert_eq!(std::mem::offset_of!(CameraUniform, _padding), 76);
+        assert_eq!(std::mem::offset_of!(CameraUniform, diagnostic_selector), 76);
         // The shader declares exactly one camera binding: a matrix and the eye.
         assert!(WORLD_SHADER_SRC.contains("mat4x4<f32>"));
         assert!(WORLD_SHADER_SRC.contains("position: vec3<f32>"));
@@ -2786,6 +3153,31 @@ mod tests {
         let moved_matrix =
             CameraUniform::new(Mat4::from_translation(glam::Vec3::new(0.25, 0.0, 0.0)), eye);
         assert!(camera_uniform_changed(Some(uniform), moved_matrix));
+    }
+
+    #[cfg(feature = "visual-diagnostics")]
+    #[test]
+    fn a_diagnostic_change_uploads_even_when_the_camera_is_still() {
+        use super::super::diagnostics::VisualDiagnosticMode;
+        let final_view = CameraUniform::new(Mat4::IDENTITY, glam::Vec3::ZERO);
+        let normals = final_view.with_visual_diagnostic(VisualDiagnosticMode::WorldNormal);
+        assert!(
+            camera_uniform_changed(Some(final_view), normals),
+            "live selector must reach a still camera"
+        );
+        assert!(
+            !camera_uniform_changed(Some(normals), normals),
+            "unchanged selector must skip writes"
+        );
+        assert!(
+            camera_uniform_changed(Some(normals), final_view),
+            "returning to final must reach the shader"
+        );
+        assert_eq!(
+            final_view.diagnostic_selector.to_bits(),
+            0.0_f32.to_bits(),
+            "final retains production padding bits"
+        );
     }
 
     // -------------------------------------------------------- coordinates
@@ -3148,7 +3540,7 @@ mod tests {
         };
         use crate::render::common::{build_level_geometry, logical_materials};
 
-        let json = include_str!("../../../assets/levels/places_demo.json");
+        let json = include_str!("../../../levels/places_demo.json");
         let level = crate::level::LevelDef::from_json(json).expect("valid places_demo json");
         let materials = logical_materials(&level);
         let catalog = crate::loader::PropCatalog::builtin();
@@ -3218,7 +3610,7 @@ mod tests {
         };
         use crate::render::common::logical_materials;
 
-        let json = include_str!("../../../assets/levels/places_demo.json");
+        let json = include_str!("../../../levels/places_demo.json");
         let level = crate::level::LevelDef::from_json(json).expect("valid places_demo json");
         let materials = logical_materials(&level);
         let catalog = crate::loader::PropCatalog::builtin();
@@ -3316,7 +3708,7 @@ mod tests {
     fn the_shipped_demo_uploads_every_static_world_index_exactly_once() {
         use crate::render::common::{build_level_geometry, logical_materials};
 
-        let json = include_str!("../../../assets/levels/places_demo.json");
+        let json = include_str!("../../../levels/places_demo.json");
         let level = crate::level::LevelDef::from_json(json).expect("valid places_demo json");
         let mesh = build_level_geometry(&level);
         assert!(mesh.vertex_count > 0 && mesh.index_count > 0);
@@ -3502,7 +3894,7 @@ mod tests {
     fn a_shipped_material_resolves_through_its_texture_slot() {
         use crate::materials::resolve_materials;
 
-        let json = include_str!("../../../assets/levels/places_demo.json");
+        let json = include_str!("../../../levels/places_demo.json");
         let level = crate::level::LevelDef::from_json(json).expect("valid places_demo json");
         let catalog = crate::assets::AssetCatalog::load_default();
         let root = crate::assets::resolve_asset_root().expect("assets/ is discoverable");
@@ -3547,7 +3939,7 @@ mod tests {
         use crate::materials::{TextureOrigin, resolve_materials};
         use crate::render::common::build_level_geometry;
 
-        let json = include_str!("../../../assets/levels/places_demo.json");
+        let json = include_str!("../../../levels/places_demo.json");
         let level = crate::level::LevelDef::from_json(json).expect("valid places_demo json");
         let mesh = build_level_geometry(&level);
         let catalog = crate::assets::AssetCatalog::load_default();
@@ -3679,24 +4071,23 @@ mod tests {
     }
 
     #[test]
-    fn the_world_shader_reproduces_the_reference_material_math() {
+    fn the_world_shader_uses_shared_material_response_math() {
         // Every input and target is raw display space (the reference's own
         // framebuffer convention), so the only transfer function is the one
         // conversion at the sRGB surface.
-        assert!(!WORLD_SHADER_SRC.contains("fn linear_to_srgb("));
+        assert!(WORLD_SHADER_SRC.contains("fn target_color("));
         assert!(WORLD_SHADER_SRC.contains("fn srgb_to_linear("));
         // The fragment assembles the reference's
         // `lit + sheen + reflection + emission`, then fog, in display space and
         // converts once, after every display-space term.
-        assert!(WORLD_SHADER_SRC.contains("fn lit_display("));
+        assert!(WORLD_SHADER_SRC.contains("fn lit_linear("));
         assert!(
-            WORLD_SHADER_SRC
-                .contains("return vec4<f32>(srgb_to_linear(shaded.color), shaded.alpha);"),
-            "the sRGB entry points convert once, after the display-space assembly"
+            WORLD_SHADER_SRC.contains("return vec4<f32>(shaded.color, shaded.alpha);"),
+            "the sRGB surface receives linear RGB"
         );
         assert!(
             WORLD_SHADER_SRC.contains("return vec4<f32>(shaded.color, shaded.alpha);"),
-            "the raw entry points write the reference's display-space values directly"
+            "linear HDR targets retain the assembled radiance"
         );
         assert!(
             WORLD_SHADER_SRC.contains("lit + sheen + reflection + emission"),
@@ -3762,9 +4153,60 @@ mod tests {
     }
 
     #[test]
-    fn the_five_pipelines_declare_the_reference_material_states() {
-        let [opaque, cutout, translucent, emission, emission_cutout] =
-            world_pipeline_variants(true);
+    fn entity_culling_preserves_two_sided_and_uncertain_paths() {
+        assert_eq!(
+            entity_cull_mode(BatchPass::Opaque, false, Some(false)),
+            EntityCullMode::Regular
+        );
+        assert_eq!(
+            entity_cull_mode(BatchPass::Opaque, false, Some(true)),
+            EntityCullMode::Reflected
+        );
+        assert_eq!(
+            entity_cull_mode(BatchPass::Opaque, true, Some(false)),
+            EntityCullMode::TwoSided
+        );
+        assert_eq!(
+            entity_cull_mode(BatchPass::Opaque, false, None),
+            EntityCullMode::TwoSided
+        );
+        for pass in [BatchPass::Cutout, BatchPass::Translucent] {
+            assert_eq!(
+                entity_cull_mode(pass, false, Some(false)),
+                EntityCullMode::TwoSided
+            );
+        }
+        assert_eq!(
+            culling_reflected(Mat4::from_scale(glam::Vec3::new(-2.0, 0.5, 3.0))),
+            Some(true)
+        );
+        assert_eq!(
+            culling_reflected(Mat4::from_scale(glam::Vec3::new(2.0, 0.5, 3.0))),
+            Some(false)
+        );
+        assert_eq!(
+            culling_reflected(Mat4::from_scale(glam::Vec3::new(0.0, 1.0, 1.0))),
+            None
+        );
+        assert_eq!(
+            culling_reflected(Mat4::from_scale(glam::Vec3::splat(f32::NAN))),
+            None
+        );
+        for variant in world_pipeline_variants(false) {
+            assert_eq!(variant.cull, None);
+        }
+    }
+
+    #[test]
+    fn the_six_pipelines_preserve_depth_and_coverage_contracts() {
+        let [
+            opaque,
+            cutout,
+            translucent,
+            emission,
+            emission_blend,
+            emission_cutout,
+        ] = world_pipeline_variants(true);
 
         assert_eq!(opaque.label, "places-wgpu-world-opaque");
         assert_eq!(opaque.fragment_entry, WORLD_FRAGMENT_ENTRY);
@@ -3795,11 +4237,15 @@ mod tests {
             emission_cutout.fragment_entry,
             WORLD_EMISSION_CUTOUT_FRAGMENT_ENTRY
         );
+        assert_eq!(emission.cull, Some(wgpu::Face::Back));
+        assert_eq!(emission_cutout.cull, None);
         for variant in [emission, emission_cutout] {
             assert!(!variant.depth_write, "the emissive pass writes no depth");
             assert!(variant.blend.is_none(), "the emissive pass does not blend");
-            assert_eq!(variant.cull, None, "the reference never culls");
         }
+        assert_eq!(emission_blend.blend, Some(TRANSLUCENT_BLEND));
+        assert!(!emission_blend.depth_write);
+        assert_eq!(emission_blend.fragment_entry, "fs_emission_blend");
         assert_eq!(WORLD_EMISSION_FRAGMENT_ENTRY, "fs_emission");
         assert_eq!(WORLD_EMISSION_CUTOUT_FRAGMENT_ENTRY, "fs_emission_cutout");
     }
@@ -3842,108 +4288,38 @@ mod tests {
 
     // ------------------------------------------------- material colour space
 
-    /// One channel of the IEC 61966-2-1 decode, exactly the WGSL
-    /// `srgb_to_linear`.
-    fn srgb_to_linear(value: f32) -> f32 {
-        if value <= 0.04045 {
-            value / 12.92
-        } else {
-            ((value + 0.055) / 1.055).powf(2.4)
-        }
-    }
-
-    /// One channel of the IEC 61966-2-1 encode, exactly the WGSL
-    /// `linear_to_srgb`.
-    fn linear_to_srgb(value: f32) -> f32 {
-        if value <= 0.003_130_8 {
-            value * 12.92
-        } else {
-            1.055 * value.powf(1.0 / 2.4) - 0.055
-        }
-    }
-
     #[test]
-    fn the_world_shader_samples_display_space_and_converts_once() {
+    fn the_world_shader_assembles_linear_light_and_only_encodes_raw_display_targets() {
         // The base texture is raw display space (no sRGB decode), so the
         // fragment is assembled in the reference's framebuffer space and the
         // sRGB surface converts exactly once, at the output.
         assert!(
-            WORLD_SHADER_SRC.contains("let base_display = base.rgb;"),
+            WORLD_SHADER_SRC.contains("let base_linear = base.rgb;"),
             "authored texels must be sampled as display values"
         );
         assert!(
-            !WORLD_SHADER_SRC.contains("fn linear_to_srgb("),
+            WORLD_SHADER_SRC.contains("fn target_color("),
             "no encode may exist inside the world assembly"
         );
-        assert!(
-            WORLD_SHADER_SRC
-                .contains("return vec4<f32>(srgb_to_linear(shaded.color), shaded.alpha);")
-        );
+        assert!(WORLD_SHADER_SRC.contains("return vec4<f32>(shaded.color, shaded.alpha);"));
         for needle in ["c / 12.92", "0.04045", "pow((c + 0.055) / 1.055"] {
             assert!(WORLD_SHADER_SRC.contains(needle), "missing {needle}");
         }
     }
 
     #[test]
-    fn the_display_space_material_multiply_matches_the_reference_values() {
-        // `display` is the authored texel, `factor` the material vertex colour.
-        // Both renderers compute `display * factor` in raw display space, so
-        // the port's product is the reference's product by construction. The
-        // linear-space product — what an sRGB texture plus a decode-then-
-        // multiply port would produce — demonstrably differs and is pinned so
-        // the raw sampling cannot be removed without a failure.
-        let cases: [(f32, f32); 8] = [
-            (1.0, 1.0),
-            (1.0, 0.5),
-            (1.0, 0.25),
-            (0.5, 1.0),
-            (0.5, 0.5),
-            (0.5, 0.25),
-            (0.0, 0.5),
-            (0.25, 0.75),
-        ];
-        for (display, factor) in cases {
-            let reference = display * factor;
-            let port = display * factor;
-            assert!(
-                (port - reference).abs() < f32::EPSILON,
-                "{display} x {factor}: reference {reference}, port {port}"
-            );
-
-            let linear_space = linear_to_srgb(srgb_to_linear(display) * factor);
-            if (0.15..=0.85).contains(&display) && factor <= 0.6 {
-                assert!(
-                    (linear_space - reference).abs() > 0.05,
-                    "the linear-space product must differ from the reference \
-                     for {display} x {factor}: {linear_space} vs {reference}"
-                );
-            }
-        }
+    fn authored_midgrey_is_decoded_before_the_linear_factor() {
+        let texture = crate::materials::color::decode_byte(128);
+        assert!((texture - 0.215_860_5).abs() < 1.0e-6);
+        let result = crate::materials::color::linear_to_srgb(texture * 0.5);
+        assert!((result - 0.362_249_14).abs() < 1.0e-6);
+        assert!(result > 128.0 / 255.0 * 0.5);
     }
 
     #[test]
-    fn the_display_space_product_rounds_to_the_reference_byte() {
-        // The reference writes `texel x vertex_colour` to an 8-bit non-sRGB
-        // framebuffer: the stored byte is `round(255 * display x factor)`.
-        // With raw textures the port computes the same float product and the
-        // same rounding, so its byte is the reference's byte exactly for every
-        // authored texel byte and a grid of vertex colours.
-        let mut checked = 0usize;
-        for texel in 0..=255u8 {
-            let authored = f32::from(texel) / 255.0;
-            for factor_byte in [0u8, 1, 17, 64, 128, 191, 254, 255] {
-                let factor = f32::from(factor_byte) / 255.0;
-                let reference_byte = (authored * factor * 255.0).round();
-                let product = authored * factor;
-                let port_byte = (product * 255.0).round();
-                assert_eq!(
-                    port_byte, reference_byte,
-                    "texel {texel} x factor {factor_byte}: reference {reference_byte}, port {port_byte}"
-                );
-                checked = checked.saturating_add(1);
-            }
-        }
-        assert_eq!(checked, 256 * 8);
+    fn vertex_illumination_and_alpha_retain_their_numeric_range() {
+        let vertex = Vertex::new([0.0; 3], [2.0, 4.0, 0.005, 0.25], [0.0; 2]);
+        assert_eq!(WorldVertex::from(vertex).color, [2.0, 4.0, 0.005, 0.25]);
     }
 
     #[test]
@@ -4015,7 +4391,7 @@ mod tests {
             "environment.lightmap_switchable & 0xFu",
             "(environment.lightmap_switchable >> 8u) & 0xFu",
             "pages * 2u * (group + 1u) + page * 2u",
-            "return soft_clip(hdr) * environment.light_scale;",
+            "return hdr * environment.light_scale;",
             "return vec3<f32>(1.0) * environment.light_scale;",
         ] {
             assert!(WORLD_SHADER_SRC.contains(needle), "missing {needle}");
@@ -4031,7 +4407,7 @@ mod tests {
         // the sheen.
         assert!(
             WORLD_SHADER_SRC
-                .contains("base_display * vertex_color * light * (1.0 - emission_vertex)")
+                .contains("base_linear * vertex_color * light * (1.0 - emission_vertex)")
         );
         assert!(
             WORLD_SHADER_SRC
@@ -4055,47 +4431,23 @@ mod tests {
         assert!(!WORLD_SHADER_SRC.contains("@group(3) @binding(2)"));
     }
 
-    /// The CPU mirror of the shader's tone map, checked against the transport
-    /// implementation the bake calibrates with.
+    /// Material evaluation must receive unclipped irradiance.
     #[test]
-    fn the_soft_clip_matches_the_transport_tone_map() {
-        for needle in [
-            "fn soft_clip_channel(x: f32) -> f32",
-            "fn soft_clip(color: vec3<f32>) -> vec3<f32>",
-            "if (x <= 0.8)",
-            "0.8 + shoulder * (1.0 - exp(-(x - 0.8) / shoulder))",
-        ] {
-            assert!(WORLD_SHADER_SRC.contains(needle), "missing {needle}");
-        }
-        // Below the knee the value passes through; above it the exponential
-        // shoulder compresses towards one, C1-continuous at the knee.
-        let knee = crate::lighting::transport::soft_clip_channel(0.8);
-        assert!((knee - 0.8).abs() < 1.0e-6);
-        for value in [0.0_f32, 0.25, 0.5, 0.8, 1.0, 2.0, 16.0] {
-            let expected = crate::lighting::transport::soft_clip_channel(value);
-            let mirrored = soft_clip_channel(value);
-            assert!(
-                (mirrored - expected).abs() < 1.0e-6,
-                "soft clip at {value}: shader mirror {mirrored}, transport {expected}"
-            );
-            assert!(mirrored <= 1.0, "the shoulder compresses towards one");
-        }
-        assert!(soft_clip_channel(2.0) < 1.0);
-        // The shader's knee is the transport constant it mirrors.
-        assert!(
-            WORLD_SHADER_SRC.contains(&format!(
-                "if (x <= {})",
-                crate::lighting::transport::SOFT_KNEE
-            )),
-            "the shader knee must be the transport knee"
-        );
+    fn light_is_not_display_mapped_before_albedo() {
+        assert!(!WORLD_SHADER_SRC.contains("fn soft_clip("));
+        assert!(WORLD_SHADER_SRC.contains("return hdr * environment.light_scale;"));
+        let texture = crate::materials::color::decode_byte(128);
+        let linear = texture * 4.0;
+        assert!(linear > 0.8);
+        assert!((linear - 0.863_442).abs() < 1.0e-5);
+        assert!(crate::materials::color::linear_to_srgb(linear) > 0.93);
     }
 
     #[test]
     fn the_environment_uniform_matches_the_wgsl_layout() {
-        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 2848);
+        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 5632);
         assert_eq!(std::mem::align_of::<EnvironmentUniform>(), 16);
-        assert_eq!(ENVIRONMENT_UNIFORM_SIZE, 2848);
+        assert_eq!(ENVIRONMENT_UNIFORM_SIZE, 5632);
         assert_eq!(std::mem::offset_of!(EnvironmentUniform, light_scale), 0);
         assert_eq!(
             std::mem::offset_of!(EnvironmentUniform, lightmap_enabled),
@@ -4163,7 +4515,7 @@ mod tests {
             "shade() must fold the instance opacity into the fragment alpha"
         );
         assert!(
-            WORLD_SHADER_SRC.contains("surface_emission(in, base.rgb) * environment.opacity"),
+            WORLD_SHADER_SRC.contains("surface_emission(in, base.rgb) * transmission"),
             "the emissive term must fade with the instance opacity"
         );
     }
@@ -4242,7 +4594,7 @@ mod tests {
             std::mem::offset_of!(EnvironmentUniform, entity_moment),
             1264
         );
-        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 2848);
+        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 5632);
         // The static environment carries no regions and a zeroed array: the
         // historical uniform without a level authoring any.
         let default = EnvironmentUniform::new(
@@ -4442,6 +4794,54 @@ mod tests {
             !emissive.contains("dynamic_light_term"),
             "the emissive pass must not sum the attached lights"
         );
+    }
+
+    #[test]
+    fn transparency_sorts_across_families_and_stably_keeps_ties() {
+        let mut items = [
+            (TransparentItem::Dynamic(2), [0.0, 0.0, -2.0]),
+            (TransparentItem::World(3), [0.0, 0.0, -8.0]),
+            (TransparentItem::Character(1), [0.0, 0.0, -4.0]),
+            (TransparentItem::Prop(0), [0.0, 0.0, -6.0]),
+            (TransparentItem::World(5), [0.0, 0.0, -4.0]),
+        ];
+        sort_transparency(&mut items, glam::Vec3::ZERO);
+        assert_eq!(
+            items.map(|(item, _)| item),
+            [
+                TransparentItem::World(3),
+                TransparentItem::Prop(0),
+                TransparentItem::Character(1),
+                TransparentItem::World(5),
+                TransparentItem::Dynamic(2)
+            ]
+        );
+        sort_transparency(&mut items, glam::Vec3::new(0.0, 0.0, -10.0));
+        assert_eq!(
+            items.map(|(item, _)| item),
+            [
+                TransparentItem::Dynamic(2),
+                TransparentItem::Character(1),
+                TransparentItem::World(5),
+                TransparentItem::Prop(0),
+                TransparentItem::World(3)
+            ]
+        );
+    }
+
+    #[test]
+    fn blended_bloom_uses_coverage_once_and_dark_glass_attenuates_it() {
+        let emission = 4.0_f32;
+        let texture_alpha = 0.5_f32;
+        let material_opacity = 0.8_f32;
+        let instance_opacity = 0.25_f32;
+        let coverage = texture_alpha * material_opacity * instance_opacity;
+        assert!((emission * coverage - 0.4).abs() < 1.0e-6);
+        let through_glass = emission * coverage * (1.0 - 0.3_f32);
+        assert!((through_glass - 0.28).abs() < 1.0e-6);
+        assert!(WORLD_SHADER_SRC.contains("surface_emission(in, base.rgb) * transmission, alpha"));
+        assert!(WORLD_SHADER_SRC.contains("return emissive_only(in, false);"));
+        assert!(!WORLD_SHADER_SRC.contains("surface_emission(in, base.rgb) * environment.opacity"));
     }
 
     #[test]
@@ -4654,16 +5054,6 @@ mod tests {
             .expect("GPU work completes before test read-back");
     }
 
-    /// The CPU mirror of the shader's `soft_clip` tone map, for the light-seam
-    /// tests. The transport's own implementation is the numeric reference.
-    fn soft_clip_channel(value: f32) -> f32 {
-        if value <= 0.8 {
-            return value.max(0.0);
-        }
-        let shoulder = 0.2;
-        0.8 + shoulder * (1.0 - (-(value - 0.8) / shoulder).exp())
-    }
-
     /// The CPU mirror of the shader's `decode_lightmap` over the layer array:
     /// the irradiance plane at `layer` and the direction-moment plane after it,
     /// with `k = I.r + I.g + I.b` and
@@ -4746,8 +5136,7 @@ mod tests {
                 hdr = std::array::from_fn(|channel| hdr[channel] + contribution[channel]);
             }
         }
-        let clipped = hdr.map(soft_clip_channel);
-        std::array::from_fn(|channel| clipped[channel] * scale[channel])
+        std::array::from_fn(|channel| hdr[channel] * scale[channel])
     }
 
     #[test]
@@ -4871,19 +5260,18 @@ mod tests {
             [2.0; 3]
         );
 
-        // The display tone map compresses a genuine highlight below one, and
-        // the mirror is the transport implementation's numeric response.
+        // Highlights retain HDR energy until presentation.
         let bright: Vec<[f32; 4]> = vec![[2.0, 2.0, 2.0, 0.5], [0.0, 0.0, 0.0, 0.5]];
-        let expected = crate::lighting::transport::soft_clip([2.0; 3]);
+        let expected = [2.0; 3];
         let actual = surface_light_mirror(true, 0.0, 1, 0, 0, up, &bright, unit);
         close(actual, expected);
-        assert!(actual[0] > 0.8 && actual[0] < 1.0, "{actual:?}");
+        assert!(actual[0] == 2.0, "{actual:?}");
 
         // The shader source contains the exact expressions the mirror encodes.
         assert!(WORLD_SHADER_SRC.contains("step(254.5, in.lightmap_page)"));
         assert!(WORLD_SHADER_SRC.contains("let page = u32(in.lightmap_page + 0.5);"));
         assert!(WORLD_SHADER_SRC.contains("pages * 2u * (group + 1u) + page * 2u"));
-        assert!(WORLD_SHADER_SRC.contains("soft_clip(hdr)"));
+        assert!(WORLD_SHADER_SRC.contains("return hdr * environment.light_scale;"));
     }
 
     /// The runtime-side regression for the octahedral-seam artifact: two
@@ -5119,45 +5507,18 @@ mod tests {
     }
 
     #[test]
-    fn the_display_space_assembly_adds_the_sheen_before_one_conversion() {
-        // The reference computes `lit + sheen` in display space and writes it to
-        // a non-sRGB framebuffer. The port adds the sheen there too; only the
-        // sRGB surface converts the finished sum.
-        let display = 0.5_f32;
-        let factor = 0.5_f32;
-        let light = 1.0_f32;
-        let sheen_value = 0.2_f32;
-
-        let reference_display = display * factor * light + sheen_value;
-        let port_display = display * factor * light + sheen_value;
-        assert!(
-            (port_display - reference_display).abs() < f32::EPSILON,
-            "display-space assembly: reference {reference_display}, port {port_display}"
-        );
-
-        // The wrong order — converting the sheen to linear and adding it after
-        // a decode — demonstrably changes the presented pixel.
-        let linear_sheen = srgb_to_linear(sheen_value);
-        let wrong_display = linear_to_srgb(srgb_to_linear(display * factor * light) + linear_sheen);
-        assert!(
-            (wrong_display - reference_display).abs() > 0.01,
-            "linear-space sheen addition must differ: {wrong_display} vs {reference_display}"
-        );
+    fn sheen_and_emission_accumulate_in_linear_energy() {
+        let albedo = crate::materials::color::decode_byte(128);
+        let energy = albedo * 0.5 + 0.2 + 2.0;
+        assert!(energy > 2.3);
+        assert!(WORLD_SHADER_SRC.contains("lit + sheen + reflection + emission"));
+        assert!(!WORLD_SHADER_SRC.contains("srgb_to_linear(shaded.color)"));
     }
 
     #[test]
-    fn the_unlit_bypass_survives_only_for_a_white_vertex_unit_light_and_no_sheen() {
-        // The unlit bypass: a raw base-texture sample for an all-white vertex
-        // colour with the unit light and no sheen.
-        assert!(WORLD_SHADER_SRC.contains("all(in.color.rgb >= vec3<f32>(1.0))"));
-        assert!(WORLD_SHADER_SRC.contains("all(light >= vec3<f32>(1.0))"));
-        assert!(WORLD_SHADER_SRC.contains("all(sheen == vec3<f32>(0.0))"));
-        assert!(WORLD_SHADER_SRC.contains("color = base_display;"));
-        // The bypass must also reject a level whose global density is zero but
-        // whose regions are live: the raw sample is only exact with no fog at
-        // all.
-        assert!(WORLD_SHADER_SRC.contains("&& environment.fog_density == 0.0"));
-        assert!(WORLD_SHADER_SRC.contains("&& environment.fog_region_count == 0u"));
+    fn bright_irradiance_cannot_trigger_an_unlit_bypass() {
+        assert!(!WORLD_SHADER_SRC.contains("all(light >= vec3<f32>(1.0))"));
+        assert!(!WORLD_SHADER_SRC.contains("color = base_linear;"));
     }
 
     // ------------------------------------------------------------------- fog
@@ -5199,7 +5560,9 @@ mod tests {
             "let density = global_density + layer_density;",
             "var fog_amount = density * distance;",
             "fog_amount = 1.0 - exp(-fog_amount * fog_amount);",
-            "return mix(color, layer_color, clamp(fog_amount, 0.0, 1.0));",
+            "return vec4<f32>(srgb_to_linear(layer_color), clamp(fog_amount, 0.0, 1.0));",
+            "let fog = atmosphere(world_position);",
+            "return mix(color, fog.rgb, fog.a);",
         ] {
             assert!(WORLD_SHADER_SRC.contains(needle), "missing {needle}");
         }
@@ -5254,9 +5617,11 @@ mod tests {
         ] {
             assert!(WORLD_SHADER_SRC.contains(needle), "missing {needle}");
         }
-        // `fogged` reads the camera exactly once, for the distance. Regional
+        // `atmosphere` reads the camera exactly once, for distance. Regional
         // membership never consults the eye.
-        let start = WORLD_SHADER_SRC.find("fn fogged").expect("fogged exists");
+        let start = WORLD_SHADER_SRC
+            .find("fn atmosphere")
+            .expect("atmosphere exists");
         let tail = WORLD_SHADER_SRC
             .get(start..)
             .expect("fogged starts on a UTF-8 boundary");
@@ -5270,7 +5635,7 @@ mod tests {
         assert_eq!(
             body.matches("camera.position").count(),
             1,
-            "the only camera read in fogged() is the view distance"
+            "the only camera read in atmosphere() is view distance"
         );
         assert!(body.contains("length(camera.position - world_position)"));
     }

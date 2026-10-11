@@ -91,8 +91,8 @@ class PackageDestinationGuardTests(unittest.TestCase):
                     self.assertIn("refusing", result.stdout.lower())
 
     def test_unrelated_siblings_survive_a_real_packaging_run(self):
-        if os.environ.get("PLACES_SKIP_PACKAGING") == "1":
-            self.skipTest("PLACES_SKIP_PACKAGING=1")
+        if os.environ.get("PLACES_TEST_EXPORT") != "1":
+            self.skipTest("explicit export acceptance: set PLACES_TEST_EXPORT=1 after building maps")
         if not RELEASE_BINARY.is_file():
             self.skipTest(
                 "no release binary at target/release/places; "

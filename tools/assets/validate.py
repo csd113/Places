@@ -17,8 +17,8 @@ The checks here are the tooling half of the asset architecture:
   like the material's own ``texture``);
 * ``spooner-man`` is a single canonical entity resource under
   ``entities/spooner-man/``, never a duplicate prop file;
-* the shipped level in ``assets/levels/``, the drop-in levels in ``levels/``
-  and the engine regression fixtures in ``tests/fixtures/levels/`` only
+* maintained sources in ``levels/`` and engine regression fixtures in
+  ``tests/fixtures/levels/`` only
   reference ids the catalog declares, and their optional ``ceiling_lights[]``
   pool/emission fields, ``ceiling_lights[].enabled`` switch and
   ``props[].lights`` sources obey the documented shapes, dimensions and ranges;
@@ -51,7 +51,6 @@ PACKAGE_ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 ASSET_ROOT = os.path.join(PACKAGE_ROOT, "assets")
 CATALOG_PATH = os.path.join(ASSET_ROOT, "catalog.json")
 LEVEL_DIRS = (
-    os.path.join(ASSET_ROOT, "levels"),
     os.path.join(PACKAGE_ROOT, "levels"),
     os.path.join(PACKAGE_ROOT, "tests", "fixtures", "levels"),
 )
@@ -94,6 +93,10 @@ ACTION_TAGS = (
     "enable",
     "disable",
     "set_light",
+    "toggle_weather",
+    "set_weather_strength",
+    "set_weather_cycle",
+    "set_prompt",
     "lock",
     "unlock",
     "play_animation",
@@ -710,9 +713,9 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
             canonical = os.path.join(asset_root, model)
             if not os.path.isfile(canonical):
                 errors.append(f"spooner-man: canonical resource '{model}' is missing")
-            duplicate = os.path.join(asset_root, "props", "models", "spooner-man.glb")
+            duplicate = os.path.join(asset_root, "shared", "props", "spooner-man.glb")
             if os.path.isfile(duplicate):
-                errors.append("spooner-man: a duplicate copy exists at assets/props/models/spooner-man.glb")
+                errors.append("spooner-man: a duplicate copy exists at assets/shared/props/spooner-man.glb")
         if spooner.get("theme") is not None:
             errors.append("spooner-man: an entity must not carry an environment theme")
 
@@ -721,6 +724,9 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
 
 def level_ids(level: dict):
     """Yields ``(id, what)`` for every asset reference in a parsed level."""
+    sky = level.get("sky")
+    if isinstance(sky, dict) and sky.get("texture"):
+        yield str(sky["texture"]).strip(), "sky texture"
     defaults = level.get("defaults") or {}
     for key in ("wall", "floor", "ceiling"):
         if defaults.get(key):
@@ -824,9 +830,10 @@ def level_ids(level: dict):
             f"effects[{index}] material",
         )
 
-    weather = level.get("weather")
-    if isinstance(weather, dict):
-        yield str(weather.get("material", "core:snowflake_01")).strip(), "weather material"
+    for name in ("weather", "weather_alternate"):
+        weather = level.get(name)
+        if isinstance(weather, dict):
+            yield str(weather.get("material", "core:snowflake_01")).strip(), f"{name} material"
 
 
 def validate_doors(level: dict, where: str, errors: list[str]) -> None:
@@ -874,9 +881,111 @@ def validate_doors(level: dict, where: str, errors: list[str]) -> None:
             errors.append(f"{where}: door {index} obstruction must be 'stop' or 'reverse'")
 
 
+def validate_environment(level: dict, where: str, errors: list[str]) -> None:
+    """Mirror environment.rs defaults, strict field names and authored bounds."""
+    environment = level.get("environment")
+    if environment is None:
+        return
+    if not isinstance(environment, dict):
+        errors.append(f"{where}: environment must be an object")
+        return
+    if environment.keys() - {"presentation", "fog"}:
+        errors.append(f"{where}: unknown environment fields: {sorted(environment.keys() - {'presentation', 'fog'})}")
+    sections = (
+        ("presentation", (("exposure", 1.0, .125, 8.0),
+                          ("tone_knee", .75, .25, .95),
+                          ("saturation", 1.03, .8, 1.2),
+                          ("contrast", 1.02, .8, 1.2))),
+        ("fog", (("density", .0095, 0.0, .5),
+                 ("reference_y", 2.0, -10_000.0, 10_000.0),
+                 ("height_gain", .045, 0.0, 1.0))),
+    )
+    for name, fields in sections:
+        section = environment.get(name, {})
+        if not isinstance(section, dict):
+            errors.append(f"{where}: environment {name} must be an object")
+            continue
+        allowed = {key for key, _, _, _ in fields}
+        if name == "fog":
+            allowed.add("color")
+        if section.keys() - allowed:
+            errors.append(f"{where}: unknown environment {name} fields: {sorted(section.keys() - allowed)}")
+        for key, default, low, high in fields:
+            value = section.get(key, default)
+            if not is_finite_number(value) or not low <= value <= high:
+                errors.append(f"{where}: environment {name} {key} must be finite in {low}..{high}")
+        if name == "fog" and not is_color_triplet(section.get("color", [.60, .63, .68])):
+            errors.append(f"{where}: environment fog color must have three finite sRGB channels in 0..1")
+
+
+def validate_sky(level: dict, where: str, errors: list[str]) -> None:
+    """SkyDef keeps permissive field names and bounded linear dome radiance."""
+    sky = level.get("sky")
+    if sky is None:
+        return
+    if not isinstance(sky, dict):
+        errors.append(f"{where}: sky must be an object")
+        return
+    texture = sky.get("texture")
+    if not isinstance(texture, str) or not _ASSET_ID.fullmatch(texture.strip()):
+        errors.append(f"{where}: sky texture must be a well-formed logical id")
+    for key, default, high in (("brightness", 1.0, 4.0), ("ambient", 0.0, 1.0)):
+        value = sky.get(key, default)
+        if not is_finite_number(value) or not 0.0 <= value <= high:
+            errors.append(f"{where}: sky {key} must be finite in 0..{high}")
+    color = sky.get("ambient_color")
+    if color is not None and not is_color_triplet(color):
+        errors.append(f"{where}: sky ambient_color must have three finite linear channels in 0..1")
+
+
 def validate_weather(level: dict, where: str, errors: list[str]) -> None:
     """Mirror the engine's bounded opt-in snow configuration."""
-    weather = level.get("weather")
+    if level.get("weather_alternate") is not None and level.get("weather") is None:
+        errors.append(f"{where}: weather_alternate requires authored default weather")
+    for name in ("weather", "weather_alternate"):
+        _validate_weather_config(level.get(name), level, f"{where}: {name}", errors)
+    cycle = level.get("weather_cycle")
+    if cycle is not None:
+        _validate_weather_cycle(cycle, f"{where}: weather_cycle", errors)
+        if not _weather_blendable(level):
+            errors.append(f"{where}: weather_cycle requires weather and weather_alternate with equal count and material")
+
+
+def _weather_blendable(level: dict) -> bool:
+    base, alternate = level.get("weather"), level.get("weather_alternate")
+    if not isinstance(base, dict) or not isinstance(alternate, dict):
+        return False
+    base_material = base.get("material", "core:snowflake_01")
+    alternate_material = alternate.get("material", "core:snowflake_01")
+    return (base.get("count", 1400) == alternate.get("count", 1400)
+            and isinstance(base_material, str) and isinstance(alternate_material, str)
+            and base_material.strip() == alternate_material.strip())
+
+
+def _validate_weather_cycle(cycle: object, where: str, errors: list[str]) -> None:
+    if not isinstance(cycle, dict):
+        errors.append(f"{where}: must be an object")
+        return
+    allowed = {"enabled", "min_strength", "max_strength", "period_seconds", "transition_seconds"}
+    if cycle.keys() - allowed:
+        errors.append(f"{where}: unknown fields: {sorted(cycle.keys() - allowed)}")
+    if not isinstance(cycle.get("enabled", False), bool):
+        errors.append(f"{where}: enabled must be a boolean")
+    for key, default, low, high in (("min_strength", 0, 0, 1), ("max_strength", 1, 0, 1),
+                                    ("period_seconds", 60, 1, 3600), ("transition_seconds", 4, 0, 300)):
+        value = cycle.get(key, default)
+        if not is_finite_number(value) or not low <= value <= high:
+            errors.append(f"{where}: {key} must be finite and {low}..{high}")
+    low, high = cycle.get("min_strength", 0), cycle.get("max_strength", 1)
+    if is_finite_number(low) and is_finite_number(high) and low >= high:
+        errors.append(f"{where}: min_strength must be less than max_strength")
+    period, transition = cycle.get("period_seconds", 60), cycle.get("transition_seconds", 4)
+    if is_finite_number(period) and is_finite_number(transition) and transition > period * .5:
+        errors.append(f"{where}: needs two transitions within its period")
+
+
+def _validate_weather_config(weather: object, level: dict, where: str, errors: list[str]) -> None:
+    """Both configurations obey the same bounds and preserve the same shelters."""
     if weather is None:
         return
     if not isinstance(weather, dict) or weather.get("kind") != "snow":
@@ -1670,6 +1779,9 @@ def _index_level_entities(level: dict, where: str, errors: List[str]) -> Dict:
         "groups": groups,
         "points": points,
         "prop_ids": prop_ids,
+        "weather_toggleable": level.get("weather") is not None and level.get("weather_alternate") is not None,
+        "weather_blendable": _weather_blendable(level),
+        "weather_cycle": level.get("weather_cycle") is not None,
     }
 
 
@@ -1764,7 +1876,28 @@ def _validate_actions(
                     f"`{tag}` requires {requirement}"
                 )
 
-        if tag in ("open", "close", "lock", "unlock"):
+        if tag == "toggle_weather":
+            if not index["weather_toggleable"]:
+                errors.append(f"{entry} ('toggle_weather') requires weather and weather_alternate")
+        elif tag == "set_weather_strength":
+            strength, duration = action.get("strength"), action.get("transition_seconds", 0)
+            if not is_finite_number(strength) or not 0 <= strength <= 1:
+                errors.append(f"{entry}: weather strength must be finite and 0..1")
+            if not is_finite_number(duration) or not 0 <= duration <= 300:
+                errors.append(f"{entry}: weather transition_seconds must be finite and 0..300")
+            if not index["weather_blendable"]:
+                errors.append(f"{entry} ('set_weather_strength') requires weather and weather_alternate with equal count and material")
+        elif tag == "set_weather_cycle":
+            if not isinstance(action.get("enabled"), bool):
+                errors.append(f"{entry}: set_weather_cycle enabled must be a boolean")
+            if not index["weather_cycle"]:
+                errors.append(f"{entry} ('set_weather_cycle') requires weather_cycle")
+        elif tag == "set_prompt":
+            prompt = action.get("prompt")
+            if not isinstance(prompt, str) or not prompt.strip():
+                errors.append(f"{entry} ('set_prompt') prompt must not be blank")
+            require("a target with an `interactable` component", lambda facts: facts["has_interactable"])
+        elif tag in ("open", "close", "lock", "unlock"):
             require("a door target", lambda facts: facts["is_door"])
         elif tag == "toggle":
             require(
@@ -2432,6 +2565,9 @@ def validate_water_shapes(level: dict, where: str, errors: List[str]) -> None:
             not is_finite_number(opacity) or not 0.0 <= opacity <= 1.0
         ):
             errors.append(f"{context} opacity must be a finite number between 0 and 1")
+        attenuation = volume.get("attenuation_per_metre", 0.0)
+        if not is_finite_number(attenuation) or not 0.0 <= attenuation <= 16.0:
+            errors.append(f"{context} attenuation_per_metre must be finite in 0..16")
         bottom = volume.get("bottom_y")
         surface = volume.get("surface_y")
         if bottom is not None and (
@@ -2693,6 +2829,8 @@ def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> 
             validate_interactions(level, relative, errors)
             validate_doors(level, relative, errors)
             validate_effects(level, relative, errors)
+            validate_environment(level, relative, errors)
+            validate_sky(level, relative, errors)
             validate_weather(level, relative, errors)
             validate_water_shapes(level, relative, errors)
             validate_floats(level, relative, errors)

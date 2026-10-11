@@ -116,9 +116,11 @@ where the bytes live:
 | `src/interact.rs` | Interaction targeting (ray/reach/occlusion), the aiming table derived from `interactable` components, door aim bounds and the world-anchored label/prompt emission |
 | `src/ui.rs` | The menu, level select and settings screens |
 | `assets/catalog.json` | The authoritative registry mapping every logical id to a file, material or generated resource |
-| `assets/environment/**`, `assets/core/**`, `assets/entities/**` | Shipped surfaces, decals, fixture faces, props and entity models (PNG/GLB) |
-| `assets/levels/` | Shipped compiled map packages (`.placesmap`) and their authoring sources |
-| `levels/` | Drop-in compiled packages (`.placesmap`), created on first run |
+| `assets/environments/**`, `assets/shared/**`, `assets/entities/**` | Shipped surfaces, decals, fixture faces, props and entity models (PNG/GLB) |
+| `assets/levels/` | Ignored compiled lineup packages, generated with `sh tools/build-maps.sh` |
+| `levels/` | Maintained source maps and the explicit `lineup.txt` build/export allowlist |
+| `tests/fixtures/levels/` | Focused compiler, movement and rendering source controls |
+| `<state-root>/levels/` | Imported compiled packages; the writable state root is platform-dependent |
 | `cache/` | Tooling cache: the Model Zoo generator stores model bounds and clip inspection results here; the player never creates it |
 | `tools/` | Deterministic asset, texture, prop and level generators and validators, including `tools/levels/build_model_zoo.py` (the catalog-driven zoo generator) and `tools/levels/build_capacity_fixtures.py` |
 

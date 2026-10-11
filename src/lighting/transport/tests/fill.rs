@@ -104,8 +104,8 @@ fn coloured_fill_preserves_moments_and_has_finite_probes_and_texels() {
 
 #[test]
 fn maintained_hallway_recessed_and_hanging_fixtures_cast_direct_pools() {
-    let level = LevelDef::from_json(include_str!("../../../../assets/levels/places_demo.json"))
-        .expect("demo");
+    let level =
+        LevelDef::from_json(include_str!("../../../../levels/places_demo.json")).expect("demo");
     let lighting = LevelLighting::bake(&level);
     let empty = TransportScene::new(Vec::new(), Vec::new()).expect("scene");
     for (label, x, z) in [

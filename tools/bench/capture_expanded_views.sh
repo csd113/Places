@@ -12,7 +12,7 @@
 #         sh tools/bench/capture_expanded_views.sh
 #
 # The view list is a comment-annotated superset of the canonical features; it
-# never replaces docs/renderer-baseline/. Views are pinned the same way:
+# never replaces tests/fixtures/native/gles2-reference/. Views are pinned the same way:
 # `spawn` is x,z[,yaw] (or x,y,z,yaw) and `camera` is the absolute
 # PLACES_CAMERA yaw,pitch override, which needs PLACES_BENCH=1. Yaw points
 # where the camera looks: 0 = -Z, 90 = +X, 180 = +Z, 270 = -X.

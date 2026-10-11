@@ -1,5 +1,8 @@
 # Places desktop finalization — 2026-10-02
 
+Historical acceptance: 2026-10-02 native desktop finalization. Measurements, package identities and limits below
+describe that tested version. The canonical guides govern the current checkout.
+
 Lantern Hollow is playable, compiled and visually verified in the native Metal
 renderer. The previously blocked presentation checks now pass with zero skips.
 All four bundled packages are current and decode. The movement owner's completed
@@ -9,26 +12,20 @@ zero skips. A fresh-release Python follow-up closes a discovered binary-order
 gap. The saved Rust 1.99 executable also passes native showcase captures, quality
 recovery and all 16 final presented performance cases.
 
-## Current checkout and launch
-
-The sole checkout is `/Users/connordawkins/Documents/GitHub/Places`, on `working`.
-The showcase was already merged into `main` at
-`a53696eed70b45b397f83dc58265aeeb740158a5`. Subsequent map, movement and compiler
-work stays on `working` under the later branch restriction. No main update,
-release, auto-merge or new branch is part of this finalization.
+## Launch
 
 ```sh
-/Users/connordawkins/Documents/Codex/Recovery/Places-finalization-2026-10-02/launch-lantern-hollow.sh
+git lfs install
+git lfs pull
+cargo build --release
+PLACES_ASSET_ROOT="$PWD" PLACES_LEVEL=lantern_hollow ./target/release/places
 ```
 
-The saved executable loads assets/packages from the sole checkout and remains
-runnable after build cleanup. To rebuild from source, run `cargo build --release`
-there, then `PLACES_ASSET_ROOT="$PWD" PLACES_LEVEL=lantern_hollow ./target/release/places`.
-
-The Level Select menu also exposes **Lantern Hollow** and the new **Movement Test**.
-WASD moves, mouse looks, E operates doors, Space jumps, and C crouches. The
-default-off **Use Low-quality lighting** graphics option retains selected texture
-quality and recovers baked lighting when disabled.
+Level Select exposes Lantern Hollow and Movement Test. WASD moves, mouse looks,
+E operates doors, Space jumps and C crouches. The default-off Low-lighting
+override retains selected texture quality and recovers baked lighting when
+disabled. These dated results describe the saved Rust 1.99 control, not a
+current-package identity assertion.
 
 ## Final authored content
 
@@ -52,13 +49,9 @@ The prior receiver-coordinate, model-chart and package-bound fixes remain in
 place. Lighting comes from the compiler's visibility-tested HDR surface transport
 and the established animated probe path. No brightness floor or compensating
 emissive treatment is introduced. Later road/porch repairs and the movement
-handoff's physical water rim are retained.
+physical water rim are retained.
 
-## Movement handoff
-
-The movement owner completed its task before integration. Nineteen incoming
-files, including all four compiled packages, were copied outside the repository
-and SHA256-verified before commit `07e03d9`.
+## Movement integration
 
 The changes repair falling beyond authored floor edges, candidate-support
 headroom, crossed-top landing, stair pitchline descent, airborne body collision,
@@ -121,11 +114,6 @@ other-project activity is not controlled. Earlier pre-upgrade runs had an unrela
 benchmark occupying a CPU core; they are retained separately rather than used in
 this final table. No compiler-upgrade performance gain is claimed.
 
-Raw JSON, frame CSVs, logs, load traces and non-sensitive CPU process metadata are
-preserved under recovery `qa/showcase-performance-rust199/` and its adjacent log.
-The helper in recovery `helpers/night_showcase_bench.py` accepts the retained
-binary and a fresh output directory without depending on deleted capture state.
-
 ## Rust 1.99.0
 
 `rust-toolchain.toml` selects exact `1.99.0`, minimal profile plus Clippy and
@@ -136,10 +124,7 @@ policy relaxation is required. No existing CI configuration is present.
 Compiler-introduced strict lint diagnostics are fixed using fused arithmetic,
 eligible const functions, typed empty comparisons, standard tuple/array
 conversions and shared success branches. Regression expectations use the same
-numeric formulas. Commits `06819a7` and `1fb1be2` contain these changes; the user
-made the former GitHub Desktop commit while work was in progress, and its existing
-title is retained. Its contents are compiler/lint changes rather than an additional
-map geometry repair.
+numeric formulas. Commits `06819a7` and `1fb1be2` contain the compiler/lint changes.
 
 Strict formatting and full-policy Clippy pass. Canonical validation is invoked
 with bounded concurrency and optimized test code, retaining debug assertions:
@@ -169,7 +154,7 @@ application and passed in 387.247 seconds. The final GPU and 36 native tests alr
 used that new executable. Shell syntax and diff checks pass. This follow-up closes
 the stale-binary gap without repeating the unchanged expensive Rust suite.
 
-## Packages and preservation
+## Dated package identities
 
 | Package | Bytes | SHA256 retained through upgrade |
 |---|---:|---|
@@ -184,28 +169,7 @@ these exact bytes; no lighting solver revision
 or discretionary rebake is introduced for lint fixes. The Lantern/Demo packages
 use Git LFS. A fresh clone needs `git lfs install` and `git lfs pull`.
 
-Persistent recovery root:
-`/Users/connordawkins/Documents/Codex/Recovery/Places-finalization-2026-10-02`.
-It already contains verified incoming changes and pre-upgrade binaries. Final
-1.99 binaries, screenshots and unique diagnostics are preserved there with the
-SHA256-verified `final-manifest.json` before authorized cleanup: 3,700 files and
-5,081,293,711 bytes verified. Cleanup runs only
-after all validation and preservation, with no process using this checkout's build
-output; it does not remove the saved executable or repository assets/packages.
-
-## Screenshot delivery and limits
-
-Fresh native PNGs are staged at
-`/Users/connordawkins/Documents/Codex/2026-10-01/task/showcase-final-delivery-20261002`:
-overview, street, campfire, pond, furnished interior, sheet cat and human ghost,
-plus the earlier matching interior before image. The seven final images are refreshed native 3024×1676 captures from the saved
-Rust 1.99 executable; the before image is explicitly historical.
-
-The current unmodified Library upload helper failed during authenticated
-`tools/list` discovery with `TLS`. No prepare, transfer, write or finalization
-occurred; no fresh Library IDs exist. The request retains the five original
-replacement identities/version guards. Existing Library images are not described
-as these final captures, and no TLS bypass was attempted.
+## Scope limits
 
 Fire has five animated flames and supported point illumination; smoke, embers
 and audio are not added. Animated characters retain probe lighting without dynamic

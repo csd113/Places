@@ -46,6 +46,24 @@ impl Renderer {
         WgpuRenderer::new(window).map(|renderer| Self { renderer })
     }
 
+    /// Selects an opt-in development view independently of authored content.
+    ///
+    /// # Errors
+    /// Returns a supported-name list or an explicit unavailable-data reason.
+    #[cfg(feature = "visual-diagnostics")]
+    pub fn set_visual_diagnostic(&mut self, selector: &str) -> Result<(), String> {
+        let mode = super::wgpu::diagnostics::VisualDiagnosticMode::parse(selector)?;
+        self.renderer.set_visual_diagnostic(mode);
+        Ok(())
+    }
+
+    /// Cycles the stable development-view order without reloading resources.
+    #[cfg(feature = "visual-diagnostics")]
+    pub fn cycle_visual_diagnostic(&mut self) {
+        let mode = self.renderer.visual_diagnostic().next();
+        self.renderer.set_visual_diagnostic(mode);
+    }
+
     /// Builds a window-free renderer for the offline probe capture.
     ///
     /// Used only by `places-compile`: the player always owns a window. The
@@ -375,6 +393,29 @@ impl Renderer {
     /// Enables or disables one authored effect emitter at runtime.
     pub fn set_effect_enabled(&mut self, authored_index: usize, enabled: bool) -> bool {
         self.renderer.set_effect_enabled(authored_index, enabled)
+    }
+
+    /// Selects the already prepared alternate weather, retaining the world.
+    pub fn set_weather_alternate(&mut self, alternate: bool) -> bool {
+        self.renderer.set_weather_alternate(alternate)
+    }
+
+    pub fn set_weather_strength(&mut self, strength: f32, transition_seconds: f32) -> bool {
+        self.renderer
+            .set_weather_strength(strength, transition_seconds)
+    }
+
+    pub fn set_weather_cycle(&mut self, enabled: bool) -> bool {
+        self.renderer.set_weather_cycle(enabled)
+    }
+
+    pub fn update_weather(&mut self, delta_seconds: f32) {
+        self.renderer.update_weather(delta_seconds);
+    }
+
+    #[must_use]
+    pub const fn weather_state(&self) -> (f32, f32, bool) {
+        self.renderer.weather_state()
     }
 
     /// Advances every animated character's pose and re-uploads the ones that

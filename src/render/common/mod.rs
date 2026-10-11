@@ -2,7 +2,7 @@ use std::cell::RefCell;
 
 use crate::level::{
     FloorPatchDef, LevelDef, LevelSurfaces, MaterialRef, PropDef, RoomDef, RoomFloorGrid, WallAxis,
-    WallDef, WallSlice, wall_solid_slices_profiled,
+    WallDef, WallSlice,
 };
 use crate::lighting::lightmap::{LightmapPlan, PatchKind};
 use crate::lighting::{LevelLighting, LightColor, wall_light_segments};
@@ -18,6 +18,7 @@ pub mod decals;
 pub mod doors;
 pub mod dynamic;
 pub mod dynamic_lights;
+pub mod dynamic_visibility;
 pub mod effects;
 pub mod fixtures;
 pub mod framebuffer;
@@ -71,7 +72,7 @@ pub use mesh::{
     dequantize_unit, spatial_cell_grid,
 };
 pub use mesh::{MeshChunk, MeshPacker, finish_indexed_mesh};
-pub use probe_filter::{MAX_PROBE_MIPS, mip_levels_for, prefilter_cube};
+pub use probe_filter::{MAX_PROBE_MIPS, mip_levels_for, prefilter_hdr_cube};
 pub use props::{PropMeshBatch, PropSubmeshBatch};
 
 /// Near and far plane of the scene projection, in metres.
@@ -256,9 +257,9 @@ const LIGHT_FACE_PROBE_M: f32 = crate::lighting::WALL_FACE_PROBE_M;
 /// Multiplies one shaded colour by the baked illumination colour, per channel.
 fn shade(base: [f32; 3], light: LightColor) -> [f32; 3] {
     [
-        (base[0] * light.r).clamp(0.0, 1.0),
-        (base[1] * light.g).clamp(0.0, 1.0),
-        (base[2] * light.b).clamp(0.0, 1.0),
+        (base[0] * light.r).max(0.0),
+        (base[1] * light.g).max(0.0),
+        (base[2] * light.b).max(0.0),
     ]
 }
 
@@ -724,8 +725,14 @@ const WALL_COINCIDENCE_EPS: f32 = 1e-3;
 /// It is folded into both compiler fingerprints so a stale mesh and the
 /// lightmaps baked against it are rebuilt instead of reused. 1 =
 /// pre-cap-coincidence, 2 = coplanar cap ownership by the earliest authored
-/// wall; 3 = endpoint-centred atlas UVs and reflected static-model winding.
-pub const GEOMETRY_REVISION: u32 = 3;
+/// wall; 3 = endpoint-centred atlas UVs and reflected static-model winding;
+/// 4 = linear colour interpretation and flat fallback model attributes;
+/// 5 = inclusive receiver endpoints and consistent boundary-roof ownership;
+/// 6 = incident-HDR water floor charts and folded circular fan quads;
+/// 7 = exact wall-span endpoint maxima from the span's own roof;
+/// 8 = native shared static-model charts and finer bounded physical sampling.
+/// 9 = neighbor-clipped ramp sides, including partial footprints and crossings.
+pub const GEOMETRY_REVISION: u32 = 9;
 
 /// One material run of a coalesced wall group: a rectangle in the group's own
 /// (length, height) space over which the visible material is constant.
@@ -826,14 +833,7 @@ impl WallUnit<'_> {
     /// already resolved by [`coalesce_wall_group`].
     fn slices(&self, surfaces: &LevelSurfaces<'_>) -> Vec<WallSlice> {
         match self {
-            Self::Plain { wall, index: _ } => {
-                let breaks = surfaces.wall_profile_breaks(wall);
-                wall_solid_slices_profiled(
-                    wall,
-                    |offset| surfaces.clear_ceiling_height_along(wall, offset),
-                    &breaks,
-                )
-            }
+            Self::Plain { wall, index: _ } => surfaces.wall_solid_slices(wall),
             Self::Coalesced {
                 slices,
                 members: _,
@@ -1241,12 +1241,7 @@ fn wall_coverage(
         WallAxis::X => origin_x,
         WallAxis::Z => origin_z,
     };
-    let breaks = surfaces.wall_profile_breaks(wall);
-    let slices = wall_solid_slices_profiled(
-        wall,
-        |offset| surfaces.clear_ceiling_height_along(wall, offset),
-        &breaks,
-    );
+    let slices = surfaces.wall_solid_slices(wall);
     let mut solids: Vec<(f32, f32, f32, f32)> = slices
         .iter()
         .map(|slice| {
@@ -1484,12 +1479,7 @@ fn group_member_solids(
             WallAxis::X => origin_x,
             WallAxis::Z => origin_z,
         };
-        let breaks = surfaces.wall_profile_breaks(wall);
-        let slices = wall_solid_slices_profiled(
-            wall,
-            |offset| surfaces.clear_ceiling_height_along(wall, offset),
-            &breaks,
-        );
+        let slices = surfaces.wall_solid_slices(wall);
         for slice in slices {
             solids.push(MemberSolid {
                 index: *index,

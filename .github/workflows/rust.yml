@@ -15,23 +15,106 @@ concurrency:
 jobs:
   rust:
     runs-on: macos-15
-    timeout-minutes: 45
+    outputs:
+      map_ids: ${{ steps.lineup.outputs.map_ids }}
+    # The cold strict gate already takes ~34 minutes. Source-only archive
+    # regressions now bake real Full packages rather than reading Git outputs.
+    timeout-minutes: 180
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           lfs: true
           persist-credentials: false
-      - name: Verify bundled map archives
+      - name: Require source-only map checkout
         run: |
-          for package in assets/levels/*.placesmap; do
-            unzip -tq "$package"
-          done
+          tracked_packages=$(git ls-files '*.placesmap')
+          if [ -n "$tracked_packages" ]; then
+            printf 'Compiled maps must remain untracked:\n%s\n' "$tracked_packages" >&2
+            exit 1
+          fi
       - name: Install native build dependencies
         run: brew install sdl3 pkg-config
       - name: Select repository toolchain
         run: rustup show active-toolchain
       - name: Format, check, lint and test
         run: sh tools/check-rust.sh
+      - name: Install source-check dependencies
+        run: |
+          python3 -m venv "$RUNNER_TEMP/places-python"
+          "$RUNNER_TEMP/places-python/bin/python3" -m pip install Pillow numpy
+          echo "$RUNNER_TEMP/places-python/bin" >> "$GITHUB_PATH"
+      - name: Check authored assets and generators
+        run: |
+          python3 tools/assets/validate.py
+          python3 tools/props/build.py --check
+          python3 tools/entities/author_halloween_assets.py --check
+          python3 tools/entities/check_clip_boundaries.py
+          python3 tools/levels/build_outdoor_fixture.py --check
+          python3 tools/levels/build_outdoor_route.py --check
+          python3 tools/levels/build_lantern_hollow.py --check
+          python3 tools/levels/build_lighting_quality.py --check
+          python3 tools/levels/build_winter.py --check
+          python3 tools/levels/build_beach.py --check
+          python3 tools/levels/build_frutiger_aero.py --check
+          python3 tools/textures/frutiger_aero_art.py --check
+          python3 tools/levels/build_capacity_fixtures.py --check
+      - name: Test source Python contracts
+        env:
+          PLACES_SKIP_SMOKE: '1'
+        run: python3 -m unittest discover -s tests -p 'test_*.py'
       - name: Check patch whitespace
         run: git diff --check
+      - name: Discover the validated curated lineup
+        id: lineup
+        run: |
+          map_ids=$(python3 tools/levels/compile.py --list-json)
+          printf 'map_ids=%s\n' "$map_ids" >> "$GITHUB_OUTPUT"
+
+  curated-maps:
+    needs: rust
+    strategy:
+      fail-fast: false
+      matrix:
+        map: ${{ fromJSON(needs.rust.outputs.map_ids) }}
+    runs-on: ubuntu-24.04
+    container: debian:trixie
+    # Independent maps retain normal Off/Medium/Full builds and probe capture.
+    # Software Vulkan supplies a headless adapter on ordinary hosted runners.
+    timeout-minutes: 120
+    env:
+      CARGO_BUILD_JOBS: '2'
+    steps:
+      - name: Install compiler and capture dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential ca-certificates curl git git-lfs pkg-config \
+            libsdl3-dev libvulkan1 mesa-vulkan-drivers python3
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          lfs: true
+          persist-credentials: false
+      - name: Install repository Rust toolchain
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o "$RUNNER_TEMP/install-rust.sh"
+          sh "$RUNNER_TEMP/install-rust.sh" -y --profile minimal --default-toolchain none
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - name: Select software Vulkan capture
+        run: |
+          mkdir -p "$RUNNER_TEMP/places-runtime"
+          chmod 700 "$RUNNER_TEMP/places-runtime"
+          echo "XDG_RUNTIME_DIR=$RUNNER_TEMP/places-runtime" >> "$GITHUB_ENV"
+          driver=$(python3 -c 'from pathlib import Path; paths = sorted(Path("/usr/share/vulkan/icd.d").glob("lvp_icd*.json")); assert len(paths) == 1, paths; print(paths[0])')
+          echo "VK_ICD_FILENAMES=$driver" >> "$GITHUB_ENV"
+      - name: Build current release compiler
+        run: cargo build --locked --release --bin places-compile
+      - name: Compile and validate the curated map
+        run: python3 tools/levels/compile.py --map '${{ matrix.map }}' --workers 2
+      - name: Test compiled map and weather contracts
+        env:
+          PLACES_PACKAGE_TEST_IDS: ${{ matrix.map }}
+        run: |
+          PLACES_WEATHER_PACKAGE_DIR="$PWD/assets/levels" \
+            python3 -m unittest tests.built_maps tests.test_weather.PackagedWeatherTests

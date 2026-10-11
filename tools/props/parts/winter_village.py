@@ -5,7 +5,7 @@ from parts.refreshed import load_atlas_from, solid_box
 from parts.outdoor_remade import rings, limb, fit
 from parts.winter import _strip, SNOW
 
-ROOT = Path(__file__).resolve().parents[3] / 'assets/environment/winter/props/models'
+ROOT = Path(__file__).resolve().parents[3] / 'assets/environments/winter/props'
 WHITE = (255, 255, 255)
 SIZES = {
     'stone_wall_snow': (2.4, 1.10, .5),
@@ -117,7 +117,8 @@ def hood(p):
     snow(p)
     # Only the projecting nose lies beyond the main roof's shelter. The
     # inner roof and wall brackets remain bare timber.
-    _strip(p, 1.94, .125, .30, z=.30, y=.445-(.08/.78)*.30, slope=.08/.78)
+    _strip(p, 1.94, .125, .30, z=.30, y=.445-(.08/.78)*.30, slope=.08/.78,
+           base_sink=.008)
     fit(p)
     p.add_note('projecting closed timber hood, two diagonal supports and thick snow roof; high side faces the wall (-Z)')
 

@@ -1,7 +1,7 @@
 //! Post-processing: the offscreen scene target, the emissive pass, the two
 //! bloom blurs, the resolve and the plain present copy.
 //!
-//! The world renders into an RGBA8 scene texture, which these passes turn
+//! The world renders into a linear RGBA16F scene texture, which these passes turn
 //! into a display image:
 //!
 //! ```text
@@ -15,13 +15,10 @@
 //! rebuilds the targets only when their size changes and the `encode_*` methods
 //! only append passes to the renderer's encoder.
 //!
-//! Colour space: every target here is raw `Rgba8Unorm` holding the reference's
-//! display-space values — scene, presented, emissive and both blur buffers —
-//! exactly like the reference's RGBA8 attachments. The world shader writes
-//! display values directly; only the final copy to the sRGB surface converts
-//! (`srgb_to_linear` in the present entry point). The presented image is the
-//! drawable, so the resolve and the HUD run at default-framebuffer resolution
-//! exactly like the reference.
+//! Scene, emission and blur targets remain linear HDR. Resolve applies exposure
+//! and the existing shoulder before sRGB encoding into the RGBA8 presented
+//! image. The HUD blends over that display image; the final surface copy
+//! preserves its bytes. Identity resolve still encodes linear scene colour.
 //!
 //! The resolve's five parameters are authored constants
 //! ([`PostSettings`]). The engine can only produce the three quality levels
@@ -60,21 +57,17 @@ pub const POST_BLUR_FRAGMENT_ENTRY: &str = "fs_blur";
 /// Vertex attribute location of the quad's `(x, y)` pair.
 pub const POST_ATTRIB_CORNER: u32 = 0;
 
-/// The scene target's format, and therefore the world pipeline format the
-/// scene pass must be built for.
-///
-/// Raw (non-sRGB), like the reference's RGBA8 scene target: the world shader
-/// writes display-space values directly, so hardware alpha blending, filtering
-/// and the resolve all operate in the space OpenGL did.
-pub const SCENE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
+/// Encoded display image; the UI blends in this space.
+pub const PRESENTED_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
-/// The emissive target's format, and therefore the world emissive pipeline
-/// format: raw `Rgba8Unorm`, so `fs_emission`'s display-space output is stored
-/// with no transfer function, exactly like the reference's RGBA8 bloom source.
-pub const EMISSIVE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
+/// Linear HDR scene colour.
+pub const SCENE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
-/// Both blur targets' format: raw `Rgba8Unorm`, the same display space.
-pub const BLOOM_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
+/// Linear HDR emission, independent of environmental illumination.
+pub const EMISSIVE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
+
+/// Linear HDR blur targets, preserving emission energy above one.
+pub const BLOOM_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
 /// Vertices in [`PRESENT_QUAD`]: two triangles.
 pub const QUAD_VERTEX_COUNT: u32 = 6;
@@ -177,7 +170,7 @@ impl BlurParams {
         let width = dimension_f32(source.width).max(1.0);
         let height = dimension_f32(source.height).max(1.0);
         let texel = if horizontal {
-            [1.0 / width, 0.0, 0.0, 0.0]
+            [1.0 / width, 0.0, 1.0, 0.0]
         } else {
             [0.0, 1.0 / height, 0.0, 0.0]
         };
@@ -190,67 +183,24 @@ const POST_PARAMS_SIZE: u64 = super::buffer_element_bytes::<PostParams>();
 /// Bytes one [`BlurParams`] occupies.
 const BLUR_PARAMS_SIZE: u64 = super::buffer_element_bytes::<BlurParams>();
 
-/// The six parameter sets the engine can produce: the three quality levels
-/// with bloom off and on.
-///
-/// This is the whole space of [`PostSettings`] (`PostSettings::for_level` plus
-/// [`PostSettings::with_bloom`]), so one static uniform per entry covers every
-/// frame without a buffer write. Level-major order keeps each level's two slots
-/// adjacent.
-const RESOLVE_VARIANTS: [PostSettings; 6] = [
-    PostSettings::for_level(QualityLevel::Low).with_bloom(false),
-    PostSettings::for_level(QualityLevel::Low).with_bloom(true),
-    PostSettings::for_level(QualityLevel::Medium).with_bloom(false),
-    PostSettings::for_level(QualityLevel::Medium).with_bloom(true),
+/// Bloom-off/on uniforms, updated only when authored presentation changes.
+const RESOLVE_VARIANTS: [PostSettings; 2] = [
     PostSettings::for_level(QualityLevel::High).with_bloom(false),
     PostSettings::for_level(QualityLevel::High).with_bloom(true),
 ];
 
-/// Index of High's bloom-off slot in [`RESOLVE_VARIANTS`].
-const HIGH_RESOLVE_SLOT: usize = 4;
-
-/// Which fullscreen pass one frame's resolve selection records.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ResolvePath {
-    /// The settings are the identity: the plain scene copy, not a no-op
-    /// resolve.
     PresentCopy,
-    /// The resolve, with the uniform slot that carries these settings.
     Resolve(usize),
 }
 
-/// The uniform slot that carries exactly these settings, if any.
-#[must_use]
-// authored constants compared for identity, not measurements
-fn settings_slot(settings: PostSettings) -> Option<usize> {
-    RESOLVE_VARIANTS
-        .iter()
-        .position(|variant| *variant == settings)
-}
-
-/// The pass [`PostProcess::encode_resolve`] records for one frame.
-///
-/// The identity check is the neutral [`PostSettings::is_identity`], not a
-/// re-derivation; a bloom frame whose emissive stage did not run uses the same
-/// settings with the strength cleared, which is exactly the reference's
-/// `(0.0, scene)` fallback.
-#[must_use]
 fn resolve_path(settings: PostSettings, bloom_enabled: bool) -> ResolvePath {
     if settings.is_identity() {
-        return ResolvePath::PresentCopy;
-    }
-    let effective = if bloom_enabled && settings.blooms() {
-        settings
+        ResolvePath::PresentCopy
     } else {
-        settings.with_bloom(false)
-    };
-    ResolvePath::Resolve(settings_slot(effective).unwrap_or_else(|| {
-        logging::warn_once(
-            "wgpu-post-settings-unmatched",
-            "[wgpu] post settings are outside the level-derived set; using High",
-        );
-        HIGH_RESOLVE_SLOT.saturating_add(usize::from(effective.blooms()))
-    }))
+        ResolvePath::Resolve(usize::from(bloom_enabled && settings.blooms()))
+    }
 }
 
 /// The target sizes one `ensure` computes for a level and drawable.
@@ -336,11 +286,11 @@ impl PostLayouts {
 /// The blur always writes [`BLOOM_FORMAT`]. The resolve pipeline is raw (it
 /// writes the display-space presented image), while the present copy comes in
 /// two forms: the *raw* form writes the presented image again, and the
-/// *surface* form writes the sRGB surface with the one display-to-linear
-/// encode.
+/// *surface* form decodes display values before the hardware encode.
 struct PostPipelines {
     resolve_raw: wgpu::RenderPipeline,
     present_raw: wgpu::RenderPipeline,
+    linear_present_raw: wgpu::RenderPipeline,
     present: wgpu::RenderPipeline,
     blur: wgpu::RenderPipeline,
 }
@@ -364,7 +314,7 @@ impl PostPipelines {
                 &shader,
                 &layouts.resolve,
                 POST_RESOLVE_RAW_FRAGMENT_ENTRY,
-                SCENE_FORMAT,
+                PRESENTED_FORMAT,
             ),
             present_raw: build_pass_pipeline(
                 device,
@@ -372,7 +322,15 @@ impl PostPipelines {
                 &shader,
                 &layouts.present,
                 POST_PRESENT_RAW_FRAGMENT_ENTRY,
-                SCENE_FORMAT,
+                PRESENTED_FORMAT,
+            ),
+            linear_present_raw: build_pass_pipeline(
+                device,
+                "places-wgpu-linear-present-raw",
+                &shader,
+                &layouts.present,
+                "fs_linear_present_raw",
+                PRESENTED_FORMAT,
             ),
             present: build_pass_pipeline(
                 device,
@@ -518,6 +476,7 @@ pub struct PostProcess {
     quad_buffer: wgpu::Buffer,
     /// One uniform per [`RESOLVE_VARIANTS`] entry, in the same order.
     post_uniforms: Vec<wgpu::Buffer>,
+    uploaded_settings: [PostSettings; 2],
     surface_format: wgpu::TextureFormat,
     targets: Option<PostTargets>,
 }
@@ -531,7 +490,7 @@ impl PostProcess {
         if !surface_format_is_srgb(surface_format) {
             logging::warn_once(
                 "wgpu-post-surface-format",
-                "[wgpu] the surface format is not sRGB; the resolve and present passes assume the hardware encodes their output",
+                "[wgpu] the surface format is not sRGB; presentation copies encoded display values and direct 8-bit drawing uses software encoding",
             );
         }
         let layouts = PostLayouts::new(device);
@@ -566,8 +525,29 @@ impl PostProcess {
             ),
             quad_buffer,
             post_uniforms,
+            uploaded_settings: RESOLVE_VARIANTS,
             surface_format,
             targets: None,
+        }
+    }
+
+    /// A still level writes nothing; an authored change updates two 32-byte slots.
+    pub fn upload_settings(&mut self, queue: &wgpu::Queue, settings: PostSettings) {
+        let next = [settings.with_bloom(false), settings.with_bloom(true)];
+        for ((buffer, previous), value) in self
+            .post_uniforms
+            .iter()
+            .zip(&mut self.uploaded_settings)
+            .zip(next)
+        {
+            if *previous != value {
+                queue.write_buffer(
+                    buffer,
+                    0,
+                    bytemuck::bytes_of(&PostParams::from_settings(value)),
+                );
+                *previous = value;
+            }
         }
     }
 
@@ -587,7 +567,7 @@ impl PostProcess {
         if !surface_format_is_srgb(surface_format) {
             logging::warn_once(
                 "wgpu-post-surface-format",
-                "[wgpu] the surface format is not sRGB; the resolve and present passes assume the hardware encodes their output",
+                "[wgpu] the surface format is not sRGB; presentation copies encoded display values and direct 8-bit drawing uses software encoding",
             );
         }
         self.surface_format = surface_format;
@@ -727,11 +707,11 @@ impl PostProcess {
     ///
     /// The choice is [`PostSettings::is_identity`], exactly like the
     /// reference's `post.settings().is_identity()` branch: the identity path
-    /// copies the scene straight into the presented image, byte-identical.
+    /// encodes the linear scene into the presented image without grading.
     /// Otherwise the resolve adds the bloom image when `bloom_enabled` and the
     /// settings bloom, then applies exposure, the tone shoulder and the grade —
-    /// all in the display space the reference used. The presented image is
-    /// encoded once by [`Self::encode_present_to`].
+    /// in linear light, then encodes and applies the display grade. The final
+    /// surface copy preserves those encoded values.
     pub fn encode_resolve(
         &self,
         encoder: &mut wgpu::CommandEncoder,
@@ -747,7 +727,7 @@ impl PostProcess {
                 encoder,
                 "places-wgpu-present",
                 target,
-                &self.pipelines.present_raw,
+                &self.pipelines.linear_present_raw,
                 &targets.present_bind,
                 &self.quad_buffer,
             ),
@@ -823,6 +803,13 @@ impl PostProcess {
     #[must_use]
     pub fn presented_size(&self) -> Option<DrawableSize> {
         self.targets.as_ref().map(|targets| targets.presented_size)
+    }
+
+    /// Actual resident scene dimensions for the opt-in capture receipt.
+    #[cfg(feature = "visual-diagnostics")]
+    #[must_use]
+    pub fn diagnostic_scene_size(&self) -> Option<DrawableSize> {
+        self.targets.as_ref().map(|targets| targets.scene_size)
     }
 
     /// True when the scene target exists at the size the last [`Self::ensure`]
@@ -1002,7 +989,7 @@ impl PostProcess {
             device,
             "places-wgpu-presented",
             presented_size,
-            SCENE_FORMAT,
+            PRESENTED_FORMAT,
             attachment,
         );
         let present_bind = self.present_bind(device, &scene_view);
@@ -1113,7 +1100,7 @@ fn create_uniform_buffer<T: Pod>(device: &wgpu::Device, label: &str, value: &T) 
     device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some(label),
         contents: bytemuck::bytes_of(value),
-        usage: wgpu::BufferUsages::UNIFORM,
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
     })
 }
 
@@ -1152,21 +1139,21 @@ mod tests {
     }
 
     #[test]
-    fn the_scene_target_is_raw_display_space() {
-        assert_eq!(SCENE_FORMAT, wgpu::TextureFormat::Rgba8Unorm);
+    fn the_scene_target_retains_linear_hdr() {
+        assert_eq!(SCENE_FORMAT, wgpu::TextureFormat::Rgba16Float);
         assert!(
             !SCENE_FORMAT.is_srgb(),
-            "the world shader writes the reference's display values directly"
+            "the world shader writes linear radiance directly"
         );
     }
 
     #[test]
-    fn the_bloom_chain_is_raw_display_space() {
-        assert_eq!(EMISSIVE_FORMAT, wgpu::TextureFormat::Rgba8Unorm);
-        assert_eq!(BLOOM_FORMAT, wgpu::TextureFormat::Rgba8Unorm);
+    fn the_bloom_chain_retains_linear_hdr() {
+        assert_eq!(EMISSIVE_FORMAT, wgpu::TextureFormat::Rgba16Float);
+        assert_eq!(BLOOM_FORMAT, wgpu::TextureFormat::Rgba16Float);
         assert!(
             !EMISSIVE_FORMAT.is_srgb() && !BLOOM_FORMAT.is_srgb(),
-            "the emissive and blur targets are raw like the reference's RGBA8 chain"
+            "emission and blur preserve linear HDR energy"
         );
         assert!(
             DEPTH_FORMAT.has_depth_aspect(),
@@ -1267,13 +1254,13 @@ mod tests {
     fn the_blur_steps_one_source_texel() {
         // Pass 1 reads the scene-sized emissive image, horizontally.
         let horizontal = BlurParams::step(DrawableSize::new(960, 544), true);
-        assert_eq!(horizontal.texel, [1.0 / 960.0, 0.0, 0.0, 0.0]);
+        assert_eq!(horizontal.texel, [1.0 / 960.0, 0.0, 1.0, 0.0]);
         // Pass 2 reads quarter-size buffer A, vertically.
         let vertical = BlurParams::step(DrawableSize::new(240, 136), false);
         assert_eq!(vertical.texel, [0.0, 1.0 / 136.0, 0.0, 0.0]);
         // A degenerate source still steps by a whole texel, never by zero.
         let degenerate = BlurParams::step(DrawableSize::new(0, 0), true);
-        assert_eq!(degenerate.texel, [1.0, 0.0, 0.0, 0.0]);
+        assert_eq!(degenerate.texel, [1.0, 0.0, 1.0, 0.0]);
     }
 
     #[test]
@@ -1307,13 +1294,13 @@ mod tests {
     fn the_resolve_wgsl_is_the_reference_expression() {
         for token in [
             "if (post.bloom_strength > 0.0) {",
-            "color *= post.exposure;",
-            "vec3<f32>(post.tone_knee)",
+            "color = max(color * post.exposure, vec3<f32>(0.0));",
+            "let peak = max(color.r, max(color.g, color.b));",
             "max(1.0 - post.tone_knee, 1.0e-3)",
             "vec3<f32>(0.2126, 0.7152, 0.0722)",
             "mix(vec3<f32>(luma), color, post.grade_saturation)",
             "clamp((color - 0.5) * post.grade_contrast + 0.5, vec3<f32>(0.0), vec3<f32>(1.0))",
-            "return vec4<f32>(srgb_to_linear(color), 1.0);",
+            "color = linear_to_srgb(color);",
         ] {
             assert!(
                 WGSL.contains(token),
@@ -1368,42 +1355,29 @@ mod tests {
     }
 
     #[test]
-    fn identity_settings_take_the_present_copy() {
-        let high_off = PostSettings::for_level(QualityLevel::High).with_bloom(false);
-        let high_on = PostSettings::for_level(QualityLevel::High).with_bloom(true);
-        let medium_off = PostSettings::for_level(QualityLevel::Medium).with_bloom(false);
-        let medium_on = PostSettings::for_level(QualityLevel::Medium).with_bloom(true);
-        let low_off = PostSettings::for_level(QualityLevel::Low).with_bloom(false);
-        let low_on = PostSettings::for_level(QualityLevel::Low).with_bloom(true);
-        // Low without bloom is the neutral type's identity, so it must take the
-        // plain copy no matter what the caller believes about bloom.
-        assert!(low_off.is_identity());
-        assert_eq!(resolve_path(low_off, false), ResolvePath::PresentCopy);
-        assert_eq!(resolve_path(low_off, true), ResolvePath::PresentCopy);
-        // High is never an identity: it resolves, with the bloom term gated by
-        // the caller's bloom state.
-        assert_eq!(resolve_path(high_off, false), ResolvePath::Resolve(4));
-        assert_eq!(resolve_path(high_on, true), ResolvePath::Resolve(5));
-        assert_eq!(resolve_path(high_on, false), ResolvePath::Resolve(4));
-        // Medium always resolves too: the tone shoulder alone needs the pass.
-        assert_eq!(resolve_path(medium_off, false), ResolvePath::Resolve(2));
-        assert_eq!(resolve_path(medium_on, true), ResolvePath::Resolve(3));
-        // Low with bloom resolves; without a valid bloom image it falls back to
-        // the strength-zero Low parameters, exactly the reference's `(0.0, scene)`.
-        assert_eq!(resolve_path(low_on, true), ResolvePath::Resolve(1));
-        assert_eq!(resolve_path(low_on, false), ResolvePath::Resolve(0));
-        // The six slots really are the level/bloom combinations, in order.
-        assert_eq!(settings_slot(low_off), Some(0));
-        assert_eq!(settings_slot(low_on), Some(1));
-        assert_eq!(settings_slot(medium_off), Some(2));
-        assert_eq!(settings_slot(medium_on), Some(3));
-        assert_eq!(settings_slot(high_off), Some(4));
-        assert_eq!(settings_slot(high_on), Some(5));
+    fn diagnostics_bypass_presentation_and_authored_settings_select_bloom_slots() {
         assert_eq!(
-            HIGH_RESOLVE_SLOT,
-            settings_slot(high_off).unwrap_or(usize::MAX),
-            "the fallback slot must be High's bloom-off slot"
+            resolve_path(PostSettings::DIAGNOSTIC, true),
+            ResolvePath::PresentCopy
         );
+        for quality in [QualityLevel::Low, QualityLevel::Medium, QualityLevel::High] {
+            let settings = PostSettings {
+                exposure: 1.25,
+                ..PostSettings::for_level(quality)
+            };
+            assert_eq!(
+                resolve_path(settings.with_bloom(false), true),
+                ResolvePath::Resolve(0)
+            );
+            assert_eq!(
+                resolve_path(settings.with_bloom(true), false),
+                ResolvePath::Resolve(0)
+            );
+            assert_eq!(
+                resolve_path(settings.with_bloom(true), true),
+                ResolvePath::Resolve(1)
+            );
+        }
     }
 
     #[test]
@@ -1436,6 +1410,40 @@ mod tests {
         for channel in clamped {
             assert_eq!(channel, 1.0);
         }
+    }
+
+    #[test]
+    fn highlight_shoulder_preserves_chroma_midtones_and_hdr_order() {
+        let map = |color: [f32; 3]| {
+            let peak = color.into_iter().fold(0.0_f32, f32::max);
+            let scale = tone_shoulder(peak, 0.75) / peak.max(1.0e-6);
+            color.map(|channel| channel * scale)
+        };
+        assert_eq!(map([0.6, 0.3, 0.15]), [0.6, 0.3, 0.15]);
+        let bright = map([4.0, 2.0, 1.0]);
+        assert!(bright[0] < 1.0 && bright[0] > 0.95);
+        assert!((bright[0] / bright[1] - 2.0).abs() < 1.0e-6);
+        assert!((bright[0] / bright[2] - 4.0).abs() < 1.0e-6);
+        assert!(map([8.0; 3])[0] > map([2.0; 3])[0]);
+        assert_eq!(map([0.0; 3]), [0.0; 3]);
+        assert!((tone_shoulder(0.751, 0.75) - 0.751).abs() < 0.00001);
+    }
+
+    #[test]
+    fn bloom_soft_knee_rejects_dim_emission_without_clipping_bright_energy() {
+        let extracted = |peak: f32| {
+            let soft = (peak - 0.5).clamp(0.0, 1.0);
+            (peak - 1.0).max(soft * soft * 0.5)
+        };
+        assert_eq!(extracted(0.0), 0.0);
+        assert_eq!(extracted(0.5), 0.0);
+        assert_eq!(extracted(1.0), 0.125);
+        assert_eq!(extracted(2.0), 1.0);
+        assert_eq!(extracted(8.0), 7.0);
+        assert!(
+            WGSL.contains("if (blur.texel.z < 0.5) { return color; }"),
+            "the second blur must not extract a second time"
+        );
     }
 
     #[test]

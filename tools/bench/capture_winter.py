@@ -29,7 +29,7 @@ out.mkdir(parents=True, exist_ok=True)
 manifest_path = out / 'manifest.json'
 manifest = json.loads(manifest_path.read_text()) if manifest_path.is_file() else []
 verification = subprocess.run([str(root / 'target/release/places-compile'), 'verify',
-                               str(root / 'assets/levels/winter.json'), '--package',
+                               str(root / 'levels/winter.json'), '--package',
                                str(root / 'assets/levels/winter.placesmap'), '--require-current',
                                '--asset-root', str(asset_root)],
                               cwd=root, check=False, text=True, stdout=subprocess.PIPE,

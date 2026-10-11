@@ -29,7 +29,7 @@ def board(level, x, z, length, yaw, y, height, material, thickness=.018):
 
 
 def main():
-    path=ROOT/"assets/levels/places_demo.json"
+    path=ROOT/"levels/places_demo.json"
     level=json.loads(path.read_text())
     for key in ("props","baseboards","thresholds","columns","floor_regions","decals"):
         level[key]=[p for p in level.get(key,[]) if not p.get("comment","").startswith(TAG)]

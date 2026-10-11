@@ -13,9 +13,9 @@ def load_atlas_from(p, source: Path, regions, keep_alpha: bool = False):
     """Load a square source PNG from an explicit path into ``p``.
 
     The themed packs keep their committed source art beside their GLBs (for
-    example ``assets/environment/home/props/models/plate.png``), so the loader
+    example ``assets/environments/home/props/plate.png``), so the loader
     takes the path rather than a name; :func:`load_atlas` is the core-pack
-    shorthand that resolves the name under ``assets/core/props/models``.
+    shorthand that resolves the name under ``assets/shared/props``.
 
     ``keep_alpha`` admits a cutout atlas (foliage cards): the alpha channel is
     preserved for the glTF ``MASK`` material instead of being rejected.
@@ -40,7 +40,7 @@ def load_atlas_from(p, source: Path, regions, keep_alpha: bool = False):
 
 
 def load_atlas(p, name, regions):
-    source = Path(__file__).resolve().parents[3] / "assets/core/props/models" / (name + ".png")
+    source = Path(__file__).resolve().parents[3] / "assets/shared/props" / (name + ".png")
     return load_atlas_from(p, source, regions)
 
 

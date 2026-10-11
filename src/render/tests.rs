@@ -308,6 +308,16 @@ fn test_shipped_surface_textures_tile() {
         ("pool_wall", "core:tex_pool_tile_wall_01"),
         ("pool_ceiling", "core:tex_pool_ceiling_01"),
         ("pool_water", "core:tex_pool_water_01"),
+        ("beach_sand", "beach:tex_sand_01"),
+        ("beach_water", "beach:tex_water_01"),
+        ("beach_rock", "beach:tex_rock_01"),
+        ("beach_stucco", "beach:tex_stucco_01"),
+        ("beach_wood", "beach:tex_wood_plank_01"),
+        ("beach_trunk", "beach:tex_palm_trunk_01"),
+        ("beach_leaf", "beach:tex_palm_leaf_01"),
+        ("beach_grass", "beach:tex_grass_01"),
+        ("beach_roof", "beach:tex_roof_yellow_01"),
+        ("beach_foam", "beach:tex_foam_01"),
     ] {
         let image = texture_image(texture);
         assert_axis_tiles(name, &image, true);
@@ -691,7 +701,7 @@ fn test_framebuffer_size_changes_update_scale() {
 
 #[test]
 fn test_build_geometry_from_the_shipped_demo() {
-    let json = include_str!("../../assets/levels/places_demo.json");
+    let json = include_str!("../../levels/places_demo.json");
     let level = LevelDef::from_json(json).expect("valid places_demo json");
     let mesh = build_level_geometry(&level);
     assert!(mesh.vertex_count != 0);
@@ -784,6 +794,7 @@ fn prepared_blend_decals_read_the_probe_field_and_cutout_decals_do_not() {
     let (mut mesh, _) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
     let lighting = LevelLighting::bake(&level);
     let field = crate::lighting::probes::ProbeField {
+        local_direct: None,
         min: [-10.0, -10.0, -10.0],
         cell_m: 40.0,
         dims: [1, 1, 1],
@@ -1986,19 +1997,28 @@ fn real_props_are_lit_per_vertex_and_stay_batched() {
         "instances across the room must not be uniformly lit: {min}..{max}"
     );
 
-    // Every vertex carries its model colour multiplied by the bake sampled
-    // at its own transformed world position. Instances are concatenated in
-    // placement order and each contributes the model's whole vertex array,
-    // so the model index wraps once per instance.
+    // Flat missing-NORMAL models contribute triangle corners; authored normals
+    // preserve the indexed source layout. Neither path may alter source UVs.
     let asset = assets
-        .resolve("environment/office/props/models/chair.glb")
+        .resolve("environments/office/props/chair.glb")
         .expect("chair loads");
     let model = &asset.model;
+    let flat = model.vertices.iter().any(|vertex| vertex.normal.is_none());
+    let per_instance = if flat {
+        model.indices.len()
+    } else {
+        model.vertices.len()
+    };
+    assert_eq!(vertices.len(), per_instance * 10);
     for (vertex_index, vertex) in vertices.iter().enumerate() {
-        // Instances contribute the model's own vertex array in order, so the
-        // model's index list is not needed to line a submitted vertex up
-        // with the vertex it came from.
-        let source = model.vertices[vertex_index % model.vertices.len()];
+        let corner = vertex_index % per_instance;
+        let source_index = if flat {
+            usize::from(model.indices[corner])
+        } else {
+            corner
+        };
+        let source = model.vertices[source_index];
+        assert_eq!(vertex.uv, source.uv);
         let light = lighting.sample(vertex.pos[0], vertex.pos[1], vertex.pos[2]);
         for channel in 0..3 {
             let expected = source.color[channel] * light.channel(channel);
@@ -2361,10 +2381,7 @@ fn real_prop_geometry_replaces_the_placeholder_box() {
     // The box placeholder is gone: the chair renders as real geometry.
     assert_eq!(mesh.batches.prop_batch.count, 0_i32);
     assert_eq!(batches.len(), 1, "one draw batch per distinct model");
-    assert_eq!(
-        batches[0].model,
-        "environment/office/props/models/chair.glb"
-    );
+    assert_eq!(batches[0].model, "environments/office/props/chair.glb");
     assert!(
         !batches[0].vertices.is_empty(),
         "batches[0].vertices must contain entries"
@@ -2500,13 +2517,15 @@ fn the_showcase_level_renders_every_core_prop_with_real_geometry() {
     // covers the outdoor theme's ground, lamps, tree and facade parts. Themes
     // organize content; this is the one place a "placed somewhere" check is
     // legitimate.
-    let pool_showcase = fixture_level("pool_showcase");
+    let pool_showcase =
+        crate::level::LevelDef::from_json(include_str!("../../levels/pool_showcase.json"))
+            .expect("Pool showcase parses");
     let outdoor_showcase = fixture_level("outdoor_kit_showcase");
     // The Halloween entity fixture covers the three Halloween entities (the
     // ordinary skeleton and the other existing entities stay in the generic
     // showcases).
     let halloween = fixture_level("halloween_entities");
-    let zoo = crate::level::LevelDef::from_json(include_str!("../../assets/levels/model_zoo.json"))
+    let zoo = crate::level::LevelDef::from_json(include_str!("../../levels/model_zoo.json"))
         .expect("generated Zoo parses");
     let mut used: std::collections::HashSet<&str> = std::collections::HashSet::new();
     used.extend(zoo.props.iter().map(|prop| prop.model.as_str()));
@@ -2630,7 +2649,7 @@ fn the_stress_level_batches_repeats_into_one_draw_per_model_and_cell() {
     let total_vertices: usize = batches.iter().map(|batch| batch.vertices.len()).sum();
     let total_indices: usize = batches.iter().map(|batch| batch.indices.len()).sum();
     // Cross-check the expansion: every placed instance contributes exactly
-    // one copy of its model's distinct vertices and one copy of its index
+    // the appropriate indexed or flat-triangle vertex layout and one index
     // list. The decoded asset is shared, so the cache only holds one copy
     // per model (proving instance reuse).
     let mut expected_vertices = 0usize;
@@ -2639,7 +2658,11 @@ fn the_stress_level_batches_repeats_into_one_draw_per_model_and_cell() {
         let entry = catalog.get(&prop.model);
         let path = entry.model.expect("stress props come from the catalogue");
         let model = &assets.resolve(&path).expect("model loads").model;
-        expected_vertices += model.vertices.len();
+        expected_vertices += if model.vertices.iter().any(|vertex| vertex.normal.is_none()) {
+            model.indices.len()
+        } else {
+            model.vertices.len()
+        };
         expected_indices += model.indices.len();
     }
     assert_eq!(total_vertices, expected_vertices);
@@ -2657,7 +2680,7 @@ fn the_stress_level_batches_repeats_into_one_draw_per_model_and_cell() {
     // spread across whatever cells they occupy, never duplicated per cell.
     let chair_vertices: usize = batches
         .iter()
-        .filter(|batch| batch.model == "environment/office/props/models/chair.glb")
+        .filter(|batch| batch.model == "environments/office/props/chair.glb")
         .map(|batch| batch.vertices.len())
         .sum();
     assert!(
@@ -4650,7 +4673,7 @@ fn a_wall_with_no_twin_is_emitted_exactly_as_authored() {
 
 /// The shipped official demo.
 fn shipped_demo() -> crate::level::LevelDef {
-    crate::level::LevelDef::from_json(include_str!("../../assets/levels/places_demo.json"))
+    crate::level::LevelDef::from_json(include_str!("../../levels/places_demo.json"))
         .expect("the shipped places_demo parses")
 }
 
@@ -5057,7 +5080,6 @@ fn vertex_in_some_chart(lightmaps: &LevelLightmaps, vertex: &Vertex) -> bool {
 
 #[test]
 fn the_demo_bakes_lightmaps_with_every_surface_vertex_charted() {
-    let level = shipped_demo();
     let build = demo_lightmap_build(crate::quality::QualityLevel::High);
     assert_eq!(build.lightmap_failure, None, "the demo must bake cleanly");
     let lightmaps = build
@@ -5078,24 +5100,9 @@ fn the_demo_bakes_lightmaps_with_every_surface_vertex_charted() {
 
     let mut surface_vertices = 0usize;
     let mut vertex_lit_vertices = 0usize;
-    // A water surface is deliberately vertex-lit on every build: its quad
-    // carries its baked light in the vertex colour and stays out of the atlas.
-    let water = logical_materials(&level)
-        .index_of(crate::level::DEFAULT_WATER_MATERIAL)
-        .expect("the demo's water material resolves");
     for range in &build.mesh.ranges {
         for vertex in &range.vertices {
             match range.key.kind {
-                SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall
-                    if range.key.material == water =>
-                {
-                    assert!(
-                        !vertex.is_lightmapped(),
-                        "a water volume draws vertex-lit by design"
-                    );
-                    assert_eq!(vertex.lightmap, [0, 0]);
-                    vertex_lit_vertices += 1;
-                }
                 SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall => {
                     assert!(
                         vertex.is_lightmapped(),
@@ -5146,7 +5153,7 @@ fn every_level_shares_the_patch_set_at_different_densities() {
     // fixture: it stays inside the two-page atlas at every density, so this
     // asserts the patch set and the density, not the page budget. Places Demo
     // is checked separately below, because it has grown past the Low atlas.
-    let level = fixture_level("home_showcase");
+    let level = home_showcase();
     let high = lightmap_build(&level, crate::quality::QualityLevel::High, LightmapMode::On);
     let medium = lightmap_build(
         &level,
@@ -5927,7 +5934,7 @@ fn the_dynamic_demonstration_machine_stays_a_static_prop() {
     // demonstration turns is spawned by `render::dynamic` at runtime and must
     // never appear in the level file -- and it is spawned *inside* the
     // machine, spinning in place behind the porthole.
-    let path = "assets/levels/places_demo.json";
+    let path = "levels/places_demo.json";
     let content = std::fs::read_to_string(path)
         .unwrap_or_else(|error| panic!("{path} must be readable: {error}"));
     let level = crate::level::LevelDef::from_json(&content)
@@ -5978,7 +5985,7 @@ fn the_dynamic_demonstration_drum_spins_inside_the_static_machine() {
     // its body: the transformed bounds stay within the machine's catalogue box
     // and behind its front panel, and the drum turns while the machine's
     // static transform does not move.
-    let path = "assets/levels/places_demo.json";
+    let path = "levels/places_demo.json";
     let content = std::fs::read_to_string(path)
         .unwrap_or_else(|error| panic!("{path} must be readable: {error}"));
     let level = crate::level::LevelDef::from_json(&content)
@@ -6081,6 +6088,8 @@ fn runtime_emissive_model() -> crate::gltf::PropModel {
         indices: vec![0, 1, 2],
         textures: Vec::new(),
         submeshes: vec![PropSubmesh {
+            double_sided: true,
+            response: crate::materials::MaterialResponse::NONE,
             alpha: crate::materials::MaterialAlpha::OPAQUE,
             material: 0,
             texture: None,
@@ -6289,15 +6298,9 @@ fn the_runtime_spawn_api_replaces_moves_and_despawns_by_key() {
     // panicking, and a direct path the asset cache resolves works like a
     // registry id.
     assert!(!renderer.spawn_runtime_model(9, "core:not_a_shipped_prop", [0.0; 3], 0.0, 1.0));
-    assert!(!renderer.spawn_runtime_model(
-        9,
-        "core/props/models/not_a_model.glb",
-        [0.0; 3],
-        0.0,
-        1.0
-    ));
+    assert!(!renderer.spawn_runtime_model(9, "shared/props/not_a_model.glb", [0.0; 3], 0.0, 1.0));
     assert_eq!(renderer.runtime_spawn_count(), 0);
-    assert!(renderer.spawn_runtime_model(9, "core/props/models/crate.glb", [0.0; 3], 0.0, 1.0));
+    assert!(renderer.spawn_runtime_model(9, "shared/props/crate.glb", [0.0; 3], 0.0, 1.0));
     assert_eq!(renderer.runtime_spawn_count(), 1);
     assert!(renderer.despawn_runtime_model(9));
     assert_eq!(renderer.runtime_spawn_count(), 0);
@@ -6367,51 +6370,21 @@ fn the_opaque_cutout_and_translucent_passes_are_decided_by_the_material() {
 }
 
 #[test]
-fn the_post_process_fallback_is_the_historical_presentation() {
+fn every_quality_uses_the_same_authored_presentation() {
     use super::common::postprocess::PostSettings;
-
-    // Low's level settings are the identity, so with bloom off the renderer
-    // presents the scene with the plain copy quad instead of resolving it.
-    // That is what keeps Low as cheap as the historical presentation; Bloom On
-    // (an independent player choice) makes Low pay for exactly the bloom
-    // resolve.
-    let low = PostSettings::for_level(crate::quality::QualityLevel::Low);
-    assert!(low.is_identity(), "Low without bloom can skip the resolve");
-    assert!(!low.blooms());
-    assert!(
-        low.with_bloom(true).blooms(),
-        "Low + Bloom On must run the bloom path"
-    );
-    // Medium keeps the tone shoulder but not the grade: it always resolves and
-    // its grade terms are the identity.
-    let medium = PostSettings::for_level(crate::quality::QualityLevel::Medium);
-    assert!(!medium.is_identity(), "Medium always resolves the shoulder");
-    assert!(medium.tone_knee < 1.0, "Medium keeps the tone shoulder");
-    assert!(
-        medium.grade_saturation == 1.0 && medium.grade_contrast == 1.0,
-        "only High grades"
-    );
     let high = PostSettings::for_level(crate::quality::QualityLevel::High);
-    assert!(!high.is_identity(), "High always resolves");
-    assert!(
-        !high.blooms(),
-        "bloom is a separate setting, not part of the level"
-    );
-    assert!(
-        high.with_bloom(true).blooms(),
-        "High + Bloom On runs the bloom path"
-    );
-    assert!(high.bloom_strength < 1.0, "bloom stays restrained");
-    assert!(
-        high.grade_saturation >= 1.0 && high.grade_saturation < 1.1,
-        "the grade is a trim, not a look: {}",
-        high.grade_saturation
-    );
-    assert!(
-        (0.5..1.0).contains(&high.tone_knee),
-        "the tone shoulder must leave the common range untouched: {}",
-        high.tone_knee
-    );
+    for quality in [
+        crate::quality::QualityLevel::Low,
+        crate::quality::QualityLevel::Medium,
+        crate::quality::QualityLevel::High,
+    ] {
+        let settings = PostSettings::for_level(quality);
+        assert_eq!(settings, high);
+        assert!(!settings.is_identity());
+        assert!(!settings.blooms());
+        assert!(settings.with_bloom(true).blooms());
+    }
+    assert!(PostSettings::DIAGNOSTIC.is_identity());
 }
 
 #[test]
@@ -7317,10 +7290,8 @@ fn the_demos_matte_linoleum_keeps_its_probe_and_its_material_default() {
 /// The committed Home showcase: every generic architectural piece and every
 /// Home material in one level.
 fn home_showcase() -> crate::level::LevelDef {
-    crate::level::LevelDef::from_json(include_str!(
-        "../../tests/fixtures/levels/home_showcase.json"
-    ))
-    .expect("the Home showcase fixture parses")
+    crate::level::LevelDef::from_json(include_str!("../../levels/home_showcase.json"))
+        .expect("the Home showcase fixture parses")
 }
 
 #[test]
@@ -7499,7 +7470,560 @@ fn test_the_home_showcase_draws_every_architectural_material() {
     assert!(seen, "the living room's baseboard must be drawn");
 }
 
+/// Small open-room fixtures exercise the public mesh path for both ramp axes.
+/// A distinct edge material isolates ramp skirts from adjacent region skirts.
+fn ramp_side_test_level(features: &str, axis: crate::level::WallAxis) -> LevelDef {
+    let mut authored: serde_json::Value = serde_json::from_str(
+        r#"{
+            "format_version": 3, "id": "ramp_join", "name": "Ramp Join",
+            "spawn": {"x": 1.0, "z": 1.0},
+            "rooms": [{"x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0,
+                       "height": 10.0, "floor_y": 3.0, "ceiling": {"kind": "open"}}]
+        }"#,
+    )
+    .expect("base ramp fixture parses");
+    let additions: serde_json::Value = serde_json::from_str(features).expect("ramp features parse");
+    for (key, value) in additions.as_object().expect("features are an object") {
+        authored[key] = value.clone();
+    }
+    for key in ["ramps", "floor_regions", "stairs"] {
+        let Some(pieces) = authored
+            .get_mut(key)
+            .and_then(serde_json::Value::as_array_mut)
+        else {
+            continue;
+        };
+        for piece in pieces {
+            if key == "ramps" {
+                piece["edge_material"] = serde_json::json!("core:wallpaper_stained_01");
+            }
+            if axis == crate::level::WallAxis::Z {
+                let x = piece["x"].clone();
+                let width = piece["width"].clone();
+                piece["x"] = piece["z"].clone();
+                piece["z"] = x;
+                piece["width"] = piece["depth"].clone();
+                piece["depth"] = width;
+            }
+        }
+    }
+    LevelDef::from_json(&authored.to_string()).expect("ramp side fixture parses")
+}
+
+/// Ramp edge triangles on one exact side plane, with their outward winding.
+fn ramp_side_test_triangles(
+    mesh: &LevelMesh,
+    level: &LevelDef,
+    axis: crate::level::WallAxis,
+    at: f32,
+    sign: f32,
+) -> Vec<[Vertex; 3]> {
+    let normal = match axis {
+        crate::level::WallAxis::X => [0.0, 0.0, sign],
+        crate::level::WallAxis::Z => [sign, 0.0, 0.0],
+    };
+    material_vertices(mesh, level, "core:wallpaper_stained_01")
+        .as_chunks::<3>()
+        .0
+        .iter()
+        .filter(|triangle| {
+            let on_plane = triangle.iter().all(|vertex| {
+                let across = match axis {
+                    crate::level::WallAxis::X => vertex.pos[2],
+                    crate::level::WallAxis::Z => vertex.pos[0],
+                };
+                (across - at).abs() < 1e-4
+            });
+            let [a, b, c] = triangle.map(|vertex| glam::Vec3::from(vertex.pos));
+            // Reciprocal-length normalization can round an axis component
+            // slightly below 1.0. Measure actual winding instead of filtering
+            // valid small wedges out through exact unit-normal equality.
+            on_plane && (b - a).cross(c - a).dot(glam::Vec3::from(normal)) > 0.0
+        })
+        .copied()
+        .collect()
+}
+
+fn ramp_side_test_area(triangles: &[[Vertex; 3]]) -> f32 {
+    triangles
+        .iter()
+        .map(|triangle| {
+            let [a, b, c] = triangle.map(|vertex| glam::Vec3::from(vertex.pos));
+            (b - a).cross(c - a).length() * 0.5
+        })
+        .sum()
+}
+
+#[test]
+fn adjacent_ramps_with_equal_surfaces_emit_no_shared_sides() {
+    for axis in [crate::level::WallAxis::X, crate::level::WallAxis::Z] {
+        let level = ramp_side_test_level(
+            r#"{"ramps": [
+                {"x": 2.0, "z": 2.0, "width": 6.0, "depth": 1.0, "offset_y": 1.0, "rise": 2.0},
+                {"x": 2.0, "z": 3.0, "width": 6.0, "depth": 1.0, "offset_y": 1.0, "rise": 2.0}
+            ]}"#,
+            axis,
+        );
+        let mesh = build_level_geometry(&level);
+        for sign in [-1.0_f32, 1.0] {
+            assert!(
+                ramp_side_test_triangles(&mesh, &level, axis, 3.0, sign).is_empty(),
+                "equal neighboring slopes must not emit a buried shared skirt"
+            );
+        }
+        assert!(
+            ramp_side_test_area(&ramp_side_test_triangles(&mesh, &level, axis, 2.0, -1.0)) > 11.9,
+            "the exterior side still closes against the room floor"
+        );
+    }
+}
+
+#[test]
+fn shifted_continuous_neighbor_clips_only_its_actual_contact_interval() {
+    for axis in [crate::level::WallAxis::X, crate::level::WallAxis::Z] {
+        let level = ramp_side_test_level(
+            r#"{"ramps": [
+                {"x": 2.0, "z": 2.0, "width": 6.0, "depth": 1.0, "offset_y": 1.0, "rise": 2.0},
+                {"x": 1.0, "z": 3.0, "width": 8.0, "depth": 1.0, "offset_y": 0.6666667, "rise": 2.6666667}
+            ]}"#,
+            axis,
+        );
+        let mesh = build_level_geometry(&level);
+        assert!(
+            ramp_side_test_triangles(&mesh, &level, axis, 3.0, 1.0).is_empty(),
+            "the short ramp is fully covered by the same shifted height function"
+        );
+        let neighbor = ramp_side_test_triangles(&mesh, &level, axis, 3.0, -1.0);
+        assert!(
+            !neighbor.is_empty(),
+            "the longer ramp retains its two exposed tails"
+        );
+        for triangle in neighbor {
+            let along = triangle.map(|vertex| match axis {
+                crate::level::WallAxis::X => vertex.pos[0],
+                crate::level::WallAxis::Z => vertex.pos[2],
+            });
+            assert!(
+                along.iter().all(|value| *value <= 2.0) || along.iter().all(|value| *value >= 8.0),
+                "a longer neighbor's skirt must stop exactly at its abutting ramp"
+            );
+        }
+    }
+}
+
+#[test]
+fn crossing_ramp_slopes_emit_each_exposed_half_once() {
+    for axis in [crate::level::WallAxis::X, crate::level::WallAxis::Z] {
+        let level = ramp_side_test_level(
+            r#"{"ramps": [
+                {"x": 2.0, "z": 2.0, "width": 6.0, "depth": 1.0, "offset_y": 1.0, "rise": 2.0},
+                {"x": 2.0, "z": 3.0, "width": 6.0, "depth": 1.0, "offset_y": 3.0, "rise": -2.0}
+            ]}"#,
+            axis,
+        );
+        let mesh = build_level_geometry(&level);
+        for sign in [-1.0_f32, 1.0] {
+            let triangles = ramp_side_test_triangles(&mesh, &level, axis, 3.0, sign);
+            assert_eq!(
+                triangles.len(),
+                1,
+                "each exposed wedge is one real triangle"
+            );
+            assert!(
+                (ramp_side_test_area(&triangles) - 3.0).abs() < 1e-4,
+                "each crossing wedge must have the real exposed area"
+            );
+            for vertex in triangles.into_iter().flatten() {
+                let along = match axis {
+                    crate::level::WallAxis::X => vertex.pos[0],
+                    crate::level::WallAxis::Z => vertex.pos[2],
+                };
+                assert!(
+                    if sign < 0.0 {
+                        along <= 5.0
+                    } else {
+                        along >= 5.0
+                    },
+                    "the face must end at the slope crossing, not run below its neighbor"
+                );
+                assert!(
+                    (4.0..=6.0).contains(&vertex.pos[1]),
+                    "a shared face cannot extend below either ramp"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn partial_region_support_retains_only_the_real_ramp_step() {
+    for axis in [crate::level::WallAxis::X, crate::level::WallAxis::Z] {
+        let level = ramp_side_test_level(
+            r#"{
+                "ramps": [{"x": 2.0, "z": 2.0, "width": 6.0, "depth": 1.0, "offset_y": 1.0, "rise": 2.0}],
+                "floor_regions": [{"x": 4.0, "z": 3.0, "width": 2.0, "depth": 1.0, "offset_y": 2.0}]
+            }"#,
+            axis,
+        );
+        let mesh = build_level_geometry(&level);
+        let triangles = ramp_side_test_triangles(&mesh, &level, axis, 3.0, 1.0);
+        assert_eq!(
+            triangles.len(),
+            5,
+            "two room skirts and one exposed region wedge remain"
+        );
+        assert!(
+            (ramp_side_test_area(&triangles) - 49.0 / 6.0).abs() < 1e-4,
+            "the side retains only the room skirts and shallow exposed support wedge"
+        );
+        let mut supported = 0_usize;
+        for triangle in triangles {
+            let along = triangle.map(|vertex| match axis {
+                crate::level::WallAxis::X => vertex.pos[0],
+                crate::level::WallAxis::Z => vertex.pos[2],
+            });
+            if along.iter().all(|value| (4.0..=6.0).contains(value)) {
+                supported += 1;
+                assert!(
+                    along.iter().all(|value| *value >= 5.0 - 1e-4)
+                        && along.iter().any(|value| (*value - 5.0).abs() < 1e-4),
+                    "the supported wedge starts at the f32 slope crossing near 5: {along:?}"
+                );
+                assert!(
+                    triangle.iter().all(|vertex| vertex.pos[1] >= 5.0),
+                    "the supported wedge stops at the region floor"
+                );
+                assert!(
+                    triangle.iter().any(|vertex| vertex.pos[1] > 5.3),
+                    "the real shallow rise above the support remains visible"
+                );
+            } else {
+                assert!(
+                    along.iter().all(|value| *value <= 4.0)
+                        || along.iter().all(|value| *value >= 6.0),
+                    "the region's covered part cannot retain a full-height skirt: {along:?}"
+                );
+            }
+        }
+        assert_eq!(
+            supported, 1,
+            "the small real height difference remains visible"
+        );
+    }
+}
+
+#[test]
+fn stair_neighbor_knots_preserve_each_small_exposed_ramp_wedge() {
+    for axis in [crate::level::WallAxis::X, crate::level::WallAxis::Z] {
+        let level = ramp_side_test_level(
+            r#"{
+                "ramps": [{"x": 2.0, "z": 2.0, "width": 6.0, "depth": 1.0, "offset_y": 1.1, "rise": 1.2}],
+                "stairs": [{"x": 2.0, "z": 3.0, "width": 6.0, "depth": 1.0, "offset_y": 1.0, "rise": 1.2, "steps": 4}]
+            }"#,
+            axis,
+        );
+        let mesh = build_level_geometry(&level);
+        let triangles = ramp_side_test_triangles(&mesh, &level, axis, 3.0, 1.0);
+        assert_eq!(
+            triangles.len(),
+            4,
+            "each tread has its own clipped ramp wedge"
+        );
+        assert!(
+            (ramp_side_test_area(&triangles) - 0.1).abs() < 1e-4,
+            "the stair neighbor exposes only four shallow wedges"
+        );
+        for triangle in triangles {
+            let height = triangle.map(|vertex| vertex.pos[1]);
+            let low = height.into_iter().fold(f32::INFINITY, f32::min);
+            let high = height.into_iter().fold(f32::NEG_INFINITY, f32::max);
+            assert!(
+                (high - low - 0.1).abs() < 1e-4,
+                "a tread cannot expose the lower flight's full rise"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_nearby_disconnected_ramp_does_not_cover_an_exposed_side() {
+    let axis = crate::level::WallAxis::X;
+    let level = ramp_side_test_level(
+        r#"{"ramps": [
+            {"x": 2.0, "z": 2.0, "width": 6.0, "depth": 1.0, "offset_y": 1.0, "rise": 2.0},
+            {"x": 2.0, "z": 3.01, "width": 6.0, "depth": 1.0, "offset_y": 1.0, "rise": 2.0}
+        ]}"#,
+        axis,
+    );
+    let mesh = build_level_geometry(&level);
+    let exposed = ramp_side_test_triangles(&mesh, &level, axis, 3.0, 1.0);
+    assert!(
+        (ramp_side_test_area(&exposed) - 12.0).abs() < 1e-4,
+        "a nearby ramp separated by a real gap cannot hide this side"
+    );
+}
+
+#[test]
+fn standalone_ramp_sides_and_end_caps_keep_their_real_height() {
+    for axis in [crate::level::WallAxis::X, crate::level::WallAxis::Z] {
+        let level = ramp_side_test_level(
+            r#"{"ramps": [{"x": 2.0, "z": 2.0, "width": 6.0, "depth": 1.0, "offset_y": 1.0, "rise": 2.0}]}"#,
+            axis,
+        );
+        let mesh = build_level_geometry(&level);
+        for (at, sign) in [(2.0_f32, -1.0_f32), (3.0, 1.0)] {
+            let side = ramp_side_test_triangles(&mesh, &level, axis, at, sign);
+            assert_eq!(side.len(), 2, "a standalone skirt remains one quad");
+            assert!(
+                (ramp_side_test_area(&side) - 12.0).abs() < 1e-4,
+                "the standalone side retains its original exposed area"
+            );
+        }
+        let end_axis = match axis {
+            crate::level::WallAxis::X => crate::level::WallAxis::Z,
+            crate::level::WallAxis::Z => crate::level::WallAxis::X,
+        };
+        for (at, sign, area) in [(2.0_f32, -1.0_f32, 1.0_f32), (8.0, 1.0, 3.0)] {
+            let end = ramp_side_test_triangles(&mesh, &level, end_axis, at, sign);
+            assert_eq!(end.len(), 2, "an elevated standalone end remains one cap");
+            assert!(
+                (ramp_side_test_area(&end) - area).abs() < 1e-4,
+                "the standalone end cap retains its original exposed area"
+            );
+        }
+    }
+}
+
+#[test]
+fn standalone_recessed_ramp_keeps_its_closed_outward_skirts() {
+    for axis in [crate::level::WallAxis::X, crate::level::WallAxis::Z] {
+        let level = ramp_side_test_level(
+            r#"{"ramps": [{"x": 2.0, "z": 2.0, "width": 6.0, "depth": 1.0, "rise": -1.2}]}"#,
+            axis,
+        );
+        let mesh = build_level_geometry(&level);
+        for (at, sign) in [(2.0_f32, -1.0_f32), (3.0, 1.0)] {
+            let side = ramp_side_test_triangles(&mesh, &level, axis, at, sign);
+            assert_eq!(
+                side.len(),
+                1,
+                "a recessed standalone skirt is one outward triangle"
+            );
+            assert!(
+                (ramp_side_test_area(&side) - 3.6).abs() < 1e-4,
+                "the unchanged room floor must preserve the recessed wedge's backing"
+            );
+        }
+    }
+}
+
+#[test]
+fn authored_flat_region_at_room_height_cannot_supply_recessed_ramp_backing() {
+    for axis in [crate::level::WallAxis::X, crate::level::WallAxis::Z] {
+        let level = ramp_side_test_level(
+            r#"{
+                "ramps": [{"x": 2.0, "z": 2.0, "width": 6.0, "depth": 1.0, "rise": -1.2}],
+                "floor_regions": [{"x": 2.0, "z": 3.0, "width": 6.0, "depth": 1.0, "offset_y": 0.0}]
+            }"#,
+            axis,
+        );
+        let mesh = build_level_geometry(&level);
+        assert!(
+            ramp_side_test_triangles(&mesh, &level, axis, 3.0, 1.0).is_empty(),
+            "an authored neighbor at the room floor keeps its real profile"
+        );
+        let opposite = ramp_side_test_triangles(&mesh, &level, axis, 2.0, -1.0);
+        assert_eq!(
+            opposite.len(),
+            1,
+            "only the unchanged own room supplies wedge backing"
+        );
+        assert!(
+            (ramp_side_test_area(&opposite) - 3.6).abs() < 1e-4,
+            "the exterior standalone skirt retains its historical backing"
+        );
+    }
+}
+
+#[test]
+fn a_distinct_room_at_the_same_height_cannot_supply_recessed_ramp_backing() {
+    for axis in [crate::level::WallAxis::X, crate::level::WallAxis::Z] {
+        let mut level = ramp_side_test_level(
+            r#"{"ramps": [{"x": 2.0, "z": 2.0, "width": 6.0, "depth": 1.0, "rise": -1.2}]}"#,
+            axis,
+        );
+        let mut adjacent = level.rooms[0].clone();
+        match axis {
+            crate::level::WallAxis::X => {
+                level.rooms[0].depth = 3.0;
+                adjacent.z = 3.0;
+                adjacent.depth = 9.0;
+            }
+            crate::level::WallAxis::Z => {
+                level.rooms[0].width = 3.0;
+                adjacent.x = 3.0;
+                adjacent.width = 9.0;
+            }
+        }
+        level.rooms.push(adjacent);
+        let mesh = build_level_geometry(&level);
+        assert!(
+            ramp_side_test_triangles(&mesh, &level, axis, 3.0, 1.0).is_empty(),
+            "room ownership, rather than equal floor heights, controls standalone backing"
+        );
+        assert_eq!(
+            ramp_side_test_triangles(&mesh, &level, axis, 2.0, -1.0).len(),
+            1,
+            "the ramp's own unchanged room still backs its recessed side"
+        );
+    }
+}
+
+#[test]
+fn ramps_at_outer_room_boundaries_retain_their_outward_wedge_closure() {
+    let cases = [
+        (
+            r#"{"ramps": [{"x": 2.0, "z": 2.0, "width": 6.0, "depth": 1.0, "offset_y": 1.0, "rise": 2.0}]}"#,
+            6.0_f32,
+            (4.0_f32, 6.0_f32),
+            12.0_f32,
+        ),
+        (
+            r#"{"ramps": [{"x": 2.0, "z": 2.0, "width": 6.0, "depth": 1.0, "rise": -1.2}]}"#,
+            3.6,
+            (1.8, 3.0),
+            3.6,
+        ),
+    ];
+    for axis in [crate::level::WallAxis::X, crate::level::WallAxis::Z] {
+        for (features, area, heights, interior_area) in cases {
+            for (at, sign) in [(0.0_f32, -1.0_f32), (12.0, 1.0)] {
+                let mut level = ramp_side_test_level(features, axis);
+                let origin = if sign < 0.0 { at } else { at - 1.0 };
+                match axis {
+                    crate::level::WallAxis::X => level.ramps[0].z = origin,
+                    crate::level::WallAxis::Z => level.ramps[0].x = origin,
+                }
+                let mesh = build_level_geometry(&level);
+                let exterior = ramp_side_test_triangles(&mesh, &level, axis, at, sign);
+                assert_eq!(
+                    exterior.len(),
+                    1,
+                    "the exterior ramp side remains one outward wedge: {axis:?}, {sign}"
+                );
+                assert!(
+                    (ramp_side_test_area(&exterior) - area).abs() < 1e-4,
+                    "the exterior side closes at the original low endpoint"
+                );
+                let ys = exterior.iter().flatten().map(|vertex| vertex.pos[1]);
+                let low = ys.clone().fold(f32::INFINITY, f32::min);
+                let high = ys.fold(f32::NEG_INFINITY, f32::max);
+                assert!(
+                    (low - heights.0).abs() < 1e-4 && (high - heights.1).abs() < 1e-4,
+                    "the exterior backing uses ramp endpoints rather than the room floor"
+                );
+                let interior = ramp_side_test_triangles(&mesh, &level, axis, at - sign, -sign);
+                assert!(
+                    (ramp_side_test_area(&interior) - interior_area).abs() < 1e-4,
+                    "the opposite side retains its own-room backing"
+                );
+            }
+        }
+    }
+}
+
 // ---------------------------------------------------------------------- water
+
+/// A sun-facing coastal riser cannot be ambient-only beside its lit ramp top.
+#[test]
+fn vertex_lit_architectural_faces_receive_directional_sun() {
+    let mut authored = serde_json::json!({
+        "format_version": 3_u32, "id": "ramp_sun", "name": "Ramp Sun",
+        "spawn": {"x": 2_f64, "z": 2_f64},
+        "rooms": [{"x": 0_f64, "z": 0_f64, "width": 6_f64, "depth": 6_f64,
+                   "height": 6_f64, "ceiling": {"kind": "open"}}],
+        "ramps": [{"x": 1_f64, "z": 1_f64, "width": 2_f64, "depth": 3_f64, "rise": 1_f64}],
+        "global_illuminators": [{"id": "sun", "kind": "directional",
+            "direction": [-1_f64, -1_f64, 0_f64], "color": [1_f64, 0.8_f64, 0.6_f64], "intensity": 0.7_f64,
+            "cast_shadows": false}]
+    });
+    let sun = LevelDef::from_json(&authored.to_string()).expect("sunlit ramp parses");
+    authored["global_illuminators"] = serde_json::json!([]);
+    let fill = LevelDef::from_json(&authored.to_string()).expect("fill-only ramp parses");
+    let lit = batch_slice(&build_level_geometry(&sun), SurfaceKind::Wall);
+    let unlit = batch_slice(&build_level_geometry(&fill), SurfaceKind::Wall);
+    assert_eq!(
+        lit.len(),
+        unlit.len(),
+        "sun retains architectural triangles"
+    );
+    let mut facing = 0_usize;
+    for (day, ambient) in lit.iter().zip(unlit) {
+        assert_eq!(day.pos, ambient.pos);
+        assert_eq!(day.normal, ambient.normal);
+        if day.normal == [1.0, 0.0, 0.0] {
+            facing += 1;
+            assert!(day.color[0] > ambient.color[0] + 0.1, "riser lost sunlight");
+        } else if day.normal == [-1.0, 0.0, 0.0] {
+            assert_eq!(day.color, ambient.color, "back face retains its room fill");
+        }
+    }
+    assert!(
+        facing > 0,
+        "the regression must sample a real sun-facing ramp side"
+    );
+}
+
+/// Vertex-lit water must receive the same directional sun as its basin.
+/// Both shapes previously sampled only room fill, losing daylight at Low.
+#[test]
+fn vertex_lit_water_receives_directional_sun_for_both_shapes() {
+    for shape in ["rect", "circle"] {
+        let mut authored = serde_json::json!({
+            "format_version": 3_u32, "id": "water_sun", "name": "Water Sun",
+            "spawn": {"x": 2_f64, "z": 2_f64},
+            "rooms": [{"x": 0_f64, "z": 0_f64, "width": 4_f64, "depth": 4_f64,
+                       "floor_y": -2_f64, "height": 6_f64, "ceiling": {"kind": "open"}}],
+            "water": [{"shape": shape, "x": 1_f64, "z": 1_f64, "width": 2_f64, "depth": 2_f64,
+                       "radius": 1_f64, "surface_y": 0_f64, "bottom_y": -2_f64, "opacity": 0.37_f64}],
+            "global_illuminators": [{"id": "sun", "kind": "directional",
+                "direction": [0_f64, -1_f64, 0_f64], "color": [1_f64, 0.8_f64, 0.6_f64], "intensity": 0.7_f64,
+                "cast_shadows": false}]
+        });
+        if shape == "rect" {
+            authored["water"][0]["radius"] = serde_json::Value::Null;
+        }
+        let sun = LevelDef::from_json(&authored.to_string()).expect("sunlit water parses");
+        authored["global_illuminators"] = serde_json::json!([]);
+        let fill = LevelDef::from_json(&authored.to_string()).expect("fill-only water parses");
+        let materials = logical_materials(&sun);
+        let water = materials
+            .index_of(crate::level::DEFAULT_WATER_MATERIAL)
+            .expect("water resolves");
+        let key = SurfaceKey::new(SurfaceKind::Floor, water);
+        let lit_mesh = build_level_geometry(&sun);
+        let fill_mesh = build_level_geometry(&fill);
+        let lit = lit_mesh.triangles_for_key(key);
+        let unlit = fill_mesh.triangles_for_key(key);
+        assert!(!lit.is_empty(), "{shape} emits a real surface");
+        assert_eq!(lit.len(), unlit.len());
+        for (day, ambient) in lit.iter().zip(unlit) {
+            assert_eq!(day.pos, ambient.pos);
+            assert_eq!(
+                day.color[3], ambient.color[3],
+                "sun cannot change water opacity"
+            );
+            assert!(
+                day.color[1] > ambient.color[1] + 0.1,
+                "{shape} lost directional sunlight"
+            );
+            assert!(
+                day.color[2] > ambient.color[2] + 0.1,
+                "{shape} lost directional sunlight"
+            );
+        }
+    }
+}
 
 /// A minimal level with one authored water volume over a recessed basin.
 ///
@@ -7894,7 +8418,7 @@ fn demo_claimed_model_paths(catalog: &crate::loader::PropCatalog) -> Vec<String>
 /// here every placement of every one of those models is claimed.
 #[test]
 fn the_places_demo_level_places_its_animated_props_once() {
-    let content = std::fs::read_to_string("assets/levels/places_demo.json")
+    let content = std::fs::read_to_string("levels/places_demo.json")
         .expect("the demo level must be readable");
     let level = LevelDef::from_json(&content).expect("the demo level parses");
     let catalog = shipped_catalog();
@@ -8758,7 +9282,7 @@ fn a_floating_duck_never_becomes_a_character() {
 /// single animated joint; its delta rotation is the observable pose.
 #[test]
 fn a_scrub_cue_reverses_from_the_current_pose_and_holds_its_ends() {
-    let bytes = std::fs::read("assets/environment/home/props/models/wall_switch.glb")
+    let bytes = std::fs::read("assets/environments/home/props/wall_switch.glb")
         .expect("the shipped wall switch is readable");
     let model = crate::gltf::parse_glb(&bytes).expect("the wall switch parses");
     let mut animator = CharacterAnimator::new(&model).expect("a rigid animator");
@@ -8810,7 +9334,7 @@ fn a_scrub_cue_reverses_from_the_current_pose_and_holds_its_ends() {
 /// so the character path must not loop its non-locomotion clip.
 #[test]
 fn an_idle_rigid_prop_holds_its_bind_pose() {
-    let bytes = std::fs::read("assets/environment/home/props/models/wall_switch.glb")
+    let bytes = std::fs::read("assets/environments/home/props/wall_switch.glb")
         .expect("the shipped wall switch is readable");
     let model = crate::gltf::parse_glb(&bytes).expect("the wall switch parses");
     let catalog = shipped_catalog();
@@ -9615,6 +10139,7 @@ fn single_probe(
     room: i32,
 ) -> crate::lighting::probes::ProbeField {
     crate::lighting::probes::ProbeField {
+        local_direct: None,
         min: [position[0] - 1.0, position[1] - 1.0, position[2] - 1.0],
         cell_m: 2.0,
         dims: [1, 1, 1],
@@ -9722,7 +10247,7 @@ fn a_roomless_moving_object_reads_the_environment_not_a_rooms_probe() {
 #[test]
 fn the_shipped_night_route_does_not_hide_dark_compiler_data() {
     use crate::render::common::light_transport::moving_object_light;
-    let level = LevelDef::from_json(include_str!("../../assets/levels/places_demo.json"))
+    let level = LevelDef::from_json(include_str!("../../levels/places_demo.json"))
         .expect("valid places_demo json");
     let lighting = LevelLighting::bake(&level);
     // The routed pumpkin / skeleton positions from the shipped level: both
@@ -9941,6 +10466,7 @@ fn entity_probes_reject_room_labels_below_floors_and_above_ceilings() {
     use crate::render::common::light_transport::entity_lighting;
     let lighting = LevelLighting::bake(&one_fixture_room());
     let field = ProbeField {
+        local_direct: None,
         min: [0.0, -2.0, 0.0],
         cell_m: 2.0,
         dims: [1, 3, 1],
@@ -9998,6 +10524,7 @@ fn entity_probe_blending_crosses_open_doorways_but_not_solid_walls() {
         .expect("doorway level")
     };
     let field = ProbeField {
+        local_direct: None,
         min: [0.0; 3],
         cell_m: 2.0,
         dims: [4, 1, 2],
@@ -10042,4 +10569,69 @@ fn entity_probe_blending_crosses_open_doorways_but_not_solid_walls() {
             .iter()
             .all(|value| (*value - 0.05).abs() < 1.0e-6)
     );
+}
+
+#[test]
+fn water_floor_charts_preserve_coverage_and_material_only_colour() {
+    for shape in ["rect", "circle"] {
+        let mut level = water_test_level(Some(0.37), None);
+        if shape == "circle" {
+            level.water[0].shape = crate::level::WaterShape::Circle;
+            level.water[0].radius = Some(3.0);
+        }
+        let lighting = LevelLighting::bake(&level);
+        let materials = logical_materials(&level);
+        let water = materials
+            .index_of(crate::level::DEFAULT_WATER_MATERIAL)
+            .expect("water material");
+        let catalog = crate::loader::PropCatalog::load_default();
+        let mut plan = crate::lighting::lightmap::LightmapPlan::new(
+            crate::quality::QualityLevel::High.lightmap_config(),
+        );
+        let mesh = common::geometry::build_level_geometry_mesh_with_lightmaps(
+            &level,
+            &catalog,
+            &[],
+            &lighting,
+            &materials,
+            Some(&mut plan),
+        );
+        let surface = mesh.triangles_for_key(SurfaceKey::new(SurfaceKind::Floor, water));
+        assert_ne!(surface.len(), 0);
+        for vertex in surface {
+            assert!(
+                vertex.lightmap_page < LIGHTMAP_NONE,
+                "{shape} surface must receive prepared incident light"
+            );
+            assert_exact(vertex.color[3], 0.37);
+            assert_eq!(
+                [vertex.color[0], vertex.color[1], vertex.color[2]],
+                materials.entry(water).expect("water entry").tint
+            );
+            assert!(vertex.normal[1] > 0.9);
+        }
+    }
+}
+
+#[test]
+fn water_depth_attenuation_preserves_gameplay_and_zero_default() {
+    let level = water_test_level(Some(0.37), None);
+    let baseline = crate::level::WaterVolumes::from_level(&level);
+    let original = &baseline.volumes()[0];
+    assert_exact(original.opacity, 0.37);
+    let mut authored = level;
+    authored.water[0].attenuation_per_metre = 0.4;
+    let resolved = crate::level::WaterVolumes::from_level(&authored);
+    let attenuated = &resolved.volumes()[0];
+    assert_eq!(
+        [attenuated.x0, attenuated.x1, attenuated.z0, attenuated.z1],
+        [original.x0, original.x1, original.z0, original.z1]
+    );
+    assert_exact(attenuated.bottom_y, original.bottom_y);
+    assert_eq!(attenuated.swimming, original.swimming);
+    let expected = (1.0_f32 - 0.37).mul_add(-(-0.4 * original.depth()).exp(), 1.0);
+    assert!((attenuated.opacity - expected).abs() < 1.0e-6);
+    assert!(attenuated.opacity > original.opacity && attenuated.opacity < 1.0);
+    authored.water[0].attenuation_per_metre = -0.1;
+    assert!(crate::loader::validate_level(&authored).is_err());
 }

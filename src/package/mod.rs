@@ -97,10 +97,12 @@ pub const MAX_ENTRY_BYTES: u64 = 256 * 1024 * 1024;
 
 /// Largest encoded HDR atlas record, including its bounded KTX2 container.
 ///
-/// Eight 2048px irradiance/directional pages occupy the full ordinary entry
-/// payload budget; container headers must fit without reducing that page budget.
-/// Ordinary entries and the aggregate archive limit retain their existing caps.
-pub const MAX_LIGHTMAP_ATLAS_BYTES: u64 = MAX_ENTRY_BYTES + 64 * 1024;
+/// The measured ten-page Full atlas with one switch contribution stores
+/// 320 MiB: 1024px pages, two RGBA16F planes and two illumination groups.
+/// Reserve 64 KiB for its bounded KTX2 container. This typed record budget is
+/// independent of the ordinary 256 MiB entry cap; exact codec shape checks,
+/// the 512 MiB KTX2 payload limit and the 1 GiB aggregate archive cap remain.
+pub const MAX_LIGHTMAP_ATLAS_BYTES: u64 = 320 * 1024 * 1024 + 64 * 1024;
 
 /// Largest accepted sum of decompressed archive entry bytes.
 pub const MAX_TOTAL_BYTES: u64 = 1024 * 1024 * 1024;

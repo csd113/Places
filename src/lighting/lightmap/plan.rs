@@ -32,6 +32,29 @@ use super::{
 };
 use crate::render::{LIGHTMAP_NONE, Vertex};
 
+fn prop_quad_corner(corners: &[[f32; 3]; 4], position: [f32; 3]) -> Option<usize> {
+    corners.iter().position(|point| {
+        point.iter().zip(position).all(|(left, right)| {
+            left.to_bits() == right.to_bits()
+                || (left.to_bits().trailing_zeros() >= 31 && right.to_bits().trailing_zeros() >= 31)
+        })
+    })
+}
+
+/// The two native triangle kinds allow cyclic winding, never a different
+/// diagonal, reversed triangle or duplicate half of the illumination domain.
+fn prop_quad_triangle(corners: &[[f32; 3]; 4], triangle: &[Vertex; 3]) -> Option<bool> {
+    let [Some(a), Some(b), Some(c)] = triangle.map(|vertex| prop_quad_corner(corners, vertex.pos))
+    else {
+        return None;
+    };
+    match [a, b, c] {
+        [0, 1, 2] | [1, 2, 0] | [2, 0, 1] => Some(false),
+        [0, 2, 3] | [2, 3, 0] | [3, 0, 2] => Some(true),
+        _ => None,
+    }
+}
+
 /// Whether a level build bakes and draws real lightmaps.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum LightmapMode {
@@ -138,6 +161,8 @@ pub struct LightmapPlan {
     config: LightmapConfig,
     allocator: ChartAllocator,
     charts: Vec<(LightmapPatch, Chart)>,
+    /// Physical sampling density, independent of rounded chart dimensions.
+    sample_densities: Vec<f32>,
     failure: Option<LightmapFailure>,
     /// Invisible sliver quads left vertex-lit (see [`Self::slivers_skipped`]).
     slivers_skipped: usize,
@@ -151,7 +176,12 @@ impl LightmapPlan {
             allocator: ChartAllocator::new(config),
             config,
             charts: Vec::new(),
-            failure: None,
+            sample_densities: Vec::new(),
+            failure: if config.max_pages == 0 {
+                Some(LightmapFailure::InvalidConfig)
+            } else {
+                None
+            },
             slivers_skipped: 0,
         }
     }
@@ -191,6 +221,14 @@ impl LightmapPlan {
     #[must_use]
     pub fn charts(&self) -> &[(LightmapPatch, Chart)] {
         &self.charts
+    }
+
+    /// Physical densities aligned with [`Self::charts`]. This bake-only
+    /// metadata fixes receiver footprints in world metres; rounded endpoint
+    /// counts and triangle-local atlas axes never redefine their shape.
+    #[must_use]
+    pub fn sample_densities(&self) -> &[f32] {
+        &self.sample_densities
     }
 
     /// Number of charts placed so far.
@@ -276,6 +314,7 @@ impl LightmapPlan {
             vertex.lightmap_page = page;
         }
         self.charts.push((patch, chart));
+        self.sample_densities.push(self.config.texels_per_metre);
         true
     }
 
@@ -287,7 +326,11 @@ impl LightmapPlan {
             self.slivers_skipped = self.slivers_skipped.saturating_add(1);
             return false;
         };
-        let Some(chart) = self.allocator.allocate_at_density(&patch, density) else {
+        let Some(surface_density) = self.config.bounded_surface_density(patch.kind, density) else {
+            self.fail(LightmapFailure::InvalidConfig);
+            return false;
+        };
+        let Some(chart) = self.allocator.allocate_at_density(&patch, surface_density) else {
             self.fail(LightmapFailure::PageOverflow);
             return false;
         };
@@ -300,18 +343,71 @@ impl LightmapPlan {
             vertex.lightmap_page = u8::try_from(chart.page).unwrap_or(LIGHTMAP_NONE);
         }
         self.charts.push((patch, chart));
+        self.sample_densities.push(surface_density);
         true
     }
 
-    /// Static model density follows the architectural quality policy. Large
-    /// opaque pieces retain one eighth of its density, rather than the former
-    /// fixed one-texel-per-metre allocation. Cutout cards stay inexpensive.
+    /// Shares one native quad chart across two original model triangles.
+    /// Only atlas coordinates change. The caller retains all six independent
+    /// source corners and the common source diagonal at corners zero and two.
+    pub fn stamp_prop_quad(
+        &mut self,
+        first: &mut [Vertex; 3],
+        second: &mut [Vertex; 3],
+        corners: [[f32; 3]; 4],
+        density: f32,
+    ) -> bool {
+        let Some(patch) = LightmapPatch::from_quad(PatchKind::Prop, corners, None) else {
+            return false;
+        };
+        if patch.is_triangular() {
+            return false;
+        }
+        let (Some(first_half), Some(second_half)) = (
+            prop_quad_triangle(&corners, first),
+            prop_quad_triangle(&corners, second),
+        ) else {
+            return false;
+        };
+        if first_half == second_half {
+            return false;
+        }
+        let Some(surface_density) = self.config.bounded_surface_density(patch.kind, density) else {
+            self.fail(LightmapFailure::InvalidConfig);
+            return false;
+        };
+        let Some(chart) = self.allocator.allocate_at_density(&patch, surface_density) else {
+            self.fail(LightmapFailure::PageOverflow);
+            return false;
+        };
+        let edge = self.config.page_edge;
+        let local = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)];
+        for vertex in first.iter_mut().chain(second.iter_mut()) {
+            let Some(corner) = prop_quad_corner(&corners, vertex.pos) else {
+                self.fail(LightmapFailure::Layout);
+                return false;
+            };
+            let Some(&(u, v)) = local.get(corner) else {
+                self.fail(LightmapFailure::Layout);
+                return false;
+            };
+            vertex.lightmap = chart.uv_at(edge, u, v);
+            vertex.lightmap_page = u8::try_from(chart.page).unwrap_or(LIGHTMAP_NONE);
+        }
+        self.charts.push((patch, chart));
+        self.sample_densities.push(surface_density);
+        true
+    }
+
+    /// Small opaque model faces resolve the measured fine frame/rail shadows
+    /// at twice architecture's density. Large opaque pieces retain one eighth
+    /// of architecture's density, and cutout cards retain one sample per metre.
     #[must_use]
     pub fn prop_texels_per_metre(&self, large: bool, cutout: bool) -> f32 {
         if cutout {
             1.0
         } else {
-            self.config.texels_per_metre * if large { 0.125 } else { 0.5 }
+            self.config.texels_per_metre * if large { 0.125 } else { 2.0 }
         }
     }
 

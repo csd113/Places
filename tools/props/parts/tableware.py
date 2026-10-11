@@ -23,7 +23,7 @@ so they read as a single table setting at 480x272:
   two tiers, just over half the triangles of the floor plant.
 
 Source art lives in commit beside each GLB
-(``assets/environment/home/props/models/<name>.png``) and is embedded by
+(``assets/environments/home/props/<name>.png``) and is embedded by
 ``build.py`` at build time, exactly like the refreshed domestic pack.
 """
 
@@ -48,7 +48,7 @@ TARGETS = {
     "home:plant_table": 326,
 }
 
-MODEL_DIR = Path(__file__).resolve().parents[3] / "assets/environment/home/props/models"
+MODEL_DIR = Path(__file__).resolve().parents[3] / "assets/environments/home/props"
 
 # ------------------------------------------------------------------ palette
 

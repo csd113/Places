@@ -4,7 +4,7 @@ from pathlib import Path
 from parts.refreshed import load_atlas_from, orient_outward, solid_cylinder, solid_box
 from string_lights import SPANS, CABLE_RADIUS, BULB_HEIGHT, DROP, cable_height, bulbs, attachment_height
 
-SOURCE = Path(__file__).resolve().parents[3] / 'assets/environment/winter/props/models/string_lights.png'
+SOURCE = Path(__file__).resolve().parents[3] / 'assets/environments/winter/props/string_lights.png'
 
 
 def build(p, variant):

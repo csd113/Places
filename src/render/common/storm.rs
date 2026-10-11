@@ -185,7 +185,7 @@ mod tests {
     use super::*;
     use glam::Vec3;
     fn winter() -> Result<LevelDef, serde_json::Error> {
-        serde_json::from_str(include_str!("../../../assets/levels/winter.json"))
+        serde_json::from_str(include_str!("../../../levels/winter.json"))
     }
     #[test]
     fn whiteout_extinction_is_short_range_and_independent_of_quality()

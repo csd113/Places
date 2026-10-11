@@ -244,7 +244,7 @@ def build_pool_table(p: PropBuilder) -> None:
     """White resin patio table: a lipped tray top on a moulded skirt, four
     tapered legs and a low perimeter stretcher.  Clean and new."""
     size = p.size  # [0.8, 0.74, 0.8]
-    source = Path(__file__).resolve().parents[3] / "assets/environment/pool/props/models/pool_table.png"
+    source = Path(__file__).resolve().parents[3] / "assets/environments/pool/props/pool_table.png"
     tex = load_atlas_from(p, source, ("tray", "trim", "leg", "brace"))
 
     tray_uv = tex.uv("tray")
@@ -551,7 +551,7 @@ def build_hot_tub(p: PropBuilder) -> None:
     the rim stands 6 cm proud of the deck.
     """
     assert hot_tub_recess_min_radius() > HOT_TUB_WALL_R, "the shell wall must sit inside the recess polygon"
-    source = Path(__file__).resolve().parents[3] / "assets/environment/pool/props/models/hot_tub.png"
+    source = Path(__file__).resolve().parents[3] / "assets/environments/pool/props/hot_tub.png"
     tex = load_atlas_from(p, source, ("tile", "cap"))
 
     tile_uv = tex.uv("tile", inset=1)

@@ -35,26 +35,20 @@
 //! so moving an object costs one uniform upload and never touches a vertex
 //! buffer.
 //!
-//! Lighting (probe-based)
-//! ----------------------
-//! Baked static light cannot follow a moving object, so each object carries a
-//! **probe**: the prepared HDR field at its transformed model-bounds centre,
-//! refreshed every frame. The renderer reconstructs its directional diffuse
-//! response from the posed world geometry. Vertex colour carries albedo/tint
-//! only, and missing probes use the authored environment sample.
+//! Spatial lighting
+//! ----------------
+//! Prepared probes retain incident linear HDR. A movable object keeps its
+//! combined centre sample for diagnostics and eight transformed bounds anchors
+//! for residual irradiance and selected-source visibility. The shared shader
+//! reconstructs residual directionality and evaluates selected practical sources
+//! at the actual fragment position/normal, without including their baked direct
+//! contribution twice. Missing prepared fields retain authored fallback light.
 //!
-//! Documented limits of that model:
-//!
-//! * **One sample position per object.** Direction varies with the surface
-//!   normal, but a long object cannot sample both sides of a spatial boundary.
-//! * **No self-occlusion and no shadows.** The probe is the room's baked light
-//!   at the object's centre, so the object does not darken the floor beneath it,
-//!   does not shadow itself and casts no shadow of any kind.
-//! * **Static light only.** The probe reads the level's bake; light emitted by
-//!   other dynamic objects, or by anything that moves, never contributes.
-//! * **The probe is a snapshot.** Because it is refreshed on movement, a light
-//!   change (there is none at runtime today) would not be picked up until the
-//!   object moved.
+//! Immutable geometry/PNG alpha supplies finite-source transmission; unchanged
+//! transforms and field resources reuse their spatial payload. Bind-pose bounds
+//! are a bounded interpolation approximation rather than per-vertex probe reads.
+//! Lightweight projected bounds shadows ground opaque movable subjects on the
+//! real floor; they are not mesh silhouette or self-shadow maps.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -166,6 +160,10 @@ pub struct DynamicId(u32);
 /// normal material property, not a special case.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DynamicSubmesh {
+    /// Imported sidedness with conservative skin/morph bind-pose fallback.
+    pub double_sided: bool,
+    /// Shared scalar material response for every mesh route.
+    pub response: crate::materials::MaterialResponse,
     /// Index into [`DynamicMesh::textures`], or `None` for an untextured
     /// material (drawn through the shared white sheet).
     pub texture: Option<u16>,
@@ -249,6 +247,7 @@ impl DynamicMesh {
             .iter()
             .map(|vertex| Vertex {
                 pos: vertex.pos,
+                normal: vertex.normal.unwrap_or([0.0; 3]),
                 color: vertex.color,
                 uv: vertex.uv,
                 // A dynamic vertex is never lightmapped: the atlas channel is
@@ -264,6 +263,12 @@ impl DynamicMesh {
             .enumerate()
             .filter(|(_, submesh)| submesh.index_count > 0)
             .map(|(index, submesh)| DynamicSubmesh {
+                // This route freezes the bind/default morph pose and does not
+                // retain enough rig data to establish its outward orientation.
+                double_sided: submesh.double_sided
+                    || model.skin.is_some()
+                    || !model.morph_targets.is_empty(),
+                response: submesh.response,
                 texture: submesh.texture,
                 emission: submesh.emission,
                 alpha: alphas.get(index).copied().unwrap_or(MaterialAlpha::OPAQUE),
@@ -353,6 +358,8 @@ pub struct DynamicObject {
     emission_scale: f32,
     light_scale: [f32; 3],
     entity_lighting: Option<super::light_transport::EntityLighting>,
+    spatial_lighting: Option<Box<super::light_transport::EntitySpatialLighting>>,
+    spatial_key: Option<super::light_transport::EntitySpatialKey>,
     probe_position: [f32; 3],
     probe_valid: bool,
     /// Authored water-driven motion, for a floating prop. `None` for an
@@ -549,6 +556,12 @@ impl DynamicObject {
     #[must_use]
     pub const fn entity_lighting(&self) -> Option<super::light_transport::EntityLighting> {
         self.entity_lighting
+    }
+
+    /// Spatial irradiance/visibility, refreshed only when its inputs change.
+    #[must_use]
+    pub fn spatial_lighting(&self) -> Option<&super::light_transport::EntitySpatialLighting> {
+        self.spatial_lighting.as_deref()
     }
 
     /// True when [`Self::light_scale`] has been sampled from the bake.
@@ -920,6 +933,8 @@ impl DynamicScene {
             emission_scale: 1.0,
             light_scale: [crate::lighting::AMBIENT_LEVEL; 3],
             entity_lighting: None,
+            spatial_lighting: None,
+            spatial_key: None,
             probe_position: [f32::NAN; 3],
             probe_valid: false,
             float: None,
@@ -1011,6 +1026,8 @@ impl DynamicScene {
             emission_scale: 1.0,
             light_scale: [crate::lighting::AMBIENT_LEVEL; 3],
             entity_lighting: None,
+            spatial_lighting: None,
+            spatial_key: None,
             probe_position: [f32::NAN; 3],
             probe_valid: false,
             float: None,
@@ -1138,18 +1155,76 @@ impl DynamicScene {
         lighting: Option<&LevelLighting>,
         irradiance: Option<&crate::lighting::probes::ProbeField>,
     ) -> DynamicUpdate {
-        let mut update = DynamicUpdate::default();
+        self.update_with_field_and_scene(delta_seconds, lighting, irradiance, None)
+    }
+
+    /// Refresh using the prepared static triangle/alpha visibility resource.
+    /// Construction and baking stay outside the per-frame update.
+    pub fn update_with_field_and_scene(
+        &mut self,
+        delta_seconds: f32,
+        lighting: Option<&LevelLighting>,
+        irradiance: Option<&crate::lighting::probes::ProbeField>,
+        scene: Option<&crate::lighting::transport::TransportScene>,
+    ) -> DynamicUpdate {
+        let moved = self.advance_spins(delta_seconds);
+        let mut update = self.refresh_entity_lighting(lighting, irradiance, scene, None);
+        update.moved = moved;
+        update
+    }
+
+    /// Advance every rigid transform before refreshing the movable visibility
+    /// resource and any receiver lighting. Provider errors stay explicit.
+    ///
+    /// # Errors
+    /// Returns an error when a movable mesh's ray resource or transform cannot
+    /// be prepared; no lighting refresh uses an incomplete visibility snapshot.
+    pub fn update_with_visibility(
+        &mut self,
+        delta_seconds: f32,
+        lighting: Option<&LevelLighting>,
+        irradiance: Option<&crate::lighting::probes::ProbeField>,
+        scene: Option<&crate::lighting::transport::TransportScene>,
+        visibility: Option<&mut super::dynamic_visibility::DynamicVisibility>,
+    ) -> Result<DynamicUpdate, String> {
+        let moved = self.advance_spins(delta_seconds);
+        let current = if let Some(provider) = visibility {
+            let _visibility_changed = provider.sync(self)?;
+            Some(&*provider)
+        } else {
+            None
+        };
+        let mut update = self.refresh_entity_lighting(lighting, irradiance, scene, current);
+        update.moved = moved;
+        Ok(update)
+    }
+
+    fn advance_spins(&mut self, delta_seconds: f32) -> usize {
         let step = if delta_seconds.is_finite() {
             delta_seconds.max(0.0)
         } else {
             0.0
         };
+        let mut moved = 0_usize;
         for object in &mut self.objects {
             if object.spin_degrees_per_second != 0.0 && step > 0.0 {
                 let advanced = step * object.spin_degrees_per_second;
                 object.spin_degrees = (object.spin_degrees + advanced).rem_euclid(360.0);
-                update.moved = update.moved.saturating_add(1);
+                moved = moved.saturating_add(1);
             }
+        }
+        moved
+    }
+
+    fn refresh_entity_lighting(
+        &mut self,
+        lighting: Option<&LevelLighting>,
+        irradiance: Option<&crate::lighting::probes::ProbeField>,
+        scene: Option<&crate::lighting::transport::TransportScene>,
+        visibility: Option<&super::dynamic_visibility::DynamicVisibility>,
+    ) -> DynamicUpdate {
+        let mut update = DynamicUpdate::default();
+        for object in &mut self.objects {
             let Some(level_lighting) = lighting else {
                 continue;
             };
@@ -1162,6 +1237,30 @@ impl DynamicScene {
             // light switches all affect this value. GPU writes still compare
             // uniforms, so stationary unchanged objects upload nothing.
             let sample = super::light_transport::entity_lighting(level_lighting, irradiance, probe);
+            let transform = object.transform();
+            let context = super::light_transport::EntityVisibility {
+                dynamic: visibility,
+                receiver: Some(object.id),
+            };
+            let spatial_key = super::light_transport::entity_spatial_key_with_visibility(
+                level_lighting,
+                irradiance,
+                transform,
+                scene,
+                context,
+            );
+            if object.spatial_key != spatial_key {
+                object.spatial_lighting =
+                    super::light_transport::entity_spatial_lighting_with_visibility(
+                        level_lighting,
+                        irradiance,
+                        object.mesh.bounds,
+                        transform,
+                        scene,
+                        context,
+                    );
+                object.spatial_key = spatial_key;
+            }
             let changed = object.entity_lighting != Some(sample)
                 || object.probe_position.map(f32::to_bits) != probe.map(f32::to_bits);
             object.light_scale = sample.display;
@@ -1362,6 +1461,8 @@ mod tests {
             indices: vec![0, 1, 2],
             textures: Vec::new(),
             submeshes: vec![PropSubmesh {
+                double_sided: true,
+                response: crate::materials::MaterialResponse::NONE,
                 alpha: crate::materials::MaterialAlpha::OPAQUE,
                 material: 0,
                 texture: None,
@@ -1377,9 +1478,58 @@ mod tests {
 
     fn synthetic_asset(emission: MaterialEmission) -> Arc<LoadedPropAsset> {
         Arc::new(LoadedPropAsset {
-            model_path: "core/test_triangle.glb".to_string(),
+            model_path: "shared/test_triangle.glb".to_string(),
             model: synthetic_model(emission),
         })
+    }
+
+    #[test]
+    fn dynamic_bind_poses_keep_unsupported_skin_and_morph_orientation_two_sided() {
+        let mut asset = LoadedPropAsset {
+            model_path: "single-sided.glb".to_string(),
+            model: synthetic_model(MaterialEmission::NONE),
+        };
+        asset.model.submeshes[0].double_sided = false;
+        assert!(!DynamicMesh::from_asset(&asset).unwrap().submeshes[0].double_sided);
+        asset.model.skin = Some(crate::gltf::PropSkin {
+            joints: vec![0],
+            inverse_bind: vec![Mat4::from_scale(Vec3::new(-1.0, 1.0, 1.0))],
+            nodes: Vec::new(),
+            root: None,
+            mesh_node: None,
+        });
+        assert!(DynamicMesh::from_asset(&asset).unwrap().submeshes[0].double_sided);
+        asset.model.skin = None;
+        asset
+            .model
+            .morph_targets
+            .push(crate::gltf::PropMorphTarget {
+                position: Vec::new(),
+                normal: Vec::new(),
+                tangent: Vec::new(),
+            });
+        assert!(DynamicMesh::from_asset(&asset).unwrap().submeshes[0].double_sided);
+    }
+
+    #[test]
+    fn model_space_normals_and_scalar_response_survive_dynamic_upload_input() {
+        let mut asset = LoadedPropAsset {
+            model_path: "shared/test_triangle.glb".to_string(),
+            model: synthetic_model(MaterialEmission::NONE),
+        };
+        asset.model.vertices[0].normal = Some([0.0, 1.0, 0.0]);
+        asset.model.submeshes[0].response = crate::materials::MaterialResponse {
+            specular: [0.03; 3],
+            roughness: 0.25,
+            ..crate::materials::MaterialResponse::NONE
+        };
+        let mesh = DynamicMesh::from_asset(&asset).unwrap();
+        assert_eq!(mesh.vertices[0].normal, [0.0, 1.0, 0.0]);
+        assert_eq!(mesh.vertices[1].normal, [0.0; 3]);
+        assert_eq!(
+            mesh.submeshes[0].response,
+            asset.model.submeshes[0].response
+        );
     }
 
     // ------------------------------------------------ representation boundary
@@ -1619,6 +1769,10 @@ mod tests {
             .expect("spawn");
         let centre = scene.get(id).expect("object").centre().to_array();
         let mut field = ProbeField {
+            local_direct: Some(crate::lighting::probes::ProbeDirectField {
+                light_indices: Vec::new(),
+                probes: vec![crate::lighting::lightmap::LightmapTexel::ZERO],
+            }),
             min: centre.map(|v| v - 0.5),
             cell_m: 1.0,
             dims: [1; 3],
@@ -1629,6 +1783,38 @@ mod tests {
                 ..ProbeSample::default()
             }],
         };
+        let _first_spatial = scene.update_with_field(0.0, Some(&lighting), Some(&field));
+        let first_key = scene.get(id).expect("object").spatial_key;
+        let first_payload = scene
+            .get(id)
+            .expect("object")
+            .spatial_lighting()
+            .map(|payload| std::ptr::from_ref(payload).addr());
+        let _stationary_spatial = scene.update_with_field(0.0, Some(&lighting), Some(&field));
+        assert_eq!(scene.get(id).expect("object").spatial_key, first_key);
+        assert_eq!(
+            scene
+                .get(id)
+                .expect("object")
+                .spatial_lighting()
+                .map(|payload| std::ptr::from_ref(payload).addr()),
+            first_payload,
+            "stationary spatial work is reused"
+        );
+        assert!(
+            scene.set_transform(id, [2.01, 1.0, 2.0], 10.0, 1.0),
+            "small translation and rotation are accepted"
+        );
+        let _moved_spatial = scene.update_with_field(0.0, Some(&lighting), Some(&field));
+        assert_ne!(
+            scene.get(id).expect("object").spatial_key,
+            first_key,
+            "movement invalidates spatial visibility without a dead zone"
+        );
+        assert!(
+            scene.set_transform(id, [2.0, 1.0, 2.0], 0.0, 1.0),
+            "restore transform"
+        );
         for _ in 0_i32..3_i32 {
             let _update_stats = scene.update_with_field(0.0, Some(&lighting), None);
             assert!(
@@ -1729,7 +1915,7 @@ mod tests {
         let mut scene = DynamicScene::new();
         for index in 0..=MAX_DYNAMIC_MESHES {
             let asset = Arc::new(LoadedPropAsset {
-                model_path: format!("core/test_{index}.glb"),
+                model_path: format!("shared/test_{index}.glb"),
                 model: synthetic_model(MaterialEmission::NONE),
             });
             let spawned = scene.spawn(&asset, [0.0, 0.0, 0.0], 0.0, 1.0, 0.0);
@@ -1750,7 +1936,7 @@ mod tests {
     #[test]
     fn a_model_with_nothing_drawable_never_spawns() {
         let asset = Arc::new(LoadedPropAsset {
-            model_path: "core/empty.glb".to_string(),
+            model_path: "shared/empty.glb".to_string(),
             model: PropModel {
                 vertices: Vec::new(),
                 indices: Vec::new(),

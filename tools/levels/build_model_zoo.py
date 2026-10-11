@@ -44,7 +44,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 APP_ROOT = Path(__file__).resolve().parent.parent.parent
 ASSETS_DIR = APP_ROOT / "assets"
 CATALOG_PATH = ASSETS_DIR / "catalog.json"
-OUTPUT_PATH = ASSETS_DIR / "levels" / "model_zoo.json"
+OUTPUT_PATH = APP_ROOT / "levels" / "model_zoo.json"
 CACHE_DIR = APP_ROOT / "cache"
 CACHE_PATH = CACHE_DIR / "zoo_inspection.json"
 ENTITIES_DIR = Path(__file__).resolve().parent.parent / "entities"
@@ -86,11 +86,18 @@ WALL_MOUNTS = {
     "winter:icicle_short": 2.3,
     "winter:icicle_medium": 2.3,
     "winter:icicle_long": 2.3,
+    "frutiger_aero:accent_panel": .6,
+    "frutiger_aero:banner_atrium": .6,
+    "frutiger_aero:banner_corridor": .6,
+    "frutiger_aero:banner_reception": .6,
     "winter:icicle_cluster_mixed": 2.3,
     "winter:icicle_cluster_sparse": 2.3,
 }
 CEILING_MOUNTS = {
     "home:ball_light",
+    "frutiger_aero:light_pod",
+    "frutiger_aero:ceiling_ring",
+    "frutiger_aero:reception_soffit",
     "core:exit_sign",
     "winter:string_lights_short",
     "winter:string_lights_medium",
@@ -127,6 +134,8 @@ LADDER_COMPANION = "core:pool_ladder"
 # block. Consulted by ``Layout.add_prop`` for solid placements only.
 SOLID_SIZE_OVERRIDES: Dict[str, List[float]] = {
     "core:sink": [0.6, 0.9, 0.55],
+    "frutiger_aero:seating_pod": [2.4, .64, 1.1],
+    "frutiger_aero:tree_planter": [1.24, .64, 1.24],
 }
 
 # Emissive props that must actually illuminate: a light is authored into the
@@ -565,7 +574,7 @@ HOME_APRON_DISPLAYS = (
     "home:floor_lamp", "home:mug", "home:book_stack", "home:cushion",
     "home:outlet", "home:cabinet_strip", "home:landscape_frame", "home:sink", "home:stove",
     "home:kettle", "home:toaster",
-    "home:door_casing",
+    "home:door_casing", "home:dining_chair_refined",
 )
 
 OUTDOOR_APRON_DISPLAYS = tuple('outdoor:' + name for name in (
@@ -577,6 +586,15 @@ WINTER_APRON_DISPLAYS = tuple('winter:' + name for name in (
     'door_hood_snow', 'window_frame', 'ice_fragment',
 ))
 
+# These four refinement assets use unused slots in the existing Aero annex.
+# Keeping them outside the older sorted packs preserves the hall, fish basin,
+# annex exhibits and lighting grid. Tuple order fixes each supplemental slot.
+SUPPLEMENTAL_DISPLAYS = (
+    'frutiger_aero:portal_spandrel', 'beach:cove_foam',
+    'beach:town_terrace_base', 'winter:snow_roof_blanket',
+)
+SUPPLEMENTAL_FIRST_SLOT = 23
+
 
 def ordered_displays(catalog: Dict) -> List[Dict]:
     """Every display the zoo must contain, in a deterministic order.
@@ -586,8 +604,13 @@ def ordered_displays(catalog: Dict) -> List[Dict]:
     """
     displays: List[Dict] = []
     for entry in placeables(catalog):
+        # Beach uses a compact annex through the existing east exit. Its
+        # landmark footprints must not reflow the older hall and exhibits.
+        if entry["id"].startswith(("beach:", "frutiger_aero:")):
+            continue
         if entry["id"] in (POOL_APRON_DISPLAYS + HOME_APRON_DISPLAYS
-                           + OUTDOOR_APRON_DISPLAYS + WINTER_APRON_DISPLAYS):
+                           + OUTDOOR_APRON_DISPLAYS + WINTER_APRON_DISPLAYS
+                           + SUPPLEMENTAL_DISPLAYS):
             continue
         klass = display_class(entry)
         role = klass
@@ -619,6 +642,141 @@ def ordered_displays(catalog: Dict) -> List[Dict]:
             {"entry": spooner, "class": "route", "role": "companion", "clip": "idle"}
         )
     return displays
+
+
+def add_beach_displays(layout: "Layout", entries: Dict[str, Dict]) -> Tuple[List[Dict], List[Dict], List[Dict], List[Dict]]:
+    """Register Beach exhibits without changing any pre-existing placement.
+
+    Scenery is reduced only for this catalogue exhibit; the production asset
+    and its map scale remain unchanged. Hollow structures stay non-solid.
+    Animals start through explicit actions, including the fish's swim cue.
+    """
+    beach = sorted((entry for entry in entries.values() if entry["id"].startswith("beach:")
+                    and entry["id"] not in SUPPLEMENTAL_DISPLAYS),
+                   key=lambda entry: entry["id"])
+    if not beach:
+        return [], [], [], []
+    pitch, columns = 4.0, 6
+    rows = math.ceil(len(beach) / columns)
+    x0 = layout.plan["width"]
+    z0 = round(layout.plan["depth"] * .5 - 10.0, 3)
+    width, depth = columns * pitch, max(20.0, rows * pitch)
+    height = layout.plan["height"]
+    rooms = [{"x": x0, "z": z0, "width": width, "depth": depth, "height": height,
+              "material": "core:pool_tile_deck_01", "ceiling_material": "core:pool_ceiling_01"}]
+    fish_index = next((index for index, entry in enumerate(beach) if entry["id"] == "beach:fish"), None)
+    if fish_index is not None:
+        bx = round(x0 + (fish_index % columns + .5) * pitch - 1.4, 3)
+        bz = round(z0 + (fish_index // columns + .5) * pitch - 1.4, 3)
+        # Prepared entity lighting uses real room containment, including Y.
+        # A negative floor region alone leaves a submerged anchor roomless.
+        spans = [(x0, z0, bx-x0, depth, 0),
+                 (bx+2.8, z0, x0+width-bx-2.8, depth, 0),
+                 (bx, z0, 2.8, bz-z0, 0),
+                 (bx, bz+2.8, 2.8, z0+depth-bz-2.8, 0),
+                 (bx, bz, 2.8, 2.8, -1.2)]
+        rooms = [{"x": x, "z": z, "width": w, "depth": d,
+                  "floor_y": floor, "height": height-floor,
+                  "material": "core:pool_tile_basin_01" if floor < 0 else "core:pool_tile_deck_01",
+                  "ceiling_material": "core:pool_ceiling_01"} for x, z, w, d, floor in spans]
+        for x in (bx, bx+2.8):
+            layout.geometry_intent.append({"check": "missing-wall", "x": x-.3, "z": z0,
+                                           "width": .6, "depth": depth,
+                                           "note": "An open annex ownership seam beside the real fish basin."})
+        for z in (bz, bz+2.8):
+            layout.geometry_intent.append({"check": "missing-wall", "x": bx, "z": z-.3,
+                                           "width": 2.8, "depth": .6,
+                                           "note": "The fish display has an intentionally open basin rim."})
+    lights, timers = [], []
+    for row in range(rows):
+        for column in range(columns):
+            lights.append({"id": f"zoo:beach-light:{row}:{column}", "fixture": "core:pool_light_round",
+                           "x": round(x0 + (column + .5) * pitch, 3),
+                           "z": round(z0 + (row + .5) * pitch, 3), "brightness": .52})
+    for index, entry in enumerate(beach):
+        asset_id = entry["id"]
+        x = round(x0 + (index % columns + .5) * pitch, 3)
+        z = round(z0 + (index // columns + .5) * pitch, 3)
+        scale = min(1.0, 3.2 / max(entry["size"]))
+        role = "ceiling" if asset_id == "beach:bunting" else "water" if asset_id == "beach:fish" else "floor"
+        fields = {"scale": scale, "solid": False}
+        if role == "ceiling":
+            fields["y"] = round(height - entry["size"][1] * scale, 3)
+        if role == "water":
+            # Shared room edges resolve to the earlier deck room. Keep water
+            # corners inside the basin's ownership, clear of that seam.
+            layout.water.append({"x": round(x - 1.38, 3), "z": round(z - 1.38, 3),
+                                 "width": 2.76, "depth": 2.76,
+                                 "surface_y": -.2, "bottom_y": -1.2, "swimming": False,
+                                 "material": "beach:water_shallow_01", "opacity": .34})
+            fields["y"] = .45
+        placed = layout.add_prop(entry, role, x, z, **fields)
+        clip = {"beach:seagull": "idle", "beach:crab": "idle", "beach:fish": "swim"}.get(asset_id)
+        if clip:
+            placed.setdefault("components", []).append({"component": "animation", "clip": clip,
+                                                         "looped": True, "playing": False})
+            timers.append({"id": f"zoo:{asset_id.replace(':', '-')}:start", "seconds": .05,
+                           "autostart": True, "bindings": [{"on": "timer", "actions": [
+                               {"action": "play_animation", "target": placed["id"], "clip": clip, "loop": True}]}]})
+    # The annex keeps the existing four-metre exit open and owns only its new
+    # outer shell. Its west edge is covered by the original showroom wall.
+    walls = [{"x": x0, "z": z0 - .4, "width": width + .4, "depth": .4,
+              "height": height, "material": "core:pool_tile_wall_01"},
+             {"x": x0, "z": z0 + depth, "width": width + .4, "depth": .4,
+              "height": height, "material": "core:pool_tile_wall_01"},
+             {"x": x0 + width, "z": z0, "width": .4, "depth": depth,
+              "height": height, "material": "core:pool_tile_wall_01"}]
+    return rooms, walls, lights, timers
+
+
+def add_aero_displays(layout: "Layout", entries: Dict[str, Dict], beach_walls: List[Dict]):
+    """A compact annex preserves every pre-Aero placement and the hall grid.
+
+    Architectural/backdrop assets are reduced only in this catalogue exhibit;
+    the connected production demo uses their complete scale and collision.
+    """
+    aero = sorted((entry for entry in entries.values() if entry["id"].startswith("frutiger_aero:")
+                   and entry["id"] not in SUPPLEMENTAL_DISPLAYS),
+                  key=lambda entry: entry["id"])
+    supplemental = [(SUPPLEMENTAL_FIRST_SLOT+index, entries[asset_id])
+                    for index, asset_id in enumerate(SUPPLEMENTAL_DISPLAYS)
+                    if asset_id in entries]
+    if not aero and not supplemental:
+        return [], [], []
+    pitch, columns = 4.0, 6
+    x0 = layout.plan["width"]+24
+    z0 = round(layout.plan["depth"]*.5-10, 3)
+    width, depth, height = 24, 20, layout.plan["height"]
+    rooms = [dict(x=x0, z=z0, width=width, depth=depth, height=height,
+                  material="core:pool_tile_deck_01", ceiling_material="core:pool_ceiling_01")]
+    for wall in beach_walls:
+        if wall["x"] == x0 and wall["depth"] == depth:
+            wall["openings"] = [dict(kind="passage", offset=8, width=4, height=3, sill=0)]
+    lights = [dict(id=f"zoo:aero-light:{row}:{column}", fixture="core:pool_light_round",
+                   x=x0+(column+.5)*pitch, z=z0+(row+.5)*pitch, brightness=.52)
+              for row in range(5) for column in range(columns)]
+    # The ordinary exhibits keep their prior slots; reserve the four spare
+    # slots even when a supplemental asset is absent from an isolated catalog.
+    display_slots = [(index if index < SUPPLEMENTAL_FIRST_SLOT
+                      else index+len(SUPPLEMENTAL_DISPLAYS), entry)
+                     for index, entry in enumerate(aero)]
+    for index, entry in display_slots + supplemental:
+        scale = min(1.0, 3.2/max(entry["size"]))
+        x, z = x0+(index % columns+.5)*pitch, z0+(index // columns+.5)*pitch
+        ceiling = entry["id"] in CEILING_MOUNTS or entry["id"] == "frutiger_aero:atrium_dome"
+        fields = dict(scale=scale, solid=False)
+        if ceiling:
+            fields["y"] = round(height-entry["size"][1]*scale, 3)
+        layout.add_prop(entry, "ceiling" if ceiling else "floor", x, z, **fields)
+        if entry["id"] == "frutiger_aero:fountain_basin":
+            radius = 1.30*scale
+            layout.water.append(dict(shape="circle", x=x-radius, z=z-radius, radius=radius,
+                surface_y=.37*scale, bottom_y=.10*scale, swimming=False,
+                material="frutiger_aero:cyan_water_01", opacity=.44))
+    walls = [dict(x=x0, z=z0-.4, width=width+.4, depth=.4, height=height, material="core:pool_tile_wall_01"),
+             dict(x=x0, z=z0+depth, width=width+.4, depth=.4, height=height, material="core:pool_tile_wall_01"),
+             dict(x=x0+width, z=z0, width=.4, depth=depth, height=height, material="core:pool_tile_wall_01")]
+    return rooms, walls, lights
 
 
 def plan_hall(displays: Sequence[Dict], inspections: Dict[str, Dict]) -> Dict:
@@ -1350,16 +1508,21 @@ def build_level(catalog: Dict, inspections: Dict[str, Dict]) -> Dict:
         },
     ]
     rooms = hall_rooms(plan)
+    original_rooms = list(rooms)
+    beach_rooms, beach_walls, beach_lights, beach_timers = add_beach_displays(layout, by_id)
+    aero_rooms, aero_walls, aero_lights = add_aero_displays(layout, by_id, beach_walls)
+    rooms += beach_rooms + aero_rooms
+    walls += beach_walls + aero_walls
     # Only the internal ownership boundaries are open: the outer shell stays
     # enclosed. Keep checker annotations on those specific shared borders.
     intent = []
-    for x in sorted({room["x"] for room in rooms} - {0.0}):
+    for x in sorted({room["x"] for room in original_rooms} - {0.0}):
         intent.append({
             "check": "missing-wall", "x": x - 0.3, "z": 0.0,
             "width": 0.6, "depth": depth,
             "note": "An open internal chart boundary in the continuous showroom hall.",
         })
-    for z in sorted({room["z"] for room in rooms} - {0.0}):
+    for z in sorted({room["z"] for room in original_rooms} - {0.0}):
         intent.append({
             "check": "missing-wall", "x": 0.0, "z": z - 0.3,
             "width": width, "depth": 0.6,
@@ -1368,7 +1531,7 @@ def build_level(catalog: Dict, inspections: Dict[str, Dict]) -> Dict:
     # The leak flood fill can leave through the real exit, then travel along
     # the void beside either adjacent ownership cell. Bound its annotation to
     # those cells on the exit wall, leaving every other outside edge checked.
-    for room in rooms:
+    for room in original_rooms:
         if room["x"] + room["width"] != width:
             continue
         if room["z"] > depth * 0.5 + 4.0 or room["z"] + room["depth"] < depth * 0.5 - 4.0:
@@ -1389,6 +1552,7 @@ def build_level(catalog: Dict, inspections: Dict[str, Dict]) -> Dict:
             "note": "The showroom's exit passage opens onto the void by design.",
         }
     ]
+    intent += layout.geometry_intent
 
     return {
         "format_version": 3,
@@ -1416,10 +1580,11 @@ def build_level(catalog: Dict, inspections: Dict[str, Dict]) -> Dict:
         "pillars": layout.pillars,
         "guardrails": layout.guardrails,
         "half_walls": layout.half_walls,
-        "ceiling_lights": light_grid(plan),
+        "ceiling_lights": light_grid(plan) + beach_lights + aero_lights,
         "props": layout.props,
         "decals": layout.decals,
         "routes": layout.routes,
+        "timers": beach_timers,
         "volumes": layout.volumes,
         "spawn_templates": [
             {

@@ -193,7 +193,10 @@ fn test_estimate_geometry_saturates_on_extreme_input() {
     // Direct construction with absurd dimensions must not overflow or panic.
     let level = LevelDef {
         sky: None,
+        environment: None,
         weather: None,
+        weather_alternate: None,
+        weather_cycle: None,
         global_illuminators: Vec::new(),
         doors: Vec::new(),
         effects: Vec::new(),
@@ -1977,6 +1980,17 @@ fn test_action_defs_parse_as_tagged_objects() {
         serde_json::from_str(r#"{ "action": "reset_to_start" }"#).expect("reset_to_start parses");
     assert_eq!(reset, ActionDef::ResetToStart);
 
+    let weather: ActionDef =
+        serde_json::from_str(r#"{ "action": "toggle_weather" }"#).expect("toggle_weather parses");
+    assert_eq!(weather, ActionDef::ToggleWeather);
+    assert_eq!(weather.kind(), "toggle_weather");
+    assert_eq!(weather.target(), None);
+    let prompt: ActionDef =
+        serde_json::from_str(r#"{ "action": "set_prompt", "prompt": "Disable blizzard" }"#)
+            .expect("set_prompt parses");
+    assert_eq!(prompt.kind(), "set_prompt");
+    assert_eq!(prompt.target(), None);
+
     // The v3 action set replaced the reserved `play_audio` tag with
     // `play_sound`; the removed tag is an unknown action now, never a silently
     // accepted alias.
@@ -2585,7 +2599,7 @@ fn a_sink_collider_is_its_standable_deck_not_the_faucet_post() {
 /// the raised jump apex can land on.
 #[test]
 fn the_shipped_demo_counters_are_clear_above_their_tops() {
-    let content = std::fs::read_to_string("assets/levels/places_demo.json")
+    let content = std::fs::read_to_string("levels/places_demo.json")
         .expect("the Places demo level is present");
     let level = LevelDef::from_json(&content).expect("the Places demo parses");
 

@@ -1,3 +1,0 @@
-PASS assets/environment/office/textures/walls/wallpaper_yellow_01.png
-PASS assets/environment/office/textures/walls/wallpaper_stained_01.png
-2/2 texture(s) pass the seam metric

@@ -840,13 +840,45 @@ fn prop_records_round_trip_with_textures_reattached_at_load() {
     assert_eq!(decoded.len(), build.batches.len());
     for (original, decoded_batch) in build.batches.iter().zip(&decoded) {
         assert_eq!(original.model, decoded_batch.model);
-        assert_eq!(original.vertices, decoded_batch.vertices);
-        assert_eq!(original.indices, decoded_batch.indices);
+        assert_eq!(
+            original.casts_static_lighting,
+            decoded_batch.casts_static_lighting
+        );
+        assert_eq!(original.submeshes, decoded_batch.submeshes);
+        assert_eq!(
+            original.bounds.min.map(f32::to_bits),
+            decoded_batch.bounds.min.map(f32::to_bits)
+        );
+        assert_eq!(
+            original.bounds.max.map(f32::to_bits),
+            decoded_batch.bounds.max.map(f32::to_bits)
+        );
+        assert_eq!(original.indices.len(), decoded_batch.indices.len());
+        // Storage may share duplicate slots; the ordered draw stream must keep
+        // all 69 bytes of every corner, including UV seams and shading frames.
+        for (&original_index, &decoded_index) in original.indices.iter().zip(&decoded_batch.indices)
+        {
+            let mut original_corner = Writer::new();
+            let mut decoded_corner = Writer::new();
+            super::mesh::write_vertex(
+                &mut original_corner,
+                &original.vertices[usize::from(original_index)],
+            );
+            super::mesh::write_vertex(
+                &mut decoded_corner,
+                &decoded_batch.vertices[usize::from(decoded_index)],
+            );
+            assert_eq!(original_corner.into_bytes(), decoded_corner.into_bytes());
+        }
         assert!(
             decoded_batch.textures.is_empty(),
             "pixels travel by model reference"
         );
     }
+    assert_eq!(
+        bytes,
+        super::props::write_props(&decoded).expect("roundtrip encoding is canonical")
+    );
     assert!(super::props::read_props(&bytes[..4]).is_err());
 }
 
@@ -866,7 +898,9 @@ fn prop_records_round_trip_every_alpha_mode() {
     .expect("prop fixture parses");
     let build = build_level_build(&level, crate::quality::LightmapQuality::Off);
     let mut batch = build.batches[0].clone();
-    let template = batch.submeshes[0].clone();
+    let mut template = batch.submeshes[0].clone();
+    template.response.specular = [0.3, 0.2, 0.1];
+    template.response.roughness = 0.25;
     batch.submeshes = vec![
         crate::render::PropSubmeshBatch {
             alpha: crate::materials::MaterialAlpha::OPAQUE,
@@ -887,6 +921,14 @@ fn prop_records_round_trip_every_alpha_mode() {
     ];
     let bytes = super::props::write_props(&[batch]).expect("props encode");
     let decoded = super::props::read_props(&bytes).expect("props decode");
+    assert!(
+        decoded[0]
+            .submeshes
+            .iter()
+            .all(|submesh| submesh.response.specular.map(f32::to_bits)
+                == [0.3_f32, 0.2, 0.1].map(f32::to_bits)
+                && submesh.response.roughness.to_bits() == 0.25_f32.to_bits())
+    );
     let modes: Vec<_> = decoded[0].submeshes.iter().map(|s| s.alpha.mode).collect();
     assert_eq!(
         modes,

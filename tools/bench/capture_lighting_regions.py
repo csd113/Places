@@ -30,7 +30,7 @@ def require_matching_package(staged, requested):
 
 def inventory():
     entries = {}
-    for directory in ('assets/levels', 'tests/fixtures/levels', 'levels'):
+    for directory in ('levels', 'tests/fixtures/levels'):
         for source in sorted((REPO / directory).glob('*.json')):
             data = json.loads(source.read_text())
             key = data['id']

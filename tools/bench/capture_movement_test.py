@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Run every movement_test station through the game's existing capture controls.
 
-Build the release binary and compile the map first. Evidence belongs under target/;
-these are scripted real SDL/wgpu gameplay runs, separate from deterministic tests.
+Build the release binary and compile the movement and Pit fixtures first. Supply
+their packages explicitly; evidence belongs under target/.
+These are scripted real SDL/wgpu gameplay runs, separate from deterministic tests.
 """
 import argparse
 import csv
@@ -101,7 +102,9 @@ def main():
     parser.add_argument("--binary", type=Path, default=ROOT / "target/release/places")
     parser.add_argument("--quality", choices=["low", "high"], default="high")
     parser.add_argument("--case", default="", help="only case names containing this text")
-    parser.add_argument("--pit-package", type=Path, default=ROOT / "levels/level0_pit.placesmap",
+    parser.add_argument("--movement-package", type=Path, default=ROOT / "target/verification/maps/tests__fixtures__levels__movement_test.placesmap",
+                        help="compiled movement fixture package for station captures")
+    parser.add_argument("--pit-package", type=Path, default=ROOT / "target/verification/maps/tests__fixtures__levels__level0_pit.placesmap",
                         help="compiled Pit package for the balcony regression")
     args = parser.parse_args()
     out = args.out.resolve() / args.quality
@@ -115,12 +118,19 @@ def main():
         lightmaps="off" if args.quality == "low" else "full", bloom=False,
         window_width=640, window_height=360, window_mode="windowed")))
     selected = [case for case in cases() if args.case in case["name"]]
-    if any(case.get("level") == "level0_pit" for case in selected):
-        if not args.pit_package.is_file():
-            parser.error("compile tests/fixtures/levels/level0_pit.json and supply --pit-package")
+    if not selected:
+        parser.error("no movement cases matched --case")
+    packages = {
+        "movement_test": (args.movement_package, "--movement-package"),
+        "level0_pit": (args.pit_package, "--pit-package"),
+    }
+    for level in sorted({case.get("level", "movement_test") for case in selected}):
+        package, option = packages[level]
+        if not package.is_file():
+            parser.error(f"compile tests/fixtures/levels/{level}.json and supply {option}")
         installed = state / "levels"
         installed.mkdir(exist_ok=True)
-        shutil.copy2(args.pit_package, installed / "level0_pit.placesmap")
+        shutil.copy2(package, installed / (level + ".placesmap"))
     records = []
     for case in selected:
         if args.case not in case["name"]:
@@ -148,6 +158,8 @@ def main():
                     rows = list(csv.reader(source))
                 record["final_state"] = rows[-1] if rows else None
             captured_log = (out / f"{name}.log").read_text()
+            if f"[loading] committed {case.get('level', 'movement_test')}" not in captured_log:
+                record["exit_code"] = "requested movement fixture did not load"
             if "is not a valid settings file" in captured_log or "PLACES_MOVE_SCRIPT: ignored" in captured_log:
                 record["exit_code"] = "invalid capture setup"
             if record.get("final_state") is None:

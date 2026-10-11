@@ -975,7 +975,7 @@ fn z_axis_wall_caps_face_out_of_the_wall_solid() {
 
 #[test]
 fn places_demo_doorway_thresholds_are_owned_once() {
-    let level = parse(include_str!("../assets/levels/places_demo.json"));
+    let level = parse(include_str!("../levels/places_demo.json"));
     let mesh = shipped_mesh(&level);
     let all = triangles(&mesh);
     // The full coplanar-pair audit runs in
@@ -1305,7 +1305,7 @@ fn the_decal_depth_solution_is_sub_visible_and_resolvable_where_it_matters() {
 
 #[test]
 fn the_shipped_demo_has_no_coincident_architecture_surfaces() {
-    let level = parse(include_str!("../assets/levels/places_demo.json"));
+    let level = parse(include_str!("../levels/places_demo.json"));
     let mesh = shipped_mesh(&level);
     let all = triangles(&mesh);
     assert_no_coincident_architecture_overlaps(&all, "places_demo architecture");
@@ -1317,7 +1317,7 @@ fn every_shipped_demo_decal_owns_its_depth_plane() {
     // decal in Places Demo must cover a real base surface and sit exactly the
     // shared offset in front of it. A decal that is missing, mis-parented or
     // left coplanar fails here, before any pixel is drawn.
-    let level = parse(include_str!("../assets/levels/places_demo.json"));
+    let level = parse(include_str!("../levels/places_demo.json"));
     let mesh = shipped_mesh(&level);
     let all = triangles(&mesh);
     let decals: Vec<&Triangle> = all
@@ -1367,7 +1367,7 @@ fn the_home_showcase_has_no_coincident_architecture_surfaces() {
     // The generic architectural pieces sit against walls, floors and each
     // other by construction; none of them may end up sharing a plane with the
     // surface it touches.
-    let level = parse(include_str!("../tests/fixtures/levels/home_showcase.json"));
+    let level = parse(include_str!("../levels/home_showcase.json"));
     let mesh = shipped_mesh(&level);
     let all = triangles(&mesh);
     assert_no_coincident_architecture_overlaps(&all, "home_showcase architecture");

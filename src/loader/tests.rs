@@ -45,7 +45,10 @@ fn route_sampling_rejects_counts_that_lose_adjacent_float_indices() {
 fn test_validate_level_success() {
     let level = LevelDef {
         sky: None,
+        environment: None,
         weather: None,
+        weather_alternate: None,
+        weather_cycle: None,
         global_illuminators: Vec::new(),
         doors: Vec::new(),
         effects: Vec::new(),
@@ -123,7 +126,10 @@ fn test_validate_level_success() {
 fn test_validate_level_invalid_version() {
     let level = LevelDef {
         sky: None,
+        environment: None,
         weather: None,
+        weather_alternate: None,
+        weather_cycle: None,
         global_illuminators: Vec::new(),
         doors: Vec::new(),
         effects: Vec::new(),
@@ -231,7 +237,10 @@ fn test_validate_level_preserves_overlapping_geometry() {
     // Overlapping walls and rooms are explicitly legal
     let level = LevelDef {
         sky: None,
+        environment: None,
         weather: None,
+        weather_alternate: None,
+        weather_cycle: None,
         global_illuminators: Vec::new(),
         doors: Vec::new(),
         effects: Vec::new(),
@@ -366,7 +375,10 @@ fn test_parse_materials_json() {
 fn test_missing_pack_materials_use_the_diagnostic_texture_with_an_error() {
     let level = LevelDef {
         sky: None,
+        environment: None,
         weather: None,
+        weather_alternate: None,
+        weather_cycle: None,
         global_illuminators: Vec::new(),
         doors: Vec::new(),
         effects: Vec::new(),
@@ -732,7 +744,7 @@ fn test_validate_accepts_a_level_without_any_shine() {
     assert!(level.rooms.iter().all(|room| room.shine.is_none()));
 
     // And the shipped demo, which mixes explicit and default shine.
-    let demo = LevelDef::from_json(include_str!("../../assets/levels/places_demo.json"))
+    let demo = LevelDef::from_json(include_str!("../../levels/places_demo.json"))
         .expect("the shipped demo parses");
     assert!(validate_level(&demo).is_ok());
     assert_eq!(demo.floor_patches[0].shine, Some(0.05));
@@ -1208,7 +1220,7 @@ fn test_shipped_test_room_demonstrates_openings_and_props() {
 /// recessed pool and an external decal sheet.
 #[test]
 fn test_the_official_demo_exercises_every_showcased_feature() {
-    let json = include_str!("../../assets/levels/places_demo.json");
+    let json = include_str!("../../levels/places_demo.json");
     let level = LevelDef::from_json(json).expect("valid places_demo json");
     validate_level(&level).expect("the official demo validates");
 
@@ -1506,11 +1518,8 @@ fn test_authoring_sources_are_skipped_silently() {
         1,
         "the sources beside the package add no duplicate row: {rows:?}"
     );
-    for (id, source, package) in &rows {
-        assert!(
-            *package || *source == LevelSourceType::Embedded,
-            "{id} is a package row or the embedded fallback"
-        );
+    for (id, _, package) in &rows {
+        assert!(*package, "{id} is a compiled package row");
     }
     for source in ["source_room.json", "uncompiled_source.json", "bundle.zip"] {
         assert!(
@@ -1549,50 +1558,73 @@ fn compile_fixture(
     source_name: &str,
     level_json: &str,
 ) -> std::path::PathBuf {
-    let source = dir.join(source_name);
-    fs::write(&source, level_json).expect("write the fixture source");
-    let out = source.with_extension("placesmap");
-    let request = crate::compiler::BuildRequest {
-        source: source.clone(),
-        out: out.clone(),
-        asset_root: std::path::PathBuf::from("assets"),
-        variants: vec![crate::quality::LightmapQuality::Off],
-        workers: 1,
-        force: true,
-        capture_probes: false,
-    };
-    drop(crate::compiler::build(&request).expect("the fixture package builds"));
-    out
+    crate::test_support::compile_test_package(
+        dir,
+        source_name,
+        level_json,
+        &[crate::quality::LightmapQuality::Off],
+    )
+    .expect("the fixture package builds")
 }
 
 #[test]
-fn test_the_default_level_is_the_shipped_demo() {
-    let manager = LevelManager::new();
-    // The Level Select menu renders the bundled showcases and diagnostic map;
-    // any drop-in packages are Installed.
-    let mut bundled: Vec<&str> = manager
-        .entries()
-        .iter()
-        .filter(|entry| entry.source_type == LevelSourceType::Bundled)
-        .map(|entry| entry.id.as_str())
-        .collect();
-    bundled.sort_unstable();
+fn test_curated_level_sources_preserve_the_known_map_ids() {
+    let sources = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("levels");
+    let mut authored = Vec::new();
+    for file in fs::read_dir(sources).expect("curated source directory") {
+        let path = file.expect("source directory entry").path();
+        if path.extension().is_none_or(|extension| extension != "json") {
+            continue;
+        }
+        let level = LevelDef::from_json(&fs::read_to_string(&path).expect("curated source"))
+            .expect("curated source parses");
+        assert_eq!(
+            path.file_stem().and_then(|name| name.to_str()),
+            Some(level.id.as_str()),
+            "curated source filenames preserve their map identities"
+        );
+        authored.push(level.id);
+    }
+    authored.sort_unstable();
     assert_eq!(
-        bundled,
+        authored,
         vec![
+            "beach_demo",
+            "frutiger_aero_demo",
+            "home_showcase",
             "lantern_hollow",
             "model_zoo",
-            "movement_test",
             "places_demo",
+            "pool_showcase",
             "winter"
         ],
-        "the bundled levels include the showcases, Movement Test and Winter"
+        "the curated authored maps remain available without compiled output"
     );
+}
 
-    let loaded = manager.load_default().expect("the shipped demo loads");
+#[test]
+fn test_the_default_level_is_the_discovered_demo_package() {
+    let root =
+        std::env::temp_dir().join(format!("places-default-level-test-{}", std::process::id()));
+    crate::test_support::remove_dir_if_present(&root);
+    let assets = root.join("assets/levels");
+    let source = r#"{
+        "format_version": 3, "id": "places_demo", "name": "Places Demo",
+        "spawn": {"x": 1.0, "z": 1.0},
+        "rooms": [{"x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0}]
+    }"#;
+    drop(compile_fixture(&assets, "places_demo.json", source));
+    let manager = LevelManager::with_paths(assets, root.join("levels"), root.join("import"));
+    assert_eq!(
+        manager.entries().len(),
+        1,
+        "only the isolated package is discovered"
+    );
+    let loaded = manager.load_default().expect("the discovered demo loads");
     assert_eq!(loaded.entry.id, "places_demo");
     assert_eq!(loaded.entry.source_type, LevelSourceType::Bundled);
     assert_eq!(loaded.level.name, "Places Demo");
+    crate::test_support::remove_dir_if_present(root);
 }
 
 #[test]
@@ -1744,8 +1776,8 @@ fn test_shipped_prop_catalog_covers_shipped_levels() {
 
     let mut levels_checked = 0_i32;
     let mut props_checked = 0_i32;
-    for entry in fs::read_dir("assets/levels")
-        .expect("assets/levels exists")
+    for entry in fs::read_dir("levels")
+        .expect("curated source levels exist")
         .flatten()
     {
         let path = entry.path();
@@ -1768,7 +1800,10 @@ fn test_shipped_prop_catalog_covers_shipped_levels() {
             props_checked += 1_i32;
         }
     }
-    assert!(levels_checked >= 1_i32, "expected the shipped level file");
+    assert_eq!(
+        levels_checked, 8_i32,
+        "check the complete curated source lineup"
+    );
     assert!(props_checked >= 1_i32, "expected at least one placed prop");
 }
 
@@ -2145,16 +2180,39 @@ fn test_fixtures_without_a_sheet_resolve_to_nothing() {
     );
 }
 
-/// The shipped demo places all three built-in families, and every one of them
-/// reaches the loaded level with its catalog sheet attached: no fixture can
-/// silently fall back to the untextured sheet on the level the game boots into.
+/// Exercises authoring preparation and asset resolution without baking the
+/// production Demo or requiring a generated archive in the source checkout.
+fn prepared_demo() -> (LevelDef, MaterialTable, Vec<ResolvedFixtureSheet>) {
+    let mut level = LevelDef::from_json(include_str!("../../levels/places_demo.json"))
+        .expect("authored Demo parses");
+    validate_level(&level).expect("authored Demo validates");
+    let catalog = PropCatalog::load_default();
+    prepare_level(&mut level, catalog.assets(), None);
+    let asset_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets");
+    let mut cache = TextureCache::new();
+    let materials = resolve_materials(
+        &level,
+        catalog.assets(),
+        None,
+        Some(&asset_root),
+        &mut cache,
+    );
+    assert!(
+        materials.errors().is_empty(),
+        "Demo materials: {:?}",
+        materials.errors()
+    );
+    let sheets = resolve_fixture_sheets(&level, catalog.assets(), None, &mut cache);
+    (level, materials, sheets)
+}
+
+/// The authored demo places all three built-in families, and every one of them
+/// resolves its catalog sheet before static-world compilation.
 #[test]
 fn test_the_demo_loads_every_fixture_family_with_its_sheet() {
-    let manager = LevelManager::new();
-    let loaded = manager.load_default().expect("the demo loads");
+    let (level, _, sheets) = prepared_demo();
 
-    let families: Vec<crate::lighting::FixtureKind> = loaded
-        .level
+    let families: Vec<crate::lighting::FixtureKind> = level
         .ceiling_lights
         .iter()
         .map(|light| crate::lighting::fixture_profile(&light.fixture).kind)
@@ -2165,8 +2223,7 @@ fn test_the_demo_loads_every_fixture_family_with_its_sheet() {
         crate::lighting::FixtureKind::WallSconce,
     ] {
         assert!(families.contains(&kind), "the demo places {kind:?}");
-        let sheet = loaded
-            .light_sheets
+        let sheet = sheets
             .iter()
             .find(|sheet| sheet.kind == kind)
             .unwrap_or_else(|| panic!("{kind:?} must resolve its sheet"));
@@ -2174,30 +2231,48 @@ fn test_the_demo_loads_every_fixture_family_with_its_sheet() {
     }
 }
 
-/// Places Demo is offered even when nothing is installed, and selecting the
-/// offered entry loads the embedded copy.
+/// A source-only checkout reports the explicit offline build path, then
+/// recovers through ordinary discovery when a valid package is installed.
 #[test]
-fn test_the_embedded_demo_is_always_listed_and_loadable() {
-    let scratch = std::path::Path::new("target/agent-work/tests/levels-empty");
-    crate::test_support::remove_dir_if_present(scratch);
-    std::fs::create_dir_all(scratch).expect("scratch directory is writable");
-
-    // `with_paths` never discovers anything under a fresh scratch directory.
-    let manager = LevelManager::with_paths(
+fn test_missing_demo_is_actionable_and_recovers_after_package_installation() {
+    let scratch =
+        std::env::temp_dir().join(format!("places-empty-level-test-{}", std::process::id()));
+    crate::test_support::remove_dir_if_present(&scratch);
+    let levels = scratch.join("levels");
+    let source = r#"{
+        "format_version": 3, "id": "places_demo", "name": "Recovered Demo",
+        "spawn": {"x": 1.0, "z": 1.0},
+        "rooms": [{"x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0}]
+    }"#;
+    fs::create_dir_all(&levels).expect("source-only level directory");
+    fs::write(levels.join("places_demo.json"), source).expect("uncompiled Demo source");
+    let mut manager = LevelManager::with_paths(
         scratch.join("assets/levels"),
-        scratch.join("levels"),
+        levels.clone(),
         scratch.join("import"),
     );
-    let entry = manager
-        .entries()
-        .iter()
-        .find(|entry| entry.id == DEMO_LEVEL_ID)
-        .expect("the embedded demo is always listed");
-    assert_eq!(entry.source_type, LevelSourceType::Embedded);
+    assert!(
+        manager.entries().is_empty(),
+        "uncompiled sources add no playable rows"
+    );
+    let error = manager.load_default().expect_err("no package is available");
+    assert!(error.contains("Places Demo is not compiled"), "{error}");
+    assert!(error.contains("tools/build-maps.sh"), "{error}");
+    assert!(error.contains("import places_demo.placesmap"), "{error}");
 
-    let loaded = manager.load_level(entry).expect("the embedded demo loads");
+    drop(compile_fixture(&levels, "places_demo.json", source));
+    manager.refresh();
+    assert_eq!(
+        manager.entries().len(),
+        1,
+        "the installed package is discovered once"
+    );
+    let loaded = manager
+        .load_default()
+        .expect("the installed Demo recovers the default");
     assert_eq!(loaded.level.id, DEMO_LEVEL_ID);
-    assert_eq!(loaded.entry.source_type, LevelSourceType::Embedded);
+    assert_eq!(loaded.entry.source_type, LevelSourceType::Installed);
+    assert_eq!(loaded.level.name, "Recovered Demo");
 
     crate::test_support::remove_dir_if_present(scratch);
 }
@@ -2208,7 +2283,7 @@ fn test_the_embedded_demo_is_always_listed_and_loadable() {
 /// exercises every generic architectural piece and every Home material.
 #[test]
 fn test_validate_accepts_the_home_showcase_fixture() {
-    let content = std::fs::read_to_string("tests/fixtures/levels/home_showcase.json")
+    let content = std::fs::read_to_string("levels/home_showcase.json")
         .expect("the Home showcase fixture is present");
     let level = LevelDef::from_json(&content).expect("the Home showcase parses");
     if let Err(error) = validate_level(&level) {
@@ -2453,7 +2528,7 @@ fn test_validate_water_accepts_a_valid_volume_and_rejects_bad_ones() {
 /// ladder passes and resolves to the +X climb direction.
 #[test]
 fn test_validate_ladders_accepts_the_demo_and_rejects_bad_reach() {
-    let demo = LevelDef::from_json(include_str!("../../assets/levels/places_demo.json"))
+    let demo = LevelDef::from_json(include_str!("../../levels/places_demo.json"))
         .expect("the Places demo parses");
     validate_level(&demo).expect("the shipped demo validates");
     assert_eq!(demo.ladders.len(), 1, "the demo authors its pool ladder");
@@ -2702,11 +2777,10 @@ fn test_prepare_level_skips_a_face_whose_floor_changes_along_the_run() {
 /// and the authored Home runs are untouched.
 #[test]
 fn test_prepared_demo_aligns_panels_and_gains_office_baseboards() {
-    let raw = LevelDef::from_json(include_str!("../../assets/levels/places_demo.json"))
+    let raw = LevelDef::from_json(include_str!("../../levels/places_demo.json"))
         .expect("places_demo parses");
-    let manager = LevelManager::new();
-    let loaded = manager.load_default().expect("the demo loads");
-    let prepared = &loaded.level;
+    let (level, materials, _) = prepared_demo();
+    let prepared = &level;
 
     assert!(
         validate_level(prepared).is_ok(),
@@ -2737,8 +2811,7 @@ fn test_prepared_demo_aligns_panels_and_gains_office_baseboards() {
             .map(str::trim)
             .filter(|id| !id.is_empty())
             .unwrap_or_else(|| prepared.defaults.ceiling.trim());
-        let period = loaded
-            .materials
+        let period = materials
             .entry_of(material_id)
             .unwrap_or_else(|| panic!("ceiling material `{material_id}` resolved"))
             .grid_metres;
@@ -2757,12 +2830,7 @@ fn test_prepared_demo_aligns_panels_and_gains_office_baseboards() {
 
     // The office baseboard material resolved into the renderer's table, and
     // every run appended by preparation names it.
-    assert!(
-        loaded
-            .materials
-            .index_of("core:baseboard_office_01")
-            .is_some()
-    );
+    assert!(materials.index_of("core:baseboard_office_01").is_some());
     let generated = &prepared.baseboards[raw.baseboards.len()..];
     assert!(
         !generated.is_empty(),
@@ -2805,9 +2873,8 @@ fn test_prepared_demo_aligns_panels_and_gains_office_baseboards() {
 /// were pinned to.
 #[test]
 fn test_prepared_demo_baseboard_geometry_sits_at_floor_level() {
-    let manager = LevelManager::new();
-    let loaded = manager.load_default().expect("the demo loads");
-    let prepared = &loaded.level;
+    let (level, _, _) = prepared_demo();
+    let prepared = &level;
     let materials = crate::render::logical_materials(prepared);
     let index = materials
         .index_of("core:baseboard_office_01")
@@ -2864,6 +2931,139 @@ fn interact_prop_json(id: &str, actions: &str) -> String {
               "components": [ {{ "component": "interactable" }} ],
               "bindings": [ {{ "on": "interact", "actions": [{actions}] }} ] }}"#
     )
+}
+
+#[test]
+fn weather_toggle_requires_two_valid_authored_configurations() {
+    let mut level = binding_level(&format!(
+        "\"props\": [{}]",
+        interact_prop_json("weather_switch", r#"{ "action": "toggle_weather" }"#)
+    ));
+    let missing = validate_level(&level).expect_err("weather toggle needs both configurations");
+    assert!(
+        missing.contains("toggle_weather"),
+        "unexpected error: {missing}"
+    );
+    level.weather = Some(crate::weather::WeatherDef::Snow(
+        crate::weather::SnowfallDef::default(),
+    ));
+    let no_alternate = validate_level(&level).expect_err("weather toggle needs an alternate");
+    assert!(
+        no_alternate.contains("weather_alternate"),
+        "unexpected error: {no_alternate}"
+    );
+    level.weather_alternate = Some(crate::weather::WeatherDef::Snow(
+        crate::weather::SnowfallDef::blizzard(),
+    ));
+    validate_level(&level).expect("both authored configurations are valid");
+    level.weather = None;
+    let no_default = validate_level(&level).expect_err("alternate needs authored default");
+    assert!(
+        no_default.contains("authored default weather"),
+        "unexpected error: {no_default}"
+    );
+    level.weather = Some(crate::weather::WeatherDef::Snow(
+        crate::weather::SnowfallDef::default(),
+    ));
+    level.weather_alternate = Some(crate::weather::WeatherDef::Snow(
+        crate::weather::SnowfallDef {
+            count: 2049,
+            ..crate::weather::SnowfallDef::blizzard()
+        },
+    ));
+    let invalid =
+        validate_level(&level).expect_err("alternate validates before resource allocation");
+    assert!(
+        invalid.contains("weather_alternate: weather count"),
+        "unexpected error: {invalid}"
+    );
+    level.weather_alternate = Some(crate::weather::WeatherDef::Snow(
+        crate::weather::SnowfallDef::blizzard(),
+    ));
+    let room = level.rooms.first().expect("fixture has a room").clone();
+    level.rooms = vec![room; crate::weather::MAX_STORM_SHELTERS.saturating_add(1)];
+    let shelter_overflow =
+        validate_level(&level).expect_err("alternate must preserve every shelter");
+    assert!(
+        shelter_overflow.contains("at most 32"),
+        "unexpected error: {shelter_overflow}"
+    );
+}
+
+#[test]
+fn set_prompt_requires_nonblank_text_and_an_interactable_target() {
+    let valid = binding_level(&format!(
+        "\"props\": [{}]",
+        interact_prop_json(
+            "switch",
+            r#"{ "action": "set_prompt", "prompt": "Disable blizzard" }"#
+        )
+    ));
+    validate_level(&valid).expect("interactable prompts are map-authored controls");
+    let blank = binding_level(&format!(
+        "\"props\": [{}]",
+        interact_prop_json("switch", r#"{ "action": "set_prompt", "prompt": "  " }"#)
+    ));
+    let blank_error = validate_level(&blank).expect_err("prompt cannot be blank");
+    assert!(
+        blank_error.contains("prompt must not be blank"),
+        "unexpected error: {blank_error}"
+    );
+    let missing_capability = binding_level(&format!(
+        "\"props\": [{}, {{\"id\":\"crate\",\"model\":\"core:crate\",\"x\":5,\"z\":5}}]",
+        interact_prop_json(
+            "switch",
+            r#"{ "action": "set_prompt", "target": "crate", "prompt": "Next" }"#
+        )
+    ));
+    let target_error =
+        validate_level(&missing_capability).expect_err("target must carry interaction");
+    assert!(
+        target_error.contains("an `interactable` component"),
+        "unexpected error: {target_error}"
+    );
+}
+
+#[test]
+fn weather_strength_and_cycle_require_compatible_prepared_endpoints() {
+    let weather = r#""weather":{"kind":"snow"},"weather_alternate":{"kind":"snow","storm_severity":1,"wind":[8,3]}"#;
+    let prop = interact_prop_json(
+        "switch",
+        r#"{"action":"set_weather_strength","strength":0.35,"transition_seconds":2}"#,
+    );
+    let mut valid = binding_level(&format!(
+        r#"{weather},"props":[{prop}],"weather_cycle":{{"enabled":false,"max_strength":0.45,"period_seconds":120,"transition_seconds":15}}"#
+    ));
+    validate_level(&valid).expect("bounded prepared weather blend validates");
+    valid.weather_alternate = Some(crate::weather::WeatherDef::Snow(
+        crate::weather::SnowfallDef {
+            count: 2048,
+            ..crate::weather::SnowfallDef::blizzard()
+        },
+    ));
+    assert!(
+        validate_level(&valid)
+            .expect_err("count mismatch")
+            .contains("equal count and material")
+    );
+    let missing = binding_level(&format!(r#""props":[{prop}]"#));
+    assert!(
+        validate_level(&missing)
+            .expect_err("missing endpoints")
+            .contains("equal count and material")
+    );
+    for action in [
+        r#"{"action":"set_weather_strength","strength":1.1}"#,
+        r#"{"action":"set_weather_strength","strength":0.5,"transition_seconds":-1}"#,
+        r#"{"action":"set_weather_cycle","enabled":true}"#,
+    ] {
+        let invalid_switch = interact_prop_json("switch", action);
+        let invalid = binding_level(&format!(r#"{weather},"props":[{invalid_switch}]"#));
+        assert!(
+            validate_level(&invalid).is_err(),
+            "invalid playback action must fail"
+        );
+    }
 }
 
 /// The positive path: a level that authors at least one of every new record --
@@ -4500,7 +4700,7 @@ fn test_validate_rejects_a_route_on_a_floating_prop() {
 /// sized float the contract requires.
 #[test]
 fn test_the_shipped_demo_duck_validates() {
-    let level = LevelDef::from_json(include_str!("../../assets/levels/places_demo.json"))
+    let level = LevelDef::from_json(include_str!("../../levels/places_demo.json"))
         .expect("the Places demo parses");
     validate_level(&level).expect("the shipped demo validates with its duck");
     let duck = level
@@ -4648,7 +4848,7 @@ fn test_ceiling_tile_frame_validation() {
 #[test]
 fn every_checked_in_level_parses_and_validates_against_the_final_schema() {
     let mut checked = 0_usize;
-    for directory in ["assets/levels", "levels", "tests/fixtures/levels"] {
+    for directory in ["levels", "tests/fixtures/levels"] {
         let entries =
             std::fs::read_dir(directory).unwrap_or_else(|e| panic!("read {directory}: {e}"));
         for entry in entries {
@@ -4851,8 +5051,8 @@ fn the_geometry_revision_is_part_of_both_build_fingerprints() {
 
     // The shipped revision is the one the fix introduced, not a placeholder.
     assert_eq!(
-        revision, 3,
-        "the current geometry revision is documented as 3"
+        revision, 9,
+        "neighbor-clipped ramp side emission requires geometry revision 9"
     );
 }
 
@@ -5673,4 +5873,85 @@ fn display_metadata_reuse_keeps_every_physical_dependency_in_the_stage_key() {
         .expect("algorithm version key"),
         original
     );
+}
+
+#[test]
+fn environment_defaults_authored_controls_and_validation_are_explicit() {
+    let base = include_str!("../../tests/fixtures/levels/material_transport.json");
+    let mut json: serde_json::Value = serde_json::from_str(base).expect("hero JSON");
+    let legacy = LevelDef::from_json(base).expect("legacy defaults");
+    assert!(legacy.environment.is_none());
+    json["environment"] = serde_json::json!({});
+    let defaulted: LevelDef = serde_json::from_value(json.clone()).expect("default environment");
+    validate_level(&defaulted).expect("compatible default environment");
+    assert_eq!(
+        defaulted.environment,
+        Some(crate::environment::EnvironmentDef::default())
+    );
+    let historical_fog = crate::render::LevelFog::from_level(&legacy);
+    assert_eq!(
+        historical_fog,
+        crate::render::LevelFog::from_level(&defaulted)
+    );
+    for (field, value) in [
+        ("exposure", 0.0_f64),
+        ("exposure", 8.01_f64),
+        ("tone_knee", 1.0_f64),
+        ("saturation", 2.0_f64),
+        ("contrast", -1.0_f64),
+    ] {
+        json["environment"] = serde_json::json!({"presentation":{field:value}});
+        let invalid: LevelDef = serde_json::from_value(json.clone()).expect("numeric JSON");
+        assert!(
+            validate_level(&invalid)
+                .expect_err("reject authored presentation")
+                .contains(field)
+        );
+    }
+    for fog in [
+        serde_json::json!({"density":-0.1_f64}),
+        serde_json::json!({"color":[1.1_f64,0.0_f64,0.0_f64]}),
+        serde_json::json!({"height_gain":2.0_f64}),
+    ] {
+        json["environment"] = serde_json::json!({"fog":fog});
+        let invalid: LevelDef = serde_json::from_value(json.clone()).expect("numeric JSON");
+        assert!(validate_level(&invalid).is_err());
+    }
+    json["environment"] = serde_json::json!({"auto_exposure":true});
+    assert!(
+        serde_json::from_value::<LevelDef>(json).is_err(),
+        "unknown authoring controls must not silently disappear"
+    );
+}
+
+#[test]
+fn environment_roundtrip_preserves_exposure_fog_and_sky_colour() {
+    let mut json: serde_json::Value = serde_json::from_str(include_str!(
+        "../../tests/fixtures/levels/material_transport.json"
+    ))
+    .expect("hero JSON");
+    json["environment"] = serde_json::json!({"presentation":{"exposure":1.25_f64,"saturation":1.0_f64},"fog":{"color":[0.12_f64,0.18_f64,0.3_f64],"density":0.02_f64,"height_gain":0.1_f64}});
+    json["sky"]["ambient_color"] = serde_json::json!([0.2_f64, 0.35_f64, 0.7_f64]);
+    let level: LevelDef = serde_json::from_value(json.clone()).expect("authored controls");
+    validate_level(&level).expect("authored controls validate");
+    let replay = LevelDef::from_json(&serde_json::to_string(&level).expect("serialize"))
+        .expect("replay controls");
+    assert_eq!(replay.environment, level.environment);
+    assert_eq!(
+        replay.sky.as_ref().expect("sky").ambient_color,
+        Some([0.2, 0.35, 0.7])
+    );
+    let fog = crate::render::LevelFog::from_level(&replay);
+    assert_eq!(fog.global.color, [0.12, 0.18, 0.3]);
+    assert_exact(fog.global.density, 0.02);
+    assert_exact(
+        replay
+            .environment
+            .expect("environment")
+            .presentation
+            .exposure,
+        1.25,
+    );
+    json["sky"]["ambient_color"] = serde_json::json!([0.2_f64, 1.1_f64, 0.7_f64]);
+    assert!(validate_level(&serde_json::from_value(json).expect("bad sky colour")).is_err());
 }

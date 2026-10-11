@@ -23,6 +23,8 @@ use crate::materials::{MaterialAlpha, MaterialEmission};
 /// the range of the batch's index buffer it draws.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PropSubmeshBatch {
+    /// Shared scalar material response for every mesh route.
+    pub response: crate::materials::MaterialResponse,
     /// Index into [`PropMeshBatch::textures`], or `None` for an untextured
     /// material (the renderer draws it through the shared white sheet with the
     /// material's `baseColorFactor` already baked into the vertex colours).
@@ -55,6 +57,10 @@ pub struct PropSubmeshBatch {
 pub struct PropMeshBatch {
     /// Catalogue model path, e.g. `models/chair.glb`.
     pub model: String,
+    /// False when every instance of this model is claimed by the animated
+    /// character path. The retained bind pose then supplies budgets/fallback,
+    /// while immutable lighting casters follow the geometry actually drawn.
+    pub casts_static_lighting: bool,
     /// Every texture the model uses, indexed by [`PropSubmeshBatch::texture`]
     /// and by [`MaterialEmission::mask`]. Shared with every other batch of the
     /// same model.
@@ -63,11 +69,16 @@ pub struct PropMeshBatch {
     /// that draw nothing are absent, so a batch with an empty `indices` has no
     /// submeshes either.
     pub submeshes: Vec<PropSubmeshBatch>,
+    /// Source primitive ordinals aligned with the retained, nonempty submeshes.
+    /// This preparation-only identity survives skipped slivers without changing
+    /// the packaged draw record. An empty vector means the decoded source
+    /// ordinals are unknown and transport must use conservative batch identity.
+    pub source_primitives: Vec<usize>,
     /// Pre-transformed vertices, referenced by `indices`.
     ///
     /// The historical Low path retains source indexing. Surface-lightmapped
-    /// static models split triangle corners so each face owns its atlas UVs
-    /// and normal frame without borrowing light across hard edges.
+    /// static models retain split triangle corners and source normal frames;
+    /// supported coplanar pairs share only their illumination atlas domain.
     pub vertices: Vec<Vertex>,
     /// `GL_UNSIGNED_SHORT` indices into `vertices`, offset per instance and
     /// grouped so each submesh's range is contiguous.
@@ -86,6 +97,7 @@ pub struct PropMeshBatch {
 /// one call: instance order never leaks into the draw calls.
 struct BatchBuilder {
     model: String,
+    casts_static_lighting: bool,
     textures: Vec<Arc<crate::loader::RawImage>>,
     primitives: Vec<PrimitiveBuilder>,
     vertices: Vec<Vertex>,
@@ -98,6 +110,8 @@ struct BatchBuilder {
 }
 
 struct PrimitiveBuilder {
+    /// Shared scalar material response for every mesh route.
+    response: crate::materials::MaterialResponse,
     texture: Option<u16>,
     emission: MaterialEmission,
     alpha: MaterialAlpha,
@@ -112,11 +126,13 @@ impl BatchBuilder {
     ) -> Self {
         Self {
             model: model_path.to_string(),
+            casts_static_lighting: true,
             textures,
             primitives: model
                 .submeshes
                 .iter()
                 .map(|submesh| PrimitiveBuilder {
+                    response: submesh.response,
                     texture: submesh.texture,
                     emission: submesh.emission,
                     alpha: submesh.alpha,
@@ -132,13 +148,11 @@ impl BatchBuilder {
     }
 
     /// Whether one more instance of `model` fits this batch's 16-bit offsets.
-    const fn has_room_for(&self, model: &crate::gltf::PropModel, lightmapped: bool) -> bool {
-        let count = if lightmapped {
-            model.indices.len()
-        } else {
-            model.vertices.len()
-        };
-        self.vertices.len().saturating_add(count) <= crate::spatial::MAX_INDEX_VERTICES
+    fn has_room_for(&self, model: &crate::gltf::PropModel, lightmapped: bool) -> bool {
+        self.vertices
+            .len()
+            .saturating_add(instance_vertex_count(model, lightmapped))
+            <= crate::spatial::MAX_INDEX_VERTICES
     }
 
     /// Transforms and appends one instance. The caller must have checked
@@ -151,6 +165,54 @@ impl BatchBuilder {
         defer_lighting: bool,
     ) {
         let model = &asset.model;
+        if model.vertices.iter().any(|v| v.normal.is_none()) {
+            // Missing NORMAL means flat triangles, including the vertex-lit
+            // fallback. Shared corners must not average across hard edges.
+            let normal_matrix = transform.inverse().transpose();
+            for (slot, submesh) in model.submeshes.iter().enumerate() {
+                let Some(primitive) = self.primitives.get_mut(slot) else {
+                    continue;
+                };
+                let start = usize::try_from(submesh.first_index).unwrap_or(0);
+                let count = usize::try_from(submesh.index_count).unwrap_or(0);
+                let Some(indices) = model.indices.get(start..start.saturating_add(count)) else {
+                    continue;
+                };
+                for &[index_a, index_b, index_c] in indices.as_chunks::<3>().0 {
+                    let (Some(a), Some(b), Some(c)) = (
+                        model.vertices.get(usize::from(index_a)),
+                        model.vertices.get(usize::from(index_b)),
+                        model.vertices.get(usize::from(index_c)),
+                    ) else {
+                        continue;
+                    };
+                    let base = u16::try_from(self.vertices.len()).unwrap_or(0);
+                    let Some(frames) =
+                        model_triangle_vertices([a, b, c], transform, &normal_matrix)
+                    else {
+                        continue;
+                    };
+                    for mut vertex in frames {
+                        if !defer_lighting {
+                            let [position_x, position_y, position_z] = vertex.pos;
+                            let light = lighting
+                                .sample(position_x, position_y, position_z)
+                                .plus(lighting.global_surface_light(vertex.pos, vertex.normal));
+                            let [red, green, blue, alpha] = vertex.color;
+                            vertex.color = [red * light.r, green * light.g, blue * light.b, alpha];
+                        }
+                        self.vertices.push(vertex);
+                    }
+                    primitive.indices.extend([
+                        base,
+                        base.saturating_add(1),
+                        base.saturating_add(2),
+                    ]);
+                    self.index_count = self.index_count.saturating_add(3);
+                }
+            }
+            return;
+        }
         if defer_lighting {
             // Budget/fallback discovery only. These temporary static vertices
             // are replaced by real surface receivers before a valid build leaves
@@ -223,20 +285,22 @@ impl BatchBuilder {
                 large,
                 submesh.alpha.mode == crate::materials::AlphaMode::Cutout,
             );
-            for triangle in indices.as_chunks::<3>().0 {
-                let [Some(a), Some(b), Some(c)] =
-                    triangle.map(|index| source.vertices.get(usize::from(index)))
-                else {
-                    continue;
-                };
-                let Some(mut vertices) =
+            // The illumination domain may be shared; source corners, triangle
+            // order and all material/shader attributes remain independent.
+            let triangles = indices
+                .as_chunks::<3>()
+                .0
+                .iter()
+                .filter_map(|triangle| {
+                    let [Some(a), Some(b), Some(c)] =
+                        triangle.map(|index| source.vertices.get(usize::from(index)))
+                    else {
+                        return None;
+                    };
                     model_triangle_vertices([a, b, c], transform, &normal_matrix)
-                else {
-                    continue;
-                };
-                if !plan.stamp_prop_triangle(&mut vertices, density) && !plan.failed() {
-                    continue;
-                }
+                })
+                .collect();
+            for vertices in lightmap_prop_triangles(triangles, plan, density) {
                 let Ok(base) = u16::try_from(self.vertices.len()) else {
                     continue;
                 };
@@ -252,14 +316,17 @@ impl BatchBuilder {
     fn finish(self) -> PropMeshBatch {
         let mut indices: Vec<u16> = Vec::with_capacity(self.index_count);
         let mut submeshes: Vec<PropSubmeshBatch> = Vec::with_capacity(self.primitives.len());
-        for primitive in self.primitives {
+        let mut source_primitives = Vec::with_capacity(self.primitives.len());
+        for (source_primitive, primitive) in self.primitives.into_iter().enumerate() {
             if primitive.indices.is_empty() {
                 continue;
             }
             let first_index = u32::try_from(indices.len()).unwrap_or(0);
             let index_count = u32::try_from(primitive.indices.len()).unwrap_or(0);
             indices.extend_from_slice(&primitive.indices);
+            source_primitives.push(source_primitive);
             submeshes.push(PropSubmeshBatch {
+                response: primitive.response,
                 texture: primitive.texture,
                 emission: primitive.emission,
                 alpha: primitive.alpha,
@@ -269,13 +336,223 @@ impl BatchBuilder {
         }
         PropMeshBatch {
             model: self.model,
+            casts_static_lighting: self.casts_static_lighting,
             textures: self.textures,
             submeshes,
+            source_primitives,
             vertices: self.vertices,
             indices,
             bounds: self.bounds,
         }
     }
+}
+
+type PropPositionKey = [u32; 3];
+type PropEdgeKey = (PropPositionKey, PropPositionKey);
+
+#[derive(Clone, Copy)]
+struct SharedPropChart {
+    partner: usize,
+    corners: [[f32; 3]; 4],
+}
+
+/// Exact source corners, with signed zero canonicalized for adjacency only.
+fn prop_position_key(position: [f32; 3]) -> PropPositionKey {
+    position.map(|value| {
+        let bits = value.to_bits();
+        if bits == 0x8000_0000 { 0 } else { bits }
+    })
+}
+
+fn prop_triangle_edges(triangle: &[Vertex; 3]) -> [PropEdgeKey; 3] {
+    let [a, b, c] = triangle.map(|vertex| prop_position_key(vertex.pos));
+    [(a, b), (b, c), (c, a)]
+}
+
+// glam's bounded floating-point vector operations cannot overflow an integer
+// or panic; the existing patch guard rejects nonfinite/degenerate geometry.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "bounded float normal frame math; native patch guards reject unusable domains"
+)]
+fn prop_triangle_normal(triangle: &[Vertex; 3]) -> glam::Vec3 {
+    let [a, b, c] = triangle.map(|vertex| glam::Vec3::from_array(vertex.pos));
+    (b - a).cross(c - a).normalize_or_zero()
+}
+
+/// Recover only a native-supported four-corner union. The common source edge
+/// is always p0/p2, so a tapered quad follows exactly the original two triangles.
+fn prop_quad_corners(first: &[Vertex; 3], second: &[Vertex; 3]) -> Option<[[f32; 3]; 4]> {
+    use std::collections::BTreeMap;
+    // Do not recover a previously rejected sliver merely because its neighbor
+    // has a larger frame. Unsupported pairs keep the original triangle path.
+    for triangle in [first, second] {
+        let [a, b, c] = triangle.map(|vertex| vertex.pos);
+        let _triangle_domain = crate::lighting::lightmap::LightmapPatch::from_quad(
+            crate::lighting::lightmap::PatchKind::Prop,
+            [a, b, c, c],
+            None,
+        )?;
+    }
+    let common: Vec<_> = first
+        .iter()
+        .filter(|vertex| {
+            second
+                .iter()
+                .any(|other| prop_position_key(vertex.pos) == prop_position_key(other.pos))
+        })
+        .collect();
+    let [start, opposite] = common.as_slice() else {
+        return None;
+    };
+    let positions: BTreeMap<_, _> = first
+        .iter()
+        .chain(second)
+        .map(|vertex| (prop_position_key(vertex.pos), vertex.pos))
+        .collect();
+    if positions.len() != 4
+        || prop_triangle_normal(first).dot(prop_triangle_normal(second)) < 0.999_999
+    {
+        return None;
+    }
+    for vertex in &common {
+        let other = second
+            .iter()
+            .find(|other| prop_position_key(vertex.pos) == prop_position_key(other.pos))?;
+        let alignment =
+            glam::Vec3::from_array(vertex.normal).dot(glam::Vec3::from_array(other.normal));
+        if !alignment.is_finite() || alignment < 8.0_f32.mul_add(-f32::EPSILON, 1.0) {
+            return None;
+        }
+    }
+    let common_keys = [
+        prop_position_key(start.pos),
+        prop_position_key(opposite.pos),
+    ];
+    let mut boundary = BTreeMap::new();
+    for (from, to) in prop_triangle_edges(first)
+        .into_iter()
+        .chain(prop_triangle_edges(second))
+    {
+        if common_keys.contains(&from) && common_keys.contains(&to) {
+            continue;
+        }
+        // Consistent winding gives exactly one outgoing boundary edge per
+        // corner. Overlaps, reversed faces and bowties cannot form this loop.
+        if boundary.insert(from, to).is_some() {
+            return None;
+        }
+    }
+    let mut key = prop_position_key(start.pos);
+    let mut corners = [[0.0; 3]; 4];
+    for corner in &mut corners {
+        *corner = *positions.get(&key)?;
+        key = *boundary.get(&key)?;
+    }
+    let [p0, _, p2, _] = corners;
+    if key != prop_position_key(p0) || prop_position_key(p2) != prop_position_key(opposite.pos) {
+        return None;
+    }
+    let patch = crate::lighting::lightmap::LightmapPatch::from_quad(
+        crate::lighting::lightmap::PatchKind::Prop,
+        corners,
+        None,
+    )?;
+    (!patch.is_triangular()).then_some(corners)
+}
+
+/// Pair manifold shared edges only within this placed instance and primitive.
+/// Sorting by source triangle order keeps allocation and ambiguous pairing
+/// deterministic without changing the source mesh's emission order.
+fn shared_prop_charts(triangles: &[[Vertex; 3]]) -> Vec<Option<SharedPropChart>> {
+    use std::collections::BTreeMap;
+    let mut edges: BTreeMap<PropEdgeKey, Vec<usize>> = BTreeMap::new();
+    for (index, triangle) in triangles.iter().enumerate() {
+        for (a, b) in prop_triangle_edges(triangle) {
+            edges.entry((a.min(b), a.max(b))).or_default().push(index);
+        }
+    }
+    let mut candidates = Vec::new();
+    for neighbors in edges.values() {
+        let &[first, second] = neighbors.as_slice() else {
+            continue;
+        };
+        let (Some(left), Some(right)) = (triangles.get(first), triangles.get(second)) else {
+            continue;
+        };
+        if let Some(corners) = prop_quad_corners(left, right) {
+            candidates.push((first, second, corners));
+        }
+    }
+    candidates.sort_by_key(|(first, second, _)| (*first, *second));
+    let mut pairs = vec![None; triangles.len()];
+    for (first, second, corners) in candidates {
+        if pairs.get(first).is_some_and(Option::is_none)
+            && pairs.get(second).is_some_and(Option::is_none)
+        {
+            if let Some(slot) = pairs.get_mut(first) {
+                *slot = Some(SharedPropChart {
+                    partner: second,
+                    corners,
+                });
+            }
+            if let Some(slot) = pairs.get_mut(second) {
+                *slot = Some(SharedPropChart {
+                    partner: first,
+                    corners,
+                });
+            }
+        }
+    }
+    pairs
+}
+
+fn stamp_shared_prop_chart(
+    triangles: &mut [[Vertex; 3]],
+    first: usize,
+    pair: SharedPropChart,
+    plan: &mut crate::lighting::lightmap::LightmapPlan,
+    density: f32,
+) -> bool {
+    if first >= pair.partner {
+        return false;
+    }
+    let Some((earlier, later)) = triangles.split_at_mut_checked(pair.partner) else {
+        return false;
+    };
+    let (Some(left), Some(right)) = (earlier.get_mut(first), later.first_mut()) else {
+        return false;
+    };
+    plan.stamp_prop_quad(left, right, pair.corners, density)
+}
+
+fn lightmap_prop_triangles(
+    mut triangles: Vec<[Vertex; 3]>,
+    plan: &mut crate::lighting::lightmap::LightmapPlan,
+    density: f32,
+) -> Vec<[Vertex; 3]> {
+    let pairs = shared_prop_charts(&triangles);
+    let mut stamped = vec![false; triangles.len()];
+    let mut retained = Vec::with_capacity(triangles.len());
+    for index in 0..triangles.len() {
+        let already_stamped = stamped.get(index).copied().unwrap_or(false);
+        let shared = !already_stamped
+            && pairs.get(index).copied().flatten().is_some_and(|pair| {
+                let accepted = stamp_shared_prop_chart(&mut triangles, index, pair, plan, density);
+                if accepted && let Some(slot) = stamped.get_mut(pair.partner) {
+                    *slot = true;
+                }
+                accepted
+            });
+        let Some(triangle) = triangles.get_mut(index) else {
+            continue;
+        };
+        if already_stamped || shared || plan.stamp_prop_triangle(triangle, density) || plan.failed()
+        {
+            retained.push(*triangle);
+        }
+    }
+    retained
 }
 
 /// Resolves every placed prop into either a batched real mesh or a fallback box,
@@ -342,6 +619,7 @@ fn resolve_prop_instances_inner<'a>(
     use std::collections::{HashMap, HashSet};
 
     let grid = spatial_cell_grid(level);
+    let claimed = super::character::claimed_character_models(level, catalog, assets);
     let mut builders: Vec<BatchBuilder> = Vec::new();
     // Keyed by (model, cell): one drawable range per model per spatial cell.
     let mut index_by_batch: HashMap<(String, crate::spatial::CellKey), usize> = HashMap::new();
@@ -423,7 +701,8 @@ fn resolve_prop_instances_inner<'a>(
                     .entry(model_path.clone())
                     .or_insert_with(|| asset.model.textures.iter().cloned().map(Arc::new).collect())
                     .clone();
-                let builder = BatchBuilder::new(&model_path, &asset.model, textures);
+                let mut builder = BatchBuilder::new(&model_path, &asset.model, textures);
+                builder.casts_static_lighting = !claimed.contains(&model_path);
                 if !builder.has_room_for(&asset.model, lightmapped) {
                     fallbacks.push(prop);
                     continue;
@@ -449,15 +728,21 @@ fn resolve_prop_instances_inner<'a>(
                 defer_static_lighting && !asset.model.is_animatable(),
             );
         }
-        busy_vertices = busy_vertices.saturating_add(if lightmapped {
-            asset.model.indices.len()
-        } else {
-            asset.model.vertices.len()
-        });
+        busy_vertices =
+            busy_vertices.saturating_add(instance_vertex_count(&asset.model, lightmapped));
     }
 
     let batches = builders.into_iter().map(BatchBuilder::finish).collect();
     (batches, fallbacks)
+}
+
+/// Flat triangles and atlas receivers need independent corners at hard edges.
+fn instance_vertex_count(model: &crate::gltf::PropModel, lightmapped: bool) -> usize {
+    if lightmapped || model.vertices.iter().any(|vertex| vertex.normal.is_none()) {
+        model.indices.len()
+    } else {
+        model.vertices.len()
+    }
 }
 
 /// Derives a stable UV tangent frame for each actual triangle while retaining
@@ -575,6 +860,11 @@ fn append_instance_vertices(
                 vertex.color[3],
             ],
             uv: vertex.uv,
+            normal: if vertex.normal.is_some() {
+                normal.to_array()
+            } else {
+                [0.0; 3]
+            },
             ..Vertex::UNLIT
         });
     }
@@ -626,11 +916,63 @@ pub fn prop_instance_matrix(prop: &PropDef, base_y: f32) -> glam::Mat4 {
 }
 
 #[cfg(test)]
+#[path = "prop_chart_tests.rs"]
+mod prop_chart_tests;
+
+#[cfg(test)]
 mod lighting_reuse_tests {
     use super::{
         LevelLighting, LevelSurfaces, append_instance_vertices, lighting_sources,
         resolve_prop_fallbacks, resolve_prop_instances,
     };
+
+    #[test]
+    fn triangle_attributes_preserve_flat_normals_uvs_and_mirrored_handedness() -> Result<(), String>
+    {
+        let source = [
+            crate::gltf::PropVertex {
+                pos: [0.0, 0.0, 0.0],
+                normal: None,
+                color: [1.0; 4],
+                uv: [0.0, 0.0],
+            },
+            crate::gltf::PropVertex {
+                pos: [1.0, 0.0, 0.0],
+                normal: None,
+                color: [1.0; 4],
+                uv: [1.0, 0.0],
+            },
+            crate::gltf::PropVertex {
+                pos: [0.0, 1.0, 1.0],
+                normal: None,
+                color: [1.0; 4],
+                uv: [0.0, -1.0],
+            },
+        ];
+        let transform = glam::Mat4::from_scale_rotation_translation(
+            glam::Vec3::new(2.0, 0.5, 1.5),
+            glam::Quat::from_rotation_y(0.7),
+            glam::Vec3::new(3.0, 1.0, 2.0),
+        );
+        let actual = super::model_triangle_vertices(
+            [&source[0], &source[1], &source[2]],
+            &transform,
+            &transform.inverse().transpose(),
+        )
+        .ok_or("non-degenerate triangle")?;
+        let positions =
+            source.map(|vertex| transform.transform_point3(glam::Vec3::from_array(vertex.pos)));
+        let expected = (positions[1] - positions[0])
+            .cross(positions[2] - positions[0])
+            .normalize();
+        for (vertex, original) in actual.iter().zip(&source) {
+            assert!(glam::Vec3::from_array(vertex.normal).distance(expected) < 1.0e-6);
+            assert_eq!(vertex.uv, original.uv);
+            assert_eq!(vertex.handedness, -1.0);
+            assert!(glam::Vec3::from_array(vertex.tangent).dot(expected).abs() < 1.0e-6);
+        }
+        Ok(())
+    }
 
     #[test]
     fn deferred_static_lighting_preserves_geometry_budgets_and_animated_colours()
@@ -705,7 +1047,7 @@ mod lighting_reuse_tests {
         .map_err(|error| error.to_string())?;
         let lighting = LevelLighting::bake(&level);
         let mut assets = crate::props::PropAssets::load_default();
-        let asset = assets.resolve("environment/office/props/models/chair.glb")?;
+        let asset = assets.resolve("environments/office/props/chair.glb")?;
         let source = &asset.model.vertices;
         let shared = lighting_sources(source);
         let independent: Vec<usize> = (0..source.len()).collect();

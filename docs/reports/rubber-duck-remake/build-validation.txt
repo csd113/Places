@@ -1,8 +1,0 @@
-prop                      tris  verts       tex      glb  notes
----------------------------------------------------------------
-core:rubber_duck           560   1248   256x256    73.3k (over target)
----------------------------------------------------------------
-total                      560                     73.3k  (1 props, 256.0 KiB decoded RGBA)
-budget: 500 triangles preferred, 800 review, 1500 shipped art max (engine 6000); texture native 256x256 (engine 1024, High/Medium sample 256 / Low 128); pack decoded memory <= 64 MiB
-
-1 prop(s) OK

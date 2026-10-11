@@ -24,13 +24,17 @@
 #[cfg(test)]
 mod boundary_tests;
 mod common;
+pub(crate) use common::character::claimed_character_models;
 mod facade;
 #[cfg(test)]
 mod tests;
 mod wgpu;
 
 #[cfg(test)]
-pub(crate) use common::light_transport::{EntityLightingSource, entity_lighting};
+pub(crate) use common::light_transport::{
+    EntityLightingSource, build_transport_scene, entity_lighting, entity_spatial_lighting,
+    switchable_lights,
+};
 
 #[cfg(test)]
 pub(in crate::render) use common::WallUnit;

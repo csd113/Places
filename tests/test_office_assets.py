@@ -15,7 +15,7 @@ import office_art
 import lights_art
 
 NAMES = ("desk", "chair", "cabinet", "water_cooler", "vending_machine")
-MODELS = ROOT / "assets/environment/office/props/models"
+MODELS = ROOT / "assets/environments/office/props"
 
 
 class OfficeAssetTests(unittest.TestCase):

@@ -559,6 +559,10 @@ pub struct WaterVolumeDef {
     /// [`DEFAULT_WATER_OPACITY`]; an authored value overrides the material.
     #[serde(default)]
     pub opacity: Option<f32>,
+    /// Additional absorption per vertical metre. Zero preserves the authored
+    /// surface opacity; positive values reduce basin transmission with depth.
+    #[serde(default)]
+    pub attenuation_per_metre: f32,
     /// Whether the player swims in this volume. `false` keeps it decorative:
     /// the surface draws and the player walks or falls through it normally.
     #[serde(default = "default_true")]
@@ -695,7 +699,7 @@ impl LadderDef {
 /// with a silently ignored effect.
 ///
 /// A `target` names the entity the action acts on. Every target except
-/// `reset_to_start`, `spawn_entity` and `start_sequence` is `Option<String>`:
+/// `reset_to_start`, `toggle_weather`, `spawn_entity` and `start_sequence` is `Option<String>`:
 /// omitted means the acting entity (the entity that emitted the event, or the
 /// entity a sequence runs on).
 ///
@@ -748,6 +752,26 @@ pub enum ActionDef {
         target: Option<String>,
         /// True turns the light on.
         on: bool,
+    },
+    /// Select the level's alternate weather, or restore its authored default.
+    ToggleWeather,
+    /// Blend the authored weather endpoints, cancelling the optional cycle.
+    SetWeatherStrength {
+        /// 0 restores `weather`, 1 selects `weather_alternate`.
+        strength: f32,
+        /// Playing seconds to ease from the current strength; omission is instant.
+        #[serde(default)]
+        transition_seconds: f32,
+    },
+    /// Resume or stop the level's authored weather cycle.
+    SetWeatherCycle { enabled: bool },
+    /// Change the next-use prompt on an entity with an interactable component.
+    SetPrompt {
+        /// Entity id; omitted means the acting entity.
+        #[serde(default)]
+        target: Option<String>,
+        /// Non-blank text shown beside the bound interaction key.
+        prompt: String,
     },
     /// Lock a door: it refuses to open until unlocked.
     Lock {
@@ -922,6 +946,16 @@ impl ActionDef {
             Self::Enable { target: _ } => "enable",
             Self::Disable { target: _ } => "disable",
             Self::SetLight { target: _, on: _ } => "set_light",
+            Self::ToggleWeather => "toggle_weather",
+            Self::SetWeatherStrength {
+                strength: _,
+                transition_seconds: _,
+            } => "set_weather_strength",
+            Self::SetWeatherCycle { enabled: _ } => "set_weather_cycle",
+            Self::SetPrompt {
+                target: _,
+                prompt: _,
+            } => "set_prompt",
             Self::Lock { target: _ } => "lock",
             Self::Unlock { target: _ } => "unlock",
             Self::PlayAnimation {
@@ -988,6 +1022,7 @@ impl ActionDef {
             | Self::Enable { target }
             | Self::Disable { target }
             | Self::SetLight { target, on: _ }
+            | Self::SetPrompt { target, prompt: _ }
             | Self::Lock { target }
             | Self::Unlock { target }
             | Self::PlayAnimation {
@@ -1034,7 +1069,13 @@ impl ActionDef {
                 name: _,
             }
             | Self::DespawnEntity { target: _ }
-            | Self::ResetToStart => None,
+            | Self::ResetToStart
+            | Self::ToggleWeather
+            | Self::SetWeatherStrength {
+                strength: _,
+                transition_seconds: _,
+            }
+            | Self::SetWeatherCycle { enabled: _ } => None,
         }
     }
 }
@@ -5061,6 +5102,16 @@ pub fn wall_solid_slices_profiled(
     clear_ceiling_at: impl Fn(f32) -> f32,
     breaks: &[f32],
 ) -> Vec<WallSlice> {
+    wall_solid_slices_with_span_maximum(wall, clear_ceiling_at, breaks, |_, _| None)
+}
+
+/// Shared decomposition with an optional exact maximum from a span's roof owner.
+fn wall_solid_slices_with_span_maximum(
+    wall: &WallDef,
+    clear_ceiling_at: impl Fn(f32) -> f32,
+    breaks: &[f32],
+    span_maximum: impl Fn(f32, f32) -> Option<f32>,
+) -> Vec<WallSlice> {
     let length = wall.length();
     if !length.is_finite() || length <= WALL_SLICE_EPS {
         return Vec::new();
@@ -5118,7 +5169,7 @@ pub fn wall_solid_slices_profiled(
 
     // Emit the vertical complement of the openings covering each segment, so
     // neighbouring solid ranges stay merged.
-    solid_wall_slices(&cuts, &openings, base, &top_at)
+    solid_wall_slices(&cuts, &openings, base, &top_at, &span_maximum)
 }
 
 /// Clamps a wall's authored openings to its footprint and local ceiling.
@@ -5182,6 +5233,7 @@ fn solid_wall_slices(
     openings: &[WallSlice],
     base: f32,
     top_at: &impl Fn(f32) -> f32,
+    span_maximum: &impl Fn(f32, f32) -> Option<f32>,
 ) -> Vec<WallSlice> {
     let mut slices = Vec::new();
     for bounds in cuts.windows(2) {
@@ -5191,7 +5243,14 @@ fn solid_wall_slices(
         if end <= start + WALL_SLICE_EPS {
             continue;
         }
-        let segment_ceiling = top_at(start).max(top_at(end));
+        // Engine spans evaluate exact endpoints against their midpoint roof
+        // owner. Generic caller profiles have no owner identity: preserve their
+        // interior extrapolation rather than borrowing a neighbour's endpoint.
+        let segment_ceiling = span_maximum(start, end).unwrap_or_else(|| {
+            let first = top_at((end - start).mul_add(0.25, start));
+            let last = top_at((end - start).mul_add(0.75, start));
+            0.5_f32.mul_add((last - first).abs(), first.max(last))
+        });
         if !segment_ceiling.is_finite() || segment_ceiling <= base + WALL_SLICE_EPS {
             continue;
         }
@@ -6039,6 +6098,10 @@ pub struct SkyDef {
     /// was: an escaping ray contributes nothing.
     #[serde(default)]
     pub ambient: f32,
+    /// Linear radiance colour of the diffuse dome, independent of artwork brightness.
+    /// Omission preserves the established cool sky colour.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ambient_color: Option<[f32; 3]>,
 }
 
 /// One-to-one brightness: the sheet is the authored exposure.
@@ -6333,9 +6396,19 @@ pub struct LevelDef {
     /// light, and it is a separate, explicit authoring choice.
     #[serde(default)]
     pub sky: Option<SkyDef>,
+    /// Fixed authored display presentation and global atmosphere.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub environment: Option<crate::environment::EnvironmentDef>,
     /// Optional presentation-only weather; omission preserves every existing default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub weather: Option<crate::weather::WeatherDef>,
+    /// Optional alternate presentation selected by the `toggle_weather` action.
+    /// A newly loaded world always begins with `weather`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub weather_alternate: Option<crate::weather::WeatherDef>,
+    /// Optional cycle; omission leaves manual weather controls in charge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub weather_cycle: Option<crate::weather::WeatherCycleDef>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub global_illuminators: Vec<GlobalIlluminatorDef>,
     /// Optional regional fog volumes, in authoring order.
@@ -7437,16 +7510,14 @@ impl LevelDef {
         }
 
         // Walls are bounded by replaying the same solid-slice decomposition the
-        // geometry builder uses (`wall_solid_slices_profiled`), so the estimate
+        // geometry builder uses (`LevelSurfaces::wall_solid_slices`), so the estimate
         // tracks per-slice segment counts and opening reveals instead of
         // assuming a fixed number of faces per wall. Everything saturates, so
         // malformed dimensions cannot overflow the total.
         let surfaces = LevelSurfaces::new(self);
         let mut wall_quads: u64 = 0;
         for wall in &self.walls {
-            let breaks = surfaces.wall_profile_breaks(wall);
-            let clear = |offset: f32| surfaces.clear_ceiling_height_along(wall, offset);
-            let slices = wall_solid_slices_profiled(wall, clear, &breaks);
+            let slices = surfaces.wall_solid_slices(wall);
             for slice in &slices {
                 let segments = u64::from(crate::lighting::wall_light_segments(
                     slice.end - slice.start,
@@ -7530,8 +7601,6 @@ impl LevelDef {
         let mut aabbs = Vec::new();
 
         for wall in &self.walls {
-            let breaks = surfaces.wall_profile_breaks(wall);
-            let clear = |offset: f32| surfaces.clear_ceiling_height_along(wall, offset);
             let (origin_x, origin_z) = wall.length_origin();
             let (min_x, max_x) = (
                 wall.x.min(wall.x + wall.width),
@@ -7542,7 +7611,7 @@ impl LevelDef {
                 wall.z.max(wall.z + wall.depth),
             );
 
-            for slice in wall_solid_slices_profiled(wall, clear, &breaks) {
+            for slice in surfaces.wall_solid_slices(wall) {
                 let (slice_width, slice_depth) = match wall.axis() {
                     WallAxis::X => (slice.end - slice.start, max_z - min_z),
                     WallAxis::Z => (max_x - min_x, slice.end - slice.start),
@@ -7953,7 +8022,8 @@ pub const RIM_BACKING: f32 = 0.01;
 ///
 /// Ownership follows the clear-ceiling query: the first room in `rooms` order
 /// whose footprint contains the point (with [`ROOM_EDGE_EPS_M`] tolerance)
-/// wins, including walls sitting on a shared room boundary.
+/// wins. Wall profiles additionally resolve a touching closed roof when their
+/// centre plane sits outside that room or inside an adjoining open volume.
 #[derive(Debug, Clone)]
 pub struct LevelSurfaces<'a> {
     rooms: Vec<&'a RoomDef>,
@@ -7961,6 +8031,27 @@ pub struct LevelSurfaces<'a> {
     patches: &'a [FloorPatchDef],
     ramps: &'a [RampDef],
     stairs: &'a [StairDef],
+}
+
+/// Exact wall/room contact as an interval along the wall. Contact across the
+/// thickness may be a shared boundary, but a real gap never supplies support.
+fn wall_room_contact(wall: &WallDef, room: &RoomDef) -> Option<(f32, f32)> {
+    let (wx0, wz0) = wall.min_corner();
+    let (wx1, wz1) = (wx0 + wall.width.abs(), wz0 + wall.depth.abs());
+    let (x0, x1, z0, z1) = room.bounds();
+    if wx1 < x0
+        || wx0 > x1
+        || wz1 < z0
+        || wz0 > z1
+        || wall.y >= room.ridge_y().unwrap_or_else(|| room.eave_y())
+    {
+        return None;
+    }
+    let (start, end) = match wall.axis() {
+        WallAxis::X => (wx0.max(x0) - wx0, wx1.min(x1) - wx0),
+        WallAxis::Z => (wz0.max(z0) - wz0, wz1.min(z1) - wz0),
+    };
+    (start < end).then_some((start, end))
 }
 
 impl<'a> LevelSurfaces<'a> {
@@ -8095,8 +8186,8 @@ impl<'a> LevelSurfaces<'a> {
             .map_or(DEFAULT_CEILING_HEIGHT_M, |room| room.eave_y())
     }
 
-    /// Clear floor-to-ceiling height at `(x, z)`, the value an un-heighted wall
-    /// uses as its default height.
+    /// Clear floor-to-ceiling height at `(x, z)` for point-based authoring
+    /// queries. Wall profiles use [`Self::clear_ceiling_height_along`].
     #[must_use]
     pub fn clear_ceiling_height_at(&self, x: f32, z: f32) -> f32 {
         let ceiling = self.ceiling_y_at(x, z);
@@ -8109,54 +8200,216 @@ impl<'a> LevelSurfaces<'a> {
         }
     }
 
-    /// Clear ceiling height at a distance along a wall's length axis.
+    /// The ceiling owner of a wall sample. A containing closed room keeps the
+    /// normal first-room precedence. Otherwise the wall's exact footprint may
+    /// contact a closed room even when its centre plane lies outside it. The
+    /// sample must lie along that contact; only the outermost corner ends may
+    /// extend by the wall's actual thickness. Interior gaps stay unsupported.
+    /// An open air volume cannot displace a contacting real roof.
+    #[must_use]
+    pub(crate) fn wall_ceiling_room(&self, wall: &WallDef, offset: f32) -> Option<&'a RoomDef> {
+        let (x, z) = wall_point(wall, offset);
+        let containing = self.room_at(x, z);
+        if let Some(closed) = self
+            .rooms
+            .iter()
+            .copied()
+            .find(|room| !room.ceiling.is_open() && room.contains(x, z))
+        {
+            return Some(closed);
+        }
+        let mut best = None;
+        let mut best_contact = 0.0_f32;
+        let mut first_contact = f32::INFINITY;
+        let mut last_contact = f32::NEG_INFINITY;
+        let mut first_room = None;
+        let mut last_room = None;
+        for room in &self.rooms {
+            if room.ceiling.is_open() {
+                continue;
+            }
+            let Some((start, end)) = wall_room_contact(wall, room) else {
+                continue;
+            };
+            if start < first_contact {
+                first_contact = start;
+                first_room = Some(*room);
+            }
+            if end > last_contact {
+                last_contact = end;
+                last_room = Some(*room);
+            }
+            let contact = end - start;
+            if offset >= start && offset <= end && contact > best_contact {
+                best_contact = contact;
+                best = Some(*room);
+            }
+        }
+        if best.is_some() {
+            return best;
+        }
+        let rounding = 8.0 * f32::EPSILON * offset.abs().max(wall.length()).max(1.0);
+        let corner = wall.thickness() + rounding;
+        if offset >= 0.0 && offset < first_contact && first_contact - offset <= corner {
+            return first_room;
+        }
+        if offset <= wall.length() && offset > last_contact && offset - last_contact <= corner {
+            return last_room;
+        }
+        containing
+    }
+
+    /// Ceiling of the wall's owning room on an actual wall face. Profiles,
+    /// collision extents and mesh faces use the same room; only the sample's
+    /// position across the thickness changes.
+    #[must_use]
+    pub(crate) fn wall_ceiling_y_at(&self, wall: &WallDef, x: f32, z: f32) -> f32 {
+        let (origin_x, origin_z) = wall.length_origin();
+        let offset = match wall.axis() {
+            WallAxis::X => x - origin_x,
+            WallAxis::Z => z - origin_z,
+        };
+        self.wall_ceiling_room(wall, offset)
+            .map_or_else(|| self.ceiling_y_at(x, z), |room| room.ceiling_y_at(x, z))
+    }
+
+    /// Clear ceiling height at a distance along a wall's length axis, resolved
+    /// against the same supported roof that draws its faces.
     #[must_use]
     pub fn clear_ceiling_height_along(&self, wall: &WallDef, offset: f32) -> f32 {
         let (x, z) = wall_point(wall, offset);
-        self.clear_ceiling_height_at(x, z)
+        self.wall_ceiling_room(wall, offset).map_or_else(
+            || self.clear_ceiling_height_at(x, z),
+            |room| {
+                let floor = if room.floor_y.is_finite() {
+                    room.floor_y
+                } else {
+                    0.0
+                };
+                let clear = room.ceiling_y_at(x, z) - floor;
+                if clear.is_finite() && clear > 0.0 {
+                    clear
+                } else {
+                    DEFAULT_CEILING_HEIGHT_M
+                }
+            },
+        )
+    }
+
+    /// Solid wall spans with exact endpoint maxima from each span's own roof.
+    ///
+    /// The midpoint owner remains fixed at both endpoints, so a shared boundary
+    /// cannot borrow its neighbour's roof. Evaluating the owned endpoints also
+    /// avoids rounding an interior-sample extrapolation below a real ridge.
+    #[must_use]
+    pub(crate) fn wall_solid_slices(&self, wall: &WallDef) -> Vec<WallSlice> {
+        let breaks = self.wall_profile_breaks(wall);
+        wall_solid_slices_with_span_maximum(
+            wall,
+            |offset| self.clear_ceiling_height_along(wall, offset),
+            &breaks,
+            |start, end| {
+                if let Some(height) = wall.height {
+                    return Some(wall.y + height);
+                }
+                let room = self.wall_ceiling_room(wall, f32::midpoint(start, end))?;
+                let floor = if room.floor_y.is_finite() {
+                    room.floor_y
+                } else {
+                    0.0
+                };
+                let top_at = |offset| {
+                    let (x, z) = wall_point(wall, offset);
+                    let clear = room.ceiling_y_at(x, z) - floor;
+                    wall.y
+                        + if clear.is_finite() && clear > 0.0 {
+                            clear
+                        } else {
+                            DEFAULT_CEILING_HEIGHT_M
+                        }
+                };
+                Some(top_at(start).max(top_at(end)))
+            },
+        )
     }
 
     /// World Y of the ceiling above a point given as a distance along a wall.
     #[must_use]
     pub fn ceiling_y_along(&self, wall: &WallDef, offset: f32) -> f32 {
         let (x, z) = wall_point(wall, offset);
-        self.ceiling_y_at(x, z)
+        self.wall_ceiling_y_at(wall, x, z)
     }
 
-    /// Length offsets along `wall` where its ceiling profile bends: the gable
-    /// ridge when the wall crosses it, so wall slices stay within a linear span.
+    /// Length offsets where the wall's supported ceiling changes room or
+    /// crosses a gable ridge, so each solid slice stays within one linear span.
     #[must_use]
     pub fn wall_profile_breaks(&self, wall: &WallDef) -> Vec<f32> {
-        let mut breaks = Vec::new();
         let length = wall.length();
         if !length.is_finite() || length <= 0.0 {
-            return breaks;
+            return Vec::new();
         }
         let axis = wall.axis();
-        let Some(room) = self.room_at(
-            wall.width.mul_add(0.5, wall.x),
-            wall.depth.mul_add(0.5, wall.z),
-        ) else {
-            return breaks;
-        };
-        let Some(ridge) = room.ridge_across() else {
-            return breaks;
-        };
-        // The ridge only crosses the wall when it runs across the wall's length
-        // axis; a wall parallel to the ridge sees a constant ceiling.
-        let crosses = room
-            .ceiling
-            .ridge_axis()
-            .is_some_and(|ridge_axis| ridge_axis != axis);
-        if !crosses {
-            return breaks;
+        let mut candidates = vec![0.0, length];
+        let mut first_contact = f32::INFINITY;
+        let mut last_contact = f32::NEG_INFINITY;
+        for room in &self.rooms {
+            let Some((start, end)) = wall_room_contact(wall, room) else {
+                continue;
+            };
+            candidates.extend([start, end]);
+            if !room.ceiling.is_open() {
+                first_contact = first_contact.min(start);
+                last_contact = last_contact.max(end);
+            }
+            if room
+                .ceiling
+                .ridge_axis()
+                .is_some_and(|ridge_axis| ridge_axis != axis)
+                && let Some(ridge) = room.ridge_across()
+            {
+                let offset = match axis {
+                    WallAxis::X => ridge - wall.length_origin().0,
+                    WallAxis::Z => ridge - wall.length_origin().1,
+                };
+                if offset > start && offset < end {
+                    candidates.push(offset);
+                }
+            }
         }
-        let offset = match axis {
-            WallAxis::X => ridge - wall.length_origin().0,
-            WallAxis::Z => ridge - wall.length_origin().1,
-        };
-        if offset.is_finite() && offset > 1e-4 && offset < length - 1e-4 {
-            breaks.push(offset);
+        candidates.extend([
+            first_contact - wall.thickness(),
+            last_contact + wall.thickness(),
+        ]);
+        candidates.retain(|offset| offset.is_finite() && *offset >= 0.0 && *offset <= length);
+        candidates.sort_by(f32::total_cmp);
+        candidates.dedup_by(|left, right| (*left - *right).abs() <= WALL_SLICE_EPS);
+        let mut breaks = Vec::new();
+        for span in candidates.windows(3) {
+            let &[before, offset, after] = span else {
+                continue;
+            };
+            let left = self.wall_ceiling_room(wall, f32::midpoint(before, offset));
+            let right = self.wall_ceiling_room(wall, f32::midpoint(offset, after));
+            let same_owner = match (left, right) {
+                (Some(first), Some(second)) => std::ptr::eq(first, second),
+                (None, None) => true,
+                (Some(_), None) | (None, Some(_)) => false,
+            };
+            let on_ridge = left.is_some_and(|room| {
+                room.ceiling
+                    .ridge_axis()
+                    .is_some_and(|ridge_axis| ridge_axis != axis)
+                    && room.ridge_across().is_some_and(|ridge| {
+                        let world = match axis {
+                            WallAxis::X => wall.length_origin().0 + offset,
+                            WallAxis::Z => wall.length_origin().1 + offset,
+                        };
+                        (ridge - world).abs() <= WALL_SLICE_EPS
+                    })
+            });
+            if !same_owner || on_ridge {
+                breaks.push(offset);
+            }
         }
         breaks
     }
@@ -9517,7 +9770,14 @@ impl WaterVolumes {
                 surface_y,
                 bottom_y,
                 material: def.material.clone(),
-                opacity: def.opacity(),
+                opacity: if def.attenuation_per_metre > 0.0 {
+                    (1.0 - def.opacity()).mul_add(
+                        -(-def.attenuation_per_metre * (surface_y - bottom_y)).exp(),
+                        1.0,
+                    )
+                } else {
+                    def.opacity()
+                },
                 swimming: def.swimming,
                 enabled: true,
             });
@@ -9995,3 +10255,7 @@ fn insert_cut(positions: &mut Vec<f32>, at: f32, origin: f32, extent: f32) {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+#[path = "level/tests/wall_ceiling.rs"]
+mod wall_ceiling_tests;

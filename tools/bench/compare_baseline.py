@@ -11,7 +11,8 @@ from pathlib import Path
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("current", type=Path)
-    parser.add_argument("--reference", type=Path, default=Path("docs/renderer-baseline"))
+    parser.add_argument("--reference", type=Path,
+                        default=Path("tests/fixtures/native/gles2-reference"))
     args = parser.parse_args()
     failures = 0
     for profile in ("high", "low"):

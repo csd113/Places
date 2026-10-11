@@ -12,7 +12,7 @@
 # whatever the run's frame rate; the per-capture CSV beside each PNG records the
 # exact player trajectory that produced it.
 #
-#     cargo run --release --bin places-compile -- build assets/levels/places_demo.json
+#     cargo run --release --bin places-compile -- build levels/places_demo.json
 #     sh tools/bench/capture_movement.sh                      # High
 #     PLACES_QUALITY=low sh tools/bench/capture_movement.sh   # Low
 #

@@ -1,3 +1,5 @@
+override display_target: bool = false;
+
 // Ambient effect billboards: steam plumes over the world.
 //
 // The vertices are world-space and already camera-facing (the CPU evaluates
@@ -45,5 +47,14 @@ fn vs_main(in: VertexIn) -> VertexOut {
 @fragment
 fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let sampled = textureSample(effect_texture, effect_sampler, in.uv);
-    return vec4<f32>(sampled.rgb * in.color.rgb, sampled.a * in.color.a);
+    return vec4<f32>(target_color(sampled.rgb * in.color.rgb), sampled.a * in.color.a);
+}
+
+// Only the uncommon raw 8-bit window fallback needs software encoding.
+fn target_color(color: vec3<f32>) -> vec3<f32> {
+    if display_target {
+        let c = max(color, vec3<f32>(0.0));
+        return select(1.055 * pow(c, vec3<f32>(1.0 / 2.4)) - 0.055, 12.92 * c, c <= vec3<f32>(0.0031308));
+    }
+    return color;
 }

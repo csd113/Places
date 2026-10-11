@@ -44,7 +44,7 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
     // truncated catalogue from passing silently.
     assert!(
         entries.len() >= 30,
-        "the pack is the core/office set plus the Pool family (at least 30 props); \
+        "the pack is the shared/office set plus the Pool family (at least 30 props); \
          the catalogue now lists {}",
         entries.len()
     );
@@ -238,7 +238,10 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
     // 2278, all under the 3000-triangle skinned-character ceiling).
     // Winter evergreens preserve all 708 canonical triangles and add closed,
     // supported bough coats: 1284/1380 triangles, both under 1500.
+    // Aero dome retains 16 structural ribs, a closed glazed shell and radial soffit
+    // at meaningful 12 m scale: 1152 triangles, under the existing 1500 ceiling.
     let detailed_props = [
+        "frutiger_aero:atrium_dome",
         "spooner-man",
         "mannequin",
         "rat",
@@ -310,8 +313,8 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
 #[test]
 fn a_missing_model_is_reported_once_and_never_retried() {
     let mut assets = PropAssets::with_root("target/definitely-not-here");
-    let first = assets.resolve("environment/office/props/models/chair.glb");
-    let second = assets.resolve("environment/office/props/models/chair.glb");
+    let first = assets.resolve("environments/office/props/chair.glb");
+    let second = assets.resolve("environments/office/props/chair.glb");
     assert!(first.is_err() && second.is_err());
     assert_eq!(first.unwrap_err(), second.unwrap_err());
     let stats = assets.stats();
@@ -323,10 +326,10 @@ fn a_missing_model_is_reported_once_and_never_retried() {
 fn assets_are_shared_between_instances() {
     let mut assets = PropAssets::load_default();
     let first = assets
-        .resolve("environment/office/props/models/chair.glb")
+        .resolve("environments/office/props/chair.glb")
         .expect("chair loads");
     let second = assets
-        .resolve("environment/office/props/models/chair.glb")
+        .resolve("environments/office/props/chair.glb")
         .expect("chair loads");
     assert!(
         Arc::ptr_eq(&first, &second),
@@ -361,6 +364,8 @@ fn synthetic_model(triangles: usize, textures: &[(u32, u32)]) -> PropModel {
             })
             .collect(),
         submeshes: vec![PropSubmesh {
+            double_sided: true,
+            response: crate::materials::MaterialResponse::NONE,
             alpha: crate::materials::MaterialAlpha::OPAQUE,
             material: 0,
             texture: (!textures.is_empty()).then_some(0u16),

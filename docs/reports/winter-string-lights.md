@@ -1,5 +1,8 @@
 # Winter string lights
 
+Historical acceptance: 2026-10-06 local-light pass. Counts, timings and validation below describe
+that tested version; the canonical guides govern current contracts.
+
 October 6, 2026. Reusable short, medium and long strings bring the concept
 art's amber contrast to the Winter Place. Eight spans cover two cottage
 entrances, the lodge porch and rails, the square, and one path crossing. The
@@ -39,7 +42,7 @@ of snowy door hoods; the rear square string clears the existing lamp base.
 The control uses identical geometry and visible emissive bulbs, disabling
 only the 38 physical string sources. Full-quality receiver chart records
 match exactly. This isolates environmental illumination from bright glass.
-The committed [comparison](winter-string-lights/lighting-comparison.json)
+The committed comparison
 contains bilinear samples and regional prop-receiver measurements.
 
 | Receiver | Added linear RGB from strings |
@@ -69,17 +72,13 @@ sources avoid bright local hotspots. Outdoor floor receiver channels peak
 at 1.234, with no sample above the diagnostic 1.4 threshold; native snow
 retains its surface detail. At three tested floor chart borders, maximum
 channel discontinuities are 0.00414, 0.000883 and 0.000953. The
-[atlas audit](winter-string-lights/atlas-audit.json) reports finite geometry,
+atlas audit reports finite geometry,
 unit normals and disjoint padded reservations, with zero errors. Thin prop
 charts remain diagnostic entries rather than atlas integrity failures.
 
-![High square](winter-string-lights/string-square-high.png)
+![High square](../images/reports/winter-string-lights/string-square-high.png)
 
-![Identical emissive bulbs with physical sources disabled](winter-string-lights/string-square-control.png)
-
-![Entrance bulbs clear of the snowy hood](winter-string-lights/string-cottage-high.png)
-
-![Low-intensity rail bulbs](winter-string-lights/string-rail-high.png)
+![Identical emissive bulbs with physical sources disabled](../images/reports/winter-string-lights/string-square-control.png)
 
 ## Bake and catalogue cost
 
@@ -108,14 +107,7 @@ Zoo build took 203.8 s. Generator tests protect coverage, stable ids,
 growth, non-overlapping full hall coverage, basin containment and serial/parallel
 reproducibility.
 
-![Zoo High: amber light on the ceiling](winter-string-lights/zoo-high.png)
-
 ## Verification
-
-Full logs and large float receiver dumps remain under
-`target/winter-string-lights/`. Compact [native capture identities](winter-string-lights/native-captures.json),
-[asset audit](winter-string-lights/asset-audit.json), measurements and screenshots
-are committed with this report.
 
 | Check | Result |
 | --- | --- |
@@ -150,22 +142,10 @@ inspector; no game dependency is added. Low retains the existing vertex-lit
 fallback policy, verified visually. Geometry checker intent annotations and
 finite samples supplement, rather than replace, native visual inspection.
 
-## Changed files
+## Reproduction
 
-- `assets/catalog.json`
-- `assets/environment/winter/props/models/string_lights.png`
-- `assets/environment/winter/props/models/string_lights_{short,medium,long}.glb`
-- `assets/environment/winter/README.md`
-- `assets/levels/winter.json`, `assets/levels/winter.placesmap`
-- `assets/levels/model_zoo.json`, `assets/levels/model_zoo.placesmap`
-- `tools/props/string_lights.py`, `tools/props/parts/string_lights.py`,
-  `tools/props/parts/__init__.py`
-- `tools/levels/build_winter.py`, `tools/levels/build_model_zoo.py`
-- `tools/bench/winter_views.json`, `tools/bench/audit_winter_strings.py`
-- `tests/test_string_lights.py`, `tests/test_zoo_generator.py`
-- `src/static_prop_lighting_tests.rs`
-- `docs/ASSET_SPECIFICATION.md`, `docs/MAP_AUTHORING_GUIDE.md`
-- This report and its `winter-string-lights/` evidence files.
-
-The user's existing `assets/environment/Winter Place Prompt.txt` edits remain
-outside this change.
+`tools/bench/audit_winter_strings.py` compares identical geometry/emissive bulbs
+with physical light sources enabled and disabled. `tools/bench/capture_winter.py`
+supplies native views; `tools/props/string_lights.py` owns shared geometry
+and source-position construction. Optional NumPy is an audit-tool dependency,
+not a game/runtime dependency.

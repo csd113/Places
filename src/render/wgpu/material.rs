@@ -953,59 +953,37 @@ impl GpuMaterial {
     }
 }
 
-impl GpuMaterial {
-    /// A plain-opaque material with only an emission record: the prop path.
-    ///
-    /// The reference draws every prop primitive with `SurfaceState::plain`
-    /// plus its glTF emission (fixture faces use the per-vertex flag, which
-    /// props never do). No normal map, no response, no reflection, no alpha
-    /// contract beyond the always-opaque default.
-    #[must_use]
-    pub fn plain_emissive(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        layout: &wgpu::BindGroupLayout,
-        cache: &TextureCache,
-        emission_texture: &Arc<GpuTexture>,
-        record: EmissionRecord,
-    ) -> Self {
-        Self::plain_with_alpha(
-            device,
-            queue,
-            layout,
-            cache,
-            emission_texture,
-            record,
-            crate::materials::MaterialAlpha::OPAQUE,
-        )
-    }
+/// Scalar model controls shared by all geometry paths.
+#[derive(Clone, Copy)]
+pub struct ModelMaterial {
+    pub emission: EmissionRecord,
+    pub alpha: crate::materials::MaterialAlpha,
+    pub response: crate::materials::MaterialResponse,
+    pub response_enabled: bool,
+}
 
-    /// [`Self::plain_emissive`] with an explicit alpha contract.
-    ///
-    /// The dynamic path uses this for a submesh whose material blends (a sauna
-    /// door's glass panel): the uniform carries the mode/opacity the world
-    /// shader and the translucent pipeline expect, while everything else stays
-    /// the plain prop state.
-    #[must_use]
-    pub fn plain_with_alpha(
+impl GpuMaterial {
+    /// Shared GLB scalar material evaluation for static, movable and entities.
+    pub fn model_with_alpha(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         layout: &wgpu::BindGroupLayout,
         cache: &TextureCache,
         emission_texture: &Arc<GpuTexture>,
-        record: EmissionRecord,
-        alpha: crate::materials::MaterialAlpha,
+        parameters: ModelMaterial,
     ) -> Self {
         let mut state = ResolvedSurfaceMaterial::plain();
-        state.alpha = alpha;
-        let uniform = MaterialUniform::from_state_with_emission(&state, false, record);
-        let fallback = cache.fallback();
+        state.alpha = parameters.alpha;
+        state.specular = parameters.response.specular;
+        state.roughness = parameters.response.roughness;
+        state.response_enabled = parameters.response_enabled;
+        let uniform = MaterialUniform::from_state_with_emission(&state, false, parameters.emission);
         Self::new(
             device,
             queue,
             layout,
             cache,
-            &fallback,
+            &cache.fallback(),
             emission_texture,
             uniform,
         )

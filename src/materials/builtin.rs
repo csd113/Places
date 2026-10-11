@@ -22,11 +22,13 @@ impl BuiltinImage {
     )]
     pub(crate) fn decode(self) -> RawImage {
         let bytes: &[u8] = match self {
-            Self::FontAtlas => include_bytes!("../../assets/core/ui/font_01.png"),
-            Self::DecalAtlas => include_bytes!("../../assets/core/decals/validation_atlas_01.png"),
-            Self::MissingTexture => include_bytes!("../../assets/core/textures/missing_01.png"),
+            Self::FontAtlas => include_bytes!("../../assets/shared/ui/font_01.png"),
+            Self::DecalAtlas => {
+                include_bytes!("../../assets/shared/decals/validation_atlas_01.png")
+            }
+            Self::MissingTexture => include_bytes!("../../assets/shared/textures/missing_01.png"),
             Self::EmergencyWhite => {
-                include_bytes!("../../assets/core/textures/white_fallback_01.png")
+                include_bytes!("../../assets/shared/textures/white_fallback_01.png")
             }
         };
         decode_png(bytes).expect("the embedded engine PNG is a validated repository resource")

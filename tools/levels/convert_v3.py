@@ -50,16 +50,18 @@ import argparse
 import json
 import os
 import sys
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 APP_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-MAINTAINED = (
-    "assets/levels/places_demo.json",
-    "assets/levels/model_zoo.json",
-    "levels/level0_pit.json",
-    "levels/home_showcase.json",
-    "levels/geometry_intentional.json",
-)
+
+
+def maintained_sources() -> List[str]:
+    """Curated demos and regression fixtures, including nested fixture cases."""
+    root = Path(APP_ROOT)
+    sources = list((root / "levels").glob("*.json"))
+    sources.extend((root / "tests/fixtures/levels").rglob("*.json"))
+    return [str(path) for path in sorted(sources)]
 
 
 class ConversionError(Exception):
@@ -120,10 +122,14 @@ def _animation_component(actions: List) -> Optional[Dict]:
     return None
 
 
-def _interaction_components(interaction: Dict) -> List[Dict]:
+def _interaction_components(interaction: Dict, actor_id: object) -> List[Dict]:
     """The v3 components one v2 interaction block becomes."""
     components = [_interactable(interaction)]
-    animation = _animation_component(interaction.get("actions"))
+    own_actions = [
+        action for action in interaction.get("actions", [])
+        if isinstance(action, dict) and action.get("target") in (None, actor_id)
+    ]
+    animation = _animation_component(own_actions)
     if animation is not None:
         components.append(animation)
     return components
@@ -182,7 +188,7 @@ def _convert_prop(prop: Dict, where: str) -> Dict:
         if key != "interaction":
             converted[key] = value
             continue
-        converted["components"] = _interaction_components(interaction)
+        converted["components"] = _interaction_components(interaction, prop.get("id"))
         converted["bindings"] = [{"on": "interact", "actions": actions}]
     return converted
 
@@ -260,6 +266,12 @@ def _apply_v3_fixups(level: Dict, where: str, report: List[str]) -> bool:
         for door in level.get("doors") or []
         if isinstance(door, dict) and isinstance(door.get("id"), str)
     }
+    animation_targets = {
+        record["id"].strip(): (record, f"{key} {index}")
+        for key in _COMPONENT_CARRIERS
+        for index, record in enumerate(level.get(key) or [])
+        if isinstance(record, dict) and isinstance(record.get("id"), str)
+    }
     changed = False
     for key in _BINDING_CARRIERS:
         for index, record in enumerate(level.get(key) or []):
@@ -284,23 +296,32 @@ def _apply_v3_fixups(level: Dict, where: str, report: List[str]) -> bool:
                         )
                     binding["actions"] = pruned
                     changed = True
-                if key not in _COMPONENT_CARRIERS:
-                    continue
-                if _actions_need_animation(pruned) and not _has_animation_component(
-                    record.get("components")
-                ):
-                    animation = _animation_component(pruned)
+                for action in pruned:
+                    if not _actions_need_animation([action]):
+                        continue
+                    target_id = action.get("target")
+                    if target_id is None and key in _COMPONENT_CARRIERS:
+                        target, target_where = record, f"{key} {index}"
+                    elif isinstance(target_id, str) and target_id.strip() in animation_targets:
+                        target, target_where = animation_targets[target_id.strip()]
+                    else:
+                        raise ConversionError(
+                            f"{where}: {key} {index} animation action has no known component target"
+                        )
+                    if _has_animation_component(target.get("components")):
+                        continue
+                    animation = _animation_component([action])
                     if animation is None:
                         raise ConversionError(
-                            f"{where}: {key} {index} uses an animation action that names no "
+                            f"{where}: {target_where} uses an animation action that names no "
                             "clip; author its `animation` component explicitly"
                         )
-                    components = record.setdefault("components", [])
+                    components = target.setdefault("components", [])
                     if not isinstance(components, list):
-                        raise ConversionError(f"{where}: {key} {index} components must be an array")
+                        raise ConversionError(f"{where}: {target_where} components must be an array")
                     components.append(animation)
                     report.append(
-                        f"{where}: {key} {index} gained an `animation` component "
+                        f"{where}: {target_where} gained an `animation` component "
                         f"(clip '{animation['clip']}') required by its animation action"
                     )
                     changed = True
@@ -403,13 +424,13 @@ def convert_file(path: str, check_only: bool) -> int:
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("files", nargs="*", help="level JSON paths to convert")
-    parser.add_argument("--all", action="store_true", help="convert the five maintained sources")
+    parser.add_argument("--all", action="store_true", help="convert curated demos and regression fixture sources")
     parser.add_argument("--check", action="store_true", help="report stale files without writing")
     args = parser.parse_args(argv)
 
     paths: List[str] = [os.path.abspath(path) for path in args.files]
     if args.all:
-        paths.extend(os.path.join(APP_ROOT, path) for path in MAINTAINED)
+        paths.extend(maintained_sources())
     if not paths:
         parser.error("pass level JSON paths or --all")
     failures = 0

@@ -110,6 +110,39 @@ pub fn remove_file_if_present(path: impl AsRef<std::path::Path>) {
     }
 }
 
+/// Compiles an isolated source fixture through the ordinary CPU package path.
+///
+/// Reflection capture is disabled so unit tests never require a GPU. Callers
+/// choose the real quality variants whose records their assertions exercise.
+///
+/// # Errors
+///
+/// Returns the named filesystem or compiler error when fixture setup fails.
+pub fn compile_test_package(
+    directory: &std::path::Path,
+    source_name: &str,
+    source_json: &str,
+    variants: &[crate::quality::LightmapQuality],
+) -> Result<std::path::PathBuf, String> {
+    std::fs::create_dir_all(directory)
+        .map_err(|error| format!("fixture directory {}: {error}", directory.display()))?;
+    let source = directory.join(source_name);
+    std::fs::write(&source, source_json)
+        .map_err(|error| format!("fixture source {}: {error}", source.display()))?;
+    let out = source.with_extension("placesmap");
+    let request = crate::compiler::BuildRequest {
+        source,
+        out: out.clone(),
+        asset_root: std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets"),
+        variants: variants.to_vec(),
+        workers: 1,
+        force: true,
+        capture_probes: false,
+    };
+    let _build_report = crate::compiler::build(&request)?;
+    Ok(out)
+}
+
 /// Asserts `actual` is exactly `expected` under IEEE equality.
 #[track_caller]
 pub fn assert_exact(actual: f32, expected: f32) {

@@ -162,7 +162,7 @@ fn percent(values: &[f32], condition: impl Fn(f32) -> bool) -> f32 {
 
 /// The shipped demo level.
 fn demo() -> LevelDef {
-    let path = "assets/levels/places_demo.json";
+    let path = "levels/places_demo.json";
     let content = std::fs::read_to_string(path)
         .unwrap_or_else(|error| panic!("{path} must be readable: {error}"));
     LevelDef::from_json(&content).unwrap_or_else(|error| panic!("{path} must parse: {error}"))

@@ -75,7 +75,7 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
     def test_regeneration_matches_the_shipped_zoo(self):
         level = self.level_for(self.catalog)
         shipped = json.loads(
-            (PACKAGE / "assets" / "levels" / "model_zoo.json").read_text(encoding="utf-8")
+            (PACKAGE / "levels" / "model_zoo.json").read_text(encoding="utf-8")
         )
         self.assertEqual(
             zoo.serialise(level),
@@ -94,7 +94,7 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
         extra = copy.deepcopy(template)
         extra["id"] = "fixture:new_prop"
         extra["display_name"] = "Fixture New Prop"
-        extra["model"] = "core/props/models/crate.glb"
+        extra["model"] = "shared/props/crate.glb"
         extra["size"] = [0.4, 0.4, 0.4]
         grown["assets"].append(extra)
 
@@ -118,6 +118,49 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
             len(grown_level["ceiling_lights"]), len(base_level["ceiling_lights"])
         )
 
+    def test_refinement_displays_preserve_every_existing_placement_and_world_field(self):
+        additions = {'beach:cove_foam', 'beach:town_terrace_base',
+                     'frutiger_aero:portal_spandrel', 'winter:snow_roof_blanket'}
+        baseline_catalog = copy.deepcopy(self.catalog)
+        baseline_catalog['assets'] = [entry for entry in baseline_catalog['assets']
+                                      if entry['id'] not in additions]
+        baseline = self.level_for(baseline_catalog)
+        grown = self.level_for(self.catalog)
+        old_props = {prop['id']: prop for prop in baseline['props']}
+        new_props = {prop['id']: prop for prop in grown['props']}
+        for identity, prop in old_props.items():
+            self.assertEqual(new_props[identity], prop, identity)
+        for field in baseline.keys() - {'props'}:
+            self.assertEqual(grown[field], baseline[field], field)
+        extra = [prop for prop in grown['props'] if prop['id'] not in old_props]
+        self.assertEqual({prop['model'] for prop in extra}, additions)
+        self.assertEqual(len(extra), 4)
+        entries = {entry['id']: entry for entry in self.catalog['assets']}
+        for prop in extra:
+            self.assertEqual(prop['id'], zoo.instance_id(entries[prop['model']], 'floor'))
+            self.assertEqual(prop['display_name'], entries[prop['model']]['display_name'])
+            self.assertEqual(prop['components'], [{'component': 'interactable', 'prompt': 'Show name'}])
+            self.assertEqual(prop['bindings'], [{'on': 'interact', 'actions': [{'action': 'toggle_label'}]}])
+            self.assertFalse(prop['solid'])
+            # Full bounds stay within real annex ownership, including the
+            # extremely wide coast strip's deliberately reduced exhibit.
+            width, height, depth = (size*prop['scale'] for size in entries[prop['model']]['size'])
+            self.assertTrue(any(room['x'] <= prop['x']-width/2
+                                and room['x']+room['width'] >= prop['x']+width/2
+                                and room['z'] <= prop['z']-depth/2
+                                and room['z']+room['depth'] >= prop['z']+depth/2
+                                and room['height'] >= height for room in grown['rooms']))
+
+    def test_removing_a_supplemental_display_leaves_the_other_slots_fixed(self):
+        baseline = self.level_for(self.catalog)
+        removed = copy.deepcopy(self.catalog)
+        removed['assets'] = [entry for entry in removed['assets'] if entry['id'] != 'beach:cove_foam']
+        reduced = self.level_for(removed)
+        self.assertEqual(reduced['props'], [prop for prop in baseline['props']
+                                          if prop['model'] != 'beach:cove_foam'])
+        for field in baseline.keys() - {'props'}:
+            self.assertEqual(reduced[field], baseline[field], field)
+
     def test_layout_expands_when_the_floor_rows_fill(self):
         base_level = self.level_for(self.catalog)
         base_depth = hall_extents(base_level)[1]
@@ -130,7 +173,7 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
             extra = copy.deepcopy(template)
             extra["id"] = f"fixture:bulk_{index:02d}"
             extra["display_name"] = f"Fixture Bulk {index}"
-            extra["model"] = "core/props/models/crate.glb"
+            extra["model"] = "shared/props/crate.glb"
             grown["assets"].append(extra)
 
         grown_level = self.level_for(grown)
@@ -147,15 +190,31 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
 
     def test_chart_cells_cover_one_flat_hall_without_splitting_the_basin(self):
         level = self.level_for(self.catalog)
-        width, depth = hall_extents(level)
-        rooms = level["rooms"]
+        plan = zoo.plan_hall(zoo.ordered_displays(self.catalog), inspections_for(self.catalog))
+        width, depth = plan["width"], plan["depth"]
+        rooms = [room for room in level["rooms"]
+                 if room["x"] + room["width"] <= width + 0.0001]
         self.assertAlmostEqual(sum(r["width"] * r["depth"] for r in rooms), width * depth)
         for index, room in enumerate(rooms):
             self.assertLessEqual(room["width"], 16)
             self.assertLessEqual(room["depth"], 18)
             self.assertEqual(room.get("floor_y", 0), 0)
             self.assertEqual(room["material"], "core:pool_tile_deck_01")
-            for other in rooms[index + 1:]:
+        # The separate Beach annex owns a real lowered fish room. Preserve
+        # the original hall's chart constraints and check every new seam too.
+        annex = [room for room in level["rooms"] if room not in rooms]
+        self.assertTrue(annex)
+        annex_width = max(r["x"] + r["width"] for r in annex) - min(r["x"] for r in annex)
+        annex_depth = max(r["z"] + r["depth"] for r in annex) - min(r["z"] for r in annex)
+        self.assertAlmostEqual(sum(r["width"] * r["depth"] for r in annex), annex_width * annex_depth)
+        self.assertEqual(sum(r.get("floor_y", 0) < 0 for r in annex), 1)
+        for room in annex:
+            floor = room.get("floor_y", 0)
+            self.assertIn(floor, (0, -1.2))
+            self.assertAlmostEqual(floor + room["height"], plan["height"])
+            self.assertEqual(room["material"], "core:pool_tile_basin_01" if floor < 0 else "core:pool_tile_deck_01")
+        for index, room in enumerate(level["rooms"]):
+            for other in level["rooms"][index + 1:]:
                 overlap_x = min(room["x"] + room["width"], other["x"] + other["width"]) - max(room["x"], other["x"])
                 overlap_z = min(room["z"] + room["depth"], other["z"] + other["depth"]) - max(room["z"], other["z"])
                 self.assertTrue(overlap_x < 0.0001 or overlap_z < 0.0001)
@@ -204,7 +263,8 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
             if identity != "zoo:core-plant:floor":
                 self.assertIn(identity, ids)
         # No real asset was removed: the model still exists on disk.
-        self.assertTrue((PACKAGE / "assets" / "core" / "props" / "models" / "plant.glb").exists())
+        removed = next(entry for entry in self.catalog["assets"] if entry["id"] == removed_id)
+        self.assertTrue((PACKAGE / "assets" / removed["model"]).is_file())
 
     def test_the_catalog_id_is_the_only_input_that_decides_identity(self):
         # Reordering the catalogue's own array (a file edit that changes nothing
@@ -244,7 +304,7 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
         # abort generation: the worker reports the asset by name, the display
         # still exists and the loader's own fallback handles it at run time.
         result = zoo.inspect_asset(
-            {"id": "fixture:missing", "model": "core/props/models/does_not_exist.glb"}
+            {"id": "fixture:missing", "model": "shared/props/does_not_exist.glb"}
         )
         self.assertIsNotNone(result["error"])
         self.assertIsNone(result["rest_bounds"])

@@ -26,8 +26,10 @@ class WinterTests(unittest.TestCase):
         self.assertEqual(ice['alpha_mode'], 'blend')
         self.assertGreater(ice['opacity'], .7)
         self.assertLess(ice['opacity'], 1)
-        self.assertNotIn('reflection_mode', ice)
-        self.assertEqual(assets[ice['texture']]['model'], 'environment/winter/textures/floors/ice_01.png')
+        # Stage 5's restrained probe response is independent of physical traction.
+        self.assertEqual(ice['reflection_mode'], 'probe')
+        self.assertEqual(ice['reflection_strength'], .28)
+        self.assertEqual(assets[ice['texture']]['model'], 'environments/winter/textures/floors/ice_01.png')
         level = author.build_level()
         backing = next(b for b in level['void_walls'] if b['id'] == 'pond_ice_depth')
         self.assertFalse(backing['solid'])
@@ -50,7 +52,7 @@ class WinterTests(unittest.TestCase):
             self.assertTrue((ROOT / 'assets' / texture['model']).is_file())
             self.assertEqual(texture['source'], 'file')
         tree = assets['outdoor:tree_03']
-        self.assertEqual(tree['model'], 'environment/outdoor/props/models/tree_03.glb')
+        self.assertEqual(tree['model'], 'environments/outdoor/props/tree_03.glb')
         self.assertEqual(tree['size'], [3.2, 6.8, 3.2])
         level = author.build_level()
         self.assertFalse(level.get('water'), 'frozen pond replaces swimming water with a solid floor')

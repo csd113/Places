@@ -38,7 +38,7 @@ fn parse(json: &str) -> LevelDef {
 
 /// The committed Home showcase.
 fn home_showcase() -> LevelDef {
-    parse(include_str!("../tests/fixtures/levels/home_showcase.json"))
+    parse(include_str!("../levels/home_showcase.json"))
 }
 
 /// One triangle of an emitted batch, reduced to world and UV area.
@@ -428,7 +428,7 @@ fn test_architecture_stress_builds_with_bounded_geometry() {
     // geometry: the mesh is complete and finite, only unlit. The 5-grid above
     // fits the shipped budget; the much larger 10-grid is a genuine overflow of
     // the historical four-page budget, so the oversized build is pinned against
-    // that budget explicitly (the shipped one is eight pages).
+    // that budget explicitly (the shipped Full profile admits ten pages).
     let oversized = architecture_stress_level_for(10);
     let oversized_materials = logical_materials(&oversized);
     let mut options = crate::render::LightmapBuildOptions::for_profile(
@@ -1296,7 +1296,7 @@ fn test_architecture_geometry_sweep_is_structurally_sound() {
 /// surviving triangle must have real area.
 #[test]
 fn test_the_shipped_demo_emits_no_zero_area_triangles() {
-    let level = parse(include_str!("../assets/levels/places_demo.json"));
+    let level = parse(include_str!("../levels/places_demo.json"));
     let materials = logical_materials(&level);
     let mesh = build_level_geometry_with_materials(&level, &materials);
     let triangles = emitted_triangles(&mesh);
@@ -1322,7 +1322,7 @@ fn test_the_shipped_demo_emits_no_zero_area_triangles() {
 #[test]
 fn test_the_prepared_demo_validates_and_emits_no_zero_area_triangles() {
     let catalog = crate::assets::AssetCatalog::load_default();
-    let mut level = parse(include_str!("../assets/levels/places_demo.json"));
+    let mut level = parse(include_str!("../levels/places_demo.json"));
     let authored_baseboards = level.baseboards.len();
     crate::loader::prepare_level(&mut level, &catalog, None);
     assert!(
@@ -2965,7 +2965,7 @@ fn test_arc_end_caps_face_outward_for_both_sweep_signs() {
 /// endpoint interpolation.
 #[test]
 fn test_the_demo_stair_handrails_follow_the_nosing_line() {
-    let level = parse(include_str!("../assets/levels/places_demo.json"));
+    let level = parse(include_str!("../levels/places_demo.json"));
     let surfaces = LevelSurfaces::new(&level);
     let stair = &level.stairs[0];
     let stair_surface = crate::level::StairSurface::new(stair);

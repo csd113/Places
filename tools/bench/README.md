@@ -14,6 +14,7 @@ The current workflow uses the following tools:
 | `compiler_bench.py` | measures complete clean offline builds, phase timings, CPU, peak RAM and deterministic package hashes |
 | `compiler_compare.py` | alternates baseline and optimized clean builds within each repeated map pair, comparing all physical output records |
 | `compiler_incremental.py` | measures preserved source edits and verifies incremental packages equal independent clean builds |
+| `scene_budget.py` | validates package/native identity and audits nonzero surface or final capture submissions against configurable warnings |
 | `compare_packages.py` | compares every compiled record byte, including all HDR lightmaps and probe mips |
 | `capture_compiler.py` | compares baseline and optimized packages through identical native renderer settings and authored animation frame |
 | `bench_local.py` | repeats one benchmark configuration and prints min/median/max per field |
@@ -48,13 +49,13 @@ python3 tools/bench/compiler_compare.py --baseline baseline/places-compile \
     --repeat 3 --label "documented desktop background load; own jobs sequential"
 python3 tools/bench/compiler_bench.py --binary target/release/places-compile \
     --out tools/bench/results/compiler-clean --repeat 3 \
-    --maps tests/fixtures/levels/test_room.json assets/levels/places_demo.json \
-           assets/levels/lantern_hollow.json
+    --maps tests/fixtures/levels/test_room.json levels/places_demo.json \
+           levels/lantern_hollow.json
 python3 tools/bench/compiler_bench.py --binary target/release/places-compile \
     --out tools/bench/results/compiler-scaling --repeat 3 --workers 1 2 4 8 12 \
     --maps tests/fixtures/levels/test_room.json
 python3 tools/bench/compiler_incremental.py --binary target/release/places-compile \
-    --out debug-maps/compiler-audit/incremental --repeat 3 --expect-metadata-reuse
+    --out target/verification/compiler-audit/incremental --repeat 3 --expect-metadata-reuse
 python3 tools/bench/compare_packages.py baseline.placesmap candidate.placesmap
 python3 -m unittest discover -s tests -p test_compiler_bench.py
 ```
@@ -152,7 +153,7 @@ the same isolated harness as a bundled one:
 ```sh
 python3 tools/bench/loading.py --binary target/release/places \
     --out target/agent-work/loading-private --levels level0_pit \
-    --install-package levels/level0_pit.placesmap --window-size 1512x850
+    --install-package target/verification/maps/tests__fixtures__levels__level0_pit.placesmap --window-size 1512x850
 ```
 
 Steady-state rendering is measured by a different instrument: the per-frame CSV
@@ -238,21 +239,23 @@ profiles at once. It owns its view table, a pinned `settings.json` under
 per profile:
 
 ```sh
-sh tools/bench/capture_baseline_views.sh                        # -> docs/renderer-baseline/{high,low}
+sh tools/bench/capture_baseline_views.sh                        # -> target/verification/renderer-baseline-captures/{high,low}
 PLACES_QUALITY=low sh tools/bench/capture_baseline_views.sh    # one profile only
 PLACES_BIN=target/release/places \
     PLACES_CAPTURE_DIR=target/agent-work/baseline-current \
     sh tools/bench/capture_baseline_views.sh                    # a comparison build
 ```
 
-The committed reference and its camera/settings manifest are documented in
-`docs/renderer-baseline/BASELINE.md`; that document is the authority on what
-each view exercises. `PLACES_QUALITY=high` and `PLACES_QUALITY=low` select one
+The frozen PNGs live in [the native reference fixtures](../../tests/fixtures/native/gles2-reference).
+Their camera/settings contract is documented in [BASELINE.md](../../docs/renderer-baseline/BASELINE.md),
+and three curated High/Low pairs live in [the renderer reference gallery](../../docs/images/renderer-reference).
+`PLACES_QUALITY=high` and `PLACES_QUALITY=low` select one
 profile, and any other value is
 rejected. Delete the state root before a run to
 force a cold lightmap bake rather than reusing its cache. The script's own
-default writes the frozen `docs/renderer-baseline/{high,low}` images, so a
-comparison run must set `PLACES_CAPTURE_DIR`.
+default writes current captures to ignored `target/verification/renderer-baseline-captures/{high,low}`.
+Use `PLACES_CAPTURE_DIR` to retain separate runs; `compare_baseline.py` reads
+`tests/fixtures/native/gles2-reference/{high,low}` as its default reference.
 
 The working tree's assets can be mid-edit while renderer work continues, in
 which case a capture legitimately differs from the committed reference. To
@@ -414,12 +417,56 @@ and leaves the comparison evidence. Comparing packages is excluded from timings.
 native game build at authored frame 1. It uses isolated payloads linked to a
 preserved asset collection, verifies the exact package SHA and selected lighting
 variant in native logs, and compares decoded PNG pixels. Choose a new evidence
-directory on each invocation so earlier captures remain intact:
+directory on each invocation so earlier captures remain intact. This historical
+example requires the preserved local compiler-audit collection; it is not a
+fresh-checkout dependency:
 
 ```sh
 python3 tools/bench/capture_compiler.py --binary target/release/places \
-  --collection debug-maps/compiler-audit-20261003 \
+  --collection local/retained/debug-maps/compiler-audit-20261003 \
   --before tools/bench/results/compiler-audit-20261003/baseline-native \
   --after tools/bench/results/compiler-audit-20261003/optimized-final-native \
-  --out debug-maps/compiler-audit-20261003/captures/native-comparison
+  --out target/verification/compiler-native-comparison
 ```
+
+## Hero incremental inputs and quality paths
+
+The focused architecture fixture [camera manifest](../../tests/fixtures/native/hero-manifest.json)
+is the default for `capture_art_style_hero.py` and `snapshot_art_style_hero.py`.
+The corresponding [diagnostics manifest](../../tests/fixtures/native/hero-diagnostics-manifest.json)
+is available through `--manifest` for the diagnostic capture views.
+`native_regression_maps.py` reads the [map camera manifests](../../tests/fixtures/native/map-manifests)
+by default. These are reusable capture inputs; each run writes its receipts and
+images to a new evidence directory. The domestic model validator writes its
+machine report to ignored `target/verification/domestic-model-remake/geometry-validation.json`.
+
+The [Stage 6 contracts](../../docs/art-style/stage6/contracts.md) document source,
+resolved dependency, catalogue, tool and capture identity. `cache_decisions` in
+`places-compile --json` names package/prepared hits, misses and bypass reasons.
+`--force` remains the independent full path. Build a changed model from its real
+PNG/source before compiling: GLB embeds the runtime image.
+
+The incremental harness accepts `--source`, `--asset-root`, `--seed-package`,
+`--reference-once`, and cases `unchanged metadata presentation texture material
+model geometry light entity combined prop`. Texture/model cases require an
+explicit assets-relative `--texture-edit path=existing.png` or `--model-edit
+path=existing.glb`. It copies assets into isolated durable roots and never edits
+the installed files. Use `--expect-metadata-reuse --expect-presentation-reuse`
+for those two supported prepared-stage cases. Every timed output must equal the
+independent clean archive byte for byte, including baked lighting and probe mips.
+
+A fast hero development build uses `--variants medium --workers 12`; its native
+player must request Medium. Final visual validation uses `--variants
+off,medium,full --workers 12` and High/Full. Keep the output paths distinct;
+variant identities are enforced. Medium changes chart/filter/reflection quality,
+not correctness or content, and cannot stand in for the final High gallery.
+
+`capture_art_style_hero.py --move-script 'forward@0-1.35'` drives normal controls
+and preserves the view's state CSV. Invalid scripts are rejected. `--diagnostic
+final` on a visual-diagnostics build records actual capture submission counts even
+when window acquisition skips presentation. Those counts describe submitted
+ranges including occluded geometry. `scene_budget.py --package P --log L
+--limits limits.json --out NEW.json` verifies package entries and native
+manifest/variant identity before emitting warnings. It rejects empty telemetry,
+and uses the real final capture receipt when supplied. Neither captures nor
+zero-draw window summaries establish ordinary gameplay FPS or fragment overdraw.

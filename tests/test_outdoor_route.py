@@ -12,7 +12,7 @@ import build_outdoor_route as route  # noqa: E402
 
 class OutdoorPlacementTests(unittest.TestCase):
     def setUp(self):
-        self.level = json.loads((ROOT / "assets/levels/places_demo.json").read_text())
+        self.level = json.loads((ROOT / "levels/places_demo.json").read_text())
         self.slice = route.build_slice(self.level)
 
     def test_ridge_stays_joined_over_the_lowered_stair_hall(self):
