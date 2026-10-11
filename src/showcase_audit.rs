@@ -246,16 +246,19 @@ fn showcase_all_five_forest_trails_reach_the_seated_skeleton_clearing() {
 }
 
 #[test]
-fn showcase_pond_supports_real_crouched_swimming_and_a_safe_exit() {
+fn showcase_pond_keeps_crouched_posture_and_a_safe_exit() {
     let level = level();
     let mut game = at(&level, -25.0, -15.0);
     walk_to(&mut game, -32.0, -15.0);
     advance(&mut game, &[Control::Crouch], 1);
     advance(&mut game, &[], 90);
     assert!(
-        game.swimming,
-        "pond basin uses the existing swim controller"
+        !game.swimming && game.grounded,
+        "the 0.665 m pond supports the ordinary crouched posture"
     );
+    assert!((game.feet_y() + 0.65).abs() < CONTACT_EPS);
+    assert!((game.eye_offset() - CROUCH_EYE_HEIGHT).abs() < CONTACT_EPS);
+    assert!((game.body_height() - CROUCH_HEIGHT).abs() < CONTACT_EPS);
     walk_to(&mut game, -25.0, -15.0);
     advance(&mut game, &[], 30);
     assert!(

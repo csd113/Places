@@ -1462,8 +1462,10 @@ How it behaves:
   recaptured, so a ladder launch or a surfacing swimmer clears the waterline.
 * **Swimming** moves at `0.55×` walk speed. The body sinks under the reduced
   underwater gravity (`SWIM_GRAVITY`, `-4.5 m/s²`) at a `1.1 m/s` terminal
-  until the eye rests `0.55 m` above the floor (so a `1.35 m` basin — shallower
-  than the standing eye height — still fully submerges), and holding Jump
+  until the feet rest on the floor. Water retains the ordinary upright stance:
+  `1.8 m` body and `1.6 m` eye offset when standing, or `0.9 m` body and
+  `0.8 m` eye offset after an explicit crouch. Crouch eases the eye around the
+  supported feet and standing is refused under a low ceiling. Holding Jump
   accelerates upward to `1.1 m/s` and holds the float line at
   `surface_y + 0.12 m` with a small idle bob, where the eye stays. Every
   branch is integrated in fixed `1/120 s` substeps, so entering, surfacing and
@@ -1474,23 +1476,21 @@ How it behaves:
 * **Getting out** is a bounded, cancellable climb, not a stand-up teleport. The
   walkable floor directly under the centre must be a standable exit at the
   waterline — at most one `WATER_EXIT_STEP_M` (`0.5 m`) above the surface or
-  within `EXIT_DEPTH` below it (`1.23 m` standing, `0.43 m` crouched), with the
+  within `EXIT_DEPTH` below it (`1.48 m` standing, `0.68 m` crouched), with the
   stance's body clear overhead — and the eye must be near the top of the water
   (`surface_y − 0.6 m`). The climb raises the feet at `WATER_EXIT_CLIMB_SPEED`
   (`2.2 m/s`, the ladder speed) and derives the eye, so the camera rises
-  continuously from the swim pose to the standing line (about 0.7 s from the
-  deepest pool to the demo deck) instead of snapping up ~1.6 m; the final head
-  clearance is validated once, when the climb begins. Horizontal movement keeps
+  continuously from the current feet to the support; head clearance is checked
+  at the destination and throughout ascent. Horizontal movement keeps
   the ordinary swimming collision step throughout, so the player walks onto the
   real deck with ordinary input and real collision, and no horizontal position
   is ever written. A raised exit whose top sits above the camera is a
-  **pull-up**: the disc keeps a body radius from the rim until the camera has
-  cleared the rim top by the projection near plane (`SCENE_NEAR_M`, `0.1 m`,
-  `WATER_EXIT_EYE_CLEARANCE_M`), so the rendered camera never clips into the
-  deck it is climbing onto; the climb lifts the eye at
-  `WATER_EXIT_CLIMB_SPEED` to that clearance line and holds it, the ordinary
-  swim step then carries the centre over the few frames the hold lasts, and
-  only then does the climb stand the body up. The pull-up needs the
+  **pull-up**: the disc keeps a body radius from the rim until the physical feet
+  clear its top. The climb lifts the full upright body at
+  `WATER_EXIT_CLIMB_SPEED` and holds the feet at the support; the ordinary swim
+  step then carries the centre over it and completes the exit. The camera also
+  retains projection near-plane clearance (`SCENE_NEAR_M`, `0.1 m`,
+  `WATER_EXIT_EYE_CLEARANCE_M`). The pull-up needs the
   movement key held into the rim: releasing it cancels back to the swim pose,
   exactly like reversing. Reversing back over deeper water (the floor under the
   centre stops being a standable exit) cancels back to the swim pose at the
@@ -1498,13 +1498,15 @@ How it behaves:
   still counts as swimming, so a cancelled climb never falls through the air
   beside the rim. A higher standable floor that comes under the centre against
   the same waterline (the deck past a submerged walk-in step) is adopted as the
-  climb's support, so the climb is never cancelled with the virtual feet
+  climb's support, so the climb is never cancelled with the feet
   embedded in it.
-  Because the threshold is derived from the swim band, an exit can never
-  immediately re-enter swimming and a pool edge cannot oscillate. The swimming
-  wall band sits one `0.4 m` step below the surface so a ledge within a step of
-  the waterline can be climbed, while a deeper rim stays solid, exactly like a
-  floor-region rim on land; a solid prop or wall top is never a floor exit.
+  Entry uses the same standable-floor threshold, so an exit cannot immediately
+  re-enter swimming. Collision sweeps the actual feet and stance body, including
+  underwater obstacles. Chest-deep wading uses the same bounded rim pull-up;
+  submerged floor risers and ramps use it too, retaining swimming when the
+  destination is still too deep for wading. Surface bob settles onto a support
+  from either direction, and completion uses the exact floor under the centre.
+  A solid prop or wall top is never a floor exit.
 * **Overlapping volumes** resolve like overlapping floor regions: the last one
   authored at a point wins.
 * **Validation**: non-finite values, a non-positive footprint or radius, a
@@ -1522,11 +1524,12 @@ How it behaves:
 Places Demo's pool is two adjacent volumes at one waterline: the basin
 (`x 8..20, z 10..16`, surface `-1.65`, floor `-3.0` → 1.35 m deep) and the
 submerged walk-in step (`x 10..16, z 16..16.9`, the same surface, floor
-`-1.85` → 0.2 m of wading). Jump in from the deck, swim to the step and climb
-out there, or climb the chrome ladder at the east rim. Walking off the deck is
-a real drop into the water: the plunge decelerates, buoyancy surfaces you, and
-climbing back onto the rim is a bounded 2.2 m/s climb, never a coordinate
-snap.
+`-1.85` → 0.2 m of wading). The standing player stands on the basin floor with
+eyes at `-1.4`, 0.25 m above the water. Explicit crouch permits submerging there;
+deeper water swims with either stance. Walk to the submerged step, pull up over
+the rim, or climb the chrome ladder at the east rim to leave. Walking off the
+deck is a real drop to the supporting basin floor, and pulling back onto the
+rim is a bounded 2.2 m/s climb.
 
 ### Ladders
 

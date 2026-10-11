@@ -23,6 +23,7 @@ mod ice;
 mod movement_diagnostics;
 mod movement_performance;
 mod movement_regression;
+mod water_posture;
 mod winter;
 
 /// Advances `frames` deterministic 60 Hz simulation frames with no input.
@@ -1392,7 +1393,7 @@ fn falling_into_deep_water_switches_to_swimming() {
             assert!(!game.grounded, "the water clears the grounded flag");
         }
         assert!(
-            game.player_position.y >= -3.0 + SWIM_FLOOR_CLEARANCE - 1e-4,
+            game.player_position.y >= -3.0 + game.eye_offset() - 1e-4,
             "the swimmer never sinks through the pool floor: {}",
             game.player_position.y
         );
@@ -1715,51 +1716,24 @@ fn non_finite_mouse_motion_never_reaches_the_camera() {
     assert_exact(game.player_pitch, 0.0);
 }
 
-/// A basin shallower than the standing eye height still lets the swimmer
-/// submerge: the body is horizontal, so the eye reaches the pool floor
-/// clearance rather than `floor + EYE_HEIGHT`.
+/// The demo-depth basin supports the same upright posture as dry ground.
 #[test]
-fn a_shallow_pool_still_lets_the_swimmer_submerge() {
-    // The Places Demo's pool relationship: basin floor -3.0 and surface -1.65
-    // are 1.35 m apart, less than the 1.6 m standing eye height.
-    let level = LevelDef::from_json(
-        r#"{
-            "format_version": 3,
-            "id": "shallow_pool",
-            "name": "Shallow Pool",
-            "spawn": { "x": 1.0, "z": 1.0 },
-            "rooms": [{ "x": 0.0, "z": 0.0, "width": 12.0, "depth": 8.0,
-                      "height": 4.2, "floor_y": -1.5 } ],
-            "floor_regions": [
-                { "x": 2.0, "z": 1.0, "width": 8.0, "depth": 6.0, "offset_y": -1.5 }
-            ],
-            "water": [
-                { "x": 2.0, "z": 1.0, "width": 8.0, "depth": 6.0,
-                  "surface_y": -1.65, "bottom_y": -3.0 }
-            ]
-        }"#,
-    )
-    .expect("the shallow pool parses");
-    let mut game = game_for(&level);
-    play_at(&mut game, 6.0, -3.0, 4.0, 0.0, 1.0 / 60.0);
+fn a_shallow_pool_keeps_the_standing_posture() {
+    let mut game = demo_game_at(14.0, -3.0, 12.5, 180.0, 1.0 / 60.0);
     let settings = Settings::default();
-    let mut input = InputState::default();
-    let mut deepest = game.player_position.y;
+    let mut idle = InputState::default();
     for _ in 0_i32..600_i32 {
-        game.update_player_movement(&mut input, &settings);
-        deepest = deepest.min(game.player_position.y);
+        game.update_player_movement(&mut idle, &settings);
+        assert_exact(game.feet_y(), -3.0);
+        assert_exact(game.eye_offset(), EYE_HEIGHT);
+        assert_exact(game.player_position.y, -3.0 + EYE_HEIGHT);
+        assert_exact(game.body_height(), PLAYER_HEIGHT);
+        assert!(game.grounded, "the basin supports standing feet");
         assert!(
-            game.player_position.y >= -3.0 + SWIM_FLOOR_CLEARANCE - 1e-4,
-            "the body stays above the pool floor: {}",
-            game.player_position.y
+            !game.is_swimming() && !game.is_underwater(),
+            "upright eyes clear the water"
         );
     }
-    assert!(
-        deepest <= -1.65 - 0.4,
-        "the swimmer submerges well below the surface: {deepest}"
-    );
-    assert!(game.is_underwater(), "the sunken swimmer is underwater");
-    assert_eq!(game.locomotion_snapshot().state, LocomotionState::Swimming);
 }
 
 // ---------------------------------------------------------------------------
@@ -2577,6 +2551,7 @@ fn the_demo_staircase_joins_the_hall_and_the_balcony() {
 fn walking_off_the_demo_deck_falls_into_the_pool_and_swims() {
     let settings = Settings::default();
     let mut game = demo_game_at(21.0, -1.5, 12.0, 270.0, 1.0 / 60.0);
+    force_stance(&mut game, Stance::Crouched);
     // Walk off the edge with no jump: the drop itself must lose support.
     let mut walk = InputState::holding(&[Control::MoveForward]);
     let mut airborne = false;
@@ -2587,7 +2562,7 @@ fn walking_off_the_demo_deck_falls_into_the_pool_and_swims() {
             airborne = true;
         }
         assert!(
-            game.player_position.y >= -3.0 + SWIM_FLOOR_CLEARANCE - 1e-3,
+            game.player_position.y >= -3.0 + game.eye_offset() - 1e-3,
             "the body never passes the basin floor: {}",
             game.player_position.y
         );
@@ -2620,6 +2595,7 @@ fn the_demo_pool_exits_over_the_deck_rim_and_re_enters_cleanly() {
     let settings = Settings::default();
     // The east rim at z = 14, clear of the ladder at z 11.4..12.0.
     let mut game = demo_game_at(12.0, -3.0, 14.0, 90.0, 1.0 / 60.0);
+    force_stance(&mut game, Stance::Crouched);
     let mut swim_east = InputState::holding(&[Control::MoveForward, Control::Jump]);
 
     // Phase 0: swim down. The standing basin floor is deep water, so the first
@@ -2641,7 +2617,7 @@ fn the_demo_pool_exits_over_the_deck_rim_and_re_enters_cleanly() {
     for _ in 0_i32..400_i32 {
         game.update_player_movement(&mut swim_east, &settings);
         assert!(
-            game.player_position.y >= -3.0 + SWIM_FLOOR_CLEARANCE - 1e-3,
+            game.player_position.y >= -3.0 + game.eye_offset() - 1e-3,
             "the swimmer never passes the basin floor: {}",
             game.player_position.y
         );
@@ -2906,6 +2882,7 @@ fn the_water_exit_step_up_only_applies_at_the_surface() {
 fn the_demo_pool_ladder_climbs_from_the_water_to_the_deck() {
     let settings = Settings::default();
     let mut game = demo_game_at(21.0, -1.5, 12.0, 270.0, 1.0 / 60.0);
+    force_stance(&mut game, Stance::Crouched);
     let mut input = InputState::holding(&[Control::MoveForward, Control::Jump]);
 
     // Phase 1: walk off the deck west and fall into the basin.
@@ -2936,7 +2913,15 @@ fn the_demo_pool_ladder_climbs_from_the_water_to_the_deck() {
     let mut max_eye = game.player_position.y;
     let mut landed_on_deck = false;
     for _ in 0_i32..300_i32 {
+        let was_climbing = game.is_climbing();
         game.update_player_movement(&mut input, &settings);
+        if was_climbing && game.is_climbing() {
+            assert!(
+                (game.player_position.x - previous_x).abs()
+                    <= settings.walk_speed * LADDER_SIDE_SPEED_FACTOR / 60.0 + 1e-3,
+                "attached ladder movement retains its side-speed bound"
+            );
+        }
         max_step = max_step.max((game.player_position.x - previous_x).abs());
         previous_x = game.player_position.x;
         max_eye = max_eye.max(game.player_position.y);
@@ -2960,7 +2945,7 @@ fn the_demo_pool_ladder_climbs_from_the_water_to_the_deck() {
         "the climber never pops above the deck line: {max_eye}"
     );
     assert!(
-        max_step <= settings.walk_speed * LADDER_SIDE_SPEED_FACTOR / 60.0 + 1e-3,
+        max_step <= settings.walk_speed / 60.0 + 1e-3,
         "the climb never teleports: {max_step} m in one frame"
     );
 }
@@ -3057,6 +3042,7 @@ fn the_pool_ladder_releases_on_backing_away_and_jump() {
     let settings = Settings::default();
     let make_attached = || {
         let mut game = demo_game_at(19.5, -3.0, 12.0, 90.0, 1.0 / 60.0);
+        force_stance(&mut game, Stance::Crouched);
         game.grounded = false;
         set_eye_y(&mut game, -1.55);
         game.swimming = true;
@@ -3105,31 +3091,34 @@ fn the_pool_ladder_releases_on_backing_away_and_jump() {
     );
 }
 
-/// A stance change in deep water leaves the eye exactly where it was: the swim
-/// pose's buoyancy is separate from the land eye offset, so there is no boost
-/// or shrink when crouching or standing while floating.
+/// A stance change on the underwater floor anchors the feet and eases the
+/// eye by the same offset as on land, without driving the body into the floor.
 #[test]
-fn stance_changes_in_water_do_not_move_the_eye() {
+fn stance_changes_in_water_anchor_the_feet_and_ease_the_eye() {
+    let level = pool_level();
+    let mut game = game_for(&level);
+    play_at(&mut game, 7.0, -3.0, 4.0, 0.0, 1.0 / 60.0);
     let settings = Settings::default();
-    let mut game = demo_game_at(12.0, -3.0, 12.0, 90.0, 0.0);
-    game.grounded = false;
-    set_eye_y(&mut game, -2.4);
-    game.swimming = true;
     let mut idle = InputState::default();
     game.update_player_movement(&mut idle, &settings);
-    assert!(game.swimming);
-
-    let eye = game.player_position.y;
+    assert!(game.is_swimming());
     let mut crouch = InputState::holding(&[Control::Crouch]);
     game.update_player_movement(&mut crouch, &settings);
-    assert!(game.is_crouched(), "the crouch request applies in water");
-    assert_exact(game.player_position.y, eye);
-
-    let mut released = InputState::default();
-    game.update_player_movement(&mut released, &settings);
-    game.update_player_movement(&mut crouch, &settings);
+    for _ in 0_i32..12_i32 {
+        game.update_player_movement(&mut idle, &settings);
+        assert_exact(game.feet_y(), -3.0);
+    }
+    assert!(game.is_crouched());
+    assert_exact(game.player_position.y, -3.0 + CROUCH_EYE_HEIGHT);
+    let mut stand = InputState::holding(&[Control::Crouch]);
+    game.update_player_movement(&mut stand, &settings);
+    for _ in 0_i32..12_i32 {
+        game.update_player_movement(&mut idle, &settings);
+        assert_exact(game.feet_y(), -3.0);
+    }
     assert_eq!(game.stance(), Stance::Standing);
-    assert_exact(game.player_position.y, eye);
+    assert_exact(game.player_position.y, -3.0 + EYE_HEIGHT);
+    assert_exact(game.body_height(), PLAYER_HEIGHT);
 }
 
 /// Wading on the demo's submerged walk-in step: the eye is exactly the stance
@@ -3170,7 +3159,7 @@ fn wading_uses_the_stance_eye_offset_on_the_real_step() {
     );
 }
 
-/// A mid-depth pool (0.6 m) is waded by a standing player; crouching drops the
+/// A mid-depth pool (0.9 m) is waded by a standing player; crouching drops the
 /// eye into the swim band and floats, and standing back up recovers to wading
 /// without a snap through the pool floor.
 #[test]
@@ -3183,26 +3172,26 @@ fn a_mid_depth_pool_wades_and_recovers_from_a_crouch() {
             "spawn": { "x": 1.0, "z": 4.0 },
             "rooms": [ { "x": 0.0, "z": 0.0, "width": 12.0, "depth": 8.0, "height": 4.0 } ],
             "floor_regions": [
-                { "x": 2.0, "z": 1.0, "width": 8.0, "depth": 6.0, "offset_y": -0.6 }
+                { "x": 2.0, "z": 1.0, "width": 8.0, "depth": 6.0, "offset_y": -0.9 }
             ],
             "water": [
                 { "x": 2.0, "z": 1.0, "width": 8.0, "depth": 6.0,
-                  "surface_y": 0.0, "bottom_y": -0.6 }
+                  "surface_y": 0.0, "bottom_y": -0.9 }
             ]
         }"#,
     )
     .expect("the mid-depth pool parses");
     let settings = Settings::default();
     let mut game = game_for(&level);
-    play_at(&mut game, 6.0, -0.6, 4.0, 0.0, 1.0 / 60.0);
+    play_at(&mut game, 6.0, -0.9, 4.0, 0.0, 1.0 / 60.0);
     let mut idle = InputState::default();
     game.update_player_movement(&mut idle, &settings);
     assert!(
         !game.is_swimming(),
-        "0.6 m of water is waded with the standing eye above the surface"
+        "0.9 m of water is waded with the standing eye above the surface"
     );
     assert!(
-        (game.player_position.y - (-0.6 + EYE_HEIGHT)).abs() < 1e-3,
+        (game.player_position.y - (-0.9 + EYE_HEIGHT)).abs() < 1e-3,
         "the wading eye is the standing offset above the pool floor: {}",
         game.player_position.y
     );
@@ -3237,12 +3226,12 @@ fn a_mid_depth_pool_wades_and_recovers_from_a_crouch() {
     assert!(!game.is_swimming(), "standing recovers to wading");
     assert!(game.grounded);
     assert!(
-        (game.feet_y() - (-0.6)).abs() < 1e-3,
+        (game.feet_y() - (-0.9)).abs() < 1e-3,
         "the feet are on the pool floor: {}",
         game.feet_y()
     );
     assert!(
-        (game.player_position.y - (-0.6 + EYE_HEIGHT)).abs() < 1e-3,
+        (game.player_position.y - (-0.9 + EYE_HEIGHT)).abs() < 1e-3,
         "the recovered eye is the standing offset: {}",
         game.player_position.y
     );
@@ -3255,6 +3244,7 @@ fn a_mid_depth_pool_wades_and_recovers_from_a_crouch() {
 fn a_frame_hitch_does_not_tunnel_or_launch() {
     let settings = Settings::default();
     let mut game = demo_game_at(12.0, -3.0, 12.0, 0.0, MAX_SIM_DELTA);
+    force_stance(&mut game, Stance::Crouched);
     game.grounded = false;
     set_eye_y(&mut game, -0.8);
     game.swimming = false;
@@ -3264,7 +3254,7 @@ fn a_frame_hitch_does_not_tunnel_or_launch() {
         game.update_player_movement(&mut idle, &settings);
         deepest = deepest.min(game.player_position.y);
         assert!(
-            game.player_position.y >= -3.0 + SWIM_FLOOR_CLEARANCE - 1e-3,
+            game.player_position.y >= -3.0 + game.eye_offset() - 1e-3,
             "the hitch never tunnels through the basin floor: {}",
             game.player_position.y
         );
@@ -3288,6 +3278,7 @@ fn a_frame_hitch_does_not_tunnel_or_launch() {
 fn a_floor_rim_never_drags_a_surface_swimmer_down() {
     let settings = Settings::default();
     let mut game = demo_game_at(12.0, -3.0, 15.3, 180.0, 1.0 / 60.0);
+    force_stance(&mut game, Stance::Crouched);
     game.grounded = false;
     set_eye_y(&mut game, -1.65 + FLOAT_EYE_MARGIN);
     game.swimming = true;
@@ -3297,7 +3288,7 @@ fn a_floor_rim_never_drags_a_surface_swimmer_down() {
         game.update_player_movement(&mut input, &settings);
         min_eye = min_eye.min(game.player_position.y);
         assert!(
-            game.player_position.y >= -3.0 + SWIM_FLOOR_CLEARANCE - 1e-3,
+            game.player_position.y >= -3.0 + game.eye_offset() - 1e-3,
             "the swimmer never passes the basin floor: {}",
             game.player_position.y
         );
@@ -7513,6 +7504,7 @@ fn demo_pool_walk_in_step_up_down_and_diagonal() {
 fn demo_pool_basin_drops_from_the_step_and_wades_back_out() {
     let settings = Settings::default();
     let mut game = demo_game_at(13.0, -1.85, 16.6, 0.0, 1.0 / 60.0);
+    force_stance(&mut game, Stance::Crouched);
     let mut forward = InputState::holding(&[Control::MoveForward]);
     let mut previous = game.player_position;
     let mut airborne = false;
@@ -7527,7 +7519,7 @@ fn demo_pool_basin_drops_from_the_step_and_wades_back_out() {
         );
         previous = position;
         assert!(
-            position.y >= -3.0 + SWIM_FLOOR_CLEARANCE - 1e-3,
+            position.y >= -3.0 + game.eye_offset() - 1e-3,
             "the body never passes the basin floor: {}",
             position.y
         );
@@ -7563,7 +7555,7 @@ fn demo_pool_basin_drops_from_the_step_and_wades_back_out() {
         );
         exit_previous = position;
         assert!(
-            position.y >= -3.0 + SWIM_FLOOR_CLEARANCE - 1e-3,
+            position.y >= -3.0 + game.eye_offset() - 1e-3,
             "the body never passes the basin floor: {}",
             position.y
         );
@@ -7607,6 +7599,7 @@ fn demo_pool_basin_drops_from_the_step_and_wades_back_out() {
 fn falling_into_deep_water_starts_swimming_near_the_surface() {
     let settings = Settings::default();
     let mut game = demo_game_at(21.0, -1.5, 12.0, 270.0, 1.0 / 60.0);
+    force_stance(&mut game, Stance::Crouched);
     let mut walk = InputState::holding(&[Control::MoveForward]);
     let mut grounded_on_basin = false;
     let mut first_swim_feet = f32::MAX;
@@ -7654,6 +7647,7 @@ fn entering_the_pool_never_snaps_the_eye() {
     let bound = 0.12_f32;
     for (label, jump) in [("walking off the deck", false), ("jumping in", true)] {
         let mut game = demo_game_at(21.0, -1.5, 12.0, 270.0, 1.0 / 60.0);
+        force_stance(&mut game, Stance::Crouched);
         let mut input = if jump {
             InputState::holding(&[Control::MoveForward, Control::Jump])
         } else {
@@ -7708,6 +7702,7 @@ fn exiting_the_demo_pool_is_a_bounded_climb() {
     // instant stand-up: the old path moved the eye from the float line to the
     // standing line in a single frame (1.63 m).
     let mut game = demo_game_at(12.0, -3.0, 14.0, 90.0, 1.0 / 60.0);
+    force_stance(&mut game, Stance::Crouched);
     let mut swim = InputState::holding(&[Control::MoveForward, Control::Jump]);
     let mut previous_eye = game.player_position.y;
     let mut exited = false;
@@ -7746,6 +7741,7 @@ fn exiting_the_demo_pool_is_a_bounded_climb() {
     // recorded support stops being standable and the climb cancels back to
     // swimming, with no snap on the way.
     let mut side_exit_game = demo_game_at(12.0, -3.0, 14.0, 90.0, 1.0 / 60.0);
+    force_stance(&mut side_exit_game, Stance::Crouched);
     let mut side_swim = InputState::holding(&[Control::MoveForward, Control::Jump]);
     for _ in 0_i32..400_i32 {
         side_exit_game.update_player_movement(&mut side_swim, &settings);
@@ -7827,6 +7823,7 @@ fn repeated_pool_entry_and_exit_stays_bounded() {
 
     // The demo rim: walk west off the deck, surface east, climb out.
     let mut game = demo_game_at(21.0, -1.5, 14.0, 270.0, 1.0 / 60.0);
+    force_stance(&mut game, Stance::Crouched);
     let mut phase = 0_u8;
     let mut input = InputState::holding(&[Control::MoveForward]);
     let mut previous = game.player_position;
@@ -7876,6 +7873,7 @@ fn repeated_pool_entry_and_exit_stays_bounded() {
     // The walk-in step: wade north off the step, sink and surface, climb back
     // out over the step's submerged floor (-1.85).
     let mut step_game = demo_game_at(13.0, -1.85, 16.4, 0.0, 1.0 / 60.0);
+    force_stance(&mut step_game, Stance::Crouched);
     let mut step_phase = 0_u8;
     let mut step_input = InputState::holding(&[Control::MoveForward]);
     let mut step_previous = step_game.player_position;
@@ -7939,6 +7937,7 @@ fn water_transitions_hold_at_30_60_and_144_fps() {
         // step is delta-scaled, so one bound holds at each rate.
         let bound = JUMP_VELOCITY.mul_add(delta, 1e-3);
         let mut game = demo_game_at(21.0, -1.5, 14.0, 270.0, delta);
+        force_stance(&mut game, Stance::Crouched);
         let mut phase = 0_u8;
         let mut input = InputState::holding(&[Control::MoveForward]);
         let mut previous = game.player_position;
@@ -7994,13 +7993,14 @@ fn water_transitions_hold_at_30_60_and_144_fps() {
 fn a_swimmer_over_the_walk_in_step_stands_up_continuously() {
     let settings = Settings::default();
     let mut game = demo_game_at(13.0, -3.0, 14.5, 180.0, 1.0 / 60.0);
+    force_stance(&mut game, Stance::Crouched);
     let mut idle = InputState::default();
     for _ in 0_i32..120_i32 {
         game.update_player_movement(&mut idle, &settings);
     }
     assert!(game.is_swimming(), "the basin water is swum");
     assert!(
-        game.player_position.y < -1.65 - SWIM_FLOOR_CLEARANCE + 1e-3,
+        game.player_position.y < -1.65 - 0.5,
         "the swimmer is deep: {}",
         game.player_position.y
     );
@@ -9237,21 +9237,21 @@ fn camera_outside_world(game: &Game) -> Option<String> {
             ));
         }
     }
-    // The pull-up holds the eye one near plane above a raised rim until the
-    // swim step carries the centre over it: the body climbing past the hold
-    // while it is still in the water is the old unbounded climb, which ran
-    // the camera up at the climb speed for as long as the key stayed down.
+    // The upright pull-up holds the feet at the rim until the full disc can
+    // cross it. Continuing to rise while still beside the rim would turn the
+    // bounded exit into an unlimited climb while the key remained held.
     if let Some(exit) = game.water_exit
         && exit.support_y > exit.surface_y
         && !game
             .floor
             .walk_height_at(eye.x, eye.z)
             .is_some_and(|support| (support - exit.support_y).abs() <= margin)
-        && eye.y > exit.support_y + SCENE_NEAR_M + PLAYER_RADIUS
+        && game.feet_y() > exit.support_y + margin
     {
         return Some(format!(
-            "the pull-up rose past its hold line: eye {:.3}, rim {:.3}",
-            eye.y, exit.support_y
+            "the pull-up rose past its hold line: feet {:.3}, rim {:.3}",
+            game.feet_y(),
+            exit.support_y
         ));
     }
     None
@@ -9316,6 +9316,7 @@ fn the_demo_pool_exit_never_puts_the_camera_inside_geometry() {
     for delta in [1.0 / 30.0, 1.0 / 60.0, 1.0 / 144.0] {
         for (x, z, yaw) in [(12.0, 14.0, 90.0), (12.0, 13.0, 45.0), (12.0, 15.0, 135.0)] {
             let mut game = demo_game_at(x, -3.0, z, yaw, delta);
+            force_stance(&mut game, Stance::Crouched);
             for _ in 0_i32..240_i32 {
                 game.update_player_movement(&mut idle, &settings);
             }
@@ -9361,6 +9362,7 @@ fn the_demo_pool_exit_never_puts_the_camera_inside_geometry() {
     // body up on the deck past the step (a higher standable support under the
     // centre is adopted, never cancelled with the body embedded in it).
     let mut step_exit_game = demo_game_at(13.0, -3.0, 14.5, 180.0, 1.0 / 60.0);
+    force_stance(&mut step_exit_game, Stance::Crouched);
     for _ in 0_i32..240_i32 {
         step_exit_game.update_player_movement(&mut idle, &settings);
     }
@@ -9399,6 +9401,7 @@ fn the_demo_pool_exit_never_puts_the_camera_inside_geometry() {
 fn the_demo_pool_ladder_exit_never_puts_the_camera_inside_geometry() {
     let settings = Settings::default();
     let mut game = demo_game_at(18.0, -3.0, 12.0, 90.0, 1.0 / 60.0);
+    force_stance(&mut game, Stance::Crouched);
     let mut idle = InputState::default();
     for _ in 0_i32..240_i32 {
         game.update_player_movement(&mut idle, &settings);
@@ -9418,7 +9421,7 @@ fn the_demo_pool_ladder_exit_never_puts_the_camera_inside_geometry() {
 }
 
 /// Runs the released-Jump sink on the pool level at `delta`, returning
-/// `(seconds from the float line to the -1.5 m target, terminal rate over the
+/// `(seconds from the float line to the -1.2 m target, terminal rate over the
 /// measured segment)`. Releasing Jump is the only input; the held float pose
 /// is seeded directly, so this is the sink path, not the entry.
 fn released_sink_segment(delta: f32) -> (f32, f32) {
@@ -9427,7 +9430,7 @@ fn released_sink_segment(delta: f32) -> (f32, f32) {
     // Past this depth the sink has long reached its terminal: gravity 4.5
     // spends 0.24 s and 0.13 m reaching 1.1 m/s, so a 0.42 m drop is terminal.
     let terminal_eye = -0.8_f32;
-    let target_eye = -1.5_f32;
+    let target_eye = -1.2_f32;
     let level = pool_level();
     let mut game = game_for(&level);
     play_at(&mut game, 7.0, -3.0, 4.0, 0.0, delta);
@@ -9447,7 +9450,7 @@ fn released_sink_segment(delta: f32) -> (f32, f32) {
         game.update_player_movement(&mut idle, &settings);
         seconds += delta;
         assert!(
-            game.player_position.y >= -3.0 + SWIM_FLOOR_CLEARANCE - 1e-3,
+            game.player_position.y >= -3.0 + game.eye_offset() - 1e-3,
             "the swimmer never passes the basin floor: {}",
             game.player_position.y
         );
@@ -9497,7 +9500,7 @@ fn released_sink_segment(delta: f32) -> (f32, f32) {
 fn sinking_in_deep_water_is_frame_rate_independent() {
     let settings = Settings::default();
     let start_eye = -0.5 + FLOAT_EYE_MARGIN;
-    let target_eye = -1.5_f32;
+    let target_eye = -1.2_f32;
     let mut times = Vec::new();
     let mut rates = Vec::new();
     for delta in [1.0 / 30.0, 1.0 / 60.0, 1.0 / 144.0] {
@@ -9511,8 +9514,8 @@ fn sinking_in_deep_water_is_frame_rate_independent() {
         high - low <= 1.0 / 30.0 + 1e-3,
         "the sink time is frame-rate independent: {times:?}"
     );
-    // The old constants (gravity -2.2, terminal 0.5) take this 1.12 m drop in
-    // about 2.35 s; the stronger sink must finish in well under three quarters
+    // The old constants (gravity -2.2, terminal 0.5) take this 0.82 m drop in
+    // about 1.75 s; the stronger sink must finish in well under three quarters
     // of that, which no 0.5 m/s terminal could.
     let old_time = {
         let accel = 2.2_f32;
@@ -9996,6 +9999,7 @@ fn demo_hot_tub_water_is_circular_and_the_basin_exits() {
     const DELTA: f32 = 1.0 / 60.0;
     let settings = Settings::default();
     let mut game = demo_game_at(3.6, -1.5, 10.9, 0.0, DELTA);
+    force_stance(&mut game, Stance::Crouched);
 
     let wet = |subject: &Game, x: f32, z: f32| subject.water.sample(x, z, -2.0).is_some();
     assert!(wet(&game, 3.6, 8.7), "the disc centre is water");

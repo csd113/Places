@@ -215,12 +215,21 @@ fn diagnostic_pool_surfaces_and_exits_flat_and_raised_rims_without_reentry() {
             play_at(&mut game, x, -2.4, z, yaw, 0.0);
             let _run_status = run(&mut game, &[Control::Jump], 4.0, pattern);
             assert!(game.swimming && game.player_position.y > -0.15);
-            let _run_status_2 = run(
-                &mut game,
-                &[Control::Jump, Control::MoveForward],
-                2.0,
-                pattern,
-            );
+            // Stop on arrival: the upright body needs to clear the entire
+            // rim, and running past arrival walks off the 2 m raised strip.
+            let mut elapsed = 0.0;
+            let mut input = InputState::holding(&[Control::Jump, Control::MoveForward]);
+            for delta in pattern.iter().cycle() {
+                if elapsed >= 3.0 {
+                    break;
+                }
+                game.sim_delta_seconds = *delta;
+                game.update_player_movement(&mut input, &Settings::default());
+                elapsed += delta;
+                if game.grounded && !game.swimming && game.water_exit.is_none() {
+                    break;
+                }
+            }
             assert!(
                 !game.swimming && game.water_exit.is_none() && game.grounded,
                 "{yaw}, {pattern:?}: {:?}",
