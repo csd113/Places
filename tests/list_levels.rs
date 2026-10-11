@@ -7,9 +7,9 @@
 //! * the repository layout, launched from the repository root;
 //! * the same binary launched from another working directory, where the asset
 //!   root must still resolve through the executable's ancestors;
-//! * a staged distribution layout, where `PLACES_ASSET_ROOT` and
-//!   `PLACES_STATE_ROOT` point at the packaged `assets/levels` and the writable
-//!   drop-in `levels/` directory.
+//! * a staged distribution layout, where `PLACES_ASSET_ROOT` selects the root
+//!   owning `assets/levels` and `PLACES_STATE_ROOT` owns the writable drop-in
+//!   `levels/` directory.
 //!
 //! In every layout only compiled `.placesmap` packages are rows, authoring
 //! sources (the `.json` files kept beside them) are skipped silently, and the
@@ -72,7 +72,7 @@ fn stage_package(repo: &Path, source: &Path, destination: &Path, asset_root: &Pa
 /// The binary under test, built by Cargo for this integration test target.
 const PLACES: &str = env!("CARGO_BIN_EXE_places");
 
-/// Runs discovery with clean developer overrides and an optional explicit layout.
+/// Runs discovery with clean developer overrides and optional package/state roots.
 fn list_levels(
     binary: &Path,
     cwd: &Path,
@@ -285,10 +285,18 @@ fn repository_layout_lists_only_packages() {
     let rows = playable_rows(&list_levels(
         Path::new(PLACES),
         repo,
-        Some(&stage.join("assets")),
+        Some(&stage),
         Some(&stage),
     ));
     assert_fixture_rows(&rows);
+    let canonical_stage = stage.canonicalize().expect("isolated repository root");
+    for (_, _, package) in canonical_package_rows(rows, repo) {
+        assert!(
+            package.starts_with(&canonical_stage),
+            "repository discovery must use the isolated package root: {}",
+            package.display()
+        );
+    }
     remove_stage(&stage);
 }
 
@@ -327,7 +335,7 @@ fn packaged_layout_lists_only_packages() {
     let rows = playable_rows(&list_levels(
         &stage.join("bin/places"),
         Path::new(env!("CARGO_MANIFEST_DIR")),
-        Some(&stage.join("assets")),
+        Some(&stage),
         Some(&user_state_root),
     ));
     assert_fixture_rows(&rows);
