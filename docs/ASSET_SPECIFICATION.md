@@ -194,7 +194,7 @@ currently nothing enforces a minimum for any class.
 | Asset class | Example | Aspect ratio | Preferred source resolution | Minimum | Alpha | Tileable | UV contract | Notes |
 |---|---|---|---|---|---|---|---|---|
 | Wall surface sheet | `wallpaper_yellow_01.png` | **1:1** | 1024×1024 (shipped); soft warning above 256 | none enforced | RGB shipped; ignored unless material is `cutout`/`blend` | **yes, both axes** | world metres ÷ `tile_metres` | square because the tile cell is square |
-| Floor surface sheet | `carpet_beige_01.png` | **1:1** | 1024×1024 (shipped) | none enforced | RGB shipped (carpet); ignored by default material | **yes, both axes** | world `(x, z)` ÷ `tile_metres` | carpet has no tint; painted at warm albedo |
+| Floor surface sheet | `carpet_beige_01.png` | **1:1** | 1024×1024 (shipped) | none enforced | RGB shipped (carpet); ignored by default material | **yes, both axes** | world `(x, z)` ÷ `tile_metres` | office carpet is untinted; other floor materials may author a tint |
 | Ceiling surface sheet | `ceiling_panel_01.png` | **1:1** | 1024×1024 (shipped) | none enforced | RGB shipped; ignored by default material | **yes, both axes** | world `(x, z)` ÷ `tile_metres` | ceiling material authors a grey tint |
 | Core shared sheet (glass/floor/wall) | `glass_clear_01.png` | **1:1** | 1024×1024 (current production); 128×128 painter output is contract-valid | none enforced | per material: `blend` glass, `cutout` grille, opaque otherwise | **yes, both axes** | world metres ÷ `tile_metres` | seam-gated with the environment set |
 | Steam effect sheet | `steam_01.png` | **1:1** | 256×256 (current production); 128×128 painter output is contract-valid | none enforced | **required**: a soft falloff reaching alpha 0 at every edge | sampled `REPEAT`, but its own edge alpha is 0 | one sheet per billboard; UV span = particle size ÷ the material's `tile_metres` | catalog `texture`; bound by the `core:steam_01`-style blended material; see §7.1 |
@@ -278,12 +278,14 @@ the office panel), so the source artwork is painted pale/neutral (see §18).
 
 ### 5.4 Carpet
 
-Carpet is not a separate material class; it is a floor surface sheet whose
-material authors no tint. The repository rule that follows from the current
-material system is:
+Carpet is not a separate material class; it follows the floor surface sheet
+contract in §5.2, including the material's authored tint:
 
-* the source artwork carries the full colour (the completed warm-brown carpet
-  albedo), because nothing tints it;
+* the office carpet material is untinted, so its source artwork carries the
+  completed warm-brown albedo;
+* Arcade carpet materials use the bounded linear tint `[0.4, 0.4, 0.4]` to keep
+  the navy pile and fluorescent pigments restrained. Their ultraviolet response
+  uses the same tint with a separate numeric pigment mask (see §9.1);
 * it must tile seamlessly;
 * it must be square.
 
@@ -291,7 +293,7 @@ The render test `test_carpet_png_has_no_metre_checker` additionally asserts
 that the shipped carpet has no artificial "metre checker": quadrant means
 differ by no more than 4 levels and the pile varies by at least 4 levels.
 That test is specific to the shipped office carpet; for new carpet artwork the
-practical rule is the same: the texture must not expose its repeat grid as a
+practical rule is the same: the texture must not expose its repeat grid as an
 obvious pattern.
 
 ### 5.5 Wallpaper

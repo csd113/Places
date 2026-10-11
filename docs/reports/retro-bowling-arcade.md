@@ -10,9 +10,11 @@ verified as readable original PNGs, and inspected as actual pixels throughout
 construction. Their files remain unchanged. Production artwork is original;
 none of the textures is a crop of a concept board.
 
-**Verification status:** final art and native visual checks passed; the full
-workspace Rust gate is running. Publication and final acceptance are pending
-that gate. This status will be updated from its actual result.
+**Verification status:** final art, native visual acceptance and the full shared
+Rust checks passed. Four inspected modeling passes and all fourteen final Metal
+views are complete. Implementation and catalog-test correction commits are
+published on `arcade-env`; remote CI remains in progress at the recorded check
+below.
 
 ## Play and reuse
 
@@ -215,10 +217,31 @@ model. The complete catalog's decoded embedded images remain **64,917,504 bytes*
 below the unchanged 64 MiB bound.
 
 Focused source/GLB/lineup tests pass (19 tests), asset validation has zero warnings,
-and the sampling/visibility regression tests pass. Debug and release strict
-Clippy pass with all targets/features. The full formatter/check/Clippy/workspace
-test gate is still running; its final result and publication identity will be
-recorded here before delivery.
+and the sampling/visibility regression tests pass. The complete shared
+`sh tools/check-rust.sh` checks finished: formatter, locked workspace check,
+strict debug and release Clippy with all targets/features, and all-feature
+workspace tests. **2,281 library tests and eight binary/integration tests passed;
+zero failed; 32 existing library tests remain explicitly ignored.** Both retained
+Full-map archive regressions passed. Library tests took 4,112.54 s.
+
+The outer `/usr/bin/time -l` measurement returned status 1 after the successful
+checks because the sandbox denied `sysctl kern.clockrate`. The same measurement
+error was independently reproduced with a child that explicitly exits 0. This
+is a timing-instrument failure; no Rust check or test failed, and no check was
+skipped or weakened.
+
+Published source commits are
+[`d5e34eda`](https://github.com/csd113/Places/commit/d5e34eda6c068b80404bf87124f829841175050f)
+(pack, demo and reusable response) and
+[`d3e2e2b`](https://github.com/csd113/Places/commit/d3e2e2b78544ac99a548f561e06358e7d1c3465e)
+(three catalog/lineup regression expectations). At **2026-10-11 19:13 UTC**,
+[source CI run 38162326542](https://github.com/csd113/Places/actions/runs/38162326542)
+was still running. The final documentation push triggers another branch run;
+[latest Arcade CI](https://github.com/csd113/Places/actions?query=branch%3Aarcade-env)
+reports its current state. The inherited
+[main run](https://github.com/csd113/Places/actions/runs/38149512939) and
+[merged-PR run](https://github.com/csd113/Places/actions/runs/38149078556)
+both completed successfully with all nine jobs.
 
 Capture identity: production binary SHA-256
 `4a03b20600e7c326862d49a30bec3014e201fad690c4bf6d7b83b5607f85d94f`;
