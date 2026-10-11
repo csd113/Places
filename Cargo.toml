@@ -132,3 +132,11 @@ panic = "abort"
 # remains the performance reference (16.4 s cold / 1.5 s warm).
 [profile.dev]
 opt-level = 1
+
+# Source-only archive regressions bake the real Full Demo and Hollow maps.
+# Optimize this crate's numeric solver while retaining the test profile's
+# debug assertions, overflow checks and debug information.
+[profile.test.package.places]
+opt-level = 3
+debug-assertions = true
+overflow-checks = true

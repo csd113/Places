@@ -106,6 +106,8 @@ python3 tools/assets/validate.py
 Tests generate isolated packages and require no existing `.placesmap` files.
 Codec and discovery controls are small; the atlas-limit regressions compile
 the real Full Demo and Hollow sources and can take substantially longer.
+The test profile optimizes the engine's numeric loops while preserving debug
+assertions and overflow checks; release behavior and lint levels are unchanged.
 `sh tools/verify.sh` is the full desktop gate: it adds
 authoring reproducibility, compiled lineup checks, package tests and native
 smoke checks. See [verification](VERIFICATION.md) for explicit diagnostic gates.
