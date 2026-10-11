@@ -16,6 +16,7 @@ playable menu row. All `.placesmap` output is ignored by Git.
 | `winter` | Snow village, lodge, aurora, ice traction and weather controls | `build_winter.py` |
 | `beach_demo` | Coastal settlement, shoreline and animals | `build_beach.py` |
 | `frutiger_aero_demo` | Day atrium, glass, water, fitted signage and interactive props | `build_frutiger_aero.py` |
+| `retro_arcade_demo` | Cosmic bowling lanes, six reactive carpets, period arcade and fixed seating | `build_retro_arcade.py` |
 
 Generators live under `tools/levels/`; change a generator rather than its
 owned JSON. `--check` is read-only. Home and Pool are existing compact

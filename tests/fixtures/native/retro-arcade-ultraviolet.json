@@ -1,0 +1,58 @@
+[
+  {
+    "frame": 30,
+    "capture": "target/retro-arcade-native-proof/uv-on.png"
+  },
+  {
+    "frame": 90,
+    "actions": [
+      {
+        "action": "toggle_fixture",
+        "fixture": 10,
+        "enabled": false
+      },
+      {
+        "action": "toggle_fixture",
+        "fixture": 11,
+        "enabled": false
+      },
+      {
+        "action": "toggle_fixture",
+        "fixture": 12,
+        "enabled": false
+      },
+      {
+        "action": "toggle_fixture",
+        "fixture": 13,
+        "enabled": false
+      }
+    ],
+    "capture": "target/retro-arcade-native-proof/uv-off.png"
+  },
+  {
+    "frame": 150,
+    "actions": [
+      {
+        "action": "toggle_fixture",
+        "fixture": 10,
+        "enabled": true
+      },
+      {
+        "action": "toggle_fixture",
+        "fixture": 11,
+        "enabled": true
+      },
+      {
+        "action": "toggle_fixture",
+        "fixture": 12,
+        "enabled": true
+      },
+      {
+        "action": "toggle_fixture",
+        "fixture": 13,
+        "enabled": true
+      }
+    ],
+    "capture": "target/retro-arcade-native-proof/uv-restored.png"
+  }
+]

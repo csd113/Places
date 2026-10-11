@@ -72,6 +72,7 @@ WALL_MOUNTS = {
     "core:painting_frame_landscape_01": 1.104,
     "home:wall_switch": 1.20,
     "home:cabinet_wall": 1.45,
+    "arcade:neon_bowl": 1.5,
     # Thin snow attachments and hanging icicles belong on the display wall;
     # allocating a full floor bay to each wastes the showroom's atlas budget.
     "winter:snow_door_overhang": 2.3,
@@ -99,6 +100,9 @@ CEILING_MOUNTS = {
     "frutiger_aero:ceiling_ring",
     "frutiger_aero:reception_soffit",
     "core:exit_sign",
+    "arcade:score_monitor",
+    "arcade:score_monitor_inactive",
+    "arcade:blacklight_fixture",
     "winter:string_lights_short",
     "winter:string_lights_medium",
     "winter:string_lights_long",

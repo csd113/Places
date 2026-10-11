@@ -10,7 +10,7 @@ placing assets or changing a map.
 | Location | Content |
 | --- | --- |
 | `shared/` | Theme-independent props, source PNGs, surfaces, decals and engine image resources |
-| `environments/<theme>/` | Office, Pool, Home, Outdoor, Winter, Beach and Frutiger Aero kits |
+| `environments/<theme>/` | Office, Pool, Home, Outdoor, Winter, Beach, Frutiger Aero and Retro Arcade kits |
 | `entities/<id>/model/` | Skinned character and creature GLBs |
 | `entities/<id>/textures/` | Standalone entity PNGs and retained masters |
 | `diagnostic/` | Renderer test artwork, including intentional NPOT/alpha probes |
@@ -26,8 +26,9 @@ normals and effects use `shared/textures/normals/` and `effects/`. Home's
 `props/art/` retains fitted CRT screen artwork. Reference art is preserved at
 its original dimensions and bytes; it is not runtime texture input.
 
-`references/neon_bowling_arcade/` preserves an unused concept board. It does not
-declare an implemented environment or add a playable map.
+`references/neon_bowling_arcade/` preserves the bowling and carpet concept
+boards and the complete master specification. The Retro Arcade kit is built
+from those references and showcased by `retro_arcade_demo`.
 
 [Environment profiles](../docs/assets/ENVIRONMENTS.md) describe kit-specific
 atlas layouts, mounting and construction helpers.

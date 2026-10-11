@@ -35,6 +35,8 @@ pub struct PackMaterialDef {
     pub emissive_intensity: Option<f32>,
     /// Pack path, or logical catalog texture id, of the emissive mask.
     pub emissive_mask: Option<String>,
+    pub uv_response: f32,
+    pub uv_response_mask: Option<String>,
     /// Pack path, or logical catalog texture id, of the normal map.
     pub normal_texture: Option<String>,
     pub normal_strength: Option<f32>,
@@ -106,6 +108,11 @@ impl PackMaterialDef {
                 .unwrap_or(super::DEFAULT_NORMAL_STRENGTH),
             specular,
             roughness,
+            fluorescence: super::MaterialFluorescence {
+                strength: self.uv_response,
+                mask: None,
+                tint: self.tint(),
+            },
         }
         .sanitized()
     }
@@ -326,6 +333,15 @@ pub fn parse_materials_json(json_str: Option<&str>) -> HashMap<String, PackMater
                     .and_then(|mask| mask.as_str())
                     .map(str::trim)
                     .filter(|mask| !mask.is_empty())
+                    .map(str::to_string),
+                uv_response: material_value
+                    .get("uv_response")
+                    .and_then(serde_json::Value::as_f64)
+                    .and_then(finite_material_number)
+                    .unwrap_or(0.0),
+                uv_response_mask: material_value
+                    .get("uv_response_mask")
+                    .and_then(serde_json::Value::as_str)
                     .map(str::to_string),
                 normal_texture: material_value
                     .get("normal_texture")

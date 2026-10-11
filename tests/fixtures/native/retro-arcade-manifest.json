@@ -1,0 +1,245 @@
+{
+  "format_version": 1,
+  "level": "retro_arcade_demo",
+  "source": "levels/retro_arcade_demo.json",
+  "package": "assets/levels/retro_arcade_demo.placesmap",
+  "settings": {
+    "bindings": {
+      "forward": "W",
+      "backward": "S",
+      "strafe_left": "A",
+      "strafe_right": "D",
+      "look_up": "UP",
+      "look_down": "DOWN",
+      "look_left": "LEFT",
+      "look_right": "RIGHT",
+      "jump": "SPACE",
+      "crouch": "C",
+      "interact": "E"
+    },
+    "look_speed_h": 90,
+    "look_speed_v": 60,
+    "walk_speed": 3,
+    "invert_look": false,
+    "mouse_sensitivity": 0.12,
+    "quality": "high",
+    "texture_filtering": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true,
+    "use_low_quality_lighting": false,
+    "vsync": false,
+    "fov_degrees": 60,
+    "window_mode": "windowed",
+    "window_width": 640,
+    "window_height": 360
+  },
+  "bake": {
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ],
+    "workers": 8,
+    "force_for_cold_measurement": true,
+    "algorithm": "unchanged normal compiler defaults; see package inspect for prepared settings"
+  },
+  "environment": {
+    "sky": "absent; enclosed interior",
+    "fog": "authored zero density",
+    "animation": "Existing rigid switch lever, no people or animated cat. Source JSON owns light parameters."
+  },
+  "capture": {
+    "ready_world_seconds": 0.5,
+    "warmup_frames": 15,
+    "limit_frames": 2400,
+    "expected_drawable": [
+      1280,
+      720
+    ]
+  },
+  "views": [
+    {
+      "name": "hero",
+      "spawn": [
+        6.8,
+        28,
+        25
+      ],
+      "camera": [
+        25,
+        -2
+      ],
+      "purpose": "Spawn panorama: warm lanes, CRTs, fixed seating, navy shared space carpet"
+    },
+    {
+      "name": "lanes",
+      "spawn": [
+        14.65,
+        24.8,
+        0
+      ],
+      "camera": [
+        0,
+        0
+      ],
+      "purpose": "Parallel warm lanes, curved gutters, pin decks, fitted mural and CRT housings"
+    },
+    {
+      "name": "seating",
+      "spawn": [
+        19,
+        29.1,
+        310
+      ],
+      "camera": [
+        310,
+        1
+      ],
+      "purpose": "Red and blue fixed seating, laminate pedestal table, soda and grounded returns"
+    },
+    {
+      "name": "arcade",
+      "spawn": [
+        7.4,
+        17.8,
+        306
+      ],
+      "camera": [
+        306,
+        5
+      ],
+      "purpose": "Distinct CRT cabinet silhouettes, printed side art and darker game bays"
+    },
+    {
+      "name": "vending",
+      "spawn": [
+        4.4,
+        25.1,
+        270
+      ],
+      "camera": [
+        270,
+        -6
+      ],
+      "purpose": "Blue vending, product windows, coin controls, dispenser and nonemissive tuxedo plush"
+    },
+    {
+      "name": "pinball",
+      "spawn": [
+        4.0,
+        19.3,
+        270
+      ],
+      "camera": [
+        270,
+        3
+      ],
+      "purpose": "Sloped glass pinball tables, backbox graphics, metal legs and utility change"
+    },
+    {
+      "name": "carpet_close",
+      "spawn": [
+        7.2,
+        25.4,
+        0
+      ],
+      "camera": [
+        0,
+        -64
+      ],
+      "purpose": "Space motif scale, navy pile and masked fluorescence close to the floor"
+    },
+    {
+      "name": "carpet_medium",
+      "spawn": [
+        7.3,
+        22.5,
+        322
+      ],
+      "camera": [
+        322,
+        -28
+      ],
+      "purpose": "Distinct carpet bays at medium distance with no floor-wide glow"
+    },
+    {
+      "name": "model_lighting",
+      "spawn": [
+        6.2,
+        9.5,
+        275
+      ],
+      "camera": [
+        275,
+        0
+      ],
+      "purpose": "Side artwork and ordinary cabinet housing under the same lights"
+    },
+    {
+      "name": "fixture_ceiling",
+      "spawn": [
+        11.5,
+        25.0,
+        40
+      ],
+      "camera": [
+        40,
+        36
+      ],
+      "purpose": "Acoustic 2:1 modules, recessed warm troffers and actual operational UV batten"
+    },
+    {
+      "name": "switch",
+      "spawn": [
+        1.25,
+        26.3,
+        270
+      ],
+      "camera": [
+        270,
+        -15
+      ],
+      "purpose": "The ordinary interactive switch toggles the four UV fixtures"
+    },
+    {
+      "name": "neon",
+      "spawn": [
+        17.0,
+        27.9,
+        45
+      ],
+      "camera": [
+        45,
+        8
+      ],
+      "purpose": "Fictional BOWL wall neon: separate colored tube emission and localized spill on ordinary navy wall"
+    },
+    {
+      "name": "bowling_detail",
+      "spawn": [
+        14.8,
+        25.4,
+        16
+      ],
+      "camera": [
+        16,
+        -18
+      ],
+      "purpose": "Rounded return hood, grounded rail rack and visibly recessed ball finger holes"
+    },
+    {
+      "name": "pins",
+      "spawn": [
+        14.65,
+        5.5,
+        0
+      ],
+      "camera": [
+        0,
+        -32
+      ],
+      "purpose": "Ten-pin silhouette, ordinary glossy white shells and red neck bands on warm pin deck"
+    }
+  ]
+}

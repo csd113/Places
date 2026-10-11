@@ -2400,3 +2400,106 @@ fn material_sidedness_uses_gltf_default_and_rejects_non_boolean_values() {
         .expect_err("invalid sidedness");
     assert!(error.0.contains("doubleSided is not a boolean"));
 }
+
+#[test]
+fn glb_uv_response_imports_optional_numeric_mask_for_every_mesh_route() -> Result<(), String> {
+    let model = parse_glb(&triangle_document(
+        r#"{"pbrMetallicRoughness":{"baseColorFactor":[0.2,0.4,0.8,1]},"extras":{"uv_response":1.25,"uv_response_mask":{"index":0,"texCoord":0}}}"#,
+        0,
+    ))
+    .map_err(|error| error.0)?;
+    let response = model
+        .submeshes
+        .first()
+        .ok_or("primitive")?
+        .response
+        .fluorescence;
+    assert_eq!(
+        response.strength.to_bits(),
+        1.25_f32.to_bits(),
+        "authored response retained"
+    );
+    assert_eq!(
+        response.mask,
+        Some(0),
+        "embedded PNG becomes a logical model texture slot"
+    );
+    assert_eq!(
+        response.tint,
+        [0.2, 0.4, 0.8],
+        "linear authored pigment is retained separately from baked light"
+    );
+    assert_eq!(
+        model.textures.len(),
+        1,
+        "mask PNG remains a real model image"
+    );
+    assert!(
+        !model
+            .submeshes
+            .first()
+            .ok_or("primitive")?
+            .emission
+            .is_emissive(),
+        "fluorescence does not classify a primitive as emissive"
+    );
+    let textures = model
+        .textures
+        .iter()
+        .cloned()
+        .map(std::sync::Arc::new)
+        .collect();
+    let dynamic =
+        crate::render::DynamicMesh::from_model("uv.glb".to_string(), &model, textures, &[])
+            .ok_or("dynamic primitive")?;
+    assert_eq!(
+        dynamic
+            .submeshes
+            .first()
+            .ok_or("dynamic primitive")?
+            .response
+            .fluorescence,
+        response,
+        "moving models retain the same optional material contract"
+    );
+    let plain = parse_glb(&triangle_document("{}", 0)).map_err(|error| error.0)?;
+    assert_eq!(
+        plain
+            .submeshes
+            .first()
+            .ok_or("plain primitive")?
+            .response
+            .fluorescence,
+        crate::materials::MaterialFluorescence::NONE,
+        "legacy GLBs retain zero response"
+    );
+    Ok(())
+}
+
+#[test]
+fn glb_uv_response_rejects_invalid_mask_or_pigment_tint() {
+    for extras in [
+        r#"{"uv_response":-1}"#,
+        r#"{"uv_response":3}"#,
+        r#"{"uv_response":"bright"}"#,
+        r#"{"uv_response_mask":{"index":0}}"#,
+        r#"{"uv_response":1,"uv_response_mask":{"index":0,"texCoord":1}}"#,
+    ] {
+        let material = format!(r#"{{"extras":{extras}}}"#);
+        assert!(
+            parse_glb(&triangle_document(&material, 0)).is_err(),
+            "malformed optional GLB UV contract must fail"
+        );
+    }
+    let invalid_tints: [[f32; 4]; 2] = [[-0.1, 1.0, 1.0, 1.0], [1.1, 1.0, 1.0, 1.0]];
+    for invalid_tint in invalid_tints {
+        let material = serde_json::json!({
+            "pbrMetallicRoughness": {"baseColorFactor": invalid_tint},
+            "extras": {"uv_response": 1_i32},
+        });
+        assert!(
+            parse_glb(&triangle_document(&material.to_string(), 0)).is_err(),
+            "reactive material tint is linear unit RGB"
+        );
+    }
+}

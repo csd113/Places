@@ -208,6 +208,8 @@ currently nothing enforces a minimum for any class.
 | Prop / entity texture | embedded in `chair.glb` | **model-defined** (shipped 1:1) | 256×256 native (the normal shipped size); 32/64/128 legal for lighter props | none enforced | opaque by default; glTF `MASK` (+`alphaCutoff`, default 0.5) uses cutout and `BLEND` uses translucent passes on static, character and dynamic routes; prepared static transport follows §8.5 | no | model `TEXCOORD_0`, normalized 0..1, clamped | hard 1024 engine limit; uniform resize safe, repack is not |
 | Sky sheet | `sky_aurora_01.png` / `sky_stars_01.png` | **2:1 equirectangular** | 2048×1024 preferred; stars 1024×512 | none enforced | RGB; alpha unused | **yes in u** (the horizon seam); v is a pole-to-pole span, clamped at the poles | sampled by view direction: `u` = yaw, `v` = pitch (`0` straight up). No level placement UVs | Hard maximum 2048×1024, POT both edges (`ShippedTextureKind::Sky`); the only non-square tiling-class sheet; catalog `texture` with `"surface": "sky"` |
 | Emissive mask | (none shipped) | **any**; must share the albedo's UV frame | ≤512 (High budget) | none enforced | RGB sampled, alpha ignored | follows the albedo | same UV frame as the albedo | dimensions need not equal the albedo; a mask-only texture is exempt from the square-surface dimension test |
+| Ultraviolet response mask | Arcade cosmic carpet | **same UV frame as its albedo** | 256×256 native; retained 1024×1024 master for Arcade | none enforced | numeric RGB; alpha ignored | follows the albedo | identical orientation, repeat and motif placement to albedo | black means no reaction, white full reaction; independent of emission |
+| Blacklight batten face | `arcade:blacklight_tube` | **8:1** | 1024×128 master, 256×32 native | none enforced | opaque | no | full fitted sheet, horizontal u along the tube | 1.12×0.14 m lens inside a 1.2×0.15 m dark housing; face switches with the fixture |
 | Diagnostic texture | `diagnostic_alt_01.png` | deliberately varied (96×64) | n/a | n/a | deliberately varied | n/a | not used by any shipped level | test artwork only |
 | Application icon | `icon.png` | 1:1 | ≤512 | — | RGBA | no | n/a | non-interlaced; asserted by `tests/test_package.py` |
 | Documentation capture | `docs/screenshots/01-office.png` | 30:17 (960×544) | 960×544 | — | frame image | no | n/a | docs only |
@@ -1162,6 +1164,56 @@ emission = mix(material_emissive_color, vertex_color, vertex_emission)
 
 If an emissive map is added for a material, state its dimension relationship
 to the base texture in this document as part of the same change.
+
+### 9.1 Ultraviolet-reactive artwork
+
+The Arcade extension introduces a separate fluorescence response. Here
+"ultraviolet" describes illumination, while "texture UVs" describe image
+coordinates. Catalogue material fields `uv_response` (finite 0..2, default 0)
+and `uv_response_mask` select the response. A mask is an opaque numeric RGB
+PNG, sampled as linear data using the albedo's texture UVs. Black backing must
+remain black in the mask; white fluorescent motifs react fully, and grey
+edges can represent partial pile coverage. Alpha is ignored. Masks use the
+512/256/128 High/Medium/Low numeric-mask budgets and the same wrapping as
+their owning surface or fitted model texture. They never use
+`emissive_mask`, enter the emission-only bloom image, or illuminate neighbours.
+
+Source-level fixtures author `ultraviolet` independently of visible RGB
+brightness. Visibility, facing, range falloff and fixture enabled state govern
+excitation. The bounded implementation supports four ultraviolet fixtures,
+including initially disabled ones. The response remains independent of the
+selected lighting quality. Model materials use glTF extras `uv_response`
+and `uv_response_mask` with an embedded glTF texture index and `texCoord: 0`;
+the identical standalone mask PNG remains under `assets/`.
+
+`arcade:blacklight_tube` is an operational narrow ceiling batten in the existing
+fixture pipeline. Its fitted opaque lens is 8:1, horizontal u along the tube;
+dark housing stays nonemissive. A retained 1024×128 master produces the
+256×32 native face. Its visible purple emission is restrained and independent
+of ultraviolet intensity; switching the fixture disables both its face and
+its ultraviolet influence.
+
+The Arcade carpet family deliberately retains a 1024-square master and a
+256-square native albedo and co-registered mask. Six distinct designs use a
+4 m world repeat: Cosmic Bowl, Neon Confetti, Starburst, Retro Swirl,
+Geometric and Arcade Grid. Most of each tile remains dark navy; broad motif
+outlines must survive 256-square sampling and a 128-square QA preview. The
+current Surface budget keeps these native albedos at 256 on Low; the
+128-square preview is a mip stress check, not a claimed Low upload size.
+
+All Arcade model atlases are fitted square 1024-square retained masters with
+128-square palette-only native PNGs or 256-square graphic native PNGs. The
+palette class covers pins, balls, chairs, table, return, rack, batten, plush,
+gutter and divider; detailed cabinets, CRTs, vending, pinball and labelled
+small props retain 256-square natives. This preserves the existing 64 MiB
+decoded prop-pack budget. Their model-defined regions must be recorded by the
+builder and changed together with model texture UVs. Acoustic ceiling sheets
+are square repeats containing two 2:1 modules; visible fluorescent diffuser
+faces remain actual 2:1 PNGs (1024×512 master, 256×128 native). The bowling
+mural is a fitted 4:1 RGBA decal (1024×256) with transparent outer margins;
+each level placement must retain that ratio and stay within the 10 m decal
+edge limit. Reference boards remain unchanged source records and are never
+cropped into production textures.
 
 ---
 

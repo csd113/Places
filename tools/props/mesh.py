@@ -590,7 +590,8 @@ class Mesh:
     def material(self, name: str, emissive=None, strength: float = 1.0, color=None,
                  alpha_mode: str | None = None, alpha_cutoff: float | None = None,
                  use_texture: bool = True, roughness: float = 1.0, metallic: float = 0.0,
-                 opacity: float = 1.0) -> int:
+                 opacity: float = 1.0, uv_response: float = 0.0,
+                 uv_response_mask: bytes | None = None) -> int:
         """Registers (or returns) a material slot.
 
         ``emissive`` is an RGB triple in 0..1, ``strength`` the
@@ -602,6 +603,9 @@ class Mesh:
         alpha-tested cutout pass, which is how foliage cards work.
         ``use_texture=False`` uses the runtime's committed white PNG, allowing
         modular snow to retain an unchanged foliage/wood/rock atlas.
+        ``uv_response`` is fluorescence under ultraviolet fixtures, separate
+        from emission. Its optional numeric mask is committed PNG bytes in
+        the same fitted texture UV frame as the base atlas.
         Re-registering an identical name returns its slot; re-registering it
         differently is a builder bug and raises.
         """
@@ -618,6 +622,14 @@ class Mesh:
             raise ValueError(f"material {name!r} alpha_cutoff must be in 0..=1")
         if not 0.0 <= roughness <= 1.0 or not 0.0 <= metallic <= 1.0:
             raise ValueError("roughness and metallic must be in 0..=1")
+        uv_response = float(uv_response)
+        if not math.isfinite(uv_response) or not 0.0 <= uv_response <= 2.0:
+            raise ValueError(f"material {name!r} uv_response must be finite and in 0..=2")
+        if uv_response_mask is not None:
+            if uv_response <= 0:
+                raise ValueError(f"material {name!r} uv_response_mask requires positive uv_response")
+            if not isinstance(uv_response_mask, bytes) or not uv_response_mask.startswith(b"\x89PNG\r\n\x1a\n"):
+                raise ValueError(f"material {name!r} uv_response_mask must be PNG bytes")
         slot = {
             "name": str(name),
             "emissive": None if emissive is None else tuple(float(value) for value in emissive),
@@ -632,6 +644,10 @@ class Mesh:
         # serialized GLBs retain their exact historical output.
         if opacity != 1.0:
             slot["opacity"] = opacity
+        if uv_response != 0.0:
+            slot["uv_response"] = uv_response
+        if uv_response_mask is not None:
+            slot["uv_response_mask"] = uv_response_mask
         for index, existing in enumerate(self.materials):
             if existing["name"] == slot["name"]:
                 if existing != slot:

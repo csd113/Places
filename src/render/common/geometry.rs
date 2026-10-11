@@ -1740,6 +1740,15 @@ fn emit_fixtures(
                 let z1 = light.z + half_d;
                 add_panel_fixture(scratch, &mut housing, x0, x1, z0, z1, y, face_emission);
             }
+            crate::lighting::FixtureKind::BlacklightTube => {
+                super::fixtures::add_blacklight_fixture(
+                    scratch,
+                    &mut housing,
+                    [light.x, y, light.z],
+                    light.rotation_degrees,
+                    face_emission,
+                );
+            }
             crate::lighting::FixtureKind::RoundRecessed => {
                 add_round_fixture(
                     scratch,

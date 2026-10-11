@@ -17,7 +17,7 @@ BuildFn = Callable[[PropBuilder], None]
 MODULES = ("furniture", "appliances", "utility", "decor", "pool", "home",
            "signage", "tableware", "outdoor_ground", "outdoor_props",
            "outdoor_kit", "outdoor_remade", "showcase", "winter", "winter_village", "string_lights",
-           "beach_nature", "beach_structures", "frutiger_aero")
+           "beach_nature", "beach_structures", "frutiger_aero", "retro_arcade")
 
 
 def collect() -> Dict[str, BuildFn]:

@@ -222,6 +222,8 @@ pub enum FixtureKind {
     WallSconce,
     /// Shallow round drum with a diffuser disc: the residential flush mount.
     FlushMount,
+    /// Narrow enclosed UV tube; its response is authored separately.
+    BlacklightTube,
 }
 
 impl FixtureKind {
@@ -230,11 +232,12 @@ impl FixtureKind {
     /// [`FixtureKind::index`] is the slot a level's resolved fixture sheets are
     /// stored under and the key its light batches carry, so the order is part
     /// of the mesh format. It is not a draw order or a bake order.
-    pub const ALL: [Self; 4] = [
+    pub const ALL: [Self; 5] = [
         Self::FluorescentPanel,
         Self::RoundRecessed,
         Self::WallSconce,
         Self::FlushMount,
+        Self::BlacklightTube,
     ];
 
     /// Slot of this family in a level's resolved fixture sheets.
@@ -245,6 +248,7 @@ impl FixtureKind {
             Self::RoundRecessed => 1,
             Self::WallSconce => 2,
             Self::FlushMount => 3,
+            Self::BlacklightTube => 4,
         }
     }
 }
@@ -290,11 +294,13 @@ pub const FLUSH_MOUNT_RADIUS_M: f32 = 0.16;
 /// `asset_type: "light"` entries and each entry's visible-face PNG in
 /// agreement, so a catalogued fixture can never silently render as some other
 /// fixture or fall back to an untextured sheet.
-pub const LIGHT_FIXTURE_IDS: [&str; 4] = [
+pub const LIGHT_FIXTURE_IDS: [&str; 6] = [
     "core:fluorescent_panel_01",
     "core:pool_light_round",
     "core:pool_light_wall",
     "home:ceiling_light_round",
+    "arcade:blacklight_tube",
+    "arcade:fluorescent_panel_01",
 ];
 
 /// The profile of a fixture family.
@@ -308,6 +314,12 @@ pub const fn fixture_profile_for_kind(kind: FixtureKind) -> FixtureProfile {
             // One luminous diffuser plus four housing side walls, a four-strip
             // bottom frame and a four-strip top flange.
             quads: 13,
+        },
+        FixtureKind::BlacklightTube => FixtureProfile {
+            kind,
+            half_width: 0.6,
+            half_depth: 0.075,
+            quads: 7,
         },
         FixtureKind::RoundRecessed => FixtureProfile {
             kind,
@@ -342,6 +354,7 @@ pub fn fixture_profile(fixture_id: &str) -> FixtureProfile {
         "core:pool_light_round" => FixtureKind::RoundRecessed,
         "core:pool_light_wall" => FixtureKind::WallSconce,
         "home:ceiling_light_round" => FixtureKind::FlushMount,
+        "arcade:blacklight_tube" => FixtureKind::BlacklightTube,
         _ => FixtureKind::FluorescentPanel,
     };
     fixture_profile_for_kind(kind)

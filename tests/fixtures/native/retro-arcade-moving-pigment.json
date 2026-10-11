@@ -1,0 +1,138 @@
+[
+  {
+    "frame": 30,
+    "actions": [
+      {
+        "action": "spawn",
+        "key": 6001,
+        "model": "arcade:cabinet_scifi",
+        "character": false,
+        "position": [
+          6,
+          0,
+          16
+        ],
+        "yaw": 0,
+        "scale": 1
+      },
+      {
+        "action": "camera",
+        "position": [
+          3.0,
+          1.6,
+          19.5
+        ],
+        "yaw": 40.6,
+        "pitch": -5
+      }
+    ],
+    "capture": "target/retro-arcade-moving-proof/near.png"
+  },
+  {
+    "frame": 60,
+    "actions": [
+      {
+        "action": "toggle_fixture",
+        "fixture": 10,
+        "enabled": false
+      },
+      {
+        "action": "toggle_fixture",
+        "fixture": 11,
+        "enabled": false
+      },
+      {
+        "action": "toggle_fixture",
+        "fixture": 12,
+        "enabled": false
+      },
+      {
+        "action": "toggle_fixture",
+        "fixture": 13,
+        "enabled": false
+      }
+    ],
+    "capture": "target/retro-arcade-moving-proof/near-off.png"
+  },
+  {
+    "frame": 90,
+    "actions": [
+      {
+        "action": "toggle_fixture",
+        "fixture": 10,
+        "enabled": true
+      },
+      {
+        "action": "toggle_fixture",
+        "fixture": 11,
+        "enabled": true
+      },
+      {
+        "action": "toggle_fixture",
+        "fixture": 12,
+        "enabled": true
+      },
+      {
+        "action": "toggle_fixture",
+        "fixture": 13,
+        "enabled": true
+      },
+      {
+        "action": "move",
+        "key": 6001,
+        "position": [
+          9.2,
+          0,
+          1.7
+        ],
+        "yaw": 0
+      },
+      {
+        "action": "camera",
+        "position": [
+          6.2,
+          1.6,
+          5.2
+        ],
+        "yaw": 40.6,
+        "pitch": -5
+      }
+    ],
+    "capture": "target/retro-arcade-moving-proof/far.png"
+  },
+  {
+    "frame": 150,
+    "actions": [
+      {
+        "action": "move",
+        "key": 6001,
+        "position": [
+          6,
+          0,
+          16
+        ],
+        "yaw": 0
+      },
+      {
+        "action": "camera",
+        "position": [
+          3.0,
+          1.6,
+          19.5
+        ],
+        "yaw": 40.6,
+        "pitch": -5
+      }
+    ],
+    "capture": "target/retro-arcade-moving-proof/restored.png"
+  },
+  {
+    "frame": 180,
+    "actions": [
+      {
+        "action": "despawn",
+        "key": 6001
+      }
+    ]
+  }
+]

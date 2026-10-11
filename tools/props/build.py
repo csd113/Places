@@ -57,10 +57,10 @@ TEXTURE_ENGINE_MAX = 1024
 # Decoded RGBA8 memory one shipped prop texture may embed: one engine-max
 # image. Larger dimensions are rejected before they can allocate.
 TEXTURE_DECODED_MAX = TEXTURE_ENGINE_MAX * TEXTURE_ENGINE_MAX * 4
-# Whole-pack decoded RGBA8 budget. Deliberately desktop-scale: 64 MiB holds
-# 256 native 256x256 sheets (the whole current pack is under 4 MiB), which
-# leaves years of content growth before it binds, while still catching a
-# pathological or accidentally duplicated multi-gigabyte set.
+# Whole-pack decoded RGBA8 budget. A 64 MiB catalog supports 256 full-size
+# 256-square sheets or a larger mix of 128/256-square natives. Count every
+# embedded image, including numeric masks, so growth cannot silently exceed
+# the existing resource contract.
 PACK_TEXTURE_MEMORY_MAX = 64 * 1024 * 1024
 
 # Asset types the toolkit can build: entities place through the same pipeline.
@@ -168,6 +168,15 @@ def build_one(entry: dict, build_fn, force: bool = False, *, publish=True) -> Op
         nodes=builder.nodes,
         animations=builder.clips,
     )
+    # Optional fluorescence masks are embedded images too. Count/check every
+    # image rather than letting the first albedo conceal extra texture memory.
+    decoded_texture_bytes = 0
+    import struct as _struct
+    for image in glb.read_glb(payload).texture_pngs:
+        width, height = _struct.unpack(">II", image[16:24])
+        if width > TEXTURE_NATIVE_MAX or height > TEXTURE_NATIVE_MAX:
+            raise SystemExit(f"{prop_id}: embedded image {width}x{height} exceeds the native texture budget")
+        decoded_texture_bytes += width * height * 4
     if publish:
         atomic_write(destination, payload)
 
@@ -179,7 +188,7 @@ def build_one(entry: dict, build_fn, force: bool = False, *, publish=True) -> Op
         "triangles": triangles,
         "vertices": builder.mesh.vertex_count,
         "texture": [builder.tex.width, builder.tex.height],
-        "decoded_texture_bytes": builder.tex.width * builder.tex.height * 4,
+        "decoded_texture_bytes": decoded_texture_bytes,
         "bytes": len(payload),
         "bounds_min": [round(value, 3) for value in low],
         "bounds_max": [round(value, 3) for value in high],
@@ -259,20 +268,25 @@ def main(argv: List[str] | None = None) -> int:
             low, high = mesh.bounds()
             pixels = None
             decoded = 0
-            if mesh.texture_png.startswith(b"\x89PNG"):
+            for image_index, image in enumerate(mesh.texture_pngs):
+                if not image.startswith(b"\x89PNG"):
+                    failures.append(f"{entry['id']}: embedded image {image_index} is not a PNG")
+                    continue
                 import struct as _struct
 
-                width, height = _struct.unpack(">II", mesh.texture_png[16:24])
-                pixels = [width, height]
-                decoded = width * height * 4
+                width, height = _struct.unpack(">II", image[16:24])
+                if image_index == 0:
+                    pixels = [width, height]
+                image_decoded = width * height * 4
+                decoded += image_decoded
                 if width > TEXTURE_ENGINE_MAX or height > TEXTURE_ENGINE_MAX:
                     failures.append(
                         f"{entry['id']}: embedded texture is {width}x{height}, over the "
                         f"engine {TEXTURE_ENGINE_MAX}px limit"
                     )
-                elif decoded > TEXTURE_DECODED_MAX:
+                elif image_decoded > TEXTURE_DECODED_MAX:
                     failures.append(
-                        f"{entry['id']}: embedded texture decodes to {decoded} bytes, over the "
+                        f"{entry['id']}: embedded texture decodes to {image_decoded} bytes, over the "
                         f"{TEXTURE_DECODED_MAX}-byte per-texture ceiling"
                     )
                 elif width > TEXTURE_NATIVE_MAX or height > TEXTURE_NATIVE_MAX:

@@ -64,6 +64,7 @@ pub mod sky;
 pub mod surface;
 pub mod texture;
 pub mod ui;
+mod uv_receivers;
 pub mod world;
 
 pub use renderer::WgpuRenderer;

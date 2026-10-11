@@ -1,0 +1,26 @@
+[
+  {
+    "frame": 18,
+    "actions": [
+      {
+        "action": "camera",
+        "position": [
+          6.8,
+          1.6,
+          28
+        ],
+        "yaw": 25,
+        "pitch": -2
+      }
+    ],
+    "capture": "target/retro-arcade-switch-room-proof/room-before.png"
+  },
+  {
+    "frame": 48,
+    "capture": "target/retro-arcade-switch-room-proof/room-off.png"
+  },
+  {
+    "frame": 108,
+    "capture": "target/retro-arcade-switch-room-proof/room-restored.png"
+  }
+]

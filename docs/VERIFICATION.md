@@ -21,6 +21,12 @@ shape/range guards remain enforced, and generated level
 vertices remain bounded at 24 million. Distinguish these record limits from
 allocation policy and scene art budgets.
 
+October 11, 2026 Arcade extension: PLMP v7 adds optional ultraviolet response,
+numeric-mask slot and independent pigment tint; v3–v6 retain zero response.
+PLMW neutral geometry and the existing solver/quality limits are unchanged.
+The maintained lineup now contains nine maps. Dated platform evidence below
+is retained; new Arcade native evidence belongs to its implementation report.
+
 ## 1. Prerequisites
 
 - Rust 1.99.0, selected by `rust-toolchain.toml` with Clippy and rustfmt.
@@ -45,13 +51,13 @@ pull requests and manual runs. It rejects any tracked `.placesmap`, selects
 and runs the shared Rust gate, source Python contracts and maintained asset/
 generator checks within a 180-minute budget, including real source-built Full
 archive regressions. A dependent Ubuntu matrix derives
-its eight jobs from the validated `levels/lineup.txt`. Each uses a Debian trixie
+its nine jobs from the validated `levels/lineup.txt`. Each uses a Debian trixie
 container with SDL3 and Mesa's software Vulkan driver to build the current
 release compiler and its map through `tools/levels/compile.py --map ID`.
 Every map retains Off/Medium/Full variants and normal reflection capture, then
 runs all package and weather assertions, with two workers and a 120-minute
 clean-build budget per map. Independent jobs keep large bakes from serializing
-the entire lineup; the default desktop command still builds all eight together.
+the entire lineup; the default desktop command still builds all nine together.
 The map job explicitly selects the lavapipe ICD; a missing adapter fails rather
 than producing reduced packages. This establishes a software capture build, not
 native GPU or performance evidence. GitHub's

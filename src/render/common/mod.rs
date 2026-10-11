@@ -12,6 +12,7 @@ pub mod animation;
 pub mod api;
 pub mod architecture;
 pub mod atmosphere;
+pub mod blacklight;
 pub mod camera;
 pub mod character;
 pub mod decals;

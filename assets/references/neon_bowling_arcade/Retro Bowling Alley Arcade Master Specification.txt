@@ -1,0 +1,1865 @@
+/goal PLACES — RETRO BOWLING ALLEY & ARCADE
+COMPLETE VISUAL, MATERIAL, ASSET, AND LIGHTING SPECIFICATION
+
+PROJECT:
+Places — SDL3 / wgpu low-poly environment game.
+
+ENVIRONMENT:
+1990s–early 2000s Bowling Alley & Arcade.
+
+ART DIRECTION:
+PS1/PS2-era stylized realism.
+Liminal spaces.
+Fluorescent cosmic bowling.
+Old-fashioned arcade cabinets.
+CRT monitors.
+Dark navy interiors.
+UV-reactive carpet.
+Warm bowling lanes.
+Cold fluorescent ceiling fixtures.
+Isolated pools of neon illumination.
+
+PRIMARY OBJECTIVE:
+
+Implement a bowling alley and arcade environment that closely
+matches the supplied concept art and reference screenshots.
+
+The environment should feel like a real bowling alley from
+approximately 1995–2005, recreated with the visual characteristics
+of a high-quality PS2 game.
+
+It should not look modern, futuristic, overly clean, abandoned,
+destroyed, or deliberately horror-themed.
+
+It should feel like a functioning bowling alley that happens to
+be completely empty.
+
+The nostalgic atmosphere, lighting, and sense of isolation are
+more important than excessive geometric detail.
+
+Use the provided concept art as the primary visual reference.
+
+The descriptions below explain exactly how each model, material,
+texture, and light source should behave.
+
+============================================================
+1. FUNDAMENTAL LIGHTING PHILOSOPHY
+============================================================
+
+CRITICAL:
+
+Not everything that appears fluorescent or brightly coloured
+should emit light.
+
+Distinguish between five different material behaviours.
+
+CATEGORY A — ACTUAL LIGHT EMITTERS
+
+These objects produce visible light and contribute illumination
+to nearby surfaces.
+
+Examples:
+- Fluorescent ceiling lights.
+- Neon signs.
+- Illuminated arcade marquees.
+- Vending machine display illumination.
+- Certain pinball machine bulbs.
+
+These objects should have visible emissive materials and
+corresponding direct or baked illumination.
+
+CATEGORY B — ILLUMINATED SCREENS
+
+These surfaces produce their own visible brightness and some
+localized light spill.
+
+Examples:
+- Arcade CRT screens.
+- Bowling score monitors.
+- Small electronic displays.
+
+Screens should exhibit controlled bloom and contribute subtle
+coloured light to their immediate surroundings.
+
+They must not illuminate an entire room.
+
+CATEGORY C — UV-REACTIVE MATERIALS
+
+These materials become vivid when exposed to blacklight
+illumination but do not independently emit light.
+
+Examples:
+- Fluorescent cosmic carpet patterns.
+- Certain painted wall decorations.
+- Selected fluorescent bowling graphics.
+
+Their appearance should depend on UV or simulated UV lighting.
+
+They should not cast light, create unrealistic bloom, or
+illuminate neighboring geometry.
+
+CATEGORY D — REFLECTIVE MATERIALS
+
+These materials reflect existing illumination.
+
+Examples:
+- Polished bowling lanes.
+- Bowling balls.
+- Vinyl chairs.
+- Plastic drink bottles.
+- Arcade cabinet glass.
+- Metallic trims.
+
+They may display bright reflections but do not emit light.
+
+CATEGORY E — ORDINARY NON-EMISSIVE MATERIALS
+
+Examples:
+- Painted walls.
+- Ceiling tiles.
+- Table surfaces.
+- Bowling pins.
+- Cabinet bodies.
+- Fabric and carpet backing.
+- Most furniture.
+
+They receive illumination normally.
+
+Do not mistakenly give these objects emissive materials simply
+because their textures contain bright colours.
+
+============================================================
+2. OVERALL ENVIRONMENT ATMOSPHERE
+============================================================
+
+The intended appearance is a combination of:
+
+- A family bowling alley from approximately 2001.
+- A small arcade attached to the bowling alley.
+- Cosmic bowling nights with blacklights.
+- Deep blue and purple ambient illumination.
+- Occasional warm fluorescent lighting.
+- Illuminated vending machines and arcade monitors.
+- Colourful but slightly dated interior decorations.
+- An unsettling absence of people.
+
+The darkness should be intentional, not the result of broken
+lighting or insufficient exposure.
+
+The player must still be able to recognize all major props,
+architecture, and surfaces.
+
+The environment should contain strongly contrasting areas:
+
+BRIGHT AREAS:
+- Fluorescent ceiling fixtures.
+- Bowling lane surfaces immediately under those fixtures.
+- CRT monitors.
+- Illuminated vending machines.
+- Neon signage.
+- Pinball playfields.
+
+DARK AREAS:
+- Unlit ceiling sections.
+- Spaces between arcade cabinets.
+- Upper corners of the room.
+- Walls away from fixtures.
+- Recesses below furniture.
+- Empty areas around the arcade.
+
+COLOURED AMBIENT AREAS:
+- UV-reactive carpet.
+- Blue light around vending machines.
+- Colourful illumination around arcade screens.
+- Soft violet or blue ambient fill.
+
+The room should retain a predominantly dark blue appearance.
+
+Avoid uniform ambient lighting.
+
+There should be areas that feel bright and inviting, followed
+by large regions of relatively dark space.
+
+This uneven lighting is essential to the liminal atmosphere.
+
+============================================================
+3. FLUORESCENT GALAXY CARPET
+============================================================
+
+MODEL:
+Floor material applied to the carpeted areas.
+
+GLOW:
+UV REACTIVE.
+NOT SELF-EMISSIVE.
+
+This is one of the most important visual elements in the entire
+environment.
+
+DESCRIPTION:
+
+The carpet should recreate the distinctive fluorescent carpeting
+found in older bowling alleys, roller rinks, arcades, and cinemas.
+
+The base material is extremely dark navy blue, almost black.
+
+Across the surface are colourful cosmic patterns:
+
+- Electric blue swirls.
+- Violet nebula shapes.
+- Fluorescent purple clouds.
+- Magenta and pink highlights.
+- Small orange and yellow planets.
+- Shooting stars.
+- Tiny white star clusters.
+- Irregular fluorescent streaks.
+- Abstract space-themed geometric shapes.
+- Scattered brightly coloured particles.
+
+The pattern should feel busy and chaotic without becoming
+visually unreadable.
+
+The dark navy background must occupy most of the surface.
+
+The carpet must not appear as one continuous glowing texture.
+
+LIGHTING BEHAVIOUR:
+
+Under ordinary white lighting, the carpet should appear dark,
+with the coloured graphics visible but relatively subdued.
+
+Under blacklight illumination, the coloured patterns should
+become significantly more saturated and visually striking.
+
+The surrounding dark material should remain dark.
+
+Fluorescent yellow, blue, pink, and orange details should
+appear especially vivid.
+
+IMPORTANT:
+
+The carpet itself does not illuminate the room.
+
+It should never cast blue, purple, or orange light onto props.
+
+It should not have a general emissive value.
+
+If Places does not support UV-reactive materials, simulate
+the effect using localized UV-response shading or controlled
+baked material variations.
+
+Do not simply make the entire carpet emissive.
+
+TECHNICAL TEXTURE REQUIREMENTS:
+
+- Seamless repeating texture.
+- 1024x1024 master texture.
+- Appropriate runtime resolution for Places.
+- Distinct shapes that survive downsampling.
+- Correct mipmapping and texture filtering.
+- Consistent UV scale across the environment.
+- No obvious visible seams.
+- No excessive texture repetition.
+- No shimmering or aliasing during movement.
+
+Avoid generating purely random colourful noise.
+
+The carpet must contain actual recognizable cosmic motifs.
+
+VISUAL TARGET:
+
+Imagine walking into a bowling alley in 2002 with the lights
+turned down for cosmic bowling.
+
+The floor is almost black, but brightly coloured planets,
+stars, and nebula patterns are visible everywhere.
+
+That is the exact aesthetic being targeted.
+
+============================================================
+4. CEILING TILES
+============================================================
+
+MODEL:
+Traditional suspended acoustic ceiling.
+
+GLOW:
+NONE.
+
+DESCRIPTION:
+
+Use a traditional commercial drop ceiling.
+
+Large rectangular acoustic panels are supported by a dark
+metal grid.
+
+The tiles should have:
+
+- Slight off-white or pale grey coloration.
+- Subtle porous texture.
+- Very minor staining or age variation.
+- Low-contrast surface detail.
+- Simple rectangular geometry.
+
+The ceiling should not look newly installed.
+
+It should have the character of an older commercial building.
+
+LIGHTING:
+
+Unlit ceiling panels should appear dark blue-grey because
+of the room's ambient illumination.
+
+Panels directly beside ceiling fixtures should receive
+stronger white illumination.
+
+Avoid uniform ceiling brightness.
+
+The spaces between ceiling panels should remain visibly dark.
+
+The grid framework should be slightly darker than the panels.
+
+============================================================
+5. FLUORESCENT CEILING LIGHT FIXTURES
+============================================================
+
+MODEL:
+Recessed rectangular fluorescent light panels.
+
+GLOW:
+YES — STRONG ACTUAL LIGHT SOURCE.
+
+DESCRIPTION:
+
+Traditional rectangular fluorescent lighting panels recessed
+into the suspended ceiling.
+
+Use slightly translucent, textured plastic diffusers with
+visible internal fluorescent tube patterns.
+
+The fixture should resemble commercial lighting from the
+1990s or early 2000s.
+
+LIGHTING:
+
+The illuminated surface should produce a bright neutral-white
+or slightly warm-white glow.
+
+Suggested appearance:
+Approximately 4000–5000K fluorescent white.
+
+Some fixtures may differ subtly in colour temperature.
+
+Their illumination should:
+
+- Brighten the floor directly underneath.
+- Reveal the texture of nearby walls.
+- Create soft illumination on seating.
+- Produce strong highlights on polished bowling lanes.
+- Illuminate nearby models consistently.
+- Create believable indirect illumination.
+
+Bloom should be restrained.
+
+The light panel itself should appear intensely bright,
+but it should not create enormous blurry white halos.
+
+IMPORTANT:
+
+Do not illuminate every fixture identically.
+
+Some sections of ceiling can remain unlit to preserve the
+darker overall atmosphere.
+
+However, avoid excessive random flickering or broken lights.
+
+This is an old bowling alley, not an abandoned horror level.
+
+============================================================
+6. BOWLING ALLEY WALLS
+============================================================
+
+MODEL:
+Large flat wall surfaces.
+
+GLOW:
+NONE.
+
+DESCRIPTION:
+
+Walls should use deep navy blue paint with slight texture.
+
+The blue should be noticeably darker than the brighter cyan
+and electric blue arcade decorations.
+
+The wall finish should appear like painted commercial drywall
+or textured wallboard.
+
+Use subtle visual imperfections:
+
+- Slight surface variation.
+- Mild age and wear.
+- Small differences in roughness.
+- Occasional darker corners.
+
+Do not add severe peeling paint, structural damage, mold,
+or excessive grunge.
+
+LIGHTING:
+
+Walls receive illumination from ceiling fixtures, arcade
+machines, neon signs, and ambient lighting.
+
+Most wall surfaces should remain quite dark.
+
+Large unlit navy surfaces are important to the atmosphere.
+
+============================================================
+7. RETRO BOWLING WALL MURAL
+============================================================
+
+MODEL:
+Large decorative mural behind the bowling lanes.
+
+GLOW:
+MOSTLY NONE.
+SELECTED PAINT ELEMENTS MAY BE UV REACTIVE.
+
+DESCRIPTION:
+
+The back wall behind the pins should feature a large,
+continuous bowling-themed mural.
+
+The artwork should resemble commercial bowling alley
+decorations from the late 1990s.
+
+Include:
+
+- Oversized bowling pins.
+- Bowling balls.
+- Stylized motion trails.
+- Red and orange abstract shapes.
+- Dark blue backgrounds.
+- Yellow and blue wavy patterns.
+- Graphic bowling imagery.
+- Energetic compositions suggesting movement.
+
+The mural should look like a genuine painted or printed
+wall decoration.
+
+It should not look like a digital screen.
+
+LIGHTING:
+
+Most of the mural is completely non-emissive.
+
+Some bright painted shapes may respond to blacklight.
+
+Fluorescent accents should become more visible under
+simulated UV illumination.
+
+The mural should not cast light into the bowling lanes.
+
+Retain enough indirect illumination to keep the central
+bowling imagery recognizable from a distance.
+
+============================================================
+8. POLISHED WOODEN BOWLING LANES
+============================================================
+
+MODEL:
+Long bowling lanes with separate gutters.
+
+GLOW:
+NONE.
+REFLECTIVE SURFACE.
+
+DESCRIPTION:
+
+Use warm honey-coloured polished wood.
+
+The lanes should contain clearly visible parallel wood
+planks with subtle grain variation.
+
+The finish should resemble traditional polyurethane-coated
+bowling lanes.
+
+Include:
+
+- Long wooden plank textures.
+- Subtle seams between boards.
+- Lane markings.
+- Foul line.
+- Directional arrows.
+- Dark gutters.
+- Lane dividers.
+- Pin deck at the far end.
+
+LIGHTING:
+
+The lanes should reflect overhead fluorescent fixtures.
+
+These reflections should be elongated and relatively soft.
+
+The surfaces should appear noticeably brighter than the
+surrounding carpet because of both the wood colour and the
+overhead illumination.
+
+Avoid mirror-like reflections.
+
+The lanes should look polished but not metallic.
+
+IMPORTANT:
+
+The wood never emits light.
+
+Bright yellow highlights are reflections of existing lights.
+
+============================================================
+9. BOWLING PINS
+============================================================
+
+MODEL:
+Traditional bowling pins.
+
+GLOW:
+NONE.
+
+DESCRIPTION:
+
+Classic off-white bowling pins with red bands around their
+necks.
+
+The shapes should be recognizable from a distance.
+
+Use simple, efficient low-poly geometry with smooth enough
+silhouettes to look convincing.
+
+The plastic surface should be slightly glossy.
+
+LIGHTING:
+
+Pins should reflect overhead fluorescent lighting.
+
+The front-facing sides may appear warm white.
+
+The sides facing away from the lighting should be darker.
+
+Do not make the pins perfectly white in dark conditions.
+
+They should remain affected by the surrounding atmosphere.
+
+The pins must not glow or emit light.
+
+============================================================
+10. BOWLING BALLS
+============================================================
+
+MODEL:
+Individual bowling balls.
+
+GLOW:
+NONE.
+REFLECTIVE.
+
+DESCRIPTION:
+
+Create several differently coloured bowling balls.
+
+Suggested colours:
+
+- Dark purple.
+- Burgundy.
+- Glossy black.
+- Cobalt blue.
+- Deep red.
+- Dark green.
+- Marbled violet.
+
+Include recognizable finger holes.
+
+The surfaces should have subtle plastic reflections.
+
+Some balls may contain marbled or swirled textures.
+
+LIGHTING:
+
+Bowling balls should catch highlights from overhead lights.
+
+They may also reflect nearby coloured arcade illumination.
+
+The objects themselves must not emit light.
+
+Avoid making every bowling ball extremely saturated.
+
+============================================================
+11. BALL RETURNS AND BALL RACKS
+============================================================
+
+MODEL:
+Traditional bowling lane ball-return equipment.
+
+GLOW:
+NONE.
+
+DESCRIPTION:
+
+Use chunky, rounded commercial bowling equipment.
+
+Ball returns should have:
+
+- Grey or dark plastic housing.
+- Large rounded openings.
+- Simple mechanical geometry.
+- Ball channels.
+- A slightly worn commercial finish.
+
+The silhouette should feel appropriate for equipment from
+the 1990s.
+
+Ball racks should hold several brightly coloured bowling balls.
+
+LIGHTING:
+
+The equipment is non-emissive.
+
+Use soft reflections on plastic surfaces.
+
+Areas underneath the equipment should be darker.
+
+Nearby coloured balls should receive consistent environmental
+lighting.
+
+============================================================
+12. OVERHEAD BOWLING SCORE MONITORS
+============================================================
+
+MODEL:
+Large suspended CRT score displays.
+
+GLOW:
+YES — SCREEN EMISSION.
+
+DESCRIPTION:
+
+Use large, bulky CRT monitors suspended above the lanes.
+
+The housings should be dark grey or almost black.
+
+The monitors should have:
+
+- Thick plastic bezels.
+- Deep housings.
+- Slightly curved display surfaces.
+- Heavy-looking mounting brackets.
+- Visible screen borders.
+- Period-appropriate proportions.
+
+The screen imagery should resemble old bowling score software.
+
+Use:
+
+- Blue backgrounds.
+- Small white text.
+- Pixelated score tables.
+- Coloured score indicators.
+- Primitive menu graphics.
+- Low-resolution interface elements.
+
+Some screens may show idle scoreboards or demo information.
+
+Selected inactive screens may display static.
+
+Avoid making every monitor display meaningless noise.
+
+LIGHTING:
+
+The CRT surface should visibly emit blue-white light.
+
+Nearby bezels should receive subtle reflected illumination.
+
+The screens should create a faint blue glow on nearby ceiling
+panels and surrounding geometry.
+
+Do not create large blue floodlights.
+
+The screen itself should be the brightest part of the monitor.
+
+CRT EFFECTS:
+
+- Slight curvature.
+- Soft screen glow.
+- Very subtle scanline appearance.
+- Period-appropriate pixelation.
+- Optional restrained brightness variation.
+
+Avoid exaggerated CRT distortion.
+
+============================================================
+13. BOWLING SEATING
+============================================================
+
+MODEL:
+Fixed red and blue plastic/vinyl chairs.
+
+GLOW:
+NONE.
+
+DESCRIPTION:
+
+Create traditional bowling alley seating.
+
+The seats should use chunky, simple, angular shapes.
+
+Red and electric-blue chairs are especially important.
+
+Each chair should have:
+
+- A broad seat.
+- A slightly curved or angular backrest.
+- Thick plastic or vinyl surfaces.
+- A simple grey metal support.
+- A fixed pedestal base.
+
+The seats should resemble molded commercial furniture.
+
+Maintain low polygon counts.
+
+Use geometry that clearly communicates the seat silhouette.
+
+LIGHTING:
+
+The chairs do not emit light.
+
+Their bright colours should be visible because of nearby
+illumination and their relatively saturated materials.
+
+Red chairs should receive warm highlights from fluorescents.
+
+Blue chairs may receive cooler reflections from arcade lights.
+
+Preserve dark sides and believable shading.
+
+IMPORTANT:
+
+Do not make brightly coloured furniture glow simply because
+the base colour is saturated.
+
+============================================================
+14. SMALL ROUND TABLES
+============================================================
+
+MODEL:
+Small round pedestal tables.
+
+GLOW:
+NONE.
+
+DESCRIPTION:
+
+Simple bowling alley tables with:
+
+- Circular white or pale grey tabletops.
+- Rounded edges.
+- Single metal support.
+- Dark circular or cross-shaped base.
+
+The material should resemble commercial laminate.
+
+These tables should appear practical and inexpensive.
+
+LIGHTING:
+
+The tabletop should catch highlights from overhead lights.
+
+It may receive blue or red reflections from nearby seating
+and arcade equipment.
+
+The surface should not emit light.
+
+Slightly glossy, but not mirror-like.
+
+============================================================
+15. PLASTIC SODA BOTTLES
+============================================================
+
+MODEL:
+Small plastic drink bottles.
+
+GLOW:
+NONE.
+
+DESCRIPTION:
+
+Use classic early-2000s soda bottles.
+
+Include:
+
+- Dark liquid.
+- Transparent or slightly translucent plastic.
+- A blue or red bottle cap.
+- Printed label.
+- Recognizable plastic bottle silhouette.
+
+The concept art includes a dark soda bottle on a table.
+
+Recreate the general appearance.
+
+LIGHTING:
+
+The bottle should reflect nearby ceiling lights.
+
+The liquid should appear dark.
+
+The label may be brightly coloured but must not glow.
+
+Subtle highlights should communicate the plastic material.
+
+============================================================
+16. RETRO SODA VENDING MACHINE
+============================================================
+
+MODEL:
+Large illuminated commercial vending machine.
+
+GLOW:
+PARTIAL — SIGNAGE AND DISPLAY WINDOWS ONLY.
+
+DESCRIPTION:
+
+This is one of the main visual landmarks in the arcade.
+
+Use the proportions of a tall, bulky vending machine from
+the late 1990s or early 2000s.
+
+The machine should have:
+
+- Large illuminated blue upper advertisement.
+- Bright product selection windows.
+- Rows of soda cans or bottles.
+- Coin slot.
+- Selection buttons.
+- Bill acceptor.
+- Large dispensing opening.
+- Slightly worn plastic and metal body.
+- Strong rectangular silhouette.
+
+The reference uses a blue Pepsi-style vending machine.
+
+A fictional period-appropriate soda brand can be used if
+needed for a distributable game, provided the overall visual
+character remains accurate.
+
+LIGHTING:
+
+The upper advertising panel should be brightly backlit.
+
+The individual product windows should be illuminated.
+
+These parts should actually appear emissive.
+
+The machine should cast localized blue-white illumination
+onto the nearby carpet and walls.
+
+Its metal housing should remain largely non-emissive.
+
+The buttons may contain small illuminated indicators.
+
+The dispensing opening should remain mostly dark.
+
+VISUAL TARGET:
+
+The vending machine should stand out immediately when viewed
+from across a dark arcade.
+
+It should feel like a large, glowing blue object against
+an otherwise dark navy wall.
+
+However, only the illuminated portions should actually glow.
+
+============================================================
+17. CLASSIC UPRIGHT ARCADE CABINETS
+============================================================
+
+MODEL:
+Traditional 1990s arcade machines.
+
+GLOW:
+SCREENS AND SELECTED SIGNAGE ONLY.
+
+DESCRIPTION:
+
+Create several variations of upright arcade cabinets.
+
+Include examples inspired by:
+
+- Racing games.
+- Space shooters.
+- Side-scrolling action games.
+- Fighting games.
+- Retro science-fiction games.
+
+Each machine should have:
+
+- Large upright cabinet body.
+- Angled CRT screen.
+- Thick monitor bezel.
+- Coin slots.
+- Joystick or buttons.
+- Illuminated title marquee.
+- Colourful side-panel artwork.
+- Slightly worn cabinet edges.
+- Dark plastic or wood body.
+
+The overall shape should resemble real coin-operated arcade
+machines rather than modern gaming kiosks.
+
+Use original fictional game artwork where appropriate.
+
+LIGHTING:
+
+THE CRT SCREEN:
+Emits light.
+
+THE UPPER MARQUEE:
+May emit light if internally illuminated.
+
+THE CABINET BODY:
+Does not emit light.
+
+THE PRINTED SIDE ART:
+Does not emit light.
+
+THE BUTTONS:
+Some may have small indicator lighting.
+
+Each active screen should cast subtle coloured light onto:
+
+- Its bezel.
+- Its control panel.
+- The adjacent cabinet.
+- The carpet immediately in front of it.
+
+Different machines should produce different colours.
+
+Examples:
+
+RACING CABINET:
+Warm orange and red screen illumination.
+
+SPACE SHOOTER:
+Deep blue and cyan illumination.
+
+ACTION CABINET:
+Warm yellow and red highlights.
+
+FIGHTING CABINET:
+Purple, red, and blue illumination.
+
+IMPORTANT:
+
+Do not turn the whole arcade cabinet into one large glowing
+object.
+
+Most of the housing should remain dark.
+
+The screens and title marquees create the visual interest.
+
+Some cabinets should be inactive or dimmer to create variation.
+
+============================================================
+18. ARCADE CABINET MARQUEES
+============================================================
+
+MODEL:
+Backlit signage above cabinet screens.
+
+GLOW:
+YES — LOCALIZED EMISSIVE SURFACE.
+
+DESCRIPTION:
+
+Arcade marquees should feature colourful painted or printed
+game titles.
+
+They should have the appearance of translucent printed plastic
+with fluorescent lighting behind it.
+
+Examples:
+
+- Red-orange racing game sign.
+- Yellow science-fiction title.
+- Cyan space-themed lettering.
+- Magenta action-game artwork.
+
+LIGHTING:
+
+The printed artwork should appear illuminated from behind.
+
+It should not look like an LED billboard.
+
+The light should have a soft, slightly uneven appearance.
+
+Small amounts of coloured illumination should reach nearby
+cabinet surfaces.
+
+Avoid excessive bloom around every sign.
+
+============================================================
+19. PINBALL MACHINES
+============================================================
+
+MODEL:
+Traditional pinball arcade cabinets.
+
+GLOW:
+YES — SELECTIVE BULBS AND DISPLAY PANELS.
+
+DESCRIPTION:
+
+Include at least one or two traditional pinball machines.
+
+Use:
+
+- Angled glass playfield.
+- Tall decorative backbox.
+- Metal legs.
+- Colourful illustrated cabinet sides.
+- Plastic playfield components.
+- Flippers.
+- Bumpers.
+- Small internal lamps.
+- Display panel or score indicator.
+
+The machines should have dense, colourful textures while
+retaining simple low-poly geometry.
+
+LIGHTING:
+
+The playfield should contain several small illuminated bulbs.
+
+The backbox artwork should be internally illuminated.
+
+Small bulbs can produce localized warm or coloured light.
+
+The glass should reflect the surrounding lights.
+
+The metal legs and cabinet housing should not glow.
+
+The playfield must be readable beneath the glass.
+
+Avoid making the entire glass surface a flat emissive texture.
+
+============================================================
+20. ARCADE CHANGE MACHINE
+============================================================
+
+MODEL:
+Old commercial coin-change machine.
+
+GLOW:
+ALMOST NONE.
+
+DESCRIPTION:
+
+A tall, utilitarian metal machine used to exchange bills
+for arcade tokens or coins.
+
+Appearance:
+
+- Dull grey metal.
+- Large rectangular housing.
+- Coin return.
+- Bill acceptor.
+- Simple CHANGE lettering.
+- Small instruction labels.
+- Slightly scratched exterior.
+- Minimal decoration.
+
+LIGHTING:
+
+The machine should remain relatively dark.
+
+Its metal housing receives illumination from nearby arcade
+machines.
+
+A small status light may be emissive.
+
+If the CHANGE sign is backlit, give it a modest internal glow.
+
+Do not make the entire machine bright.
+
+Its deliberately plain appearance should contrast with the
+colourful arcade cabinets.
+
+============================================================
+21. NEON BOWLING SIGN
+============================================================
+
+MODEL:
+Decorative illuminated wall sign.
+
+GLOW:
+YES — STRONG COLOURED EMISSION.
+
+DESCRIPTION:
+
+A nostalgic wall sign advertising bowling.
+
+Use a design featuring:
+
+- Red neon lettering.
+- A blue border or accent.
+- Yellow star decoration.
+- Simple retro graphic composition.
+
+The sign should feel inexpensive and period-appropriate.
+
+Avoid excessive complexity.
+
+LIGHTING:
+
+The red lettering should emit red light.
+
+Blue accents should emit blue light.
+
+Yellow star elements should produce warm yellow illumination.
+
+Nearby wall surfaces should receive a subtle coloured glow.
+
+The sign should have visible but controlled bloom.
+
+The glow should follow the actual illuminated tubing or
+lettering rather than the sign's entire rectangular outline.
+
+The metal mounting hardware should remain dark.
+
+============================================================
+22. BLACKLIGHT / UV FIXTURES
+============================================================
+
+MODEL:
+Selected ceiling or wall-mounted blacklight fixtures.
+
+GLOW:
+YES — LIGHT SOURCE.
+BUT WITH CONTROLLED VISIBLE OUTPUT.
+
+DESCRIPTION:
+
+Create a small number of blacklight fixtures that help
+explain the fluorescent carpet and wall decorations.
+
+These may be integrated near the ceiling or mounted along
+specific wall sections.
+
+They should resemble older fluorescent blacklight tubes,
+not modern RGB lighting equipment.
+
+LIGHTING:
+
+Blacklight illumination should cause fluorescent materials
+to become more visually saturated.
+
+The visible purple-blue component of the light should be
+relatively subdued.
+
+Do not bathe the entire room in an intense uniform purple.
+
+Instead, use localized areas where the carpet and fluorescent
+paint become visibly more intense.
+
+IMPORTANT TECHNICAL REQUIREMENT:
+
+If realistic UV lighting is not supported, implement a
+controlled artistic approximation.
+
+Prefer a UV-response material parameter or mask that changes
+the affected texture's appearance based on UV fixture
+influence.
+
+This response should preserve the distinction between
+fluorescence and actual self-emission.
+
+The reactive carpet must not become a conventional light
+source or produce significant bloom.
+
+============================================================
+23. SMALL DECORATIVE CAT MODEL
+============================================================
+
+MODEL:
+Small black-and-white cat decoration or plush.
+
+GLOW:
+NONE.
+
+DESCRIPTION:
+
+The reference image includes a small cat sitting on top of
+the vending machine.
+
+This is a useful environmental detail.
+
+Recreate it as a simple low-poly decorative object.
+
+Appearance:
+
+- Mostly black body.
+- Small white face details.
+- White chest.
+- White paws.
+- Small upright ears.
+- Simple eyes.
+- Slightly stylized proportions.
+
+The cat should look like a decorative figure or plush toy.
+
+It should not become overly detailed or realistic.
+
+LIGHTING:
+
+The cat does not emit light.
+
+Its white markings should receive reflected light from the
+vending machine.
+
+Most of the black body may remain quite dark.
+
+The eyes may contain tiny reflective highlights.
+
+Do not give it glowing supernatural eyes.
+
+The object should be a subtle discovery rather than a major
+focal point.
+
+============================================================
+24. FLOOR LITTER AND SMALL PROPS
+============================================================
+
+MODELS:
+Discarded soda cans, cups, wrappers, and small debris.
+
+GLOW:
+NONE.
+
+DESCRIPTION:
+
+Add a very small quantity of environmental clutter.
+
+Examples:
+
+- A crushed soda can.
+- A discarded paper cup.
+- A candy wrapper.
+- A fallen drink bottle.
+- A small piece of paper.
+
+The goal is to make the environment feel used.
+
+Do not create excessive garbage.
+
+The bowling alley should feel maintained but slightly dated.
+
+LIGHTING:
+
+All litter should use ordinary materials.
+
+Metal cans can produce small reflective highlights.
+
+Plastic bottles may have translucent portions.
+
+Bright labels are non-emissive.
+
+Litter must not create glowing objects on the floor.
+
+============================================================
+25. COLOUR PALETTE
+============================================================
+
+Use the following colours as an artistic guide.
+
+These are not mandatory exact engine values.
+
+PRIMARY ENVIRONMENT COLOURS:
+
+Very dark navy:
+#080C27
+
+Deep blue:
+#14265F
+
+Midnight cobalt:
+#122D75
+
+Electric blue:
+#1768CB
+
+Cyan:
+#00A6DA
+
+Violet:
+#6426A8
+
+Fluorescent magenta:
+#E52C98
+
+Bright orange:
+#F69A29
+
+Fluorescent yellow:
+#F4EA55
+
+Deep red:
+#B51D2F
+
+Warm wood:
+#BC884D
+
+Fluorescent white:
+#F2EDE2
+
+COLOUR DISTRIBUTION:
+
+Most of the environment should be deep navy or dark blue.
+
+The fluorescent carpet introduces vivid colour at floor level.
+
+The bowling lanes introduce warm wood tones.
+
+Red and blue chairs add large, clearly defined accents.
+
+Arcade screens introduce small areas of highly saturated light.
+
+The ceiling fixtures add warm-neutral white illumination.
+
+The entire composition should remain dark and blue-dominant.
+
+============================================================
+26. ENVIRONMENT COMPOSITION
+============================================================
+
+The environment should contain two visually connected areas.
+
+AREA A — BOWLING ALLEY
+
+Include:
+
+- Multiple bowling lanes.
+- Large rear-wall mural.
+- Bowling pins.
+- Ball returns.
+- Ball racks.
+- Suspended CRT score monitors.
+- Ceiling fluorescent fixtures.
+- Red and blue seating.
+- Small white tables.
+- Fluorescent cosmic carpet.
+
+The bowling lanes should form long, clearly visible sightlines.
+
+Seating should be positioned in front of the lanes.
+
+The back wall should remain visible from the seating area.
+
+The room should feel spacious.
+
+AREA B — ARCADE
+
+Include:
+
+- Rows of upright arcade cabinets.
+- Pinball machines.
+- Large illuminated vending machine.
+- Change machine.
+- Neon bowling signage.
+- Fluorescent cosmic carpet.
+- Dark navy walls.
+- Commercial suspended ceiling.
+
+The arcade should be noticeably darker than the bowling lanes.
+
+Most illumination should come from individual machines,
+signage, and occasional ceiling fixtures.
+
+Arrange cabinets so that their screens produce separate pools
+of coloured light.
+
+Avoid placing too many machines in a tiny area.
+
+The arcade should feel large enough that the emptiness of the
+space becomes noticeable.
+
+TRANSITION:
+
+The arcade and bowling alley should feel like parts of the
+same building.
+
+Use the same ceiling system, carpet family, wall paint,
+material language, and lighting philosophy throughout.
+
+Do not make the arcade look like a completely different level.
+
+============================================================
+27. LIMINAL ATMOSPHERE
+============================================================
+
+This environment should convey a very specific feeling.
+
+The player is exploring a familiar recreational space.
+
+It appears operational.
+
+The lights are on.
+
+The arcade machines are running.
+
+The vending machine is illuminated.
+
+The bowling score monitors are active.
+
+But nobody is there.
+
+There are no customers.
+
+There are no employees.
+
+There is no visible reason for the building to be empty.
+
+The emptiness itself creates the atmosphere.
+
+DESIGN REQUIREMENTS:
+
+- Preserve broad open floor areas.
+- Use longer sightlines.
+- Avoid excessive decorative clutter.
+- Include slightly repetitive architectural details.
+- Keep the space believable.
+- Leave some corners relatively dark.
+- Use warm and cold lighting contrasts.
+- Avoid obvious horror decorations.
+- Avoid heavy fog.
+- Avoid excessive visual noise.
+- Avoid exaggerated lighting effects.
+
+The environment should be nostalgic first and unsettling
+second.
+
+It should evoke memories of childhood visits to bowling
+alleys and arcades.
+
+The unusual feeling comes from returning to those familiar
+spaces and finding them completely deserted.
+
+OPTIONAL AMBIENT AUDIO:
+
+If appropriate systems already exist, consider:
+
+- Subtle fluorescent fixture hum.
+- Quiet vending machine refrigeration.
+- Distant arcade attract-mode sounds.
+- Gentle HVAC ambience.
+- Occasional faint electronic noises.
+
+Keep these sounds understated.
+
+Do not require new audio systems merely to implement the
+visual environment.
+
+============================================================
+28. LIGHTING IMPLEMENTATION FOR PLACES
+============================================================
+
+Apply the intended appearance through Places' existing
+rendering, material, light-baking, and probe systems.
+
+Use the established wgpu renderer.
+
+Do not add unrelated rendering systems.
+
+DIRECT LIGHTING:
+
+Use actual direct lighting for sources that need to
+illuminate surrounding objects.
+
+Examples:
+
+- Fluorescent fixtures.
+- Neon signage.
+- Vending machine lighting.
+- Selected arcade illumination.
+
+BAKED LIGHTING:
+
+Bake static illumination wherever practical.
+
+This is especially useful for:
+
+- Ceiling lights.
+- Signage.
+- Arcade cabinet light spill.
+- Large environmental colour contributions.
+
+INDIRECT LIGHTING:
+
+Ensure that static lighting contributes plausible indirect
+illumination where supported.
+
+The room should not have pitch-black surfaces immediately
+beside bright lights.
+
+MODEL LIGHTING:
+
+Models must receive the same environmental illumination as
+surrounding architecture.
+
+A chair beneath a ceiling light must be visibly illuminated.
+
+A bowling ball beside a vending machine should receive
+appropriate nearby illumination.
+
+Arcade cabinets should not become completely black outside
+their emissive screens.
+
+Avoid lighting discrepancies between models and static
+environment geometry.
+
+Do not allow model lighting to suddenly change based on
+camera or player proximity.
+
+This is especially important because Places has previously
+experienced model-lighting artifacts.
+
+Prevent:
+
+- Black smudges.
+- Incorrect shadow patches.
+- Fully black models.
+- Fully bright models in dark rooms.
+- Proximity-dependent lighting changes.
+- Excessive ambient occlusion.
+- Incorrect probe interpolation.
+- Light leaking through walls.
+- Visible lighting discontinuities at geometry seams.
+
+BLOOM:
+
+Apply bloom only to genuinely bright emissive surfaces.
+
+Examples:
+
+- Neon tubing.
+- Bright CRT displays.
+- Fluorescent light panels.
+- Selected arcade marquees.
+- Vending machine illumination.
+
+Ordinary saturated materials must not bloom simply because
+they contain bright RGB values.
+
+TONEMAPPING:
+
+Preserve detail in bright sources.
+
+The white fluorescent light panels should remain readable
+rather than becoming enormous featureless white rectangles.
+
+The dark navy walls should retain some colour information.
+
+Avoid crushing the entire scene into black.
+
+Avoid increasing global exposure so far that the liminal
+darkness disappears.
+
+COLOUR BLEEDING:
+
+Use restrained local colour contributions.
+
+The neon sign may tint the nearby wall red or blue.
+
+An arcade screen may create a small blue reflection on its
+control panel.
+
+The vending machine may illuminate the nearby floor.
+
+These effects should remain localized.
+
+PERFORMANCE:
+
+Prefer static and baked solutions for permanent lighting.
+
+Use runtime lights selectively.
+
+Keep models low-poly and optimize repeated assets.
+
+Preserve existing Places performance expectations.
+
+Do not sacrifice the visual style for unnecessary geometric
+complexity.
+
+============================================================
+29. TEXTURE AUTHORING REQUIREMENTS
+============================================================
+
+Create actual usable textures for the environment.
+
+Do not treat the concept art image as a texture atlas or
+simply crop arbitrary pieces of the illustration.
+
+Textures must be reconstructed as proper game assets.
+
+At minimum, create or refine:
+
+01. Seamless fluorescent galaxy carpet.
+02. Dark navy painted wall.
+03. Bowling mural.
+04. Acoustic ceiling panel.
+05. Ceiling fixture diffuser.
+06. Polished bowling lane wood.
+07. Dark bowling gutter.
+08. Red seating material.
+09. Blue seating material.
+10. White laminate table material.
+11. Bowling pin material.
+12. Bowling ball materials.
+13. Arcade cabinet side artwork.
+14. Arcade cabinet control artwork.
+15. Arcade title marquees.
+16. Arcade CRT screen textures.
+17. Bowling score monitor display.
+18. Vending machine advertisement.
+19. Vending product selection graphics.
+20. Pinball cabinet artwork.
+21. Pinball playfield graphics.
+22. Neon sign graphics.
+
+Maintain consistent texel density and style.
+
+The textures should be reminiscent of PS2-era game assets,
+but should not be intentionally poor-quality or blurry.
+
+Use enough detail to reproduce the reference art.
+
+Retain the existing Places texture pipeline and quality
+settings unless a specific technical change is justified.
+
+============================================================
+30. VISUAL PRIORITIES
+============================================================
+
+If prioritization is necessary, the following details matter
+most.
+
+PRIORITY 1:
+Accurate cosmic fluorescent carpet.
+
+PRIORITY 2:
+Correct dark navy atmospheric lighting.
+
+PRIORITY 3:
+Bowling lane geometry, lighting, and wall mural.
+
+PRIORITY 4:
+Bright CRT score monitors.
+
+PRIORITY 5:
+Detailed old-fashioned arcade machines.
+
+PRIORITY 6:
+Illuminated vending machine.
+
+PRIORITY 7:
+Authentic ceiling panels and fluorescent lights.
+
+PRIORITY 8:
+Red and blue bowling seating.
+
+PRIORITY 9:
+Proper distinction between emissive and non-emissive materials.
+
+PRIORITY 10:
+Small environmental props and decorative elements.
+
+Do not spend excessive time refining tiny decorative objects
+while major environmental materials remain inaccurate.
+
+============================================================
+31. REQUIRED DEMONSTRATION ENVIRONMENT
+============================================================
+
+Create a polished, explorable demonstration space that shows
+off the complete bowling alley and arcade asset collection.
+
+The demo should have a coherent layout.
+
+It should not look like a collection of unrelated models
+placed inside a test room.
+
+The space should feature:
+
+- Several playable-looking bowling lanes.
+- Seating positioned around the lanes.
+- An attached arcade section.
+- A large soda vending machine.
+- Several recognizable arcade cabinet variations.
+- Pinball machines.
+- Neon signage.
+- Authentic fluorescent carpet.
+- Correctly illuminated ceiling fixtures.
+- Dark and bright areas that create strong visual contrast.
+
+The demo must support the player viewing the environment
+from multiple angles.
+
+Do not optimize only for one predetermined screenshot.
+
+TEST VIEWS:
+
+VIEW 1 — BOWLING LANES
+
+Look down the lanes toward the rear mural.
+
+Verify:
+- Warm lane illumination.
+- Dark blue room.
+- Correct pins and ball returns.
+- Readable overhead score monitors.
+- Accurate ceiling lighting.
+
+VIEW 2 — SEATING AREA
+
+Look across the tables and chairs.
+
+Verify:
+- Red and blue furniture.
+- Correctly scaled carpet patterns.
+- Local lighting on props.
+- Visible bowling lanes.
+- Dark surrounding room.
+
+VIEW 3 — ARCADE
+
+Look along a row of arcade cabinets.
+
+Verify:
+- Bright illuminated screens.
+- Dark cabinet bodies.
+- Individually illuminated marquees.
+- Coloured localized light.
+- Carpet fluorescence.
+- Believable shadows between machines.
+
+VIEW 4 — VENDING MACHINE
+
+Look toward the vending machine from a dark area.
+
+Verify:
+- Strong illuminated advertisement.
+- Backlit product windows.
+- Dark machine housing.
+- Local blue-white lighting.
+- Nearby surfaces receiving appropriate illumination.
+
+VIEW 5 — CARPET CLOSE-UP
+
+Inspect the carpet at player eye level and from above.
+
+Verify:
+- Recognizable cosmic patterns.
+- Correct texture scale.
+- Seamless tiling.
+- Dark navy backing.
+- Saturated UV-reactive colours.
+- No accidental emission.
+- No excessive shimmering.
+
+VIEW 6 — BLOOM DISABLED
+
+Temporarily disable bloom.
+
+Verify:
+- The scene remains visually coherent.
+- Actual emissive surfaces are still bright.
+- Blacklight-reactive materials remain distinct.
+- The atmosphere is not dependent on exaggerated bloom.
+
+VIEW 7 — MODEL LIGHTING
+
+Inspect chairs, balls, cabinets, pins, and vending machine
+details under multiple lighting conditions.
+
+Verify:
+- No black shading artifacts.
+- No sudden light changes with player movement.
+- No overly bright model surfaces.
+- Correct colour and intensity transitions.
+- Consistency with surrounding static geometry.
+
+============================================================
+32. FINAL ACCEPTANCE CRITERIA
+============================================================
+
+The environment is successful when:
+
+1. It immediately resembles a real bowling alley and arcade
+   from the late 1990s or early 2000s.
+
+2. Its materials and models visually match the concept art.
+
+3. The fluorescent carpet looks convincingly UV-reactive
+   without behaving like a light source.
+
+4. The arcade machines, score monitors, and vending machine
+   produce localized illumination.
+
+5. The bowling lanes appear warm and polished against the
+   cooler dark blue environment.
+
+6. Lighting clearly differentiates bright and dark areas.
+
+7. Models receive correct direct and indirect illumination.
+
+8. Emissive materials are used only where appropriate.
+
+9. Bloom is restrained and does not wash out the environment.
+
+10. The environment looks convincingly low-poly without
+    appearing unfinished.
+
+11. The layout feels like an actual recreational building.
+
+12. The atmosphere communicates nostalgia, quiet isolation,
+    and a subtle sense of unease.
+
+13. The completed demo space demonstrates every major asset.
+
+14. The implementation works within Places' existing engine
+    architecture and quality settings.
+
+15. The environment remains visually consistent when viewed
+    from different positions and distances.
+
+IMPORTANT FINAL ART-DIRECTION NOTE:
+
+The goal is NOT a cyberpunk arcade.
+
+The goal is NOT a futuristic neon entertainment center.
+
+The goal is NOT an abandoned haunted bowling alley.
+
+The goal is a perfectly ordinary bowling alley from 2001,
+with fluorescent space carpet, old arcade machines, CRT
+monitors, chunky furniture, painted bowling murals, and
+dim cosmic-bowling illumination.
+
+Everything should feel dated, familiar, colourful, and
+strangely empty.
+
+The scene should evoke the experience of being the last
+person inside an old bowling alley at night.
+
+That nostalgic, slightly dreamlike atmosphere is the
+defining characteristic of the environment.
+
+Use the supplied concept art as the primary visual target
+throughout implementation.

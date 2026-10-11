@@ -11,7 +11,7 @@ Start at the root README to run the player, then use these ownership boundaries.
 | `assets/entities/<id>/` | Rigged GLBs and standalone texture sheets |
 | `assets/references/` | Immutable concept art and authoring prompts; excluded from exports |
 | `assets/catalog.json` | Logical asset/material registry; paths are relative to `assets/` |
-| `levels/` | Eight maintained source maps and their explicit `lineup.txt` allowlist |
+| `levels/` | Nine maintained source maps and their explicit `lineup.txt` allowlist |
 | `tests/fixtures/levels/` | Focused movement, lighting, geometry, entity and capacity controls |
 | `tests/fixtures/native/` | Camera, controller and reference-image inputs |
 | `tools/{levels,textures,props,entities}/` | Offline authoring generators and checks |
@@ -60,13 +60,15 @@ Textures are committed PNG inputs; the player never generates texture artwork.
 ## Maintained maps and regression controls
 
 The playable sources are `places_demo`, `model_zoo`, `pool_showcase`,
-`home_showcase`, `lantern_hollow`, `winter`, `beach_demo` and `frutiger_aero_demo`.
-These are existing sources moved without changing their content. Home and Pool
+`home_showcase`, `lantern_hollow`, `winter`, `beach_demo`, `frutiger_aero_demo`
+and `retro_arcade_demo`.
+The first eight sources were retained during repository cleanup; Retro Arcade
+adds the reference-led bowling and arcade showcase. Home and Pool
 are compact standalone showcases; Places Demo also contains their latest detailed
 refinements. Model Zoo is retained as the complete model/animation reference.
 
-The catalog has seven environments: Office, Pool, Home, Outdoor, Winter, Beach
-and Frutiger Aero. Office appears in Places Demo and has an asset diagnostic,
+The catalog has eight environments: Office, Pool, Home, Outdoor, Winter, Beach,
+Frutiger Aero and Arcade. Office appears in Places Demo and has an asset diagnostic,
 but lacks a dedicated showcase. That gap is a feature-request candidate; no
 replacement environment was constructed during cleanup.
 
@@ -91,7 +93,7 @@ python3 tools/bench/capture_movement_test.py --case step_ \
 ```
 
 The fixture index and `tools/bench/` help name the additional inputs for complete
-campaigns. Diagnostic packages do not belong in the eight-map export directory.
+campaigns. Diagnostic packages do not belong in the curated export directory.
 
 ## Verification and export
 

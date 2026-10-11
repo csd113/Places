@@ -81,6 +81,10 @@ MAX_LIGHT_INTENSITY = 8.0
 # Emissive materials: colour channels are 0..1 and the intensity is clamped by
 # the engine (mirrors src/materials/emission.rs).
 MAX_EMISSION_INTENSITY = 8.0
+# Distinct ultraviolet illumination and fluorescence response, matching Rust.
+MAX_UV_RESPONSE = 2.0
+MAX_ULTRAVIOLET_INTENSITY = 8.0
+MAX_BLACKLIGHT_FIXTURES = 4
 
 # Map-authored actions: the closed set the engine parses, and the subset it
 # implements. The reserved/unimplemented tags are rejected by name, not
@@ -360,6 +364,7 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
     seen_models: Dict[str, str] = {}
     material_textures: List[Tuple[str, str]] = []
     material_emissive_masks: List[Tuple[str, str]] = []
+    material_uv_masks: List[Tuple[str, str]] = []
     material_normal_textures: List[Tuple[str, str]] = []
     for index, entry in enumerate(catalog_entries(catalog)):
         raw_id = str(entry.get("id", "")).strip()
@@ -620,6 +625,26 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
                 if entry.get(field) is not None:
                     errors.append(f"{where}: {field} is only valid on a definition material")
 
+        uv_response = entry.get("uv_response")
+        uv_mask = entry.get("uv_response_mask")
+        if asset_type == "material" and source == "definition":
+            if uv_response is not None and (
+                not is_finite_number(uv_response) or not 0 <= uv_response <= MAX_UV_RESPONSE
+            ):
+                errors.append(f"{where}: uv_response must be a finite number between 0 and 2")
+            if uv_mask is not None:
+                mask_id = str(uv_mask).strip()
+                if not _ASSET_ID.match(mask_id):
+                    errors.append(f"{where}: malformed uv_response_mask id '{mask_id}'")
+                else:
+                    material_uv_masks.append((raw_id, mask_id))
+                if not is_finite_number(uv_response) or uv_response <= 0:
+                    errors.append(f"{where}: uv_response_mask requires positive uv_response")
+        else:
+            for field in ("uv_response", "uv_response_mask"):
+                if entry.get(field) is not None:
+                    errors.append(f"{where}: {field} is only valid on a definition material")
+
         if asset_type in PLACEABLE_TYPES:
             size = entry.get("size")
             if not (isinstance(size, list) and len(size) == 3 and all(isinstance(v, (int, float)) and v > 0 for v in size)):
@@ -695,6 +720,23 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
             errors.append(
                 f"{material_id}: emissive_mask '{mask_id}' file '{target_model}' does not exist below assets/"
             )
+
+    # Fluorescence coverage is its own file-backed numeric map, never emission.
+    for material_id, mask_id in material_uv_masks:
+        target = entries_by_id.get(mask_id)
+        if target is None:
+            errors.append(f"{material_id}: uv_response_mask '{mask_id}' is not in the catalog")
+            continue
+        if target.get("asset_type") != "texture":
+            errors.append(f"{material_id}: uv_response_mask '{mask_id}' is not a texture asset")
+            continue
+        target_model = str(target.get("model", "")).strip()
+        if target.get("source") != "file":
+            errors.append(f"{material_id}: uv_response_mask '{mask_id}' must be a file asset")
+        elif not target_model.lower().endswith(".png"):
+            errors.append(f"{material_id}: uv_response_mask '{mask_id}' must name a .png model")
+        elif not os.path.isfile(os.path.join(asset_root, target_model)):
+            errors.append(f"{material_id}: uv_response_mask '{mask_id}' file '{target_model}' does not exist below assets/")
 
     # The canonical entity resource: one logical id, one physical file.
     spooner_entries = [entry for entry in catalog_entries(catalog) if str(entry.get("id")) == "spooner-man"]
@@ -2793,6 +2835,7 @@ def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> 
             # Optional schema: a fixture may be switched off without losing its
             # visible glow, and a prop may own generic light sources. Both are
             # validated with the same rules the engine enforces.
+            blacklight_count = 0
             for index, light in enumerate(level.get("ceiling_lights") or []):
                 where = f"{relative}: ceiling light {index}"
                 if "enabled" in light and not isinstance(light.get("enabled"), bool):
@@ -2812,6 +2855,15 @@ def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> 
                     not is_finite_number(emission) or emission < 0.0
                 ):
                     errors.append(f"{where} emission must be a finite number >= 0")
+                ultraviolet = light.get("ultraviolet", 0)
+                if not is_finite_number(ultraviolet) or not 0 <= ultraviolet <= MAX_ULTRAVIOLET_INTENSITY:
+                    errors.append(f"{where} ultraviolet must be a finite number between 0 and 8")
+                elif ultraviolet > 0:
+                    # Disabled fixtures retain slots so runtime toggles cannot
+                    # silently discard a source when it becomes enabled.
+                    blacklight_count += 1
+            if blacklight_count > MAX_BLACKLIGHT_FIXTURES:
+                errors.append(f"{relative}: at most 4 ultraviolet fixtures are supported, including disabled fixtures")
             for index, prop in enumerate(level.get("props") or []):
                 lights = prop.get("lights")
                 if lights is None:

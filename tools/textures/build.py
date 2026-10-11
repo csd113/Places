@@ -51,6 +51,7 @@ import pool_art  # noqa: E402
 import water_art  # noqa: E402
 import beach_art  # noqa: E402
 import frutiger_aero_art  # noqa: E402
+import arcade_art  # noqa: E402
 
 # Budgets for the current PNG loader.  256x256 is preferred; 1024x1024
 # is the hard ceiling (see the README and assets/README.md).
@@ -73,6 +74,7 @@ for module in (
     outdoor_art,
     beach_art,
     frutiger_aero_art,
+    arcade_art,
 ):
     for texture_id, entry in module.ART.items():
         if texture_id in MANIFEST:

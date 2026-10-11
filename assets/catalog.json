@@ -35,6 +35,11 @@
       "id": "frutiger_aero",
       "display_name": "Frutiger Aero",
       "description": "Airy optimistic early2000s clean white/aqua/green architecture and natural branding."
+    },
+    {
+      "id": "arcade",
+      "display_name": "Retro Bowling & Arcade",
+      "description": "Empty operational 1995–2005 cosmic bowling: navy interiors, warm maple lanes, CRT cabinets and masked blacklight-reactive carpet."
     }
   ],
   "assets": [
@@ -6960,6 +6965,1035 @@
       "color": "#e6f2fa",
       "category": "Winter Snow Attachments",
       "solid": false
+    },
+    {
+      "id": "arcade:bowling_pin",
+      "display_name": "Bowling Pin",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/bowling_pin.glb",
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": false,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:bowling_ball_purple",
+      "display_name": "Bowling Ball Purple",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/bowling_ball_purple.glb",
+      "size": [
+        0.216,
+        0.216,
+        0.216
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": false,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:bowling_ball_burgundy",
+      "display_name": "Bowling Ball Burgundy",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/bowling_ball_burgundy.glb",
+      "size": [
+        0.216,
+        0.216,
+        0.216
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": false,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:bowling_ball_black",
+      "display_name": "Bowling Ball Black",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/bowling_ball_black.glb",
+      "size": [
+        0.216,
+        0.216,
+        0.216
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": false,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:bowling_ball_cobalt",
+      "display_name": "Bowling Ball Cobalt",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/bowling_ball_cobalt.glb",
+      "size": [
+        0.216,
+        0.216,
+        0.216
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": false,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:bowling_ball_red",
+      "display_name": "Bowling Ball Red",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/bowling_ball_red.glb",
+      "size": [
+        0.216,
+        0.216,
+        0.216
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": false,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:bowling_ball_green",
+      "display_name": "Bowling Ball Green",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/bowling_ball_green.glb",
+      "size": [
+        0.216,
+        0.216,
+        0.216
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": false,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:bowling_ball_marbled",
+      "display_name": "Bowling Ball Marbled",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/bowling_ball_marbled.glb",
+      "size": [
+        0.216,
+        0.216,
+        0.216
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": false,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:ball_return",
+      "display_name": "Ball Return",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/ball_return.glb",
+      "size": [
+        0.86,
+        1.06,
+        1.85
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": true,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:ball_rack",
+      "display_name": "Ball Rack",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/ball_rack.glb",
+      "size": [
+        1.1,
+        0.72,
+        0.64
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": true,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:score_monitor",
+      "display_name": "Bowling Score CRT Monitor",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/score_monitor.glb",
+      "size": [
+        0.8,
+        1.12,
+        0.69
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": true,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:score_monitor_inactive",
+      "display_name": "Inactive Bowling Score CRT Monitor",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/score_monitor_inactive.glb",
+      "size": [
+        0.8,
+        1.12,
+        0.69
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": true,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:fixed_chair_red",
+      "display_name": "Fixed Chair Red",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/fixed_chair_red.glb",
+      "size": [
+        0.6,
+        0.92,
+        0.6
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": true,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:fixed_chair_blue",
+      "display_name": "Fixed Chair Blue",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/fixed_chair_blue.glb",
+      "size": [
+        0.6,
+        0.92,
+        0.6
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": true,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:pedestal_table",
+      "display_name": "Pedestal Table",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/pedestal_table.glb",
+      "size": [
+        0.9,
+        0.72,
+        0.9
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": true,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:soda_bottle",
+      "display_name": "Soda Bottle",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/soda_bottle.glb",
+      "size": [
+        0.095,
+        0.28,
+        0.095
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": false,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:vending_machine",
+      "display_name": "Vending Machine",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/vending_machine.glb",
+      "size": [
+        1.08,
+        2.03,
+        0.86
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": true,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:cabinet_racing",
+      "display_name": "Cabinet Racing",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/cabinet_racing.glb",
+      "size": [
+        0.82,
+        1.91,
+        1.0
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": true,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:cabinet_shooter",
+      "display_name": "Cabinet Shooter",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/cabinet_shooter.glb",
+      "size": [
+        0.74,
+        1.96,
+        0.84
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": true,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:cabinet_action",
+      "display_name": "Cabinet Action",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/cabinet_action.glb",
+      "size": [
+        0.76,
+        1.88,
+        0.87
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": true,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:cabinet_fighting",
+      "display_name": "Cabinet Fighting",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/cabinet_fighting.glb",
+      "size": [
+        0.9,
+        1.88,
+        0.93
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": true,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:cabinet_scifi",
+      "display_name": "Cabinet Scifi",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/cabinet_scifi.glb",
+      "size": [
+        0.78,
+        2.0,
+        0.89
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": true,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:pinball_cosmic",
+      "display_name": "Pinball Cosmic",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/pinball_cosmic.glb",
+      "size": [
+        0.74,
+        1.88,
+        1.42
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": true,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:pinball_comet",
+      "display_name": "Pinball Comet",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/pinball_comet.glb",
+      "size": [
+        0.74,
+        1.88,
+        1.42
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": true,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:change_machine",
+      "display_name": "Change Machine",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/change_machine.glb",
+      "size": [
+        0.52,
+        1.46,
+        0.48
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": true,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:neon_bowl",
+      "display_name": "BOWL Neon Sign",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/neon_bowl.glb",
+      "size": [
+        1.82,
+        0.86,
+        0.13
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": false,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:blacklight_fixture",
+      "display_name": "Blacklight Fixture",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/blacklight_fixture.glb",
+      "size": [
+        1.24,
+        0.105,
+        0.13
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": false,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:cat_plush",
+      "display_name": "Tuxedo Cat Plush",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/cat_plush.glb",
+      "size": [
+        0.25,
+        0.36,
+        0.235
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": false,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:litter_can",
+      "display_name": "Litter Can",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/litter_can.glb",
+      "size": [
+        0.066,
+        0.12,
+        0.066
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": false,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:litter_cup",
+      "display_name": "Litter Cup",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/litter_cup.glb",
+      "size": [
+        0.09,
+        0.14,
+        0.09
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": false,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:litter_wrapper",
+      "display_name": "Litter Wrapper",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/litter_wrapper.glb",
+      "size": [
+        0.12,
+        0.016,
+        0.085
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": false,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:litter_paper",
+      "display_name": "Litter Paper",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/litter_paper.glb",
+      "size": [
+        0.21,
+        0.012,
+        0.148
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": false,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:litter_bottle_fallen",
+      "display_name": "Litter Bottle Fallen",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/litter_bottle_fallen.glb",
+      "size": [
+        0.095,
+        0.095,
+        0.28
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": false,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:gutter_segment",
+      "display_name": "Gutter Segment",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/gutter_segment.glb",
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": false,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:lane_divider",
+      "display_name": "Lane Divider",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/lane_divider.glb",
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": false,
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+    },
+    {
+      "id": "arcade:tex_carpet_cosmic_bowl_01",
+      "display_name": "Cosmic Bowl Carpet Artwork",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/arcade/textures/floors/carpet_cosmic_bowl_01.png",
+      "surface": "floor",
+      "description": "Opaque seamless 256-square native artwork from a retained 1024-square master; 4 m repeat. Concept motifs reconstructed, never cropped."
+    },
+    {
+      "id": "arcade:tex_carpet_cosmic_bowl_uv_mask_01",
+      "display_name": "Cosmic Bowl Ultraviolet Mask",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/arcade/textures/floors/carpet_cosmic_bowl_uv_mask_01.png",
+      "description": "Opaque numeric RGB fluorescence coverage; black backing, motif-aligned response. Shares carpet UV coordinates, orientation and repeat."
+    },
+    {
+      "id": "arcade:carpet_cosmic_bowl_01",
+      "display_name": "Cosmic Bowl Reactive Carpet",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "arcade:tex_carpet_cosmic_bowl_01",
+      "tile_metres": 4,
+      "uv_response": 1.1,
+      "uv_response_mask": "arcade:tex_carpet_cosmic_bowl_uv_mask_01",
+      "specular": 0,
+      "shine": 0,
+      "description": "Ordinary readable navy carpet whose fluorescent motifs react only to visible in-range ultraviolet fixtures; no emission or neighbour lighting.",
+      "tint": [
+        0.4,
+        0.4,
+        0.4
+      ]
+    },
+    {
+      "id": "arcade:tex_carpet_neon_confetti_01",
+      "display_name": "Neon Confetti Carpet Artwork",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/arcade/textures/floors/carpet_neon_confetti_01.png",
+      "surface": "floor",
+      "description": "Opaque seamless 256-square native artwork from a retained 1024-square master; 4 m repeat. Concept motifs reconstructed, never cropped."
+    },
+    {
+      "id": "arcade:tex_carpet_neon_confetti_uv_mask_01",
+      "display_name": "Neon Confetti Ultraviolet Mask",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/arcade/textures/floors/carpet_neon_confetti_uv_mask_01.png",
+      "description": "Opaque numeric RGB fluorescence coverage; black backing, motif-aligned response. Shares carpet UV coordinates, orientation and repeat."
+    },
+    {
+      "id": "arcade:carpet_neon_confetti_01",
+      "display_name": "Neon Confetti Reactive Carpet",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "arcade:tex_carpet_neon_confetti_01",
+      "tile_metres": 4,
+      "uv_response": 1.1,
+      "uv_response_mask": "arcade:tex_carpet_neon_confetti_uv_mask_01",
+      "specular": 0,
+      "shine": 0,
+      "description": "Ordinary readable navy carpet whose fluorescent motifs react only to visible in-range ultraviolet fixtures; no emission or neighbour lighting.",
+      "tint": [
+        0.4,
+        0.4,
+        0.4
+      ]
+    },
+    {
+      "id": "arcade:tex_carpet_starburst_01",
+      "display_name": "Starburst Carpet Artwork",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/arcade/textures/floors/carpet_starburst_01.png",
+      "surface": "floor",
+      "description": "Opaque seamless 256-square native artwork from a retained 1024-square master; 4 m repeat. Concept motifs reconstructed, never cropped."
+    },
+    {
+      "id": "arcade:tex_carpet_starburst_uv_mask_01",
+      "display_name": "Starburst Ultraviolet Mask",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/arcade/textures/floors/carpet_starburst_uv_mask_01.png",
+      "description": "Opaque numeric RGB fluorescence coverage; black backing, motif-aligned response. Shares carpet UV coordinates, orientation and repeat."
+    },
+    {
+      "id": "arcade:carpet_starburst_01",
+      "display_name": "Starburst Reactive Carpet",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "arcade:tex_carpet_starburst_01",
+      "tile_metres": 4,
+      "uv_response": 1.1,
+      "uv_response_mask": "arcade:tex_carpet_starburst_uv_mask_01",
+      "specular": 0,
+      "shine": 0,
+      "description": "Ordinary readable navy carpet whose fluorescent motifs react only to visible in-range ultraviolet fixtures; no emission or neighbour lighting.",
+      "tint": [
+        0.4,
+        0.4,
+        0.4
+      ]
+    },
+    {
+      "id": "arcade:tex_carpet_retro_swirl_01",
+      "display_name": "Retro Swirl Carpet Artwork",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/arcade/textures/floors/carpet_retro_swirl_01.png",
+      "surface": "floor",
+      "description": "Opaque seamless 256-square native artwork from a retained 1024-square master; 4 m repeat. Concept motifs reconstructed, never cropped."
+    },
+    {
+      "id": "arcade:tex_carpet_retro_swirl_uv_mask_01",
+      "display_name": "Retro Swirl Ultraviolet Mask",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/arcade/textures/floors/carpet_retro_swirl_uv_mask_01.png",
+      "description": "Opaque numeric RGB fluorescence coverage; black backing, motif-aligned response. Shares carpet UV coordinates, orientation and repeat."
+    },
+    {
+      "id": "arcade:carpet_retro_swirl_01",
+      "display_name": "Retro Swirl Reactive Carpet",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "arcade:tex_carpet_retro_swirl_01",
+      "tile_metres": 4,
+      "uv_response": 1.1,
+      "uv_response_mask": "arcade:tex_carpet_retro_swirl_uv_mask_01",
+      "specular": 0,
+      "shine": 0,
+      "description": "Ordinary readable navy carpet whose fluorescent motifs react only to visible in-range ultraviolet fixtures; no emission or neighbour lighting.",
+      "tint": [
+        0.4,
+        0.4,
+        0.4
+      ]
+    },
+    {
+      "id": "arcade:tex_carpet_geometric_01",
+      "display_name": "Geometric Carpet Artwork",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/arcade/textures/floors/carpet_geometric_01.png",
+      "surface": "floor",
+      "description": "Opaque seamless 256-square native artwork from a retained 1024-square master; 4 m repeat. Concept motifs reconstructed, never cropped."
+    },
+    {
+      "id": "arcade:tex_carpet_geometric_uv_mask_01",
+      "display_name": "Geometric Ultraviolet Mask",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/arcade/textures/floors/carpet_geometric_uv_mask_01.png",
+      "description": "Opaque numeric RGB fluorescence coverage; black backing, motif-aligned response. Shares carpet UV coordinates, orientation and repeat."
+    },
+    {
+      "id": "arcade:carpet_geometric_01",
+      "display_name": "Geometric Reactive Carpet",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "arcade:tex_carpet_geometric_01",
+      "tile_metres": 4,
+      "uv_response": 1.1,
+      "uv_response_mask": "arcade:tex_carpet_geometric_uv_mask_01",
+      "specular": 0,
+      "shine": 0,
+      "description": "Ordinary readable navy carpet whose fluorescent motifs react only to visible in-range ultraviolet fixtures; no emission or neighbour lighting.",
+      "tint": [
+        0.4,
+        0.4,
+        0.4
+      ]
+    },
+    {
+      "id": "arcade:tex_carpet_arcade_grid_01",
+      "display_name": "Arcade Grid Carpet Artwork",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/arcade/textures/floors/carpet_arcade_grid_01.png",
+      "surface": "floor",
+      "description": "Opaque seamless 256-square native artwork from a retained 1024-square master; 4 m repeat. Concept motifs reconstructed, never cropped."
+    },
+    {
+      "id": "arcade:tex_carpet_arcade_grid_uv_mask_01",
+      "display_name": "Arcade Grid Ultraviolet Mask",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/arcade/textures/floors/carpet_arcade_grid_uv_mask_01.png",
+      "description": "Opaque numeric RGB fluorescence coverage; black backing, motif-aligned response. Shares carpet UV coordinates, orientation and repeat."
+    },
+    {
+      "id": "arcade:carpet_arcade_grid_01",
+      "display_name": "Arcade Grid Reactive Carpet",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "arcade:tex_carpet_arcade_grid_01",
+      "tile_metres": 4,
+      "uv_response": 1.1,
+      "uv_response_mask": "arcade:tex_carpet_arcade_grid_uv_mask_01",
+      "specular": 0,
+      "shine": 0,
+      "description": "Ordinary readable navy carpet whose fluorescent motifs react only to visible in-range ultraviolet fixtures; no emission or neighbour lighting.",
+      "tint": [
+        0.4,
+        0.4,
+        0.4
+      ]
+    },
+    {
+      "id": "arcade:tex_wall_navy_01",
+      "display_name": "Wall Navy Artwork",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/arcade/textures/walls/wall_navy_01.png",
+      "surface": "wall"
+    },
+    {
+      "id": "arcade:tex_ceiling_acoustic_01",
+      "display_name": "Ceiling Acoustic Artwork",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/arcade/textures/ceilings/ceiling_acoustic_01.png",
+      "surface": "ceiling"
+    },
+    {
+      "id": "arcade:tex_lane_wood_01",
+      "display_name": "Lane Wood Artwork",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/arcade/textures/floors/lane_wood_01.png",
+      "surface": "floor"
+    },
+    {
+      "id": "arcade:tex_gutter_dark_01",
+      "display_name": "Gutter Dark Artwork",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/arcade/textures/floors/gutter_dark_01.png",
+      "surface": "floor"
+    },
+    {
+      "id": "arcade:wall_navy_01",
+      "display_name": "Navy Painted Wall",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "arcade:tex_wall_navy_01",
+      "tile_metres": 4,
+      "specular": 0.08,
+      "shine": 0.12
+    },
+    {
+      "id": "arcade:ceiling_acoustic_01",
+      "display_name": "Commercial Acoustic Ceiling",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "ceiling",
+      "texture": "arcade:tex_ceiling_acoustic_01",
+      "tile_metres": 1.2,
+      "grid_metres": 1.2,
+      "specular": 0,
+      "shine": 0,
+      "tint": [
+        0.14,
+        0.2,
+        0.43
+      ]
+    },
+    {
+      "id": "arcade:lane_wood_01",
+      "display_name": "Honey Maple Bowling Lane",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "arcade:tex_lane_wood_01",
+      "tile_metres": 4,
+      "specular": 0.26,
+      "shine": 0.52,
+      "reflection_mode": "probe",
+      "reflection_strength": 0.12
+    },
+    {
+      "id": "arcade:gutter_dark_01",
+      "display_name": "Dark Bowling Gutter",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "arcade:tex_gutter_dark_01",
+      "tile_metres": 2,
+      "specular": 0.24,
+      "shine": 0.38
+    },
+    {
+      "id": "arcade:fluorescent_panel_01",
+      "display_name": "Retro Fluorescent Troffer",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "light",
+      "source": "file",
+      "model": "environments/arcade/textures/lights/fluorescent_panel_01.png",
+      "description": "Existing 1.2×0.6 m recessed family with fitted 2:1 diffuser; real neutral-warm local lighting."
+    },
+    {
+      "id": "arcade:blacklight_tube",
+      "display_name": "Ultraviolet Ceiling Batten",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "light",
+      "source": "file",
+      "model": "environments/arcade/textures/lights/blacklight_tube_01.png",
+      "description": "Operational 1.2×0.15 m narrow batten with fitted 8:1 violet lens and nonemissive dark housing. Visible brightness and ultraviolet excitation are distinct."
+    },
+    {
+      "id": "arcade:decal_bowling_mural_01",
+      "display_name": "Bowling Motion Mural",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "environments/arcade/decals/bowling_mural_01.png"
+    },
+    {
+      "id": "arcade:decal_lane_arrow_01",
+      "display_name": "Lane Arrow",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "environments/arcade/decals/lane_arrow_01.png"
+    },
+    {
+      "id": "arcade:decal_foul_line_01",
+      "display_name": "Bowling Foul Line",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "environments/arcade/decals/foul_line_01.png"
     }
   ]
 }

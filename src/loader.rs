@@ -2106,7 +2106,24 @@ fn validate_walls(level: &LevelDef) -> Result<(), String> {
 
 /// Ceiling/wall fixture position, intensity, colour and mounting height.
 fn validate_ceiling_lights(level: &LevelDef) -> Result<(), String> {
+    if level
+        .ceiling_lights
+        .iter()
+        .filter(|light| light.ultraviolet > 0.0)
+        .count()
+        > crate::render::MAX_BLACKLIGHTS
+    {
+        return Err(
+            "At most four ultraviolet fixtures may be authored, including disabled fixtures"
+                .to_string(),
+        );
+    }
     for (i, light) in level.ceiling_lights.iter().enumerate() {
+        if !light.ultraviolet.is_finite() || !(0.0..=8.0).contains(&light.ultraviolet) {
+            return Err(format!(
+                "Ceiling light {i} ultraviolet must be finite and between 0 and 8"
+            ));
+        }
         if !light.x.is_finite() || !light.z.is_finite() || !light.rotation_degrees.is_finite() {
             return Err(format!(
                 "Ceiling light {i} position and rotation must be finite numbers"
@@ -5441,7 +5458,7 @@ pub fn resolve_fixture_sheets(
                 None
             }
         };
-        if light.switchable {
+        if light.switchable || kind == crate::lighting::FixtureKind::BlacklightTube {
             if let Some(sheet) = source {
                 switchable.push(sheet);
             }
@@ -6294,3 +6311,28 @@ impl LevelManager {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod ultraviolet_validation_tests {
+    #[test]
+    fn ultraviolet_fixture_budget_counts_disabled_authored_sources() -> Result<(), String> {
+        let source = r#"{"format_version":3,"id":"uv_validation","name":"UV validation","spawn":{"x":1,"z":1},"rooms":[{"x":0,"z":0,"width":4,"depth":4}],"ceiling_lights":[{"fixture":"arcade:blacklight_tube","x":1,"z":1,"ultraviolet":1,"enabled":false}]}"#;
+        let mut level =
+            crate::level::LevelDef::from_json(source).map_err(|error| error.to_string())?;
+        super::validate_ceiling_lights(&level)?;
+        let fixture = level.ceiling_lights.first().cloned().ok_or("fixture")?;
+        level.ceiling_lights = vec![fixture; 5];
+        assert!(
+            super::validate_ceiling_lights(&level).is_err(),
+            "disabled fixtures still reserve stable source slots"
+        );
+        level.ceiling_lights.truncate(1);
+        let invalid_fixture = level.ceiling_lights.first_mut().ok_or("fixture")?;
+        invalid_fixture.ultraviolet = f32::NAN;
+        assert!(
+            super::validate_ceiling_lights(&level).is_err(),
+            "non-finite excitation must fail"
+        );
+        Ok(())
+    }
+}

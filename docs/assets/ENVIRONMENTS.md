@@ -17,6 +17,7 @@ defines exports and checks. Paths below are repository-relative unless stated.
 | Winter | 39 | `assets/environments/winter/` | Winter / `winter.py`, `winter_village.py`, `string_lights.py` |
 | Beach | 29 | `assets/environments/beach/` | Beach Demo / `beach_nature.py`, `beach_structures.py`, `beach_coast.py` |
 | Frutiger Aero | 24 | `assets/environments/frutiger_aero/` | Aero Demo / `frutiger_aero.py` |
+| Retro Arcade | 35 | `assets/environments/arcade/` | Cosmic Lanes & Arcade / `retro_arcade.py`, `build_retro_arcade.py` |
 
 Counts describe the October 11, 2026 catalog. All part modules above live in
 `tools/props/parts/`. Any kit can be used in any map. Native PNGs, larger masters

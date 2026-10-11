@@ -1521,6 +1521,7 @@ fn collect_dependencies(
             catalog.assets().material_texture(&id),
             material.and_then(|entry| entry.normal_texture.as_deref()),
             material.and_then(|entry| entry.emissive_mask.as_deref()),
+            material.and_then(|entry| entry.uv_response_mask.as_deref()),
         ]
         .into_iter()
         .flatten()

@@ -21,7 +21,7 @@ class CuratedCompileTests(unittest.TestCase):
         with mock.patch.dict(os.environ):
             os.environ.pop('PLACES_PACKAGE_TEST_IDS', None)
             self.assertEqual(selected_sources(), [source for _, source in COMPILE.lineup()])
-            self.assertEqual(len(selected_sources()), 8)
+            self.assertEqual(len(selected_sources()), 9)
 
     def test_archive_shards_reject_unknown_or_duplicate_maps(self):
         for selected in ('', 'obsolete_dev_map', 'winter,winter'):

@@ -54,9 +54,10 @@ struct Material {
     emission_vertex: f32,
     // Animated emission multiplier, 1.0 without an animation.
     emission_scale: f32,
-    // Explicit tail padding; the struct is 80 bytes, 16-byte aligned.
-    _padding0: f32,
-    _padding1: f32,
+    // Independent UV response and linear pigment tint; 96 bytes, align 16.
+    uv_response: f32,
+    uv_mask_enabled: f32,
+    uv_tint: vec4<f32>,
 };
 
 // One authored regional fog volume, in world space. `min_falloff.xyz` is the
@@ -136,6 +137,14 @@ struct Environment {
     entity_direct: array<EntityDirectLight, 8>,
     contact_shadows: array<ContactShadow, 8>,
     contact_shadow_count: vec4<u32>,
+    blacklights: array<EntityDirectLight, 4>,
+    uv_receiver: BlacklightReceiver,
+};
+
+struct BlacklightReceiver {
+    bounds_min: vec4<f32>,
+    bounds_extent: vec4<f32>,
+    visibility: array<vec4<f32>, 8>,
 };
 
 struct EntityLightingAnchor {
@@ -187,6 +196,10 @@ var normal_sampler: sampler;
 var emission_texture: texture_2d<f32>;
 @group(2) @binding(4)
 var emission_sampler: sampler;
+@group(2) @binding(5)
+var uv_texture: texture_2d<f32>;
+@group(2) @binding(6)
+var uv_sampler: sampler;
 
 // Group 3 is the frame/level environment: the baked-light switch and scale,
 // fog, the prepared lightmap layer array, the reflection probe cubemap and the
@@ -287,6 +300,7 @@ struct WorldVertex {
     @location(4) tangent: vec3<f32>,
     // Bitangent sign: cross(normal, tangent) * handedness is UV-v.
     @location(5) handedness: f32,
+    @location(8) uv_visibility: vec4<f32>,
 };
 
 struct VsOut {
@@ -301,6 +315,7 @@ struct VsOut {
     @location(6) lightmap_uv: vec2<f32>,
     @location(7) lightmap_page: f32,
     @location(8) local_position: vec3<f32>,
+    @location(9) uv_visibility: vec4<f32>,
 };
 
 @vertex
@@ -310,6 +325,7 @@ fn vs_main(vertex: WorldVertex) -> VsOut {
     out.clip = camera.view_projection * world;
     out.uv = vertex.uv;
     out.color = vertex.color;
+    out.uv_visibility = vertex.uv_visibility;
     // Normals use the inverse transpose; tangents use the model transform.
     // The material stage normalizes and re-orthogonalizes the frame.
     let normal_matrix = mat3x3<f32>(environment.normal_model[0].xyz, environment.normal_model[1].xyz, environment.normal_model[2].xyz);
@@ -721,6 +737,42 @@ struct Shaded {
     alpha: f32,
 };
 
+// Local excitation of authored pigment. This does not feed emission or transport.
+fn ultraviolet_response(in: VsOut, normal: vec3<f32>, base: vec3<f32>) -> vec3<f32> {
+    if (material.uv_response <= 0.0) { return vec3<f32>(0.0); }
+    var mask = vec3<f32>(1.0);
+    if (material.uv_mask_enabled > 0.5) { mask = textureSample(uv_texture, uv_sampler, in.uv).rgb; }
+    var visibility = in.uv_visibility;
+    if (environment.uv_receiver.bounds_min.w > 0.5) {
+        visibility = vec4<f32>(0.0);
+        let coordinate = clamp((in.local_position - environment.uv_receiver.bounds_min.xyz) / max(environment.uv_receiver.bounds_extent.xyz, vec3<f32>(1.0e-6)), vec3<f32>(0.0), vec3<f32>(1.0));
+        for (var corner = 0u; corner < 8u; corner += 1u) {
+            let x = select(1.0 - coordinate.x, coordinate.x, (corner & 1u) != 0u);
+            let y = select(1.0 - coordinate.y, coordinate.y, (corner & 2u) != 0u);
+            let z = select(1.0 - coordinate.z, coordinate.z, (corner & 4u) != 0u);
+            visibility += environment.uv_receiver.visibility[corner] * x * y * z;
+        }
+    }
+    var excitation = 0.0;
+    for (var slot = 0u; slot < 4u; slot += 1u) {
+        let source = environment.blacklights[slot];
+        if (source.color_strength.w <= 0.0 || visibility[slot] <= 0.0) { continue; }
+        let delta = source.position_range.xyz - in.world_position;
+        if (source.extent_falloff.w > 0.5 && delta.y <= 0.0) { continue; }
+        let horizontal = max(abs(delta.xz) - source.extent_falloff.xy, vec2<f32>(0.0));
+        let distance = length(vec3<f32>(horizontal.x, delta.y, horizontal.y));
+        let range = source.position_range.w;
+        if (range <= 0.0 || distance >= range) { continue; }
+        let u = 1.0 - distance / range;
+        var falloff = u * u * (3.0 - 2.0 * u);
+        if (source.extent_falloff.z > 1.5) { falloff = 1.0; }
+        else if (source.extent_falloff.z > 0.5) { falloff = u; }
+        let incoming = unit_direction_or_zero(delta);
+        excitation += source.color_strength.w * visibility[slot] * falloff * max(dot(normal, incoming), 0.0);
+    }
+    return base * mask * material.uv_response * clamp(excitation, 0.0, 1.0);
+}
+
 // The complete un-shadowed world fragment: lit + sheen + reflection + emission,
 // then fog, all in linear light.
 fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
@@ -744,7 +796,9 @@ fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
     let reflection = surface_reflection(in, normal, view);
     let emission = surface_emission(in, base_linear);
     let lit = lit_linear(base_linear, in.color.rgb, light, material.emission_vertex);
-    let color = fogged(lit + sheen + reflection + emission, in.world_position);
+    let pigment = base_linear * material.uv_tint.rgb;
+    let fluorescence = ultraviolet_response(in, normal, pigment);
+    let color = fogged(lit + sheen + reflection + emission + fluorescence, in.world_position);
     var out: Shaded;
     out.color = storm_fog(camera.position, in.world_position, color);
     out.alpha = alpha;

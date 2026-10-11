@@ -12,7 +12,7 @@
 //!   its per-frame linear irradiance and directional moment, so a moving object is
 //!   lit coherently without touching its vertex buffer.
 //!
-//! Nothing here is created per frame: `sync` writes the small per-object
+//! Nothing here is created per frame: `sync_with_blacklight` writes the small per-object
 //! uniforms and
 //! reuses the buffers, materials and bind groups uploaded with the level.
 
@@ -37,6 +37,7 @@ struct DynamicMeshGpu {
     index_count: u32,
     /// GPU sheet per model texture.
     textures: Vec<Arc<GpuTexture>>,
+    uv_masks: Vec<Option<Arc<GpuTexture>>>,
     /// One entry per drawable primitive.
     submeshes: Vec<DynamicSubmeshGpu>,
 }
@@ -68,12 +69,13 @@ struct DynamicObjectGpu {
     mesh: usize,
     /// This object's environment binding: model matrix + probe scale.
     environment: EnvironmentBindings,
-    /// World-space bounds from the last [`WgpuDynamic::sync`].
+    /// World-space bounds from the last [`WgpuDynamic::sync_with_blacklight`].
     world_bounds: Aabb,
     /// Indices into [`WgpuDynamic::materials`], one per mesh submesh.
     materials: Vec<usize>,
     /// True per submesh after the object's emission override is applied.
     emissive: Vec<bool>,
+    uv_reactive: bool,
 }
 
 /// What one dynamic upload or frame did, as plain counters.
@@ -148,6 +150,19 @@ impl WgpuDynamic {
         for mesh in scene.meshes() {
             let mut textures: Vec<Arc<GpuTexture>> = Vec::with_capacity(mesh.textures.len());
             for (index, image) in mesh.textures.iter().enumerate() {
+                if super::material::ultraviolet_only_texture(
+                    index,
+                    mesh.submeshes.iter().map(|part| {
+                        (
+                            part.texture,
+                            part.emission.mask,
+                            part.response.fluorescence.mask,
+                        )
+                    }),
+                ) {
+                    textures.push(ctx.cache.fallback());
+                    continue;
+                }
                 let logical = format!("dynamic:{}:{}", mesh.model_path, index);
                 let (outcome, texture) = ctx.cache.get_or_upload_fitted(
                     ctx.device,
@@ -169,6 +184,27 @@ impl WgpuDynamic {
                 }
                 textures.push(texture);
             }
+            let uv_masks = mesh
+                .textures
+                .iter()
+                .enumerate()
+                .map(|(index, image)| {
+                    let slot = u32::try_from(index).unwrap_or(u32::MAX);
+                    mesh.submeshes
+                        .iter()
+                        .any(|submesh| submesh.response.fluorescence.mask == Some(slot))
+                        .then(|| {
+                            super::material::upload_uv_mask(
+                                ctx.device,
+                                ctx.queue,
+                                ctx.cache,
+                                &format!("dynamic:{}:uv", mesh.model_path),
+                                image,
+                                ctx.level,
+                            )
+                        })
+                })
+                .collect();
             // Untextured primitives still draw with the asset-backed white
             // fallback; they must not borrow another primitive's texture.
             let white = textures.len();
@@ -194,7 +230,7 @@ impl WgpuDynamic {
                 .collect();
             value
                 .meshes
-                .push(Self::upload_mesh(ctx, mesh, textures, submeshes));
+                .push(Self::upload_mesh(ctx, mesh, textures, uv_masks, submeshes));
         }
         for object in scene.objects() {
             let Some(mesh_index) =
@@ -229,12 +265,23 @@ impl WgpuDynamic {
                     .and_then(|index| mesh.textures.get(index).cloned());
                 let record = EmissionRecord::material(emission, mask_texture.is_some());
                 let mask = mask_texture.unwrap_or_else(|| ctx.cache.fallback());
-                value.materials.push(GpuMaterial::model_with_alpha(
+                let uv_mask = submesh
+                    .response
+                    .fluorescence
+                    .mask
+                    .and_then(|index| {
+                        mesh.uv_masks
+                            .get(usize::try_from(index).unwrap_or(usize::MAX))
+                    })
+                    .and_then(Clone::clone)
+                    .unwrap_or_else(|| ctx.cache.fallback());
+                value.materials.push(GpuMaterial::model_with_fluorescence(
                     ctx.device,
                     ctx.queue,
                     ctx.material_layout,
                     ctx.cache,
                     &mask,
+                    &uv_mask,
                     super::material::ModelMaterial {
                         emission: record,
                         alpha: submesh.alpha,
@@ -252,6 +299,10 @@ impl WgpuDynamic {
                 world_bounds: object.world_bounds(),
                 materials,
                 emissive,
+                uv_reactive: mesh
+                    .submeshes
+                    .iter()
+                    .any(|submesh| submesh.response.fluorescence.strength > 0.0),
             });
         }
         value.finish_stats(scene);
@@ -263,6 +314,7 @@ impl WgpuDynamic {
         ctx: &DynamicUploadContext<'_>,
         mesh: &DynamicMesh,
         textures: Vec<Arc<GpuTexture>>,
+        uv_masks: Vec<Option<Arc<GpuTexture>>>,
         submeshes: Vec<DynamicSubmeshGpu>,
     ) -> DynamicMeshGpu {
         let vertices: Vec<WorldVertex> = mesh
@@ -294,6 +346,7 @@ impl WgpuDynamic {
             vertex_count: u32::try_from(mesh.vertices.len()).unwrap_or(u32::MAX),
             index_count: u32::try_from(mesh.indices.len()).unwrap_or(u32::MAX),
             textures,
+            uv_masks,
             submeshes,
         }
     }
@@ -333,11 +386,12 @@ impl WgpuDynamic {
     /// matrix and probe scale on top, so a light switch reaches the objects'
     /// uniforms the next time they sync. Called once per frame; a still object
     /// writes nothing (the uniform compares equal).
-    pub fn sync(
+    pub fn sync_with_blacklight(
         &mut self,
         queue: &wgpu::Queue,
         scene: &DynamicScene,
         environment: &EnvironmentUniform,
+        visibility: Option<crate::render::common::blacklight::BlacklightVisibility<'_>>,
     ) {
         for (slot, object) in self.objects.iter_mut().enumerate() {
             let Some(live) = scene.objects().get(slot) else {
@@ -346,7 +400,13 @@ impl WgpuDynamic {
             let uniform = environment
                 .with_model(live.transform())
                 .with_entity_lighting(live.entity_lighting())
-                .with_spatial_lighting(live.spatial_lighting());
+                .with_spatial_lighting(live.spatial_lighting())
+                .with_uv_receiver(
+                    visibility.filter(|_| object.uv_reactive),
+                    live.mesh().bounds,
+                    live.transform(),
+                    Some(live.id()),
+                );
             let _update_stats = object.environment.update(queue, &uniform);
             object.world_bounds = live.world_bounds();
             object.culling_reflected = super::world::culling_reflected(live.transform());

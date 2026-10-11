@@ -6,3 +6,4 @@ lantern_hollow
 winter
 beach_demo
 frutiger_aero_demo
+retro_arcade_demo

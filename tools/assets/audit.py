@@ -355,7 +355,7 @@ def inventory(root=ROOT, workers=None):
     while changed:
         changed = False
         for asset_id, entry in entries.items():
-            for key in ("texture", "normal_texture", "emissive_mask", "baseboard"):
+            for key in ("texture", "normal_texture", "emissive_mask", "uv_response_mask", "baseboard"):
                 target = entry.get(key)
                 if target in entries:
                     before = len(refs[target])+len(code_refs[target])

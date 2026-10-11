@@ -2347,7 +2347,7 @@ pub fn fixture_face_material_index(
     switchable: bool,
     kind: crate::lighting::FixtureKind,
 ) -> u32 {
-    if switchable {
+    if switchable || kind == crate::lighting::FixtureKind::BlacklightTube {
         FIXTURE_SWITCHABLE_MATERIAL_BASE
             .saturating_add(u32::try_from(fixture_index).unwrap_or(u32::MAX))
     } else {
@@ -5586,6 +5586,9 @@ pub struct LightFixtureDef {
     /// never changes — the default, and the cheapest.
     #[serde(default)]
     pub switchable: bool,
+    /// Ultraviolet excitation, separate from visible RGB and face emission.
+    #[serde(default)]
+    pub ultraviolet: f32,
     /// What this fixture's events do.
     #[serde(default)]
     pub bindings: Vec<EventBindingDef>,

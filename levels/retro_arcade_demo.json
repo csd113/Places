@@ -1,0 +1,3658 @@
+{
+  "format_version": 3,
+  "id": "retro_arcade_demo",
+  "name": "Cosmic Lanes & Arcade",
+  "author": "Places",
+  "spawn": {
+    "x": 6.8,
+    "z": 28.0,
+    "yaw_degrees": 25
+  },
+  "defaults": {
+    "wall": "arcade:wall_navy_01",
+    "floor": "arcade:carpet_cosmic_bowl_01",
+    "ceiling": "arcade:ceiling_acoustic_01"
+  },
+  "environment": {
+    "fog": {
+      "color": [
+        0.025,
+        0.035,
+        0.09
+      ],
+      "density": 0,
+      "reference_y": 1,
+      "height_gain": 0
+    }
+  },
+  "rooms": [
+    {
+      "x": 0,
+      "z": 0,
+      "width": 10,
+      "depth": 15,
+      "height": 3.2
+    },
+    {
+      "x": 0,
+      "z": 15,
+      "width": 10,
+      "depth": 15,
+      "height": 3.2
+    },
+    {
+      "x": 10,
+      "z": 0,
+      "width": 10,
+      "depth": 15,
+      "height": 3.2
+    },
+    {
+      "x": 10,
+      "z": 15,
+      "width": 10,
+      "depth": 15,
+      "height": 3.2
+    }
+  ],
+  "walls": [
+    {
+      "x": -0.24,
+      "z": -0.24,
+      "width": 20.48,
+      "depth": 0.24,
+      "height": 3.2,
+      "material": "arcade:wall_navy_01"
+    },
+    {
+      "x": -0.24,
+      "z": 30,
+      "width": 20.48,
+      "depth": 0.24,
+      "height": 3.2,
+      "material": "arcade:wall_navy_01"
+    },
+    {
+      "x": -0.24,
+      "z": 0,
+      "width": 0.24,
+      "depth": 30,
+      "height": 3.2,
+      "material": "arcade:wall_navy_01"
+    },
+    {
+      "x": 20,
+      "z": 0,
+      "width": 0.24,
+      "depth": 30,
+      "height": 3.2,
+      "material": "arcade:wall_navy_01"
+    }
+  ],
+  "floor_patches": [
+    {
+      "x": 11.450000000000001,
+      "z": 1.5,
+      "width": 0.4,
+      "depth": 18.5,
+      "material": "arcade:gutter_dark_01"
+    },
+    {
+      "x": 13.450000000000001,
+      "z": 1.5,
+      "width": 0.4,
+      "depth": 18.5,
+      "material": "arcade:gutter_dark_01"
+    },
+    {
+      "x": 15.450000000000001,
+      "z": 1.5,
+      "width": 0.4,
+      "depth": 18.5,
+      "material": "arcade:gutter_dark_01"
+    },
+    {
+      "x": 10.125,
+      "z": 1.5,
+      "width": 1.05,
+      "depth": 18.5,
+      "material": "arcade:lane_wood_01"
+    },
+    {
+      "x": 12.125,
+      "z": 1.5,
+      "width": 1.05,
+      "depth": 18.5,
+      "material": "arcade:lane_wood_01"
+    },
+    {
+      "x": 14.125,
+      "z": 1.5,
+      "width": 1.05,
+      "depth": 18.5,
+      "material": "arcade:lane_wood_01"
+    },
+    {
+      "x": 16.125,
+      "z": 1.5,
+      "width": 1.05,
+      "depth": 18.5,
+      "material": "arcade:lane_wood_01"
+    },
+    {
+      "x": 9.72,
+      "z": 20,
+      "width": 8.0,
+      "depth": 3.0,
+      "material": "arcade:lane_wood_01"
+    },
+    {
+      "x": 0.4,
+      "z": 4.5,
+      "width": 4,
+      "depth": 4,
+      "material": "arcade:carpet_neon_confetti_01"
+    },
+    {
+      "x": 4.4,
+      "z": 4.5,
+      "width": 4,
+      "depth": 4,
+      "material": "arcade:carpet_starburst_01"
+    },
+    {
+      "x": 0.4,
+      "z": 8.5,
+      "width": 4,
+      "depth": 4,
+      "material": "arcade:carpet_retro_swirl_01"
+    },
+    {
+      "x": 4.4,
+      "z": 8.5,
+      "width": 4,
+      "depth": 4,
+      "material": "arcade:carpet_geometric_01"
+    },
+    {
+      "x": 0.4,
+      "z": 12.5,
+      "width": 8,
+      "depth": 4,
+      "material": "arcade:carpet_arcade_grid_01"
+    }
+  ],
+  "floor_regions": [
+    {
+      "x": 9.85,
+      "z": 1.75,
+      "width": 0.27,
+      "depth": 18,
+      "offset_y": -0.17,
+      "material": "arcade:gutter_dark_01",
+      "edge_material": "arcade:gutter_dark_01"
+    },
+    {
+      "x": 11.180000000000001,
+      "z": 1.75,
+      "width": 0.27,
+      "depth": 18,
+      "offset_y": -0.17,
+      "material": "arcade:gutter_dark_01",
+      "edge_material": "arcade:gutter_dark_01"
+    },
+    {
+      "x": 11.85,
+      "z": 1.75,
+      "width": 0.27,
+      "depth": 18,
+      "offset_y": -0.17,
+      "material": "arcade:gutter_dark_01",
+      "edge_material": "arcade:gutter_dark_01"
+    },
+    {
+      "x": 13.180000000000001,
+      "z": 1.75,
+      "width": 0.27,
+      "depth": 18,
+      "offset_y": -0.17,
+      "material": "arcade:gutter_dark_01",
+      "edge_material": "arcade:gutter_dark_01"
+    },
+    {
+      "x": 13.85,
+      "z": 1.75,
+      "width": 0.27,
+      "depth": 18,
+      "offset_y": -0.17,
+      "material": "arcade:gutter_dark_01",
+      "edge_material": "arcade:gutter_dark_01"
+    },
+    {
+      "x": 15.180000000000001,
+      "z": 1.75,
+      "width": 0.27,
+      "depth": 18,
+      "offset_y": -0.17,
+      "material": "arcade:gutter_dark_01",
+      "edge_material": "arcade:gutter_dark_01"
+    },
+    {
+      "x": 15.85,
+      "z": 1.75,
+      "width": 0.27,
+      "depth": 18,
+      "offset_y": -0.17,
+      "material": "arcade:gutter_dark_01",
+      "edge_material": "arcade:gutter_dark_01"
+    },
+    {
+      "x": 17.179999999999996,
+      "z": 1.75,
+      "width": 0.27,
+      "depth": 18,
+      "offset_y": -0.17,
+      "material": "arcade:gutter_dark_01",
+      "edge_material": "arcade:gutter_dark_01"
+    }
+  ],
+  "props": [
+    {
+      "id": "lane_1_gutter_-1_0",
+      "model": "arcade:gutter_segment",
+      "x": 9.985,
+      "y": 0.045,
+      "z": 3.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_gutter_-1_1",
+      "model": "arcade:gutter_segment",
+      "x": 9.985,
+      "y": 0.045,
+      "z": 6.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_gutter_-1_2",
+      "model": "arcade:gutter_segment",
+      "x": 9.985,
+      "y": 0.045,
+      "z": 9.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_gutter_-1_3",
+      "model": "arcade:gutter_segment",
+      "x": 9.985,
+      "y": 0.045,
+      "z": 12.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_gutter_-1_4",
+      "model": "arcade:gutter_segment",
+      "x": 9.985,
+      "y": 0.045,
+      "z": 15.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_gutter_-1_5",
+      "model": "arcade:gutter_segment",
+      "x": 9.985,
+      "y": 0.045,
+      "z": 18.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_gutter_1_0",
+      "model": "arcade:gutter_segment",
+      "x": 11.315000000000001,
+      "y": 0.045,
+      "z": 3.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_gutter_1_1",
+      "model": "arcade:gutter_segment",
+      "x": 11.315000000000001,
+      "y": 0.045,
+      "z": 6.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_gutter_1_2",
+      "model": "arcade:gutter_segment",
+      "x": 11.315000000000001,
+      "y": 0.045,
+      "z": 9.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_gutter_1_3",
+      "model": "arcade:gutter_segment",
+      "x": 11.315000000000001,
+      "y": 0.045,
+      "z": 12.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_gutter_1_4",
+      "model": "arcade:gutter_segment",
+      "x": 11.315000000000001,
+      "y": 0.045,
+      "z": 15.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_gutter_1_5",
+      "model": "arcade:gutter_segment",
+      "x": 11.315000000000001,
+      "y": 0.045,
+      "z": 18.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_divider_0",
+      "model": "arcade:lane_divider",
+      "x": 11.61,
+      "y": 0,
+      "z": 3.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_divider_1",
+      "model": "arcade:lane_divider",
+      "x": 11.61,
+      "y": 0,
+      "z": 6.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_divider_2",
+      "model": "arcade:lane_divider",
+      "x": 11.61,
+      "y": 0,
+      "z": 9.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_divider_3",
+      "model": "arcade:lane_divider",
+      "x": 11.61,
+      "y": 0,
+      "z": 12.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_divider_4",
+      "model": "arcade:lane_divider",
+      "x": 11.61,
+      "y": 0,
+      "z": 15.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_divider_5",
+      "model": "arcade:lane_divider",
+      "x": 11.61,
+      "y": 0,
+      "z": 18.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_pin_0_0",
+      "model": "arcade:bowling_pin",
+      "x": 10.65,
+      "y": 0,
+      "z": 3.6,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_pin_1_0",
+      "model": "arcade:bowling_pin",
+      "x": 10.545,
+      "y": 0,
+      "z": 3.41,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_pin_1_1",
+      "model": "arcade:bowling_pin",
+      "x": 10.755,
+      "y": 0,
+      "z": 3.41,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_pin_2_0",
+      "model": "arcade:bowling_pin",
+      "x": 10.44,
+      "y": 0,
+      "z": 3.22,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_pin_2_1",
+      "model": "arcade:bowling_pin",
+      "x": 10.65,
+      "y": 0,
+      "z": 3.22,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_pin_2_2",
+      "model": "arcade:bowling_pin",
+      "x": 10.860000000000001,
+      "y": 0,
+      "z": 3.22,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_pin_3_0",
+      "model": "arcade:bowling_pin",
+      "x": 10.335,
+      "y": 0,
+      "z": 3.0300000000000002,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_pin_3_1",
+      "model": "arcade:bowling_pin",
+      "x": 10.545,
+      "y": 0,
+      "z": 3.0300000000000002,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_pin_3_2",
+      "model": "arcade:bowling_pin",
+      "x": 10.755,
+      "y": 0,
+      "z": 3.0300000000000002,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_pin_3_3",
+      "model": "arcade:bowling_pin",
+      "x": 10.965,
+      "y": 0,
+      "z": 3.0300000000000002,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_1_score_crt",
+      "model": "arcade:score_monitor",
+      "x": 10.65,
+      "y": 2.05,
+      "z": 19.7,
+      "rotation_degrees": 0,
+      "size": [
+        0.8,
+        1.12,
+        0.69
+      ],
+      "solid": false,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            0.28,
+            0.37
+          ],
+          "color": [
+            0.17,
+            0.35,
+            1
+          ],
+          "intensity": 0.1,
+          "range": 2.4
+        }
+      ]
+    },
+    {
+      "id": "lane_2_gutter_-1_0",
+      "model": "arcade:gutter_segment",
+      "x": 11.985,
+      "y": 0.045,
+      "z": 3.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_gutter_-1_1",
+      "model": "arcade:gutter_segment",
+      "x": 11.985,
+      "y": 0.045,
+      "z": 6.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_gutter_-1_2",
+      "model": "arcade:gutter_segment",
+      "x": 11.985,
+      "y": 0.045,
+      "z": 9.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_gutter_-1_3",
+      "model": "arcade:gutter_segment",
+      "x": 11.985,
+      "y": 0.045,
+      "z": 12.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_gutter_-1_4",
+      "model": "arcade:gutter_segment",
+      "x": 11.985,
+      "y": 0.045,
+      "z": 15.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_gutter_-1_5",
+      "model": "arcade:gutter_segment",
+      "x": 11.985,
+      "y": 0.045,
+      "z": 18.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_gutter_1_0",
+      "model": "arcade:gutter_segment",
+      "x": 13.315000000000001,
+      "y": 0.045,
+      "z": 3.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_gutter_1_1",
+      "model": "arcade:gutter_segment",
+      "x": 13.315000000000001,
+      "y": 0.045,
+      "z": 6.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_gutter_1_2",
+      "model": "arcade:gutter_segment",
+      "x": 13.315000000000001,
+      "y": 0.045,
+      "z": 9.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_gutter_1_3",
+      "model": "arcade:gutter_segment",
+      "x": 13.315000000000001,
+      "y": 0.045,
+      "z": 12.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_gutter_1_4",
+      "model": "arcade:gutter_segment",
+      "x": 13.315000000000001,
+      "y": 0.045,
+      "z": 15.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_gutter_1_5",
+      "model": "arcade:gutter_segment",
+      "x": 13.315000000000001,
+      "y": 0.045,
+      "z": 18.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_divider_0",
+      "model": "arcade:lane_divider",
+      "x": 13.61,
+      "y": 0,
+      "z": 3.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_divider_1",
+      "model": "arcade:lane_divider",
+      "x": 13.61,
+      "y": 0,
+      "z": 6.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_divider_2",
+      "model": "arcade:lane_divider",
+      "x": 13.61,
+      "y": 0,
+      "z": 9.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_divider_3",
+      "model": "arcade:lane_divider",
+      "x": 13.61,
+      "y": 0,
+      "z": 12.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_divider_4",
+      "model": "arcade:lane_divider",
+      "x": 13.61,
+      "y": 0,
+      "z": 15.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_divider_5",
+      "model": "arcade:lane_divider",
+      "x": 13.61,
+      "y": 0,
+      "z": 18.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_pin_0_0",
+      "model": "arcade:bowling_pin",
+      "x": 12.65,
+      "y": 0,
+      "z": 3.6,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_pin_1_0",
+      "model": "arcade:bowling_pin",
+      "x": 12.545,
+      "y": 0,
+      "z": 3.41,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_pin_1_1",
+      "model": "arcade:bowling_pin",
+      "x": 12.755,
+      "y": 0,
+      "z": 3.41,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_pin_2_0",
+      "model": "arcade:bowling_pin",
+      "x": 12.44,
+      "y": 0,
+      "z": 3.22,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_pin_2_1",
+      "model": "arcade:bowling_pin",
+      "x": 12.65,
+      "y": 0,
+      "z": 3.22,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_pin_2_2",
+      "model": "arcade:bowling_pin",
+      "x": 12.860000000000001,
+      "y": 0,
+      "z": 3.22,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_pin_3_0",
+      "model": "arcade:bowling_pin",
+      "x": 12.335,
+      "y": 0,
+      "z": 3.0300000000000002,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_pin_3_1",
+      "model": "arcade:bowling_pin",
+      "x": 12.545,
+      "y": 0,
+      "z": 3.0300000000000002,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_pin_3_2",
+      "model": "arcade:bowling_pin",
+      "x": 12.755,
+      "y": 0,
+      "z": 3.0300000000000002,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_pin_3_3",
+      "model": "arcade:bowling_pin",
+      "x": 12.965,
+      "y": 0,
+      "z": 3.0300000000000002,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_2_score_crt",
+      "model": "arcade:score_monitor",
+      "x": 12.65,
+      "y": 2.05,
+      "z": 19.7,
+      "rotation_degrees": 0,
+      "size": [
+        0.8,
+        1.12,
+        0.69
+      ],
+      "solid": false,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            0.28,
+            0.37
+          ],
+          "color": [
+            0.17,
+            0.35,
+            1
+          ],
+          "intensity": 0.1,
+          "range": 2.4
+        }
+      ]
+    },
+    {
+      "id": "lane_3_gutter_-1_0",
+      "model": "arcade:gutter_segment",
+      "x": 13.985,
+      "y": 0.045,
+      "z": 3.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_gutter_-1_1",
+      "model": "arcade:gutter_segment",
+      "x": 13.985,
+      "y": 0.045,
+      "z": 6.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_gutter_-1_2",
+      "model": "arcade:gutter_segment",
+      "x": 13.985,
+      "y": 0.045,
+      "z": 9.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_gutter_-1_3",
+      "model": "arcade:gutter_segment",
+      "x": 13.985,
+      "y": 0.045,
+      "z": 12.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_gutter_-1_4",
+      "model": "arcade:gutter_segment",
+      "x": 13.985,
+      "y": 0.045,
+      "z": 15.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_gutter_-1_5",
+      "model": "arcade:gutter_segment",
+      "x": 13.985,
+      "y": 0.045,
+      "z": 18.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_gutter_1_0",
+      "model": "arcade:gutter_segment",
+      "x": 15.315000000000001,
+      "y": 0.045,
+      "z": 3.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_gutter_1_1",
+      "model": "arcade:gutter_segment",
+      "x": 15.315000000000001,
+      "y": 0.045,
+      "z": 6.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_gutter_1_2",
+      "model": "arcade:gutter_segment",
+      "x": 15.315000000000001,
+      "y": 0.045,
+      "z": 9.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_gutter_1_3",
+      "model": "arcade:gutter_segment",
+      "x": 15.315000000000001,
+      "y": 0.045,
+      "z": 12.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_gutter_1_4",
+      "model": "arcade:gutter_segment",
+      "x": 15.315000000000001,
+      "y": 0.045,
+      "z": 15.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_gutter_1_5",
+      "model": "arcade:gutter_segment",
+      "x": 15.315000000000001,
+      "y": 0.045,
+      "z": 18.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_divider_0",
+      "model": "arcade:lane_divider",
+      "x": 15.61,
+      "y": 0,
+      "z": 3.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_divider_1",
+      "model": "arcade:lane_divider",
+      "x": 15.61,
+      "y": 0,
+      "z": 6.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_divider_2",
+      "model": "arcade:lane_divider",
+      "x": 15.61,
+      "y": 0,
+      "z": 9.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_divider_3",
+      "model": "arcade:lane_divider",
+      "x": 15.61,
+      "y": 0,
+      "z": 12.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_divider_4",
+      "model": "arcade:lane_divider",
+      "x": 15.61,
+      "y": 0,
+      "z": 15.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_divider_5",
+      "model": "arcade:lane_divider",
+      "x": 15.61,
+      "y": 0,
+      "z": 18.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_pin_0_0",
+      "model": "arcade:bowling_pin",
+      "x": 14.65,
+      "y": 0,
+      "z": 3.6,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_pin_1_0",
+      "model": "arcade:bowling_pin",
+      "x": 14.545,
+      "y": 0,
+      "z": 3.41,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_pin_1_1",
+      "model": "arcade:bowling_pin",
+      "x": 14.755,
+      "y": 0,
+      "z": 3.41,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_pin_2_0",
+      "model": "arcade:bowling_pin",
+      "x": 14.44,
+      "y": 0,
+      "z": 3.22,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_pin_2_1",
+      "model": "arcade:bowling_pin",
+      "x": 14.65,
+      "y": 0,
+      "z": 3.22,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_pin_2_2",
+      "model": "arcade:bowling_pin",
+      "x": 14.860000000000001,
+      "y": 0,
+      "z": 3.22,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_pin_3_0",
+      "model": "arcade:bowling_pin",
+      "x": 14.335,
+      "y": 0,
+      "z": 3.0300000000000002,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_pin_3_1",
+      "model": "arcade:bowling_pin",
+      "x": 14.545,
+      "y": 0,
+      "z": 3.0300000000000002,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_pin_3_2",
+      "model": "arcade:bowling_pin",
+      "x": 14.755,
+      "y": 0,
+      "z": 3.0300000000000002,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_pin_3_3",
+      "model": "arcade:bowling_pin",
+      "x": 14.965,
+      "y": 0,
+      "z": 3.0300000000000002,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_3_score_crt",
+      "model": "arcade:score_monitor",
+      "x": 14.65,
+      "y": 2.05,
+      "z": 19.7,
+      "rotation_degrees": 0,
+      "size": [
+        0.8,
+        1.12,
+        0.69
+      ],
+      "solid": false,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            0.28,
+            0.37
+          ],
+          "color": [
+            0.17,
+            0.35,
+            1
+          ],
+          "intensity": 0.1,
+          "range": 2.4
+        }
+      ]
+    },
+    {
+      "id": "lane_4_gutter_-1_0",
+      "model": "arcade:gutter_segment",
+      "x": 15.985,
+      "y": 0.045,
+      "z": 3.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_gutter_-1_1",
+      "model": "arcade:gutter_segment",
+      "x": 15.985,
+      "y": 0.045,
+      "z": 6.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_gutter_-1_2",
+      "model": "arcade:gutter_segment",
+      "x": 15.985,
+      "y": 0.045,
+      "z": 9.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_gutter_-1_3",
+      "model": "arcade:gutter_segment",
+      "x": 15.985,
+      "y": 0.045,
+      "z": 12.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_gutter_-1_4",
+      "model": "arcade:gutter_segment",
+      "x": 15.985,
+      "y": 0.045,
+      "z": 15.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_gutter_-1_5",
+      "model": "arcade:gutter_segment",
+      "x": 15.985,
+      "y": 0.045,
+      "z": 18.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_gutter_1_0",
+      "model": "arcade:gutter_segment",
+      "x": 17.314999999999998,
+      "y": 0.045,
+      "z": 3.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_gutter_1_1",
+      "model": "arcade:gutter_segment",
+      "x": 17.314999999999998,
+      "y": 0.045,
+      "z": 6.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_gutter_1_2",
+      "model": "arcade:gutter_segment",
+      "x": 17.314999999999998,
+      "y": 0.045,
+      "z": 9.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_gutter_1_3",
+      "model": "arcade:gutter_segment",
+      "x": 17.314999999999998,
+      "y": 0.045,
+      "z": 12.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_gutter_1_4",
+      "model": "arcade:gutter_segment",
+      "x": 17.314999999999998,
+      "y": 0.045,
+      "z": 15.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_gutter_1_5",
+      "model": "arcade:gutter_segment",
+      "x": 17.314999999999998,
+      "y": 0.045,
+      "z": 18.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.27,
+        0.135,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_divider_0",
+      "model": "arcade:lane_divider",
+      "x": 17.61,
+      "y": 0,
+      "z": 3.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_divider_1",
+      "model": "arcade:lane_divider",
+      "x": 17.61,
+      "y": 0,
+      "z": 6.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_divider_2",
+      "model": "arcade:lane_divider",
+      "x": 17.61,
+      "y": 0,
+      "z": 9.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_divider_3",
+      "model": "arcade:lane_divider",
+      "x": 17.61,
+      "y": 0,
+      "z": 12.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_divider_4",
+      "model": "arcade:lane_divider",
+      "x": 17.61,
+      "y": 0,
+      "z": 15.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_divider_5",
+      "model": "arcade:lane_divider",
+      "x": 17.61,
+      "y": 0,
+      "z": 18.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.075,
+        0.14,
+        3.0
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_pin_0_0",
+      "model": "arcade:bowling_pin",
+      "x": 16.65,
+      "y": 0,
+      "z": 3.6,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_pin_1_0",
+      "model": "arcade:bowling_pin",
+      "x": 16.544999999999998,
+      "y": 0,
+      "z": 3.41,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_pin_1_1",
+      "model": "arcade:bowling_pin",
+      "x": 16.755,
+      "y": 0,
+      "z": 3.41,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_pin_2_0",
+      "model": "arcade:bowling_pin",
+      "x": 16.439999999999998,
+      "y": 0,
+      "z": 3.22,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_pin_2_1",
+      "model": "arcade:bowling_pin",
+      "x": 16.65,
+      "y": 0,
+      "z": 3.22,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_pin_2_2",
+      "model": "arcade:bowling_pin",
+      "x": 16.86,
+      "y": 0,
+      "z": 3.22,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_pin_3_0",
+      "model": "arcade:bowling_pin",
+      "x": 16.334999999999997,
+      "y": 0,
+      "z": 3.0300000000000002,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_pin_3_1",
+      "model": "arcade:bowling_pin",
+      "x": 16.544999999999998,
+      "y": 0,
+      "z": 3.0300000000000002,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_pin_3_2",
+      "model": "arcade:bowling_pin",
+      "x": 16.755,
+      "y": 0,
+      "z": 3.0300000000000002,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_pin_3_3",
+      "model": "arcade:bowling_pin",
+      "x": 16.965,
+      "y": 0,
+      "z": 3.0300000000000002,
+      "rotation_degrees": 0,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lane_4_score_crt",
+      "model": "arcade:score_monitor_inactive",
+      "x": 16.65,
+      "y": 2.05,
+      "z": 19.7,
+      "rotation_degrees": 0,
+      "size": [
+        0.8,
+        1.12,
+        0.69
+      ],
+      "solid": false,
+      "occludes": false,
+      "lights": []
+    },
+    {
+      "id": "return_0",
+      "model": "arcade:ball_return",
+      "x": 11.65,
+      "y": 0,
+      "z": 22.5,
+      "rotation_degrees": 0,
+      "size": [
+        0.86,
+        1.06,
+        1.85
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "rack_0",
+      "model": "arcade:ball_rack",
+      "x": 11.65,
+      "y": 0,
+      "z": 24.2,
+      "rotation_degrees": 0,
+      "size": [
+        1.1,
+        0.72,
+        0.64
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "rack_0_ball_0",
+      "model": "arcade:bowling_ball_purple",
+      "x": 11.370000000000001,
+      "y": 0.55001,
+      "z": 24.2,
+      "rotation_degrees": 0,
+      "size": [
+        0.216,
+        0.216,
+        0.216
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "rack_0_ball_1",
+      "model": "arcade:bowling_ball_burgundy",
+      "x": 11.65,
+      "y": 0.55707,
+      "z": 24.2,
+      "rotation_degrees": 38,
+      "size": [
+        0.216,
+        0.216,
+        0.216
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "rack_0_ball_2",
+      "model": "arcade:bowling_ball_cobalt",
+      "x": 11.93,
+      "y": 0.55394,
+      "z": 24.2,
+      "rotation_degrees": 76,
+      "size": [
+        0.216,
+        0.216,
+        0.216
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "return_1",
+      "model": "arcade:ball_return",
+      "x": 15.65,
+      "y": 0,
+      "z": 22.5,
+      "rotation_degrees": 0,
+      "size": [
+        0.86,
+        1.06,
+        1.85
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "rack_1",
+      "model": "arcade:ball_rack",
+      "x": 15.65,
+      "y": 0,
+      "z": 24.2,
+      "rotation_degrees": 0,
+      "size": [
+        1.1,
+        0.72,
+        0.64
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "rack_1_ball_0",
+      "model": "arcade:bowling_ball_black",
+      "x": 15.370000000000001,
+      "y": 0.55001,
+      "z": 24.2,
+      "rotation_degrees": 0,
+      "size": [
+        0.216,
+        0.216,
+        0.216
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "rack_1_ball_1",
+      "model": "arcade:bowling_ball_red",
+      "x": 15.65,
+      "y": 0.55707,
+      "z": 24.2,
+      "rotation_degrees": 38,
+      "size": [
+        0.216,
+        0.216,
+        0.216
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "rack_1_ball_2",
+      "model": "arcade:bowling_ball_green",
+      "x": 15.93,
+      "y": 0.55394,
+      "z": 24.2,
+      "rotation_degrees": 76,
+      "size": [
+        0.216,
+        0.216,
+        0.216
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "return_marbled_ball",
+      "model": "arcade:bowling_ball_marbled",
+      "x": 15.65,
+      "y": 0.42355,
+      "z": 23.05,
+      "rotation_degrees": 18,
+      "size": [
+        0.216,
+        0.216,
+        0.216
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "table_0",
+      "model": "arcade:pedestal_table",
+      "x": 10.5,
+      "y": 0,
+      "z": 27.1,
+      "rotation_degrees": 0,
+      "size": [
+        0.9,
+        0.72,
+        0.9
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "table_0_bottle",
+      "model": "arcade:soda_bottle",
+      "x": 10.66,
+      "y": 0.72,
+      "z": 27.0,
+      "rotation_degrees": 20,
+      "size": [
+        0.095,
+        0.28,
+        0.095
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "chair_0_0",
+      "model": "arcade:fixed_chair_red",
+      "x": 9.5,
+      "y": 0,
+      "z": 27.1,
+      "rotation_degrees": 90,
+      "size": [
+        0.6,
+        0.92,
+        0.6
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "chair_0_1",
+      "model": "arcade:fixed_chair_blue",
+      "x": 11.5,
+      "y": 0,
+      "z": 27.1,
+      "rotation_degrees": 270,
+      "size": [
+        0.6,
+        0.92,
+        0.6
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "chair_0_2",
+      "model": "arcade:fixed_chair_blue",
+      "x": 10.5,
+      "y": 0,
+      "z": 28.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.6,
+        0.92,
+        0.6
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "chair_0_3",
+      "model": "arcade:fixed_chair_red",
+      "x": 10.5,
+      "y": 0,
+      "z": 25.950000000000003,
+      "rotation_degrees": 180,
+      "size": [
+        0.6,
+        0.92,
+        0.6
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "table_1",
+      "model": "arcade:pedestal_table",
+      "x": 16.5,
+      "y": 0,
+      "z": 27.1,
+      "rotation_degrees": 0,
+      "size": [
+        0.9,
+        0.72,
+        0.9
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "table_1_bottle",
+      "model": "arcade:soda_bottle",
+      "x": 16.66,
+      "y": 0.72,
+      "z": 27.0,
+      "rotation_degrees": 20,
+      "size": [
+        0.095,
+        0.28,
+        0.095
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "chair_1_0",
+      "model": "arcade:fixed_chair_red",
+      "x": 15.5,
+      "y": 0,
+      "z": 27.1,
+      "rotation_degrees": 90,
+      "size": [
+        0.6,
+        0.92,
+        0.6
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "chair_1_1",
+      "model": "arcade:fixed_chair_blue",
+      "x": 17.5,
+      "y": 0,
+      "z": 27.1,
+      "rotation_degrees": 270,
+      "size": [
+        0.6,
+        0.92,
+        0.6
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "chair_1_2",
+      "model": "arcade:fixed_chair_blue",
+      "x": 16.5,
+      "y": 0,
+      "z": 28.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.6,
+        0.92,
+        0.6
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "chair_1_3",
+      "model": "arcade:fixed_chair_red",
+      "x": 16.5,
+      "y": 0,
+      "z": 25.950000000000003,
+      "rotation_degrees": 180,
+      "size": [
+        0.6,
+        0.92,
+        0.6
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "west_racing",
+      "model": "arcade:cabinet_racing",
+      "x": 0.82,
+      "y": 0,
+      "z": 6.0,
+      "rotation_degrees": 90,
+      "size": [
+        0.82,
+        1.91,
+        1.0
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.53
+          ],
+          "color": [
+            0.2,
+            0.48,
+            1
+          ],
+          "intensity": 0.32,
+          "range": 2.8
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.7799999999999998,
+            0.53
+          ],
+          "color": [
+            0.2,
+            0.48,
+            1
+          ],
+          "intensity": 0.15,
+          "range": 2.1
+        }
+      ]
+    },
+    {
+      "id": "west_shooter",
+      "model": "arcade:cabinet_shooter",
+      "x": 0.82,
+      "y": 0,
+      "z": 8.0,
+      "rotation_degrees": 90,
+      "size": [
+        0.74,
+        1.96,
+        0.84
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.44999999999999996
+          ],
+          "color": [
+            0.12,
+            0.7,
+            0.5
+          ],
+          "intensity": 0.32,
+          "range": 2.8
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.83,
+            0.44999999999999996
+          ],
+          "color": [
+            0.12,
+            0.7,
+            0.5
+          ],
+          "intensity": 0.15,
+          "range": 2.1
+        }
+      ]
+    },
+    {
+      "id": "west_action",
+      "model": "arcade:cabinet_action",
+      "x": 0.82,
+      "y": 0,
+      "z": 10.0,
+      "rotation_degrees": 90,
+      "size": [
+        0.76,
+        1.88,
+        0.87
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.46499999999999997
+          ],
+          "color": [
+            1,
+            0.35,
+            0.12
+          ],
+          "intensity": 0.32,
+          "range": 2.8
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.75,
+            0.46499999999999997
+          ],
+          "color": [
+            1,
+            0.35,
+            0.12
+          ],
+          "intensity": 0.15,
+          "range": 2.1
+        }
+      ]
+    },
+    {
+      "id": "west_fighting",
+      "model": "arcade:cabinet_fighting",
+      "x": 0.82,
+      "y": 0,
+      "z": 12.1,
+      "rotation_degrees": 90,
+      "size": [
+        0.9,
+        1.88,
+        0.93
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.495
+          ],
+          "color": [
+            0.85,
+            0.19,
+            0.36
+          ],
+          "intensity": 0.32,
+          "range": 2.8
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.75,
+            0.495
+          ],
+          "color": [
+            0.85,
+            0.19,
+            0.36
+          ],
+          "intensity": 0.15,
+          "range": 2.1
+        }
+      ]
+    },
+    {
+      "id": "west_scifi",
+      "model": "arcade:cabinet_scifi",
+      "x": 0.82,
+      "y": 0,
+      "z": 14.3,
+      "rotation_degrees": 90,
+      "size": [
+        0.78,
+        2.0,
+        0.89
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.475
+          ],
+          "color": [
+            0.3,
+            0.25,
+            1
+          ],
+          "intensity": 0.32,
+          "range": 2.8
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.87,
+            0.475
+          ],
+          "color": [
+            0.3,
+            0.25,
+            1
+          ],
+          "intensity": 0.15,
+          "range": 2.1
+        }
+      ]
+    },
+    {
+      "id": "north_fighting",
+      "model": "arcade:cabinet_fighting",
+      "x": 5.8,
+      "y": 0,
+      "z": 1.2,
+      "rotation_degrees": 0,
+      "size": [
+        0.9,
+        1.88,
+        0.93
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.495
+          ],
+          "color": [
+            0.18,
+            0.43,
+            1
+          ],
+          "intensity": 0.0512,
+          "range": 2.8
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.75,
+            0.495
+          ],
+          "color": [
+            0.18,
+            0.43,
+            1
+          ],
+          "intensity": 0.024,
+          "range": 2.1
+        }
+      ],
+      "components": [
+        {
+          "component": "material",
+          "current": "standby",
+          "variants": [
+            {
+              "name": "standby",
+              "emission_scale": 0.16
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "north_racing",
+      "model": "arcade:cabinet_racing",
+      "x": 7.1,
+      "y": 0,
+      "z": 1.2,
+      "rotation_degrees": 0,
+      "size": [
+        0.82,
+        1.91,
+        1.0
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.53
+          ],
+          "color": [
+            0.18,
+            0.43,
+            1
+          ],
+          "intensity": 0.32,
+          "range": 2.8
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.7799999999999998,
+            0.53
+          ],
+          "color": [
+            0.18,
+            0.43,
+            1
+          ],
+          "intensity": 0.15,
+          "range": 2.1
+        }
+      ]
+    },
+    {
+      "id": "pinball_0",
+      "model": "arcade:pinball_cosmic",
+      "x": 1.1,
+      "y": 0,
+      "z": 18.0,
+      "rotation_degrees": 90,
+      "size": [
+        0.74,
+        1.88,
+        1.42
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.65,
+            -0.46
+          ],
+          "color": [
+            0.65,
+            0.45,
+            1
+          ],
+          "intensity": 0.24,
+          "range": 2.2
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.14,
+            0.12
+          ],
+          "color": [
+            1,
+            0.82,
+            0.55
+          ],
+          "intensity": 0.4,
+          "range": 1.15
+        }
+      ]
+    },
+    {
+      "id": "pinball_1",
+      "model": "arcade:pinball_comet",
+      "x": 1.1,
+      "y": 0,
+      "z": 20.1,
+      "rotation_degrees": 90,
+      "size": [
+        0.74,
+        1.88,
+        1.42
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.65,
+            -0.46
+          ],
+          "color": [
+            0.65,
+            0.45,
+            1
+          ],
+          "intensity": 0.24,
+          "range": 2.2
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.14,
+            0.12
+          ],
+          "color": [
+            1,
+            0.82,
+            0.55
+          ],
+          "intensity": 0.4,
+          "range": 1.15
+        }
+      ]
+    },
+    {
+      "id": "change_machine",
+      "model": "arcade:change_machine",
+      "x": 0.5,
+      "y": 0,
+      "z": 23,
+      "rotation_degrees": 90,
+      "size": [
+        0.52,
+        1.46,
+        0.48
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "vending_machine",
+      "model": "arcade:vending_machine",
+      "x": 0.9,
+      "y": 0,
+      "z": 25,
+      "rotation_degrees": 90,
+      "size": [
+        1.08,
+        2.03,
+        0.86
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.35,
+            0.51
+          ],
+          "color": [
+            0.3,
+            0.55,
+            1
+          ],
+          "intensity": 0.46,
+          "range": 3.8
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            2.13,
+            0.5
+          ],
+          "color": [
+            0.5,
+            0.65,
+            1
+          ],
+          "intensity": 0.15,
+          "range": 1.5
+        }
+      ]
+    },
+    {
+      "id": "vending_cat_plush",
+      "model": "arcade:cat_plush",
+      "x": 0.9,
+      "y": 2.03,
+      "z": 25,
+      "rotation_degrees": 90,
+      "size": [
+        0.25,
+        0.36,
+        0.235
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "bowl_neon",
+      "model": "arcade:neon_bowl",
+      "x": 19.89,
+      "y": 1.72,
+      "z": 25.0,
+      "rotation_degrees": 270,
+      "size": [
+        1.82,
+        0.86,
+        0.13
+      ],
+      "solid": false,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            0.4,
+            0.09
+          ],
+          "color": [
+            1,
+            0.08,
+            0.14
+          ],
+          "intensity": 0.18,
+          "range": 3.2
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0.65,
+            0.45,
+            0.09
+          ],
+          "color": [
+            0.12,
+            0.25,
+            1
+          ],
+          "intensity": 0.1,
+          "range": 2.8
+        },
+        {
+          "shape": "point",
+          "offset": [
+            -0.65,
+            0.6,
+            0.09
+          ],
+          "color": [
+            1,
+            0.7,
+            0.12
+          ],
+          "intensity": 0.06,
+          "range": 2.2
+        }
+      ]
+    },
+    {
+      "id": "litter_can",
+      "model": "arcade:litter_can",
+      "x": 2.5,
+      "y": 0,
+      "z": 20.5,
+      "rotation_degrees": 38,
+      "size": [
+        0.066,
+        0.12,
+        0.066
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "litter_cup",
+      "model": "arcade:litter_cup",
+      "x": 17.8,
+      "y": 0,
+      "z": 27.9,
+      "rotation_degrees": 38,
+      "size": [
+        0.09,
+        0.14,
+        0.09
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "litter_wrapper",
+      "model": "arcade:litter_wrapper",
+      "x": 12.2,
+      "y": 0,
+      "z": 25.6,
+      "rotation_degrees": 38,
+      "size": [
+        0.12,
+        0.016,
+        0.085
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "litter_paper",
+      "model": "arcade:litter_paper",
+      "x": 3.1,
+      "y": 0,
+      "z": 23.4,
+      "rotation_degrees": 38,
+      "size": [
+        0.21,
+        0.012,
+        0.148
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "litter_bottle_fallen",
+      "model": "arcade:litter_bottle_fallen",
+      "x": 8.8,
+      "y": 0,
+      "z": 28.0,
+      "rotation_degrees": 38,
+      "size": [
+        0.095,
+        0.095,
+        0.28
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "cosmic_blacklight_switch",
+      "model": "home:wall_switch",
+      "x": 0.051,
+      "y": 1.2,
+      "z": 26.3,
+      "rotation_degrees": 90,
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Cosmic blacklights",
+          "reach": 1.7
+        },
+        {
+          "component": "animation",
+          "clip": "toggle",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_animation",
+              "clip": "toggle"
+            },
+            {
+              "action": "toggle",
+              "target": "cosmic_uv_0"
+            },
+            {
+              "action": "toggle",
+              "target": "cosmic_uv_1"
+            },
+            {
+              "action": "toggle",
+              "target": "cosmic_uv_2"
+            },
+            {
+              "action": "toggle",
+              "target": "cosmic_uv_3"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "decals": [
+    {
+      "material": "arcade:decal_bowling_mural_01",
+      "x": 14.65,
+      "z": 0.003,
+      "y": 2.03,
+      "width": 8.0,
+      "height": 2.0,
+      "surface": "wall_south",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_foul_line_01",
+      "x": 10.65,
+      "z": 20.02,
+      "y": 0,
+      "width": 1.05,
+      "height": 0.525,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 10.32,
+      "z": 15.87,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 10.43,
+      "z": 15.729999999999999,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 10.540000000000001,
+      "z": 15.59,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 10.65,
+      "z": 15.45,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 10.76,
+      "z": 15.59,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 10.870000000000001,
+      "z": 15.729999999999999,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 10.98,
+      "z": 15.87,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_foul_line_01",
+      "x": 12.65,
+      "z": 20.02,
+      "y": 0,
+      "width": 1.05,
+      "height": 0.525,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 12.32,
+      "z": 15.87,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 12.43,
+      "z": 15.729999999999999,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 12.540000000000001,
+      "z": 15.59,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 12.65,
+      "z": 15.45,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 12.76,
+      "z": 15.59,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 12.870000000000001,
+      "z": 15.729999999999999,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 12.98,
+      "z": 15.87,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_foul_line_01",
+      "x": 14.65,
+      "z": 20.02,
+      "y": 0,
+      "width": 1.05,
+      "height": 0.525,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 14.32,
+      "z": 15.87,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 14.43,
+      "z": 15.729999999999999,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 14.540000000000001,
+      "z": 15.59,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 14.65,
+      "z": 15.45,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 14.76,
+      "z": 15.59,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 14.870000000000001,
+      "z": 15.729999999999999,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 14.98,
+      "z": 15.87,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_foul_line_01",
+      "x": 16.65,
+      "z": 20.02,
+      "y": 0,
+      "width": 1.05,
+      "height": 0.525,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 16.32,
+      "z": 15.87,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 16.43,
+      "z": 15.729999999999999,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 16.54,
+      "z": 15.59,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 16.65,
+      "z": 15.45,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 16.759999999999998,
+      "z": 15.59,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 16.869999999999997,
+      "z": 15.729999999999999,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "arcade:decal_lane_arrow_01",
+      "x": 16.979999999999997,
+      "z": 15.87,
+      "y": 0,
+      "width": 0.1,
+      "height": 0.1,
+      "surface": "floor",
+      "rotation_degrees": 0
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "id": "troffer_0",
+      "fixture": "arcade:fluorescent_panel_01",
+      "x": 4.2,
+      "z": 3.9,
+      "align": "none",
+      "brightness": 0.28,
+      "color": [
+        0.58,
+        0.68,
+        1
+      ],
+      "emission": 0.95,
+      "range": 6.5
+    },
+    {
+      "id": "troffer_1",
+      "fixture": "arcade:fluorescent_panel_01",
+      "x": 4.2,
+      "z": 10.5,
+      "align": "none",
+      "brightness": 0.25,
+      "color": [
+        0.58,
+        0.68,
+        1
+      ],
+      "emission": 0.95,
+      "range": 6.5
+    },
+    {
+      "id": "troffer_2",
+      "fixture": "arcade:fluorescent_panel_01",
+      "x": 4.2,
+      "z": 19.5,
+      "align": "none",
+      "brightness": 0.23,
+      "color": [
+        0.58,
+        0.68,
+        1
+      ],
+      "emission": 0.95,
+      "range": 6.5
+    },
+    {
+      "id": "troffer_3",
+      "fixture": "arcade:fluorescent_panel_01",
+      "x": 4.2,
+      "z": 25.5,
+      "align": "none",
+      "brightness": 0.24,
+      "color": [
+        0.58,
+        0.68,
+        1
+      ],
+      "emission": 0.95,
+      "range": 6.5
+    },
+    {
+      "id": "troffer_4",
+      "fixture": "arcade:fluorescent_panel_01",
+      "x": 10.2,
+      "z": 5.1,
+      "align": "none",
+      "brightness": 0.45,
+      "color": [
+        1,
+        0.95,
+        0.88
+      ],
+      "emission": 0.95,
+      "range": 6.5
+    },
+    {
+      "id": "troffer_5",
+      "fixture": "arcade:fluorescent_panel_01",
+      "x": 16.2,
+      "z": 5.1,
+      "align": "none",
+      "brightness": 0.45,
+      "color": [
+        1,
+        0.95,
+        0.88
+      ],
+      "emission": 0.95,
+      "range": 6.5
+    },
+    {
+      "id": "troffer_6",
+      "fixture": "arcade:fluorescent_panel_01",
+      "x": 10.2,
+      "z": 18.3,
+      "align": "none",
+      "brightness": 0.42,
+      "color": [
+        1,
+        0.95,
+        0.88
+      ],
+      "emission": 0.95,
+      "range": 6.5
+    },
+    {
+      "id": "troffer_7",
+      "fixture": "arcade:fluorescent_panel_01",
+      "x": 16.2,
+      "z": 18.3,
+      "align": "none",
+      "brightness": 0.42,
+      "color": [
+        1,
+        0.95,
+        0.88
+      ],
+      "emission": 0.95,
+      "range": 6.5
+    },
+    {
+      "id": "troffer_8",
+      "fixture": "arcade:fluorescent_panel_01",
+      "x": 10.2,
+      "z": 27.3,
+      "align": "none",
+      "brightness": 0.42,
+      "color": [
+        1,
+        0.95,
+        0.88
+      ],
+      "emission": 0.95,
+      "range": 6.5
+    },
+    {
+      "id": "troffer_9",
+      "fixture": "arcade:fluorescent_panel_01",
+      "x": 16.2,
+      "z": 27.3,
+      "align": "none",
+      "brightness": 0.42,
+      "color": [
+        1,
+        0.95,
+        0.88
+      ],
+      "emission": 0.95,
+      "range": 6.5
+    },
+    {
+      "id": "cosmic_uv_0",
+      "fixture": "arcade:blacklight_tube",
+      "x": 4.2,
+      "z": 7.5,
+      "align": "none",
+      "brightness": 0.07,
+      "color": [
+        0.32,
+        0.12,
+        0.8
+      ],
+      "emission": 0.5,
+      "ultraviolet": 1.8,
+      "range": 8.0,
+      "enabled": true,
+      "switchable": true
+    },
+    {
+      "id": "cosmic_uv_1",
+      "fixture": "arcade:blacklight_tube",
+      "x": 4.2,
+      "z": 17.1,
+      "align": "none",
+      "brightness": 0.07,
+      "color": [
+        0.32,
+        0.12,
+        0.8
+      ],
+      "emission": 0.5,
+      "ultraviolet": 1.8,
+      "range": 8.0,
+      "enabled": true,
+      "switchable": true
+    },
+    {
+      "id": "cosmic_uv_2",
+      "fixture": "arcade:blacklight_tube",
+      "x": 13.8,
+      "z": 24.3,
+      "align": "none",
+      "brightness": 0.07,
+      "color": [
+        0.32,
+        0.12,
+        0.8
+      ],
+      "emission": 0.5,
+      "ultraviolet": 1.8,
+      "range": 8.5,
+      "enabled": true,
+      "switchable": true
+    },
+    {
+      "id": "cosmic_uv_3",
+      "fixture": "arcade:blacklight_tube",
+      "x": 16.2,
+      "z": 12.3,
+      "align": "none",
+      "brightness": 0.07,
+      "color": [
+        0.32,
+        0.12,
+        0.8
+      ],
+      "emission": 0.5,
+      "ultraviolet": 1.8,
+      "range": 9.0,
+      "enabled": true,
+      "switchable": true
+    }
+  ]
+}

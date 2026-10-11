@@ -170,6 +170,8 @@ struct PreparedInstall {
     textures: TextureCache,
     graphics: GraphicsConfig,
     materials: MaterialRenderState,
+    blacklights: crate::render::common::blacklight::BlacklightSet,
+    uv_transport: Option<Arc<crate::lighting::transport::TransportScene>>,
     atlas: Option<LightmapAtlas>,
     fixture_sheets: Vec<Arc<super::texture::GpuTexture>>,
     world: Option<WgpuWorldGeometry>,
@@ -624,6 +626,7 @@ pub struct WgpuRenderer {
     dynamic_field: Option<std::sync::Arc<crate::lighting::probes::ProbeField>>,
     /// Exact prepared triangles and alpha for moving-source visibility; no solve.
     dynamic_transport: Option<std::sync::Arc<crate::lighting::transport::TransportScene>>,
+    blacklights: crate::render::common::blacklight::BlacklightSet,
     dynamic_visibility: crate::render::common::dynamic_visibility::DynamicVisibility,
     dynamic_visibility_error: Option<String>,
     #[cfg(feature = "visual-diagnostics")]
@@ -926,6 +929,7 @@ impl WgpuRenderer {
             dynamic_lighting: None,
             dynamic_field: None,
             dynamic_transport: None,
+            blacklights: crate::render::common::blacklight::BlacklightSet::default(),
             dynamic_visibility: crate::render::common::dynamic_visibility::DynamicVisibility::new(),
             dynamic_visibility_error: None,
             #[cfg(feature = "visual-diagnostics")]
@@ -1115,7 +1119,21 @@ impl WgpuRenderer {
         let update = self.refresh_dynamic_lighting(delta_seconds);
         let environment = self.level_environment();
         if let Some(dynamic) = self.world_dynamic.as_mut() {
-            dynamic.sync(&self.queue, &self.dynamic, &environment);
+            dynamic.sync_with_blacklight(
+                &self.queue,
+                &self.dynamic,
+                &environment,
+                self.dynamic_transport.as_deref().map(|scene| {
+                    crate::render::common::blacklight::BlacklightVisibility {
+                        sources: &self.blacklights,
+                        scene,
+                        dynamic: self
+                            .dynamic_visibility_error
+                            .is_none()
+                            .then_some(&self.dynamic_visibility),
+                    }
+                }),
+            );
         }
         #[cfg(feature = "visual-diagnostics")]
         if self.visual_diagnostic == super::diagnostics::VisualDiagnosticMode::ProbeNeighborhood {
@@ -1470,14 +1488,15 @@ impl WgpuRenderer {
         else {
             return;
         };
+        let mut initial_faces = Vec::new();
         for (fixture_index, fixture) in level.ceiling_lights.iter().enumerate() {
-            if !fixture.switchable {
+            let kind = crate::lighting::fixture_profile(&fixture.fixture).kind;
+            if !fixture.switchable && kind != crate::lighting::FixtureKind::BlacklightTube {
                 continue;
             }
             let Some(light_index) = lighting.fixture_light_index(fixture_index) else {
                 continue;
             };
-            let kind = crate::lighting::fixture_profile(&fixture.fixture).kind;
             let face_material =
                 crate::level::fixture_face_material_index(fixture_index, true, kind);
             let Some(material_slot) = world
@@ -1488,11 +1507,21 @@ impl WgpuRenderer {
             else {
                 continue;
             };
+            initial_faces.push((material_slot, fixture.enabled));
             self.switchable_lights.push(SwitchableLight {
                 fixture_index,
                 light_index,
                 material_slot,
             });
+        }
+        if let Some(face_materials) = self.world_materials.as_mut() {
+            for (slot, enabled) in initial_faces {
+                let _initial_face_state = face_materials.set_emission_scale(
+                    &self.queue,
+                    slot,
+                    if enabled { 1.0 } else { 0.0 },
+                );
+            }
         }
     }
 
@@ -1734,7 +1763,21 @@ impl WgpuRenderer {
         }
         let environment = self.level_environment();
         if let Some(characters) = self.world_characters.as_mut() {
-            let _sync_status = characters.sync(&self.queue, &self.characters, &environment);
+            let _sync_status = characters.sync_with_blacklight(
+                &self.queue,
+                &self.characters,
+                &environment,
+                self.dynamic_transport.as_deref().map(|scene| {
+                    crate::render::common::blacklight::BlacklightVisibility {
+                        sources: &self.blacklights,
+                        scene,
+                        dynamic: self
+                            .dynamic_visibility_error
+                            .is_none()
+                            .then_some(&self.dynamic_visibility),
+                    }
+                }),
+            );
         }
         update
     }
@@ -2040,6 +2083,23 @@ impl WgpuRenderer {
         } else {
             textures.release_profile_textures();
         }
+        let blacklights = crate::render::common::blacklight::BlacklightSet::from_level(
+            &loaded.level,
+            &build.lighting,
+        );
+        let uv_transport = if blacklights.is_empty() {
+            None
+        } else {
+            crate::render::common::light_transport::build_transport_scene(
+                &loaded.level,
+                &build.mesh,
+                &build.batches,
+                &loaded.materials,
+                &build.lighting,
+                &[],
+            )
+            .map(|(scene, _)| Arc::new(scene))
+        };
         self.prepared_install = Some(PreparedInstall {
             loaded: loaded.clone(),
             build,
@@ -2049,6 +2109,8 @@ impl WgpuRenderer {
             textures,
             graphics: self.graphics_requested,
             materials: MaterialRenderState::from_table(&loaded.materials),
+            blacklights,
+            uv_transport,
             atlas: None,
             fixture_sheets: Vec::new(),
             world: None,
@@ -2102,11 +2164,18 @@ impl WgpuRenderer {
                 pending.phase = UploadPhase::World;
             }
             UploadPhase::World => {
-                pending.world = Some(WgpuWorldGeometry::upload(
+                pending.world = Some(WgpuWorldGeometry::upload_with_blacklight(
                     &self.device,
                     &self.queue,
                     &pending.build.mesh,
                     &pending.materials,
+                    pending.uv_transport.as_deref().map(|scene| {
+                        crate::render::common::blacklight::BlacklightVisibility {
+                            sources: &pending.blacklights,
+                            scene,
+                            dynamic: None,
+                        }
+                    }),
                 ));
                 pending.phase = UploadPhase::Textures;
             }
@@ -2182,12 +2251,19 @@ impl WgpuRenderer {
         let began = std::time::Instant::now();
         while let Some(batch) = pending.build.batches.get(pending.prop_cursor) {
             if let Some(props) = &mut pending.props {
-                props.push_batch(
+                props.push_batch_with_blacklight(
                     &self.device,
                     &self.queue,
                     &mut pending.textures,
                     &self.material_layout,
                     batch,
+                    pending.uv_transport.as_deref().map(|scene| {
+                        crate::render::common::blacklight::BlacklightVisibility {
+                            sources: &pending.blacklights,
+                            scene,
+                            dynamic: None,
+                        }
+                    }),
                 );
             }
             pending.prop_cursor = pending.prop_cursor.saturating_add(1);
@@ -2215,6 +2291,8 @@ impl WgpuRenderer {
             probes,
             precompiled_probes,
             materials: _,
+            blacklights,
+            uv_transport,
             prop_cursor: _,
             phase: _,
         } = pending;
@@ -2255,6 +2333,8 @@ impl WgpuRenderer {
             world_materials: prepared_materials,
             props: prepared_props.finish(),
         };
+        self.blacklights = blacklights;
+        self.dynamic_transport = uv_transport;
         let installed_build = self.install_level_prepared(
             &loaded,
             build,
@@ -2357,10 +2437,42 @@ impl WgpuRenderer {
         }
         let lightmap_failure = build.lightmap_failure;
         let lightmap_stats = build.lightmaps.as_deref().map(|lightmaps| lightmaps.stats);
+        let blacklights = crate::render::common::blacklight::BlacklightSet::from_level(
+            &loaded.level,
+            &build.lighting,
+        );
+        let uv_transport = if blacklights.is_empty() {
+            None
+        } else if preuploaded {
+            self.dynamic_transport.clone()
+        } else {
+            crate::render::common::light_transport::build_transport_scene(
+                &loaded.level,
+                &build.mesh,
+                &build.batches,
+                &loaded.materials,
+                &build.lighting,
+                &[],
+            )
+            .map(|(scene, _)| Arc::new(scene))
+        };
+        let uv_visibility = uv_transport.as_deref().map(|scene| {
+            crate::render::common::blacklight::BlacklightVisibility {
+                sources: &blacklights,
+                scene,
+                dynamic: None,
+            }
+        });
         let materials = MaterialRenderState::from_table(&loaded.materials);
         let fixture_sheets = uploaded_sheets.unwrap_or_else(|| self.upload_fixture_sheets(loaded));
         let world = uploaded_world.unwrap_or_else(|| {
-            WgpuWorldGeometry::upload(&self.device, &self.queue, &build.mesh, &materials)
+            WgpuWorldGeometry::upload_with_blacklight(
+                &self.device,
+                &self.queue,
+                &build.mesh,
+                &materials,
+                uv_visibility,
+            )
         });
         let world_textures = uploaded_textures.unwrap_or_else(|| {
             WorldTextures::resolve(
@@ -2425,7 +2537,7 @@ impl WgpuRenderer {
         });
         let claimed_characters = self.characters.claimed_models().to_vec();
         let world_props = uploaded_props.unwrap_or_else(|| {
-            WgpuProps::upload(
+            WgpuProps::upload_with_blacklight(
                 &self.device,
                 &self.queue,
                 &mut self.textures,
@@ -2433,6 +2545,7 @@ impl WgpuRenderer {
                 &build.batches,
                 &claimed_characters,
                 self.quality,
+                uv_visibility,
             )
         });
         let prop_stats = world_props.stats();
@@ -2482,19 +2595,22 @@ impl WgpuRenderer {
         {
             self.animation_seconds = 0.0;
         }
+        self.blacklights = blacklights;
         self.dynamic_lighting = Some(build.lighting.clone());
         self.dynamic_field.clone_from(&build.probes);
-        self.dynamic_transport = build.probes.as_ref().and_then(|field| {
-            let _selected_direct = field.local_direct.as_ref()?;
-            crate::render::common::light_transport::build_transport_scene(
-                &loaded.level,
-                &build.mesh,
-                &build.batches,
-                &loaded.materials,
-                &build.lighting,
-                &[],
-            )
-            .map(|(scene, _)| std::sync::Arc::new(scene))
+        self.dynamic_transport = uv_transport.or_else(|| {
+            build.probes.as_ref().and_then(|field| {
+                let _selected_direct = field.local_direct.as_ref()?;
+                crate::render::common::light_transport::build_transport_scene(
+                    &loaded.level,
+                    &build.mesh,
+                    &build.batches,
+                    &loaded.materials,
+                    &build.lighting,
+                    &[],
+                )
+                .map(|(scene, _)| std::sync::Arc::new(scene))
+            })
         });
         // The GPU side of the previous level's dynamic scene dies with it. The
         // neutral scene is level content too: a quality rebuild of the same
@@ -2717,6 +2833,7 @@ impl WgpuRenderer {
             .map_or_else(Default::default, |snow| snow.storm);
         let (shadows, count) = self.contact_shadow_subjects();
         result = result.with_contact_shadows(shadows.get(..count).unwrap_or(&[]));
+        result = result.with_blacklights(&self.blacklights, self.dynamic_lighting.as_ref());
         result
     }
 

@@ -40,6 +40,9 @@
 //!   emission_mask u8 (0 = none, 1 = Some) + u16 slot when present
 //!   specular     f32 x 3 (linear)
 //!   roughness    f32
+//!   uv_response  f32 (v7; older records default to zero)
+//!   uv_mask      u8 (0 = none, 1 = Some) + u16 slot when present
+//!   uv_tint      f32 x 3 (linear authored tint, independent of baked light)
 //!   first_index  u32
 //!   index_count  u32
 //! ```
@@ -64,9 +67,11 @@ use super::{MAX_BINARY_BYTES, MAX_PROP_BATCH_VERTICES, MAX_PROP_BATCHES, MAX_PRO
 /// authoring `alphaMode: "BLEND"`); version 4 adds scalar material response;
 /// version 5 preserves whether a model's retained bind pose is a static caster.
 /// Version 6 adds lossless per-batch normal/tangent/handedness frame palettes.
+/// Version 7 adds optional ultraviolet pigment response, its texture slot and tint;
+/// versions 3 through 6 keep a zero-response default.
 /// Versions 3 and 4 retain the conservative static-caster default, and version 3
 /// also retains the explicit matte material default. Older records are refused.
-pub const PROPS_RECORD_VERSION: u16 = 6;
+pub const PROPS_RECORD_VERSION: u16 = 7;
 
 /// Magic identifying a props record.
 pub const PROPS_MAGIC: [u8; 4] = *b"PLMP";
@@ -224,6 +229,9 @@ fn write_batch_header(writer: &mut Writer, batch: &PropMeshBatch) -> Result<(), 
         write_optional_slot(writer, submesh.emission.mask)?;
         writer.f32_3(submesh.response.specular);
         writer.f32(submesh.response.roughness);
+        writer.f32(submesh.response.fluorescence.strength);
+        write_optional_slot(writer, submesh.response.fluorescence.mask)?;
+        writer.f32_3(submesh.response.fluorescence.tint);
         writer.u32(submesh.first_index);
         writer.u32(submesh.index_count);
     }
@@ -441,7 +449,7 @@ pub fn read_props(bytes: &[u8]) -> Result<Vec<PropMeshBatch>, String> {
         return Err("props record has the wrong magic".to_string());
     }
     let version = reader.u16()?;
-    if !matches!(version, 3..=5 | PROPS_RECORD_VERSION) {
+    if !matches!(version, 3..=6 | PROPS_RECORD_VERSION) {
         return Err(format!(
             "props record version {version} is not supported (this build reads {PROPS_RECORD_VERSION})"
         ));
@@ -727,10 +735,31 @@ fn read_submesh(reader: &mut Reader<'_>, version: u16) -> Result<PropSubmeshBatc
     {
         return Err("prop submesh has invalid scalar response".to_string());
     }
+    let fluorescence = if version >= 7 {
+        let strength = reader.f32()?;
+        let uv_mask = read_optional_slot(reader)?;
+        let tint = reader.f32_3()?;
+        if !strength.is_finite()
+            || !(0.0..=crate::materials::MAX_UV_RESPONSE).contains(&strength)
+            || (uv_mask.is_some() && strength <= 0.0)
+            || !finite3(tint)
+            || tint.iter().any(|channel| !(0.0..=1.0).contains(channel))
+        {
+            return Err("prop submesh has invalid UV response".to_string());
+        }
+        crate::materials::MaterialFluorescence {
+            strength,
+            mask: uv_mask,
+            tint,
+        }
+    } else {
+        crate::materials::MaterialFluorescence::NONE
+    };
     Ok(PropSubmeshBatch {
         response: crate::materials::MaterialResponse {
             specular,
             roughness,
+            fluorescence,
             ..crate::materials::MaterialResponse::NONE
         },
         texture,
@@ -823,6 +852,63 @@ mod interning_tests {
                 max: [2.0; 3],
             },
         })
+    }
+
+    #[test]
+    fn uv_response_roundtrips_in_prepared_static_props() -> Result<(), String> {
+        let vertices = vec![
+            Vertex::new([0.0; 3], [1.0; 4], [0.0; 2]),
+            Vertex::new([1.0, 0.0, 0.0], [1.0; 4], [0.0; 2]),
+            Vertex::new([0.0, 1.0, 0.0], [1.0; 4], [0.0; 2]),
+        ];
+        let mut original = batch(vertices, vec![0, 1, 2])?;
+        original
+            .submeshes
+            .first_mut()
+            .ok_or("primitive")?
+            .response
+            .fluorescence = crate::materials::MaterialFluorescence {
+            strength: 1.25,
+            mask: Some(2),
+            tint: [0.2, 0.4, 0.8],
+        };
+        let bytes = write_props(std::slice::from_ref(&original))?;
+        let decoded = read_props(&bytes)?;
+        assert_eq!(
+            decoded.first().ok_or("decoded batch")?.submeshes,
+            original.submeshes,
+            "v7 retains optional pigment mask alongside existing response"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn prepared_uv_tint_rejects_nonfinite_or_out_of_range_channels() -> Result<(), String> {
+        let vertices = vec![
+            Vertex::new([0.0; 3], [1.0; 4], [0.0; 2]),
+            Vertex::new([1.0, 0.0, 0.0], [1.0; 4], [0.0; 2]),
+            Vertex::new([0.0, 1.0, 0.0], [1.0; 4], [0.0; 2]),
+        ];
+        for tint in [[f32::NAN, 1.0, 1.0], [-0.1, 1.0, 1.0], [1.1, 1.0, 1.0]] {
+            let mut source = batch(vertices.clone(), vec![0, 1, 2])?;
+            source
+                .submeshes
+                .first_mut()
+                .ok_or("primitive")?
+                .response
+                .fluorescence = crate::materials::MaterialFluorescence {
+                strength: 1.0,
+                mask: None,
+                tint,
+            };
+            assert!(
+                write_props(std::slice::from_ref(&source))
+                    .and_then(|bytes| read_props(&bytes))
+                    .is_err(),
+                "invalid prepared pigment must fail before GPU upload"
+            );
+        }
+        Ok(())
     }
 
     fn vertex_bytes(vertex: &Vertex) -> Vec<u8> {
@@ -1564,7 +1650,8 @@ mod budget_tests {
     }
 
     #[test]
-    fn logical_budget_equals_the_independent_v5_literal_record_size() -> Result<(), String> {
+    fn logical_budget_equals_the_independent_literal_record_with_uv_headers() -> Result<(), String>
+    {
         let original = interning_tests::batch(vec![Vertex::UNLIT; 4], vec![0, 1, 2])?;
         let bytes = write_props(std::slice::from_ref(&original))?;
         let mut reader = Reader::new(&bytes);
@@ -1572,15 +1659,26 @@ mod budget_tests {
         let mut budget = LogicalPropsBudget::new();
         let decoded = read_batch(&mut reader, PROPS_RECORD_VERSION, &mut budget)?;
         let literal_bytes = legacy_tests::literal_record(&decoded, 5)?;
+        let uv_header_bytes = decoded.submeshes.iter().try_fold(0_u64, |total, part| {
+            total
+                .checked_add(if part.response.fluorescence.mask.is_some() {
+                    19
+                } else {
+                    17
+                })
+                .ok_or_else(|| "test UV header size overflowed".to_string())
+        })?;
+        let expected_bytes = u64::try_from(literal_bytes.len())
+            .map_err(|error| format!("test literal size is too large: {error}"))?
+            .checked_add(uv_header_bytes)
+            .ok_or("test literal size overflowed")?;
         assert!(
             reader.is_empty(),
             "the entire one-batch record must be accounted for"
         );
         assert_eq!(
-            budget.bytes,
-            u64::try_from(literal_bytes.len())
-                .map_err(|error| format!("test literal size is too large: {error}"))?,
-            "charge the exact v5 model, optional-slot, material, vertex and index headers"
+            budget.bytes, expected_bytes,
+            "charge historical literal storage plus each current optional UV header"
         );
         assert_eq!(
             decoded.vertices.len(),
@@ -1747,6 +1845,34 @@ mod legacy_tests {
                 "v5 material and draw metadata remain exact"
             );
         }
+        Ok(())
+    }
+
+    #[test]
+    fn legacy_v6_submesh_reads_zero_uv_response() -> Result<(), String> {
+        let mut writer = Writer::new();
+        write_optional_slot(&mut writer, None)?;
+        writer.u8(0);
+        writer.f32(0.5);
+        writer.f32_3([0.0; 3]);
+        writer.f32(0.0);
+        write_optional_slot(&mut writer, None)?;
+        writer.f32_3([0.0; 3]);
+        writer.f32(0.6);
+        writer.u32(0);
+        writer.u32(3);
+        let bytes = writer.into_bytes();
+        let mut reader = Reader::new(&bytes);
+        let decoded = read_submesh(&mut reader, 6)?;
+        assert!(
+            reader.is_empty(),
+            "legacy scalar response consumes the exact historical width"
+        );
+        assert_eq!(
+            decoded.response.fluorescence,
+            crate::materials::MaterialFluorescence::NONE,
+            "legacy prepared records have no pigment response"
+        );
         Ok(())
     }
 

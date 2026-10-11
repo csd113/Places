@@ -121,5 +121,39 @@ class BlendMaterialTests(unittest.TestCase):
         self.assertEqual(read_glb(write_glb(mesh, texture)).texture_png, texture)
 
 
+class UltravioletMaterialTests(unittest.TestCase):
+    def test_masked_fluorescence_preserves_png_and_never_authors_emission(self):
+        mask = (ROOT / "assets/shared/textures/white_01.png").read_bytes()
+        albedo = (ROOT / "assets/shared/textures/missing_01.png").read_bytes()
+        mesh = Mesh()
+        for index, name in enumerate(("poster", "decoration")):
+            slot = mesh.material(name, uv_response=.6, uv_response_mask=mask)
+            mesh.begin_material(slot)
+            mesh.box((index, 0, 0), (1, 1, 1), uv=(0, 0, 1, 1))
+        data = write_glb(mesh, albedo)
+        length = struct.unpack_from("<I", data, 12)[0]
+        doc = json.loads(data[20:20+length])
+        self.assertEqual(len(doc["images"]), 2, "shared numeric masks are embedded once")
+        for material in doc["materials"]:
+            self.assertEqual(material["extras"], {
+                "uv_response": .6, "uv_response_mask": {"index": 1, "texCoord": 0}})
+            self.assertNotIn("emissiveFactor", material)
+        self.assertEqual(read_glb(data).texture_pngs, [albedo, mask])
+
+    def test_invalid_or_orphan_response_is_rejected_by_builder_and_raw_writer(self):
+        mask = (ROOT / "assets/shared/textures/white_01.png").read_bytes()
+        cases = [dict(uv_response=float("nan")), dict(uv_response=-1),
+                 dict(uv_response=2.1), dict(uv_response_mask=mask),
+                 dict(uv_response=.6, uv_response_mask=b"not a PNG")]
+        mesh = Mesh()
+        mesh.box((0, 0, 0), (1, 1, 1), uv=(0, 0, 1, 1))
+        for fields in cases:
+            with self.subTest(fields=tuple(fields)):
+                with self.assertRaises(ValueError):
+                    Mesh().material("invalid", **fields)
+                with self.assertRaises(GltfError):
+                    write_glb(mesh, mask, materials=[fields])
+
+
 if __name__ == "__main__":
     unittest.main()

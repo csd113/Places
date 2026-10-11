@@ -3928,7 +3928,7 @@ fn quad_area(points: [[f32; 2]; 4]) -> f32 {
 
 #[test]
 fn every_fixture_family_has_a_stable_sheet_slot() {
-    assert_eq!(crate::lighting::FixtureKind::ALL.len(), 4);
+    assert_eq!(crate::lighting::FixtureKind::ALL.len(), 5);
     for (slot, kind) in crate::lighting::FixtureKind::ALL.iter().enumerate() {
         assert_eq!(kind.index(), slot, "{kind:?} drifted to another sheet slot");
     }
@@ -6971,6 +6971,7 @@ fn the_neutral_resolver_lets_the_shine_override_win_and_keeps_the_material_other
     use crate::render::common::materials::resolve_surface_material;
 
     let response = MaterialResponse {
+        fluorescence: crate::materials::MaterialFluorescence::NONE,
         normal: None,
         normal_strength: 1.0,
         specular: [0.4; 3],
@@ -7016,6 +7017,7 @@ fn the_neutral_resolver_zeroes_the_response_and_reflection_strength_on_a_gated_p
     use crate::render::common::materials::resolve_surface_material;
 
     let response = MaterialResponse {
+        fluorescence: crate::materials::MaterialFluorescence::NONE,
         normal: Some(3),
         normal_strength: 0.4,
         specular: [0.6; 3],
@@ -7074,6 +7076,7 @@ fn the_neutral_resolver_treats_a_fixture_or_decal_key_as_plain() {
         emissions: vec![MaterialEmission::NONE; 3],
         responses: vec![
             MaterialResponse {
+                fluorescence: crate::materials::MaterialFluorescence::NONE,
                 normal: Some(1),
                 normal_strength: 1.0,
                 specular: [1.0; 3],

@@ -66,6 +66,8 @@ PLACES_LEVEL=places_demo ./target/release/places
 python3 -m unittest tests.test_tool_execution tests.test_zoo_generator
 python3 tools/props/preview.py --all --workers 8 --out target/previews
 python3 tools/textures/build.py --check
+python3 tools/textures/author_arcade.py --check  # saved masters/native parity
+python3 tools/levels/build_retro_arcade.py --check
 python3 tools/textures/build.py --workers 4 --only core:tex_pool_tile_deck_01
 python3 tools/props/build.py --workers 4 --only home:fork home:bowl
 python3 tools/props/animate_spooner_man.py --workers 6

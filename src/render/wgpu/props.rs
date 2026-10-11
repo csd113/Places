@@ -198,13 +198,14 @@ impl PropUpload {
         clippy::too_many_lines,
         reason = "one batch shares sheet slots, material identities and counters"
     )] // one batch shares sheet slots, material identities and counters
-    pub(crate) fn push_batch(
+    pub(crate) fn push_batch_with_blacklight(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         cache: &mut TextureCache,
         material_layout: &wgpu::BindGroupLayout,
         batch: &PropMeshBatch,
+        visibility: Option<crate::render::common::blacklight::BlacklightVisibility<'_>>,
     ) {
         if batch.indices.is_empty() || self.skip_models.iter().any(|model| model == &batch.model) {
             return;
@@ -227,6 +228,19 @@ impl PropUpload {
         // The model's sheets, once per texture list entry.
         let texture_base = textures.len();
         for (index, image) in batch.textures.iter().enumerate() {
+            if super::material::ultraviolet_only_texture(
+                index,
+                batch.submeshes.iter().map(|part| {
+                    (
+                        part.texture,
+                        part.emission.mask,
+                        part.response.fluorescence.mask,
+                    )
+                }),
+            ) {
+                textures.push(cache.fallback());
+                continue;
+            }
             let identity = self
                 .image_keys
                 .entry((batch.model.clone(), index))
@@ -267,7 +281,7 @@ impl PropUpload {
             );
             textures.push(texture);
         }
-        let chunk = WgpuProps::upload_batch(device, queue, batch);
+        let chunk = WgpuProps::upload_batch(device, queue, batch, visibility);
         let chunk_index = chunks.len();
         stats.vertices = stats
             .vertices
@@ -290,6 +304,23 @@ impl PropUpload {
                         .and_then(|local_slot| local_slot.checked_add(texture_base))
                 })
                 .filter(|index| *index < textures.len());
+            let uv_mask = if let Some(image) =
+                submesh.response.fluorescence.mask.and_then(|index| {
+                    batch
+                        .textures
+                        .get(usize::try_from(index).unwrap_or(usize::MAX))
+                }) {
+                super::material::upload_uv_mask(
+                    device,
+                    queue,
+                    cache,
+                    &format!("prop:{}:uv", batch.model),
+                    image,
+                    level,
+                )
+            } else {
+                cache.fallback()
+            };
             let record = EmissionRecord::material(submesh.emission, mask.is_some());
             // The cutoff is part of the material identity: two primitives that
             // share a sheet and emission but discard at different alpha levels
@@ -302,12 +333,13 @@ impl PropUpload {
                     let mask_texture = mask
                         .and_then(|index| textures.get(index).cloned())
                         .unwrap_or_else(|| cache.fallback());
-                    let gpu = GpuMaterial::model_with_alpha(
+                    let gpu = GpuMaterial::model_with_fluorescence(
                         device,
                         queue,
                         material_layout,
                         cache,
                         &mask_texture,
+                        &uv_mask,
                         super::material::ModelMaterial {
                             emission: record,
                             alpha: submesh.alpha,
@@ -368,7 +400,11 @@ impl WgpuProps {
     /// that cannot be resolved still yields an entry (the shared fallback), so
     /// a broken model draws white rather than disappearing.
     #[must_use]
-    pub fn upload(
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "upload resources plus one shared immutable visibility context"
+    )]
+    pub fn upload_with_blacklight(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         cache: &mut TextureCache,
@@ -376,10 +412,18 @@ impl WgpuProps {
         batches: &[PropMeshBatch],
         skip_models: &[String],
         level: QualityLevel,
+        visibility: Option<crate::render::common::blacklight::BlacklightVisibility<'_>>,
     ) -> Self {
         let mut upload = PropUpload::new(skip_models, level);
         for batch in batches {
-            upload.push_batch(device, queue, cache, material_layout, batch);
+            upload.push_batch_with_blacklight(
+                device,
+                queue,
+                cache,
+                material_layout,
+                batch,
+                visibility,
+            );
         }
         upload.finish()
     }
@@ -389,11 +433,18 @@ impl WgpuProps {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         batch: &PropMeshBatch,
+        visibility: Option<crate::render::common::blacklight::BlacklightVisibility<'_>>,
     ) -> PropChunk {
         let vertices: Vec<WorldVertex> = batch
             .vertices
             .iter()
-            .map(|vertex| WorldVertex::from(*vertex))
+            .map(|vertex| {
+                let mut gpu = WorldVertex::from(*vertex);
+                if let Some(context) = visibility {
+                    gpu.uv_visibility = context.vertex(vertex);
+                }
+                gpu
+            })
             .collect();
         let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("places-wgpu-prop-vertices"),

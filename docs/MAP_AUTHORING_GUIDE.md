@@ -9,6 +9,7 @@ Repository-wide checks: [authoritative desktop verification](VERIFICATION.md).
 | Asset catalog format version documented | `2` (`format_version` in `assets/catalog.json`) |
 | Stage 7 integration audit | October 9, 2026: checked colour/HDR, measured Full ten-page/lower eight-page atlas policy, independent quality controls, panes, PLPF v3/solver 16, geometry revision 7 and compiler/runtime dependency identity against the current source. Wall spans evaluate exact endpoints against their own roof owner. Platform execution claims remain dated evidence in [VERIFICATION.md](VERIFICATION.md). |
 | Verification | Sky panorama limits and quality uploads re-verified against `src/assets.rs`, `src/materials/image.rs`, `src/quality.rs` and `src/render/wgpu/sky.rs` (October 2026 working tree). Movement support and rim backing in §10 re-verified against `src/game.rs`, `src/level.rs` and the permanent movement-map tests (October 2026 working tree). Verified against the working tree at version 0.7.0. Section 33 was checked against `src/nav/`, `src/ai/`, `src/package/navigation.rs`, `src/loader.rs`, `src/compiler.rs`, `levels/places_demo.json` and the fixed-step tests `nav::tests`, `ai::tests` and `game::tests::demo_home_encounter_*`. The v3 contract (components, event bindings, trigger volumes, timers, sequences and spawns) was checked against `src/level.rs`, `src/loader.rs`, `src/entities/`, `levels/places_demo.json`, `levels/model_zoo.json`, `levels/*.json` and the generator/converter tools. The `fade`/`glow` components in §29 were checked against `src/level.rs` (`FadeDef`/`GlowDef`), `src/loader.rs` (`validate_component_value`), `src/entities/components.rs` (`Fade`/`Glow`), `src/entity.rs` (`EntityFrame`) and `tools/assets/validate.py`. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/geometry_check.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
+| Ultraviolet material verification | Catalog `uv_response`/numeric-mask fields, GLB extras, four enabled-state source slots, static vertex visibility, moving bounds anchors, independent pigment tint, legacy PLMP readers and operational blacklight fixtures checked against the October 11, 2026 working tree. Native acceptance evidence is recorded in the Retro Bowling implementation report. |
 | Outdoors reconstruction verification | Section 34 checked against the October 7 Outdoors catalog, fitted PNGs, closed model builders, source placements, native wgpu captures and asset integrity audit. Engine format and lighting model are unchanged. |
 | Checks that must pass before a code or asset change ships | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check` (see [Validation Workflow](#27-validation-workflow) for what each proves) |
 | Aero prop authoring verification | October 10, 2026: opt-in BLEND/finite opacity writer checked against importer and byte-preserving OPAQUE/MASK fixtures; existing runtime rendering and transport remain unchanged. |
@@ -121,6 +122,7 @@ Authoritative paths:
 | A separate dynamic-object render path (per-frame transforms, no rebuild of static geometry or lightmaps) | Implemented (authorable `doors[]` leaves plus one engine-created drum demonstration) |
 | Generic engine-level lights (point / rect / line) owned by fixtures and props | Implemented |
 | Material emission (`emissive`, `emissive_intensity`, `emissive_mask`) and per-fixture `emission` | Implemented |
+| Masked ultraviolet pigment response (`uv_response`, `uv_response_mask`, fixture `ultraviolet`) | Implemented; static, dynamic and character meshes |
 | Material surface response (`normal_texture`, `normal_strength`, `specular`, `specular_color`, `shine`) | Implemented |
 | Material transparency (`alpha_mode`: `opaque` / `cutout` / `blend`, `opacity`, `alpha_cutoff`) | Implemented |
 | Opening glazing: a `glass` material fills a window, vent or door aperture with one pane; `solid: true` makes the pane a physical slab | Implemented |
@@ -1936,6 +1938,8 @@ catalog (with the asset id in the message), not just the field.
 | `emissive` | `[r,g,b]` | none | Each channel `0.0`–`1.0`. Adds an emissive term on top of baked light. Only a `material` `definition` may declare emission. | The surface does not emit. |
 | `emissive_intensity` | number | `1.0` when `emissive` is set | `0.0`–`8.0`. Multiplier on the emissive colour. Asserting it without `emissive` is a catalog error. | `1.0`. |
 | `emissive_mask` | string | none | Logical id of a file-backed `texture`. Its RGB modulates where the surface emits; it must resolve or the whole material degrades to the diagnostic texture. Asserting it without `emissive` is a catalog error. | No mask; the material's own texture modulates the glow. |
+| `uv_response` | number | `0.0` | Finite `0.0`–`2.0`. Pigment fluorescence under an enabled ultraviolet fixture; distinct from texture UV coordinates. It adds no emitted light, probe irradiance or bloom. | Ordinary nonreactive material. |
+| `uv_response_mask` | string | none | Logical id of a file-backed PNG `texture`; requires positive `uv_response`. Numeric linear RGB coverage shares the albedo's coordinates and repeat. Black suppresses reaction; white permits it. Missing masks degrade the whole material. | Uniform pigment response. |
 | `normal_texture` | string | none | Logical id of a file-backed `texture` holding a tangent-space normal map (RGB = x/y/z encoded `0..255 → -1..1`). Must resolve or the whole material degrades. | No normal perturbation. |
 | `normal_strength` | number | `1.0` | `0.0`–`2.0`. Multiplies the decoded map's `xy`. Asserting it without `normal_texture` is a catalog error. | `1.0`. |
 | `specular` | number | `0.0` | `0.0`–`1.0`. Sheen strength: how much light the surface catches. `0.0` is the default flat look, and no `shine` value can switch a sheen on. | No sheen. |
@@ -2745,6 +2749,8 @@ anywhere).
 | `emissive` | `[r,g,b]` | optional | — | materials (`0`–`1` each; the anchor of the emission group) |
 | `emissive_intensity` | number | optional | `1.0` | materials (`0`–`8`; requires `emissive`) |
 | `emissive_mask` | string | optional | — | materials (logical file-backed texture id; requires `emissive`) |
+| `uv_response` | number | optional | `0.0` | material definitions; finite `0`–`2`, ultraviolet pigment response |
+| `uv_response_mask` | string | optional | — | material definitions; logical file-backed PNG texture id, requires positive `uv_response` |
 | `normal_texture` | string | optional | — | materials. Logical texture id of a tangent-space normal map. |
 | `normal_strength` | number | optional | `1.0` | materials (`0`–`2`; requires `normal_texture`) |
 | `specular` | number | optional | `0.0` | materials (`0`–`1`): sheen strength |
@@ -2760,7 +2766,7 @@ anywhere).
 | `tags` | array of strings | optional | `[]` | currently unused |
 
 A material's `texture` must name a declared, file-backed `texture` asset
-(`source: "file"`, `model` ending `.png`); `emissive_mask` and `normal_texture`
+(`source: "file"`, `model` ending `.png`); `emissive_mask`, `uv_response_mask` and `normal_texture`
 follow exactly the same rule, and a material's `baseboard` must name a declared
 `material` asset. A material may be declared before the
 texture it draws with, but never with a dangling reference: the catalog does a second
@@ -3359,6 +3365,57 @@ sample = clamp(AMBIENT_LEVEL + room/partition-area baseline
 8. **No ambient control.** The 0.10 neutral floor is fixed; you cannot author sun,
    sky, a room-wide brightness or a room-wide tint. Express mood per fixture.
 
+### Ultraviolet reactive pigments
+
+Ultraviolet illumination is a separate material behavior. It does not mean
+texture UV coordinates, and it does not contribute visible incident light,
+probe irradiance, lightmap energy or bloom. Ordinary emitter surfaces continue
+to use `emissive`; fluorescent printed ink uses `uv_response` instead.
+
+1. Add a real albedo PNG and a co-registered numeric response-mask PNG under
+   `assets/`. The mask's RGB channels are linear data: black backing does not
+   react, white ink reacts fully, and grey controls partial response. A greyscale
+   mask gives equal response in all channels. Preserve
+   the albedo's aspect ratio, orientation, wrapping and tile scale. See
+   `docs/ASSET_SPECIFICATION.md` for the source/native size contract.
+2. Register the mask as a `texture`, then reference its id from a `material`
+   with `uv_response_mask` and finite `uv_response` in `0..=2`. Omitted response
+   is zero. A mask requires positive response; these fields do not grant emission.
+3. Author a ceiling fixture with finite `ultraviolet` in `0..=8`. Up to four
+   positive sources are supported, including initially disabled sources.
+   `brightness` controls the fixture's ordinary visible spill independently.
+   Its authored range, falloff, facing and alpha-aware visibility bound the
+   pigment response. A zero-brightness fixture can still excite pigments.
+4. Use the existing switchable-fixture `toggle` or `set_light` action to change
+   enabled state. Test off/on restoration while ordinary lights remain enabled.
+   The source slots stay stable, and inactive sources contribute zero excitation.
+
+For GLB posters or decorations, the material's `extras.uv_response` and
+`extras.uv_response_mask = {"texture": N, "texCoord": 0}` select the same
+behavior. The texture index names a normal embedded PNG; its mask is uploaded
+as numeric data. The offline `PropBuilder.material` / GLB exporter supports
+these fields. Material tint and `baseColorFactor` remain separate from baked
+lighting when computing pigment color. Existing native decal rendering does
+not apply fluorescence: use a fitted thin GLB prop or an architectural material
+for a reactive poster. The arcade sci-fi cabinet side print demonstrates this.
+
+Lighting quality and texture filtering remain independent. Reactive floors,
+ceilings and walls receive a GPU-only world-aligned 2.5 m visibility grid in
+every lighting quality, bounded by the existing 12-cell cap per axis. Original
+triangle boundaries, texture coordinates, vertex attributes and atlas pages
+remain intact; the upload merges refined triangles into the original draw
+ranges. Static props retain their authored vertices. Both interpolate four
+source-visibility values and do not acquire finer UV shadows when lightmaps
+change. Dynamic/character receivers
+use eight bounds anchors with static and dynamic alpha-aware occlusion. Small
+occluders can be softened by either interpolation (especially below the grid
+spacing, or on oversized capped surfaces), and moving objects do not
+rewrite static fluorescence visibility. Arbitrary GLB vertex-color gradients
+are not part of pigment tint. Prepared reflection cubemaps retain their initial
+fluorescent appearance after a source toggle; the directly viewed surfaces and
+fixture faces update live. Do not compensate for these limits with ambient,
+exposure, emissive carpet or globally glowing props.
+
 ### Baked lightmaps
 
 The compiler stores linear incident irradiance and signed moments per texel of
@@ -3530,6 +3587,8 @@ code**.
 | `core:pool_light_round` | ceiling | `environments/pool/textures/lights/pool_light_round_01.png` (128×128) | Disc, 0.44 m diameter (half extent 0.22); rotation-invariant | Round recessed downlight. Same ceiling-plane derivation as the panel. |
 | `home:ceiling_light_round` | ceiling (default) | `environments/home/textures/lights/ceiling_light_round_01.png` (256×256) | Disc, 0.32 m diameter (half extent 0.16); rotation-invariant | Round residential flush mount: a shallow white drum with a glowing diffuser disc, hanging 0.07 m below the ceiling plane. Its pool is the disc's bounding square, as with the pool downlight. |
 | `core:pool_light_wall` | **wall** — requires `"mount": "wall"` and a finite world `"y"` | `environments/pool/textures/lights/pool_light_wall_01.png` (128×64) | Rectangle 0.4 × 0.18 m (half extents 0.20 × 0.09) centred on (x, y, z) | Faces `rotation_degrees`: 0 = +Z, 90 = +X, 180 = −Z, 270 = −X. Place the point on the wall plane; the body extends ~0.11 m forward. Light is emitted from the rectangle's front. |
+| `arcade:fluorescent_panel_01` | ceiling | `environments/arcade/textures/lights/fluorescent_panel_01.png` (256×128) | Existing 1.2 × 0.6 m recessed troffer family | Fitted warm diffuser; same housing and grid rules as the office panel. |
+| `arcade:blacklight_tube` | ceiling | `environments/arcade/textures/lights/blacklight_tube_01.png` (256×32) | Closed 1.2 × 0.15 m batten, fitted 1.12 × 0.14 m lens; seven quads | Dark housing with restrained purple face. Author `ultraviolet` for pigment response and `switchable: true` for actions. Each batten has an individual face slot, including nonswitchable instances, so disabled faces start dark. |
 
 Ceiling fixture rotation is quantised to a 0°/90° axis swap; only wall sconces rotate
 continuously. Unknown fixture ids load as the office panel with the untextured white
@@ -3568,6 +3627,10 @@ Fixture geometry is code. To add a family, touch each of these:
    (append only; it is the sheet/pipeline slot), include it in `FixtureKind::ALL`,
    add its `FixtureProfile` (`half_width`, `half_depth`, `quads`), map its logical id
    in `fixture_profile`, and append the id to `LIGHT_FIXTURE_IDS`.
+   The four legacy shared face slots and `FIXTURE_SWITCHABLE_MATERIAL_BASE = 4`
+   are serialized contracts. New families must use individual fixture face
+   slots as the blacklight does; a fifth shared face would collide with
+   historical switched faces.
 2. `src/render/common/fixtures.rs` — implement the family's emitter(s): the visible face
    (the fitted PNG) into the `lit` batch, and only genuine untextured body
    geometry (a can, a housing, a frame) into `housing`. For an example, the office
@@ -3779,12 +3842,13 @@ All fixtures — ceiling and wall — live in the level's `ceiling_lights` array
 | `x`, `z` | number | **yes** | — | World position. Must be finite. |
 | `rotation_degrees` | number | no | `0.0` | Y rotation. Ceiling families quantise to a 0°/90° axis swap; wall fixtures rotate continuously. |
 | `brightness` | number | no | `1.0` | Must be finite and `≥ 0`; baking clamps to `8.0`. |
+| `ultraviolet` | number | no | `0.0` | Finite `0.0`–`8.0`, independent pigment excitation. At most four positive sources may be authored, counting disabled fixtures. Uses fixture position, emitting extent, range, falloff, surface orientation and transport visibility. Enabled state gates reaction even with Lighting Off or zero visible brightness. It contributes no ordinary irradiance or bloom. |
 | `color` | `[r,g,b]` | no | `[1.0, 0.96, 0.88]` | Each channel `0`–`1`. Drives the illumination only: the visible face is texture-first and the light colour never repaints the artwork. |
 | `mount` | `"ceiling"` \| `"wall"` | no | `"ceiling"` | Closed enum. Wall fixtures require `y` or the level is rejected. |
 | `y` | number | no (required for wall) | derived for ceiling | Ceiling: optional mounting world Y (also selects a storey in stacked rooms). Wall: required world Y of the fixture centre. |
 | `range` | number | no | `6.0` | Reach of this fixture's pools in metres; must be positive and finite; clamped to `0.05`–`64`. A ceiling fixture's direct pool falls to zero at `range` measured horizontally from its emitting rectangle; its bounce fill reaches `1.5 × range`. A shorter range is also a softer pool. |
 | `falloff` | `"smooth"` \| `"linear"` \| `"constant"` | no | `"smooth"` | Closed enum. Lateral pool decay curve for a ceiling fixture (`smooth` = `(1 - d/range)²`), or the radial curve for a wall sconce or prop light. `constant` holds full strength to `range` then stops (a deliberately hard pool). |
-| `enabled` | boolean | no | `true` | `false` keeps the fixture's visible glow but removes **all** of its environmental illumination. |
+| `enabled` | boolean | no | `true` | `false` removes environmental illumination and ultraviolet influence. Switchable faces and the operational `arcade:blacklight_tube` also turn dark; other nonswitchable fixture families retain their historical visible face behavior. |
 | `emission` | number | no | the fixture's `brightness` | Independent emissive strength of the visible face, finite, `≥ 0`, clamped to `8.0`. Lets a face read brighter (or dimmer) than the light the fixture casts. |
 | `switchable` | boolean | no | `false` | Marks the fixture as externally controllable: `{ "action": "set_light", "target": "<id>", "on": false }` or `{ "action": "toggle", "target": "<id>" }` may switch it at runtime (see §29). A switchable fixture is excluded from its room's baked baseline and contributes only its local pool; each switch state is prepared as its own selectable lightmap layer, so toggling **selects a prepared layer** — a real change of the baked illumination with no runtime rebake — and the visible face turns off with it. Moving objects and characters using a newly compiled v3 irradiance field receive the fixture's live direct light through reserved runtime source slots; base probes exclude switchable energy, so it is added once. Switched diffuse bounce is absent from the entity base field. Genuine legacy v2 fields retain their combined center path without switched entity response. A fixture that is **not** switchable is baked once and never changes: no action can move its illumination. Emission-only motion (`animated_emissions[]`) never changes illumination either; it animates the face's additive glow only. Layer selection needs the prepared lightmap variants (the default): with Lightmaps Off the level bakes into vertex colours, so the face still switches but the baked illumination cannot change until the level is reloaded. Leave it `false` unless a map action drives it. |
 | `align` | `"grid"` \| `"none"` | no | `"grid"` | Closed enum. Grid alignment snaps a fluorescent panel's centre onto its ceiling material's visible panel grid at load (see *Ceiling grid alignment* below). `"none"` keeps the authored `x`/`z` exactly. |
@@ -7327,9 +7391,10 @@ A tube that reads bright but casts a restrained local pool (the demo's far corri
 in a directory, reporting per-source failures without blocking the others.
 
 Current package major is 1, level schema 3, geometry revision 9 and transport
-solver revision 17. PLMP v6 shares exact vertex/frame bytes without changing
-decoded material response, normals, UVs, lighting or character caster claims;
-literal v3/v4/v5 remain readable with their documented defaults. Both encoded
+solver revision 17. PLMP v7 retains v6's exact vertex/frame sharing and adds
+optional ultraviolet pigment response, numeric-mask slot and independent tint.
+Literal v3/v4/v5 and paletted v6 remain readable with zero ultraviolet response
+and their documented material/caster defaults. Both encoded
 and expanded literal prop records retain the 512-MiB bound. PLPF v3 preserves spatial selected
 direct presence even with zero sources; v2 remains a genuine legacy centre path.
 Probe positions v3 declares HDR captures; v2's old RGBA8 data decodes to linear

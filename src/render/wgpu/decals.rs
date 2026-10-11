@@ -1320,6 +1320,9 @@ mod tests {
         assert_eq!(gpu.color, [0.5, 0.0, 1.0, 1.0]);
         assert_eq!(gpu.lightmap_page, f32::from(LIGHTMAP_NONE));
         assert_eq!(gpu.color[0], 0.5);
+        // Decals do not author a UV response, so conversion must not create
+        // visibility to a blacklight source in the shared GPU-only tail.
+        assert_eq!(gpu.uv_visibility, [0.0; 4]);
 
         let converted = world_vertices(&[vertex]);
         assert_eq!(converted, vec![gpu]);
@@ -1327,7 +1330,13 @@ mod tests {
             usize::try_from(WORLD_VERTEX_STRIDE).unwrap(),
             std::mem::size_of::<WorldVertex>()
         );
-        assert_eq!(world_vertex_layout().attributes.len(), 8);
+        let layout = world_vertex_layout();
+        assert_eq!(layout.array_stride, 88);
+        assert_eq!(layout.attributes.len(), 9);
+        let visibility_attribute = layout.attributes.last().unwrap();
+        assert_eq!(visibility_attribute.shader_location, 8);
+        assert_eq!(visibility_attribute.offset, 72);
+        assert_eq!(visibility_attribute.format, wgpu::VertexFormat::Float32x4);
     }
 
     // --------------------------------------------------------------- mips

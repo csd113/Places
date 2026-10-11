@@ -120,6 +120,7 @@ pub const WORLD_ATTRIB_HANDEDNESS: u32 = 5;
 pub const WORLD_ATTRIB_LIGHTMAP_UV: u32 = 6;
 /// Lightmap page byte as a float, the reference's `a_lightmap_page`.
 pub const WORLD_ATTRIB_LIGHTMAP_PAGE: u32 = 7;
+pub const WORLD_ATTRIB_UV_VISIBILITY: u32 = 8;
 
 /// One GPU world vertex: the material frame, the lit colour and the lightmap
 /// coordinates.
@@ -143,8 +144,8 @@ pub const WORLD_ATTRIB_LIGHTMAP_PAGE: u32 = 7;
 /// `LIGHTMAP_NONE`) exactly as the un-normalized `GL_UNSIGNED_BYTE` attribute
 /// reached the reference shader.
 ///
-/// `#[repr(C)]` + `Pod` make the 64-byte stride explicit (the lightmap
-/// attributes and the model-space position/colour/handedness tail);
+/// `#[repr(C)]` + `Pod` make the 88-byte GPU stride explicit. Visibility is
+/// appended here, leaving the prepared neutral vertex format unchanged;
 /// the unit tests pin every offset and the vertex-buffer layout.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
@@ -166,9 +167,8 @@ pub struct WorldVertex {
     pub tangent: [f32; 3],
     /// Bitangent sign: `cross(normal, tangent) * handedness` is UV-v.
     pub handedness: f32,
-    /// Explicit tail padding so the struct has no implicit padding (bytemuck)
-    /// and a 4-byte-granular 64-byte stride.
-    pub padding: [u8; 4],
+    /// Four immutable static UV visibility fractions; moving objects use anchors.
+    pub uv_visibility: [f32; 4],
 }
 
 impl From<&Vertex> for WorldVertex {
@@ -182,7 +182,7 @@ impl From<&Vertex> for WorldVertex {
             lightmap_page: f32::from(vertex.lightmap_page),
             tangent: vertex.tangent,
             handedness: vertex.handedness,
-            padding: [0; 4],
+            uv_visibility: [0.0; 4],
         }
     }
 }
@@ -193,7 +193,7 @@ impl From<Vertex> for WorldVertex {
     }
 }
 
-const WORLD_VERTEX_ATTRIBUTES: [wgpu::VertexAttribute; 8] = wgpu::vertex_attr_array![
+const WORLD_VERTEX_ATTRIBUTES: [wgpu::VertexAttribute; 9] = wgpu::vertex_attr_array![
     WORLD_ATTRIB_POSITION => Float32x3,
     WORLD_ATTRIB_NORMAL => Float32x3,
     WORLD_ATTRIB_UV => Float32x2,
@@ -202,6 +202,7 @@ const WORLD_VERTEX_ATTRIBUTES: [wgpu::VertexAttribute; 8] = wgpu::vertex_attr_ar
     WORLD_ATTRIB_LIGHTMAP_PAGE => Float32,
     WORLD_ATTRIB_TANGENT => Float32x3,
     WORLD_ATTRIB_HANDEDNESS => Float32,
+    WORLD_ATTRIB_UV_VISIBILITY => Float32x4,
 ];
 
 /// Bytes between consecutive world vertices.
@@ -451,7 +452,9 @@ impl FogRegionUniform {
 /// offset 4336 entity_direct       [Source; 8]    896 bytes
 /// offset 5232 contact_shadows     [Shadow; 8]    384 bytes
 /// offset 5616 contact_shadow_count vec4<u32>      16 bytes
-/// ------------------------------------------------------ 5632 bytes, align 16
+/// offset 5632 blacklights          [Source; 4]    448 bytes
+/// offset 6080 uv_receiver          Receiver       160 bytes
+/// ------------------------------------------------------ 6240 bytes, align 16
 /// ```
 ///
 /// Every field is the reference's own frame uniform: `u_light_scale`,
@@ -463,7 +466,7 @@ impl FogRegionUniform {
 /// `opacity` is the per-instance fade multiplier the character path installs
 /// (`1.0` for the static world and every prop, so static output is unchanged);
 /// the regional fog block is the level's authored volumes, bounded by the
-/// live count word. The struct is 5632 bytes on the wire and in Rust
+/// live count word. The struct is 6240 bytes on the wire and in Rust
 /// (`ENVIRONMENT_UNIFORM_SIZE`). `#[repr(C, align(16))]` makes the Rust layout
 /// the WGSL uniform layout explicitly; the unit tests pin it.
 #[repr(C, align(16))]
@@ -532,6 +535,8 @@ pub struct EnvironmentUniform {
     pub entity_direct: [crate::render::common::light_transport::EntityDirectLight; 8],
     pub contact_shadows: [crate::render::common::dynamic_lights::ContactShadowUniform; 8],
     pub contact_shadow_count: [u32; 4],
+    pub blacklights: [crate::render::common::light_transport::EntityDirectLight; 4],
+    pub uv_receiver: crate::render::common::blacklight::BlacklightReceiver,
 }
 
 impl EnvironmentUniform {
@@ -540,6 +545,32 @@ impl EnvironmentUniform {
     ///
     /// The lightmap selection starts empty; [`Self::with_lightmaps`] installs
     /// the resident pages and switchable groups.
+    /// Adds local ultraviolet sources without changing any visible light field.
+    #[must_use]
+    pub fn with_blacklights(
+        mut self,
+        sources: &crate::render::common::blacklight::BlacklightSet,
+        lighting: Option<&crate::lighting::LevelLighting>,
+    ) -> Self {
+        self.blacklights = sources.descriptors(lighting);
+        self
+    }
+
+    #[must_use]
+    pub fn with_uv_receiver(
+        mut self,
+        visibility: Option<crate::render::common::blacklight::BlacklightVisibility<'_>>,
+        bounds: Aabb,
+        model: Mat4,
+        receiver: Option<crate::render::common::dynamic::DynamicId>,
+    ) -> Self {
+        self.uv_receiver = visibility.map_or(
+            crate::render::common::blacklight::BlacklightReceiver::ZERO,
+            |context| context.receiver(bounds, model, receiver),
+        );
+        self
+    }
+
     #[must_use]
     pub const fn new(
         light_scale: [f32; 3],
@@ -576,6 +607,8 @@ impl EnvironmentUniform {
             entity_direct: [crate::render::common::light_transport::EntityDirectLight::ZERO; 8],
             contact_shadows: [crate::render::common::dynamic_lights::ContactShadowUniform::ZERO; 8],
             contact_shadow_count: [0; 4],
+            blacklights: [crate::render::common::light_transport::EntityDirectLight::ZERO; 4],
+            uv_receiver: crate::render::common::blacklight::BlacklightReceiver::ZERO,
             storm: crate::render::common::storm::StormUniform {
                 color_density: [0.0; 4],
                 count: [0; 4],
@@ -1051,10 +1084,11 @@ pub struct WorldGeometryStats {
 /// GPU-free so the draw set's coverage and counts are unit-testable: the
 /// returned packer holds exactly the chunks the upload will turn into buffers,
 /// and every [`WorldDraw`] addresses one placement of one selected range. The
-/// neutral [`MeshPacker`] chunks the ranges exactly as the reference upload did,
-/// so an index is always 16-bit and a range can be split across chunk buffers
-/// without re-basing at draw time. An empty draw set produces no chunks and no
-/// draws, which is a valid world.
+/// neutral [`MeshPacker`] retains the reference chunking. Reactive architecture
+/// alone gains a bounded visibility-sampling grid, interpolating existing
+/// attributes without adding prepared charts; ordinary ranges remain unchanged.
+/// An index is always 16-bit and a range can split across chunk buffers without
+/// re-basing at draw time. An empty draw set produces no chunks or draws.
 #[must_use]
 pub fn pack_world_ranges(
     mesh: &LevelMesh,
@@ -1067,22 +1101,78 @@ pub fn pack_world_ranges(
             continue;
         }
         let pass = range_pass(range, materials);
-        for packed in packer.push(&range.vertices, &range.indices) {
-            draws.push(WorldDraw {
-                chunk: packed.chunk,
-                index_start: u32::try_from(packed.index_start).unwrap_or(u32::MAX),
-                index_count: u32::try_from(packed.index_count).unwrap_or(u32::MAX),
-                vertex_count: u32::try_from(packed.vertex_count).unwrap_or(u32::MAX),
-                bounds: range.bounds,
-                kind: range.key.kind,
-                material: range.key.material,
-                shine: range.key.shine,
-                range: range_index,
+        let reactive = matches!(
+            range.key.kind,
+            SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall
+        ) && usize::try_from(range.key.material)
+            .ok()
+            .and_then(|slot| materials.responses.get(slot))
+            .is_some_and(|response| response.fluorescence.strength > 0.0);
+        if reactive {
+            for &[first, next, end] in range.indices.as_chunks::<3>().0 {
+                let (Some(a), Some(b), Some(c)) = (
+                    range.vertices.get(usize::from(first)),
+                    range.vertices.get(usize::from(next)),
+                    range.vertices.get(usize::from(end)),
+                ) else {
+                    continue;
+                };
+                let (vertices, indices) = super::uv_receivers::subdivide_triangle([*a, *b, *c]);
+                append_world_draws(
+                    &mut draws,
+                    packer.push(&vertices, &indices),
+                    range,
+                    range_index,
+                    pass,
+                );
+            }
+        } else {
+            append_world_draws(
+                &mut draws,
+                packer.push(&range.vertices, &range.indices),
+                range,
+                range_index,
                 pass,
-            });
+            );
         }
     }
     (packer, draws)
+}
+
+/// Refinement keeps adjacent placements in one draw per original range/chunk.
+fn append_world_draws(
+    draws: &mut Vec<WorldDraw>,
+    placements: Vec<crate::render::common::mesh::PackedRange>,
+    range: &LevelMeshRange,
+    range_index: usize,
+    pass: BatchPass,
+) {
+    for packed in placements {
+        let index_start = u32::try_from(packed.index_start).unwrap_or(u32::MAX);
+        let index_count = u32::try_from(packed.index_count).unwrap_or(u32::MAX);
+        let vertex_count = u32::try_from(packed.vertex_count).unwrap_or(u32::MAX);
+        if let Some(previous) = draws.last_mut()
+            && previous.range == range_index
+            && previous.chunk == packed.chunk
+            && previous.index_start.saturating_add(previous.index_count) == index_start
+        {
+            previous.index_count = previous.index_count.saturating_add(index_count);
+            previous.vertex_count = previous.vertex_count.saturating_add(vertex_count);
+            continue;
+        }
+        draws.push(WorldDraw {
+            chunk: packed.chunk,
+            index_start,
+            index_count,
+            vertex_count,
+            bounds: range.bounds,
+            kind: range.key.kind,
+            material: range.key.material,
+            shine: range.key.shine,
+            range: range_index,
+            pass,
+        });
+    }
 }
 
 /// The static world mesh uploaded for the loaded level.
@@ -1097,6 +1187,7 @@ pub struct WgpuWorldGeometry {
 
 impl WgpuWorldGeometry {
     /// Uploads the world draw set of one renderer-neutral static mesh.
+    #[cfg(feature = "visual-diagnostics")]
     #[must_use]
     pub fn upload(
         device: &wgpu::Device,
@@ -1104,12 +1195,23 @@ impl WgpuWorldGeometry {
         mesh: &LevelMesh,
         materials: &MaterialRenderState,
     ) -> Self {
+        Self::upload_with_blacklight(device, queue, mesh, materials, None)
+    }
+
+    #[must_use]
+    pub fn upload_with_blacklight(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        mesh: &LevelMesh,
+        materials: &MaterialRenderState,
+        visibility: Option<crate::render::common::blacklight::BlacklightVisibility<'_>>,
+    ) -> Self {
         let (packer, draws) = pack_world_ranges(mesh, materials);
         crate::perf::startup_mark("world geometry: pack");
 
         let mut chunks: Vec<WorldChunk> = Vec::with_capacity(packer.chunks.len());
         for chunk in &packer.chunks {
-            chunks.push(upload_chunk(device, queue, chunk));
+            chunks.push(upload_chunk(device, queue, chunk, visibility));
         }
         crate::perf::startup_mark("world geometry: GPU upload");
 
@@ -1416,8 +1518,23 @@ pub(super) fn upload_index_buffer(
 }
 
 /// Uploads one packed chunk as a vertex/index buffer pair.
-fn upload_chunk(device: &wgpu::Device, queue: &wgpu::Queue, chunk: &MeshChunk) -> WorldChunk {
-    let vertices: Vec<WorldVertex> = chunk.vertices.iter().map(WorldVertex::from).collect();
+fn upload_chunk(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    chunk: &MeshChunk,
+    visibility: Option<crate::render::common::blacklight::BlacklightVisibility<'_>>,
+) -> WorldChunk {
+    let vertices: Vec<WorldVertex> = chunk
+        .vertices
+        .iter()
+        .map(|vertex| {
+            let mut gpu = WorldVertex::from(vertex);
+            if let Some(context) = visibility {
+                gpu.uv_visibility = context.vertex(vertex);
+            }
+            gpu
+        })
+        .collect();
     let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("places-wgpu-world-vertices"),
         size: u64::try_from(vertices.len())
@@ -2890,7 +3007,7 @@ mod tests {
                 vertices: Vec::new(),
                 indices: vec![0; count],
             };
-            let uploaded = upload_chunk(&device, &queue, &chunk);
+            let uploaded = upload_chunk(&device, &queue, &chunk, None);
             assert_eq!(uploaded.index_buffer.size(), expected_bytes);
             assert_eq!(usize::try_from(uploaded.index_count).unwrap(), count);
         }
@@ -3047,8 +3164,8 @@ mod tests {
 
     #[test]
     fn the_world_vertex_preserves_linear_hdr_with_the_declared_attributes() {
-        assert_eq!(std::mem::size_of::<WorldVertex>(), 76);
-        assert_eq!(WORLD_VERTEX_STRIDE, 76);
+        assert_eq!(std::mem::size_of::<WorldVertex>(), 88);
+        assert_eq!(WORLD_VERTEX_STRIDE, 88);
         assert_eq!(std::mem::offset_of!(WorldVertex, position), 0);
         assert_eq!(std::mem::offset_of!(WorldVertex, normal), 12);
         assert_eq!(std::mem::offset_of!(WorldVertex, uv), 24);
@@ -3057,13 +3174,13 @@ mod tests {
         assert_eq!(std::mem::offset_of!(WorldVertex, lightmap_page), 52);
         assert_eq!(std::mem::offset_of!(WorldVertex, tangent), 56);
         assert_eq!(std::mem::offset_of!(WorldVertex, handedness), 68);
-        assert_eq!(std::mem::offset_of!(WorldVertex, padding), 72);
+        assert_eq!(std::mem::offset_of!(WorldVertex, uv_visibility), 72);
 
         let layout = world_vertex_layout();
-        assert_eq!(layout.array_stride, 76);
+        assert_eq!(layout.array_stride, 88);
         assert_eq!(layout.step_mode, wgpu::VertexStepMode::Vertex);
-        assert_eq!(layout.attributes.len(), 8);
-        let attributes: [(u32, wgpu::VertexFormat, u64); 8] = [
+        assert_eq!(layout.attributes.len(), 9);
+        let attributes: [(u32, wgpu::VertexFormat, u64); 9] = [
             (WORLD_ATTRIB_POSITION, wgpu::VertexFormat::Float32x3, 0),
             (WORLD_ATTRIB_NORMAL, wgpu::VertexFormat::Float32x3, 12),
             (WORLD_ATTRIB_UV, wgpu::VertexFormat::Float32x2, 24),
@@ -3072,6 +3189,11 @@ mod tests {
             (WORLD_ATTRIB_LIGHTMAP_PAGE, wgpu::VertexFormat::Float32, 52),
             (WORLD_ATTRIB_TANGENT, wgpu::VertexFormat::Float32x3, 56),
             (WORLD_ATTRIB_HANDEDNESS, wgpu::VertexFormat::Float32, 68),
+            (
+                WORLD_ATTRIB_UV_VISIBILITY,
+                wgpu::VertexFormat::Float32x4,
+                72,
+            ),
         ];
         for (attribute, (location, format, offset)) in layout.attributes.iter().zip(attributes) {
             assert_eq!(attribute.shader_location, location);
@@ -3110,7 +3232,7 @@ mod tests {
         // shader's `step(254.5, page)` test compares against.
         assert_eq!(world.lightmap_uv, [7, 9]);
         assert_eq!(world.lightmap_page, 3.0);
-        assert_eq!(world.padding, [0; 4]);
+        assert_eq!(world.uv_visibility, [0.0; 4]);
     }
 
     #[test]
@@ -3856,6 +3978,67 @@ mod tests {
     }
 
     #[test]
+    fn only_reactive_architecture_is_refined_without_multiplying_draw_calls() {
+        let mut reactive_floor = range(SurfaceKind::Floor, 0);
+        for vertex in &mut reactive_floor.vertices {
+            vertex.pos[0] *= 10.0;
+            vertex.pos[2] *= 4.0;
+        }
+        let reactive_bounds = reactive_floor.bounds;
+        let ordinary_floor = range(SurfaceKind::Floor, 1);
+        let light = range(SurfaceKind::Light, 0);
+        let prop = range(SurfaceKind::PropFallback, 0);
+        let original_vertices = ordinary_floor.vertices.clone();
+        let original_light = light.vertices.clone();
+        let original_prop = prop.vertices.clone();
+        let materials = MaterialRenderState {
+            responses: vec![
+                crate::materials::MaterialResponse {
+                    fluorescence: crate::materials::MaterialFluorescence {
+                        strength: 1.0,
+                        ..crate::materials::MaterialFluorescence::NONE
+                    },
+                    ..crate::materials::MaterialResponse::default()
+                },
+                crate::materials::MaterialResponse::default(),
+            ],
+            ..MaterialRenderState::default()
+        };
+        let prepared = mesh(vec![reactive_floor, ordinary_floor, light, prop]);
+        let (packed, draws) = pack_world_ranges(&prepared, &materials);
+        assert_eq!(
+            draws.len(),
+            4,
+            "refined triangles retain one draw per original range/chunk"
+        );
+        assert!(draws[0].vertex_count > 6);
+        assert_eq!(draws[0].bounds, reactive_bounds);
+        assert_eq!(
+            (draws[0].kind, draws[0].material, draws[0].range),
+            (SurfaceKind::Floor, 0, 0)
+        );
+        for (draw, expected) in
+            draws
+                .iter()
+                .skip(1)
+                .zip([original_vertices, original_light, original_prop])
+        {
+            assert_eq!(draw.vertex_count, 6);
+            let chunk = &packed.chunks[draw.chunk];
+            let start = usize::try_from(draw.index_start).unwrap();
+            let end = start + usize::try_from(draw.index_count).unwrap();
+            let vertices: Vec<_> = chunk.indices[start..end]
+                .iter()
+                .map(|index| chunk.vertices[usize::from(*index)])
+                .collect();
+            assert_eq!(
+                vertices, expected,
+                "nonreactive and fixture/placeholder fields remain identical"
+            );
+        }
+    }
+
+    #[test]
     fn only_architectural_surfaces_with_a_real_material_resolve_a_base_texture() {
         let table = crate::materials::MaterialTable::default();
         let materials = MaterialRenderState::default();
@@ -4445,9 +4628,9 @@ mod tests {
 
     #[test]
     fn the_environment_uniform_matches_the_wgsl_layout() {
-        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 5632);
+        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 6240);
         assert_eq!(std::mem::align_of::<EnvironmentUniform>(), 16);
-        assert_eq!(ENVIRONMENT_UNIFORM_SIZE, 5632);
+        assert_eq!(ENVIRONMENT_UNIFORM_SIZE, 6240);
         assert_eq!(std::mem::offset_of!(EnvironmentUniform, light_scale), 0);
         assert_eq!(
             std::mem::offset_of!(EnvironmentUniform, lightmap_enabled),
@@ -4594,7 +4777,7 @@ mod tests {
             std::mem::offset_of!(EnvironmentUniform, entity_moment),
             1264
         );
-        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 5632);
+        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 6240);
         // The static environment carries no regions and a zeroed array: the
         // historical uniform without a level authoring any.
         let default = EnvironmentUniform::new(

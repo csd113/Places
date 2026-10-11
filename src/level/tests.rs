@@ -2491,13 +2491,12 @@ fn raised_region_keeps_its_height_through_the_room_edge_tolerance() {
 }
 
 #[test]
-fn the_switchable_fixture_material_base_starts_after_the_family_sheets() {
-    // The fixture-face slot table is `families ++ switchable fixtures`; if a
-    // family were added without moving the base, a switchable fixture would
-    // overwrite a family's sheet.
+fn the_switchable_fixture_material_base_keeps_the_four_legacy_family_slots() {
+    // New families use individual slots; the four original shared sheets and
+    // old compiled switchable face indices retain their historical meaning.
     assert_eq!(
         usize::try_from(crate::level::FIXTURE_SWITCHABLE_MATERIAL_BASE).unwrap_or(usize::MAX),
-        crate::lighting::FixtureKind::ALL.len()
+        4
     );
     assert_eq!(
         crate::level::fixture_face_material_index(
@@ -3075,4 +3074,26 @@ fn test_the_raised_vertex_budget_rejects_an_over_budget_estimate() {
     let error = crate::loader::validate_level(&level)
         .expect_err("an over-budget geometry estimate must be rejected");
     assert!(error.contains("geometry is too complex"), "{error}");
+}
+
+#[test]
+fn new_blacklight_faces_preserve_legacy_switch_slots() {
+    use crate::lighting::FixtureKind;
+    assert_eq!(crate::level::FIXTURE_SWITCHABLE_MATERIAL_BASE, 4);
+    assert_eq!(
+        crate::level::fixture_face_material_index(7, true, FixtureKind::FluorescentPanel),
+        11
+    );
+    assert_eq!(
+        crate::level::fixture_face_material_index(0, false, FixtureKind::BlacklightTube),
+        4
+    );
+    assert_eq!(
+        crate::level::fixture_face_material_index(7, false, FixtureKind::BlacklightTube),
+        11
+    );
+    assert_eq!(
+        crate::level::fixture_face_material_index(0, false, FixtureKind::FlushMount),
+        3
+    );
 }

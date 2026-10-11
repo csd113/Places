@@ -50,6 +50,7 @@ mod builtin;
 pub mod color;
 mod decal;
 mod emission;
+mod fluorescence;
 mod ground;
 mod image;
 mod pack;
@@ -67,6 +68,7 @@ pub use decal::{ResolvedDecalSheet, resolve_decal_sheet};
 pub use emission::{
     DEFAULT_EMISSION_INTENSITY, MAX_EMISSION_COLOR, MAX_EMISSION_INTENSITY, MaterialEmission,
 };
+pub use fluorescence::{MAX_UV_RESPONSE, MaterialFluorescence};
 pub use ground::GroundSurface;
 pub use image::{
     RawImage, TextureCache, decode_png, encode_png, load_png_relative, missing_texture,

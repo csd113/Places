@@ -1,0 +1,78 @@
+Pinball Illustration Prompts
+
+Provenance: OpenAI built-in image_gen.imagegen tool, invoked through the installed imagegen skill. Four original illustrated bitmap inputs generated for Places Retro Bowling & Arcade on 2026-10-11. No reference board pixels copied. Prompt text below is exact. Atlas packing and deterministic title/rule overlays are performed only by the explicit offline tools/props/author_retro_arcade.py command; ordinary model builds load the committed PNGs.
+
+cosmic_backglass
+
+Use case: illustration-story.
+Asset type: original fictional 1998 coin-operated pinball backglass printed artwork, flat game texture input.
+Primary request: finished dense illustrated space-themed backglass for COSMIC ROLL, completely original. A large ringed violet planet fills the left-middle, a chunky silver retro rocket arcs up the right, cyan orbit trails weave between small orange moons and brilliant five-point stars. A deep navy starfield, bold cobalt and magenta painted nebula bands, dramatic sweeping comic-book composition. This is cheerful old bowling-alley pinball art, familiar and slightly dated.
+Style/medium: late-1990s screen-printed pinball illustration, airbrushed poster shading, strong inked contour lines, economical bold shapes and broad highlights that stay distinct at a tiny 128-by-80 game texture size. Printed pigment with modest grain, rich navy, violet, cyan, cream and golden accents. Finished illustration rather than a geometric logo.
+Composition/framing: straight-on rectangular artwork, width 1024 and height 640, exact 8:5 landscape aspect. Full bleed, no surrounding border or scene. Reserve a dark navy, largely uncluttered horizontal title strip across the upper 18 percent; illustration fills the other 82 percent including the lower corners. The title will be typeset separately.
+Constraints: opaque image, no typography or numerals anywhere, no rendered cabinet or glass, no bumpers, no lamps, no perspective view, no photographic lighting, no baked glow or bloom. No existing game, soda or entertainment trademarks, no recognizable copyrighted characters. Do not reproduce or crop any concept board. Avoid minimalist logo composition, excessive fine noise and modern cyberpunk styling.
+
+----------------------------------------
+
+comet_backglass
+
+Use case: illustration-story.
+Asset type: original fictional 1999 coin-operated pinball backglass printed artwork, flat game texture input.
+Primary request: finished dense illustrated space-themed backglass for COMET RUN, completely original and visually distinct from an orbital-rocket composition. An oversized blazing gold-orange comet races diagonally from upper-right to lower-left above jagged blue lunar mountains; its segmented red-orange tail curls across the middle, with two small teal planets, starbursts, scattered meteor fragments and a distant cream crescent. A dramatic heroic space-race painting, cheerful old bowling-alley pinball art, familiar and slightly dated.
+Style/medium: late-1990s screen-printed pinball illustration, airbrushed poster shading, strong inked contour lines, bold readable forms with broad highlights that stay distinct at a tiny 128-by-80 game texture size. Printed pigment with modest grain. Navy and deep cobalt base, gold, orange, red, teal and cream details. Finished illustrated scene rather than a geometric logo.
+Composition/framing: straight-on rectangular artwork, width 1024 and height 640, exact 8:5 landscape aspect. Full bleed, no surrounding border or scene. Reserve a dark navy, largely uncluttered horizontal title strip across the upper 18 percent; illustration fills the other 82 percent including the lower corners. The title will be typeset separately.
+Constraints: opaque image, no typography or numerals anywhere, no rocket as the main subject, no rendered cabinet or glass, no bumpers, no lamps, no perspective view, no photographic lighting, no baked glow or bloom. No existing game, soda or entertainment trademarks, no recognizable copyrighted characters. Do not reproduce or crop any concept board. Avoid minimalist logo composition, excessive fine noise and modern cyberpunk styling.
+
+----------------------------------------
+
+cosmic_playfield
+
+Use case: illustration-story.
+Asset type: original fictional COSMIC ROLL pinball printed playfield, flat top-down game texture input.
+Primary request: colorful finished 1998 pinball playfield artwork with an original cosmic orbital theme. Deep navy backing, sweeping cyan orbital tracks, magenta and violet nebula ribbons, ringed planets in the middle side margins, small silver rockets, cream stars, golden targets and colorful triangular insert motifs. Dense screen-printed illustration with bold inked contours and restrained airbrush gradients. The artwork should be lively but should leave the actual three-dimensional playfield hardware readable.
+Composition/framing: perfectly flat overhead printed rectangle, width 1024 and height 2048, exact 1:2 portrait aspect. The top edge is the backbox end; bottom edge is the player/flipper end. Full bleed artwork without any surrounding cabinet. Printed bumper landing rings at relative coordinates (x=0.50,y=0.178), (x=0.226,y=0.356), (x=0.774,y=0.356), each about 15 percent of the image width across. Keep those rings' interiors quiet deep navy to sit below separate physical bumpers. Leave two clear dark flipper landing areas near (x=0.322,y=0.849) and (x=0.678,y=0.849), and a clear ball-drain corridor at lower center. Strong illustration should occupy the gaps and side lanes, with a larger ringed planet motif at the center-middle around y=0.56. Printed lane guides along both long edges.
+Style/medium: late-1990s pinball screen-print illustration, broad readable forms and colors that survive a 128-by-256 native game texture, subtle ink grain. Palette navy, cobalt, cyan, violet, magenta, warm gold and cream.
+Constraints: opaque, no text or numerals, no photographic or rendered machine parts, no bumpers, no flippers, no glass, no 3D shading of hardware, no perspective, no self-lit or glowing textures, no bloom. All illumination comes later in the game. Original fictional motifs; no licensed characters, trademarks, or cropped reference art. Avoid random-color noise and simplistic empty target-ring artwork.
+
+----------------------------------------
+
+comet_playfield
+
+Use case: illustration-story.
+Asset type: original fictional COMET RUN pinball printed playfield, flat top-down game texture input.
+Primary request: colorful finished 1999 pinball playfield artwork with an original meteor-race theme, distinct from a ringed-planet orbital layout. Deep navy backing, broad gold-orange comet trails sweeping through the center, rust-red meteor fragments, jagged cobalt lunar mountains near the middle side lanes, teal target inserts and cream starbursts. A large stylized comet arcs from center-upper-right toward lower-left around the middle of the field. Dense screen-printed illustration with bold inked contours and restrained airbrush gradients. Lively printed artwork with actual three-dimensional hardware left readable.
+Composition/framing: perfectly flat overhead printed rectangle, width 1024 and height 2048, exact 1:2 portrait aspect. The top edge is the backbox end; bottom edge is the player/flipper end. Full bleed artwork without any surrounding cabinet. Printed bumper landing rings at relative coordinates (x=0.50,y=0.178), (x=0.226,y=0.356), (x=0.774,y=0.356), each about 15 percent of the image width across. Keep those rings' interiors quiet deep navy to sit below separate physical bumpers. Leave two clear dark flipper landing areas near (x=0.322,y=0.849) and (x=0.678,y=0.849), and a clear ball-drain corridor at lower center. Illustration occupies the gaps and side lanes. Printed lane guides along both long edges.
+Style/medium: late-1990s pinball screen-print illustration, broad readable forms and colors that survive a 128-by-256 native game texture, subtle ink grain. Palette navy, deep cobalt, gold, orange, warm red, teal and cream. A different composition and color hierarchy from COSMIC ROLL.
+Constraints: opaque, no text or numerals, no photographic or rendered machine parts, no bumpers, no flippers, no glass, no 3D shading of hardware, no perspective, no self-lit or glowing textures, no bloom. All illumination comes later in the game. Original fictional motifs; no licensed characters, trademarks, or cropped reference art. Avoid random-color noise and simplistic empty target-ring artwork.
+
+
+
+----------------------------------------
+
+cosmic_playfield_cleanup (applied to the initial cosmic_playfield result)
+
+Use case: precise-object-edit.
+Edit target: the original COSMIC ROLL flat printed pinball playfield artwork in the provided image.
+Change only the three large circular bumper landing medallions in the upper third: remove all three completely, including their large colored rims, spike-shaped decorations and empty dark interiors. Replace their entire footprints with a continuation of the surrounding dark navy starfield and modest cyan/violet nebula printing. Do not add new circular landing medallions; the exact printed bumper targets will be added separately when the artwork is fitted to the existing model UVs.
+Preserve all other printed illustration, the large middle ringed planet, silver rockets, orbital tracks, colorful insert motifs, lower flipper clearance areas, lower drain corridor, margins, orientation and exact 1:2 portrait aspect. Keep the image opaque, flat printed pigment, no hardware, no text, no numerals, no perspective, no glass, no lamps, no glow/bloom, no trademarks.
+
+----------------------------------------
+
+comet_playfield_cleanup (applied to the initial comet_playfield result)
+
+Use case: precise-object-edit.
+Edit target: the original COMET RUN flat printed pinball playfield artwork in the provided image.
+Change only the three large circular bumper landing medallions in the upper third: remove all three completely, including their large colored rims, spike-shaped decorations, surrounding small circular ornaments and empty dark interiors. Replace their entire footprints with a continuation of the surrounding dark navy starfield, small printed meteor fragments and modest cobalt printing. Do not add new circular landing medallions; the exact printed bumper targets will be added separately when the artwork is fitted to the existing model UVs.
+Preserve all other printed illustration, the central gold-orange comet, blue lunar mountains, teal side lane tracks, colored insert motifs, lower flipper clearance areas, lower drain corridor, margins, orientation and exact 1:2 portrait aspect. Keep the image opaque, flat printed pigment, no hardware, no text, no numerals, no perspective, no glass, no lamps, no glow/bloom, no trademarks.
+
+----------------------------------------
+
+Final retained opaque RGB inputs (project-relative):
+assets/environments/arcade/props/illustrations/pinball_cosmic_backglass.png
+assets/environments/arcade/props/illustrations/pinball_cosmic_playfield.png
+assets/environments/arcade/props/illustrations/pinball_comet_backglass.png
+assets/environments/arcade/props/illustrations/pinball_comet_playfield.png
+
+The backglass inputs are the selected generation results. Each playfield input is the selected cleanup result after removal of misplaced generated bumper medallions. Deterministic offline atlas authoring then places printed landing targets from the existing physical plate dimensions, 11.2-degree pitch and two-pixel UV inset. It also adds exact fictional titles, bonus labels and quiet flipper landing zones. These operations do not alter model geometry, texture UVs, material slots or emission ownership. Original raw generations and discarded variants remain ignored under generated_images/.
+
+Focused reproducible author command:
+python3 tools/props/author_retro_arcade.py --only pinball_cosmic pinball_comet score_monitor

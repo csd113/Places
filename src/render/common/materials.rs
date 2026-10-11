@@ -172,6 +172,7 @@ pub struct ResolvedSurfaceMaterial {
     /// True when the normal/sheen response is drawn: the quality level allows
     /// the response and the material authors a normal map or a sheen.
     pub response_enabled: bool,
+    pub fluorescence: crate::materials::MaterialFluorescence,
 }
 
 impl ResolvedSurfaceMaterial {
@@ -188,6 +189,7 @@ impl ResolvedSurfaceMaterial {
             alpha: MaterialAlpha::OPAQUE,
             reflection: MaterialReflection::NONE,
             response_enabled: false,
+            fluorescence: crate::materials::MaterialFluorescence::NONE,
         }
     }
 
@@ -277,5 +279,6 @@ pub fn resolve_surface_material(
         alpha,
         reflection,
         response_enabled: live,
+        fluorescence: response.fluorescence,
     }
 }

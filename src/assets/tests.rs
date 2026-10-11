@@ -762,7 +762,14 @@ fn every_shipped_sheet_satisfies_its_texture_kind_contract() {
     let entries = catalog.entries();
     let mask_only: Vec<&str> = entries
         .iter()
-        .filter_map(|entry| entry.emissive_mask.as_deref())
+        .flat_map(|entry| {
+            [
+                entry.emissive_mask.as_deref(),
+                entry.uv_response_mask.as_deref(),
+            ]
+            .into_iter()
+            .flatten()
+        })
         .filter(|mask| {
             !entries.iter().any(|entry| {
                 entry.texture.as_deref() == Some(*mask)
@@ -1062,4 +1069,33 @@ fn catalog_rejects_an_emissive_mask_without_a_png_file() {
     let material = catalog.entries.get("core:mat").expect("material");
     let error = check_emissive_mask(material, &catalog).expect_err("mask without a file");
     assert!(error.contains("no PNG file"), "error: {error}");
+}
+
+#[test]
+fn catalog_uv_response_validates_strength_and_logical_mask_contract() {
+    let source =
+        emissive_catalog_json(r#", "uv_response": 1.0, "uv_response_mask": "core:tex_mask""#);
+    let catalog = AssetCatalog::from_json_str(&source).expect("valid UV material");
+    let material = catalog.material("core:mat").expect("material");
+    assert_eq!(
+        material.uv_response.to_bits(),
+        1.0_f32.to_bits(),
+        "catalog retains strength"
+    );
+    assert_eq!(
+        material.uv_response_mask.as_deref(),
+        Some("core:tex_mask"),
+        "catalog retains logical numeric mask"
+    );
+    for fields in [
+        r#", "uv_response": -1"#,
+        r#", "uv_response": 3"#,
+        r#", "uv_response_mask": "core:tex_mask""#,
+        r#", "uv_response": 1, "uv_response_mask": "core:missing""#,
+    ] {
+        assert!(
+            AssetCatalog::from_json_str(&emissive_catalog_json(fields)).is_err(),
+            "invalid pigment contract must fail"
+        );
+    }
 }

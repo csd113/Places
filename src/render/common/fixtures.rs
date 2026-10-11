@@ -78,6 +78,89 @@ fn panel_down_quad(housing: &mut Vec<Vertex>, x0: f32, x1: f32, z0: f32, z1: f32
     );
 }
 
+/// A fitted 8:1 lens and an enclosed, non-emissive dark batten body.
+pub fn add_blacklight_fixture(
+    lit: &mut Vec<Vertex>,
+    housing: &mut Vec<Vertex>,
+    center: [f32; 3],
+    rotation_degrees: f32,
+    emission: [f32; 3],
+) {
+    let [world_x, world_y, world_z] = center;
+    let turned = crate::lighting::fixture_is_turned(rotation_degrees);
+    let point = |dx: f32, dy: f32, dz: f32| {
+        if turned {
+            [world_x - dz, world_y + dy, world_z + dx]
+        } else {
+            [world_x + dx, world_y + dy, world_z + dz]
+        }
+    };
+    let mut quad = |corners: [[f32; 3]; 4]| {
+        let [corner_a, corner_b, corner_c, corner_d] = corners;
+        add_quad_flat(
+            housing,
+            corner_a,
+            corner_b,
+            corner_c,
+            corner_d,
+            [0.06, 0.065, 0.08],
+            SHEET_UV[0],
+            SHEET_UV[1],
+            SHEET_UV[2],
+            SHEET_UV[3],
+        );
+    };
+    // Four sides, the closed top, and the dark underside beneath the lens.
+    quad([
+        point(-0.6, -0.045, -0.075),
+        point(0.6, -0.045, -0.075),
+        point(0.6, 0.0, -0.075),
+        point(-0.6, 0.0, -0.075),
+    ]);
+    quad([
+        point(0.6, -0.045, 0.075),
+        point(-0.6, -0.045, 0.075),
+        point(-0.6, 0.0, 0.075),
+        point(0.6, 0.0, 0.075),
+    ]);
+    quad([
+        point(-0.6, -0.045, 0.075),
+        point(-0.6, -0.045, -0.075),
+        point(-0.6, 0.0, -0.075),
+        point(-0.6, 0.0, 0.075),
+    ]);
+    quad([
+        point(0.6, -0.045, -0.075),
+        point(0.6, -0.045, 0.075),
+        point(0.6, 0.0, 0.075),
+        point(0.6, 0.0, -0.075),
+    ]);
+    quad([
+        point(-0.6, 0.0, -0.075),
+        point(-0.6, 0.0, 0.075),
+        point(0.6, 0.0, 0.075),
+        point(0.6, 0.0, -0.075),
+    ]);
+    quad([
+        point(-0.6, -0.045, -0.075),
+        point(0.6, -0.045, -0.075),
+        point(0.6, -0.045, 0.075),
+        point(-0.6, -0.045, 0.075),
+    ]);
+    add_quad_flat(
+        lit,
+        point(-0.56, -0.046, -0.07),
+        point(0.56, -0.046, -0.07),
+        point(0.56, -0.046, 0.07),
+        point(-0.56, -0.046, 0.07),
+        emission,
+        SHEET_UV[0],
+        SHEET_UV[1],
+        SHEET_UV[2],
+        SHEET_UV[3],
+    );
+}
+
 /// Emits the office fluorescent panel's troffer: its luminous diffuser into
 /// `lit`, and its housing into `housing`.
 ///

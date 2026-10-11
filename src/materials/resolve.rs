@@ -518,6 +518,11 @@ fn catalog_response(entry: &crate::assets::AssetEntry) -> MaterialResponse {
             .unwrap_or(super::DEFAULT_NORMAL_STRENGTH),
         specular,
         roughness,
+        fluorescence: super::MaterialFluorescence {
+            strength: entry.uv_response,
+            mask: None,
+            tint: entry.tint.unwrap_or(DEFAULT_TINT),
+        },
     }
     .sanitized()
 }
@@ -788,6 +793,7 @@ fn authored_texture(
     if let Some(entry) = catalog.material(material_id) {
         let id = match field {
             "emissive_mask" => entry.emissive_mask.as_deref(),
+            "uv_response_mask" => entry.uv_response_mask.as_deref(),
             _ => entry.normal_texture.as_deref(),
         }?;
         return Some(catalog.texture_path(id).map_or_else(
@@ -929,6 +935,10 @@ fn catalog_image_references(
                 "normal_texture",
                 definition.and_then(|pack_material| pack_material.normal_texture.as_deref()),
             ),
+            (
+                "uv_response_mask",
+                definition.and_then(|material| material.uv_response_mask.as_deref()),
+            ),
         ] {
             if let Some(AuthoredTexture::Catalog {
                 texture_id,
@@ -1055,6 +1065,21 @@ fn resolve_entry(
         return;
     }
 
+    let uv_image = authored_texture(
+        &entry.id,
+        "uv_response_mask",
+        pack_definition.and_then(|definition| definition.uv_response_mask.as_deref()),
+        catalog,
+        pack,
+    )
+    .map(|mask| {
+        resolve_authored_image(&entry.id, "UV response mask", mask, cache, pack, asset_root)
+    });
+    if let Some(Err(error)) = uv_image {
+        fall_back_to_missing(entry, textures, missing, error);
+        return;
+    }
+
     let texture_index = intern_texture(
         textures,
         resolved_key,
@@ -1073,6 +1098,15 @@ fn resolve_entry(
             decoded_mask,
         );
         entry.emission.mask = Some(mask_index);
+    }
+    if let Some(Ok((uv_key, uv_origin, uv_mask))) = uv_image {
+        entry.response.fluorescence.mask = Some(intern_texture(
+            textures,
+            uv_key,
+            uv_origin,
+            crate::quality::TextureClass::EmissionMask,
+            uv_mask,
+        ));
     }
     if let Some(Ok((normal_key, normal_origin, decoded_normal))) = normal_image {
         let normal_index = intern_texture(

@@ -52,13 +52,17 @@ workflow; read the [map authoring guide](docs/MAP_AUTHORING_GUIDE.md) and
 
 [levels/](levels/README.md) contains the curated source lineup:
 `places_demo`, `model_zoo`, `pool_showcase`, `home_showcase`, `lantern_hollow`,
-`winter`, `beach_demo` and `frutiger_aero_demo`. Model Zoo shows the complete
+`winter`, `beach_demo`, `frutiger_aero_demo` and `retro_arcade_demo`. Model Zoo shows the complete
 catalog. Office is covered inside Places Demo; a dedicated Office showcase is
 still missing. Regression scenes live under `tests/fixtures/levels/` and are
 excluded from the distribution.
 
 The Demo connects the Office, Pool, Home and night route. Winter has an ice
 pond and weather controls; Beach and Aero have their own day environments.
+Cosmic Lanes & Arcade connects four bowling lanes, fixed seating and period
+game cabinets, with six carpet designs and controllable blacklights.
+The [Retro Bowling & Arcade report](docs/reports/retro-bowling-arcade.md) covers
+the reference-led asset pack, native screenshots and reusable UV response.
 The [refinement report](docs/reports/environment-refinement.md) records current
 native acceptance. Earlier Office/Pool screenshots remain documented as
 historical views:

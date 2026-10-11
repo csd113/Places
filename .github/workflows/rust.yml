@@ -58,6 +58,8 @@ jobs:
           python3 tools/levels/build_beach.py --check
           python3 tools/levels/build_frutiger_aero.py --check
           python3 tools/textures/frutiger_aero_art.py --check
+          python3 tools/levels/build_retro_arcade.py --check
+          python3 tools/textures/author_arcade.py --check
           python3 tools/levels/build_capacity_fixtures.py --check
       - name: Test source Python contracts
         env:

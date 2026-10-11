@@ -163,7 +163,7 @@ class ShippedLevelTests(unittest.TestCase):
         shipped = {path.stem: load_level(path) for path in level_files()}
         self.assertEqual(
             set(shipped),
-            {"places_demo", "model_zoo", "lantern_hollow", "winter", "beach_demo", "frutiger_aero_demo", "home_showcase", "pool_showcase"},
+            {"places_demo", "model_zoo", "lantern_hollow", "winter", "beach_demo", "frutiger_aero_demo", "home_showcase", "pool_showcase", "retro_arcade_demo"},
             "the curated showcases are the supported source lineup",
         )
         demo = shipped["places_demo"]
@@ -587,6 +587,47 @@ class AssetCatalogTests(unittest.TestCase):
         self.assertTrue(
             any("emissive is only valid on a definition material" in e for e in errors), errors
         )
+
+    def test_the_validator_checks_ultraviolet_material_contract(self):
+        material_id = "arcade:carpet_cosmic_bowl_01"
+        for value in (-0.01, 2.01, float("nan"), True, "bright"):
+            errors = self._emissive_errors(material_id, uv_response=value)
+            self.assertTrue(any("uv_response must be a finite" in e for e in errors), errors)
+        errors = self._emissive_errors(material_id, uv_response=0)
+        self.assertTrue(any("requires positive uv_response" in e for e in errors), errors)
+        errors = self._emissive_errors(material_id, uv_response_mask="arcade:bowling_pin")
+        self.assertTrue(any("is not a texture asset" in e for e in errors), errors)
+        errors = self._emissive_errors(material_id, uv_response_mask="arcade:tex_absent_mask")
+        self.assertTrue(any("is not in the catalog" in e for e in errors), errors)
+
+        def mutate_prop(entries):
+            prop = next(entry for entry in entries if entry["id"] == "core:desk")
+            prop["uv_response"] = 1
+
+        errors, _ = self._validate_with_mutation(mutate_prop)
+        self.assertTrue(any("uv_response is only valid on a definition material" in e for e in errors), errors)
+
+    def test_the_validator_counts_disabled_ultraviolet_sources(self):
+        level = {
+            "format_version": 3, "id": "uv_probe", "name": "UV Probe",
+            "spawn": {"x": 0, "z": 0},
+            "rooms": [{"x": -5, "z": -5, "width": 10, "depth": 10, "height": 3.5}],
+            "ceiling_lights": [
+                {"fixture": "arcade:blacklight_tube", "x": x, "z": 0,
+                 "ultraviolet": 1, "brightness": 0, "enabled": False}
+                for x in (-2, -1, 0, 1)
+            ],
+        }
+        errors, _ = self._validate_level_document(level)
+        self.assertEqual(errors, [], errors)
+        for value in (-0.1, 8.1, float("inf"), True, "UV"):
+            invalid = copy.deepcopy(level)
+            invalid["ceiling_lights"][0]["ultraviolet"] = value
+            errors, _ = self._validate_level_document(invalid)
+            self.assertTrue(any("ultraviolet must be a finite" in e for e in errors), errors)
+        level["ceiling_lights"].append(dict(level["ceiling_lights"][0]))
+        errors, _ = self._validate_level_document(level)
+        self.assertTrue(any("at most 4 ultraviolet fixtures" in e for e in errors), errors)
 
     def test_the_validator_rejects_malformed_prop_lights(self):
         def level_with(lights, enabled="__missing__"):

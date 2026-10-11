@@ -755,6 +755,10 @@ pub struct AssetEntry {
     pub emissive_intensity: Option<f32>,
     /// Logical texture asset id whose texels select where emission applies.
     pub emissive_mask: Option<String>,
+    /// Pigment response to ultraviolet fixtures, independent of emission.
+    pub uv_response: f32,
+    /// Logical numeric texture selecting responsive pigment at the base UV.
+    pub uv_response_mask: Option<String>,
     /// Logical texture asset id of the material's normal map, if it authors one.
     pub normal_texture: Option<String>,
     /// Multiplier applied to the decoded normal map, `0.0..=2.0`.
@@ -1002,6 +1006,10 @@ struct CatalogEntryFile {
     emissive_intensity: Option<f32>,
     #[serde(default)]
     emissive_mask: Option<String>,
+    #[serde(default)]
+    uv_response: f32,
+    #[serde(default)]
+    uv_response_mask: Option<String>,
     /// Surface response: an optional normal map with a strength, a sheen
     /// strength/colour and a glossiness.
     #[serde(default)]
@@ -1054,6 +1062,7 @@ impl CatalogEntryFile {
         let source = self.resolve_source(&id, model.as_deref(), texture.as_deref())?;
         let emission = self.resolve_emissive(&id, &asset_type, source)?;
         let response = self.resolve_response(&id, &asset_type, source)?;
+        let uv_response_mask = self.resolve_fluorescence(&id, &asset_type, source)?;
         if self.ground_surface.is_some()
             && (asset_type.as_str() != AssetType::MATERIAL || source != AssetSource::Definition)
         {
@@ -1096,6 +1105,8 @@ impl CatalogEntryFile {
             emissive: emission.color,
             emissive_intensity: emission.intensity,
             emissive_mask: emission.mask,
+            uv_response: self.uv_response,
+            uv_response_mask,
             normal_texture: response.normal_texture,
             normal_strength: response.normal_strength,
             specular: response.specular,
@@ -1530,6 +1541,45 @@ impl CatalogEntryFile {
         Ok(source)
     }
 
+    fn resolve_fluorescence(
+        &self,
+        id: &str,
+        asset_type: &AssetType,
+        source: AssetSource,
+    ) -> Result<Option<String>, String> {
+        if !self.uv_response.is_finite()
+            || !(0.0..=crate::materials::MAX_UV_RESPONSE).contains(&self.uv_response)
+        {
+            return Err(format!(
+                "{id}: uv_response must be finite and between 0 and {}",
+                crate::materials::MAX_UV_RESPONSE
+            ));
+        }
+        let mask = self
+            .uv_response_mask
+            .as_deref()
+            .map(str::trim)
+            .map(str::to_string);
+        if (self.uv_response > 0.0 || mask.is_some())
+            && (asset_type.as_str() != AssetType::MATERIAL || source != AssetSource::Definition)
+        {
+            return Err(format!("{id}: UV response requires a material definition"));
+        }
+        if let Some(mask_id) = &mask {
+            if self.uv_response <= 0.0 {
+                return Err(format!(
+                    "{id}: uv_response_mask requires positive uv_response"
+                ));
+            }
+            if !is_valid_asset_id(mask_id) {
+                return Err(format!(
+                    "{id}: uv_response_mask is not a well-formed logical asset id"
+                ));
+            }
+        }
+        Ok(mask)
+    }
+
     /// The human-readable name: `display_name`, else the logical id.
     fn resolved_display_name(&self, id: &str) -> String {
         let display = self.display_name.trim();
@@ -1685,6 +1735,17 @@ fn check_references(catalog: &AssetCatalog) -> Result<(), String> {
     let entries: Vec<&AssetEntry> = catalog.entries.values().collect();
     for entry in entries {
         check_emissive_mask(entry, catalog)?;
+        if let Some(mask) = entry.uv_response_mask.as_deref()
+            && !catalog
+                .entries
+                .get(mask)
+                .is_some_and(|asset| asset.is_texture() && asset.source == AssetSource::File)
+        {
+            return Err(format!(
+                "{}: UV response mask `{mask}` must name a PNG texture asset",
+                entry.id
+            ));
+        }
         if entry.is_texture() && !has_png_extension(entry.model.as_deref()) {
             return Err(format!(
                 "{}: a texture asset must name a `.png` file, found `{}`",

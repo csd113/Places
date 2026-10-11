@@ -1,0 +1,30 @@
+[
+  {
+    "frame": 30,
+    "capture": "target/retro-arcade-settings-proof/full-high-textures.png"
+  },
+  {
+    "frame": 150,
+    "capture": "target/retro-arcade-settings-proof/full-low-textures.png"
+  },
+  {
+    "frame": 300,
+    "capture": "target/retro-arcade-settings-proof/off-low-textures.png"
+  },
+  {
+    "frame": 450,
+    "capture": "target/retro-arcade-settings-proof/off-high-textures.png"
+  },
+  {
+    "frame": 600,
+    "capture": "target/retro-arcade-settings-proof/full-high-restored.png"
+  },
+  {
+    "frame": 700,
+    "capture": "target/retro-arcade-settings-proof/low-lighting-high-textures.png"
+  },
+  {
+    "frame": 820,
+    "capture": "target/retro-arcade-settings-proof/lighting-restored.png"
+  }
+]

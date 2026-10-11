@@ -266,7 +266,7 @@ player attaches the decoded images from the same catalog model the manifest
 identifies by hash. One copy of model artwork stays on disk.
 
 ```text
-magic "PLMP" | version u16 = 6 | batch_count u32
+magic "PLMP" | version u16 = 7 | batch_count u32
 batch {
   model u32 length + UTF-8
   casts_static_lighting u8 (strict 0 or 1)
@@ -276,6 +276,7 @@ batch {
               | alpha_cutoff f32
               | emission colour f32 x 3, intensity f32, mask optional u16
               | specular f32 x 3 (linear), roughness f32
+              | uv_response f32, uv_mask optional u16, uv_tint f32 x 3 (linear)
               | first_index u32 | index_count u32 }
   vertex_count u32 | vertex_mode u8
   if vertex_mode = 1 or 2: frame_count u32 + frame_count x 28-byte frame
@@ -327,8 +328,19 @@ reject their own probe rays. Partial/overflow model groups retain their visible
 static fallback and flag 1. Collision and model/vertex budget charges are unchanged.
 Readers accept literal versions 3, 4 and 5. Versions 3 and 4 retain conservative
 caster flag 1; version 3 has the explicit matte material default. Version 5's
-explicit caster flag remains authoritative. Current records add a vertex-mode
-byte per batch and optional palette storage; no package-major change is needed.
+explicit caster flag remains authoritative. Version 6 adds a vertex-mode byte
+per batch and optional palette storage; no package-major change is needed.
+
+Version 7 adds finite ultraviolet pigment response (`0..=2`), an optional
+numeric-mask texture slot and a linear tint (`0..=1` per channel) to each
+submesh. Versions 3 through 6 read with zero response and white pigment tint.
+The mask names an ordinary model image and is reattached after dependency
+verification; its numeric upload is independent of display-color uploads.
+Pigment tint does not include baked vertex lighting. The response is evaluated
+from current enabled ultraviolet fixtures and visibility after loading; it
+adds no incident irradiance or emission-only bloom energy. Neutral PLMW
+geometry vertices and their 69-byte record layout are unchanged. GPU-only
+visibility values are derived at upload, not written into PLMW or PLMP.
 
 ### 4.3 Baked lighting — `blobs/<sha>.lighting`
 

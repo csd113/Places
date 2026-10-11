@@ -1400,7 +1400,48 @@ impl<'a> Doc<'a> {
         };
         let emission = self.resolve_emission(material, index)?;
         let alpha = Self::resolve_alpha(material, index)?;
-        let response = imported_response(pbr, color)?;
+        let mut response = imported_response(pbr, color)?;
+        if let Some(extras) = material.get("extras") {
+            let strength = match extras.get("uv_response") {
+                Some(value) => json_f32(value).ok_or_else(|| {
+                    GltfError::new(format!("material {index} uv_response must be a number"))
+                })?,
+                None => 0.0,
+            };
+            if !strength.is_finite()
+                || !(0.0..=crate::materials::MAX_UV_RESPONSE).contains(&strength)
+            {
+                return Err(GltfError::new(format!(
+                    "material {index} uv_response must be between 0 and 2"
+                )));
+            }
+            let mask = if let Some(reference) = extras.get("uv_response_mask") {
+                if strength <= 0.0 {
+                    return Err(GltfError::new(format!(
+                        "material {index} uv_response_mask requires positive uv_response"
+                    )));
+                }
+                Some(u32::from(self.resolve_texture_reference(
+                    reference,
+                    &format!("material {index} uv_response_mask"),
+                )?))
+            } else {
+                None
+            };
+            let [tint_red, tint_green, tint_blue, _] = color;
+            let tint = [tint_red, tint_green, tint_blue];
+            if strength > 0.0 && tint.iter().any(|channel| !(0.0..=1.0).contains(channel)) {
+                return Err(GltfError::new(format!(
+                    "material {index} UV pigment baseColorFactor must be between 0 and 1"
+                )));
+            }
+            response.fluorescence = crate::materials::MaterialFluorescence {
+                strength,
+                mask,
+                tint,
+            }
+            .sanitized();
+        }
         let double_sided = match material.get("doubleSided") {
             None => false,
             Some(serde_json::Value::Bool(value)) => *value,

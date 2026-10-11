@@ -48,6 +48,7 @@ fn a_sheen_alone_activates_the_response_without_a_normal_map() {
 #[test]
 fn sanitize_clamps_every_field_and_neutralises_nan() {
     let response = MaterialResponse {
+        fluorescence: crate::materials::MaterialFluorescence::NONE,
         normal: None,
         normal_strength: f32::NAN,
         specular: [2.0, -1.0, f32::INFINITY],

@@ -43,6 +43,7 @@ pub(crate) use common::api::{
     lightmap_content_key, prepare_level_geometry_with_lightmaps, rebuild_vertex_lit_level,
     set_fill_workers,
 };
+pub use common::blacklight::MAX_BLACKLIGHTS;
 pub use common::camera::RenderCamera;
 pub use common::materials::MaterialRenderState;
 pub use common::reflections::routing_from_mesh;

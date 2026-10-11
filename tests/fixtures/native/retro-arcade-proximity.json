@@ -1,0 +1,60 @@
+[
+  {
+    "frame": 30,
+    "actions": [
+      {
+        "action": "camera",
+        "position": [
+          6.2,
+          1.6,
+          9.5
+        ],
+        "yaw": 275,
+        "pitch": 0
+      },
+      {
+        "action": "player",
+        "position": [
+          15,
+          1.6,
+          28
+        ],
+        "yaw": 0,
+        "pitch": 0
+      }
+    ],
+    "capture": "target/retro-arcade-proximity-proof/far-player.png"
+  },
+  {
+    "frame": 90,
+    "actions": [
+      {
+        "action": "player",
+        "position": [
+          1.9,
+          1.6,
+          10.5
+        ],
+        "yaw": 0,
+        "pitch": 0
+      }
+    ],
+    "capture": "target/retro-arcade-proximity-proof/near-player.png"
+  },
+  {
+    "frame": 150,
+    "actions": [
+      {
+        "action": "player",
+        "position": [
+          15,
+          1.6,
+          28
+        ],
+        "yaw": 0,
+        "pitch": 0
+      }
+    ],
+    "capture": "target/retro-arcade-proximity-proof/far-restored.png"
+  }
+]

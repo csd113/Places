@@ -483,6 +483,9 @@ def _write_extended_glb(mesh, texture_png: bytes, name: str, materials: List[dic
         )
 
     materials_json: List[Dict[str, Any]] = []
+    images_json = [{"bufferView": image_view, "mimeType": "image/png", "name": f"{name}_diffuse"}]
+    textures_json = [{"sampler": 0, "source": 0}]
+    uv_mask_indices: Dict[bytes, int] = {}
     uses_emissive_strength = False
     for index, entry in enumerate(materials):
         # Older authored exports can retain their texture-first JSON ordering
@@ -518,6 +521,26 @@ def _write_extended_glb(mesh, texture_png: bytes, name: str, materials: List[dic
             material["alphaCutoff"] = round(0.5 if cutoff is None else float(cutoff), 6)
         elif entry.get("alpha_mode") == "blend":
             material["alphaMode"] = "BLEND"
+        response = float(entry.get("uv_response", 0.0))
+        if not math.isfinite(response) or not 0.0 <= response <= 2.0:
+            raise GltfError("material uv_response must be finite and in 0..=2")
+        mask = entry.get("uv_response_mask")
+        if mask is not None and response <= 0:
+            raise GltfError("uv_response_mask requires positive uv_response")
+        if response > 0:
+            extras: Dict[str, Any] = {"uv_response": round(response, 6)}
+            if mask is not None:
+                if not isinstance(mask, bytes) or not mask.startswith(b"\x89PNG\r\n\x1a\n"):
+                    raise GltfError("uv_response_mask must be PNG bytes")
+                texture_index = uv_mask_indices.get(mask)
+                if texture_index is None:
+                    texture_index = len(textures_json)
+                    uv_mask_indices[mask] = texture_index
+                    images_json.append({"bufferView": add_view(mask, None),
+                                        "mimeType": "image/png", "name": f"{name}_uv_mask_{texture_index}"})
+                    textures_json.append({"sampler": 0, "source": len(images_json)-1})
+                extras["uv_response_mask"] = {"index": texture_index, "texCoord": 0}
+            material["extras"] = extras
         material["doubleSided"] = True
         materials_json.append(material)
 
@@ -539,7 +562,7 @@ def _write_extended_glb(mesh, texture_png: bytes, name: str, materials: List[dic
             "accessors": accessors,
             "bufferViews": views,
             "buffers": [{"byteLength": len(blob)}],
-            "images": [{"bufferView": image_view, "mimeType": "image/png", "name": f"{name}_diffuse"}],
+            "images": images_json,
             "samplers": [
                 {
                     "magFilter": 9729,
@@ -548,7 +571,7 @@ def _write_extended_glb(mesh, texture_png: bytes, name: str, materials: List[dic
                     "wrapT": 33071,
                 }
             ],
-            "textures": [{"sampler": 0, "source": 0}],
+            "textures": textures_json,
             "materials": materials_json,
         }
     )

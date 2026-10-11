@@ -150,6 +150,8 @@ pub struct MaterialResponse {
     /// `0.0` is a mirror-tight sheen, `1.0` is fully matte; the shader-facing
     /// inverse of the author's `shine` ([`roughness_from_shine`]).
     pub roughness: f32,
+    /// UV pigment response, independent of the normal/sheen quality gate.
+    pub fluorescence: super::MaterialFluorescence,
 }
 
 impl MaterialResponse {
@@ -159,6 +161,7 @@ impl MaterialResponse {
         normal_strength: DEFAULT_NORMAL_STRENGTH,
         specular: [0.0; 3],
         roughness: DEFAULT_ROUGHNESS,
+        fluorescence: super::MaterialFluorescence::NONE,
     };
 
     /// A response with a normal map and no sheen.
@@ -198,7 +201,8 @@ impl MaterialResponse {
         shine_from_roughness(self.roughness)
     }
 
-    /// True when this response can change a pixel at all.
+    /// True when the optional normal or sheen response can change a pixel.
+    /// Fluorescence has an independent gate and remains live at every quality.
     ///
     /// A response without a normal map and without a sheen is exactly
     /// [`MaterialResponse::NONE`], so the draw path can skip its uniform work
@@ -253,6 +257,7 @@ impl MaterialResponse {
                 channel(self.specular[2]),
             ],
             roughness,
+            fluorescence: self.fluorescence.sanitized(),
         }
     }
 }

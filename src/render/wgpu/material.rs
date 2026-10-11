@@ -72,8 +72,10 @@ pub const MATERIAL_FLAG_MASK: u32 = MATERIAL_FLAG_NORMAL_ENABLED
 /// offset 60  emission_mask_enabled  f32
 /// offset 64  emission_vertex        f32
 /// offset 68  emission_scale         f32
-/// offset 72  _padding               [f32; 2]     8 bytes
-/// ------------------------------------------------------ 80 bytes, align 16
+/// offset 72  uv_response            f32
+/// offset 76  uv_mask_enabled        f32
+/// offset 80  uv_tint                vec4<f32>
+/// ------------------------------------------------------ 96 bytes, align 16
 /// ```
 ///
 /// `#[repr(C, align(16))]` plus `Pod` make the byte view explicit; the unit
@@ -107,8 +109,11 @@ pub struct MaterialUniform {
     pub emission_vertex: f32,
     /// Animated emission multiplier; `1.0` without an animation.
     pub emission_scale: f32,
-    /// Explicit padding to the WGSL struct's 16-byte size.
-    pub _padding: [f32; 2],
+    /// Ultraviolet response strength and optional numeric mask gate.
+    pub uv_response: f32,
+    pub uv_mask_enabled: f32,
+    /// Linear pigment tint. The fourth component pads the GPU record.
+    pub uv_tint: [f32; 4],
 }
 
 /// Bytes one material uniform occupies.
@@ -179,6 +184,7 @@ impl MaterialUniform {
         // No other bit is ever written; the mask keeps a future bit from
         // leaking into the shader before it has a consumer.
         let shader_flags = flags & MATERIAL_FLAG_MASK;
+        let [pigment_red, pigment_green, pigment_blue] = state.fluorescence.tint;
         Self {
             specular: state.specular,
             roughness: state.roughness,
@@ -192,7 +198,13 @@ impl MaterialUniform {
             emission_mask_enabled: if emission.mask { 1.0 } else { 0.0 },
             emission_vertex: if emission.vertex { 1.0 } else { 0.0 },
             emission_scale: emission.scale,
-            _padding: [0.0; 2],
+            uv_response: state.fluorescence.strength,
+            uv_mask_enabled: if state.fluorescence.mask.is_some() {
+                1.0
+            } else {
+                0.0
+            },
+            uv_tint: [pigment_red, pigment_green, pigment_blue, 0.0],
         }
     }
 
@@ -359,6 +371,8 @@ pub fn material_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayou
             sampler(2),
             texture(3),
             sampler(4),
+            texture(5),
+            sampler(6),
         ],
     })
 }
@@ -383,6 +397,7 @@ pub struct GpuMaterial {
     _normal: Arc<GpuTexture>,
     /// The emission-mask texture, or the shared white fallback.
     _emission: Arc<GpuTexture>,
+    _uv_mask: Arc<GpuTexture>,
     /// True when the material emits anything; the emissive pass draws exactly
     /// these.
     emissive: bool,
@@ -703,13 +718,29 @@ impl WorldMaterials {
             } else {
                 cache.fallback()
             };
+            let uv_texture = if let Some(image) = resolved.fluorescence.mask.and_then(|slot| {
+                inputs
+                    .table
+                    .textures()
+                    .get(usize::try_from(slot).unwrap_or(usize::MAX))
+            }) {
+                cache
+                    .get_or_upload(device, queue, image, TextureSemantic::DataLinear, level)
+                    .1
+            } else {
+                cache.fallback()
+            };
             entries.push(GpuMaterial::new(
                 device,
                 queue,
                 layout,
                 cache,
-                &normal_texture,
-                &emission_texture,
+                MaterialMaps {
+                    normal: &normal_texture,
+                    emission: &emission_texture,
+                    uv: &uv_texture,
+                    uv_clamped: false,
+                },
                 uniform,
             ));
             if let Some(entry) = entries.last_mut() {
@@ -856,6 +887,14 @@ impl WorldMaterials {
     }
 }
 
+#[derive(Clone, Copy)]
+struct MaterialMaps<'a> {
+    normal: &'a Arc<GpuTexture>,
+    emission: &'a Arc<GpuTexture>,
+    uv: &'a Arc<GpuTexture>,
+    uv_clamped: bool,
+}
+
 impl GpuMaterial {
     /// Creates one material's uniform buffer and its three bind groups.
     ///
@@ -869,8 +908,7 @@ impl GpuMaterial {
         queue: &wgpu::Queue,
         layout: &wgpu::BindGroupLayout,
         cache: &TextureCache,
-        normal: &Arc<GpuTexture>,
-        emission: &Arc<GpuTexture>,
+        maps: MaterialMaps<'_>,
         uniform: MaterialUniform,
     ) -> Self {
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -888,7 +926,8 @@ impl GpuMaterial {
         // shared fallback with the clamped nearest policy in all three slots; a
         // real normal map or emission mask follows the player's world presets.
         let emission_bound = uniform.emission_mask_enabled > 0.5;
-        let maps_resident = !normal.is_fallback() || emission_bound;
+        let maps_resident =
+            !maps.normal.is_fallback() || emission_bound || uniform.uv_mask_enabled > 0.5;
         let policy = |filtering: TextureFiltering| {
             if maps_resident {
                 filtering.sampler_policy()
@@ -896,15 +935,25 @@ impl GpuMaterial {
                 SamplerPolicy::ClampNearest
             }
         };
-        let normal_view = normal.view();
-        let emission_view = emission.view();
+        let normal_view = maps.normal.view();
+        let emission_view = maps.emission.view();
         let bind_group_for = |filtering: TextureFiltering| {
             create_material_bind_group(
                 device,
                 layout,
                 &buffer,
-                normal_view,
-                emission_view,
+                (
+                    normal_view,
+                    emission_view,
+                    (
+                        maps.uv.view(),
+                        if maps.uv_clamped {
+                            filtering.clamp_sampler_policy()
+                        } else {
+                            policy(filtering)
+                        },
+                    ),
+                ),
                 cache,
                 policy(filtering),
             )
@@ -917,8 +966,9 @@ impl GpuMaterial {
             low_bind_group,
             medium_bind_group,
             high_bind_group,
-            _normal: Arc::clone(normal),
-            _emission: Arc::clone(emission),
+            _normal: Arc::clone(maps.normal),
+            _emission: Arc::clone(maps.emission),
+            _uv_mask: Arc::clone(maps.uv),
             emissive: uniform.emission_vertex > 0.5
                 || uniform.emission_color.map(f32::to_bits) != [0_u32; 3],
             applied_scale: uniform.emission_scale,
@@ -964,16 +1014,21 @@ pub struct ModelMaterial {
 
 impl GpuMaterial {
     /// Shared GLB scalar material evaluation for static, movable and entities.
-    pub fn model_with_alpha(
+    pub fn model_with_fluorescence(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         layout: &wgpu::BindGroupLayout,
         cache: &TextureCache,
         emission_texture: &Arc<GpuTexture>,
+        uv_mask: &Arc<GpuTexture>,
         parameters: ModelMaterial,
     ) -> Self {
         let mut state = ResolvedSurfaceMaterial::plain();
         state.alpha = parameters.alpha;
+        state.fluorescence = parameters.response.fluorescence;
+        if uv_mask.is_fallback() {
+            state.fluorescence.mask = None;
+        }
         state.specular = parameters.response.specular;
         state.roughness = parameters.response.roughness;
         state.response_enabled = parameters.response_enabled;
@@ -983,8 +1038,12 @@ impl GpuMaterial {
             queue,
             layout,
             cache,
-            &cache.fallback(),
-            emission_texture,
+            MaterialMaps {
+                normal: &cache.fallback(),
+                emission: emission_texture,
+                uv: uv_mask,
+                uv_clamped: true,
+            },
             uniform,
         )
     }
@@ -996,8 +1055,11 @@ fn create_material_bind_group(
     device: &wgpu::Device,
     layout: &wgpu::BindGroupLayout,
     buffer: &wgpu::Buffer,
-    normal_view: &wgpu::TextureView,
-    emission_view: &wgpu::TextureView,
+    views: (
+        &wgpu::TextureView,
+        &wgpu::TextureView,
+        (&wgpu::TextureView, SamplerPolicy),
+    ),
     cache: &TextureCache,
     sampler: SamplerPolicy,
 ) -> wgpu::BindGroup {
@@ -1011,7 +1073,7 @@ fn create_material_bind_group(
             },
             wgpu::BindGroupEntry {
                 binding: 1,
-                resource: wgpu::BindingResource::TextureView(normal_view),
+                resource: wgpu::BindingResource::TextureView(views.0),
             },
             wgpu::BindGroupEntry {
                 binding: 2,
@@ -1019,14 +1081,70 @@ fn create_material_bind_group(
             },
             wgpu::BindGroupEntry {
                 binding: 3,
-                resource: wgpu::BindingResource::TextureView(emission_view),
+                resource: wgpu::BindingResource::TextureView(views.1),
             },
             wgpu::BindGroupEntry {
                 binding: 4,
                 resource: wgpu::BindingResource::Sampler(cache.sampler(sampler)),
             },
+            wgpu::BindGroupEntry {
+                binding: 5,
+                resource: wgpu::BindingResource::TextureView(views.2.0),
+            },
+            wgpu::BindGroupEntry {
+                binding: 6,
+                resource: wgpu::BindingResource::Sampler(cache.sampler(views.2.1)),
+            },
         ],
     })
+}
+
+/// True when an image is referenced only as ultraviolet numeric data.
+/// Each primitive supplies its base-colour, emission-mask and UV-mask slots.
+#[must_use]
+pub fn ultraviolet_only_texture(
+    index: usize,
+    references: impl Iterator<Item = (Option<u16>, Option<u32>, Option<u32>)>,
+) -> bool {
+    let Ok(slot) = u32::try_from(index) else {
+        return false;
+    };
+    let mut ultraviolet = false;
+    for (base, emission, uv_mask) in references {
+        if base.map(u32::from) == Some(slot) || emission == Some(slot) {
+            return false;
+        }
+        ultraviolet |= uv_mask == Some(slot);
+    }
+    ultraviolet
+}
+
+/// Numeric fitted mask realization, separate from a model's display-colour upload.
+#[must_use]
+pub fn upload_uv_mask(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    cache: &mut TextureCache,
+    logical: &str,
+    image: &crate::materials::RawImage,
+    level: QualityLevel,
+) -> Arc<GpuTexture> {
+    let key = super::texture::TextureKey {
+        logical: super::texture::image_content_key(logical, image),
+        semantic: TextureSemantic::DataLinear,
+        class: crate::quality::TextureClass::EmissionMask,
+        level,
+        wrap: super::texture::TextureWrap::Clamp,
+    };
+    cache
+        .get_or_upload_with_key(
+            device,
+            queue,
+            key,
+            image,
+            crate::materials::TextureOrigin::Catalog,
+        )
+        .1
 }
 
 #[cfg(test)]
@@ -1041,15 +1159,95 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn ultraviolet_only_images_skip_display_upload_without_reindexing() {
+        let uv_only = [(None, None, Some(2))];
+        assert!(ultraviolet_only_texture(2, uv_only.into_iter()));
+        assert!(!ultraviolet_only_texture(1, uv_only.into_iter()));
+        for shared in [(Some(2), None, None), (None, Some(2), None)] {
+            assert!(
+                !ultraviolet_only_texture(2, uv_only.into_iter().chain([shared])),
+                "an image shared with base colour or emission needs both realizations"
+            );
+        }
+        assert!(!ultraviolet_only_texture(2, std::iter::empty()));
+    }
+
+    #[test]
+    fn ultraviolet_response_remains_independent_of_quality_and_emission() {
+        let mut state = ResolvedSurfaceMaterial::plain();
+        state.fluorescence = crate::materials::MaterialFluorescence {
+            strength: 1.5,
+            mask: Some(3),
+            tint: [0.2, 0.4, 0.8],
+        };
+        let record = MaterialUniform::from_state_with_emission(&state, false, EmissionRecord::NONE);
+        assert_eq!(
+            record.uv_response, 1.5,
+            "UV pigment strength survives the normal/sheen quality gate"
+        );
+        assert_eq!(
+            record.uv_mask_enabled, 1.0,
+            "the numeric pigment mask remains bound"
+        );
+        assert!(
+            !record.response_enabled(),
+            "UV does not enable optional sheen"
+        );
+        assert_eq!(
+            record.emission_color, [0.0; 3],
+            "UV never becomes emission or bloom"
+        );
+        assert_eq!(
+            record.emission_vertex, 0.0,
+            "UV never claims luminous vertex colour"
+        );
+        assert_eq!(
+            std::mem::offset_of!(MaterialUniform, uv_mask_enabled),
+            76,
+            "optional mask uses existing padding capacity"
+        );
+    }
+
+    #[test]
+    fn ultraviolet_pigment_is_identical_with_material_lighting_off_or_full() {
+        let mut off = ResolvedSurfaceMaterial::plain();
+        off.fluorescence = crate::materials::MaterialFluorescence {
+            strength: 1.25,
+            mask: Some(2),
+            tint: [0.2, 0.4, 0.8],
+        };
+        let mut full = off;
+        full.response_enabled = true;
+        let off_record =
+            MaterialUniform::from_state_with_emission(&off, false, EmissionRecord::NONE);
+        let full_record =
+            MaterialUniform::from_state_with_emission(&full, true, EmissionRecord::NONE);
+        assert_ne!(
+            off_record.flags, full_record.flags,
+            "ordinary optional lighting changes"
+        );
+        assert_eq!(off_record.uv_tint, full_record.uv_tint);
+        assert_eq!(off_record.uv_response, full_record.uv_response);
+        assert_eq!(off_record.uv_mask_enabled, full_record.uv_mask_enabled);
+        assert_eq!(off_record.uv_tint, [0.2, 0.4, 0.8, 0.0]);
+        // The shader must not obtain pigment from vertex colour: the Off static
+        // path has already multiplied that field by ordinary baked illumination.
+        let shader = include_str!("world.wgsl");
+        assert!(shader.contains("let pigment = base_linear * material.uv_tint.rgb;"));
+        assert!(shader.contains("ultraviolet_response(in, normal, pigment)"));
+    }
+
     // ------------------------------------------------------------- layout
 
     #[test]
     fn the_material_uniform_layout_matches_the_declared_offsets() {
-        assert_eq!(std::mem::size_of::<MaterialUniform>(), 80);
-        assert_eq!(MATERIAL_UNIFORM_SIZE, 80);
+        assert_eq!(std::mem::size_of::<MaterialUniform>(), 96);
+        assert_eq!(MATERIAL_UNIFORM_SIZE, 96);
         // The host struct aligns to 16 exactly like WGSL's struct; the explicit
         // offsets above and the uniform's `min_binding_size` pin the rest.
         assert_eq!(std::mem::align_of::<MaterialUniform>(), 16);
+        assert_eq!(std::mem::offset_of!(MaterialUniform, uv_tint), 80);
         assert_eq!(std::mem::offset_of!(MaterialUniform, specular), 0);
         assert_eq!(std::mem::offset_of!(MaterialUniform, roughness), 12);
         assert_eq!(std::mem::offset_of!(MaterialUniform, normal_strength), 16);
@@ -1068,7 +1266,7 @@ mod tests {
         );
         assert_eq!(std::mem::offset_of!(MaterialUniform, emission_vertex), 64);
         assert_eq!(std::mem::offset_of!(MaterialUniform, emission_scale), 68);
-        assert_eq!(std::mem::offset_of!(MaterialUniform, _padding), 72);
+        assert_eq!(std::mem::offset_of!(MaterialUniform, uv_response), 72);
     }
 
     #[test]
@@ -1101,6 +1299,7 @@ mod tests {
     #[test]
     fn a_normal_mapped_reflective_state_sets_its_bits() {
         let state = ResolvedSurfaceMaterial {
+            fluorescence: crate::materials::MaterialFluorescence::NONE,
             texture: Some(0),
             normal: Some(1),
             normal_strength: 0.35,
@@ -1128,6 +1327,7 @@ mod tests {
         // The neutral resolver has already zeroed the specular for a gated
         // profile; this pins what the GPU record sees for that state.
         let state = ResolvedSurfaceMaterial {
+            fluorescence: crate::materials::MaterialFluorescence::NONE,
             texture: Some(0),
             normal: None,
             normal_strength: 1.0,
@@ -1154,6 +1354,7 @@ mod tests {
     #[test]
     fn a_stale_normal_index_falls_back_with_the_gate_off() {
         let state = ResolvedSurfaceMaterial {
+            fluorescence: crate::materials::MaterialFluorescence::NONE,
             texture: Some(0),
             normal: Some(99),
             normal_strength: 1.0,
@@ -1321,6 +1522,7 @@ mod tests {
         // The neutral resolver's eligibility gate zeroes the authored mode for
         // a material whose weighted strength is zero (Low, or no strength).
         let state = ResolvedSurfaceMaterial {
+            fluorescence: crate::materials::MaterialFluorescence::NONE,
             texture: Some(0),
             normal: None,
             normal_strength: 1.0,

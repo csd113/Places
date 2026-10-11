@@ -360,32 +360,7 @@ impl WgpuCharacters {
         if model.indices.is_empty() || model.submeshes.is_empty() {
             return None;
         }
-        let mut textures: Vec<Arc<GpuTexture>> = Vec::with_capacity(model.textures.len());
-        for (index, image) in model.textures.iter().enumerate() {
-            let logical = super::texture::image_content_key(
-                &format!("character:{}:{index}", asset.model_path),
-                image,
-            );
-            let (outcome, texture) = ctx.cache.get_or_upload_fitted(
-                ctx.device,
-                ctx.queue,
-                &logical,
-                image,
-                TextureClass::Prop,
-                TextureOrigin::Catalog,
-                ctx.level,
-            );
-            match outcome {
-                CacheOutcome::Uploaded => {
-                    value.stats.texture_uploads = value.stats.texture_uploads.saturating_add(1);
-                }
-                CacheOutcome::Reused => {
-                    value.stats.texture_cache_hits =
-                        value.stats.texture_cache_hits.saturating_add(1);
-                }
-            }
-            textures.push(texture);
-        }
+        let textures = Self::upload_display_textures(ctx, value, asset);
         let mut submeshes: Vec<CharacterSubmeshGpu> = Vec::with_capacity(model.submeshes.len());
         let mut materials: Vec<usize> = Vec::with_capacity(model.submeshes.len());
         let mut emissive: Vec<bool> = Vec::with_capacity(model.submeshes.len());
@@ -407,12 +382,14 @@ impl WgpuCharacters {
             let mask_texture = mask
                 .and_then(|index| textures.get(index).cloned())
                 .unwrap_or_else(|| ctx.cache.fallback());
-            value.materials.push(GpuMaterial::model_with_alpha(
+            let uv_mask = Self::upload_response_mask(ctx, asset, source.response.fluorescence);
+            value.materials.push(GpuMaterial::model_with_fluorescence(
                 ctx.device,
                 ctx.queue,
                 ctx.material_layout,
                 ctx.cache,
                 &mask_texture,
+                &uv_mask,
                 super::material::ModelMaterial {
                     emission: record,
                     alpha: source.alpha,
@@ -449,6 +426,79 @@ impl WgpuCharacters {
             emissive,
             culling_safe: character_mesh_culling_safe(model),
         })
+    }
+
+    /// Uploads display sheets while keeping numeric-only texture slots stable.
+    fn upload_display_textures(
+        ctx: &mut CharacterUploadContext<'_>,
+        value: &mut Self,
+        asset: &crate::props::LoadedPropAsset,
+    ) -> Vec<Arc<GpuTexture>> {
+        let model = &asset.model;
+        let mut textures: Vec<Arc<GpuTexture>> = Vec::with_capacity(model.textures.len());
+        for (index, image) in model.textures.iter().enumerate() {
+            if super::material::ultraviolet_only_texture(
+                index,
+                model.submeshes.iter().map(|part| {
+                    (
+                        part.texture,
+                        part.emission.mask,
+                        part.response.fluorescence.mask,
+                    )
+                }),
+            ) {
+                textures.push(ctx.cache.fallback());
+                continue;
+            }
+            let logical = super::texture::image_content_key(
+                &format!("character:{}:{index}", asset.model_path),
+                image,
+            );
+            let (outcome, texture) = ctx.cache.get_or_upload_fitted(
+                ctx.device,
+                ctx.queue,
+                &logical,
+                image,
+                TextureClass::Prop,
+                TextureOrigin::Catalog,
+                ctx.level,
+            );
+            match outcome {
+                CacheOutcome::Uploaded => {
+                    value.stats.texture_uploads = value.stats.texture_uploads.saturating_add(1);
+                }
+                CacheOutcome::Reused => {
+                    value.stats.texture_cache_hits =
+                        value.stats.texture_cache_hits.saturating_add(1);
+                }
+            }
+            textures.push(texture);
+        }
+        textures
+    }
+
+    /// Resolves one fitted numeric response mask independently of display colour.
+    fn upload_response_mask(
+        ctx: &mut CharacterUploadContext<'_>,
+        asset: &crate::props::LoadedPropAsset,
+        fluorescence: crate::materials::MaterialFluorescence,
+    ) -> Arc<GpuTexture> {
+        let Some(image) = fluorescence.mask.and_then(|index| {
+            asset
+                .model
+                .textures
+                .get(usize::try_from(index).unwrap_or(usize::MAX))
+        }) else {
+            return ctx.cache.fallback();
+        };
+        super::material::upload_uv_mask(
+            ctx.device,
+            ctx.queue,
+            ctx.cache,
+            &format!("character:{}:uv", asset.model_path),
+            image,
+            ctx.level,
+        )
     }
 
     /// Fills the reusable scratch buffer with one character's posed vertices.
@@ -543,11 +593,12 @@ impl WgpuCharacters {
     /// active mirror); a moved character installs its placement matrix on top.
     /// Called once per frame; a still character with a settled pose writes
     /// nothing.
-    pub fn sync(
+    pub fn sync_with_blacklight(
         &mut self,
         queue: &wgpu::Queue,
         scene: &CharacterScene,
         environment: &EnvironmentUniform,
+        visibility: Option<crate::render::common::blacklight::BlacklightVisibility<'_>>,
     ) -> usize {
         let mut uploaded = 0usize;
         for gpu in &mut self.characters {
@@ -562,16 +613,6 @@ impl WgpuCharacters {
             // covers opacity: a still, settled pose writes nothing, while a
             // fading ghost rewrites only its own uniform.
             let transform_changed = scene_character.transform() != gpu.uploaded_transform;
-
-            let _update_stats = gpu.environment.update(
-                queue,
-                &environment
-                    .with_model(scene_character.transform())
-                    .with_entity_lighting(Some(scene_character.entity_lighting()))
-                    .with_spatial_lighting(scene_character.spatial_lighting())
-                    .with_opacity(scene_character.opacity()),
-            );
-            gpu.uploaded_transform = scene_character.transform();
             let pose_changed = scene_character.animator().revision() != gpu.uploaded_revision;
             if pose_changed {
                 gpu.pose_bounds = Self::fill_vertices(scene_character, &mut self.scratch);
@@ -579,6 +620,29 @@ impl WgpuCharacters {
                 gpu.uploaded_revision = scene_character.animator().revision();
                 uploaded = uploaded.saturating_add(1);
             }
+
+            let _update_stats = gpu.environment.update(
+                queue,
+                &environment
+                    .with_model(scene_character.transform())
+                    .with_entity_lighting(Some(scene_character.entity_lighting()))
+                    .with_spatial_lighting(scene_character.spatial_lighting())
+                    .with_uv_receiver(
+                        visibility.filter(|_| {
+                            scene_character
+                                .asset()
+                                .model
+                                .submeshes
+                                .iter()
+                                .any(|submesh| submesh.response.fluorescence.strength > 0.0)
+                        }),
+                        gpu.pose_bounds,
+                        scene_character.transform(),
+                        None,
+                    )
+                    .with_opacity(scene_character.opacity()),
+            );
+            gpu.uploaded_transform = scene_character.transform();
             if transform_changed || pose_changed {
                 gpu.world_bounds = posed_world_bounds(&gpu.pose_bounds, &gpu.uploaded_transform);
             }

@@ -1,0 +1,14 @@
+[
+  {
+    "frame": 18,
+    "capture": "target/retro-arcade-switch-proof/lever-before.png"
+  },
+  {
+    "frame": 48,
+    "capture": "target/retro-arcade-switch-proof/lever-off.png"
+  },
+  {
+    "frame": 108,
+    "capture": "target/retro-arcade-switch-proof/lever-restored.png"
+  }
+]

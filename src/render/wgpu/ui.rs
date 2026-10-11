@@ -714,6 +714,16 @@ mod tests {
         assert!(UI_SHADER_SRC.contains("_padding: f32"));
         // `WORLD_VERTEX_STRIDE` is the layout the UI pipeline binds, so the
         // camera and the vertex structs are the shared ones, not local copies.
-        assert_eq!(WORLD_VERTEX_STRIDE, 76);
+        assert_eq!(WORLD_VERTEX_STRIDE, 88);
+        let vertex = Vertex::new([3.0, 5.0, 0.0], [0.5, 1.0, 0.25, 1.0], [0.25, 0.75]);
+        let gpu = WorldVertex::from(&vertex);
+        assert_eq!(gpu.uv_visibility, [0.0; 4]);
+        assert_eq!(gpu.position, vertex.pos);
+        assert_eq!(gpu.uv, vertex.uv);
+        assert_eq!(gpu.color, vertex.color);
+        // The HUD reads only the shared prefix; the new visibility attribute
+        // has no shader input or environment binding in this pipeline.
+        assert!(!UI_SHADER_SRC.contains("@location(8)"));
+        assert!(!UI_SHADER_SRC.contains("var<uniform> environment"));
     }
 }
