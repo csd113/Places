@@ -173,7 +173,7 @@ class CompiledBuildSmokeTests(unittest.TestCase):
         code, output = self.run_binary(
             unrelated,
             capture,
-            {"PLACES_LEVEL": "places_demo"},
+            {"PLACES_LEVEL": "retro_arcade_demo"},
             binary=os.path.join(package, "places"),
         )
 
@@ -206,7 +206,7 @@ class CompiledBuildSmokeTests(unittest.TestCase):
         code, output = self.run_binary(
             runtime,
             capture,
-            {"PLACES_LEVEL": "places_demo", "PLACES_LOAD_TRACE": trace},
+            {"PLACES_LEVEL": "retro_arcade_demo", "PLACES_LOAD_TRACE": trace},
             binary=binary,
         )
 
@@ -261,7 +261,7 @@ class CompiledBuildSmokeTests(unittest.TestCase):
 
         capture = os.path.join(runtime, "second.png")
         code, output = self.run_binary(
-            runtime, capture, {"PLACES_LEVEL": "places_demo"}, binary=binary
+            runtime, capture, {"PLACES_LEVEL": "retro_arcade_demo"}, binary=binary
         )
         self.assertEqual(code, 0, output)
 
@@ -422,7 +422,7 @@ class CompiledBuildSmokeTests(unittest.TestCase):
         code, output = self.run_binary(
             package,
             capture,
-            {"PLACES_LEVEL": "places_demo", "PLACES_VERBOSE": "1"},
+            {"PLACES_LEVEL": "retro_arcade_demo", "PLACES_VERBOSE": "1"},
             binary=binary,
         )
         self.assertEqual(code, 0, output)
@@ -449,24 +449,24 @@ class CompiledBuildSmokeTests(unittest.TestCase):
                 "the player must not write a lightmap bake cache",
             )
 
-    # -- 7. Places Demo is listed even with no custom levels -----------------
+    # -- 7. active Arcade is listed even with no custom levels -----------------
 
-    def test_compiled_places_demo_is_available_by_id(self):
+    def test_compiled_retro_arcade_demo_is_available_by_id(self):
         runtime = self.make_package("demo-package")
         binary = os.path.join(runtime, "places")
         self.assertTrue(
-            os.path.isfile(os.path.join(runtime, "assets", "levels", "places_demo.placesmap"))
+            os.path.isfile(os.path.join(runtime, "assets", "levels", "retro_arcade_demo.placesmap"))
         )
         capture = os.path.join(runtime, "demo.png")
         code, output = self.run_binary(
             runtime,
             capture,
-            {"PLACES_LEVEL": "places_demo", "PLACES_VERBOSE": "1"},
+            {"PLACES_LEVEL": "retro_arcade_demo", "PLACES_VERBOSE": "1"},
             binary=binary,
         )
         self.assertEqual(code, 0, output)
         self.assertTrue(
-            "[loading] committed places_demo" in output,
+            "[loading] committed retro_arcade_demo" in output,
             "the demo must load by id",
         )
         self.assertTrue(os.path.isfile(capture))
@@ -486,7 +486,7 @@ class CompiledBuildSmokeTests(unittest.TestCase):
         binary = os.path.join(runtime, "places")
         capture = os.path.join(runtime, "frame.png")
         code, output = self.run_binary(
-            runtime, capture, {"PLACES_LEVEL": "places_demo"}, binary=binary
+            runtime, capture, {"PLACES_LEVEL": "retro_arcade_demo"}, binary=binary
         )
         self.assertEqual(code, 0, output)
         self.assertTrue(os.path.isfile(capture))

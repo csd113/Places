@@ -1,0 +1,218 @@
+{
+  "format_version": 1,
+  "level": "retro_arcade_demo",
+  "source": "levels/retro_arcade_demo.json",
+  "package": "assets/levels/retro_arcade_demo.placesmap",
+  "settings": {
+    "bindings": {
+      "forward": "W",
+      "backward": "S",
+      "strafe_left": "A",
+      "strafe_right": "D",
+      "look_up": "UP",
+      "look_down": "DOWN",
+      "look_left": "LEFT",
+      "look_right": "RIGHT",
+      "jump": "SPACE",
+      "crouch": "C",
+      "interact": "E"
+    },
+    "look_speed_h": 90,
+    "look_speed_v": 60,
+    "walk_speed": 3,
+    "invert_look": false,
+    "mouse_sensitivity": 0.12,
+    "quality": "high",
+    "texture_filtering": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true,
+    "use_low_quality_lighting": false,
+    "vsync": false,
+    "fov_degrees": 60,
+    "window_mode": "windowed",
+    "window_width": 640,
+    "window_height": 360
+  },
+  "bake": {
+    "variants": [
+      "off",
+      "full"
+    ],
+    "workers": 8,
+    "force_for_cold_measurement": false,
+    "algorithm": "unchanged normal compiler defaults; see package inspect for prepared settings"
+  },
+  "environment": {
+    "sky": "absent; enclosed interior",
+    "fog": "authored zero density",
+    "animation": "Accepted existing party preserved; commercial restroom and coplanar mirrors added"
+  },
+  "capture": {
+    "ready_world_seconds": 0.5,
+    "warmup_frames": 15,
+    "limit_frames": 2400,
+    "expected_drawable": [
+      1280,
+      720
+    ]
+  },
+  "views": [
+    {
+      "name": "entrance",
+      "spawn": [
+        2.4,
+        2.8,
+        270
+      ],
+      "camera": [
+        270,
+        -4
+      ],
+      "purpose": "Accessible arcade opening and ceramic transition"
+    },
+    {
+      "name": "room",
+      "spawn": [
+        -0.85,
+        1.3,
+        225
+      ],
+      "camera": [
+        225,
+        -6
+      ],
+      "purpose": "Connected fourth room: commercial stalls, tile and washbasins"
+    },
+    {
+      "name": "sinks",
+      "spawn": [
+        -1.65,
+        5.45,
+        180
+      ],
+      "camera": [
+        180,
+        -14
+      ],
+      "purpose": "Porcelain basins, chrome taps, soap and genuine coplanar mirrors"
+    },
+    {
+      "name": "stall",
+      "spawn": [
+        -4.9,
+        2.75,
+        315
+      ],
+      "camera": [
+        315,
+        -28
+      ],
+      "purpose": "Porcelain toilet in the larger stall, partition feet and grab bar"
+    },
+    {
+      "name": "ceiling",
+      "spawn": [
+        -2.4,
+        3.6,
+        15
+      ],
+      "camera": [
+        15,
+        46
+      ],
+      "purpose": "Neutral practical fixtures and ceiling ventilation"
+    },
+    {
+      "name": "walk",
+      "spawn": [
+        2,
+        2.8,
+        270
+      ],
+      "camera": [
+        270,
+        0
+      ],
+      "purpose": "Held-control doorway, stall and partition collision witness"
+    },
+    {
+      "name": "stall_walk",
+      "spawn": [
+        -3.35,
+        4.85,
+        270
+      ],
+      "camera": [
+        270,
+        0
+      ],
+      "purpose": "Second stall entry, rear wall collision and return"
+    },
+    {
+      "name": "third_stall",
+      "spawn": [
+        -3.35,
+        7.05,
+        270
+      ],
+      "camera": [
+        270,
+        0
+      ],
+      "purpose": "Third stall closed-door entry, rear-wall collision and return beside the basin"
+    },
+    {
+      "name": "sink_walk",
+      "spawn": [
+        -1.1,
+        5.45,
+        180
+      ],
+      "camera": [
+        180,
+        0
+      ],
+      "purpose": "Washbasin approach, jumping and opaque mirror barrier"
+    },
+    {
+      "name": "partition_jump",
+      "spawn": [
+        -3.35,
+        4.1,
+        270
+      ],
+      "camera": [
+        270,
+        0
+      ],
+      "purpose": "Jump against partition stock without passing or escaping"
+    },
+    {
+      "name": "switch",
+      "spawn": [
+        -1.35,
+        3.92,
+        90
+      ],
+      "camera": [
+        90,
+        -19
+      ],
+      "purpose": "Real bathroom circuit switch, emission and prepared Static/Full illumination"
+    },
+    {
+      "name": "switch_sinks",
+      "spawn": [
+        -1.35,
+        3.92,
+        90
+      ],
+      "camera": [
+        180,
+        -14
+      ],
+      "purpose": "Sink-wall illumination during repeated physical switch interactions; gameplay aim faces east"
+    }
+  ]
+}

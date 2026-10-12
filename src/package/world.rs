@@ -53,6 +53,7 @@ pub struct OpenedPackage {
 
 /// One prepared quality variant, decoded and ready for installation.
 pub struct LoadedVariant {
+    pub static_light_off: Option<Arc<crate::render::StaticLightState>>,
     /// The lightmap quality this variant answers.
     pub lightmap_quality: LightmapQuality,
     /// Prepared static geometry.
@@ -430,6 +431,33 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
     let lighting_bytes = reader.read_blob(&variant.entries.lighting, MAX_LIGHTING_BYTES)?;
     let lighting = read_lighting(&lighting_bytes)?;
     drop(lighting_bytes);
+    let static_light_off = match &variant.entries.static_light_off {
+        Some(state) => {
+            if state
+                .fixtures
+                .iter()
+                .any(|index| lighting.fixture_light_index(*index).is_none())
+            {
+                return Err("static light state references a missing fixture".to_string());
+            }
+            let off_mesh = read_mesh(&reader.read_blob(&state.mesh, MAX_BINARY_BYTES)?)?;
+            let mut batches = read_props(&super::shared_props::read_record(reader, &state.props)?)?;
+            for batch in &mut batches {
+                batch.textures = props
+                    .iter()
+                    .find(|source| source.model == batch.model)
+                    .ok_or_else(|| "static light state references an unexpected model".to_string())?
+                    .textures
+                    .clone();
+            }
+            Some(Arc::new(crate::render::StaticLightState {
+                fixtures: state.fixtures.clone(),
+                mesh: off_mesh,
+                batches,
+            }))
+        }
+        None => None,
+    };
     let collision_bytes = reader.read_blob(&variant.entries.collision, MAX_COLLISION_BYTES)?;
     let collision = read_collision(&collision_bytes)?;
     drop(collision_bytes);
@@ -455,6 +483,7 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
     };
     let probes = read_probes(reader, variant)?;
     Ok(LoadedVariant {
+        static_light_off,
         lightmap_quality: quality,
         mesh,
         props,

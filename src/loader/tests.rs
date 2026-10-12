@@ -4827,8 +4827,8 @@ fn the_geometry_revision_is_part_of_both_build_fingerprints() {
 
     // The shipped revision is the one the fix introduced, not a placeholder.
     assert_eq!(
-        revision, 9,
-        "neighbor-clipped ramp side emission requires geometry revision 9"
+        revision, 10,
+        "parent-wall texture phase and light circuits require geometry revision 10"
     );
 }
 

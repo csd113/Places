@@ -59,6 +59,7 @@ fn irradiance_variant_archive(
         quality_profile: "low".to_owned(),
         lightmap_failure: Some("codec fixture has no surface atlas".to_owned()),
         entries: crate::package::VariantEntries {
+            static_light_off: None,
             mesh,
             props,
             lighting,

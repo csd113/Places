@@ -574,6 +574,19 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
     {
         required.push("probes-hdr".to_string());
     }
+    if variants
+        .iter()
+        .any(|variant| variant.entries.static_light_off.is_some())
+    {
+        required.push("static-light-state-v1".to_string());
+    }
+    if level
+        .ceiling_lights
+        .iter()
+        .any(|fixture| fixture.switch_group.is_some())
+    {
+        required.push("light-circuits-v1".to_string());
+    }
     let manifest = Manifest {
         package_format: FORMAT_VERSION,
         id: level.id.clone(),
@@ -1054,12 +1067,13 @@ fn validate_variant<R: std::io::Read + std::io::Seek>(
     let mesh_bytes = reader.read_blob(&variant.entries.mesh, crate::package::MAX_BINARY_BYTES)?;
     let _ = crate::package::mesh::read_mesh(&mesh_bytes)?;
     let props_bytes = crate::package::shared_props::read_record(reader, &variant.entries.props)?;
-    let _ = crate::package::props::read_props(&props_bytes)?;
+    let main_props = crate::package::props::read_props(&props_bytes)?;
     let lighting_bytes = reader.read_blob(
         &variant.entries.lighting,
         crate::package::MAX_LIGHTING_BYTES,
     )?;
-    let _ = crate::package::lighting::read_lighting(&lighting_bytes)?;
+    let lighting = crate::package::lighting::read_lighting(&lighting_bytes)?;
+    validate_static_light_off(reader, variant, &lighting, &main_props)?;
     let collision_bytes = reader.read_blob(
         &variant.entries.collision,
         crate::package::MAX_COLLISION_BYTES,
@@ -1094,6 +1108,36 @@ fn validate_variant<R: std::io::Read + std::io::Seek>(
                 ));
             }
         }
+    }
+    Ok(())
+}
+
+/// Optional states obey the same structural/runtime checks as primary records.
+fn validate_static_light_off<R: std::io::Read + std::io::Seek>(
+    reader: &mut crate::package::PackageReader<R>,
+    variant: &Variant,
+    lighting: &crate::lighting::LevelLighting,
+    main_props: &[crate::render::PropMeshBatch],
+) -> Result<(), String> {
+    let Some(state) = &variant.entries.static_light_off else {
+        return Ok(());
+    };
+    if state
+        .fixtures
+        .iter()
+        .any(|fixture| lighting.fixture_light_index(*fixture).is_none())
+    {
+        return Err("static light state references a missing fixture".to_string());
+    }
+    let mesh_bytes = reader.read_blob(&state.mesh, crate::package::MAX_BINARY_BYTES)?;
+    let _mesh = crate::package::mesh::read_mesh(&mesh_bytes)?;
+    let props_bytes = crate::package::shared_props::read_record(reader, &state.props)?;
+    let props = crate::package::props::read_props(&props_bytes)?;
+    if props
+        .iter()
+        .any(|batch| !main_props.iter().any(|main| main.model == batch.model))
+    {
+        return Err("static light state references an unexpected model".to_string());
     }
     Ok(())
 }
@@ -1305,6 +1349,8 @@ fn build_variant(
     };
 
     let mesh_name = insert_blob(blobs, write_mesh(&build.mesh)?, ".mesh", "mesh");
+    let static_light_off =
+        prepare_static_light_off(level, catalog, assets, materials, quality, &build, blobs)?;
     let (props_bytes, prop_encoding) = write_props_with_stats(&build.batches)?;
     let props_name = insert_blob(blobs, props_bytes, ".props", "props");
     let lighting_name = insert_blob(
@@ -1382,6 +1428,7 @@ fn build_variant(
         .to_string(),
         lightmap_failure: stats.lightmap_failure.clone(),
         entries: VariantEntries {
+            static_light_off,
             mesh: mesh_name,
             props: props_name,
             lighting: lighting_name,
@@ -1418,6 +1465,51 @@ fn build_variant(
         crate::render::dump_lightmaps_for_level(level, atlas);
     }
     Ok((variant, stats, build))
+}
+
+/// One opt-in circuit gets exact Static colours without an additional bake.
+fn prepare_static_light_off(
+    level: &LevelDef,
+    catalog: &crate::loader::PropCatalog,
+    assets: &mut crate::props::PropAssets,
+    materials: &MaterialTable,
+    quality: LightmapQuality,
+    build: &crate::render::LevelBuild,
+    blobs: &mut BlobMap,
+) -> Result<Option<crate::package::manifest::StaticLightEntries>, String> {
+    if quality != LightmapQuality::Off {
+        return Ok(None);
+    }
+    let fixtures: Vec<usize> = level
+        .ceiling_lights
+        .iter()
+        .enumerate()
+        .filter_map(|(index, fixture)| {
+            (fixture.static_switch == crate::level::StaticSwitchMode::Prepared).then_some(index)
+        })
+        .collect();
+    if fixtures.is_empty() {
+        return Ok(None);
+    }
+    let mut lighting = build.lighting.clone();
+    for fixture in &fixtures {
+        let source = lighting
+            .fixture_light_index(*fixture)
+            .ok_or("Static circuit fixture has no resolved light")?;
+        let _changed = lighting.set_light_enabled(source, false);
+    }
+    let mut batches = Vec::new();
+    let mesh = rebuild_vertex_lit_level(level, catalog, assets, materials, &lighting, &mut batches);
+    Ok(Some(crate::package::manifest::StaticLightEntries {
+        fixtures,
+        mesh: insert_blob(blobs, write_mesh(&mesh)?, ".mesh", "mesh"),
+        props: insert_blob(
+            blobs,
+            write_props_with_stats(&batches)?.0,
+            ".props",
+            "props",
+        ),
+    }))
 }
 
 fn report_preparation(quality: LightmapQuality, build: &crate::render::LevelBuild) {
@@ -2009,19 +2101,36 @@ fn reuse_prepared_lighting(
     let mut shared_names = Vec::new();
     for variant in &manifest.variants {
         let entries = &variant.entries;
+        if entries.static_light_off.is_some() {
+            let lighting = crate::package::lighting::read_lighting(
+                &reader.read_blob(&entries.lighting, crate::package::MAX_LIGHTING_BYTES)?,
+            )?;
+            let props = crate::package::props::read_props(
+                &crate::package::shared_props::read_record(&mut reader, &entries.props)?,
+            )?;
+            validate_static_light_off(&mut reader, variant, &lighting, &props)?;
+        }
         needed.extend([
             entries.mesh.as_str(),
             entries.props.as_str(),
             entries.lighting.as_str(),
             entries.collision.as_str(),
         ]);
-        let prop_record = reader.read_blob(&entries.props, crate::package::MAX_BINARY_BYTES)?;
-        if prop_record.starts_with(b"PLPS") {
-            let recipe = crate::package::shared_props::read_recipe(&prop_record)?;
-            for segment in recipe.segments() {
-                let name = segment.blob_name();
-                // Names must stay owned through this complete reuse pass.
-                shared_names.push(name);
+        if let Some(state) = &entries.static_light_off {
+            needed.extend([state.mesh.as_str(), state.props.as_str()]);
+        }
+        for props in std::iter::once(entries.props.as_str()).chain(
+            entries
+                .static_light_off
+                .as_ref()
+                .map(|state| state.props.as_str()),
+        ) {
+            let prop_record = reader.read_blob(props, crate::package::MAX_BINARY_BYTES)?;
+            if prop_record.starts_with(b"PLPS") {
+                let recipe = crate::package::shared_props::read_recipe(&prop_record)?;
+                for segment in recipe.segments() {
+                    shared_names.push(segment.blob_name());
+                }
             }
         }
         needed.extend(entries.lightmaps.as_deref());

@@ -1206,6 +1206,34 @@ crop. `author_retro_arcade.py --only vending_machine` fits the source PNG and
 `inspect_arcade_vending.py` is an explicit installed-Blender preview tool; the
 Python builder remains authoritative and no Blender/map bake enters default tests.
 
+### 8.15 Arcade commercial restroom kit
+
+The reusable restroom fittings use the existing opaque fitted model class,
+with +Y up, +Z front, metre scale, centred X/Z and base-contact Y=0. Editable
+Blender source, GLBs and measured metadata live in `environments/arcade/restroom/`.
+`tools/props/author_arcade_restroom.py` is an explicit offline Blender authorer;
+normal builds preserve its exported models through catalog `authoring` ownership.
+
+All fittings embed the unchanged opaque 32-square `party_palette.png` from
+`environments/arcade/party/models/`. UVs sample the centres of its existing
+row-major four-by-four swatches (white, cream, metal and charcoal); material
+factors give muted teal laminate and restrained porcelain/chrome response.
+No atlas is repacked, resized, or synthesized at load. Each model's decoded
+copy is still charged to the ordinary 106 MiB pack budget. Geometry supplies
+real bowl cavities, seat rings, trap/faucet stock, partition thickness, foot
+plates, hinges and latches. The mirror-frame model is an open frame: the map's
+opaque planar opening pane supplies the actual reflection, with no painted image.
+
+The room reuses unchanged 1024-square Home floor tile at a 1.2 m repeat
+(30 cm tile) and Pool wall tile at 2 m (20 cm tile), plus the existing
+128-square fitted ceiling-grille decal. They retain their original tiling,
+alpha, orientation and resolution contracts. Restroom tile trim uses ordinary
+wall projection and is never ultraviolet carpet trim. Playable entry and stall
+leaves use the interactive `restroom` door kind: flat 42 mm laminate panels,
+small metal latches and narrow jambs, with existing PNG material references.
+They start closed and swing into the room/bays. The kit's standalone leaf GLB
+remains a reusable static construction piece; it is not the playable collider.
+
 ## 9. Emissive textures and masks
 
 Places does **not** use dedicated emissive colour textures. Emission is

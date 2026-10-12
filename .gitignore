@@ -18,8 +18,6 @@ AGENTS.md
 
 # Only the curated source lineup is versioned in levels/.
 /levels/*.json
-!/levels/places_demo.json
-!/levels/model_zoo.json
 !/levels/lantern_hollow.json
 !/levels/winter.json
 !/levels/beach_demo.json
@@ -38,5 +36,7 @@ AGENTS.md
 /docs/**/*.gz
 /docs/**/*.json
 !/docs/asset-presets/*.json
+!/docs/archive/levels/places_demo.json
+!/docs/archive/levels/model_zoo.json
 /docs/**/*.png
 !/docs/images/**/*.png

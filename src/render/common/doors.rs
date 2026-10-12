@@ -169,19 +169,24 @@ pub fn build_door_models(
             slot_alphas.push(glass.alpha);
             Some(SLOT_GLASS)
         }
-        DoorKind::Interior => None,
+        DoorKind::Interior | DoorKind::Restroom => None,
     };
     let glass_tile = match def.kind {
         DoorKind::Sauna => material_image(materials, crate::level::SAUNA_DOOR_GLASS_MATERIAL)
             .map_or(slab.tile, |glass| glass.tile),
-        DoorKind::Interior => slab.tile,
+        DoorKind::Interior | DoorKind::Restroom => slab.tile,
     };
 
     let mut frame_mesh = MeshBuilder::default();
-    push_frame(&mut frame_mesh, def, frame, frame_image.tile);
+    if def.kind == DoorKind::Restroom {
+        push_restroom_frame(&mut frame_mesh, def, frame_image.tile);
+    } else {
+        push_frame(&mut frame_mesh, def, frame, frame_image.tile);
+    }
     let mut leaf_mesh = MeshBuilder::default();
     match def.kind {
         DoorKind::Interior => push_interior_leaf(&mut leaf_mesh, def, slab.tile, handle.tile),
+        DoorKind::Restroom => push_restroom_leaf(&mut leaf_mesh, def, &slab, handle.tile),
         DoorKind::Sauna => {
             push_sauna_leaf(
                 &mut leaf_mesh,
@@ -231,6 +236,7 @@ struct DoorMaterial {
     image: Arc<RawImage>,
     tile: f32,
     alpha: MaterialAlpha,
+    tint: [f32; 3],
 }
 
 /// Resolves a door material id through the table, or `None` when it has no
@@ -247,6 +253,7 @@ fn material_image(materials: &MaterialTable, id: &str) -> Option<DoorMaterial> {
         image,
         tile,
         alpha: entry.alpha,
+        tint: entry.tint,
     })
 }
 
@@ -363,6 +370,19 @@ impl MeshBuilder {
         ];
         for corners in faces {
             self.quad(corners, paint);
+        }
+    }
+
+    /// Material colour is a vertex factor; the original PNG remains shared.
+    fn push_tinted_box(&mut self, min: [f32; 3], max: [f32; 3], paint: Paint, tint: [f32; 3]) {
+        let first = self.vertices.len();
+        self.push_box(min, max, paint);
+        if let Some(vertices) = self.vertices.get_mut(first..) {
+            for vertex in vertices {
+                let [red, green, blue, alpha] = vertex.color;
+                let [r, g, b] = tint;
+                vertex.color = [red * r, green * g, blue * b, alpha];
+            }
         }
     }
 
@@ -680,6 +700,61 @@ fn hinge_heights(height: f32) -> [f32; 2] {
     [first, second]
 }
 
+/// Thin commercial jambs fit partition stock without residential casings.
+fn push_restroom_frame(builder: &mut MeshBuilder, def: &DoorDef, tile: f32) {
+    let metal = Paint::new(SLOT_FRAME, tile, 0.9);
+    let depth = def.thickness.mul_add(0.5, 0.014);
+    for (lo, hi) in [(-0.03, 0.004), (def.width - 0.004, def.width + 0.03)] {
+        builder.push_box([lo, -def.y, -depth], [hi, def.height, depth], metal);
+    }
+    builder.push_box(
+        [-0.03, def.height, -depth],
+        [def.width + 0.03, def.height + 0.035, depth],
+        metal,
+    );
+    for height in hinge_heights(def.height) {
+        builder.push_cylinder_y(
+            (0.0, 0.0),
+            (height - 0.04, height + 0.04),
+            0.012,
+            KNOB_SEGMENTS,
+            metal,
+        );
+    }
+}
+
+/// A thick flat laminate panel and a small latch on both faces.
+fn push_restroom_leaf(
+    builder: &mut MeshBuilder,
+    def: &DoorDef,
+    slab: &DoorMaterial,
+    handle_tile: f32,
+) {
+    let half = def.thickness * 0.5;
+    builder.push_tinted_box(
+        [0.008, 0.005, -half],
+        [def.width - 0.008, def.height - 0.005, half],
+        Paint::new(SLOT_LEAF, slab.tile, 1.0),
+        slab.tint,
+    );
+    let x = def.width - 0.075;
+    let y = 0.95_f32.min(def.height * 0.6);
+    for side in [-1.0_f32, 1.0] {
+        let z = side * (half + 0.005);
+        builder.push_box(
+            [x - 0.022, y - 0.04, z - 0.004],
+            [x + 0.022, y + 0.04, z + 0.004],
+            Paint::new(SLOT_HANDLE, handle_tile, 0.9),
+        );
+        let latch_z = side * (half + 0.018);
+        builder.push_box(
+            [x - 0.013, y - 0.012, latch_z - 0.008],
+            [x + 0.06, y + 0.012, latch_z + 0.008],
+            Paint::new(SLOT_HANDLE, handle_tile, 1.0),
+        );
+    }
+}
+
 /// The interior leaf: a panelled slab with a round brass handle and hinges.
 ///
 /// The leaf is a stile-and-rail frame with two recessed panels rather than a
@@ -951,7 +1026,8 @@ mod tests {
                 { "id": "d1", "x": 1.0, "z": 3.0, "rotation_degrees": 0.0,
                   "width": 0.9, "height": 2.1 },
                 { "id": "d2", "x": 4.0, "z": 3.0, "rotation_degrees": 0.0,
-                  "width": 0.8, "height": 2.0, "kind": "sauna" }
+                  "width": 0.8, "height": 2.0, "kind": "sauna" },
+                { "id": "d3", "x": 2.0, "z": 3.0, "width": 1.2, "height": 1.68, "kind": "restroom" }
             ]
         }"#;
         let level = crate::level::LevelDef::from_json(level_fixture).expect("level parses");
@@ -974,6 +1050,47 @@ mod tests {
             kind,
             ..DoorDef::default()
         }
+    }
+
+    // A small material/mesh witness protects the visible laminate tint that
+    // native inspection found was omitted; it creates no map or light atlas.
+    #[test]
+    fn a_restroom_leaf_keeps_its_material_tint() {
+        let table = materials();
+        let def = door(DoorKind::Restroom, 1.2, 1.68);
+        let models = build_door_models(&def, &table, DoorFrame::standalone(def.thickness))
+            .expect("commercial door");
+        let leaf = models
+            .leaf
+            .submeshes
+            .iter()
+            .find(|part| part.texture == Some(SLOT_LEAF))
+            .expect("laminate");
+        let mut peak = [0.0_f32; 3];
+        for index in models
+            .leaf
+            .indices
+            .iter()
+            .skip(usize::try_from(leaf.first_index).expect("bounded index"))
+            .take(usize::try_from(leaf.index_count).expect("bounded count"))
+        {
+            let vertex = models
+                .leaf
+                .vertices
+                .get(usize::from(*index))
+                .expect("bounded vertex");
+            for (value, color) in peak.iter_mut().zip(vertex.color) {
+                *value = value.max(color);
+            }
+        }
+        let expected = table
+            .entry_of("arcade:restroom_partition_01")
+            .expect("laminate material")
+            .tint;
+        assert_eq!(
+            peak, expected,
+            "the white PNG receives the authored teal material factor"
+        );
     }
 
     #[test]

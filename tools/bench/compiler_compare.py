@@ -43,7 +43,7 @@ def main():
     parser.add_argument("--optimized", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--maps", nargs="+", default=["tests/fixtures/levels/test_room.json",
-                        "levels/places_demo.json", "levels/lantern_hollow.json"])
+                        "levels/retro_arcade_demo.json", "levels/lantern_hollow.json"])
     parser.add_argument("--repeat", type=int, default=3)
     parser.add_argument("--workers", type=int, default=12)
     parser.add_argument("--variants", default="off,full")

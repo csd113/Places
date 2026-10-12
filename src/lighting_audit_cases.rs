@@ -1732,6 +1732,8 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     });
     zero_room.ceiling_lights.push(LightFixtureDef {
         hold_in_static: false,
+        switch_group: None,
+        static_switch: crate::level::StaticSwitchMode::Disabled,
         ultraviolet: 0.0,
         switchable: false,
         id: None,
@@ -1844,6 +1846,8 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     let mut lights_only = empty.clone();
     lights_only.ceiling_lights.push(LightFixtureDef {
         hold_in_static: false,
+        switch_group: None,
+        static_switch: crate::level::StaticSwitchMode::Disabled,
         ultraviolet: 0.0,
         switchable: false,
         id: None,
@@ -1876,6 +1880,8 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     let mut broken = empty;
     broken.ceiling_lights.push(LightFixtureDef {
         hold_in_static: false,
+        switch_group: None,
+        static_switch: crate::level::StaticSwitchMode::Disabled,
         ultraviolet: 0.0,
         switchable: false,
         id: None,

@@ -65,13 +65,13 @@ Textures are committed PNG inputs; the player never generates texture artwork.
 
 ## Maintained maps and regression controls
 
-The playable sources are `places_demo`, `model_zoo`, `pool_showcase`,
+The playable sources are `pool_showcase`,
 `home_showcase`, `lantern_hollow`, `winter`, `beach_demo`, `frutiger_aero_demo`
 and `retro_arcade_demo`, plus `office_demo`.
-The first eight sources were retained during repository cleanup; Retro Arcade
-adds the reference-led bowling and arcade showcase. Home and Pool
-are compact standalone showcases; Places Demo also contains their latest detailed
-refinements. Model Zoo is retained as the complete model/animation reference.
+Home and Pool are compact standalone showcases; Retro Arcade connects bowling,
+arcade, birthday and restroom spaces. Places Demo and Model Zoo are preserved
+byte-for-byte as historical JSON in `docs/archive/levels/`; they are outside
+active discovery, default build lists and bake campaigns.
 
 The catalog has eight environments: Office, Pool, Home, Outdoor, Winter, Beach,
 Frutiger Aero and Arcade. The dedicated `office_demo` now connects three storeys

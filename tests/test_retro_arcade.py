@@ -26,9 +26,17 @@ class RetroArcadeContracts(unittest.TestCase):
         return json.loads(data[20:20 + length])
 
     def test_six_carpet_designs_react_without_emission_or_attached_lights(self):
-        self.assertEqual({room["material"] for room in self.level["rooms"]},
+        self.assertEqual({room["material"] for room in self.level["rooms"][:3]},
                          {f"arcade:carpet_{family}_01" for family in
                           ("cosmic_bowl", "retro_swirl", "neon_confetti")})
+        # Protect the added ordinary ceramic room from carpet UV excitation
+        # and floor-folded trim without loading assets or baking a shipped map.
+        restroom = self.level["rooms"][3]
+        self.assertEqual(restroom["material"], "arcade:restroom_tile_01")
+        self.assertEqual(self.assets[restroom["material"]].get("uv_response", 0), 0)
+        tile_trim = [b for b in self.level["baseboards"] if b["material"] == "core:pool_tile_wall_01"]
+        self.assertTrue(tile_trim)
+        self.assertTrue(all(b.get("uv_projection", "wall") == "wall" for b in tile_trim))
         for family in CARPETS:
             identity = f"arcade:carpet_{family}_01"
             material = self.assets[identity]
@@ -68,24 +76,40 @@ class RetroArcadeContracts(unittest.TestCase):
         switch = next(p for p in self.level["props"] if p["id"] == "cosmic_blacklight_switch")
         actions = switch["bindings"][0]["actions"]
         self.assertEqual({a["target"] for a in actions if a["action"] == "toggle"},
-                         {light["id"] for light in sources})
+                         {"cosmic_uv_0"})
+        self.assertEqual({light["switch_group"] for light in sources}, {"cosmic"})
         self.assertTrue(any(a["action"] == "toggle_animation" for a in actions))
         self.assertFalse(switch["solid"])
         self.assertGreater(switch["components"][0]["reach"], switch["x"])
+
+    def test_restroom_closed_doors_and_switch_use_playable_room_controls(self):
+        # Small source witness: closed leaves must be interactive and the one
+        # switch must address the complete real circuit in both lighting modes.
+        doors = [d for d in self.level.get("doors", []) if d["id"].startswith("restroom_")]
+        self.assertEqual(len(doors), 4)
+        self.assertTrue(all(d["initial_state"] == "closed" and d["kind"] == "restroom" for d in doors))
+        self.assertTrue(all(d["width"] >= 1.1 and d["components"][0]["component"] == "interactable" for d in doors))
+        fixtures = [light for light in self.level["ceiling_lights"] if light.get("switch_group") == "restroom"]
+        self.assertEqual(len(fixtures), 4)
+        self.assertTrue(all(light["switchable"] and light["static_switch"] == "prepared" for light in fixtures))
+        switch = next(p for p in self.level["props"] if p["id"] == "restroom_light_switch")
+        targets = {a["target"] for a in switch["bindings"][0]["actions"] if a["action"] == "toggle"}
+        self.assertEqual(targets, {fixtures[0]["id"]})
+        self.assertTrue(-6.6 < switch["x"] < 0 and 0 < switch["z"] < 7.8)
 
     def test_party_room_preserves_a_clear_three_room_walking_route(self):
         # This source-only witness catches blocked passages/approaches without
         # compiling or baking a production map. About 370 samples and the
         # authored collision boxes are involved; no renderer/assets are loaded.
-        self.assertEqual(len(self.level["rooms"]), 3)
+        self.assertEqual(len(self.level["rooms"]), 4)
         # The small authored trim profile adds no colliders and must leave both
         # sides of each passage completely bare. This protects the new join
         # treatment with only source rectangles, adding no native/bake cost.
-        boards = self.level["baseboards"]
+        boards = [b for b in self.level["baseboards"] if b.get("uv_projection") == "floor_fold"]
         self.assertTrue(boards)
         self.assertEqual(len(boards) % 2, 0)
         self.assertEqual({b["material"] for b in boards},
-                         {room["material"] for room in self.level["rooms"]})
+                         {room["material"] for room in self.level["rooms"][:3]})
         for board in boards:
             self.assertEqual(board["uv_projection"], "floor_fold")
             angle = math.radians(board["rotation_degrees"])
@@ -118,6 +142,8 @@ class RetroArcadeContracts(unittest.TestCase):
             across, along = ("z", "x") if horizontal else ("x", "z")
             extent = wall["depth"] if horizontal else wall["width"]
             for opening in wall.get("openings", []):
+                if opening.get("sill", 0) > 0:
+                    continue
                 lo = wall[along]+opening["offset"]
                 hi = lo+opening["width"]
                 for board in boards:
@@ -151,6 +177,9 @@ class RetroArcadeContracts(unittest.TestCase):
             end = near + (wall["width"] if horizontal else wall["depth"])
             spans = []
             for opening in wall.get("openings", []):
+                # Raised opaque mirror panes retain the wall's floor blocker.
+                if opening.get("sill", 0) > 0:
+                    continue
                 self.assertEqual(opening.get("sill", 0), 0)
                 self.assertGreaterEqual(opening["height"], 1.8)
                 spans.append((near, (wall["x"] if horizontal else wall["z"])+opening["offset"]))
@@ -169,7 +198,13 @@ class RetroArcadeContracts(unittest.TestCase):
             boxes.append((prop["x"]-hx, prop["z"]-hz, prop["x"]+hx, prop["z"]+hz))
         routes = [((6.8, 28), (6.8, 25.2), (18.4, 25.2), (21, 25.4), (25.9, 25.4)),
                   ((21, 25.4), (21, 23.2), (25.9, 23.2), (25.9, 19.8), (26.6, 19.8)),
-                  ((21, 25.4), (23.4, 26.1))]
+                  ((21, 25.4), (23.4, 26.1)),
+                  # The added route uses the same inexpensive body-clearance
+                  # witness to prevent a combined stall collider sealing a bay.
+                  ((2.0,2.8),(-2.8,2.8),(-2.8,6.85),(-1.1,6.85)),
+                  ((-2.8,2.8),(-5.2,2.8)),
+                  ((-2.8,2.8),(-2.8,4.85),(-5.2,4.85)),
+                  ((-2.8,4.85),(-3.35,4.85),(-3.35,7.05),(-5.2,7.05))]
         for route in routes:
             for start, end in zip(route, route[1:]):
                 steps = math.ceil(math.dist(start, end)/.1)

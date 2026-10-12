@@ -1028,6 +1028,8 @@ pub struct TransportScene {
     legacy_ray_triangles: Vec<RayTriangle>,
     nodes: Vec<BvhNode>,
     emitters: Vec<TransportEmitter>,
+    /// Stable representative source and member sources of each authored circuit.
+    switchable_groups: Vec<(usize, Vec<usize>)>,
     global_lights: Vec<crate::lighting::directional::DirectionalLight>,
     /// Resolved water bodies the solve transmits through and attenuates in.
     water: Vec<TransportWaterBody>,
@@ -1573,6 +1575,7 @@ impl TransportScene {
             legacy_ray_triangles,
             nodes,
             emitters,
+            switchable_groups: Vec::new(),
             global_lights: Vec::new(),
             water: Vec::new(),
             receiver_target: Vec::new(),
@@ -1819,6 +1822,13 @@ impl TransportScene {
     #[must_use]
     pub fn with_runtime_direct_lights(mut self, sources: Vec<(usize, u32)>) -> Self {
         self.runtime_direct_lights = sources;
+        self
+    }
+
+    /// Combines fixtures on an authored circuit into one selectable atlas pass.
+    #[must_use]
+    pub fn with_switchable_groups(mut self, groups: Vec<(usize, Vec<usize>)>) -> Self {
+        self.switchable_groups = groups;
         self
     }
 
@@ -2338,6 +2348,60 @@ impl TransportScene {
         self.surface_sample(point, radius).map(|(albedo, _)| albedo)
     }
 
+    fn switchable_emitter_groups(&self) -> Vec<(usize, Vec<usize>)> {
+        if self.switchable_groups.is_empty() {
+            return self
+                .emitters
+                .iter()
+                .enumerate()
+                .filter_map(|(index, emitter)| emitter.switchable.map(|light| (light, vec![index])))
+                .collect();
+        }
+        self.switchable_groups
+            .iter()
+            .map(|(representative, members)| {
+                let emitters = self
+                    .emitters
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(index, emitter)| {
+                        emitter
+                            .switchable
+                            .filter(|source| members.contains(source))
+                            .map(|_| index)
+                    })
+                    .collect();
+                (*representative, emitters)
+            })
+            .collect()
+    }
+
+    fn switchable_groups_are_valid(&self) -> bool {
+        if self.switchable_groups.is_empty() {
+            return true;
+        }
+        let sources: Vec<usize> = self
+            .emitters
+            .iter()
+            .filter_map(|emitter| emitter.switchable)
+            .collect();
+        self.switchable_groups
+            .iter()
+            .all(|(representative, members)| {
+                members.first() == Some(representative)
+                    && members.len() <= 8
+                    && members.iter().all(|source| sources.contains(source))
+            })
+            && sources.iter().all(|source| {
+                self.switchable_groups
+                    .iter()
+                    .flat_map(|(_, members)| members)
+                    .filter(|member| *member == source)
+                    .count()
+                    == 1
+            })
+    }
+
     fn inputs_are_valid(&self) -> bool {
         let nonnegative = |values: &[f32]| {
             values
@@ -2345,6 +2409,7 @@ impl TransportScene {
                 .all(|value| value.is_finite() && *value >= 0.0)
         };
         nonnegative(&self.sky_radiance)
+            && self.switchable_groups_are_valid()
             && self.runtime_direct_lights.len() <= crate::lighting::probes::MAX_RUNTIME_PROBE_LIGHTS
             && self.runtime_direct_lights.iter().all(|(slot, _)| {
                 self.emitters
@@ -2443,27 +2508,24 @@ impl TransportScene {
             .filter(|(_, emitter)| emitter.switchable.is_none() && emitter.intensity > 0.0)
             .map(|(index, _)| index)
             .collect();
-        let switchable_emitters: Vec<(usize, usize)> = self
-            .emitters
-            .iter()
-            .enumerate()
-            .filter_map(|(index, emitter)| emitter.switchable.map(|light| (light, index)))
-            .collect();
+        let switchable_emitters = self.switchable_emitter_groups();
         if let [(light_index, emitter)] = switchable_emitters.as_slice() {
-            return self.solve_pair(
-                charts,
-                &base_emitters,
-                *light_index,
-                *emitter,
-                SolveOptions {
-                    taps_per_axis: taps,
-                    bounces,
-                    gather_samples: bounce_samples,
-                    workers,
-                },
-                cancel,
-                bake_probes,
-            );
+            if let [single] = emitter.as_slice() {
+                return self.solve_pair(
+                    charts,
+                    &base_emitters,
+                    *light_index,
+                    *single,
+                    SolveOptions {
+                        taps_per_axis: taps,
+                        bounces,
+                        gather_samples: bounce_samples,
+                        workers,
+                    },
+                    cancel,
+                    bake_probes,
+                );
+            }
         }
         let mut direct_rays = 0usize;
         let mut bounce_rays = 0usize;
@@ -2487,7 +2549,7 @@ impl TransportScene {
         for (light_index, emitter) in &switchable_emitters {
             let solved = self.solve_pass(
                 charts,
-                std::slice::from_ref(emitter),
+                emitter,
                 false,
                 taps,
                 bounces,

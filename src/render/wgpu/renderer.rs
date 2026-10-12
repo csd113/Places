@@ -210,6 +210,17 @@ struct UploadedLevel {
     props: WgpuProps,
 }
 
+/// The inactive exact Static state; toggling swaps these already-uploaded banks.
+struct StaticLightBank {
+    fixtures: Vec<usize>,
+    off_active: bool,
+    world: Option<WgpuWorldGeometry>,
+    props: Option<WgpuProps>,
+    textures: Option<WorldTextures>,
+    materials: Option<WorldMaterials>,
+    decals: Option<WgpuDecals>,
+}
+
 /// What one acquisition attempt produced.
 enum Acquired {
     /// A surface texture is ready for the frame's render pass.
@@ -418,6 +429,7 @@ pub struct WgpuRenderer {
     world: Option<WgpuWorldGeometry>,
     /// The loaded level's uploaded prop batches, if any.
     world_props: Option<WgpuProps>,
+    static_light_bank: Option<StaticLightBank>,
     /// The loaded level's per-draw GPU textures, resolved at upload.
     world_textures: Option<WorldTextures>,
     /// The loaded level's per-draw GPU materials, resolved at upload.
@@ -857,6 +869,7 @@ impl WgpuRenderer {
             world_pipeline: None,
             world: None,
             world_props: None,
+            static_light_bank: None,
             world_textures: None,
             world_materials: None,
             material_layout,
@@ -1545,6 +1558,7 @@ impl WgpuRenderer {
         if toggles.is_empty() || self.switchable_lights.is_empty() {
             return;
         }
+        self.select_static_light_state(toggles);
         let mut changed = false;
         for (fixture_index, enabled) in toggles {
             let Some(binding) = self
@@ -2709,6 +2723,7 @@ impl WgpuRenderer {
         // reflection-format one) must exist before any probe bake.
         self.ensure_world_pipeline();
         self.upload_decals(&build.mesh, &loaded.level);
+        self.prepare_static_light_bank(&build, loaded);
         self.upload_sky(&loaded.level);
         // Reflection probes are already captured for a compiled world; a
         // developer-tool install (the offline compiler itself) bakes them here,
@@ -2739,6 +2754,142 @@ impl WgpuRenderer {
         #[cfg(feature = "visual-diagnostics")]
         self.refresh_probe_visualization();
         build
+    }
+
+    /// Static uses its compiler-prepared alternate, with shared image caches.
+    fn prepare_static_light_bank(&mut self, build: &LevelBuild, loaded: &LoadedLevel) {
+        self.static_light_bank = None;
+        let Some(state) = &build.static_light_off else {
+            return;
+        };
+        let materials = MaterialRenderState::from_table(&loaded.materials);
+        let visibility = self.dynamic_transport.as_deref().map(|scene| {
+            crate::render::common::blacklight::BlacklightVisibility {
+                sources: &self.blacklights,
+                scene,
+                dynamic: None,
+            }
+        });
+        let world = WgpuWorldGeometry::upload_with_blacklight(
+            &self.device,
+            &self.queue,
+            &state.mesh,
+            &materials,
+            visibility,
+        );
+        let textures = WorldTextures::resolve(
+            &mut self.textures,
+            &self.device,
+            &self.queue,
+            world.draws(),
+            &materials,
+            &loaded.materials,
+            &self.fixture_sheets,
+            self.quality,
+        );
+        let animations = Self::resolve_animations(&loaded.level, &loaded.materials);
+        let world_materials = WorldMaterials::resolve(
+            &self.device,
+            &self.queue,
+            &mut self.textures,
+            &self.material_layout,
+            WorldMaterialInputs {
+                draws: world.draws(),
+                materials: &materials,
+                table: &loaded.materials,
+                level: self.quality,
+                lighting: self.lighting_quality,
+                animations: &animations,
+                routing: &self.reflections.routing,
+            },
+        );
+        let props = WgpuProps::upload_with_blacklight(
+            &self.device,
+            &self.queue,
+            &mut self.textures,
+            &self.material_layout,
+            &state.batches,
+            self.characters.claimed_models(),
+            self.quality,
+            self.lighting_quality,
+            visibility,
+        );
+        let vertex_bytes =
+            world
+                .stats()
+                .vertex_bytes
+                .saturating_add(props.stats().vertices.saturating_mul(
+                    usize::try_from(super::world::WORLD_VERTEX_STRIDE).unwrap_or(usize::MAX),
+                ));
+        let index_bytes = world.stats().index_bytes.saturating_add(
+            props
+                .stats()
+                .indices
+                .saturating_mul(std::mem::size_of::<u16>()),
+        );
+        let main_decals = self.decals.take();
+        self.upload_decals(&state.mesh, &loaded.level);
+        let off_decals = self.decals.take();
+        self.decals = main_decals;
+        logging::info(format!(
+            "[static-light-state] prepared {} fixtures; alternate geometry {vertex_bytes} vertex bytes, {index_bytes} index bytes; images shared",
+            state.fixtures.len()
+        ));
+        self.static_light_bank = Some(StaticLightBank {
+            fixtures: state.fixtures.clone(),
+            off_active: false,
+            world: Some(world),
+            props: Some(props),
+            textures: Some(textures),
+            materials: Some(world_materials),
+            decals: off_decals,
+        });
+    }
+
+    fn select_static_light_state(&mut self, toggles: &[(usize, bool)]) {
+        let Some(bank) = self.static_light_bank.as_mut() else {
+            return;
+        };
+        let Some((_, enabled)) = toggles
+            .iter()
+            .find(|(fixture, _)| bank.fixtures.contains(fixture))
+        else {
+            return;
+        };
+        if bank.off_active != *enabled {
+            return;
+        }
+        std::mem::swap(&mut self.world, &mut bank.world);
+        std::mem::swap(&mut self.world_props, &mut bank.props);
+        std::mem::swap(&mut self.world_textures, &mut bank.textures);
+        std::mem::swap(&mut self.world_materials, &mut bank.materials);
+        std::mem::swap(&mut self.decals, &mut bank.decals);
+        bank.off_active = !enabled;
+        logging::info(format!(
+            "[static-light-state] circuit {}",
+            if *enabled { "on" } else { "off" }
+        ));
+        // Draw topology can merge differently in each prepared state. Resolve
+        // fixture face slots against the selected bank, then replay all states.
+        if let Some(level) = self.installed_level.take() {
+            self.prepare_switchable_lights(&level);
+            self.installed_level = Some(level);
+        }
+        if let (Some(lighting), Some(materials)) =
+            (&self.dynamic_lighting, &mut self.world_materials)
+        {
+            for binding in &self.switchable_lights {
+                let face_enabled = lighting
+                    .lights()
+                    .get(binding.light_index)
+                    .is_some_and(crate::lighting::BakedLight::is_active);
+                let _updated = materials.set_emission_scale(
+                    &self.queue,
+                    binding.material_slot,
+                    if face_enabled { 1.0 } else { 0.0 },
+                );
+            }
+        }
     }
 
     /// Uploads the level's decal batches against the current pipelines.

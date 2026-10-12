@@ -16,7 +16,15 @@ pub(super) fn factor_prepared_props(
 ) -> Result<(), String> {
     let names: BTreeSet<String> = variants
         .iter()
-        .map(|variant| variant.entries.props.clone())
+        .flat_map(|variant| {
+            std::iter::once(variant.entries.props.clone()).chain(
+                variant
+                    .entries
+                    .static_light_off
+                    .as_ref()
+                    .map(|state| state.props.clone()),
+            )
+        })
         .collect();
     let source_names: Vec<String> = names
         .into_iter()
@@ -70,11 +78,15 @@ pub(super) fn factor_prepared_props(
     }
     for (original, recipe) in source_names.iter().zip(factored.recipes) {
         let name = insert_blob(blobs, recipe, ".props.recipe", "props");
-        for variant in variants
-            .iter_mut()
-            .filter(|variant| variant.entries.props == *original)
-        {
-            variant.entries.props.clone_from(&name);
+        for variant in variants.iter_mut() {
+            if variant.entries.props == *original {
+                variant.entries.props.clone_from(&name);
+            }
+            if let Some(state) = variant.entries.static_light_off.as_mut()
+                && state.props == *original
+            {
+                state.props.clone_from(&name);
+            }
         }
         drop(blobs.remove(original));
     }

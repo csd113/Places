@@ -349,6 +349,8 @@ pub struct EntityWorld {
     spawns_this_tick: usize,
     /// Authored light states, restored by a reset.
     authored_lights: Vec<(EntityHandle, bool)>,
+    /// Fixtures on one authored circuit change state atomically.
+    light_circuits: Vec<Vec<EntityHandle>>,
     /// Authored state bags, restored by a reset.
     authored_states: Vec<(EntityHandle, ObjectState)>,
     /// Authored interaction prompts, restored with the other map controls.
@@ -427,6 +429,7 @@ impl EntityWorld {
             reported_drops: 0,
             spawns_this_tick: 0,
             authored_lights: Vec::new(),
+            light_circuits: Vec::new(),
             authored_states: Vec::new(),
             authored_prompts: Vec::new(),
             water: WaterVolumes::new(),
@@ -719,6 +722,8 @@ impl EntityWorld {
     }
 
     fn resolve_fixtures(&mut self, level: &LevelDef) {
+        self.light_circuits.clear();
+        let mut circuits = std::collections::BTreeMap::<&str, Vec<EntityHandle>>::new();
         let ids = level.light_instance_ids();
         for (index, fixture) in level.ceiling_lights.iter().enumerate() {
             let Some(id) = ids
@@ -750,8 +755,12 @@ impl EntityWorld {
                 },
             );
             self.authored_lights.push((handle, fixture.enabled));
+            if let Some(group) = fixture.switch_group.as_deref() {
+                circuits.entry(group).or_default().push(handle);
+            }
             self.resolve_bindings_for(handle, &fixture.bindings);
         }
+        self.light_circuits = circuits.into_values().collect();
     }
 
     fn resolve_volumes(&mut self, level: &LevelDef) {
@@ -2493,6 +2502,20 @@ impl EntityWorld {
 
     /// Sets one light component, marking it dirty on a real change.
     fn set_light(&mut self, handle: EntityHandle, on: bool) -> bool {
+        let members = self
+            .light_circuits
+            .iter()
+            .find(|members| members.contains(&handle))
+            .cloned()
+            .unwrap_or_else(|| vec![handle]);
+        let mut changed = false;
+        for member in members {
+            changed |= self.set_single_light(member, on);
+        }
+        changed
+    }
+
+    fn set_single_light(&mut self, handle: EntityHandle, on: bool) -> bool {
         let Some(light) = self.components.lights.get(handle).copied() else {
             return false;
         };
@@ -5177,6 +5200,46 @@ mod tests {
             "world.take_light_toggles() must be empty"
         );
         assert_eq!(world.light_states(), vec![(0, true), (1, false)]);
+    }
+
+    /// Two fixtures share one physical circuit; another remains independent.
+    /// Source-only state transitions protect atomic toggles and reset, no bake.
+    #[test]
+    fn one_circuit_action_updates_all_members_and_preserves_other_lights() {
+        let level = base_level(
+            r#""ceiling_lights":[
+            {"id":"a","fixture":"core:fluorescent_panel_01","x":2,"z":2,"switchable":true,"switch_group":"bathroom"},
+            {"id":"b","fixture":"core:fluorescent_panel_01","x":3,"z":2,"switchable":true,"switch_group":"bathroom"},
+            {"id":"c","fixture":"core:fluorescent_panel_01","x":4,"z":2,"switchable":true}]"#,
+        );
+        let mut world = EntityWorld::from_level(&level);
+        for enabled in [false, true, false] {
+            let report = world.dispatch_actions(
+                &[ActionDef::Toggle {
+                    target: Some("b".into()),
+                }],
+                None,
+            );
+            assert_eq!(report.lights_toggled, 1, "one action controls the circuit");
+            let mut changes = world.take_light_toggles();
+            changes.sort_unstable();
+            assert_eq!(
+                changes,
+                vec![(0, enabled), (1, enabled)],
+                "both fixture faces and sources update"
+            );
+            assert_eq!(
+                world.light_states(),
+                vec![(0, enabled), (1, enabled), (2, true)],
+                "other circuit is unchanged"
+            );
+        }
+        world.resolve(&level);
+        assert_eq!(
+            world.light_states(),
+            vec![(0, true), (1, true), (2, true)],
+            "reloading restores authored states"
+        );
     }
 
     #[test]

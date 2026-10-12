@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compose connected bowling, arcade and birthday rooms from reusable assets.
+"""Compose connected bowling, arcade, birthday and restroom spaces.
 
 The original lanes and arcade retain their quiet commercial character beside a
 separate prepared party room. Geometry/material edits belong here; the compiler prepares
@@ -13,8 +13,10 @@ from pathlib import Path
 
 if __package__:
     from .birthday_compositions import PartyComposer
+    from .arcade_restroom import compose_restroom, tile_trim
 else:
     from birthday_compositions import PartyComposer
+    from arcade_restroom import compose_restroom, tile_trim
 
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / "levels/retro_arcade_demo.json"
@@ -74,6 +76,10 @@ def baseboard_profile(level):
         for face, plane, normal, yaw in faces:
             spans = []
             for room in level["rooms"]:
+                # The commercial restroom uses ceramic skirting, separately
+                # authored with ordinary wall UVs instead of a carpet fold.
+                if room.get("material") == "arcade:restroom_tile_01":
+                    continue
                 extent = room["depth"] if horizontal else room["width"]
                 if not room[across] <= plane+normal*.005 <= room[across]+extent:
                     continue
@@ -168,7 +174,8 @@ def build_level():
                                            reference_y=1, height_gain=0)),
                  rooms=[], walls=[], floor_patches=[], floor_regions=[],
                  props=[], decals=[], ceiling_lights=[], baseboards=[])
-    # Three nonoverlapping volumes own their respective carpets and lights.
+    # Three established volumes own their respective carpets and lights. The
+    # additional commercial restroom is composed below without moving them.
     # Floors meet at the centre planes of the two shared passage walls, so
     # threshold support has one owner on either side rather than a spare slab.
     level["rooms"] = [
@@ -352,14 +359,14 @@ def build_level():
         level["ceiling_lights"].append(dict(id=f"cosmic_uv_{index}",
             fixture="arcade:blacklight_tube", x=x, z=z, align="none",
             brightness=.07, color=[.32, .12, .8], emission=.5, ultraviolet=1.8,
-            range=reach, enabled=True, switchable=True))
+            range=reach, enabled=True, switchable=True, switch_group="cosmic"))
     level["props"].append(dict(id="cosmic_blacklight_switch", model="home:wall_switch",
         x=.051, y=1.2, z=26.3, rotation_degrees=90, size=sizes["home:wall_switch"],
         solid=False, occludes=False,
         components=[dict(component="interactable", prompt="Cosmic blacklights", reach=1.7),
                     dict(component="animation", clip="toggle", looped=False, playing=False)],
         bindings=[dict(on="interact", actions=[dict(action="toggle_animation", clip="toggle")]
-            +[dict(action="toggle", target=f"cosmic_uv_{index}") for index in range(4)])]))
+            +[dict(action="toggle", target="cosmic_uv_0")])]))
 
     party_metadata = json.loads((ROOT / "assets/environments/arcade/party/asset_metadata.json").read_text())
     weight_anchor = party_metadata["models"]["arcade:party_balloon_weight"]["anchor_height"]
@@ -392,7 +399,9 @@ def build_level():
         level["ceiling_lights"].append(dict(id=f"party_troffer_{index}",
             fixture="arcade:fluorescent_panel_01", x=x, z=z, align="none",
             brightness=brightness, color=color, emission=.85, range=5.5))
-    level["baseboards"] = baseboard_profile(level)
+    restroom_metadata = json.loads((ROOT / "assets/environments/arcade/restroom/asset_metadata.json").read_text())["models"]
+    compose_restroom(level, sizes, restroom_metadata)
+    level["baseboards"] = baseboard_profile(level) + tile_trim()
     return level
 
 

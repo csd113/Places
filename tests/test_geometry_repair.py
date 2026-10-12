@@ -32,10 +32,10 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(TEST_DIR, ".."))
 REPAIR_TOOL = os.path.join(ROOT, "tools", "levels", "repair_alignment.py")
 FIXTURES = os.path.join(ROOT, "tests", "fixtures", "levels", "repair")
-DEMO = os.path.join(ROOT, "levels", "places_demo.json")
+DEMO = os.path.join(ROOT, "levels", "home_showcase.json")
 MAINTAINED = (
-    os.path.join(ROOT, "levels", "places_demo.json"),
-    os.path.join(ROOT, "levels", "model_zoo.json"),
+    os.path.join(ROOT, "levels", "home_showcase.json"),
+    os.path.join(ROOT, "levels", "pool_showcase.json"),
     os.path.join(ROOT, "tests", "fixtures", "levels", "level0_pit.json"),
 )
 SCRATCH = os.environ.get("PLACES_REPAIR_TEST_ROOT")

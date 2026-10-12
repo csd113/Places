@@ -26,12 +26,12 @@ Rust 1.99.0 is pinned in `rust-toolchain.toml`. Install SDL3 and `pkg-config`
 cargo build --locked --release
 sh tools/build-maps.sh --workers 8
 ./target/release/places --list-levels
-PLACES_LEVEL=places_demo ./target/release/places
+PLACES_LEVEL=retro_arcade_demo ./target/release/places
 ```
 
 Git contains authored JSON maps, PNG artwork, GLB models and generators.
 **Compiled `.placesmap` files are local outputs and are never tracked.** The
-explicit build step prepares Off, Medium and Full lightmaps and reflection
+explicit build step prepares Static and Full lighting and reflection
 captures in `assets/levels/`. Cargo can build the compiler and run the source
 checks before any package exists. The player loads packages; it never compiles.
 A missing map leaves the menu available for Import and reports the build command.
@@ -39,8 +39,8 @@ A missing map leaves the menu available for Import and reports the build command
 After changing one source or one of its assets:
 
 ```sh
-./target/release/places-compile build levels/places_demo.json \
-  --out assets/levels/places_demo.placesmap --asset-root assets --workers 8
+./target/release/places-compile build levels/retro_arcade_demo.json \
+  --out assets/levels/retro_arcade_demo.placesmap --asset-root assets --workers 8
 ```
 
 The compiler reuses current output and rebuilds changed dependencies. See
@@ -51,16 +51,18 @@ workflow; read the [map authoring guide](docs/MAP_AUTHORING_GUIDE.md) and
 ## Maps
 
 [levels/](levels/README.md) contains the curated source lineup:
-`places_demo`, `model_zoo`, `pool_showcase`, `home_showcase`, `lantern_hollow`,
-`winter`, `beach_demo`, `frutiger_aero_demo` and `retro_arcade_demo`. Model Zoo shows the complete
-catalog. Office is covered inside Places Demo; a dedicated Office showcase is
-still missing. Regression scenes live under `tests/fixtures/levels/` and are
+`pool_showcase`, `home_showcase`, `lantern_hollow`, `winter`, `beach_demo`,
+`frutiger_aero_demo`, `retro_arcade_demo` and `office_demo`.
+Places Demo and Model Zoo are frozen historical JSON in `docs/archive/levels/`,
+outside active discovery, default builds and bake campaigns.
+Regression scenes live under `tests/fixtures/levels/` and are
 excluded from the distribution.
 
-The Demo connects the Office, Pool, Home and night route. Winter has an ice
+The dedicated Office connects three storeys. Winter has an ice
 pond and weather controls; Beach and Aero have their own day environments.
 Cosmic Lanes & Arcade connects four bowling lanes, fixed seating and period
-game cabinets, with six carpet designs and controllable blacklights.
+game cabinets, a birthday room and connected commercial restroom, with six
+carpet designs and controllable blacklights.
 The [Retro Bowling & Arcade report](docs/reports/retro-bowling-arcade.md) covers
 the reference-led asset pack, native screenshots and reusable UV response.
 The [refinement report](docs/reports/environment-refinement.md) records current

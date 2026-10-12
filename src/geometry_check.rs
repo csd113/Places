@@ -4,9 +4,9 @@
 //! Run it from the game binary:
 //!
 //! ```text
-//! places --check-geometry --level levels/places_demo.json
+//! places --check-geometry --level levels/home_showcase.json
 //! places --check-geometry --level tests/fixtures/levels/level0_pit.json --json report.json
-//! places --check-geometry --level places_demo --markers-obj markers.obj
+//! places --check-geometry --level home_showcase --markers-obj markers.obj
 //! places --repair-geometry --level places_demo --plan plan.json
 //! ```
 //!

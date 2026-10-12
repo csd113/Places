@@ -27,7 +27,7 @@ allocation policy and scene art budgets.
 October 11, 2026 Arcade extension: PLMP v7 adds optional ultraviolet response,
 numeric-mask slot and independent pigment tint; v3–v6 retain zero response.
 PLMW neutral geometry and the existing solver/quality limits are unchanged.
-The maintained lineup now contains ten maps, including the dedicated Office. Dated platform evidence below
+The active lineup now contains eight maps, including the dedicated Office. Dated platform evidence below
 is retained; new Arcade native evidence belongs to its implementation report.
 
 ## 1. Prerequisites
@@ -98,7 +98,6 @@ python3 tools/assets/audit.py --workers 12 --out target/verification/asset-inven
 python3 tools/entities/author_halloween_assets.py --check
 python3 tools/entities/check_clip_boundaries.py
 python3 tools/levels/build_outdoor_fixture.py --check
-python3 tools/levels/build_outdoor_route.py --check
 python3 tools/levels/build_lantern_hollow.py --check
 python3 tools/levels/build_lighting_quality.py --check
 python3 tools/levels/build_winter.py --check

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generates the shipped ``Model Zoo`` level from the asset catalog.
+"""Generate an explicit developer showroom; the historical Model Zoo is frozen.
 
 The zoo is a pool-themed showroom that displays **every** registered placeable
 model at least once, plus the demonstrations that need more than a single copy
@@ -13,7 +13,7 @@ it -- without renumbering any other instance.
 
 Run from the Places repository root:
 
-    python3 tools/levels/build_model_zoo.py                 # write the level
+    python3 tools/levels/build_model_zoo.py --out /tmp/zoo.json  # explicit fixture
     python3 tools/levels/build_model_zoo.py --check         # verify it is current
     python3 tools/levels/build_model_zoo.py --workers 8     # bounded inspection
     python3 tools/levels/build_model_zoo.py --no-cache      # ignore the bounds cache
@@ -44,7 +44,6 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 APP_ROOT = Path(__file__).resolve().parent.parent.parent
 ASSETS_DIR = APP_ROOT / "assets"
 CATALOG_PATH = ASSETS_DIR / "catalog.json"
-OUTPUT_PATH = APP_ROOT / "levels" / "model_zoo.json"
 CACHE_DIR = APP_ROOT / "cache"
 CACHE_PATH = CACHE_DIR / "zoo_inspection.json"
 ENTITIES_DIR = Path(__file__).resolve().parent.parent / "entities"
@@ -1637,6 +1636,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         help="alternate output path (isolated growth/removal fixtures)",
     )
     args = parser.parse_args(argv)
+    if not args.out:
+        parser.error("Model Zoo is retired as historical JSON; use --out for an explicit developer fixture")
     if args.quiet:
         global _QUIET
         _QUIET = True
@@ -1644,7 +1645,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     workers, note = parse_worker_count(args.workers)
     catalog = load_catalog(Path(args.catalog) if args.catalog else None)
     entries = placeables(catalog)
-    output = Path(args.out) if args.out else OUTPUT_PATH
+    output = Path(args.out)
     inspections = inspect_all(entries, workers, not args.no_cache)
     level = build_level(catalog, inspections)
     rendered = serialise(level)

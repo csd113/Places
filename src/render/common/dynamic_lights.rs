@@ -49,7 +49,7 @@ pub fn select_baked_direct_lights(
             lighting.lights().get(**index).is_some()
                 && !switchable.iter().take(*slot).any(|other| other == *index)
         })
-        .take(crate::package::MAX_SWITCHABLE_LIGHTS)
+        .take(MAX_ENTITY_DIRECT_LIGHTS)
         .count();
     candidates.truncate(MAX_ENTITY_DIRECT_LIGHTS.saturating_sub(reserved));
     candidates.sort_unstable_by_key(|candidate| candidate.0);

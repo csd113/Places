@@ -1,6 +1,5 @@
-"""Placement regressions for the maintained demo's outdoor authoring slice."""
+"""Small source-support regressions for the optional night-route authoring tool."""
 
-import json
 import sys
 import unittest
 from pathlib import Path
@@ -12,7 +11,18 @@ import build_outdoor_route as route  # noqa: E402
 
 class OutdoorPlacementTests(unittest.TestCase):
     def setUp(self):
-        self.level = json.loads((ROOT / "levels/places_demo.json").read_text())
+        # Two source support cells protect lowered-floor roof placement and
+        # additive/idempotent composition without loading a retired map.
+        self.level = dict(
+            rooms=[dict(x=0,z=0,width=19,depth=4,height=3.2),
+                   dict(x=19,z=0,width=5,depth=4,height=3.2,floor_y=-1.5)],
+            walls=[dict(x=-.15,z=-.15,width=24.3,depth=.3,height=3.2)],
+            floor_regions=[dict(x=19,z=0,width=5,depth=4,offset_y=1.2)],
+            baseboards=[dict(x=1,z=1,length=1)],
+            stairs=[dict(x=19,z=3,width=1,depth=1,rise=1.2)],
+            archways=[dict(x=3,z=3,width=1,height=2.1)],
+            decals=[dict(texture='fixture:original',x=1,z=2,width=1,height=1)],
+        )
         self.slice = route.build_slice(self.level)
 
     def test_ridge_stays_joined_over_the_lowered_stair_hall(self):
@@ -50,6 +60,7 @@ class OutdoorPlacementTests(unittest.TestCase):
 
     def test_regeneration_keeps_later_decal_sheets_after_the_slice(self):
         # Pool/Home generators append their content after the established route.
+        route.apply_slice(self.level)
         before = list(self.level["decals"])
         later = {"texture": "fixture:later_generator", "x": 100, "z": 100,
                  "width": 1, "height": 1}

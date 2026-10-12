@@ -119,8 +119,15 @@ never triggers procedural geometry generation.
   player understands `geometry`, `props`, `lighting`, `lightmaps-hdr`,
   `lightmaps-compact-v1`, `props-shared-streams`, `irradiance-probes`,
   `probes-hdr`, legacy `probes-rgba8`, `collision` and
-  `navigation`. A package
+  `navigation`, `light-circuits-v1` and `static-light-state-v1`. A package
   requiring anything else is rejected by name.
+* An Off variant may carry `static_light_off: { "fixtures": [0, 1],
+  "mesh": "blobs/...mesh", "props": "blobs/...props" }`. It requires
+  `static-light-state-v1`; fixture indices are unique, ascending and bounded to
+  one through eight, then checked against decoded lighting. Mesh/props use the
+  existing bounded codecs and shared prop streams; images remain shared. Full
+  variants cannot carry this record. Navigation-only reuse preserves its refs
+  and all referenced dictionary blobs. Old packages omit it and remain readable.
 * `dependencies` records the content identity of every model and texture a
   package reads from the installed asset bundle (`kind: "model"`/`"texture"`,
   root-relative path) or embeds itself (`kind: "embedded"`). A package whose

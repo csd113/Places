@@ -22,8 +22,8 @@ The slice contains:
 
 Run from the Places repository root::
 
-    python3 tools/levels/build_outdoor_route.py            # apply the slice
-    python3 tools/levels/build_outdoor_route.py --check    # verify it is current
+    python3 tools/levels/build_outdoor_route.py --level /tmp/route.json          # apply
+    python3 tools/levels/build_outdoor_route.py --level /tmp/route.json --check  # verify
 
 Layout facts that the numbers below encode (world metres, -Z north, y=0 ground):
 
@@ -46,7 +46,6 @@ from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
 APP_ROOT = Path(__file__).resolve().parent.parent.parent
-LEVEL_PATH = APP_ROOT / "levels" / "places_demo.json"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import outdoors_dressing
@@ -1737,9 +1736,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--check", action="store_true", help="verify the level matches this tool")
     parser.add_argument("--summary", action="store_true", help="print the slice's counts only")
+    parser.add_argument("--level", type=Path, required=True,
+                        help="explicit developer source; the archived Places Demo is immutable")
     args = parser.parse_args(argv)
+    level_path = args.level.resolve()
+    if level_path.is_relative_to(APP_ROOT / "docs/archive") and not (args.check or args.summary):
+        parser.error("historical maps are immutable; use an explicit developer fixture")
 
-    raw = LEVEL_PATH.read_text(encoding="utf-8")
+    raw = level_path.read_text(encoding="utf-8")
     level = json.loads(raw)
     if args.summary:
         slice_data = build_slice(level)
@@ -1754,17 +1758,17 @@ def main(argv: Optional[List[str]] = None) -> int:
         apply_slice(expected_level)
         expected = _render(expected_level)
         if expected == raw:
-            print(f"{LEVEL_PATH}: current with tools/levels/build_outdoor_route.py")
+            print(f"{level_path}: current with tools/levels/build_outdoor_route.py")
             return 0
-        print(f"{LEVEL_PATH}: stale (run python3 tools/levels/build_outdoor_route.py)")
+        print(f"{level_path}: stale against tools/levels/build_outdoor_route.py")
         print(_first_difference(expected, raw))
         return 1
 
     apply_slice(level)
     payload = _render(level)
-    _atomic_write(LEVEL_PATH, payload)
+    _atomic_write(level_path, payload)
     slice_data = build_slice(level)
-    print(f"wrote {LEVEL_PATH} ({len(payload)} bytes)")
+    print(f"wrote {level_path} ({len(payload)} bytes)")
     for field, entries in slice_data.items():
         print(f"  {field}: {len(entries)}")
     return 0

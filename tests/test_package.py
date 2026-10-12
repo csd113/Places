@@ -163,47 +163,25 @@ class ShippedLevelTests(unittest.TestCase):
         shipped = {path.stem: load_level(path) for path in level_files()}
         self.assertEqual(
             set(shipped),
-            {"places_demo", "model_zoo", "lantern_hollow", "winter", "beach_demo", "frutiger_aero_demo", "home_showcase", "pool_showcase", "retro_arcade_demo", "office_demo"},
+            {"lantern_hollow", "winter", "beach_demo", "frutiger_aero_demo", "home_showcase", "pool_showcase", "retro_arcade_demo", "office_demo"},
             "the curated showcases are the supported source lineup",
         )
-        demo = shipped["places_demo"]
-        self.assertEqual(demo["id"], "places_demo")
-        self.assertEqual(demo["name"], "Places Demo")
-        self.assertEqual(demo["format_version"], 3)
-        zoo = shipped["model_zoo"]
-        self.assertEqual(zoo["id"], "model_zoo")
-        self.assertEqual(zoo["name"], "Model Zoo")
-        self.assertEqual(zoo["format_version"], 3)
         showcase = shipped["lantern_hollow"]
         self.assertEqual(showcase["id"], "lantern_hollow")
         self.assertEqual(showcase["name"], "Lantern Hollow")
         self.assertEqual(showcase["format_version"], 3)
-        # The zoo is generated tooling output, not hand-authored content: it
-        # must record the generator's stable instance-id namespace.
-        self.assertTrue(zoo["props"], "the zoo must display something")
-        for prop in zoo["props"]:
-            self.assertRegex(
-                prop["id"],
-                r"^zoo:[a-z0-9_.-]+:[a-z0-9_.-]+$",
-                "every zoo placement uses the generator's stable id scheme",
-            )
-
-    def test_the_model_zoo_is_current_with_its_generator(self):
-        # `--check` re-derives the level from the catalog and compares it
-        # byte-for-byte, so a catalog change cannot silently leave the zoo
-        # stale.
-        completed = subprocess.run(
-            [sys.executable, "tools/levels/build_model_zoo.py", "--check", "--quiet", "--no-cache"],
-            cwd=PACKAGE,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        self.assertEqual(
-            completed.returncode,
-            0,
-            f"the Model Zoo is stale: {completed.stdout}{completed.stderr}",
-        )
+    def test_retired_maps_remain_exact_historical_sources_outside_active_discovery(self):
+        # Two small hashes prevent accidental regeneration of the historical
+        # record. No model inspection, renderer or production-map bake runs.
+        expected = {
+            "places_demo": "65833e98579a696167d616ce0cc94ebab85f744fdd72837ed247c483db1f9dec",
+            "model_zoo": "71ff7d364cd8620f6800c0ab0bb65a41a43226b1579ec6ff8e9fa29477aedfd7",
+        }
+        for identity, digest in expected.items():
+            path = PACKAGE / "docs/archive/levels" / (identity + ".json")
+            self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), digest)
+            self.assertFalse((PACKAGE / "levels" / path.name).exists())
+            self.assertNotIn(identity, (PACKAGE / "levels/lineup.txt").read_text().splitlines())
 
     def test_every_shipped_level_has_rooms_lighting_and_an_inside_spawn(self):
         for path in level_files():
@@ -381,13 +359,8 @@ class AssetCatalogTests(unittest.TestCase):
             self.assertEqual(by_id[material_id].get("theme"), "office", material_id)
 
     def test_themes_organize_without_restricting_placement(self):
-        # The official demo mixes Office, generic and Pool assets, and the prop
-        # regression fixture mixes in an entity; nothing in the catalog or level
-        # format gates placement by theme.
-        demo = load_level(PACKAGE / "levels" / "places_demo.json")
-        placed = {prop["model"] for prop in demo.get("props", [])}
-        for expected in ("core:desk", "core:pool_ladder"):
-            self.assertIn(expected, placed)
+        # The bounded prop fixture mixes furniture and an entity through one
+        # catalog; theme labels do not restrict placement.
         fixture = load_level(PACKAGE / "tests" / "fixtures" / "levels" / "prop_showcase.json")
         fixture_placed = {prop["model"] for prop in fixture.get("props", [])}
         for expected in ("core:couch", "spooner-man"):

@@ -1,5 +1,3 @@
-places_demo
-model_zoo
 pool_showcase
 home_showcase
 lantern_hollow

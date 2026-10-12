@@ -49,6 +49,15 @@
       "depth": 13,
       "height": 3.2,
       "material": "arcade:carpet_neon_confetti_01"
+    },
+    {
+      "x": -6.6,
+      "z": 0,
+      "width": 6.6,
+      "depth": 7.8,
+      "height": 3.2,
+      "material": "arcade:restroom_tile_01",
+      "ceiling_material": "home:ceiling_white_01"
     }
   ],
   "walls": [
@@ -74,7 +83,18 @@
       "width": 0.24,
       "depth": 30,
       "height": 3.2,
-      "material": "arcade:wall_navy_01"
+      "material": "arcade:wall_navy_01",
+      "faces": {
+        "west": "core:pool_tile_wall_01"
+      },
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 2.1,
+          "width": 1.4,
+          "height": 2.45
+        }
+      ]
     },
     {
       "x": 19.88,
@@ -142,6 +162,50 @@
       "depth": 0.24,
       "height": 3.2,
       "material": "arcade:wall_party_purple_01"
+    },
+    {
+      "x": -6.84,
+      "z": -0.24,
+      "width": 6.6,
+      "depth": 0.24,
+      "height": 3.2,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": -6.84,
+      "z": 0,
+      "width": 0.24,
+      "depth": 7.8,
+      "height": 3.2,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": -6.84,
+      "z": 7.8,
+      "width": 6.6,
+      "depth": 0.24,
+      "height": 3.2,
+      "material": "core:pool_tile_wall_01",
+      "openings": [
+        {
+          "kind": "window",
+          "offset": 3.6899999999999995,
+          "width": 0.9,
+          "height": 0.842,
+          "sill": 1.134,
+          "glass": "arcade:restroom_mirror_01",
+          "solid": true
+        },
+        {
+          "kind": "window",
+          "offset": 5.29,
+          "width": 0.9,
+          "height": 0.842,
+          "sill": 1.134,
+          "glass": "arcade:restroom_mirror_01",
+          "solid": true
+        }
+      ]
     }
   ],
   "floor_patches": [
@@ -3086,18 +3150,6 @@
             {
               "action": "toggle",
               "target": "cosmic_uv_0"
-            },
-            {
-              "action": "toggle",
-              "target": "cosmic_uv_1"
-            },
-            {
-              "action": "toggle",
-              "target": "cosmic_uv_2"
-            },
-            {
-              "action": "toggle",
-              "target": "cosmic_uv_3"
             }
           ]
         }
@@ -4989,6 +5041,304 @@
       ],
       "solid": false,
       "occludes": false
+    },
+    {
+      "id": "restroom_divider_0",
+      "model": "arcade:restroom_stall_divider",
+      "x": -5.33,
+      "y": 0,
+      "z": 3.15,
+      "rotation_degrees": 0,
+      "size": [
+        2.5,
+        1.996,
+        0.078
+      ],
+      "solid": true,
+      "occludes": true
+    },
+    {
+      "id": "restroom_divider_1",
+      "model": "arcade:restroom_stall_divider",
+      "x": -5.33,
+      "y": 0,
+      "z": 5.4,
+      "rotation_degrees": 0,
+      "size": [
+        2.5,
+        1.996,
+        0.078
+      ],
+      "solid": true,
+      "occludes": true
+    },
+    {
+      "id": "restroom_front_0",
+      "model": "arcade:restroom_stall_front_wide",
+      "x": -4.02,
+      "y": 0,
+      "z": 0.95,
+      "rotation_degrees": 90,
+      "size": [
+        1.5,
+        1.996,
+        0.078
+      ],
+      "solid": true,
+      "occludes": true
+    },
+    {
+      "id": "restroom_toilet_0",
+      "model": "arcade:restroom_toilet",
+      "x": -6.19,
+      "y": 0,
+      "z": 1.6500000000000001,
+      "rotation_degrees": 90,
+      "size": [
+        0.442,
+        0.474,
+        0.7015
+      ],
+      "solid": true,
+      "occludes": true
+    },
+    {
+      "id": "restroom_paper_0",
+      "model": "arcade:restroom_paper_holder",
+      "x": -5.8,
+      "y": 0.68,
+      "z": 0.0545,
+      "rotation_degrees": 0,
+      "size": [
+        0.191,
+        0.14,
+        0.109
+      ],
+      "solid": false,
+      "occludes": true
+    },
+    {
+      "id": "restroom_front_1",
+      "model": "arcade:restroom_stall_front",
+      "x": -4.02,
+      "y": 0,
+      "z": 3.6500000000000004,
+      "rotation_degrees": 90,
+      "size": [
+        0.9,
+        1.996,
+        0.078
+      ],
+      "solid": true,
+      "occludes": true
+    },
+    {
+      "id": "restroom_toilet_1",
+      "model": "arcade:restroom_toilet",
+      "x": -6.19,
+      "y": 0,
+      "z": 4.275,
+      "rotation_degrees": 90,
+      "size": [
+        0.442,
+        0.474,
+        0.7015
+      ],
+      "solid": true,
+      "occludes": true
+    },
+    {
+      "id": "restroom_paper_1",
+      "model": "arcade:restroom_paper_holder",
+      "x": -5.8,
+      "y": 0.68,
+      "z": 3.2255,
+      "rotation_degrees": 0,
+      "size": [
+        0.191,
+        0.14,
+        0.109
+      ],
+      "solid": false,
+      "occludes": true
+    },
+    {
+      "id": "restroom_front_2",
+      "model": "arcade:restroom_stall_front",
+      "x": -4.02,
+      "y": 0,
+      "z": 5.9,
+      "rotation_degrees": 90,
+      "size": [
+        0.9,
+        1.996,
+        0.078
+      ],
+      "solid": true,
+      "occludes": true
+    },
+    {
+      "id": "restroom_toilet_2",
+      "model": "arcade:restroom_toilet",
+      "x": -6.19,
+      "y": 0,
+      "z": 6.525,
+      "rotation_degrees": 90,
+      "size": [
+        0.442,
+        0.474,
+        0.7015
+      ],
+      "solid": true,
+      "occludes": true
+    },
+    {
+      "id": "restroom_paper_2",
+      "model": "arcade:restroom_paper_holder",
+      "x": -5.8,
+      "y": 0.68,
+      "z": 5.4755,
+      "rotation_degrees": 0,
+      "size": [
+        0.191,
+        0.14,
+        0.109
+      ],
+      "solid": false,
+      "occludes": true
+    },
+    {
+      "id": "restroom_wide_stall_bar",
+      "model": "arcade:restroom_grab_bar",
+      "x": -6.552,
+      "y": 0.92,
+      "z": 2.1,
+      "rotation_degrees": 90,
+      "size": [
+        0.905,
+        0.1,
+        0.096
+      ],
+      "solid": false,
+      "occludes": true
+    },
+    {
+      "id": "restroom_sink_0",
+      "model": "arcade:restroom_sink",
+      "x": -2.7,
+      "y": 0.472,
+      "z": 7.515,
+      "rotation_degrees": 180,
+      "size": [
+        0.68,
+        0.358,
+        0.55
+      ],
+      "solid": true,
+      "occludes": true
+    },
+    {
+      "id": "restroom_mirror_0",
+      "model": "arcade:restroom_mirror_frame",
+      "x": -2.7,
+      "y": 1.1,
+      "z": 7.779,
+      "rotation_degrees": 180,
+      "size": [
+        0.968,
+        0.91,
+        0.042
+      ],
+      "solid": false,
+      "occludes": true
+    },
+    {
+      "id": "restroom_sink_1",
+      "model": "arcade:restroom_sink",
+      "x": -1.1,
+      "y": 0.472,
+      "z": 7.515,
+      "rotation_degrees": 180,
+      "size": [
+        0.68,
+        0.358,
+        0.55
+      ],
+      "solid": true,
+      "occludes": true
+    },
+    {
+      "id": "restroom_mirror_1",
+      "model": "arcade:restroom_mirror_frame",
+      "x": -1.1,
+      "y": 1.1,
+      "z": 7.779,
+      "rotation_degrees": 180,
+      "size": [
+        0.968,
+        0.91,
+        0.042
+      ],
+      "solid": false,
+      "occludes": true
+    },
+    {
+      "id": "restroom_soap",
+      "model": "arcade:restroom_soap_dispenser",
+      "x": -1.9,
+      "y": 1.03,
+      "z": 7.738,
+      "rotation_degrees": 180,
+      "size": [
+        0.16,
+        0.24,
+        0.124
+      ],
+      "solid": false,
+      "occludes": true
+    },
+    {
+      "id": "restroom_light_switch",
+      "model": "home:wall_switch",
+      "x": -0.291,
+      "y": 1.2,
+      "z": 3.92,
+      "rotation_degrees": 270,
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Bathroom lights",
+          "reach": 1.7
+        },
+        {
+          "component": "animation",
+          "clip": "toggle",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_animation",
+              "clip": "toggle"
+            },
+            {
+              "action": "toggle",
+              "target": "restroom_troffer_0"
+            }
+          ]
+        }
+      ]
     }
   ],
   "decals": [
@@ -5321,6 +5671,24 @@
       "height": 0.1,
       "surface": "floor",
       "rotation_degrees": 0
+    },
+    {
+      "material": "core:decal_ceiling_vent_01",
+      "x": -5.1,
+      "z": 6.9,
+      "width": 0.54,
+      "height": 0.54,
+      "surface": "ceiling",
+      "rotation_degrees": 0
+    },
+    {
+      "material": "core:decal_ceiling_vent_01",
+      "x": -1.5,
+      "z": 0.9,
+      "width": 0.54,
+      "height": 0.54,
+      "surface": "ceiling",
+      "rotation_degrees": 0
     }
   ],
   "ceiling_lights": [
@@ -5492,7 +5860,8 @@
       "ultraviolet": 1.8,
       "range": 8.0,
       "enabled": true,
-      "switchable": true
+      "switchable": true,
+      "switch_group": "cosmic"
     },
     {
       "id": "cosmic_uv_1",
@@ -5510,7 +5879,8 @@
       "ultraviolet": 1.8,
       "range": 8.0,
       "enabled": true,
-      "switchable": true
+      "switchable": true,
+      "switch_group": "cosmic"
     },
     {
       "id": "cosmic_uv_2",
@@ -5528,7 +5898,8 @@
       "ultraviolet": 1.8,
       "range": 8.5,
       "enabled": true,
-      "switchable": true
+      "switchable": true,
+      "switch_group": "cosmic"
     },
     {
       "id": "cosmic_uv_3",
@@ -5546,7 +5917,8 @@
       "ultraviolet": 1.8,
       "range": 8.0,
       "enabled": true,
-      "switchable": true
+      "switchable": true,
+      "switch_group": "cosmic"
     },
     {
       "id": "party_troffer_0",
@@ -5607,6 +5979,82 @@
       ],
       "emission": 0.85,
       "range": 5.5
+    },
+    {
+      "id": "restroom_troffer_0",
+      "fixture": "arcade:fluorescent_panel_01",
+      "x": -4.5,
+      "z": 1.5,
+      "align": "none",
+      "brightness": 0.38,
+      "color": [
+        0.9,
+        0.95,
+        1
+      ],
+      "emission": 0.8,
+      "range": 4.3,
+      "enabled": true,
+      "switchable": true,
+      "switch_group": "restroom",
+      "static_switch": "prepared"
+    },
+    {
+      "id": "restroom_troffer_1",
+      "fixture": "arcade:fluorescent_panel_01",
+      "x": -4.5,
+      "z": 4.5,
+      "align": "none",
+      "brightness": 0.38,
+      "color": [
+        0.9,
+        0.95,
+        1
+      ],
+      "emission": 0.8,
+      "range": 4.3,
+      "enabled": true,
+      "switchable": true,
+      "switch_group": "restroom",
+      "static_switch": "prepared"
+    },
+    {
+      "id": "restroom_troffer_2",
+      "fixture": "arcade:fluorescent_panel_01",
+      "x": -1.5,
+      "z": 2.5,
+      "align": "none",
+      "brightness": 0.38,
+      "color": [
+        0.9,
+        0.95,
+        1
+      ],
+      "emission": 0.8,
+      "range": 4.3,
+      "enabled": true,
+      "switchable": true,
+      "switch_group": "restroom",
+      "static_switch": "prepared"
+    },
+    {
+      "id": "restroom_troffer_3",
+      "fixture": "arcade:fluorescent_panel_01",
+      "x": -2.7,
+      "z": 6.5,
+      "align": "none",
+      "brightness": 0.38,
+      "color": [
+        0.9,
+        0.95,
+        1
+      ],
+      "emission": 0.8,
+      "range": 4.3,
+      "enabled": true,
+      "switchable": true,
+      "switch_group": "restroom",
+      "static_switch": "prepared"
     }
   ],
   "baseboards": [
@@ -5722,9 +6170,31 @@
     },
     {
       "x": 0.0,
+      "z": 2.1,
+      "y": 0,
+      "length": 2.08,
+      "rotation_degrees": 90,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "arcade:carpet_retro_swirl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 0.0,
+      "z": 2.1,
+      "y": 0.09,
+      "length": 2.08,
+      "rotation_degrees": 90,
+      "height": 0.01,
+      "thickness": 0.009,
+      "material": "arcade:carpet_retro_swirl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 0.0,
       "z": 29.98,
       "y": 0,
-      "length": 29.96,
+      "length": 26.48,
       "rotation_degrees": 90,
       "height": 0.09,
       "thickness": 0.018,
@@ -5735,7 +6205,7 @@
       "x": 0.0,
       "z": 29.98,
       "y": 0.09,
-      "length": 29.96,
+      "length": 26.48,
       "rotation_degrees": 90,
       "height": 0.01,
       "thickness": 0.009,
@@ -5961,6 +6431,51 @@
       "thickness": 0.009,
       "material": "arcade:carpet_neon_confetti_01",
       "uv_projection": "floor_fold"
+    },
+    {
+      "x": -6.6,
+      "z": 0,
+      "length": 6.36,
+      "rotation_degrees": 0,
+      "height": 0.1,
+      "thickness": 0.018,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": -0.24,
+      "z": 7.8,
+      "length": 6.36,
+      "rotation_degrees": 180,
+      "height": 0.1,
+      "thickness": 0.018,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": -6.6,
+      "z": 7.78,
+      "length": 7.76,
+      "rotation_degrees": 90,
+      "height": 0.1,
+      "thickness": 0.018,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": -0.24,
+      "z": 0.02,
+      "length": 2.08,
+      "rotation_degrees": 270,
+      "height": 0.1,
+      "thickness": 0.018,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": -0.24,
+      "z": 3.5,
+      "length": 4.28,
+      "rotation_degrees": 270,
+      "height": 0.1,
+      "thickness": 0.018,
+      "material": "core:pool_tile_wall_01"
     }
   ],
   "timers": [
@@ -5982,6 +6497,151 @@
           ]
         }
       ]
+    }
+  ],
+  "doors": [
+    {
+      "id": "restroom_entry",
+      "kind": "restroom",
+      "x": -0.12,
+      "y": 0,
+      "z": 3.5,
+      "width": 1.4,
+      "height": 2.4,
+      "thickness": 0.042,
+      "rotation_degrees": 90,
+      "initial_state": "closed",
+      "open_direction": "left",
+      "swing_degrees": 90,
+      "open_speed_degrees": 100,
+      "obstruction": "reverse",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Restroom door",
+          "reach": 1.7
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "restroom_door_0",
+      "kind": "restroom",
+      "x": -4.02,
+      "y": 0.15,
+      "z": 1.755,
+      "width": 1.315,
+      "height": 1.68,
+      "thickness": 0.042,
+      "rotation_degrees": 270,
+      "initial_state": "closed",
+      "open_direction": "right",
+      "swing_degrees": 90,
+      "open_speed_degrees": 100,
+      "obstruction": "reverse",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Stall door",
+          "reach": 1.7
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "restroom_door_1",
+      "kind": "restroom",
+      "x": -4.02,
+      "y": 0.15,
+      "z": 4.155,
+      "width": 1.165,
+      "height": 1.68,
+      "thickness": 0.042,
+      "rotation_degrees": 270,
+      "initial_state": "closed",
+      "open_direction": "right",
+      "swing_degrees": 90,
+      "open_speed_degrees": 100,
+      "obstruction": "reverse",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Stall door",
+          "reach": 1.7
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "restroom_door_2",
+      "kind": "restroom",
+      "x": -4.02,
+      "y": 0.15,
+      "z": 6.405,
+      "width": 1.165,
+      "height": 1.68,
+      "thickness": 0.042,
+      "rotation_degrees": 270,
+      "initial_state": "closed",
+      "open_direction": "right",
+      "swing_degrees": 90,
+      "open_speed_degrees": 100,
+      "obstruction": "reverse",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Stall door",
+          "reach": 1.7
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "thresholds": [
+    {
+      "x": -0.12,
+      "z": 2.8,
+      "length": 1.38,
+      "rotation_degrees": 90,
+      "thickness": 0.08,
+      "height": 0.008,
+      "material": "home:baseboard_white_01"
     }
   ]
 }

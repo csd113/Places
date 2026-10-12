@@ -2101,8 +2101,65 @@ fn validate_walls(level: &LevelDef) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_light_circuits(level: &LevelDef) -> Result<(), String> {
+    if level
+        .ceiling_lights
+        .iter()
+        .any(|fixture| fixture.switch_group.is_some())
+        && level
+            .ceiling_lights
+            .iter()
+            .filter(|fixture| fixture.switchable)
+            .count()
+            > crate::lighting::probes::MAX_RUNTIME_PROBE_LIGHTS
+    {
+        return Err("Light circuits support at most eight switched fixture sources".to_string());
+    }
+    let static_members: Vec<_> = level
+        .ceiling_lights
+        .iter()
+        .filter(|fixture| fixture.static_switch == crate::level::StaticSwitchMode::Prepared)
+        .collect();
+    if let Some(first) = static_members.first()
+        && (static_members.len() > 8
+            || first.switch_group.is_none()
+            || static_members.iter().any(|fixture| {
+                !fixture.enabled
+                    || !fixture.switchable
+                    || fixture.hold_in_static
+                    || fixture.switch_group != first.switch_group
+            })
+            || level.ceiling_lights.iter().any(|fixture| {
+                fixture.switch_group == first.switch_group
+                    && fixture.static_switch != crate::level::StaticSwitchMode::Prepared
+            }))
+    {
+        return Err("Static switching supports one initially enabled circuit with one to eight switchable members, all opting in and without hold_in_static".to_string());
+    }
+    for (i, light) in level.ceiling_lights.iter().enumerate() {
+        if let Some(group) = light.switch_group.as_deref() {
+            if !light.switchable || group.trim().is_empty() || group.len() > 64 {
+                return Err(format!(
+                    "Ceiling light {i} switch_group needs a switchable fixture and a nonempty name of at most 64 bytes"
+                ));
+            }
+            if level.ceiling_lights.iter().take(i).any(|other| {
+                other.switch_group.as_deref() == Some(group)
+                    && (other.enabled != light.enabled
+                        || other.hold_in_static != light.hold_in_static)
+            }) {
+                return Err(format!(
+                    "Ceiling light {i} switch_group members must share enabled and hold_in_static states"
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Ceiling/wall fixture position, intensity, colour and mounting height.
 fn validate_ceiling_lights(level: &LevelDef) -> Result<(), String> {
+    validate_light_circuits(level)?;
     if level
         .ceiling_lights
         .iter()

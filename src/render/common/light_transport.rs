@@ -160,6 +160,7 @@ pub fn build_transport_scene(
     stats.triangles = triangles.len();
     stats.emitters = emitters.len();
     let scene = TransportScene::new(triangles, emitters)?
+        .with_switchable_groups(switchable_groups(level, lighting))
         .with_runtime_direct_lights(runtime_direct)
         .with_surface_alpha(surfaces.alpha)?
         .with_surface_materials(surfaces.materials)?
@@ -433,7 +434,7 @@ fn runtime_entity_light_ids(
             .emitters()
             .iter()
             .filter_map(|source| source.switchable)
-            .take(crate::package::MAX_SWITCHABLE_LIGHTS)
+            .take(super::dynamic_lights::MAX_ENTITY_DIRECT_LIGHTS)
         {
             if ids.contains(&Some(index)) {
                 continue;
@@ -1007,6 +1008,31 @@ pub fn switchable_lights(level: &crate::level::LevelDef, lighting: &LevelLightin
         }
     }
     out
+}
+
+/// Contribution groups in fixture order, retaining each source's live identity.
+pub fn switchable_groups(level: &LevelDef, lighting: &LevelLighting) -> Vec<(usize, Vec<usize>)> {
+    let mut groups: Vec<(usize, Vec<usize>)> = Vec::new();
+    let mut named = BTreeMap::<&str, usize>::new();
+    for (fixture_index, fixture) in level.ceiling_lights.iter().enumerate() {
+        if !fixture.switchable {
+            continue;
+        }
+        let Some(light) = lighting.fixture_light_index(fixture_index) else {
+            continue;
+        };
+        if let Some(name) = fixture.switch_group.as_deref()
+            && let Some(group) = named.get(name).and_then(|index| groups.get_mut(*index))
+        {
+            group.1.push(light);
+        } else {
+            if let Some(name) = fixture.switch_group.as_deref() {
+                let _previous = named.insert(name, groups.len());
+            }
+            groups.push((light, vec![light]));
+        }
+    }
+    groups
 }
 
 /// The albedo of one triangle: the material tint (or the prop vertex's own

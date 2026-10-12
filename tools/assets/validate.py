@@ -334,6 +334,12 @@ def validate_light_source(light: object, where: str) -> Tuple[List[str], List[st
     for flag in ("enabled", "hold_in_static"):
         if flag in light and not isinstance(light.get(flag), bool):
             errors.append(f"{where}: {flag} must be a boolean")
+    group = light.get("switch_group")
+    if group is not None and (not isinstance(group, str) or not group.strip()
+                              or len(group.encode("utf-8")) > 64 or not light.get("switchable")):
+        errors.append(f"{where}: switch_group requires a switchable fixture and a nonempty name of at most 64 bytes")
+    if light.get("static_switch", "disabled") not in ("disabled", "prepared"):
+        errors.append(f"{where}: static_switch must be 'disabled' or 'prepared'")
     return errors, warnings
 
 
@@ -912,8 +918,8 @@ def validate_doors(level: dict, where: str, errors: list[str]) -> None:
         if is_finite_number(thickness) and thickness <= 0.0:
             errors.append(f"{where}: door {index} thickness must be positive")
         kind = door.get("kind", "interior")
-        if kind not in ("interior", "sauna"):
-            errors.append(f"{where}: door {index} kind must be 'interior' or 'sauna'")
+        if kind not in ("interior", "sauna", "restroom"):
+            errors.append(f"{where}: door {index} kind must be 'interior', 'sauna' or 'restroom'")
         direction = door.get("open_direction", "left")
         if direction not in ("left", "right"):
             errors.append(f"{where}: door {index} open_direction must be 'left' or 'right'")

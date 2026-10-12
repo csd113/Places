@@ -1847,6 +1847,8 @@ pub enum DoorKind {
     Interior,
     /// A wooden-framed sauna door with a glass panel and a wooden handle.
     Sauna,
+    /// Flat commercial laminate leaf with compact metal latch and jambs.
+    Restroom,
 }
 
 /// Material a door kind uses when the map authors no override.
@@ -1940,6 +1942,11 @@ pub const fn door_materials(kind: DoorKind) -> DoorMaterials {
             slab: "home:sauna_wood_01",
             frame: "home:baseboard_wood_01",
             handle: "home:sauna_wood_01",
+        },
+        DoorKind::Restroom => DoorMaterials {
+            slab: "arcade:restroom_partition_01",
+            frame: "core:metal_brushed_01",
+            handle: "core:metal_brushed_01",
         },
     }
 }
@@ -5611,6 +5618,12 @@ pub struct LightFixtureDef {
     /// never changes — the default, and the cheapest.
     #[serde(default)]
     pub switchable: bool,
+    /// Optional circuit shared by fixtures that always switch together.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub switch_group: Option<String>,
+    /// Prepare an exact alternate vertex-lit off state for this circuit.
+    #[serde(default)]
+    pub static_switch: StaticSwitchMode,
     /// Hold the authored baked face/light state when prepared switchable
     /// illumination is unavailable (Static). Full still follows actions.
     /// Omitted preserves the existing face-only Static switching behavior.
@@ -5622,6 +5635,15 @@ pub struct LightFixtureDef {
     /// What this fixture's events do.
     #[serde(default)]
     pub bindings: Vec<EventBindingDef>,
+}
+
+/// Exact Static switching is opt-in and limited to one physical circuit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum StaticSwitchMode {
+    #[default]
+    Disabled,
+    Prepared,
 }
 
 impl LightFixtureDef {

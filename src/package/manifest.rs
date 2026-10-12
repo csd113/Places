@@ -13,7 +13,9 @@ use super::{FORMAT_VERSION, MAX_DEPENDENCIES, MAX_VARIANTS};
 ///
 /// A package that requires a capability outside this list is rejected by name:
 /// the player must never guess at a payload it does not understand.
-pub const KNOWN_CAPABILITIES: [&str; 11] = [
+pub const KNOWN_CAPABILITIES: [&str; 13] = [
+    "light-circuits-v1",
+    "static-light-state-v1",
     "geometry",
     "props",
     "lighting",
@@ -97,6 +99,9 @@ pub const fn default_probe_levels() -> u32 {
 /// One quality variant's prepared world entries.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct VariantEntries {
+    /// One opt-in circuit's exact vertex-lit off geometry, sharing images.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub static_light_off: Option<StaticLightEntries>,
     /// Static geometry blob.
     pub mesh: String,
     /// Static prop batches blob.
@@ -120,6 +125,14 @@ pub struct VariantEntries {
     /// Prepared reflection probe payloads.
     #[serde(default)]
     pub probes: Vec<ProbePayload>,
+}
+
+/// Bounded optional state; ordinary maps retain their original records.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct StaticLightEntries {
+    pub fixtures: Vec<usize>,
+    pub mesh: String,
+    pub props: String,
 }
 
 /// One quality variant of the prepared world.
@@ -294,6 +307,24 @@ impl Manifest {
                 ));
             }
             let entries = &variant.entries;
+            if let Some(state) = &entries.static_light_off {
+                if variant.lightmap_quality != "off"
+                    || state.fixtures.is_empty()
+                    || state.fixtures.len() > 8
+                    || !state
+                        .fixtures
+                        .windows(2)
+                        .all(|pair| matches!(pair, [a, b] if a < b))
+                    || !self
+                        .required_capabilities
+                        .iter()
+                        .any(|capability| capability == "static-light-state-v1")
+                {
+                    return Err("static light state requires an Off variant, one to eight ordered fixtures and its capability".to_string());
+                }
+                self.validate_variant_entry("mesh", &state.mesh)?;
+                self.validate_variant_entry("props", &state.props)?;
+            }
             for (role, name) in [
                 ("mesh", &entries.mesh),
                 ("props", &entries.props),

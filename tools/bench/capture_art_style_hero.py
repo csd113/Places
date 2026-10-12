@@ -78,7 +78,7 @@ def validate_native(log: str, level: str, image: Path | None, expected: list[int
     if settings is not None:
         receipt = next((line for line in log.splitlines() if line.startswith("[settings]")), "")
         lightmaps = "off" if settings.get("use_low_quality_lighting") else settings['lightmaps']
-        reflections = "off" if settings.get("use_low_quality_lighting") else settings['reflections']
+        reflections = "off" if lightmaps == "off" else settings['reflections']
         expected_fields = [f"quality {settings['quality']} (saved {settings['quality']})",
                            f"| lightmaps {lightmaps} |",
                            f"| reflections {reflections} |",

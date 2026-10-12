@@ -2,6 +2,11 @@
 
 Repository-wide checks: [authoritative desktop verification](VERIFICATION.md).
 
+October 12 retirement: Places Demo and Model Zoo source examples below are
+historical references, now frozen at `docs/archive/levels/`. They are outside
+the eight active maps in `levels/lineup.txt` and must not be baked by default.
+The active connected Arcade showcase includes the commercial restroom.
+
 | Field | Value |
 | --- | --- |
 | Document status | **Canonical / living.** Update it whenever the authoring contract changes (see [Maintaining This Guide](#maintaining-this-guide)). |
@@ -3885,6 +3890,8 @@ All fixtures — ceiling and wall — live in the level's `ceiling_lights` array
 | `emission` | number | no | the fixture's `brightness` | Independent emissive strength of the visible face, finite, `≥ 0`, clamped to `8.0`. Lets a face read brighter (or dimmer) than the light the fixture casts. |
 | `switchable` | boolean | no | `false` | Marks the fixture as externally controllable: `{ "action": "set_light", "target": "<id>", "on": false }` or `{ "action": "toggle", "target": "<id>" }` may switch it at runtime (see §29). A switchable fixture is excluded from its room's baked baseline and contributes only its local pool; each switch state is prepared as its own selectable lightmap layer, so toggling **selects a prepared layer** — a real change of the baked illumination with no runtime rebake — and the visible face turns off with it. Moving objects and characters using a newly compiled v3 irradiance field receive the fixture's live direct light through reserved runtime source slots; base probes exclude switchable energy, so it is added once. Switched diffuse bounce is absent from the entity base field. Genuine legacy v2 fields retain their combined center path without switched entity response. A fixture that is **not** switchable is baked once and never changes: no action can move its illumination. Emission-only motion (`animated_emissions[]`) never changes illumination either; it animates the face's additive glow only. Layer selection needs the prepared lightmap variants (the default): with Lightmaps Off the level bakes into vertex colours, so the face still switches but the baked illumination cannot change until the level is reloaded. Leave it `false` unless a map action drives it. |
 | `align` | `"grid"` \| `"none"` | no | `"grid"` | Closed enum. Grid alignment snaps a fluorescent panel's centre onto its ceiling material's visible panel grid at load (see *Ceiling grid alignment* below). `"none"` keeps the authored `x`/`z` exactly. |
+| `switch_group` | string | no | absent | Fixtures on the same named circuit toggle atomically through any member and share one prepared contribution pair. Members must have matching initial enabled/Static-hold states. At most eight switched sources fit the movable-light budget. |
+| `static_switch` | `"disabled"` \| `"prepared"` | no | `"disabled"` | Opt in all members of one initially enabled circuit (one to eight fixtures) to exact prepared Static on/off geometry. No runtime bake; world, props and decals switch with the fixture faces. Requires `switch_group`, `switchable: true`, and no `hold_in_static`. Other maps preserve their previous Static behavior. |
 | `hold_in_static` | boolean | no | `false` | Opt-in fallback for automated switchable fixtures: when prepared illumination is unavailable (Static), face and live receiver source hold their authored baked `enabled` state. Full follows ordinary actions and prepared layers. The Office's failing lamps use this so Static never shows a dark bulb over a permanently bright baked pool. Existing fixtures preserve their historical face-only Static switching. |
 
 Ceiling fixture, office default look (Places Demo, office room with red emergency
@@ -5542,7 +5549,7 @@ slab first; the accepted engine range stays `5`–`179`.
 | `components` | array | no | `[]` | Typed components. A manually interactable door authors `{ "component": "interactable", "prompt": "…" }`; a door that only map actions drive carries neither component nor binding. |
 | `bindings` | array | no | `[]` | What the leaf's events do. A manual door authors `{ "on": "interact", "actions": [{ "action": "toggle" }] }`. |
 | `obstruction` | `"stop"` \| `"reverse"` | no | `"stop"` | What the sweep does when it meets the player or solid geometry. `stop` holds and resumes when clear; `reverse` flips direction once per obstruction (a 0.4 s guard stops chatter). |
-| `kind` | `"interior"` \| `"sauna"` | no | `"interior"` | Visual build (see below). |
+| `kind` | `"interior"` \| `"sauna"` \| `"restroom"` | no | `"interior"` | Visual build (see below). |
 | `material`, `frame_material`, `handle_material` | string | no | kind defaults | Per-door material overrides for the leaf, the static frame and the handle. |
 | `frame_depth` | number | no | resolved wall (`0.12` standalone) | Total depth of the frame's reveal liner along the leaf's closed normal, in metres; `> 0` and `≤ 2.0` (`MAX_DOOR_FRAME_DEPTH_M`). Omitted resolves the wall the leaf is installed in. |
 | `frame_center` | number | no | resolved wall (`0.0` standalone) | Signed offset of the liner's centre from the leaf's centre plane along the leaf's closed normal (hinge-space `+Z`), in metres; `abs(value) ≤ frame_depth`, and it may only be authored together with `frame_depth`. |
@@ -5571,7 +5578,7 @@ door with neither is **externally controlled**: it moves only when an action
 drives it. In v3 a door has **no floating label**; `toggle_label` targets
 placed props only.
 
-Two kinds ship:
+Three kinds ship:
 
 * **`interior`** — a white painted leaf with two panels recessed 12 mm per
   face inside real stiles and rails, and a round brass handle on both sides.
@@ -5582,10 +5589,16 @@ Two kinds ship:
   `home:baseboard_wood_01` frame; the panel is
   `core:glass_window_clear_01` and draws in the blended pass.
 
+* **`restroom`** — a flat laminate leaf with a compact metal latch on both
+  faces, thin metal jambs and hinge knuckles. Defaults:
+  `arcade:restroom_partition_01` leaf, `core:metal_brushed_01` frame/handle.
+  A raised partition leaf's jambs extend to the floor. It uses the same door
+  interaction, navigation portal, collision and obstruction handling.
+
 ### Frame and leaf builds
 
 Each door draws two models, both built in code in `src/render/common/doors.rs`:
-a **frame** that never moves and the **leaf** that swings. The frame is a reveal
+a **frame** that never moves and the **leaf** that swings. The interior/sauna frame is a reveal
 **liner** through the resolved tunnel — its two jambs and its head lap 30 mm
 into the wall on every side and reach 4 mm into the opening as the stop lip the
 closed leaf sits behind — plus a 70 mm **casing** standing 12 mm proud on
@@ -5595,7 +5608,8 @@ recessed 12 mm (the `interior` kind) or wooden stiles around a glass panel (the
 `sauna` kind). Both models travel the dynamic-object path, so each face bakes a
 face shade into its vertex colour and a recess, a casing edge and the liner's
 dark reveal read at walking distance instead of resolving into one flat
-silhouette. Each submesh samples its own material slot (leaf, frame, handle and
+silhouette. Restroom leaves instead use one thick flat slab and narrow stock,
+without the residential casings. Each submesh samples its own material slot (leaf, frame, handle and
 the sauna glass), so `material`, `frame_material` and `handle_material`
 overrides are all visible and the sauna glass draws in the blended pass.
 
@@ -7074,6 +7088,22 @@ references shipped content uses a real catalog id.
   "material": "core:carpet_beige_01",
   "ceiling_material": "core:ceiling_panel_01" }
 ```
+
+The connected commercial restroom in `retro_arcade_demo` is composed by
+`tools/levels/arcade_restroom.py`: a fourth 6.6 × 7.8 m room west of Arcade,
+a 1.4 m interactive entrance in the existing shell, independent ceramic skirting,
+separate thin stall colliders, and two opaque solid mirror panes on one wall-centre
+plane. All four new doors use `kind: "restroom"`, start closed and swing inward.
+Blender-owned
+reusable fittings and their unchanged 32-square family palette follow
+[Asset Specification §8.15](ASSET_SPECIFICATION.md#815-arcade-commercial-restroom-kit).
+The mirror panes use the implemented planar pass only in Full lighting with
+reflections enabled; Static retains an ordinary nonreflecting surface. The reachable
+wall switch controls all four bathroom fixtures through one `switch_group`.
+Their `static_switch: "prepared"` opt-in ships an exact bathroom-off vertex-lit
+state, so illumination, ceiling-grille shading and visible emission switch together
+in Static as well as Full. The existing four blacklights share their own circuit
+and retain their existing switch behavior.
 
 ## Add a gable ceiling
 

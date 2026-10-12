@@ -760,6 +760,7 @@ fn prepare_world(
             )?;
         }
         let build = Arc::new(LevelBuild {
+            static_light_off: variant.static_light_off,
             mesh: variant.mesh,
             batches: variant.props,
             lighting: variant.lighting,
@@ -1051,6 +1052,7 @@ mod tests {
                 quality_profile: "low".to_string(),
                 lightmap_failure: None,
                 entries: VariantEntries {
+                    static_light_off: None,
                     mesh: "blobs/aa.mesh".to_string(),
                     props: "blobs/bb.props".to_string(),
                     lighting: "blobs/cc.lighting".to_string(),
@@ -1318,6 +1320,7 @@ mod tests {
             quality_profile: "low".to_string(),
             lightmap_failure: None,
             entries: VariantEntries {
+                static_light_off: None,
                 mesh: "blobs/mesh".to_string(),
                 props: "blobs/props".to_string(),
                 lighting: "blobs/lighting".to_string(),

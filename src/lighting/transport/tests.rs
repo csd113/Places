@@ -135,6 +135,66 @@ fn first_light(solution: &TransportSolution, normal: [f32; 3]) -> [f32; 3] {
     solution.charts[0].texels[0].light_at(normal)
 }
 
+/// A sixteen-texel fixture checks that grouping keeps every emitter's energy
+/// and individual source identity, without allocating a production atlas.
+#[test]
+fn a_switch_circuit_combines_sources_in_one_exact_contribution_pass() {
+    let mut a = point([1.0, 2.5, 1.0], 2.0);
+    let mut b = point([3.0, 2.5, 3.0], 3.0);
+    a.switchable = Some(4);
+    b.switchable = Some(7);
+    let charts = vec![floor_patch(0.0, 0.0, 4.0, 4.0, 4, 4)];
+    let separate =
+        TransportScene::new(floor(0.0, 0.0, 4.0, 4.0, [0.7; 3]), vec![a, b]).expect("sources");
+    let grouped = TransportScene::new(floor(0.0, 0.0, 4.0, 4.0, [0.7; 3]), vec![a, b])
+        .expect("sources")
+        .with_switchable_groups(vec![(4, vec![4, 7])]);
+    let incomplete = TransportScene::new(floor(0.0, 0.0, 4.0, 4.0, [0.7; 3]), vec![a, b])
+        .expect("sources")
+        .with_switchable_groups(vec![(4, vec![4])]);
+    assert!(
+        incomplete.solve(&charts, options(0, 1), None).is_err(),
+        "every switched source must belong to exactly one circuit"
+    );
+    let reference = separate
+        .solve(&charts, options(0, 1), None)
+        .expect("individual passes");
+    let combined = grouped
+        .solve(&charts, options(0, 1), None)
+        .expect("circuit pass");
+    assert_eq!(
+        combined.switchable.len(),
+        1,
+        "one circuit uses one contribution pair"
+    );
+    assert_eq!(
+        grouped.emitters()[1].switchable,
+        Some(7),
+        "runtime source identity survives grouping"
+    );
+    assert_eq!(
+        combined.charts, reference.charts,
+        "switchable light does not enter the base"
+    );
+    for ((actual, left), right) in combined.switchable[0].1[0]
+        .texels
+        .iter()
+        .zip(&reference.switchable[0].1[0].texels)
+        .zip(&reference.switchable[1].1[0].texels)
+    {
+        for channel in 0..3 {
+            assert!(
+                (actual.light_at([0.0, 1.0, 0.0])[channel]
+                    - left.light_at([0.0, 1.0, 0.0])[channel]
+                    - right.light_at([0.0, 1.0, 0.0])[channel])
+                    .abs()
+                    < 1e-5,
+                "every source contributes exactly once"
+            );
+        }
+    }
+}
+
 #[test]
 fn a_sealed_wall_blocks_direct_light_and_an_opening_admits_it() {
     let receiver = [0.0, 0.02, 2.0];

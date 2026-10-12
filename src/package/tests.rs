@@ -644,6 +644,43 @@ fn role_entry(name: &str, role: &str) -> super::PackageEntry {
     }
 }
 
+// Extends the existing malformed-manifest matrix with a bounded optional
+// state. Pure references only: no geometry, archive allocation or map bake.
+fn assert_static_circuit_manifest_contract(good: &Manifest, entries: &[String]) {
+    // Optional Static state references use the same bounded codecs and must
+    // declare support; malformed fixture lists never reach GPU installation.
+    let mut circuit = good.clone();
+    circuit
+        .required_capabilities
+        .push("static-light-state-v1".into());
+    circuit.variants[0].entries.static_light_off = Some(super::manifest::StaticLightEntries {
+        fixtures: vec![0, 1],
+        mesh: "blobs/aa.mesh".into(),
+        props: "blobs/aa.props".into(),
+    });
+    circuit
+        .validate(entries)
+        .expect("bounded circuit references");
+    for fixtures in [vec![], vec![1, 1], vec![2, 1], (0..9).collect()] {
+        let mut invalid = circuit.clone();
+        invalid.variants[0]
+            .entries
+            .static_light_off
+            .as_mut()
+            .expect("state")
+            .fixtures = fixtures;
+        assert!(
+            invalid.validate(entries).is_err(),
+            "unbounded or unordered circuit is rejected"
+        );
+    }
+    let _removed_capability = circuit.required_capabilities.pop();
+    assert!(
+        circuit.validate(entries).is_err(),
+        "unsupported readers cannot accept state records"
+    );
+}
+
 #[test]
 fn manifests_reject_wrong_versions_capabilities_and_shapes() {
     let mut entries = vec![
@@ -683,6 +720,7 @@ fn manifests_reject_wrong_versions_capabilities_and_shapes() {
             quality_profile: "low".to_string(),
             lightmap_failure: None,
             entries: VariantEntries {
+                static_light_off: None,
                 irradiance: None,
                 mesh: "blobs/aa.mesh".to_string(),
                 props: "blobs/aa.props".to_string(),
@@ -697,6 +735,8 @@ fn manifests_reject_wrong_versions_capabilities_and_shapes() {
     };
     good.validate(&entries)
         .expect("a well-formed manifest validates");
+
+    assert_static_circuit_manifest_contract(&good, &entries);
 
     let mut wrong_version = good.clone();
     wrong_version.package_format = FORMAT_VERSION + 1;
@@ -1123,6 +1163,147 @@ fn one_planar_material_on_two_floor_levels_keeps_both_routes() {
         vec![0, 1],
         "the room floor and the lowered patch keep distinct planes"
     );
+}
+
+/// One small room compiles only Static and verifies its alternate colours,
+/// codec round trip and navigation-only reuse. No shipped map or GPU bake.
+#[test]
+fn static_circuit_records_change_illumination_and_survive_prepared_reuse() {
+    let dir = scratch_dir("static-circuit");
+    let source = dir.join("fixture.json");
+    let authored = tiny_level_json("static_circuit").replace(
+        "\"fixture\": \"core:ceiling_panel_01\"",
+        "\"id\":\"bath\",\"switchable\":true,\"switch_group\":\"bathroom\",\"static_switch\":\"prepared\",\"fixture\":\"core:ceiling_panel_01\"");
+    std::fs::write(&source, &authored).expect("source");
+    let out = dir.join("fixture.placesmap");
+    let request = crate::compiler::BuildRequest {
+        source: source.clone(),
+        out: out.clone(),
+        asset_root: std::path::PathBuf::from("assets"),
+        variants: vec![crate::quality::LightmapQuality::Off],
+        workers: 1,
+        force: false,
+        capture_probes: false,
+    };
+    let _report = crate::compiler::build(&request).expect("compile small Static fixture");
+    let manifest = crate::compiler::inspect(&out).expect("manifest");
+    let mut assets = crate::props::PropAssets::load_default();
+    let loaded = crate::package::world::load_variant(
+        &out,
+        &manifest,
+        crate::quality::LightmapQuality::Off,
+        &mut assets,
+    )
+    .expect("decode alternate");
+    let alternate = loaded.static_light_off.expect("prepared off state");
+    assert_eq!(
+        alternate.fixtures,
+        vec![0],
+        "switch addresses the actual fixture"
+    );
+    let average = |mesh: &crate::render::LevelMesh| {
+        let vertices = mesh.triangles_for(crate::render::SurfaceKind::Floor);
+        vertices
+            .iter()
+            .map(|vertex| f64::from(vertex.color[0]))
+            .sum::<f64>()
+            / f64::from(u32::try_from(vertices.len()).expect("tiny count fits"))
+    };
+    assert!(
+        average(&loaded.mesh) > average(&alternate.mesh) + 0.05_f64,
+        "off geometry removes environmental light, not just emission"
+    );
+    let entries = manifest.variants[0]
+        .entries
+        .static_light_off
+        .clone()
+        .expect("state refs");
+    let renamed = authored.replace("Package Test", "Circuit Renamed");
+    std::fs::write(&source, renamed).expect("metadata change");
+    let report = crate::compiler::build(&request).expect("reuse prepared state");
+    assert!(
+        report
+            .cache_decisions
+            .iter()
+            .any(|decision| decision.stage == "prepared_world" && decision.status == "hit"),
+        "metadata changes do not repeat illumination"
+    );
+    let reused = crate::compiler::inspect(&out).expect("reused manifest");
+    let retained = reused.variants[0]
+        .entries
+        .static_light_off
+        .as_ref()
+        .expect("retained state");
+    assert_eq!(
+        (&retained.mesh, &retained.props),
+        (&entries.mesh, &entries.props),
+        "alternate blobs survive reuse"
+    );
+    assert_static_state_payload_validation(&out, &dir.join("invalid-state.placesmap"));
+    crate::test_support::remove_dir_if_present(&dir);
+}
+
+// One small archive extension protects validation before player installation.
+// Fixture refs are hash-independent manifest data; alternate mesh bytes below
+// have fresh matching content hashes, so integrity alone cannot reject them.
+fn assert_static_state_payload_validation(out: &std::path::Path, invalid: &std::path::Path) {
+    let mut reader =
+        super::PackageReader::new(std::fs::File::open(out).expect("package")).expect("reader");
+    let names = reader.names().to_vec();
+    let mut records: Vec<PendingEntry> = names
+        .iter()
+        .map(|name| PendingEntry {
+            name: name.clone(),
+            bytes: reader
+                .read_entry(name, super::MAX_ENTRY_BYTES)
+                .expect("small entry"),
+        })
+        .collect();
+    let original = crate::compiler::inspect(out).expect("manifest");
+    for corrupt_mesh in [false, true] {
+        let mut manifest = original.clone();
+        let state = manifest.variants[0]
+            .entries
+            .static_light_off
+            .as_mut()
+            .expect("state");
+        if corrupt_mesh {
+            let record = records
+                .iter_mut()
+                .find(|record| record.name == state.mesh)
+                .expect("state mesh");
+            record.bytes[0] ^= 0xFF;
+            let old_name = record.name.clone();
+            record.name = super::hash::blob_name(&record.bytes, ".mesh");
+            let entry = manifest
+                .entries
+                .iter_mut()
+                .find(|entry| entry.name == old_name)
+                .expect("declaration");
+            entry.name.clone_from(&record.name);
+            entry.sha256 = super::hash::sha256_hex(&record.bytes);
+            state.mesh.clone_from(&record.name);
+        } else {
+            state.fixtures = vec![999];
+        }
+        records
+            .iter_mut()
+            .find(|record| record.name == "manifest.json")
+            .expect("manifest record")
+            .bytes = manifest.to_json().expect("manifest bytes");
+        let output = records
+            .iter()
+            .map(|record| PendingEntry {
+                name: record.name.clone(),
+                bytes: record.bytes.clone(),
+            })
+            .collect();
+        write_archive(invalid, output).expect("invalid archive");
+        assert!(
+            crate::compiler::validate(invalid).is_err(),
+            "alternate fixture refs and hash-correct malformed meshes must fail before loading"
+        );
+    }
 }
 
 #[test]

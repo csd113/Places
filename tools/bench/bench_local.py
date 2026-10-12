@@ -101,7 +101,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", default=os.path.join(PACKAGE_ROOT, "target", "release", "places"))
     parser.add_argument("--label", default="current")
-    parser.add_argument("--level", default="places_demo")
+    parser.add_argument("--level", default="retro_arcade_demo")
     parser.add_argument("--camera", default="74,0")
     parser.add_argument("--frames", type=int, default=120)
     parser.add_argument("--warmup", type=int, default=20)

@@ -41,8 +41,8 @@ pub use animation::{
     AnimationEffect, EmissionAnimation, MAX_ANIMATION_DEPTH, MAX_FLICKER_HZ, MAX_PULSE_HZ,
 };
 pub use api::{
-    BuildTimings, GraphicsTransition, LevelBuild, LightmapBuildOptions, build_level_geometry,
-    build_level_geometry_timed, build_level_geometry_timed_with_lightmaps,
+    BuildTimings, GraphicsTransition, LevelBuild, LightmapBuildOptions, StaticLightState,
+    build_level_geometry, build_level_geometry_timed, build_level_geometry_timed_with_lightmaps,
     build_level_geometry_with_assets, build_level_geometry_with_assets_and_lighting,
     build_level_geometry_with_assets_and_lighting_and_materials, build_level_geometry_with_catalog,
     build_level_geometry_with_catalog_and_materials, build_level_geometry_with_materials,
@@ -438,6 +438,8 @@ struct WallFaceStrip<'a, Y: Fn(f32) -> f32, S: Fn(f32, f32) -> [f32; 3]> {
     bottom: f32,
     /// The face's top edge at a length offset.
     top_at: Y,
+    /// Parent wall's texture origin, independent of opening fragments.
+    uv_v_ref: f32,
     /// Material shade at a world length/height, using the parent wall's span.
     shade_at: S,
     /// Whether the winding runs against the length axis.
@@ -519,10 +521,8 @@ impl<Y: Fn(f32) -> f32, S: Fn(f32, f32) -> [f32; 3]> WallFaceStrip<'_, Y, S> {
     /// Emits the face's merged lighting runs as quads.
     fn emit(&self, vertices: &mut Vec<Vertex>) {
         let face_room = self.room;
-        // The V reference keeps the image's top row at the face's top while
-        // staying constant along the face, so tiling never breaks across a
-        // gable slope or a merged lighting run.
-        let uv_v_ref = (self.top_at)(self.l0);
+        // All sill/header fragments retain the same parent texture phase.
+        let uv_v_ref = self.uv_v_ref;
         let segments = usize::try_from(wall_light_segments((self.l1 - self.l0).abs())).unwrap_or(1);
         let boundaries = self.boundaries(face_room);
         let max_span_m = self
@@ -620,6 +620,7 @@ fn add_wall_length_face<'a>(
     normal: f32,
     bottom: f32,
     top_at: impl Fn(f32) -> f32,
+    uv_v_ref: f32,
     shade_at: impl Fn(f32, f32) -> [f32; 3],
     reversed: bool,
     flip_u: bool,
@@ -636,6 +637,7 @@ fn add_wall_length_face<'a>(
         l1,
         bottom,
         top_at,
+        uv_v_ref,
         shade_at,
         reversed,
         flip_u,
@@ -733,7 +735,7 @@ const WALL_COINCIDENCE_EPS: f32 = 1e-3;
 /// 7 = exact wall-span endpoint maxima from the span's own roof;
 /// 8 = native shared static-model charts and finer bounded physical sampling.
 /// 9 = neighbor-clipped ramp sides, including partial footprints and crossings.
-pub const GEOMETRY_REVISION: u32 = 9;
+pub const GEOMETRY_REVISION: u32 = 10;
 
 /// One material run of a coalesced wall group: a rectangle in the group's own
 /// (length, height) space over which the visible material is constant.

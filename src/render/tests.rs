@@ -24,7 +24,7 @@ use crate::test_support::{assert_exact, assert_exact_array, assert_exact_named};
 
 use super::*;
 use crate::game::LocomotionSnapshot;
-use crate::level::{LevelDef, PropDef};
+use crate::level::{LevelDef, PropDef, WallAxis};
 use crate::lighting::LevelLighting;
 use crate::render::common::MeshPacker;
 use crate::render::common::character::PoseCue;
@@ -2142,6 +2142,53 @@ fn test_wall_with_window_emits_sill_and_header_faces() {
     }
     assert!(mesh.batches.wall_batch.count <= (expected + 2_i32 + 4_i32) * 6_i32);
     assert!(mesh.batches.wall_batch.count > 0_i32);
+}
+
+/// Four tiny source meshes protect texture phase across non-grid window cuts,
+/// on both wall axes and with explicit/ceiling-bound heights; no images or bake.
+#[test]
+fn window_fragments_keep_parent_wall_texture_phase_and_orientation() {
+    for axis in [WallAxis::X, WallAxis::Z] {
+        for explicit in [false, true] {
+            let (width, depth): (f32, f32) = match axis {
+                WallAxis::X => (3.0, 0.24),
+                WallAxis::Z => (0.24, 3.0),
+            };
+            let height = if explicit { r#", "height": 3.2"# } else { "" };
+            let level = LevelDef::from_json(&format!(r#"{{"format_version":3,"id":"uv_window","name":"UV Window","spawn":{{"x":0,"z":0}},"rooms":[{{"x":-1,"z":-1,"width":5,"depth":5,"height":3.2}}],"walls":[{{"x":0,"z":0,"width":{width},"depth":{depth}{height},"material":"core:pool_tile_wall_01","openings":[{{"kind":"window","offset":1,"width":1,"sill":1.134,"height":0.842}}]}}]}}"#)).expect("tiny wall fixture");
+            let mesh = build_level_geometry(&level);
+            let mut coverage = [[false; 2]; 2];
+            for vertex in mesh.triangles_for(SurfaceKind::Wall) {
+                let (along, normal) = match axis {
+                    WallAxis::X => (vertex.pos[0], vertex.normal[2]),
+                    WallAxis::Z => (vertex.pos[2], vertex.normal[0]),
+                };
+                if normal.abs() < 0.99 {
+                    continue;
+                }
+                let sign = if normal < 0.0 { -1.0 } else { 1.0 };
+                assert!(
+                    (vertex.uv[0] - sign * along / 2.0).abs() < 1e-5,
+                    "world U orientation: {vertex:?}"
+                );
+                assert!(
+                    (vertex.uv[1] - (3.2 - vertex.pos[1]) / 2.0).abs() < 1e-5,
+                    "parent V phase: {vertex:?}"
+                );
+                let side = usize::from(normal > 0.0);
+                if (1.0..=2.0).contains(&along) && (vertex.pos[1] - 1.134).abs() < 1e-5 {
+                    coverage[side][0] = true;
+                }
+                if vertex.pos[1] > 3.19 {
+                    coverage[side][1] = true;
+                }
+            }
+            assert!(
+                coverage.iter().flatten().all(|seen| *seen),
+                "both sides include sill and full-height fragments: {coverage:?}"
+            );
+        }
+    }
 }
 
 #[test]

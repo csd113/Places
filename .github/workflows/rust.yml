@@ -80,7 +80,6 @@ jobs:
           python3 tools/props/refine_spooner_man.py --check
           python3 tools/entities/check_spooner_refinement.py
           python3 tools/levels/build_outdoor_fixture.py --check
-          python3 tools/levels/build_outdoor_route.py --check
           python3 tools/levels/build_lantern_hollow.py --check
           python3 tools/levels/build_lighting_quality.py --check
           python3 tools/levels/build_winter.py --check

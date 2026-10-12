@@ -774,6 +774,7 @@ fn emit_wall_slice(
         ],
     };
     for (face_index, face) in faces.into_iter().enumerate() {
+        let uv_v_ref = wall_texture_v_reference(context, state, face.position, owner_offset);
         let visible_top = |at| {
             if !ceiling_bounded {
                 return slice_top;
@@ -793,7 +794,15 @@ fn emit_wall_slice(
         if runs.is_empty() {
             let key = wall_face_key(context, state.wall, face.name);
             let strip = WallLengthFace::new(key, face, l0, l1, slice_bottom);
-            emit_wall_length_face(context, buckets, scratch, state, cursor, strip, visible_top);
+            emit_wall_length_face(
+                context,
+                buckets,
+                scratch,
+                state,
+                cursor,
+                strip,
+                (visible_top, uv_v_ref),
+            );
         } else {
             for run in runs {
                 let (run_start, run_end) = match state.axis {
@@ -802,12 +811,37 @@ fn emit_wall_slice(
                 };
                 let key = run.faces.get(face_index).copied().unwrap_or(state.wall_key);
                 let strip = WallLengthFace::new(key, face, run_start, run_end, slice_bottom);
-                emit_wall_length_face(context, buckets, scratch, state, cursor, strip, visible_top);
+                emit_wall_length_face(
+                    context,
+                    buckets,
+                    scratch,
+                    state,
+                    cursor,
+                    strip,
+                    (visible_top, uv_v_ref),
+                );
             }
         }
     }
 
     emit_wall_caps(context, buckets, scratch, state, slice, cursor);
+}
+
+/// Openings and material fragments retain their parent wall's texture origin.
+fn wall_texture_v_reference(
+    context: &EmitContext<'_, '_>,
+    state: &WallState<'_>,
+    face: f32,
+    owner_offset: f32,
+) -> f32 {
+    if state.wall.height.is_some() {
+        return state.wall_top;
+    }
+    let origin = match state.axis {
+        WallAxis::X => state.origin_x,
+        WallAxis::Z => state.origin_z,
+    };
+    wall_face_ceiling(context, state, origin, face, owner_offset)
 }
 
 /// Appends one wall length face and flushes it under its own material key.
@@ -818,7 +852,7 @@ fn emit_wall_length_face(
     state: &WallState<'_>,
     cursor: &mut usize,
     strip: WallLengthFace,
-    top_at: impl Fn(f32) -> f32,
+    (top_at, uv_v_ref): (impl Fn(f32) -> f32, f32),
 ) {
     // A perpendicular partition can cover an entire length-face strip. Such
     // a strip has no visible room-facing surface and must not acquire its own
@@ -870,6 +904,7 @@ fn emit_wall_length_face(
             strip.normal,
             strip.bottom,
             &top_at,
+            uv_v_ref,
             |at, sample_y| wall_material_shade(context, state, strip, at, sample_y),
             strip.reversed,
             strip.flip_u,

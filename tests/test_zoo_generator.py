@@ -7,8 +7,8 @@ they never touch the shipped catalog, the shipped zoo or the real assets:
 * adding a catalogue entry adds exactly one display with a stable id, expands
   the hall when the floor rows fill, and never renumbers an existing display;
 * removing an entry removes exactly its display and changes nothing else;
-* regenerating from the shipped catalog is byte-identical to the shipped level
-  (idempotence), and the serial and parallel inspection paths agree.
+* serial and parallel inspection paths agree for explicit developer fixtures;
+  the retired historical Zoo is never regenerated.
 
 The worker paths are exercised with one worker (the serial reference) and with
 two, over the same real catalog, comparing the resulting bytes.
@@ -71,17 +71,6 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
 
     def display_ids(self, level: dict) -> list[str]:
         return [prop["id"] for prop in level["props"]]
-
-    def test_regeneration_matches_the_shipped_zoo(self):
-        level = self.level_for(self.catalog)
-        shipped = json.loads(
-            (PACKAGE / "levels" / "model_zoo.json").read_text(encoding="utf-8")
-        )
-        self.assertEqual(
-            zoo.serialise(level),
-            zoo.serialise(shipped),
-            "the shipped zoo must be exactly what the generator produces",
-        )
 
     def test_adding_an_entry_adds_one_display_without_renumbering(self):
         base_level = self.level_for(self.catalog)

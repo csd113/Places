@@ -695,7 +695,10 @@ group** in the HDR atlas. The environment uniform carries the group count and a
 live mask; toggling a switch updates the mask and the fixture's emissive face
 material, and the shader immediately sums a different prepared set. There is no
 runtime chart re-fill, no per-switch bake and no combinatorial scenario atlas.
-A level may prepare at most four switchable fixtures; the illumination change
+A level may prepare at most four switchable contribution groups. Fixtures on
+one named `switch_group` retain individual source/face identities but switch
+atomically and share one group; up to eight switched sources fit the live receiver
+budget. The illumination change
 is a real transport change, not an emissive-only tint.
 
 The moving-object irradiance field (§7.1.2) is solved from the non-switchable
@@ -705,6 +708,16 @@ reserved runtime entity-light slots; the enabled mask also invalidates their
 spatial lighting key. Toggling selects the static atlas layer group and changes
 that live direct term. Per-state indirect/bounce field layers are deliberately
 not prepared.
+
+Static normally retains immutable vertex illumination. One opted-in circuit
+(`static_switch: "prepared"` on every member) also ships an exact off mesh/prop
+state. The compiler clones its existing baked lighting and rebuilds vertex colours
+with those sources disabled; it does not repeat the lighting bake. Installation
+uploads both geometry states, including decals, with shared texture caches.
+Switching swaps the resident banks and updates emission/live source states without
+new buffers, texture uploads, shader changes or per-frame relighting. The optional
+state adds bounded geometry memory only to Static. Other maps retain their prior
+behavior; `hold_in_static` remains useful for controls without prepared states.
 
 ### 7.1.4 Attached dynamic lights
 

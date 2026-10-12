@@ -194,6 +194,38 @@ def _write_level(root: str, level: dict) -> None:
         raise AssertionError(f"places-compile failed for {level['id']}:\n{result.stdout}")
 
 
+def _primary_level() -> dict:
+    """A 16.6 m² native control replaces the retired production Demo baseline.
+
+    One glass window, one cutout grille, two normal materials, one reflective
+    floor, a washer drum and a door retain the distinct upload/pass/replacement
+    behaviors. Its bounded bake is developer-only, outside default CI/Rust tests.
+    """
+    return {
+        "format_version": 3, "id": "wgpu_smoke_primary", "name": "AAA Native Smoke",
+        "spawn": {"x": 2, "z": 2},
+        "defaults": {"wall": "core:plastic_panel_01", "floor": "core:linoleum_polished_01",
+                     "ceiling": "core:ceiling_panel_01"},
+        "rooms": [{"x": 0, "z": 0, "width": 4.15, "depth": 4, "height": 3}],
+        "walls": [
+            {"x": -.15, "z": -.15, "width": 4.30, "depth": .15, "openings": [
+                {"kind": "window", "offset": .55, "width": 1.2, "height": 1,
+                 "sill": 1, "glass": "core:glass_window_clear_01", "solid": True},
+                {"kind": "vent", "offset": 2.3, "width": 1.1, "height": .3,
+                 "sill": 2.5, "glass": "core:grille_vent_01"}]},
+            {"x": -.15, "z": 0, "width": .15, "depth": 4},
+            {"x": -.15, "z": 4, "width": 4.3, "depth": .15,
+             "material": "core:metal_brushed_01"},
+            {"x": 4, "z": 0, "width": .15, "depth": 4, "openings": [
+                {"kind": "door", "offset": 1.5, "width": 1, "height": 2.1}]}],
+        "doors": [{"id": "smoke_door", "x": 4.075, "z": 2.5,
+                   "rotation_degrees": 90, "width": 1, "height": 2.1}],
+        "props": [{"model": "core:washing_machine", "x": 3, "z": 3}],
+        "ceiling_lights": [{"fixture": "core:fluorescent_panel_01", "x": 2, "z": 2,
+                            "align": "none", "brightness": .4}],
+    }
+
+
 def _second_level() -> dict:
     """A small but real level: one room with a floor, ceiling and walls."""
     return {
@@ -373,6 +405,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
                 f"the wgpu smoke test has no expected backend for {sys.platform!r}"
             )
         os.makedirs(SMOKE_ROOT, exist_ok=True)
+        _write_level(os.path.join(SMOKE_ROOT, "primary"), _primary_level())
 
     def run_binary(self, extra_env=None, timeout=240, *, memory_report=None):
         """Runs a bounded frame loop and returns (exit_code, combined_output)."""
@@ -391,7 +424,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
                 # and every scripted action that waits on it.
                 "PLACES_BENCH_FRAMES": "60",
                 "PLACES_VERBOSE": "1",
-                "PLACES_LEVEL": "places_demo",
+                "PLACES_LEVEL": "wgpu_smoke_primary",
                 # Pinned so a previous test's `PLACES_QUALITY=low` (persisted in
                 # the shared smoke state root) cannot leak into this run.
                 "PLACES_QUALITY": "high",
@@ -405,6 +438,12 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         )
         if extra_env:
             env.update(extra_env)
+        state = env["PLACES_STATE_ROOT"]
+        os.makedirs(os.path.join(state, "levels"), exist_ok=True)
+        source = os.path.join(SMOKE_ROOT, "primary", "levels", "wgpu_smoke_primary.placesmap")
+        destination = os.path.join(state, "levels", "wgpu_smoke_primary.placesmap")
+        if os.path.abspath(source) != os.path.abspath(destination):
+            shutil.copy2(source, destination)
         if memory_report is not None:
             result = _run_with_rss([self.binary], cwd=ROOT, env=env, timeout=timeout,
                                    report_path=memory_report)
@@ -553,7 +592,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertGreater(int(drawable.group(1)), 0, output)
         self.assertGreater(int(drawable.group(2)), 0, output)
 
-    def test_places_demo_uploads_non_empty_world_geometry(self):
+    def test_wgpu_smoke_primary_uploads_non_empty_world_geometry(self):
         code, output = self.run_binary({})
 
         self.assertEqual(code, 0, f"wgpu run failed:\n{output}")
@@ -569,7 +608,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
 
     # -------------------------------------------------------- texture system
 
-    def test_places_demo_uploads_each_base_texture_once(self):
+    def test_wgpu_smoke_primary_uploads_each_base_texture_once(self):
         code, output = self.run_binary({})
 
         self.assertEqual(code, 0, f"wgpu run failed:\n{output}")
@@ -587,8 +626,8 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         # placeholder-box/light-housing draws share the fallback sheet, so the
         # uploaded count is at most the unique count and fallbacks are
         # legitimate here.
-        self.assertGreaterEqual(unique, 25, output)
-        self.assertGreater(uploaded, 25, "the first load uploads the world's sheets")
+        self.assertGreaterEqual(unique, 6, output)
+        self.assertGreaterEqual(uploaded, 6, "the first load uploads the control's distinct sheets")
         self.assertLessEqual(
             uploaded, unique, "an identity is never uploaded twice on one load"
         )
@@ -627,7 +666,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
 
     # ------------------------------------------------------- material system
 
-    def test_places_demo_resolves_materials_for_every_pass(self):
+    def test_wgpu_smoke_primary_resolves_materials_for_every_pass(self):
         code, output = self.run_binary({})
 
         self.assertEqual(code, 0, f"wgpu run failed:\n{output}")
@@ -656,7 +695,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         # silently dropped: its windows are translucent, its grille is a
         # cut-out, its panels carry normal maps and some surfaces are
         # reflection-eligible.
-        self.assertGreaterEqual(materials, 20, output)
+        self.assertGreaterEqual(materials, 6, output)
         self.assertGreaterEqual(response, 1, "the demo authors sheen and normals")
         self.assertGreaterEqual(reflections, 1, "the demo authors reflective materials")
         self.assertGreaterEqual(normal_maps, 2, "the metal and plastic panels")
@@ -910,8 +949,8 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
     @unittest.skipIf(DISPLAY_LOCKED, LOCKED_REASON)
     def test_loading_resize_cancel_and_retry_process_real_events(self):
         anchor = f"request:{SECOND_LEVEL_ID}"
-        events, _ = self.run_loading_actions("cancel-retry-state", [_second_level()], "places_demo", [
-            {"after": "ready:places_demo", "delay_ms": 0,
+        events, _ = self.run_loading_actions("cancel-retry-state", [_second_level()], "wgpu_smoke_primary", [
+            {"after": "ready:wgpu_smoke_primary", "delay_ms": 0,
              "action": {"kind": "load", "level": SECOND_LEVEL_ID}},
             {"after": anchor, "delay_ms": 100, "action": {"kind": "resize", "width": 800, "height": 450}},
             {"after": anchor, "delay_ms": 250, "action": {"kind": "escape"}},
@@ -922,12 +961,12 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         # retried. Cancellation belongs to a replacement, never to the initial
         # world that gives the menu its background.
         self.assertEqual([event["detail"] for event in requests],
-                         ["places_demo", SECOND_LEVEL_ID, SECOND_LEVEL_ID])
+                         ["wgpu_smoke_primary", SECOND_LEVEL_ID, SECOND_LEVEL_ID])
         cancelled = [event for event in events if event["event"] == "cancel"]
         self.assertEqual([event["request"] for event in cancelled], [requests[1]["request"]])
         commits = [json.loads(event["detail"]) for event in events if event["event"] == "world_committed"]
         self.assertEqual([snapshot["current_level_id"] for snapshot in commits],
-                         ["places_demo", SECOND_LEVEL_ID])
+                         ["wgpu_smoke_primary", SECOND_LEVEL_ID])
         self.assertTrue(any(event["event"] == "present" and event["detail"] == "loading"
                             and requests[0]["elapsed_ms"] < event["elapsed_ms"] < cancelled[0]["elapsed_ms"]
                             for event in events), "the real window must present while preparation is blocked")
@@ -935,7 +974,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertTrue(any(size["logical"] == [800, 450] and all(value > 0 for value in size["drawable"])
                             for size in sizes), "observe the actual native resized window")
         self.assertEqual([event["detail"] for event in events if event["event"] == "scene_presented"],
-                         ["places_demo", SECOND_LEVEL_ID])
+                         ["wgpu_smoke_primary", SECOND_LEVEL_ID])
 
     @unittest.skipIf(DISPLAY_LOCKED, LOCKED_REASON)
     def test_selecting_the_preparing_background_level_reuses_its_preparation(self):
@@ -946,22 +985,22 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         events, output = self.run_loading_actions(
             "background-promote-state", [], "", [
                 {"after": "start", "delay_ms": 300,
-                 "action": {"kind": "load", "level": "places_demo"}},
-                {"after": "ready:places_demo", "delay_ms": 0, "action": {"kind": "quit"}},
+                 "action": {"kind": "load", "level": "wgpu_smoke_primary"}},
+                {"after": "ready:wgpu_smoke_primary", "delay_ms": 0, "action": {"kind": "quit"}},
             ],
             extra_env={"PLACES_LEVEL": ""},
         )
         self.assert_no_gpu_failure(output)
         requests = [event for event in events if event["event"] == "request"]
-        self.assertEqual([event["detail"] for event in requests], ["places_demo"],
+        self.assertEqual([event["detail"] for event in requests], ["wgpu_smoke_primary"],
                          "selecting the preparing background level must reuse its request")
         self.assertEqual([event["detail"] for event in events
-                          if event["event"] == "cpu_ready"], ["places_demo"])
+                          if event["event"] == "cpu_ready"], ["wgpu_smoke_primary"])
         commits = [json.loads(event["detail"]) for event in events if event["event"] == "world_committed"]
-        self.assertEqual([snapshot["current_level_id"] for snapshot in commits], ["places_demo"])
+        self.assertEqual([snapshot["current_level_id"] for snapshot in commits], ["wgpu_smoke_primary"])
         self.assert_world_snapshot_consistent(commits[0])
         self.assertEqual([event["detail"] for event in events if event["event"] == "scene_presented"],
-                         ["places_demo"])
+                         ["wgpu_smoke_primary"])
 
     @unittest.skipIf(DISPLAY_LOCKED, LOCKED_REASON)
     def test_quit_during_preparation_joins_owned_work_without_committing(self):
@@ -1013,8 +1052,8 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertNotEqual(len(replacement_bytes), 0)
 
         events, output = self.run_loading_actions(
-            "replace-in-flight-state", [original], "places_demo", [
-                {"after": "ready:places_demo", "delay_ms": 0,
+            "replace-in-flight-state", [original], "wgpu_smoke_primary", [
+                {"after": "ready:wgpu_smoke_primary", "delay_ms": 0,
                  "action": {"kind": "load", "level": target}},
                 {"after": f"request:{target}", "delay_ms": 2000,
                  "action": {"kind": "load", "level": target}},
@@ -1024,7 +1063,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         )
         self.assert_no_gpu_failure(output)
         requests = [event for event in events if event["event"] == "request"]
-        self.assertEqual([event["detail"] for event in requests], ["places_demo", target, target],
+        self.assertEqual([event["detail"] for event in requests], ["wgpu_smoke_primary", target, target],
                          "changed package content must issue a new generation")
         first, second = requests[1]["request"], requests[2]["request"]
         self.assertLess(first, second)
@@ -1191,27 +1230,26 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         state = os.path.join(SMOKE_ROOT, "reload-state")
         shutil.rmtree(state, ignore_errors=True)
         second_level = _second_level()
-        # These 512px catalog sheets are already drawn by the Demo's concrete
-        # path and house walls. Use explicit identities: retained textures are
-        # bounded, so its large default sheets need not survive the next load.
+        # Reuse the bounded primary's explicit sheet identities to verify
+        # cache hits across replacement without a historical production map.
         second_level["defaults"] = {
-            "wall": "outdoor:house_siding_01",
-            "floor": "outdoor:concrete_pavement_01",
-            "ceiling": "outdoor:house_siding_01",
+            "wall": "core:plastic_panel_01",
+            "floor": "core:linoleum_polished_01",
+            "ceiling": "core:plastic_panel_01",
         }
         _write_level(state, second_level)
 
         script = os.path.join(state, "actions.json")
         trace = os.path.join(state, "trace.jsonl")
         with open(script, "w", encoding="utf-8") as stream:
-            json.dump([{"after": "ready:places_demo", "delay_ms": 0,
+            json.dump([{"after": "ready:wgpu_smoke_primary", "delay_ms": 0,
                         "action": {"kind": "load", "level": SECOND_LEVEL_ID}},
                        {"after": f"ready:{SECOND_LEVEL_ID}", "delay_ms": 0,
                         "action": {"kind": "load", "level": SECOND_LEVEL_ID}}], stream)
         code, output = self.run_binary(
             {
                 "PLACES_STATE_ROOT": state,
-                "PLACES_LEVEL": "places_demo",
+                "PLACES_LEVEL": "wgpu_smoke_primary",
                 "PLACES_BENCH_ACTIONS": script,
                 "PLACES_LOAD_TRACE": trace,
             }
@@ -1222,10 +1260,10 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
             events = [json.loads(line) for line in stream]
         self.assertEqual([event["detail"] for event in events
                           if event["event"] == "gpu_ready"],
-                         ["places_demo", SECOND_LEVEL_ID, SECOND_LEVEL_ID])
+                         ["wgpu_smoke_primary", SECOND_LEVEL_ID, SECOND_LEVEL_ID])
         self.assertEqual([event["detail"] for event in events
                           if event["event"] == "scene_presented"],
-                         ["places_demo", SECOND_LEVEL_ID, SECOND_LEVEL_ID])
+                         ["wgpu_smoke_primary", SECOND_LEVEL_ID, SECOND_LEVEL_ID])
         action = next(event for event in events if event["event"] == "action")
         self.assertTrue(any(event["event"] == "present" and event["detail"] == "ready"
                             and event["elapsed_ms"] <= action["elapsed_ms"] for event in events),
@@ -1247,7 +1285,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         commits = [json.loads(event["detail"]) for event in events
                    if event["event"] == "world_committed"]
         self.assertEqual([snapshot["current_level_id"] for snapshot in commits],
-                         ["places_demo", SECOND_LEVEL_ID, SECOND_LEVEL_ID])
+                         ["wgpu_smoke_primary", SECOND_LEVEL_ID, SECOND_LEVEL_ID])
         for snapshot in commits:
             self.assert_world_snapshot_consistent(snapshot)
         for field in ["quality", "lightmaps", "reflections", "renderer_quality",
@@ -1260,13 +1298,8 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
             self.assertEqual(commits[2][field], commits[1][field],
                              f"identical reload changed {field}")
 
-        # The demonstration objects and the level's door leaves/frames belong to
-        # the level that spawned them: the boot demo spawns the drum, the
-        # floating rubber duck and seven doors (frame + leaf each: the four
-        # interior doors, the additional sauna hallway leaf, and the front and
-        # destination doorways the night route added), and replacing the level
-        # must clear the neutral dynamic scene instead of carrying it into the
-        # new level.
+        # The bounded primary's washer drum and one door frame/leaf must be
+        # removed when the empty secondary replaces it.
         dynamic_counts = [
             tuple(map(int, match.groups()))
             for match in re.finditer(
@@ -1276,9 +1309,9 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         ]
         self.assertEqual(len(dynamic_counts), 3, output)
         self.assertEqual(
-            dynamic_counts[0][:2],
-            (16, 26),
-            "the demo's drum, floating duck and seven door frames and leaves",
+            dynamic_counts[0][0],
+            3,
+            "the bounded control's washer drum and one door frame/leaf",
         )
         self.assertGreater(dynamic_counts[0][2], 0, "the demo dynamic scene contains geometry")
         for counts in dynamic_counts[1:]:
@@ -1292,27 +1325,27 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertEqual(len(loads), 3, output)
         for load in loads:
             self.assert_texture_resolution_is_sane(load, output)
-        # The explicit small sheets remain in the bounded catalog cache. Both
+        # The explicit source sheets remain in the bounded catalog cache. Both
         # the replacement and its identical repeat must reuse them; neither
         # fallback draws nor missing textures may disguise a cache failure.
         for load in loads[1:]:
             self.assertEqual(load[:6], (2, 0, 2, 0, 0, 2),
                              f"both real sheets must be cached for both draws:\n{output}")
-            self.assertEqual(load[6:8], (2796200, 512),
-                             "both 512px sheets retain their complete native mip chains")
+            self.assertEqual(load[6:8], (11184808, 1024),
+                             "both 1024px sheets retain their complete native mip chains")
             self.assertEqual(load[8], "high", "replacement retains texture filtering")
         self.assertEqual(loads[1], loads[2], "the repeat preserves exact texture residency")
 
         # Materials resolve once per level load too, and the second level's
         # materials are all fresh GPU states (uniforms and bind groups are
-        # level-scoped) with no normal-map uploads.
+        # level-scoped); the plastic normal map reuses its existing upload.
         material_loads = self.material_loads(output)
         self.assertEqual(len(material_loads), 3, output)
         for load in material_loads:
             self.assert_material_resolution_is_sane(load, output)
         self.assertGreaterEqual(material_loads[1][0], 1, output)
         for load in material_loads[1:]:
-            self.assertEqual(load[3:6], (0, 0, 0), "no normal maps in the second level")
+            self.assertEqual(load[3:6], (1, 0, 1), "the shared plastic normal map stays cached")
             self.assertEqual(load[10:], ("enabled", "high"), "replacement retains material quality")
         self.assertEqual(material_loads[1], material_loads[2], "the repeat resolves identical materials")
         self.assert_no_gpu_failure(output)

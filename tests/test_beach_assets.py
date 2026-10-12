@@ -1,6 +1,5 @@
 """Beach authoring support and runtime-envelope regression checks."""
 import copy
-import json
 import math
 from pathlib import Path
 import sys
@@ -79,44 +78,6 @@ class BeachTests(unittest.TestCase):
                         room = next(r for r in rooms if r["x"]-.01 <= x <= r["x"]+r["width"]+.01
                                     and r["z"]-.01 <= z <= r["z"]+r["depth"]+.01)
                         self.assertIs(room, owner)
-
-    def test_all_new_animals_have_explicit_zoo_playback_actions(self):
-        zoo = json.loads((ROOT / "levels/model_zoo.json").read_text())
-        animals = {p["model"]: p for p in zoo["props"]
-                   if p["model"] in ("beach:seagull", "beach:crab", "beach:fish")}
-        self.assertEqual(len(animals), 3)
-        actions = [a for t in zoo["timers"] for b in t["bindings"] for a in b["actions"]]
-        for animal in animals.values():
-            self.assertTrue(any(a["action"] == "play_animation" and a["target"] == animal["id"]
-                                for a in actions))
-
-    def test_zoo_animal_lighting_anchors_belong_to_real_rooms(self):
-        zoo = json.loads((ROOT / "levels/model_zoo.json").read_text())
-        for animal in zoo["props"]:
-            if animal["model"] not in ("beach:seagull", "beach:crab", "beach:fish"):
-                continue
-            with self.subTest(model=animal["model"]):
-                room = next(r for r in zoo["rooms"]
-                            if r["x"] <= animal["x"] <= r["x"]+r["width"]
-                            and r["z"] <= animal["z"] <= r["z"]+r["depth"])
-                base = room.get("floor_y", 0)
-                support = base
-                for region in zoo["floor_regions"]:
-                    if (region["x"] <= animal["x"] <= region["x"]+region["width"]
-                            and region["z"] <= animal["z"] <= region["z"]+region["depth"]):
-                        support = base + region["offset_y"]
-                centre = support + animal.get("y", 0) + animal["size"][1]*animal.get("scale", 1)*.5
-                self.assertGreaterEqual(centre, base)
-                self.assertLessEqual(centre, base+room["height"])
-
-    def test_zoo_fish_water_corners_belong_to_the_lowered_room(self):
-        zoo = json.loads((ROOT / "levels/model_zoo.json").read_text())
-        water = next(w for w in zoo["water"] if w.get("material") == "beach:water_shallow_01")
-        for x in (water["x"], water["x"]+water["width"]):
-            for z in (water["z"], water["z"]+water["depth"]):
-                room = next(r for r in zoo["rooms"] if r["x"]-.01 <= x <= r["x"]+r["width"]+.01
-                            and r["z"]-.01 <= z <= r["z"]+r["depth"]+.01)
-                self.assertGreater(water["surface_y"], room.get("floor_y", 0))
 
     def test_town_portals_allow_a_standing_body_at_every_quarter_turn(self):
         for name in ("town_arch", "town_house_cream", "town_house_blue", "town_house_coral"):

@@ -166,6 +166,7 @@ fn dependency_archive_with_inputs(
             quality_profile: "low".to_owned(),
             lightmap_failure: None,
             entries: VariantEntries {
+                static_light_off: None,
                 mesh,
                 props,
                 lighting,

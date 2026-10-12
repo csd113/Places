@@ -8879,6 +8879,270 @@
       "category": "Decorative",
       "solid": false,
       "description": "Tiny low-poly cockroach with six articulated legs and antennae; looping idle, walk and run tripod scurry."
+    },
+    {
+      "id": "arcade:restroom_toilet",
+      "display_name": "Restroom Toilet",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/restroom/restroom_toilet.glb",
+      "size": [
+        0.442,
+        0.883,
+        0.7015
+      ],
+      "color": "#71958d",
+      "category": "Restroom",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/restroom/restroom.blend"
+      }
+    },
+    {
+      "id": "arcade:restroom_sink",
+      "display_name": "Restroom Sink",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/restroom/restroom_sink.glb",
+      "size": [
+        0.68,
+        0.502,
+        0.55
+      ],
+      "color": "#71958d",
+      "category": "Restroom",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/restroom/restroom.blend"
+      }
+    },
+    {
+      "id": "arcade:restroom_stall_divider",
+      "display_name": "Restroom Stall Divider",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/restroom/restroom_stall_divider.glb",
+      "size": [
+        2.5,
+        1.996,
+        0.078
+      ],
+      "color": "#71958d",
+      "category": "Restroom",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/restroom/restroom.blend"
+      }
+    },
+    {
+      "id": "arcade:restroom_stall_front",
+      "display_name": "Restroom Stall Front",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/restroom/restroom_stall_front.glb",
+      "size": [
+        0.9,
+        1.996,
+        0.078
+      ],
+      "color": "#71958d",
+      "category": "Restroom",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/restroom/restroom.blend"
+      }
+    },
+    {
+      "id": "arcade:restroom_stall_front_wide",
+      "display_name": "Restroom Stall Front Wide",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/restroom/restroom_stall_front_wide.glb",
+      "size": [
+        1.5,
+        1.996,
+        0.078
+      ],
+      "color": "#71958d",
+      "category": "Restroom",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/restroom/restroom.blend"
+      }
+    },
+    {
+      "id": "arcade:restroom_stall_door",
+      "display_name": "Restroom Stall Door",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/restroom/restroom_stall_door.glb",
+      "size": [
+        1.126,
+        1.68,
+        0.1055
+      ],
+      "color": "#71958d",
+      "category": "Restroom",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/restroom/restroom.blend"
+      }
+    },
+    {
+      "id": "arcade:restroom_mirror_frame",
+      "display_name": "Restroom Mirror Frame",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/restroom/restroom_mirror_frame.glb",
+      "size": [
+        0.968,
+        0.91,
+        0.042
+      ],
+      "color": "#71958d",
+      "category": "Restroom",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/restroom/restroom.blend"
+      }
+    },
+    {
+      "id": "arcade:restroom_soap_dispenser",
+      "display_name": "Restroom Soap Dispenser",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/restroom/restroom_soap_dispenser.glb",
+      "size": [
+        0.16,
+        0.24,
+        0.124
+      ],
+      "color": "#71958d",
+      "category": "Restroom",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/restroom/restroom.blend"
+      }
+    },
+    {
+      "id": "arcade:restroom_grab_bar",
+      "display_name": "Restroom Grab Bar",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/restroom/restroom_grab_bar.glb",
+      "size": [
+        0.905,
+        0.1,
+        0.096
+      ],
+      "color": "#71958d",
+      "category": "Restroom",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/restroom/restroom.blend"
+      }
+    },
+    {
+      "id": "arcade:restroom_paper_holder",
+      "display_name": "Restroom Paper Holder",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/restroom/restroom_paper_holder.glb",
+      "size": [
+        0.191,
+        0.14,
+        0.109
+      ],
+      "color": "#71958d",
+      "category": "Restroom",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/restroom/restroom.blend"
+      }
+    },
+    {
+      "id": "arcade:restroom_tile_01",
+      "display_name": "Commercial Restroom Ceramic Floor",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "home:tex_tile_home_01",
+      "tile_metres": 1.2,
+      "specular": 0.18,
+      "shine": 0.22,
+      "description": "Ordinary cream 30 cm commercial ceramic; no ultraviolet response or carpet trim."
+    },
+    {
+      "id": "arcade:restroom_mirror_01",
+      "display_name": "Restroom Mirror Pane",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_white_01",
+      "tile_metres": 1,
+      "tint": [
+        0.08,
+        0.09,
+        0.1
+      ],
+      "specular": 1,
+      "shine": 1,
+      "reflection_mode": "planar",
+      "reflection_strength": 1,
+      "description": "Opaque solid coplanar wall-opening mirrors; genuine half-resolution reflected room under Full lighting."
+    },
+    {
+      "id": "arcade:restroom_partition_01",
+      "theme": "arcade",
+      "asset_type": "material",
+      "texture": "core:tex_white_01",
+      "tile_metres": 1,
+      "tint": [
+        0.19,
+        0.34,
+        0.32
+      ],
+      "specular": 0.14,
+      "shine": 0.18,
+      "display_name": "Muted Teal Restroom Laminate",
+      "asset_class": "environment",
+      "source": "definition",
+      "surface": "wall",
+      "description": "Ordinary commercial teal laminate for interactive flat restroom leaves; no emission or UV excitation."
     }
   ]
 }

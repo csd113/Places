@@ -105,7 +105,7 @@ impl LightmapBuildOptions {
     /// by the actual base and switchable groups the compiler will serialize.
     fn with_prepared_page_budget(mut self, level: &LevelDef, lighting: &LevelLighting) -> Self {
         if self.mode == LightmapMode::On {
-            let switchable = super::light_transport::switchable_lights(level, lighting).len();
+            let switchable = super::light_transport::switchable_groups(level, lighting).len();
             self.config.max_pages =
                 self.config
                     .max_pages
@@ -255,6 +255,13 @@ pub const fn solve_options_for_profile(profile: crate::quality::QualityProfile) 
     }
 }
 
+/// One exact optional vertex-lit off state, prepared by the compiler.
+pub struct StaticLightState {
+    pub fixtures: Vec<usize>,
+    pub mesh: LevelMesh,
+    pub batches: Vec<PropMeshBatch>,
+}
+
 /// Everything one level build produced.
 ///
 /// `lightmaps` is `Some` only when the level was built *and* baked with
@@ -265,6 +272,7 @@ pub const fn solve_options_for_profile(profile: crate::quality::QualityProfile) 
 pub struct LevelBuild {
     pub mesh: LevelMesh,
     pub batches: Vec<PropMeshBatch>,
+    pub static_light_off: Option<Arc<StaticLightState>>,
     pub lighting: LevelLighting,
     pub timings: BuildTimings,
     pub lightmaps: Option<Arc<LevelLightmaps>>,
@@ -293,6 +301,27 @@ impl LevelBuild {
                 .saturating_add(allocation_bytes(&range.indices));
         }
         let mut images = std::collections::HashSet::new();
+        if let Some(state) = &self.static_light_off {
+            bytes = bytes
+                .saturating_add(std::mem::size_of_val(state.as_ref()))
+                .saturating_add(allocation_bytes(&state.fixtures))
+                .saturating_add(allocation_bytes(&state.mesh.ranges))
+                .saturating_add(allocation_bytes(&state.batches));
+            for range in &state.mesh.ranges {
+                bytes = bytes
+                    .saturating_add(allocation_bytes(&range.vertices))
+                    .saturating_add(allocation_bytes(&range.indices));
+            }
+            for batch in &state.batches {
+                bytes = bytes
+                    .saturating_add(batch.model.capacity())
+                    .saturating_add(allocation_bytes(&batch.vertices))
+                    .saturating_add(allocation_bytes(&batch.indices))
+                    .saturating_add(allocation_bytes(&batch.submeshes))
+                    .saturating_add(allocation_bytes(&batch.source_primitives))
+                    .saturating_add(allocation_bytes(&batch.textures));
+            }
+        }
         for batch in &self.batches {
             bytes = bytes
                 .saturating_add(batch.model.capacity())
@@ -727,6 +756,7 @@ pub fn prepare_level_geometry_with_lightmaps(
     }
 
     let mut build = LevelBuild {
+        static_light_off: None,
         mesh,
         batches,
         lighting,

@@ -1,0 +1,114 @@
+{
+  "authoring_tool": "5.2.2 LTS",
+  "refinement_pass": "C",
+  "palette": "environments/arcade/party/models/party_palette.png",
+  "models": {
+    "arcade:restroom_toilet": {
+      "model": "environments/arcade/restroom/restroom_toilet.glb",
+      "size": [
+        0.442,
+        0.883,
+        0.7015
+      ],
+      "triangles": 456,
+      "source_scene": "environments/arcade/restroom/restroom.blend",
+      "seat_height": 0.474
+    },
+    "arcade:restroom_sink": {
+      "model": "environments/arcade/restroom/restroom_sink.glb",
+      "size": [
+        0.68,
+        0.502,
+        0.55
+      ],
+      "triangles": 544,
+      "source_scene": "environments/arcade/restroom/restroom.blend",
+      "deck_height": 0.358
+    },
+    "arcade:restroom_stall_divider": {
+      "model": "environments/arcade/restroom/restroom_stall_divider.glb",
+      "size": [
+        2.5,
+        1.996,
+        0.078
+      ],
+      "triangles": 104,
+      "source_scene": "environments/arcade/restroom/restroom.blend"
+    },
+    "arcade:restroom_stall_front": {
+      "model": "environments/arcade/restroom/restroom_stall_front.glb",
+      "size": [
+        0.9,
+        1.996,
+        0.078
+      ],
+      "triangles": 104,
+      "source_scene": "environments/arcade/restroom/restroom.blend"
+    },
+    "arcade:restroom_stall_front_wide": {
+      "model": "environments/arcade/restroom/restroom_stall_front_wide.glb",
+      "size": [
+        1.5,
+        1.996,
+        0.078
+      ],
+      "triangles": 104,
+      "source_scene": "environments/arcade/restroom/restroom.blend"
+    },
+    "arcade:restroom_stall_door": {
+      "model": "environments/arcade/restroom/restroom_stall_door.glb",
+      "size": [
+        1.126,
+        1.68,
+        0.1055
+      ],
+      "triangles": 136,
+      "source_scene": "environments/arcade/restroom/restroom.blend",
+      "fixed_open": true
+    },
+    "arcade:restroom_mirror_frame": {
+      "model": "environments/arcade/restroom/restroom_mirror_frame.glb",
+      "size": [
+        0.968,
+        0.91,
+        0.042
+      ],
+      "triangles": 32,
+      "source_scene": "environments/arcade/restroom/restroom.blend",
+      "opening_size": [
+        0.9,
+        0.842
+      ]
+    },
+    "arcade:restroom_soap_dispenser": {
+      "model": "environments/arcade/restroom/restroom_soap_dispenser.glb",
+      "size": [
+        0.16,
+        0.24,
+        0.124
+      ],
+      "triangles": 68,
+      "source_scene": "environments/arcade/restroom/restroom.blend"
+    },
+    "arcade:restroom_grab_bar": {
+      "model": "environments/arcade/restroom/restroom_grab_bar.glb",
+      "size": [
+        0.905,
+        0.1,
+        0.096
+      ],
+      "triangles": 108,
+      "source_scene": "environments/arcade/restroom/restroom.blend"
+    },
+    "arcade:restroom_paper_holder": {
+      "model": "environments/arcade/restroom/restroom_paper_holder.glb",
+      "size": [
+        0.191,
+        0.14,
+        0.109
+      ],
+      "triangles": 52,
+      "source_scene": "environments/arcade/restroom/restroom.blend"
+    }
+  }
+}

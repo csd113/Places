@@ -63,6 +63,7 @@ fn prepared(loaded: &LoadedLevel, quality: QualityLevel) -> Arc<LevelBuild> {
         })
     });
     Arc::new(LevelBuild {
+        static_light_off: None,
         mesh,
         batches,
         lighting,
@@ -969,6 +970,7 @@ fn install_compiled_scene(
         .props
         .retain(|batch| !authored.claimed_models().contains(&batch.model));
     let build = Arc::new(LevelBuild {
+        static_light_off: None,
         mesh: variant.mesh,
         batches: variant.props,
         lighting: variant.lighting,
