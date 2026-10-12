@@ -97,13 +97,13 @@ fn the_profile_mapping_is_the_content_key_boundary() {
 
 #[test]
 fn medium_budgets_are_the_documented_intermediate() {
-    assert_eq!(QualityLevel::Medium.budget(TextureClass::Surface), 512);
-    assert_eq!(QualityLevel::Medium.budget(TextureClass::FixtureFace), 512);
-    assert_eq!(QualityLevel::Medium.budget(TextureClass::DecalSheet), 512);
-    assert_eq!(QualityLevel::Medium.budget(TextureClass::Prop), 256);
-    assert_eq!(QualityLevel::Medium.budget(TextureClass::EmissionMask), 256);
+    assert_eq!(QualityLevel::Medium.budget(TextureClass::Surface), 384);
+    assert_eq!(QualityLevel::Medium.budget(TextureClass::FixtureFace), 384);
+    assert_eq!(QualityLevel::Medium.budget(TextureClass::DecalSheet), 384);
+    assert_eq!(QualityLevel::Medium.budget(TextureClass::Prop), 192);
+    assert_eq!(QualityLevel::Medium.budget(TextureClass::EmissionMask), 192);
     assert_eq!(QualityLevel::High.budget(TextureClass::Sky), 2048);
-    assert_eq!(QualityLevel::Medium.budget(TextureClass::Sky), 1024);
+    assert_eq!(QualityLevel::Medium.budget(TextureClass::Sky), 768);
     assert_eq!(QualityLevel::Low.budget(TextureClass::Sky), 512);
 
     for class in CLASSES {
@@ -115,17 +115,11 @@ fn medium_budgets_are_the_documented_intermediate() {
             "{class:?}: budgets must not invert: {low}/{medium}/{high}"
         );
     }
-    assert!(QualityLevel::Low.budget(TextureClass::Surface) < 512);
-    assert!(512 < QualityLevel::High.budget(TextureClass::Surface));
-    // A native prop sheet already fits the Medium budget, so Medium uploads it
-    // unchanged while Low halves it.
-    assert_eq!(QualityLevel::Medium.budget(TextureClass::Prop), 256);
-    assert!(QualityLevel::Medium.budget(TextureClass::EmissionMask) < 512);
 }
 
 #[test]
-fn budgets_are_power_of_two_so_downscaling_is_a_clean_halving_chain() {
-    for level in QualityLevel::ALL {
+fn low_and_high_keep_the_existing_power_of_two_budgets() {
+    for level in [QualityLevel::Low, QualityLevel::High] {
         for class in CLASSES {
             assert!(level.budget(class).is_power_of_two());
         }
@@ -326,9 +320,9 @@ fn switching_levels_changes_every_derived_decision() {
         (QualityLevel::Low, 128, 256, 128, false, 512, 10.0, 1, 0.15),
         (
             QualityLevel::Medium,
-            256,
-            512,
-            256,
+            192,
+            384,
+            192,
             true,
             1_024,
             12.0,
@@ -370,11 +364,11 @@ fn high_uploads_a_shipped_surface_sheet_exactly_as_decoded() {
 }
 
 #[test]
-fn medium_halves_the_same_sheet_to_the_documented_budget() {
+fn medium_fits_the_same_sheet_to_the_documented_budget() {
     let image = solid(1_024, [10, 20, 30, 255]);
     let fitted = fit_image(&image, QualityLevel::Medium, TextureClass::Surface);
     assert!(matches!(fitted, std::borrow::Cow::Owned(_)));
-    assert_eq!((fitted.width, fitted.height), (512, 512));
+    assert_eq!((fitted.width, fitted.height), (384, 384));
     assert!(
         fitted
             .rgba
@@ -411,22 +405,30 @@ fn high_preserves_detailed_prop_prints_while_lower_levels_bound_their_cost() {
     let low = fit_image(&image, QualityLevel::Low, TextureClass::Prop);
     assert!(matches!(high, std::borrow::Cow::Borrowed(_)));
     assert_eq!((high.width, high.height), (1_024, 1_024));
-    assert_eq!((medium.width, medium.height), (256, 256));
+    assert_eq!((medium.width, medium.height), (192, 192));
     assert_eq!((low.width, low.height), (128, 128));
 }
 
 #[test]
-fn high_and_medium_keep_a_native_256_prop_texture_exactly() {
+fn native_prop_sheets_have_a_distinct_medium_between_low_and_high() {
     let image = solid(256, [12, 34, 56, 255]);
-    for level in [QualityLevel::High, QualityLevel::Medium] {
-        let fitted = fit_image(&image, level, TextureClass::Prop);
-        assert!(
-            matches!(fitted, std::borrow::Cow::Borrowed(_)),
-            "{level:?} must neither copy nor resample a native 256px prop sheet"
-        );
-        assert_eq!((fitted.width, fitted.height), (256, 256));
-        assert_eq!(fitted.rgba, image.rgba);
-    }
+    let high = fit_image(&image, QualityLevel::High, TextureClass::Prop);
+    let medium = fit_image(&image, QualityLevel::Medium, TextureClass::Prop);
+    let low = fit_image(&image, QualityLevel::Low, TextureClass::Prop);
+    assert!(matches!(high, std::borrow::Cow::Borrowed(_)));
+    assert_eq!(high.rgba, image.rgba);
+    assert_eq!((high.width, medium.width, low.width), (256, 192, 128));
+    assert_eq!(medium.height, 192);
+    assert!(matches!(medium, std::borrow::Cow::Owned(_)));
+    assert!(
+        medium
+            .rgba
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .all(|texel| *texel == [12, 34, 56, 255]),
+        "fractional fitting must keep the source colour"
+    );
 }
 
 #[test]

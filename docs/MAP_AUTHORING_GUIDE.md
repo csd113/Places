@@ -138,7 +138,7 @@ Authoritative paths:
 | Restrained post-processing: emission-driven bloom, a tone shoulder, the global distance fog and a subtle grade, with the UI drawn outside it | Implemented (optional `environment` authors fixed presentation and global atmosphere; regional fog volumes add to it — see [§11](#fog-a-global-atmosphere-plus-level-authored-regions)) |
 | Level-authored regional fog volumes (`fog_regions[]`, ≤ 16) | Implemented (see [§11](#fog-a-global-atmosphere-plus-level-authored-regions)) |
 | Opaque void wall / floor boxes (`void_walls[]`, ≤ 256) for hiding the void | Implemented (see [§11](#void-wall-and-floor-boxes)) |
-| Animated emissions: `animated_emissions[]` makes a material's emission pulse or flicker, deterministically | Implemented |
+| Animated emissions: `animated_emissions[]` makes a material or fixture face pulse or flicker, deterministically | Implemented |
 | Low / Medium / High runtime quality levels over the same level content | Implemented |
 | Props/entities from GLBs by logical id, `solid` collision boxes | Implemented |
 | Multi-primitive / multi-material GLB props, embedded emissive materials, node transforms | Implemented |
@@ -2503,7 +2503,7 @@ layouts preserved; see the table below and Asset Specification §12.3.
 | Decal wrapping | `REPEAT` + mipmaps, but full-sheet fitted UVs, so the sheet never actually repeats. |
 | Fixture wrapping | `CLAMP_TO_EDGE` + mipmaps; the whole sheet is fitted once across the face. |
 | Alpha | Surface sheets are opaque *unless* their material authors `alpha_mode`. The base pass has blending off, so an `opaque` material's alpha channel is ignored; `cutout` discards texels below the material's cutoff and `blend` samples it. Decals are alpha cut-outs (alpha < 0.5 discarded). Fixture faces are opaque. |
-| Normal maps | A normal map is an ordinary RGB sheet in the same asset tree; the material names it with `normal_texture`. It is a *surface* texture for quality purposes (High 1024 / Medium 512 / Low 256), tiles like its albedo and may be hand-painted or generated. |
+| Normal maps | A normal map is an ordinary RGB sheet in the same asset tree; the material names it with `normal_texture`. It is a *surface* texture for quality purposes (High 1024 / Medium 384 / Low 256), tiles like its albedo and may be hand-painted or generated. |
 | Colour space | Colour PNG RGB decodes sRGB before filtering; tint/light factors and lighting use linear HDR. Numeric normal/mask/alpha data do not decode sRGB. Presentation encodes once. |
 
 Shipped Office/Pool surface sheets are intentionally 1024×1024, square, opaque;
@@ -2522,12 +2522,12 @@ state. The player never bakes a new atlas or captures a probe:
 
 | Texture class | High (default) | Medium | Low |
 | --- | --- | --- | --- |
-| Surface sheet | 1024 | 512 | 256 |
-| Fixture face | 1024 | 512 | 256 |
-| Decal sheet | 1024 | 512 | 256 |
-| Prop sheet (GLB) | 256 | 256 | 128 |
-| Emissive mask | 512 | 256 | 128 |
-| Sky panorama | 2048 | 1024 | 512 |
+| Surface sheet | 1024 | 384 | 256 |
+| Fixture face | 1024 | 384 | 256 |
+| Decal sheet | 1024 | 384 | 256 |
+| Prop sheet (GLB) | 1024 | 192 | 128 |
+| Emissive mask | 512 | 192 | 128 |
+| Sky panorama | 2048 | 768 | 512 |
 | Lighting | Independent Static / Full | Independent Static / Full | Independent Static / Full |
 | Reflections | Independent Off / Medium / Full (suppressed in Static) | Same | Same |
 | Prepared transport | Chosen lighting mode | Chosen lighting mode | Chosen lighting mode |
@@ -2540,6 +2540,10 @@ state. The player never bakes a new atlas or captures a probe:
   level load, to the level's budget. A lower level is not a second art library;
   ids, materials and geometry are identical. It is an optional
   quality/performance trade, never a repository asset requirement.
+  The fit scales both edges proportionally, so a native 256² prop atlas uses
+  192² on Medium and 128² on Low; a 512² surface uses 384² on Medium and 256²
+  on Low. High preserves both. Medium's 25% reduction from its former edge
+  budgets removes about 44% of the affected level-zero texels.
 * Downscaling happens once per upload, never per frame, and the result is cached
   with the texture it produced. Every level is deterministic: the same source
   always produces the same runtime image.
@@ -2617,7 +2621,7 @@ entry.)
 | --- | --- | --- |
 | Missing-texture diagnostic (64×64 magenta/black) | `assets/shared/textures/missing_01.png` (embedded by the engine) | Visible fallback for any broken surface/decal/fixture texture. |
 | Validation decal atlas (256×256; only `core:decal_test_01`) | `assets/shared/decals/validation_atlas_01.png` | Fixed atlas slots, alpha and bottom-up row convention; the existing atlas UV mapping is preserved. |
-| White sheet (1024×1024 opaque white fill, file-backed) | `assets/shared/textures/white_01.png` (loaded by `src/render/wgpu/texture.rs`) | Untextured geometry (fixture housings, UI quads). |
+| White sheet (1024×1024 opaque white fill, file-backed) | `assets/shared/textures/white_01.png` (loaded by `src/render/wgpu/texture.rs`) | Untextured geometry (round/wall fixture bodies, UI quads); fluorescent housings bind the metal material. |
 | HUD font atlas (128×64) | `assets/shared/ui/font_01.png` | Project-owned bitmap UI font with sixteen 8×8 ASCII cells per row and the reserved white UI cell. |
 | Emergency white sheet (2×2) | `assets/shared/textures/white_fallback_01.png` | Embedded opaque white fallback if the primary embedded white PNG cannot decode. |
 | Lightmap atlas (Full up to fourteen pages per contribution group; lower profiles eight) | `src/lighting/lightmap/`, packaged KTX2 payloads | Incident linear HDR and signed moments computed offline from geometry/material/light inputs. Loaded from the prepared package; the 320 MiB +64 KiB typed bound and unchanged aggregate/shape guards apply. PNG dumps are diagnostics, not artwork. |
@@ -2942,7 +2946,7 @@ an unknown id) and the level keeps working.
 | Triangles — engine hard ceiling | 6000 (`MAX_PROP_TRIANGLES`; above it the model falls back to a box) |
 | Vertices per model | 65 535 (`MAX_PROP_VERTICES`) |
 | Primitives / materials / images per model | 32 / 16 / 16 |
-| Prop texture | **256×256 ordinary native**, with reviewed party cloth 1024 and wrapping 512; engine ceiling 1024 (`MAX_PROP_TEXTURE_SIZE`), High preserves authored size and Medium/Low reduce to 256/128 |
+| Prop texture | **256×256 ordinary native**, with reviewed party cloth 1024 and wrapping 512; engine ceiling 1024 (`MAX_PROP_TEXTURE_SIZE`), High preserves authored size and Medium/Low reduce to 192/128 |
 | Prop pack decoded memory | 106 MiB (`PROP_TEXTURE_PACK_BUDGET_BYTES`); the current 335-model pack is approximately 104.4 MiB before runtime sharing/downsampling; `tools/assets/audit.py` reports the current inventory |
 | Materials per prop | one per primitive; a multi-material model costs one draw range per material per batch |
 | Distinct models per level | 4096 (`MAX_LEVEL_PROP_MODELS`; fallback boxes beyond it) |
@@ -3138,8 +3142,7 @@ is required to make neighbouring coplanar geometry continuous.
 
 ```text
 visible face brightness   <- the fixture's `emission` (default = `brightness`)
-visible face colour       <- the fixture's catalog sheet (texture-first; the
-                             light's `color` never repaints the artwork)
+visible face colour       <- the fitted catalog sheet multiplied by `color`
 illumination of the room  <- the fixture's `brightness` and `color`, only while
                              `enabled: true` (or a prop's `props[].lights`)
 ```
@@ -3576,26 +3579,26 @@ an ordinary static prop and participates in the bake).
 ### Animated emissions
 
 A level can make a surface's **emission** move over time: a backlit sign that
-breathes, a tube on a failing ballast. It is a level-level array, keyed by
-material id. This is real content from `levels/places_demo.json` (the
-`comment` keys shown there are ignored extras; they are omitted here):
+breathes, a tube on a failing ballast. It is a level-level array, keyed by an
+ordinary material id or an authored fixture asset id:
 
 ```json
 "animated_emissions": [
   { "material": "core:glass_sign_lit_01",     "effect": "pulse",   "hz": 0.09, "depth": 0.18, "phase": 0.0 },
-  { "material": "core:glass_sign_flicker_01", "effect": "flicker", "hz": 7.5,  "depth": 0.6,  "phase": 0.31 }
+  { "material": "core:glass_sign_flicker_01", "effect": "flicker", "hz": 7.5,  "depth": 0.6,  "phase": 0.31 },
+  { "material": "core:fluorescent_panel_01",  "effect": "flicker", "hz": 7.5,  "depth": 0.6,  "phase": 0.0 }
 ]
 ```
 
 | Field | Meaning |
 | --- | --- |
-| `material` | the material whose emissive term animates. **Not validated against the materials the level uses**: an id that is not in the level's material table is silently ignored at render time. `validate.py` checks only that it is a well-formed id. |
+| `material` | An ordinary material id or an authored fixture asset id. A fixture id animates the luminous face of every matching `ceiling_lights[]` placement, using its authored colour and emission strength; it does not animate the housing. An id absent from both the material table and placed fixtures is ignored at render time. `validate.py` checks only that it is a well-formed id. |
 | `effect` | `pulse` (a slow sinusoid) or `flicker` (an occasional, bounded stutter). Omitted means `pulse`; an unknown name is rejected by the loader. |
 | `hz` | cycles per second, must be finite, `> 0` and `≤ 24` **for both effects**. A `pulse` above 2 Hz is accepted by the loader and then clamped to 2 Hz at render time; `validate.py` rejects it up front. Omitted uses the effect default (`pulse` 0.12, `flicker` 9.5). |
 | `depth` | how far the emission may fall below its authored value, must be finite, `> 0` and `≤ 0.85`. Omitted uses the effect default (`pulse` 0.22, `flicker` 0.55). |
 | `phase` | a phase offset in cycles, so two signs do not breathe in lockstep; must be finite. Default `0.0`. |
 
-Four things to know:
+Five things to know:
 
 * **Emission only.** The animation scales the additive emissive term. The baked
   illumination is static by design, so a flickering panel keeps lighting the room
@@ -3609,9 +3612,13 @@ Four things to know:
 * **Subtle by default.** `depth` is how *far down* the emission goes, so a pulse
   at `0.18` is a 9 % average drop and a flicker at `0.6` stutters to 40 % about a
   tenth of the time.
-* **Unknown-material entries do nothing.** If the material is not resolved by the
-  level, the entry costs nothing and changes nothing; check the console for
-  material-resolution warnings when a sign was supposed to breathe.
+* **Switches multiply the animation.** An animated fixture with
+  `switchable: true` stays dark while off. Switching it on restores the current animation
+  phase. Matching fixtures own separate face uniforms, so one fixture's switch
+  never changes another fixture or another asset in the same mesh family.
+* **Unused entries do nothing.** If neither a resolved material nor a placed
+  fixture matches the id, the entry changes nothing. Check the exact authored
+  asset id when a sign or fixture was supposed to animate.
 
 ### Current Light Fixture Types
 
@@ -3621,7 +3628,7 @@ code**.
 
 | Fixture ID | Mount type | Visible artwork (PNG) | Shape / footprint | Important authoring notes |
 | --- | --- | --- | --- | --- |
-| `core:fluorescent_panel_01` | ceiling (default) | `environments/office/textures/lights/fluorescent_panel_01.png` (1024×512) | Recessed troffer, outer footprint 1.2 × 0.6 m (half extents 0.6 × 0.3); rotation swaps axes | The default family **and the fallback for every unknown id**. A real housing frames the diffuser: side walls drop 0.045 m from the ceiling plane, a bottom frame borders the aperture, a top flange closes the body, and the fitted 2:1 sheet (aperture 1.12 × 0.56 m) is recessed 0.012 m above the frame's bottom. Only the diffuser glows; the housing is a fixed mid grey. Hangs 0.01 m below the local ceiling; under a gable it follows the eave/ceiling above its footprint. Grid alignment (section 21) snaps its centre to the ceiling material's panel grid at load by default. |
+| `core:fluorescent_panel_01` | ceiling (default) | `environments/office/textures/lights/fluorescent_panel_01.png` (1024×512) | Recessed troffer, outer footprint 1.2 × 0.6 m (half extents 0.6 × 0.3); rotation swaps axes | The default family **and the fallback for every unknown id**. A real housing frames the diffuser: side walls drop 0.045 m from the ceiling plane, a bottom frame borders the aperture, a top flange closes the body, and the fitted 2:1 sheet (aperture 1.12 × 0.56 m) is recessed 0.012 m above the frame's bottom. Only the diffuser glows; the housing uses non-emissive `core:fluorescent_panel_housing` with ordinary receiver lighting and sheen, without requiring reflection captures. Hangs 0.01 m below the local ceiling; under a gable it follows the eave/ceiling above its footprint. Grid alignment (section 21) snaps its centre to the ceiling material's panel grid at load by default. |
 | `core:pool_light_round` | ceiling | `environments/pool/textures/lights/pool_light_round_01.png` (128×128) | Disc, 0.44 m diameter (half extent 0.22); rotation-invariant | Round recessed downlight. Same ceiling-plane derivation as the panel. |
 | `home:ceiling_light_round` | ceiling (default) | `environments/home/textures/lights/ceiling_light_round_01.png` (256×256) | Disc, 0.32 m diameter (half extent 0.16); rotation-invariant | Round residential flush mount: a shallow white drum with a glowing diffuser disc, hanging 0.07 m below the ceiling plane. Its pool is the disc's bounding square, as with the pool downlight. |
 | `core:pool_light_wall` | **wall** — requires `"mount": "wall"` and a finite world `"y"` | `environments/pool/textures/lights/pool_light_wall_01.png` (128×64) | Rectangle 0.4 × 0.18 m (half extents 0.20 × 0.09) centred on (x, y, z) | Faces `rotation_degrees`: 0 = +Z, 90 = +X, 180 = −Z, 270 = −X. Place the point on the wall plane; the body extends ~0.11 m forward. Light is emitted from the rectangle's front. |
@@ -3629,10 +3636,15 @@ code**.
 | `arcade:blacklight_tube` | ceiling | `environments/arcade/textures/lights/blacklight_tube_01.png` (256×32) | Closed 1.2 × 0.15 m batten, fitted 1.12 × 0.14 m lens; seven quads | Dark housing with restrained purple face. Author `ultraviolet` for pigment response and `switchable: true` for actions. Each batten has an individual face slot, including nonswitchable instances, so disabled faces start dark. |
 
 Ceiling fixture rotation is quantised to a 0°/90° axis swap; only wall sconces rotate
-continuously. Unknown fixture ids load as the office panel with the untextured white
+continuously. A turned fluorescent panel rotates its frame borders and fitted
+sheet together: local +X maps to world +Z and local +Z maps to world −X, keeping
+the diffuser and finite light source on the same 2:1 aperture without stretching
+or mirroring. The source is on the recessed diffuser plane; gable clearance
+still uses the full housing footprint. Unknown fixture ids load as the office panel with the untextured white
 sheet (no error); a named-but-broken sheet logs
 `[fixtures] fixture {id} sheet {path}: {error}; drawing the untextured sheet instead`.
-The first light of a family decides that family's sheet for the whole level.
+The first shared light of a family decides that family's shared sheet.
+Switchable and animated fixtures retain their own authored sheet and face slot.
 
 ### The residential flush mount
 
@@ -3640,8 +3652,7 @@ The first light of a family decides that family's sheet for the whole level.
 0.07 m below the ceiling plane with a glowing diffuser disc. Its visible face is
 its own 256×256 sheet whose inscribed circle is the disc, so the artwork — a
 soft neutral white with a moulded rim — *is* the lamp's appearance; the lit face
-carries only a neutral emission strength, and the authored light `color` never
-tints it. The drum wall, its bottom rim and the small centre boss behind the
+carries the source `color` multiplied by its linear `emission` strength. The drum wall, its bottom rim and the small centre boss behind the
 diffuser's centre hole are untextured body geometry, exactly like the pool
 downlight's bezel.
 
@@ -3670,10 +3681,11 @@ Fixture geometry is code. To add a family, touch each of these:
    slots as the blacklight does; a fifth shared face would collide with
    historical switched faces.
 2. `src/render/common/fixtures.rs` — implement the family's emitter(s): the visible face
-   (the fitted PNG) into the `lit` batch, and only genuine untextured body
+   (the fitted PNG) into the `lit` batch, and separate non-emissive body
    geometry (a can, a housing, a frame) into `housing`. For an example, the office
    panel emits its diffuser into `lit` and a real troffer housing (side walls,
-   bottom frame, top flange) into `housing`.
+   bottom frame, top flange) into `housing`; the level emitter binds its ordinary
+   metal material and receiver lighting, separately from the luminous face.
 3. `src/render/common/geometry.rs` (`emit_fixtures`) — add the `match` arm that calls the new
    emitter.
 4. Add the PNG under `assets/environments/<theme>/textures/lights/` (POT, opaque,
@@ -3881,7 +3893,7 @@ All fixtures — ceiling and wall — live in the level's `ceiling_lights` array
 | `rotation_degrees` | number | no | `0.0` | Y rotation. Ceiling families quantise to a 0°/90° axis swap; wall fixtures rotate continuously. |
 | `brightness` | number | no | `1.0` | Must be finite and `≥ 0`; baking clamps to `8.0`. |
 | `ultraviolet` | number | no | `0.0` | Finite `0.0`–`8.0`, independent pigment excitation. At most four positive sources may be authored, counting disabled fixtures. Uses fixture position, emitting extent, range, falloff, surface orientation and transport visibility. Enabled state gates reaction even with Lighting Off or zero visible brightness. It contributes no ordinary irradiance or bloom. |
-| `color` | `[r,g,b]` | no | `[1.0, 0.96, 0.88]` | Each channel `0`–`1`. Drives the illumination only: the visible face is texture-first and the light colour never repaints the artwork. |
+| `color` | `[r,g,b]` | no | `[1.0, 0.96, 0.88]` | Each channel `0`–`1`. Tints both illumination and the fitted luminous face; housing keeps its own material. |
 | `mount` | `"ceiling"` \| `"wall"` | no | `"ceiling"` | Closed enum. Wall fixtures require `y` or the level is rejected. |
 | `y` | number | no (required for wall) | derived for ceiling | Ceiling: optional mounting world Y (also selects a storey in stacked rooms). Wall: required world Y of the fixture centre. |
 | `range` | number | no | `6.0` | Reach of this fixture's pools in metres; must be positive and finite; clamped to `0.05`–`64`. A ceiling fixture's direct pool falls to zero at `range` measured horizontally from its emitting rectangle; its bounce fill reaches `1.5 × range`. A shorter range is also a softer pool. |
@@ -4433,12 +4445,12 @@ three, plus `y` and the room it resolves to.
 
 **Symptom:** an `animated_emissions` entry has no visible effect.
 
-**Cause:** the entry's `material` is not a material the level actually uses (entries
-are silently ignored), the material does not emit, or the effect's `depth` is too
-small to notice.
+**Cause:** the entry's `material` matches neither a material the level uses nor a
+placed fixture asset, the material does not emit, the fixture is switched off,
+or the effect's `depth` is too small to notice.
 
-**Authoring rule:** animate a material that is on a surface in the level and has
-`emissive`; start from the demo's depth values.
+**Authoring rule:** name an emissive surface material or the exact `fixture` asset
+id from a placed light. Start from the bounded pulse or flicker examples in §18.
 
 ---
 
@@ -5554,6 +5566,9 @@ slab first; the accepted engine range stays `5`–`179`.
 | `frame_depth` | number | no | resolved wall (`0.12` standalone) | Total depth of the frame's reveal liner along the leaf's closed normal, in metres; `> 0` and `≤ 2.0` (`MAX_DOOR_FRAME_DEPTH_M`). Omitted resolves the wall the leaf is installed in. |
 | `frame_center` | number | no | resolved wall (`0.0` standalone) | Signed offset of the liner's centre from the leaf's centre plane along the leaf's closed normal (hinge-space `+Z`), in metres; `abs(value) ≤ frame_depth`, and it may only be authored together with `frame_depth`. |
 
+For newly authored maps, start every interactive door closed. Use an open
+starting state only when explicitly requested.
+
 The **frame** the leaf hangs in is resolved from the map unless the leaf authors
 it. The resolver looks for the wall whose footprint contains the closed leaf's
 midpoint and whose walk-through opening the leaf fills: the opening's `kind` is
@@ -5950,11 +5965,16 @@ For severe weather, keep the seed budget small and use a compact nearby volume:
 ```
 
 Storm extinction is exponential-squared in the **outdoor portion** of each
-camera-to-fragment sightline, after the normal atmosphere. It affects world
+camera-to-fragment sightline, after the normal atmosphere. Its small tail
+fades smoothly to exact zero between optical depths 2 and 3, removing all
+distant contrast. With severity `s > 0`, complete exterior occlusion occurs
+at `1.5 × visibility_m / s`; Winter's mild/moderate/severe settings therefore
+reach zero at 50 / 21.43 / 7.5 m. It affects world
 surfaces, props, characters, translucent ice, decals and emitted bloom. Nearby
 warm lamps glow; distant emissive sources disappear rather than leaking bright
 bloom through the whiteout. The background sky blends toward the same fog color
-by the square root of severity, hiding aurora at full severity. No illumination,
+with the same extinction curve evaluated at the scene's 100 m far distance,
+hiding distant sky detail at mild, moderate and severe presets. No illumination,
 lightmap or reflection bake changes. Storm visibility stays identical across
 qualities; only the particle seed prefix changes. Strong wind gives velocity-
 aligned billboard streaks using the existing flake PNG and depth testing.
@@ -6789,7 +6809,7 @@ A level may declare one sky background:
   2:1** sheet: `u` is yaw (seamless around the horizon), `v` is pitch with `0`
   straight up. Sky sheets must have power-of-two edges and fit within 2048×1024;
   the dedicated sky loader validates this before allocating pixels. High uploads
-  up to 2048×1024, Medium 1024×512, Low 512×256. `outdoor:tex_sky_stars_01` is 1024×512, near-black with a small
+  up to 2048×1024, Medium 768×384, Low 512×256. `outdoor:tex_sky_stars_01` is 1024×512, near-black with a small
   number of faint stars in the upper half — no moon, no glow, no horizon.
 * `brightness` (`0.0..=4.0`, default 1.0) scales the sheet at draw time. It is
   a visual control, not an exposure: the authored art is the look.
@@ -7003,10 +7023,10 @@ authoring. They are not invitations to change the engine as part of an authoring
 4. **Cone/spot lights are not implemented.** The generic model has point, rectangle
    and line shapes; a directional light needs a response model that does not exist.
 5. **A GLB may embed larger prop textures than the shipped native size.** The
-   engine accepts up to 1024 px per edge but High and Medium upload a prop sheet
-   at 256 and Low at 128, so the shipped toolkit stays at the 256 native size;
-   authoring bigger embedded art gains nothing under High unless the engine's
-   prop budget is raised first.
+   engine accepts up to 1024 px per edge. High preserves accepted native images;
+   Medium fits them to 192 and Low to 128. Ordinary props stay at the 256 native
+   size; reviewed metre-scale party prints use larger images within the
+   whole-pack decoded texture budget.
 6. **`emission` on a fixture is emission only.** It never changes illumination; if a
    glowing face should also light the room, that is `brightness`/`enabled`.
 7. **No `deny_unknown_fields`.** Misspelled or unsupported level keys are silently

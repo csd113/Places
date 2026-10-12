@@ -20,15 +20,9 @@
 //! * [`WgpuDecals::encode`], one draw per range surviving the frame's frustum
 //!   test, submitted after the translucent pass and never in the emissive body.
 //!
-//! Display space is the first-order constraint, exactly as it was for the world
-//! stage: the reference uploads decal sheets as a plain non-sRGB `GL_RGBA`
-//! texture and multiplies the raw authored bytes, and its scene target is
-//! non-sRGB too. The wgpu sheets therefore upload as non-sRGB
-//! [`DECAL_SHEET_FORMAT`], the fragment multiplies in display space and
-//! `decals.wgsl` converts the product to linear exactly once for the sRGB
-//! target. The CPU mip chain averages the raw 8-bit channels without a gamma
-//! step, which is what the reference's `glGenerateMipmap` applied to the same
-//! non-sRGB sheet.
+//! Authored colour uploads as sRGB [`DECAL_SHEET_FORMAT`], so sampling decodes
+//! it before linear shading. Quality reduction and the CPU mip chain both
+//! average in linear light, weighting RGB by alpha coverage.
 //!
 //! The neutral geometry already lifts a decal [`crate::render::common::DECAL_SURFACE_OFFSET_M`]
 //! along its surface normal; that near-field separation and this pass's
@@ -823,7 +817,7 @@ fn upload_sheets(
                 Arc::new(crate::materials::missing_texture())
             }
         };
-        let fitted = fit_image(image.as_ref(), level, TextureClass::DecalSheet);
+        let fitted = fit_sheet(image.as_ref(), level);
         // The diagnostic image uploads through the same path as authored
         // artwork, exactly like the reference; only the counters tell them
         // apart.
@@ -844,10 +838,8 @@ fn upload_sheets(
 
 /// Uploads one sheet with a CPU mip chain and both filtering bind groups.
 ///
-/// The mip chain is the same deterministic 2x2 box filter `texture.rs` applies
-/// to its sheets (the two helpers are private there and duplicated here, pinned
-/// by the tests to the same arithmetic): average the raw 8-bit channels without
-/// a gamma step, stopping at 1x1.
+/// The mip chain uses the same coverage-weighted linear-light colour filter as
+/// the texture cache, stopping at 1x1.
 fn upload_sheet(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -1006,12 +998,19 @@ fn write_mip(queue: &wgpu::Queue, texture: &wgpu::Texture, level: u32, image: &R
     );
 }
 
-/// Box-filters an image to half its size, exactly like `texture.rs`.
-///
-/// Deterministic and display-space: the raw 8-bit channels are averaged without
-/// a gamma conversion, which is what the reference's `glGenerateMipmap` did to
-/// its decal sheet. Colour uses coverage-weighted linear-light averaging,
-/// including all pixels at odd edges.
+/// Fits colour from the original artwork, preserving High's native pixels.
+fn fit_sheet(source: &RawImage, level: QualityLevel) -> std::borrow::Cow<'_, RawImage> {
+    let fit = fit_image(source, level, TextureClass::DecalSheet);
+    if fit.width == source.width && fit.height == source.height {
+        fit
+    } else {
+        std::borrow::Cow::Owned(crate::materials::color::resize_color(
+            source, fit.width, fit.height,
+        ))
+    }
+}
+
+/// Box-filters colour in linear light, retaining odd edges and alpha coverage.
 fn halve(source: &RawImage) -> RawImage {
     crate::materials::color::resize_color(
         source,
@@ -1358,5 +1357,27 @@ mod tests {
         let odd_half = halve(&odd);
         assert_eq!((odd_half.width, odd_half.height), (1, 1));
         assert_eq!(odd_half.rgba, vec![7, 7, 7, 4]);
+
+        // Quality fitting must preserve energy and discard hidden transparent
+        // RGB just like mips; encoded-byte averages previously darkened sheets.
+        let pattern = [
+            [0, 0, 0, 255],
+            [255, 255, 255, 255],
+            [255, 0, 0, 0],
+            [0, 255, 0, 255],
+        ];
+        let source = RawImage::new(
+            512,
+            2,
+            pattern.into_iter().cycle().take(1024).flatten().collect(),
+        );
+        let high = fit_sheet(&source, QualityLevel::High);
+        assert!(matches!(high, std::borrow::Cow::Borrowed(_)));
+        assert_eq!(high.rgba, source.rgba);
+        let medium = fit_sheet(&source, QualityLevel::Medium);
+        assert_eq!((medium.width, medium.height), (384, 2));
+        let low = fit_sheet(&source, QualityLevel::Low);
+        assert_eq!((low.width, low.height), (256, 1));
+        assert_eq!(&low.rgba[..8], &[188, 188, 188, 255, 0, 255, 0, 128]);
     }
 }

@@ -48,7 +48,7 @@ TRIANGLE_ART_MAX = 1500
 TRIANGLE_ENGINE_MAX = 6000
 # 256x256 remains the ordinary prop size. Reviewed party cloths and wrapping
 # carry larger prints at their actual metre scale; High preserves up to1024,
-# Medium keeps256 and Low128. No image is upsampled at runtime.
+# Medium fits192 and Low128. No image is upsampled at runtime.
 TEXTURE_NATIVE_MAX = 256
 TEXTURE_ENGINE_MAX = 1024
 # Decoded RGBA8 memory one shipped prop texture may embed: one engine-max
@@ -424,7 +424,7 @@ def _print_report(report: List[dict]) -> None:
         f"budget: {TRIANGLE_TARGET} triangles preferred, {TRIANGLE_REVIEW} review, "
         f"{TRIANGLE_ART_MAX} shipped art max (engine {TRIANGLE_ENGINE_MAX}); "
         f"texture native {TEXTURE_NATIVE_MAX}x{TEXTURE_NATIVE_MAX} "
-        f"(reviewed cloth1024/wrap512; High <=1024, Medium256, Low128); "
+        f"(reviewed cloth1024/wrap512; High <=1024, Medium192, Low128); "
         f"pack decoded memory <= {PACK_TEXTURE_MEMORY_MAX // (1024 * 1024)} MiB"
     )
 

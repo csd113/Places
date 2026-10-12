@@ -288,8 +288,9 @@ fn finite_source_integrates_per_tap_cosines_instead_of_normalizing_their_mean() 
         attenuation: [1.0; 3],
     };
     let sampled = scene.direct_sample(&receiver, &[0], false, 2);
-    // Four authored corners are each sqrt(3) metres away and have cosine 1/sqrt(3).
-    let expected = strength / 3.0_f32.sqrt();
+    // Four equal-area cell centres are at (+/-0.5, 1, +/-0.5): each is
+    // sqrt(1.5) metres away and has cosine 1/sqrt(1.5).
+    let expected = strength / 1.5_f32.sqrt();
     assert_eq!(
         sampled.rays, 4,
         "the existing two-by-two emitter budget is retained"

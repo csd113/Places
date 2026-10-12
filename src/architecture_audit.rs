@@ -1117,8 +1117,11 @@ fn test_every_material_bearing_field_is_discovered() {
     let discovered = referenced_material_ids(&level);
     assert_eq!(
         discovered,
-        vec![SENTINEL.to_string()],
-        "every sentinel slot collapses to one discovered id"
+        vec![
+            SENTINEL.to_string(),
+            crate::level::FLUORESCENT_PANEL_HOUSING_MATERIAL.to_string(),
+        ],
+        "authored sentinel slots deduplicate; the fluorescent body adds its built-in material"
     );
     // Every sentinel path in the fixture, written out: a material-bearing field
     // added to the schema must appear here *and* in `referenced_material_ids`.

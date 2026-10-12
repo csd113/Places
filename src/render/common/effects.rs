@@ -609,7 +609,14 @@ impl EffectScene {
                 continue;
             }
             for particle in 0..emitter.count {
-                let pose = particle_pose(emitter, self.clock, particle);
+                let mut pose = particle_pose(emitter, self.clock, particle);
+                if let Some(weather) = self.snow() {
+                    // Like snow, a soft plume loses contrast through the
+                    // exterior sightline; sheltered steam stays clear.
+                    pose.alpha *= weather
+                        .storm
+                        .transmission(camera, Vec3::from_array(pose.position));
+                }
                 let tile = positive_or(emitter.tile_metres, 1.0);
                 let span = (pose.size / tile).clamp(0.0, MAX_UV_SPAN);
                 append_billboard(camera, pose, span, out);
@@ -1062,6 +1069,33 @@ mod tests {
     }
 
     #[test]
+    fn steam_loses_distant_storm_contrast_but_sheltered_plumes_stay_clear() {
+        // One existing narrow emitter and a room: no production map, bake or
+        // GPU. Protects the otherwise separate transparent billboard path.
+        let mut level = level_with_effects(&[steam_effect(3.0, 3.0)]);
+        let resolved = materials(&level);
+        let mut calm = EffectScene::build(&level, &resolved);
+        let _calm_clock = calm.update(1.5);
+        level.weather = Some(crate::weather::WeatherDef::Snow(
+            crate::weather::SnowfallDef {
+                count: 1,
+                ..crate::weather::SnowfallDef::blizzard()
+            },
+        ));
+        let storm_materials = materials(&level);
+        let mut storm = EffectScene::build(&level, &storm_materials);
+        let _storm_clock = storm.update(1.5);
+        let mut clear_vertices = Vec::new();
+        let mut fog_vertices = Vec::new();
+        let _clear_count = calm.build_billboards([3.0, 1.6, 3.0], &mut clear_vertices);
+        let _indoor_count = storm.build_billboards([3.0, 1.6, 3.0], &mut fog_vertices);
+        assert_eq!(clear_vertices, fog_vertices, "sheltered plume is unchanged");
+        assert!(clear_vertices.iter().any(|vertex| vertex.color[3] > 0.0));
+        let _distant_count = storm.build_billboards([60.0, 1.6, 3.0], &mut fog_vertices);
+        assert!(fog_vertices.iter().all(|vertex| vertex.color[3] == 0.0));
+    }
+
+    #[test]
     fn weather_selection_restores_exact_calm_and_retains_bounded_resources_at_every_quality() {
         let mut scene = weather_scene();
         let calm_address = std::ptr::from_ref(scene.snow().expect("calm prepared"));
@@ -1150,7 +1184,11 @@ mod tests {
         let snow = scene.snow().expect("active scene");
         assert!((snow.wind()[0] - (8.0_f32 - 0.18).mul_add(0.175, 0.18)).abs() < 1.0e-6);
         assert!((snow.storm.color_density[3] - 0.07).abs() < 1.0e-6);
-        assert!((snow.sky_storm()[3] - 0.175_f32.sqrt()).abs() < 1.0e-6);
+        assert_eq!(
+            snow.sky_storm()[3],
+            1.0,
+            "sky converges to distant world fog"
+        );
         assert!(
             snow.storm.count[0] > 0,
             "intermediate weather retains prepared roof planes"

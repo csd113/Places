@@ -19,6 +19,7 @@
 
 use glam::{Mat4, Vec3};
 
+use super::gpu_timing::GpuTimer;
 use super::texture::SamplerPolicy;
 use super::world::{
     CAMERA_UNIFORM_SIZE, CameraUniform, WORLD_VERTEX_STRIDE, WorldVertex, clip_correction,
@@ -29,6 +30,20 @@ use crate::render::common::mesh::Vertex;
 use crate::render::common::view::{
     DrawableSize, UI_REFERENCE_HEIGHT, UI_REFERENCE_WIDTH, dimension_f32,
 };
+
+/// Whether this UI pass is followed by a surface copy or completes the frame.
+pub enum UiTiming<'a> {
+    Continue(&'a mut GpuTimer),
+    Finish(&'a mut GpuTimer),
+}
+
+impl UiTiming<'_> {
+    fn pass_writes(&self) -> Option<wgpu::RenderPassTimestampWrites<'_>> {
+        match self {
+            Self::Continue(timer) | Self::Finish(timer) => timer.pass_writes(),
+        }
+    }
+}
 
 /// The UI shader, from the file next to this module.
 pub const UI_SHADER_SRC: &str = include_str!("ui.wgsl");
@@ -216,6 +231,7 @@ impl UiRenderer {
         target: &wgpu::TextureView,
         vertices: &[Vertex],
         drawable: DrawableSize,
+        timing: Option<UiTiming<'_>>,
     ) -> UiStats {
         if !ui_is_drawable(drawable, vertices.len()) {
             return UiStats::default();
@@ -247,7 +263,7 @@ impl UiRenderer {
                     },
                 })],
                 depth_stencil_attachment: None,
-                timestamp_writes: None,
+                timestamp_writes: timing.as_ref().and_then(UiTiming::pass_writes),
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
@@ -271,6 +287,9 @@ impl UiRenderer {
             pass.draw(0..count, 0..1);
         }
         let _submission = queue.submit([encoder.finish()]);
+        if let Some(UiTiming::Finish(timer)) = timing {
+            timer.finish_frame_submitted(queue);
+        }
 
         UiStats {
             draw_calls: 1,

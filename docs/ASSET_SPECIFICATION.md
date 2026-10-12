@@ -365,26 +365,31 @@ the whole sheet is mapped once across the face, the UVs never leave `[0, 1]`,
 and the renderer uploads them `CLAMP_TO_EDGE` with mipmaps. Nothing about a
 fixture face tiles.
 
-The luminous face is **texture-first**: the sheet defines the fixture's visible
-colour and appearance, and the face's per-vertex emission is a *neutral*
-brightness (the authored `emission` strength, defaulting to the fixture's
-intensity) multiplied into the sampled sheet. The placed light's `color` is a
-property of the illumination only: it tints what the bake casts into the room
-and never repaints the face. The sheet itself is *not* a lightmap and carries
-no lighting information; its job is the fixture's appearance (diffuser, lens,
-housing trim on the luminous face). There is no separate emissive map for a
-fixture face.
+The luminous face uses the fitted sheet's artwork multiplied by the placed
+light's source `color` and visible `emission` strength (defaulting to
+`brightness`). White diffusers therefore show the authored light colour;
+coloured lens artwork retains its detail under that tint. Source switching
+and emission animation scale this same coloured term. The sheet is not a
+lightmap and does not cast illumination; housing remains separate geometry.
+There is no separate emissive map for a fixture face.
 
-A fixture's **housing** (the office panel's frame and body; the round and wall
-fixtures' bezel, can and drum) is ordinary body geometry drawn through the
-shared untextured white sheet (`core:tex_white_01`, §12.2) with the profile's
-flat authored shade. It is deliberately untextured: the housing is
-metal/plastic body geometry, not artwork, and a theme that wants patterned
-housing would introduce a fitted body sheet the way the luminous face already
-is one. The texture-first contract therefore covers
-everything a player reads as the fixture's *artwork* — the diffuser, lens or
-panel face — and the round Home flush mount in particular draws its whole
-visible face, rim line and centre structure from
+A fluorescent panel's **housing** uses the non-emissive
+`core:fluorescent_panel_housing` material. It reuses the committed
+`shared/textures/walls/metal_panel_01.png` albedo and the ordinary brushed-metal
+normal and sheen response, with `reflection_mode: "none"`; a plain fluorescent
+fixture therefore adds no probe-capture requirement. UVs follow the material's
+physical repeat on each body face rather than stretching a whole sheet across
+a border strip.
+Static uses baked vertex receiver illumination; Full uses the ordinary
+prepared lightmap contribution path, including circuit on/off changes.
+Housing emits no light and does not use the diffuser's source tint or emission
+animation. It can receive coloured illumination like any ordinary surface.
+
+Other fixtures' bezel, can and drum retain their authored untextured body
+shades through the shared white sheet (`core:tex_white_01`, §12.2). The fitted
+face contract covers the diffuser, lens or panel artwork. The round Home
+flush mount in particular draws its whole visible face, rim line and centre
+structure from
 `environments/home/textures/lights/ceiling_light_round_01.png`.
 
 Fixture faces are **opaque by construction**: the face draws in the opaque
@@ -413,21 +418,19 @@ Shipped asset: `core:fluorescent_panel_01` →
 | Emissive information | embedded in the artwork's brightness only; the glow is added by the renderer, and the base texture always multiplies the emission term |
 | Filtering / wrapping | mipmaps; `CLAMP_TO_EDGE` |
 
-The 1.2 × 0.6 m outer footprint is the *housing*: four untextured side walls
+The 1.2 × 0.6 m outer footprint is the *housing*: four brushed-metal side walls
 drop 0.045 m from the ceiling plane, a bottom frame borders the diffuser on all
 four sides, a top flange closes the body and the diffuser sits 0.012 m recessed
-above the frame's bottom. Only the fitted sheet glows; the housing is a fixed
-mid grey and carries no artwork.
+above the frame's bottom. Only the fitted sheet glows; the housing binds
+`core:fluorescent_panel_housing` with zero emission and ordinary receiver lighting.
 
-A `90°`/`270°` rotated panel placement is a **known code discrepancy**: the
-renderer swaps the face's world X/Z extents but leaves the sheet's UV axes
-fixed, so the sheet is effectively rotated and stretched onto a roughly 1:2
-aperture (0.52 × 1.16 m) rather than rotated as a sheet (contrary to the comment
-in `src/render/common/fixtures.rs`). No test covers rotated-panel UVs. Until that is
-resolved, do not treat the rotated placement as an additional contract for the
-artwork; keep the sheet 2:1 landscape and flag a rotated fixture for review
-(§25.1). An unrotated panel is exactly isotropic: the 1.12 × 0.56 m aperture
-shows 1.09 mm per texel in both directions at 1024×512.
+A `90°`/`270°` placement uses the fixture's existing quarter-turn convention:
+local +X becomes world +Z and local +Z becomes world −X. The frame borders and
+fitted UVs turn together, so the aperture is 0.56 × 1.12 m in world X/Z while
+the same landscape PNG keeps its local 2:1 layout. `u` runs along +Z and `v`
+along −X; the artwork is rotated without mirroring. Both orientations show
+1.09 mm per texel in each direction at 1024×512. The finite light source uses
+that same luminous aperture and diffuser plane; the metal body remains opaque.
 
 The visible lens face is 0.4 × 0.2 m (`src/render/common/fixtures.rs`, pinned by
 test). The map guide's separate "0.4 × 0.18 m" figure for the wall luminaire
@@ -502,7 +505,7 @@ therefore one of the three face contracts:
 
 | Family | Example id | Face aspect | Placement notes |
 |---|---|---|---|
-| Fluorescent panel | `core:fluorescent_panel_01` | 2:1 | ceiling troffer: the sheet is fitted to the inset diffuser inside a grey frame; `rotation_degrees` turns the panel |
+| Fluorescent panel | `core:fluorescent_panel_01` | 2:1 | ceiling troffer: the sheet is fitted to the inset diffuser inside a non-emissive brushed-metal frame; `rotation_degrees` turns the panel |
 | Round recessed | `core:pool_light_round` | 1:1 | ceiling downlight |
 | Wall luminaire | `core:pool_light_wall` | 2:1 | needs `"mount": "wall"` and a world `"y"` |
 | Flush mount | `home:ceiling_light_round` | 1:1 | residential ceiling lamp: a drum with a glowing diffuser disc |
@@ -711,7 +714,7 @@ normal runtime texture         256x 256 native
 | Shipped sizes | 363 embedded PNGs across 335 models: 32-square (23), 64-square (6), 128-square (74), 256-square (246), 512-square (6), 1024-square (8); `tools/assets/audit.py` supplies the current inventory |
 | Higher resolutions | Reviewed party cloths use 1024-square sheets and wrapping uses 512-square sheets for print fidelity at their model scale; ordinary props retain 256 or smaller |
 | Hard maximum | 1024 px per edge (parser rejects the model above it) |
-| Runtime budget | High preserves sheets up to 1024; Medium ≤256 and Low ≤128 (`TextureClass::Prop`); smaller sheets remain unchanged and downscaling preserves aspect |
+| Runtime budget | High preserves sheets up to 1024; Medium ≤192 and Low ≤128 (`TextureClass::Prop`); smaller sheets remain unchanged and downscaling preserves aspect |
 | Pack budget | 106 MiB decoded RGBA8 for the entire shipped pack (`PROP_TEXTURE_PACK_BUDGET_BYTES`), counting per-model copies and numeric masks; the current detailed party-print set brings the pack to approximately 104.4 MiB |
 | Decoded memory | `width × height × 4` bytes per image (RGBA8), summed over a model for `texture_bytes`; the surface class additionally caps one sheet at `MAX_SURFACE_TEXTURE_BYTES` (4 MiB) |
 | Practical guidance | 256×256 remains ordinary content; larger sheets require reviewed metre-scale print detail and bounded whole-pack accounting |
@@ -984,8 +987,8 @@ shelf coffee table, checked cushions, books, mug and sunset CRT programme.
 All new Home models retain a square 1024² `*_master.png` and one square,
 opaque 256² native atlas beside their GLB. The master is downsampled once with
 Lanczos by `tools/textures/author_home.py`. GLBs embed the native image;
-ordinary prop builds load it rather than paint replacements. High/Medium
-keep that native atlas and Low uses the existing 128² upload policy.
+ordinary prop builds load it rather than paint replacements. High keeps that
+native atlas; Medium uploads 192² and Low uses the existing 128² policy.
 
 The four regions are row-major quadrants. Cabinets use body/door/counter/
 metal; sofas use body/seat/back/wood; other new static fittings use main/
@@ -1155,7 +1158,7 @@ source there. Printed artwork retains1024-square masters. Four cloth patterns us
 native PNGs across eight rectangle/round variants; six gift wraps use dedicated
 512-square natives. Cups, plates and hats retain128-square sheets and the family
 palette retains32-square. High uploads these authored prints unchanged; Medium
-and Low intentionally reduce prop images to 256 and 128. These exceptions preserve
+and Low intentionally reduce prop images to 192 and 128. These exceptions preserve
 fine print strokes at actual model scale. The round skirt unwrap follows its
 vertical drape length rather than projecting it into a narrow radial strip.
 
@@ -1259,7 +1262,7 @@ emission = mix(material_emissive_color, vertex_color, vertex_emission)
     tiling period as the albedo, or the glow will not line up with the
     artwork.
   * Masks upload like a surface-class texture but with their own budgets:
-    High ≤512, Medium ≤256, Low ≤128.
+    High ≤512, Medium ≤192, Low ≤128.
   * A texture used *only* as a mask is exempt from the shipped-asset dimension
     test, because the engine imposes no shape on it. A sheet shared as both an
     albedo (or normal map) and a mask must satisfy the surface contract.
@@ -1286,7 +1289,7 @@ and `uv_response_mask` select the response. A mask is an opaque numeric RGB
 PNG, sampled as linear data using the albedo's texture UVs. Black backing must
 remain black in the mask; white fluorescent motifs react fully, and grey
 edges can represent partial pile coverage. Alpha is ignored. Masks use the
-512/256/128 High/Medium/Low numeric-mask budgets and the same wrapping as
+512/192/128 High/Medium/Low numeric-mask budgets and the same wrapping as
 their owning surface or fitted model texture. They never use
 `emissive_mask`, enter the emission-only bloom image, or illuminate neighbours.
 
@@ -1333,7 +1336,7 @@ cropped into production textures.
 
 * A normal map is an ordinary PNG in the asset tree that a material names with
   `normal_texture` (plus `normal_strength`, `0.0..=2.0`).
-* It is a **surface-class** texture for quality purposes: High 1024, Medium 512, Low 256.
+* It is a **surface-class** texture for quality purposes: High 1024, Medium 384, Low 256.
 * It is square and tileable, exactly like the albedo it augments, and is
   sampled with the same world-space UVs and the same `tile_metres` period.
 * RGB carries the tangent-space normal (`0..255` maps to `-1..1`); alpha is
@@ -1373,8 +1376,8 @@ the current compiler builds maps against the installed asset bundle; see
 ### 12.2 Shared untextured white sheet
 
 `core:tex_white_01` → `assets/shared/textures/white_01.png` is the renderer's
-neutral fallback sheet: a flat opaque white fill. Fixture housings, plain
-body geometry and every texture slot with nothing better to bind sample it
+neutral fallback sheet: a flat opaque white fill. Untextured fixture bodies,
+plain geometry and every texture slot with nothing better to bind sample it
 (§6). It carries no artwork, no level references it, and nothing derives
 detail from it, so its size is a budget choice rather than a UV or aspect
 contract; it must stay an opaque white fill. The shipped sheet is authored at
@@ -1390,9 +1393,8 @@ material and is exempt from the tiling and environment-seam gates for that
 reason; its squareness and dimension budget are still checked by the shared
 shipped-sheet tests.
 
-A theme that wants patterned fixture housing would introduce a fitted body
-sheet the way the luminous face already is one — the white sheet itself is not
-an authoring target.
+Fluorescent panel housings use the existing metal surface material instead of
+this sheet (§6). The white sheet itself is not an authoring target.
 
 ### 12.3 Internal image resources
 
@@ -1496,12 +1498,12 @@ a runtime edge budget per texture class:
 
 | Texture class | High (default) | Medium | Low |
 |---|---|---|---|
-| Surface sheet | 1024 | 512 | 256 |
-| Fixture face | 1024 | 512 | 256 |
-| Decal sheet | 1024 | 512 | 256 |
-| Prop sheet (embedded) | 1024 | 256 | 128 |
-| Emissive mask | 512 | 256 | 128 |
-| Sky panorama | 2048 | 1024 | 512 |
+| Surface sheet | 1024 | 384 | 256 |
+| Fixture face | 1024 | 384 | 256 |
+| Decal sheet | 1024 | 384 | 256 |
+| Prop sheet (embedded) | 1024 | 192 | 128 |
+| Emissive mask | 512 | 192 | 128 |
+| Sky panorama | 2048 | 768 | 512 |
 | Lighting | Independent Static / Full | Same | Same |
 | Reflections | Independent Off / Medium / Full; suppressed in Static | Same | Same |
 
@@ -1511,17 +1513,21 @@ packages remain readable and saved Medium lighting becomes Full. All texture
 qualities retain authored presentation defaults (exposure 1, knee 0.75,
 saturation 1.03, contrast 1.02).
 
-* Downscaling happens **once, at upload / level-load time**, through an
-  integer-factor box filter that applies the same factor to both edges, so
-  aspect ratio is preserved (up to per-edge rounding).
+* Downscaling happens **once, at upload / level-load time**, through a
+  proportional box filter. The longest edge reaches its budget and the other
+  edge scales by the same ratio, rounded up. Numeric images average integer
+  source regions; colour images use the same regions in linear light with
+  coverage-weighted RGB. Source POT requirements do not constrain runtime
+  dimensions or change the normalized UV frame.
 * The result is cached with the texture; nothing is rescaled per frame.
 * **High is the native presentation.** A 256×256 prop sheet and a 1024×1024
   surface upload unchanged; High never resamples an asset that already sits
   within its class budget.
 * Medium and Low are optional quality/performance reductions, not a hardware
-  requirement: Medium halves surface sheets (1024 → 512) and limits props
-  to 256; Low limits surfaces to 256 and props to 128. They must never dictate the size of the asset stored in the
-  repository.
+  requirement: Medium limits surface sheets to 384 and props to 192;
+  Low limits surfaces to 256 and props to 128. A native 256² prop atlas therefore
+  has three distinct uploads: High 256², Medium 192², Low 128². They must never
+  dictate the size of the asset stored in the repository.
 * Every level uses the same assets, ids, levels and geometry. A lower level is
   not a second art library. **Never author a separate low-resolution asset
   set.**
@@ -1538,18 +1544,18 @@ The shipped environment surfaces are 1024×1024 on purpose. High is the
 default presentation and uploads them unchanged; keeping the source at the
 hard limit means the same file still serves future renderer improvements and
 any higher-resolution presentation without re-authoring. Medium derives its
-512 px image and Low its 256 px image from the same source. Replacing a
+384 px image and Low its 256 px image from the same source. Replacing a
 1024×1024 sheet with a 256×256 sheet would visibly lower High quality.
 
 Ordinary prop sheets retain 256×256 or smaller native sizes. Reviewed party
 cloth and wrapping prints use 1024 and 512 respectively, preserving original
 print definition across metre-scale drapes and folded wrapping. High retains
-accepted images up to 1024 unchanged; Medium and Low retain their existing 256
+accepted images up to 1024 unchanged; Medium and Low use their 192
 and 128 budgets. The authoring policy and whole-pack budget bound these exceptions.
 
 ### 14.3 Hard limits
 
-* **2048×1024 for sky panoramas only**, validated as 2:1 and POT before pixel allocation by the sky loader; at most 8 MiB decoded RGBA8. High preserves these pixels, Medium uploads 1024×512 and Low 512×256.
+* **2048×1024 for sky panoramas only**, validated as 2:1 and POT before pixel allocation by the sky loader; at most 8 MiB decoded RGBA8. High preserves these pixels, Medium uploads 768×384 and Low 512×256.
 * **1024 px per edge** for ordinary PNGs the decoder loads: surfaces, fixtures,
   decals, packs and GLB-embedded images. `decode_png` rejects anything larger
   with `texture dimensions {w}x{h} exceed the 1024x1024 limit`.
@@ -1932,15 +1938,13 @@ Known enforcement gaps (checked here, not automated):
 
 ## 25. Uncertainties and known inconsistencies
 
-The following are **not** settled contracts. Do not build new assets on them
+Unresolved items below are **not** settled contracts. Do not build new assets on them
 without checking the implementation.
 
-1. **Rotated fluorescent panels stretch their sheet.** A panel placed at 90°
-   or 270° swaps its world X/Z extents while the sheet's UV axes stay put, so
-   the 2:1 sheet is rotated and anisotropically stretched rather than rotated
-   with the fixture. The source comment claims the sheet rotates with the
-   fixture, and no test covers the rotated case. Treat 2:1 as the artwork
-   contract and flag rotated fixtures for review.
+1. **Resolved: fluorescent rotation preserves the fitted sheet.** Both 90° and
+   270° placements use local +X → world +Z and local +Z → world −X, matching the
+   existing ceiling-fixture axis-swap rule. Borders and UVs rotate together
+   without mirroring, and the mandatory 2:1 artwork contract is preserved (§6.1).
 2. **Glass-pane UV frame differs from wall art.** Glass panes use a local `u`
    anchored at the wall length origin and an upward `v`, unlike walls (world
    `u`, downward `v`). A glass texture does not phase-align with the wall it

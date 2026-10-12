@@ -161,7 +161,13 @@ mod tests {
         // world `y` of the fixture is what gives it to the lower room.
         let light = first_light(&lighting);
         assert_eq!(light.room, Some(0));
-        assert!((light.y() - 2.99).abs() < 1e-4, "panel y {}", light.y());
+        let diffuser_y =
+            crate::lighting::fixture_profile("core:fluorescent_panel_01").emission_y(2.99);
+        assert!(
+            (light.y() - diffuser_y).abs() < 1e-4,
+            "diffuser y {}",
+            light.y()
+        );
     }
 
     /// Case 2: the mirror image — the only fixture is on the upper storey.

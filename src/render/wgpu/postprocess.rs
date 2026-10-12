@@ -30,6 +30,7 @@
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
 
+use super::gpu_timing::GpuTimer;
 use super::surface::{DEPTH_FORMAT, surface_format_is_srgb};
 use crate::logging;
 use crate::quality::QualityLevel;
@@ -646,6 +647,7 @@ impl PostProcess {
     pub fn emissive_begin<'a>(
         &'a self,
         encoder: &'a mut wgpu::CommandEncoder,
+        timer: Option<&GpuTimer>,
     ) -> Option<wgpu::RenderPass<'a>> {
         let targets = self.targets.as_ref()?;
         Some(encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -667,7 +669,7 @@ impl PostProcess {
                 }),
                 stencil_ops: None,
             }),
-            timestamp_writes: None,
+            timestamp_writes: timer.and_then(GpuTimer::pass_writes),
             occlusion_query_set: None,
             multiview_mask: None,
         }))
@@ -677,7 +679,12 @@ impl PostProcess {
     ///
     /// A no-op when the targets do not exist or `bloom_strength` is zero, so a
     /// caller may invoke it unconditionally for the frame's settings.
-    pub fn encode_blur(&self, encoder: &mut wgpu::CommandEncoder, bloom_strength: f32) {
+    pub fn encode_blur(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        bloom_strength: f32,
+        timer: Option<&GpuTimer>,
+    ) {
         if bloom_strength <= 0.0 {
             return;
         }
@@ -691,6 +698,7 @@ impl PostProcess {
             &self.pipelines.blur,
             &targets.blur_h_bind,
             &self.quad_buffer,
+            timer,
         );
         encode_fullscreen(
             encoder,
@@ -699,6 +707,7 @@ impl PostProcess {
             &self.pipelines.blur,
             &targets.blur_v_bind,
             &self.quad_buffer,
+            timer,
         );
     }
 
@@ -718,6 +727,7 @@ impl PostProcess {
         target: &wgpu::TextureView,
         settings: PostSettings,
         bloom_enabled: bool,
+        timer: Option<&GpuTimer>,
     ) {
         let Some(targets) = self.targets.as_ref() else {
             return;
@@ -730,6 +740,7 @@ impl PostProcess {
                 &self.pipelines.linear_present_raw,
                 &targets.present_bind,
                 &self.quad_buffer,
+                timer,
             ),
             ResolvePath::Resolve(slot) => {
                 let Some(bind) = targets.resolve_binds.get(slot) else {
@@ -742,6 +753,7 @@ impl PostProcess {
                     &self.pipelines.resolve_raw,
                     bind,
                     &self.quad_buffer,
+                    timer,
                 );
             }
         }
@@ -762,6 +774,7 @@ impl PostProcess {
         &self,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
+        timer: Option<&GpuTimer>,
     ) {
         let Some(targets) = self.targets.as_ref() else {
             return;
@@ -773,6 +786,7 @@ impl PostProcess {
             &self.pipelines.present,
             &targets.presented_present_bind,
             &self.quad_buffer,
+            timer,
         );
     }
 
@@ -796,6 +810,7 @@ impl PostProcess {
             &self.pipelines.present_raw,
             &targets.presented_present_bind,
             &self.quad_buffer,
+            None,
         );
     }
 
@@ -1032,6 +1047,7 @@ fn encode_fullscreen(
     pipeline: &wgpu::RenderPipeline,
     bind: &wgpu::BindGroup,
     quad: &wgpu::Buffer,
+    timer: Option<&GpuTimer>,
 ) {
     let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
         label: Some(label),
@@ -1045,7 +1061,7 @@ fn encode_fullscreen(
             },
         })],
         depth_stencil_attachment: None,
-        timestamp_writes: None,
+        timestamp_writes: timer.and_then(GpuTimer::pass_writes),
         occlusion_query_set: None,
         multiview_mask: None,
     });

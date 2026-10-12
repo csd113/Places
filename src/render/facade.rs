@@ -17,7 +17,7 @@ use sdl3::video::Window;
 use super::common::api::GraphicsTransition;
 use super::common::character::{CharacterScene, EntityFrame};
 use super::common::dynamic::{DynamicScene, DynamicUpdate};
-use super::common::stats::{LevelBuildStats, RenderStats};
+use super::common::stats::{GpuTiming, LevelBuildStats, RenderStats};
 use super::common::view::DrawableSize;
 use super::wgpu::WgpuRenderer;
 use super::{RenderCamera, SurfaceKind, Vertex};
@@ -541,6 +541,13 @@ impl Renderer {
     #[must_use]
     pub const fn render_stats(&self) -> RenderStats {
         self.renderer.render_stats()
+    }
+
+    /// Latest completed hardware render-pass timing, or an accurate reason
+    /// why the selected adapter cannot provide it. Readback never waits.
+    #[must_use]
+    pub const fn gpu_timing(&self) -> GpuTiming {
+        self.renderer.gpu_timing()
     }
 
     /// Cost and shape of the most recently built level.

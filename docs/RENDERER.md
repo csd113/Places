@@ -1222,6 +1222,74 @@ Load-time lines (never per frame) cover the world upload, textures, materials an
 
 Recoverable events (surface timeout, surface lost/outdated) are reported at most once per process; a VSync change logs the presentation mode it selected; minimize/restore is silent; there are no per-frame logs.
 
+The `-` performance overlay normally uses two readable rows: system CPU
+utilization and whole-device GPU utilization, then `GPU render N.NNms`,
+`Game RAM RSS NMiB` and FPS. Device utilization includes other applications;
+it is distinct from this game's hardware render-pass duration. The existing
+system CPU sampling is unchanged. Unsupported counters add a short explicit
+reason rather than substituting clock speed, render duration or CPU timing.
+
+Only the visible overlay's existing 500 ms refresh reads platform utilization
+and resident memory. On macOS, one lazily cached `AGXAccelerator` service and
+CoreFoundation keys read `PerformanceStatistics` → `Device Utilization %`
+through public IOKit APIs. Snapshot containers are released after each read;
+cached keys and the service are released with the overlay. No subprocess,
+helper, dependency, privileges or permission prompt is required. Missing keys,
+invalid types or values outside 0–100 produce N/A. Linux retains its existing
+kernel utilization interfaces; other platforms honestly report unsupported.
+
+Game RAM is this process's resident set size, rounded to binary mebibytes.
+macOS uses public `proc_pidinfo(PROC_PIDTASKINFO)` and its checked SDK
+layout of 96 bytes (`resident_size` at offset 8); Linux reads `VmRSS` from
+`/proc/self/status` with checked KiB-to-byte conversion. It is not virtual
+memory, physical footprint, or an attempted sum of process RAM and driver-owned
+GPU/unified-memory allocations. Unsupported platforms show N/A.
+
+`GPU render N.NNms` comes from hardware
+render-pass timestamps. Device creation requests `TIMESTAMP_QUERY` only when
+the selected adapter supports it; arbitrary encoder timestamp writes are not
+required, so Apple Metal GPUs can use their supported pass boundaries. The
+startup GPU timing line records adapter/device feature support, timestamp
+period in nanoseconds per tick, and the measurement scope. An unsupported
+adapter, invalid period or failed readback produces an explicit `GPU N/A`
+reason; initial asynchronous samples show `GPU pending`.
+
+The duration sums each submitted frame's actual planar, scene, emission,
+blur, resolve, UI and surface-copy pass intervals. It excludes CPU submission,
+upload/copy work, presentation waits and screenshot re-renders, and is not a
+whole-device utilization percentage. Three persistent query/resolve/readback
+slots avoid reuse while mapping is pending. A busy ring skips timing instead
+of waiting; ordinary device polling delivers the asynchronous callbacks.
+Mapped views are released before unmapping/reusing their slots. Tick
+differences are multiplied by the queue timestamp period and converted from
+nanoseconds to milliseconds.
+
+After the final surface-copy submission (UI in the direct fallback), a
+nonblocking queue-completion callback marks the written slot ready. Only then
+does ordinary polling submit the query resolve, staging copy and deferred map.
+Metal stage counters can remain stale before GPU completion, even when a
+resolve follows the final pass in the same command buffer. The three slots
+remain owned through write completion and readback; rendering never waits for
+either phase. Scene-only facade
+submissions that never complete the final UI/presentation draw path do not
+produce a timing sample. Their written query slots remain retired until a
+nonblocking queue-completion callback releases them, so an aborted acquisition
+or scene-only caller cannot reuse a slot while old GPU writes remain in flight.
+
+Clear-only loading passes do not have Metal vertex/fragment timestamp
+boundaries and are excluded. A pass that becomes empty after culling is
+excluded only from its actual complete draw count, including sky, effects,
+decals and diagnostic geometry. Missing, reversed or error-sentinel boundaries
+in a rendered pass reject the entire sample; supported hardware retries later
+frames instead of treating one unusable readback as permanent lack of support.
+Verbose mode records at most three precise rejected-sample diagnostics.
+
+Benchmark CSV adds `gpu_sample_id`, `gpu_sample_frame`, `gpu_render_ms` and
+`gpu_timing_status`. The sample's renderer-frame id is separate from the CPU
+row because readback may lag, and repeated sample ids represent one result.
+`BENCH_SUMMARY` deduplicates those ids for GPU sample count, mean, median and
+p95; unavailable durations remain `null` rather than zero or CPU timing.
+
 `BENCH_SUMMARY` reports the last frame the renderer actually submitted: draw calls, total batches, visible and total vertices, texture binds and material changes. A frame that is never submitted (`PLACES_BENCH_NORENDER`, or a surface acquisition that keeps returning `Skip`, e.g. while the window is occluded) reports no draw counts rather than a fabricated number. Count accounting distinguishes per-material bind changes from per-draw material records; draw calls and visible vertices are the comparable numbers.
 
 | Switch | Effect |

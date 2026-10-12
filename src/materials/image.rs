@@ -64,11 +64,12 @@ impl RawImage {
 
     /// Box-filters this image so both edges fit in `max_edge` texels.
     ///
-    /// Deterministic: the scale factor is the smallest integer that fits, each
-    /// output texel averages exactly the source texels whose centres fall under
-    /// it, and channel values are integer-rounded. Power-of-two source edges
-    /// scale by exact power-of-two factors, so a 1024x1024 sheet becomes an
-    /// exact 4x4 average at 256 and a 2x2 average at 512.
+    /// Deterministic: the longest edge reaches the budget and the other edge
+    /// scales proportionally, rounded up. Each output texel averages its
+    /// integer-bounded source region, and channel values are integer-rounded.
+    /// Exact integer reductions keep their existing blocks (1024 to 256 is a
+    /// 4x4 average); fractional reductions can retain 192 of a native 256 edge
+    /// instead of unnecessarily dropping to 128.
     ///
     /// Returns `None` when the image already fits, so a caller can keep the
     /// decoded buffer it has instead of copying it. Callers downscale once, at
@@ -82,17 +83,25 @@ impl RawImage {
         if self.longest_edge() <= max_edge {
             return None;
         }
-        let factor = self.longest_edge().div_ceil(max_edge);
-        let width = self.width.div_ceil(factor);
-        let height = self.height.div_ceil(factor);
+        let edge = u64::from(self.longest_edge());
+        let fitted_edge = |source: u32| {
+            u32::try_from(
+                u64::from(source)
+                    .saturating_mul(u64::from(max_edge))
+                    .div_ceil(edge),
+            )
+            .unwrap_or(source)
+        };
+        let width = fitted_edge(self.width);
+        let height = fitted_edge(self.height);
         let buffer_len = rgba_byte_len(width, height)?;
         let mut rgba = vec![0u8; buffer_len];
         for out_y in 0..height {
-            let y0 = out_y.saturating_mul(factor);
-            let y1 = y0.saturating_add(factor).min(self.height);
+            let y0 = source_boundary(out_y, self.height, height);
+            let y1 = source_boundary(out_y.saturating_add(1), self.height, height);
             for out_x in 0..width {
-                let x0 = out_x.saturating_mul(factor);
-                let x1 = x0.saturating_add(factor).min(self.width);
+                let x0 = source_boundary(out_x, self.width, width);
+                let x1 = source_boundary(out_x.saturating_add(1), self.width, width);
                 let mut sums = [0u64; 4];
                 let mut count = 0u64;
                 for y in y0..y1 {
@@ -129,6 +138,18 @@ impl RawImage {
         }
         Some(Self::new(width, height, rgba))
     }
+}
+
+/// Source texel boundary for one proportional box-filter partition.
+/// The product fits `u64` for every `u32` dimension; the result stays within source.
+fn source_boundary(output: u32, source_edge: u32, output_edge: u32) -> u32 {
+    let boundary = u64::from(output)
+        .saturating_mul(u64::from(source_edge))
+        .checked_div(u64::from(output_edge))
+        .unwrap_or(0);
+    u32::try_from(boundary)
+        .unwrap_or(source_edge)
+        .min(source_edge)
 }
 
 /// Byte offset of texel `(x, y)` in a row-major RGBA8 buffer.

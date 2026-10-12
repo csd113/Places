@@ -50,7 +50,9 @@ pub use common::blacklight::MAX_BLACKLIGHTS;
 pub use common::camera::RenderCamera;
 pub use common::materials::MaterialRenderState;
 pub use common::reflections::routing_from_mesh;
-pub use common::stats::{LevelBuildStats, RenderStats};
+pub use common::stats::{
+    GpuTiming, GpuTimingSample, GpuTimingUnavailable, LevelBuildStats, RenderStats,
+};
 pub use common::view::{
     DrawableSize, UI_REFERENCE_HEIGHT, UI_REFERENCE_WIDTH, UiViewport, reference_aspect_ratio,
     vertical_fov_for_aspect,

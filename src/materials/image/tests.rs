@@ -109,14 +109,14 @@ fn downscaling_averages_the_covered_texels() {
 }
 
 #[test]
-fn non_power_of_two_edges_keep_their_aspect_and_round_up() {
+fn proportional_fitting_uses_the_budget_and_preserves_rectangular_aspect() {
     let wide = solid_image(96, 64, [1, 2, 3, 255]);
     assert!(wide.downscaled_to(128).is_none(), "96x64 already fits 128");
     let scaled = solid_image(300, 100, [7, 7, 7, 255])
         .downscaled_to(128)
         .expect("300 needs scaling to 128");
-    // Smallest integer factor that fits: ceil(300/128) = 3 → 100x34.
-    assert_eq!((scaled.width, scaled.height), (100, 34));
+    // The long edge reaches the budget; the other scales by 128/300, rounded up.
+    assert_eq!((scaled.width, scaled.height), (128, 43));
     assert!(
         scaled
             .rgba
@@ -125,6 +125,24 @@ fn non_power_of_two_edges_keep_their_aspect_and_round_up() {
             .iter()
             .all(|texel| *texel == [7, 7, 7, 255])
     );
+
+    // A tiny 3/4 reduction protects Medium's real 256 -> 192 transition.
+    // Every source texel must enter exactly one box, including the last row.
+    let rgba: Vec<u8> = (0_u8..4)
+        .flat_map(|y| {
+            (0_u8..8).flat_map(move |x| [x.saturating_mul(10), y.saturating_mul(40), 128, 255])
+        })
+        .collect();
+    let fitted = RawImage::new(8, 4, rgba)
+        .downscaled_to(6)
+        .expect("8 needs scaling to 6");
+    assert_eq!((fitted.width, fitted.height), (6, 3));
+    let expected: Vec<u8> = [0, 40, 100]
+        .into_iter()
+        .flat_map(|y| [0, 10, 25, 40, 50, 65].map(|x| [x, y, 128, 255]))
+        .flatten()
+        .collect();
+    assert_eq!(fitted.rgba, expected);
 }
 
 #[test]

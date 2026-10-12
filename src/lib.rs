@@ -936,6 +936,7 @@ impl FrameLoop<'_> {
         // not be charged to the next sample as one long interval.
         self.bench.begin_frame(frame_begin);
         self.game.update_timing();
+        self.perf_overlay.set_gpu_timing(self.renderer.gpu_timing());
         self.perf_overlay.update(self.game.delta_seconds());
 
         self.trace.record("event_pump", self.load_generation, "");
@@ -3390,6 +3391,7 @@ impl FrameLoop<'_> {
         }
 
         if self.bench.enabled() && ready {
+            self.bench.set_gpu_timing(self.renderer.gpu_timing());
             self.bench.record_frame(
                 frame_begin,
                 frame_update_done,

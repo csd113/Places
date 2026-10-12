@@ -414,13 +414,13 @@ fn draw_calls_do_not_scale_with_fixture_count_and_batching_is_stable() {
             );
         }
         previous_shape = Some(shape);
-        // One new-office panel is a luminous diffuser plus its generated
-        // housing, exactly as the fixture profile's quad budget declares.
+        // One panel has a luminous diffuser plus an ordinary metal housing.
+        // Both material ranges must still sum to the original geometry budget.
         let panel_quads =
             i32::try_from(crate::lighting::fixture_profile("core:fluorescent_panel_01").quads)
                 .unwrap_or(i32::MAX);
         assert_eq!(
-            mesh.batches.light_batch.count,
+            mesh.batches.light_batch.count + mesh.batches.wall_batch.count,
             i32::try_from(count).unwrap_or(i32::MAX) * panel_quads * 6_i32
         );
     }
@@ -692,7 +692,27 @@ fn deterministic_fuzz_levels_bake_and_build_within_budget() {
             );
         }
         let (mesh, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
-        assert_vertex_colors_safe(&mesh.all_vertices());
+        // Surface/alpha colours stay normalized; fixture faces alone carry
+        // bounded HDR source emission. Check their actual routing separately.
+        for vertex in mesh.all_vertices() {
+            assert!(vertex.color.iter().all(|value| value.is_finite()));
+            assert!((0.0..=1.0).contains(&vertex.color[3]));
+        }
+        for kind in [
+            SurfaceKind::Floor,
+            SurfaceKind::Ceiling,
+            SurfaceKind::Wall,
+            SurfaceKind::PropFallback,
+        ] {
+            assert_vertex_colors_safe(&mesh.triangles_for(kind));
+        }
+        let faces = mesh.triangles_for(SurfaceKind::Light);
+        assert!(
+            faces
+                .iter()
+                .flat_map(|vertex| &vertex.color[..3])
+                .all(|value| (0.0..=crate::materials::MAX_EMISSION_INTENSITY).contains(value))
+        );
         for batch in &batches {
             assert_vertex_colors_safe(&batch.vertices);
         }
@@ -880,11 +900,13 @@ fn regression_invalid_openings_do_not_create_phantom_doorways() {
 
 #[test]
 fn regression_fractional_rotations_agree_between_bake_and_panel_geometry() {
-    use crate::lighting::fixture_half_extents;
+    use crate::lighting::fixture_profile;
     for rotation in [
         0.0_f32, 45.0, 89.6, 90.0, 135.0, 179.0, 179.6, 180.0, 180.4, 270.0, 360.0, -90.0, -0.6,
     ] {
-        let (half_w, half_d) = fixture_half_extents(rotation);
+        let (half_w, half_d) = fixture_profile("core:fluorescent_panel_01")
+            .emission_shape()
+            .half_extents_rotated(rotation);
         let level = parse(&format!(
             r#"{{
                 "format_version": 3,
@@ -909,9 +931,8 @@ fn regression_fractional_rotations_agree_between_bake_and_panel_geometry() {
             format_args!("rotation {rotation}"),
         );
 
-        // The drawn fixture panel must have the same footprint as the pool:
-        // the sheet is the whole fixture, with no generated bezel extending
-        // beyond it.
+        // The finite source occupies the actual luminous diffuser aperture;
+        // the separate metal body retains its larger outer footprint.
         let mesh = build_level_geometry(&level);
         let fixture = mesh.triangles_for(SurfaceKind::Light);
         let mut min_x = f32::MAX;

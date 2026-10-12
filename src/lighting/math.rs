@@ -73,10 +73,10 @@ pub const fn fixture_is_turned(rotation_degrees: f32) -> bool {
     whole_degrees.rem_euclid(180) != 0
 }
 
-/// Half-extents of a fixture's luminous panel in world X/Z after rotation.
+/// Half-extents of a fixture's outer body in world X/Z after rotation.
 ///
-/// Mirrors the panel geometry emitted by `crate::render`: the default 1.2 x 0.6
-/// panel runs along X, and a turned fixture swaps its axes.
+/// The default 1.2 x 0.6 m body runs along X, and a turned fixture swaps its
+/// axes. Source taps use the profile's separate luminous aperture.
 #[must_use]
 pub const fn fixture_half_extents(rotation_degrees: f32) -> (f32, f32) {
     fixture_half_extents_for(FixtureKind::FluorescentPanel, rotation_degrees)
@@ -84,9 +84,9 @@ pub const fn fixture_half_extents(rotation_degrees: f32) -> (f32, f32) {
 
 /// [`fixture_half_extents`] for any fixture family.
 ///
-/// Delegates to the family's generic [`LightShape`], so the bake, the drawn
-/// fixture geometry and the light source share one rotation rule and cannot
-/// drift apart by a rounding step.
+/// Delegates to the family's outer [`LightShape`], keeping mounting clearance
+/// and drawn body bounds on the same rotation rule. The emitting shape uses
+/// the same rotation rule with its own luminous bounds.
 #[must_use]
 pub const fn fixture_half_extents_for(kind: FixtureKind, rotation_degrees: f32) -> (f32, f32) {
     fixture_profile_for_kind(kind)

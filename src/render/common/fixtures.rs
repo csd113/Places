@@ -16,29 +16,29 @@
 //!   across its 0.56 m depth axis, so a 2:1 sheet shows 1.09 mm per texel in
 //!   both directions at 1024x512. The border between the diffuser and the
 //!   outer 1.2 x 0.6 m footprint is the housing frame, not artwork. A rotated
-//!   fixture swaps the aperture's world X/Z extents but leaves these UV axes
-//!   fixed, so the sheet is not rotated with it (see the asset specification's
-//!   rotated-panel note).
+//!   fixture rotates both the aperture and fitted sheet: local X becomes world
+//!   +Z and local Z becomes world -X, preserving orientation and texel density.
 //! * **Round diffuser.** Planar, in the fixture's own plane: the sheet centre
 //!   is the fixture centre and the sheet's inscribed circle is the diffuser's
 //!   outer radius. A 128x128 sheet therefore shows 3.9 mm per texel.
 //! * **Wall luminaire.** `u` is the 0.4 m face width and `v` its 0.2 m height,
 //!   so the sheet's aspect matches the face exactly.
 //!
-//! The *housing* — the round can and bezel ring, the wall fixture's top,
-//! bottom and ends, and the office panel's frame and body — is genuine body
-//! geometry and stays untextured: it draws its flat authored metal colour
-//! through the shared white sheet. The office panel is a real recessed
-//! troffer: four housing side walls drop from the ceiling plane, a bottom
-//! frame borders the aperture, a top flange closes the housing and the fitted
-//! sheet is recessed a lip above the frame's bottom, so nothing but the
+//! The *housing* is genuine body geometry. Fluorescent panels bind the ordinary
+//! brushed-metal material, with no emission; other families keep their flat
+//! authored body colours through the shared white sheet. The office panel is
+//! a real recessed troffer: four housing side walls drop from the ceiling
+//! plane, a bottom frame borders the aperture, a top flange closes the housing
+//! and the fitted sheet is recessed a lip above the frame's bottom, so nothing but the
 //! diffuser glows and the fixture reads with a frame and real depth.
 //!
-//! A luminous face's vertex colour is a *neutral* emission strength, never the
-//! placed light's colour: the sheet defines the fixture's visible appearance,
-//! and the authored light colour belongs to the illumination the bake resolves.
+//! A luminous face's vertex colour carries the source tint and emission
+//! strength. The fitted sheet keeps its artwork and housing stays separate.
 
 use super::{Vertex, add_quad_flat};
+pub use crate::lighting::{
+    PANEL_BODY_DROP_M, PANEL_BORDER_DEPTH_M, PANEL_BORDER_WIDTH_M, PANEL_LIP_M,
+};
 
 /// Texture rectangle of a whole fitted fixture sheet.
 ///
@@ -47,19 +47,9 @@ use super::{Vertex, add_quad_flat};
 /// below (`[low-v, low-u]` first), and `v = 0` is the image's top row.
 const SHEET_UV: [[f32; 2]; 4] = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]];
 
-/// How far the office panel's housing drops below the ceiling plane, in metres.
-pub const PANEL_BODY_DROP_M: f32 = 0.045;
-/// How far the panel's diffuser sits recessed above its frame's bottom, in m.
-pub const PANEL_LIP_M: f32 = 0.012;
-/// Bottom-frame border along the panel's 1.2 m width axis, in metres.
-pub const PANEL_BORDER_WIDTH_M: f32 = 0.04;
-/// Bottom-frame border along the panel's 0.6 m depth axis, in metres.
-///
-/// The border widths are chosen so the aperture keeps the fixture sheet's 2:1
-/// aspect exactly: `1.2 - 2*0.04` by `0.6 - 2*0.02` is `1.12 x 0.56`.
-pub const PANEL_BORDER_DEPTH_M: f32 = 0.02;
-/// Paint of the panel's untextured housing; a mid grey, never black.
-const PANEL_HOUSING_COLOR: [f32; 3] = [0.62, 0.62, 0.60];
+/// Neutral base for the panel housing: its ordinary metal material and baked
+/// receiver illumination supply the final colour in the level emitter.
+const PANEL_HOUSING_COLOR: [f32; 3] = [1.0; 3];
 
 /// One down-facing housing quad at a constant `y`, in the same winding as the
 /// luminous panel face.
@@ -172,8 +162,8 @@ pub fn add_blacklight_fixture(
 /// [`PANEL_LIP_M`] above the frame's bottom; its aperture is inset by
 /// [`PANEL_BORDER_WIDTH_M`] across the width axis and
 /// [`PANEL_BORDER_DEPTH_M`] across the depth one, so the 2:1 sheet fits the
-/// aperture exactly. `emission` is the diffuser's neutral emission strength;
-/// the housing is always its fixed mid grey.
+/// aperture exactly. `emission` is the diffuser's source-coloured emission strength;
+/// the housing receives its ordinary metal material in the level emitter.
 // The emitter takes the panel's two world extents, the housing sinks and the
 // emission separately; bundling them would add a type used by one call site.
 #[expect(
@@ -191,10 +181,16 @@ pub fn add_panel_fixture(
     emission: [f32; 3],
 ) {
     let y_bottom = y - PANEL_BODY_DROP_M;
-    let dx0 = x0 + PANEL_BORDER_WIDTH_M;
-    let dx1 = x1 - PANEL_BORDER_WIDTH_M;
-    let dz0 = z0 + PANEL_BORDER_DEPTH_M;
-    let dz1 = z1 - PANEL_BORDER_DEPTH_M;
+    let turned = x1 - x0 < z1 - z0;
+    let (border_x, border_z) = if turned {
+        (PANEL_BORDER_DEPTH_M, PANEL_BORDER_WIDTH_M)
+    } else {
+        (PANEL_BORDER_WIDTH_M, PANEL_BORDER_DEPTH_M)
+    };
+    let dx0 = x0 + border_x;
+    let dx1 = x1 - border_x;
+    let dz0 = z0 + border_z;
+    let dz1 = z1 - border_z;
     // The body's four outer side walls, drawn outward from the ceiling plane
     // down to the frame.
     add_quad_flat(
@@ -257,19 +253,41 @@ pub fn add_panel_fixture(
     panel_down_quad(housing, x0, x1, dz1, z1, y);
     panel_down_quad(housing, x0, dx0, dz0, dz1, y);
     panel_down_quad(housing, dx1, x1, dz0, dz1, y);
-    // The diffuser: the fitted sheet, once, recessed above the frame's bottom.
-    let y_diffuser = y_bottom + PANEL_LIP_M;
+    panel_diffuser(
+        lit,
+        [dx0, dx1, dz0, dz1],
+        y_bottom + PANEL_LIP_M,
+        turned,
+        emission,
+    );
+}
+
+/// Fits the complete sheet to the luminous aperture in its local UV frame.
+fn panel_diffuser(
+    lit: &mut Vec<Vertex>,
+    [x0, x1, z0, z1]: [f32; 4],
+    y: f32,
+    turned: bool,
+    emission: [f32; 3],
+) {
+    let uv = if turned {
+        // The same quarter-turn as the batten: local +X -> world +Z,
+        // local +Z -> world -X. This rotates the artwork without mirroring it.
+        [[0.0, 1.0], [0.0, 0.0], [1.0, 0.0], [1.0, 1.0]]
+    } else {
+        SHEET_UV
+    };
     add_quad_flat(
         lit,
-        [dx0, y_diffuser, dz0],
-        [dx1, y_diffuser, dz0],
-        [dx1, y_diffuser, dz1],
-        [dx0, y_diffuser, dz1],
+        [x0, y, z0],
+        [x1, y, z0],
+        [x1, y, z1],
+        [x0, y, z1],
         emission,
-        SHEET_UV[0],
-        SHEET_UV[1],
-        SHEET_UV[2],
-        SHEET_UV[3],
+        uv[0],
+        uv[1],
+        uv[2],
+        uv[3],
     );
 }
 
@@ -346,7 +364,7 @@ pub fn add_can_quad(
 /// nearly-closed diffuser. Its planar UVs make the sheet's centre the fixture
 /// centre, so the artwork's concentric rings and lamp core land where the
 /// geometry expects them whatever the fixture's radius. `emission` is the
-/// face's neutral emission strength, so the diffuser keeps its sheet colour.
+/// face's source-coloured emission strength, so the diffuser retains its fitted artwork.
 pub fn add_round_fixture(
     lit: &mut Vec<Vertex>,
     housing: &mut Vec<Vertex>,
@@ -435,8 +453,8 @@ pub fn add_round_fixture(
 /// fixture's centre, so the artwork's concentric tone and rim land where the
 /// geometry expects them), and the drum wall, its bottom rim and the centre boss
 /// behind the diffuser's small centre hole are genuine untextured body geometry.
-/// `emission` is the face's neutral emission strength, so the lit surface keeps
-/// the sheet's own colour.
+/// `emission` is the face's source-coloured emission strength, so the lit surface keeps
+/// the source-tinted sheet colour.
 pub fn add_flush_mount_fixture(
     lit: &mut Vec<Vertex>,
     housing: &mut Vec<Vertex>,
@@ -497,7 +515,7 @@ pub fn add_flush_mount_fixture(
             RIM_COLOR,
             SHEET_UV,
         );
-        // The diffuser ring: the sheet's own artwork, lit by its neutral
+        // The diffuser ring: the sheet's own artwork, lit by its source-coloured
         // emission. It is a ring rather than a filled disc so the fixture stays
         // quad-only; the small centre it leaves is covered by the boss below.
         add_ring_quad(
@@ -539,7 +557,7 @@ pub fn add_flush_mount_fixture(
 
 /// Emits a wall-mounted luminaire at `(x, y, z)` facing `yaw_degrees`: its
 /// emissive front face into `lit` and its shallow housing into `housing`.
-/// `emission` is the face's neutral emission strength, so the lens keeps its
+/// `emission` is the face's source-coloured emission strength, so the lens keeps its
 /// sheet colour.
 pub fn add_wall_fixture(
     lit: &mut Vec<Vertex>,
@@ -774,7 +792,7 @@ mod tests {
     }
 
     /// Only the luminous face is emissive; every other vertex is genuine
-    /// housing and never carries the neutral emission value.
+    /// housing and never carries the source emission value.
     #[test]
     fn only_the_luminous_face_is_emissive() {
         const EMISSION: [f32; 3] = [0.8, 0.8, 0.8];
@@ -842,10 +860,11 @@ mod tests {
         let lighting = LevelLighting::bake(&level);
         assert_eq!(lighting.lights().len(), 4);
 
-        // Panel: 1.2 x 0.6 m housing, diffuser inside it.
+        // Panel: source centre and extent match the smaller recessed diffuser,
+        // while the body retains its full 1.2 x 0.6 m mounting footprint.
         let panel = &lighting.lights()[0];
-        assert_eq!(panel.half_w(), 0.6);
-        assert_eq!(panel.half_d(), 0.3);
+        assert!((panel.half_w() - 0.56).abs() < 1e-5);
+        assert!((panel.half_d() - 0.28).abs() < 1e-5);
         let mut lit = Vec::new();
         let mut housing = Vec::new();
         add_panel_fixture(
@@ -855,15 +874,19 @@ mod tests {
             2.0 + 0.6,
             3.0 - 0.3,
             3.0 + 0.3,
-            panel.y(),
+            lighting.fixture_y_for(&level.ceiling_lights[0]),
             [0.8; 3],
         );
         let centre = quad_centre(&lit);
         assert!((centre[0] - panel.x()).abs() < 1e-5 && (centre[2] - panel.z()).abs() < 1e-5);
         assert!(
-            (panel.y() - centre[1] - (PANEL_BODY_DROP_M - PANEL_LIP_M)).abs() < 1e-5,
-            "the panel emitter sits one recess (frame bottom minus lip) above its diffuser"
+            (panel.y() - centre[1]).abs() < 1e-5,
+            "the panel source sits on its actual diffuser, not inside its housing"
         );
+        for vertex in &lit {
+            assert!(((vertex.pos[0] - panel.x()).abs() - panel.half_w()).abs() < 1e-5);
+            assert!(((vertex.pos[2] - panel.z()).abs() - panel.half_d()).abs() < 1e-5);
+        }
 
         // Round downlight: the diffuser is the emitter plane exactly.
         let round = &lighting.lights()[1];

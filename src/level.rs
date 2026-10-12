@@ -2335,39 +2335,55 @@ pub const MAX_LEVEL_EFFECTS: usize = 64;
 /// invisible depth to be a stable collider.
 pub const OPENING_GLASS_THICKNESS_M: f32 = 0.06;
 
-/// First material index a switchable fixture's luminous face uses.
+/// First material index a private fixture luminous face uses.
 ///
 /// A fixture face normally binds its family's shared sheet material, because
-/// every fixture of one family draws identically. A `switchable` fixture needs
-/// its face to turn off on its own, so it gets its own material identity in a
-/// slot after the family sheets; see [`fixture_face_material_index`].
+/// every fixture of one family draws identically. A switchable or animated
+/// fixture needs its own response, so it gets a material identity in a slot
+/// after the family sheets; see [`fixture_face_material_index`].
 ///
-/// Equal to the fixture family count (asserted by a test so the two tables
-/// cannot drift). 32 bits wide like every other material/sheet slot; the
+/// Preserves the four legacy shared family slots; newer families have private
+/// faces. 32 bits wide like every other material/sheet slot; the
 /// highest slot a level can reach is this base plus the level's last fixture
 /// index, which stays far inside [`MAX_LEVEL_MATERIALS`].
 pub const FIXTURE_SWITCHABLE_MATERIAL_BASE: u32 = 4;
 
+/// Ordinary non-emissive material on a fluorescent panel's metal troffer.
+/// The luminous diffuser keeps its separate fitted fixture-sheet slot.
+pub const FLUORESCENT_PANEL_HOUSING_MATERIAL: &str = "core:fluorescent_panel_housing";
+
 /// Material index of one ceiling fixture's luminous face.
 ///
-/// `fixture_index` is the fixture's position in `ceiling_lights`; a
-/// non-switchable fixture uses its family's shared sheet (every fixture of the
-/// family draws one material), while a switchable fixture gets the stable slot
-/// `FIXTURE_SWITCHABLE_MATERIAL_BASE + fixture_index`, so its runtime on/off
-/// state never touches another fixture's face. The fixture-sheet table the
-/// renderer uploads is padded to cover every index this returns.
+/// `fixture_index` is the fixture's position in `ceiling_lights`. A private
+/// face gets the stable slot `FIXTURE_SWITCHABLE_MATERIAL_BASE + fixture_index`,
+/// so its switch state or authored animation never touches another asset's
+/// face. Other fixtures use their family's shared sheet. The fixture-sheet
+/// table the renderer uploads is padded to cover every index this returns.
 #[must_use]
 pub fn fixture_face_material_index(
     fixture_index: usize,
-    switchable: bool,
+    private_face: bool,
     kind: crate::lighting::FixtureKind,
 ) -> u32 {
-    if switchable || kind == crate::lighting::FixtureKind::BlacklightTube {
+    if private_face || kind == crate::lighting::FixtureKind::BlacklightTube {
         FIXTURE_SWITCHABLE_MATERIAL_BASE
             .saturating_add(u32::try_from(fixture_index).unwrap_or(u32::MAX))
     } else {
         u32::try_from(kind.index()).unwrap_or(0)
     }
+}
+
+/// Whether a fixture needs a face identity independent of its family sheet.
+///
+/// Authored emission curves name the fixture asset, so every matching placement
+/// gets a private face while other assets of the same family remain unchanged.
+#[must_use]
+pub fn fixture_face_uses_private_material(level: &LevelDef, light: &LightFixtureDef) -> bool {
+    light.switchable
+        || level
+            .animated_emissions
+            .iter()
+            .any(|animation| animation.material.trim() == light.fixture.trim())
 }
 
 /// Hard cap on the doors one level may declare.
@@ -5540,8 +5556,8 @@ pub enum FixtureAlign {
 ///
 /// `color` is the optional emitted light colour as an `[r, g, b]` array of
 /// `0.0..=1.0` fractions. It drives the coloured illumination the bake applies
-/// to surrounding geometry; the fixture's visible face is texture-first and is
-/// never tinted by it. An omitted colour emits [`DEFAULT_LIGHT_COLOR`], the
+/// to surrounding geometry and tints the fixture's fitted luminous face.
+/// An omitted colour emits [`DEFAULT_LIGHT_COLOR`], the
 /// restrained warm fluorescent the game's lighting model is calibrated around.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LightFixtureDef {
@@ -5561,10 +5577,8 @@ pub struct LightFixtureDef {
     pub brightness: Option<f32>,
     /// Emitted light colour; omitted means [`DEFAULT_LIGHT_COLOR`].
     ///
-    /// The colour is a property of the *illumination*: it tints the baked
-    /// light and its local pool. It never repaints the fixture's visible face,
-    /// which is texture-first — the catalog sheet defines the fixture's own
-    /// colour and the face carries only a neutral emission brightness.
+    /// The colour tints baked illumination and the fitted luminous face.
+    /// The sheet keeps its artwork and housing retains its own material.
     #[serde(default)]
     pub color: Option<LightColor>,
     /// Horizontal alignment applied at load; omitted means
@@ -5593,7 +5607,8 @@ pub struct LightFixtureDef {
     /// Whether the fixture casts environmental light. Defaults to `true`.
     ///
     /// `false` makes the fixture a *luminous object only*: its visible face
-    /// still glows at its neutral emission brightness, while the bake skips it
+    /// still glows at its source-coloured emission brightness, while the bake
+    /// skips it
     /// entirely. This is the authored half of the separation between material
     /// emission and environmental illumination — a sign, a screen or a
     /// decorative tube that reads bright while lighting nothing.
@@ -5689,9 +5704,7 @@ impl LightFixtureDef {
     /// Omitted means [`DEFAULT_LIGHT_COLOR`]; authored channels are clamped
     /// into `[0, 1]` and non-finite channels emit nothing (see
     /// [`LightColor::sanitized`]). This is the single source of truth for the
-    /// coloured environmental illumination (the bake and its local pools); the
-    /// fixture's visible face takes only a neutral emission brightness from the
-    /// light and never this colour.
+    /// coloured environmental illumination and the fixture's luminous face.
     #[must_use]
     pub fn emitted_color(&self) -> LightColor {
         self.color.unwrap_or(DEFAULT_LIGHT_COLOR).sanitized()
@@ -6593,10 +6606,11 @@ pub struct LevelDef {
     pub geometry_intent: Vec<GeometryIntentDef>,
 }
 
-/// One animated emission a level declares, by material id.
+/// One animated emission a level declares, by material or fixture asset id.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AnimatedEmissionDef {
-    /// Material whose emissive term animates. Must be a material the level uses.
+    /// Material or fixture asset whose emissive term animates. Unused IDs do
+    /// nothing; a fixture ID animates every matching placement's luminous face.
     pub material: String,
     /// `pulse` or `flicker`. Defaults to `pulse`.
     #[serde(default)]
@@ -7613,9 +7627,18 @@ impl LevelDef {
         floor_quads = floor_quads.saturating_add(arch_floor_quads);
         wall_quads = wall_quads.saturating_add(arch_wall_quads);
 
-        let light_quads = self.ceiling_lights.iter().fold(0u64, |total, light| {
-            total.saturating_add(crate::lighting::fixture_profile(&light.fixture).quads)
-        });
+        let mut light_quads = 0_u64;
+        for light in &self.ceiling_lights {
+            let profile = crate::lighting::fixture_profile(&light.fixture);
+            if profile.kind == crate::lighting::FixtureKind::FluorescentPanel {
+                // The diffuser remains Light; the existing twelve body quads
+                // now bind an ordinary Wall material. Total geometry is unchanged.
+                wall_quads = wall_quads.saturating_add(profile.quads.saturating_sub(1));
+                light_quads = light_quads.saturating_add(1);
+            } else {
+                light_quads = light_quads.saturating_add(profile.quads);
+            }
+        }
         let prop_quads = u64::try_from(self.props.len())
             .unwrap_or(u64::MAX)
             .saturating_mul(MAX_PROP_QUADS);

@@ -588,12 +588,49 @@ fn the_emitter_shapes_sample_their_own_extents() {
         u: [1.0, 0.0, 0.0],
         v: [0.0, 0.0, 2.0],
     };
-    let samples = rectangle.samples(3);
-    assert_eq!(samples.len(), 9);
-    for sample in &samples {
-        assert!(sample[0].abs() <= 1.0);
-        assert!(sample[2].abs() <= 2.0);
+    let clear = TransportScene::new(Vec::new(), Vec::new()).expect("empty visibility scene");
+    let emitter = rect([0.0, 2.0, 0.0], 1.0, 2.0, 1.0);
+    for taps in 1_u8..=3_u8 {
+        let samples = rectangle.samples(taps);
+        assert_eq!(samples.len(), usize::from(taps).pow(2));
+        let mut centroid = [0.0_f32; 3];
+        for sample in &samples {
+            assert!(
+                sample[0].abs() < 1.0,
+                "finite area excludes its zero-area edge"
+            );
+            assert!(
+                sample[2].abs() < 2.0,
+                "frame edges must not receive finite weight"
+            );
+            for axis in 0..3 {
+                centroid[axis] += sample[axis];
+            }
+        }
+        assert!(centroid.iter().all(|value| value.abs() < 1.0e-6));
+        let visible = emitter.visibility(&clear, [0.0; 3], [0.0; 3], taps).0;
+        assert_eq!(
+            visible, 1.0,
+            "tap weights preserve the full unoccluded area"
+        );
     }
+    assert_eq!(rectangle.samples(1), vec![[0.0; 3]]);
+    assert_eq!(
+        rectangle.samples(2),
+        vec![
+            [-0.5, 0.0, -1.0],
+            [-0.5, 0.0, 1.0],
+            [0.5, 0.0, -1.0],
+            [0.5, 0.0, 1.0]
+        ]
+    );
+    let samples = rectangle.samples(3);
+    assert!((samples[0][0] + 2.0 / 3.0).abs() < 1.0e-6);
+    assert!((samples[0][2] + 4.0 / 3.0).abs() < 1.0e-6);
+    assert_eq!(
+        samples[4], [0.0; 3],
+        "the central cell stays on the source centre"
+    );
     let line = EmitterShape::Line {
         direction: [1.0, 0.0, 0.0],
         half_length: 2.0,
@@ -626,8 +663,8 @@ fn the_tone_map_preserves_the_calibrated_range_and_compresses_highlights() {
 #[test]
 fn the_solver_fingerprint_is_stable_and_distinct_from_the_lighting_model() {
     assert_eq!(
-        SOLVER_REVISION, 18,
-        "adaptive silhouette coverage requires solver revision 18"
+        SOLVER_REVISION, 19,
+        "rectangle cell-centre quadrature requires solver revision 19"
     );
     let first = solver_fingerprint();
     assert_eq!(

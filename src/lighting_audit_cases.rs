@@ -286,23 +286,23 @@ fn group_c_dense_fixture_grids_saturate_without_overflow_or_geometry_explosion()
             }
         }
 
-        // Bounded geometry: only the fixture panel batch grows with light count,
-        // and flat floor cells merge below the cell-grid bound. A panel is its
-        // luminous diffuser plus the housing the fixture profile budgets.
+        // Bounded geometry: the diffuser and metal housing ranges grow with
+        // light count, while their total retains the fixture profile budget.
+        // Flat floor cells still merge below the cell-grid bound.
         let mesh = build_checked(&level);
         let panel_quads =
             i32::try_from(crate::lighting::fixture_profile("core:fluorescent_panel_01").quads)
                 .unwrap_or(i32::MAX);
         assert_eq!(
-            mesh.batches.light_batch.count,
+            mesh.batches.light_batch.count + mesh.batches.wall_batch.count,
             i32::try_from(count).unwrap_or(i32::MAX) * panel_quads * 6_i32
         );
         assert!(mesh.batches.floor_batch.count <= 12_i32 * 12_i32 * 6_i32);
         assert!(mesh.batches.floor_batch.count > 0_i32);
         assert!(mesh.batches.ceiling_batch.count <= 12_i32 * 12_i32 * 6_i32);
         assert!(mesh.batches.ceiling_batch.count > 0_i32);
-        // Draw calls do not scale with light count: an empty wall batch and no
-        // props, so the static draw-call shape stays four fixed ranges.
+        // The metal body adds one material range independent of fixture count;
+        // with no props, the static shape stays four non-empty ranges.
         let non_empty = [
             mesh.batches.floor_batch,
             mesh.batches.ceiling_batch,
@@ -314,7 +314,7 @@ fn group_c_dense_fixture_grids_saturate_without_overflow_or_geometry_explosion()
         .iter()
         .filter(|range| range.count > 0_i32)
         .count();
-        assert_eq!(non_empty, 3);
+        assert_eq!(non_empty, 4);
     }
 }
 
@@ -493,9 +493,18 @@ fn group_e_taller_rooms_stay_dim_but_valid_and_lower_rooms_stay_bounded() {
         );
         previous = baseline;
 
-        // Fixtures hang just below the ceiling and pools follow them.
+        // Body mounting stays just below the ceiling; the source follows the
+        // actual recessed diffuser rather than the top of the housing.
         let fixture_y = lighting.lights()[0].y();
-        assert!(fixture_y < height && fixture_y > height - 0.02);
+        let mounting_y = lighting.fixture_y_for(&level.ceiling_lights[0]);
+        assert!(mounting_y < height && mounting_y > height - 0.02);
+        assert!(
+            (fixture_y
+                - crate::lighting::fixture_profile("core:fluorescent_panel_01")
+                    .emission_y(mounting_y))
+            .abs()
+                < 1e-6
+        );
         drop(build_checked(&level));
     }
 
@@ -693,7 +702,12 @@ fn group_g_smallest_containing_room_wins_for_every_lookup() {
     assert_eq!(lighting.lights()[0].room, Some(1));
     assert_eq!(lighting.lights()[1].room, Some(1));
     // And they hang from the small room's lower ceiling.
-    assert!((lighting.lights()[0].y() - 2.59).abs() < 1e-6);
+    assert!(
+        (lighting.lights()[0].y()
+            - crate::lighting::fixture_profile("core:fluorescent_panel_01").emission_y(2.59))
+        .abs()
+            < 1e-6
+    );
     // World sampling and prop sampling use the same rule: a point in the
     // overlap is lit by the small room (bright), not the big dim one.
     let small_baseline = lighting.rooms()[1].baseline.luminance();
@@ -1297,13 +1311,18 @@ fn group_j_pools_fall_off_monotonically_and_reach_the_room_baseline() {
     let beyond = LOCAL_LIGHT_RADIUS_M.mul_add(FILL_RANGE_MULTIPLIER, 1.0);
     assert!((lighting.sample_luminance(4.0 + beyond, 0.0, 4.0) - baseline).abs() < 1e-4);
 
-    // The pool is measured to the 1.2 x 0.6 m panel, not to a point: points one
+    // The pool is measured to the actual luminous aperture: points one
     // metre beyond the long edge and one metre beyond the short end are equally
     // far from the rectangle (so equally lit), while a point one metre past the
     // corner is farther and dimmer.
-    let beyond_long = lighting.sample_luminance(4.0, 0.0, 4.0 + 0.3 + 1.0);
-    let beyond_short = lighting.sample_luminance(4.0 + 0.6 + 1.0, 0.0, 4.0);
-    let beyond_corner = lighting.sample_luminance(4.0 + 0.6 + 1.0, 0.0, 4.0 + 0.3 + 1.0);
+    let source = lighting.lights()[0];
+    let beyond_long = lighting.sample_luminance(4.0, 0.0, 4.0 + source.half_d() + 1.0);
+    let beyond_short = lighting.sample_luminance(4.0 + source.half_w() + 1.0, 0.0, 4.0);
+    let beyond_corner = lighting.sample_luminance(
+        4.0 + source.half_w() + 1.0,
+        0.0,
+        4.0 + source.half_d() + 1.0,
+    );
     assert!(
         (beyond_long - beyond_short).abs() < 1e-6,
         "rectangle falloff must be symmetric: {beyond_long} vs {beyond_short}"

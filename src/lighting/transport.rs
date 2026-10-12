@@ -264,7 +264,9 @@ pub fn solver_fingerprint() -> u64 {
 ///   authored material identity preserves textured coplanar continuation.
 /// - 18: silhouette texels retain the complete original 4×4 coverage grid and
 ///   additionally integrate 8×8 positions without changing atlas density.
-pub const SOLVER_REVISION: u64 = 18;
+/// - 19: rectangular finite sources sample equal-area cell centres instead of
+///   their boundary, preserving aperture energy behind real fixture frames.
+pub const SOLVER_REVISION: u64 = 19;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;
@@ -469,8 +471,8 @@ impl EmitterShape {
             Self::Rect { u, v } => {
                 for i in 0..tap_count {
                     for j in 0..tap_count {
-                        let a = tap_offset(i, tap_count);
-                        let b = tap_offset(j, tap_count);
+                        let a = rectangle_tap_offset(i, tap_count);
+                        let b = rectangle_tap_offset(j, tap_count);
                         visit(add(scale(u, a), scale(v, b)));
                     }
                 }
@@ -486,6 +488,17 @@ impl EmitterShape {
             }
         }
     }
+}
+
+/// Midpoint of one equal-area rectangle cell, strictly inside `(-1, 1)`.
+///
+/// Boundary taps assign finite weight to a zero-area aperture edge, which
+/// overstates its housing lip's shadow; midpoint quadrature integrates the
+/// luminous area while retaining real obstruction tests for every ray.
+fn rectangle_tap_offset(index: usize, count: usize) -> f32 {
+    let cells = f32::from(u16::try_from(count).unwrap_or(u16::MAX)).max(1.0);
+    let sample = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
+    (sample.mul_add(2.0, 1.0) - cells) / cells
 }
 
 /// Offset of tap `index` of `count`, in `-1..=1`.

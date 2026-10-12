@@ -5488,12 +5488,11 @@ fn validate_geometry_budget(level: &LevelDef) -> Result<(), String> {
 /// the pack's own sheet for its family instead, so a level pack can still
 /// restyle a built-in fixture without touching the catalog.
 ///
-/// The list is indexed by [`crate::lighting::FixtureKind::index`] and holds at
-/// most one sheet per family: the first light of a family decides. A family with
-/// no resolvable sheet is simply absent, and the fixture draws the shared white
-/// sheet with its neutral face emission; a sheet that was named but cannot be
-/// read or decoded is logged with the fixture id in it and degrades the same
-/// way.
+/// Shared faces use [`crate::lighting::FixtureKind::index`], with the first
+/// shared light deciding its family sheet. Switched and animated faces use
+/// private slots matching the geometry. A missing sheet draws the white
+/// fallback with the fixture's authored emission; a named sheet that cannot be
+/// read or decoded logs the fixture id and falls back in the same way.
 #[must_use]
 pub fn resolve_fixture_sheets(
     level: &LevelDef,
@@ -5514,13 +5513,14 @@ pub fn resolve_fixture_sheets(
             .collect();
         cache.prefetch_catalog(asset_root, &references);
     }
-    // Resolve one sheet per family used, then one per switchable fixture (its
-    // own face), each at the material index the geometry emitter assigns it.
+    // Resolve shared family sheets and private switched/animated faces at the
+    // exact material indices the geometry emitter assigns them.
     let mut family_sheets: Vec<Option<ResolvedFixtureSheet>> =
         vec![None; crate::lighting::FixtureKind::ALL.len()];
-    let mut switchable: Vec<ResolvedFixtureSheet> = Vec::new();
+    let mut private_sheets: Vec<ResolvedFixtureSheet> = Vec::new();
     for (fixture_index, light) in level.ceiling_lights.iter().enumerate() {
         let kind = crate::lighting::fixture_profile(&light.fixture).kind;
+        let private_face = crate::level::fixture_face_uses_private_material(level, light);
         let source = match resolve_fixture_sheet(
             &light.fixture,
             kind,
@@ -5530,11 +5530,8 @@ pub fn resolve_fixture_sheets(
             cache,
         ) {
             Ok(Some(mut sheet)) => {
-                sheet.slot = crate::level::fixture_face_material_index(
-                    fixture_index,
-                    light.switchable,
-                    kind,
-                );
+                sheet.slot =
+                    crate::level::fixture_face_material_index(fixture_index, private_face, kind);
                 Some(sheet)
             }
             Ok(None) => None,
@@ -5546,9 +5543,9 @@ pub fn resolve_fixture_sheets(
                 None
             }
         };
-        if light.switchable || kind == crate::lighting::FixtureKind::BlacklightTube {
+        if private_face || kind == crate::lighting::FixtureKind::BlacklightTube {
             if let Some(sheet) = source {
-                switchable.push(sheet);
+                private_sheets.push(sheet);
             }
         } else if source.is_some() {
             // The shared family sheet: first authored fixture of the family wins.
@@ -5562,7 +5559,7 @@ pub fn resolve_fixture_sheets(
         }
     }
     let mut sheets: Vec<ResolvedFixtureSheet> = family_sheets.into_iter().flatten().collect();
-    sheets.extend(switchable);
+    sheets.extend(private_sheets);
     sheets
 }
 

@@ -42,6 +42,7 @@ use super::effects::{EffectsPipeline, WgpuEffects};
 use super::environment::{
     EnvironmentBindings, fallback_planar, fallback_probe, static_environment,
 };
+use super::gpu_timing::{self, GpuTimer};
 use super::lightmap::{LightmapAtlas, needs_upload_fallback};
 use super::material::{WorldMaterialInputs, WorldMaterials, material_bind_group_layout};
 use super::postprocess::{EMISSIVE_FORMAT, PRESENTED_FORMAT, PostProcess, SCENE_FORMAT};
@@ -57,7 +58,7 @@ use super::surface::{
     present_mode_label,
 };
 use super::texture::{TextureCache, TextureFiltering};
-use super::ui::UiRenderer;
+use super::ui::{UiRenderer, UiTiming};
 use super::world::{
     EnvironmentUniform, WgpuWorldGeometry, WorldDrawTotals, WorldPipeline, WorldTextures,
     environment_bind_group_layout, prepare_world_frame,
@@ -85,9 +86,9 @@ use crate::render::common::effects::EffectScene;
 use crate::render::common::materials::MaterialRenderState;
 use crate::render::common::postprocess::PostSettings;
 use crate::render::common::reflections::{
-    Reflections, nearest_visible_reflection_plane, routing_from_mesh,
+    Reflections, mirror_point, nearest_visible_reflection_plane, routing_from_mesh,
 };
-use crate::render::common::stats::{LevelBuildStats, RenderStats};
+use crate::render::common::stats::{GpuTiming, LevelBuildStats, RenderStats};
 use crate::render::common::view::DrawableSize;
 
 /// Where one installed door stands: its hinge and closed-leaf yaw.
@@ -383,6 +384,14 @@ impl GraphicsDelta {
     }
 }
 
+/// Resolved level emission curves. Fixture sheets and ordinary materials use
+/// separate namespaces even when their numeric indices happen to coincide.
+#[derive(Default)]
+struct LevelEmissionAnimations {
+    materials: Vec<Option<EmissionAnimation>>,
+    fixtures: Vec<Option<EmissionAnimation>>,
+}
+
 /// The wgpu implementation of the renderer facade.
 ///
 /// It owns the device/surface lifecycle and the world material passes.
@@ -513,8 +522,8 @@ pub struct WgpuRenderer {
     /// [`crate::lighting::FixtureKind::index`]; the white fallback for a family
     /// the level does not use.
     fixture_sheets: Vec<std::sync::Arc<super::texture::GpuTexture>>,
-    /// The loaded level's emission animations, indexed by material index.
-    material_animations: Vec<Option<EmissionAnimation>>,
+    /// The loaded level's separate material and fixture-face animations.
+    material_animations: LevelEmissionAnimations,
     /// Seconds of emission-animation time accumulated since the level load.
     animation_seconds: f32,
     /// The level's atmosphere (global fog plus any regional volumes), applied
@@ -564,6 +573,8 @@ pub struct WgpuRenderer {
     level_stats: LevelBuildStats,
     /// The last submitted frame's counters.
     render_stats: RenderStats,
+    /// Persistent asynchronous render-pass timestamp queries/readback slots.
+    gpu_timer: GpuTimer,
     /// The surface must be (re)configured before the next acquisition.
     needs_configure: bool,
     /// The player's `VSync` preference, which selects the presentation mode.
@@ -706,6 +717,7 @@ impl WgpuRenderer {
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("places-wgpu"),
             required_limits: world_device_limits(),
+            required_features: gpu_timing::required_features(adapter.features()),
             ..Default::default()
         }))
         .map_err(|error| {
@@ -776,6 +788,7 @@ impl WgpuRenderer {
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("places-wgpu-compiler"),
             required_limits: world_device_limits(),
+            required_features: gpu_timing::required_features(adapter.features()),
             ..Default::default()
         }))
         .map_err(|error| {
@@ -855,6 +868,7 @@ impl WgpuRenderer {
             desired_maximum_frame_latency: 2,
         };
 
+        let gpu_timer = GpuTimer::new(&adapter, &device, &queue);
         let renderer = Self {
             surface,
             capabilities,
@@ -903,7 +917,7 @@ impl WgpuRenderer {
             _planar_fallback: planar_fallback,
             planar_fallback_view,
             fixture_sheets: Vec::new(),
-            material_animations: Vec::new(),
+            material_animations: LevelEmissionAnimations::default(),
             animation_seconds: 0.0,
             fog: LevelFog::global_only(),
             bloom_requested: true,
@@ -923,6 +937,7 @@ impl WgpuRenderer {
             lighting_quality: QualityLevel::default(),
             level_stats: LevelBuildStats::default(),
             render_stats: RenderStats::default(),
+            gpu_timer,
             needs_configure: !drawable_size.is_empty(),
             vsync: true,
             pending_frame: None,
@@ -1037,6 +1052,20 @@ impl WgpuRenderer {
             DEPTH_FORMAT,
             self.drawable_size.width,
             self.drawable_size.height
+        ));
+        logging::info(format!(
+            "[wgpu] GPU timing: {} | pass timestamps supported={} requested={} | encoder timestamps supported={} | period={} ns/tick | scope=sum of render passes (scene, planar, bloom, resolve, UI, surface copy); excludes CPU submission, uploads and presentation waits",
+            self.gpu_timer.status().status(),
+            self.adapter
+                .features()
+                .contains(wgpu::Features::TIMESTAMP_QUERY),
+            self.device
+                .features()
+                .contains(wgpu::Features::TIMESTAMP_QUERY),
+            self.adapter
+                .features()
+                .contains(wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS),
+            self.gpu_timer.period_ns(),
         ));
         if !surface::surface_format_is_srgb(self.config.format) {
             logging::warn(format!(
@@ -2251,7 +2280,8 @@ impl WgpuRenderer {
                             table: &pending.loaded.materials,
                             level: pending.graphics.quality,
                             lighting: pending.graphics.lighting_quality,
-                            animations: &animations,
+                            animations: &animations.materials,
+                            fixture_animations: &animations.fixtures,
                             routing: &routing,
                         },
                     ));
@@ -2542,7 +2572,8 @@ impl WgpuRenderer {
                     table: &loaded.materials,
                     level: self.quality,
                     lighting: self.lighting_quality,
-                    animations: &animations,
+                    animations: &animations.materials,
+                    fixture_animations: &animations.fixtures,
                     routing: &self.reflections.routing,
                 },
             )
@@ -2799,7 +2830,8 @@ impl WgpuRenderer {
                 table: &loaded.materials,
                 level: self.quality,
                 lighting: self.lighting_quality,
-                animations: &animations,
+                animations: &animations.materials,
+                fixture_animations: &animations.fixtures,
                 routing: &self.reflections.routing,
             },
         );
@@ -3128,9 +3160,8 @@ impl WgpuRenderer {
         loaded: &LoadedLevel,
         quality: QualityLevel,
     ) -> Vec<Arc<super::texture::GpuTexture>> {
-        // Family sheets occupy the first slots; a switchable fixture's own
-        // face occupies a private slot after them, so its runtime on/off
-        // state never touches another fixture's material.
+        // Family sheets occupy the first slots; switched and animated faces
+        // have private slots so their response cannot change another asset.
         let families = crate::lighting::FixtureKind::ALL.len();
         let highest = loaded
             .light_sheets
@@ -3162,19 +3193,27 @@ impl WgpuRenderer {
         slots
     }
 
-    /// Resolves the level's emission animations, indexed by material index.
+    /// Resolves authored material IDs and fixture asset IDs into their own
+    /// numeric namespaces. An animated fixture has a private face slot, even
+    /// without a switch, so other assets in its family keep their own response.
     ///
     /// A level that declares none leaves every entry `None` (the identity
     /// multiplier).
     fn resolve_animations(
         level: &crate::level::LevelDef,
         materials: &crate::materials::MaterialTable,
-    ) -> Vec<Option<EmissionAnimation>> {
-        let mut animations = vec![None; materials.entries().len()];
+    ) -> LevelEmissionAnimations {
+        let mut animations = LevelEmissionAnimations {
+            materials: vec![None; materials.entries().len()],
+            fixtures: vec![
+                None;
+                usize::try_from(crate::level::FIXTURE_SWITCHABLE_MATERIAL_BASE)
+                    .unwrap_or(usize::MAX)
+                    .saturating_add(level.ceiling_lights.len())
+            ],
+        };
         for animation in &level.animated_emissions {
-            let Some(index) = materials.index_of(animation.material.trim()) else {
-                continue;
-            };
+            let authored_id = animation.material.trim();
             let effect = animation
                 .effect
                 .as_deref()
@@ -3187,8 +3226,29 @@ impl WgpuRenderer {
                 phase: animation.phase.unwrap_or(0.0),
             }
             .sanitized();
-            if let Some(slot) = animations.get_mut(usize::try_from(index).unwrap_or(usize::MAX)) {
-                *slot = resolved.is_active().then_some(resolved);
+            let active = resolved.is_active().then_some(resolved);
+            if let Some(index) = materials.index_of(authored_id)
+                && let Some(slot) = animations
+                    .materials
+                    .get_mut(usize::try_from(index).unwrap_or(usize::MAX))
+            {
+                *slot = active;
+            }
+            for (index, fixture) in level.ceiling_lights.iter().enumerate() {
+                if fixture.fixture.trim() != authored_id {
+                    continue;
+                }
+                let face_slot = crate::level::fixture_face_material_index(
+                    index,
+                    true,
+                    crate::lighting::fixture_profile(&fixture.fixture).kind,
+                );
+                if let Some(slot) = animations
+                    .fixtures
+                    .get_mut(usize::try_from(face_slot).unwrap_or(usize::MAX))
+                {
+                    *slot = active;
+                }
             }
         }
         animations
@@ -3322,25 +3382,27 @@ impl WgpuRenderer {
         materials: &'a WorldMaterials,
         environment: &'a EnvironmentBindings,
         frame: &'a super::world::WorldFrame,
-    ) {
-        if let Some(geometry) = self.probe_visualization.as_ref() {
-            let _diagnostic_draws = pipeline.encode(
-                pass,
-                super::world::WorldEncodeInputs {
-                    geometry,
-                    textures,
-                    materials,
-                    environment: environment.bind_group_for_probe(self.active_probe),
-                    props: None,
-                    dynamic: None,
-                    characters: None,
-                    capture_plane: None,
-                    filtering: self.filtering,
-                    frame,
-                    cull: self.culling,
-                },
-            );
-        }
+    ) -> usize {
+        self.probe_visualization.as_ref().map_or(0, |geometry| {
+            pipeline
+                .encode(
+                    pass,
+                    super::world::WorldEncodeInputs {
+                        geometry,
+                        textures,
+                        materials,
+                        environment: environment.bind_group_for_probe(self.active_probe),
+                        props: None,
+                        dynamic: None,
+                        characters: None,
+                        capture_plane: None,
+                        filtering: self.filtering,
+                        frame,
+                        cull: self.culling,
+                    },
+                )
+                .draw_calls
+        })
     }
 
     /// The currently selected development view.
@@ -3449,6 +3511,13 @@ impl WgpuRenderer {
         self.render_stats
     }
 
+    /// Latest completed GPU render-pass sample; asynchronous readback lag is
+    /// described by its unique id and measured renderer frame id.
+    #[must_use]
+    pub const fn gpu_timing(&self) -> GpuTiming {
+        self.gpu_timer.status()
+    }
+
     /// World draw ranges in the loaded level.
     #[must_use]
     pub fn static_batch_count(&self) -> usize {
@@ -3509,6 +3578,8 @@ impl WgpuRenderer {
         if self.fatal.is_some() {
             return;
         }
+        self.poll_device();
+        self.gpu_timer.begin_frame(&self.queue);
         // Animated emissions are level data; advancing them is a handful of
         // uniform writes, and a still material writes nothing.
         if let Some(materials) = self.world_materials.as_mut() {
@@ -3672,7 +3743,8 @@ impl WgpuRenderer {
                         .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                             label: Some("places-wgpu-frame"),
                         });
-                let totals = self.encode_frame_into(&mut encoder, &view, &frame);
+                let totals =
+                    self.encode_frame_into(&mut encoder, &view, &frame, Some(&self.gpu_timer));
                 let _submission = self.queue.submit([encoder.finish()]);
                 self.pending_frame = Some(texture);
                 self.record_render_stats(totals);
@@ -3729,9 +3801,10 @@ impl WgpuRenderer {
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
         frame: &super::world::WorldFrame,
+        timer: Option<&GpuTimer>,
     ) -> WorldDrawTotals {
         let Some(post) = self.post.as_ref().filter(|post| post.is_ready()) else {
-            return self.encode_direct(encoder, target, frame);
+            return self.encode_direct(encoder, target, frame, timer);
         };
         let settings = self.presentation_settings();
         let mut totals = WorldDrawTotals::default();
@@ -3742,6 +3815,16 @@ impl WgpuRenderer {
             let Some(depth_view) = post.scene_depth_view() else {
                 return totals;
             };
+            // Before installation this pass only clears the target. Metal's
+            // vertex/fragment stage boundaries do not exist for that pass.
+            let scene_timer = timer.filter(|_| {
+                self.scene_pipeline.is_some()
+                    && self.world.is_some()
+                    && self.world_textures.is_some()
+                    && self.world_materials.is_some()
+                    && self.environment.is_some()
+            });
+            let checkpoint = scene_timer.map(GpuTimer::pass_checkpoint);
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("places-wgpu-scene"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -3761,24 +3844,34 @@ impl WgpuRenderer {
                     }),
                     stencil_ops: None,
                 }),
-                timestamp_writes: None,
+                timestamp_writes: scene_timer.and_then(GpuTimer::pass_writes),
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            totals = self.encode_scene_body(&mut pass, frame);
+            let (scene_totals, pass_draws) = self.encode_scene_body(&mut pass, frame);
+            totals = scene_totals;
+            drop(pass);
+            if let (Some(active_timer), Some(beginning_query)) = (scene_timer, checkpoint) {
+                active_timer.record_pass_draws(beginning_query, pass_draws);
+            }
         }
         let blooms = self.bloom_requested && settings.blooms() && totals.emissive_visible;
         if blooms && self.emissive_pipeline.is_some() {
-            if let Some(mut pass) = post.emissive_begin(encoder) {
-                let _ = self.encode_emissive_body(&mut pass, frame);
+            let checkpoint = timer.map(GpuTimer::pass_checkpoint);
+            if let Some(mut pass) = post.emissive_begin(encoder, timer) {
+                let emission_draws = self.encode_emissive_body(&mut pass, frame).draw_calls;
+                drop(pass);
+                if let (Some(active_timer), Some(beginning_query)) = (timer, checkpoint) {
+                    active_timer.record_pass_draws(beginning_query, emission_draws);
+                }
             }
-            post.encode_blur(encoder, settings.bloom_strength);
+            post.encode_blur(encoder, settings.bloom_strength, timer);
         }
         // The resolve (or present copy) lands on the presented target, the
         // backend's default-framebuffer equivalent; the UI blends into it in
         // display space and it is encoded to the sRGB surface afterwards.
         if let Some(presented) = post.presented_view() {
-            post.encode_resolve(encoder, presented, settings, blooms);
+            post.encode_resolve(encoder, presented, settings, blooms, timer);
         }
         totals
     }
@@ -3823,8 +3916,9 @@ impl WgpuRenderer {
         &'a self,
         pass: &mut wgpu::RenderPass<'a>,
         frame: &'a super::world::WorldFrame,
-    ) -> WorldDrawTotals {
+    ) -> (WorldDrawTotals, usize) {
         let mut totals = WorldDrawTotals::default();
+        let mut additional_draws = 0_usize;
         let (Some(pipeline), Some(world), Some(textures), Some(materials), Some(environment)) = (
             self.scene_pipeline.as_ref(),
             self.world.as_ref(),
@@ -3832,7 +3926,7 @@ impl WgpuRenderer {
             self.world_materials.as_ref(),
             self.environment.as_ref(),
         ) else {
-            return totals;
+            return (totals, 0);
         };
         // The night sky paints the cleared background first; the world body
         // draws over it with depth testing, so a solid ceiling always hides it.
@@ -3840,6 +3934,7 @@ impl WgpuRenderer {
             && let (Some(sky), Some(sky_pipeline)) = (self.sky.as_ref(), self.sky_pipeline.as_ref())
         {
             sky_pipeline.encode_scene(pass, sky, self.filtering);
+            additional_draws = additional_draws.saturating_add(1);
         }
         totals = pipeline.encode(
             pass,
@@ -3858,33 +3953,18 @@ impl WgpuRenderer {
             },
         );
         #[cfg(feature = "visual-diagnostics")]
-        self.encode_probe_visualization(pass, pipeline, textures, materials, environment, frame);
-        if !self.visual_diagnostic_active()
-            && let (Some(decals), Some(decal_pipeline)) =
-                (self.decals.as_ref(), self.decal_scene_pipeline.as_ref())
         {
-            let decal_totals = decals.encode(
+            additional_draws = additional_draws.saturating_add(self.encode_probe_visualization(
                 pass,
-                decal_pipeline,
-                super::decals::DecalEncodeInputs {
-                    filtering: self.filtering,
-                    frame,
-                    cull: self.culling,
-                },
-            );
-            totals.draw_calls = totals.draw_calls.saturating_add(decal_totals.draw_calls);
-            totals.visible_batches = totals
-                .visible_batches
-                .saturating_add(decal_totals.visible_batches);
-            totals.visible_vertices = totals
-                .visible_vertices
-                .saturating_add(decal_totals.visible_vertices);
-            totals.visible_indices = totals
-                .visible_indices
-                .saturating_add(decal_totals.visible_indices);
-            totals.texture_binds = totals
-                .texture_binds
-                .saturating_add(decal_totals.texture_binds);
+                pipeline,
+                textures,
+                materials,
+                environment,
+                frame,
+            ));
+        }
+        if !self.visual_diagnostic_active() {
+            self.encode_decals(pass, self.decal_scene_pipeline.as_ref(), frame, &mut totals);
         }
         // Ambient effects blend over the finished world body, depth-testing
         // against it with depth writes off. Drawn after the decals: a decal
@@ -3894,7 +3974,7 @@ impl WgpuRenderer {
         // against the world's own translucent draws (see the effects module's
         // draw-order note).
         self.encode_effects(pass, self.effects_scene_pipeline.as_ref(), &mut totals);
-        totals
+        (totals, totals.draw_calls.saturating_add(additional_draws))
     }
 
     /// Encodes the effect pass and folds its counters into `totals`.
@@ -3927,6 +4007,41 @@ impl WgpuRenderer {
             .saturating_add(effect_totals.texture_binds);
     }
 
+    /// Appends decals and their actual draws to either scene or capture totals.
+    fn encode_decals<'a>(
+        &'a self,
+        pass: &mut wgpu::RenderPass<'a>,
+        pipeline: Option<&'a DecalPipeline>,
+        frame: &'a super::world::WorldFrame,
+        totals: &mut WorldDrawTotals,
+    ) {
+        let (Some(decals), Some(decal_pipeline)) = (self.decals.as_ref(), pipeline) else {
+            return;
+        };
+        let decal_totals = decals.encode(
+            pass,
+            decal_pipeline,
+            super::decals::DecalEncodeInputs {
+                filtering: self.filtering,
+                frame,
+                cull: self.culling,
+            },
+        );
+        totals.draw_calls = totals.draw_calls.saturating_add(decal_totals.draw_calls);
+        totals.visible_batches = totals
+            .visible_batches
+            .saturating_add(decal_totals.visible_batches);
+        totals.visible_vertices = totals
+            .visible_vertices
+            .saturating_add(decal_totals.visible_vertices);
+        totals.visible_indices = totals
+            .visible_indices
+            .saturating_add(decal_totals.visible_indices);
+        totals.texture_binds = totals
+            .texture_binds
+            .saturating_add(decal_totals.texture_binds);
+    }
+
     /// Encodes the world body directly into `target`, without tone, grade or
     /// bloom: the fallback when no post targets could be created.
     fn encode_direct(
@@ -3934,8 +4049,19 @@ impl WgpuRenderer {
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
         frame: &super::world::WorldFrame,
+        timer: Option<&GpuTimer>,
     ) -> WorldDrawTotals {
         let mut totals = WorldDrawTotals::default();
+        let mut additional_draws = 0_usize;
+        let direct_timer = timer.filter(|_| {
+            self.depth.is_some()
+                && self.world_pipeline.is_some()
+                && self.world.is_some()
+                && self.world_textures.is_some()
+                && self.world_materials.is_some()
+                && self.environment.is_some()
+        });
+        let checkpoint = direct_timer.map(GpuTimer::pass_checkpoint);
         let depth_attachment =
             self.depth
                 .as_ref()
@@ -3959,7 +4085,7 @@ impl WgpuRenderer {
                 },
             })],
             depth_stencil_attachment: depth_attachment,
-            timestamp_writes: None,
+            timestamp_writes: direct_timer.and_then(GpuTimer::pass_writes),
             occlusion_query_set: None,
             multiview_mask: None,
         });
@@ -3979,6 +4105,7 @@ impl WgpuRenderer {
                     (self.sky.as_ref(), self.sky_pipeline.as_ref())
             {
                 sky_pipeline.encode_surface(&mut pass, sky, self.filtering);
+                additional_draws = additional_draws.saturating_add(1);
             }
             totals = pipeline.encode(
                 &mut pass,
@@ -3997,42 +4124,28 @@ impl WgpuRenderer {
                 },
             );
             #[cfg(feature = "visual-diagnostics")]
-            self.encode_probe_visualization(
-                &mut pass,
-                pipeline,
-                textures,
-                materials,
-                environment,
-                frame,
-            );
-            if !self.visual_diagnostic_active()
-                && let (Some(decals), Some(decal_pipeline)) =
-                    (self.decals.as_ref(), self.decal_pipeline.as_ref())
             {
-                let decal_totals = decals.encode(
-                    &mut pass,
-                    decal_pipeline,
-                    super::decals::DecalEncodeInputs {
-                        filtering: self.filtering,
+                additional_draws =
+                    additional_draws.saturating_add(self.encode_probe_visualization(
+                        &mut pass,
+                        pipeline,
+                        textures,
+                        materials,
+                        environment,
                         frame,
-                        cull: self.culling,
-                    },
-                );
-                totals.draw_calls = totals.draw_calls.saturating_add(decal_totals.draw_calls);
-                totals.visible_batches = totals
-                    .visible_batches
-                    .saturating_add(decal_totals.visible_batches);
-                totals.visible_vertices = totals
-                    .visible_vertices
-                    .saturating_add(decal_totals.visible_vertices);
-                totals.visible_indices = totals
-                    .visible_indices
-                    .saturating_add(decal_totals.visible_indices);
-                totals.texture_binds = totals
-                    .texture_binds
-                    .saturating_add(decal_totals.texture_binds);
+                    ));
+            }
+            if !self.visual_diagnostic_active() {
+                self.encode_decals(&mut pass, self.decal_pipeline.as_ref(), frame, &mut totals);
             }
             self.encode_effects(&mut pass, self.effects_pipeline.as_ref(), &mut totals);
+        }
+        drop(pass);
+        if let (Some(active_timer), Some(beginning_query)) = (direct_timer, checkpoint) {
+            active_timer.record_pass_draws(
+                beginning_query,
+                totals.draw_calls.saturating_add(additional_draws),
+            );
         }
         totals
     }
@@ -4233,6 +4346,7 @@ impl WgpuRenderer {
                     &presented,
                     ui_vertices,
                     presented_drawable,
+                    Some(UiTiming::Continue(&mut self.gpu_timer)),
                 );
             }
         }
@@ -4244,8 +4358,9 @@ impl WgpuRenderer {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("places-wgpu-presented"),
             });
-        post.encode_present_to(&mut encoder, &surface);
+        post.encode_present_to(&mut encoder, &surface, Some(&self.gpu_timer));
         let _submission = self.queue.submit([encoder.finish()]);
+        self.gpu_timer.finish_frame_submitted(&self.queue);
     }
 
     /// The direct fallback path's UI: no presented target exists, so the HUD
@@ -4270,6 +4385,7 @@ impl WgpuRenderer {
             &view,
             ui_vertices,
             self.drawable_size,
+            Some(UiTiming::Finish(&mut self.gpu_timer)),
         );
     }
 
@@ -4478,48 +4594,56 @@ impl WgpuRenderer {
     ) -> bool {
         // The main surface applies weather once after sampling its reflection.
         self.clear_capture_weather();
-        let Some(pipeline) = self.capture_pipeline.as_mut() else {
-            return false;
-        };
-        let Some(decal_pipeline) = self.decal_reflection_pipeline.as_mut() else {
-            return false;
-        };
-        let Some(planar) = self.reflection_targets.planar() else {
-            return false;
-        };
-        let Some(environment) = self.environment.as_ref() else {
-            return false;
-        };
-        let Some(materials) = self.world_materials.as_mut() else {
-            return false;
-        };
-        let Some(world) = self.world.as_ref() else {
-            return false;
-        };
-        let Some(textures) = self.world_textures.as_ref() else {
-            return false;
-        };
-        let Some(plane) = self.reflections.routing.planes.get(plane_index) else {
+        let (
+            Some(pipeline),
+            Some(decal_pipeline),
+            Some(planar),
+            Some(environment),
+            Some(materials),
+            Some(world),
+            Some(textures),
+            Some(plane),
+        ) = (
+            self.capture_pipeline.as_mut(),
+            self.decal_reflection_pipeline.as_mut(),
+            self.reflection_targets.planar(),
+            self.environment.as_ref(),
+            self.world_materials.as_mut(),
+            self.world.as_ref(),
+            self.world_textures.as_ref(),
+            self.reflections.routing.planes.get(plane_index),
+        )
+        else {
             return false;
         };
         let mirrored_matrix = planar_view_projection(frame.view_projection, plane);
-        let mirrored_eye =
-            glam::Vec3::from_array(crate::render::common::reflections::mirror_point(
-                plane.normal,
-                plane.offset,
-                [frame.eye.x, frame.eye.y, frame.eye.z],
-            ));
+        let mirrored_eye = glam::Vec3::from_array(mirror_point(
+            plane.normal,
+            plane.offset,
+            frame.eye.to_array(),
+        ));
         let capture = CaptureFrame::new(mirrored_matrix, mirrored_eye);
         // The mirror must not sample the image it is writing.
         materials.update_reflection_modes(&self.queue, None, false, false, true);
         pipeline.upload_camera(&self.queue, capture.view_projection, capture.eye);
         decal_pipeline.upload_camera(&self.queue, capture.view_projection, capture.eye);
+        // Camera uploads are finished; encoding and the shared decal helper
+        // borrow the pipelines immutably for the open render pass.
+        let (Some(capture_pipeline), Some(capture_decal_pipeline), Some(capture_materials)) = (
+            self.capture_pipeline.as_ref(),
+            self.decal_reflection_pipeline.as_ref(),
+            self.world_materials.as_ref(),
+        ) else {
+            return false;
+        };
         let capture_frame = capture.world_frame();
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("places-wgpu-planar-capture"),
             });
+        let checkpoint = self.gpu_timer.pass_checkpoint();
+        let pass_draws;
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("places-wgpu-planar"),
@@ -4540,16 +4664,16 @@ impl WgpuRenderer {
                     }),
                     stencil_ops: None,
                 }),
-                timestamp_writes: None,
+                timestamp_writes: self.gpu_timer.pass_writes(),
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            let _draw_stats = pipeline.encode(
+            let mut capture_draws = capture_pipeline.encode(
                 &mut pass,
                 super::world::WorldEncodeInputs {
                     geometry: world,
                     textures,
-                    materials,
+                    materials: capture_materials,
                     environment: environment.capture_bind_group(),
                     props: self.world_props.as_ref(),
                     dynamic: self.world_dynamic.as_ref(),
@@ -4561,18 +4685,15 @@ impl WgpuRenderer {
                 },
             );
             // Planar captures include the scene's decals.
-            if let Some(decals) = self.decals.as_ref() {
-                let _decal_draw_stats = decals.encode(
-                    &mut pass,
-                    decal_pipeline,
-                    super::decals::DecalEncodeInputs {
-                        filtering: self.filtering,
-                        frame: &capture_frame,
-                        cull: self.culling,
-                    },
-                );
-            }
+            self.encode_decals(
+                &mut pass,
+                Some(capture_decal_pipeline),
+                &capture_frame,
+                &mut capture_draws,
+            );
+            pass_draws = capture_draws.draw_calls;
         }
+        self.gpu_timer.record_pass_draws(checkpoint, pass_draws);
         let _submission = self.queue.submit([encoder.finish()]);
         self.reflection_passes = self.reflection_passes.saturating_add(1);
         true
@@ -4996,6 +5117,7 @@ impl WgpuRenderer {
                             &presented_size,
                             &ui_vertices,
                             presented_drawable,
+                            None,
                         );
                         self.last_ui = ui_vertices;
                     }
@@ -5020,6 +5142,7 @@ impl WgpuRenderer {
                     &view,
                     &ui_vertices,
                     self.drawable_size,
+                    None,
                 );
                 self.last_ui = ui_vertices;
             }
@@ -5035,9 +5158,9 @@ impl WgpuRenderer {
                 label: Some("places-wgpu-capture"),
             });
         #[cfg(feature = "visual-diagnostics")]
-        let capture_totals = self.encode_frame_into(&mut encoder, view, frame);
+        let capture_totals = self.encode_frame_into(&mut encoder, view, frame, None);
         #[cfg(not(feature = "visual-diagnostics"))]
-        let _ = self.encode_frame_into(&mut encoder, view, frame);
+        let _ = self.encode_frame_into(&mut encoder, view, frame, None);
         let _submission = self.queue.submit([encoder.finish()]);
         #[cfg(feature = "visual-diagnostics")]
         self.trace_visual_diagnostic("capture", Some(&capture_totals));
@@ -5255,10 +5378,11 @@ impl WgpuRenderer {
     }
 
     /// Drains callback work so device-loss and validation reports are seen.
-    fn poll_device(&self) {
+    fn poll_device(&mut self) {
         if let Err(error) = self.device.poll(wgpu::PollType::Poll) {
             logging::warn_once("wgpu-poll", format!("[wgpu] device poll failed: {error}"));
         }
+        self.gpu_timer.collect_ready(&self.device, &self.queue);
     }
 
     /// Reports and records a device loss, once.
@@ -5361,6 +5485,57 @@ mod tests {
 
     use super::*;
     use crate::render::ProbeFaceReadback;
+
+    /// Resolves fixture asset IDs even when the ordinary material table is
+    /// empty, and isolates another panel asset. Four JSON placements, no bake,
+    /// image decode or device are needed to reproduce the old missing route.
+    #[test]
+    fn fixture_asset_animation_resolves_private_faces_without_a_material_entry() {
+        let level: crate::level::LevelDef = serde_json::from_str(r#"{
+            "format_version": 3, "id": "fixture_animation", "name": "Fixture animation",
+            "spawn": {"x": 0.0, "z": 0.0},
+            "ceiling_lights": [
+                {"fixture": "core:fluorescent_panel_01", "x": 0.0, "z": 0.0, "switchable": true},
+                {"fixture": "core:fluorescent_panel_01", "x": 1.0, "z": 0.0},
+                {"fixture": "arcade:fluorescent_panel_01", "x": 2.0, "z": 0.0},
+                {"fixture": "core:pool_light_round", "x": 3.0, "z": 0.0, "switchable": true}
+            ],
+            "animated_emissions": [
+                {"material": " core:fluorescent_panel_01 ", "effect": "flicker", "hz": 7.5, "depth": 0.6},
+                {"material": "unused:fixture", "effect": "pulse"}
+            ]
+        }"#)
+        .expect("minimal level JSON");
+        let animations =
+            WgpuRenderer::resolve_animations(&level, &crate::materials::MaterialTable::default());
+        assert_eq!(animations.materials, Vec::new());
+        for (index, fixture) in level.ceiling_lights.iter().enumerate() {
+            let private = crate::level::fixture_face_uses_private_material(&level, fixture);
+            assert_eq!(
+                private,
+                index != 2,
+                "animation and switching need private faces"
+            );
+            let slot = crate::level::fixture_face_material_index(
+                index,
+                private,
+                crate::lighting::fixture_profile(&fixture.fixture).kind,
+            );
+            let animation = animations.fixtures[usize::try_from(slot).expect("bounded slot")];
+            if index < 2 {
+                let resolved = animation.expect("matching fixture asset resolves");
+                assert_eq!(resolved.effect, AnimationEffect::Flicker);
+                assert_eq!(resolved.hz.to_bits(), 7.5_f32.to_bits());
+                assert_eq!(resolved.depth.to_bits(), 0.6_f32.to_bits());
+            } else {
+                assert!(
+                    animation.is_none(),
+                    "another fixture asset stays unanimated"
+                );
+            }
+        }
+        assert_eq!(animations.fixtures.iter().flatten().count(), 2);
+    }
 
     /// No world bake or GPU is needed: this guards the fallback that prevents
     /// animated faces disagreeing with immutable Static illumination, while

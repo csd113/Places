@@ -147,6 +147,11 @@ fn test_perf_overlay_defaults_and_toggle() {
 fn test_perf_overlay_text_format_and_caching() {
     let mut overlay = PerfOverlay::new();
     overlay.set_visible(true);
+    overlay.set_gpu_timing(GpuTiming::Measured(crate::render::GpuTimingSample {
+        id: 1,
+        frame: 3,
+        milliseconds: 4.25,
+    }));
 
     // Simulate frames with real delta times
     for _ in 0_i32..15_i32 {
@@ -158,8 +163,19 @@ fn test_perf_overlay_text_format_and_caching() {
 
     let text = overlay.cached_text();
     assert!(text.starts_with("CPU "), "Text must begin with CPU: {text}");
-    assert!(text.contains("GPU "), "Text must contain GPU: {text}");
+    assert!(
+        text.contains("GPU render 4.25ms"),
+        "Hardware duration must include the render scope and milliseconds: {text}"
+    );
     assert!(text.contains("FPS "), "Text must contain FPS: {text}");
+    assert!(
+        text.contains("GPU device "),
+        "Device utilization must remain distinct from render timing: {text}"
+    );
+    assert!(
+        text.contains("Game RAM RSS "),
+        "Game memory must identify resident RAM: {text}"
+    );
 
     // Cached vertices must be generated
     let verts = overlay.cached_vertices();
@@ -172,6 +188,38 @@ fn test_perf_overlay_text_format_and_caching() {
         overlay.cached_vertices().len(),
         initial_count,
         "Geometry must remain cached between update intervals"
+    );
+    overlay.set_gpu_timing(GpuTiming::Unavailable(
+        crate::render::GpuTimingUnavailable::AdapterUnsupported,
+    ));
+    overlay.refresh_metrics();
+    assert!(
+        overlay
+            .cached_text()
+            .contains("GPU render: adapter lacks timestamps"),
+        "Unsupported hardware must have an accurate reason"
+    );
+
+    // Pure formatting protects the distinct metric scopes, RSS binary units,
+    // rounding and two readable rows without platform-specific live values.
+    let reference = overlay_text(
+        Some(12.0),
+        platform::GpuUtilization::Measured(37.0),
+        GpuTiming::Measured(crate::render::GpuTimingSample {
+            id: 1,
+            frame: 3,
+            milliseconds: 4.25,
+        }),
+        Some(2_621_440),
+        60,
+    );
+    assert_eq!(
+        reference,
+        "CPU system 12%  GPU device 37%\nGPU render 4.25ms  Game RAM RSS 3MiB  FPS 60"
+    );
+    assert!(
+        reference.lines().all(|line| char_count(line) <= 58.0),
+        "Metric rows must fit the 480px HUD with padding"
     );
 }
 

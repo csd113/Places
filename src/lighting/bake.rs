@@ -972,8 +972,10 @@ fn baked_lights(
         // family owns the footprint, so a round downlight pools light in a
         // small disc while the office panel pools it over its rectangle.
         let profile = fixture_profile(&light.fixture);
-        let shape = profile.shape();
-        let (half_w, half_d) = shape.half_extents_rotated(light.rotation_degrees);
+        let shape = profile.emission_shape();
+        // The housing must clear the entire gable footprint even though its
+        // emitting aperture is smaller than the outer body.
+        let (half_w, half_d) = profile.shape().half_extents_rotated(light.rotation_degrees);
         let panel_y = match light.mount {
             LightMount::Ceiling => light.y.filter(|y| y.is_finite()).unwrap_or_else(|| {
                 panel_min_ceiling_y(
@@ -991,7 +993,7 @@ fn baked_lights(
         };
         let source = LightSource {
             shape,
-            position: [light.x, panel_y, light.z],
+            position: [light.x, profile.emission_y(panel_y), light.z],
             rotation_degrees: light.rotation_degrees,
             color,
             intensity,
@@ -2304,10 +2306,11 @@ impl LevelLighting {
         self.fixture_panel_y(x, z, 0.0, 0.0)
     }
 
-    /// World Y of a placed fixture's luminous panel.
+    /// World Y of a placed fixture's mounting plane.
     ///
-    /// The single function the fixture mesh uses, so the drawn panel can never
-    /// drift from the baked light plane:
+    /// The fixture mesh uses this for the body. Its profile's `emission_y`
+    /// locates the luminous plane relative to that mount, exactly as the bake
+    /// locates its source:
     ///
     /// * a wall fixture mounts at its authored world `y`;
     /// * a ceiling fixture with a finite authored `y` mounts at that world

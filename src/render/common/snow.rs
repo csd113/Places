@@ -218,7 +218,12 @@ impl SnowScene {
             self.config.fog_color[0],
             self.config.fog_color[1],
             self.config.fog_color[2],
-            self.config.storm_severity.sqrt(),
+            // The sky is the far background. Use the same extinction as the
+            // world at its far plane, rather than a severity-only colour mix
+            // that leaves mild/moderate distant objects silhouetted.
+            1.0 - super::storm::optical_transmission(
+                self.storm.color_density[3] * super::SCENE_FAR_M,
+            ),
         ]
     }
 

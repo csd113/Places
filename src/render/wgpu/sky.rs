@@ -12,9 +12,8 @@
 //!   world body draws over this pass with depth testing on, so a solid ceiling
 //!   always covers the sky indoors. The one opt-in environment term is
 //!   `sky.ambient`, which belongs to the lighting solve, not to this module.
-//! * **Display space.** The sheet is a plain `Rgba8Unorm` display-space texture
-//!   like every other authored PNG; the raw scene target takes the product
-//!   directly and only the sRGB surface entry point converts once.
+//! * **Colour.** The authored sRGB sheet uses the texture cache's colour
+//!   semantic: fitting and mips average linear light; sampling decodes once.
 //! * **Depth.** The sky pipeline tests depth with `Always` and writes nothing,
 //!   so it paints the cleared background and every later draw wins. It is
 //!   simply not submitted when the level declares no sky, which keeps the
@@ -34,7 +33,7 @@ use super::texture::{CacheOutcome, GpuTexture, TextureCache, TextureFiltering, T
 use crate::assets::AssetCatalog;
 use crate::level::LevelDef;
 use crate::materials::TextureOrigin;
-use crate::quality::{QualityLevel, TextureClass, fit_image};
+use crate::quality::{QualityLevel, TextureClass};
 
 /// The sky shader, from the file next to this module.
 pub const SKY_SHADER_SRC: &str = include_str!("sky.wgsl");
@@ -74,9 +73,8 @@ impl SkyUniform {
 
 /// The sky pass's pipeline pair and its own camera uniform.
 ///
-/// One pipeline per colour-target convention: the offscreen scene target is raw
-/// and takes the display-space product, the main surface is sRGB and converts
-/// once. The camera buffer and bind group are format-independent and persist for
+/// One pipeline per colour-target convention. The camera buffer and bind group
+/// are format-independent and persist for
 /// the pipeline's lifetime; the camera is written only when the uploaded uniform
 /// changed, exactly like [`super::world::WorldPipeline`].
 pub struct SkyPipeline {
@@ -305,7 +303,6 @@ impl WgpuSky {
                 return None;
             }
         };
-        let fitted = fit_image(&image, quality, TextureClass::Sky);
         let key = super::texture::TextureKey {
             logical: format!("sky:{id}"),
             semantic: super::texture::TextureSemantic::BaseColorDisplay,
@@ -313,13 +310,8 @@ impl WgpuSky {
             level: quality,
             wrap: TextureWrap::RepeatClampV,
         };
-        let (outcome, texture) = cache.get_or_upload_with_key(
-            device,
-            queue,
-            key,
-            fitted.as_ref(),
-            TextureOrigin::Catalog,
-        );
+        let (outcome, texture) =
+            cache.get_or_upload_with_key(device, queue, key, &image, TextureOrigin::Catalog);
         let meta = texture.meta();
         if matches!(outcome, CacheOutcome::Uploaded) {
             crate::logging::info(format!(

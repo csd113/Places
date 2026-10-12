@@ -119,13 +119,16 @@ fn fixture_panel_follows_a_gable_eave_and_ridge() {
     );
     assert!(ridge_y - eave_y > 1.5);
 
-    // The baked panel plane is exactly the drawn one, panel extents included.
+    // Mount clearance uses the full body, while source taps sit on the smaller
+    // recessed diffuser. A gable must still clear the outer housing footprint.
     let (half_w, half_d) = fixture_half_extents(0.0);
+    let profile = fixture_profile("core:fluorescent_panel_01");
+    let (source_w, source_d) = profile.emission_shape().half_extents();
     for light in lighting.lights() {
-        let expected =
-            lighting.fixture_panel_y(light.x(), light.z(), light.half_w(), light.half_d());
+        let mount_y = lighting.fixture_panel_y(light.x(), light.z(), half_w, half_d);
+        let expected = profile.emission_y(mount_y);
         assert!((light.y() - expected).abs() < 1e-4);
-        assert!(light.half_w() == half_w && light.half_d() == half_d);
+        assert!(light.half_w() == source_w && light.half_d() == source_d);
         // The panel stays below the ceiling everywhere it hangs.
         assert!(light.y() < 5.0 - FIXTURE_DROP_M + 1e-3);
     }
@@ -1175,10 +1178,10 @@ fn fixture_families_own_their_footprint_and_mount() {
         "{flush_light:?}"
     );
     assert!((flush_light.half_w() - crate::lighting::FLUSH_MOUNT_RADIUS_M).abs() < 1e-4);
-    // The unknown id is baked with the panel footprint, not skipped.
+    // The unknown id uses the panel's emitting aperture, not its opaque body.
     let unknown = lighting.lights()[2];
-    assert!((unknown.half_w() - 0.6).abs() < 1e-4);
-    assert!((unknown.y() - (4.0 - FIXTURE_DROP_M)).abs() < 1e-4);
+    assert!((unknown.half_w() - (0.6 - PANEL_BORDER_WIDTH_M)).abs() < 1e-4);
+    assert!((unknown.y() - panel.emission_y(4.0 - FIXTURE_DROP_M)).abs() < 1e-4);
 
     // A hand-edited wall fixture without a height stays finite.
     let json = r#"{
@@ -1259,10 +1262,11 @@ fn a_wall_fixture_needs_a_height_and_validation_says_so() {
     let lighting = LevelLighting::bake(&ceiling_with_y);
     let panel = lighting.lights().first().expect("the fixture bakes");
     assert!(
-        (panel.y() - 2.4).abs() < 1e-6,
-        "an authored ceiling y is the panel's world height: {}",
+        (panel.y() - fixture_profile("core:fluorescent_panel_01").emission_y(2.4)).abs() < 1e-6,
+        "the source occupies the diffuser below its authored mounting height: {}",
         panel.y()
     );
+    assert!((lighting.fixture_y_for(&ceiling_with_y.ceiling_lights[0]) - 2.4).abs() < 1e-6);
     assert_eq!(panel.room, Some(0), "and it still owns its room");
 
     let non_finite = LevelDef::from_json(&level(

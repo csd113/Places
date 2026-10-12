@@ -8,7 +8,7 @@
 //!
 //! ```text
 //! source PNG (asset)  ──decode──▶  High runtime image  (native artwork)
-//!                     ──decode──▶  Medium runtime image (half the sheet budget)
+//!                     ──decode──▶  Medium runtime image (384 px sheet budget)
 //!                     ──decode──▶  Low runtime image (a quarter of it)
 //! ```
 //!
@@ -18,9 +18,10 @@
 //!
 //! High uploads the native artwork unchanged — a 256x256 prop atlas stays
 //! 256x256, and a 1024x1024 surface sheet stays 1024x1024. Medium and Low are
-//! optional display-budget reductions for players who want them: sheets at 512
-//! and 256. The trade is an intentional quality/performance choice, not a
-//! hardware requirement of the desktop target, and it never changes the size
+//! optional display-budget reductions for players who want them: sheets at 384
+//! and 256, and native 256 px prop atlases at 192 and 128. The trade is an
+//! intentional quality/performance choice, not a hardware requirement of the
+//! desktop target, and it never changes the size
 //! of the asset stored in the repository.
 //!
 //! Ordinary images remain bounded by [`crate::assets::MAX_TEXTURE_DIMENSION`];
@@ -87,20 +88,22 @@ const FULL_SHEET_EDGE: u32 = 1_024;
 /// Full-quality edge budget: preserve reviewed detailed print sheets as well
 /// as the ordinary 256-square prop atlases, without upsampling either.
 const FULL_PROP_EDGE: u32 = 1_024;
-/// Medium-quality edge budget: ordinary native prop sheets remain unchanged.
-const MEDIUM_PROP_EDGE: u32 = 256;
+/// Medium-quality edge budget: native 256-square prop atlases retain three
+/// quarters of their edge, between High's native artwork and Low's 128.
+const MEDIUM_PROP_EDGE: u32 = 192;
 /// Full-quality edge budget: emissive masks at 512.
 const FULL_MASK_EDGE: u32 = 512;
 /// Full-quality edge budget: 2048x1024 panoramas.
 const FULL_SKY_EDGE: u32 = 2_048;
-/// Medium-quality edge budget: 1024x512 panoramas.
-const MEDIUM_SKY_EDGE: u32 = 1_024;
+/// Medium-quality edge budget: 768x384 panoramas.
+const MEDIUM_SKY_EDGE: u32 = 768;
 /// Low-quality edge budget: sky sheets at 512 (512x256).
 const LOW_SKY_EDGE: u32 = 512;
-/// Medium-quality edge budget: sheets at 512.
-const MEDIUM_SHEET_EDGE: u32 = 512;
-/// Medium-quality edge budget: emissive masks at 256.
-const MEDIUM_MASK_EDGE: u32 = 256;
+/// Medium-quality edge budget: sheets at 384, deliberately below the former
+/// 512 budget without collapsing a 512-square native image to Low's 256.
+const MEDIUM_SHEET_EDGE: u32 = 384;
+/// Medium-quality edge budget: emissive masks at 192.
+const MEDIUM_MASK_EDGE: u32 = 192;
 /// Low-quality edge budget: sheets at 256.
 const LOW_SHEET_EDGE: u32 = 256;
 /// Low-quality edge budget: native props halved once, 256 -> 128.
@@ -266,7 +269,7 @@ impl QualityProfile {
 pub enum QualityLevel {
     /// The reduced presentation: quarter-size sheets and the cheapest bake.
     Low,
-    /// The intermediate presentation: half-size sheets, the drawable scene
+    /// The intermediate presentation: 384 px sheets, the drawable scene
     /// target and a denser bake than Low.
     Medium,
     /// The intended normal Places presentation: native textures, unchanged.

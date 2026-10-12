@@ -401,8 +401,8 @@ pub struct GpuMaterial {
     /// True when the material emits anything; the emissive pass draws exactly
     /// these.
     emissive: bool,
-    /// The emission scale last written into the uniform.
-    applied_scale: f32,
+    /// Independent switch and animation factors, plus the last uniform value.
+    emission_scale: EmissionScale,
     /// The authored reflection mode (0 none, 1 probe, 2 planar) after the
     /// eligibility gate; zero for a material that authors none.
     authored_reflection_mode: u32,
@@ -411,6 +411,48 @@ pub struct GpuMaterial {
     /// The reflection mode last written into the uniform, so a frame writes
     /// only what changed.
     applied_reflection_mode: u32,
+}
+
+/// A fixture's switch state multiplies its animation instead of competing for
+/// the same uniform. Retain both factors while off so switching on uses the
+/// current animation phase, and avoid unchanged queue writes.
+struct EmissionScale {
+    state: f32,
+    animation: f32,
+    applied: f32,
+}
+
+impl EmissionScale {
+    const fn new(animation: f32) -> Self {
+        Self {
+            state: 1.0,
+            animation,
+            applied: animation,
+        }
+    }
+
+    const fn set_state(&mut self, state: f32) -> Option<f32> {
+        self.state = if state.is_finite() {
+            state.clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        self.changed_value()
+    }
+
+    const fn set_animation(&mut self, animation: f32) -> Option<f32> {
+        self.animation = animation;
+        self.changed_value()
+    }
+
+    const fn changed_value(&mut self) -> Option<f32> {
+        let desired = self.state * self.animation;
+        if (self.applied - desired).abs() <= f32::EPSILON {
+            return None;
+        }
+        self.applied = desired;
+        Some(desired)
+    }
 }
 
 impl GpuMaterial {
@@ -569,8 +611,29 @@ pub struct WorldMaterialInputs<'a> {
     pub lighting: QualityLevel,
     /// Per-material emission animations, indexed by material index.
     pub animations: &'a [Option<crate::render::common::animation::EmissionAnimation>],
+    /// Fixture-face animations in their separate sheet-slot namespace.
+    pub fixture_animations: &'a [Option<crate::render::common::animation::EmissionAnimation>],
     /// The level's reflection routing, for the planar/probe gates.
     pub routing: &'a crate::render::common::reflections::ReflectionRouting,
+}
+
+/// Ordinary materials and fixture sheets have independent numeric namespaces.
+/// Bare fixture housing never inherits an animation from either table.
+fn animation_for_surface(
+    kind: SurfaceKind,
+    material: MaterialIndex,
+    materials: &[Option<crate::render::common::animation::EmissionAnimation>],
+    fixtures: &[Option<crate::render::common::animation::EmissionAnimation>],
+) -> Option<crate::render::common::animation::EmissionAnimation> {
+    let animations = match kind {
+        SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall => materials,
+        SurfaceKind::Light => fixtures,
+        SurfaceKind::PropFallback | SurfaceKind::Decal => return None,
+    };
+    animations
+        .get(usize::try_from(material).unwrap_or(usize::MAX))
+        .copied()
+        .flatten()
 }
 
 impl WorldMaterials {
@@ -645,18 +708,12 @@ impl WorldMaterials {
             } else {
                 None
             };
-            let animation = if matches!(
-                kind,
-                SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall
-            ) {
-                inputs
-                    .animations
-                    .get(usize::try_from(key.material).unwrap_or(usize::MAX))
-                    .copied()
-                    .flatten()
-            } else {
-                None
-            };
+            let animation = animation_for_surface(
+                *kind,
+                key.material,
+                inputs.animations,
+                inputs.fixture_animations,
+            );
             let scaled_emission = animation.map_or(emission_record, |active_animation| {
                 emission_record.with_scale(active_animation.factor(0.0))
             });
@@ -819,11 +876,9 @@ impl WorldMaterials {
             let Some(entry) = self.entries.get_mut(slot) else {
                 continue;
             };
-            if (entry.applied_scale - factor).abs() <= f32::EPSILON {
-                continue;
+            if let Some(scale) = entry.emission_scale.set_animation(factor) {
+                entry.write_emission_scale(queue, scale);
             }
-            entry.applied_scale = factor;
-            entry.write_emission_scale(queue, factor);
         }
     }
 
@@ -837,26 +892,17 @@ impl WorldMaterials {
     ///
     /// A switchable fixture owns its own material identity (its luminous face
     /// is a distinct draw), so this scales exactly that fixture's emission: `1`
-    /// is on and `0` is off. Returns whether the write changed the applied
-    /// value; an entry with an emission animation is skipped, because
-    /// [`Self::update_animations`] owns that scale.
+    /// is on and `0` is off. Multiplies the current animation factor, so an off
+    /// fixture remains dark through every animation update. Returns whether
+    /// the write changed the applied value.
     pub fn set_emission_scale(&mut self, queue: &wgpu::Queue, slot: usize, scale: f32) -> bool {
-        if self.animations.get(slot).is_some_and(Option::is_some) {
-            return false;
-        }
-        let unit_scale = if scale.is_finite() {
-            scale.clamp(0.0, 1.0)
-        } else {
-            0.0
-        };
         let Some(entry) = self.entries.get_mut(slot) else {
             return false;
         };
-        if (entry.applied_scale - unit_scale).abs() <= f32::EPSILON {
+        let Some(desired) = entry.emission_scale.set_state(scale) else {
             return false;
-        }
-        entry.applied_scale = unit_scale;
-        entry.write_emission_scale(queue, unit_scale);
+        };
+        entry.write_emission_scale(queue, desired);
         true
     }
 
@@ -971,7 +1017,7 @@ impl GpuMaterial {
             _uv_mask: Arc::clone(maps.uv),
             emissive: uniform.emission_vertex > 0.5
                 || uniform.emission_color.map(f32::to_bits) != [0_u32; 3],
-            applied_scale: uniform.emission_scale,
+            emission_scale: EmissionScale::new(uniform.emission_scale),
             authored_reflection_mode: uniform.reflection_mode,
             reflection_plane: None,
             applied_reflection_mode: uniform.reflection_mode,
@@ -1158,6 +1204,48 @@ mod tests {
     )]
 
     use super::*;
+
+    /// Protects fixture routing and off-state composition without a GPU or map
+    /// bake; two scalar curves and one uniform cache are the whole fixture.
+    #[test]
+    fn fixture_animation_has_its_own_namespace_and_multiplies_switch_state() {
+        use crate::render::common::animation::{AnimationEffect, EmissionAnimation};
+
+        let material = EmissionAnimation::new(AnimationEffect::Pulse);
+        let fixture = EmissionAnimation::new(AnimationEffect::Flicker);
+        assert_eq!(
+            animation_for_surface(SurfaceKind::Wall, 0, &[Some(material)], &[Some(fixture)]),
+            Some(material)
+        );
+        assert_eq!(
+            animation_for_surface(SurfaceKind::Light, 0, &[Some(material)], &[Some(fixture)]),
+            Some(fixture)
+        );
+        assert_eq!(
+            animation_for_surface(
+                SurfaceKind::Light,
+                crate::render::common::mesh::MATERIAL_NONE,
+                &[Some(material)],
+                &[Some(fixture)]
+            ),
+            None,
+            "bare housing has no emission curve"
+        );
+
+        let mut scale = EmissionScale::new(1.0);
+        assert_eq!(scale.set_animation(0.4), Some(0.4));
+        assert_eq!(scale.set_state(0.0), Some(0.0));
+        assert_eq!(scale.set_animation(0.8), None, "off remains zero");
+        assert_eq!(scale.set_animation(0.2), None, "off survives later flicker");
+        assert_eq!(scale.set_state(1.0), Some(0.2), "on uses the live phase");
+        assert_eq!(
+            scale.set_animation(0.2),
+            None,
+            "unchanged values avoid writes"
+        );
+        assert_eq!(scale.set_state(f32::NAN), Some(0.0));
+        assert_eq!(scale.set_animation(1.0), None, "invalid state fails dark");
+    }
 
     #[test]
     fn ultraviolet_only_images_skip_display_upload_without_reindexing() {

@@ -735,7 +735,9 @@ const WALL_COINCIDENCE_EPS: f32 = 1e-3;
 /// 7 = exact wall-span endpoint maxima from the span's own roof;
 /// 8 = native shared static-model charts and finer bounded physical sampling.
 /// 9 = neighbor-clipped ramp sides, including partial footprints and crossings.
-pub const GEOMETRY_REVISION: u32 = 10;
+/// 10 = continuous parent-wall UV phase and prepared Static light circuits.
+/// 11 = source-coloured fixture diffusers and non-emissive metal panel housings.
+pub const GEOMETRY_REVISION: u32 = 11;
 
 /// One material run of a coalesced wall group: a rectangle in the group's own
 /// (length, height) space over which the visible material is constant.

@@ -52,6 +52,7 @@ pub mod diagnostics;
 pub mod dynamic;
 pub mod effects;
 pub mod environment;
+mod gpu_timing;
 pub mod lightmap;
 pub mod material;
 pub mod postprocess;

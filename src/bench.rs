@@ -22,6 +22,10 @@
 //! * `frame_ms` — `t_begin` to `t_swap`: the complete frame including the swap.
 //! * `loop_ms` — `t_begin` of this frame to `t_begin` of the next: the real
 //!   presentation cadence, which is what an FPS counter should be derived from.
+//! * `gpu_render_ms` — asynchronous hardware timestamps summed across actual
+//!   render passes (including planar, bloom, resolve, UI and surface copy).
+//!   Upload/copy work and CPU/presentation waits are excluded. Its sample and
+//!   renderer-frame ids identify readback lag; repeated ids are one sample.
 //!
 //! Scripted live cycles drive real settings and the real window from the
 //! environment: `PLACES_BENCH_QUALITY_CYCLE` selects the overall quality
@@ -37,7 +41,7 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use crate::quality::{LightmapQuality, ReflectionQuality};
-use crate::render::RenderStats;
+use crate::render::{GpuTiming, RenderStats};
 
 pub mod lighting_sequence;
 
@@ -447,6 +451,7 @@ fn percentile(sorted: &[f32], fraction: f32) -> f32 {
 struct FrameRecord {
     timings: FrameTimings,
     stats: RenderStats,
+    gpu_timing: GpuTiming,
 }
 
 /// Collects per-frame samples and writes the run summary.
@@ -465,6 +470,7 @@ pub struct Bench {
     /// first [`Bench::begin_frame`].
     loop_ms: f32,
     frames: Vec<FrameRecord>,
+    gpu_timing: GpuTiming,
     /// Swap interval actually in force, as reported by the presentation mode.
     reported_swap_interval: Option<i32>,
     /// Scripted live quality switches, in ascending frame order.
@@ -502,7 +508,7 @@ impl Bench {
             // Header row: column order must match `record_frame`.
             if let Err(error) = writeln!(
                 file,
-                "frame,update_ms,render_ms,swap_ms,frame_ms,loop_ms,total_vertices,visible_vertices,culled_vertices,total_batches,visible_batches,draw_calls,vbo_bytes,index_bytes,texture_binds,material_changes,reflection_passes,visible_indices"
+                "frame,update_ms,render_ms,swap_ms,frame_ms,loop_ms,total_vertices,visible_vertices,culled_vertices,total_batches,visible_batches,draw_calls,vbo_bytes,index_bytes,texture_binds,material_changes,reflection_passes,visible_indices,gpu_sample_id,gpu_sample_frame,gpu_render_ms,gpu_timing_status"
             ) {
                 crate::logging::warn(format!("[bench] could not write CSV header: {error}"));
                 csv = None;
@@ -567,6 +573,7 @@ impl Bench {
             last_begin: None,
             loop_ms: 0.0,
             frames: Vec::new(),
+            gpu_timing: GpuTiming::Pending,
             reported_swap_interval: None,
             quality_cycle,
             graphics_cycle,
@@ -777,11 +784,21 @@ impl Bench {
             },
         };
         self.recorded = self.recorded.saturating_add(1);
+        let (gpu_id, gpu_frame, gpu_ms) = match self.gpu_timing {
+            GpuTiming::Measured(sample) => (
+                sample.id.to_string(),
+                sample.frame.to_string(),
+                format!("{:.3}", sample.milliseconds),
+            ),
+            GpuTiming::Pending | GpuTiming::Unavailable(_) => {
+                (String::new(), String::new(), String::new())
+            }
+        };
 
         if let Some(file) = self.csv.as_mut()
             && let Err(error) = writeln!(
                 file,
-                "{},{:.3},{:.3},{:.3},{:.3},{:.3},{},{},{},{},{},{},{},{},{},{},{},{}",
+                "{},{:.3},{:.3},{:.3},{:.3},{:.3},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
                 self.recorded,
                 timings.update_ms,
                 timings.render_ms,
@@ -800,13 +817,27 @@ impl Bench {
                 stats.material_changes,
                 stats.reflection_passes,
                 stats.visible_indices,
+                gpu_id,
+                gpu_frame,
+                gpu_ms,
+                self.gpu_timing.status(),
             )
         {
             crate::logging::warn(format!("[bench] could not write CSV frame: {error}"));
             // Stop retrying a failed stream on every benchmark frame.
             self.csv = None;
         }
-        self.frames.push(FrameRecord { timings, stats });
+        self.frames.push(FrameRecord {
+            timings,
+            stats,
+            gpu_timing: self.gpu_timing,
+        });
+    }
+
+    /// Supplies the latest asynchronous hardware sample without associating
+    /// it with the current CPU frame. CSV retains its own measured frame id.
+    pub const fn set_gpu_timing(&mut self, timing: GpuTiming) {
+        self.gpu_timing = timing;
     }
 
     /// True once `PLACES_BENCH_FRAMES` frames have been recorded.
@@ -837,11 +868,28 @@ impl Bench {
         let swap_summary = TimingSummary::from_samples(&mut swap);
         let frame_summary = TimingSummary::from_samples(&mut frame);
         let loop_summary = TimingSummary::from_samples(&mut loop_ms);
+        let mut previous_gpu_id = 0_u64;
+        let mut gpu_ms: Vec<f32> = self
+            .frames
+            .iter()
+            .filter_map(|record| match record.gpu_timing {
+                GpuTiming::Measured(sample) if sample.id != previous_gpu_id => {
+                    previous_gpu_id = sample.id;
+                    Some(sample.milliseconds)
+                }
+                GpuTiming::Measured(_) | GpuTiming::Pending | GpuTiming::Unavailable(_) => None,
+            })
+            .collect();
+        let gpu_samples = gpu_ms.len();
+        let gpu_summary = TimingSummary::from_samples(&mut gpu_ms);
+        let gpu_mean = optional_gpu_milliseconds(gpu_samples, gpu_summary.mean_ms);
+        let gpu_median = optional_gpu_milliseconds(gpu_samples, gpu_summary.median_ms);
+        let gpu_p95 = optional_gpu_milliseconds(gpu_samples, gpu_summary.p95_ms);
 
         let last = self.frames.last().copied().unwrap_or_default();
         let level = std::env::var("PLACES_LEVEL").unwrap_or_default();
         println!(
-            "BENCH_SUMMARY {{\"level\":\"{level}\",\"frames\":{},\"swap_interval\":{},\"update_mean_ms\":{:.3},\"render_mean_ms\":{:.3},\"swap_mean_ms\":{:.3},\"frame_mean_ms\":{:.3},\"loop_mean_ms\":{:.3},\"frame_median_ms\":{:.3},\"loop_median_ms\":{:.3},\"frame_p95_ms\":{:.3},\"frame_p99_ms\":{:.3},\"loop_p95_ms\":{:.3},\"loop_p99_ms\":{:.3},\"frame_min_ms\":{:.3},\"frame_max_ms\":{:.3},\"loop_min_ms\":{:.3},\"loop_max_ms\":{:.3},\"fps_median\":{:.2},\"fps_p95\":{:.2},\"fps_p99\":{:.2},\"fps_1pct_low\":{:.2},\"fps_mean\":{:.2},\"measured_fps_mean\":{:.2},\"worst_fps\":{:.2},\"total_vertices\":{},\"visible_vertices\":{},\"culled_vertices\":{},\"total_batches\":{},\"visible_batches\":{},\"draw_calls\":{},\"vbo_bytes\":{},\"index_bytes\":{},\"texture_binds\":{},\"material_changes\":{},\"reflection_passes\":{},\"visible_indices\":{}}}",
+            "BENCH_SUMMARY {{\"level\":\"{level}\",\"frames\":{},\"swap_interval\":{},\"update_mean_ms\":{:.3},\"render_mean_ms\":{:.3},\"swap_mean_ms\":{:.3},\"frame_mean_ms\":{:.3},\"loop_mean_ms\":{:.3},\"frame_median_ms\":{:.3},\"loop_median_ms\":{:.3},\"frame_p95_ms\":{:.3},\"frame_p99_ms\":{:.3},\"loop_p95_ms\":{:.3},\"loop_p99_ms\":{:.3},\"frame_min_ms\":{:.3},\"frame_max_ms\":{:.3},\"loop_min_ms\":{:.3},\"loop_max_ms\":{:.3},\"fps_median\":{:.2},\"fps_p95\":{:.2},\"fps_p99\":{:.2},\"fps_1pct_low\":{:.2},\"fps_mean\":{:.2},\"measured_fps_mean\":{:.2},\"worst_fps\":{:.2},\"total_vertices\":{},\"visible_vertices\":{},\"culled_vertices\":{},\"total_batches\":{},\"visible_batches\":{},\"draw_calls\":{},\"vbo_bytes\":{},\"index_bytes\":{},\"texture_binds\":{},\"material_changes\":{},\"reflection_passes\":{},\"visible_indices\":{},\"gpu_timing_status\":\"{}\",\"gpu_samples\":{gpu_samples},\"gpu_render_mean_ms\":{gpu_mean},\"gpu_render_median_ms\":{gpu_median},\"gpu_render_p95_ms\":{gpu_p95}}}",
             self.frames.len(),
             self.reported_swap_interval
                 .map_or_else(|| "null".to_string(), |value| value.to_string()),
@@ -879,12 +927,21 @@ impl Bench {
             last.stats.material_changes,
             last.stats.reflection_passes,
             last.stats.visible_indices,
+            last.gpu_timing.status(),
         );
         if let Some(file) = self.csv.as_mut()
             && let Err(error) = file.flush()
         {
             crate::logging::warn(format!("[bench] could not flush CSV: {error}"));
         }
+    }
+}
+
+fn optional_gpu_milliseconds(samples: usize, milliseconds: f32) -> String {
+    if samples == 0 {
+        "null".to_string()
+    } else {
+        format!("{milliseconds:.3}")
     }
 }
 

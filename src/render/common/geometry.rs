@@ -15,11 +15,11 @@ use super::{
     add_round_fixture, add_wall_cross_quad, add_wall_fixture, add_wall_length_face,
     cross_section_covered, decal_sheet_index, decal_uv_rect, decal_uv_rect_full, emit_floor_skirts,
     emit_lit_surface_grid, finish_indexed_mesh, floor_surfaces, flush_wall_run,
-    interval_symmetric_difference, lit_corners, lit_surface_grid, room_is_tessellatable, shade,
-    spatial_cell_grid, split_rect, stamp_lightmap_quad, subtract_rectangles, tiled_uv, wall_layout,
-    wall_vertical_extent,
+    interval_symmetric_difference, lit_corners, lit_surface_grid, quad_normal,
+    room_is_tessellatable, shade, spatial_cell_grid, split_rect, stamp_lightmap_quad,
+    subtract_rectangles, tiled_uv, wall_layout, wall_vertical_extent,
 };
-use crate::level::{RoomDef, WallDef, WallSlice};
+use crate::level::{MaterialRef, RoomDef, WallDef, WallSlice};
 use crate::lighting::lightmap::{LightmapPlan, PatchKind};
 use crate::spatial::SpatialBuckets;
 
@@ -89,8 +89,8 @@ pub fn build_level_geometry_mesh(
 /// for byte. With a plan every static floor, ceiling, wall and skirt quad is
 /// stamped with a chart and its vertex colour is reduced to material tint and
 /// directional face shade; the plan records one patch per quad for the fill
-/// pass. Fixtures, prop placeholder boxes and decals stay vertex-lit either
-/// way.
+/// pass. Fluorescent metal housings use the same charts; luminous fixture
+/// faces, other fixture bodies, prop placeholder boxes and decals stay vertex-lit.
 pub fn build_level_geometry_mesh_with_lightmaps(
     level: &LevelDef,
     catalog: &crate::loader::PropCatalog,
@@ -1710,19 +1710,17 @@ fn nearest_cross_sides(
 /// `lighting::fixture_profile`): the office panel hangs just below its room's
 /// ceiling, a round downlight sits in the same plane, and a wall luminaire
 /// mounts at its authored world height. The luminous face is texture-first:
-/// its visible colour is the sheet's own RGB, and the vertex emission only
-/// carries a neutral brightness from the fixture's **emissive** strength — by
+/// its visible colour is the sheet's RGB multiplied by the source colour, and
+/// the vertex emission carries the fixture's **emissive** strength — by
 /// default the same intensity the bake casts into the room, but separately
 /// authorable (and independent of `enabled`) so a face can read bright while
-/// its light stays dim or absent. The authored light colour never repaints the
-/// face; it stays a property of the illumination the bake resolves.
+/// its light stays dim or absent. Housing remains an ordinary material.
 ///
 /// A light batch carries the family's fixture-sheet slot
 /// ([`crate::lighting::FixtureKind::index`]) so the renderer binds the PNG that
-/// catalog declares as that fixture's visible face. The flat metal housing
-/// (the round bezel and can, the wall housing, and the office panel's frame
-/// and body) keeps the bare key: it draws its authored shade through the
-/// shared white sheet.
+/// catalog declares as that fixture's visible face. Fluorescent housing binds
+/// the ordinary brushed-metal surface material and baked receiver lighting,
+/// with zero emission. Other fixture housings keep their authored bare key.
 fn emit_fixtures(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
@@ -1745,19 +1743,10 @@ fn emit_fixtures(
         // its dim light, or glow while casting nothing at all (`enabled: false`).
         // This value never becomes illumination — the bake reads `intensity()`.
         let emission = light.emission_intensity();
-        // An explicitly zero-output fixture is off: its panel must not glow
-        // while emitting no illumination.
-        let output = if emission <= 0.0 {
-            0.0
-        } else {
-            0.40f32
-                .mul_add(emission.clamp(0.0, 2.0), 0.60)
-                .clamp(0.0, 1.0)
-        };
-        // Neutral brightness, so the sheet is the fixture's visible colour: the
-        // authored light colour (`light.emitted_color()`) reaches the room
-        // through the bake and never tints the artwork.
-        let face_emission = [output; 3];
+        // The same source tint reaches the diffuser and the room. The sheet
+        // retains its fitted artwork; separate housing vertices remain untinted.
+        let tint = light.emitted_color();
+        let face_emission = [tint.r * emission, tint.g * emission, tint.b * emission];
         // The bake and the mesh share one resolver, so the drawn panel can
         // never sit at a different height from the light plane it casts: a
         // ceiling fixture without an authored `y` hangs below the lowest
@@ -1818,20 +1807,72 @@ fn emit_fixtures(
                 );
             }
         }
-        // The luminous faces bind the family's sheet; the housing (empty only
-        // for a family that generates none) binds the family's own bare key,
-        // which draws the untextured white sheet.
-        // A family sheet is shared by every fixture of the family; a
-        // switchable fixture gets its own slot so its face can turn off
-        // without touching another fixture's material.
+        // The luminous faces bind the family's sheet, independently from the
+        // housing's ordinary metal material or the other families' bare body.
+        // Switchable and animated fixtures get private face slots, so their
+        // response never changes another authored asset in the same family.
         let sheet = crate::level::fixture_face_material_index(
             fixture_index,
-            light.switchable,
+            crate::level::fixture_face_uses_private_material(context.level, light),
             profile.kind,
         );
         buckets.add_quads(SurfaceKey::new(SurfaceKind::Light, sheet), scratch);
-        buckets.add_quads(SurfaceKey::bare(SurfaceKind::Light), &housing);
+        if profile.kind == crate::lighting::FixtureKind::FluorescentPanel {
+            emit_panel_housing(context, buckets, &mut housing);
+        } else {
+            buckets.add_quads(SurfaceKey::bare(SurfaceKind::Light), &housing);
+        }
     }
+}
+
+/// Routes existing troffer body geometry through the ordinary metal material,
+/// receiver illumination and physical UV frame, separately from source emission.
+fn emit_panel_housing(
+    context: &EmitContext<'_, '_>,
+    buckets: &mut SpatialBuckets<SurfaceKey>,
+    housing: &mut [Vertex],
+) {
+    let key = context.materials.key(
+        MaterialSlot::Wall,
+        MaterialRef::id(crate::level::FLUORESCENT_PANEL_HOUSING_MATERIAL),
+    );
+    for quad in housing.as_chunks_mut::<6>().0 {
+        // add_quad_flat emits a,b,c,a,c,d. Reuse the ordinary baked receiver
+        // sample and physical texture repeat on each face.
+        let [corner_a, corner_b, corner_c, _, _, corner_d] = *quad;
+        let points = [corner_a.pos, corner_b.pos, corner_c.pos, corner_d.pos];
+        let normal = quad_normal(points);
+        let tint = context.materials.tint(key);
+        let colors = if context.vertex_colors_are_material_only() {
+            [tint; 4]
+        } else {
+            lit_corners(tint, points, context.lighting)
+        };
+        let [ca, cb, cc, cd] = colors;
+        for (vertex, color) in quad.iter_mut().zip([ca, cb, cc, ca, cc, cd]) {
+            vertex.color = [color[0], color[1], color[2], 1.0];
+            let [x, y, z] = vertex.pos;
+            vertex.uv = if normal[1].abs() > 0.5 {
+                context.materials.uv(key, x, z)
+            } else if normal[0].abs() > 0.5 {
+                context.materials.uv(key, z, y)
+            } else {
+                context.materials.uv(key, x, y)
+            };
+        }
+        let center = [
+            f32::midpoint(corner_a.pos[0], corner_c.pos[0]),
+            f32::midpoint(corner_a.pos[1], corner_c.pos[1]),
+            f32::midpoint(corner_a.pos[2], corner_c.pos[2]),
+        ];
+        let room = context
+            .lighting
+            .room_index_at_height(center[0], center[1], center[2]);
+        // This is fixture body geometry in the wall material family, not an
+        // architectural floor or ceiling surface even on a horizontal flange.
+        stamp_lightmap_quad(context.lightmap, quad, 0, PatchKind::Wall, points, room);
+    }
+    buckets.add_quads(key, housing);
 }
 
 /// Step 3b: the glass panes that fill openings.

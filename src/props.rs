@@ -53,12 +53,36 @@ pub const fn pack_texture_budget_exceeded(decoded_bytes: usize) -> bool {
     decoded_bytes > PROP_TEXTURE_PACK_BUDGET_BYTES
 }
 
+/// Reviewed native texture edge for a model, shared by runtime diagnostics
+/// and shipped-asset validation. These cloth prints and gift wraps need their
+/// documented detail at metre scale; new or similarly named models still use
+/// the ordinary budget until reviewed.
+fn prop_texture_art_budget(model_path: &str) -> u32 {
+    match model_path {
+        "environments/arcade/party/models/party_cloth_rect_confetti.glb"
+        | "environments/arcade/party/models/party_cloth_round_confetti.glb"
+        | "environments/arcade/party/models/party_cloth_rect_balloons.glb"
+        | "environments/arcade/party/models/party_cloth_round_balloons.glb"
+        | "environments/arcade/party/models/party_cloth_rect_stars.glb"
+        | "environments/arcade/party/models/party_cloth_round_stars.glb"
+        | "environments/arcade/party/models/party_cloth_rect_arcade.glb"
+        | "environments/arcade/party/models/party_cloth_round_arcade.glb" => 1_024,
+        "environments/arcade/party/models/party_gift_stars.glb"
+        | "environments/arcade/party/models/party_gift_confetti.glb"
+        | "environments/arcade/party/models/party_gift_stripes.glb"
+        | "environments/arcade/party/models/party_gift_arcade.glb"
+        | "environments/arcade/party/models/party_gift_red.glb"
+        | "environments/arcade/party/models/party_gift_green.glb" => 512,
+        _ => PROP_TEXTURE_NATIVE_SIZE,
+    }
+}
+
 /// The Places art budget a loaded model breaks, if any.
 ///
 /// The art budget is deliberately softer than the parser's engine ceilings: a
 /// model above it is a note for the artist, not a load failure. The message
 /// names the broken budget so the fix is obvious.
-fn art_budget_warning(model: &PropModel) -> Option<String> {
+fn art_budget_warning(model_path: &str, model: &PropModel) -> Option<String> {
     let mut reasons: Vec<String> = Vec::new();
     // A skinned model is a character; it gets the documented entity art
     // budget rather than the static-prop one.
@@ -73,17 +97,16 @@ fn art_budget_warning(model: &PropModel) -> Option<String> {
             model.triangles
         ));
     }
+    let texture_budget = prop_texture_art_budget(model_path);
     let oversized: Vec<String> = model
         .textures
         .iter()
-        .filter(|texture| {
-            texture.width > PROP_TEXTURE_NATIVE_SIZE || texture.height > PROP_TEXTURE_NATIVE_SIZE
-        })
+        .filter(|texture| texture.width > texture_budget || texture.height > texture_budget)
         .map(|texture| format!("{}x{}", texture.width, texture.height))
         .collect();
     if !oversized.is_empty() {
         reasons.push(format!(
-            "texture {} (ordinary native prop size {PROP_TEXTURE_NATIVE_SIZE}px; \
+            "texture {} (native prop size {texture_budget}px; \
              larger artwork requires an authoring review)",
             oversized.join(", ")
         ));
@@ -212,7 +235,7 @@ impl PropAssets {
         }
         let result = self.load(model_path);
         if let Ok(asset) = &result
-            && let Some(warning) = art_budget_warning(&asset.model)
+            && let Some(warning) = art_budget_warning(model_path, &asset.model)
         {
             self.report_budget_warning(model_path, &warning);
         }

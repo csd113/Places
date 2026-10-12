@@ -137,13 +137,7 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
         for texture in &model.textures {
             // These reviewed large surfaces need crisp print at their actual
             // metre scale. All other shipped sheets keep the ordinary budget.
-            let native_size = if entry.id.starts_with("arcade:party_cloth_") {
-                1_024
-            } else if entry.id.starts_with("arcade:party_gift_") {
-                512
-            } else {
-                PROP_TEXTURE_NATIVE_SIZE
-            };
+            let native_size = prop_texture_art_budget(model_path);
             assert!(
                 texture.width <= native_size && texture.height <= native_size,
                 "{}: texture is {}x{}, above its {native_size}px reviewed native prop size",
@@ -477,7 +471,7 @@ fn texture_bytes_sums_every_texture_in_the_model() {
 #[test]
 fn a_native_256_prop_texture_is_unremarkable() {
     assert_eq!(
-        art_budget_warning(&synthetic_model(100, &[(256, 256)])),
+        art_budget_warning("models/ordinary.glb", &synthetic_model(100, &[(256, 256)])),
         None,
         "a native 256px prop texture must not warn"
     );
@@ -491,17 +485,25 @@ fn a_native_256_prop_texture_is_unremarkable() {
 #[test]
 fn art_budget_warnings_name_the_broken_budget_and_never_fail_a_load() {
     assert_eq!(
-        art_budget_warning(&synthetic_model(PROP_TRIANGLE_BUDGET, &[(128, 128)])),
+        art_budget_warning(
+            "models/ordinary.glb",
+            &synthetic_model(PROP_TRIANGLE_BUDGET, &[(128, 128)]),
+        ),
         None,
         "a model inside the art budget warns about nothing"
     );
-    let warning = art_budget_warning(&synthetic_model(PROP_TRIANGLE_BUDGET + 1, &[(128, 128)]))
-        .expect("over-budget triangles warn");
+    let warning = art_budget_warning(
+        "models/ordinary.glb",
+        &synthetic_model(PROP_TRIANGLE_BUDGET + 1, &[(128, 128)]),
+    )
+    .expect("over-budget triangles warn");
     assert!(warning.contains("triangles"), "{warning}");
 
-    let texture_warning =
-        art_budget_warning(&synthetic_model(100, &[(PROP_TEXTURE_NATIVE_SIZE + 1, 8)]))
-            .expect("textures above the native size warn");
+    let texture_warning = art_budget_warning(
+        "models/ordinary.glb",
+        &synthetic_model(100, &[(PROP_TEXTURE_NATIVE_SIZE + 1, 8)]),
+    )
+    .expect("textures above the native size warn");
     assert!(texture_warning.contains("texture"), "{texture_warning}");
 
     let mut assets = PropAssets::default();
@@ -512,6 +514,45 @@ fn art_budget_warnings_name_the_broken_budget_and_never_fail_a_load() {
         1,
         "a model warns exactly once no matter how often it resolves"
     );
+}
+
+// Tiny thin sheets test the warning policy without decoding real 1024-square
+// artwork. The shipped-asset test covers every reviewed file and its bounds;
+// these cases uniquely protect exact review scope and both oversized edges.
+#[test]
+fn reviewed_texture_budgets_are_exact_and_still_enforced() {
+    let cloth = "environments/arcade/party/models/party_cloth_rect_confetti.glb";
+    let gift = "environments/arcade/party/models/party_gift_stars.glb";
+    for (path, dimensions, warns) in [
+        (cloth, (1_024, 1), false),
+        (cloth, (1, 1_024), false),
+        (gift, (512, 1), false),
+        (gift, (1, 513), true),
+        (cloth, (1_025, 1), true),
+        ("models/party_cloth_rect_confetti.glb", (1_024, 1), true),
+        (
+            "environments/arcade/party/models/party_cloth_unreviewed.glb",
+            (257, 1),
+            true,
+        ),
+        (
+            "environments/arcade/party/models/party_gift_unreviewed.glb",
+            (1, 257),
+            true,
+        ),
+    ] {
+        assert_eq!(
+            art_budget_warning(path, &synthetic_model(100, &[dimensions])).is_some(),
+            warns,
+            "{path} with {dimensions:?} must respect its reviewed texture budget"
+        );
+    }
+    let warning = art_budget_warning(
+        cloth,
+        &synthetic_model(PROP_TRIANGLE_BUDGET + 1, &[(1_024, 1)]),
+    )
+    .expect("reviewed textures do not exempt triangle budgets");
+    assert!(warning.contains("triangles"), "{warning}");
 }
 
 /// A normal collection of native 256x256 sheets fits the desktop budget with

@@ -371,6 +371,12 @@ pub fn referenced_material_ids(level: &LevelDef) -> Vec<String> {
         push(weather.snowfall().material.trim());
     }
     push_architecture_materials(level, &mut push);
+    if level.ceiling_lights.iter().any(|light| {
+        crate::lighting::fixture_profile(&light.fixture).kind
+            == crate::lighting::FixtureKind::FluorescentPanel
+    }) {
+        push(crate::level::FLUORESCENT_PANEL_HOUSING_MATERIAL);
+    }
     ids
 }
 

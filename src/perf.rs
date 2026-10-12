@@ -1,11 +1,12 @@
 pub(crate) mod loading;
+mod platform;
 
 use std::fs;
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
-use crate::render::Vertex;
+use crate::render::{GpuTiming, Vertex};
 use crate::ui::{add_rect, draw_text};
 
 /// Update interval for the performance statistics (roughly twice per second).
@@ -453,7 +454,7 @@ pub fn parse_drm_busy_percent(content: &str) -> Option<f32> {
         .map(|p| p.clamp(0.0, 100.0))
 }
 
-/// Discovers and reads real GPU utilization from system interfaces.
+/// Discovers and reads real Linux GPU utilization from system interfaces.
 /// Never substitutes clock frequency as utilization.
 /// Returns None if meaningful utilization is unavailable.
 #[must_use]
@@ -539,6 +540,54 @@ fn char_count(text: &str) -> f32 {
     f32::from(u16::try_from(text.chars().count()).unwrap_or(u16::MAX))
 }
 
+/// Rounded binary mebibytes without narrowing a resident-byte counter.
+const fn resident_mebibytes(bytes: u64) -> u64 {
+    const MEBIBYTE: u64 = 1_048_576;
+    let whole = bytes / MEBIBYTE;
+    if bytes % MEBIBYTE >= 524_288 {
+        whole.saturating_add(1)
+    } else {
+        whole
+    }
+}
+
+/// Pure metric formatting keeps unsupported counters and GPU scopes distinct.
+fn overlay_text(
+    cpu: Option<f32>,
+    gpu: platform::GpuUtilization,
+    timing: GpuTiming,
+    resident: Option<u64>,
+    fps: u32,
+) -> String {
+    let cpu_text = cpu.map_or_else(
+        || "CPU system N/A".to_string(),
+        |pct| format!("CPU system {pct:.0}%"),
+    );
+    let gpu_text = match gpu {
+        platform::GpuUtilization::Measured(pct) => format!("GPU device {pct:.0}%"),
+        platform::GpuUtilization::Unavailable(_) => "GPU device N/A".to_string(),
+    };
+    let work_text = match timing {
+        GpuTiming::Pending => "GPU render pending".to_string(),
+        GpuTiming::Measured(sample) => format!("GPU render {:.2}ms", sample.milliseconds),
+        GpuTiming::Unavailable(_) => "GPU render N/A".to_string(),
+    };
+    let ram_text = resident.map_or_else(
+        || "Game RAM RSS N/A".to_string(),
+        |bytes| format!("Game RAM RSS {}MiB", resident_mebibytes(bytes)),
+    );
+    let mut text = format!("{cpu_text}  {gpu_text}\n{work_text}  {ram_text}  FPS {fps}");
+    if let platform::GpuUtilization::Unavailable(reason) = gpu {
+        text.push_str("\nGPU device: ");
+        text.push_str(reason);
+    }
+    if let GpuTiming::Unavailable(reason) = timing {
+        text.push_str("\nGPU render: ");
+        text.push_str(reason.reason());
+    }
+    text
+}
+
 /// Performance statistics overlay (toggled with '-').
 pub struct PerfOverlay {
     visible: bool,
@@ -546,6 +595,8 @@ pub struct PerfOverlay {
     accumulated_frames: u32,
     accumulated_time: f32,
     cpu_sampler: CpuSampler,
+    device_sampler: platform::DeviceSampler,
+    gpu_timing: GpuTiming,
     cached_text: String,
     cached_vertices: Vec<Vertex>,
 }
@@ -565,6 +616,8 @@ impl PerfOverlay {
             accumulated_frames: 0,
             accumulated_time: 0.0,
             cpu_sampler: CpuSampler::new(),
+            device_sampler: platform::DeviceSampler::default(),
+            gpu_timing: GpuTiming::Pending,
             cached_text: String::new(),
             cached_vertices: Vec::new(),
         }
@@ -600,6 +653,11 @@ impl PerfOverlay {
         &self.cached_text
     }
 
+    /// Receives the renderer's latest completed hardware timestamp sample.
+    pub const fn set_gpu_timing(&mut self, timing: GpuTiming) {
+        self.gpu_timing = timing;
+    }
+
     /// Records a rendered frame delta time.
     /// Updates CPU, GPU, FPS, and regenerates cached geometry roughly twice per second.
     pub fn update(&mut self, delta_seconds: f32) {
@@ -629,14 +687,13 @@ impl PerfOverlay {
             0
         };
 
-        let cpu_pct = self.cpu_sampler.sample();
-        let gpu_pct = sample_gpu_utilization();
-
-        let cpu_str = cpu_pct.map_or_else(|| "CPU N/A".to_string(), |pct| format!("CPU {pct:.0}%"));
-        let gpu_str = gpu_pct.map_or_else(|| "GPU N/A".to_string(), |pct| format!("GPU {pct:.0}%"));
-
-        // Example presentation: CPU 42%   GPU 61%   FPS 30
-        self.cached_text = format!("{cpu_str}   {gpu_str}   FPS {fps}");
+        self.cached_text = overlay_text(
+            self.cpu_sampler.sample(),
+            self.device_sampler.sample_gpu(),
+            self.gpu_timing,
+            platform::resident_bytes(),
+            fps,
+        );
         self.rebuild_cached_vertices();
 
         self.last_update = Instant::now();
@@ -652,11 +709,17 @@ impl PerfOverlay {
             return;
         }
 
-        let char_count = char_count(&self.cached_text);
+        let characters = self
+            .cached_text
+            .lines()
+            .map(char_count)
+            .fold(0.0_f32, f32::max);
+        let lines = f32::from(u16::try_from(self.cached_text.lines().count()).unwrap_or(u16::MAX));
         let pad_x = 4.0;
         let pad_y = 3.0;
-        let text_w = char_count * 8.0;
-        let text_h = 8.0;
+        let text_w = characters * 8.0;
+        let line_height = 11.0;
+        let text_h = lines.mul_add(line_height, -3.0);
 
         let x0 = 4.0;
         let y0 = 4.0;
@@ -673,15 +736,18 @@ impl PerfOverlay {
             [0.06, 0.06, 0.05],
         );
 
-        // Compact text at top-left
-        draw_text(
-            &mut self.cached_vertices,
-            &self.cached_text,
-            x0 + pad_x,
-            y0 + pad_y,
-            1.0,
-            [0.92, 0.92, 0.88],
-        );
+        // draw_text is a single-line primitive; position each metric line explicitly.
+        for (index, line) in self.cached_text.lines().enumerate() {
+            let row = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
+            draw_text(
+                &mut self.cached_vertices,
+                line,
+                x0 + pad_x,
+                row.mul_add(line_height, y0 + pad_y),
+                1.0,
+                [0.92, 0.92, 0.88],
+            );
+        }
     }
 }
 

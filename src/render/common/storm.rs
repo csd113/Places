@@ -161,9 +161,16 @@ impl StormUniform {
             covered += (*stop - end.max(*start)).max(0.0);
             end = end.max(*stop);
         }
-        let optical = self.color_density[3] * ray.length() * (1.0 - covered).clamp(0.0, 1.0);
-        (-optical.powi(2)).exp()
+        optical_transmission(self.color_density[3] * ray.length() * (1.0 - covered).clamp(0.0, 1.0))
     }
+}
+
+/// Squared-exponential extinction with a smooth tail to exact zero. The
+/// finite endpoint prevents HDR emitters retaining contrast at great distance.
+#[must_use]
+pub fn optical_transmission(optical: f32) -> f32 {
+    let tail = (optical - 2.0).clamp(0.0, 1.0);
+    (-optical.powi(2)).exp() * (tail * tail).mul_add(-2.0_f32.mul_add(-tail, 3.0), 1.0)
 }
 
 fn clip(span: &mut [f32; 2], eye: glam::Vec3, ray: glam::Vec3, normal: glam::Vec3, offset: f32) {
@@ -205,6 +212,25 @@ mod tests {
         assert_eq!(std::mem::offset_of!(StormUniform, shelters), 32);
         let calm = StormUniform::build(&level, &SnowfallDef::default());
         assert_eq!(calm.transmission(eye, Vec3::new(0.0, 1.6, -90.0)), 1.0);
+        // One tiny optical witness protects all presets, including the
+        // exact far endpoint needed by HDR sources and sky convergence.
+        for severity in [0.15, 0.35, 1.0] {
+            let config = SnowfallDef {
+                storm_severity: severity,
+                ..SnowfallDef::blizzard()
+            };
+            let graded = StormUniform::build(&level, &config);
+            let endpoint = 1.5 * config.visibility_m / severity;
+            assert_eq!(
+                graded.transmission(eye, Vec3::new(0.0, 1.6, 10.0 - endpoint - 0.01)),
+                0.0,
+                "{severity}: distant scenery must converge completely"
+            );
+            assert!(graded.transmission(eye, Vec3::new(0.0, 1.6, 9.0)) > 0.8);
+        }
+        assert!(optical_transmission(2.999) > 0.0);
+        assert_eq!(optical_transmission(3.0), 0.0);
+        assert_eq!(optical_transmission(0.0), 1.0);
         Ok(())
     }
     #[test]
@@ -241,7 +267,7 @@ mod tests {
             first,
             storm.transmission(Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 8.0))
         );
-        assert!((first - (-5.76_f32).exp()).abs() < 1.0e-6);
+        assert!((first - optical_transmission(2.4)).abs() < 1.0e-6);
         assert!(
             storm
                 .transmission(Vec3::new(2.0, 3.0, 0.0), Vec3::new(2.0, 3.0, 8.0))

@@ -3865,7 +3865,9 @@ fn test_elevated_room_shifts_floor_and_ceiling_together() {
     assert_eq!(y_bounds(&ceiling), (5.0, 5.0));
     // The fixture hangs below the real ceiling, not at the world floor.
     let lights = batch_slice(&mesh, SurfaceKind::Light);
-    assert!((y_bounds(&lights).1 - (5.0 - 0.01)).abs() < 1e-4);
+    let diffuser_y =
+        5.0 - 0.01 - common::fixtures::PANEL_BODY_DROP_M + common::fixtures::PANEL_LIP_M;
+    assert!((y_bounds(&lights).1 - diffuser_y).abs() < 1e-4);
 }
 
 // --------------------------------------------------------- fixture sheets
@@ -3931,7 +3933,7 @@ fn every_fixture_family_has_a_stable_sheet_slot() {
 /// a level that mixes an office panel with two pool lights never draws one
 /// fixture with another fixture's artwork.
 #[test]
-fn fixture_faces_carry_their_own_family_sheet_and_the_housing_stays_bare() {
+fn fixture_faces_keep_their_sheet_and_panel_housing_binds_nonemissive_metal() {
     use crate::lighting::FixtureKind;
 
     let level = fixture_family_level();
@@ -3953,17 +3955,84 @@ fn fixture_faces_carry_their_own_family_sheet_and_the_housing_stays_bare() {
         );
     }
 
-    // The flat metal housing keeps the bare key: the panel's four side walls,
-    // bottom frame and top flange (12 quads), the round bezel ring plus can
-    // (20), the wall housing's four sides, and the flush mount's drum, bottom
-    // rim and centre boss (21).
+    // The panel's twelve housing quads bind the existing ordinary metal
+    // texture. This tiny family fixture protects material discovery even in
+    // a map without a metal wall or door, and routing excludes vertex emission.
+    let materials = logical_materials(&level);
+    let metal = materials
+        .entry_of(crate::level::FLUORESCENT_PANEL_HOUSING_MATERIAL)
+        .expect("fluorescent housing adds its material reference");
+    assert_eq!(metal.texture_key, "core:tex_metal_panel_01");
+    assert_eq!(metal.emission, crate::materials::MaterialEmission::NONE);
+    assert_eq!(
+        metal.reflection,
+        crate::materials::MaterialReflection::NONE,
+        "a metal housing does not make a plain fixture require probe captures"
+    );
+    let metal_key = SurfaceKey::new(
+        SurfaceKind::Wall,
+        materials
+            .index_of(crate::level::FLUORESCENT_PANEL_HOUSING_MATERIAL)
+            .expect("metal material slot"),
+    );
+    let panel_housing = mesh.triangles_for_key(metal_key);
+    assert_eq!(panel_housing.len(), 12 * 6, "twelve metal housing quads");
+    assert!(
+        panel_housing.iter().all(|vertex| !vertex.is_lightmapped()),
+        "the small housing keeps the ordinary baked vertex receiver path"
+    );
+    assert_eq!(
+        crate::render::common::materials::emission_routing(metal_key.kind, true),
+        crate::render::common::materials::EmissionRouting::Material,
+        "the housing binds its zero material emission, never the diffuser term"
+    );
+    // Full uses existing receiver charts so a switched contribution can turn
+    // off on the housing too. Planning this twelve-quad body needs no atlas
+    // fill, GPU or production-map bake.
+    let lighting = LevelLighting::bake(&level);
+    let mut plan = crate::lighting::lightmap::LightmapPlan::new(
+        crate::quality::QualityLevel::High.lightmap_config(),
+    );
+    let full_mesh = common::geometry::build_level_geometry_mesh_with_lightmaps(
+        &level,
+        &PropCatalog::builtin(),
+        &[],
+        &lighting,
+        &materials,
+        Some(&mut plan),
+    );
+    assert!(!plan.failed(), "small housing charts fit the normal budget");
+    let full_housing = full_mesh.triangles_for_key(metal_key);
+    assert_eq!(full_housing.len(), panel_housing.len());
+    assert!(
+        full_housing.iter().all(Vertex::is_lightmapped),
+        "Full housing receives the prepared circuit contribution"
+    );
+    assert!(
+        full_housing
+            .iter()
+            .all(|vertex| { [vertex.color[0], vertex.color[1], vertex.color[2]] == metal.tint }),
+        "Full vertex colour is material tint, never the source emission"
+    );
+    assert!(
+        full_mesh
+            .triangles_for_key(SurfaceKey::new(
+                SurfaceKind::Light,
+                sheet_slot(FixtureKind::FluorescentPanel)
+            ))
+            .iter()
+            .all(|vertex| !vertex.is_lightmapped()),
+        "the luminous diffuser remains independently source emissive"
+    );
+    // Other fixtures retain their untextured bodies: the round bezel/can
+    // (20), wall housing (4), and flush-mount drum/rim/boss (21).
     let housing = mesh.triangles_for_key(SurfaceKey::bare(SurfaceKind::Light));
-    assert_eq!(housing.len(), (12 + 20 + 4 + 10 + 10 + 1) * 6);
+    assert_eq!(housing.len(), (20 + 4 + 10 + 10 + 1) * 6);
     let lit_plus_housing = batch_slice(&mesh, SurfaceKind::Light).len();
     assert_eq!(
         lit_plus_housing,
         housing.len() + (1 + 10 + 1 + 10) * 6,
-        "every fixture quad is either a lit face or housing"
+        "other fixture bodies remain in their original family"
     );
 }
 
@@ -3979,26 +4048,11 @@ fn fixture_sheets_are_fitted_once_and_keep_their_aspect() {
     let sheet =
         |kind| mesh.triangles_for_key(SurfaceKey::new(SurfaceKind::Light, sheet_slot(kind)));
 
-    // Panel: the diffuser is a 1.12 x 0.56 m 2:1 aperture inside the housing.
-    let panel = sheet(FixtureKind::FluorescentPanel);
-    assert_eq!(uv_bounds(&panel), (0.0, 1.0, 0.0, 1.0));
-    let (x0, x1, z0, z1) = xz_bounds(&panel);
-    assert!(
-        (x1 - x0 - 1.12).abs() < 1e-5
-            && (z1 - z0 - 0.56).abs() < 1e-5
-            && ((x1 - x0) / (z1 - z0) - 2.0).abs() < 1e-5,
-        "the diffuser aperture is the sheet's 2:1 face inside the housing"
-    );
-    // Orientation: the sheet's top row (v = 0) is the -z edge, and u runs +x.
-    let corner = |x: f32, z: f32| {
-        panel
-            .iter()
-            .find(|vertex| (vertex.pos[0] - x).abs() < 1e-5 && (vertex.pos[2] - z).abs() < 1e-5)
-            .map_or_else(|| panic!("no panel corner at {x},{z}"), |vertex| vertex.uv)
-    };
-    assert_eq!(corner(x0, z0), [0.0, 0.0]);
-    assert_eq!(corner(x1, z0), [1.0, 0.0]);
-    assert_eq!(corner(x0, z1), [0.0, 1.0]);
+    // Three tiny generated diffusers protect the mandatory 2:1 fit and its
+    // physical orientation in both placement conventions, with no extra bake.
+    for rotation in [0.0_f32, 90.0, 270.0] {
+        assert_panel_sheet_is_fitted(rotation);
+    }
 
     // Wall lens: 0.4 x 0.2 m on a 2:1 sheet, fitted once.
     let wall = sheet(FixtureKind::WallSconce);
@@ -4061,6 +4115,63 @@ fn fixture_sheets_are_fitted_once_and_keep_their_aspect() {
     }
 }
 
+/// Only eighteen luminous vertices across all three calls: checks the old
+/// rotated border/UV discrepancy without adding a map or GPU fixture.
+fn assert_panel_sheet_is_fitted(rotation: f32) {
+    let (half_x, half_z) = crate::lighting::fixture_half_extents(rotation);
+    let turned = crate::lighting::fixture_is_turned(rotation);
+    let mut panel = Vec::new();
+    let mut housing = Vec::new();
+    crate::render::common::fixtures::add_panel_fixture(
+        &mut panel,
+        &mut housing,
+        -half_x,
+        half_x,
+        -half_z,
+        half_z,
+        2.0,
+        [1.0; 3],
+    );
+    assert_eq!(uv_bounds(&panel), (0.0, 1.0, 0.0, 1.0));
+    let (x0, x1, z0, z1) = xz_bounds(&panel);
+    let (width, depth) = if turned {
+        (z1 - z0, x1 - x0)
+    } else {
+        (x1 - x0, z1 - z0)
+    };
+    assert!(
+        (width - 1.12).abs() < 1e-5
+            && (depth - 0.56).abs() < 1e-5
+            && (width / depth - 2.0).abs() < 1e-5,
+        "rotation {rotation}: the diffuser preserves its physical 2:1 aperture"
+    );
+    let expected = if turned {
+        [
+            (x0, z0, [0.0, 1.0]),
+            (x1, z0, [0.0, 0.0]),
+            (x1, z1, [1.0, 0.0]),
+            (x0, z1, [1.0, 1.0]),
+        ]
+    } else {
+        [
+            (x0, z0, [0.0, 0.0]),
+            (x1, z0, [1.0, 0.0]),
+            (x1, z1, [1.0, 1.0]),
+            (x0, z1, [0.0, 1.0]),
+        ]
+    };
+    for (x, z, uv) in expected {
+        let corner = panel
+            .iter()
+            .find(|vertex| (vertex.pos[0] - x).abs() < 1e-5 && (vertex.pos[2] - z).abs() < 1e-5)
+            .expect("the diffuser has every expected corner");
+        assert_eq!(
+            corner.uv, uv,
+            "rotation {rotation}: local sheet axes must not mirror"
+        );
+    }
+}
+
 /// The flush mount's diffuser samples its sheet's inscribed circle through the
 /// same planar, isotropic mapping the round downlight uses, with the diffuser
 /// inset behind the drum's rim.
@@ -4099,7 +4210,7 @@ fn assert_flush_mount_sheet_is_planar(flush: &[Vertex]) {
 
 /// The office panel is a real troffer: a frame and body around the diffuser,
 /// not one floating sheet. The diffuser is the only emissive face, the housing
-/// is the fixed mid grey, and the housing covers the family's full 1.2 x 0.6 m
+/// carries a neutral material base, and covers the family's full 1.2 x 0.6 m
 /// footprint while the diffuser is recessed a lip inside it.
 #[test]
 fn the_office_panel_emits_a_real_housing_and_one_emissive_diffuser() {
@@ -4145,15 +4256,11 @@ fn the_office_panel_emits_a_real_housing_and_one_emissive_diffuser() {
         "the aperture keeps the sheet's 2:1 aspect"
     );
 
-    // The housing is never emissive and always the fixed mid grey.
+    // The housing has a neutral base for its separate ordinary metal material.
     assert_eq!(housing.len(), 12 * 6, "twelve housing quads");
     for vertex in &housing {
         assert!(!is_emission(vertex.color), "the housing is not emissive");
-        assert_eq!(vertex.color[0], vertex.color[1]);
-        assert!(
-            vertex.color[0] > 0.5 && vertex.color[2] > 0.5,
-            "a mid grey housing, never black"
-        );
+        assert_eq!(vertex.color, [1.0; 4], "the material owns housing colour");
     }
     // Four side walls span the drop, four bottom-frame strips sit at the frame
     // bottom and four top-flange strips close the body at the ceiling plane.
@@ -4832,6 +4939,14 @@ fn a_fixture_face_can_glow_independently_of_its_light() {
     let dim_face = face_color(&dim_mesh);
     let plain_face = face_color(&plain_mesh);
     assert!(
+        (dim_face[0] - 1.0).abs() < 1.0e-6,
+        "authored emission remains linear"
+    );
+    assert!(
+        (plain_face[0] - 0.2).abs() < 1.0e-6,
+        "default face strength follows brightness"
+    );
+    assert!(
         dim_face[0] > plain_face[0] + 0.1,
         "the authored emission must brighten the face: {} vs {}",
         dim_face[0],
@@ -4848,58 +4963,99 @@ fn a_fixture_face_can_glow_independently_of_its_light() {
     );
 }
 
-/// The authored light colour is a property of the illumination, never of the
-/// drawn fixture: two otherwise identical pool lights must show the same
-/// neutral face while their baked light stays red and blue.
+/// A small coloured source proves the face tint reaches every fixture family
+/// while the housing keeps its material and illumination still uses the source.
 #[test]
-fn a_fixture_face_is_texture_first_and_never_repainted_by_the_light_colour() {
+fn fixture_faces_share_source_colour_without_tinting_housing() {
     use crate::lighting::FixtureKind;
 
-    let pool_light = |color: &str| {
-        level_with_wall_and_lights(
-            "[]",
-            "[]",
-            &format!(
-                r#"[{{ "fixture": "core:pool_light_round", "x": 0.0, "z": 0.0,
-                       "brightness": 1.0, "color": {color} }}]"#
-            ),
-        )
-    };
-    let red = pool_light("[1.0, 0.0, 0.0]");
-    let blue = pool_light("[0.0, 0.0, 1.0]");
-
-    let face = |level: &LevelDef| -> Vec<[f32; 4]> {
-        let mesh = build_level_geometry(level);
-        mesh.triangles_for_key(SurfaceKey::new(
-            SurfaceKind::Light,
-            sheet_slot(FixtureKind::RoundRecessed),
-        ))
-        .into_iter()
-        .map(|vertex| vertex.color)
-        .collect()
-    };
-    let red_face = face(&red);
-    let blue_face = face(&blue);
-    assert_eq!(red_face.len(), 10 * 6, "the round diffuser's lit ring");
-    assert_eq!(
-        red_face, blue_face,
-        "the authored colour must not repaint the fixture face"
-    );
-    for color in &red_face {
+    for (fixture, kind) in [
+        ("core:fluorescent_panel_01", FixtureKind::FluorescentPanel),
+        ("arcade:blacklight_tube", FixtureKind::BlacklightTube),
+        ("core:pool_light_round", FixtureKind::RoundRecessed),
+        ("core:pool_light_wall", FixtureKind::WallSconce),
+        ("home:ceiling_light_round", FixtureKind::FlushMount),
+    ] {
+        let light = |color: &str| {
+            level_with_wall_and_lights(
+                "[]",
+                "[]",
+                &format!(
+                    r#"[{{ "fixture": "{fixture}", "x": 0.0, "z": 0.0,
+                    "brightness": 1.0, "color": {color} }}]"#
+                ),
+            )
+        };
+        let red = light("[1.0, 0.0, 0.0]");
+        let blue = light("[0.0, 0.0, 1.0]");
+        let red_mesh = build_level_geometry(&red);
+        let blue_mesh = build_level_geometry(&blue);
+        let face_key = SurfaceKey::new(SurfaceKind::Light, sheet_slot(kind));
+        let red_face = red_mesh.triangles_for_key(face_key);
+        let blue_face = blue_mesh.triangles_for_key(face_key);
+        assert!(!red_face.is_empty(), "{fixture}: luminous face exists");
+        assert_eq!(red_face.len(), blue_face.len());
         assert!(
-            (color[0] - color[1]).abs() < 1e-6 && (color[0] - color[2]).abs() < 1e-6,
-            "the face's emission is neutral, so the sheet keeps its own colour: {color:?}"
+            red_face
+                .iter()
+                .all(|v| v.color[0] > 0.5 && v.color[1] == 0.0 && v.color[2] == 0.0),
+            "{fixture}: red source face"
         );
-        assert!(color[0] > 0.5, "a lit fixture's face must not be black");
+        assert!(
+            blue_face
+                .iter()
+                .all(|v| v.color[2] > 0.5 && v.color[0] == 0.0 && v.color[1] == 0.0),
+            "{fixture}: blue source face"
+        );
+        let housing_key = if kind == FixtureKind::FluorescentPanel {
+            let materials = logical_materials(&red);
+            let metal = materials
+                .entry_of(crate::level::FLUORESCENT_PANEL_HOUSING_MATERIAL)
+                .expect("panel housing material");
+            assert_eq!(metal.texture_key, "core:tex_metal_panel_01");
+            assert_eq!(metal.emission, crate::materials::MaterialEmission::NONE);
+            SurfaceKey::new(
+                SurfaceKind::Wall,
+                materials
+                    .index_of(crate::level::FLUORESCENT_PANEL_HOUSING_MATERIAL)
+                    .expect("panel housing slot"),
+            )
+        } else {
+            SurfaceKey::bare(SurfaceKind::Light)
+        };
+        let red_housing: Vec<_> = red_mesh
+            .triangles_for_key(housing_key)
+            .iter()
+            .map(|v| v.color)
+            .collect();
+        let blue_housing: Vec<_> = blue_mesh
+            .triangles_for_key(housing_key)
+            .iter()
+            .map(|v| v.color)
+            .collect();
+        assert!(!red_housing.is_empty(), "{fixture}: housing exists");
+        if kind == FixtureKind::FluorescentPanel {
+            // Ordinary receiver lighting can differ under red/blue sources;
+            // the material, shape and physical UVs do not change with the source.
+            let geometry = |mesh: &LevelMesh| {
+                mesh.triangles_for_key(housing_key)
+                    .iter()
+                    .map(|vertex| (vertex.pos, vertex.uv))
+                    .collect::<Vec<_>>()
+            };
+            assert_eq!(geometry(&red_mesh), geometry(&blue_mesh));
+            assert_eq!(red_housing.len(), blue_housing.len());
+        } else {
+            assert_eq!(
+                red_housing, blue_housing,
+                "{fixture}: housing keeps its material"
+            );
+        }
+        let red_sample = crate::lighting::LevelLighting::bake(&red).sample(0.0, 0.0, 0.0);
+        let blue_sample = crate::lighting::LevelLighting::bake(&blue).sample(0.0, 0.0, 0.0);
+        assert!(red_sample.r > red_sample.b + 0.1, "{red_sample:?}");
+        assert!(blue_sample.b > blue_sample.r + 0.1, "{blue_sample:?}");
     }
-
-    // The colour still reaches the room through the bake.
-    let red_lighting = crate::lighting::LevelLighting::bake(&red);
-    let blue_lighting = crate::lighting::LevelLighting::bake(&blue);
-    let red_sample = red_lighting.sample(0.0, 0.0, 0.0);
-    let blue_sample = blue_lighting.sample(0.0, 0.0, 0.0);
-    assert!(red_sample.r > red_sample.b + 0.1, "{red_sample:?}");
-    assert!(blue_sample.b > blue_sample.r + 0.1, "{blue_sample:?}");
 }
 
 /// Writes a two-material GLB where the second material emits, plus the catalog
@@ -6272,7 +6428,7 @@ fn every_material_property_resolves_into_the_renderers_per_material_state() {
     let mut translucent = 0usize;
     let mut cutout = 0usize;
     let mut sheen = 0usize;
-    let mut normal_mapped = 0usize;
+    let mut normal_maps = std::collections::HashSet::new();
     for (index, entry) in materials.entries().iter().enumerate() {
         let slot = state.texture_slots[index];
         assert_eq!(slot, entry.texture_index, "{}", entry.id);
@@ -6282,7 +6438,9 @@ fn every_material_property_resolves_into_the_renderers_per_material_state() {
         translucent += usize::from(entry.alpha.is_translucent());
         cutout += usize::from(entry.alpha.is_cutout());
         sheen += usize::from(entry.response.has_sheen());
-        normal_mapped += usize::from(entry.response.has_normal());
+        if let Some(normal) = entry.response.normal {
+            let _shared_map = normal_maps.insert(normal);
+        }
     }
     assert!(
         translucent >= 1,
@@ -6291,8 +6449,9 @@ fn every_material_property_resolves_into_the_renderers_per_material_state() {
     assert!(cutout >= 1, "the grille material must remain a cut-out");
     assert!(sheen >= 4, "glossy materials must retain their sheen");
     assert_eq!(
-        normal_mapped, 2,
-        "the metal and plastic materials retain their distinct normal maps"
+        normal_maps.len(),
+        2,
+        "metal and plastic retain distinct normal maps; the housing shares the existing metal map"
     );
 }
 

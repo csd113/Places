@@ -3877,19 +3877,32 @@ mod tests {
         let mut distinct: Vec<&str> = Vec::new();
         let mut fixture_faces = 0usize;
         let mut fixture_housings = 0usize;
+        let housing_material = table
+            .index_of(crate::level::FLUORESCENT_PANEL_HOUSING_MATERIAL)
+            .expect("fluorescent housing material is discovered");
         for draw in &draws {
             // Fixture luminous faces sample their family's sheet through the
             // separate fixture-sheet path (`WorldTextures::resolve`), and the
-            // housings of a material-less fixture sample the fallback sheet;
-            // neither is a base-texture draw. The loader's fixture-sheet tests
-            // cover that lookup.
+            // other families' untextured bodies sample the fallback sheet.
+            // The fluorescent housing is an ordinary metal base-texture draw.
             if draw.kind == SurfaceKind::Light {
-                if draw.material == MATERIAL_NONE {
-                    fixture_housings = fixture_housings.saturating_add(1);
-                } else {
+                if draw.material != MATERIAL_NONE {
                     fixture_faces = fixture_faces.saturating_add(1);
                 }
                 continue;
+            }
+            if draw.kind == SurfaceKind::Wall && draw.material == housing_material {
+                fixture_housings = fixture_housings.saturating_add(1);
+                let housing = table.entry(housing_material).expect("housing entry");
+                assert_eq!(housing.emission, crate::materials::MaterialEmission::NONE);
+                assert_eq!(
+                    housing.reflection,
+                    crate::materials::MaterialReflection::NONE
+                );
+                assert!(
+                    housing.response.normal.is_some(),
+                    "metal normal map resolves"
+                );
             }
             // Only the architectural families are required to resolve a base
             // texture. A `PropFallback` placeholder box (a model that could
@@ -3920,7 +3933,7 @@ mod tests {
         );
         assert!(
             fixture_housings > 0,
-            "the fixture draws material-less housings through the fallback sheet"
+            "fluorescent housings bind the ordinary non-emissive metal material"
         );
         assert!(
             distinct.len() >= 7,

@@ -58,7 +58,9 @@ fn storm_transmission(eye: vec3<f32>, point: vec3<f32>) -> f32 {
         if (cursor >= 1.0) { break; }
     }
     let optical = storm_density() * length(ray) * clamp(1.0-covered, 0.0, 1.0);
-    return exp(-optical * optical);
+    // Matches the CPU/sky curve: approach full occlusion without a hard edge,
+    // then remove all residual contrast, including high-energy emission.
+    return exp(-optical * optical) * (1.0 - smoothstep(2.0, 3.0, optical));
 }
 fn storm_fog(eye: vec3<f32>, point: vec3<f32>, color: vec3<f32>) -> vec3<f32> {
     if (storm_density() == 0.0) { return color; }

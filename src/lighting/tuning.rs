@@ -266,11 +266,7 @@ pub struct FixtureProfile {
 }
 
 impl FixtureProfile {
-    /// The generic light shape this family's luminous surface casts from.
-    ///
-    /// The bake consumes this rather than the family: a fixture family is a
-    /// piece of visible geometry that happens to own a light, and any future
-    /// family only has to describe its emitting rectangle here.
+    /// Outer body footprint, used for mesh bounds and gable mount clearance.
     #[must_use]
     pub const fn shape(self) -> LightShape {
         LightShape::Rect {
@@ -278,7 +274,47 @@ impl FixtureProfile {
             half_depth: self.half_depth,
         }
     }
+
+    /// Actual luminous footprint, separate from the non-emissive body frame.
+    ///
+    /// Source taps must lie on the diffuser rather than inside opaque housing.
+    #[must_use]
+    pub const fn emission_shape(self) -> LightShape {
+        match self.kind {
+            FixtureKind::FluorescentPanel => LightShape::Rect {
+                half_width: self.half_width - PANEL_BORDER_WIDTH_M,
+                half_depth: self.half_depth - PANEL_BORDER_DEPTH_M,
+            },
+            FixtureKind::RoundRecessed
+            | FixtureKind::WallSconce
+            | FixtureKind::FlushMount
+            | FixtureKind::BlacklightTube => self.shape(),
+        }
+    }
+
+    /// Luminous plane relative to the mounting plane the mesh resolver uses.
+    #[must_use]
+    pub const fn emission_y(self, mount_y: f32) -> f32 {
+        match self.kind {
+            FixtureKind::FluorescentPanel => mount_y - PANEL_BODY_DROP_M + PANEL_LIP_M,
+            FixtureKind::RoundRecessed
+            | FixtureKind::WallSconce
+            | FixtureKind::FlushMount
+            | FixtureKind::BlacklightTube => mount_y,
+        }
+    }
 }
+
+/// How far the fluorescent housing drops below its mounting plane, in metres.
+pub const PANEL_BODY_DROP_M: f32 = 0.045;
+/// How far the diffuser is recessed above the frame's bottom, in metres.
+pub const PANEL_LIP_M: f32 = 0.012;
+/// Frame border along the panel's 1.2 m width axis, in metres.
+pub const PANEL_BORDER_WIDTH_M: f32 = 0.04;
+/// Frame border along the panel's 0.6 m depth axis, in metres.
+///
+/// These borders preserve the luminous aperture's exact 2:1 aspect.
+pub const PANEL_BORDER_DEPTH_M: f32 = 0.02;
 
 /// Outer radius of the residential flush-mount fixture's diffuser, in metres.
 ///
@@ -503,6 +539,9 @@ pub fn model_fingerprint() -> u64 {
         }
     }
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    // Source policy 1: panel emitters use the recessed luminous aperture,
+    // independently of the outer footprint used for mounting clearance.
+    write(&mut hash, 1);
     for value in [
         AMBIENT_LEVEL,
         MAX_BRIGHTNESS,
@@ -520,6 +559,10 @@ pub fn model_fingerprint() -> u64 {
         OPENING_BLEND_STRENGTH,
         OPENING_VERTICAL_FADE_M,
         FIXTURE_DROP_M,
+        PANEL_BODY_DROP_M,
+        PANEL_LIP_M,
+        PANEL_BORDER_WIDTH_M,
+        PANEL_BORDER_DEPTH_M,
     ] {
         write(&mut hash, value.to_bits());
     }

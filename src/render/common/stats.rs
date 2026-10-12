@@ -3,6 +3,64 @@
 //! The renderer fills these in; the benchmark harness and the developer logs
 //! read them. They contain no GPU resources, only numbers.
 
+/// Why the hardware GPU render-pass meter cannot supply a measurement.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GpuTimingUnavailable {
+    AdapterUnsupported,
+    FeatureNotEnabled,
+    InvalidTimestampPeriod,
+    ReadbackFailed,
+    InvalidTimestampData,
+}
+
+impl GpuTimingUnavailable {
+    /// Compact reason shown by the performance overlay and benchmark output.
+    #[must_use]
+    pub const fn reason(self) -> &'static str {
+        match self {
+            Self::AdapterUnsupported => "adapter lacks timestamps",
+            Self::FeatureNotEnabled => "timestamps not enabled",
+            Self::InvalidTimestampPeriod => "invalid timestamp period",
+            Self::ReadbackFailed => "timestamp readback failed",
+            Self::InvalidTimestampData => "invalid timestamp data",
+        }
+    }
+}
+
+/// One completed asynchronous GPU timestamp sample.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GpuTimingSample {
+    /// Unique completion id; unchanged while no newer result is available.
+    pub id: u64,
+    /// Renderer frame id measured by these queries, independent of readback lag.
+    pub frame: u64,
+    /// Sum of the frame's rendered pass durations in milliseconds, including
+    /// planar reflection, bloom, resolve, UI and the surface copy when drawn.
+    /// CPU submission, upload/copy work and presentation waits are excluded.
+    pub milliseconds: f32,
+}
+
+/// Hardware GPU timing status, separate from CPU timing and utilization.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum GpuTiming {
+    #[default]
+    Pending,
+    Measured(GpuTimingSample),
+    Unavailable(GpuTimingUnavailable),
+}
+
+impl GpuTiming {
+    /// Stable status text for the machine-readable benchmark CSV.
+    #[must_use]
+    pub const fn status(self) -> &'static str {
+        match self {
+            Self::Pending => "pending",
+            Self::Measured(_) => "measured",
+            Self::Unavailable(reason) => reason.reason(),
+        }
+    }
+}
+
 /// Cost and shape of the last level build, split by stage so a hardware run can
 /// tell an expensive geometry bake from an expensive prop instancing pass.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]

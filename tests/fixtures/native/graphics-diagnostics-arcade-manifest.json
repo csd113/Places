@@ -1,0 +1,127 @@
+{
+  "format_version": 1,
+  "level": "retro_arcade_demo",
+  "source": "levels/retro_arcade_demo.json",
+  "package": "assets/levels/retro_arcade_demo.placesmap",
+  "settings": {
+    "bindings": {
+      "forward": "W",
+      "backward": "S",
+      "strafe_left": "A",
+      "strafe_right": "D",
+      "look_up": "UP",
+      "look_down": "DOWN",
+      "look_left": "LEFT",
+      "look_right": "RIGHT",
+      "jump": "SPACE",
+      "crouch": "C",
+      "interact": "E"
+    },
+    "look_speed_h": 90,
+    "look_speed_v": 60,
+    "walk_speed": 3,
+    "invert_look": false,
+    "mouse_sensitivity": 0.12,
+    "quality": "high",
+    "texture_filtering": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true,
+    "use_low_quality_lighting": false,
+    "vsync": false,
+    "fov_degrees": 60,
+    "window_mode": "windowed",
+    "window_width": 640,
+    "window_height": 360
+  },
+  "bake": {
+    "variants": [
+      "off",
+      "full"
+    ],
+    "workers": 8,
+    "force_for_cold_measurement": false,
+    "algorithm": "unchanged normal compiler defaults; see package inspect for prepared settings"
+  },
+  "environment": {
+    "sky": "absent; enclosed interior",
+    "fog": "authored zero density",
+    "animation": "Accepted existing party preserved; commercial restroom and coplanar mirrors added"
+  },
+  "capture": {
+    "ready_world_seconds": 0.5,
+    "warmup_frames": 15,
+    "limit_frames": 2400,
+    "expected_drawable": [
+      1280,
+      720
+    ]
+  },
+  "views": [
+    {
+      "name": "pink",
+      "spawn": [
+        10.2,
+        25.3,
+        180
+      ],
+      "camera": [
+        180,
+        42
+      ],
+      "purpose": "Pink troffer 8 and retained housing"
+    },
+    {
+      "name": "blue",
+      "spawn": [
+        4.2,
+        2.1,
+        180
+      ],
+      "camera": [
+        180,
+        42
+      ],
+      "purpose": "Cool troffer 0"
+    },
+    {
+      "name": "party",
+      "spawn": [
+        23.2,
+        22,
+        90
+      ],
+      "camera": [
+        90,
+        -18
+      ],
+      "purpose": "Party print texture detail"
+    },
+    {
+      "name": "ceiling",
+      "spawn": [
+        -2.4,
+        3.6,
+        15
+      ],
+      "camera": [
+        15,
+        46
+      ],
+      "purpose": "Neutral practical fixtures and ceiling ventilation"
+    },
+    {
+      "name": "switch_sinks",
+      "spawn": [
+        -1.35,
+        3.92,
+        90
+      ],
+      "camera": [
+        180,
+        -14
+      ],
+      "purpose": "Sink-wall illumination during repeated physical switch interactions; gameplay aim faces east"
+    }
+  ]
+}
