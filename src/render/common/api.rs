@@ -1158,7 +1158,7 @@ mod tests {
         fixture.switchable = true;
         fixture.enabled = false;
         for (switches, full, medium) in [
-            (0_usize, 12, 8),
+            (0_usize, 14, 8),
             (1, 10, 8),
             (2, 6, 6),
             (3, 5, 5),

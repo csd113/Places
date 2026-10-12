@@ -11,11 +11,11 @@ texture choices preserve lighting; Static suppresses response/reflections and
 Full restores the saved reflection preference. New packages omit Medium
 lighting and Static reflection capture. Compact PLLC1 / exact PLPS1 streams
 retain legacy readers and bounded decode; see [the optimization report](reports/map-storage-lighting.md). The atlas capacity
-is at most twelve pages per contribution group for Full; lower profiles retain
+is at most fourteen pages per contribution group for Full; lower profiles retain
 eight-page planning budgets. Preparation also bounds the page count by the exact
 encoded contribution-group cost: Demo's two groups permit ten Full pages, while
 Hallows' measured one-group layout uses eleven; the current one-group cap is
-twelve. This allocation policy preserves inclusive
+fourteen. This allocation policy preserves inclusive
 endpoints and gutters within the unchanged typed atlas record allowance of
 320 MiB +64 KiB; ordinary records retain 256 MiB and total decompressed archives
 retain 1 GiB. PLMP6's exact vertex/frame sharing preserves literal v3/v4/v5
@@ -27,7 +27,7 @@ allocation policy and scene art budgets.
 October 11, 2026 Arcade extension: PLMP v7 adds optional ultraviolet response,
 numeric-mask slot and independent pigment tint; v3–v6 retain zero response.
 PLMW neutral geometry and the existing solver/quality limits are unchanged.
-The maintained lineup now contains nine maps. Dated platform evidence below
+The maintained lineup now contains ten maps, including the dedicated Office. Dated platform evidence below
 is retained; new Arcade native evidence belongs to its implementation report.
 
 ## 1. Prerequisites
@@ -161,7 +161,7 @@ serialized campaign described in the [Stage 7 integration](art-style/stage7/READ
 and [contract audit](art-style/stage7/integration-contract-audit.md).
 
 Full ten-page, two-group HDR atlases fit the unchanged 320 MiB +64 KiB
-typed record allowance; the twelve-page Full planning maximum is further bounded
+typed record allowance; the fourteen-page Full planning maximum is further bounded
 by encoded group cost. Medium retains an eight-page maximum under the same
 group-aware bound. Ordinary entries remain 256 MiB, and total decompressed
 archive data remains limited to 1 GiB. The normal compiler rejects excessive
@@ -368,12 +368,12 @@ PLACES_CAPTURE_DIR="$PWD/target/verification/canonical" \
 python3 tools/bench/check_holes.py target/verification/canonical/high/*.png
 ```
 
-**Always set `PLACES_CAPTURE_DIR`.** `capture_baseline_views.sh` defaults to
-writing `docs/renderer-baseline/{high,low}`, and those PNGs and their
-`manifest.txt` files are frozen historical evidence: they must not be
-regenerated or overwritten. The same rule applies to
-`capture_expanded_views.sh` (its default target is a `target/` directory, but
-set the variable anyway).
+`capture_baseline_views.sh` defaults to ignored
+`target/verification/renderer-baseline-captures/{high,low}`.
+Set `PLACES_CAPTURE_DIR` to a distinct directory for each comparison build.
+The frozen historical inputs in `tests/fixtures/native/gles2-reference/`
+remain read-only comparison sources; both baseline and expanded scripts write
+new captures under `target/` by default.
 
 The expanded campaign covers the feature-targeted views the canonical set
 exercises only incidentally (geometry junctions, materials, lightmap regions,
@@ -407,7 +407,7 @@ group expanded; combine with `PLACES_CAPTURE` as above.
 - **Two current builds** (a pre-change and post-change pair, or a same-binary
   determinism check): capture both with the same script and require byte
   equality or use `tools/bench/compare_captures.py` for per-view numbers.
-- **Against the frozen set** (`docs/renderer-baseline/`): that set is the
+- **Against the frozen set** (`tests/fixtures/native/gles2-reference/`): that set is the
   historical reference captured from the former renderer. Compare per view with
   `compare_captures.py`; the expected numbers are the bounded residuals in
   [RENDERER.md](RENDERER.md) §14-§15, never byte equality. `compare_baseline.py`

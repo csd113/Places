@@ -481,6 +481,18 @@ impl ChartAllocator {
             // architecture hole under that page's MAXRECTS ownership policy.
             placement = self.best_placement(outer_w, outer_h, false);
         }
+        if placement.is_none() && prop {
+            // Guillotine splits can leave adjacent disjoint holes that jointly
+            // fit this chart. Recover them only at final overflow: every
+            // previously valid placement and all architecture layouts stay
+            // unchanged. MAXRECTS holes overlap and must never be merged.
+            for (page, prop_page) in self.pages.iter_mut().zip(&self.prop_pages) {
+                if *prop_page {
+                    coalesce_disjoint(page);
+                }
+            }
+            placement = self.best_placement(outer_w, outer_h, true);
+        }
         let Some((page_index, x, y)) = placement else {
             self.failed = true;
             return None;
@@ -620,6 +632,50 @@ impl ChartAllocator {
         prune_contained(&mut next);
         *page = next;
         true
+    }
+}
+
+/// Merge exact shared edges on disjoint prop-page holes. Sorting each axis
+/// makes a pass O(n log n); every successful merge reduces the hole count.
+/// Repeat both axes because a merge can expose an edge on the other axis.
+fn coalesce_disjoint(rects: &mut Vec<FreeRect>) {
+    loop {
+        let before = rects.len();
+        for horizontal in [true, false] {
+            rects.sort_unstable_by_key(|rect| {
+                if horizontal {
+                    (rect.y, rect.height, rect.x)
+                } else {
+                    (rect.x, rect.width, rect.y)
+                }
+            });
+            let mut joined: Vec<FreeRect> = Vec::with_capacity(rects.len());
+            for rect in rects.drain(..) {
+                if let Some(previous) = joined.last_mut() {
+                    if horizontal
+                        && previous.y == rect.y
+                        && previous.height == rect.height
+                        && previous.x.saturating_add(previous.width) == rect.x
+                    {
+                        previous.width = previous.width.saturating_add(rect.width);
+                        continue;
+                    }
+                    if !horizontal
+                        && previous.x == rect.x
+                        && previous.width == rect.width
+                        && previous.y.saturating_add(previous.height) == rect.y
+                    {
+                        previous.height = previous.height.saturating_add(rect.height);
+                        continue;
+                    }
+                }
+                joined.push(rect);
+            }
+            *rects = joined;
+        }
+        if rects.len() == before {
+            return;
+        }
     }
 }
 

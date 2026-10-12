@@ -864,7 +864,7 @@ sRGB and applies the display grade.
 Charts are planned inline while the mesh is emitted with the deterministic
 best-short-side-fit MaxRects allocator; a plan or fill failure keeps the
 historical vertex-lit mesh, and a level that needs more than its effective Full
-twelve-page or lower eight-page profile budget reports the named `PageOverflow`
+fourteen-page or lower eight-page profile budget reports the named `PageOverflow`
 failure — a partial or black atlas is never drawn. Before stamping geometry,
 the actual base-plus-switchable group count further bounds pages by the unchanged
 typed package and KTX2 byte/layer limits. Full therefore plans at most ten pages

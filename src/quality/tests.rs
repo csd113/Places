@@ -184,8 +184,8 @@ fn lightmap_configs_are_the_documented_low_medium_high_values() {
     assert_eq!(high.padding, 2);
     assert_eq!(high.usable_edge(), 1_020);
 
-    for (config, pages) in [(low, 8), (medium, 8), (high, 12)] {
-        // Full permits twelve base pages; preparation applies the actual
+    for (config, pages) in [(low, 8), (medium, 8), (high, 14)] {
+        // Full permits fourteen base pages; preparation applies the actual
         // illumination-group byte bound. Lower profiles retain eight pages.
         assert_eq!(config.max_pages, pages);
         assert_eq!(config.bytes_per_texel, 16);

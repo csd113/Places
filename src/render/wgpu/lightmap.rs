@@ -733,7 +733,7 @@ mod tests {
 
     #[test]
     fn profile_budgets_match_shared_renderer_capacity() {
-        assert_eq!(LIGHTMAP_ATLAS_MAX_PAGES, 12);
+        assert_eq!(LIGHTMAP_ATLAS_MAX_PAGES, 14);
         assert_eq!(
             LIGHTMAP_ATLAS_MAX_PAGES,
             crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES,
@@ -743,7 +743,7 @@ mod tests {
             let config = profile.lightmap_config();
             let expected = match profile {
                 crate::quality::QualityProfile::Low => 8,
-                crate::quality::QualityProfile::Full => 12,
+                crate::quality::QualityProfile::Full => 14,
             };
             assert_eq!(
                 config.max_pages, expected,
@@ -770,7 +770,7 @@ mod tests {
             crate::quality::LightmapQuality::Full
                 .lightmap_config()
                 .map(|config| config.max_pages),
-            Some(12)
+            Some(14)
         );
         // Low keeps its 512-texel pages and Full its 1024-texel pages.
         assert_eq!(
@@ -803,29 +803,29 @@ mod tests {
     #[test]
     fn full_capacity_uses_only_resident_pages_and_contribution_layers() {
         // Tiny physical pages exercise the complete layer-addressing boundary
-        // without allocating the Full profile's 192 MiB base GPU payload.
-        let mut maps = lightmaps(vec![black_page(1); 12]);
+        // without allocating the Full profile's 224 MiB base GPU payload.
+        let mut maps = lightmaps(vec![black_page(1); 14]);
         let base = upload_stats(Some(&maps));
-        assert_eq!(base.capacity, 12);
-        assert_eq!(base.pages, 12);
-        assert_eq!(base.resident_bytes, 12 * 2 * 8);
+        assert_eq!(base.capacity, 14);
+        assert_eq!(base.pages, 14);
+        assert_eq!(base.resident_bytes, 14 * 2 * 8);
         maps.switchable = (0..MAX_SWITCHABLE_GROUPS)
             .map(|light_index| SwitchableLightmaps {
                 light_index,
-                pages: vec![black_page(1); 12],
+                pages: vec![black_page(1); 14],
             })
             .collect();
-        assert_eq!(maps.layer_count(), 120);
-        assert_eq!(maps.irradiance_layer(Some(3), 11), 118);
+        assert_eq!(maps.layer_count(), 140);
+        assert_eq!(maps.irradiance_layer(Some(3), 13), 138);
         let contributions = upload_stats(Some(&maps));
-        assert_eq!(contributions.pages, 12);
-        assert_eq!(contributions.resident_bytes, 120 * 8);
+        assert_eq!(contributions.pages, 14);
+        assert_eq!(contributions.resident_bytes, 140 * 8);
         assert!(maps.pages.pop().is_some());
         for contribution in &mut maps.switchable {
             assert!(contribution.pages.pop().is_some());
         }
-        assert_eq!(maps.layer_count(), 110);
-        assert_eq!(upload_stats(Some(&maps)).resident_bytes, 110 * 8);
+        assert_eq!(maps.layer_count(), 130);
+        assert_eq!(upload_stats(Some(&maps)).resident_bytes, 130 * 8);
     }
 
     #[test]

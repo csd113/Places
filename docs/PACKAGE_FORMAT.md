@@ -192,20 +192,23 @@ prepared world for that setting:
 `quality_profile` records the bake/plan profile (`low` for `off`, `full`
 otherwise) so a future reader can tell which bake produced the vertex colours.
 
-A decoded package whose prepared atlas the device cannot bind (more than eleven
+A decoded package whose prepared atlas the device cannot bind (more than fourteen
 pages, or more than four switchable groups: a combination the compiler can
 never emit) falls back to a vertex-lit rebuild of the decoded semantics. That
 is the loader's defensive recovery path, not a player-side bake of the prepared
 path; no compiler output reaches it, and the prepared solve never runs in the
 player.
 
-Full's profile planning cap is twelve pages; lower profiles retain eight.
+Full's profile planning cap is fourteen pages; lower profiles retain eight.
 At eleven pages the allocator tries existing architectural holes before opening
-a twelfth, preserving formerly valid eleven-page layouts.
+further pages, preserving formerly valid eleven- and twelve-page layouts. At final overflow,
+exact adjacent free rectangles on disjoint model pages are joined and retried;
+existing placements, physical density and gutters remain unchanged. Architecture
+MAXRECTS holes overlap and retain their existing packing policy.
 Before geometry emission, the planner also bounds that cap by the actual base
 and switchable illumination groups, the typed record bytes (including the exact
 196-byte single-mip KTX2 header), the codec payload/layer bounds and the decoder
-page count. At 1024px, Full allows 12/10/6/5/4 pages for zero through four
+page count. At 1024px, Full allows 14/10/6/5/4 pages for zero through four
 switchable lights. Demo therefore retains ten pages for its two groups. The
 effective config is shared by the plan, fill and public cache-key refresh.
 The model-lighting correction shares compatible coplanar source-triangle charts
@@ -219,7 +222,7 @@ the measured ten-page two-group Demo payload plus container allowance. The
 [record audit](art-style/stage7/integration-contract-audit.md) records
 the old 256 MiB rejection and 25% increase. The 64-page decoder count, exact
 KTX2 shape/length checks, four-switch-group limit and 1 GiB aggregate remain
-enforced. More groups still have to fit the typed byte bound; twelve pages do not
+enforced. More groups still have to fit the typed byte bound; fourteen pages do not
 authorize an arbitrary total allocation. The aggregate guard still applies to
 the complete archive, including all quality variants.
 

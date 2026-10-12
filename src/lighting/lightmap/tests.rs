@@ -13,7 +13,10 @@
     reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
-use super::{Chart, ChartAllocator, LightmapConfig, LightmapMode, LightmapPatch, PatchKind};
+use super::{
+    Chart, ChartAllocator, LIGHTMAP_ATLAS_MAX_PAGES, LightmapConfig, LightmapMode, LightmapPatch,
+    PatchKind,
+};
 use crate::quality::QualityProfile;
 use crate::test_support::exact_f32;
 
@@ -458,6 +461,97 @@ fn architecture_free_space_keeps_prop_charts_within_the_existing_budget() {
 }
 
 #[test]
+fn adjacent_prop_holes_recover_false_overflow_without_moving_existing_charts() {
+    // Four rectangles on a 16px page expose a missed shared edge. No pixels,
+    // assets or transport are allocated; transposition covers both merge axes
+    // and the padded case protects the complete gutter, not just data texels.
+    for padding in [0, 1] {
+        for transpose in [false, true] {
+            let config = LightmapConfig {
+                texels_per_metre: 1.0,
+                page_edge: 16,
+                max_pages: 1,
+                padding,
+                bytes_per_texel: 16,
+            };
+            let patches = [(7_u32, 8_u32), (8, 8), (4, 8), (12, 4)].map(|(w, h)| {
+                let span = |size: u32| f32::from(u16::try_from(size - 2 * padding - 1).unwrap());
+                let mut surface = if transpose {
+                    patch(span(h), span(w))
+                } else {
+                    patch(span(w), span(h))
+                };
+                surface.kind = PatchKind::Prop;
+                surface
+            });
+            let pack = || {
+                let mut allocator = ChartAllocator::new(config);
+                let charts: Vec<_> = patches
+                    .iter()
+                    .map(|surface| {
+                        allocator
+                            .allocate(surface)
+                            .expect("adjacent free area fits the chart")
+                    })
+                    .collect();
+                assert_eq!(
+                    allocator.page_count(),
+                    1,
+                    "recovery retains the page budget"
+                );
+                let mut too_big = patch(15.0, 15.0);
+                too_big.kind = PatchKind::Prop;
+                assert!(
+                    allocator.allocate(&too_big).is_none(),
+                    "genuine overflow still fails"
+                );
+                assert!(allocator.failed(), "failure remains sticky");
+                assert!(
+                    allocator.allocate(&patches[0]).is_none(),
+                    "cannot append after failure"
+                );
+                charts
+            };
+            let charts = pack();
+            assert_eq!(charts, pack(), "recovered layout is deterministic");
+            for (index, ((surface, chart), (x, y))) in patches
+                .iter()
+                .zip(&charts)
+                .zip([(0, 0), (7, 0), (0, 8), (4, 8)])
+                .enumerate()
+            {
+                let (outer_x, outer_y) = if transpose { (y, x) } else { (x, y) };
+                assert_eq!(
+                    (chart.x, chart.y),
+                    (outer_x + padding, outer_y + padding),
+                    "old placements stay put; final chart uses the joined hole"
+                );
+                assert_eq!(
+                    (chart.width, chart.height),
+                    config.chart_texels(surface),
+                    "density is preserved"
+                );
+                let right = chart.x + chart.width + padding;
+                let bottom = chart.y + chart.height + padding;
+                assert!(
+                    right <= config.page_edge && bottom <= config.page_edge,
+                    "gutters stay on the page"
+                );
+                for other in charts.iter().take(index) {
+                    assert!(
+                        right <= other.x - padding
+                            || other.x + other.width + padding <= chart.x - padding
+                            || bottom <= other.y - padding
+                            || other.y + other.height + padding <= chart.y - padding,
+                        "occupied rectangles including gutters remain disjoint"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn the_packer_uses_best_short_side_fit() {
     // The policy in one picture: a 32 x 32 page with a tall 8 x 16 chart first.
     // Every following 8 x 8 chart takes the free rectangle whose shorter
@@ -552,15 +646,15 @@ fn the_shipped_page_budget_is_used_when_genuinely_needed() {
 }
 
 #[test]
-fn full_page_policy_preserves_architecture_sampling_and_invalidates_the_eleven_page_cache() {
+fn full_page_policy_preserves_sampling_and_invalidates_the_previous_page_cache() {
     let full = LightmapConfig::for_profile(QualityProfile::Full);
     assert_eq!(
-        full.max_pages, 12,
+        full.max_pages, 14,
         "Full admits the current model catalog without lowering detail"
     );
     assert_eq!(full.page_edge, 1024);
     let previous_full = LightmapConfig {
-        max_pages: 11,
+        max_pages: 12,
         ..full
     };
     for receiver in [patch(0.3, 0.35), patch(8.0, 6.0), patch(63.6875, 63.6875)] {
@@ -609,7 +703,7 @@ fn full_page_policy_preserves_architecture_sampling_and_invalidates_the_eleven_p
 }
 
 #[test]
-fn full_reuses_the_previous_eleventh_page_holes_before_opening_a_twelfth() {
+fn full_reuses_previous_holes_before_opening_more_pages() {
     // Only allocator rectangles are created: no atlas pixels or transport.
     // Page zero retains a nine-texel-wide architecture hole; ten full prop
     // pages exhaust their own family. Both policies must place the next small
@@ -617,7 +711,7 @@ fn full_reuses_the_previous_eleventh_page_holes_before_opening_a_twelfth() {
     let config = LightmapConfig {
         texels_per_metre: 1.0,
         page_edge: 32,
-        max_pages: 12,
+        max_pages: LIGHTMAP_ATLAS_MAX_PAGES,
         padding: 1,
         bytes_per_texel: 16,
     };
