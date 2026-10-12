@@ -69,7 +69,8 @@ backend module that names it.
 | `src/render/common/postprocess.rs` | `PostSettings`, `bloom_target_size` | preparation |
 | `src/render/common/framebuffer.rs` | `scene_target_size` | preparation |
 | `src/render/common/stats.rs` | `LevelBuildStats`, `RenderStats` | preparation |
-| `src/render/wgpu/renderer.rs` | `WgpuRenderer`: instance/surface/device/queue, depth target, level upload, frame graph, passes, captures, lifecycle | backend |
+| `src/render/wgpu/renderer.rs` | `WgpuRenderer`: instance/surface/device/queue, depth target, level upload, frame graph, passes, lifecycle | backend |
+| `src/render/wgpu/readback.rs` | Shared aligned staging, mapping and row compaction for RGBA8 frame and RGBA16F probe captures | backend |
 | `src/render/wgpu/surface.rs` | SDL3 raw-window-handle surface creation, backend policy, format/present/depth/clear policy, recovery table | backend |
 | `src/render/wgpu/world.rs` | World geometry and passes: GPU vertex (lightmap attributes), clip correction, pack/upload, camera uniform, world pipelines, per-draw texture and material selection, translucent ordering, emissive variants | backend |
 | `src/render/wgpu/texture.rs` | Texture system: semantic keys, GPU uploads, CPU mip chains, shared samplers, fallback, renderer-owned cache, clamped fitted-sheet path | backend |
@@ -105,6 +106,7 @@ where the bytes live:
 | `src/loading.rs` | One bounded preparation worker: the level's assets and its compiled variant are read concurrently, with request cancellation and an immutable decoded-variant cache |
 | `src/package/` | The compiled map format: manifest, bounded ZIP access, binary records, KTX2 payloads, the player-side package loader |
 | `src/compiler.rs` | The offline compiler: source validation, static preparation, probe capture, atomic package publication (`places-compile` only) |
+| `src/compiler/storage.rs` | Exact prop factoring and compressed archive sizing; selection preserves the existing record stream | compiler |
 | `src/lighting/` | The vertex-lit CPU bake (partition areas, baselines, fixture pools, box visibility) plus the prepared path: `transport.rs` (BVH, direct sampling, ray-traced bounces), `probes.rs` (the moving-object field), `lightmap/` (planning, HDR pages, content key) - compiler and audits only |
 | `src/materials/` | PNG decode, session texture cache, material and decal resolution |
 | `src/spatial/` | The spatial cell grid the batching and frustum culling share |

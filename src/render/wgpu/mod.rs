@@ -58,6 +58,7 @@ pub mod postprocess;
 #[cfg(feature = "visual-diagnostics")]
 mod probe_visualization;
 pub mod props;
+mod readback;
 pub mod reflections;
 pub mod renderer;
 pub mod sky;
