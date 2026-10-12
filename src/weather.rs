@@ -407,6 +407,12 @@ impl SnowfallDef {
 mod tests {
     use super::*;
 
+    fn weather_level() -> Result<crate::level::LevelDef, serde_json::Error> {
+        serde_json::from_str(include_str!(
+            "../tests/fixtures/unit/renderer_weather_contract.json"
+        ))
+    }
+
     fn assert_near(actual: f32, expected: f32) {
         assert!(
             (actual - expected).abs() < 1.0e-6,
@@ -572,12 +578,11 @@ mod tests {
 
     #[test]
     fn defaults_are_opt_in_and_round_trip_in_semantics() -> Result<(), Box<dyn std::error::Error>> {
-        let mut level: crate::level::LevelDef =
-            serde_json::from_str(include_str!("../levels/winter.json"))?;
+        let mut level = weather_level()?;
         let snow = level
             .weather
             .as_ref()
-            .ok_or("winter needs snow")?
+            .ok_or("fixture needs snow")?
             .snowfall();
         assert_eq!(snow.count, 1400, "light default budget");
         snow.validate()?;
@@ -609,11 +614,13 @@ mod tests {
                 .contains_key("weather"),
             "existing packages retain absent weather"
         );
-        let demo: crate::level::LevelDef =
-            serde_json::from_str(include_str!("../levels/places_demo.json"))?;
+        let absent: crate::level::LevelDef = serde_json::from_str(
+            r#"{"format_version":3,"id":"no_weather","name":"No weather",
+                "spawn":{"x":1,"z":1},"rooms":[{"width":2,"depth":2}]}"#,
+        )?;
         assert!(
-            demo.weather.is_none(),
-            "non-Winter defaults remain unchanged"
+            absent.weather.is_none(),
+            "omitted weather never fabricates a configuration"
         );
         Ok(())
     }
@@ -621,8 +628,7 @@ mod tests {
     #[test]
     fn alternate_round_trip_preserves_default_and_packages_both_materials()
     -> Result<(), Box<dyn std::error::Error>> {
-        let mut level: crate::level::LevelDef =
-            serde_json::from_str(include_str!("../levels/winter.json"))?;
+        let mut level = weather_level()?;
         let authored_default = serde_json::to_value(&level.weather)?;
         let alternate = WeatherDef::Snow(SnowfallDef {
             material: crate::level::DEFAULT_STEAM_MATERIAL.to_string(),
@@ -630,29 +636,8 @@ mod tests {
         });
         level.weather_alternate = Some(alternate);
         level.weather_cycle = None;
-        // Legacy binary selection permits independently authored materials;
-        // continuous Winter controls require the compatible pair tested above.
-        for prop in &mut level.props {
-            for binding in &mut prop.bindings {
-                binding.actions.retain(|action| {
-                    !matches!(
-                        action,
-                        crate::level::ActionDef::SetWeatherCycle { enabled: _ }
-                    )
-                });
-                for action in &mut binding.actions {
-                    if matches!(
-                        action,
-                        crate::level::ActionDef::SetWeatherStrength {
-                            strength: _,
-                            transition_seconds: _,
-                        }
-                    ) {
-                        *action = crate::level::ActionDef::ToggleWeather;
-                    }
-                }
-            }
-        }
+        // Binary selection permits independently authored materials; this
+        // fixture has no continuous control or automatic cycle bindings.
         crate::loader::validate_level(&level)?;
         let materials = crate::materials::referenced_material_ids(&level);
         assert!(
@@ -703,8 +688,8 @@ mod tests {
                 .as_object_mut()
                 .ok_or("not object")?
                 .extend(patch.as_object().ok_or("not patch")?.clone());
-            let mut level: crate::level::LevelDef =
-                serde_json::from_str(include_str!("../levels/winter.json"))?;
+            let mut level = weather_level()?;
+            level.weather_alternate = None;
             level.weather = Some(serde_json::from_value(value)?);
             assert!(
                 crate::loader::validate_level(&level).is_err(),

@@ -413,14 +413,21 @@ fn random(key: u32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // Bounded shelter geometry; seed counts deliberately retain the default
+    // weather budget so the quality and retained-storage regressions stay real.
+    fn shelter_level() -> Result<LevelDef, serde_json::Error> {
+        serde_json::from_str(include_str!(
+            "../../../tests/fixtures/unit/renderer_weather_contract.json"
+        ))
+    }
     fn scene() -> Result<SnowScene, serde_json::Error> {
-        let level: LevelDef = serde_json::from_str(include_str!("../../../levels/winter.json"))?;
+        let level = shelter_level()?;
         Ok(SnowScene::build(&level, &SnowfallDef::default(), 0, 1.0))
     }
     #[test]
     fn severe_streaks_and_quality_prefixes_use_bounded_retained_storage()
     -> Result<(), Box<dyn std::error::Error>> {
-        let level: LevelDef = serde_json::from_str(include_str!("../../../levels/winter.json"))?;
+        let level = shelter_level()?;
         let mut config = SnowfallDef::blizzard();
         config.intensity = 0.5;
         let scene = SnowScene::build(&level, &config, 0, 1.0);
@@ -474,7 +481,7 @@ mod tests {
 
     #[test]
     fn extinction_culls_are_not_misreported_as_roof_suppression() -> Result<(), serde_json::Error> {
-        let level: LevelDef = serde_json::from_str(include_str!("../../../levels/winter.json"))?;
+        let level = shelter_level()?;
         let mut scene = SnowScene::build(&level, &SnowfallDef::blizzard(), 0, 1.0);
         scene.shelters.clear();
         scene.storm.count = [0; 4];
@@ -503,12 +510,12 @@ mod tests {
     #[test]
     fn weather_preset_timeline_preserves_phase_distribution_at_every_quality()
     -> Result<(), Box<dyn std::error::Error>> {
-        let level: LevelDef = serde_json::from_str(include_str!("../../../levels/winter.json"))?;
-        let base = level.weather.as_ref().ok_or("Winter needs base weather")?;
+        let level = shelter_level()?;
+        let base = level.weather.as_ref().ok_or("fixture needs base weather")?;
         let endpoint = level
             .weather_alternate
             .as_ref()
-            .ok_or("Winter needs alternate weather")?;
+            .ok_or("fixture needs alternate weather")?;
         let mut snow = SnowScene::build(&level, base.snowfall(), 0, 1.0);
         let alternate = SnowScene::build(&level, endpoint.snowfall(), 0, 1.0);
         let seed_address = snow.seeds.as_ptr();
@@ -671,7 +678,7 @@ mod tests {
         fixed_dimensions: bool,
         automatic: bool,
     ) -> Result<(), serde_json::Error> {
-        let level: LevelDef = serde_json::from_str(include_str!("../../../levels/winter.json"))?;
+        let level = shelter_level()?;
         let mut snow = scene()?;
         let mut endpoint = SnowfallDef::blizzard();
         if fixed_dimensions {
@@ -903,7 +910,7 @@ mod tests {
         let scene = scene()?;
         assert!(
             scene.shelter_alpha(Vec3::new(-11.5, 2.2, -11.5), 0.05) < 0.001,
-            "gable lodge protects its interior"
+            "gable room protects its interior"
         );
         assert!(
             scene.shelter_alpha(Vec3::new(-11.5, 8.0, -11.5), 0.05) > 0.99,

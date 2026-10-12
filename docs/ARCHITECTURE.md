@@ -118,7 +118,7 @@ where the bytes live:
 | `assets/catalog.json` | The authoritative registry mapping every logical id to a file, material or generated resource |
 | `assets/environments/**`, `assets/shared/**`, `assets/entities/**` | Shipped surfaces, decals, fixture faces, props and entity models (PNG/GLB) |
 | `assets/levels/` | Ignored compiled lineup packages, generated with `sh tools/build-maps.sh` |
-| `levels/` | Maintained source maps and the explicit `lineup.txt` build/export allowlist |
+| `levels/` | Maintained source maps and the explicit `lineup.txt` offline compiler allowlist |
 | `tests/fixtures/levels/` | Focused compiler, movement and rendering source controls |
 | `<state-root>/levels/` | Imported compiled packages; the writable state root is platform-dependent |
 | `cache/` | Tooling cache: the Model Zoo generator stores model bounds and clip inspection results here; the player never creates it |

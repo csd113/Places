@@ -2476,7 +2476,7 @@ fn fixture_level(name: &str) -> crate::level::LevelDef {
 }
 
 #[test]
-fn the_showcase_level_renders_every_core_prop_with_real_geometry() {
+fn regression_prop_fixtures_render_their_models_with_real_geometry() {
     let catalog = shipped_catalog();
     let mut assets = shipped_assets();
     let level = fixture_level("prop_showcase");
@@ -2487,41 +2487,11 @@ fn the_showcase_level_renders_every_core_prop_with_real_geometry() {
         "no placeholder boxes expected"
     );
 
-    // The shared showcase fixtures place every catalogue placeable exactly
-    // once: the domestic/office map covers the generic and Office props, the
-    // Pool showcase covers the Pool family, and the outdoor kit showcase
-    // covers the outdoor theme's ground, lamps, tree and facade parts. Themes
-    // organize content; this is the one place a "placed somewhere" check is
-    // legitimate.
-    let pool_showcase =
-        crate::level::LevelDef::from_json(include_str!("../../levels/pool_showcase.json"))
-            .expect("Pool showcase parses");
     let outdoor_showcase = fixture_level("outdoor_kit_showcase");
     // The Halloween entity fixture covers the three Halloween entities (the
     // ordinary skeleton and the other existing entities stay in the generic
     // showcases).
     let halloween = fixture_level("halloween_entities");
-    let zoo = crate::level::LevelDef::from_json(include_str!("../../levels/model_zoo.json"))
-        .expect("generated Zoo parses");
-    let mut used: std::collections::HashSet<&str> = std::collections::HashSet::new();
-    used.extend(zoo.props.iter().map(|prop| prop.model.as_str()));
-    used.extend(level.props.iter().map(|prop| prop.model.as_str()));
-    used.extend(pool_showcase.props.iter().map(|prop| prop.model.as_str()));
-    used.extend(
-        outdoor_showcase
-            .props
-            .iter()
-            .map(|prop| prop.model.as_str()),
-    );
-    used.extend(halloween.props.iter().map(|prop| prop.model.as_str()));
-    for entry in catalog.entries() {
-        assert!(
-            used.contains(entry.id.as_str()),
-            "the showcase levels must place {}",
-            entry.id
-        );
-    }
-
     // The outdoor kit fixture renders every model it places as real geometry
     // too (a missing outdoor asset must not silently become a placeholder).
     let (outdoor_mesh, outdoor_batches) =
@@ -4647,10 +4617,13 @@ fn a_wall_with_no_twin_is_emitted_exactly_as_authored() {
     );
 }
 
-/// The shipped official demo.
-fn shipped_demo() -> crate::level::LevelDef {
-    crate::level::LevelDef::from_json(include_str!("../../levels/places_demo.json"))
-        .expect("the shipped places_demo parses")
+/// One small room covers texture sharing, blend/cutout alpha, normal maps and
+/// both reflection modes. Material resolution needs no production geometry.
+fn material_contract_level() -> LevelDef {
+    LevelDef::from_json(include_str!(
+        "../../tests/fixtures/unit/renderer_material_contract.json"
+    ))
+    .expect("bounded material fixture parses")
 }
 
 #[test]
@@ -5554,49 +5527,24 @@ fn a_warm_lightmap_cache_reproduces_the_cold_atlas_exactly() {
 }
 
 #[test]
-fn the_dynamic_demonstration_machine_is_authored_as_a_static_prop() {
-    // The machine is authored statically; its drum is spawned at runtime.
-    let path = "levels/places_demo.json";
-    let content = std::fs::read_to_string(path)
-        .unwrap_or_else(|error| panic!("{path} must be readable: {error}"));
-    let level = crate::level::LevelDef::from_json(&content)
-        .unwrap_or_else(|error| panic!("{path} must parse: {error}"));
-    assert!(
-        level
-            .props
-            .iter()
-            .any(|prop| prop.model == crate::render::DEMO_MACHINE_ID),
-        "Places Demo must place {} statically",
-        crate::render::DEMO_MACHINE_ID
-    );
-    assert!(
-        !level
-            .props
-            .iter()
-            .any(|prop| prop.model == crate::render::DEMO_DRUM_ID),
-        "{} must only exist as a dynamic object, never as a level prop",
-        crate::render::DEMO_DRUM_ID
-    );
-}
-
-#[test]
 fn the_dynamic_demonstration_drum_spins_inside_the_static_machine() {
-    // The drum the demonstration spawns for Places Demo's machine is inside
-    // its body: the transformed bounds stay within the machine's catalogue box
-    // and behind its front panel, and the drum turns while the machine's
-    // static transform does not move.
-    let path = "levels/places_demo.json";
-    let content = std::fs::read_to_string(path)
-        .unwrap_or_else(|error| panic!("{path} must be readable: {error}"));
-    let level = crate::level::LevelDef::from_json(&content)
-        .unwrap_or_else(|error| panic!("{path} must parse: {error}"));
+    // One elevated static machine proves drum placement and motion without
+    // requiring any demo placement or full level geometry.
+    let level = LevelDef::from_json(
+        r#"{"format_version":3,"id":"washer_drum","name":"Washer drum",
+            "spawn":{"x":1,"z":1},
+            "rooms":[{"width":4,"depth":4,"height":3,"floor_y":0.5}],
+            "props":[{"model":"core:washing_machine","x":2,"z":2,"y":0.25,
+                      "size":[0.6,0.85,0.6],"solid":true}]}"#,
+    )
+    .expect("bounded machine fixture parses");
     let catalog = shipped_catalog();
     let mut assets = shipped_assets();
     let prop = level
         .props
         .iter()
         .find(|prop| prop.model == crate::render::DEMO_MACHINE_ID)
-        .expect("Places Demo places the machine");
+        .expect("fixture places the machine");
     let size = catalog.get(crate::render::DEMO_MACHINE_ID).size;
     let base_y = crate::level::LevelSurfaces::new(&level)
         .floor_y_at(prop.x, prop.z)
@@ -6051,10 +5999,10 @@ fn every_window_cap_spans_its_opening_in_world_space() {
 }
 
 #[test]
-fn the_demo_resolves_its_authored_reflection_modes() {
+fn catalog_materials_resolve_their_authored_reflection_modes() {
     use crate::materials::{MaterialReflection, ReflectionMode, resolve_materials};
 
-    let level = shipped_demo();
+    let level = material_contract_level();
     let logical = logical_materials(&level);
     let catalog = crate::assets::AssetCatalog::load_default();
     let root = crate::assets::resolve_asset_root().expect("assets/ is discoverable");
@@ -6077,7 +6025,7 @@ fn the_demo_resolves_its_authored_reflection_modes() {
     assert_eq!(
         reflections[usize::try_from(wet).unwrap_or(usize::MAX)].mode,
         ReflectionMode::Planar,
-        "the wet deck is the demo's planar mirror"
+        "the wet deck carries planar reflection"
     );
     assert!(reflections[usize::try_from(wet).unwrap_or(usize::MAX)].strength > 0.0);
     assert_eq!(
@@ -6258,7 +6206,7 @@ fn every_material_property_resolves_into_the_renderers_per_material_state() {
     // one place. The failure this guards against is a property that resolves
     // correctly and then never reaches the draw path: a glass material that
     // draws opaque, or a normal map that never binds.
-    let level = shipped_demo();
+    let level = material_contract_level();
     // The *resolved* table, not the logical one: a normal map only exists once
     // its PNG has been interned, which is exactly what the renderer loads.
     let mut cache = crate::materials::TextureCache::new();
@@ -6290,15 +6238,14 @@ fn every_material_property_resolves_into_the_renderers_per_material_state() {
         normal_mapped += usize::from(entry.response.has_normal());
     }
     assert!(
-        translucent >= 3,
-        "the demo's windows are translucent (the former backlit sign panels \
-         were removed as unintended artifacts)"
+        translucent >= 1,
+        "the window material must remain translucent"
     );
-    assert!(cutout >= 1, "the demo's grille is a cut-out");
-    assert!(sheen >= 4, "the demo's glossy surfaces have a sheen");
+    assert!(cutout >= 1, "the grille material must remain a cut-out");
+    assert!(sheen >= 4, "glossy materials must retain their sheen");
     assert_eq!(
         normal_mapped, 2,
-        "the shared metal and Pool window casings are the demo's normal-mapped materials"
+        "the metal and plastic materials retain their distinct normal maps"
     );
 }
 
@@ -7587,54 +7534,60 @@ fn a_water_volume_honours_its_opacity_and_material() {
     }
 }
 
-/// The demo's pool is a real body of water: two adjacent rectangular volumes
-/// at one waterline (the basin and the submerged walk-in step) plus the hot
-/// tub's circular volume.
+/// Adjacent basin/step volumes resolve different local floor heights, while
+/// circular water keeps the bounding-box corners dry. This checks semantics
+/// only: three tiny recesses require no lighting bake or prop import.
 #[test]
-fn the_demo_authors_water_over_the_basin_and_the_walk_in_step() {
-    let level = shipped_demo();
+fn water_shapes_resolve_local_bottoms_and_preserve_circular_membership() {
+    let level = LevelDef::from_json(
+        r#"{"format_version":3,"id":"water_bottoms","name":"Water bottoms",
+            "spawn":{"x":0.5,"z":0.5},
+            "rooms":[{"width":8,"depth":6,"height":3}],
+            "floor_regions":[
+                {"x":1,"z":1,"width":2,"depth":2,"offset_y":-0.75},
+                {"x":3,"z":1,"width":1,"depth":2,"offset_y":-0.2},
+                {"x":5,"z":1,"width":1,"depth":1,"offset_y":-0.75}
+            ],
+            "water":[
+                {"x":1,"z":1,"width":2,"depth":2,"surface_y":-0.1},
+                {"x":3,"z":1,"width":1,"depth":2,"surface_y":-0.1},
+                {"shape":"circle","x":5,"z":1,"radius":0.5,"surface_y":-0.1}
+            ]}"#,
+    )
+    .expect("bounded water fixture parses");
     let volumes = crate::level::WaterVolumes::from_level(&level);
-    assert_eq!(
-        volumes.len(),
-        3,
-        "the basin, the step and the hot tub are three volumes"
-    );
+    assert_eq!(volumes.len(), 3);
 
     let basin = &volumes.volumes()[0];
     assert_eq!(
         (basin.x0, basin.x1, basin.z0, basin.z1),
-        (8.0, 20.0, 10.0, 16.0),
-        "the basin volume covers the demo's recessed pool region"
+        (1.0, 3.0, 1.0, 3.0)
     );
-    assert!((basin.surface_y + 1.65).abs() < 1e-6);
-    assert!((basin.bottom_y + 3.0).abs() < 1e-6);
-    assert!((basin.depth() - 1.35).abs() < 1e-6);
+    assert!((basin.surface_y + 0.1).abs() < 1e-6);
+    assert!((basin.bottom_y + 0.75).abs() < 1e-6);
+    assert!((basin.depth() - 0.65).abs() < 1e-6);
     assert!(basin.swimming);
     assert_eq!(basin.material_id(), crate::level::DEFAULT_WATER_MATERIAL);
     assert!((basin.opacity - crate::level::DEFAULT_WATER_OPACITY).abs() < 1e-6);
 
     let step = &volumes.volumes()[1];
-    assert_eq!(
-        (step.x0, step.x1, step.z0, step.z1),
-        (10.0, 16.0, 16.0, 16.9),
-        "the step volume covers the submerged walk-in step"
-    );
-    assert!((step.surface_y + 1.65).abs() < 1e-6);
+    assert_eq!((step.x0, step.x1, step.z0, step.z1), (3.0, 4.0, 1.0, 3.0));
+    assert!((step.surface_y + 0.1).abs() < 1e-6);
     assert!(
-        (step.bottom_y + 1.85).abs() < 1e-6,
-        "the step volume's bottom resolves to the step floor"
+        (step.bottom_y + 0.2).abs() < 1e-6,
+        "bottom resolves to the step floor"
     );
-    assert!((step.depth() - 0.2).abs() < 1e-6);
+    assert!((step.depth() - 0.1).abs() < 1e-6);
 
-    let tub = &volumes.volumes()[2];
-    assert_eq!(tub.shape, crate::level::WaterShape::Circle);
-    assert_eq!(tub.center(), (3.6, 8.7), "the tub is centred on its shell");
-    assert!((tub.radius - 1.25).abs() < 1e-6, "the disc radius");
-    assert!((tub.surface_y + 1.65).abs() < 1e-6);
-    assert!((tub.bottom_y + 3.0).abs() < 1e-6);
-    assert!(tub.swimming);
-    assert!(!tub.contains(2.4, 7.5), "a bounding-box corner is dry");
-    assert!(tub.contains(4.6, 8.7), "the axis line is water");
+    let circle = &volumes.volumes()[2];
+    assert_eq!(circle.shape, crate::level::WaterShape::Circle);
+    assert_eq!(circle.center(), (5.5, 1.5));
+    assert!((circle.radius - 0.5).abs() < 1e-6);
+    assert!((circle.surface_y + 0.1).abs() < 1e-6);
+    assert!((circle.bottom_y + 0.75).abs() < 1e-6);
+    assert!(circle.swimming);
+    assert!(!circle.contains(5.05, 1.05), "a bounding-box corner is dry");
+    assert!(circle.contains(5.9, 1.5), "the interior axis line is water");
 }
 
 /// Two pools far enough apart to fall in different spatial cells: the sorted

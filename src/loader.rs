@@ -25,9 +25,6 @@ use crate::materials::{MaterialTable, PackMaterials, resolve_materials};
 /// Re-exported so the rest of the crate keeps its historical import paths.
 pub use crate::materials::{RawImage, TextureCache, decode_png, encode_png, parse_materials_json};
 
-/// Stable id of the official demo, used by discovery and the runtime.
-pub const DEMO_LEVEL_ID: &str = "places_demo";
-
 /// Source type of an installed level.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LevelSourceType {
@@ -6038,6 +6035,7 @@ impl LevelManager {
                 .cmp(&source_rank(b.source_type))
                 .then_with(|| a.name.cmp(&b.name))
                 .then_with(|| a.id.cmp(&b.id))
+                .then_with(|| a.path.cmp(&b.path))
         });
         let mut unique: Vec<LevelEntry> = Vec::with_capacity(discovered.len());
         for entry in discovered {
@@ -6118,15 +6116,15 @@ impl LevelManager {
         })
     }
 
-    /// Loads the compiled official demo from the discovered packages.
+    /// Loads the first installed package in deterministic discovery order.
     ///
     /// # Errors
     ///
-    /// Returns the package's load error, or an explicit compilation instruction
-    /// when Places Demo has not been built or installed.
+    /// Returns the package's load error, or installation guidance when empty.
     pub fn load_default(&self) -> Result<LoadedLevel, String> {
-        let entry = self.entries.iter().find(|entry| entry.id == DEMO_LEVEL_ID)
-            .ok_or_else(|| "Places Demo is not compiled; run `sh tools/build-maps.sh` from the repository, or import places_demo.placesmap".to_owned())?;
+        let entry = self.entries.first().ok_or_else(|| {
+            "No maps installed. Add a .placesmap to levels/ or use Import levels.".to_owned()
+        })?;
         self.load_level(entry)
     }
 
@@ -6313,17 +6311,26 @@ impl LevelManager {
             )
         })?;
         let mut imported_count: usize = 0;
+        let mut first_error = None;
         let nested_import = self.levels_dir.join("import");
         let candidate_dirs = [self.import_dir.clone(), nested_import];
         for dir in &candidate_dirs {
             let Ok(entries) = fs::read_dir(dir) else {
                 continue;
             };
-            for entry in entries.flatten() {
-                let path = entry.path();
+            let mut paths: Vec<PathBuf> = entries.flatten().map(|entry| entry.path()).collect();
+            paths.sort();
+            for path in paths {
                 if crate::package::is_package_path(&path) {
-                    drop(self.import_file(&path)?);
-                    imported_count = imported_count.saturating_add(1);
+                    match self.import_file(&path) {
+                        Ok(_) => imported_count = imported_count.saturating_add(1),
+                        Err(error) => {
+                            Self::report_skipped_level(&path, &error);
+                            if first_error.is_none() {
+                                first_error = Some(error);
+                            }
+                        }
+                    }
                 } else if path
                     .extension()
                     .is_some_and(|ext| ext == "json" || ext == "zip")
@@ -6340,7 +6347,14 @@ impl LevelManager {
                 }
             }
         }
-        Ok(imported_count)
+        // Also discover packages dropped directly into levels/ while running,
+        // including when import/ is empty or a different candidate failed.
+        self.refresh();
+        first_error.map_or(Ok(imported_count), |error| {
+            Err(format!(
+                "Imported {imported_count} map(s); skipped an invalid package: {error}"
+            ))
+        })
     }
 }
 

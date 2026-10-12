@@ -887,7 +887,7 @@ pub struct CliOptions {
 impl Default for CliOptions {
     fn default() -> Self {
         Self {
-            level: "places_demo".to_string(),
+            level: String::new(),
             json: None,
             markers: None,
             markers_obj: None,
@@ -950,6 +950,9 @@ pub fn options_from_args(args: &[String]) -> Result<Option<CliOptions>, String> 
             other => options.level = other.to_string(),
         }
         index = index.saturating_add(1);
+    }
+    if options.level.trim().is_empty() {
+        return Err("--level needs an explicit source path or installed source id".to_string());
     }
     Ok(Some(options))
 }
@@ -3472,7 +3475,7 @@ pub const REPAIR_FORMAT: &str = "places-geometry-repair-plan";
 pub const REPAIR_VERSION: u32 = 1;
 
 /// The CLI options of `--repair-geometry`.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct RepairCliOptions {
     /// Level path or id (`places_demo`, `levels/places_demo.json`, ...).
     pub level: String,
@@ -3480,16 +3483,6 @@ pub struct RepairCliOptions {
     pub plan: Option<PathBuf>,
     /// Print the machine-readable plan to stdout instead of the human plan.
     pub json: bool,
-}
-
-impl Default for RepairCliOptions {
-    fn default() -> Self {
-        Self {
-            level: "places_demo".to_string(),
-            plan: None,
-            json: false,
-        }
-    }
 }
 
 /// Parses the process arguments, or `None` when this is not a repair run.
@@ -3528,6 +3521,9 @@ pub fn repair_options_from_args(args: &[String]) -> Result<Option<RepairCliOptio
             other => options.level = other.to_string(),
         }
         index = index.saturating_add(1);
+    }
+    if options.level.trim().is_empty() {
+        return Err("--level needs an explicit source path or installed source id".to_string());
     }
     Ok(Some(options))
 }
@@ -5461,16 +5457,11 @@ mod tests {
     }
 
     #[test]
-    fn the_maintained_clean_levels_have_no_wall_joints() {
+    fn clean_regression_fixtures_have_no_wall_joints() {
         for (name, text) in [
             (
                 "geometry_intentional",
                 include_str!("../tests/fixtures/levels/geometry_intentional.json"),
-            ),
-            ("model_zoo", include_str!("../levels/model_zoo.json")),
-            (
-                "home_showcase",
-                include_str!("../levels/home_showcase.json"),
             ),
             (
                 "level0_pit",
@@ -5874,6 +5865,15 @@ mod tests {
 
     #[test]
     fn checker_arguments_and_reports_are_stable() {
+        for mode in ["--check-geometry", "--repair-geometry"] {
+            let args = [mode.to_owned()];
+            let error = if mode == "--check-geometry" {
+                options_from_args(&args).expect_err("checking requires an external source")
+            } else {
+                repair_options_from_args(&args).expect_err("repair requires an external source")
+            };
+            assert!(error.contains("--level"), "{error}");
+        }
         let args: Vec<String> = [
             "--check-geometry",
             "--level",

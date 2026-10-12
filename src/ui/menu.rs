@@ -602,20 +602,13 @@ pub(super) fn geometry(
     panel(&mut vertices, title, subtitle, state == AppState::MainMenu);
     let layout = menu_layout(state, ui, settings, display);
     draw_rows(&mut vertices, &layout, state, ui);
-    if state == AppState::LevelSelect && ui.level_entries.is_empty() {
-        small_line(
-            &mut vertices,
-            "No maps installed. Use Import levels below.",
-            108.0,
-            MUTED,
-        );
-    }
+    draw_empty_state(&mut vertices, state, ui);
     let help_y = if state == AppState::LevelSelect {
         0.0
     } else {
         226.0
     };
-    if help_y > 0.0 {
+    if help_y > 0.0 && !ui.status_is_error {
         small_line(
             &mut vertices,
             description(state, ui, settings, display),
@@ -624,16 +617,7 @@ pub(super) fn geometry(
         );
     }
     if let Some(message) = &ui.status_message {
-        small_line(
-            &mut vertices,
-            message,
-            238.0,
-            if ui.status_is_error {
-                [1.0, 0.57, 0.43]
-            } else {
-                [0.68, 0.82, 0.63]
-            },
-        );
+        draw_status(&mut vertices, message, ui.status_is_error);
     } else if state == AppState::MainMenu {
         small_line(&mut vertices, &format!("v{version}"), 238.0, MUTED);
     } else if ui.settings_page == SettingsPage::Graphics
@@ -659,6 +643,53 @@ pub(super) fn geometry(
     draw_modals(&mut vertices, ui);
 
     vertices
+}
+
+fn draw_empty_state(vertices: &mut Vec<Vertex>, state: AppState, ui: &UiState) {
+    if state == AppState::LevelSelect && ui.level_entries.is_empty() {
+        small_line(vertices, "No maps installed.", 108.0, MUTED);
+        small_line(
+            vertices,
+            "Add .placesmap files to levels/ or import/.",
+            124.0,
+            MUTED,
+        );
+        small_line(
+            vertices,
+            "Import levels rescans both folders.",
+            136.0,
+            MUTED,
+        );
+    } else if state == AppState::MainMenu && ui.level_entries.is_empty() {
+        small_line(
+            vertices,
+            "No maps installed. Open Explore to add maps.",
+            198.0,
+            MUTED,
+        );
+    }
+}
+
+/// Errors get two bounded lines above the navigation legend. Full diagnostics
+/// remain in the log; external names cannot push text off the panel.
+fn draw_status(vertices: &mut Vec<Vertex>, message: &str, is_error: bool) {
+    if is_error {
+        let split = message
+            .chars()
+            .take(58)
+            .enumerate()
+            .filter_map(|(index, character)| {
+                (index >= 30 && character.is_whitespace()).then_some(index.saturating_add(1))
+            })
+            .last()
+            .unwrap_or(58);
+        let first: String = message.chars().take(split).collect();
+        let rest: String = message.chars().skip(split).take(59).collect();
+        small_line(vertices, first.trim_end(), 234.0, [1.0, 0.57, 0.43]);
+        small_line(vertices, &rest, 242.0, [1.0, 0.57, 0.43]);
+    } else {
+        small_line(vertices, message, 238.0, [0.68, 0.82, 0.63]);
+    }
 }
 
 fn draw_modals(vertices: &mut Vec<Vertex>, ui: &UiState) {
@@ -806,6 +837,55 @@ impl UiState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// No packages and an arbitrary long error must leave both recovery rows
+    /// clickable. Geometry stays within the reference canvas at fixed cost.
+    #[test]
+    fn empty_explore_keeps_import_and_back_usable_with_bounded_errors() {
+        let mut ui = UiState::new();
+        ui.set_status("Invalid optional package: ".repeat(100), true);
+        let settings = Settings::default();
+        let display = DisplayStatus::default();
+        let layout = menu_layout(AppState::LevelSelect, &ui, &settings, &display);
+        assert_eq!(
+            layout.rows.len(),
+            2,
+            "empty list retains recovery navigation"
+        );
+        for row in &layout.rows {
+            assert_eq!(
+                layout
+                    .hit_test([row.bounds.left + 8.0, row.bounds.top + 4.0])
+                    .map(|hit| hit.index),
+                Some(row.index)
+            );
+        }
+        let vertices = geometry(AppState::LevelSelect, &ui, &settings, &display, "test");
+        let error_vertices: Vec<_> = vertices
+            .iter()
+            .filter(|vertex| {
+                vertex.color[0].total_cmp(&1.0).is_eq() && vertex.color[1].total_cmp(&0.57).is_eq()
+            })
+            .collect();
+        assert_ne!(error_vertices.len(), 0, "the error remains visible");
+        assert!(
+            error_vertices
+                .iter()
+                .all(|vertex| vertex.pos[1] >= 232.0 && vertex.pos[1] <= 249.0),
+            "error text must clear Back and the navigation legend"
+        );
+        assert!(
+            vertices
+                .iter()
+                .all(|vertex| (0.0..=480.0).contains(&vertex.pos[0])
+                    && (0.0..=272.0).contains(&vertex.pos[1])),
+            "optional package errors remain on screen"
+        );
+        assert!(
+            vertices.len() < 3_000,
+            "diagnostic size does not scale with external text"
+        );
+    }
 
     #[test]
     fn every_selection_is_visible_and_hit_regions_match_drawn_rows() {

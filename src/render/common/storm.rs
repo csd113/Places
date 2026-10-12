@@ -184,13 +184,17 @@ fn clip(span: &mut [f32; 2], eye: glam::Vec3, ray: glam::Vec3, normal: glam::Vec
 mod tests {
     use super::*;
     use glam::Vec3;
-    fn winter() -> Result<LevelDef, serde_json::Error> {
-        serde_json::from_str(include_str!("../../../levels/winter.json"))
+    // Two room profiles and one slab exercise the shelter model without
+    // parsing or preparing an optional production map.
+    fn shelter_level() -> Result<LevelDef, serde_json::Error> {
+        serde_json::from_str(include_str!(
+            "../../../tests/fixtures/unit/renderer_weather_contract.json"
+        ))
     }
     #[test]
     fn whiteout_extinction_is_short_range_and_independent_of_quality()
     -> Result<(), serde_json::Error> {
-        let level = winter()?;
+        let level = shelter_level()?;
         let storm = StormUniform::build(&level, &SnowfallDef::blizzard());
         let eye = Vec3::new(0.0, 1.6, 10.0);
         assert!(storm.transmission(eye, eye - Vec3::Z) > 0.8);
@@ -206,7 +210,7 @@ mod tests {
     #[test]
     fn indoor_and_gable_sightlines_stay_clear_but_outdoor_door_views_white_out()
     -> Result<(), serde_json::Error> {
-        let storm = StormUniform::build(&winter()?, &SnowfallDef::blizzard());
+        let storm = StormUniform::build(&shelter_level()?, &SnowfallDef::blizzard());
         let eye = Vec3::new(-11.5, 2.2, -11.5);
         assert!(storm.transmission(eye, Vec3::new(-15.0, 2.2, -15.0)) > 0.999);
         // At the ridge, above the eave: use the actual gable convex planes.

@@ -1318,39 +1318,25 @@ mod tests {
     }
 
     #[test]
-    fn the_shipped_demo_resolves_its_authored_plumes() {
-        let level = LevelDef::from_json(include_str!("../../../levels/places_demo.json"))
-            .expect("the shipped demo parses");
-        let materials = materials(&level);
-        let scene = EffectScene::build(&level, &materials);
-        // The demo authors the two sauna plumes first, then the hot tub's
-        // gentle surface haze; every one of them resolves.
-        assert!(
-            scene.len() >= 2,
-            "the demo authors at least the two sauna plumes"
-        );
-        let sauna: Vec<&EffectEmitter> = scene
-            .emitters()
-            .iter()
-            .filter(|emitter| emitter.authored_index < 2)
-            .collect();
-        assert_eq!(sauna.len(), 2, "the sauna pair is authored first");
-        assert!(
-            sauna.iter().all(|emitter| !emitter.enabled),
-            "the sauna plumes start off until their switch enables them"
-        );
-        assert_eq!(
-            sauna.iter().map(|emitter| emitter.count).sum::<usize>(),
-            44,
-            "the pair's authored particle budget"
-        );
-        assert_eq!(scene.textures().len(), 1, "both default to core:steam_01");
-        assert_eq!(scene.draw_groups().len(), 1, "one material is one draw");
-        assert_eq!(
-            scene.draw_groups()[0].particles,
-            scene.particle_count(),
-            "the enabled plumes form one contiguous draw"
-        );
+    fn initially_disabled_plumes_reserve_their_authored_buffer_budget() {
+        // A load must reserve disabled emitters too, so an E action can enable
+        // them without reallocating. Five seeds prove the contract cheaply.
+        let mut first = steam_effect(1.0, 1.0);
+        first["enabled"] = json!(false);
+        first["count"] = json!(2_i32);
+        let mut second = steam_effect(2.0, 2.0);
+        second["enabled"] = json!(false);
+        second["count"] = json!(3_i32);
+        let mut scene = scene(&[first, second]);
+        assert_eq!(scene.len(), 2);
+        assert!(scene.emitters().iter().all(|emitter| !emitter.enabled));
+        assert_eq!(scene.buffer_particles(), 5);
+        assert_eq!(scene.particle_count(), 0);
+        assert_eq!(scene.draw_groups().len(), 0);
+        assert!(scene.set_enabled(1, true));
+        assert_eq!(scene.particle_count(), 3);
+        assert_eq!(scene.buffer_particles(), 5);
+        assert_eq!(scene.draw_groups().len(), 1);
     }
 
     // ---------------------------------------------------------------- budget

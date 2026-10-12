@@ -7,6 +7,9 @@ description = "Places: a slow first-person exploration experience"
 license = "MIT"
 repository = "https://github.com/csd113/Places"
 publish = false
+# Optional authored maps and generated packages are external content, never
+# required inputs to the engine/compiler crate or its source distribution.
+exclude = ["levels/**", "assets/levels/**"]
 
 [features]
 # Development-only native diagnostic views; the normal build retains the exact

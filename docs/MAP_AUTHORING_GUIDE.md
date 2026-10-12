@@ -687,11 +687,16 @@ loader or the renderer: opening `kind` (unknown names load), animated-emission
 A misspelled enum is a parse error, not a silently ignored key.
 
 **Where levels live.** Players load compiled `.placesmap` packages only.
-`assets/levels/*.placesmap` ships with the game; `levels/*.placesmap` are drop-in
+`assets/levels/*.placesmap` optionally ships with the game; `levels/*.placesmap` are drop-in
 packages (under the writable state root, normally next to the asset root). Both appear
 in the Level Select menu. The maintained `.json` sources live directly in
-`levels/`, with their compiler/export allowlist in `levels/lineup.txt`. Packages
-are ignored build outputs: run `sh tools/build-maps.sh` after a fresh checkout.
+`levels/`, with their explicit offline compiler allowlist in `levels/lineup.txt`.
+Packages are ignored optional outputs: `sh tools/build-maps.sh` authors the lineup.
+Neither those sources nor any package is required to build, package or launch.
+A zero-map installation opens the menu with Settings/Quit and a clear empty Explore
+screen. Explore rescans on opening; Import levels rescans both writable folders.
+The default export is map-free; `tools/package.sh --maps DIRECTORY` explicitly
+includes supported external packages without depending on this source lineup.
 JSON is never a playable row; discovery enumerates packages only and skips
 sources silently, so the normal startup log stays clean. A raw source is only
 reported when you explicitly try to open or import it: that fails with the compiler
@@ -6823,10 +6828,10 @@ recompile the demo, recapture.
 | Containment | Four buried `outdoor:collision_peg` placements: the collider boxes are 0.3 m thick, 3.5 m tall from −0.10, along x = −0.30/24.30 and z = −92.00. |
 | Ground | One `void_walls[]` slab (`night_ground_slab`, x −6..30, z −98..3, top y = −0.08) 8 cm under the yard's own floor: looking over a boundary edge shows continuous night ground instead of the void. Non-solid and non-occluding; the buried pegs still own containment. |
 
-The route is measured, not assumed: `src/game/tests.rs` walks the real
-`Game::update_player_movement` from the threshold and asserts 27–33 s, a
-straight line and a y = 0 floor
-(`demo_night_route_is_a_thirty_second_walk_from_the_front_door`).
+The authored route's measured 29.1 s walk is documented in
+[the environment refinement report](reports/environment-refinement.md).
+Full route validation is an explicit native content campaign; default Rust
+controller tests use bounded contact fixtures independent of this optional map.
 
 ### 35.2 Invisible containment that does not light, shadow or reflect
 

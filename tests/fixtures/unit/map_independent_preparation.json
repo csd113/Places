@@ -1,0 +1,23 @@
+{
+  "format_version": 3,
+  "id": "map_independent_preparation",
+  "name": "Preparation Regression",
+  "spawn": { "x": 1.0, "z": 1.0 },
+  "rooms": [
+    { "x": 0.0, "z": 0.0, "width": 6.0, "depth": 6.0, "height": 3.0 },
+    { "x": 6.0, "z": 0.0, "width": 4.0, "depth": 6.0, "height": 3.0, "floor_y": -0.9 }
+  ],
+  "walls": [
+    { "x": 0.0, "z": 0.0, "width": 6.0, "depth": 0.3, "height": 3.0 },
+    { "x": 6.0, "z": 0.0, "width": 4.0, "depth": 0.3, "height": 3.0,
+      "y": -0.9, "material": "home:wall_paint_offwhite_01" }
+  ],
+  "baseboards": [
+    { "x": 6.0, "z": 0.3, "length": 4.0, "y": -0.9, "material": "home:baseboard_wood_01" }
+  ],
+  "ceiling_lights": [
+    { "fixture": "core:fluorescent_panel_01", "x": 2.2, "z": 2.2 },
+    { "fixture": "core:pool_light_round", "x": 4.0, "z": 4.0 },
+    { "fixture": "core:pool_light_wall", "x": 0.3, "z": 3.0, "mount": "wall", "y": 1.9 }
+  ]
+}

@@ -9,6 +9,7 @@ run, and that a symlinked product directory is refused rather than replaced.
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -33,6 +34,40 @@ def check_destination(destination: Path) -> subprocess.CompletedProcess:
 
 
 class PackageDestinationGuardTests(unittest.TestCase):
+    def test_map_free_export_needs_only_the_player_and_runtime_assets(self):
+        # A tiny fake release player protects script dependency boundaries on
+        # every CI run, without Rust compilation, SDL or a production-map bake.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / 'source'
+            (source / 'tools').mkdir(parents=True)
+            shutil.copyfile(PACKAGE_SH, source / 'tools/package.sh')
+            (source / 'Cargo.toml').write_text('[package]\nversion = "0.8.0"\n')
+            for name in ('README.md', 'THIRD_PARTY_LICENSES.txt'):
+                (source / name).write_text('fixture')
+            for name in ('shared', 'environments', 'entities', 'diagnostic', 'levels'):
+                (source / 'assets' / name).mkdir(parents=True)
+            (source / 'assets/catalog.json').write_text('{}')
+            # Even an existing optional package is excluded unless requested.
+            (source / 'assets/levels/unselected.placesmap').write_bytes(b'not a map')
+            player = source / 'target/release/places'
+            player.parent.mkdir(parents=True)
+            player.write_text('#!/bin/sh\nexit 0\n')
+            player.chmod(0o755)
+            output = root / 'export'
+            output.mkdir()
+            (output / 'keep.txt').write_text('unique sibling')
+            result = subprocess.run(['sh', str(source / 'tools/package.sh'), str(output)],
+                                    text=True, capture_output=True, timeout=30, check=False)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual((output / 'keep.txt').read_text(), 'unique sibling')
+            self.assertFalse((source / 'levels').exists())
+            self.assertFalse((source / 'target/release/places-compile').exists())
+            for payload in (output / 'Places', output / 'Places.app/Contents/Resources'):
+                self.assertTrue((payload / 'assets/catalog.json').is_file())
+                self.assertTrue((payload / 'levels').is_dir())
+                self.assertEqual(list(payload.rglob('*.placesmap')), [])
+
     def test_dangerous_destinations_are_refused(self):
         cases = {
             "filesystem root": Path("/"),
@@ -92,7 +127,7 @@ class PackageDestinationGuardTests(unittest.TestCase):
 
     def test_unrelated_siblings_survive_a_real_packaging_run(self):
         if os.environ.get("PLACES_TEST_EXPORT") != "1":
-            self.skipTest("explicit export acceptance: set PLACES_TEST_EXPORT=1 after building maps")
+            self.skipTest("explicit native export acceptance: set PLACES_TEST_EXPORT=1 after building")
         if not RELEASE_BINARY.is_file():
             self.skipTest(
                 "no release binary at target/release/places; "

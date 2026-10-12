@@ -449,15 +449,9 @@ fn log_asset_catalog(level_manager: &loader::LevelManager) {
     ));
 }
 
-/// Spawns the dynamic demonstration for levels that ship with one.
-///
-/// The engine's dynamic path is generic (`Renderer::set_dynamic_demo`), but the
-/// demonstration is content: it lives in Places Demo so the engine regression
-/// fixtures and their benchmarks are unaffected by it.
+/// Spawns dynamic fixture parts and effects from the installed content.
 fn spawn_level_demonstration(renderer: &mut Renderer, loaded: &loader::LoadedLevel) {
-    if loaded.level.id == loader::DEMO_LEVEL_ID {
-        let _dynamic_demo_changed = renderer.set_dynamic_demo(&loaded.level);
-    }
+    let _dynamic_demo_changed = renderer.set_dynamic_demo(&loaded.level);
     // Floating props are level content, not a demonstration: every level that
     // authors `float` gets them, and the spawn is idempotent. It runs after
     // the demo spawn because that one clears the whole dynamic scene first.
@@ -738,16 +732,13 @@ struct PendingCommit {
 
 /// Where startup is in bringing up the first world.
 ///
-/// The first preparation is essential: it is the only thing that can give the
-/// menu a background, so it is neither cancellable nor skippable, while a
-/// later replacement is cancellable back to the committed world.
+/// Optional initial-world preparation precedes the ordinary menu. An empty
+/// installation or a failed package reveals the usable menu without a world.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum StartupPhase {
     /// First world requested and not yet committed: menu hidden, input gated.
     Preparing,
-    /// The first preparation failed and the default level is being retried.
-    Retrying,
-    /// A world has been committed; the ordinary menu experience applies.
+    /// The ordinary menu experience applies, with or without a world.
     Ready,
 }
 
@@ -855,14 +846,19 @@ struct FrameLoop<'a> {
 impl FrameLoop<'_> {
     /// Requests the first world and runs the frame loop to completion.
     fn start(&mut self, initial_entry: Option<loader::LevelEntry>, direct: bool) {
-        self.request_load(
-            initial_entry.map_or(loading::Source::Default, loading::Source::entry),
-            if direct {
-                LoadIntent::Play
-            } else {
-                LoadIntent::Background
-            },
-        );
+        if let Some(entry) = initial_entry {
+            self.request_load(
+                loading::Source::entry(entry),
+                if direct {
+                    LoadIntent::Play
+                } else {
+                    LoadIntent::Background
+                },
+            );
+        } else {
+            self.startup = StartupPhase::Ready;
+            self.trace.record("menu_ready", 0, "no initial map");
+        }
         self.run();
     }
 
@@ -2543,9 +2539,8 @@ impl FrameLoop<'_> {
     fn activate_main_menu(&mut self) {
         match self.ui_state.main_menu_idx {
             0 => {
-                // Discovery metadata is cached at startup and refreshed after
-                // imports; opening the level list must not re-scan/re-extract
-                // packs.
+                // Discover newly installed external packages when Explore opens.
+                self.level_manager.refresh();
                 self.refresh_level_entries();
                 self.goto(AppState::LevelSelect);
             }
@@ -2565,6 +2560,11 @@ impl FrameLoop<'_> {
     /// Refreshes the cached level names from the manager.
     fn refresh_level_entries(&mut self) {
         self.ui_state.level_entries = level_entry_names(self.level_manager);
+        self.ui_state.level_select_idx = self
+            .ui_state
+            .level_select_idx
+            .min(self.ui_state.level_entries.len().saturating_add(1));
+        self.ui_state.keep_selection_visible(AppState::LevelSelect);
     }
 
     /// Level list: load the selected level, import packs, or go back.
@@ -2875,18 +2875,8 @@ impl FrameLoop<'_> {
             self.ui_state
                 .set_status(format!("Could not load level: {error}"), true);
         }
-        // The initial world is what gives the menu its background, so a
-        // failure here retries the default level once rather than leaving no
-        // preparation and a black menu.
+        crate::logging::warn(format!("Could not load map: {error}"));
         if self.startup != StartupPhase::Ready {
-            if self.startup == StartupPhase::Preparing {
-                self.startup = StartupPhase::Retrying;
-                crate::logging::warn(format!(
-                    "initial level preparation failed; retrying the demo: {error}"
-                ));
-                self.request_load(loading::Source::Default, LoadIntent::Background);
-                return;
-            }
             self.startup = StartupPhase::Ready;
         }
         self.game.set_app_state(self.load_return_state);
@@ -3070,6 +3060,7 @@ impl FrameLoop<'_> {
                 }
             }
             Err(err) => {
+                self.refresh_level_entries();
                 self.ui_state
                     .set_status(format!("Import failed: {err}"), true);
             }
@@ -3495,39 +3486,38 @@ fn bootstrap() -> Result<(Sdl, VideoSubsystem, Window, Settings, Bench), String>
     Ok((sdl_context, video_subsystem, window, settings, bench))
 }
 
-fn initial_level(level_manager: &loader::LevelManager) -> (Option<loader::LevelEntry>, bool) {
-    let requested = std::env::var("PLACES_LEVEL")
-        .ok()
-        .filter(|value| !value.trim().is_empty());
-    let initial_entry = requested
-        .as_ref()
-        .and_then(|requested_level| {
-            level_manager.entries().iter().find(|entry| {
-                entry.id == requested_level.trim()
-                    || entry.name.eq_ignore_ascii_case(requested_level.trim())
-            })
-        })
-        .or_else(|| {
-            level_manager
-                .entries()
+/// Selection depends only on installed entries, never a particular map id.
+fn select_initial_level(
+    entries: &[loader::LevelEntry],
+    requested: Option<&str>,
+) -> (Option<loader::LevelEntry>, bool) {
+    let normalized = requested.map(str::trim).filter(|value| !value.is_empty());
+    normalized.map_or_else(
+        || (entries.first().cloned(), false),
+        |value| {
+            let entry = entries
                 .iter()
-                .find(|entry| entry.id == loader::DEMO_LEVEL_ID)
-        })
-        .cloned();
-    let direct = requested.as_ref().is_some_and(|requested_level| {
-        initial_entry.as_ref().is_some_and(|entry| {
-            entry.id == requested_level.trim()
-                || entry.name.eq_ignore_ascii_case(requested_level.trim())
-        })
-    });
-    if requested.is_some() && !direct {
-        logging::warn(if initial_entry.is_some() {
-            "Requested level was not found; loading Places Demo"
-        } else {
-            "Requested level was not found; compile maps with `sh tools/build-maps.sh` or import a .placesmap package"
-        });
+                .find(|entry| entry.id == value || entry.name.eq_ignore_ascii_case(value))
+                .cloned();
+            let direct = entry.is_some();
+            (entry, direct)
+        },
+    )
+}
+
+fn initial_level(level_manager: &loader::LevelManager) -> (Option<loader::LevelEntry>, bool) {
+    let requested = std::env::var("PLACES_LEVEL").ok();
+    let selection = select_initial_level(level_manager.entries(), requested.as_deref());
+    if requested
+        .as_deref()
+        .is_some_and(|value| !value.trim().is_empty())
+        && !selection.1
+    {
+        logging::warn(
+            "Requested map is not installed. Open Explore to choose or import a .placesmap.",
+        );
     }
-    (initial_entry, direct)
+    selection
 }
 
 /// Runs the headless geometry CLI modes, which must precede any SDL or wgpu
@@ -3709,4 +3699,39 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod initial_level_tests {
+    use super::select_initial_level;
+    use crate::loader::{LevelEntry, LevelSourceType};
+
+    /// Arbitrary metadata protects empty/missing selection without baking a world.
+    #[test]
+    fn startup_selection_accepts_empty_installations_and_arbitrary_external_maps() {
+        assert_eq!(select_initial_level(&[], None), (None, false));
+        assert_eq!(select_initial_level(&[], Some("missing")), (None, false));
+        let entry = LevelEntry {
+            id: "external_island".to_string(),
+            name: "Island".to_string(),
+            author: String::new(),
+            source_type: LevelSourceType::Installed,
+            path: "levels/custom.placesmap".into(),
+        };
+        let entries = [entry.clone()];
+        assert_eq!(
+            select_initial_level(&entries, None),
+            (Some(entry.clone()), false)
+        );
+        for request in ["external_island", " island "] {
+            assert_eq!(
+                select_initial_level(&entries, Some(request)),
+                (Some(entry.clone()), true)
+            );
+        }
+        assert_eq!(
+            select_initial_level(&entries, Some("missing")),
+            (None, false)
+        );
+    }
 }

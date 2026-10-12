@@ -36,9 +36,24 @@ fn parse(json: &str) -> LevelDef {
     LevelDef::from_json(json).unwrap_or_else(|error| panic!("test level must parse: {error}"))
 }
 
-/// The committed Home showcase.
-fn home_showcase() -> LevelDef {
-    parse(include_str!("../levels/home_showcase.json"))
+/// One ramp meeting a platform and two rotated rails preserve the regressions
+/// originally reported in authored content. Geometry stays inside a 6 m room.
+fn joined_architecture_fixture() -> LevelDef {
+    parse(
+        r#"{
+        "format_version": 3, "id": "joined_architecture", "name": "Joined Architecture",
+        "spawn": { "x": 1.0, "z": 1.0 },
+        "rooms": [{ "x": 0.0, "z": 0.0, "width": 6.0, "depth": 6.0, "height": 3.0 }],
+        "ramps": [{ "x": 4.0, "z": 0.4, "width": 1.0, "depth": 1.6, "rise": 0.75 }],
+        "floor_regions": [{ "x": 4.0, "z": 2.0, "width": 1.0, "depth": 1.0, "offset_y": 0.75 }],
+        "guardrails": [
+            { "x": 1.0, "z": 3.0, "length": 2.0, "rotation_degrees": 90.0,
+              "material": "home:handrail_wood_01" },
+            { "x": 2.0, "z": 3.0, "length": 2.0, "rotation_degrees": 270.0,
+              "material": "home:handrail_wood_01" }
+        ]
+    }"#,
+    )
 }
 
 /// Emits source geometry without solving illumination or planning lightmaps.
@@ -1287,54 +1302,21 @@ fn test_architecture_geometry_sweep_is_structurally_sound() {
 // Validation boundaries
 // ---------------------------------------------------------------------------
 
-/// The shipped demo is the acceptance case for every architectural piece the
-/// loader accepts: office and pool walls (including the notice boards and the
-/// pool-to-hall transition), the Home extension, stairs, a ramp-free split
-/// level, archways, baseboards and thresholds. None of it may emit a zero-area
-/// triangle. A degenerate wall quad is either authoring the loader should have
-/// rejected or an emitter defect, never shipped content; ramp skirts that
-/// legitimately end in a triangle fold the repeated corner away, so every
-/// surviving triangle must have real area.
+/// Automatic trim and fixture snapping must preserve nondegenerate geometry.
+/// Two rooms and three fixtures exercise the integration without a map bake.
 #[test]
-fn test_the_shipped_demo_emits_no_zero_area_triangles() {
-    let level = parse(include_str!("../levels/places_demo.json"));
-    let materials = logical_materials(&level);
-    let mesh = build_geometry_without_illumination(
-        &level,
-        &crate::loader::PropCatalog::builtin(),
-        &materials,
-    );
-    let triangles = emitted_triangles(&mesh);
-    assert!(!triangles.is_empty(), "the demo must emit geometry");
-    let degenerate: Vec<[[f32; 3]; 3]> = triangles
-        .iter()
-        .filter(|triangle| triangle.world_area <= 1.0e-9)
-        .map(|triangle| triangle.points)
-        .collect();
-    assert!(
-        degenerate.is_empty(),
-        "places_demo emits {} zero-area triangle(s), first at {:?}",
-        degenerate.len(),
-        degenerate.first()
-    );
-}
-
-/// Loader preparation only adds trim and snaps panels onto their ceiling grid,
-/// so the *prepared* demo is held to the same contract as the authored one: it
-/// still validates and still emits no zero-area triangle. This is the check
-/// that generated baseboard runs and the panel housing join real geometry
-/// without defects.
-#[test]
-fn test_the_prepared_demo_validates_and_emits_no_zero_area_triangles() {
+fn test_preparation_validates_and_emits_no_zero_area_triangles() {
     let catalog = crate::assets::AssetCatalog::load_default();
-    let mut level = parse(include_str!("../levels/places_demo.json"));
+    let mut level = parse(include_str!(
+        "../tests/fixtures/unit/map_independent_preparation.json"
+    ));
     let authored_baseboards = level.baseboards.len();
     crate::loader::prepare_level(&mut level, &catalog, None);
     assert!(
         level.baseboards.len() > authored_baseboards,
         "the office walls gain automatic baseboard runs"
     );
-    crate::loader::validate_level(&level).expect("the prepared demo still validates");
+    crate::loader::validate_level(&level).expect("the preparation fixture still validates");
 
     let materials = logical_materials(&level);
     let mesh = build_geometry_without_illumination(
@@ -1343,7 +1325,10 @@ fn test_the_prepared_demo_validates_and_emits_no_zero_area_triangles() {
         &materials,
     );
     let triangles = emitted_triangles(&mesh);
-    assert!(!triangles.is_empty(), "the prepared demo emits geometry");
+    assert!(
+        !triangles.is_empty(),
+        "the preparation fixture emits geometry"
+    );
     let degenerate: Vec<[[f32; 3]; 3]> = triangles
         .iter()
         .filter(|triangle| triangle.world_area <= 1.0e-9)
@@ -1351,7 +1336,7 @@ fn test_the_prepared_demo_validates_and_emits_no_zero_area_triangles() {
         .collect();
     assert!(
         degenerate.is_empty(),
-        "the prepared demo emits {} zero-area triangle(s), first at {:?}",
+        "preparation emits {} zero-area triangle(s), first at {:?}",
         degenerate.len(),
         degenerate.first()
     );
@@ -1367,7 +1352,7 @@ fn test_the_prepared_demo_validates_and_emits_no_zero_area_triangles() {
         }
         trim_triangles += 1_i32;
         for point in triangle.points {
-            let on_a_floor = [0.0_f32, -0.9, -1.5].iter().any(|floor| {
+            let on_a_floor = std::iter::once(&0.0_f32).any(|floor| {
                 point[1] >= floor - 1.0e-3
                     && point[1] <= floor + crate::level::BASEBOARD_DEFAULT_HEIGHT_M + 1.0e-3
             });
@@ -1591,15 +1576,14 @@ fn test_walking_surfaces_may_not_span_rooms_with_different_floors() {
 /// so the whole skirt was skipped and the wedge was left open.
 #[test]
 fn test_a_ramp_arriving_at_a_platform_closes_its_sides() {
-    let level = home_showcase();
+    let level = joined_architecture_fixture();
     let materials = logical_materials(&level);
     let mesh = build_geometry_without_illumination(
         &level,
         &crate::loader::PropCatalog::builtin(),
         &materials,
     );
-    // Home's ramp runs x 4.0..5.0, z 0.4..2.0, rising 0..0.75, and its high end
-    // meets the platform exactly.
+    // The ramp rises to 0.75 m and meets the platform exactly at z = 2.
     for side_x in [4.0f32, 5.0] {
         let covered: f32 = emitted_triangles(&mesh)
             .iter()
@@ -1623,7 +1607,7 @@ fn test_a_ramp_arriving_at_a_platform_closes_its_sides() {
 /// area: a face whose UV axis is constant samples one texel row and smears.
 #[test]
 fn test_rotated_guardrail_posts_keep_a_real_uv_axis() {
-    let level = home_showcase();
+    let level = joined_architecture_fixture();
     let materials = logical_materials(&level);
     let mesh = build_geometry_without_illumination(
         &level,
@@ -1695,42 +1679,6 @@ fn test_architecture_uvs_stay_at_world_scale() {
 // ---------------------------------------------------------------------------
 // Baseboards and hidden trim
 // ---------------------------------------------------------------------------
-
-/// A baseboard's visible front must stand clear of the wall it is placed
-/// against; a board whose whole width lies inside a wall's solid is invisible.
-#[test]
-fn test_every_home_baseboard_stands_proud_of_its_wall() {
-    let level = home_showcase();
-    for (index, board) in level.baseboards.iter().enumerate() {
-        // The board's cross-section centre, halfway along the run.
-        let (x, z) = board.point_at(0.5, board.thickness() * 0.5);
-        let buried = level.walls.iter().any(|wall| {
-            let (x0, x1) = (
-                wall.x.min(wall.x + wall.width),
-                wall.x.max(wall.x + wall.width),
-            );
-            let (z0, z1) = (
-                wall.z.min(wall.z + wall.depth),
-                wall.z.max(wall.z + wall.depth),
-            );
-            let top = wall.y
-                + wall
-                    .height
-                    .unwrap_or(crate::level::DEFAULT_CEILING_HEIGHT_M);
-            x > x0 + 1.0e-3
-                && x < x1 - 1.0e-3
-                && z > z0 + 1.0e-3
-                && z < z1 - 1.0e-3
-                && wall.y <= 0.0
-                && top >= board.height()
-        });
-        assert!(
-            !buried,
-            "baseboard {index} at ({}, {}) is buried inside a wall solid (centre at {x}, {z})",
-            board.x, board.z
-        );
-    }
-}
 
 /// The loader rejects trim it would otherwise draw invisibly, and accepts the
 /// documented placement.
@@ -2976,13 +2924,23 @@ fn test_arc_end_caps_face_outward_for_both_sweep_signs() {
     }
 }
 
-/// The shipped demo's stair handrails follow the flight's nosing line: both
-/// run first-nosing to last-nosing, their resolved slope equals the stair
-/// pitch, and every sample sits on the nosing line rather than a shallower
-/// endpoint interpolation.
+/// Implicit stair rails follow the first-to-last nosing pitch, rather than an
+/// endpoint interpolation that flattens the slope. One eight-step flight and
+/// two rails retain the regression with 82 inexpensive surface probes.
 #[test]
-fn test_the_demo_stair_handrails_follow_the_nosing_line() {
-    let level = parse(include_str!("../levels/places_demo.json"));
+fn test_stair_handrails_follow_the_nosing_line() {
+    let level = parse(
+        r#"{
+        "format_version": 3, "id": "stair_nosing_rails", "name": "Stair Nosing Rails",
+        "spawn": { "x": 1.0, "z": 1.0 },
+        "rooms": [{ "x": 0.0, "z": 0.0, "width": 6.0, "depth": 6.0, "height": 4.0 }],
+        "stairs": [{ "x": 2.0, "z": 2.0, "width": 2.5, "depth": 1.0, "rise": 2.0, "steps": 8 }],
+        "guardrails": [
+            { "x": 2.0, "z": 2.05, "length": 2.1875 },
+            { "x": 2.0, "z": 2.95, "length": 2.1875 }
+        ]
+    }"#,
+    );
     let surfaces = LevelSurfaces::new(&level);
     let stair = &level.stairs[0];
     let stair_surface = crate::level::StairSurface::new(stair);

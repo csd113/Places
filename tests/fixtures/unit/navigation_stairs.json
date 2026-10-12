@@ -1,0 +1,259 @@
+{
+  "format_version": 3,
+  "id": "navigation_stairs",
+  "name": "Navigation Stairs",
+  "spawn": {
+    "x": 54.0,
+    "z": 4.0
+  },
+  "rooms": [
+    {
+      "x": 53.0,
+      "z": 3.0,
+      "width": 12.0,
+      "depth": 12.0,
+      "height": 4.5,
+      "floor_y": -0.9,
+      "ceiling": {
+        "kind": "gable",
+        "ridge": "x",
+        "ridge_rise": 1.4
+      },
+      "material": "home:hardwood_oak_warm_01",
+      "ceiling_material": "home:ceiling_warm_01"
+    }
+  ],
+  "walls": [
+    {
+      "id": "home_west_wall",
+      "x": 53.0,
+      "z": 3.0,
+      "width": 0.3,
+      "depth": 12.0,
+      "y": -0.9,
+      "material": "home:wallpaper_offwhite_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 9.15,
+          "width": 1.7,
+          "height": 2.1,
+          "sill": 0.0
+        }
+      ]
+    },
+    {
+      "x": 53.0,
+      "z": 2.85,
+      "width": 12.0,
+      "depth": 0.3,
+      "y": -0.9,
+      "material": "home:wallpaper_offwhite_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 7.3,
+          "width": 1.4,
+          "height": 2.1,
+          "sill": 0.0
+        }
+      ]
+    },
+    {
+      "x": 64.7,
+      "z": 3.0,
+      "width": 0.3,
+      "depth": 12.0,
+      "y": -0.9,
+      "material": "home:wall_paint_warm_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 1.4,
+          "width": 1.4,
+          "height": 2.1,
+          "sill": 0.0
+        }
+      ]
+    },
+    {
+      "x": 53.0,
+      "z": 14.85,
+      "width": 12.0,
+      "depth": 0.3,
+      "height": 4.5,
+      "y": -0.9,
+      "material": "home:wallpaper_offwhite_01"
+    },
+    {
+      "x": 65,
+      "z": 4.1,
+      "width": 3.85,
+      "depth": 0.3,
+      "y": -0.9,
+      "height": 2.5,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "x": 65,
+      "z": 5.8,
+      "width": 5.55,
+      "depth": 0.3,
+      "y": -0.9,
+      "height": 2.5,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "x": 58.25,
+      "z": 3.15,
+      "width": 0.26,
+      "depth": 3.39,
+      "height": 1.05,
+      "material": "home:wall_paint_warm_01",
+      "y": -0.9
+    },
+    {
+      "x": 53.3,
+      "z": 8.34,
+      "width": 4.95,
+      "depth": 0.26,
+      "height": 1.05,
+      "material": "home:wall_paint_warm_01",
+      "y": -0.9
+    },
+    {
+      "x": 58.25,
+      "z": 8.34,
+      "width": 0.26,
+      "depth": 0.26,
+      "material": "home:wall_paint_warm_01",
+      "y": -0.9
+    },
+    {
+      "x": 58.25,
+      "z": 6.54,
+      "width": 0.26,
+      "depth": 0.26,
+      "material": "home:wall_paint_warm_01",
+      "y": -0.9
+    },
+    {
+      "x": 53.305,
+      "z": 3.151,
+      "width": 3.695,
+      "depth": 0.08,
+      "y": 0.003,
+      "height": 0.544,
+      "material": "home:backsplash_01"
+    }
+  ],
+  "floor_regions": [
+    {
+      "x": 58.0,
+      "z": 11.0,
+      "width": 6.75,
+      "depth": 3.9,
+      "offset_y": 2.1,
+      "material": "home:hardwood_walnut_02",
+      "edge_material": "home:wall_paint_warm_01"
+    }
+  ],
+  "stairs": [
+    {
+      "x": 55.5,
+      "z": 13.0,
+      "width": 2.5,
+      "depth": 1.2,
+      "offset_y": 0.0,
+      "rise": 2.1,
+      "steps": 8,
+      "material": "home:hardwood_oak_warm_01",
+      "riser_material": "home:wall_paint_warm_01",
+      "side_material": "home:baseboard_white_01"
+    }
+  ],
+  "half_walls": [],
+  "guardrails": [
+    {
+      "x": 55.5,
+      "z": 13.07,
+      "length": 2.1875,
+      "rotation_degrees": 0.0,
+      "height": 0.95,
+      "post_spacing": 1.2,
+      "material": "home:handrail_wood_01"
+    },
+    {
+      "x": 55.5,
+      "z": 14.13,
+      "length": 2.1875,
+      "rotation_degrees": 0.0,
+      "height": 0.95,
+      "post_spacing": 1.2,
+      "material": "home:handrail_wood_01"
+    },
+    {
+      "x": 58.0,
+      "z": 11.05,
+      "length": 6.8,
+      "rotation_degrees": 0.0,
+      "height": 0.95,
+      "post_spacing": 1.4,
+      "rise": 0.0,
+      "material": "home:handrail_wood_01"
+    },
+    {
+      "x": 58.0,
+      "z": 11.12,
+      "length": 1.88,
+      "rotation_degrees": 270.0,
+      "height": 0.95,
+      "post_spacing": 1.2,
+      "material": "home:handrail_wood_01"
+    },
+    {
+      "x": 58.0,
+      "z": 14.2,
+      "length": 0.7,
+      "rotation_degrees": 270.0,
+      "height": 0.95,
+      "post_spacing": 1.2,
+      "material": "home:handrail_wood_01"
+    }
+  ],
+  "columns": [],
+  "props": [
+    {
+      "id": "small_walker",
+      "model": "core:crate",
+      "x": 54.0,
+      "z": 8.0,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.2,
+          "height": 0.45,
+          "speed_mps": 1.0,
+          "step_height": 0.3,
+          "max_slope": 2.6667
+        }
+      ]
+    },
+    {
+      "id": "short_step_body",
+      "model": "core:crate",
+      "x": 54.0,
+      "z": 9.0,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.1,
+          "height": 0.16,
+          "speed_mps": 1.0,
+          "step_height": 0.2,
+          "max_slope": 2.6667
+        }
+      ]
+    }
+  ]
+}

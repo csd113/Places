@@ -1044,32 +1044,27 @@ fn a_wanderer_with_no_route_still_returns_to_its_post() {
 }
 
 // ---------------------------------------------------------------------------
-// The shared mover on the Demo's new steps
+// The shared mover on bounded step controls
 // ---------------------------------------------------------------------------
 
-/// The shipped Demo with its real bake, collision world and live doors, for
+/// A bounded control with its bake, collision world and live doors, for
 /// driving the shared [`AgentMove`] through the authored geometry.
-struct DemoFixture {
+struct NavigationFixture {
     collision: CollisionWorld,
     doors: Doors,
     index: CollisionIndex,
     mesh: NavMesh,
 }
 
-impl DemoFixture {
-    fn new() -> Self {
-        let source = std::fs::read_to_string(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/levels/places_demo.json"
-        ))
-        .expect("the demo source is readable");
-        let level = LevelDef::from_json(&source).expect("the demo source parses");
+impl NavigationFixture {
+    fn new(source: &str) -> Self {
+        let level = LevelDef::from_json(source).expect("the bounded navigation control parses");
         let mut warnings = Vec::new();
         let (bytes, _report) = crate::compiler::bake_navigation(&level, 1, &mut warnings)
-            .expect("the demo navigation bakes");
+            .expect("the bounded navigation control bakes");
         assert!(
             warnings.is_empty(),
-            "the demo has no navigation placement warnings: {warnings:?}"
+            "the control has no navigation placement warnings: {warnings:?}"
         );
         let grid = crate::package::navigation::read_navigation(&bytes).expect("the record decodes");
         let mesh = NavMesh::from_record(grid).expect("the mesh validates");
@@ -1088,7 +1083,7 @@ impl DemoFixture {
     fn class(&self, profile: &NavAgentProfile) -> usize {
         self.mesh
             .class_index(&profile.class())
-            .expect("the demo bakes this body")
+            .expect("the control bakes this body")
     }
 }
 
@@ -1127,7 +1122,7 @@ impl MoverTraversal {
 /// stays on a walkable baked cell of its class and never falls through the
 /// surface under it.
 fn drive_shared_mover(
-    fixture: &DemoFixture,
+    fixture: &NavigationFixture,
     class: usize,
     start: Vec3,
     goal: Vec3,
@@ -1224,7 +1219,12 @@ fn drive_shared_mover(
 /// where it stands. The mover may legally skim a cell corner the half-cell
 /// clearance sampler stepped past, so the check is the nearest-cell contract
 /// the encounter tests use, not an exact cell membership.
-fn assert_on_baked_navigation(fixture: &DemoFixture, class: usize, position: Vec3, height: f32) {
+fn assert_on_baked_navigation(
+    fixture: &NavigationFixture,
+    class: usize,
+    position: Vec3,
+    height: f32,
+) {
     let Some(point) = fixture
         .mesh
         .nearest(class, position, 0.6, 1.0, &crate::nav::NoDoors, false)
@@ -1253,8 +1253,10 @@ fn assert_on_baked_navigation(fixture: &DemoFixture, class: usize, position: Vec
 /// pool deck into the bay and back: it climbs the heights, stays on baked
 /// cells, never falls through and finishes in bounded time.
 #[test]
-fn the_shared_mover_climbs_the_demo_shower_steps_and_returns() {
-    let fixture = DemoFixture::new();
+fn the_shared_mover_climbs_the_control_shower_steps_and_returns() {
+    let fixture = NavigationFixture::new(include_str!(
+        "../../tests/fixtures/unit/navigation_steps.json"
+    ));
     let profile = NavAgentProfile {
         radius: 0.2,
         height: 0.45,
@@ -1313,8 +1315,10 @@ fn the_shared_mover_climbs_the_demo_shower_steps_and_returns() {
 /// The shared mover climbs the real Demo's 8 x 0.2625 m Home staircase and
 /// actually displaces onto the balcony (1.2).
 #[test]
-fn the_shared_mover_climbs_the_demo_home_staircase_to_the_balcony() {
-    let fixture = DemoFixture::new();
+fn the_shared_mover_climbs_the_control_home_staircase_to_the_balcony() {
+    let fixture = NavigationFixture::new(include_str!(
+        "../../tests/fixtures/unit/navigation_stairs.json"
+    ));
     let profile = NavAgentProfile {
         radius: 0.2,
         height: 0.45,

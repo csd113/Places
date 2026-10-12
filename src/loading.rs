@@ -101,8 +101,6 @@ fn identities_match(left: &SourceIdentity, right: &SourceIdentity) -> bool {
 /// What the frame loop asks the worker to prepare.
 #[derive(Clone)]
 pub enum Source {
-    /// The default level: the compiled bundled Demo package.
-    Default,
     /// One discovered package, with the content identity captured when this
     /// request value was created.
     Entry(LevelEntry, SourceIdentity),
@@ -128,7 +126,6 @@ impl Source {
 
     pub fn level_id(&self) -> &str {
         match self {
-            Self::Default => crate::loader::DEMO_LEVEL_ID,
             Self::Entry(entry, _) => &entry.id,
             Self::Retained(loaded, _) => &loaded.level.id,
         }
@@ -149,7 +146,6 @@ impl Source {
     #[must_use]
     pub fn same_preparation(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::Default, Self::Default) => true,
             (Self::Entry(a, a_identity), Self::Entry(b, b_identity)) => {
                 a == b && identities_match(a_identity, b_identity)
             }
@@ -700,10 +696,6 @@ fn prepare_world(
             planned = Some((key, reusable));
             loaded
         }
-        Source::Default => {
-            manager.refresh_catalog();
-            manager.load_default()?
-        }
         Source::Retained(loaded, _) => *loaded,
     };
     // The injected delay runs on both sides of the read so a test script can
@@ -1014,8 +1006,6 @@ mod tests {
             )),
             "an uninspectable package is never reused"
         );
-        assert!(!source.same_preparation(&Source::Default));
-        assert!(Source::Default.same_preparation(&Source::Default));
     }
 
     /// One structurally valid package whose manifest differs only by

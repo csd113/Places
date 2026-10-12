@@ -20,8 +20,10 @@ Tests name them directly; generated scenes have `--check` owners under
   unchanged traversal and passable decorative refinements.
 - `office_asset_review`, `outdoor_kit_showcase`: focused asset-family QA.
 
-Home and Pool showcases now live in `levels/` and serve both developers and
-tests. Obsolete full Hero stage variants and the asset-polish review have been
+Home and Pool showcases live in optional `levels/` content for developers.
+`tests/fixtures/unit/` contains bounded contact, navigation, weather and material
+controls for Rust tests. They are independent of the playable sources and outside
+the explicit native package/capture campaign inventory. Obsolete full Hero stage variants and the asset-polish review have been
 retired; their surviving contracts are covered by the focused scenes above.
 Native camera inputs are under `tests/fixtures/native/map-manifests/` and must
 match the maintained source inventory exactly. Capture output is ignored.

@@ -11,7 +11,7 @@ Start at the root README to run the player, then use these ownership boundaries.
 | `assets/entities/<id>/` | Rigged GLBs and standalone texture sheets |
 | `assets/references/` | Immutable concept art and authoring prompts; excluded from exports |
 | `assets/catalog.json` | Logical asset/material registry; paths are relative to `assets/` |
-| `levels/` | Nine maintained source maps and their explicit `lineup.txt` allowlist |
+| `levels/` | Optional maintained source maps and their explicit compiler `lineup.txt` allowlist |
 | `tests/fixtures/levels/` | Focused movement, lighting, geometry, entity and capacity controls |
 | `tests/fixtures/native/` | Camera, controller and reference-image inputs |
 | `tools/{levels,textures,props,entities}/` | Offline authoring generators and checks |
@@ -32,17 +32,23 @@ repository toolchain is pinned in `rust-toolchain.toml`.
 
 ```sh
 cargo build --locked --release
-sh tools/build-maps.sh --workers 8
 ./target/release/places --list-levels
 ./target/release/places
 ```
 
-The map command compiles exactly `levels/lineup.txt` through `places-compile`,
-then verifies provenance, archive validity and all Off/Medium/Full variants.
+No map source or compiled package is required to build, test, package or launch.
+The player opens a usable menu with zero maps; Settings and Quit remain available.
+Explore rescans external packages on opening. Drop a `.placesmap` into the writable
+`levels/` folder, or into `import/` and choose Import levels (which rescans both).
+`PLACES_LEVEL` optionally selects an installed ID or display name; an unknown
+selection returns to the menu with a warning. Otherwise the first discovered map
+in deterministic order can supply the menu background. No map is embedded.
+
+To author the optional curated content, run `sh tools/build-maps.sh --workers 8`.
+That explicit command compiles exactly `levels/lineup.txt` through `places-compile`,
+then verifies provenance, archive validity and Static/Full variants.
 Packages go to ignored `assets/levels/`. Compiler capture/bake work is offline
 and may take several minutes per large map. Use a native GPU for normal captures.
-A source-only player opens its menu; compile the maps or import a package to play.
-There is no package baked into the executable.
 
 After changing just one source, use an explicit output path:
 
@@ -120,11 +126,20 @@ validates one authored map. `sh tools/verify.sh` is the full desktop gate, inclu
 the compiled lineup, package tests and native smoke checks. See
 [verification](VERIFICATION.md) for the explicit diagnostic gates.
 
-After compiling current maps, export with `sh tools/package.sh OUTPUT_DIRECTORY`.
-It copies only the curated packages and runtime asset directories, excluding
-concept references, source masters and arbitrary local maps. Destination checks reject the repository root, its ancestors, home-root
-destinations and product symlinks. Distribution contains generated
-packages, while Git contains their sources and required assets.
+Export the map-free player with `sh tools/package.sh OUTPUT_DIRECTORY`. It requires
+only the release player and runtime assets. To include external maps explicitly,
+use `sh tools/package.sh --maps PACKAGE_DIRECTORY OUTPUT_DIRECTORY`. That directory
+may contain any supported `.placesmap` files; no curated names are required.
+Optional map inclusion uses the release compiler to validate records and the player
+to check discovery/catalog/dependency compatibility before publishing the export.
+It never bakes maps or reads `levels/lineup.txt`.
+
+Both flat and macOS bundle exports include empty writable map folders. Runtime
+exports exclude concept references and source masters. Destination checks reject
+the repository root, its ancestors, home-root destinations and product symlinks.
+Cargo source packages exclude optional `levels/` and generated `assets/levels/`.
+See [map independence verification](reports/map-independence.md) for the empty
+installation and external-map acceptance evidence.
 
 ## Cleanup preservation
 

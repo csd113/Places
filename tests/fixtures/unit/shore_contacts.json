@@ -1,0 +1,67 @@
+{
+  "format_version": 3,
+  "id": "shore_contacts",
+  "name": "Shore Contacts",
+  "spawn": {
+    "x": -1.0,
+    "z": -9.0
+  },
+  "rooms": [
+    {
+      "x": -2.0,
+      "z": -10.0,
+      "width": 4.0,
+      "depth": 14.0,
+      "height": 6.0,
+      "floor_y": -2.2,
+      "ceiling": {
+        "kind": "open"
+      }
+    }
+  ],
+  "floor_regions": [
+    {
+      "x": -2.0,
+      "z": 1.125,
+      "width": 4.0,
+      "depth": 2.875,
+      "offset_y": 2.2,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    }
+  ],
+  "ramps": [
+    {
+      "x": -1.99,
+      "z": -6.875,
+      "width": 3.98,
+      "depth": 4.0,
+      "offset_y": 0.0,
+      "rise": 1.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    },
+    {
+      "x": -1.99,
+      "z": -2.875,
+      "width": 3.98,
+      "depth": 4.0,
+      "offset_y": 1.6,
+      "rise": 0.6,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01"
+    }
+  ],
+  "water": [
+    {
+      "x": -1.99,
+      "z": -9.99,
+      "width": 3.98,
+      "depth": 11.0,
+      "surface_y": -0.12,
+      "bottom_y": -2.2,
+      "material": "beach:water_shallow_01",
+      "swimming": true
+    }
+  ]
+}

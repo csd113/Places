@@ -3812,8 +3812,9 @@ mod tests {
     fn a_shipped_material_resolves_through_its_texture_slot() {
         use crate::materials::resolve_materials;
 
-        let json = include_str!("../../../levels/places_demo.json");
-        let level = crate::level::LevelDef::from_json(json).expect("valid places_demo json");
+        let json = include_str!("../../../tests/fixtures/unit/renderer_material_contract.json");
+        let level =
+            crate::level::LevelDef::from_json(json).expect("bounded material fixture parses");
         let catalog = crate::assets::AssetCatalog::load_default();
         let root = crate::assets::resolve_asset_root().expect("assets/ is discoverable");
         let mut decode_cache = crate::materials::TextureCache::new();
@@ -3853,11 +3854,12 @@ mod tests {
     }
 
     #[test]
-    fn the_shipped_demo_resolves_every_architectural_draw_to_a_base_texture() {
+    fn representative_architectural_draws_resolve_to_catalog_base_textures() {
         use crate::materials::{TextureOrigin, resolve_materials};
 
-        let json = include_str!("../../../levels/places_demo.json");
-        let level = crate::level::LevelDef::from_json(json).expect("valid places_demo json");
+        let json = include_str!("../../../tests/fixtures/unit/renderer_material_contract.json");
+        let level =
+            crate::level::LevelDef::from_json(json).expect("bounded material fixture parses");
         let mesh = crate::architecture_audit::build_geometry_without_illumination(
             &level,
             &crate::loader::PropCatalog::builtin(),
@@ -3870,10 +3872,7 @@ mod tests {
         let materials = MaterialRenderState::from_table(&table);
 
         let (_, draws) = pack_world_ranges(&mesh, &materials);
-        assert!(
-            draws.len() > 20,
-            "the demo has a broad architectural draw set"
-        );
+        assert!(!draws.is_empty(), "the material fixture emits real draws");
 
         let mut distinct: Vec<&str> = Vec::new();
         let mut fixture_faces = 0usize;
@@ -3917,15 +3916,15 @@ mod tests {
         }
         assert!(
             fixture_faces > 0,
-            "the demo draws fixture luminous faces (a fixture-sheet draw)"
+            "the fixture draws luminous faces through the fixture-sheet path"
         );
         assert!(
             fixture_housings > 0,
-            "the demo draws material-less fixture housings (the fallback sheet)"
+            "the fixture draws material-less housings through the fallback sheet"
         );
         assert!(
-            distinct.len() >= 25,
-            "the demo samples the shipped environments' base textures: {}",
+            distinct.len() >= 7,
+            "the fixture samples each representative base texture: {}",
             distinct.len()
         );
         assert!(

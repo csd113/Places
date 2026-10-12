@@ -405,7 +405,7 @@ fn test_solid_prop_blocks_the_player() {
 /// and baseboards never appear in the collision set at all.
 #[test]
 fn test_architecture_pieces_block_and_trim_never_does() {
-    let content = std::fs::read_to_string("levels/home_showcase.json")
+    let content = std::fs::read_to_string("tests/fixtures/unit/architecture_contacts.json")
         .expect("the Home showcase fixture is present");
     let level = LevelDef::from_json(&content).expect("the Home showcase parses");
 
@@ -550,9 +550,9 @@ fn test_segment_overlaps_aabb_catches_fast_thin_crossings() {
 }
 
 /// The shipped Places Demo, parsed from the repository level file (the same
-/// shape as `demo_level()` in `src/game/tests.rs`).
-fn demo_level() -> LevelDef {
-    let content = std::fs::read_to_string("levels/places_demo.json")
+/// shape as `contacts_level()` in `src/game/tests.rs`).
+fn contacts_level() -> LevelDef {
+    let content = std::fs::read_to_string("tests/fixtures/unit/controller_contacts.json")
         .expect("the Places demo level is present");
     LevelDef::from_json(&content).expect("the Places demo parses")
 }
@@ -561,7 +561,7 @@ fn demo_level() -> LevelDef {
 /// whole footprint is clear of every wall, rim and solid in the shipped demo.
 #[test]
 fn test_the_floating_demo_duck_has_no_collision_box() {
-    let level = demo_level();
+    let level = contacts_level();
     let duck = level
         .props
         .iter()
@@ -783,7 +783,7 @@ fn a_solid_glass_opening_blocks_and_a_visual_pane_does_not() {
 /// 1.1 m faucet collider that used to bury the counter.
 #[test]
 fn the_sink_deck_blocks_the_floor_and_supports_the_counter() {
-    let level = demo_level();
+    let level = contacts_level();
     let sink = level
         .props
         .iter()

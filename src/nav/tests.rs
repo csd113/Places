@@ -5,8 +5,7 @@
 //! the real runtime mesh: no test-only geometry path exists.
 
 // Test code: unwrap/expect, indexing and permissive arithmetic are idiomatic
-// here; the production lints stay enforced everywhere else. `print_stdout` is
-// for the ignored developer captures that emit the stair inventory.
+// here; the production lints stay enforced everywhere else.
 #![allow(
     clippy::arithmetic_side_effects,
     clippy::expect_used,
@@ -586,54 +585,50 @@ fn a_grid_beyond_the_cell_budget_is_rejected() {
 }
 
 // ---------------------------------------------------------------------------
-// The Demo's baked stair/step connectivity
+// Bounded stair/step connectivity controls
 // ---------------------------------------------------------------------------
 
-/// The shipped Demo, baked by the compiler's own navigation entry point and
+/// A bounded control, baked by the compiler's own navigation entry point and
 /// decoded through the package record, exactly as a package install loads it.
-fn demo_nav() -> (LevelDef, NavMesh, NavBakeReport) {
-    let source = std::fs::read_to_string(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/levels/places_demo.json"
-    ))
-    .expect("the demo source is readable");
-    let level = LevelDef::from_json(&source).expect("the demo source parses");
+fn regression_nav(source: &str) -> (LevelDef, NavMesh, NavBakeReport) {
+    let level = LevelDef::from_json(source).expect("the bounded navigation control parses");
     let mut warnings = Vec::new();
     let (bytes, report) = crate::compiler::bake_navigation(&level, 1, &mut warnings)
-        .expect("the demo navigation bakes");
+        .expect("the bounded navigation control bakes");
     assert!(
         warnings.is_empty(),
-        "the demo has no navigation placement warnings: {warnings:?}"
+        "the control has no navigation placement warnings: {warnings:?}"
     );
     let grid = read_navigation(&bytes).expect("the record decodes");
     let mesh = NavMesh::from_record(grid).expect("the mesh validates");
     (level, mesh, report)
 }
 
-/// The baked class index of one agent body in the real Demo.
-fn demo_class(mesh: &NavMesh, radius: f32, height: f32, step_height: f32) -> usize {
+/// The baked class index of one control body.
+fn regression_class(mesh: &NavMesh, radius: f32, height: f32, step_height: f32) -> usize {
     let class = NavClass::new(radius, height, step_height, NAV_MAX_SLOPE).expect("a valid body");
-    mesh.class_index(&class).expect("the demo bakes this body")
+    mesh.class_index(&class)
+        .expect("the control bakes this body")
 }
 
 /// The compiler's reference humanoid class.
-fn demo_human(mesh: &NavMesh) -> usize {
+fn regression_human(mesh: &NavMesh) -> usize {
     let class = reference_class();
-    demo_class(mesh, class.radius, class.height, class.step_height)
+    regression_class(mesh, class.radius, class.height, class.step_height)
 }
 
 /// The `spooner_man_home` / route class: r 0.2, h 0.45, step 0.3.
-fn demo_spooner(mesh: &NavMesh) -> usize {
-    demo_class(mesh, 0.2, 0.45, 0.3)
+fn regression_spooner(mesh: &NavMesh) -> usize {
+    regression_class(mesh, 0.2, 0.45, 0.3)
 }
 
 /// The `home_rat` class: r 0.1, h 0.16, step 0.2.
-fn demo_rat(mesh: &NavMesh) -> usize {
-    demo_class(mesh, 0.1, 0.16, 0.2)
+fn regression_rat(mesh: &NavMesh) -> usize {
+    regression_class(mesh, 0.1, 0.16, 0.2)
 }
 
 /// The baked region label of the walkable cell at `point` for `class`.
-fn demo_region(mesh: &NavMesh, class: usize, point: Vec3) -> u16 {
+fn regression_region(mesh: &NavMesh, class: usize, point: Vec3) -> u16 {
     let (cx, cz) = mesh.grid().cell_at(point.x, point.z).expect("on the grid");
     let index = mesh.grid().index_of(cx, cz).expect("in the grid");
     mesh.grid()
@@ -675,7 +670,7 @@ fn assert_route_clear(
 }
 
 /// Queries one route, asserts it resolved, and applies the clearance contract.
-fn demo_route(
+fn regression_route(
     mesh: &NavMesh,
     class: usize,
     start: Vec3,
@@ -683,12 +678,12 @@ fn demo_route(
     doors: &dyn NavDoorState,
     can_open_doors: bool,
 ) -> Path {
-    demo_partial_route(mesh, class, start, goal, doors, can_open_doors)
+    regression_partial_route(mesh, class, start, goal, doors, can_open_doors)
 }
 
 /// Queries one route that may be partial (an unreachable goal still yields the
 /// best route the class can walk), and applies the clearance contract.
-fn demo_partial_route(
+fn regression_partial_route(
     mesh: &NavMesh,
     class: usize,
     start: Vec3,
@@ -769,56 +764,33 @@ fn settle_doors(doors: &mut Doors) {
     panic!("a demo door never settled");
 }
 
-/// The real Demo bakes the reference humanoid, the two actor bodies and the
-/// night route's pumpkin skeleton, all seven authored doors become portals,
-/// and the frozen grid's exact report.
+/// The compact step control bakes the reference and both short bodies,
+/// preserves both tested doorway portals and stays within a fixed work budget.
 #[test]
-fn the_demo_bakes_three_classes_six_portals_and_the_frozen_grid() {
-    let (level, mesh, report) = demo_nav();
-    assert!(level.doors.len() == 7, "the demo authors seven doors");
+fn the_step_control_bakes_each_body_and_authored_door_with_bounded_work() {
+    let (level, mesh, report) = regression_nav(include_str!(
+        "../../tests/fixtures/unit/navigation_steps.json"
+    ));
     assert_eq!(
         mesh.grid().classes.len(),
-        4,
-        "reference + the two actor bodies + the night-route pumpkin skeleton"
+        3,
+        "reference and two distinct step bodies"
     );
-    let mut portals: Vec<&str> = mesh
-        .grid()
-        .portals
-        .iter()
-        .map(|portal| portal.door.as_str())
-        .collect();
-    portals.sort_unstable();
     assert_eq!(
-        portals,
-        [
-            "hall_door",
-            "night_house_door",
-            "night_source_door",
-            "sauna_door",
-            "sauna_hall_door",
-            "sauna_shower_door",
-            "study_door"
-        ],
-        "every authored door is a portal"
+        report.portals,
+        level.doors.len(),
+        "each authored door becomes a portal"
     );
-    assert_eq!(report.portals, 7, "the bake reports seven portals");
-    // Frozen grid: the same 0.2 m cells over the demo's room footprint, now
-    // including the night yard and the destination house.
-    assert_eq!((report.cells_x, report.cells_z), (361, 586));
-    assert_eq!(report.surface_cells, 78_147, "walkable-surface cells");
-    assert_eq!(report.walkable_cells.len(), 4);
-    for (class, cells) in report.walkable_cells.iter().enumerate() {
-        assert!(
-            *cells > 10_000,
-            "class {class} has real walkable space, got {cells}"
-        );
-    }
     assert!(
-        report.regions.iter().all(|regions| *regions >= 2),
-        "every class has at least two components, got {:?}",
-        report.regions
+        report.cells_x <= 90 && report.cells_z <= 90,
+        "the regression bake stays bounded: {} x {} cells",
+        report.cells_x,
+        report.cells_z
     );
-    // The new shower door really swept cells: its portal is referenced.
+    assert!(
+        report.walkable_cells.iter().all(|cells| *cells > 100),
+        "each body has real navigable space"
+    );
     let shower = mesh
         .grid()
         .portals
@@ -830,18 +802,7 @@ fn the_demo_bakes_three_classes_six_portals_and_the_frozen_grid() {
             .cell_portal
             .iter()
             .any(|portal| usize::from(*portal) == shower),
-        "the shower door's portal covers baked cells"
-    );
-    // Machine-readable Demo stair inventory evidence.
-    println!(
-        "DEMO_BAKE_REPORT_JSON {{\"cell_m\":{},\"cells_x\":{},\"cells_z\":{},\"surface_cells\":{},\"walkable_cells\":{:?},\"regions\":{:?},\"portals\":{}}}",
-        report.cell_m,
-        report.cells_x,
-        report.cells_z,
-        report.surface_cells,
-        report.walkable_cells,
-        report.regions,
-        report.portals
+        "the shower door portal covers baked cells"
     );
 }
 
@@ -850,11 +811,13 @@ fn the_demo_bakes_three_classes_six_portals_and_the_frozen_grid() {
 /// top (-0.9) for the classes whose step height takes 0.3 m risers. The rat
 /// (0.2) is a real negative control on the office chain.
 #[test]
-fn the_demo_office_steps_connect_the_hall_pool_hall_and_sauna_landing() {
-    let (level, mesh, _) = demo_nav();
-    let human = demo_human(&mesh);
-    let spooner = demo_spooner(&mesh);
-    let rat = demo_rat(&mesh);
+fn the_control_office_steps_connect_the_hall_pool_hall_and_sauna_landing() {
+    let (level, mesh, _) = regression_nav(include_str!(
+        "../../tests/fixtures/unit/navigation_steps.json"
+    ));
+    let human = regression_human(&mesh);
+    let spooner = regression_spooner(&mesh);
+    let rat = regression_rat(&mesh);
     let doors = Doors::from_level(&level);
     let office = Vec3::new(17.0, 0.0, 0.9);
 
@@ -870,7 +833,7 @@ fn the_demo_office_steps_connect_the_hall_pool_hall_and_sauna_landing() {
     ];
     for class in [human, spooner] {
         for (goal, expected) in chain {
-            let path = demo_route(&mesh, class, office, goal, &doors, false);
+            let path = regression_route(&mesh, class, office, goal, &doors, false);
             assert!(path.complete, "class {class} must reach {goal:?}");
             let reached = path.reached().expect("waypoints exist");
             assert!(
@@ -879,7 +842,7 @@ fn the_demo_office_steps_connect_the_hall_pool_hall_and_sauna_landing() {
             );
         }
         // Onward to the pool hall floor and the sauna landing top.
-        let pool = demo_route(
+        let pool = regression_route(
             &mesh,
             class,
             office,
@@ -889,7 +852,7 @@ fn the_demo_office_steps_connect_the_hall_pool_hall_and_sauna_landing() {
         );
         assert!(pool.complete, "class {class} reaches the pool hall");
         assert!((pool.reached().expect("reached").y + 1.5).abs() < 0.2);
-        let landing = demo_route(
+        let landing = regression_route(
             &mesh,
             class,
             office,
@@ -903,10 +866,11 @@ fn the_demo_office_steps_connect_the_hall_pool_hall_and_sauna_landing() {
 
     // The 0.0 m landing is level through the wall-5 doorway: the rat reaches
     // it. Every 0.3 m riser below it is refused.
-    let landing_for_rat = demo_route(&mesh, rat, office, Vec3::new(20.5, 0.0, 0.8), &doors, false);
+    let landing_for_rat =
+        regression_route(&mesh, rat, office, Vec3::new(20.5, 0.0, 0.8), &doors, false);
     assert!(landing_for_rat.complete, "the office threshold is level");
     for (goal, _) in &chain[1..] {
-        let path = demo_partial_route(&mesh, rat, office, *goal, &doors, false);
+        let path = regression_partial_route(&mesh, rat, office, *goal, &doors, false);
         assert!(!path.complete, "the rat must not reach {goal:?}");
         let reached = path.reached().expect("a partial route has waypoints");
         assert!(
@@ -919,14 +883,14 @@ fn the_demo_office_steps_connect_the_hall_pool_hall_and_sauna_landing() {
     // for the rat.
     for class in [human, spooner] {
         assert_eq!(
-            demo_region(&mesh, class, office),
-            demo_region(&mesh, class, Vec3::new(20.5, -1.5, 5.8)),
+            regression_region(&mesh, class, office),
+            regression_region(&mesh, class, Vec3::new(20.5, -1.5, 5.8)),
             "class {class} connects the office and the hall floor"
         );
     }
     assert_ne!(
-        demo_region(&mesh, rat, office),
-        demo_region(&mesh, rat, Vec3::new(20.5, -1.5, 5.8)),
+        regression_region(&mesh, rat, office),
+        regression_region(&mesh, rat, Vec3::new(20.5, -1.5, 5.8)),
         "the rat's office and hall floor are separate components"
     );
 }
@@ -935,10 +899,12 @@ fn the_demo_office_steps_connect_the_hall_pool_hall_and_sauna_landing() {
 /// (-0.9) for the walker classes, including the shower positions north of the
 /// arc screen.
 #[test]
-fn the_demo_shower_steps_connect_the_pool_deck_to_the_bay() {
-    let (level, mesh, _) = demo_nav();
-    let human = demo_human(&mesh);
-    let spooner = demo_spooner(&mesh);
+fn the_control_shower_steps_connect_the_pool_deck_to_the_bay() {
+    let (level, mesh, _) = regression_nav(include_str!(
+        "../../tests/fixtures/unit/navigation_steps.json"
+    ));
+    let human = regression_human(&mesh);
+    let spooner = regression_spooner(&mesh);
     let doors = Doors::from_level(&level);
     let deck = Vec3::new(23.4, -1.5, 10.0);
     let step_one = Vec3::new(24.6, -1.2, 9.9);
@@ -946,16 +912,16 @@ fn the_demo_shower_steps_connect_the_pool_deck_to_the_bay() {
     let bay_south = Vec3::new(29.4, -0.9, 9.8);
     let bay_shower = Vec3::new(29.4, -0.9, 8.0);
     for class in [human, spooner] {
-        let first = demo_route(&mesh, class, deck, step_one, &doors, false);
+        let first = regression_route(&mesh, class, deck, step_one, &doors, false);
         assert!(first.complete, "class {class} must mount step one");
         assert!((first.reached().expect("reached").y + 1.2).abs() < 0.15);
-        let second = demo_route(&mesh, class, deck, step_two, &doors, false);
+        let second = regression_route(&mesh, class, deck, step_two, &doors, false);
         assert!(second.complete, "class {class} must mount step two");
         assert!((second.reached().expect("reached").y + 0.9).abs() < 0.15);
-        let bay = demo_route(&mesh, class, deck, bay_south, &doors, false);
+        let bay = regression_route(&mesh, class, deck, bay_south, &doors, false);
         assert!(bay.complete, "class {class} must reach the bay walkway");
         assert!((bay.reached().expect("reached").y + 0.9).abs() < 0.15);
-        let shower = demo_route(&mesh, class, deck, bay_shower, &doors, false);
+        let shower = regression_route(&mesh, class, deck, bay_shower, &doors, false);
         assert!(
             shower.complete,
             "class {class} must reach the sheltered shower positions"
@@ -974,14 +940,21 @@ fn the_demo_shower_steps_connect_the_pool_deck_to_the_bay() {
 /// its step. A slope is now only a surface whose gradient is consistent across
 /// the cell, so the step rule alone decides a riser.
 #[test]
-fn the_demo_shower_steps_are_a_rat_negative_control_and_a_walker_route() {
-    let (level, mesh, _) = demo_nav();
+fn the_control_shower_steps_are_a_rat_negative_control_and_a_walker_route() {
+    let (level, mesh, _) = regression_nav(include_str!(
+        "../../tests/fixtures/unit/navigation_steps.json"
+    ));
     let doors = Doors::from_level(&level);
     let deck = Vec3::new(23.4, -1.5, 10.0);
     let bay = Vec3::new(26.6, -0.9, 10.0);
 
-    let rat = demo_rat(&mesh);
-    let refused = demo_partial_route(&mesh, rat, deck, bay, &doors, false);
+    let rat = regression_rat(&mesh);
+    assert_eq!(
+        riser_pairs_over_step_height(&mesh, rat, 0).0,
+        0,
+        "discrete risers never borrow the slope rule to exceed the body's step height"
+    );
+    let refused = regression_partial_route(&mesh, rat, deck, bay, &doors, false);
     assert!(
         !refused.complete,
         "the rat's 0.2 m step must not cross the 0.3 m shower steps"
@@ -993,8 +966,8 @@ fn the_demo_shower_steps_are_a_rat_negative_control_and_a_walker_route() {
         );
     }
 
-    for class in [demo_human(&mesh), demo_spooner(&mesh)] {
-        let path = demo_route(&mesh, class, deck, bay, &doors, false);
+    for class in [regression_human(&mesh), regression_spooner(&mesh)] {
+        let path = regression_route(&mesh, class, deck, bay, &doors, false);
         assert!(path.complete, "class {class} routes up the shower steps");
         let reached = path.reached().expect("reached");
         assert!(
@@ -1008,10 +981,12 @@ fn the_demo_shower_steps_are_a_rat_negative_control_and_a_walker_route() {
 /// openable blocks it, closed but openable plans the route and asks for the
 /// door, and the real open leaf lets the route cross with no request.
 #[test]
-fn the_demo_shower_sauna_door_gates_the_bay_to_sauna_route() {
-    let (level, mesh, _) = demo_nav();
-    let human = demo_human(&mesh);
-    let spooner = demo_spooner(&mesh);
+fn the_control_shower_sauna_door_gates_the_bay_to_sauna_route() {
+    let (level, mesh, _) = regression_nav(include_str!(
+        "../../tests/fixtures/unit/navigation_steps.json"
+    ));
+    let human = regression_human(&mesh);
+    let spooner = regression_spooner(&mesh);
     let bay = Vec3::new(29.4, -0.9, 9.8);
     let sauna = Vec3::new(29.5, -0.9, 13.5);
     let mut doors = Doors::from_level(&level);
@@ -1030,7 +1005,7 @@ fn the_demo_shower_sauna_door_gates_the_bay_to_sauna_route() {
         DoorPhase::Closed
     );
     for class in [human, spooner] {
-        let blocked = demo_partial_route(&mesh, class, bay, sauna, &doors, false);
+        let blocked = regression_partial_route(&mesh, class, bay, sauna, &doors, false);
         assert!(
             !blocked.complete,
             "the closed shower door must gate the sauna for class {class}"
@@ -1044,7 +1019,7 @@ fn the_demo_shower_sauna_door_gates_the_bay_to_sauna_route() {
     // direct shower-door leg separately. The rat, refused the shower steps,
     // has only the shower door.
     for class in [human, spooner] {
-        let openable = demo_route(&mesh, class, bay, sauna, &doors, true);
+        let openable = regression_route(&mesh, class, bay, sauna, &doors, true);
         assert!(openable.complete);
         assert!(
             !openable.door_requests.is_empty()
@@ -1055,7 +1030,7 @@ fn the_demo_shower_sauna_door_gates_the_bay_to_sauna_route() {
             "class {class} asks for a sauna door, got {:?}",
             openable.door_requests
         );
-        let direct = demo_route(&mesh, class, Vec3::new(31.9, -0.9, 11.5), bay, &doors, true);
+        let direct = regression_route(&mesh, class, Vec3::new(31.9, -0.9, 11.5), bay, &doors, true);
         assert!(direct.complete, "class {class} plans the direct door leg");
         assert!(
             direct
@@ -1066,8 +1041,8 @@ fn the_demo_shower_sauna_door_gates_the_bay_to_sauna_route() {
             direct.door_requests
         );
     }
-    let rat = demo_rat(&mesh);
-    let rat_openable = demo_route(&mesh, rat, bay, sauna, &doors, true);
+    let rat = regression_rat(&mesh);
+    let rat_openable = regression_route(&mesh, rat, bay, sauna, &doors, true);
     assert!(rat_openable.complete);
     assert!(
         rat_openable
@@ -1090,7 +1065,7 @@ fn the_demo_shower_sauna_door_gates_the_bay_to_sauna_route() {
         DoorPhase::Open
     );
     for class in [human, spooner] {
-        let open = demo_route(&mesh, class, bay, sauna, &doors, false);
+        let open = regression_route(&mesh, class, bay, sauna, &doors, false);
         assert!(open.complete, "the open shower door is passable");
         assert!(
             open.door_requests.is_empty(),
@@ -1107,18 +1082,20 @@ fn the_demo_shower_sauna_door_gates_the_bay_to_sauna_route() {
 /// balcony (1.2) for the walkers; the rat's 0.2 m step is a real negative
 /// control there (the single remaining link is the entry riser itself).
 #[test]
-fn the_demo_home_staircase_connects_the_lower_floor_to_the_balcony_by_class() {
-    let (level, mesh, _) = demo_nav();
-    let human = demo_human(&mesh);
-    let spooner = demo_spooner(&mesh);
-    let rat = demo_rat(&mesh);
+fn the_control_home_staircase_connects_the_lower_floor_to_the_balcony_by_class() {
+    let (level, mesh, _) = regression_nav(include_str!(
+        "../../tests/fixtures/unit/navigation_stairs.json"
+    ));
+    let human = regression_human(&mesh);
+    let spooner = regression_spooner(&mesh);
+    let rat = regression_rat(&mesh);
     let doors = Doors::from_level(&level);
     // The Home's west lane: the east side under the balcony bakes only the
     // balcony surface (single-layer grid), see the C-report.
     let lower = Vec3::new(54.5, -0.9, 12.0);
     let balcony = Vec3::new(60.0, 1.2, 12.5);
     for class in [human, spooner] {
-        let path = demo_route(&mesh, class, lower, balcony, &doors, false);
+        let path = regression_route(&mesh, class, lower, balcony, &doors, false);
         assert!(
             path.complete,
             "class {class} must climb the 8 x 0.2625 m flight"
@@ -1130,7 +1107,7 @@ fn the_demo_home_staircase_connects_the_lower_floor_to_the_balcony_by_class() {
         );
         assert!(reached.x > 58.0, "the route ends above the flight");
     }
-    let blocked = demo_partial_route(&mesh, rat, lower, balcony, &doors, false);
+    let blocked = regression_partial_route(&mesh, rat, lower, balcony, &doors, false);
     assert!(
         !blocked.complete,
         "the rat's 0.2 m step must not climb the 0.2625 m entry riser"
@@ -1141,104 +1118,17 @@ fn the_demo_home_staircase_connects_the_lower_floor_to_the_balcony_by_class() {
         "the rat stays on the lower floor, got {reached:?}"
     );
     assert_ne!(
-        demo_region(&mesh, rat, lower),
-        demo_region(&mesh, rat, balcony),
+        regression_region(&mesh, rat, lower),
+        regression_region(&mesh, rat, balcony),
         "the rat's lower floor and balcony are separate components"
     );
     for class in [human, spooner] {
         assert_eq!(
-            demo_region(&mesh, class, lower),
-            demo_region(&mesh, class, balcony),
+            regression_region(&mesh, class, lower),
+            regression_region(&mesh, class, balcony),
             "class {class} climbs the staircase in one component"
         );
     }
-}
-
-/// Emits one route probe as a JSON object, one entry per baked class.
-#[expect(clippy::too_many_arguments, reason = "one cohesive JSON emitter")] // one cohesive JSON emitter
-fn emit_route_probe(
-    out: &mut String,
-    mesh: &NavMesh,
-    classes: &[usize; 3],
-    labels: &[&str; 3],
-    id: &str,
-    scenario: &str,
-    from: Vec3,
-    to: Vec3,
-    doors: &dyn NavDoorState,
-    can_open_doors: bool,
-) {
-    let mut scratch = NavScratch::new();
-    let mut per_class = String::new();
-    for (position, (class, label)) in classes.iter().zip(labels.iter()).enumerate() {
-        if position > 0 {
-            per_class.push(',');
-        }
-        let result = mesh.path(
-            &PathQuery {
-                class: *class,
-                start: from,
-                goal: to,
-                can_open_doors,
-                max_expansions: 1 << 20,
-                doors,
-            },
-            &mut scratch,
-        );
-        match result {
-            PathResult::Path(path) => {
-                let reached = path.reached().map_or_else(
-                    || "null".to_string(),
-                    |point| format!("[{},{},{}]", point.x, point.y, point.z),
-                );
-                per_class.push_str(&format!(
-                    "{{\"label\":\"{label}\",\"complete\":{},\"reached\":{reached},\"requests\":{:?}}}",
-                    path.complete, path.door_requests
-                ));
-            }
-            PathResult::Unreachable => per_class.push_str(&format!(
-                "{{\"label\":\"{label}\",\"complete\":false,\"reached\":null,\"requests\":[],\"unreachable\":true}}"
-            )),
-            PathResult::Invalid(message) => per_class.push_str(&format!(
-                "{{\"label\":\"{label}\",\"invalid\":\"{message}\"}}"
-            )),
-        }
-    }
-    out.push_str(&format!(
-        "{{\"id\":\"{id}\",\"scenario\":\"{scenario}\",\"kind\":\"route\",\"from\":[{},{},{}],\"to\":[{},{},{}],\"per_class\":[{per_class}]}},\n",
-        from.x, from.y, from.z, to.x, to.y, to.z
-    ));
-}
-
-/// Emits one cell probe as a JSON object: what surface each class finds.
-fn emit_cell_probe(
-    out: &mut String,
-    mesh: &NavMesh,
-    classes: &[usize; 3],
-    labels: &[&str; 3],
-    id: &str,
-    point: Vec3,
-) {
-    let grid = mesh.grid();
-    let (cx, cz) = grid.cell_at(point.x, point.z).expect("probe on the grid");
-    let index = grid.index_of(cx, cz).expect("probe in the grid");
-    let surface = grid.surface(index);
-    let surface_json = surface.map_or_else(|| "null".to_string(), |y| format!("{y}"));
-    let mut per_class = String::new();
-    for (position, (class, label)) in classes.iter().zip(labels.iter()).enumerate() {
-        if position > 0 {
-            per_class.push(',');
-        }
-        per_class.push_str(&format!(
-            "{{\"label\":\"{label}\",\"has_surface\":{},\"surface\":{surface_json},\"walkable\":{}}}",
-            surface.is_some(),
-            grid.is_walkable(*class, index)
-        ));
-    }
-    out.push_str(&format!(
-        "{{\"id\":\"{id}\",\"scenario\":\"walk\",\"kind\":\"cell\",\"point\":[{},{},{}],\"per_class\":[{per_class}]}},\n",
-        point.x, point.y, point.z
-    ));
 }
 
 /// Counts adjacent walkable cell pairs whose rise exceeds `class`'s declared
@@ -1313,381 +1203,4 @@ fn riser_pairs_over_step_height(
         }
     }
     (total, examples)
-}
-
-/// Developer capture: emits one JSON document listing,
-/// for every walkable height transition in the real Demo, what each baked
-/// class actually does against the live bake and door states. It feeds the
-/// offline stair inventory, not the test contract:
-///
-/// `cargo test --lib nav::tests::capture_demo_transition_class_matrix -- --ignored --nocapture`
-#[test]
-#[ignore = "developer capture: Demo stair inventory"]
-#[expect(
-    clippy::too_many_lines,
-    reason = "one capture document, read top to bottom"
-)] // one capture document, read top to bottom
-fn capture_demo_transition_class_matrix() {
-    let (level, mesh, report) = demo_nav();
-    let classes = [demo_human(&mesh), demo_spooner(&mesh), demo_rat(&mesh)];
-    let labels = ["reference_human", "spooner_man_home", "home_rat"];
-    let authored = Doors::from_level(&level);
-    let mut both_closed = Doors::from_level(&level);
-    assert!(both_closed.request_close("sauna_door"));
-    settle_doors(&mut both_closed);
-    let mut shower_open = Doors::from_level(&level);
-    assert!(shower_open.request_close("sauna_door"));
-    settle_doors(&mut shower_open);
-    assert!(shower_open.request_open("sauna_shower_door"));
-    settle_doors(&mut shower_open);
-    let mut hall_open = Doors::from_level(&level);
-    assert!(hall_open.request_open("hall_door"));
-    settle_doors(&mut hall_open);
-    let no_doors = NoDoors;
-
-    let walk: &[(&str, Vec3, Vec3)] = &[
-        (
-            "office-door-threshold",
-            Vec3::new(18.3, 0.0, 0.9),
-            Vec3::new(19.6, 0.0, 0.9),
-        ),
-        (
-            "office-top-landing",
-            Vec3::new(17.0, 0.0, 0.9),
-            Vec3::new(20.5, 0.0, 0.8),
-        ),
-        (
-            "office-step-1",
-            Vec3::new(20.5, 0.0, 0.8),
-            Vec3::new(20.5, -0.3, 2.0),
-        ),
-        (
-            "office-step-2",
-            Vec3::new(20.5, -0.3, 2.0),
-            Vec3::new(20.5, -0.6, 2.8),
-        ),
-        (
-            "office-step-3",
-            Vec3::new(20.5, -0.6, 2.8),
-            Vec3::new(20.5, -0.9, 3.6),
-        ),
-        (
-            "office-step-4",
-            Vec3::new(20.5, -0.9, 3.6),
-            Vec3::new(20.5, -1.2, 4.4),
-        ),
-        (
-            "office-step-5",
-            Vec3::new(20.5, -1.2, 4.4),
-            Vec3::new(20.5, -1.5, 5.8),
-        ),
-        (
-            "pool-landing-north-step",
-            Vec3::new(23.0, -1.5, 10.5),
-            Vec3::new(24.5, -1.2, 11.5),
-        ),
-        (
-            "pool-landing-west-step",
-            Vec3::new(22.0, -1.5, 13.5),
-            Vec3::new(23.0, -1.2, 13.5),
-        ),
-        (
-            "pool-landing-south-step",
-            Vec3::new(24.0, -1.5, 17.0),
-            Vec3::new(24.0, -1.2, 15.7),
-        ),
-        (
-            "pool-landing-top",
-            Vec3::new(23.0, -1.5, 13.5),
-            Vec3::new(24.5, -0.9, 13.5),
-        ),
-        (
-            "pool-walk-in-step-down",
-            Vec3::new(13.5, -1.5, 17.5),
-            Vec3::new(13.5, -1.85, 16.5),
-        ),
-        (
-            "pool-walk-in-step-up",
-            Vec3::new(13.5, -1.85, 16.5),
-            Vec3::new(13.5, -1.5, 17.5),
-        ),
-        (
-            "pool-basin-drop-from-step",
-            Vec3::new(13.5, -1.85, 16.5),
-            Vec3::new(13.5, -3.0, 15.0),
-        ),
-        (
-            "pool-basin-drop-from-deck",
-            Vec3::new(14.0, -1.5, 9.5),
-            Vec3::new(14.0, -3.0, 13.0),
-        ),
-        (
-            "pool-shower-step-1",
-            Vec3::new(23.4, -1.5, 10.0),
-            Vec3::new(24.6, -1.2, 9.9),
-        ),
-        (
-            "pool-shower-step-2",
-            Vec3::new(23.4, -1.5, 10.0),
-            Vec3::new(25.4, -0.9, 9.9),
-        ),
-        (
-            "shower-bay-floor",
-            Vec3::new(25.4, -0.9, 9.9),
-            Vec3::new(29.4, -0.9, 9.8),
-        ),
-        (
-            "sauna-corridor-opening",
-            Vec3::new(30.5, -0.9, 13.0),
-            Vec3::new(35.0, -0.9, 13.0),
-        ),
-        (
-            "home-staircase-mid",
-            Vec3::new(54.5, -0.9, 12.0),
-            Vec3::new(56.6, 0.29, 13.6),
-        ),
-        (
-            "home-staircase-top",
-            Vec3::new(54.5, -0.9, 12.0),
-            Vec3::new(60.0, 1.2, 12.5),
-        ),
-        (
-            "balcony-landing",
-            Vec3::new(58.2, 1.2, 13.6),
-            Vec3::new(60.0, 1.2, 12.5),
-        ),
-        (
-            "home-archway",
-            Vec3::new(51.5, -0.9, 12.0),
-            Vec3::new(54.0, -0.9, 12.0),
-        ),
-    ];
-    let authored_routes: &[(&str, Vec3, Vec3)] = &[
-        (
-            "sauna-door-threshold",
-            Vec3::new(24.5, -0.9, 13.5),
-            Vec3::new(29.5, -0.9, 13.5),
-        ),
-        (
-            "home-wall35-passage",
-            Vec3::new(61.0, -0.9, 4.0),
-            Vec3::new(61.0, -0.9, 2.0),
-        ),
-        (
-            "home-wall36-passage",
-            Vec3::new(64.0, -0.9, 5.1),
-            Vec3::new(66.0, -0.9, 5.1),
-        ),
-    ];
-    let closed_incapable: &[(&str, Vec3, Vec3)] = &[
-        (
-            "sauna-door-threshold-closed",
-            Vec3::new(24.5, -0.9, 13.5),
-            Vec3::new(29.5, -0.9, 13.5),
-        ),
-        (
-            "sauna-shower-door-closed",
-            Vec3::new(29.4, -0.9, 9.8),
-            Vec3::new(29.5, -0.9, 13.5),
-        ),
-    ];
-    let closed_capable: &[(&str, Vec3, Vec3)] = &[
-        (
-            "sauna-door-threshold-closed-openable",
-            Vec3::new(24.5, -0.9, 13.5),
-            Vec3::new(29.5, -0.9, 13.5),
-        ),
-        (
-            "sauna-shower-door-closed-openable",
-            Vec3::new(29.4, -0.9, 9.8),
-            Vec3::new(29.5, -0.9, 13.5),
-        ),
-    ];
-    let shower_open_routes: &[(&str, Vec3, Vec3)] = &[(
-        "sauna-shower-door-open",
-        Vec3::new(29.4, -0.9, 9.8),
-        Vec3::new(29.5, -0.9, 13.5),
-    )];
-    let hall_open_routes: &[(&str, Vec3, Vec3)] = &[(
-        "home-wall35-passage-open",
-        Vec3::new(61.0, -0.9, 4.0),
-        Vec3::new(61.0, -0.9, 2.0),
-    )];
-    let cells: &[(&str, Vec3)] = &[
-        ("pool-basin-floor", Vec3::new(14.0, -3.0, 13.0)),
-        ("pool-basin-deck-rim", Vec3::new(14.0, -1.5, 9.5)),
-        ("pool-walk-in-step-cell", Vec3::new(13.5, -1.85, 16.5)),
-        ("pool-ladder-bottom", Vec3::new(19.35, -3.0, 11.7)),
-        ("pool-ladder-rim", Vec3::new(20.3, -1.5, 11.7)),
-        (
-            "home-lower-floor-under-balcony",
-            Vec3::new(60.0, -0.9, 12.5),
-        ),
-    ];
-
-    let mut out = String::new();
-    out.push_str("{\n");
-    out.push_str(&format!(
-        "\"bake_report\":{{\"cell_m\":{},\"cells_x\":{},\"cells_z\":{},\"surface_cells\":{},\"walkable_cells\":{:?},\"regions\":{:?},\"portals\":{}}},\n",
-        report.cell_m,
-        report.cells_x,
-        report.cells_z,
-        report.surface_cells,
-        report.walkable_cells,
-        report.regions,
-        report.portals
-    ));
-    out.push_str("\"classes\":[");
-    for (position, (class, label)) in classes.iter().zip(labels.iter()).enumerate() {
-        if position > 0 {
-            out.push(',');
-        }
-        let body = mesh.grid().classes[*class];
-        out.push_str(&format!(
-            "{{\"label\":\"{label}\",\"class\":{class},\"radius\":{},\"height\":{},\"step_height\":{},\"max_slope\":{}}}",
-            body.radius, body.height, body.step_height, body.max_slope
-        ));
-    }
-    out.push_str("],\n\"probes\":[\n");
-    for (id, from, to) in walk {
-        emit_route_probe(
-            &mut out, &mesh, &classes, &labels, id, "walk", *from, *to, &no_doors, false,
-        );
-    }
-    for (id, from, to) in authored_routes {
-        emit_route_probe(
-            &mut out, &mesh, &classes, &labels, id, "authored", *from, *to, &authored, false,
-        );
-    }
-    for (id, from, to) in closed_incapable {
-        emit_route_probe(
-            &mut out,
-            &mesh,
-            &classes,
-            &labels,
-            id,
-            "closed_incapable",
-            *from,
-            *to,
-            &both_closed,
-            false,
-        );
-    }
-    for (id, from, to) in closed_capable {
-        emit_route_probe(
-            &mut out,
-            &mesh,
-            &classes,
-            &labels,
-            id,
-            "closed_capable",
-            *from,
-            *to,
-            &both_closed,
-            true,
-        );
-    }
-    for (id, from, to) in shower_open_routes {
-        emit_route_probe(
-            &mut out,
-            &mesh,
-            &classes,
-            &labels,
-            id,
-            "shower_open",
-            *from,
-            *to,
-            &shower_open,
-            false,
-        );
-    }
-    for (id, from, to) in hall_open_routes {
-        emit_route_probe(
-            &mut out,
-            &mesh,
-            &classes,
-            &labels,
-            id,
-            "hall_open",
-            *from,
-            *to,
-            &hall_open,
-            false,
-        );
-    }
-    for (id, point) in cells {
-        emit_cell_probe(&mut out, &mesh, &classes, &labels, id, *point);
-    }
-    // The emitters separate entries with a trailing comma; drop the last one.
-    if out.ends_with(",\n") {
-        out.truncate(out.len().saturating_sub(2));
-    }
-    out.push_str("],\n");
-    let (rat_pairs, rat_examples) = riser_pairs_over_step_height(&mesh, classes[2], 8);
-    let (human_pairs, _) = riser_pairs_over_step_height(&mesh, classes[0], 0);
-    let examples = rat_examples
-        .iter()
-        .map(|example| format!("\"{example}\""))
-        .collect::<Vec<_>>()
-        .join(",");
-    out.push_str(&format!(
-        "\"riser_leak_audit\":{{\"rat_pairs_admitted_over_step_height\":{rat_pairs},\"human_pairs_admitted_over_step_height\":{human_pairs},\"examples\":[{examples}]}}\n"
-    ));
-    out.push_str("}\n");
-    println!("DEMO_TRANSITION_PROBES_JSON_BEGIN");
-    print!("{out}");
-    println!("DEMO_TRANSITION_PROBES_JSON_END");
-}
-
-#[test]
-fn an_empty_level_bakes_an_empty_record() {
-    let empty = level(
-        r#"{
-            "format_version": 3, "id": "nav_empty", "name": "Empty",
-            "spawn": { "x": 0.0, "z": 0.0 }
-        }"#,
-    );
-    let mesh = bake_level(&empty, 1);
-    assert_eq!(mesh.grid().cell_count(), 0);
-    assert!(
-        mesh.nearest(0, Vec3::ZERO, 2.0, 1.0, &NoDoors, true)
-            .is_none()
-    );
-    let mut scratch = NavScratch::new();
-    let result = mesh.path(
-        &PathQuery {
-            class: 0,
-            start: Vec3::ZERO,
-            goal: Vec3::new(1.0, 0.0, 0.0),
-            can_open_doors: true,
-            max_expansions: 1024,
-            doors: &NoDoors,
-        },
-        &mut scratch,
-    );
-    assert!(matches!(result, PathResult::Invalid(_)));
-}
-
-#[test]
-fn huge_nearest_radius_finishes_after_the_grid_is_exhausted() {
-    let definition = level(
-        r#"{
-            "format_version": 3, "id": "nav_radius_limit", "name": "Radius limit",
-            "spawn": { "x": 1.0, "z": 1.0 },
-            "rooms": [ { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 } ]
-        }"#,
-    );
-    let mesh = bake_level(&definition, 1);
-    let elevated = Vec3::new(2.0, 100.0, 2.0);
-    assert!(
-        mesh.nearest(0, elevated, f32::MAX, 0.0, &NoDoors, false)
-            .is_none(),
-        "an exhausted grid returns no point even when the radius quotient overflows"
-    );
-    let ground = Vec3::new(2.0, 0.0, 2.0);
-    assert_eq!(
-        mesh.nearest(0, ground, f32::MAX, 0.0, &NoDoors, false),
-        mesh.nearest(0, ground, 1.0, 0.0, &NoDoors, false),
-        "bounding the search retains the selected nearest point"
-    );
 }

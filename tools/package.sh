@@ -1,8 +1,10 @@
 #!/bin/sh
-# package.sh [--check-destination] [output-root]
+# package.sh [--check-destination] [--maps directory] [output-root]
 #
 # Builds a clean, self-contained Places distribution from a release binary.
 #
+# Default exports contain no maps. --maps explicitly includes external compiled
+# packages from one directory; it never fetches or compiles map sources.
 # Layout produced (the assets/ + levels/ pair is the whole runtime payload):
 #
 #   <output-root>/Places/
@@ -36,9 +38,18 @@ set -eu
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 OUT="$REPO/target/package"
 CHECK_ONLY=0
+MAPS=""
 while [ $# -gt 0 ]; do
     case "$1" in
     --check-destination) CHECK_ONLY=1 ;;
+    --maps)
+        shift
+        if [ $# -eq 0 ] || [ -n "$MAPS" ]; then
+            echo 'package.sh: --maps needs one directory and may be used once' >&2
+            exit 2
+        fi
+        MAPS=$1
+        ;;
     -h | --help | --usage)
         sed -n '2,30p' "$0"
         exit 0
@@ -139,11 +150,11 @@ if [ ! -x "$BIN" ]; then
     exit 1
 fi
 
-if [ ! -x "$REPO/target/release/places-compile" ]; then
-    fail "build the release compiler with 'cargo build --release --bin places-compile'"
+if [ -n "$MAPS" ]; then
+    [ -d "$MAPS" ] || fail "map directory does not exist: $MAPS"
+    [ -x "$REPO/target/release/places-compile" ] || fail "--maps validation needs the release places-compile binary"
+    MAPS=$(cd -P "$MAPS" && pwd -P)
 fi
-# Fail before publication when a source-only checkout has no current maps.
-python3 "$REPO/tools/levels/compile.py" --check
 
 echo "packaging Places $VERSION -> $OUT_ABS"
 mkdir -p "$OUT_ABS"
@@ -170,9 +181,10 @@ for directory in shared environments entities diagnostic; do
     cp -R "$REPO/assets/$directory" "$STAGE/Places/assets/$directory"
 done
 find "$STAGE/Places/assets" -type f -name '*_master.png' -delete
-while IFS= read -r identity; do
-    cp "$REPO/assets/levels/$identity.placesmap" "$STAGE/Places/assets/levels/"
-done < "$REPO/levels/lineup.txt"
+if [ -n "$MAPS" ]; then
+    python3 "$REPO/tools/export-maps.py" "$MAPS" "$STAGE/Places" \
+        "$REPO/target/release/places-compile"
+fi
 
 # The macOS bundle: the same payload under Contents/Resources.
 cp "$BIN" "$STAGE/Places.app/Contents/MacOS/$NAME"

@@ -742,12 +742,6 @@ fn test_validate_accepts_a_level_without_any_shine() {
     assert!(validate_level(&level).is_ok());
     assert!(level.defaults.wall_shine.is_none());
     assert!(level.rooms.iter().all(|room| room.shine.is_none()));
-
-    // And the shipped demo, which mixes explicit and default shine.
-    let demo = LevelDef::from_json(include_str!("../../levels/places_demo.json"))
-        .expect("the shipped demo parses");
-    assert!(validate_level(&demo).is_ok());
-    assert_eq!(demo.floor_patches[0].shine, Some(0.05));
 }
 
 #[test]
@@ -1214,178 +1208,6 @@ fn test_shipped_test_room_demonstrates_openings_and_props() {
     assert!(mesh.batches.prop_batch.count > 0_i32);
 }
 
-/// The official showcase is the level the README sends a new visitor to, so its
-/// promises are pinned here: one continuous route that exercises the office
-/// family, the openings, a coloured transition, a real elevation change, the
-/// recessed pool and an external decal sheet.
-#[test]
-fn test_the_official_demo_exercises_every_showcased_feature() {
-    let json = include_str!("../../levels/places_demo.json");
-    let level = LevelDef::from_json(json).expect("valid places_demo json");
-    validate_level(&level).expect("the official demo validates");
-
-    // Openings: doorways are the route, a window looks between lighting
-    // families, and a passage joins the stair hall to the pool deck.
-    let kinds: std::collections::HashSet<&str> = level
-        .walls
-        .iter()
-        .flat_map(|wall| wall.openings.iter().map(|opening| opening.kind.as_str()))
-        .collect();
-    for kind in ["door", "window", "passage"] {
-        assert!(kinds.contains(kind), "the demo must cut a {kind}");
-    }
-    // Every opening the player walks through is wide enough to walk through.
-    for wall in &level.walls {
-        for opening in &wall.openings {
-            if opening.sill <= f32::EPSILON && opening.reaches_floor() {
-                assert!(
-                    opening.width >= 1.0,
-                    "a walk-through opening is {} m wide",
-                    opening.width
-                );
-            }
-        }
-    }
-
-    // Vertical: two floor elevations one walkable staircase apart, a recessed
-    // basin and a raised landing, all built from floor regions.
-    let elevations: std::collections::BTreeSet<String> = level
-        .room_iter()
-        .map(|room| format!("{:.3}", room.floor_y))
-        .collect();
-    assert_eq!(
-        elevations.len(),
-        3,
-        "the demo steps between three floor elevations, found {elevations:?}"
-    );
-    let recessed = level
-        .floor_regions
-        .iter()
-        .filter(|region| region.offset() <= -1.0)
-        .count();
-    assert!(recessed >= 1, "the empty pool basin is a real recess");
-    let raised = level
-        .floor_regions
-        .iter()
-        .filter(|region| region.offset() > 0.0)
-        .count();
-    assert!(
-        raised >= 5,
-        "the stair and the landing platform are raised regions"
-    );
-    for region in &level.floor_regions {
-        assert!(
-            region.edge_material.is_some(),
-            "a region in the demo must name its transition material"
-        );
-    }
-
-    // Lighting: warm office, one strongly coloured transition and a cool pool,
-    // so the demo can never silently collapse to a single colour temperature.
-    let colours: std::collections::BTreeSet<String> = level
-        .ceiling_lights
-        .iter()
-        .map(|light| {
-            light.color.map_or_else(
-                || "default".to_string(),
-                |color| {
-                    let (r, g, b) = (color.r, color.g, color.b);
-                    format!("{:.2},{:.2},{:.2}", r, g, b)
-                },
-            )
-        })
-        .collect();
-    assert!(
-        colours.len() >= 4,
-        "the demo shows several lighting conditions, found {colours:?}"
-    );
-
-    // The pool family, the office family and the external decal sheets are all
-    // real placements, and every solid prop authors the box it collides with.
-    let placed: std::collections::HashSet<&str> =
-        level.props.iter().map(|prop| prop.model.as_str()).collect();
-    for id in [
-        "core:desk",
-        "core:chair",
-        "core:pool_ladder",
-        "core:pool_guardrail_straight",
-        "core:pool_curtain_straight",
-        "core:pool_table",
-    ] {
-        assert!(placed.contains(id), "the demo must place {id}");
-    }
-    for prop in &level.props {
-        if prop.solid {
-            assert!(
-                prop.size.is_some(),
-                "solid prop {} must author its collision size",
-                prop.model
-            );
-        }
-    }
-    let decals: Vec<&str> = level
-        .decals
-        .iter()
-        .map(|decal| decal.material.as_str())
-        .collect();
-    assert!(
-        decals.contains(&"core:decal_no_diving_01"),
-        "the demo ends the pool with the external NO DIVING sign"
-    );
-    assert!(
-        decals.contains(&"core:decal_stripes_01"),
-        "the demo marks the step up with the external hazard sheet"
-    );
-    assert!(
-        decals.contains(&"core:decal_ceiling_vent_01"),
-        "the demo places the external ceiling-vent sheet"
-    );
-
-    // The spawn is inside a room, so the first frame is never the void.
-    let spawn = &level.spawn;
-    assert!(
-        level
-            .room_iter()
-            .any(|room| room.contains(spawn.x, spawn.z)),
-        "the demo spawn must be inside a room"
-    );
-
-    // And it all builds. The decals are external PNG sheets, so the geometry
-    // needs the shipped catalogue rather than the built-in fallback.
-    let props = PropCatalog::load_default();
-    let assets = crate::assets::AssetCatalog::load_default();
-    let mesh = crate::architecture_audit::build_geometry_without_illumination(
-        &level,
-        &props,
-        &crate::render::logical_materials(&level),
-    );
-    assert!(mesh.batches.wall_batch.count > 0_i32);
-    assert!(mesh.batches.floor_batch.count > 0_i32);
-    assert!(mesh.batches.light_batch.count > 0_i32);
-    assert_eq!(
-        mesh.batches.decal_batch.count,
-        i32::try_from(level.decals.len() * 6).expect("decal quad count fits"),
-        "one quad per placed decal"
-    );
-    let sheets = crate::render::decal_external_sheet_ids(&level, &assets);
-    assert_eq!(
-        sheets,
-        vec![
-            "core:decal_temptation_adam_eve_01".to_string(),
-            "core:decal_no_diving_01".to_string(),
-            "core:decal_stripes_01".to_string(),
-            "core:decal_ceiling_vent_01".to_string(),
-            "outdoor:decal_path_edge_01".to_string(),
-            "outdoor:decal_path_end_01".to_string(),
-            "outdoor:decal_path_corner_01".to_string(),
-            "pool:decal_lane_01".to_string()
-        ],
-        "every decal sheet the demo places resolves as external PNG artwork"
-    );
-}
-
-/// Compiled packages are discovered, validated and loaded; authoring sources
-/// are not playable and imports point at the compiler instead.
 #[test]
 fn test_custom_packages_are_discovered_loaded_and_sources_rejected() {
     let root =
@@ -1572,64 +1394,29 @@ fn compile_fixture(
 }
 
 #[test]
-fn test_curated_level_sources_preserve_the_known_map_ids() {
-    let sources = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("levels");
-    let mut authored = Vec::new();
-    for file in fs::read_dir(sources).expect("curated source directory") {
-        let path = file.expect("source directory entry").path();
-        if path.extension().is_none_or(|extension| extension != "json") {
-            continue;
-        }
-        let level = LevelDef::from_json(&fs::read_to_string(&path).expect("curated source"))
-            .expect("curated source parses");
-        assert_eq!(
-            path.file_stem().and_then(|name| name.to_str()),
-            Some(level.id.as_str()),
-            "curated source filenames preserve their map identities"
-        );
-        authored.push(level.id);
-    }
-    authored.sort_unstable();
-    assert_eq!(
-        authored,
-        vec![
-            "beach_demo",
-            "frutiger_aero_demo",
-            "home_showcase",
-            "lantern_hollow",
-            "model_zoo",
-            "office_demo",
-            "places_demo",
-            "pool_showcase",
-            "retro_arcade_demo",
-            "winter"
-        ],
-        "the curated authored maps remain available without compiled output"
-    );
-}
-
-#[test]
-fn test_the_default_level_is_the_discovered_demo_package() {
+fn test_default_loading_accepts_an_arbitrary_discovered_map() {
     let root =
         std::env::temp_dir().join(format!("places-default-level-test-{}", std::process::id()));
     crate::test_support::remove_dir_if_present(&root);
     let assets = root.join("assets/levels");
     let source = r#"{
-        "format_version": 3, "id": "places_demo", "name": "Places Demo",
+        "format_version": 3, "id": "external_default", "name": "External Default",
         "spawn": {"x": 1.0, "z": 1.0},
         "rooms": [{"x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0}]
     }"#;
-    drop(compile_fixture(&assets, "places_demo.json", source));
+    drop(compile_fixture(&assets, "external_default.json", source));
     let manager = LevelManager::with_paths(assets, root.join("levels"), root.join("import"));
     assert_eq!(
         manager.entries().len(),
         1,
         "only the isolated package is discovered"
     );
-    let loaded = manager.load_default().expect("the discovered demo loads");
-    assert_eq!(loaded.entry.id, "places_demo");
+    let loaded = manager
+        .load_default()
+        .expect("the arbitrary discovered map loads");
+    assert_eq!(loaded.entry.id, "external_default");
     assert_eq!(loaded.entry.source_type, LevelSourceType::Bundled);
-    assert_eq!(loaded.level.name, "Places Demo");
+    assert_eq!(loaded.level.name, "External Default");
     crate::test_support::remove_dir_if_present(root);
 }
 
@@ -1772,45 +1559,6 @@ fn test_ceiling_light_colour_is_optional_validated_and_round_trips() {
         non_finite.ceiling_lights[0].emitted_color(),
         crate::lighting::LightColor::rgb(0.0, 0.5, 0.5)
     );
-}
-
-#[test]
-fn test_shipped_prop_catalog_covers_shipped_levels() {
-    let catalog = PropCatalog::load_from_path(Path::new("assets/catalog.json"))
-        .expect("assets/catalog.json must load");
-    assert!(!catalog.is_empty());
-
-    let mut levels_checked = 0_i32;
-    let mut props_checked = 0_i32;
-    for entry in fs::read_dir("levels")
-        .expect("curated source levels exist")
-        .flatten()
-    {
-        let path = entry.path();
-        if path.extension().is_none_or(|ext| ext != "json") {
-            continue;
-        }
-        let content = fs::read_to_string(&path).expect("level file is readable");
-        let level = LevelDef::from_json(&content)
-            .unwrap_or_else(|e| panic!("{} is not a valid level: {e}", path.display()));
-        validate_level(&level)
-            .unwrap_or_else(|e| panic!("{} failed validation: {e}", path.display()));
-        levels_checked += 1_i32;
-        for prop in &level.props {
-            assert!(
-                catalog.contains(&prop.model),
-                "{} uses prop '{}' which is missing from assets/catalog.json",
-                path.display(),
-                prop.model
-            );
-            props_checked += 1_i32;
-        }
-    }
-    assert_eq!(
-        levels_checked, 10_i32,
-        "check the complete curated source lineup"
-    );
-    assert!(props_checked >= 1_i32, "expected at least one placed prop");
 }
 
 /// Loads one engine regression fixture from `tests/fixtures/levels/`.
@@ -2186,12 +1934,18 @@ fn test_fixtures_without_a_sheet_resolve_to_nothing() {
     );
 }
 
-/// Exercises authoring preparation and asset resolution without baking the
-/// production Demo or requiring a generated archive in the source checkout.
-fn prepared_demo() -> (LevelDef, MaterialTable, Vec<ResolvedFixtureSheet>) {
-    let mut level = LevelDef::from_json(include_str!("../../levels/places_demo.json"))
-        .expect("authored Demo parses");
-    validate_level(&level).expect("authored Demo validates");
+/// Bounded shared fixture for preparation and emitted-geometry regressions.
+fn preparation_fixture() -> LevelDef {
+    LevelDef::from_json(include_str!(
+        "../../tests/fixtures/unit/map_independent_preparation.json"
+    ))
+    .expect("the preparation fixture parses")
+}
+
+/// Resolves the fixture's PNG materials and three light families without baking.
+fn prepared_fixture() -> (LevelDef, MaterialTable, Vec<ResolvedFixtureSheet>) {
+    let mut level = preparation_fixture();
+    validate_level(&level).expect("the preparation fixture validates");
     let catalog = PropCatalog::load_default();
     prepare_level(&mut level, catalog.assets(), None);
     let asset_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets");
@@ -2205,18 +1959,18 @@ fn prepared_demo() -> (LevelDef, MaterialTable, Vec<ResolvedFixtureSheet>) {
     );
     assert!(
         materials.errors().is_empty(),
-        "Demo materials: {:?}",
+        "fixture materials: {:?}",
         materials.errors()
     );
     let sheets = resolve_fixture_sheets(&level, catalog.assets(), None, &mut cache);
     (level, materials, sheets)
 }
 
-/// The authored demo places all three built-in families, and every one of them
-/// resolves its catalog sheet before static-world compilation.
+/// Each built-in fixture family resolves its own PNG before compilation; three
+/// placements are enough to catch a missing family without building a map.
 #[test]
-fn test_the_demo_loads_every_fixture_family_with_its_sheet() {
-    let (level, _, sheets) = prepared_demo();
+fn test_each_fixture_family_resolves_its_sheet() {
+    let (level, _, sheets) = prepared_fixture();
 
     let families: Vec<crate::lighting::FixtureKind> = level
         .ceiling_lights
@@ -2228,7 +1982,7 @@ fn test_the_demo_loads_every_fixture_family_with_its_sheet() {
         crate::lighting::FixtureKind::RoundRecessed,
         crate::lighting::FixtureKind::WallSconce,
     ] {
-        assert!(families.contains(&kind), "the demo places {kind:?}");
+        assert!(families.contains(&kind), "the fixture places {kind:?}");
         let sheet = sheets
             .iter()
             .find(|sheet| sheet.kind == kind)
@@ -2237,21 +1991,19 @@ fn test_the_demo_loads_every_fixture_family_with_its_sheet() {
     }
 }
 
-/// A source-only checkout reports the explicit offline build path, then
-/// recovers through ordinary discovery when a valid package is installed.
+/// An empty installation is usable, authoring sources stay out of discovery,
+/// and refresh finds a subsequently installed package with an arbitrary id.
 #[test]
-fn test_missing_demo_is_actionable_and_recovers_after_package_installation() {
+fn test_empty_discovery_recovers_after_external_package_installation() {
     let scratch =
         std::env::temp_dir().join(format!("places-empty-level-test-{}", std::process::id()));
     crate::test_support::remove_dir_if_present(&scratch);
     let levels = scratch.join("levels");
     let source = r#"{
-        "format_version": 3, "id": "places_demo", "name": "Recovered Demo",
+        "format_version": 3, "id": "later_external", "name": "Later External",
         "spawn": {"x": 1.0, "z": 1.0},
         "rooms": [{"x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0}]
     }"#;
-    fs::create_dir_all(&levels).expect("source-only level directory");
-    fs::write(levels.join("places_demo.json"), source).expect("uncompiled Demo source");
     let mut manager = LevelManager::with_paths(
         scratch.join("assets/levels"),
         levels.clone(),
@@ -2259,55 +2011,87 @@ fn test_missing_demo_is_actionable_and_recovers_after_package_installation() {
     );
     assert!(
         manager.entries().is_empty(),
-        "uncompiled sources add no playable rows"
+        "absent map directories are valid"
+    );
+    manager.ensure_directories();
+    assert!(levels.is_dir() && scratch.join("import").is_dir());
+    assert!(
+        !scratch.join("assets/levels").exists(),
+        "directory setup never creates bundled content"
+    );
+    fs::write(levels.join("later_external.json"), source).expect("uncompiled external source");
+    let malformed = levels.join("broken_optional.placesmap");
+    fs::write(&malformed, b"invalid optional package").expect("corrupt optional package");
+    manager.refresh();
+    assert!(
+        manager.entries().is_empty(),
+        "uncompiled sources and corrupt packages add no playable rows"
     );
     let error = manager.load_default().expect_err("no package is available");
-    assert!(error.contains("Places Demo is not compiled"), "{error}");
-    assert!(error.contains("tools/build-maps.sh"), "{error}");
-    assert!(error.contains("import places_demo.placesmap"), "{error}");
+    assert!(error.contains("No maps installed"), "{error}");
+    assert!(error.contains(".placesmap"), "{error}");
+    let invalid_error = manager
+        .import_file(&malformed)
+        .expect_err("corrupt imports fail");
+    assert!(!invalid_error.is_empty() && invalid_error.len() < 1_024);
 
-    drop(compile_fixture(&levels, "places_demo.json", source));
-    manager.refresh();
+    // Reuse one tiny package to prove a bad candidate cannot block a valid
+    // import and that an empty import folder still discovers direct installs.
+    let package = compile_fixture(&scratch.join("build"), "later_external.json", source);
+    let _bad_import_bytes =
+        fs::copy(&malformed, scratch.join("import/0-broken.placesmap")).expect("bad import");
+    let _valid_import_bytes =
+        fs::copy(&package, scratch.join("import/1-valid.placesmap")).expect("valid import");
+    let import_error = manager
+        .import_available()
+        .expect_err("mixed imports report the rejection");
+    assert!(
+        import_error.starts_with("Imported 1 map(s)"),
+        "{import_error}"
+    );
     assert_eq!(
         manager.entries().len(),
         1,
-        "the installed package is discovered once"
+        "valid imports survive another candidate's error"
     );
+    fs::remove_file(scratch.join("import/0-broken.placesmap")).expect("remove bad import");
+    fs::remove_file(scratch.join("import/1-valid.placesmap")).expect("remove import candidate");
+    assert_eq!(manager.import_available().expect("empty import rescan"), 0);
     let loaded = manager
         .load_default()
-        .expect("the installed Demo recovers the default");
-    assert_eq!(loaded.level.id, DEMO_LEVEL_ID);
+        .expect("the installed external map becomes the default");
+    assert_eq!(loaded.level.id, "later_external");
     assert_eq!(loaded.entry.source_type, LevelSourceType::Installed);
-    assert_eq!(loaded.level.name, "Recovered Demo");
+    assert_eq!(loaded.level.name, "Later External");
+    fs::remove_file(&loaded.entry.path).expect("remove only the temporary test package");
+    let missing_error = manager
+        .load_level(&loaded.entry)
+        .expect_err("a disappeared optional package fails cleanly");
+    assert!(!missing_error.is_empty() && missing_error.len() < 1_024);
+    let _direct_install_bytes =
+        fs::copy(&package, levels.join("newly-dropped.placesmap")).expect("direct installation");
+    assert_eq!(
+        manager
+            .import_available()
+            .expect("rescan direct installation"),
+        0
+    );
+    assert_eq!(
+        manager.entries().len(),
+        1,
+        "empty imports still refresh drop-in maps"
+    );
+    fs::remove_file(levels.join("newly-dropped.placesmap")).expect("remove temporary install");
+    manager.refresh();
+    assert!(
+        manager.entries().is_empty(),
+        "removed maps return to the empty state"
+    );
 
     crate::test_support::remove_dir_if_present(scratch);
 }
 
 // ------------------------------------------------- generic architecture
-
-/// The committed Home showcase must satisfy the full loader contract: it
-/// exercises every generic architectural piece and every Home material.
-#[test]
-fn test_validate_accepts_the_home_showcase_fixture() {
-    let content = std::fs::read_to_string("levels/home_showcase.json")
-        .expect("the Home showcase fixture is present");
-    let level = LevelDef::from_json(&content).expect("the Home showcase parses");
-    if let Err(error) = validate_level(&level) {
-        panic!("the Home showcase must validate: {error}");
-    }
-    for (name, empty) in [
-        ("ramps", level.ramps.is_empty()),
-        ("stairs", level.stairs.is_empty()),
-        ("half_walls", level.half_walls.is_empty()),
-        ("columns", level.columns.is_empty()),
-        ("archways", level.archways.is_empty()),
-        ("guardrails", level.guardrails.is_empty()),
-        ("thresholds", level.thresholds.is_empty()),
-        ("baseboards", level.baseboards.is_empty()),
-    ] {
-        assert!(!empty, "the showcase places at least one {name} entry");
-    }
-}
 
 /// A level with one room and the given architecture arrays appended, validated.
 fn architecture_level(extra: &str) -> Result<(), String> {
@@ -2529,29 +2313,10 @@ fn test_validate_water_accepts_a_valid_volume_and_rejects_bad_ones() {
     );
 }
 
-/// Ladders validate like water volumes: a real room overlap, positive
-/// footprint, finite reach and a top above the bottom; the shipped demo's own
-/// ladder passes and resolves to the +X climb direction.
+/// Ladder validation and resolved attachment orientation agree; one six-decimetre
+/// footprint also pins invalid reach diagnostics without a production map.
 #[test]
-fn test_validate_ladders_accepts_the_demo_and_rejects_bad_reach() {
-    let demo = LevelDef::from_json(include_str!("../../levels/places_demo.json"))
-        .expect("the Places demo parses");
-    validate_level(&demo).expect("the shipped demo validates");
-    assert_eq!(demo.ladders.len(), 1, "the demo authors its pool ladder");
-    let ladders = crate::level::Ladders::from_level(&demo);
-    assert_eq!(ladders.len(), 1);
-    let ladder = ladders.get(0).expect("one resolved ladder");
-    assert!(
-        ladder.facing_x > 0.99 && ladder.facing_z.abs() < 0.01,
-        "facing 90 degrees climbs towards +X"
-    );
-    assert!(ladder.approach_side(19.0, 12.0), "the water side attaches");
-    assert!(
-        !ladder.approach_side(20.5, 12.0),
-        "the deck side never attaches"
-    );
-    assert!(ladder.overlaps_disc(19.6, 12.0, 0.3));
-
+fn test_validate_ladders_accepts_facing_and_rejects_bad_reach() {
     let json = |ladder_json: &str| -> String {
         format!(
             r#"{{
@@ -2569,9 +2334,18 @@ fn test_validate_ladders_accepts_the_demo_and_rejects_bad_reach() {
 
     let valid = parse(
         r#"{ "x": 1.0, "z": 1.0, "width": 0.6, "depth": 0.6,
-             "bottom_y": 0.0, "top_y": 1.5, "facing_degrees": 0.0 }"#,
+             "bottom_y": 0.0, "top_y": 1.5, "facing_degrees": 90.0 }"#,
     );
     validate_level(&valid).expect("a valid ladder passes");
+    let ladders = crate::level::Ladders::from_level(&valid);
+    let ladder = ladders.get(0).expect("one resolved ladder");
+    assert!(ladder.facing_x > 0.99 && ladder.facing_z.abs() < 0.01);
+    assert!(ladder.approach_side(0.9, 1.3), "the approach side attaches");
+    assert!(
+        !ladder.approach_side(1.7, 1.3),
+        "the reverse side never attaches"
+    );
+    assert!(ladder.overlaps_disc(1.3, 1.3, 0.3));
 
     let inverted = parse(
         r#"{ "x": 1.0, "z": 1.0, "width": 0.6, "depth": 0.6,
@@ -2779,14 +2553,12 @@ fn test_prepare_level_skips_a_face_whose_floor_changes_along_the_run() {
     );
 }
 
-/// The shipped demo is prepared before materials decode: its office and stair
-/// hall walls gain office trim, its 13 fluorescent panels end on cell centres,
-/// and the authored Home runs are untouched.
+/// Preparation snaps the panel, resolves automatic trim and preserves authored
+/// trim. The two-room fixture tests their integration without optional content.
 #[test]
-fn test_prepared_demo_aligns_panels_and_gains_office_baseboards() {
-    let raw = LevelDef::from_json(include_str!("../../levels/places_demo.json"))
-        .expect("places_demo parses");
-    let (level, materials, _) = prepared_demo();
+fn test_preparation_aligns_panels_and_preserves_authored_trim() {
+    let raw = preparation_fixture();
+    let (level, materials, _) = prepared_fixture();
     let prepared = &level;
 
     assert!(
@@ -2794,10 +2566,7 @@ fn test_prepared_demo_aligns_panels_and_gains_office_baseboards() {
         "the prepared level still satisfies the authored contract"
     );
 
-    // Every fluorescent panel lands on a panel centre of its ceiling material's
-    // visible grid (the office art paints four 1 m panels inside its 2 m
-    // repeat); there are 13, including the stair-hall reds and the east
-    // corridor strip.
+    // A deliberately off-grid panel snaps to its ceiling material grid.
     let panels: Vec<&crate::level::LightFixtureDef> = prepared
         .ceiling_lights
         .iter()
@@ -2806,7 +2575,7 @@ fn test_prepared_demo_aligns_panels_and_gains_office_baseboards() {
                 == crate::lighting::FixtureKind::FluorescentPanel
         })
         .collect();
-    assert_eq!(panels.len(), 13, "the demo's panel count");
+    assert_eq!(panels.len(), 1, "one off-grid panel is sufficient");
     let surfaces = LevelSurfaces::new(prepared);
     for light in panels {
         let room = surfaces
@@ -2875,12 +2644,11 @@ fn test_prepared_demo_aligns_panels_and_gains_office_baseboards() {
     }
 }
 
-/// The prepared demo's office trim is real geometry: the trim material has
-/// ranges, and every one of its vertices sits at one of the floors the boards
-/// were pinned to.
+/// Generated trim produces drawable ranges pinned to the room floor; this
+/// catches preparation/emitter disagreement without solving illumination.
 #[test]
-fn test_prepared_demo_baseboard_geometry_sits_at_floor_level() {
-    let (level, _, _) = prepared_demo();
+fn test_prepared_baseboard_geometry_sits_at_floor_level() {
+    let (level, _, _) = prepared_fixture();
     let prepared = &level;
     let materials = crate::render::logical_materials(prepared);
     let index = materials
@@ -2900,7 +2668,7 @@ fn test_prepared_demo_baseboard_geometry_sits_at_floor_level() {
         ranges += 1_i32;
         for vertex in &range.vertices {
             vertices += 1_i32;
-            let at_a_floor = [0.0_f32, -0.9, -1.5].iter().any(|floor| {
+            let at_a_floor = std::iter::once(&0.0_f32).any(|floor| {
                 vertex.pos[1] >= floor - 1.0e-3
                     && vertex.pos[1] <= floor + crate::level::BASEBOARD_DEFAULT_HEIGHT_M + 1.0e-3
             });
@@ -4759,23 +4527,6 @@ fn test_validate_rejects_a_route_on_a_floating_prop() {
     );
 }
 
-/// The shipped demo stays valid with its duck, and the duck is the non-solid,
-/// sized float the contract requires.
-#[test]
-fn test_the_shipped_demo_duck_validates() {
-    let level = LevelDef::from_json(include_str!("../../levels/places_demo.json"))
-        .expect("the Places demo parses");
-    validate_level(&level).expect("the shipped demo validates with its duck");
-    let duck = level
-        .props
-        .iter()
-        .find(|prop| prop.model == "core:rubber_duck")
-        .expect("the shipped demo places the floating duck");
-    assert!(duck.float.is_some(), "the demo duck authors a float block");
-    assert!(!duck.solid, "a float cannot be solid");
-    assert!(duck.size.is_some(), "a float must author its size");
-}
-
 // ---------------------------------------------------------------------------
 // round-architecture validation diagnostics
 // ---------------------------------------------------------------------------
@@ -4898,44 +4649,6 @@ fn test_ceiling_tile_frame_validation() {
     assert!(
         level_error.contains("ceiling tile rotation"),
         "{level_error}"
-    );
-}
-
-/// Every checked-in level parses and validates against the one final schema.
-///
-/// This is the repository-content gate: a map that still used a removed field
-/// or action would fail here, so no level can be left on an obsolete
-/// development format. The deliberately invalid checker fixture under
-/// `tests/fixtures/levels/invalid/` is not part of the playable set and is
-/// exercised by the geometry checker instead.
-#[test]
-fn every_checked_in_level_parses_and_validates_against_the_final_schema() {
-    let mut checked = 0_usize;
-    for directory in ["levels", "tests/fixtures/levels"] {
-        let entries =
-            std::fs::read_dir(directory).unwrap_or_else(|e| panic!("read {directory}: {e}"));
-        for entry in entries {
-            let path = entry.expect("directory entry").path();
-            if path.extension().and_then(std::ffi::OsStr::to_str) != Some("json") {
-                continue;
-            }
-            let content = std::fs::read_to_string(&path)
-                .unwrap_or_else(|e| panic!("{}: {e}", path.display()));
-            let level =
-                LevelDef::from_json(&content).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
-            assert_eq!(
-                level.format_version,
-                crate::level::LEVEL_FORMAT_VERSION,
-                "{} must use the current format",
-                path.display()
-            );
-            validate_level(&level).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
-            checked = checked.saturating_add(1);
-        }
-    }
-    assert!(
-        checked >= 20,
-        "expected every checked-in level, found {checked}"
     );
 }
 

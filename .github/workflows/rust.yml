@@ -34,15 +34,36 @@ jobs:
         run: brew install sdl3 pkg-config
       - name: Select repository toolchain
         run: rustup show active-toolchain
+      - name: Prepare engine checkout without optional map content
+        run: |
+          mkdir -p "$RUNNER_TEMP/places-engine"
+          git ls-files -z | python3 -c '
+          import pathlib, shutil, sys
+          destination = pathlib.Path(sys.argv[1])
+          for raw in sys.stdin.buffer.read().split(b"\0"):
+              if not raw:
+                  continue
+              source = pathlib.Path(raw.decode())
+              if source.parts[0] == "levels" or source.parts[:2] == ("assets", "levels") or source.suffix == ".placesmap":
+                  continue
+              target = destination / source
+              target.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copyfile(source, target)
+          ' "$RUNNER_TEMP/places-engine"
       - name: Check Rust formatting
+        working-directory: ${{ runner.temp }}/places-engine
         run: sh tools/check-rust.sh format
       - name: Check Rust targets and features
+        working-directory: ${{ runner.temp }}/places-engine
         run: sh tools/check-rust.sh check
       - name: Clippy debug
+        working-directory: ${{ runner.temp }}/places-engine
         run: sh tools/check-rust.sh clippy
       - name: Clippy release
+        working-directory: ${{ runner.temp }}/places-engine
         run: sh tools/check-rust.sh clippy-release
       - name: Test bounded Rust fixtures
+        working-directory: ${{ runner.temp }}/places-engine
         run: sh tools/check-rust.sh test
       - name: Install source-check dependencies
         run: |

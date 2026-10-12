@@ -2590,57 +2590,6 @@ fn a_sink_collider_is_its_standable_deck_not_the_faucet_post() {
     assert!((scaled.max_z - scaled.min_z - 0.66).abs() < 1e-4);
 }
 
-/// The shipped Places Demo kitchen counter run: every collider over the
-/// counter footprint tops out at the 0.0 m counter surface (the -0.9 m floor
-/// plus the 0.9 m cabinet/stove/sink size), and nothing occupies the
-/// 0.55..0.9 m band above it, so the upper cabinets (now `solid: false`) can
-/// never push a player standing on the counter off it. This is the surface
-/// the raised jump apex can land on.
-#[test]
-fn the_shipped_demo_counters_are_clear_above_their_tops() {
-    let content = std::fs::read_to_string("levels/places_demo.json")
-        .expect("the Places demo level is present");
-    let level = LevelDef::from_json(&content).expect("the Places demo parses");
-
-    // Four 0.6 m base cabinets, the stove and the sink along the kitchen's
-    // north wall: x 53.3..56.9 by the base cabinets' 0.6 m depth at z 3.45.
-    let (x0, x1, z0, z1) = (53.3_f32, 56.9_f32, 3.15_f32, 3.75_f32);
-    let mut counter_boxes = 0_u32;
-    for aabb in level.collision_aabbs() {
-        let overlaps = aabb.max_x > x0 + 1e-4
-            && aabb.min_x < x1 - 1e-4
-            && aabb.max_z > z0 + 1e-4
-            && aabb.min_z < z1 - 1e-4;
-        if !overlaps {
-            continue;
-        }
-        assert!(
-            !(aabb.min_y < 0.9 - 1e-3 && aabb.max_y > 0.55 + 1e-3),
-            "a collider spans the walkable band over the counter: {aabb:?}"
-        );
-        let inside = aabb.min_x > x0 - 1e-3
-            && aabb.max_x < x1 + 1e-3
-            && aabb.min_z > z0 - 1e-3
-            && aabb.max_z < z1 + 1e-3;
-        if inside {
-            counter_boxes += 1;
-            assert!(
-                aabb.max_y.abs() < 1e-4,
-                "a counter box tops out at {} instead of 0.0: {aabb:?}",
-                aabb.max_y
-            );
-            assert!(
-                (aabb.min_y + 0.9).abs() < 1e-4,
-                "a counter box must start on the -0.9 m kitchen floor: {aabb:?}"
-            );
-        }
-    }
-    assert_eq!(
-        counter_boxes, 6,
-        "the counter run contributes four bases, the stove and the sink"
-    );
-}
-
 // ---------------------------------------------------------------------------
 // Regional fog
 // ---------------------------------------------------------------------------

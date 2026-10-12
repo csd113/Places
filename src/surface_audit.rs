@@ -15,8 +15,8 @@
 //!
 //! These tests build real meshes through the same entry point the game uses and
 //! measure the emitted triangles, rather than asserting that a level parses.
-//! The `places_demo` case is the shipped acceptance check: it must emit no
-//! coincident architecture surface at all.
+//! Bounded synthetic rooms isolate doorway, material transition and decal
+//! ownership without optional authored maps.
 
 // Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
 // the production lints stay enforced everywhere else in the crate.
@@ -973,52 +973,6 @@ fn z_axis_wall_caps_face_out_of_the_wall_solid() {
 }
 
 #[test]
-fn places_demo_doorway_thresholds_are_owned_once() {
-    let level = parse(include_str!("../levels/places_demo.json"));
-    let mesh = shipped_mesh(&level);
-    let all = triangles(&mesh);
-    // The full coplanar-pair audit runs in
-    // `the_shipped_demo_has_no_coincident_architecture_surfaces`; this test
-    // additionally checks exact ownership and materials at doorway probes.
-
-    // The two doorways whose sills used to duplicate the floor plane: the
-    // stair door at x = 19 between the offices and the stair hall, and the
-    // pool deck door at x = 26 between the pool hall and the corridor.
-    assert_exactly_one_floor_at(
-        &all,
-        &threshold_probes(19.0, (0.3, 1.5), true),
-        "places_demo stair doorway",
-    );
-    assert_exactly_one_floor_at(
-        &all,
-        &threshold_probes(26.0, (12.5, 14.1), true),
-        "places_demo pool-deck doorway",
-    );
-
-    // The transition is the rooms' own boundary: beige office carpet west of
-    // the x = 19 door, damp carpet east of it, with no wall face on top.
-    let materials = MaterialTable::logical(&level, PropCatalog::load_default().assets(), None);
-    let beige = materials.index_of("core:carpet_beige_01").expect("beige");
-    let damp = materials.index_of("core:carpet_damp_01").expect("damp");
-    let pool_deck = materials
-        .index_of("core:pool_tile_deck_01")
-        .expect("pool deck");
-    let sauna_wood = materials
-        .index_of("home:sauna_wood_01")
-        .expect("sauna wood");
-    let floor_material_at = |x: f32, z: f32| {
-        all.iter()
-            .find(|t| t.kind == SurfaceKind::Floor && covers_xz(t, x, z))
-            .map(|t| t.material)
-    };
-    assert_eq!(floor_material_at(18.9, 0.9), Some(beige));
-    assert_eq!(floor_material_at(19.1, 0.9), Some(damp));
-    assert_eq!(floor_material_at(25.9, 13.3), Some(pool_deck));
-    // East of the pool-deck doorway is the sauna room's cedar floor.
-    assert_eq!(floor_material_at(26.1, 13.3), Some(sauna_wood));
-}
-
-#[test]
 fn coincident_walls_with_different_vertical_extents_emit_one_surface() {
     // The next room's wall continues the same plane at a different base and
     // height: the shared span must be emitted once, not twice.
@@ -1300,74 +1254,4 @@ fn the_decal_depth_solution_is_sub_visible_and_resolvable_where_it_matters() {
         factor <= -1.0 && units <= -2.0,
         "the pass bias must include a slope term and a few depth steps, got ({factor}, {units})"
     );
-}
-
-#[test]
-fn the_shipped_demo_has_no_coincident_architecture_surfaces() {
-    let level = parse(include_str!("../levels/places_demo.json"));
-    let mesh = shipped_mesh(&level);
-    let all = triangles(&mesh);
-    assert_no_coincident_architecture_overlaps(&all, "places_demo architecture");
-}
-
-#[test]
-fn every_shipped_demo_decal_owns_its_depth_plane() {
-    // The acceptance case the flicker was reported on: every wall and floor
-    // decal in Places Demo must cover a real base surface and sit exactly the
-    // shared offset in front of it. A decal that is missing, mis-parented or
-    // left coplanar fails here, before any pixel is drawn.
-    let level = parse(include_str!("../levels/places_demo.json"));
-    let mesh = shipped_mesh(&level);
-    let all = triangles(&mesh);
-    let decals: Vec<&Triangle> = all
-        .iter()
-        .filter(|triangle| triangle.kind == SurfaceKind::Decal)
-        .collect();
-    assert_eq!(
-        decals.len(),
-        level.decals.len() * 2,
-        "every authored decal emits exactly one quad"
-    );
-
-    for decal in &decals {
-        let mut parents = 0usize;
-        for surface in all.iter().filter(|triangle| {
-            triangle.kind != SurfaceKind::Decal
-                && dot(triangle.normal, decal.normal) > 0.999
-                && overlap_area(triangle, decal) > 1e-3
-        }) {
-            let separation = decal.offset - surface.offset;
-            if separation.abs() < 0.05 {
-                parents += 1;
-                assert!(
-                    (separation - DECAL_SURFACE_OFFSET_M).abs() < 1e-5,
-                    "places_demo decal at {:?} is {separation} m off its surface (expected {})",
-                    decal.points[0],
-                    DECAL_SURFACE_OFFSET_M
-                );
-            }
-            // Nothing may overlap the decal while sharing its depth plane.
-            assert!(
-                separation.abs() >= DECAL_SURFACE_OFFSET_M - 1e-5,
-                "places_demo decal at {:?} shares its depth plane with another surface",
-                decal.points[0]
-            );
-        }
-        assert!(
-            parents > 0,
-            "places_demo decal at {:?} covers no base surface",
-            decal.points[0]
-        );
-    }
-}
-
-#[test]
-fn the_home_showcase_has_no_coincident_architecture_surfaces() {
-    // The generic architectural pieces sit against walls, floors and each
-    // other by construction; none of them may end up sharing a plane with the
-    // surface it touches.
-    let level = parse(include_str!("../levels/home_showcase.json"));
-    let mesh = shipped_mesh(&level);
-    let all = triangles(&mesh);
-    assert_no_coincident_architecture_overlaps(&all, "home_showcase architecture");
 }

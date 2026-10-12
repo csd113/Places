@@ -181,17 +181,21 @@ fn mean(values: &[f32]) -> f32 {
 
 #[test]
 fn winter_string_bulbs_bake_warm_prop_illumination_and_respect_opaque_walls() {
-    let winter = LevelDef::from_json(include_str!("../levels/winter.json"))
-        .expect("the authored Winter source parses");
-    let mut string = winter
-        .props
-        .iter()
-        .find(|prop| prop.model == "winter:string_lights_short")
-        .expect("Winter uses the short string")
-        .clone();
-    string.x = 1.5;
-    string.z = 3.0;
-    string.y = 2.1;
+    // Three physical emitters on one real GLB isolate warm illumination,
+    // opaque-wall blocking and emission independence without a Winter bake.
+    let string: crate::level::PropDef = serde_json::from_str(
+        r#"{"id":"string","model":"winter:string_lights_short",
+            "x":1.5,"z":3.0,"y":2.1,"occludes":false,
+            "lights":[
+                {"shape":"point","offset":[-0.7,0.0175,0],"intensity":0.32,
+                 "range":4.5,"color":[1,0.6,0.2],"falloff":"smooth"},
+                {"shape":"point","offset":[0,-0.02,0],"intensity":0.32,
+                 "range":4.5,"color":[1,0.6,0.2],"falloff":"smooth"},
+                {"shape":"point","offset":[0.7,0.0175,0],"intensity":0.32,
+                 "range":4.5,"color":[1,0.6,0.2],"falloff":"smooth"}
+            ]}"#,
+    )
+    .expect("bounded string-light fixture parses");
     let mut open = scene(STUMP, "", 0.0);
     open.ceiling_lights.clear();
     open.props.push(string);

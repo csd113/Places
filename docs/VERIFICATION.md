@@ -51,7 +51,8 @@ Per platform:
 `.github/workflows/rust.yml` uses a source-only macOS checkout for pushes,
 pull requests and manual runs. It rejects tracked `.placesmap` files, selects the
 repository toolchain, installs SDL3, `pkg-config` and Python dependencies, and runs
-separate format, check, debug Clippy, release Clippy and bounded-fixture test stages.
+separate format, check, debug Clippy, release Clippy and bounded-fixture test stages
+in a temporary source copy with `levels/` and `assets/levels/` omitted.
 Each Rust stage reports its elapsed seconds. Source Python contracts and maintained
 asset/generator checks follow; real-window smoke suites are excluded.
 
@@ -79,7 +80,9 @@ checks maintained assets/generators, and explicitly compiles every ID in
 the shared Rust gate, Python/export/native suites and the required ignored GPU
 tests. Compiled maps are generated outputs: neither Rust binary embeds or depends
 on them. A source-only checkout has no playable maps until this explicit build
-step; missing Demo loading reports the build/import action and remains retryable.
+step. Zero maps is a valid installation: the menu, settings, quit and subsequent
+external discovery work without a default world. Optional package errors remain
+bounded on screen and detailed in the log.
 
 ```sh
 sh tools/verify.sh
@@ -204,7 +207,8 @@ without a usable desktop fails with the binary's window error instead of being
 silently skipped. `tests/test_packaging.py` exercises the `tools/package.sh`
 destination guard against disposable fixtures, including a real packaging run
 whose unrelated siblings must survive; the export case requires the release
-binary and current lineup and runs when `PLACES_TEST_EXPORT=1`.
+binary and runs when `PLACES_TEST_EXPORT=1`. A tiny always-on export fixture
+also proves the default needs no compiler, map sources or compiled maps.
 `tests/test_glb_accessors.py` mirrors
 the Rust GLB accessor fixtures in Python. `tests/test_bench_metrics.py` pins
 the loading-harness metric names and the settings-transition window rule.

@@ -25,25 +25,6 @@ fn shipped_catalog() -> AssetCatalog {
     catalog
 }
 
-/// Generated capacity fixtures deliberately reference synthetic material ids.
-///
-/// The catalog-id audits below exist to catch a *typo* in authored content.
-/// `capacity_beyond_former_limits.json` is machine-generated from
-/// `tools/levels/build_capacity_fixtures.py` and its whole purpose is to cross
-/// the former 16-bit material-index boundary with more than 65 536 distinct
-/// ids — far more than the catalog holds — so the catalog-id check does not
-/// apply to it. `src/zoo_audit.rs` pins the fixture's real contracts (counts,
-/// material-id boundary, vertex estimate) instead.
-const GENERATED_CAPACITY_FIXTURES: [&str; 1] = ["capacity_beyond_former_limits.json"];
-
-/// True when `path` names a generated capacity fixture (exempt from the
-/// catalog-id audits).
-fn is_generated_capacity_fixture(path: &std::path::Path) -> bool {
-    path.file_name()
-        .and_then(std::ffi::OsStr::to_str)
-        .is_some_and(|name| GENERATED_CAPACITY_FIXTURES.contains(&name))
-}
-
 #[test]
 fn shipped_catalog_classifies_environments_themes_and_entities() {
     let catalog = shipped_catalog();
@@ -357,106 +338,68 @@ fn every_file_asset_exists_exactly_once() {
     );
 }
 
+/// Engine regression fixtures resolve catalog ids through the same material
+/// and placement contracts as external maps. Three bounded sources cover room
+/// overrides, openings, decals, fixture families and props without scanning
+/// optional authored content or generated capacity campaigns.
 #[test]
-fn levels_only_reference_catalog_ids() {
+fn regression_fixtures_reference_catalog_ids() {
     let catalog = shipped_catalog();
-    let mut levels = 0_i32;
-    let mut props = 0_i32;
-    let mut spooner_levels = 0_i32;
-
-    for dir in ["levels", "tests/fixtures/levels"] {
-        let entries = fs::read_dir(dir).unwrap_or_else(|error| panic!("{dir} must exist: {error}"));
-        for file in entries.flatten() {
-            let path = file.path();
-            if path.extension().is_none_or(|ext| ext != "json") {
-                continue;
-            }
-            if is_generated_capacity_fixture(&path) {
-                continue;
-            }
-            let content = fs::read_to_string(&path).expect("level is readable");
-            let level = LevelDef::from_json(&content)
-                .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
-            levels += 1_i32;
-
-            let check = |id: &str, what: &str| {
-                assert!(
-                    catalog.contains(id),
-                    "{}: {what} `{id}` is not in the asset catalog",
-                    path.display()
-                );
-            };
-            check(&level.defaults.wall, "wall material");
-            check(&level.defaults.floor, "floor material");
-            check(&level.defaults.ceiling, "ceiling material");
-            for room in level.room_iter() {
-                if let Some(material) = &room.material {
-                    check(material, "room floor material");
-                }
-                if let Some(material) = &room.ceiling_material {
-                    check(material, "room ceiling material");
-                }
-            }
-            for wall in &level.walls {
-                if let Some(material) = &wall.material {
-                    check(material, "wall material");
-                }
-                let mut face_materials: Vec<_> = wall.faces.iter().collect();
-                face_materials.sort_unstable_by_key(|(face, _)| *face);
-                for (_, material) in face_materials {
-                    check(material, "wall face material");
-                }
-            }
-            for patch in &level.floor_patches {
-                check(&patch.material, "floor patch material");
-            }
-            for light in &level.ceiling_lights {
-                check(&light.fixture, "light fixture");
-            }
-            for decal in &level.decals {
-                check(&decal.material, "decal sheet");
-            }
-            for prop in &level.props {
-                props += 1_i32;
-                assert!(
-                    catalog.placeable(&prop.model).is_some(),
-                    "{}: prop `{}` is not a placeable catalog asset",
-                    path.display(),
-                    prop.model
-                );
-                if prop.model == "spooner-man" {
-                    spooner_levels += 1_i32;
-                }
-            }
+    for path in [
+        "tests/fixtures/levels/test_room.json",
+        "tests/fixtures/levels/material_transport.json",
+        "tests/fixtures/unit/map_independent_preparation.json",
+    ] {
+        let content = fs::read_to_string(path).expect("the regression fixture is readable");
+        let level = LevelDef::from_json(&content).expect("the regression fixture parses");
+        for id in crate::materials::referenced_material_ids(&level) {
+            assert!(
+                catalog.contains(&id),
+                "{path}: material `{id}` is not catalogued"
+            );
+        }
+        for light in &level.ceiling_lights {
+            assert!(
+                catalog.contains(&light.fixture),
+                "{path}: fixture `{}` is not catalogued",
+                light.fixture
+            );
+        }
+        for decal in &level.decals {
+            assert!(
+                catalog.contains(&decal.material),
+                "{path}: decal `{}` is not catalogued",
+                decal.material
+            );
+        }
+        for prop in &level.props {
+            assert!(
+                catalog.placeable(&prop.model).is_some(),
+                "{path}: prop `{}` is not placeable",
+                prop.model
+            );
         }
     }
-    assert!(
-        levels >= 5_i32,
-        "expected the shipped level and the regression fixtures"
-    );
-    assert!(props >= 1_i32, "expected placed props");
-    assert!(
-        spooner_levels >= 1_i32,
-        "at least one level must still reference `spooner-man`"
-    );
 }
 
 #[test]
 fn renderer_and_catalog_agree_on_surface_and_decal_ids() {
     let catalog = shipped_catalog();
 
-    // Every catalogued surface material must resolve through the material
-    // table to a decoded PNG: no material is allowed to depend on a
-    // renderer-known id or a code-generated sheet any more.
-    let level = LevelDef::from_json(include_str!("../../levels/places_demo.json"))
-        .expect("places_demo parses");
+    // A small source proves that catalogued surface materials resolve to real
+    // PNGs through the renderer, including automatically generated trim.
+    let mut level = LevelDef::from_json(include_str!(
+        "../../tests/fixtures/unit/map_independent_preparation.json"
+    ))
+    .expect("the preparation fixture parses");
+    crate::loader::prepare_level(&mut level, &catalog, None);
     let mut cache = crate::materials::TextureCache::new();
     let root = resolve_asset_root().expect("assets/ is discoverable");
     let table =
         crate::materials::resolve_materials(&level, &catalog, None, Some(&root), &mut cache);
     assert!(
         table.errors().is_empty(),
-        "the demo's materials must all resolve: {:?}",
+        "the fixture's materials must all resolve: {:?}",
         table.errors()
     );
     for material in table.entries() {
@@ -580,46 +523,6 @@ fn renderer_and_catalog_agree_on_surface_and_decal_ids() {
             "{id}: every built-in fixture must resolve a sheet"
         );
     }
-}
-
-#[test]
-fn level_material_references_cover_floor_regions_too() {
-    let catalog = shipped_catalog();
-    let mut checked = 0usize;
-    for dir in ["levels", "tests/fixtures/levels"] {
-        let entries = fs::read_dir(dir).unwrap_or_else(|error| panic!("{dir}: {error}"));
-        for file in entries.flatten() {
-            let path = file.path();
-            if path.extension().is_none_or(|ext| ext != "json") {
-                continue;
-            }
-            if is_generated_capacity_fixture(&path) {
-                continue;
-            }
-            let content = fs::read_to_string(&path).expect("level is readable");
-            let level = LevelDef::from_json(&content)
-                .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
-            for region in &level.floor_regions {
-                for (what, material) in [
-                    ("region floor material", region.material.as_deref()),
-                    ("region edge material", region.edge_material.as_deref()),
-                ] {
-                    if let Some(material_id) = material {
-                        checked += 1;
-                        assert!(
-                            catalog.contains(material_id),
-                            "{}: {what} `{material_id}` is not in the asset catalog",
-                            path.display()
-                        );
-                    }
-                }
-            }
-        }
-    }
-    assert!(
-        checked > 0,
-        "at least one shipped level must exercise a region material"
-    );
 }
 
 #[test]
