@@ -168,16 +168,6 @@ impl QualityProfile {
         }
     }
 
-    /// True when this profile drops optional per-pixel material work.
-    ///
-    /// Reserving the hook now keeps later effect work (a future reflection or
-    /// post-processing path) from having to invent its own tier names: it asks
-    /// the active profile instead.
-    #[must_use]
-    pub const fn reduces_optional_features(self) -> bool {
-        matches!(self, Self::Low)
-    }
-
     /// True when this profile draws the optional surface response.
     ///
     /// The response is the normal-map perturbation and the view-dependent sheen
@@ -189,18 +179,6 @@ impl QualityProfile {
     /// materials reach the GPU under either profile.
     #[must_use]
     pub const fn draws_surface_response(self) -> bool {
-        matches!(self, Self::Full)
-    }
-
-    /// True when this profile renders the 3D scene at the drawable's own
-    /// resolution.
-    ///
-    /// See [`crate::render::framebuffer`]: Low renders the scene no wider than
-    /// the historical 480x272 reference width and presents it across the
-    /// drawable, trading scene pixels for performance in the optional Low
-    /// presentation.
-    #[must_use]
-    pub const fn draws_scene_at_drawable_resolution(self) -> bool {
         matches!(self, Self::Full)
     }
 
@@ -277,8 +255,8 @@ impl QualityProfile {
 /// subsystem is parameterised by. It answers with the texture edge budgets
 /// ([`Self::budget`]), the scene-target scale (through `scene_target_size`),
 /// the lightmap and bake configuration ([`Self::lightmap_config`],
-/// [`Self::bake_config`]), the optional-feature gates
-/// ([`Self::draws_surface_response`], [`Self::reduces_optional_features`]) and
+/// [`Self::bake_config`]), the surface-response gate
+/// ([`Self::draws_surface_response`]) and
 /// the reflection probe face size.
 ///
 /// Low and High delegate to the validated [`QualityProfile`] values, so a level
@@ -374,15 +352,6 @@ impl QualityLevel {
         }
     }
 
-    /// True when this level drops optional per-pixel material work.
-    #[must_use]
-    pub const fn reduces_optional_features(self) -> bool {
-        match self {
-            Self::Low => QualityProfile::Low.reduces_optional_features(),
-            Self::Medium | Self::High => QualityProfile::Full.reduces_optional_features(),
-        }
-    }
-
     /// True when this level draws the optional surface response.
     ///
     /// The response is the normal-map perturbation and the view-dependent sheen
@@ -393,20 +362,6 @@ impl QualityLevel {
         match self {
             Self::Low => QualityProfile::Low.draws_surface_response(),
             Self::Medium | Self::High => QualityProfile::Full.draws_surface_response(),
-        }
-    }
-
-    /// True when this level renders the 3D scene at the drawable's own
-    /// resolution.
-    ///
-    /// Only High always does; Medium caps the scene target's scale at one half
-    /// of the drawable and Low at the 480-pixel reference width. See
-    /// `scene_target_size` in `render::common::framebuffer`.
-    #[must_use]
-    pub const fn draws_scene_at_drawable_resolution(self) -> bool {
-        match self {
-            Self::High => QualityProfile::Full.draws_scene_at_drawable_resolution(),
-            Self::Low | Self::Medium => false,
         }
     }
 

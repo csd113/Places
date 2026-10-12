@@ -458,8 +458,9 @@ independent clean archive byte for byte, including baked lighting and probe mips
 A vertex-lit development build uses `--variants static --workers 12`; its native
 player must request Static. Use `--variants full` when inspecting baked detail. Final visual validation uses `--variants
 off,full --workers 12` and High/Full. Keep the output paths distinct;
-variant identities are enforced. Medium changes chart/filter/reflection quality,
-not correctness or content, and cannot stand in for the final High gallery.
+variant identities are enforced. Texture quality and filtering preserve selected
+lighting. Medium lighting remains readable only for legacy packages; final
+lighting validation uses Full, with High textures for the reference gallery.
 
 `capture_art_style_hero.py --move-script 'forward@0-1.35'` drives normal controls
 and preserves the view's state CSV. Invalid scripts are rejected. `--diagnostic

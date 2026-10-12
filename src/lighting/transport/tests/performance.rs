@@ -573,12 +573,18 @@ fn shared_layers_match_independent_reference_for_sky_water_darkness_and_all_boun
             }]);
         }
         for bounces in 0..=3 {
+            // One independent serial oracle covers both execution budgets.
+            // Keep every comparison while avoiding an identical second solve.
+            let serial_options = SolveOptions {
+                workers: 1,
+                ..options(bounces, 2)
+            };
+            let expected = reference_layer_solve(&scene, &charts, serial_options);
             for workers in [1, 12] {
                 let options = SolveOptions {
                     workers,
-                    ..options(bounces, 2)
+                    ..serial_options
                 };
-                let expected = reference_layer_solve(&scene, &charts, options);
                 let actual = scene
                     .solve_with_probes(&charts, options, None, true)
                     .expect("shared pass");

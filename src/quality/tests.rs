@@ -83,14 +83,6 @@ fn low_and_high_delegate_to_the_validated_profiles() {
         QualityLevel::High.draws_surface_response(),
         QualityProfile::Full.draws_surface_response()
     );
-    assert_eq!(
-        QualityLevel::Low.reduces_optional_features(),
-        QualityProfile::Low.reduces_optional_features()
-    );
-    assert_eq!(
-        QualityLevel::High.reduces_optional_features(),
-        QualityProfile::Full.reduces_optional_features()
-    );
 }
 
 /// The profile mapping is the protected content-key boundary: only Low maps to
@@ -141,20 +133,10 @@ fn budgets_are_power_of_two_so_downscaling_is_a_clean_halving_chain() {
 }
 
 #[test]
-fn only_low_reserves_the_optional_feature_hook() {
-    assert!(!QualityLevel::High.reduces_optional_features());
-    assert!(!QualityLevel::Medium.reduces_optional_features());
-    assert!(QualityLevel::Low.reduces_optional_features());
-}
-
-#[test]
 fn surface_response_is_drawn_except_on_low() {
     assert!(QualityLevel::High.draws_surface_response());
     assert!(QualityLevel::Medium.draws_surface_response());
     assert!(!QualityLevel::Low.draws_surface_response());
-    assert!(QualityLevel::High.draws_scene_at_drawable_resolution());
-    assert!(!QualityLevel::Medium.draws_scene_at_drawable_resolution());
-    assert!(!QualityLevel::Low.draws_scene_at_drawable_resolution());
 }
 
 /// The lightmap half of a level is a real quality decision, not a label: the
@@ -259,21 +241,9 @@ fn shadow_quality_scales_with_the_level() {
 
 /// One row of the level contract: the level plus every derived decision.
 ///
-/// `(level, prop edge, sheet edge, mask edge, response, roomy scene, lightmap
-/// page edge, density, taps, cell, optional-feature hook)`.
-type LevelStop = (
-    QualityLevel,
-    u32,
-    u32,
-    u32,
-    bool,
-    bool,
-    u32,
-    f32,
-    u8,
-    f32,
-    bool,
-);
+/// `(level, prop edge, sheet edge, mask edge, response, lightmap
+/// page edge, density, taps, cell)`.
+type LevelStop = (QualityLevel, u32, u32, u32, bool, u32, f32, u8, f32);
 
 /// Asserts every decision of one [`LevelStop`] row.
 fn assert_level_decisions(
@@ -283,12 +253,10 @@ fn assert_level_decisions(
         sheet_edge,
         mask_edge,
         response,
-        scene_at_drawable,
         lightmap_page,
         density,
         taps,
         cell,
-        optional_hook,
     ): LevelStop,
 ) {
     use crate::lighting::lightmap::LightmapConfig;
@@ -320,11 +288,6 @@ fn assert_level_decisions(
         response,
         "{level:?}: surface-response gate"
     );
-    assert_eq!(
-        level.draws_scene_at_drawable_resolution(),
-        scene_at_drawable,
-        "{level:?}: scene-resolution policy"
-    );
     let config = LightmapConfig::for_profile(level.profile());
     assert_eq!(
         level.lightmap_config().page_edge,
@@ -347,11 +310,6 @@ fn assert_level_decisions(
         cell,
         "{level:?}: prop occlusion cell"
     );
-    assert_eq!(
-        level.reduces_optional_features(),
-        optional_hook,
-        "{level:?}: optional-feature hook"
-    );
 }
 
 /// A live level switch must change *every* decision the renderer derives from
@@ -365,31 +323,17 @@ fn assert_level_decisions(
 #[test]
 fn switching_levels_changes_every_derived_decision() {
     let stops: [LevelStop; 3] = [
-        (
-            QualityLevel::Low,
-            128,
-            256,
-            128,
-            false,
-            false,
-            512,
-            10.0,
-            1,
-            0.15,
-            true,
-        ),
+        (QualityLevel::Low, 128, 256, 128, false, 512, 10.0, 1, 0.15),
         (
             QualityLevel::Medium,
             256,
             512,
             256,
             true,
-            false,
             1_024,
             12.0,
             2,
             0.11,
-            false,
         ),
         (
             QualityLevel::High,
@@ -397,12 +341,10 @@ fn switching_levels_changes_every_derived_decision() {
             1_024,
             512,
             true,
-            true,
             1_024,
             16.0,
             2,
             0.075,
-            false,
         ),
     ];
     for stop in stops {
