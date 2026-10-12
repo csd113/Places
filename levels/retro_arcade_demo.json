@@ -2437,12 +2437,12 @@
             0.53
           ],
           "color": [
-            0.2,
+            0.22,
             0.48,
             1
           ],
-          "intensity": 0.32,
-          "range": 2.8
+          "intensity": 0.36,
+          "range": 2.4
         },
         {
           "shape": "point",
@@ -2452,12 +2452,12 @@
             0.53
           ],
           "color": [
-            0.2,
+            0.22,
             0.48,
             1
           ],
-          "intensity": 0.15,
-          "range": 2.1
+          "intensity": 0.18,
+          "range": 1.8
         }
       ]
     },
@@ -2484,12 +2484,12 @@
             0.44999999999999996
           ],
           "color": [
-            0.12,
+            0.15,
             0.7,
-            0.5
+            0.55
           ],
-          "intensity": 0.32,
-          "range": 2.8
+          "intensity": 0.36,
+          "range": 2.4
         },
         {
           "shape": "point",
@@ -2499,12 +2499,12 @@
             0.44999999999999996
           ],
           "color": [
-            0.12,
+            0.15,
             0.7,
-            0.5
+            0.55
           ],
-          "intensity": 0.15,
-          "range": 2.1
+          "intensity": 0.18,
+          "range": 1.8
         }
       ]
     },
@@ -2532,11 +2532,11 @@
           ],
           "color": [
             1,
-            0.35,
-            0.12
+            0.28,
+            0.14
           ],
-          "intensity": 0.32,
-          "range": 2.8
+          "intensity": 0.36,
+          "range": 2.4
         },
         {
           "shape": "point",
@@ -2547,11 +2547,11 @@
           ],
           "color": [
             1,
-            0.35,
-            0.12
+            0.28,
+            0.14
           ],
-          "intensity": 0.15,
-          "range": 2.1
+          "intensity": 0.18,
+          "range": 1.8
         }
       ]
     },
@@ -2578,12 +2578,12 @@
             0.495
           ],
           "color": [
-            0.85,
-            0.19,
-            0.36
+            1,
+            0.16,
+            0.55
           ],
-          "intensity": 0.32,
-          "range": 2.8
+          "intensity": 0.36,
+          "range": 2.4
         },
         {
           "shape": "point",
@@ -2593,12 +2593,12 @@
             0.495
           ],
           "color": [
-            0.85,
-            0.19,
-            0.36
+            1,
+            0.16,
+            0.55
           ],
-          "intensity": 0.15,
-          "range": 2.1
+          "intensity": 0.18,
+          "range": 1.8
         }
       ]
     },
@@ -2625,12 +2625,12 @@
             0.475
           ],
           "color": [
-            0.3,
-            0.25,
+            0.52,
+            0.22,
             1
           ],
-          "intensity": 0.32,
-          "range": 2.8
+          "intensity": 0.36,
+          "range": 2.4
         },
         {
           "shape": "point",
@@ -2640,12 +2640,12 @@
             0.475
           ],
           "color": [
-            0.3,
-            0.25,
+            0.52,
+            0.22,
             1
           ],
-          "intensity": 0.15,
-          "range": 2.1
+          "intensity": 0.18,
+          "range": 1.8
         }
       ]
     },
@@ -2672,12 +2672,12 @@
             0.495
           ],
           "color": [
-            0.18,
+            0.24,
             0.43,
             1
           ],
-          "intensity": 0.0512,
-          "range": 2.8
+          "intensity": 0.0576,
+          "range": 2.4
         },
         {
           "shape": "point",
@@ -2687,12 +2687,12 @@
             0.495
           ],
           "color": [
-            0.18,
+            0.24,
             0.43,
             1
           ],
-          "intensity": 0.024,
-          "range": 2.1
+          "intensity": 0.0288,
+          "range": 1.8
         }
       ],
       "components": [
@@ -2731,12 +2731,12 @@
             0.53
           ],
           "color": [
-            0.18,
+            0.24,
             0.43,
             1
           ],
-          "intensity": 0.32,
-          "range": 2.8
+          "intensity": 0.36,
+          "range": 2.4
         },
         {
           "shape": "point",
@@ -2746,12 +2746,12 @@
             0.53
           ],
           "color": [
-            0.18,
+            0.24,
             0.43,
             1
           ],
-          "intensity": 0.15,
-          "range": 2.1
+          "intensity": 0.18,
+          "range": 1.8
         }
       ]
     },
@@ -2778,12 +2778,12 @@
             -0.46
           ],
           "color": [
-            0.65,
-            0.45,
+            0.82,
+            0.3,
             1
           ],
           "intensity": 0.24,
-          "range": 2.2
+          "range": 2.0
         },
         {
           "shape": "point",
@@ -2825,12 +2825,12 @@
             -0.46
           ],
           "color": [
-            0.65,
-            0.45,
+            0.82,
+            0.3,
             1
           ],
           "intensity": 0.24,
-          "range": 2.2
+          "range": 2.0
         },
         {
           "shape": "point",
@@ -2872,7 +2872,7 @@
       "z": 25,
       "rotation_degrees": 90,
       "size": [
-        1.08,
+        0.96,
         2.03,
         0.86
       ],
@@ -2910,21 +2910,6 @@
           "range": 1.5
         }
       ]
-    },
-    {
-      "id": "vending_cat_plush",
-      "model": "arcade:cat_plush",
-      "x": 0.9,
-      "y": 2.03,
-      "z": 25,
-      "rotation_degrees": 90,
-      "size": [
-        0.25,
-        0.36,
-        0.235
-      ],
-      "solid": false,
-      "occludes": false
     },
     {
       "id": "bowl_neon",
@@ -5345,44 +5330,46 @@
       "x": 4.2,
       "z": 3.9,
       "align": "none",
-      "brightness": 0.28,
+      "brightness": 0.24,
       "color": [
-        0.58,
-        0.68,
+        0.64,
+        0.7,
         1
       ],
-      "emission": 0.95,
-      "range": 6.5
+      "emission": 0.72,
+      "range": 5.5
     },
     {
       "id": "troffer_1",
-      "fixture": "arcade:fluorescent_panel_01",
+      "fixture": "arcade:blacklight_tube",
       "x": 4.2,
       "z": 10.5,
       "align": "none",
-      "brightness": 0.25,
+      "brightness": 0.42,
       "color": [
-        0.58,
-        0.68,
-        1
+        1,
+        0.12,
+        0.68
       ],
-      "emission": 0.95,
-      "range": 6.5
+      "emission": 0.64,
+      "range": 6.0,
+      "ultraviolet": 0
     },
     {
       "id": "troffer_2",
-      "fixture": "arcade:fluorescent_panel_01",
+      "fixture": "arcade:blacklight_tube",
       "x": 4.2,
       "z": 19.5,
       "align": "none",
-      "brightness": 0.23,
+      "brightness": 0.42,
       "color": [
-        0.58,
-        0.68,
+        0.54,
+        0.18,
         1
       ],
-      "emission": 0.95,
-      "range": 6.5
+      "emission": 0.64,
+      "range": 6.0,
+      "ultraviolet": 0
     },
     {
       "id": "troffer_3",
@@ -5392,12 +5379,12 @@
       "align": "none",
       "brightness": 0.24,
       "color": [
-        0.58,
-        0.68,
+        0.64,
+        0.7,
         1
       ],
-      "emission": 0.95,
-      "range": 6.5
+      "emission": 0.72,
+      "range": 6.0
     },
     {
       "id": "troffer_4",
@@ -5465,14 +5452,14 @@
       "x": 10.2,
       "z": 27.3,
       "align": "none",
-      "brightness": 0.42,
+      "brightness": 0.3,
       "color": [
         1,
-        0.95,
-        0.88
+        0.24,
+        0.66
       ],
-      "emission": 0.95,
-      "range": 6.5
+      "emission": 0.78,
+      "range": 5.1
     },
     {
       "id": "troffer_9",

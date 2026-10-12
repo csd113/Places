@@ -7256,21 +7256,21 @@
     },
     {
       "id": "arcade:vending_machine",
-      "display_name": "Vending Machine",
+      "display_name": "Bepsi Soda Machine",
       "asset_class": "environment",
       "theme": "arcade",
       "asset_type": "prop",
       "source": "file",
       "model": "environments/arcade/props/vending_machine.glb",
       "size": [
-        1.08,
+        0.96,
         2.03,
         0.86
       ],
       "color": "#ffffff",
       "category": "Arcade",
       "solid": true,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Tall period blue soda cabinet with illuminated logo and drink selection windows, central payment strip and recessed delivery tray; +Z front, floor-contact origin."
     },
     {
       "id": "arcade:cabinet_racing",

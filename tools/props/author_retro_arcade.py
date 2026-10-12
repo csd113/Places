@@ -246,38 +246,48 @@ def score():
 
 
 def vending():
+    """Fit original generated period art to the rebuilt machine's UV frame.
+
+    This offline operation intentionally rebuilds its GLB alongside the atlas;
+    no concept-board pixels become runtime textures. Preserve the retained
+    illustration and the exact pixel rectangles declared in retro_arcade.py.
+    """
     a=Art('vending_machine')
-    a.box((0,0,128,64),(21,92,159))
-    a.poly([(0,60),(0,31),(87,0),(128,0),(128,17)],(28,119,185))
-    a.poly([(9,64),(48,0),(65,0),(26,64)],(177,43,54))
-    a.text('STRIKE',(9,10,119,36),(235,236,213),23)
-    a.text('REFRESH YOUR GAME',(12,39,117,54),(196,217,218),7)
-    a.box((0,64,128,192),(13,24,37))
-    product_colors=((145,36,47),(35,99,145),(159,125,39),(29,110,93),(116,47,99))
-    for row in range(4):
-        yy=69+row*29
-        a.box((5,yy+22,123,yy+25),(99,117,126))
-        for col in range(5):
-            x=11+col*23;c=product_colors[(col+row)%5]
-            a.box((x,yy+1,x+14,yy+21),c,outline=(126,138,134),width=.4)
-            a.box((x+1,yy+9,x+13,yy+14),(223,217,193))
-            a.text(('COLA','SODA','POP','LIME','FIZZ')[col],(x,yy+9,x+14,yy+14),c,3)
-            a.box((x+2,yy-1,x+12,yy+1),(162,169,167))
-    a.box((0,192,128,224),(20,79,133))
-    a.text('COLD DRINKS',(7,196,120,221),(223,225,205),14)
-    a.box((0,224,128,256),(7,12,18))
-    a.text('PUSH',(39,236,88,250),(102,110,112),6)
-    a.box((128,0,192,192),(79,90,98))
-    a.text('$1.00',(134,9,187,27),(227,222,191),9)
-    a.box((144,35,178,39),(13,19,25))
-    a.box((141,53,181,67),(25,29,34));a.text('BILLS',(142,54,180,66),(196,205,189),6)
-    for y in range(88,173,17):
-        a.box((139,y,181,y+12),(20,39,57),outline=(134,155,155),width=.6)
-        a.box((143,y+3,163,y+9),(174,186,166));a.oval((172,y+3,178,y+9),(70,122,154))
-    a.text('SELECT',(131,175,189,190),(193,201,191),7)
-    for i,(name,color) in enumerate((('body',(24,62,114)),('trim',(94,108,120)),('dark',(10,15,22)),('metal',(158,164,163)))):
+    with Image.open(ROOT/'illustrations/vending_bepsi_front.png') as source:
+        source=source.convert('RGB')
+        w,h=source.size
+        def fit(rect, dest):
+            x,y,width,height=dest
+            crop=source.crop(tuple(round(v) for v in rect))
+            a.image.paste(ImageOps.fit(crop,(width*SCALE,height*SCALE),Image.Resampling.LANCZOS),
+                          (x*SCALE,y*SCALE))
+        fit((0,0,w,h*.325),(0,0,128,80))
+        # Two 2-column banks share six clear beverage designs in three rows.
+        labels=[]
+        for row,(lo,hi) in enumerate(((.327,.486),(.486,.631),(.631,.802))):
+            for left,right in ((.012,.361),(.638,.987)):
+                labels.append((left*w,lo*h,right*w,hi*h))
+        order=(0,2,1,3,4,0,5,1,2,4,3,5)
+        for i,source_index in enumerate(order):
+            fit(labels[source_index],(i%4*32,80+i//4*32,32,32))
+        fit((0,h*.80,w,h),(0,176,128,80))
+    # Control/payment strip is ordinary silver hardware, never a light panel.
+    a.box((128,0,192,192),(138,148,156))
+    a.box((133,6,187,34),(29,42,39))
+    a.text('$1.00',(134,8,186,31),(155,207,153),12)
+    a.text('INSERT BILL',(131,36,189,48),(29,35,42),6)
+    a.box((138,50,182,60),(10,16,24))
+    a.text('COINS',(131,67,169,80),(26,34,40),6)
+    a.box((173,66,179,86),(13,19,27))
+    a.oval((140,105,166,131),(110,28,38),outline=(38,43,51),width=1)
+    a.text('RETURN',(132,135,190,148),(27,33,41),6)
+    a.box((149,151,174,161),(21,30,41))
+    a.text('MAKE',(131,172,189,180),(30,37,46),6)
+    a.text('SELECTION',(131,181,189,189),(30,37,46),6)
+    a.box((128,192,192,224),(7,12,20))
+    a.text('PUSH',(142,199,181,216),(86,104,118),9)
+    for i,(name,color) in enumerate((('body',(18,53,113)),('trim',(79,96,114)),('dark',(8,12,19)),('metal',(144,159,172)))):
         stock(a,(192,i*64,64,64),color,i)
-    a.box((128,192,192,256),(29,57,92))
     a.finish()
 
 

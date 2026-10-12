@@ -1,0 +1,283 @@
+{
+  "date": "2026-10-12",
+  "renderer": "Apple M2 Pro / wgpu Metal",
+  "images": {
+    "arcade-before.png": "896b639898926819bad2d8cc6008f5e2f661cb5ec02ebecd7548d519d0bec857",
+    "arcade-final.png": "e88c7fa2c93b84f6093581d171f99b1440c1a4a1232332acd72aa5006f381605",
+    "vending-before.png": "b237b7c621df0dbc46ac909e7e861ffe941632e9c56ba884d383bb54b4192d5b",
+    "vending-final.png": "eb417f933fc104778bf40d2b4638fabcc683344c3ab508cb2c0aa20f426a96d8",
+    "bowling-final.png": "1ae8028df491414af0f2a604f6b07dc01bbed6c0a57bae8ec0f2dc825dfd8849",
+    "party-final.png": "d0ce6489978c88cfb21ae545214fcff160d19a81404000a30e9812f6d8745dc8",
+    "transition-final.png": "4ec505acbc528da086b169b7dfcd4351f118985f3bc759fe855e847a096493d0"
+  },
+  "native_identity": {
+    "binary_sha256": "169676075a91e93d68f756817eff7b1e862993ddd1e1fbf8a748271c1b9da4c9",
+    "package_sha256": "71992d9bc62cf2fa3e0a8e630d0db36ab359e23d313f2310e10dcb228e47d379",
+    "source_sha256": "4c94c9873e8ea92aaa9c77244e75054a43fc8fd7173a99b649a54b2452501596",
+    "camera_manifest_sha256": "c6e4ff8f830468065a64ee0862df09ee0f853234924a8ea8bd10eaf314d16fdf",
+    "capture_tool_sha256": "6287e995e135df68d34de9cdb2a4f7af11101b7941d4179f250349a8c9596829",
+    "catalog_sha256": "391254da90c8236cff5901ddef75c93545ec14a7786c472e23412cd3eec8ee75",
+    "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+    "git_revision": "d99dfe8d970a4d7b97bee069b6eeace5086eaf56",
+    "git_diff_sha256": "793fb9cf02538fd45bc0890a75f17921f4b9bb6c5b0dc1b198776ba3e784e1cf"
+  },
+  "baseline_identity": {
+    "binary_sha256": "169676075a91e93d68f756817eff7b1e862993ddd1e1fbf8a748271c1b9da4c9",
+    "package_sha256": "dddf61dfb8be7dd2551856bf6d6ce81b20bcf3d6b7f2d62014cad2772ca313ef",
+    "source_sha256": "7520a38810dade18a3f74cb665285c23c8ade6385a5b25b72eb707d55001708c",
+    "camera_manifest_sha256": "b9d7fdbced7e02d6229956b7cb62b2a6359760c959cac844a73dc79a2cd67798",
+    "capture_tool_sha256": "6287e995e135df68d34de9cdb2a4f7af11101b7941d4179f250349a8c9596829",
+    "catalog_sha256": "00e26db363bad76fb471e15e7c732982569c1fb00dc46f9579a6a5b8fca503a3",
+    "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+    "git_revision": "d99dfe8d970a4d7b97bee069b6eeace5086eaf56",
+    "git_diff_sha256": "8f26428e7f927336f23bc3ccfd89900526a8630c67b76d688ae22fcda4e83237"
+  },
+  "before_package_bytes": 45250434,
+  "after_package_bytes": 45317180,
+  "final_bake_seconds": 524.618303042,
+  "variant_stats": [
+    {
+      "lightmap_quality": "off",
+      "mesh_ranges": 89,
+      "mesh_vertices": 3356,
+      "prop_batches": 119,
+      "prop_encoding": {
+        "input_vertex_slots": 165180,
+        "stored_vertex_slots": 150530,
+        "duplicate_slots": 14650,
+        "batch_count": 119,
+        "index_count": 203754
+      },
+      "lightmap_pages": 0,
+      "lightmap_charts": 0,
+      "irradiance_probes": 0,
+      "probe_points": 1,
+      "wall_boxes": 57,
+      "navigation_cells": 14696,
+      "navigation_regions": 1
+    },
+    {
+      "lightmap_quality": "full",
+      "mesh_ranges": 74,
+      "mesh_vertices": 2284,
+      "prop_batches": 119,
+      "prop_encoding": {
+        "input_vertex_slots": 183250,
+        "stored_vertex_slots": 168618,
+        "duplicate_slots": 14632,
+        "batch_count": 119,
+        "index_count": 203754
+      },
+      "lightmap_pages": 4,
+      "lightmap_charts": 35764,
+      "irradiance_probes": 1323,
+      "probe_points": 1,
+      "wall_boxes": 57,
+      "navigation_cells": 14696,
+      "navigation_regions": 1
+    }
+  ],
+  "native_summary": {
+    "uv_on_off": {
+      "mean_abs_rgb": 3.044488208912037,
+      "changed_pixels": 487554,
+      "max_abs_rgb": 198.0
+    },
+    "uv_restoration": {
+      "mean_abs_rgb": 0.0,
+      "changed_pixels": 0,
+      "max_abs_rgb": 0.0
+    },
+    "settings_restoration": {
+      "mean_abs_rgb": 0.0,
+      "changed_pixels": 0,
+      "max_abs_rgb": 0.0
+    },
+    "balloon_motion": {
+      "mean_abs_rgb": 0.3968341290509259,
+      "changed_pixels": 16354,
+      "max_abs_rgb": 140.0
+    },
+    "candle_on_off": {
+      "mean_abs_rgb": 0.8701251446759259,
+      "changed_pixels": 158266,
+      "max_abs_rgb": 151.0
+    },
+    "matched_party": {
+      "mean_abs_rgb": 0.0043174913194444445,
+      "changed_pixels": 8809,
+      "max_abs_rgb": 24.0
+    },
+    "matched_cake": {
+      "mean_abs_rgb": 0.005132378472222222,
+      "changed_pixels": 12104,
+      "max_abs_rgb": 15.0
+    },
+    "arcade-polish-before-perf/arcade": {
+      "frames": 240,
+      "loop_ms": {
+        "mean": 4.210941666666667,
+        "median": 1.7360000000000002,
+        "p95": 11.442
+      },
+      "update_ms": {
+        "mean": 1.0710416666666667,
+        "median": 0.9935,
+        "p95": 1.577
+      },
+      "render_ms": {
+        "mean": 2.95075,
+        "median": 0.535,
+        "p95": 9.949
+      },
+      "draw_calls": [
+        62,
+        62
+      ],
+      "visible_vertices": [
+        11924,
+        11924
+      ],
+      "texture_binds": [
+        14,
+        14
+      ],
+      "material_changes": [
+        43,
+        43
+      ],
+      "peak_rss_bytes": 1082097664
+    },
+    "arcade-polish-final-perf/arcade": {
+      "frames": 240,
+      "loop_ms": {
+        "mean": 5.876166666666666,
+        "median": 4.1585,
+        "p95": 15.498
+      },
+      "update_ms": {
+        "mean": 1.2420708333333332,
+        "median": 1.1535,
+        "p95": 1.895
+      },
+      "render_ms": {
+        "mean": 4.387008333333333,
+        "median": 3.0355,
+        "p95": 13.78
+      },
+      "draw_calls": [
+        62,
+        62
+      ],
+      "visible_vertices": [
+        11868,
+        11868
+      ],
+      "texture_binds": [
+        14,
+        14
+      ],
+      "material_changes": [
+        44,
+        44
+      ],
+      "peak_rss_bytes": 1080410112
+    },
+    "arcade-polish-final-perf/vending": {
+      "frames": 240,
+      "loop_ms": {
+        "mean": 6.227233333333333,
+        "median": 4.7035,
+        "p95": 15.993
+      },
+      "update_ms": {
+        "mean": 1.2670625,
+        "median": 1.2,
+        "p95": 2.063
+      },
+      "render_ms": {
+        "mean": 4.72945,
+        "median": 3.3525,
+        "p95": 14.379
+      },
+      "draw_calls": [
+        17,
+        17
+      ],
+      "visible_vertices": [
+        5066,
+        5066
+      ],
+      "texture_binds": [
+        7,
+        7
+      ],
+      "material_changes": [
+        11,
+        11
+      ],
+      "peak_rss_bytes": 1079017472
+    },
+    "always_on_source_indices": [
+      [
+        4,
+        5,
+        14,
+        17
+      ]
+    ],
+    "traversal": {
+      "ready_samples": 168,
+      "x_min": 6.7,
+      "x_max": 25.3497,
+      "eye_y_range": [
+        1.6,
+        1.6
+      ],
+      "z_range": [
+        25.2,
+        25.2
+      ],
+      "final_x": 6.7
+    },
+    "candle_frosting_patch_rgb_gain": [
+      20.891402714932127,
+      11.020814479638009,
+      2.7085972850678735
+    ]
+  },
+  "model": {
+    "triangles": 792,
+    "primitives": 5,
+    "native_png": [
+      256,
+      256
+    ],
+    "decoded_rgba_bytes": 262144,
+    "glb_bytes": 164852
+  },
+  "preserved_files": 143,
+  "preexisting_audits_preserved": 5,
+  "rust_default_library_passes": 2272,
+  "rust_all_features_library_passes": 2278,
+  "rust_integration_passes": 8,
+  "python_tests": 351,
+  "python_expected_skips": 4,
+  "atlas_pages_full": 4,
+  "asset_audit": {
+    "animated_models": 16,
+    "clips": 40,
+    "embedded_pngs": 364,
+    "errors": 0,
+    "maps": 40,
+    "materials": 96,
+    "models": 336,
+    "standalone_pngs": 485
+  },
+  "notes": [
+    "Production release binary, fixed frame30 and1/60 simulation for matched views; original PNGs copied unchanged.",
+    "CPU timings are one240-frame sample after120 warmup frames at each view, no competing builds; not hardware GPU measurements.",
+    "Default and all-feature Rust suites and source Python checks never bake production maps.",
+    "Arcade and one existing20m\u00b2 developer candle fixture only; unrelated provenance/Model Zoo Full overflow reconciliation deferred."
+  ]
+}

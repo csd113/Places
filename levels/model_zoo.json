@@ -6254,12 +6254,12 @@
     },
     {
       "id": "zoo:arcade-vending_machine:floor",
-      "display_name": "Vending Machine",
+      "display_name": "Bepsi Soda Machine",
       "model": "arcade:vending_machine",
       "x": 42.6,
       "z": 66.1,
       "size": [
-        1.08,
+        0.96,
         2.03,
         0.86
       ],

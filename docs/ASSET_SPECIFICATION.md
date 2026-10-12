@@ -1185,6 +1185,27 @@ and GLB exist within `assets/` and preserves these exports even with `--force`.
 The ordinary `--check`, asset audit and Rust model tests still inspect the GLBs;
 this ownership record does not exempt geometry, UV, PNG, scale or budget rules.
 
+### 8.14 Arcade soda machine revision
+
+The concept-directed Bepsi rebuild uses the existing fitted model class: opaque,
+clamped 256-square native PNG, retained 1024-square master, +Y up, +Z front,
+floor-contact origin and a 0.96 × 2.03 × 0.86 m catalog footprint. Its rebuilt
+geometry and UVs are published together. This replaces the earlier STRIKE layout;
+the old atlas must never be applied to the revised GLB.
+
+Native atlas rectangles (x, y, width, height) are logo `(0,0,128,80)`, twelve
+drink labels in a four-column/three-row grid of 32-square cells starting at
+`(0,80)`, lower artwork `(0,176,128,80)`, central payment strip `(128,0,64,192)`,
+delivery back `(128,192,64,32)`, and body/trim/dark/metal in the four 64-square
+cells at X=192. Lower door sections share one continuous UV frame around a real
+delivery aperture. Only advertisement/selection faces and restrained lower
+backlighting emit; cabinet stock and payment/delivery hardware remain ordinary.
+The retained generated illustration is an offline input, never a concept-board
+crop. `author_retro_arcade.py --only vending_machine` fits the source PNG and
+`build.py --only arcade:vending_machine` rebuilds the corresponding GLB.
+`inspect_arcade_vending.py` is an explicit installed-Blender preview tool; the
+Python builder remains authoritative and no Blender/map bake enters default tests.
+
 ## 9. Emissive textures and masks
 
 Places does **not** use dedicated emissive colour textures. Emission is

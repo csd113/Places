@@ -277,30 +277,30 @@ def build_level():
     # The six carpets remain reusable catalog assets. This composed interior
     # chooses one different design per room rather than showroom floor bays.
 
-    def cabinet(name, x, z, identity, yaw=90, color=(.18, .43, 1), dim=False):
+    def cabinet(name, x, z, identity, yaw=90, color=(.24, .43, 1), dim=False):
         size = sizes["arcade:"+name]
         scale = .16 if dim else 1
         entry = prop(name, x, z, identity, yaw=yaw, lights=[
             dict(shape="point", offset=[0, 1.25, size[2]/2+.03],
-                 color=list(color), intensity=.32*scale, range=2.8),
+                 color=list(color), intensity=.36*scale, range=2.4),
             dict(shape="point", offset=[0, size[1]-.13, size[2]/2+.03],
-                 color=list(color), intensity=.15*scale, range=2.1)])
+                 color=list(color), intensity=.18*scale, range=1.8)])
         if dim:
             entry["components"] = [dict(component="material", current="standby",
                 variants=[dict(name="standby", emission_scale=scale)])]
 
-    for name, z, color in (("racing", 6.0, (.2, .48, 1)),
-                          ("shooter", 8.0, (.12, .7, .5)),
-                          ("action", 10.0, (1, .35, .12)),
-                          ("fighting", 12.1, (.85, .19, .36)),
-                          ("scifi", 14.3, (.3, .25, 1))):
+    for name, z, color in (("racing", 6.0, (.22, .48, 1)),
+                          ("shooter", 8.0, (.15, .7, .55)),
+                          ("action", 10.0, (1, .28, .14)),
+                          ("fighting", 12.1, (1, .16, .55)),
+                          ("scifi", 14.3, (.52, .22, 1))):
         cabinet("cabinet_"+name, .82, z, "west_"+name, color=color)
     cabinet("cabinet_fighting", 5.8, 1.2, "north_fighting", yaw=0, dim=True)
     cabinet("cabinet_racing", 7.1, 1.2, "north_racing", yaw=0)
     for index, name in enumerate(("pinball_cosmic", "pinball_comet")):
         prop(name, 1.1, 18.0+index*2.1, f"pinball_{index}", yaw=90,
              lights=[dict(shape="point", offset=[0, 1.65, -.46],
-                          color=[.65, .45, 1], intensity=.24, range=2.2),
+                          color=[.82, .30, 1], intensity=.24, range=2.0),
                      dict(shape="point", offset=[0, 1.14, .12],
                           color=[1, .82, .55], intensity=.40, range=1.15)])
     prop("change_machine", .5, 23, "change_machine", yaw=90)
@@ -309,7 +309,6 @@ def build_level():
                       intensity=.46, range=3.8),
                  dict(shape="point", offset=[0, 2.13, .5], color=[.5, .65, 1],
                       intensity=.15, range=1.5)])
-    prop("cat_plush", .9, 25, "vending_cat_plush", y=2.03, yaw=90)
     prop("neon_bowl", 19.77, 21.5, "bowl_neon", y=1.72, yaw=270,
          lights=[dict(shape="point", offset=[0, .4, .09], color=[1, .08, .14],
                       intensity=.18, range=3.2),
@@ -324,16 +323,30 @@ def build_level():
                        ("litter_bottle_fallen", 8.8, 28.0)):
         prop(name, x, z, name, yaw=38)
 
-    # Recessed troffers remain sparse, neutral-warm and placed on the authored
-    # rectangular module grid explicitly (the generic snap grid is square).
-    for index, (x, z, brightness) in enumerate(((4.2, 3.9, .28), (4.2, 10.5, .25),
-        (4.2, 19.5, .23), (4.2, 25.5, .24), (10.2, 5.1, .45),
-        (16.2, 5.1, .45), (10.2, 18.3, .42), (16.2, 18.3, .42),
-        (10.2, 27.3, .42), (16.2, 27.3, .42))):
-        level["ceiling_lights"].append(dict(id=f"troffer_{index}",
-            fixture="arcade:fluorescent_panel_01", x=x, z=z, align="none",
-            brightness=brightness, color=[.58, .68, 1] if x == 4.2 else [1, .95, .88],
-            emission=.95, range=6.5))
+    # Arcade end troffers retain pale readable faces around two violet
+    # practical battens. These two lamps cast ordinary coloured light with
+    # zero UV excitation; the four switch-controlled sources below still own
+    # all fluorescence. Short local pools leave space for screens and darkness.
+    # Keep fixture order and the strong bowling/party keys unchanged so the
+    # accepted balloon illumination retains its selected direct-source slots.
+    for index, (x, z, brightness, color, emission, reach, fixture) in enumerate((
+        (4.2, 3.9, .24, [.64, .70, 1], .72, 5.5, "fluorescent_panel_01"),
+        (4.2, 10.5, .42, [1, .12, .68], .64, 6.0, "blacklight_tube"),
+        (4.2, 19.5, .42, [.54, .18, 1], .64, 6.0, "blacklight_tube"),
+        (4.2, 25.5, .24, [.64, .70, 1], .72, 6.0, "fluorescent_panel_01"),
+        (10.2, 5.1, .45, [1, .95, .88], .95, 6.5, "fluorescent_panel_01"),
+        (16.2, 5.1, .45, [1, .95, .88], .95, 6.5, "fluorescent_panel_01"),
+        (10.2, 18.3, .42, [1, .95, .88], .95, 6.5, "fluorescent_panel_01"),
+        (16.2, 18.3, .42, [1, .95, .88], .95, 6.5, "fluorescent_panel_01"),
+        (10.2, 27.3, .30, [1, .24, .66], .78, 5.1, "fluorescent_panel_01"),
+        (16.2, 27.3, .42, [1, .95, .88], .95, 6.5, "fluorescent_panel_01"),
+    )):
+        entry = dict(id=f"troffer_{index}", fixture="arcade:"+fixture,
+            x=x, z=z, align="none", brightness=brightness, color=color,
+            emission=emission, range=reach)
+        if fixture == "blacklight_tube":
+            entry["ultraviolet"] = 0
+        level["ceiling_lights"].append(entry)
     for index, (x, z, reach) in enumerate(((4.2, 7.5, 8.0), (4.2, 17.1, 8.0),
                                         (13.8, 24.3, 8.5), (25.4, 23.1, 8.0))):
         level["ceiling_lights"].append(dict(id=f"cosmic_uv_{index}",

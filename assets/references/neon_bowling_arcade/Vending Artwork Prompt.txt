@@ -1,0 +1,12 @@
+12 October 2026 — built-in imagegen, one accepted output.
+Retained opaque source: environments/arcade/props/illustrations/vending_bepsi_front.png
+Offline fitting: tools/props/author_retro_arcade.py --only vending_machine
+No original concept-board pixels were copied into the runtime texture.
+
+Exact generation prompt:
+
+Use case: stylized-concept. Production asset for a low-poly late 1990s/early 2000s blue soda vending machine, inspired by the machine on the supplied arcade concept boards (no need to reproduce the actual brand). Generate ONLY a flat front-facing printed soda advertising panel, portrait 1:2 aspect ratio, opaque full-bleed image, no machine geometry, no perspective, no scenery, no borders, no people, no cat, no glow outside artwork. Surface art evenly lit. Electric cobalt-blue icy bubbly soda photographic/painted background, with crisp cyan droplets, irregular bright frosty blue mottling but plenty of rich cobalt negative space. At top 0-33% of height a LARGE classic circular red-white-blue wavy soda globe, beneath it big legible italic white uppercase word exactly 'BEPSI' (B E P S I). The globe and word together dominate top-third and should read at 128 pixels wide. From 34% to 72% height: two columns of three bright drink selection labels on LEFT and two columns of three on RIGHT, separated by a narrow plain vertical blue center gap occupying 20% of total width. Each rectangular selection label shows one large iconic can or bottle, in alternating vivid red cola, blue cola, green lemon-lime, orange soda and yellow citrus. The labels have softly pale cyan backgrounds and clear beverage shapes; no tiny paragraphs. Keep the center stripe plain blue because physical payment hardware will be modeled over it. Bottom 28% continues the same rich blue icy soda artwork, with NO drawn dispenser, no holes, no selection controls, no shadowed cabinet edges (we model a real recessed dispenser in this zone). Tiny white italic phrase at very bottom exactly 'ICE COLD'. Make period beverage advertisement art, NOT modern generic minimalist branding. All art frontal and correctly oriented, no texture UV atlas, no arbitrary objects, no additional text.
+
+Inspection outcome: the generated source supplies six clear beverage designs.
+Offline atlas fitting repeats them across the twelve modeled selection windows;
+central payment artwork and ordinary stock swatches are authored separately.

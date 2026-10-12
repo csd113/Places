@@ -35,8 +35,9 @@ SCORE_REGIONS = {
     "metal": (192,128,64,64), "white": (192,192,64,64),
 }
 VENDING_REGIONS = {
-    "advert": (0,0,128,64), "products": (0,64,128,128),
-    "lower": (0,192,128,32), "dispense": (0,224,128,32),
+    "advert": (0,0,128,80), "lower": (0,176,128,80),
+    **{f"drink_{i}": (i%4*32,80+i//4*32,32,32) for i in range(12)},
+    "dispense": (128,192,64,32),
     "controls": (128,0,64,192), "body": (192,0,64,64),
     "trim": (192,64,64,64), "dark": (192,128,64,64), "metal": (192,192,64,64),
 }
@@ -57,7 +58,7 @@ SIZES = {
     "score_monitor": (.80,1.12,.69), "score_monitor_inactive": (.80,1.12,.69),
     "fixed_chair_red": (.60,.92,.60), "fixed_chair_blue": (.60,.92,.60),
     "pedestal_table": (.90,.72,.90), "soda_bottle": (.095,.28,.095),
-    "vending_machine": (1.08,2.03,.86),
+    "vending_machine": (.96,2.03,.86),
     "cabinet_racing": (.82,1.91,1.00), "cabinet_shooter": (.74,1.96,.84),
     "cabinet_action": (.76,1.88,.87), "cabinet_fighting": (.90,1.88,.93),
     "cabinet_scifi": (.78,2.00,.89),
@@ -420,24 +421,67 @@ def soda_bottle(p):
 def vending_machine(p):
     t=atlas(p,'vending_machine',VENDING_REGIONS);body,trim,dark,metal=[t.uv(n,2) for n in ('body','trim','dark','metal')]
     body_slot=material(p,'vending_body',.39)
-    padded_box(p,(0,1.015,-.03),(1.08,2.03,.80),body,bevel=.018)
-    for x in (-.498,.286,.498): box(p,(x,1.02,.393),(.045,1.85,.064),trim)
-    for y in (.075,1.975): box(p,(0,y,.396),(.95,.047,.064),trim)
-    # Recessed product/advertising panes own emission; the blue housing does not.
-    face_slot=material(p,'vending_illuminated',.20,emissive=(1,1,1),strength=1.40)
-    for center,size,region in (((-.106,1.722,.387),(.73,.365,.025),'advert'),
-                               ((-.106,1.162,.387),(.73,.73,.025),'products'),
-                               ((-.106,.680,.387),(.73,.1825,.025),'lower')):
-        illuminated_panel(p,center,size,t.uv(region,2),trim,face_slot,body_slot)
+    # Main stock ends behind the delivery cavity; the door is assembled around
+    # its opening rather than covering a shallow black rectangle with a frame.
+    padded_box(p,(0,1.015,-.10),(.96,2.03,.66),body,bevel=.022)
+    for x in (-.456,.456): box(p,(x,1.015,.32),(.048,2.03,.22),body)
+    for y in (.029,2.002): box(p,(0,y,.32),(.862,.056,.22),body)
+    for x in (-.438,.438): box(p,(x,1.015,.416),(.012,1.91,.024),trim)
+    for y in (.064,1.966): box(p,(0,y,.416),(.864,.014,.024),trim)
+    # Large 8:5 soda logo and twelve individual 1:1 selection labels. Ordinary
+    # door artwork below them has a separate restrained backlit face material.
+    face_slot=material(p,'vending_illuminated',.23,emissive=(1,1,1),strength=1.10)
+    illuminated_panel(p,(0,1.670,.392),(.864,.54,.036),t.uv('advert',1),body,face_slot,body_slot)
+    p.begin_material(body_slot)
+    box(p,(0,1.010,.318),(.864,.77,.164),body)
+    for row,y in enumerate((1.255,1.005,.755)):
+        for col,x in enumerate((-.337,-.176,.176,.337)):
+            p.begin_material(body_slot)
+            box(p,(x,y,.402),(.158,.225,.016),dark)
+            illuminated_panel(p,(x,y,.414),(.146,.213,.010),t.uv(f'drink_{row*4+col}',1),
+                              trim,face_slot,body_slot)
     material(p,'vending_controls',.45)
-    box(p,(.389,1.221,.399),(.165,1.20,.025),{'+z':t.uv('controls',2),'-z':body,'+x':trim,'-x':trim,'+y':trim,'-y':trim})
-    # Real deep dispenser aperture: four rails and an inset rear, no face card.
-    rect_frame(p,(-.106,.347,.394),.72,.25,.04,.055,trim)
-    box(p,(-.106,.347,.347),(.65,.18,.012),t.uv('dispense',2))
-    box(p,(-.106,.229,.396),(.65,.016,.08),metal)
-    for y in (.853,.971,1.089,1.207,1.325): box(p,(.39,y,.423),(.116,.051,.014),metal)
-    box(p,(.39,1.559,.424),(.101,.02,.012),dark)
-    finish(p,'tall blue branded machine, four product rows, illuminated advertising, control strip and deep delivery aperture')
+    box(p,(0,1.007,.419),(.166,.77,.014),{'+z':t.uv('controls',1),'-z':body,'+x':trim,'-x':trim,'+y':trim,'-y':trim})
+    # Three depth cues supply a readable bill mouth, coin slot and return lever.
+    box(p,(0,1.181,.429),(.10,.022,.008),dark)
+    box(p,(.027,1.113,.430),(.012,.065,.008),dark)
+    box(p,(0,.904,.429),(.060,.021,.008),metal)
+    # Raised press bars read as real drink selectors even with Low textures;
+    # their 7 mm relief is clear of the printed pane rather than coplanar.
+    for y in (1.255,1.005,.755):
+        for x in (-.337,-.176,.176,.337):
+            box(p,(x,y-.102,.426),(.106,.018,.012),metal)
+    lower_slot=material(p,'vending_lower_lit',.28,emissive=(1,1,1),strength=.38)
+    # Keep the lower icy artwork registered across four closed door pieces.
+    # Their common print frame includes the real 42 x 20 cm aperture.
+    def lower_piece(cx,cy,w,h):
+        u0,v0,u1,v1=t.uv('lower',0)
+        # Protect the exact atlas boundary from sub-ulp negative roundoff.
+        unit=lambda value: max(0,min(1,value))
+        uv=(u0+unit((cx-w/2+.432)/.864)*(u1-u0),v0+unit((.620-cy-h/2)/.564)*(v1-v0),
+            u0+unit((cx+w/2+.432)/.864)*(u1-u0),v0+unit((.620-cy+h/2)/.564)*(v1-v0))
+        illuminated_panel(p,(cx,cy,.340),(w,h,.140),uv,body,lower_slot,body_slot)
+    lower_piece(0,.535,.864,.169)
+    lower_piece(0,.137,.864,.161)
+    for x in (-.337,.337): lower_piece(x,.334,.190,.231)
+    material(p,'vending_delivery',.34)
+    rect_frame(p,(0,.334,.418),.484,.264,.032,.024,trim)
+    box(p,(0,.334,.250),(.42,.20,.016),t.uv('dispense',1))
+    rect_frame(p,(0,.334,.327),.44,.22,.01,.15,dark)
+    box(p,(0,.237,.327),(.418,.006,.148),metal)
+    box(p,(0,.033,.411),(.83,.038,.03),dark)
+    # This single-node opaque static model needs five material primitives,
+    # not one primitive for each alternation between a pane and its stock.
+    # Group only its index runs; geometry, UVs and material ownership stay exact.
+    runs=p.mesh.groups_for_range(0,len(p.mesh.indices))
+    grouped_indices=[];grouped_materials=[]
+    for run in sorted(runs,key=lambda entry: entry['material']):
+        start=run['first_index'];count=run['index_count']
+        grouped_indices.extend(p.mesh.indices[start:start+count])
+        grouped_materials.extend([run['material']]*(count//3))
+    p.mesh.indices=grouped_indices
+    p.mesh._triangle_materials=grouped_materials
+    finish(p,'concept-proportioned blue Bepsi cabinet, large soda globe/logo, twelve lit labels, central payment hardware and 15 cm delivery recess')
 
 
 def cabinet_side(p,polygon,x0,x1,uv,body,art_slot=None,body_slot=None):
