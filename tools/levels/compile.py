@@ -28,6 +28,15 @@ def lineup(root: Path = ROOT) -> list[tuple[str, Path]]:
     return rows
 
 
+def validate_lighting(manifest: dict, package: Path) -> None:
+    variants = {variant['lightmap_quality']: variant for variant in manifest['variants']}
+    if set(variants) != {'off', 'full'}:
+        raise ValueError(f'{package} does not contain both Static and Full lighting variants')
+    full = variants['full']
+    if full.get('lightmap_failure') or not full.get('entries', {}).get('lightmaps'):
+        raise ValueError(f'{package} Full lighting fell back instead of retaining its baked atlas')
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--compiler', type=Path, default=ROOT / 'target/release/places-compile')
@@ -63,8 +72,7 @@ def main() -> int:
         manifest = json.loads(subprocess.check_output([compiler, 'inspect', str(package), '--json'],
                                                      cwd=ROOT, text=True))
         # inspect emits the manifest directly; no reduced-quality package can pass export.
-        if {v['lightmap_quality'] for v in manifest['variants']} != {'off', 'medium', 'full'}:
-            raise ValueError(f'{package} does not contain all three lightmap variants')
+        validate_lighting(manifest, package)
     print(f'Validated {len(rows)} curated map packages in {output}', flush=True)
     return 0
 

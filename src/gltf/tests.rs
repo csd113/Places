@@ -2456,12 +2456,7 @@ fn glb_uv_response_imports_optional_numeric_mask_for_every_mesh_route() -> Resul
             .is_emissive(),
         "fluorescence does not classify a primitive as emissive"
     );
-    let textures = model
-        .textures
-        .iter()
-        .cloned()
-        .map(std::sync::Arc::new)
-        .collect();
+    let textures = model.textures.clone();
     let dynamic =
         crate::render::DynamicMesh::from_model("uv.glb".to_string(), &model, textures, &[])
             .ok_or("dynamic primitive")?;

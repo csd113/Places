@@ -69,7 +69,7 @@ def main():
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--repeat", type=int, default=3)
     parser.add_argument("--workers", type=int, default=12)
-    parser.add_argument("--variants", default="off,medium,full")
+    parser.add_argument("--variants", default="off,full")
     parser.add_argument("--cases", nargs="+", default=["unchanged", "metadata", "light", "prop", "material"])
     parser.add_argument("--expect-metadata-reuse", action="store_true")
     parser.add_argument("--expect-presentation-reuse", action="store_true")

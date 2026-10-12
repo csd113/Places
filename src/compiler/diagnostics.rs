@@ -591,7 +591,7 @@ mod tests {
         let pages = vec![LightmapPage {
             width: 1,
             height: 1,
-            texels: vec![texel],
+            texels: vec![texel].into(),
         }];
         let atlas = LevelLightmaps {
             pages: pages.clone(),

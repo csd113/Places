@@ -125,7 +125,7 @@ def main():
                         "levels/places_demo.json", "levels/lantern_hollow.json"])
     parser.add_argument("--workers", nargs="+", type=int, default=[12])
     parser.add_argument("--repeat", type=int, default=3)
-    parser.add_argument("--variants", default="off,medium,full")
+    parser.add_argument("--variants", default="off,full")
     parser.add_argument("--reuse", action="store_true")
     parser.add_argument("--baseline", type=Path,
                         help="require exact payload equality with this baseline package directory")

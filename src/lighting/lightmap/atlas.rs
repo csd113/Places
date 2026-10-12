@@ -27,11 +27,13 @@
 //! so the bilinear filter can reach half a texel past the data rectangle without
 //! ever bleeding a neighbouring chart's texels into the sample.
 //!
-//! Every page texel is a [`LightmapTexel`]: two linear HDR values (an
-//! irradiance term and a directional moment), stored as `f32` in memory and
-//! encoded to half floats only by the package writer.
+//! Bake pages store editable [`LightmapTexel`] values. Loaded pages keep the
+//! package's two half-float planes and decode individual texels for scalar
+//! diagnostics; complete float slices are materialized only on slice access.
 
+use std::ops::{Deref, DerefMut, Range};
 use std::path::Path;
+use std::sync::{Arc, OnceLock};
 
 use super::{Chart, LightmapConfig, LightmapFailure, LightmapPatch, LightmapTexel};
 
@@ -41,7 +43,192 @@ pub struct LightmapPage {
     pub width: u32,
     pub height: u32,
     /// `width * height` texels, row-major.
-    pub texels: Vec<LightmapTexel>,
+    pub texels: LightmapPixels,
+}
+
+/// Editable bake pixels or immutable packaged half-float planes.
+///
+/// Slice access materializes float texels for existing diagnostic APIs. Runtime
+/// sampling and upload use the packed storage directly and never materialize it.
+#[derive(Clone)]
+pub struct LightmapPixels {
+    editable: Vec<LightmapTexel>,
+    packed: Option<PackedPixels>,
+}
+
+#[derive(Clone)]
+struct PackedPixels {
+    bytes: Arc<Vec<u8>>,
+    range: Range<usize>,
+    decoded: Arc<OnceLock<Vec<LightmapTexel>>>,
+}
+
+impl PackedPixels {
+    fn materialize(&self) -> Vec<LightmapTexel> {
+        let Some(bytes) = self.bytes.get(self.range.clone()) else {
+            return Vec::new();
+        };
+        let count = self.range.len().checked_div(16).unwrap_or(0);
+        (0..count)
+            .filter_map(|index| decode_packed_texel(bytes, index))
+            .collect()
+    }
+}
+
+impl std::fmt::Debug for LightmapPixels {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("LightmapPixels")
+            .field("len", &self.len())
+            .field("packed", &self.packed_planes().is_some())
+            .field("materialized", &self.is_materialized())
+            .finish()
+    }
+}
+
+impl PartialEq for LightmapPixels {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_slice() == other.as_slice()
+    }
+}
+
+impl From<Vec<LightmapTexel>> for LightmapPixels {
+    fn from(texels: Vec<LightmapTexel>) -> Self {
+        Self {
+            editable: texels,
+            packed: None,
+        }
+    }
+}
+
+impl LightmapPixels {
+    /// Number of texels, without expanding packaged pixels.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.packed.as_ref().map_or(self.editable.len(), |packed| {
+            packed.range.len().checked_div(16).unwrap_or(0)
+        })
+    }
+
+    /// Whether the page contains any pixels.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Whether float texels are already resident.
+    #[must_use]
+    pub fn is_materialized(&self) -> bool {
+        self.packed
+            .as_ref()
+            .is_none_or(|packed| packed.decoded.get().is_some())
+    }
+
+    fn texel(&self, index: usize) -> Option<LightmapTexel> {
+        match &self.packed {
+            None => self.editable.get(index).copied(),
+            Some(_) => decode_packed_texel(self.packed_planes()?, index),
+        }
+    }
+
+    fn packed_planes(&self) -> Option<&[u8]> {
+        let packed = self.packed.as_ref()?;
+        packed.bytes.get(packed.range.clone())
+    }
+
+    /// Pixel bytes charged to this page. Shared atlas backing is charged by
+    /// range, so page views do not each charge the complete atlas allocation.
+    #[must_use]
+    pub fn retained_bytes(&self) -> usize {
+        self.packed.as_ref().map_or_else(
+            || {
+                self.editable
+                    .capacity()
+                    .saturating_mul(std::mem::size_of::<LightmapTexel>())
+            },
+            |packed| {
+                packed
+                    .range
+                    .len()
+                    .saturating_add(packed.decoded.get().map_or(0, |texels| {
+                        texels
+                            .capacity()
+                            .saturating_mul(std::mem::size_of::<LightmapTexel>())
+                    }))
+            },
+        )
+    }
+}
+
+impl Deref for LightmapPixels {
+    type Target = Vec<LightmapTexel>;
+
+    fn deref(&self) -> &Self::Target {
+        self.packed.as_ref().map_or(&self.editable, |packed| {
+            packed.decoded.get_or_init(|| packed.materialize())
+        })
+    }
+}
+
+impl DerefMut for LightmapPixels {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        if let Some(packed) = self.packed.take() {
+            // Editing a diagnostic page gives it independent float ownership;
+            // no old packed upload bytes can survive a pixel edit.
+            self.editable = packed
+                .decoded
+                .get()
+                .cloned()
+                .unwrap_or_else(|| packed.materialize());
+        }
+        &mut self.editable
+    }
+}
+
+impl<'a> IntoIterator for &'a LightmapPixels {
+    type Item = &'a LightmapTexel;
+    type IntoIter = std::slice::Iter<'a, LightmapTexel>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut LightmapPixels {
+    type Item = &'a mut LightmapTexel;
+    type IntoIter = std::slice::IterMut<'a, LightmapTexel>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_mut()
+    }
+}
+
+fn decode_packed_texel(bytes: &[u8], index: usize) -> Option<LightmapTexel> {
+    let texels = bytes.len().checked_div(16)?;
+    if index >= texels {
+        return None;
+    }
+    let irradiance = index.checked_mul(8)?;
+    let direction = texels.checked_mul(8)?.checked_add(irradiance)?;
+    let read = |offset: usize| {
+        let pair = <[u8; 2]>::try_from(bytes.get(offset..offset.checked_add(2)?)?).ok()?;
+        Some(crate::package::ktx2::f16_bits_to_f32(u16::from_le_bytes(
+            pair,
+        )))
+    };
+    Some(LightmapTexel {
+        irradiance: [
+            read(irradiance)?,
+            read(irradiance.checked_add(2)?)?,
+            read(irradiance.checked_add(4)?)?,
+        ],
+        direction: [
+            read(direction)?,
+            read(direction.checked_add(2)?)?,
+            read(direction.checked_add(4)?)?,
+        ],
+        axis: [0.5, 0.5],
+    })
 }
 
 impl LightmapPage {
@@ -56,14 +243,91 @@ impl LightmapPage {
         Ok(Self {
             width: edge,
             height: edge,
-            texels: vec![LightmapTexel::ZERO; texels],
+            texels: vec![LightmapTexel::ZERO; texels].into(),
         })
     }
 
     /// Reads one texel, or `None` when it lies outside the page.
     #[must_use]
     pub fn texel(&self, x: u32, y: u32) -> Option<LightmapTexel> {
-        self.texels.get(texel_offset(self, x, y)?).copied()
+        self.texels.texel(texel_offset(self, x, y)?)
+    }
+
+    /// A page view over canonical irradiance/direction planes in a shared
+    /// package allocation. Every RGB half is finite, irradiance is nonnegative,
+    /// and both reserved alpha channels are exactly 0.5.
+    ///
+    /// # Errors
+    /// Returns an error for invalid dimensions, ranges or noncanonical pixels.
+    pub fn from_packed_planes(
+        width: u32,
+        height: u32,
+        bytes: Arc<Vec<u8>>,
+        range: Range<usize>,
+    ) -> Result<Self, String> {
+        let texels = texel_count_for_edge(width).map_err(|failure| {
+            format!("packed lightmap dimensions are invalid: {}", failure.name())
+        })?;
+        let expected = texels
+            .checked_mul(16)
+            .ok_or_else(|| "packed lightmap pixel size overflows".to_string())?;
+        if width != height || range.len() != expected {
+            return Err("packed lightmap pixel size does not match its edge".to_string());
+        }
+        let planes = bytes
+            .get(range.clone())
+            .ok_or_else(|| "packed lightmap pixels run past their allocation".to_string())?;
+        for (index, texel) in planes.as_chunks::<8>().0.iter().enumerate() {
+            let [
+                red_low,
+                red_high,
+                green_low,
+                green_high,
+                blue_low,
+                blue_high,
+                alpha_low,
+                alpha_high,
+            ] = *texel;
+            for pair in [
+                [red_low, red_high],
+                [green_low, green_high],
+                [blue_low, blue_high],
+            ] {
+                let bits = u16::from_le_bytes(pair);
+                if bits & 0x7C00 == 0x7C00
+                    || (index < texels && bits & 0x8000 != 0 && bits & 0x7FFF != 0)
+                {
+                    return Err("packed lightmap RGB channel is not canonical".to_string());
+                }
+            }
+            if u16::from_le_bytes([alpha_low, alpha_high]) != 0x3800 {
+                return Err("packed lightmap reserved alpha is not 0.5".to_string());
+            }
+        }
+        Ok(Self {
+            width,
+            height,
+            texels: LightmapPixels {
+                editable: Vec::new(),
+                packed: Some(PackedPixels {
+                    bytes,
+                    range,
+                    decoded: Arc::new(OnceLock::new()),
+                }),
+            },
+        })
+    }
+
+    /// Canonical packaged upload bytes, without a float expansion or copy.
+    #[must_use]
+    pub fn rgba16f_planes(&self) -> Option<&[u8]> {
+        self.texels.packed_planes()
+    }
+
+    /// Retained pixels charged to this page's range, without materialization.
+    #[must_use]
+    pub fn retained_pixel_bytes(&self) -> usize {
+        self.texels.retained_bytes()
     }
 
     /// Writes one texel if it lies inside the page.
@@ -193,6 +457,13 @@ impl ChartAllocator {
         }
         let prop = patch.kind == super::PatchKind::Prop;
         let mut placement = self.best_placement(outer_w, outer_h, prop);
+        if placement.is_none() && prop && self.pages.len() >= self.config.max_pages.min(11) {
+            // Preserve every layout the former eleven-page Full policy could
+            // place: it reused architecture holes at that limit. A twelfth
+            // page is available only after those same holes cannot fit this
+            // chart. Lower caps reach this branch at their unchanged limit.
+            placement = self.best_placement(outer_w, outer_h, false);
+        }
         if placement.is_none() && self.pages.len() < self.config.max_pages {
             let edge = self.config.page_edge;
             self.pages.push(vec![FreeRect {
@@ -422,7 +693,7 @@ impl LightmapAtlas {
         let page = LightmapPage {
             width: config.page_edge,
             height: config.page_edge,
-            texels: Vec::new(),
+            texels: Vec::new().into(),
         };
         for (_, chart) in charts {
             if usize::from(chart.page) >= page_count

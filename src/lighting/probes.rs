@@ -1261,7 +1261,7 @@ mod tests {
                 .expect("json");
         assert_eq!(
             manifest["variants"].as_array().expect("variants").len(),
-            3,
+            2,
             "the fixture exercises the full compiler quality collection"
         );
         let mut exercised_payloads = 0_usize;

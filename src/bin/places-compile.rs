@@ -24,14 +24,14 @@ const USAGE: &str = "\
 places-compile: build and inspect Places map packages (.placesmap)
 
 USAGE:
-  places-compile build <source.json> [--out <package>] [--variants off,medium,full]
+  places-compile build <source.json> [--out <package>] [--variants static,full]
                        [--asset-root <dir>] [--workers N] [--force] [--json]
-  places-compile build-collection <dir> [--variants off,medium,full]
+  places-compile build-collection <dir> [--variants static,full]
                        [--asset-root <dir>] [--workers N] [--force] [--json]
   places-compile validate <package> [--json]
   places-compile inspect <package> [--json]
   places-compile export-lighting <package> --out <new-directory>
-                       [--variants off,medium,full] [--json]
+                       [--variants static,full] [--json]
   places-compile verify <source.json> --package <package> [--asset-root <dir>] [--json]
                        [--require-current]
   places-compile --help | --version
@@ -46,7 +46,7 @@ OPTIONS:
                       Capped at 12; defaults to available CPU parallelism.
                       Also read from PLACES_TOOL_WORKERS; the flag wins.
   --variants <list>   Comma-separated lightmap qualities to prepare
-                      (default: off,medium,full).
+                      (default: static,full).
   --out <path>        Build output package, or new export-lighting directory.
                       Build default: the source's sibling .placesmap.
   --force             Rebuild even when the existing package is current.
@@ -183,12 +183,11 @@ fn parse_variants(value: &str) -> Result<Vec<LightmapQuality>, CliError> {
     for raw_name in value.split(',') {
         let name = raw_name.trim();
         let quality = match name {
-            "off" => LightmapQuality::Off,
-            "medium" => LightmapQuality::Medium,
+            "off" | "static" => LightmapQuality::Off,
             "full" => LightmapQuality::Full,
             other => {
                 return Err(CliError::Usage(format!(
-                    "unknown lightmap variant '{other}' (off, medium, full)"
+                    "unknown lightmap variant '{other}' (static, full)"
                 )));
             }
         };

@@ -105,7 +105,7 @@ def main():
                                   look_up="UP", look_down="DOWN", look_left="LEFT", look_right="RIGHT",
                                   jump="SPACE", crouch="C", interact="E"),
                     walk_speed=3, quality=profile, texture_filtering=profile,
-                    lightmaps=dict(low="off", medium="medium", high="full")[profile],
+                    lightmaps=dict(low="off", medium="full", high="full")[profile],
                     reflections=dict(low="off", medium="medium", high="full")[profile],
                     bloom=False, vsync=False, window_mode="windowed", window_width=640,
                     window_height=360, fov_degrees=60.0)

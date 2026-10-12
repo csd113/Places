@@ -184,8 +184,8 @@ fn lightmap_configs_are_the_documented_low_medium_high_values() {
     assert_eq!(high.padding, 2);
     assert_eq!(high.usable_edge(), 1_020);
 
-    for (config, pages) in [(low, 8), (medium, 8), (high, 11)] {
-        // Full permits eleven base pages; preparation applies the actual
+    for (config, pages) in [(low, 8), (medium, 8), (high, 12)] {
+        // Full permits twelve base pages; preparation applies the actual
         // illumination-group byte bound. Lower profiles retain eight pages.
         assert_eq!(config.max_pages, pages);
         assert_eq!(config.bytes_per_texel, 16);
@@ -532,6 +532,15 @@ fn fitting_is_deterministic_for_the_same_input() {
 /// player-facing labels, with no numeric internal on the screen.
 #[test]
 fn advanced_quality_names_labels_and_parse_round_trip() {
+    assert_eq!(
+        LightmapQuality::ALL,
+        [LightmapQuality::Off, LightmapQuality::Full]
+    );
+    assert_eq!(LightmapQuality::parse("static"), Some(LightmapQuality::Off));
+    assert_eq!(
+        LightmapQuality::parse("medium"),
+        Some(LightmapQuality::Medium)
+    );
     for level in LightmapQuality::ALL {
         assert_eq!(LightmapQuality::parse(level.name()), Some(level));
         assert_eq!(
@@ -571,7 +580,7 @@ fn the_advanced_preset_table_is_exact() {
         ),
         (
             QualityLevel::Medium,
-            LightmapQuality::Medium,
+            LightmapQuality::Full,
             ReflectionQuality::Medium,
         ),
         (
@@ -645,7 +654,11 @@ fn reflection_quality_gates_are_exact() {
 fn preset(level: QualityLevel) -> GraphicsSpec {
     GraphicsSpec {
         quality: level,
-        lighting: level,
+        lighting: if LightmapQuality::default_for(level).is_off() {
+            QualityLevel::Low
+        } else {
+            QualityLevel::High
+        },
         filtering: match level {
             QualityLevel::Low => "low",
             QualityLevel::Medium => "medium",

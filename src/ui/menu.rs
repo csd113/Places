@@ -273,9 +273,7 @@ fn settings_layout(
         );
         entry.adjustable = matches!(setting.kind, SettingsRowKind::Value(_));
         entry.enabled = match setting.kind {
-            SettingsRowKind::Value(SettingsValue::Lightmaps | SettingsValue::Reflections) => {
-                !settings.use_low_quality_lighting
-            }
+            SettingsRowKind::Value(SettingsValue::Reflections) => settings.lightmaps_enabled(),
             SettingsRowKind::Value(SettingsValue::Resolution) => {
                 display.mode != WindowMode::Fullscreen
             }
@@ -526,25 +524,22 @@ fn description(
                 Some(SettingsRowKind::Binding(_)) => {
                     "Select a binding, then press a key. Esc cancels."
                 }
-                Some(SettingsRowKind::Advanced) => "Texture filtering, lightmaps and reflections.",
+                Some(SettingsRowKind::Advanced) => "Texture filtering and reflections.",
                 Some(SettingsRowKind::Value(value)) => match value {
                     SettingsValue::GraphicsQuality => {
                         "Texture detail. Lighting preferences stay independent."
-                    }
-                    SettingsValue::LowQualityLighting => {
-                        "Simpler lighting; keeps your texture preferences."
                     }
                     SettingsValue::Bloom => "A soft glow around bright surfaces.",
                     SettingsValue::Vsync => "Match frame presentation to your display.",
                     SettingsValue::Filtering => {
                         "Clarity of textures viewed at a distance or angle."
                     }
-                    SettingsValue::Lightmaps | SettingsValue::Reflections
-                        if settings.use_low_quality_lighting =>
-                    {
-                        "Turn off Low-quality lighting to adjust this option."
+                    SettingsValue::Reflections if !settings.lightmaps_enabled() => {
+                        "Select Full lighting to adjust reflections."
                     }
-                    SettingsValue::Lightmaps => "Baked light and shadows on surfaces.",
+                    SettingsValue::Lightmaps => {
+                        "Static or Full lighting; keeps your texture preferences."
+                    }
                     SettingsValue::Reflections => "Reflected surroundings on shiny surfaces.",
                     SettingsValue::WindowMode => "Windowed or borderless fullscreen.",
                     SettingsValue::Resolution if display.mode == WindowMode::Fullscreen => {

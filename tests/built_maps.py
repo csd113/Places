@@ -40,7 +40,7 @@ class BuiltMapTests(unittest.TestCase):
                 self.assertTrue(manifest["variants"], f"{stem} has variants")
                 variant_qualities = {v["lightmap_quality"] for v in manifest["variants"]}
                 self.assertEqual(
-                    variant_qualities, {"off", "medium", "full"}, stem
+                    variant_qualities, {"off", "full"}, stem
                 )
                 semantics = json.loads(archive.read("semantics.json"))
                 self.assertEqual(semantics["id"], stem, stem)

@@ -230,42 +230,53 @@ fn visible_footprint_interior_is_detected_when_centre_and_corners_are_blocked() 
         width: 9,
         height: 13,
     };
-    let mut triangles = vec![TransportTriangle::new(a, b, c, [0.6; 3]).expect("receiver triangle")];
-    // Four opaque rectangles leave a 15x18mm slot at the one interior
-    // footprint sample. All four corner samples and the centre miss the slot.
-    for [x0, y0, x1, y1] in [
-        [-1.0, -1.0, 2.0, 0.006],
-        [-1.0, 0.024, 2.0, 2.0],
-        [-1.0, 0.006, 0.039, 0.024],
-        [0.054, 0.006, 2.0, 0.024],
+    let triangles = vec![TransportTriangle::new(a, b, c, [0.6; 3]).expect("receiver triangle")];
+    // Four rectangles leave an opening that centre/corners miss. At 1/8m
+    // pitch the base position (x,y)=(0.046875,0.015625) sees both slots.
+    // The 15x18mm slot additionally includes fine positions
+    // (0.0390625,0.0078125) and (0.0390625,0.0234375): three of the combined
+    // 80 positions are visible. The narrower 6x8mm slot contains only the
+    // original base position, proving refinement cannot erase its detail.
+    for ([slot_left, slot_bottom, slot_right, slot_top], visible_positions) in [
+        ([0.039, 0.006, 0.054, 0.024], 3_u16),
+        ([0.044, 0.012, 0.05, 0.02], 1_u16),
     ] {
-        triangles.extend(wall(
-            [x0, y0, 0.4],
-            [x1, y0, 0.4],
-            [x1, y1, 0.4],
-            [x0, y1, 0.4],
-            [0.6; 3],
-        ));
+        let mut slotted_geometry = triangles.clone();
+        for [x0, y0, x1, y1] in [
+            [-1.0, -1.0, 2.0, slot_bottom],
+            [-1.0, slot_top, 2.0, 2.0],
+            [-1.0, slot_bottom, slot_left, slot_top],
+            [slot_right, slot_bottom, 2.0, slot_top],
+        ] {
+            slotted_geometry.extend(wall(
+                [x0, y0, 0.4],
+                [x1, y0, 0.4],
+                [x1, y1, 0.4],
+                [x0, y1, 0.4],
+                [0.6; 3],
+            ));
+        }
+        let scene = TransportScene::new(slotted_geometry, Vec::new())
+            .expect("real slot scene")
+            .with_global_lights(vec![crate::lighting::directional::DirectionalLight {
+                incoming: [0.0, 0.0, 1.0],
+                color: [1.0; 3],
+                intensity: 1.0,
+                cast_shadows: true,
+                angular_radius: 0.0,
+            }])
+            .with_chart_sample_density(vec![8.0])
+            .expect("actual model pitch");
+        let solved = scene
+            .solve(&[(patch, chart)], options(0, 3), None)
+            .expect("slot coverage solve");
+        let light = solved.charts[0].texels[0].light_at([0.0, 0.0, 1.0])[0];
+        let expected = f32::from(visible_positions) / 80.0;
+        assert!(
+            (light - expected).abs() < 1.0e-6,
+            "all independently located visible positions retain their light: {light} versus {expected}"
+        );
     }
-    let scene = TransportScene::new(triangles, Vec::new())
-        .expect("real slot scene")
-        .with_global_lights(vec![crate::lighting::directional::DirectionalLight {
-            incoming: [0.0, 0.0, 1.0],
-            color: [1.0; 3],
-            intensity: 1.0,
-            cast_shadows: true,
-            angular_radius: 0.0,
-        }])
-        .with_chart_sample_density(vec![8.0])
-        .expect("actual model pitch");
-    let solved = scene
-        .solve(&[(patch, chart)], options(0, 3), None)
-        .expect("slot coverage solve");
-    let light = solved.charts[0].texels[0].light_at([0.0, 0.0, 1.0])[0];
-    assert!(
-        (light - 1.0 / 16.0).abs() < 1.0e-6,
-        "one of the 16 physical samples sees the real slot: {light} versus 1/16"
-    );
 }
 
 #[test]

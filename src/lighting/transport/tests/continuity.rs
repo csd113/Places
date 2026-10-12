@@ -1,6 +1,8 @@
 //! Production allocator controls for physical footprints and real boundaries.
 
-use super::{patch_normal, receiver_position, supported_point, surface_axes};
+use super::{
+    Domain, FootprintPass, patch_normal, receiver_position, supported_point, surface_axes,
+};
 use crate::lighting::lightmap::{LightmapConfig, LightmapPatch, LightmapPlan, PatchKind};
 use crate::lighting::transport::{
     SolveOptions, TransportReceiver, TransportScene, TransportTriangle,
@@ -40,6 +42,145 @@ fn options(taps: u8) -> SolveOptions {
         gather_samples: 1,
         workers: 1,
     }
+}
+
+fn diagonal_refinement_scene() -> Result<TransportScene, String> {
+    let mut geometry = triangles(quad(0.0, 0.0, 1.0, 1.0, 0.0), [0.6; 3])?;
+    geometry.extend(triangles(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 1.0],
+            [1.0, 2.0, 1.0],
+            [0.0, 2.0, 0.0],
+        ],
+        [0.6; 3],
+    )?);
+    let cosine = std::f32::consts::FRAC_1_SQRT_2;
+    TransportScene::new(geometry, Vec::new())
+        .ok_or_else(|| "diagonal coverage scene".to_owned())?
+        .with_global_lights(vec![crate::lighting::directional::DirectionalLight {
+            incoming: [-cosine, cosine, 0.0],
+            ..sun()
+        }])
+        .with_chart_sample_density(vec![8.0])
+        .ok_or_else(|| "diagonal physical density".to_owned())
+}
+
+fn diagonal_visible_fraction(x: f32, z: f32) -> u16 {
+    let mut visible = 0_u16;
+    for sy in 0_u16..64 {
+        for sx in 0_u16..64 {
+            let px = x + ((f32::from(sx) + 0.5) / 64.0 - 0.5) / 8.0;
+            let pz = z + ((f32::from(sy) + 0.5) / 64.0 - 0.5) / 8.0;
+            if px <= pz {
+                visible = visible.saturating_add(1);
+            }
+        }
+    }
+    visible
+}
+
+#[test]
+fn full_edge_refinement_improves_diagonal_coverage_and_retains_uniform_samples()
+-> Result<(), String> {
+    // Four triangles, one hard source and 49 interior receiver samples. The
+    // independent 64x64 oracle protects silhouette coverage and the measured
+    // extra-ray cost, without baking any shipped map or enlarging its atlas.
+    let floor = quad(0.0, 0.0, 1.0, 1.0, 0.0);
+    let scene = diagonal_refinement_scene()?;
+    let cosine = std::f32::consts::FRAC_1_SQRT_2;
+    let patch = LightmapPatch::from_quad(PatchKind::Floor, floor, None)
+        .ok_or_else(|| "diagonal receiver patch".to_owned())?;
+    let chart = crate::lighting::lightmap::Chart {
+        page: 0,
+        x: 0,
+        y: 0,
+        width: 9,
+        height: 9,
+    };
+    let charts = [(patch, chart)];
+    let receivers = scene
+        .receivers(&charts)
+        .map_err(|failure| failure.name().to_owned())?;
+    let pass = FootprintPass {
+        scene: &scene,
+        domains: vec![Domain {
+            first: 0,
+            patch: &charts[0].0,
+            chart: &charts[0].1,
+            axes: surface_axes([0.0, 1.0, 0.0]),
+            pitch: 0.125,
+        }],
+        receivers: &receivers,
+        emitters: &[],
+        global: true,
+        taps: 3,
+    };
+    let domain = pass
+        .domains
+        .first()
+        .ok_or_else(|| "one receiver domain".to_owned())?;
+    let mut base_error = 0.0_f32;
+    let mut refined_error = 0.0_f32;
+    let mut edge_receivers = 0_usize;
+    let mut uniform_lit = 0_usize;
+    let mut uniform_shadowed = 0_usize;
+    let mut traced_rays = 0_usize;
+    for row in 1_u16..8 {
+        for column in 1_u16..8 {
+            let index = usize::from(row)
+                .saturating_mul(9)
+                .saturating_add(usize::from(column));
+            let sample = receivers
+                .get(index)
+                .ok_or_else(|| "interior receiver".to_owned())?;
+            let x = f32::from(column) / 8.0;
+            let z = f32::from(8_u16.saturating_sub(row)) / 8.0;
+            let (base, edge) = pass.stencil(domain, sample, [x, 0.0, z], 4, &mut Vec::new());
+            let refined = pass.refine(index);
+            let visible = diagonal_visible_fraction(x, z);
+            let expected = f32::from(visible) / 4096.0 * cosine;
+            base_error += (base.light.surface_light[0] - expected).abs();
+            refined_error += (refined.light.surface_light[0] - expected).abs();
+            traced_rays = traced_rays.saturating_add(refined.rays);
+            if edge {
+                edge_receivers = edge_receivers.saturating_add(1);
+                assert_eq!(refined.rays, 80, "edge charges both complete stencils");
+            } else {
+                assert_eq!(refined.rays, 16, "uniform samples retain the original cost");
+                assert_eq!(
+                    refined.light.surface_light.map(f32::to_bits),
+                    base.light.surface_light.map(f32::to_bits),
+                    "uniform direct energy is bit-identical"
+                );
+                if visible == 4096 {
+                    uniform_lit = uniform_lit.saturating_add(1);
+                } else if visible == 0 {
+                    uniform_shadowed = uniform_shadowed.saturating_add(1);
+                    assert!(
+                        refined.light.surface_light[0] < 1.0e-6,
+                        "the shadow interior remains dark"
+                    );
+                }
+            }
+        }
+    }
+    assert!(
+        edge_receivers > 0 && uniform_lit > 0 && uniform_shadowed > 0,
+        "the fixture must contain both uniform regions and a real visibility edge"
+    );
+    assert!(
+        refined_error < base_error * 0.6,
+        "8x8 coverage must improve the fixed-grid oracle: {base_error} -> {refined_error}"
+    );
+    assert_eq!(
+        traced_rays,
+        49_usize
+            .saturating_mul(16)
+            .saturating_add(edge_receivers.saturating_mul(64)),
+        "only detected silhouette receivers pay the additional 64 rays"
+    );
+    Ok(())
 }
 
 #[test]

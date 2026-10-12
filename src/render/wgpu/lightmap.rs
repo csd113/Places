@@ -46,8 +46,8 @@ use crate::lighting::lightmap::{LevelLightmaps, LightmapPage};
 /// One page pair per page and switchable group, selected by the vertex page
 /// byte plus the uniform's group index. A bake that needs more pages fails over
 /// to vertex lighting instead of dropping pages silently. Mirrors
-/// [`crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES`] (eleven Full pages:
-/// a 176 MiB layer group at its 1024px edge). Medium retains eight 1024px pages
+/// [`crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES`] (twelve Full pages:
+/// a 192 MiB layer group at its 1024px edge). Medium retains eight 1024px pages
 /// and Low eight 512px pages; only resident pages and prepared groups allocate.
 pub const LIGHTMAP_ATLAS_MAX_PAGES: usize = crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES;
 
@@ -117,7 +117,10 @@ pub struct LightmapUploadStats {
 /// irradiance, zero direction, reserved alpha), so an upload can never read
 /// uninitialized bytes.
 #[must_use]
-pub fn page_rgba16f(page: &LightmapPage) -> Vec<u8> {
+pub fn page_rgba16f(page: &LightmapPage) -> std::borrow::Cow<'_, [u8]> {
+    if let Some(bytes) = page.rgba16f_planes() {
+        return std::borrow::Cow::Borrowed(bytes);
+    }
     let texels = usize::try_from(page.width.saturating_mul(page.height)).unwrap_or(usize::MAX);
     let plane_bytes = texels.saturating_mul(8);
     let mut bytes = Vec::with_capacity(plane_bytes.saturating_mul(2));
@@ -133,7 +136,7 @@ pub fn page_rgba16f(page: &LightmapPage) -> Vec<u8> {
     while bytes.len() < plane_bytes.saturating_mul(2) {
         push_half_rgba(&mut bytes, [0.0; 3]);
     }
-    bytes
+    std::borrow::Cow::Owned(bytes)
 }
 
 /// The reserved alpha both planes store: consumers ignore it, writers pin it so
@@ -467,13 +470,96 @@ mod tests {
         LightmapPage {
             width,
             height,
-            texels,
+            texels: texels.into(),
         }
     }
 
     fn black_page(edge: u32) -> LightmapPage {
         let texels = usize::try_from(edge.saturating_mul(edge)).unwrap();
         page(edge, edge, vec![LightmapTexel::ZERO; texels])
+    }
+
+    /// A four-texel fixture protects the runtime allocation/ownership contract:
+    /// scalar diagnostics and upload borrow packed pixels, while edits invalidate
+    /// that upload view without changing a different world sharing the bytes.
+    #[test]
+    fn packed_upload_and_scalar_reads_do_not_materialize_float_pixels() {
+        let source = page(
+            2,
+            2,
+            vec![
+                LightmapTexel {
+                    irradiance: [16.0, 0.25, 0.0],
+                    direction: [-4.5, -0.0, 3.75],
+                    axis: [0.5, 0.5],
+                };
+                4
+            ],
+        );
+        let expected = page_rgba16f(&source).into_owned();
+        let mut allocation = vec![0xFF; 3];
+        allocation.extend_from_slice(&expected);
+        let bytes = std::sync::Arc::new(allocation);
+        let packed =
+            LightmapPage::from_packed_planes(2, 2, std::sync::Arc::clone(&bytes), 3..67).unwrap();
+        assert!(
+            !packed.texels.is_materialized(),
+            "load retains only half planes"
+        );
+        assert_eq!(packed.retained_pixel_bytes(), 64);
+        let upload = page_rgba16f(&packed);
+        assert!(
+            matches!(upload, std::borrow::Cow::Borrowed(_)),
+            "upload borrows the atlas allocation"
+        );
+        assert_eq!(upload.as_ref(), expected.as_slice());
+        assert_eq!(upload.as_ptr(), bytes[3..].as_ptr());
+        for y in 0..2 {
+            for x in 0..2 {
+                let actual = packed.texel(x, y).unwrap();
+                let original = source.texel(x, y).unwrap();
+                assert_eq!(
+                    actual.irradiance.map(f32::to_bits),
+                    original.irradiance.map(f32::to_bits)
+                );
+                assert_eq!(
+                    actual.direction.map(f32::to_bits),
+                    original.direction.map(f32::to_bits)
+                );
+            }
+        }
+        assert!(
+            !packed.texels.is_materialized(),
+            "scalar reads do not expand a page"
+        );
+        let mut edited = packed.clone();
+        edited.set_texel(0, 0, LightmapTexel::ZERO);
+        assert!(
+            edited.rgba16f_planes().is_none(),
+            "pixel edits invalidate packed upload bytes"
+        );
+        assert_eq!(edited.texel(0, 0), Some(LightmapTexel::ZERO));
+        assert_eq!(page_rgba16f(&packed).as_ref(), expected.as_slice());
+        assert!(
+            !packed.texels.is_materialized(),
+            "editing another world keeps the original packed"
+        );
+        for bad_range in [3..66, 4..68] {
+            assert!(
+                LightmapPage::from_packed_planes(2, 2, std::sync::Arc::clone(&bytes), bad_range)
+                    .is_err(),
+                "truncated or out-of-range planes are rejected"
+            );
+        }
+        for (offset, bits) in [(0, 0x7C00_u16), (0, 0xBC00), (8, 0x7E00), (6, 0x0000)] {
+            let mut noncanonical = expected.clone();
+            noncanonical[offset..offset + 2].copy_from_slice(&bits.to_le_bytes());
+            assert!(
+                LightmapPage::from_packed_planes(2, 2, std::sync::Arc::new(noncanonical), 0..64)
+                    .is_err(),
+                "noncanonical RGB or reserved alpha is rejected"
+            );
+        }
     }
 
     #[test]
@@ -647,7 +733,7 @@ mod tests {
 
     #[test]
     fn profile_budgets_match_shared_renderer_capacity() {
-        assert_eq!(LIGHTMAP_ATLAS_MAX_PAGES, 11);
+        assert_eq!(LIGHTMAP_ATLAS_MAX_PAGES, 12);
         assert_eq!(
             LIGHTMAP_ATLAS_MAX_PAGES,
             crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES,
@@ -657,7 +743,7 @@ mod tests {
             let config = profile.lightmap_config();
             let expected = match profile {
                 crate::quality::QualityProfile::Low => 8,
-                crate::quality::QualityProfile::Full => 11,
+                crate::quality::QualityProfile::Full => 12,
             };
             assert_eq!(
                 config.max_pages, expected,
@@ -684,7 +770,7 @@ mod tests {
             crate::quality::LightmapQuality::Full
                 .lightmap_config()
                 .map(|config| config.max_pages),
-            Some(11)
+            Some(12)
         );
         // Low keeps its 512-texel pages and Full its 1024-texel pages.
         assert_eq!(
@@ -717,29 +803,29 @@ mod tests {
     #[test]
     fn full_capacity_uses_only_resident_pages_and_contribution_layers() {
         // Tiny physical pages exercise the complete layer-addressing boundary
-        // without allocating the Full profile's 176 MiB base GPU payload.
-        let mut maps = lightmaps(vec![black_page(1); 11]);
+        // without allocating the Full profile's 192 MiB base GPU payload.
+        let mut maps = lightmaps(vec![black_page(1); 12]);
         let base = upload_stats(Some(&maps));
-        assert_eq!(base.capacity, 11);
-        assert_eq!(base.pages, 11);
-        assert_eq!(base.resident_bytes, 11 * 2 * 8);
+        assert_eq!(base.capacity, 12);
+        assert_eq!(base.pages, 12);
+        assert_eq!(base.resident_bytes, 12 * 2 * 8);
         maps.switchable = (0..MAX_SWITCHABLE_GROUPS)
             .map(|light_index| SwitchableLightmaps {
                 light_index,
-                pages: vec![black_page(1); 11],
+                pages: vec![black_page(1); 12],
             })
             .collect();
-        assert_eq!(maps.layer_count(), 110);
-        assert_eq!(maps.irradiance_layer(Some(3), 10), 108);
+        assert_eq!(maps.layer_count(), 120);
+        assert_eq!(maps.irradiance_layer(Some(3), 11), 118);
         let contributions = upload_stats(Some(&maps));
-        assert_eq!(contributions.pages, 11);
-        assert_eq!(contributions.resident_bytes, 110 * 8);
+        assert_eq!(contributions.pages, 12);
+        assert_eq!(contributions.resident_bytes, 120 * 8);
         assert!(maps.pages.pop().is_some());
         for contribution in &mut maps.switchable {
             assert!(contribution.pages.pop().is_some());
         }
-        assert_eq!(maps.layer_count(), 100);
-        assert_eq!(upload_stats(Some(&maps)).resident_bytes, 100 * 8);
+        assert_eq!(maps.layer_count(), 110);
+        assert_eq!(upload_stats(Some(&maps)).resident_bytes, 110 * 8);
     }
 
     #[test]

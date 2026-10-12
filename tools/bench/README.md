@@ -455,9 +455,9 @@ the installed files. Use `--expect-metadata-reuse --expect-presentation-reuse`
 for those two supported prepared-stage cases. Every timed output must equal the
 independent clean archive byte for byte, including baked lighting and probe mips.
 
-A fast hero development build uses `--variants medium --workers 12`; its native
-player must request Medium. Final visual validation uses `--variants
-off,medium,full --workers 12` and High/Full. Keep the output paths distinct;
+A vertex-lit development build uses `--variants static --workers 12`; its native
+player must request Static. Use `--variants full` when inspecting baked detail. Final visual validation uses `--variants
+off,full --workers 12` and High/Full. Keep the output paths distinct;
 variant identities are enforced. Medium changes chart/filter/reflection quality,
 not correctness or content, and cannot stand in for the final High gallery.
 

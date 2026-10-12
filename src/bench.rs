@@ -63,7 +63,7 @@ const QUALITY_CYCLE_ENV: &str = "PLACES_BENCH_QUALITY_CYCLE";
 ///
 /// Settings and values:
 /// * `filtering=low|medium|high`
-/// * `lightmaps=off|medium|full`
+/// * `lighting=static|full` (`lightmaps=off|medium|full` remains an adapter)
 /// * `reflections=off|medium|full`
 /// * `bloom=on|off` (`1`/`0`/`true`/`false` are accepted too)
 /// * `low-lighting=on|off` (independent of texture quality/filtering)
@@ -272,7 +272,7 @@ pub enum GraphicsChange {
     /// `filtering=<low|medium|high>`: the ordinary world Texture Filtering
     /// preset (already canonicalized).
     Filtering(&'static str),
-    /// `lightmaps=<off|medium|full>`.
+    /// `lighting=<static|full>`; legacy `lightmaps=medium` selects Full.
     Lightmaps(LightmapQuality),
     /// `reflections=<off|medium|full>`.
     Reflections(ReflectionQuality),
@@ -284,7 +284,7 @@ pub enum GraphicsChange {
 
 /// Parses one `PLACES_BENCH_GRAPHICS_CYCLE` entry, `[<setting>=<value>]`.
 ///
-/// Accepts `filtering=`, `lightmaps=`, `reflections=` and `bloom=` with the
+/// Accepts `filtering=`, `lighting=`, `lightmaps=`, `reflections=` and `bloom=` with the
 /// documented values, case-insensitively. Anything else (an unknown name
 /// included) is `None` and is ignored by the runner, like every other
 /// malformed benchmark value.
@@ -297,7 +297,12 @@ pub fn parse_graphics_change(value: &str) -> Option<GraphicsChange> {
             .find(|name| name.eq_ignore_ascii_case(setting_value.trim()))
             .copied()
             .map(GraphicsChange::Filtering),
-        "lightmaps" => LightmapQuality::parse(setting_value).map(GraphicsChange::Lightmaps),
+        "lighting" | "lightmaps" => LightmapQuality::parse(setting_value).map(|quality| {
+            GraphicsChange::Lightmaps(match quality {
+                LightmapQuality::Off => LightmapQuality::Off,
+                LightmapQuality::Medium | LightmapQuality::Full => LightmapQuality::Full,
+            })
+        }),
         "reflections" => ReflectionQuality::parse(setting_value).map(GraphicsChange::Reflections),
         "bloom" => parse_on_off(setting_value).map(GraphicsChange::Bloom),
         "low-lighting" => parse_on_off(setting_value).map(GraphicsChange::LowLighting),

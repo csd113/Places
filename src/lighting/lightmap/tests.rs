@@ -552,15 +552,15 @@ fn the_shipped_page_budget_is_used_when_genuinely_needed() {
 }
 
 #[test]
-fn full_page_policy_preserves_architecture_sampling_and_invalidates_the_ten_page_cache() {
+fn full_page_policy_preserves_architecture_sampling_and_invalidates_the_eleven_page_cache() {
     let full = LightmapConfig::for_profile(QualityProfile::Full);
     assert_eq!(
-        full.max_pages, 11,
-        "Full admits the measured finer model plan"
+        full.max_pages, 12,
+        "Full admits the current model catalog without lowering detail"
     );
     assert_eq!(full.page_edge, 1024);
     let previous_full = LightmapConfig {
-        max_pages: 10,
+        max_pages: 11,
         ..full
     };
     for receiver in [patch(0.3, 0.35), patch(8.0, 6.0), patch(63.6875, 63.6875)] {
@@ -606,6 +606,68 @@ fn full_page_policy_preserves_architecture_sampling_and_invalidates_the_ten_page
         LightmapConfig::for_profile(QualityProfile::Low).page_edge,
         512
     );
+}
+
+#[test]
+fn full_reuses_the_previous_eleventh_page_holes_before_opening_a_twelfth() {
+    // Only allocator rectangles are created: no atlas pixels or transport.
+    // Page zero retains a nine-texel-wide architecture hole; ten full prop
+    // pages exhaust their own family. Both policies must place the next small
+    // prop in the identical hole, and only genuine overflow may open page12.
+    let config = LightmapConfig {
+        texels_per_metre: 1.0,
+        page_edge: 32,
+        max_pages: 12,
+        padding: 1,
+        bytes_per_texel: 16,
+    };
+    let mut previous = ChartAllocator::new(LightmapConfig {
+        max_pages: 11,
+        ..config
+    });
+    let mut current = ChartAllocator::new(config);
+    let architecture = patch(20.0, 29.0);
+    let mut full_prop = patch(29.0, 29.0);
+    full_prop.kind = PatchKind::Prop;
+    let mut small_prop = patch(4.0, 4.0);
+    small_prop.kind = PatchKind::Prop;
+    let surfaces = std::iter::once(&architecture)
+        .chain(std::iter::repeat_n(&full_prop, 10))
+        .chain(std::iter::once(&small_prop));
+    let mut last = None;
+    for surface in surfaces {
+        let previous_chart = previous.allocate(surface).expect("former layout fits");
+        let current_chart = current.allocate(surface).expect("same layout still fits");
+        assert_eq!(
+            current_chart, previous_chart,
+            "all formerly valid chart coordinates and gutters remain identical"
+        );
+        last = Some(current_chart);
+    }
+    assert_eq!(previous.page_count(), 11, "the old layout reaches its cap");
+    assert_eq!(current.page_count(), 11, "the spare page stays unallocated");
+    assert_eq!(
+        last.expect("small prop chart").page,
+        0,
+        "the small prop uses the original architecture hole"
+    );
+    assert!(
+        previous.allocate(&full_prop).is_none(),
+        "the next full chart genuinely overflows"
+    );
+    let added = current
+        .allocate(&full_prop)
+        .expect("twelfth page admits genuine overflow");
+    assert_eq!(
+        added.page, 11,
+        "only the new chart requires the twelfth page"
+    );
+    assert_eq!(
+        current.page_count(),
+        12,
+        "the atlas allocates its actual need"
+    );
+    assert!(!current.failed(), "the complete plan keeps Full lighting");
 }
 
 #[test]
@@ -1656,7 +1718,8 @@ fn switchable_groups_follow_the_base_layers_in_a_dense_pair_layout() {
                 axis: [0.5, 0.5],
             };
             4
-        ],
+        ]
+        .into(),
     };
     for (pages, switchable) in [(1usize, 0usize), (1, 2), (3, 0), (3, 2), (4, 3)] {
         let lightmaps = LevelLightmaps {
@@ -1941,7 +2004,7 @@ fn cache_fixture(key: &str, value: f32) -> LevelLightmaps {
         pages: vec![LightmapPage {
             width: 4,
             height: 4,
-            texels: vec![texel; 16],
+            texels: vec![texel; 16].into(),
         }],
         charts: vec![(
             patch(1.0, 1.0),
@@ -1990,7 +2053,8 @@ fn memory_cache_evicts_the_least_recently_used_entry_without_invalidating_owners
                 axis: [0.5, 0.5],
             };
             16
-        ],
+        ]
+        .into(),
         "the active owner survives eviction"
     );
 }

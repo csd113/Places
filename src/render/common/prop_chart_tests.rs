@@ -554,8 +554,8 @@ fn explicit_model_density_is_bounded_and_architecture_resolution_stays_unchanged
     );
     assert_eq!(
         config().max_pages,
-        11,
-        "Full uses the measured eleven-page plan budget"
+        12,
+        "Full retains detail within the current twelve-page plan budget"
     );
     assert_eq!(config().page_edge, 1_024, "page dimensions are unchanged");
     Ok(())

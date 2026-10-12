@@ -1315,7 +1315,7 @@ Computed lighting images are derived from level geometry and light settings:
 
 | Image | Producer | Purpose |
 |---|---|---|
-| Lightmap atlas pages | `src/lighting/lightmap/` + offline compiler | Incident linear HDR and signed moment pairs, prepared into package KTX2 blobs. Full plans up to eleven pages per contribution group; lower profiles retain eight. The player uploads the exact produced layers, subject to the measured 320 MiB +64 KiB typed record bound and unchanged switch-group/aggregate/shape guards. PNG dumps are diagnostics, not authored assets. |
+| Lightmap atlas pages | `src/lighting/lightmap/` + offline compiler | Incident linear HDR and signed moment pairs, prepared into compact PLLC1 blobs (legacy/exact KTX2 remains readable), expanding to the same linear half-float GPU planes. Full plans up to twelve pages per contribution group; lower profiles retain eight. The player uploads the exact produced layers, subject to the measured 320 MiB +64 KiB typed record bound and unchanged switch-group/aggregate/shape guards. PNG dumps are diagnostics, not authored assets. |
 | Reflection probe cubemaps | `src/render/common/reflections.rs` (routing) and `src/render/wgpu/reflections.rs` (offline capture) | Packaged HDR probe captures and roughness mip chains, uploaded at level load; the player does not recapture them. |
 
 Diagnostic textures under `assets/diagnostic/textures/` are real PNGs but are
@@ -1398,15 +1398,14 @@ a runtime edge budget per texture class:
 | Prop sheet (embedded) | 256 | 256 | 128 |
 | Emissive mask | 512 | 256 | 128 |
 | Sky panorama | 2048 | 1024 | 512 |
-| Preset Lightmaps | Full: 1024 @ 16 texels/m | Medium: 1024 @ 12 texels/m | Off: vertex lighting |
-| Preset Reflections | Full: 64-pixel HDR probes + planar | Medium: 48-pixel HDR probes + planar | Off |
+| Lighting | Independent Static / Full | Same | Same |
+| Reflections | Independent Off / Medium / Full; suppressed in Static | Same | Same |
 
-Lightmaps and Reflections are independent advanced settings: Low with Full
-lightmaps/reflections and High with them Off are supported. A level ships prepared
-Off/Medium/Full variants of the same source. The legacy two-profile planner API
-also supports 512-pixel/10-texel Low atlases; that API budget is not the runtime
-Low preset. All presets share fixed authored presentation defaults (exposure 1,
-knee 0.75, saturation 1.03, contrast 1.02), while resource budgets remain distinct.
+New levels ship Static (`off`) and Full prepared variants. Static retains vertex
+lighting; Full retains the full bake at every texture quality. Legacy Medium
+packages remain readable and saved Medium lighting becomes Full. All texture
+qualities retain authored presentation defaults (exposure 1, knee 0.75,
+saturation 1.03, contrast 1.02).
 
 * Downscaling happens **once, at upload / level-load time**, through an
   integer-factor box filter that applies the same factor to both edges, so

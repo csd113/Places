@@ -30,33 +30,16 @@
 //! decides how much of an *accepted* source reaches the GPU; it never raises
 //! the source limit.
 //!
-//! The same level also budgets the static lightmap atlas and the baked shadow
-//! quality: High bakes at 16 texels per metre with a two-tap penumbra and
-//! 7.5 cm prop-occlusion cells, Medium at 12 texels per metre with the same
-//! taps and 11 cm cells, and Low at 10 texels per metre at the 512-texel page
-//! size with a single tap and 15 cm cells (see
-//! [`QualityLevel::lightmap_config`] and [`QualityLevel::shadow_taps_per_axis`];
-//! Small opaque model surfaces use twice those physical densities: High32/m
-//! and Medium24/m, retaining narrow authored shadow detail. Compatible source
-//! triangles share illumination charts while their draw attributes stay exact.
-//! Full's eleven-page capacity is [`crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES`],
-//! while lower profiles retain eight pages).
+//! Texture quality is independent of player-selected lighting. Static retains
+//! the cheaper vertex-lighting path; Full loads the offline full-quality bake.
+//! The historical Medium bake configuration remains only for decoding legacy
+//! packages and internal compatibility fixtures. New packages compile Static
+//! and Full, and saved Medium lighting migrates to Full.
 //!
-//! Every level bakes from the *same* patch set — density, page size and tap
-//! count are the differences, never a different set of surfaces — and all use
-//! the same shared chart-span cap, so the geometry splits in the same places.
-//!
-//! [`QualityProfile`] is the two-variant form of the same budgets that the
-//! lightmap content key and the protected lightmap planner consume.
-//! [`QualityLevel::profile`] maps a level onto it exactly at that boundary
-//! (Low to Low, Medium and High to Full), and Low and High delegate every
-//! other decision to the validated profile values, so only Medium is new here.
-//!
-//! Downscaling happens once, at upload/level-load time, through
+//! Downscaling happens at upload/level-load time through
 //! [`crate::materials::RawImage::downscaled_to`] and is cached with the texture
-//! it produced — never per frame, and never twice for the same image. A
-//! lightmap atlas is likewise baked once per level load and cached by content
-//! key; nothing here runs per frame.
+//! it produced. Runtime packages already contain their solved lightmaps; the
+//! offline compiler owns transport, chart planning and atlas generation.
 
 /// The two-variant profile form of the validated budgets.
 ///
@@ -497,12 +480,11 @@ impl QualityLevel {
     }
 }
 
-/// The player-facing Lightmaps quality: whether a baked atlas exists and how
-/// dense it is.
+/// Lighting's Static and Full paths, plus the readable legacy Medium bake.
 ///
 /// This is deliberately independent of [`QualityLevel`]: the overall quality
-/// preset selects one of these as its default, but the player may override it,
-/// so `Low + Lightmaps Full` and `High + Lightmaps Off` are both valid. The
+/// setting never rewrites a selected lighting path, so `Low + Lighting Full`
+/// and `High + Lighting Static` are both valid. The
 /// setting owns the whole bake configuration (atlas density/page and the
 /// shadow taps/prop-occlusion cell), so two configurations that produce
 /// different baked texels can never share a cache entry.
@@ -511,9 +493,9 @@ impl QualityLevel {
 /// never touches ordinary world Texture Filtering.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum LightmapQuality {
-    /// No bake at all: the validated historical vertex-lit path.
+    /// Static vertex lighting, without a lightmap atlas.
     Off,
-    /// The intermediate atlas: twelve texels per metre within eight pages.
+    /// The old intermediate atlas, retained for package inspection and compatibility.
     Medium,
     /// The full/high-quality atlas.
     #[default]
@@ -521,8 +503,8 @@ pub enum LightmapQuality {
 }
 
 impl LightmapQuality {
-    /// Every level, in selector order.
-    pub const ALL: [Self; 3] = [Self::Off, Self::Medium, Self::Full];
+    /// The two selectable lighting paths. Medium remains readable in old packages.
+    pub const ALL: [Self; 2] = [Self::Off, Self::Full];
 
     /// The default a fresh install runs with.
     pub const DEFAULT: Self = Self::Full;
@@ -541,7 +523,7 @@ impl LightmapQuality {
     #[must_use]
     pub const fn label(self) -> &'static str {
         match self {
-            Self::Off => "Off",
+            Self::Off => "Static",
             Self::Medium => "Medium",
             Self::Full => "Full",
         }
@@ -552,7 +534,10 @@ impl LightmapQuality {
     #[must_use]
     pub fn parse(name: &str) -> Option<Self> {
         let trimmed = name.trim();
-        Self::ALL
+        if trimmed.eq_ignore_ascii_case("static") {
+            return Some(Self::Off);
+        }
+        [Self::Off, Self::Medium, Self::Full]
             .into_iter()
             .find(|level| level.name().eq_ignore_ascii_case(trimmed))
     }
@@ -614,8 +599,7 @@ impl LightmapQuality {
     pub const fn default_for(quality: QualityLevel) -> Self {
         match quality {
             QualityLevel::Low => Self::Off,
-            QualityLevel::Medium => Self::Medium,
-            QualityLevel::High => Self::Full,
+            QualityLevel::Medium | QualityLevel::High => Self::Full,
         }
     }
 }

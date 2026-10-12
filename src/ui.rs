@@ -46,8 +46,8 @@ impl SettingsPage {
     /// Number of selectable rows on this page.
     ///
     /// The Graphics page's Advanced group changes the count: collapsed it is
-    /// one row (`Advanced`), expanded it is that row plus Texture Filtering,
-    /// Lightmaps and Reflections. Kept next to [`settings_rows`], which
+    /// one row (`Advanced`), expanded it includes Texture Filtering and
+    /// Reflections. Lighting remains visible when collapsed. [`settings_rows`]
     /// generates exactly this many rows; a unit test pins the two together.
     #[must_use]
     pub const fn item_count(self, advanced_expanded: bool) -> usize {
@@ -55,7 +55,7 @@ impl SettingsPage {
             Self::Root => 5,
             Self::Graphics => {
                 if advanced_expanded {
-                    9
+                    8
                 } else {
                     6
                 }
@@ -102,7 +102,6 @@ pub enum SettingsRowKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SettingsValue {
     GraphicsQuality,
-    LowQualityLighting,
     Bloom,
     Reflections,
     Lightmaps,
@@ -141,8 +140,8 @@ pub struct UiState {
     /// Whether the Graphics page's Advanced group is expanded.
     ///
     /// Session-only UI state: collapsed by default, reset whenever a Settings
-    /// screen is opened, and never persisted. The three advanced rows
-    /// (Texture Filtering, Lightmaps, Reflections) are hidden while collapsed.
+    /// screen is opened, and never persisted. Texture Filtering and Reflections
+    /// are hidden while collapsed.
     pub advanced_expanded: bool,
     pub rebinding_action: Option<&'static str>,
     pub status_message: Option<String>,
@@ -516,11 +515,11 @@ fn selector_with_override(value: &str, overridden: bool) -> String {
 /// True when any Graphics option is pinned by a startup override, so the
 /// Graphics legend can explain the marker.
 #[must_use]
-pub const fn any_graphics_override(settings: &Settings) -> bool {
+pub fn any_graphics_override(settings: &Settings) -> bool {
     settings.quality_overridden()
         || settings.bloom_overridden()
-        || (!settings.use_low_quality_lighting
-            && (settings.reflection_quality_overridden() || settings.lightmap_quality_overridden()))
+        || (!settings.use_low_quality_lighting && settings.lightmap_quality_overridden())
+        || (settings.lightmaps_enabled() && settings.reflection_quality_overridden())
         || settings.vsync_overridden()
 }
 
@@ -539,7 +538,7 @@ fn push_row(rows: &mut Vec<SettingsRow>, label: &str, value: String, kind: Setti
 /// rows and [`activate_settings_item`] dispatches on the same list, so the
 /// current value can never be shown without also being the value that changes.
 /// `advanced_expanded` only affects the Graphics page, whose Advanced group
-/// hides its three rows while collapsed.
+/// hides Texture Filtering and Reflections while collapsed.
 #[must_use]
 pub fn settings_rows(
     page: SettingsPage,
@@ -577,9 +576,9 @@ fn root_rows() -> Vec<SettingsRow> {
 }
 
 /// Graphics: the quality level, the always-visible preferences, then the
-/// collapsible Advanced group (Texture Filtering, Lightmaps, Reflections).
+/// collapsible Advanced group (Texture Filtering and Reflections).
 ///
-/// The three advanced rows are the only place their values are offered; the
+/// The advanced rows are the only place their values are offered; the
 /// strings are the player-facing labels, never an internal parameter.
 fn graphics_rows(settings: &Settings, advanced_expanded: bool) -> Vec<SettingsRow> {
     let mut rows = Vec::with_capacity(SettingsPage::Graphics.item_count(advanced_expanded));
@@ -625,36 +624,26 @@ fn graphics_rows(settings: &Settings, advanced_expanded: bool) -> Vec<SettingsRo
         );
         push_row(
             &mut rows,
-            "Lightmaps",
-            if settings.use_low_quality_lighting {
-                "Off (Low lighting)".to_string()
-            } else {
-                selector_with_override(
-                    settings.lightmap_quality().label(),
-                    settings.lightmap_quality_overridden(),
-                )
-            },
-            SettingsRowKind::Value(SettingsValue::Lightmaps),
-        );
-        push_row(
-            &mut rows,
             "Reflections",
-            if settings.use_low_quality_lighting {
-                "Off (Low lighting)".to_string()
-            } else {
+            if settings.lightmaps_enabled() {
                 selector_with_override(
                     settings.reflection_quality().label(),
                     settings.reflection_quality_overridden(),
                 )
+            } else {
+                "Off (Static lighting)".to_string()
             },
             SettingsRowKind::Value(SettingsValue::Reflections),
         );
     }
     push_row(
         &mut rows,
-        "Use Low-quality lighting",
-        selector(on_off(settings.use_low_quality_lighting)),
-        SettingsRowKind::Value(SettingsValue::LowQualityLighting),
+        "Lighting",
+        selector_with_override(
+            settings.lightmap_quality().label(),
+            settings.lightmap_quality_overridden() && !settings.use_low_quality_lighting,
+        ),
+        SettingsRowKind::Value(SettingsValue::Lightmaps),
     );
     push_row(&mut rows, "Back", String::new(), SettingsRowKind::Back);
     rows
@@ -824,10 +813,9 @@ fn adjust_value(
             let next = settings.toggle_bloom();
             ui_state.set_status(format!("Bloom {}", on_off(next).to_lowercase()), false);
         }
-        SettingsValue::LowQualityLighting => toggle_low_lighting(ui_state, settings),
         SettingsValue::Reflections => {
-            if settings.use_low_quality_lighting {
-                ui_state.set_status("Turn off Low lighting to change reflections", false);
+            if !settings.lightmaps_enabled() {
+                ui_state.set_status("Select Full lighting to change reflections", false);
                 return;
             }
             let next = Settings::reflection_quality_step(settings.reflection_quality(), direction);
@@ -907,29 +895,11 @@ fn adjust_value(
     }
 }
 
-/// Toggles the live lighting override without rewriting texture preferences.
-fn toggle_low_lighting(ui_state: &mut UiState, settings: &mut Settings) {
-    let enabled = !settings.use_low_quality_lighting;
-    let _use_low_quality_lighting_changed = settings.set_use_low_quality_lighting(enabled);
-    ui_state.set_status(
-        if enabled {
-            "Low lighting on; textures unchanged"
-        } else {
-            "Saved lighting preferences restored"
-        },
-        false,
-    );
-}
-
-/// Keeps the advanced Lightmaps selector consistent with the effective path.
+/// Selects the lighting path without changing texture preferences.
 fn adjust_lightmaps(ui_state: &mut UiState, settings: &mut Settings, direction: i32) {
-    if settings.use_low_quality_lighting {
-        ui_state.set_status("Turn off Low lighting to change lightmaps", false);
-        return;
-    }
     let next = Settings::lightmap_quality_step(settings.lightmap_quality(), direction);
     if settings.set_lightmap_quality(next) {
-        ui_state.set_status(format!("Lightmaps: {}", next.label()), false);
+        ui_state.set_status(format!("Lighting: {}", next.label()), false);
     }
 }
 
@@ -1645,88 +1615,77 @@ mod tests {
         let ui = UiState::new();
         assert!(!ui.advanced_expanded, "collapsed by default");
         assert_eq!(SettingsPage::Graphics.item_count(false), 6);
-        assert_eq!(SettingsPage::Graphics.item_count(true), 9);
+        assert_eq!(SettingsPage::Graphics.item_count(true), 8);
     }
 
+    /// One visible selector migrates the legacy override and preserves texture
+    /// choices. The pure menu fixture also verifies Static disables reflections.
     #[test]
-    fn low_lighting_toggle_is_live_and_advanced_rows_explain_the_override() {
+    fn one_lighting_selector_cycles_static_full_and_restores_reflections() {
         let mut ui = UiState::new();
         let mut settings = Settings::default();
         let display = DisplayStatus::default();
         let rows = settings_rows(SettingsPage::Graphics, &settings, &display, false);
-        let toggle = rows
+        let lighting = rows
             .iter()
-            .position(|row| row.kind == SettingsRowKind::Value(SettingsValue::LowQualityLighting))
-            .expect("always-visible toggle");
-        assert_eq!(rows[toggle].label, "Use Low-quality lighting");
-        let signature_ui = UiState::new();
-        let signature = ui_signature(
-            AppState::Settings,
-            &signature_ui,
-            &settings,
-            &display,
-            "test",
-        );
-        let _activate_settings_item_status = activate_settings_item(
+            .position(|row| row.kind == SettingsRowKind::Value(SettingsValue::Lightmaps))
+            .expect("always-visible lighting selector");
+        assert_eq!(rows[lighting].label, "Lighting");
+        let _selected = activate_settings_item(
             SettingsPage::Graphics,
-            toggle,
+            lighting,
             &mut ui,
             &mut settings,
             &display,
             1,
         );
-        assert!(settings.use_low_quality_lighting);
-        assert!(settings.take_pending_apply().graphics);
-        assert_ne!(
-            ui_signature(
-                AppState::Settings,
-                &signature_ui,
-                &settings,
-                &display,
-                "test"
-            ),
-            signature
+        assert_eq!(
+            settings.lightmap_quality(),
+            crate::quality::LightmapQuality::Off
         );
+        assert!(settings.take_pending_apply().graphics);
         assert_eq!(settings.quality_level(), QualityLevel::High);
         assert_eq!(settings.texture_filtering_preset(), "high");
 
         ui.advanced_expanded = true;
-        let advanced_rows = settings_rows(SettingsPage::Graphics, &settings, &display, true);
-        for option in [SettingsValue::Lightmaps, SettingsValue::Reflections] {
-            let index = advanced_rows
+        let expanded = settings_rows(SettingsPage::Graphics, &settings, &display, true);
+        assert_eq!(
+            expanded
                 .iter()
-                .position(|row| row.kind == SettingsRowKind::Value(option))
-                .expect("advanced option");
-            assert_eq!(advanced_rows[index].value, "Off (Low lighting)");
-            let _activate_settings_item_status_2 = activate_settings_item(
-                SettingsPage::Graphics,
-                index,
-                &mut ui,
-                &mut settings,
-                &display,
-                1,
-            );
-            assert!(
-                !settings.take_pending_apply().any(),
-                "forced row cannot create a conflicting request"
-            );
-        }
-        assert_eq!(settings.lightmaps, "full");
-        assert_eq!(settings.reflections, "full");
-        let restored_toggle = advanced_rows
+                .filter(|row| row.label == "Lighting")
+                .count(),
+            1
+        );
+        let reflections = expanded
             .iter()
-            .position(|row| row.kind == SettingsRowKind::Value(SettingsValue::LowQualityLighting))
-            .expect("expanded toggle");
-        let _activate_settings_item_status_3 = activate_settings_item(
+            .position(|row| row.kind == SettingsRowKind::Value(SettingsValue::Reflections))
+            .expect("reflection selector");
+        assert_eq!(expanded[reflections].value, "Off (Static lighting)");
+        let _disabled = activate_settings_item(
             SettingsPage::Graphics,
-            restored_toggle,
+            reflections,
+            &mut ui,
+            &mut settings,
+            &display,
+            1,
+        );
+        assert!(!settings.take_pending_apply().any());
+        assert_eq!(settings.reflections, "full");
+
+        settings.use_low_quality_lighting = true;
+        let expanded_lighting = expanded
+            .iter()
+            .position(|row| row.kind == SettingsRowKind::Value(SettingsValue::Lightmaps))
+            .expect("lighting selector");
+        let _restored = activate_settings_item(
+            SettingsPage::Graphics,
+            expanded_lighting,
             &mut ui,
             &mut settings,
             &display,
             -1,
         );
         assert!(!settings.use_low_quality_lighting);
-        assert!(settings.take_pending_apply().graphics);
         assert_eq!(
             settings.lightmap_quality(),
             crate::quality::LightmapQuality::Full
@@ -1735,10 +1694,11 @@ mod tests {
             settings.reflection_quality(),
             crate::quality::ReflectionQuality::Full
         );
+        assert!(settings.take_pending_apply().graphics);
     }
 
     /// Enter toggles the Advanced group; left/right over it is ignored, and the
-    /// three hidden rows appear only when expanded.
+    /// advanced rows appear only when expanded.
     #[test]
     fn enter_toggles_the_advanced_group_and_left_right_is_ignored() {
         let mut ui = UiState::new();
@@ -1761,7 +1721,7 @@ mod tests {
         assert_eq!(rows[3].label, "Advanced");
         assert_eq!(rows[3].kind, SettingsRowKind::Advanced);
         assert_eq!(rows[3].value, ">");
-        assert_eq!(rows[4].label, "Use Low-quality lighting");
+        assert_eq!(rows[4].label, "Lighting");
         assert_eq!(rows[5].label, "Back", "the advanced rows are hidden");
 
         // Enter expands, and Enter again collapses.
@@ -1777,7 +1737,7 @@ mod tests {
         assert!(!ui.advanced_expanded);
     }
 
-    /// The expanded Graphics page exposes exactly the three Advanced rows, in
+    /// The expanded Graphics page exposes the Advanced rows, in
     /// order, as player-facing labels and selectors with no numeric internals.
     #[test]
     fn the_expanded_advanced_rows_show_only_player_facing_values() {
@@ -1793,9 +1753,8 @@ mod tests {
             ("VSync", "< On >"),
             ("Advanced", "v"),
             ("Texture Filtering", "< High >"),
-            ("Lightmaps", "< Full >"),
             ("Reflections", "< Full >"),
-            ("Use Low-quality lighting", "< Off >"),
+            ("Lighting", "< Full >"),
             ("Back", ""),
         ];
         assert_eq!(rows.len(), expected.len());
@@ -1824,55 +1783,58 @@ mod tests {
         }
     }
 
-    /// The Advanced selectors are real three-way selectors: each is overridable
-    /// independently of the Quality preset.
+    /// Lighting has two stops; Full retains the independent three-way
+    /// reflection selector. No assets or GPU resources enter this UI fixture.
     #[test]
-    fn the_advanced_selectors_cycle_all_three_values() {
+    fn lighting_cycles_two_values_and_reflections_keep_three() {
         use crate::quality::{LightmapQuality, ReflectionQuality};
-
         let mut ui = UiState::new();
         ui.advanced_expanded = true;
         let mut settings = Settings::default();
-        let _quality_changed = settings.set_quality(QualityLevel::Low);
-        let _cleared_pending_apply = settings.take_pending_apply();
+        let _texture_changed = settings.set_quality(QualityLevel::Low);
+        let _cleared = settings.take_pending_apply();
         let display = DisplayStatus::default();
-
-        // Low starts at Lightmaps Off; right walks Off -> Medium -> Full -> Off.
+        let rows = settings_rows(SettingsPage::Graphics, &settings, &display, true);
+        let lighting = rows
+            .iter()
+            .position(|row| row.label == "Lighting")
+            .expect("lighting");
         for (direction, expected) in [
-            (1_i32, LightmapQuality::Medium),
-            (1_i32, LightmapQuality::Full),
             (1_i32, LightmapQuality::Off),
+            (1_i32, LightmapQuality::Full),
+            (-1_i32, LightmapQuality::Off),
             (-1_i32, LightmapQuality::Full),
         ] {
-            let _activate_settings_item_status = activate_settings_item(
+            let _selected = activate_settings_item(
                 SettingsPage::Graphics,
-                5,
+                lighting,
                 &mut ui,
                 &mut settings,
                 &display,
                 direction,
             );
             assert_eq!(settings.lightmap_quality(), expected);
-            assert_eq!(
-                settings.quality_level(),
-                QualityLevel::Low,
-                "the override never moves the quality level"
-            );
+            assert_eq!(settings.quality_level(), QualityLevel::Low);
         }
-
-        // Reflections has its own three-way selector at row 6.
-        let _activate_settings_item_status_2 = activate_settings_item(
-            SettingsPage::Graphics,
-            6,
-            &mut ui,
-            &mut settings,
-            &display,
-            1,
-        );
-        assert_eq!(settings.reflection_quality(), ReflectionQuality::Medium);
-        assert_eq!(settings.quality_level(), QualityLevel::Low);
-        let rows = settings_rows(SettingsPage::Graphics, &settings, &display, true);
-        assert_eq!(rows[6].label, "Reflections");
-        assert_eq!(rows[6].value, "< Medium >");
+        let reflections = rows
+            .iter()
+            .position(|row| row.label == "Reflections")
+            .expect("reflections");
+        for expected in [
+            ReflectionQuality::Off,
+            ReflectionQuality::Medium,
+            ReflectionQuality::Full,
+        ] {
+            let _selected = activate_settings_item(
+                SettingsPage::Graphics,
+                reflections,
+                &mut ui,
+                &mut settings,
+                &display,
+                1,
+            );
+            assert_eq!(settings.reflection_quality(), expected);
+            assert_eq!(settings.quality_level(), QualityLevel::Low);
+        }
     }
 }

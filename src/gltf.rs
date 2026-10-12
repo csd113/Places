@@ -42,6 +42,7 @@
 //! supported/unsupported feature table.
 
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use glam::{Mat4, Quat, Vec3};
 
@@ -332,7 +333,7 @@ pub struct PropModel {
     pub indices: Vec<u16>,
     /// Embedded textures, decoded to 8-bit RGBA, one per distinct image
     /// actually referenced by a used material, in first-use order.
-    pub textures: Vec<RawImage>,
+    pub textures: Vec<Arc<RawImage>>,
     /// Draw ranges in primitive order, ascending through `indices`; primitives
     /// that draw nothing are omitted.
     pub submeshes: Vec<PropSubmesh>,
@@ -744,7 +745,7 @@ struct Doc<'a> {
     vertices: Vec<PropVertex>,
     indices: Vec<u16>,
     submeshes: Vec<PropSubmesh>,
-    textures: Vec<RawImage>,
+    textures: Vec<Arc<RawImage>>,
     /// glTF image index -> index in `textures`, in first-use order.
     texture_of_image: HashMap<usize, u16>,
     primitives_seen: usize,
@@ -1621,7 +1622,7 @@ impl<'a> Doc<'a> {
         let index = u16::try_from(self.textures.len()).map_err(|error| {
             GltfError::new(format!("prop model has too many textures: {error}"))
         })?;
-        self.textures.push(decoded);
+        self.textures.push(Arc::new(decoded));
         let _previous_value = self.texture_of_image.insert(image_index, index);
         Ok(index)
     }

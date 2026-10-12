@@ -641,6 +641,8 @@ pub struct LevelLighting {
     room_index: RoomIndex,
     lights: Vec<BakedLight>,
     global_lights: Vec<super::directional::DirectionalLight>,
+    /// Incident sky radiance; Static samples a fixed visibility pattern.
+    sky_radiance: [f32; 3],
     light_index: LightIndex,
     /// Per room, the opening links that blend neighbouring light into it.
     blends: Vec<Vec<OpeningBlend>>,
@@ -1793,6 +1795,7 @@ impl LevelLighting {
                 .iter()
                 .filter_map(super::directional::DirectionalLight::from_definition)
                 .collect(),
+            sky_radiance: super::sky_radiance(level),
             blends,
             room_zones,
             visibility,
@@ -1816,12 +1819,12 @@ impl LevelLighting {
         &self.lights
     }
 
-    /// Directional direct light at a surface on the vertex-lit path. Origins
-    /// use geometric separation, and infinite rays have no range falloff.
+    /// Global direct and bounded sky light at a Static surface. Origins use
+    /// geometric separation; global rays have no range falloff.
     #[must_use]
     pub fn global_surface_light(&self, position: [f32; 3], normal: [f32; 3]) -> LightColor {
         let origin = super::transport::receiver_position(position, normal);
-        let mut color = LightColor::BLACK;
+        let mut color = self.sky_surface_light(position, normal);
         for light in &self.global_lights {
             let cosine = normal
                 .iter()
@@ -1842,6 +1845,80 @@ impl LevelLighting {
             ));
         }
         color
+    }
+
+    /// Five fixed hemisphere rays approximate escaping sky light without an
+    /// atlas, a transport scene or bounce work. Closed roofs still block it.
+    fn sky_surface_light(&self, position: [f32; 3], normal: [f32; 3]) -> LightColor {
+        if !self.sky_radiance.iter().any(|channel| *channel > 0.0) {
+            return LightColor::BLACK;
+        }
+        let unit_normal = glam::Vec3::from_array(normal).normalize_or_zero();
+        if unit_normal == glam::Vec3::ZERO {
+            return LightColor::BLACK;
+        }
+        let tangent = unit_normal.any_orthonormal_vector();
+        let bitangent = unit_normal.cross(tangent);
+        let ray = |axis: glam::Vec3, sign: f32| {
+            glam::Vec3::new(
+                sign.mul_add(axis.x, unit_normal.x),
+                sign.mul_add(axis.y, unit_normal.y),
+                sign.mul_add(axis.z, unit_normal.z),
+            )
+            .normalize_or_zero()
+        };
+        let directions = [
+            unit_normal,
+            ray(tangent, 1.0),
+            ray(tangent, -1.0),
+            ray(bitangent, 1.0),
+            ray(bitangent, -1.0),
+        ];
+        let origin = super::transport::receiver_position(position, unit_normal.to_array());
+        let visible = directions
+            .iter()
+            .filter(|direction| {
+                !self
+                    .visibility
+                    .occludes_direction(origin, direction.to_array())
+            })
+            .count();
+        let fraction = f32::from(u8::try_from(visible).unwrap_or(0)) * 0.2;
+        LightColor::from(self.sky_radiance.map(|channel| channel * fraction))
+    }
+
+    /// Angular global lighting for an entity on the simpler path. Its local
+    /// room sample remains isotropic; the existing shader reconstructs the
+    /// bounded global moment at each model normal, without resident probes.
+    #[must_use]
+    pub fn fallback_entity_texel(
+        &self,
+        position: [f32; 3],
+        local_light: [f32; 3],
+    ) -> Option<super::lightmap::LightmapTexel> {
+        if self.global_lights.is_empty() && !self.sky_radiance.iter().any(|value| *value > 0.0) {
+            return None;
+        }
+        let sky = self.sky_surface_light(position, [0.0, 1.0, 0.0]);
+        let mut energy = LightColor::from(local_light).plus(sky);
+        let mut moment = [0.0; 3];
+        for light in &self.global_lights {
+            if light.cast_shadows && self.visibility.occludes_direction(position, light.incoming) {
+                continue;
+            }
+            let half_energy =
+                LightColor::from(light.color.map(|channel| channel * light.intensity * 0.5));
+            energy = energy.plus(half_energy);
+            let total = half_energy.to_array().iter().sum::<f32>();
+            for (component, incoming) in moment.iter_mut().zip(light.incoming) {
+                *component = incoming.mul_add(total, *component);
+            }
+        }
+        Some(super::lightmap::LightmapTexel {
+            irradiance: energy.to_array(),
+            direction: moment,
+            axis: [0.5; 2],
+        })
     }
 
     /// The light index one ceiling fixture baked into, if it casts light.
@@ -2936,6 +3013,7 @@ impl LevelLighting {
         for light in &self.global_lights {
             light.write_compiled(writer);
         }
+        write_color(writer, LightColor::from(self.sky_radiance));
         write_blends(writer, &self.blends)?;
         write_room_zones(writer, &self.room_zones)?;
         self.visibility.write_compiled(writer)?;
@@ -2953,7 +3031,7 @@ impl LevelLighting {
             return Err("lighting record has the wrong magic".to_string());
         }
         let version = reader.u16()?;
-        if version != COMPILED_VERSION {
+        if version != 2 && version != COMPILED_VERSION {
             return Err(format!(
                 "lighting record version {version} is not supported (this build reads {COMPILED_VERSION})"
             ));
@@ -2967,6 +3045,17 @@ impl LevelLighting {
         let global_lights = (0..count)
             .map(|_| super::directional::DirectionalLight::read_compiled(reader))
             .collect::<Result<Vec<_>, _>>()?;
+        let sky_radiance = if version >= 3 {
+            let sky = read_color(reader, "sky radiance")?;
+            if !sky.is_valid() {
+                return Err(
+                    "compiled sky radiance is outside the authored energy bounds".to_string(),
+                );
+            }
+            sky.to_array()
+        } else {
+            [0.0; 3]
+        };
         let blends = read_blends(reader, Some(&rooms), None)?;
         let room_zones = read_room_zones(reader, &rooms)?;
         let visibility = Visibility::read_compiled(reader)?;
@@ -2988,6 +3077,7 @@ impl LevelLighting {
             room_index,
             lights,
             global_lights,
+            sky_radiance,
             light_index,
             blends,
             room_zones,
@@ -3005,7 +3095,39 @@ impl LevelLighting {
 const COMPILED_MAGIC: [u8; 4] = *b"PLLT";
 
 /// Version of the compiled lighting record layout.
-pub(super) const COMPILED_VERSION: u16 = 2;
+pub(super) const COMPILED_VERSION: u16 = 3;
+
+#[cfg(test)]
+mod compiled_sky_tests {
+    use super::*;
+
+    /// An empty old record is enough to verify the version migration and its
+    /// absent-sky default. It exercises no geometry or full-map preparation.
+    #[test]
+    fn version_two_records_still_load_without_a_sky_payload() -> Result<(), String> {
+        let mut writer = Writer::new();
+        LevelLighting::default().write_compiled(&mut writer)?;
+        let mut bytes = writer.into_bytes();
+        let mut prefix = Reader::new(&bytes);
+        let _magic = prefix.bytes(4)?;
+        let _version = prefix.u16()?;
+        let rooms = read_rooms(&mut prefix)?;
+        let lights = read_lights(&mut prefix, rooms.len())?;
+        assert!(rooms.is_empty() && lights.is_empty());
+        assert_eq!(prefix.u8()?, 0);
+        let sky_start = bytes.len().saturating_sub(prefix.remaining());
+        let sky_end = sky_start.saturating_add(std::mem::size_of::<[f32; 3]>());
+        drop(bytes.drain(sky_start..sky_end));
+        bytes
+            .get_mut(4..6)
+            .ok_or("version bytes")?
+            .copy_from_slice(&2_u16.to_le_bytes());
+        let decoded = LevelLighting::read_compiled(&mut Reader::new(&bytes))?;
+        assert_eq!(decoded.sky_radiance, [0.0; 3]);
+        assert_eq!(decoded.summary(), LevelLighting::default().summary());
+        Ok(())
+    }
+}
 
 /// Largest room count a compiled record may declare.
 const MAX_COMPILED_ROOMS: u64 = 100_000;

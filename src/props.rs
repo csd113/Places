@@ -107,6 +107,7 @@ pub struct PropAssetStats {
 #[derive(Debug, Default, Clone)]
 pub struct PropAssets {
     inputs: HashMap<String, ModelInput>,
+    model_identities: HashMap<String, String>,
     root: Option<PathBuf>,
     models: HashMap<String, Result<Arc<LoadedPropAsset>, String>>,
     /// Model paths that already produced a fallback, so the renderer logs each
@@ -138,6 +139,7 @@ impl PropAssets {
             root: resolve_prop_root(),
             models: HashMap::new(),
             inputs: HashMap::new(),
+            model_identities: HashMap::new(),
             reported_failures: Vec::new(),
             reported_budget_warnings: Vec::new(),
         }
@@ -149,6 +151,7 @@ impl PropAssets {
             root: Some(root.into()),
             models: HashMap::new(),
             inputs: HashMap::new(),
+            model_identities: HashMap::new(),
             reported_failures: Vec::new(),
             reported_budget_warnings: Vec::new(),
         }
@@ -158,6 +161,40 @@ impl PropAssets {
     #[must_use]
     pub fn root(&self) -> Option<&Path> {
         self.root.as_deref()
+    }
+
+    /// Retains only successfully decoded models with unchanged declared bytes.
+    /// Active worlds keep their own model/image Arcs when a request changes its
+    /// dependency set; failed entries are retried once on the next request.
+    pub(crate) fn synchronize_dependencies(
+        &mut self,
+        dependencies: &[crate::package::PackageDependency],
+    ) {
+        let identities: HashMap<_, _> = dependencies
+            .iter()
+            .filter(|dependency| dependency.kind == crate::package::DependencyKind::Model)
+            .map(|dependency| (dependency.path.clone(), dependency.sha256.clone()))
+            .collect();
+        self.models.retain(|path, cached| {
+            cached.is_ok()
+                && self.model_identities.get(path).is_some_and(|previous| {
+                    identities
+                        .get(path)
+                        .is_some_and(|current| current == previous)
+                })
+        });
+        self.inputs.retain(|path, _| {
+            self.model_identities.get(path).is_some_and(|previous| {
+                identities
+                    .get(path)
+                    .is_some_and(|current| current == previous)
+            })
+        });
+        self.reported_failures
+            .retain(|path| self.models.contains_key(path));
+        self.reported_budget_warnings
+            .retain(|path| self.models.contains_key(path));
+        self.model_identities = identities;
     }
 
     /// Loads (or returns the cached) model for a catalogue `model` path.

@@ -3,7 +3,7 @@
 
 Inventory is read-only unless --out is supplied. --run-packages is an explicit,
 serialized campaign using an already built compiler; it never invokes cargo,
-changes sources, or reduces the normal off,medium,full variants. Known negative
+changes sources, or reduces the normal Static/Full lighting variants. Known negative
 fixtures stay in the inventory with their real intended contracts.
 """
 from __future__ import annotations

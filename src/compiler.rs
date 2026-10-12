@@ -489,7 +489,7 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
             );
             if let Some(capture_context) = capture.as_mut() {
                 // Preparation and capture share the resolved material state.
-                if stats.probe_points > 0 {
+                if stats.probe_points > 0 && !quality.is_off() {
                     let capture_started = Instant::now();
                     crate::logging::info(format_args!(
                         "[compiler-progress] capturing {}",
@@ -508,6 +508,10 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
             variant_stats.push(stats);
         }
     }
+
+    let sharing_started = Instant::now();
+    factor_prepared_props(&mut variants, &mut blobs)?;
+    record_phase(&mut phases, "share_prepared_props", sharing_started);
 
     let manifest_started = Instant::now();
     let input_bytes = crate::canonical_json::canonical_json_bytes(&build_inputs)
@@ -545,11 +549,15 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
         "collision".to_string(),
         "navigation".to_string(),
     ];
+    if blobs_have_shared_props(&entries) {
+        required.push("props-shared-streams".to_string());
+    }
     if variants
         .iter()
         .any(|variant| variant.entries.lightmaps.is_some())
     {
         required.push("lightmaps-hdr".to_string());
+        required.push("lightmaps-compact-v1".to_string());
     }
     if variants
         .iter()
@@ -1042,7 +1050,7 @@ fn validate_variant<R: std::io::Read + std::io::Seek>(
 ) -> Result<(), String> {
     let mesh_bytes = reader.read_blob(&variant.entries.mesh, crate::package::MAX_BINARY_BYTES)?;
     let _ = crate::package::mesh::read_mesh(&mesh_bytes)?;
-    let props_bytes = reader.read_blob(&variant.entries.props, crate::package::MAX_BINARY_BYTES)?;
+    let props_bytes = crate::package::shared_props::read_record(reader, &variant.entries.props)?;
     let _ = crate::package::props::read_props(&props_bytes)?;
     let lighting_bytes = reader.read_blob(
         &variant.entries.lighting,
@@ -1063,7 +1071,7 @@ fn validate_variant<R: std::io::Read + std::io::Seek>(
     {
         let page_bytes = reader.read_blob(pages, crate::package::MAX_LIGHTMAP_ATLAS_BYTES)?;
         let meta_bytes = reader.read_entry(meta, crate::package::MAX_LIGHTMAP_METADATA_BYTES)?;
-        let _ = crate::package::lightmaps::read_lightmaps(&meta_bytes, &page_bytes)?;
+        let _ = crate::package::lightmaps::read_lightmaps_owned(&meta_bytes, page_bytes)?;
     }
     if let Some(irradiance) = &variant.entries.irradiance {
         let bytes = reader.read_blob(irradiance, crate::package::MAX_ENTRY_BYTES)?;
@@ -1324,7 +1332,7 @@ fn build_variant(
             let pages = atlas.pages.len();
             let charts = atlas.charts.len();
             (
-                Some(insert_blob(blobs, ktx2, ".lightmaps.ktx2", "lightmaps")),
+                Some(insert_blob(blobs, ktx2, ".lightmaps.pllc", "lightmaps")),
                 Some(insert_blob(
                     blobs,
                     meta,
@@ -1444,6 +1452,195 @@ fn report_record_storage(
         props.duplicate_slots,
         unique_bytes,
     ));
+}
+
+fn blobs_have_shared_props(entries: &[PendingEntry]) -> bool {
+    entries
+        .iter()
+        .any(|entry| entry.name.ends_with(".props.shared"))
+}
+
+/// Preserve the exact prepared record stream while sharing repeated model
+/// data between placements and variants. Already-factored reusable records
+/// retain their original identities.
+fn factor_prepared_props(variants: &mut [Variant], blobs: &mut BlobMap) -> Result<(), String> {
+    let names: BTreeSet<String> = variants
+        .iter()
+        .map(|variant| variant.entries.props.clone())
+        .collect();
+    let source_names: Vec<String> = names
+        .into_iter()
+        .filter(|name| {
+            blobs
+                .get(name)
+                .is_some_and(|(bytes, _)| bytes.starts_with(b"PLMP"))
+        })
+        .collect();
+    if source_names.is_empty() {
+        return Ok(());
+    }
+    let records: Vec<&[u8]> = source_names
+        .iter()
+        .map(|name| {
+            blobs
+                .get(name)
+                .map(|(bytes, _)| bytes.as_slice())
+                .ok_or_else(|| "prepared prop record is missing".to_string())
+        })
+        .collect::<Result<_, _>>()?;
+    let original_bytes = records
+        .iter()
+        .fold(0_usize, |total, bytes| total.saturating_add(bytes.len()));
+    let factored = crate::package::shared_props::factor_props(&records)?;
+    let mut recipes_fit = true;
+    for recipe in &factored.recipes {
+        if !crate::package::shared_props::recipe_fits_runtime_budget(recipe)? {
+            recipes_fit = false;
+        }
+    }
+    if !recipes_fit {
+        return Ok(());
+    }
+    let stored_bytes = factored
+        .recipes
+        .iter()
+        .chain(&factored.segments)
+        .fold(0_usize, |total, bytes| total.saturating_add(bytes.len()));
+    // A tiny or nonrepeated model set need not pay for a dictionary.
+    if stored_bytes >= original_bytes {
+        return Ok(());
+    }
+    let (original_archive_bytes, shared_archive_bytes) =
+        prepared_props_archive_sizes(&source_names, &records, &factored)?;
+    if shared_archive_bytes >= original_archive_bytes {
+        return Ok(());
+    }
+    for segment in factored.segments {
+        let _name = insert_blob(blobs, segment, ".props.shared", "props-shared");
+    }
+    for (original, recipe) in source_names.iter().zip(factored.recipes) {
+        let name = insert_blob(blobs, recipe, ".props.recipe", "props");
+        for variant in variants
+            .iter_mut()
+            .filter(|variant| variant.entries.props == *original)
+        {
+            variant.entries.props.clone_from(&name);
+        }
+        drop(blobs.remove(original));
+    }
+    crate::logging::info(format_args!(
+        "[compiler] prepared props exact sharing: {original_bytes} -> {stored_bytes} raw bytes; {original_archive_bytes} -> {shared_archive_bytes} archive bytes including manifest allowance"
+    ));
+    Ok(())
+}
+
+/// Count both storage alternatives with the publication codec before choosing.
+/// ZIP names, headers and directory entries are measured by the same writer;
+/// a deliberately generous manifest allowance includes each replacement/new
+/// entry plus variant references, the capability and JSON framing changes.
+fn prepared_props_archive_sizes(
+    source_names: &[String],
+    records: &[&[u8]],
+    factored: &crate::package::shared_props::FactoredProps,
+) -> Result<(u64, u64), String> {
+    let original = deflated_entries_bytes(
+        source_names
+            .iter()
+            .zip(records)
+            .map(|(name, bytes)| (name.as_str(), *bytes)),
+    )?;
+    let shared_names: Vec<String> = factored
+        .recipes
+        .iter()
+        .map(|bytes| blob_name(bytes, ".props.recipe"))
+        .chain(
+            factored
+                .segments
+                .iter()
+                .map(|bytes| blob_name(bytes, ".props.shared")),
+        )
+        .collect();
+    let shared = deflated_entries_bytes(
+        shared_names
+            .iter()
+            .zip(factored.recipes.iter().chain(&factored.segments))
+            .map(|(name, bytes)| (name.as_str(), bytes.as_slice())),
+    )?;
+    let changed_entries = u64::try_from(shared_names.len())
+        .map_err(|error| format!("shared prop manifest entry count is too large: {error}"))?;
+    let manifest_allowance = changed_entries
+        .checked_mul(1024)
+        .and_then(|bytes| bytes.checked_add(1024))
+        .ok_or_else(|| "shared prop manifest allowance overflows".to_string())?;
+    let proposed = shared
+        .checked_add(manifest_allowance)
+        .ok_or_else(|| "shared prop archive size estimate overflows".to_string())?;
+    Ok((original, proposed))
+}
+
+fn deflated_entries_bytes<'a>(
+    entries: impl IntoIterator<Item = (&'a str, &'a [u8])>,
+) -> Result<u64, String> {
+    use std::io::Write as _;
+
+    let mut writer = zip::ZipWriter::new(ArchiveSizeCounter::default());
+    for (name, bytes) in entries {
+        let options = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated)
+            .compression_level(Some(6))
+            .last_modified_time(zip::DateTime::default())
+            .unix_permissions(0o644);
+        writer
+            .start_file(name, options)
+            .map_err(|error| format!("could not estimate prop entry '{name}': {error}"))?;
+        writer.write_all(bytes).map_err(|error| {
+            format!("could not compress prop entry '{name}' for sizing: {error}")
+        })?;
+    }
+    writer
+        .finish()
+        .map(|counter| counter.length)
+        .map_err(|error| format!("could not finish prop archive size estimate: {error}"))
+}
+
+/// A ZIP-compatible seekable sink that retains no compressed payload bytes.
+#[derive(Default)]
+struct ArchiveSizeCounter {
+    position: u64,
+    length: u64,
+}
+
+impl std::io::Write for ArchiveSizeCounter {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        let count = u64::try_from(bytes.len()).map_err(std::io::Error::other)?;
+        self.position = self
+            .position
+            .checked_add(count)
+            .ok_or_else(|| std::io::Error::other("prop archive size counter overflows"))?;
+        self.length = self.length.max(self.position);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+impl std::io::Seek for ArchiveSizeCounter {
+    fn seek(&mut self, position: std::io::SeekFrom) -> std::io::Result<u64> {
+        let next = match position {
+            std::io::SeekFrom::Start(offset) => Some(offset),
+            std::io::SeekFrom::Current(offset) => self.position.checked_add_signed(offset),
+            std::io::SeekFrom::End(offset) => self.length.checked_add_signed(offset),
+        };
+        self.position = next.ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "prop archive size counter seek is out of bounds",
+            )
+        })?;
+        Ok(self.position)
+    }
 }
 
 fn insert_blob(
@@ -1989,6 +2186,7 @@ fn reuse_prepared_lighting(
         );
     }
     let mut needed = BTreeSet::new();
+    let mut shared_names = Vec::new();
     for variant in &manifest.variants {
         let entries = &variant.entries;
         needed.extend([
@@ -1997,6 +2195,15 @@ fn reuse_prepared_lighting(
             entries.lighting.as_str(),
             entries.collision.as_str(),
         ]);
+        let prop_record = reader.read_blob(&entries.props, crate::package::MAX_BINARY_BYTES)?;
+        if prop_record.starts_with(b"PLPS") {
+            let recipe = crate::package::shared_props::read_recipe(&prop_record)?;
+            for segment in recipe.segments() {
+                let name = segment.blob_name();
+                // Names must stay owned through this complete reuse pass.
+                shared_names.push(name);
+            }
+        }
         needed.extend(entries.lightmaps.as_deref());
         needed.extend(entries.lightmaps_meta.as_deref());
         needed.extend(entries.irradiance.as_deref());
@@ -2005,6 +2212,7 @@ fn reuse_prepared_lighting(
             needed.extend(probe.cubemaps.iter().map(String::as_str));
         }
     }
+    needed.extend(shared_names.iter().map(String::as_str));
     let mut blobs: BlobMap = BTreeMap::new();
     for entry in &manifest.entries {
         if entry.name == "semantics.json" {
@@ -2335,6 +2543,44 @@ mod tests {
 
     mod material_transport;
     mod performance;
+
+    // Synthetic byte entries isolate the Deflate decision without geometry or
+    // a bake. About 200 KiB of payload distinguishes raw savings that increase
+    // ZIP size from useful sharing, including ZIP and manifest overhead.
+    #[test]
+    fn prepared_props_selection_requires_compressed_archive_savings() -> Result<(), String> {
+        use sha2::{Digest as _, Sha256};
+
+        let mut entropy = Vec::with_capacity(65_536);
+        for index in 0_u32..2048 {
+            entropy.extend_from_slice(&Sha256::digest(index.to_le_bytes()));
+        }
+        for compressible in [true, false] {
+            let first = if compressible {
+                vec![0_u8; 16_384]
+            } else {
+                entropy.clone()
+            };
+            let mut second = first.clone();
+            let last = second.last_mut().ok_or("test source entry is empty")?;
+            *last ^= 1;
+            let names = vec![blob_name(&first, ".props"), blob_name(&second, ".props")];
+            let factored = crate::package::shared_props::FactoredProps {
+                recipes: vec![vec![0_u8; 64], vec![1_u8; 64]],
+                segments: vec![first.clone()],
+            };
+            let raw_shared = factored
+                .segments
+                .iter()
+                .chain(&factored.recipes)
+                .fold(0_usize, |total, bytes| total.saturating_add(bytes.len()));
+            assert!(raw_shared < first.len().saturating_add(second.len()));
+            let (original, proposed) =
+                prepared_props_archive_sizes(&names, &[&first, &second], &factored)?;
+            assert_eq!(proposed < original, !compressible);
+        }
+        Ok(())
+    }
 
     #[test]
     fn maintained_dense_props_fit_the_runtime_record_budget() {

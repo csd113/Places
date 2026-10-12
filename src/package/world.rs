@@ -23,7 +23,7 @@ use crate::materials::MaterialTable;
 use crate::package::collision::{CompiledCollision, read_collision};
 use crate::package::ktx2::{self, Ktx2Rgba16f};
 use crate::package::lighting::read_lighting;
-use crate::package::lightmaps::read_lightmaps;
+use crate::package::lightmaps::read_lightmaps_owned;
 use crate::package::manifest::{Manifest, ProbePayload, Variant};
 use crate::package::mesh::read_mesh;
 use crate::package::props::read_props;
@@ -378,6 +378,7 @@ fn decode_named_variant<R: std::io::Read + std::io::Seek>(
     quality: LightmapQuality,
     assets: &mut crate::props::PropAssets,
 ) -> Result<LoadedVariant, String> {
+    assets.synchronize_dependencies(&manifest.dependencies);
     let name = quality.name();
     let variant = manifest
         .variant(name)
@@ -393,12 +394,14 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
 ) -> Result<LoadedVariant, String> {
     let mesh_bytes = reader.read_blob(&variant.entries.mesh, MAX_BINARY_BYTES)?;
     let mesh = read_mesh(&mesh_bytes)?;
-    let props_bytes = reader.read_blob(&variant.entries.props, MAX_BINARY_BYTES)?;
+    drop(mesh_bytes);
+    let props_bytes = super::shared_props::read_record(reader, &variant.entries.props)?;
     let mut props = read_props(&props_bytes)?;
+    drop(props_bytes);
     for batch in &mut props {
         match assets.resolve(&batch.model) {
             Ok(asset) => {
-                batch.textures = asset.model.textures.iter().cloned().map(Arc::new).collect();
+                batch.textures.clone_from(&asset.model.textures);
             }
             Err(error) => {
                 // A missing model degrades to the diagnostic sheet, exactly
@@ -426,15 +429,18 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
     }
     let lighting_bytes = reader.read_blob(&variant.entries.lighting, MAX_LIGHTING_BYTES)?;
     let lighting = read_lighting(&lighting_bytes)?;
+    drop(lighting_bytes);
     let collision_bytes = reader.read_blob(&variant.entries.collision, MAX_COLLISION_BYTES)?;
     let collision = read_collision(&collision_bytes)?;
+    drop(collision_bytes);
     let navigation_bytes = reader.read_blob(&variant.entries.navigation, MAX_NAVIGATION_BYTES)?;
     let navigation = crate::package::navigation::read_navigation(&navigation_bytes)?;
+    drop(navigation_bytes);
     let lightmaps = match (&variant.entries.lightmaps, &variant.entries.lightmaps_meta) {
         (Some(pages), Some(meta)) => {
             let page_bytes = reader.read_blob(pages, MAX_LIGHTMAP_ATLAS_BYTES)?;
             let meta_bytes = read_entry_checked(reader, meta, MAX_LIGHTMAP_METADATA_BYTES)?;
-            Some(Arc::new(read_lightmaps(&meta_bytes, &page_bytes)?))
+            Some(Arc::new(read_lightmaps_owned(&meta_bytes, page_bytes)?))
         }
         _ => None,
     };

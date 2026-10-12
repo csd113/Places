@@ -327,6 +327,35 @@ impl FootprintPass<'_> {
         evaluate(self.scene, &sample, self.emitters, self.global, self.taps)
     }
 
+    fn stencil(
+        &self,
+        domain: &Domain<'_>,
+        receiver: &TransportReceiver,
+        point: [f32; 3],
+        axis: u16,
+        intervals: &mut Vec<(f32, f32)>,
+    ) -> (DirectSample, bool) {
+        let mut result = DirectSample::default();
+        let mut first_visibility = None;
+        let mut visibility_edge = false;
+        let weight = 1.0 / f32::from(axis.pow(2));
+        for sample_v in 0..axis {
+            for sample_u in 0..axis {
+                let du = ((f32::from(sample_u) + 0.5) / f32::from(axis) - 0.5) * domain.pitch;
+                let dv = ((f32::from(sample_v) + 0.5) / f32::from(axis) - 0.5) * domain.pitch;
+                let sample = self.sample(domain, receiver, point, du, dv, intervals);
+                if let Some(first) = first_visibility {
+                    visibility_edge |= first != sample.visibility;
+                } else {
+                    first_visibility = Some(sample.visibility);
+                }
+                result.rays = result.rays.saturating_add(sample.rays);
+                add_scaled(&mut result.light, &sample.light, weight);
+            }
+        }
+        (result, visibility_edge)
+    }
+
     fn refine(&self, index: usize) -> DirectSample {
         let Some(receiver) = self.receivers.get(index) else {
             return DirectSample::default();
@@ -353,20 +382,26 @@ impl FootprintPass<'_> {
         let mut intervals = Vec::with_capacity(8);
         // Equal centre/corner silhouettes do not prove uniform coverage:
         // thin openings and model details can leave lit interior samples.
-        // Integrate the complete bounded physical stencil. No separate centre
-        // pass or repeated corner rays are needed for these quality levels.
-        let mut result = DirectSample::default();
-        let weight = 1.0 / f32::from(axis.pow(2));
-        for sample_v in 0..axis {
-            for sample_u in 0..axis {
-                let du = ((f32::from(sample_u) + 0.5) / f32::from(axis) - 0.5) * domain.pitch;
-                let dv = ((f32::from(sample_v) + 0.5) / f32::from(axis) - 0.5) * domain.pitch;
-                let sample = self.sample(domain, receiver, point, du, dv, &mut intervals);
-                result.rays = result.rays.saturating_add(sample.rays);
-                add_scaled(&mut result.light, &sample.light, weight);
-            }
+        // Retain the complete bounded base stencil. Full refines only a real
+        // visibility difference found within that stencil, integrating the
+        // same physical footprint more accurately without changing density,
+        // filtering direct light or altering uniformly lit/shadowed interiors.
+        let (base, visibility_edge) = self.stencil(domain, receiver, point, axis, &mut intervals);
+        if self.taps >= 3 && visibility_edge {
+            let (fine, _) = self.stencil(domain, receiver, point, 8, &mut intervals);
+            // Centred 4x4 and 8x8 quadrature positions are not nested. The
+            // combined 80-position rule retains every already-detected thin
+            // opening/caster, weighting each position equally. Replacing the
+            // base estimate could lose geometry between the fine positions.
+            let mut refined = DirectSample {
+                rays: base.rays.saturating_add(fine.rays),
+                ..DirectSample::default()
+            };
+            add_scaled(&mut refined.light, &base.light, 0.2);
+            add_scaled(&mut refined.light, &fine.light, 0.8);
+            return refined;
         }
-        result
+        base
     }
 }
 

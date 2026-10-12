@@ -10,7 +10,7 @@ use crate::quality::{GraphicsAction, graphics_action};
 fn assert_low_lighting(settings: &Settings, texture_quality: QualityLevel, filtering: &str) {
     let actual = settings.graphics_spec();
     let mut low = Settings::default();
-    let _quality_changed = low.set_quality(QualityLevel::Low);
+    let _lighting_changed = low.set_lightmap_quality(LightmapQuality::Off);
     let expected = low.graphics_spec();
     assert_eq!(actual.quality, texture_quality);
     assert_eq!(actual.filtering, filtering);
@@ -85,9 +85,9 @@ fn live_high_on_medium_off_high_preserves_selected_quality() {
     assert!(settings.take_pending_apply().graphics);
     let medium = settings.graphics_spec();
     assert_eq!(medium.quality, QualityLevel::Medium);
-    assert_eq!(medium.lighting, QualityLevel::Medium);
-    assert_eq!(medium.lightmaps, LightmapQuality::Medium);
-    assert_eq!(medium.reflections, ReflectionQuality::Medium);
+    assert_eq!(medium.lighting, QualityLevel::High);
+    assert_eq!(medium.lightmaps, LightmapQuality::Full);
+    assert_eq!(medium.reflections, ReflectionQuality::Full);
     assert_eq!(medium.filtering, "medium");
     let _quality_changed_2 = settings.set_quality(QualityLevel::High);
     assert_eq!(settings.graphics_spec(), high);
@@ -131,15 +131,12 @@ fn low_to_medium_and_high_keeps_override_until_explicitly_disabled() {
         let _quality_changed_2 = settings.set_quality(quality);
         assert_low_lighting(&settings, quality, texture_filtering_for(quality));
         let _use_low_quality_lighting_changed_2 = settings.set_use_low_quality_lighting(false);
-        assert_eq!(settings.lighting_quality(), quality);
+        assert_eq!(settings.lighting_quality(), QualityLevel::High);
         assert_eq!(
             settings.lightmap_quality(),
             LightmapQuality::default_for(quality)
         );
-        assert_eq!(
-            settings.reflection_quality(),
-            ReflectionQuality::default_for(quality)
-        );
+        assert_eq!(settings.reflection_quality(), ReflectionQuality::Full);
     }
 }
 
@@ -153,7 +150,7 @@ fn low_override_dominates_startup_lighting_overrides_without_erasing_them() {
     assert_low_lighting(&settings, QualityLevel::Medium, "high");
     assert!(settings.lightmap_quality_overridden());
     let _use_low_quality_lighting_changed_2 = settings.set_use_low_quality_lighting(false);
-    assert_eq!(settings.lighting_quality(), QualityLevel::Medium);
+    assert_eq!(settings.lighting_quality(), QualityLevel::High);
     assert_eq!(settings.lightmap_quality(), LightmapQuality::Full);
     assert_eq!(settings.reflection_quality(), ReflectionQuality::Full);
 }

@@ -227,7 +227,7 @@ fn package_round_trip_preserves_independent_surface_energy() {
         pages: vec![LightmapPage {
             width: 2,
             height: 2,
-            texels: vec![encoded; 4],
+            texels: vec![encoded; 4].into(),
         }],
         charts: Vec::new(),
         stats: LightmapStats::default(),

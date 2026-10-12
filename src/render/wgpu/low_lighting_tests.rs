@@ -298,6 +298,7 @@ fn override_matches_actual_low_static_dynamic_and_material_paths() {
     let mut renderer = WgpuRenderer::new_headless(DrawableSize::new(96, 96)).expect("native GPU");
     let mut low = Settings::default();
     let _quality_changed = low.set_quality(QualityLevel::Low);
+    let _lighting_changed = low.set_lightmap_quality(crate::quality::LightmapQuality::Off);
     install(&mut renderer, &loaded, &low, false);
     let baseline = low_snapshot(&mut renderer);
     for quality in [QualityLevel::Medium, QualityLevel::High] {

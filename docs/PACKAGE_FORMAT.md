@@ -6,7 +6,7 @@ world the offline compiler produced from an authoring source. The player does
 not compile maps, bake light, pack charts, capture reflections or generate
 static navigation; it decodes these records and uploads them.
 
-The repository tracks authored maps in `levels/`, with the eight maintained IDs
+The repository tracks authored maps in `levels/`, with the nine maintained IDs
 listed in `levels/lineup.txt`. Compiled `.placesmap` files are untracked build
 outputs. Rust builds and source tests work before any map is compiled; the
 player needs compiled packages to play.
@@ -21,7 +21,7 @@ python3 tools/levels/compile.py --workers 8
 ```
 
 `sh tools/build-maps.sh` builds the release compiler and runs the same lineup
-tool. It compiles Off/Medium/Full variants with normal reflection capture into
+tool. It compiles Static (`off`) and Full variants, with reflection capture for Full, into
 `assets/levels/`, verifies each package against current inputs, and validates
 every record. After editing one source, build its output explicitly:
 
@@ -53,7 +53,10 @@ blobs/<sha256>.props              transformed static prop batches (binary record
 blobs/<sha256>.lighting           baked LevelLighting (binary record)
 blobs/<sha256>.collision          static collision primitives (binary record)
 blobs/<sha256>.navigation         baked cell navigation mesh (binary record)
-blobs/<sha256>.lightmaps.ktx2     lightmap atlas pages (KTX2 2D array, RGBA16F, layer pairs)
+blobs/<sha256>.lightmaps.pllc     compact HDR/moment atlas (PLLC1; expands to RGBA16F pairs)
+blobs/<sha256>.lightmaps.ktx2     legacy / exact-fallback HDR atlas (KTX2 RGBA16F pairs)
+blobs/<sha256>.props.recipe       exact prepared-prop reconstruction recipe (PLPS1)
+blobs/<sha256>.props.shared       shared prepared-model byte segments (at most 16 MiB)
 blobs/<sha256>.lightmaps.json     atlas chart/stat/config record
 blobs/<sha256>.probe.ktx2         one reflection probe cube (KTX2 cube, RGBA16F, roughness mips)
 blobs/<sha256>.probes.json        probe positions and mip level count for one face size
@@ -114,7 +117,8 @@ never triggers procedural geometry generation.
 
 * `required_capabilities` names what a runtime must understand. The current
   player understands `geometry`, `props`, `lighting`, `lightmaps-hdr`,
-  `irradiance-probes`, `probes-hdr`, legacy `probes-rgba8`, `collision` and
+  `lightmaps-compact-v1`, `props-shared-streams`, `irradiance-probes`,
+  `probes-hdr`, legacy `probes-rgba8`, `collision` and
   `navigation`. A package
   requiring anything else is rejected by name.
 * `dependencies` records the content identity of every model and texture a
@@ -172,14 +176,15 @@ or an explicit cache clear; it is not the asset/map incremental cache. See the
 
 ## 3. Quality variants
 
-A package carries up to one variant per lightmap quality (`off`, `medium`,
-`full`). Each variant is a complete prepared world for that setting:
+New packages carry Static (`off`) and Full (`full`); legacy `medium` records
+remain readable for inspection and compatibility. Each variant is a complete
+prepared world for that setting:
 
 * `off` is the historical vertex-lit build: prepared geometry with baked vertex
   colours and no atlas. It is a supported, intentional variant, not an empty
   package.
-* `medium` and `full` carry prepared geometry plus the atlas pages the
-  corresponding lightmap configuration produced.
+* `full` carries prepared geometry and the full-quality atlas. Legacy
+  `medium` carries its historical atlas; rebuild the package for current modes.
 * A variant whose atlas could not be filled records `lightmap_failure` and
   ships the vertex-lit geometry instead, exactly as the runtime used to fall
   back — the fallback is recorded at compile time, never re-derived at load.
@@ -194,11 +199,13 @@ is the loader's defensive recovery path, not a player-side bake of the prepared
 path; no compiler output reaches it, and the prepared solve never runs in the
 player.
 
-Full's profile planning cap is eleven pages; lower profiles retain eight.
+Full's profile planning cap is twelve pages; lower profiles retain eight.
+At eleven pages the allocator tries existing architectural holes before opening
+a twelfth, preserving formerly valid eleven-page layouts.
 Before geometry emission, the planner also bounds that cap by the actual base
 and switchable illumination groups, the typed record bytes (including the exact
 196-byte single-mip KTX2 header), the codec payload/layer bounds and the decoder
-page count. At 1024px, Full allows 11/10/6/5/4 pages for zero through four
+page count. At 1024px, Full allows 12/10/6/5/4 pages for zero through four
 switchable lights. Demo therefore retains ten pages for its two groups. The
 effective config is shared by the plan, fill and public cache-key refresh.
 The model-lighting correction shares compatible coplanar source-triangle charts
@@ -212,7 +219,7 @@ the measured ten-page two-group Demo payload plus container allowance. The
 [record audit](art-style/stage7/integration-contract-audit.md) records
 the old 256 MiB rejection and 25% increase. The 64-page decoder count, exact
 KTX2 shape/length checks, four-switch-group limit and 1 GiB aggregate remain
-enforced. More groups still have to fit the typed byte bound; eleven pages do not
+enforced. More groups still have to fit the typed byte bound; twelve pages do not
 authorize an arbitrary total allocation. The aggregate guard still applies to
 the complete archive, including all quality variants.
 
@@ -348,12 +355,12 @@ The complete `LevelLighting` bake: rooms, baselines, powered zones, resolved
 lights, opening blends, room-to-light candidate lists, fixture-to-light
 mapping, the sampling-tap count and the built static visibility set (wall,
 ceiling/floor and prop occluders plus each query site's reachable-solid pool).
-The compiled lighting record is version 2. Immediately after the local-light
-list it stores a `u8` global count (maximum eight), then each active/baked
+The compiled lighting record is version 3; version 2 remains readable with
+zero sky radiance. Immediately after the local-light list it stores a `u8` global count (maximum eight), then each active/baked
 directional source: normalized incoming XYZ and RGB (`f32` triples), intensity
-(`f32`), shadow flag (`bool8`), and angular radius in radians (`f32`). The reader
-validates finite unit directions and bounded energy/angle. Atlas layout version
-13 and transport revision 16 invalidate earlier prepared lighting identities.
+(`f32`), shadow flag (`bool8`), and angular radius in radians (`f32`). Version 3
+then stores three finite, nonnegative sky-radiance floats. The reader validates finite unit directions and bounded energy/angle. Atlas layout version
+13 and transport revision 18 invalidate earlier prepared lighting identities.
 Revision 16 uses one strictly validated, deterministically chosen probe lattice
 for both prepared targets and solve positions; the source map remains format 3.
 The player keeps this record resident because runtime entity lighting and
@@ -442,9 +449,59 @@ grid dimensions, class bodies, per-cell surface/headroom/portal data, class
 masks and region labels are all validated before use. A malformed record fails
 the load by name; there is no runtime bake and no repair path.
 
-## 5. Lightmap pages — KTX2
+### 4.2.1 Exact shared prepared prop data
 
-`blobs/<sha>.lightmaps.json` holds the chart record:
+The compiler factors repeated PLMP3–7 streams losslessly when the dictionary
+saves both raw bytes and Deflate-6 archive bytes, including a conservative
+manifest allowance. Recipes exceeding the reader working-set budget remain
+literal. Each vertex keeps its exact 36-byte
+position/colour/UV prefix and its distinct lighting/frame tail. Raw headers,
+material data, frame palettes and ordered indices remain exact. First occurrence
+order interns chunks of at most 65,520 bytes into at most 16 MiB shared segments.
+Original GLBs and PNGs remain external dependencies.
+
+A PLPS1 recipe replaces a variant's `props` entry (role `props`). It records the
+original PLMP length/hash, required segment lengths/hashes, bounded chunk
+locations, and ordered raw or interleaved vertex runs. The reader verifies
+segment identities and reconstructs one output directly through borrowed chunk
+cursors; it verifies the original record hash before the established PLMP reader
+validates its geometry. No complete intermediate prefix/tail arrays are built.
+The 512 MiB expanded-record limit remains. Recipe wire data is capped at 64 MiB;
+output, fetched segments and conservative recipe-table overhead together are
+capped at 1 GiB. Missing, truncated, out-of-range, unused or trailing
+recipe data is rejected. New packages require `props-shared-streams`; older
+players fail by named capability. Legacy literal records remain readable.
+
+## 5. Lightmap pages — compact storage and KTX2
+
+The default writer emits metadata version 4 and `blobs/<sha>.lightmaps.pllc`.
+PLLC1 has a 24-byte little-endian header (magic, version, 16-pixel tile edge,
+page edge, page count, contribution-group count and zero reserved word).
+Each page pair is encoded in 16×16 tile order. A compact tile has a 4-byte mode
+header, six independent `(minimum, step)` f32 ranges, and one 64-bit word per
+texel: RGB11 and signed physical moment XYZ10 (63 bits; high bit zero).
+Local ranges expand to linear coefficients before filtering. Nominal compact
+storage is 8.203125 bytes/texel including tile framing at a full tile.
+
+The encoder compares independent colour precision, signed moment energy and
+reconstructed light, including an all-normal error bound. A failing tile stores
+all six source half-floats exactly (12 bytes/texel plus framing). It never changes
+exposure to meet precision. Both modes imply reserved alpha 0.5. Constants,
+dark channels and HDR outliers retain the same bounded validation. Framing and
+declared size are checked before the at-most-320-MiB RGBA16F allocation; ranges
+and coefficients are checked during decode. Malformed
+versions, ranges, coefficients, reserved bits, truncation and trailing bytes fail.
+
+The runtime retains shared packed half-float page views and uploads their bytes
+directly, avoiding KTX image copies and half→f32→half arrays. Scalar diagnostics
+read a texel on demand; a full diagnostic slice explicitly materializes floats.
+GPU format/storage remain two Rgba16Float planes (16 bytes/texel/group), with
+one mip and clamped bilinear filtering. Disk compression does not reduce GPU
+memory. The higher-precision `write_lightmaps_precise` writer and metadata
+version-3 KTX2 reader preserve all six half-float coefficients exactly.
+
+`blobs/<sha>.lightmaps.json` holds the unchanged chart record (shown here with
+legacy version 3):
 
 ```json
 { "record_version": 3, "page_edge": 1024, "page_count": 2, "padding": 2,
@@ -683,7 +740,7 @@ source/catalogue/compiler currentness.
 ## 9. Compiler commands
 
 ```sh
-places-compile build <source.json> [--out <package>] [--variants off,medium,full]
+places-compile build <source.json> [--out <package>] [--variants off,full]
                      [--asset-root <dir>] [--workers N] [--force] [--json]
 places-compile build-collection <dir> [--variants …] [--asset-root …] [--workers N] [--force]
 places-compile validate <package> [--json]      # decode every record, re-hash every entry

@@ -109,12 +109,11 @@ Graphics and display preferences, custom bindings, look speed, walk speed,
 field of view and look inversion are saved to `settings.json` in the package
 root and kept across launches. The defaults are a 1920×1080 windowed desktop
 window; a fresh installation writes that configuration on first run. Changes
-apply immediately: Graphics Quality (Low / Medium / High), Bloom, VSync and the
-Advanced group (Texture Filtering, Lightmaps, Reflections), Window Mode,
+apply immediately: Texture Quality (Low / Medium / High), Lighting (Static /
+Full), Bloom, VSync and the Advanced group (Texture Filtering, Reflections), Window Mode,
 Resolution, sensitivity, look inversion and bindings all take effect without
-restarting or reloading the level. Changing the overall quality cascades the
-three Advanced defaults; each may then be overridden independently, and an
-override never changes the Quality label. See
+restarting the application. Changing texture quality sets matching filtering
+and preserves the chosen lighting and reflection preferences. See
 [renderer reference](docs/RENDERER.md) for what each option changes.
 
 

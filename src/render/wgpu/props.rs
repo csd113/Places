@@ -120,6 +120,7 @@ pub struct PropUpload {
     skip_models: Vec<String>,
     image_keys: std::collections::HashMap<(String, usize), ImageIdentity>,
     level: QualityLevel,
+    lighting_level: QualityLevel,
 }
 
 /// Kept only while an upload is assembled; cloned batches share the same image.
@@ -176,7 +177,11 @@ fn prop_draw_geometry(batch: &PropMeshBatch, first: u32, count: u32) -> Option<(
 }
 
 impl PropUpload {
-    pub(crate) fn new(skip_models: &[String], level: QualityLevel) -> Self {
+    pub(crate) fn new(
+        skip_models: &[String],
+        level: QualityLevel,
+        lighting_level: QualityLevel,
+    ) -> Self {
         Self {
             props: WgpuProps {
                 chunks: Vec::new(),
@@ -189,6 +194,7 @@ impl PropUpload {
             skip_models: skip_models.to_vec(),
             image_keys: std::collections::HashMap::new(),
             level,
+            lighting_level,
         }
     }
 
@@ -219,6 +225,7 @@ impl PropUpload {
         } = &mut self.props;
         let identities = &mut self.identities;
         let level = self.level;
+        let lighting_level = self.lighting_level;
         stats.batches = stats.batches.saturating_add(1);
         // Slot zero is shared white for untextured primitives. A snow cap
         // must not sample another primitive's foliage, bark or wood atlas.
@@ -344,7 +351,7 @@ impl PropUpload {
                             emission: record,
                             alpha: submesh.alpha,
                             response: submesh.response,
-                            response_enabled: level.draws_surface_response(),
+                            response_enabled: lighting_level.draws_surface_response(),
                         },
                     );
                     materials.push(gpu);
@@ -412,9 +419,10 @@ impl WgpuProps {
         batches: &[PropMeshBatch],
         skip_models: &[String],
         level: QualityLevel,
+        lighting_level: QualityLevel,
         visibility: Option<crate::render::common::blacklight::BlacklightVisibility<'_>>,
     ) -> Self {
-        let mut upload = PropUpload::new(skip_models, level);
+        let mut upload = PropUpload::new(skip_models, level, lighting_level);
         for batch in batches {
             upload.push_batch_with_blacklight(
                 device,

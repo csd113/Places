@@ -338,6 +338,74 @@ fn assets_are_shared_between_instances() {
     assert_eq!(assets.stats().models_loaded, 1);
 }
 
+/// Two tiny generated GLBs isolate model/image identity and request eviction;
+/// no shipped map bake, filesystem scan or GPU upload is needed.
+#[test]
+fn request_dependency_hashes_share_images_and_release_stale_models() {
+    let model_path = "fixtures/shared.glb";
+    let source = |colour| {
+        crate::test_support::two_material_glb(
+            crate::test_support::TestGlbMaterial::plain(colour),
+            crate::test_support::TestGlbMaterial::plain([0, 0, 0, 255]),
+        )
+    };
+    let first_bytes = source([255, 0, 0, 255]);
+    let dependency = |bytes: &[u8]| crate::package::PackageDependency {
+        kind: crate::package::DependencyKind::Model,
+        path: model_path.to_owned(),
+        sha256: crate::package::hash::sha256_hex(bytes),
+        bytes: u64::try_from(bytes.len()).expect("fixture length"),
+    };
+    let first_dependency = dependency(&first_bytes);
+    let mut assets = PropAssets::with_root("unused-model-identity-fixture");
+    assets.synchronize_dependencies(std::slice::from_ref(&first_dependency));
+    drop(
+        assets
+            .inputs
+            .insert(model_path.to_owned(), Ok(Arc::from(first_bytes))),
+    );
+    let first = assets.resolve(model_path).expect("first tiny model");
+    let batch_images = first.model.textures.clone();
+    assets.synchronize_dependencies(std::slice::from_ref(&first_dependency));
+    let reusable = assets.resolve(model_path).expect("unchanged tiny model");
+    assert!(
+        Arc::ptr_eq(&first, &reusable),
+        "unchanged dependencies share the decoded model"
+    );
+    assert!(
+        Arc::ptr_eq(&batch_images[0], &reusable.model.textures[0]),
+        "batches share the model's exact pixel allocation"
+    );
+
+    let second_bytes = source([0, 255, 0, 255]);
+    assets.synchronize_dependencies(&[dependency(&second_bytes)]);
+    drop(
+        assets
+            .inputs
+            .insert(model_path.to_owned(), Ok(Arc::from(second_bytes))),
+    );
+    let changed = assets.resolve(model_path).expect("changed tiny model");
+    assert!(
+        !Arc::ptr_eq(&first, &changed),
+        "a changed dependency cannot reuse a decoded model"
+    );
+    assert_ne!(first.model.textures[0].rgba, changed.model.textures[0].rgba);
+    assert!(
+        Arc::ptr_eq(&batch_images[0], &first.model.textures[0]),
+        "the active world's old images remain valid"
+    );
+    assets.synchronize_dependencies(&[]);
+    assert_eq!(
+        assets.stats().models_loaded,
+        0,
+        "unrelated models are released at the next request"
+    );
+    assert_eq!(
+        first.model.textures[0].rgba, batch_images[0].rgba,
+        "eviction does not invalidate active image owners"
+    );
+}
+
 /// RGBA bytes of a `width x height` 8-bit image, for fixture buffers.
 fn rgba_bytes(width: u32, height: u32) -> usize {
     usize::try_from(width)
@@ -360,7 +428,11 @@ fn synthetic_model(triangles: usize, textures: &[(u32, u32)]) -> PropModel {
         textures: textures
             .iter()
             .map(|&(width, height)| {
-                RawImage::new(width, height, vec![0u8; rgba_bytes(width, height)])
+                Arc::new(RawImage::new(
+                    width,
+                    height,
+                    vec![0u8; rgba_bytes(width, height)],
+                ))
             })
             .collect(),
         submeshes: vec![PropSubmesh {

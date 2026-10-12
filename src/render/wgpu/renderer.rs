@@ -1725,6 +1725,7 @@ impl WgpuRenderer {
             probe_fallback: &self.probe_fallback_view,
             planar_fallback: &self.planar_fallback_view,
             level: self.quality,
+            lighting_level: self.lighting_quality,
         };
         self.world_dynamic = Some(WgpuDynamic::upload(&mut ctx, &self.dynamic));
     }
@@ -1913,6 +1914,7 @@ impl WgpuRenderer {
             probe_fallback: &self.probe_fallback_view,
             planar_fallback: &self.planar_fallback_view,
             level: self.quality,
+            lighting_level: self.lighting_quality,
         };
         self.world_characters = Some(WgpuCharacters::upload(&mut ctx, &self.characters));
         if let Some(characters) = self.world_characters.as_ref() {
@@ -2233,6 +2235,7 @@ impl WgpuRenderer {
                 pending.props = Some(PropUpload::new(
                     pending.characters.claimed_models(),
                     pending.graphics.quality,
+                    pending.graphics.lighting_quality,
                 ));
                 pending.phase = UploadPhase::Props;
             }
@@ -2545,6 +2548,7 @@ impl WgpuRenderer {
                 &build.batches,
                 &claimed_characters,
                 self.quality,
+                self.lighting_quality,
                 uv_visibility,
             )
         });

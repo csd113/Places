@@ -83,3 +83,41 @@ fn inactive_or_unbaked_sources_contribute_nothing() {
         assert!(DirectionalLight::from_definition(&inactive).is_none());
     }
 }
+
+/// Five cheap visibility queries on one tiny room protect Static sky energy
+/// and roof isolation. The codec check prevents a reload from losing that sky.
+#[test]
+fn static_sky_is_visible_outdoors_and_survives_the_lighting_record() {
+    let mut authored = level();
+    authored.global_illuminators.clear();
+    authored.sky = Some(crate::level::SkyDef {
+        texture: "unused:test_sky".to_string(),
+        brightness: 4.0,
+        ambient: 0.25,
+        ambient_color: Some([0.2, 0.4, 0.8]),
+    });
+    let enclosed = crate::lighting::LevelLighting::bake(&authored);
+    assert_eq!(
+        enclosed.global_surface_light([2.0, 2.5, 2.0], [0.0, 1.0, 0.0]),
+        crate::lighting::LightColor::BLACK
+    );
+    authored.rooms[0].ceiling = crate::level::CeilingProfileDef::Open;
+    let outdoor = crate::lighting::LevelLighting::bake(&authored);
+    let sky = outdoor.global_surface_light([2.0, 2.5, 2.0], [0.0, 1.0, 0.0]);
+    assert_eq!(sky.to_array(), [0.05, 0.1, 0.2]);
+    let mut writer = Writer::new();
+    outdoor.write_compiled(&mut writer).expect("encode sky");
+    let bytes = writer.into_bytes();
+    let decoded = crate::lighting::LevelLighting::read_compiled(&mut Reader::new(&bytes))
+        .expect("decode sky");
+    assert_eq!(
+        decoded.global_surface_light([2.0, 2.5, 2.0], [0.0, 1.0, 0.0]),
+        sky
+    );
+    authored.sky.as_mut().expect("sky").ambient = 0.0;
+    assert_eq!(
+        crate::lighting::LevelLighting::bake(&authored)
+            .global_surface_light([2.0, 2.5, 2.0], [0.0, 1.0, 0.0]),
+        crate::lighting::LightColor::BLACK
+    );
+}

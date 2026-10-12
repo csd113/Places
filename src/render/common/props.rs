@@ -699,7 +699,7 @@ fn resolve_prop_instances_inner<'a>(
                 let _new_entry = models_seen.insert(model_path.clone());
                 let textures = textures_by_model
                     .entry(model_path.clone())
-                    .or_insert_with(|| asset.model.textures.iter().cloned().map(Arc::new).collect())
+                    .or_insert_with(|| asset.model.textures.clone())
                     .clone();
                 let mut builder = BatchBuilder::new(&model_path, &asset.model, textures);
                 builder.casts_static_lighting = !claimed.contains(&model_path);

@@ -262,9 +262,12 @@ impl LightmapFailure {
 /// Full's measured coplanar model receiver plan at 32 samples/m reserves
 /// 10,171,144 texels with inclusive endpoints and gutters. The deterministic
 /// inline packer needs eleven pages to retain those physical shadow samples.
-/// This costs at most 176 MiB for the base GPU group; package byte and switch-group
-/// safety limits remain independent. Lower profiles retain their prior budget.
-pub const LIGHTMAP_ATLAS_MAX_PAGES: usize = 11;
+/// Current Model Zoo additions require a twelfth page. Capacity costs at most
+/// 192 MiB for one group; only resident pages allocate. The package byte bound
+/// still caps two groups at ten pages. Lower profiles retain their prior budget.
+/// The allocator retains the former eleven-page architecture-hole placements
+/// before opening the twelfth page, so already-fitting layouts stay identical.
+pub const LIGHTMAP_ATLAS_MAX_PAGES: usize = 12;
 
 /// Low and Medium retain their established eight-page atlas budgets.
 /// Medium's 1024px base group costs at most 128 MiB; Low's 512px group 32 MiB.
@@ -745,7 +748,7 @@ impl LightmapConfig {
     /// densities; only chart texel counts and page usage differ.
     ///
     /// Full retains architecture's 16 texels/m, matching the shared endpoint
-    /// cap, and admits eleven pages for the measured finer model receivers.
+    /// cap, and admits twelve pages for the current model receiver catalog.
     /// Low retains 10 texels/m, 512px pages and its established
     /// eight-page budget. Both preserve the same physical patches and gutters.
     #[must_use]

@@ -768,7 +768,7 @@ constant in `src/level.rs`, not an inline literal.
 | Distinct decoded texture bytes | ≤ 1 GiB (`MAX_LEVEL_TEXTURE_BYTES`) | Loader rejection per level, after resolution and before upload |
 | Standalone level JSON file size | ≤ 32 MiB (`MAX_LEVEL_JSON_BYTES`) | Rejected before parsing |
 | Package archive: entries / entry / aggregate | ≤ 512 entries / ordinary entry ≤ 256 MiB; mesh/props ≤ 512 MiB, atlas ≤ 320 MiB + 64 KiB, other typed records may be tighter / aggregate ≤ 1 GiB uncompressed | Package rejected at open (see [PACKAGE_FORMAT.md](PACKAGE_FORMAT.md)) |
-| Package variants | one per lightmap quality (`off`/`medium`/`full`) | Package rejected at open |
+| Package variants | one per lighting mode (`off`/`full`; legacy `medium` readable) | Package rejected at open |
 | Package blob hashes | SHA-256 must match the name and the manifest | Blob rejected before decoding |
 | Distinct prop models placed | ≤ 4096 (`MAX_LEVEL_PROP_MODELS`) | **Not a rejection:** later placements draw placeholder boxes |
 | Summed prop vertices (after instancing) | ≤ 24 000 000 (`MAX_LEVEL_PROP_VERTICES`) | **Not a rejection:** further placements draw placeholder boxes |
@@ -2119,8 +2119,8 @@ normal map, no sheen and `alpha_mode: opaque` are the defaults.
 map that cannot resolve degrades the whole material to the diagnostic texture
 (it does not silently flat-shade).
 
-**Quality levels.** `Medium` and `High` draw the response; `Low` leaves the
-normal-map and sheen terms out and keeps albedo × light × emission × alpha.
+**Lighting modes.** `Full` draws the response at every texture quality; `Static`
+leaves normal-map and sheen terms out and keeps albedo × light × emission × alpha.
 Every level uses the same materials and the same PNGs — the difference is one
 shader gate, not a second art set.
 
@@ -2200,9 +2200,10 @@ Four properties are worth designing around:
 
 **Independent reflection quality.** Reflections `Full`/`Medium` use 64/48-texel
 probes and allow the half-resolution planar pass; `Off` retires probes and the
-planar target. The overall High/Medium/Low presets select Full/Medium/Off,
-respectively, but the player may override Reflections independently. Low with
-Reflections Full is supported. An Off reflection keeps the material's sheen.
+planar target. Texture quality preserves the chosen reflection preference.
+Static suppresses reflection resources while retaining that preference for Full.
+Full lighting with Low textures and Full reflections is supported. Reflections
+Off retains the Full lighting material response.
 
 Shipped examples: `core:pool_deck_wet_01` (`planar`, 0.4, the wet deck patch),
 `core:linoleum_polished_01` (`probe`, 0.25, the deliberately waxed end — Places
@@ -2505,9 +2506,9 @@ state. The player never bakes a new atlas or captures a probe:
 | Prop sheet (GLB) | 256 | 256 | 128 |
 | Emissive mask | 512 | 256 | 128 |
 | Sky panorama | 2048 | 1024 | 512 |
-| Preset Lightmaps | Full: 1024, 16 texels/m | Medium: 1024, 12 texels/m | Off: vertex lighting |
-| Preset Reflections | Full: 64-pixel probes + planar | Medium: 48-pixel probes + planar | Off |
-| Prepared transport | Full solve | Medium solve | Historical vertex fallback |
+| Lighting | Independent Static / Full | Independent Static / Full | Independent Static / Full |
+| Reflections | Independent Off / Medium / Full (suppressed in Static) | Same | Same |
+| Prepared transport | Chosen lighting mode | Chosen lighting mode | Chosen lighting mode |
 | Legacy coarse prop-occlusion grid | 0.075 m | 0.11 m | 0.15 m |
 
 * **High is the native Places runtime size.** Every shipped asset is already at
@@ -2522,11 +2523,13 @@ state. The player never bakes a new atlas or captures a probe:
   always produces the same runtime image.
 * The source hard limit (1024 px for ordinary sheets, 2048×1024 for skies) is unchanged by any level: quality only
   decides how much of an accepted source reaches the GPU.
-* Lightmaps and Reflections are independent advanced controls. The compiler
-  prepares Off/Medium/Full variants of the same source; the player selects a
-  packaged variant, without a separate authored level or artwork set. The
-  legacy two-profile planner API also supports 512-pixel/10-texel Low atlases,
-  but that API budget is not the runtime Low preset, which selects Off.
+* Lighting is an independent Static / Full control; changing texture quality
+  or filtering preserves it. Static uses the historical `off` vertex path,
+  without atlases, probes or material response. Full uses the full bake at every
+  texture quality. The compiler prepares only `off` and `full` by default.
+  Reflection preferences are retained while Static suppresses their resources.
+  Legacy Medium package data remains readable; saved Medium lighting migrates
+  to Full. Legacy planner APIs retain their historical density contracts.
 * Do **not** author a separate level or asset set for a lower quality level; one
   level serves all three.
 
@@ -2595,7 +2598,7 @@ entry.)
 | White sheet (1024×1024 opaque white fill, file-backed) | `assets/shared/textures/white_01.png` (loaded by `src/render/wgpu/texture.rs`) | Untextured geometry (fixture housings, UI quads). |
 | HUD font atlas (128×64) | `assets/shared/ui/font_01.png` | Project-owned bitmap UI font with sixteen 8×8 ASCII cells per row and the reserved white UI cell. |
 | Emergency white sheet (2×2) | `assets/shared/textures/white_fallback_01.png` | Embedded opaque white fallback if the primary embedded white PNG cannot decode. |
-| Lightmap atlas (Full up to eleven pages per contribution group; lower profiles eight) | `src/lighting/lightmap/`, packaged KTX2 payloads | Incident linear HDR and signed moments computed offline from geometry/material/light inputs. Loaded from the prepared package; the 320 MiB +64 KiB typed bound and unchanged aggregate/shape guards apply. PNG dumps are diagnostics, not artwork. |
+| Lightmap atlas (Full up to twelve pages per contribution group; lower profiles eight) | `src/lighting/lightmap/`, packaged KTX2 payloads | Incident linear HDR and signed moments computed offline from geometry/material/light inputs. Loaded from the prepared package; the 320 MiB +64 KiB typed bound and unchanged aggregate/shape guards apply. PNG dumps are diagnostics, not artwork. |
 
 Everything else the renderer draws from an image comes from a PNG under `assets/`.
 Every *surface, fixture, decal and prop texture* is still a real PNG asset under
@@ -3121,9 +3124,9 @@ illumination of the room  <- the fixture's `brightness` and `color`, only while
 Nothing about a fixture family, a prop model or a *material* creates light. An
 emissive material never casts light; a fixture face never lights a room by itself.
 
-### Prepared HDR lighting (medium and full atlases)
+### Prepared HDR lighting (Full; legacy Medium atlases)
 
-When a map is compiled with lightmaps `medium` or `full`, its illumination is
+When a map is compiled with Full lighting (`full`), its illumination is
 solved **offline** by the transport solver: direct emitter sampling with soft
 shadows, one or two real diffuse bounces, a moment per-texel encoding
 (an irradiance mean plus the signed vector sum of the per-channel moments, so
@@ -3164,7 +3167,7 @@ Two prepared-path rules keep a solved map readable, and both are automatic:
   models). Visibility origins stay on the geometric side. Compression alone is not an irradiance integral:
   opposing grazing sources must not manufacture illumination. Each bounce
   transports only the previous order; two bounces mean `D + KD + K²D`.
-  Current solver revision 17 invalidates earlier atlas and package fingerprints; sky is
+  Current solver revision 18 invalidates earlier atlas and package fingerprints; sky is
   injected only into the first diffuse order. Cache interpolation also tests
   visibility so one floor triangle spanning a divider cannot transfer light
   through that divider.
@@ -3243,18 +3246,21 @@ its sky ambient; its star sheet contains no visible moon.
 
 ### Sampling quality and diagnostics
 
-Gameplay Low uses vertex lighting. Medium uses nominal 12 texels/m for
-architecture, two emitter taps per axis, one diffuse order and 32 gather
-directions; High uses 16 texels/m, three emitter taps, two orders and 64 gather
+Static uses vertex lighting. Full uses 16 intervals/m for architecture, three
+emitter taps per axis, two diffuse orders and 64 gather directions. Legacy
+Medium data used 12 intervals/m, two emitter taps, one order and 32 gather
 directions. Small opaque model charts use twice the architecture density:
-24 intervals/m for Medium and 32 for High. Large opaque models retain one eighth
+32 intervals/m for Full and historically 24 for Medium. Large opaque models retain one eighth
 of architectural density; cutout charts retain 1 interval/m. Compatible coplanar
 triangles in one original model primitive share a native four-corner chart.
 The original common diagonal, all six drawn corners, material UVs and normal
 frames remain exact; incompatible unions retain individual triangle charts.
 Actual endpoint-grid density is `(chart_axis_texels - 1) / axis_metres`.
-Medium integrates every 2×2 receiver-footprint sample; High integrates every
-4×4 sample. Equal centre/corner visibility does not establish uniform coverage.
+Full integrates every 4×4 receiver-footprint sample. Differing actual visibility
+signatures additionally integrate 8×8 within the same footprint, retaining all
+original samples in a weighted 80-position estimate. Uniform areas remain exact
+at 16 positions. Legacy Medium retains 2×2. Equal centre/corner visibility does
+not establish uniform coverage.
 Coplanar chart joins compare
 supported neighbours in world space. Only diffuse gather energy is denoised;
 its filter crosses a chart join only with matching normals/material and an
@@ -3362,8 +3368,10 @@ sample = clamp(AMBIENT_LEVEL + room/partition-area baseline
    the storey. A ceiling fixture's direct pool reaches the floor directly beneath it
    whatever the ceiling height (height only enters through the ceiling-height factor),
    so a tall space is not blacked out by the pool's radius.
-8. **No ambient control.** The 0.10 neutral floor is fixed; you cannot author sun,
-   sky, a room-wide brightness or a room-wide tint. Express mood per fixture.
+8. **Bounded authored global light.** The 0.10 neutral floor remains fixed.
+   Static additionally applies authored directional sources and sky ambient,
+   using existing coarse visibility and five fixed hemisphere rays for sky.
+   Closed roofs retain isolation. No arbitrary ambient multiplier is added.
 
 ### Ultraviolet reactive pigments
 
@@ -3422,14 +3430,18 @@ The compiler stores linear incident irradiance and signed moments per texel of
 static geometry, including panes, water and real static model triangles. The
 player uploads these prepared package layers and multiplies receiver albedo once.
 
-* Independent Lightmaps **Full** uses 16 texels/m and **Medium** 12 texels/m,
-  both with 1024-pixel pages. Full plans up to **ten base pages** per contribution
-  group; Medium retains **eight**. **Off** uses the historical vertex-lit representation. High/Medium/Low
-  presets select Full/Medium/Off; advanced choices may override them.
+* Lighting **Full** uses 16 intervals/m and 1024-pixel pages. **Static** uses
+  the historical vertex-lit representation (`off`). Texture choices preserve
+  selected lighting. Legacy Medium records retain their 12/m, eight-page
+  interpretation but are no longer selected or generated by default. Full
+  plans up to twelve pages, bounded to ten with a second contribution group.
   The shared chart-span cap is 63.6875 m, preserving room for inclusive endpoints
   and gutters. The deterministic best-short-side-fit MaxRects allocator reports
-  named page overflow rather than dropping surfaces. Each resident page uses two
-  RGBA16F layers; every switchable group adds another pair per base page. The GPU
+  named page overflow rather than dropping surfaces. Each resident GPU page uses two RGBA16F layers. Disk storage uses bounded
+  PLLC1 tile ranges with an exact six-half fallback; decoded coefficients precede
+  bilinear filtering, and legacy/exact KTX2 remains supported. See
+  [the package contract](PACKAGE_FORMAT.md#5-lightmap-pages--compact-storage-and-ktx2).
+  Every switchable group adds another pair per base page. The GPU
   allocates exactly the produced layers, without reserving unused pages.
   [The Stage 7 Hallows capacity measurement](art-style/stage7/integration-contract-audit.md)
   finds 9,549,535 padded Full texels, exceeding nine-page capacity; the existing
@@ -3448,7 +3460,7 @@ player uploads these prepared package layers and multiplies receiver albedo once
   with per-tap visibility/cosine and complete bounded receiver coverage. The
   historical vertex fallback retains its centre-only coarse-box shadow path.
   The legacy profile bake API's five-tap quincunx is not the complete prepared
-  transport solver contract; see [Prepared HDR lighting](#prepared-hdr-lighting-medium-and-full-atlases).
+  transport solver contract; see [Prepared HDR lighting](#prepared-hdr-lighting-full-legacy-medium-atlases).
 * A chart's texels span their own patch: the first and last texel sit exactly on the
   patch's geometric edges. Adjacent coplanar surfaces therefore evaluate the *same*
   world point on a shared edge, so changing an albedo material across one continuous
@@ -3466,9 +3478,9 @@ player uploads these prepared package layers and multiplies receiver albedo once
   different float expression than the plane's own `y`, so the two can differ by a
   ULP, and without the contact band the floor shadowed its own wall base and two
   coplanar strips whose bottoms rounded opposite ways stepped at the seam.
-* `settings.json` carries `"lightmaps": "off"|"medium"|"full"` (default
-  `"full"`), exposed as
-  Settings → Graphics → Lightmaps and switched live by installing a prepared
+* `settings.json` carries `"lightmaps": "off"|"full"` (default `"full"`),
+  exposed as Settings → Graphics → Lighting: Static / Full. Old saved `medium`
+  becomes Full. Lighting switches live by installing a prepared
   package variant, with player state preserved. The previous resident world
   remains installed until staged resources commit. The
   environment override `PLACES_NO_LIGHTMAPS=1` forces the historical vertex-lit
@@ -3493,9 +3505,9 @@ A placed prop is not air: prepared transport uses its actual triangles and
 numeric material/PNG coverage. The vertex/fast-occluder fallback derives a small
 set of boxes per distinct model unless the placement authors `occludes: false`.
 Those fallback boxes are ground on a
-quality-level grid — **High** 0.075 m, **Medium** 0.11 m, **Low** the historical
-0.15 m — so High resolves a finer contact silhouette and the shadow a prop throws
-on the floor or wall behind it, while Medium and Low keep cheaper derivations. The
+lighting-mode grid — **Full** 0.075 m, **Static** the historical 0.15 m.
+Legacy Medium used 0.11 m. Static retains the cheaper box visibility approximation;
+Full transport uses actual model triangles for its resolved shadows. The
 visible consequences:
 
 * the floor under a machine, desk or couch is darker than open floor at the same
@@ -6137,7 +6149,7 @@ PLACES_TOOL_WORKERS=4 python3 tools/levels/build_model_zoo.py
   grows; animated displays are placed in a reserved lane so a route can never be
   blocked by an exhibit.
 * **Baked within budget.** The continuous hall uses flat ownership cells at
-  most 16 × 18 m so its floor and ceiling charts pack within the current eleven-page
+  most 16 × 18 m so its floor and ceiling charts pack within the current twelve-page
   Full budget. Shared cell borders are open, with narrow checker intent
   strips; the exterior shell remains enclosed apart from its authored exit.
   The basin fits within one cell. Thin snow attachments and icicles mount on
@@ -7374,7 +7386,7 @@ A tube that reads bright but casts a restrained local pool (the demo's far corri
    `./target/release/places-compile build my_level.json`
    The compiler runs the static preparation (lighting bake, geometry, lightmap
    atlas, collision, reflection probe capture) and writes `my_level.placesmap`
-   beside the source. Use `--variants off,medium,full` to choose the packaged
+   beside the source. Use `--variants off,full` to choose the packaged
    lightmap qualities, `--workers N` to bound CPU use, and `--force` to rebuild
    when the incremental check says the package is current.
 3. Verify the result: `./target/release/places-compile validate my_level.placesmap`

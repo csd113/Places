@@ -319,12 +319,12 @@ impl LevelBuild {
                 .saturating_add(allocation_bytes(&atlas.switchable))
                 .saturating_add(atlas.cache_key.capacity());
             for page in &atlas.pages {
-                bytes = bytes.saturating_add(allocation_bytes(&page.texels));
+                bytes = bytes.saturating_add(page.retained_pixel_bytes());
             }
             for contribution in &atlas.switchable {
                 bytes = bytes.saturating_add(allocation_bytes(&contribution.pages));
                 for page in &contribution.pages {
-                    bytes = bytes.saturating_add(allocation_bytes(&page.texels));
+                    bytes = bytes.saturating_add(page.retained_pixel_bytes());
                 }
             }
         }
@@ -1158,7 +1158,7 @@ mod tests {
         fixture.switchable = true;
         fixture.enabled = false;
         for (switches, full, medium) in [
-            (0_usize, 11, 8),
+            (0_usize, 12, 8),
             (1, 10, 8),
             (2, 6, 6),
             (3, 5, 5),

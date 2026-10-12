@@ -35,14 +35,11 @@ fn empty_records() -> Arc<PreparedRecords> {
         ladders: collision.ladders,
     };
     let navigation = crate::package::navigation::NavGrid::default();
-    let retained_bytes =
-        PreparedRecords::retained_bytes(&build, &compiled, &navigation, &ProbeCaptures::default());
     Arc::new(PreparedRecords {
         build: Arc::new(build),
         collision: compiled,
         navigation,
         probes: ProbeCaptures::default(),
-        retained_bytes,
     })
 }
 
@@ -73,7 +70,7 @@ fn cache_hits_reuse_the_exact_records_and_lru_eviction_keeps_displayed_arcs_aliv
 fn byte_budget_evicts_old_records_and_oversized_entries_are_not_retained() {
     let mut cache = BuildCache::default();
     let small = empty_records();
-    let small_bytes = small.retained_bytes;
+    let small_bytes = small.retained_bytes();
     cache.insert_with_limits(key(1), Arc::clone(&small), 3, small_bytes.saturating_mul(2));
     cache.insert_with_limits(key(2), Arc::clone(&small), 3, small_bytes.saturating_mul(2));
     // The second insert pushes the first out: the two-record budget is full.
@@ -84,6 +81,61 @@ fn byte_budget_evicts_old_records_and_oversized_entries_are_not_retained() {
     assert!(
         bounded.get(&key(3)).is_none(),
         "an over-budget record is not retained"
+    );
+
+    // A one-texel diagnostic expansion changes an already inserted record's
+    // resident bytes. The next lookup must charge those bytes and evict it.
+    let mut diagnostic = empty_records();
+    let half_planes = Arc::new(
+        [0_u16, 0, 0, 0x3800, 0, 0, 0, 0x3800]
+            .into_iter()
+            .flat_map(u16::to_le_bytes)
+            .collect(),
+    );
+    let page =
+        crate::lighting::lightmap::LightmapPage::from_packed_planes(1, 1, half_planes, 0..16)
+            .expect("tiny packed diagnostic page");
+    Arc::get_mut(&mut Arc::get_mut(&mut diagnostic).expect("unique record").build)
+        .expect("unique build")
+        .lightmaps = Some(Arc::new(crate::lighting::lightmap::LevelLightmaps {
+        pages: vec![page],
+        charts: Vec::new(),
+        stats: crate::lighting::lightmap::LightmapStats::default(),
+        cache_key: "diagnostic".to_owned(),
+        padding: 0,
+        switchable: Vec::new(),
+    }));
+    let diagnostic_key = key(4);
+    let packed_charge = diagnostic
+        .retained_bytes()
+        .saturating_add(diagnostic_key.package_sha256.capacity());
+    let mut diagnostic_cache = BuildCache::default();
+    diagnostic_cache.insert_with_limits(
+        diagnostic_key.clone(),
+        Arc::clone(&diagnostic),
+        3,
+        packed_charge,
+    );
+    let diagnostic_page = diagnostic
+        .build
+        .lightmaps
+        .as_ref()
+        .expect("packed atlas")
+        .pages
+        .first()
+        .expect("packed page");
+    assert_eq!(
+        diagnostic_page.texels.iter().count(),
+        1,
+        "a diagnostic slice materializes one texel"
+    );
+    assert!(
+        diagnostic_cache.get(&diagnostic_key).is_none(),
+        "diagnostic growth is charged at the next cache operation"
+    );
+    assert!(
+        diagnostic_page.texel(0, 0).is_some(),
+        "active ownership survives diagnostic eviction"
     );
 }
 
@@ -121,6 +173,109 @@ fn weak_identities_never_retain_an_unreferenced_world() {
         "only the live world is referenced"
     );
     drop(live);
+}
+
+fn prepared_lease_fixture() -> PreparedWorld {
+    let level = crate::level::LevelDef::from_json(
+        r#"{"format_version":2,"id":"cache_test","name":"Cache Test","spawn":{"x":0,"z":0}}"#,
+    )
+    .expect("tiny lease level");
+    let catalog = Arc::new(crate::loader::PropCatalog::builtin());
+    let materials = crate::materials::MaterialTable::logical(&level, catalog.assets(), None);
+    let collision = CollisionWorld::from_level(&level);
+    let entry = LevelEntry {
+        id: level.id.clone(),
+        name: level.name.clone(),
+        author: String::new(),
+        source_type: LevelSourceType::Installed,
+        path: std::path::PathBuf::from("unused-lease-fixture.placesmap"),
+    };
+    let records = empty_records();
+    PreparedWorld {
+        preparation_millis: 0.0,
+        cache_hit: false,
+        loaded: LoadedLevel {
+            catalog,
+            level,
+            materials,
+            light_sheets: Vec::new(),
+            entry,
+        },
+        build: Arc::clone(&records.build),
+        collision,
+        characters: CharacterScene::default(),
+        assets: PropAssets::with_root("unused-lease-fixture-assets"),
+        lightmaps: LightmapQuality::Off,
+        probes: ProbeCaptures::default(),
+        lease: PreparedLease { records },
+    }
+}
+
+/// An empty prepared world exceeds a zero-byte LRU without a large allocation.
+/// Its real preparation-to-pending handoff must keep records reusable, then
+/// release them when the displayed lease ends even if a build Arc remains.
+#[test]
+fn prepared_handoff_lease_reuses_oversized_displayed_records() {
+    let prepared = prepared_lease_fixture();
+    let identity = key(1);
+    let mut identities = std::collections::VecDeque::new();
+    remember_build(&mut identities, identity.clone(), &prepared.lease.records);
+    let mut cache = BuildCache::default();
+    cache.insert_with_limits(identity.clone(), Arc::clone(&prepared.lease.records), 3, 0);
+    assert!(
+        cache.entries.is_empty(),
+        "the record is too large for this LRU"
+    );
+
+    let PreparedWorld {
+        loaded,
+        build,
+        collision,
+        lease,
+        preparation_millis: _,
+        cache_hit: _,
+        characters: _,
+        assets: _,
+        lightmaps: _,
+        probes: _,
+    } = prepared;
+    let pending = crate::PendingCommit {
+        id: 1,
+        loaded,
+        collision,
+        intent: crate::LoadIntent::Graphics,
+        lease,
+    };
+    let reused_pending = reusable_records(&identity, &mut cache, &mut identities)
+        .expect("pending GPU upload keeps the records reusable");
+    assert!(
+        Arc::ptr_eq(&build, &reused_pending.build),
+        "pending reuse keeps the exact prepared build"
+    );
+    drop(reused_pending);
+    let crate::PendingCommit {
+        lease: displayed,
+        id: _,
+        loaded: _,
+        collision: _,
+        intent: _,
+    } = pending;
+    let reused_displayed = reusable_records(&identity, &mut cache, &mut identities)
+        .expect("displayed lease keeps oversized records reusable");
+    assert!(
+        Arc::ptr_eq(&build, &reused_displayed.build),
+        "displayed reuse keeps the exact prepared build"
+    );
+    drop(reused_displayed);
+    drop(displayed);
+    assert!(
+        reusable_records(&identity, &mut cache, &mut identities).is_none(),
+        "retaining only the build cannot keep unused record metadata alive"
+    );
+    assert!(
+        Arc::strong_count(&build) >= 1,
+        "the retained build itself remains valid"
+    );
 }
 
 #[test]

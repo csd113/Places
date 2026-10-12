@@ -553,7 +553,7 @@ struct Payload {
     /// Face count (`6` for a cube map, else `1`).
     faces: u32,
     /// Mip levels, base level first.
-    levels: Vec<Vec<u8>>,
+    levels: Vec<std::ops::Range<usize>>,
 }
 
 /// Decodes a KTX2 file written by this module's RGBA8 writer.
@@ -571,7 +571,7 @@ pub fn read_rgba8(bytes: &[u8]) -> Result<Ktx2Rgba8, String> {
         edge: payload.edge,
         layers: payload.layers,
         faces: payload.faces,
-        levels: payload.levels,
+        levels: copy_levels(bytes, &payload.levels)?,
     })
 }
 
@@ -590,8 +590,40 @@ pub fn read_rgba16f(bytes: &[u8]) -> Result<Ktx2Rgba16f, String> {
         edge: payload.edge,
         layers: payload.layers,
         faces: payload.faces,
+        levels: copy_levels(bytes, &payload.levels)?,
+    })
+}
+
+/// Validated RGBA16F image ranges in the original container. No pixel copy.
+pub(crate) struct Ktx2Rgba16fRanges {
+    pub edge: u32,
+    pub layers: u32,
+    pub faces: u32,
+    pub levels: Vec<std::ops::Range<usize>>,
+}
+
+/// Validates the same strict container contract as `read_rgba16f` while
+/// retaining offsets so an owned archive buffer can back every atlas page.
+pub(crate) fn read_rgba16f_ranges(bytes: &[u8]) -> Result<Ktx2Rgba16fRanges, String> {
+    let payload = read_payload(bytes, &TexelFormat::RGBA16F)?;
+    Ok(Ktx2Rgba16fRanges {
+        edge: payload.edge,
+        layers: payload.layers,
+        faces: payload.faces,
         levels: payload.levels,
     })
+}
+
+fn copy_levels(bytes: &[u8], ranges: &[std::ops::Range<usize>]) -> Result<Vec<Vec<u8>>, String> {
+    ranges
+        .iter()
+        .map(|range| {
+            bytes
+                .get(range.clone())
+                .map(<[u8]>::to_vec)
+                .ok_or_else(|| "KTX2 validated image range is unavailable".to_string())
+        })
+        .collect()
 }
 
 #[expect(
@@ -700,6 +732,8 @@ fn read_payload(bytes: &[u8], format: &TexelFormat) -> Result<Payload, String> {
         level_offsets.push((offset, length));
     }
     let mut decoded = Vec::with_capacity(level_offsets.len());
+    let mut expected_offset = align4(dfd_end);
+    let mut aggregate = 0_u64;
     for (index, (offset, length)) in level_offsets.iter().enumerate() {
         let level_index = u32::try_from(index)
             .map_err(|error| format!("KTX2 level index is too large: {error}"))?;
@@ -730,15 +764,27 @@ fn read_payload(bytes: &[u8], format: &TexelFormat) -> Result<Payload, String> {
                     .map_err(|error| format!("KTX2 level is too large: {error}"))?,
             )
             .ok_or_else(|| "KTX2 level range overflows".to_string())?;
-        let data = bytes
+        if *offset != expected_offset {
+            return Err(format!(
+                "KTX2 level {index} overlaps or skips the canonical payload layout"
+            ));
+        }
+        aggregate = aggregate
+            .checked_add(*length)
+            .ok_or_else(|| "KTX2 aggregate payload size overflows".to_string())?;
+        if aggregate > MAX_PAYLOAD_BYTES {
+            return Err("KTX2 aggregate payload exceeds its byte limit".to_string());
+        }
+        let _ = bytes
             .get(start..end)
             .ok_or_else(|| format!("KTX2 level {index} runs past the file"))?;
-        decoded.push(data.to_vec());
+        decoded.push(start..end);
+        expected_offset = align4(offset.saturating_add(*length));
     }
     if decoded.is_empty() {
         return Err("KTX2 payload has no image data".to_string());
     }
-    if decoded.iter().any(Vec::is_empty) {
+    if decoded.iter().any(std::ops::Range::is_empty) {
         return Err("KTX2 payload has an empty level".to_string());
     }
     // The last level must end exactly at the end of the file: trailing bytes

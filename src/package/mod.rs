@@ -50,6 +50,7 @@
 pub mod archive;
 pub mod binary;
 pub mod collision;
+pub mod compact_lightmaps;
 pub mod hash;
 pub mod ktx2;
 pub mod lighting;
@@ -58,6 +59,7 @@ pub mod manifest;
 pub mod mesh;
 pub mod navigation;
 pub mod props;
+pub mod shared_props;
 pub mod world;
 
 #[cfg(test)]

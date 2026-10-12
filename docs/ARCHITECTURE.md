@@ -264,10 +264,10 @@ lives in `src/entities/`:
   renderer.
 
 `src/settings.rs` owns the persisted player configuration and the runtime
-settings model. Overall Quality (Low / Medium / High) is the preset for the
-three Advanced settings (Texture Filtering, Lightmaps, Reflections): an active
-quality change cascades them, each may then be overridden independently, and
-Bloom and VSync are ordinary independent preferences. `main` reads the
+settings model. Texture Quality (Low / Medium / High) sets image/scene budgets
+and the matching filtering preference. Lighting independently selects Static or
+Full; reflections, Bloom and VSync retain independent preferences. Static
+suppresses reflection resources while preserving the preference for Full. `main` reads the
 effective values (session-only `PLACES_*` startup overrides folded in) and
 hands them to the renderer; see [RENDERER.md](RENDERER.md) §12 for the mapping
 and §13 for the startup switches.

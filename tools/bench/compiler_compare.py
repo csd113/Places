@@ -46,7 +46,7 @@ def main():
                         "levels/places_demo.json", "levels/lantern_hollow.json"])
     parser.add_argument("--repeat", type=int, default=3)
     parser.add_argument("--workers", type=int, default=12)
-    parser.add_argument("--variants", default="off,medium,full")
+    parser.add_argument("--variants", default="off,full")
     parser.add_argument("--timeout", type=float, default=7200)
     parser.add_argument("--label", default="")
     args = parser.parse_args()

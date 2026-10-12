@@ -128,6 +128,7 @@ pub struct DynamicUploadContext<'a> {
     pub probe_fallback: &'a wgpu::TextureView,
     pub planar_fallback: &'a wgpu::TextureView,
     pub level: QualityLevel,
+    pub lighting_level: QualityLevel,
 }
 
 impl WgpuDynamic {
@@ -286,7 +287,7 @@ impl WgpuDynamic {
                         emission: record,
                         alpha: submesh.alpha,
                         response: submesh.response,
-                        response_enabled: ctx.level.draws_surface_response(),
+                        response_enabled: ctx.lighting_level.draws_surface_response(),
                     },
                 ));
                 materials.push(value.materials.len().saturating_sub(1));

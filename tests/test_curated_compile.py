@@ -32,8 +32,8 @@ class CuratedCompileTests(unittest.TestCase):
             self.assertEqual(selected_sources(), [ROOT / 'levels/winter.json'])
 
     def test_single_map_runs_normal_compile_and_all_quality_validation(self):
-        manifest = {'variants': [{'lightmap_quality': quality}
-                                 for quality in ('off', 'medium', 'full')]}
+        manifest = {'variants': [{'lightmap_quality': quality, 'entries': {'lightmaps': 'atlas.pllc'}}
+                                 for quality in ('off', 'full')]}
         with mock.patch('sys.argv', ['compile.py', '--map', 'winter']), \
              mock.patch.object(COMPILE.subprocess, 'run') as run, \
              mock.patch.object(COMPILE.subprocess, 'check_output', return_value=json.dumps(manifest)), \
@@ -44,6 +44,16 @@ class CuratedCompileTests(unittest.TestCase):
         self.assertIn(str(ROOT / 'levels/winter.json'), commands[0])
         self.assertNotIn('--variants', commands[0])
         self.assertIn('--require-current', commands[1])
+
+    def test_full_fallback_cannot_pass_curated_export(self):
+        # Reproduce a named Full variant whose capacity failure kept vertex data.
+        # Two small dictionaries protect export quality without compiling a map.
+        for failure in (None, 'page overflow'):
+            manifest = {'variants': [{'lightmap_quality': 'off'},
+                                    {'lightmap_quality': 'full', 'lightmap_failure': failure,
+                                     'entries': {'lightmaps': None}}]}
+            with self.assertRaisesRegex(ValueError, 'fell back'):
+                COMPILE.validate_lighting(manifest, Path('fixture.placesmap'))
 
     def test_unknown_compile_shard_cannot_start_a_compiler(self):
         with mock.patch('sys.argv', ['compile.py', '--map', 'obsolete_dev_map']), \

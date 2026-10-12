@@ -478,6 +478,33 @@ fn read_batch(
     budget: &mut LogicalPropsBudget,
 ) -> Result<PropMeshBatch, String> {
     let header_start = reader.remaining();
+    let header = read_batch_header(reader, version)?;
+    let vertex_count = read_vertex_count(reader)?;
+    budget.add_slots(header_start.saturating_sub(reader.remaining()), 1, 0)?;
+    budget.add_slots(vertex_count, 69, 0)?;
+    let vertices = read_vertex_storage(reader, version, vertex_count)?;
+    let indices = read_prop_indices(reader, budget)?;
+    validate_draw_indices(vertex_count, &indices, &header.submeshes)?;
+    Ok(PropMeshBatch {
+        model: header.model,
+        source_primitives: Vec::new(),
+        casts_static_lighting: header.casts_static_lighting,
+        textures: Vec::<Arc<crate::loader::RawImage>>::new(),
+        submeshes: header.submeshes,
+        vertices,
+        indices,
+        bounds: header.bounds,
+    })
+}
+
+struct BatchHeader {
+    model: String,
+    casts_static_lighting: bool,
+    submeshes: Vec<PropSubmeshBatch>,
+    bounds: Aabb,
+}
+
+fn read_batch_header(reader: &mut Reader<'_>, version: u16) -> Result<BatchHeader, String> {
     let model = reader.str(MAX_MODEL_PATH)?;
     if model.is_empty() {
         return Err("prop batch has an empty model path".to_string());
@@ -508,32 +535,148 @@ fn read_batch(
     for _ in 0..submesh_count {
         submeshes.push(read_submesh(reader, version)?);
     }
+    Ok(BatchHeader {
+        model,
+        casts_static_lighting,
+        submeshes,
+        bounds: Aabb {
+            min: bounds_min,
+            max: bounds_max,
+        },
+    })
+}
+
+fn read_vertex_count(reader: &mut Reader<'_>) -> Result<usize, String> {
     let vertex_count = u64::from(reader.u32()?);
     if vertex_count == 0 || vertex_count > MAX_PROP_BATCH_VERTICES {
         return Err(format!(
             "prop batch declares {vertex_count} vertices (limit {MAX_PROP_BATCH_VERTICES})"
         ));
     }
-    let batch_vertex_count = usize::try_from(vertex_count)
-        .map_err(|error| format!("prop batch vertex count is too large: {error}"))?;
-    budget.add_slots(header_start.saturating_sub(reader.remaining()), 1, 0)?;
-    budget.add_slots(batch_vertex_count, 69, 0)?;
-    let vertices = read_vertex_storage(reader, version, batch_vertex_count)?;
-    let indices = read_prop_indices(reader, budget)?;
-    validate_draw_indices(batch_vertex_count, &indices, &submeshes)?;
-    Ok(PropMeshBatch {
-        model,
-        source_primitives: Vec::new(),
-        casts_static_lighting,
-        textures: Vec::<Arc<crate::loader::RawImage>>::new(),
-        submeshes,
-        vertices,
-        indices,
-        bounds: Aabb {
-            min: bounds_min,
-            max: bounds_max,
-        },
-    })
+    usize::try_from(vertex_count)
+        .map_err(|error| format!("prop batch vertex count is too large: {error}"))
+}
+
+/// One validated serialized vertex run; offsets refer to the original PLMP bytes.
+pub(crate) struct VertexRegion {
+    pub start: usize,
+    pub end: usize,
+    pub stride: usize,
+}
+
+/// Validate a record and locate its vertex runs without allocating decoded meshes.
+pub(crate) fn vertex_regions(bytes: &[u8]) -> Result<Vec<VertexRegion>, String> {
+    check_encoded_size(bytes.len())?;
+    let mut reader = Reader::new(bytes);
+    if reader.bytes(4)? != PROPS_MAGIC {
+        return Err("props record has the wrong magic".to_string());
+    }
+    let version = reader.u16()?;
+    if !(3..=PROPS_RECORD_VERSION).contains(&version) {
+        return Err(format!("props record version {version} is not supported"));
+    }
+    let count = reader.count(
+        u64::try_from(MAX_PROP_BATCHES).unwrap_or(u64::MAX),
+        "prop batch count",
+    )?;
+    let mut regions = Vec::with_capacity(count.min(4096));
+    let mut budget = LogicalPropsBudget::new();
+    for _ in 0..count {
+        let header_start = reader.remaining();
+        let header = read_batch_header(&mut reader, version)?;
+        let vertices = read_vertex_count(&mut reader)?;
+        budget.add_slots(header_start.saturating_sub(reader.remaining()), 1, 0)?;
+        budget.add_slots(vertices, 69, 0)?;
+        let stride = validate_vertex_run(&mut reader, version, vertices)?;
+        let end = bytes.len().saturating_sub(reader.remaining());
+        let run_bytes = checked_storage_size(vertices, stride, 0)?;
+        regions.push(VertexRegion {
+            start: end.saturating_sub(run_bytes),
+            end,
+            stride,
+        });
+        validate_index_run(&mut reader, &mut budget, vertices, &header.submeshes)?;
+    }
+    if !reader.is_empty() {
+        return Err("props record has trailing bytes".to_string());
+    }
+    Ok(regions)
+}
+
+fn validate_vertex_run(
+    reader: &mut Reader<'_>,
+    version: u16,
+    vertices: usize,
+) -> Result<usize, String> {
+    let mode = if version >= 6 { reader.u8()? } else { 0 };
+    if mode == 0 {
+        let length = checked_storage_size(vertices, SERIALIZED_VERTEX_BYTES, 0)?;
+        let (keys, _) = reader.bytes(length)?.as_chunks::<SERIALIZED_VERTEX_BYTES>();
+        for key in keys {
+            let _vertex = read_vertex(&mut Reader::new(key))?;
+        }
+        return Ok(SERIALIZED_VERTEX_BYTES);
+    }
+    let width = match mode {
+        1 => FrameIndexWidth::U16,
+        2 => FrameIndexWidth::U32,
+        other => return Err(format!("prop batch has unknown vertex mode {other}")),
+    };
+    let frames = reader.count(MAX_PROP_BATCH_VERTICES, "prop frame count")?;
+    if frames == 0
+        || frames > vertices
+        || (mode == 1 && frames > usize::from(u16::MAX).saturating_add(1))
+    {
+        return Err("prop batch has an invalid frame palette count".to_string());
+    }
+    let frame_bytes = checked_storage_size(frames, FRAME_BYTES, 0)?;
+    let stride = VERTEX_LITERAL_BYTES.saturating_add(width.bytes());
+    let required = checked_storage_size(vertices, stride, frame_bytes)?;
+    if required > reader.remaining() {
+        return Err("prop frame palette or vertex storage is truncated".to_string());
+    }
+    let (palette, _) = reader.bytes(frame_bytes)?.as_chunks::<FRAME_BYTES>();
+    for frame in palette {
+        validate_frame(frame)?;
+    }
+    for _ in 0..vertices {
+        let literal = reader.bytes(VERTEX_LITERAL_BYTES)?;
+        let frame = palette
+            .get(width.read(reader)?)
+            .ok_or_else(|| "prop vertex has a frame index outside its palette".to_string())?;
+        let _vertex = read_palette_vertex(literal, frame)?;
+    }
+    Ok(stride)
+}
+
+fn validate_index_run(
+    reader: &mut Reader<'_>,
+    budget: &mut LogicalPropsBudget,
+    vertices: usize,
+    submeshes: &[PropSubmeshBatch],
+) -> Result<(), String> {
+    let count = reader.count(MAX_PROP_BATCH_VERTICES, "index run")?;
+    budget.add_slots(count, 2, 4)?;
+    if !count.is_multiple_of(3) {
+        return Err("prop batch index count is not a multiple of three".to_string());
+    }
+    let length = checked_storage_size(count, 2, 0)?;
+    let (pairs, _) = reader.bytes(length)?.as_chunks::<2>();
+    if pairs
+        .iter()
+        .any(|pair| usize::from(u16::from_le_bytes(*pair)) >= vertices)
+    {
+        return Err("prop batch has an index outside its vertex list".to_string());
+    }
+    for submesh in submeshes {
+        let end = u64::from(submesh.first_index)
+            .checked_add(u64::from(submesh.index_count))
+            .ok_or_else(|| "prop submesh range overflows".to_string())?;
+        if end > u64::try_from(count).unwrap_or(u64::MAX) {
+            return Err("prop submesh range is outside the index list".to_string());
+        }
+    }
+    Ok(())
 }
 
 fn validate_draw_indices(

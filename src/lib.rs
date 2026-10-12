@@ -733,6 +733,7 @@ struct PendingCommit {
     loaded: loader::LoadedLevel,
     collision: CollisionWorld,
     intent: LoadIntent,
+    lease: loading::PreparedLease,
 }
 
 /// Where startup is in bringing up the first world.
@@ -804,6 +805,8 @@ struct FrameLoop<'a> {
     loader: loading::Loader,
     load_intent: Option<LoadIntent>,
     pending_commit: Option<PendingCommit>,
+    /// Active-world ownership is independent of the worker's bounded LRU.
+    displayed_lease: Option<loading::PreparedLease>,
     load_source: Option<loading::Source>,
     load_generation: u64,
     /// Lightmap quality the in-flight preparation was requested with, so an
@@ -2760,7 +2763,7 @@ impl FrameLoop<'_> {
                         "props_ms": if prepared.cache_hit { 0.0_f64 } else { prepared.build.timings.props_millis },
                         "surfaces_ms": if prepared.cache_hit { 0.0_f64 } else { prepared.build.timings.surfaces_millis },
                         "atlas_ms": if prepared.cache_hit { 0.0_f64 } else { prepared.build.lightmap_millis },
-                        "retained_bytes": prepared.build.retained_bytes(),
+                        "retained_bytes": prepared.lease.retained_bytes(),
                     }).to_string());
                     let loading::PreparedWorld {
                         loaded,
@@ -2769,6 +2772,7 @@ impl FrameLoop<'_> {
                         characters,
                         assets,
                         probes,
+                        lease,
                         preparation_millis: _,
                         cache_hit: _,
                         lightmaps: _,
@@ -2786,6 +2790,7 @@ impl FrameLoop<'_> {
                         loaded,
                         collision,
                         intent,
+                        lease,
                     });
                     if let Err(error) = self.notify_upload() {
                         self.fatal_error = Some(error);
@@ -2925,6 +2930,7 @@ impl FrameLoop<'_> {
             loaded,
             collision,
             intent,
+            lease,
         }) = self.pending_commit.take()
         else {
             return;
@@ -2967,6 +2973,7 @@ impl FrameLoop<'_> {
         // request with the renderer's real state and schedules what remains.
         log_prop_usage(self.renderer);
         *self.current_level = Some(loaded);
+        self.displayed_lease = Some(lease);
         self.ui_state.current_map = self
             .current_level
             .as_ref()
@@ -3671,6 +3678,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         loader,
         load_intent: None,
         pending_commit: None,
+        displayed_lease: None,
         load_source: None,
         load_generation: 0,
         load_return_state: AppState::MainMenu,

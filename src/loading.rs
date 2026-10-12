@@ -167,6 +167,21 @@ pub struct Request {
     pub lightmaps: LightmapQuality,
 }
 
+/// Keeps all decoded records of a pending or displayed world reusable through
+/// the worker's weak identity index, including worlds too large for its LRU.
+#[derive(Clone)]
+pub struct PreparedLease {
+    records: Arc<PreparedRecords>,
+}
+
+impl PreparedLease {
+    /// CPU bytes retained by the active prepared records, including lazy diagnostics.
+    #[must_use]
+    pub fn retained_bytes(&self) -> usize {
+        self.records.retained_bytes()
+    }
+}
+
 /// One internally compatible decoded world. The caller installs this only while
 /// its generation is current.
 pub struct PreparedWorld {
@@ -179,6 +194,7 @@ pub struct PreparedWorld {
     pub assets: PropAssets,
     pub lightmaps: LightmapQuality,
     pub probes: ProbeCaptures,
+    pub lease: PreparedLease,
 }
 
 #[derive(Clone)]
@@ -455,21 +471,16 @@ struct PreparedRecords {
     /// once per install.
     navigation: crate::package::navigation::NavGrid,
     probes: ProbeCaptures,
-    retained_bytes: usize,
 }
 
 impl PreparedRecords {
-    fn retained_bytes(
-        build: &LevelBuild,
-        collision: &CompiledCollision,
-        navigation: &crate::package::navigation::NavGrid,
-        probes: &ProbeCaptures,
-    ) -> usize {
-        let collision_bytes = collision
+    fn retained_bytes(&self) -> usize {
+        let collision_bytes = self
+            .collision
             .walls
             .len()
             .saturating_mul(std::mem::size_of::<crate::collision::WallAabb>());
-        let probe_bytes = [&probes.medium, &probes.full]
+        let probe_bytes = [&self.probes.medium, &self.probes.full]
             .into_iter()
             .flatten()
             .map(|capture| {
@@ -484,8 +495,8 @@ impl PreparedRecords {
             .fold(0_usize, usize::saturating_add);
         // The grid's fixed runs are eight bytes per cell plus the per-class
         // masks; a good enough resident estimate for the cache budget.
-        let navigation_bytes = navigation.cell_count().saturating_mul(8);
-        build
+        let navigation_bytes = self.navigation.cell_count().saturating_mul(8);
+        self.build
             .retained_bytes()
             .saturating_add(collision_bytes)
             .saturating_add(navigation_bytes)
@@ -498,9 +509,34 @@ impl PreparedRecords {
 #[derive(Default)]
 struct BuildCache {
     entries: std::collections::VecDeque<(PackageKey, Arc<PreparedRecords>, usize)>,
+    limits: Option<(usize, usize)>,
 }
 impl BuildCache {
+    fn refresh_charges(&mut self) {
+        for (key, records, bytes) in &mut self.entries {
+            *bytes = records
+                .retained_bytes()
+                .saturating_add(key.package_sha256.capacity());
+        }
+    }
+
+    fn enforce_limits(&mut self) {
+        self.refresh_charges();
+        if let Some((max_entries, max_bytes)) = self.limits {
+            while self.entries.len() > max_entries
+                || self
+                    .entries
+                    .iter()
+                    .fold(0_usize, |total, (_, _, bytes)| total.saturating_add(*bytes))
+                    > max_bytes
+            {
+                drop(self.entries.pop_front());
+            }
+        }
+    }
+
     fn get(&mut self, key: &PackageKey) -> Option<Arc<PreparedRecords>> {
+        self.enforce_limits();
         let position = self
             .entries
             .iter()
@@ -522,8 +558,10 @@ impl BuildCache {
         max_entries: usize,
         max_bytes: usize,
     ) {
+        self.limits = Some((max_entries, max_bytes));
+        self.enforce_limits();
         let bytes = records
-            .retained_bytes
+            .retained_bytes()
             .saturating_add(key.package_sha256.capacity());
         if max_entries == 0 || bytes > max_bytes {
             return;
@@ -698,6 +736,12 @@ fn prepare_world(
         key.package_sha256,
         loaded.entry.path.display()
     ));
+    // Variant decoding synchronizes model ownership on cache misses. Hits also
+    // release unrelated models and retain only this request's dependency hashes.
+    if reusable.is_some() {
+        let requested_manifest = crate::package::world::inspect(&loaded.entry.path)?;
+        assets.synchronize_dependencies(&requested_manifest.dependencies);
+    }
     let cache_hit = reusable.is_some();
     let records = if let Some(records) = reusable {
         crate::logging::info(format_args!(
@@ -716,11 +760,13 @@ fn prepare_world(
             Some(variant) => variant,
             None => load_entry_variant(&loaded.entry, request.lightmaps, assets)?,
         };
-        crate::package::world::validate_probe_captures(
-            &variant.mesh,
-            &loaded.materials,
-            &variant.probes,
-        )?;
+        if !request.lightmaps.is_off() {
+            crate::package::world::validate_probe_captures(
+                &variant.mesh,
+                &loaded.materials,
+                &variant.probes,
+            )?;
+        }
         let build = Arc::new(LevelBuild {
             mesh: variant.mesh,
             batches: variant.props,
@@ -731,18 +777,11 @@ fn prepare_world(
             lightmap_failure: None,
             lightmap_millis: 0.0,
         });
-        let retained_bytes = PreparedRecords::retained_bytes(
-            &build,
-            &variant.collision,
-            &variant.navigation,
-            &variant.probes,
-        );
         let records = Arc::new(PreparedRecords {
             build,
             collision: variant.collision,
             navigation: variant.navigation,
             probes: variant.probes,
-            retained_bytes,
         });
         if control.cancelled.load(Ordering::Relaxed) {
             return Ok(None);
@@ -785,6 +824,7 @@ fn prepare_world(
         assets: assets.clone(),
         lightmaps: request.lightmaps,
         probes: records.probes.clone(),
+        lease: PreparedLease { records },
     }))
 }
 
@@ -884,8 +924,8 @@ fn ensure_variant_supported(
     };
     Err(format!(
         "package '{}' ({}) has no '{}' lightmap variant; it provides {}. \
-         Choose a Lightmaps setting it provides, or rebuild it with \
-         'places-compile build <source> --variants off,medium,full'",
+         Choose a Lighting setting it provides, or rebuild it with \
+         'places-compile build <source> --variants off,full'",
         manifest.id,
         entry.path.display(),
         quality.name(),

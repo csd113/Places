@@ -587,8 +587,11 @@ the level's `LightSource`s as point/rect/line emitters, and then:
    shadow. Ceiling fixtures keep the historical horizontal-reach falloff, so a
    tall chamber's floor stays lit; the receiver's normal supplies the incidence
    in an exact per-contribution cosine sum before compression.
-   Receiver coverage integrates every bounded 2×2 Medium or 4×4 Full physical
-   footprint position; equal centre/corner visibility cannot prove a uniform
+   Receiver coverage integrates every 4×4 Full physical footprint position;
+   differing actual visibility signatures additionally integrate an 8×8 grid.
+   The union retains all 80 positions (original 16 weighted 1/5, fine 64 weighted
+   4/5), preserving thin details seen by original samples. Uniform regions keep
+   exactly the original 16 positions. Legacy Medium retains 2×2 coverage; equal centre/corner visibility cannot prove a uniform
    interior. Footprints may cross connected coplanar source triangles with the
    same authored material and shading normal, preserving gaps and true material
    boundaries. Triangle-centroid texture colour is not material identity.
@@ -861,7 +864,7 @@ sRGB and applies the display grade.
 Charts are planned inline while the mesh is emitted with the deterministic
 best-short-side-fit MaxRects allocator; a plan or fill failure keeps the
 historical vertex-lit mesh, and a level that needs more than its effective Full
-eleven-page or lower eight-page profile budget reports the named `PageOverflow`
+twelve-page or lower eight-page profile budget reports the named `PageOverflow`
 failure — a partial or black atlas is never drawn. Before stamping geometry,
 the actual base-plus-switchable group count further bounds pages by the unchanged
 typed package and KTX2 byte/layer limits. Full therefore plans at most ten pages
@@ -875,12 +878,13 @@ in the occluder fingerprint, a fingerprint of the vertex-lit model's constants
 either model or upgrading the solver invalidates prepared data even when the
 level and configuration are unchanged.
 
-Quality is a compile-time choice: **Medium** runs one diffuse bounce with two
-emitter taps per axis at 12 texels/m; **Full** runs two bounces with three taps
-at 16 texels/m. `off` ships no atlas and the historical vertex-lit mesh. There
+Lighting is a compile-time choice: **Full** runs two diffuse bounces with three
+emitter taps per axis at 16 intervals/m. `off` ships the Static vertex-lit mesh
+without an atlas or reflection captures. Medium is retained only by legacy
+package/API readers. There
 is no runtime atlas re-fill and no runtime lightmap disk store; the compiler
-reuses whole packages by fingerprint instead. `SOLVER_REVISION` (currently 16,
-including the chosen-grid placement and PLPF3 zero-source spatial contract) is folded into
+reuses whole packages by fingerprint instead. `SOLVER_REVISION` (currently 18, including bounded edge coverage and the
+existing chosen-grid / PLPF3 spatial contracts) is folded into
 `solver_fingerprint`, so a solver change reports every prepared package stale
 even though the stored record format is unchanged.
 
@@ -1061,33 +1065,33 @@ without introducing fog colour into bloom. See [Stage 5 contracts](art-style/sta
 
 Three runtime quality levels — **Low**, **Medium** and **High** (the default) — use the same assets, ids and level content. A quality level is selectable while playing; a change is applied as one diffed transaction (see §12.2). Required prepared variants decode on the loading worker and install with their GPU resources; the player never fills an atlas at runtime. The player, camera and pause state are retained.
 
-The level is also the overall preset for the three **Advanced** graphics settings. An active quality change cascades them to the preset defaults, and the player may then override each one independently; an override never changes the level's label, and there is no "Custom" level. The Graphics page keeps Bloom and VSync as ordinary top-level rows and hides the three advanced rows behind a collapsible **Advanced** group (Enter toggles it, left/right is ignored, and every newly opened settings screen starts collapsed):
+Lighting is an always-visible **Static / Full** selector. Texture Quality
+changes texture budgets, scene resolution and the matching filtering default;
+it preserves selected lighting and saved reflection preferences. Static is the
+historical vertex path, with no atlas, probes or material-response sheen. Full
+uses the full bake and response at every texture quality. Advanced contains
+Texture Filtering and Reflections; Static temporarily suppresses reflections
+while retaining the preference to restore when Full returns.
 
-| Overall Quality | Texture Filtering | Lightmaps | Reflections |
+| Texture budget | Low | Medium | High |
 |---|---|---|---|
-| Low | Low | Off | Off |
-| Medium | Medium | Medium | Medium |
-| High (default) | High | Full | Full |
+| Surface / fixture / decal sheets | 256 | 512 | 1024 |
+| Emission masks | 128 | 256 | 512 |
+| Prop sheets | 128 | 256 | 256 |
+| Sky edge | 512 | 1024 | 2048 |
+| Scene resolution | ≤480 wide | half drawable | drawable |
 
-The lightmap and reflection budgets are owned by the advanced settings, not the level: the table below is what the preset defaults resolve to, and Lightmaps Off / Reflections Off remove the atlas / probe and planar work entirely whatever the overall level says.
+Full retains 16 intervals/m for architecture, 32/m for small opaque model
+charts, shaped emitter taps, two diffuse orders and 64 gather directions.
+Static retains the cheaper local vertex model and coarse visibility. It now
+also samples authored sky with five bounded escaping hemisphere rays, and
+moving entities receive global directional illumination through the existing
+angular coefficient path. Neither fix introduces an atlas or a bounce solve.
 
-| Feature | Low | Medium | High | Source |
-|---|---|---|---|---|
-| Surface / fixture / decal sheets | 256 | 512 | 1024 | `QualityLevel::budget` |
-| Emission masks | 128 | 256 | 512 | `QualityLevel::budget` |
-| Prop sheets | 128 | 256 | 256 | `QualityLevel::budget` |
-| Atlas: texels/m, page edge, pages, padding | Off / no atlas | 12, 1024, 8, 2 | 16, 1024, 10, 2 | `LightmapQuality::lightmap_config` |
-| Historical vertex-bake taps per axis / prop-occlusion cell | 1 / 0.15 m | 2 / 0.11 m | 2 / 0.075 m | `LightmapQuality::bake_config`; Off/fallback storage only |
-| Prepared emitter taps per axis / diffuse bounces / gather samples | no atlas | 2 / 1 / 32 | 3 / 2 / 64 | `LightmapBuildOptions` / transport profile |
-| Surface response (normal map + sheen + reflection strength) | gated off | drawn | drawn | `draws_surface_response` |
-| Scene resolution | ≤ 480 wide, aspect preserved | half the drawable, aspect preserved | drawable | `scene_target_size` |
-| Presented/resolve resolution | drawable | drawable | drawable | `target_sizes` |
-| Planar reflection | off | on | on | `ReflectionQuality::draws_planar` |
-| Probe face edge | none | 48 | 64 | `probe_face_size` |
-| Default exposure / tone knee / saturation, contrast | 1.0 / 0.75 / 1.03, 1.02 | 1.0 / 0.75 / 1.03, 1.02 | 1.0 / 0.75 / 1.03, 1.02 | `PostSettings::from_level`; authored overrides are independent of quality |
-| Fog, emission and its animation, decals, effects, UI | identical (regional fog: first 2 volumes) | identical (first 8) | identical (all 16) | shared code paths; `fog_region_cap` |
-
-The lightmap and bake configuration columns are the resolved preset defaults; advanced settings select the prepared `LightmapQuality` independently of the overall level. The compiler uses `LightmapBuildOptions::for_lightmaps` and hashes the concrete configuration, including page budget and profile name. The player selects the corresponding saved variant: `Low + Lightmaps Full` loads a Full atlas and `High + Lightmaps Off` stays vertex-lit. Medium and Full never share an atlas entry, while Full for any overall level uses the same prepared variant.
+Saved Medium lighting migrates to Full. Legacy package Medium records remain
+readable for inspection, but new compiler defaults and current player selection
+contain only `off` (Static) and `full`. Live switches stage complete resources
+and preserve player state.
 
 ### 12.2 Live graphics reconfiguration
 
@@ -1128,7 +1132,7 @@ probe uploads can still take longer than a frame; this lifecycle does not
 promise a hard latency bound. Measurements belong in dated reports, not this
 execution contract.
 
-Downscaling is a load-time step (`fit_image` → `downscaled_to`) cached with the texture it produced, never a per-frame cost. Low leaves the optional surface response out and renders the 3D scene no wider than the historical 480 px reference width; Medium draws the response and renders at half the drawable; High keeps the native artwork and the drawable-sized scene: the same level, the same materials and the same ids. One deliberate resource difference: because the response is gated off before resolution, the renderer does not upload a normal-map texture at all on Low, while the rendered policy (geometric normal, no sheen) is identical; a live Low→High switch releases the level-fitted textures and re-resolves, so the map appears.
+Downscaling is a load-time step (`fit_image` → `downscaled_to`) cached with the texture it produced. Low texture quality renders the scene no wider than 480 px, Medium at half the drawable, and High at drawable size. Lighting independently gates the normal-map and sheen response: Static omits it and Full resolves it at every texture quality. A live texture change refits the same materials and retains the selected lighting.
 
 #### 12.2.1 The transition contract
 
@@ -1164,7 +1168,7 @@ any outstanding graphics change to be re-scheduled.
 
 ### 12.1 Texture Filtering (player option)
 
-Texture Filtering is one of the three Advanced settings. The overall level cascades its preset (Low→Low, Medium→Medium, High→High) and an explicit choice is an independent override: any option combines with any level, and it changes no pixel data and no GPU resource. It selects which of the three shared world sampler presets a draw binds at bind time (§5.3).
+Texture Filtering is an Advanced setting. Texture Quality selects its matching preset (Low→Low, Medium→Medium, High→High) and an explicit choice is an independent override: any option combines with any level, and it changes no pixel data and no GPU resource. It selects which of the three shared world sampler presets a draw binds at bind time (§5.3).
 
 | Player option | Internal world filtering | Mipmaps |
 |---|---|---|
@@ -1220,8 +1224,8 @@ Recoverable events (surface timeout, surface lost/outdated) are reported at most
 | `PLACES_BENCH=1`, `PLACES_BENCH_FRAMES`, `PLACES_BENCH_WARMUP`, `PLACES_BENCH_OUT` | benchmark harness |
 | `PLACES_BENCH_NOSWAP`, `PLACES_BENCH_NORENDER`, `PLACES_BENCH_FINISH`, `PLACES_BENCH_NOCULL` | submission diagnostics |
 | `PLACES_BENCH_WINDOW_CYCLE=<frame>:resize:<w>x<h>\|minimize\|restore[,...]` | scripted live window lifecycle through the real SDL window |
-| `PLACES_BENCH_QUALITY_CYCLE=<frame>:<level>[,...]` | scripted live quality switches through the normal rebuild path (`low`/`medium`/`high`); cascades the advanced presets |
-| `PLACES_BENCH_GRAPHICS_CYCLE=<frame>:<setting>=<value>[,...]` | scripted live Advanced changes through the normal settings setters (`filtering=low\|medium\|high`, `lightmaps=off\|medium\|full`, `reflections=off\|medium\|full`, `bloom=on\|off`) |
+| `PLACES_BENCH_QUALITY_CYCLE=<frame>:<level>[,...]` | scripted live quality switches through the normal rebuild path (`low`/`medium`/`high`); preserves selected lighting and reflections |
+| `PLACES_BENCH_GRAPHICS_CYCLE=<frame>:<setting>=<value>[,...]` | scripted live Advanced changes through the normal settings setters (`filtering=low\|medium\|high`, `lightmaps=static\|full`, `reflections=off\|medium\|full`, `bloom=on\|off`) |
 
 ## 14. Provenance and recorded parity baselines
 

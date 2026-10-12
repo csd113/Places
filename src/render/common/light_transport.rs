@@ -691,9 +691,14 @@ pub fn entity_lighting(
         },
         |t| t.irradiance,
     );
+    let resolved = prepared.or_else(|| {
+        finite
+            .then(|| lighting.fallback_entity_texel(position, display))
+            .flatten()
+    });
     EntityLighting {
-        prepared,
-        display,
+        prepared: resolved,
+        display: resolved.map_or(display, |texel| texel.irradiance),
         source,
     }
 }
@@ -715,17 +720,7 @@ pub fn moving_object_light(
 /// "an interior has no sky" solve exactly. The authored scalar is scaled by
 /// [`crate::lighting::SKY_AMBIENT_COLOR`].
 fn sky_radiance(level: &LevelDef) -> [f32; 3] {
-    let Some(sky) = level.sky.as_ref() else {
-        return [0.0; 3];
-    };
-    let ambient = if sky.ambient.is_finite() {
-        sky.ambient.clamp(0.0, crate::level::MAX_SKY_AMBIENT)
-    } else {
-        0.0
-    };
-    sky.ambient_color
-        .unwrap_or(crate::lighting::SKY_AMBIENT_COLOR)
-        .map(|channel| channel * ambient)
+    crate::lighting::sky_radiance(level)
 }
 
 /// Appends every architecture range's triangles to the transport scene.
@@ -1178,6 +1173,45 @@ mod tests {
     )]
 
     use super::*;
+
+    /// One room and one global source protect the no-field entity fallback.
+    /// No model, GPU, atlas or transport solve is needed to verify its lobe.
+    #[test]
+    fn static_entities_receive_global_directional_light_without_prepared_probes() {
+        let mut level = LevelDef::from_json(
+            r#"{"format_version":3,"id":"static_global","name":"Static global",
+            "spawn":{"x":2,"z":2},
+            "rooms":[{"x":0,"z":0,"width":4,"depth":4,"height":3}],
+            "global_illuminators":[{"id":"sun","kind":"directional",
+                "direction":[0,-1,0],"color":[1,1,1],"intensity":1}]}"#,
+        )
+        .expect("tiny global fixture");
+        let position = [2.0, 1.0, 2.0];
+        let enclosed = LevelLighting::bake(&level);
+        let closed_sample = entity_lighting(&enclosed, None, position);
+        assert_eq!(closed_sample.source, EntityLightingSource::NoField);
+        let closed_texel = closed_sample.prepared.expect("fallback coefficients");
+        assert_eq!(closed_texel.direction, [0.0; 3]);
+        level.rooms.first_mut().expect("room").ceiling = crate::level::CeilingProfileDef::Open;
+        let outdoor = LevelLighting::bake(&level);
+        let sample = entity_lighting(&outdoor, None, position);
+        assert_eq!(sample.source, EntityLightingSource::NoField);
+        let texel = sample.prepared.expect("global angular coefficients");
+        let upward = texel.light_at([0.0, 1.0, 0.0]);
+        let downward = texel.light_at([0.0, -1.0, 0.0]);
+        assert!(
+            upward
+                .iter()
+                .zip(downward)
+                .all(|(up, down)| *up > down + 0.9)
+        );
+        level.global_illuminators.clear();
+        assert!(
+            entity_lighting(&LevelLighting::bake(&level), None, position)
+                .prepared
+                .is_none()
+        );
+    }
 
     #[test]
     fn authored_sky_colour_enters_incident_energy_once_and_ignores_presentation() {

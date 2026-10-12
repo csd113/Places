@@ -226,13 +226,13 @@ fn retained_bytes(lightmaps: &LevelLightmaps) -> usize {
         .capacity()
         .saturating_mul(std::mem::size_of::<(super::LightmapPatch, super::Chart)>());
     let pages = lightmaps.pages.iter().fold(0usize, |bytes, page| {
-        bytes.saturating_add(page.texels.capacity())
+        bytes.saturating_add(page.retained_pixel_bytes())
     });
     let switchable = lightmaps.switchable.iter().fold(
         std::mem::size_of::<super::SwitchableLightmaps>(),
         |bytes, group| {
             let group_bytes = group.pages.iter().fold(0usize, |page_bytes, page| {
-                page_bytes.saturating_add(page.texels.capacity())
+                page_bytes.saturating_add(page.retained_pixel_bytes())
             });
             bytes
                 .saturating_add(std::mem::size_of::<super::LightmapPage>())

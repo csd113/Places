@@ -6,13 +6,16 @@ from the repository root on a desktop session. The release's platform status is
 recorded in the matrix in §7.
 
 October 11, 2026 refinement contract audit: the current source uses package major 1, level
-schema 3, geometry revision 9, solver revision 17, PLMP v7 and PLPF v3. Runtime
-Low/Medium/High presets select Off/Medium/Full lightmaps and reflections; both
-advanced settings and texture filtering remain independent. The atlas capacity
-is at most eleven pages per contribution group for Full; lower profiles retain
+schema 3, geometry revision 9, solver revision 18, PLMP v7 and PLPF v3. Runtime lighting offers Static (historical `off`) and Full. Low/Medium/High
+texture choices preserve lighting; Static suppresses response/reflections and
+Full restores the saved reflection preference. New packages omit Medium
+lighting and Static reflection capture. Compact PLLC1 / exact PLPS1 streams
+retain legacy readers and bounded decode; see [the optimization report](reports/map-storage-lighting.md). The atlas capacity
+is at most twelve pages per contribution group for Full; lower profiles retain
 eight-page planning budgets. Preparation also bounds the page count by the exact
 encoded contribution-group cost: Demo's two groups permit ten Full pages, while
-Hallows' one group permits eleven. This allocation policy preserves inclusive
+Hallows' measured one-group layout uses eleven; the current one-group cap is
+twelve. This allocation policy preserves inclusive
 endpoints and gutters within the unchanged typed atlas record allowance of
 320 MiB +64 KiB; ordinary records retain 256 MiB and total decompressed archives
 retain 1 GiB. PLMP6's exact vertex/frame sharing preserves literal v3/v4/v5
@@ -155,7 +158,7 @@ serialized campaign described in the [Stage 7 integration](art-style/stage7/READ
 and [contract audit](art-style/stage7/integration-contract-audit.md).
 
 Full ten-page, two-group HDR atlases fit the unchanged 320 MiB +64 KiB
-typed record allowance; the eleven-page Full planning maximum is further bounded
+typed record allowance; the twelve-page Full planning maximum is further bounded
 by encoded group cost. Medium retains an eight-page maximum under the same
 group-aware bound. Ordinary entries remain 256 MiB, and total decompressed
 archive data remains limited to 1 GiB. The normal compiler rejects excessive
@@ -422,7 +425,7 @@ through the SDL window — `resize:<w>x<h>`, `minimize`, `restore` —
 normal rebuild path (`low` / `medium` / `high`),
 and `PLACES_BENCH_GRAPHICS_CYCLE` changes one Advanced graphics setting at a
 time through the same setters the menu uses (`filtering=low|medium|high`,
-`lightmaps=off|medium|full`, `reflections=off|medium|full`, `bloom=on|off`).
+`lighting=static|full`, `reflections=off|medium|full`, `bloom=on|off`).
 `PLACES_MOVE_SCRIPT` drives the *player* through real held controls for a
 capture (`forward@0-6.5,jump@0.2-0.6`, ready-world simulation seconds), and
 `PLACES_CAPTURE_TIME=seconds` waits for the matching ready-world second, which
@@ -433,7 +436,7 @@ crossings at the same in-world moments at any frame rate:
 PLACES_BENCH=1 PLACES_BENCH_FRAMES=34 \
 PLACES_BENCH_WINDOW_CYCLE=3:resize:800x450,6:resize:500x300,8:resize:800x450,12:minimize,16:restore,18:resize:640x360,24:resize:900x500,26:resize:640x360 \
 PLACES_BENCH_QUALITY_CYCLE=20:low,22:high \
-PLACES_BENCH_GRAPHICS_CYCLE=10:reflections=off,14:lightmaps=medium,28:bloom=off \
+PLACES_BENCH_GRAPHICS_CYCLE=10:reflections=off,14:lighting=full,28:bloom=off \
 PLACES_LEVEL=places_demo target/release/places
 ```
 

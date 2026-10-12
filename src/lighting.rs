@@ -179,3 +179,24 @@ pub use tuning::{
     fixture_profile_for_kind, model_fingerprint,
 };
 pub use visibility::{QuerySite, ShadowSampling, Visibility};
+
+/// Authored incident sky energy shared by prepared and Static lighting.
+pub(crate) fn sky_radiance(level: &crate::level::LevelDef) -> [f32; 3] {
+    let Some(sky) = level.sky.as_ref() else {
+        return [0.0; 3];
+    };
+    let ambient = if sky.ambient.is_finite() {
+        sky.ambient.clamp(0.0, crate::level::MAX_SKY_AMBIENT)
+    } else {
+        0.0
+    };
+    sky.ambient_color
+        .unwrap_or(SKY_AMBIENT_COLOR)
+        .map(|channel| {
+            if channel.is_finite() {
+                channel.clamp(0.0, MAX_LIGHT_COLOR) * ambient
+            } else {
+                0.0
+            }
+        })
+}

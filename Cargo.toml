@@ -133,9 +133,9 @@ panic = "abort"
 [profile.dev]
 opt-level = 1
 
-# Source-only archive regressions bake the real Full Demo and Hollow maps.
-# Optimize this crate's numeric solver while retaining the test profile's
-# debug assertions, overflow checks and debug information.
+# Optimize bounded numerical regression fixtures while retaining the test
+# profile's debug assertions, overflow checks and debug information.
+# Production-map bakes remain explicit developer tooling.
 [profile.test.package.places]
 opt-level = 3
 debug-assertions = true

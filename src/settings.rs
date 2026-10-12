@@ -442,11 +442,10 @@ pub struct Settings {
     pub texture_filtering: String,
     /// Runtime quality level: `"low"`, `"medium"` or `"high"` (the intended
     /// presentation). All three use the same assets; a lower level downscales
-    /// textures, bakes a smaller lightmap and drops optional per-pixel work.
+    /// textures and the scene target independently of the lighting path.
     ///
-    /// An active [`Self::set_quality`] cascades the three Advanced settings
-    /// (Texture Filtering, Lightmaps, Reflections) to that level's preset
-    /// defaults; the player may then override each of them independently.
+    /// An active [`Self::set_quality`] selects the matching Texture Filtering
+    /// default while preserving Lighting and Reflections preferences.
     #[serde(default = "default_quality")]
     pub quality: String,
     /// Draw the bloom stage, independent of the quality level. Default on.
@@ -459,29 +458,27 @@ pub struct Settings {
     pub bloom: bool,
     /// Reflections quality: `"off"`, `"medium"` or `"full"`.
     ///
-    /// Independent of the quality level and of Lightmaps, so any combination
-    /// is valid (`Low + Reflections Full`, `High + Reflections Off`). A missing
-    /// key derives the preset from the saved quality.
+    /// Independent of texture quality. Static lighting suspends reflections
+    /// while preserving this preference; Full lighting restores it. A missing
+    /// key derives the legacy preset from saved texture quality.
     /// `PLACES_NO_REFLECTIONS` overrides it for one process.
     #[serde(
         default = "default_advanced_quality",
         deserialize_with = "deserialize_advanced_quality"
     )]
     pub reflections: String,
-    /// Lightmaps quality: `"off"`, `"medium"` or `"full"`.
+    /// Lighting path: `"off"` (Static) or `"full"`; old `"medium"` reads as Full.
     ///
-    /// Independent of the quality level and of Reflections, so any combination
-    /// is valid (`Low + Lightmaps Full`, `High + Lightmaps Off`). A missing key
-    /// derives the preset from the saved quality. `PLACES_NO_LIGHTMAPS`
+    /// Independent of texture quality. A missing key derives the legacy
+    /// preset from saved texture quality. `PLACES_NO_LIGHTMAPS`
     /// overrides it for one process.
     #[serde(
         default = "default_advanced_quality",
         deserialize_with = "deserialize_advanced_quality"
     )]
     pub lightmaps: String,
-    /// Use the Low lighting path while retaining the selected texture quality
-    /// and filtering. Advanced lighting preferences remain saved for when
-    /// this override is turned off.
+    /// Legacy saved/scripted Low-lighting adapter. It selects Static without
+    /// rewriting the saved lighting path; the visible selector clears it.
     #[serde(default)]
     pub use_low_quality_lighting: bool,
     /// Windowed or borderless fullscreen. Persisted as `"windowed"` /
@@ -668,14 +665,21 @@ fn resolve_texture_filtering(value: &str, quality: QualityLevel) -> &'static str
 
 /// Resolves a persisted Lightmaps value against the saved quality.
 ///
-/// A missing key (the `auto` sentinel) derives its preset from the saved
-/// quality level; a present value is preserved, and an unknown value falls
-/// back to the same preset rather than invalidating the file.
+/// A missing key derives the legacy preset from saved texture quality.
+/// Medium settings migrate to Full; package parsing retains the old quality.
 fn resolve_lightmap_quality(value: &str, quality: QualityLevel) -> LightmapQuality {
-    if value.trim().eq_ignore_ascii_case(AUTO_QUALITY) {
+    let resolved = if value.trim().eq_ignore_ascii_case(AUTO_QUALITY) {
         LightmapQuality::default_for(quality)
     } else {
         LightmapQuality::parse(value).unwrap_or_else(|| LightmapQuality::default_for(quality))
+    };
+    selectable_lightmaps(resolved)
+}
+
+const fn selectable_lightmaps(value: LightmapQuality) -> LightmapQuality {
+    match value {
+        LightmapQuality::Off => LightmapQuality::Off,
+        LightmapQuality::Medium | LightmapQuality::Full => LightmapQuality::Full,
     }
 }
 
@@ -825,10 +829,10 @@ impl Settings {
     /// The lighting path in force, independent of texture quality.
     #[must_use]
     pub fn lighting_quality(&self) -> QualityLevel {
-        if self.use_low_quality_lighting {
+        if self.lightmap_quality().is_off() {
             QualityLevel::Low
         } else {
-            self.quality_level()
+            QualityLevel::High
         }
     }
 
@@ -848,20 +852,14 @@ impl Settings {
     /// Clears any startup override for this option: an explicit change in
     /// Settings outranks a launch switch.
     ///
-    /// An active change also cascades the three Advanced settings (Texture
-    /// Filtering, Lightmaps, Reflections) to this level's preset defaults and
-    /// records one graphics apply; the player may then override any of them
-    /// independently. A `PLACES_NO_REFLECTIONS`/`PLACES_NO_LIGHTMAPS` force-off
-    /// override stays in force for the session (the effective getter still
-    /// reports it) until the player changes that option itself.
+    /// A change selects matching Texture Filtering and records one graphics
+    /// apply. Lighting, Reflections and their startup overrides stay selected.
     pub fn set_quality(&mut self, level: QualityLevel) -> bool {
         let changed = self.quality_level() != level;
         self.overrides.quality = None;
         self.quality = level.name().to_string();
         if changed {
             self.texture_filtering = texture_filtering_for(level).to_string();
-            self.lightmaps = LightmapQuality::default_for(level).name().to_string();
-            self.reflections = ReflectionQuality::default_for(level).name().to_string();
             self.pending.graphics = true;
         }
         changed
@@ -947,11 +945,11 @@ impl Settings {
     ///
     /// The saved value, with the `PLACES_NO_REFLECTIONS` startup override
     /// applied for this process; a missing or unknown value resolves against
-    /// the saved quality level. Low lighting takes precedence while enabled,
+    /// the saved texture quality. Static lighting takes precedence,
     /// without changing either saved or startup preferences.
     #[must_use]
     pub fn reflection_quality(&self) -> ReflectionQuality {
-        if self.use_low_quality_lighting {
+        if self.lightmap_quality().is_off() {
             return ReflectionQuality::default_for(QualityLevel::Low);
         }
         if let Some(overridden) = self.overrides.reflections {
@@ -1014,7 +1012,7 @@ impl Settings {
             return LightmapQuality::default_for(QualityLevel::Low);
         }
         if let Some(overridden) = self.overrides.lightmaps {
-            return overridden;
+            return selectable_lightmaps(overridden);
         }
         resolve_lightmap_quality(&self.lightmaps, self.saved_quality())
     }
@@ -1036,7 +1034,8 @@ impl Settings {
     pub fn set_lightmap_quality(&mut self, quality: LightmapQuality) -> bool {
         let previous = self.lightmap_quality();
         self.overrides.lightmaps = None;
-        self.lightmaps = quality.name().to_string();
+        self.use_low_quality_lighting = false;
+        self.lightmaps = selectable_lightmaps(quality).name().to_string();
         let changed = previous != self.lightmap_quality();
         if changed {
             self.pending.graphics = true;

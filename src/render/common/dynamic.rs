@@ -212,8 +212,7 @@ impl DynamicMesh {
     /// and no material to route.
     #[must_use]
     pub fn from_asset(asset: &LoadedPropAsset) -> Option<Self> {
-        let textures: Vec<Arc<crate::loader::RawImage>> =
-            asset.model.textures.iter().cloned().map(Arc::new).collect();
+        let textures = asset.model.textures.clone();
         // The primitive's own alpha contract, exactly as the importer read it:
         // a code-built model and an imported GLB classify identically now that
         // `alphaMode: "BLEND"` imports as a real translucent contract.

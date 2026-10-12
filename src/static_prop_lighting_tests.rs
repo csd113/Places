@@ -389,7 +389,7 @@ fn model_lightmap_coordinates_normals_and_shading_survive_package_roundtrip() {
         encoded,
         crate::package::props::write_props(&decoded).unwrap()
     );
-    let (meta, pixels) = crate::package::lightmaps::write_lightmaps(atlas).unwrap();
+    let (meta, pixels) = crate::package::lightmaps::write_lightmaps_precise(atlas).unwrap();
     let decoded_atlas = crate::package::lightmaps::read_lightmaps(&meta, &pixels).unwrap();
     assert_eq!(atlas.charts, decoded_atlas.charts);
     // Direct wgpu uploads also use RGBA16F. Compare the actual shader input,
@@ -406,7 +406,8 @@ fn model_lightmap_coordinates_normals_and_shading_survive_package_roundtrip() {
     for (before, after) in shader_atlas.pages.iter().zip(&decoded_atlas.pages) {
         assert_eq!(before.texels, after.texels, "every shader texel is exact");
     }
-    let (_, roundtrip_pixels) = crate::package::lightmaps::write_lightmaps(&decoded_atlas).unwrap();
+    let (_, roundtrip_pixels) =
+        crate::package::lightmaps::write_lightmaps_precise(&decoded_atlas).unwrap();
     assert_eq!(
         pixels, roundtrip_pixels,
         "half-float upload planes are exact"

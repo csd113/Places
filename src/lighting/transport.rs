@@ -262,7 +262,9 @@ pub fn solver_fingerprint() -> u64 {
 /// - 17: architectural baseline support traces from the receiver's owning-side
 ///   safe origin; complete physical stencils detect interior visibility, and
 ///   authored material identity preserves textured coplanar continuation.
-pub const SOLVER_REVISION: u64 = 17;
+/// - 18: silhouette texels retain the complete original 4×4 coverage grid and
+///   additionally integrate 8×8 positions without changing atlas density.
+pub const SOLVER_REVISION: u64 = 18;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;
