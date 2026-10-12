@@ -94,6 +94,14 @@ Local checks passed:
 
 ## Bounded performance and storage
 
+The full curated-lineup refresh exposed a pre-existing Model Zoo capacity
+blocker. The exact zoo source from handover commit `79c78df` also overflows the
+unchanged 12-page Full budget (29,783 charts placed before fallback); the new
+registered insect is not its cause. A bounded ownership-cell experiment was
+insufficient and was reverted. Zoo content and renderer limits are preserved.
+Its fallback archive is not a passing Full export; the later map certification
+work must address that capacity. Office's own Full package passes this gate.
+
 Three final Full/High runs each measured 300 frames after 60 warmup frames, with
 GPU completion enabled, vsync disabled and no capture readback or navigation
 logging. Every frame presented successfully. These are bounded desktop samples,
