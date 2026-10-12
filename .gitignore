@@ -27,6 +27,7 @@ AGENTS.md
 !/levels/retro_arcade_demo.json
 !/levels/home_showcase.json
 !/levels/pool_showcase.json
+!/levels/office_demo.json
 
 # Machine receipts/captures stay local; documentation keeps curated images.
 /tools/bench/results/

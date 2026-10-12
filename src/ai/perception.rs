@@ -118,6 +118,9 @@ fn sight_target(agent: &AiAgent, ctx: &AiTickContext<'_>) -> Option<Perceived> {
         if target.handle == agent.handle || target.caught {
             continue;
         }
+        if !agent.def.reacts_to.is_empty() && !agent.def.reacts_to_role(target.role.as_deref()) {
+            continue;
+        }
         let to_target = target.position - agent.position;
         let distance = to_target.length();
         if distance > agent.def.sight_range + target.radius {

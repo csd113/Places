@@ -1731,6 +1731,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         ceiling_tile_rotation_degrees: None,
     });
     zero_room.ceiling_lights.push(LightFixtureDef {
+        hold_in_static: false,
         ultraviolet: 0.0,
         switchable: false,
         id: None,
@@ -1842,6 +1843,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     // A level with nothing but a ceiling fixture list.
     let mut lights_only = empty.clone();
     lights_only.ceiling_lights.push(LightFixtureDef {
+        hold_in_static: false,
         ultraviolet: 0.0,
         switchable: false,
         id: None,
@@ -1873,6 +1875,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     // Non-finite fixtures are dropped, not propagated.
     let mut broken = empty;
     broken.ceiling_lights.push(LightFixtureDef {
+        hold_in_static: false,
         ultraviolet: 0.0,
         switchable: false,
         id: None,

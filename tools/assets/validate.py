@@ -331,8 +331,9 @@ def validate_light_source(light: object, where: str) -> Tuple[List[str], List[st
     falloff = light.get("falloff")
     if falloff is not None and (not isinstance(falloff, str) or falloff not in LIGHT_FALLOFFS):
         errors.append(f"{where}: falloff must be one of {', '.join(LIGHT_FALLOFFS)}")
-    if "enabled" in light and not isinstance(light.get("enabled"), bool):
-        errors.append(f"{where}: enabled must be a boolean")
+    for flag in ("enabled", "hold_in_static"):
+        if flag in light and not isinstance(light.get(flag), bool):
+            errors.append(f"{where}: {flag} must be a boolean")
     return errors, warnings
 
 
@@ -1463,6 +1464,7 @@ def _validate_components(context: str, components: object, facts: Dict, errors: 
                 errors.append(f"{entry} seconds must be a finite positive number")
         elif tag == "nav_agent":
             facts["has_nav_agent"] = True
+            facts["nav_radius"] = component.get("radius")
             for key in ("radius", "speed_mps", "height", "step_height", "max_slope"):
                 value = component.get(key)
                 if value is None and key in ("height", "step_height", "max_slope"):
@@ -1476,6 +1478,7 @@ def _validate_components(context: str, components: object, facts: Dict, errors: 
             if behavior not in (
                 "idler",
                 "wanderer",
+                "skittish",
                 "prey",
                 "predator",
                 "follower",
@@ -1521,6 +1524,42 @@ def _validate_components(context: str, components: object, facts: Dict, errors: 
                 component["can_open_doors"], bool
             ):
                 errors.append(f"{entry} can_open_doors must be a boolean")
+            for key in ("idle_clip", "move_clip"):
+                value = component.get(key)
+                if value is not None and (
+                    not isinstance(value, str) or not value.strip() or len(value) > 128
+                ):
+                    errors.append(f"{entry} {key} must be a non-blank clip name of at most 128 characters")
+            hide_seconds = component.get("hide_seconds", 8.0)
+            if not is_finite_number(hide_seconds) or not 0.1 <= hide_seconds <= 60.0:
+                errors.append(f"{entry} hide_seconds must be between 0.1 and 60 seconds")
+            anchors = component.get("hide_anchors", [])
+            valid_anchors = isinstance(anchors, list) and len(anchors) <= 16 and all(
+                isinstance(anchor, list) and len(anchor) == 3
+                and all(is_finite_number(value) for value in anchor)
+                for anchor in anchors
+            )
+            if not valid_anchors:
+                errors.append(f"{entry} hide_anchors must contain at most 16 finite [x,y,z] points")
+            elif behavior == "skittish" and not anchors:
+                errors.append(f"{entry} skittish behavior needs at least one hide anchor")
+            bounds = component.get("home_bounds")
+            facts["ai_home_bounds"] = bounds
+            facts["ai_hide_anchors"] = anchors if valid_anchors else []
+            if bounds is not None:
+                keys = ("x", "z", "width", "depth", "min_y", "max_y")
+                valid_bounds = isinstance(bounds, dict) and all(
+                    is_finite_number(bounds.get(key)) for key in keys
+                )
+                if not valid_bounds or bounds["width"] <= 0.0 or bounds["depth"] <= 0.0 or bounds["min_y"] > bounds["max_y"]:
+                    errors.append(f"{entry} home_bounds needs finite x,z,width,depth,min_y,max_y with positive extents and ordered heights")
+                elif valid_anchors and any(
+                    not (bounds["x"] <= anchor[0] <= bounds["x"] + bounds["width"]
+                         and bounds["z"] <= anchor[2] <= bounds["z"] + bounds["depth"]
+                         and bounds["min_y"] <= anchor[1] <= bounds["max_y"])
+                    for anchor in anchors
+                ):
+                    errors.append(f"{entry} hide anchors must remain inside home_bounds")
         elif tag == "nav_obstacle":
             size = component.get("size")
             if size is not None and (
@@ -1686,6 +1725,19 @@ def _validate_ai_body(context: str, facts: Dict, errors: List[str]) -> None:
         )
     if facts.get("has_balloon") and (facts.get("has_ai") or facts.get("has_nav_agent")):
         errors.append(f"{context}: balloon cannot share a moving AI/navigation body")
+    bounds = facts.get("ai_home_bounds")
+    radius = facts.get("nav_radius")
+    if isinstance(bounds, dict) and is_finite_number(radius) and all(
+        is_finite_number(bounds.get(key))
+        for key in ("x", "z", "width", "depth", "min_y", "max_y")
+    ):
+        if bounds["width"] <= radius * 2.0 or bounds["depth"] <= radius * 2.0 or any(
+            not (bounds["x"] + radius <= anchor[0] <= bounds["x"] + bounds["width"] - radius
+                 and bounds["z"] + radius <= anchor[2] <= bounds["z"] + bounds["depth"] - radius
+                 and bounds["min_y"] <= anchor[1] <= bounds["max_y"])
+            for anchor in facts.get("ai_hide_anchors", [])
+        ):
+            errors.append(f"{context}: ai home_bounds must contain the body and every hide anchor with radius clearance")
 
 
 def _validate_instance_id(

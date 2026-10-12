@@ -1167,7 +1167,7 @@ impl EntityWorld {
                     );
                 }
                 ComponentDef::Ai(ai_def) => {
-                    drop(self.components.ais.insert(handle, ai_def.clone()));
+                    drop(self.components.ais.insert(handle, ai_def.as_ref().clone()));
                 }
                 ComponentDef::NavObstacle { size, affects_nav } => {
                     let obstacle_size = size.unwrap_or_else(|| {
@@ -3547,7 +3547,7 @@ impl EntityWorld {
         if self.ai.is_empty() {
             return;
         }
-        let targets: Vec<AiTarget> = self
+        let mut targets: Vec<AiTarget> = self
             .ai
             .agents()
             .iter()
@@ -3559,9 +3559,19 @@ impl EntityWorld {
                 position: agent.position,
                 radius: agent.profile.radius,
                 height: agent.profile.height,
-                caught: agent.caught,
+                caught: agent.caught || matches!(agent.state, crate::ai::AiState::Hidden),
             })
             .collect();
+        targets.push(AiTarget {
+            handle: crate::ai::PLAYER_TARGET_HANDLE,
+            instance_id: "player".to_string(),
+            role: Some("player".to_string()),
+            behavior: crate::ai::AiBehavior::Idler,
+            position: ctx.feet,
+            radius: crate::collision::PLAYER_RADIUS,
+            height: ctx.body_height,
+            caught: false,
+        });
         let scripted: Vec<EntityHandle> = self.sequence_runs.iter().map(|run| run.owner).collect();
         let stimuli: Vec<AiStimulus> = self.stimuli.iter().cloned().collect();
         let ai_ctx = AiTickContext {
@@ -3580,6 +3590,7 @@ impl EntityWorld {
         };
         let mut outcome = AiOutcome::default();
         self.ai.tick(&ai_ctx, &mut outcome);
+        tick.frames_dirty |= outcome.transitions > 0;
         for (handle, position, yaw_degrees, spawned) in outcome.moved {
             if let Some(transform) = self.components.transforms.get_mut(handle) {
                 transform.position = position;
@@ -4129,7 +4140,7 @@ impl EntityWorld {
                 // value as degrees.
                 transform: Some((agent.position, agent.yaw_degrees.to_radians())),
                 cue,
-                opacity,
+                opacity: opacity * agent.opacity(),
                 glow,
                 balloon: None,
             });

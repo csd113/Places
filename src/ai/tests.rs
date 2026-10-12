@@ -23,6 +23,256 @@ use crate::nav::{
     reference_class,
 };
 
+/// The shelter regression needs only an 8x4 m room: one wall requires a
+/// detour, and another seals the closest-looking unreachable shelter.
+/// This protects player perception and the whole hide/return presentation in
+/// one fixture, without loading a shipped map or baking lighting.
+#[test]
+fn skittish_player_retreat_uses_nearest_complete_route_and_returns_visibly() {
+    let level = LevelDef::from_json(
+        r#"{
+        "format_version":3,"id":"shelters","name":"Shelters",
+        "spawn":{"x":3.2,"z":1.4},
+        "rooms":[{"x":0,"z":0,"width":8,"depth":4,"height":3}],
+        "walls":[
+            {"x":3.9,"z":0,"width":0.2,"depth":3,"height":3},
+            {"x":6,"z":0,"width":0.2,"depth":4,"height":3}
+        ],
+        "props":[{"id":"insect","model":"core:crate","x":3.2,"z":1,
+            "solid":false,"components":[
+                {"component":"nav_agent","radius":0.035,"height":0.035,
+                 "speed_mps":1,"step_height":0.1,"max_slope":1},
+                {"component":"ai","behavior":"skittish","reacts_to":["player"],
+                 "walk_speed":1,"run_speed":2,"sight_range":4,"sight_fov_degrees":360,
+                 "hearing_range":0,"flee_distance":3,"idle_seconds":0.5,
+                 "hide_seconds":0.25,"wander_radius":1,
+                 "hide_anchors":[[4.5,0,1],[1.5,0,1],[7,0,1]],
+                 "home_bounds":{"x":0.2,"z":0.2,"width":7.6,"depth":3.6,"min_y":-0.05,"max_y":0.05}}
+            ]}]
+    }"#,
+    )
+    .expect("the tiny shelter fixture parses");
+    let collision = CollisionWorld::from_level(&level);
+    let index = CollisionIndex::build(&collision.walls);
+    let mut warnings = Vec::new();
+    let (bytes, _) = crate::compiler::bake_navigation(&level, 1, &mut warnings)
+        .expect("only the tiny fixture navigation bakes");
+    let mesh = NavMesh::from_record(
+        crate::package::navigation::read_navigation(&bytes).expect("the navigation record decodes"),
+    )
+    .expect("the navigation validates");
+    let mut world = crate::entities::EntityWorld::from_level(&level);
+    let start = world.ai().agent("insect").expect("insect exists").position;
+    let player = Vec3::new(3.2, 0.0, 1.4);
+    let ctx = crate::entities::WorldContext {
+        delta_seconds: 0.05,
+        feet_from: player,
+        feet: player,
+        eye: Vec3::new(player.x, 1.6, player.z),
+        body_height: 1.8,
+        walls: &collision.walls,
+        index: &index,
+        floor: &collision.floor,
+        nav: Some(&mesh),
+    };
+    let _first_tick = world.tick(&ctx);
+    let insect = world.ai().agent("insect").expect("insect exists");
+    let AiState::Hide { destination } = insect.state else {
+        panic!(
+            "the real player target triggers a shelter retreat: {:?}",
+            insect.state
+        );
+    };
+    assert!(
+        destination.distance(Vec3::new(1.5, 0.0, 1.0)) < 0.15,
+        "short reachable route beats an adjacent shelter across a wall and a sealed shelter"
+    );
+    assert!(
+        insect.position.distance(start) < 0.2,
+        "retreat starts by walking, never teleporting"
+    );
+    let class = insect
+        .class
+        .expect("the authored small body has a baked class");
+    let mut scratch = NavScratch::new();
+    let mut detour = Path::new();
+    let doors = Doors::from_level(&level);
+    let query = PathQuery {
+        class,
+        start,
+        goal: Vec3::new(4.5, 0.0, 1.0),
+        can_open_doors: false,
+        max_expansions: 4096,
+        doors: &doors,
+    };
+    mesh.path_into(&query, &mut scratch, &mut detour)
+        .expect("the unbounded wall detour exists");
+    assert!(detour.complete, "the wall can be walked around in the room");
+    let bounds = NavBounds {
+        min: Vec3::new(0.2, -0.05, 0.2),
+        max: Vec3::new(7.8, 0.05, 2.5),
+    };
+    let bounded = mesh.path_into_bounded(&query, &mut scratch, &mut detour, Some(bounds));
+    assert!(
+        bounded.is_err() || !detour.complete,
+        "a route must not leave home bounds to walk around the wall"
+    );
+
+    let mut saw_hidden = false;
+    let mut saw_return = false;
+    let mut finished = false;
+    for _ in 0_i32..160_i32 {
+        let _tick = world.tick(&ctx);
+        let agent = world.ai().agent("insect").expect("insect exists");
+        let frame = world
+            .entity_frames()
+            .iter()
+            .find(|frame| frame.instance_id == "insect")
+            .expect("the renderer receives the insect frame");
+        match agent.state {
+            AiState::Hidden => {
+                saw_hidden = true;
+                assert!(
+                    agent.position.distance(destination) < 0.045,
+                    "tiny insect must enter the shelter before hiding"
+                );
+                assert!(frame.opacity < 0.001, "arrival hides the render frame");
+            }
+            AiState::Return { destination: _ } => {
+                saw_return = true;
+                assert!(
+                    frame.opacity > 0.99,
+                    "the bounded hold ends visibly despite a nearby player"
+                );
+            }
+            AiState::Idle if saw_return => {
+                assert!(
+                    agent.position.distance(start) < 0.05,
+                    "the insect walks back to its pre-retreat position"
+                );
+                assert!(
+                    agent.shelter_cooldown > 0.0,
+                    "emergence has a bounded respite"
+                );
+                finished = true;
+                break;
+            }
+            AiState::Idle
+            | AiState::Wander { destination: _ }
+            | AiState::Hide { destination: _ }
+            | AiState::Follow { target: _ }
+            | AiState::Flee {
+                threat: _,
+                destination: _,
+            }
+            | AiState::Investigate { point: _ }
+            | AiState::Pursue { target: _ }
+            | AiState::Catch { target: _ }
+            | AiState::Scripted
+            | AiState::Caught => {
+                assert!(frame.opacity > 0.99, "travelling and waiting stay visible");
+            }
+        }
+    }
+    assert!(
+        saw_hidden && saw_return && finished,
+        "retreat, bounded hiding and reachable return all finish"
+    );
+}
+
+/// A 0.3 m strip is walkable for the reference class but outside the allowed
+/// feet-height band. This catches A* or string pulling crossing a ramp/floor
+/// transition even when both destination endpoints remain on the home floor.
+#[test]
+fn home_floor_band_excludes_traversable_height_transitions() {
+    let level = LevelDef::from_json(
+        r#"{
+        "format_version":3,"id":"home_floor","name":"Home Floor",
+        "spawn":{"x":1,"z":1},
+        "rooms":[{"x":0,"z":0,"width":8,"depth":2,"height":3}],
+        "floor_regions":[{"x":3,"z":0,"width":1,"depth":2,"offset_y":0.3}]
+    }"#,
+    )
+    .expect("the narrow height fixture parses");
+    let collision = CollisionWorld::from_level(&level);
+    let doors = Doors::from_level(&level);
+    let mesh = bake_mesh(&level, &collision, &doors);
+    let query = PathQuery {
+        class: 0,
+        start: Vec3::new(1.0, 0.0, 1.0),
+        goal: Vec3::new(6.0, 0.0, 1.0),
+        can_open_doors: false,
+        max_expansions: 4096,
+        doors: &doors,
+    };
+    let mut scratch = NavScratch::new();
+    let mut path = Path::new();
+    mesh.path_into(&query, &mut scratch, &mut path)
+        .expect("ordinary walkers cross the strip");
+    assert!(path.complete, "the strip is a supported traversable step");
+    let bounds = NavBounds {
+        min: Vec3::new(0.0, -0.05, 0.0),
+        max: Vec3::new(8.0, 0.05, 2.0),
+    };
+    let result = mesh.path_into_bounded(&query, &mut scratch, &mut path, Some(bounds));
+    assert!(
+        result.is_err() || !path.complete,
+        "floor-bound agents cannot cross the raised surface"
+    );
+}
+
+/// No bake is needed: the regression protects movement-selected named poses
+/// during a blocked route, and rejects unsafe authored shelter limits.
+#[test]
+fn named_ai_poses_follow_actual_motion_and_shelter_fields_are_bounded() {
+    let mut world = AiWorld::new();
+    let mut store = EntityStore::new();
+    let def = AiDef {
+        behavior: AiBehavior::Wanderer,
+        idle_clip: Some("pose_stand".to_string()),
+        move_clip: Some("run_arms_forward".to_string()),
+        ..AiDef::default()
+    };
+    world.register(
+        store.insert(),
+        "actor",
+        def.clone(),
+        NavAgentProfile::reference(),
+        Vec3::ZERO,
+        0.0,
+        false,
+    );
+    let actor = world.agents.first_mut().expect("actor exists");
+    actor.state = AiState::Wander {
+        destination: Vec3::X,
+    };
+    assert_eq!(
+        actor.cue().clip_name(),
+        Some("pose_stand"),
+        "blocked movement holds the rest pose"
+    );
+    actor.speed_mps = 1.45;
+    assert_eq!(
+        actor.cue().clip_name(),
+        Some("run_arms_forward"),
+        "actual motion selects the authored clip"
+    );
+    let mut malformed = def;
+    malformed.behavior = AiBehavior::Skittish;
+    assert!(
+        !malformed.is_valid(),
+        "skittish behavior requires an authored shelter"
+    );
+    malformed.hide_anchors.push([1.0, 0.0, 1.0]);
+    malformed.hide_seconds = 61.0;
+    assert!(!malformed.is_valid(), "hidden holds remain bounded");
+    malformed.hide_seconds = 0.25;
+    assert!(
+        malformed.is_valid(),
+        "finite small shelter definitions remain usable"
+    );
+}
+
 /// Builds a room with a partial dividing wall; agents are registered directly.
 fn fixture() -> (LevelDef, CollisionWorld, Doors) {
     let level = LevelDef::from_json(

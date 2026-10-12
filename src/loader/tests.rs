@@ -1598,6 +1598,7 @@ fn test_curated_level_sources_preserve_the_known_map_ids() {
             "home_showcase",
             "lantern_hollow",
             "model_zoo",
+            "office_demo",
             "places_demo",
             "pool_showcase",
             "retro_arcade_demo",
@@ -1806,7 +1807,7 @@ fn test_shipped_prop_catalog_covers_shipped_levels() {
         }
     }
     assert_eq!(
-        levels_checked, 9_i32,
+        levels_checked, 10_i32,
         "check the complete curated source lineup"
     );
     assert!(props_checked >= 1_i32, "expected at least one placed prop");

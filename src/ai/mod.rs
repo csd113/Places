@@ -51,7 +51,7 @@ use crate::entities::events::EventKind;
 use crate::entities::id::EntityHandle;
 use crate::entity::PoseCue;
 use crate::level::WalkableFloor;
-use crate::nav::{NavAgentProfile, NavDoorState, NavMesh, NavScratch, Path, PathQuery};
+use crate::nav::{NavAgentProfile, NavBounds, NavDoorState, NavMesh, NavScratch, Path, PathQuery};
 
 use movement::{AgentMove, MoveStep};
 use perception::Stimulus;
@@ -67,6 +67,8 @@ pub enum AiBehavior {
     Idler,
     /// Picks navigable destinations around its post and walks to them.
     Wanderer,
+    /// Wanders, retreats to an authored shelter, then returns after a hold.
+    Skittish,
     /// Retreats from any agent tagged in `reacts_to`.
     Prey,
     /// Pursues and catches any agent tagged in `reacts_to`.
@@ -82,9 +84,57 @@ impl AiBehavior {
         match self {
             Self::Idler => "idler",
             Self::Wanderer => "wanderer",
+            Self::Skittish => "skittish",
             Self::Prey => "prey",
             Self::Predator => "predator",
             Self::Follower => "follower",
+        }
+    }
+}
+
+/// Authored world-space area containing an agent's entire roaming body.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct AiHomeBounds {
+    /// Minimum X.
+    pub x: f32,
+    /// Minimum Z.
+    pub z: f32,
+    /// X extent.
+    pub width: f32,
+    /// Z extent.
+    pub depth: f32,
+    /// Lowest permitted feet surface.
+    pub min_y: f32,
+    /// Highest permitted feet surface.
+    pub max_y: f32,
+}
+
+impl AiHomeBounds {
+    /// True when the rectangle and vertical band are finite and nonempty.
+    #[must_use]
+    pub fn is_valid(self) -> bool {
+        [
+            self.x, self.z, self.width, self.depth, self.min_y, self.max_y,
+        ]
+        .iter()
+        .all(|value| value.is_finite())
+            && self.width > 0.0
+            && self.depth > 0.0
+            && self.min_y <= self.max_y
+            && (self.x + self.width).is_finite()
+            && (self.z + self.depth).is_finite()
+    }
+
+    /// Navigation volume inset so the whole body remains in the rectangle.
+    #[must_use]
+    pub fn nav_bounds(self, radius: f32) -> NavBounds {
+        NavBounds {
+            min: Vec3::new(self.x + radius, self.min_y, self.z + radius),
+            max: Vec3::new(
+                self.x + self.width - radius,
+                self.max_y,
+                self.z + self.depth - radius,
+            ),
         }
     }
 }
@@ -141,6 +191,21 @@ pub struct AiDef {
     /// True when the agent may open an unlocked door on its route.
     #[serde(default)]
     pub can_open_doors: bool,
+    /// Optional world area and feet-height band applied to every route.
+    #[serde(default)]
+    pub home_bounds: Option<AiHomeBounds>,
+    /// Reachable world-space shelters for skittish agents, at most sixteen.
+    #[serde(default)]
+    pub hide_anchors: Vec<[f32; 3]>,
+    /// Hidden hold, in seconds, bounded to `0.1..=60`.
+    #[serde(default = "default_hide_seconds")]
+    pub hide_seconds: f32,
+    /// Optional named looping clip while physically stopped.
+    #[serde(default)]
+    pub idle_clip: Option<String>,
+    /// Optional named looping clip while physically moving.
+    #[serde(default)]
+    pub move_clip: Option<String>,
 }
 
 impl Default for AiDef {
@@ -161,6 +226,11 @@ impl Default for AiDef {
             wander_radius: default_wander_radius(),
             idle_seconds: default_idle_seconds(),
             can_open_doors: false,
+            home_bounds: None,
+            hide_anchors: Vec::new(),
+            hide_seconds: default_hide_seconds(),
+            idle_clip: None,
+            move_clip: None,
         }
     }
 }
@@ -200,7 +270,26 @@ impl AiDef {
                 .role
                 .as_deref()
                 .is_none_or(|role| !role.trim().is_empty() && role.len() <= 64);
-        speeds && reactions && tags
+        let shelter = self.home_bounds.is_none_or(AiHomeBounds::is_valid)
+            && self.hide_anchors.len() <= 16
+            && self
+                .hide_anchors
+                .iter()
+                .flatten()
+                .all(|value| value.is_finite())
+            && self.home_bounds.is_none_or(|area| {
+                self.hide_anchors
+                    .iter()
+                    .all(|anchor| area.nav_bounds(0.0).contains(Vec3::from_array(*anchor)))
+            })
+            && (self.behavior != AiBehavior::Skittish || !self.hide_anchors.is_empty())
+            && self.hide_seconds.is_finite()
+            && (0.1..=60.0).contains(&self.hide_seconds);
+        let clips = [&self.idle_clip, &self.move_clip].iter().all(|clip| {
+            clip.as_deref()
+                .is_none_or(|name| !name.trim().is_empty() && name.len() <= 128)
+        });
+        speeds && reactions && tags && shelter && clips
     }
 
     /// True when `role` is one this agent reacts to.
@@ -246,6 +335,9 @@ fn default_wander_radius() -> f32 {
 fn default_idle_seconds() -> f32 {
     2.5
 }
+fn default_hide_seconds() -> f32 {
+    8.0
+}
 
 /// One agent's state.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -267,6 +359,18 @@ pub enum AiState {
         /// The threat, when one is perceived.
         threat: Option<EntityHandle>,
         /// Current escape destination.
+        destination: Vec3,
+    },
+    /// Running along a verified route to an authored shelter.
+    Hide {
+        /// Reachable feet position at the shelter.
+        destination: Vec3,
+    },
+    /// At the shelter, invisible for a bounded hold.
+    Hidden,
+    /// Walking back to the point where the shelter retreat began.
+    Return {
+        /// Reachable pre-retreat feet position.
         destination: Vec3,
     },
     /// Walking to the last heard or seen point.
@@ -302,6 +406,9 @@ impl AiState {
                 threat: _,
                 destination: _,
             } => "flee",
+            Self::Hide { destination: _ } => "hide",
+            Self::Hidden => "hidden",
+            Self::Return { destination: _ } => "return",
             Self::Investigate { point: _ } => "investigate",
             Self::Pursue { target: _ } => "pursue",
             Self::Catch { target: _ } => "catch",
@@ -323,6 +430,8 @@ impl AiState {
                 }
                 | Self::Investigate { point: _ }
                 | Self::Pursue { target: _ }
+                | Self::Hide { destination: _ }
+                | Self::Return { destination: _ }
         )
     }
 }
@@ -396,13 +505,47 @@ pub struct AiAgent {
     pub scratch: NavScratch,
     /// Deterministic phase for staggered perception.
     pub perception_phase: u32,
+    /// Position the shelter retreat returns to without teleporting.
+    pub shelter_return: Option<Vec3>,
+    /// Seconds left in a bounded hidden hold.
+    pub hidden_remaining: f32,
+    /// Prevents immediate re-entry while emerging from a shelter.
+    pub shelter_cooldown: f32,
 }
 
 impl AiAgent {
     /// The cue this agent's locomotion state maps to.
     #[must_use]
     pub fn cue(&self) -> PoseCue {
-        movement::cue_for(self.state, self.speed_mps)
+        let clip = if self.speed_mps > 0.01 {
+            self.def.move_clip.as_ref()
+        } else {
+            self.def.idle_clip.as_ref()
+        };
+        clip.map_or_else(
+            || movement::cue_for(self.state, self.speed_mps),
+            |name| PoseCue::Clip {
+                name: name.clone(),
+                once: false,
+                paused: false,
+            },
+        )
+    }
+
+    /// Opacity contributed by a completed shelter retreat.
+    #[must_use]
+    pub const fn opacity(&self) -> f32 {
+        if matches!(self.state, AiState::Hidden) {
+            0.0
+        } else {
+            1.0
+        }
+    }
+
+    fn bounds(&self) -> Option<NavBounds> {
+        self.def
+            .home_bounds
+            .map(|area| area.nav_bounds(self.profile.radius))
     }
 
     /// True when this agent should be immobilized.
@@ -528,6 +671,9 @@ pub const FLEE_CANDIDATES: usize = 16;
 /// Largest number of directions sampled when picking a wander destination.
 pub const WANDER_CANDIDATES: usize = 8;
 
+/// Reserved contact identity for the human player; never an entity-store slot.
+pub(crate) const PLAYER_TARGET_HANDLE: EntityHandle = EntityHandle::from_parts(u32::MAX, u32::MAX);
+
 /// Largest number of real path queries one flee replan spends, trying the
 /// best-scoring destinations in order.
 pub const FLEE_PATH_ATTEMPTS: usize = 3;
@@ -635,6 +781,9 @@ impl AiWorld {
             path_door_version: 0,
             scratch: NavScratch::new(),
             perception_phase: phase,
+            shelter_return: None,
+            hidden_remaining: 0.0,
+            shelter_cooldown: 0.0,
         });
     }
 
@@ -684,6 +833,9 @@ impl AiWorld {
             agent.last_perception_at = f32::NEG_INFINITY;
             agent.last_noise_at = f32::NEG_INFINITY;
             agent.path_door_version = 0;
+            agent.shelter_return = None;
+            agent.hidden_remaining = 0.0;
+            agent.shelter_cooldown = 0.0;
         }
     }
 
@@ -774,6 +926,12 @@ impl AiWorld {
             agent.clock += ctx.delta;
             agent.path_age += ctx.delta;
             agent.catch_cooldown = (agent.catch_cooldown - ctx.delta).max(0.0);
+            agent.shelter_cooldown = (agent.shelter_cooldown - ctx.delta).max(0.0);
+            if agent.class.is_none() {
+                agent.class = ctx
+                    .nav
+                    .and_then(|nav| nav.class_index(&agent.profile.class()));
+            }
             if agent.caught {
                 agent.speed_mps = 0.0;
                 continue;
@@ -832,7 +990,9 @@ fn perceive(agent: &mut AiAgent, ctx: &AiTickContext<'_>) {
         // it does not recognize as a threat (it flees or freezes instead of
         // walking toward its own predator).
         let interesting = match agent.def.behavior {
-            AiBehavior::Prey => !agent.def.reacts_to_role(Some(&contact.role)),
+            AiBehavior::Prey | AiBehavior::Skittish => {
+                !agent.def.reacts_to_role(Some(&contact.role))
+            }
             AiBehavior::Idler
             | AiBehavior::Wanderer
             | AiBehavior::Predator
@@ -860,6 +1020,7 @@ fn decide(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
         AiBehavior::Prey => decide_prey(agent, ctx, out),
         AiBehavior::Follower => decide_follower(agent, ctx, out),
         AiBehavior::Wanderer => decide_wanderer(agent, ctx, out),
+        AiBehavior::Skittish => decide_skittish(agent, ctx, out),
         AiBehavior::Idler => decide_idler(agent, ctx, out),
     }
 }
@@ -977,6 +1138,9 @@ fn decide_prey(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome
         }
         AiState::Idle
         | AiState::Wander { destination: _ }
+        | AiState::Hide { destination: _ }
+        | AiState::Hidden
+        | AiState::Return { destination: _ }
         | AiState::Follow { target: _ }
         | AiState::Investigate { point: _ }
         | AiState::Pursue { target: _ }
@@ -1013,6 +1177,154 @@ fn decide_prey(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome
         agent.path_goal = None;
         agent.interest = None;
     }
+}
+
+/// Sheltered prey roams until threatened, hides only after arriving, and
+/// returns along a verified route after a bounded hold.
+fn decide_skittish(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
+    match agent.state {
+        AiState::Hidden => {
+            agent.hidden_remaining = (agent.hidden_remaining - ctx.delta).max(0.0);
+            if agent.hidden_remaining <= 0.0 {
+                let destination = agent.shelter_return.unwrap_or(agent.home);
+                set_state(agent, AiState::Return { destination }, out);
+                agent.path.clear();
+                agent.path_goal = None;
+                agent.path_done_goal = None;
+                agent.shelter_cooldown = agent.def.idle_seconds.max(1.0);
+            }
+            return;
+        }
+        AiState::Hide { destination } => {
+            if route_completed_at(agent, destination) {
+                set_state(agent, AiState::Hidden, out);
+                agent.speed_mps = 0.0;
+                agent.hidden_remaining = agent.def.hide_seconds;
+            } else if agent
+                .path_failed_at
+                .is_some_and(|failed| agent.clock - failed >= PATH_RETRY_S)
+            {
+                // A newly blocked shelter is abandoned visibly. A failed or
+                // partial path can never make the entity disappear.
+                set_state(agent, AiState::Idle, out);
+                agent.shelter_cooldown = agent.def.idle_seconds.max(1.0);
+            }
+            return;
+        }
+        AiState::Return { destination } => {
+            if route_completed_at(agent, destination) {
+                set_state(agent, AiState::Idle, out);
+                agent.shelter_return = None;
+                agent.wait_remaining = agent.def.idle_seconds;
+                agent.shelter_cooldown = agent.def.idle_seconds.max(1.0);
+            }
+            // A closed door may temporarily block emergence. Stay visible
+            // and retain the return goal; advance retries on its bounded
+            // path cadence rather than teleporting or losing the destination.
+            return;
+        }
+        AiState::Idle
+        | AiState::Wander { destination: _ }
+        | AiState::Follow { target: _ }
+        | AiState::Flee {
+            threat: _,
+            destination: _,
+        }
+        | AiState::Investigate { point: _ }
+        | AiState::Pursue { target: _ }
+        | AiState::Catch { target: _ }
+        | AiState::Scripted
+        | AiState::Caught => {}
+    }
+    let threatened = agent.shelter_cooldown <= 0.0
+        && agent.contact.as_ref().is_some_and(|contact| {
+            agent.def.reacts_to_role(Some(&contact.role))
+                && contact.position.distance(agent.position) <= agent.def.flee_distance
+        });
+    if threatened {
+        let return_position = agent.position;
+        if let Some(destination) = choose_shelter(agent, ctx, out) {
+            agent.shelter_return = Some(return_position);
+            set_state(agent, AiState::Hide { destination }, out);
+            return;
+        }
+        agent.shelter_cooldown = PATH_RETRY_S;
+    }
+    decide_wanderer(agent, ctx, out);
+}
+
+fn route_completed_at(agent: &AiAgent, destination: Vec3) -> bool {
+    agent
+        .path_done_goal
+        .is_some_and(|goal| goal.distance(destination) < 0.05)
+        && agent.position.distance(destination)
+            < movement::arrival_radius(agent.profile.radius) + 0.01
+}
+
+/// Evaluates at most sixteen authored shelters. Only complete routes count;
+/// the shortest reachable walking distance wins, with authored order on ties.
+fn choose_shelter(
+    agent: &mut AiAgent,
+    ctx: &AiTickContext<'_>,
+    out: &mut AiOutcome,
+) -> Option<Vec3> {
+    let nav = ctx.nav?;
+    let class = agent.class?;
+    let bounds = agent.bounds();
+    let mut trial = Path::new();
+    let mut best: Option<(f32, Vec3, Path)> = None;
+    for anchor in &agent.def.hide_anchors {
+        let authored = Vec3::from_array(*anchor);
+        let Some(point) = nav.nearest(
+            class,
+            authored,
+            nav.grid().cell_m.max(0.25),
+            0.05,
+            ctx.doors,
+            agent.profile.can_open_doors,
+        ) else {
+            continue;
+        };
+        if bounds.is_some_and(|volume| !volume.contains(point.position)) {
+            continue;
+        }
+        let query = PathQuery {
+            class,
+            start: agent.position,
+            goal: point.position,
+            can_open_doors: agent.profile.can_open_doors,
+            max_expansions: 32768,
+            doors: ctx.doors,
+        };
+        let result = nav.path_into_bounded(&query, &mut agent.scratch, &mut trial, bounds);
+        out.path_queries = out.path_queries.saturating_add(1);
+        if result.is_err() || !trial.complete {
+            continue;
+        }
+        let distance = trial
+            .waypoints
+            .windows(2)
+            .filter_map(|pair| pair.first().zip(pair.get(1)).map(|(a, b)| a.distance(*b)))
+            .sum::<f32>();
+        if best
+            .as_ref()
+            .is_none_or(|(length, _, _)| distance < *length)
+        {
+            let selected = std::mem::take(&mut trial);
+            if let Some((_, _, previous)) = best.replace((distance, point.position, selected)) {
+                trial = previous;
+            }
+        }
+    }
+    let (_, destination, path) = best?;
+    agent.path = path;
+    agent.path_age = 0.0;
+    agent.path_door_version = ctx.door_version;
+    agent.path_goal = Some(destination);
+    agent.path_done_goal = None;
+    agent.path_failed_at = None;
+    agent.current_waypoint = 0;
+    Some(destination)
 }
 
 /// Follower: keeps a target tag within a comfortable distance.
@@ -1088,6 +1400,9 @@ fn decide_idler(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcom
         }
         AiState::Idle => {}
         AiState::Follow { target: _ }
+        | AiState::Hide { destination: _ }
+        | AiState::Hidden
+        | AiState::Return { destination: _ }
         | AiState::Flee {
             threat: _,
             destination: _,
@@ -1114,15 +1429,12 @@ fn decide_idler(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcom
         agent.path_goal = None;
         return;
     }
-    if matches!(agent.def.behavior, AiBehavior::Wanderer)
-        && let Some(destination) = choose_wander_destination(agent, ctx)
+    if matches!(
+        agent.def.behavior,
+        AiBehavior::Wanderer | AiBehavior::Skittish
+    ) && let Some(destination) = choose_wander_destination(agent, ctx, out)
     {
         set_state(agent, AiState::Wander { destination }, out);
-        agent.path.clear();
-        agent.path_goal = None;
-        agent.path_age = 0.0;
-        agent.path_failed_at = None;
-        agent.path_done_goal = None;
         return;
     }
     agent.wait_remaining = agent.def.idle_seconds.max(0.5);
@@ -1151,6 +1463,8 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
     };
     let goal = match agent.state {
         AiState::Wander { destination }
+        | AiState::Hide { destination }
+        | AiState::Return { destination }
         | AiState::Flee {
             destination,
             threat: _,
@@ -1159,7 +1473,11 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
         AiState::Follow { target } | AiState::Pursue { target } => {
             ctx.target(target).map(|target_actor| target_actor.position)
         }
-        AiState::Idle | AiState::Catch { target: _ } | AiState::Scripted | AiState::Caught => None,
+        AiState::Idle
+        | AiState::Hidden
+        | AiState::Catch { target: _ }
+        | AiState::Scripted
+        | AiState::Caught => None,
     };
     let Some(goal_position) = goal else {
         agent.speed_mps = 0.0;
@@ -1170,9 +1488,12 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
             threat: _,
             destination: _,
         }
+        | AiState::Hide { destination: _ }
         | AiState::Pursue { target: _ } => agent.def.run_speed,
         AiState::Idle
         | AiState::Wander { destination: _ }
+        | AiState::Return { destination: _ }
+        | AiState::Hidden
         | AiState::Follow { target: _ }
         | AiState::Investigate { point: _ }
         | AiState::Catch { target: _ }
@@ -1220,7 +1541,8 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
             doors: ctx.doors,
         };
         let mut path = std::mem::take(&mut agent.path);
-        let result = nav.path_into(&query, &mut agent.scratch, &mut path);
+        let bounds = agent.bounds();
+        let result = nav.path_into_bounded(&query, &mut agent.scratch, &mut path, bounds);
         agent.path = path;
         out.path_queries = out.path_queries.saturating_add(1);
         agent.path_door_version = ctx.door_version;
@@ -1290,6 +1612,15 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
             yaw_degrees,
             speed_mps,
         } => {
+            if agent
+                .bounds()
+                .is_some_and(|bounds| !bounds.contains(position))
+            {
+                agent.speed_mps = 0.0;
+                agent.path.clear();
+                agent.path_goal = None;
+                return;
+            }
             let moved = position.distance(agent.position);
             if moved <= 0.0005 {
                 agent.stuck_seconds += ctx.delta;
@@ -1305,7 +1636,9 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
                 agent.path_goal = None;
                 agent.current_waypoint = 0;
             }
-            if next_waypoint.distance(agent.position) < movement::ARRIVE_RADIUS_M {
+            if next_waypoint.distance(agent.position)
+                < movement::arrival_radius(agent.profile.radius)
+            {
                 agent.current_waypoint = agent.current_waypoint.saturating_add(1);
             }
             out.moved.push((
@@ -1315,7 +1648,7 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
                 agent.spawned,
             ));
             if agent.current_waypoint >= agent.path.waypoints.len() {
-                agent.path_done_goal = agent.path_goal;
+                agent.path_done_goal = agent.path_goal.filter(|_| agent.path.complete);
                 agent.path.clear();
                 agent.current_waypoint = 0;
                 if matches!(agent.state, AiState::Wander { destination: _ }) {
@@ -1337,7 +1670,7 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
             agent.speed_mps = 0.0;
             agent.current_waypoint = agent.current_waypoint.saturating_add(1);
             if agent.current_waypoint >= agent.path.waypoints.len() {
-                agent.path_done_goal = agent.path_goal;
+                agent.path_done_goal = agent.path_goal.filter(|_| agent.path.complete);
                 agent.path.clear();
                 agent.current_waypoint = 0;
                 if matches!(agent.state, AiState::Wander { destination: _ }) {
@@ -1394,6 +1727,9 @@ fn try_catch(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) 
     reason = "glam vector addition, subtraction and scaling intentionally use ordinary f32 arithmetic; no integer sizing or indexing is performed here."
 )]
 fn can_catch(agent: &AiAgent, target: &AiTarget, ctx: &AiTickContext<'_>) -> bool {
+    if target.handle == PLAYER_TARGET_HANDLE {
+        return false;
+    }
     let dx = target.position.x - agent.position.x;
     let dz = target.position.z - agent.position.z;
     let horizontal = dx.mul_add(dx, dz * dz).sqrt();
@@ -1514,7 +1850,8 @@ fn choose_flee_destination(
             doors: ctx.doors,
         };
         let mut path = std::mem::take(&mut agent.path);
-        let result = nav.path_into(&query, &mut agent.scratch, &mut path);
+        let bounds = agent.bounds();
+        let result = nav.path_into_bounded(&query, &mut agent.scratch, &mut path, bounds);
         agent.path = path;
         out.path_queries = out.path_queries.saturating_add(1);
         if result.is_ok() {
@@ -1537,19 +1874,43 @@ fn choose_flee_destination(
     clippy::as_conversions,
     reason = "The eight candidate indices convert exactly; the u32 perception phase intentionally becomes a rounded finite f32 angular offset without changing its stored counter."
 )]
-fn choose_wander_destination(agent: &AiAgent, ctx: &AiTickContext<'_>) -> Option<Vec3> {
+fn choose_wander_destination(
+    agent: &mut AiAgent,
+    ctx: &AiTickContext<'_>,
+    out: &mut AiOutcome,
+) -> Option<Vec3> {
     let nav = ctx.nav?;
     let class = agent.class?;
     let base = agent.clock.mul_add(0.7, agent.perception_phase as f32);
+    let bounds = agent.bounds();
     for index in 0..WANDER_CANDIDATES {
         let angle = base + index as f32 * std::f32::consts::TAU / WANDER_CANDIDATES as f32;
         let (sin, cos) = angle.sin_cos();
         let distance = agent.def.wander_radius.max(1.0) * (0.4 + 0.6 * sin.abs());
-        let candidate = Vec3::new(
-            agent.position.x + cos * distance,
-            agent.position.y,
-            agent.position.z + sin * distance,
+        let candidate = bounds.map_or_else(
+            || {
+                Vec3::new(
+                    agent.position.x + cos * distance,
+                    agent.position.y,
+                    agent.position.z + sin * distance,
+                )
+            },
+            |volume| {
+                let radius = agent.def.wander_radius;
+                let x0 = volume.min.x.max(agent.home.x - radius);
+                let x1 = volume.max.x.min(agent.home.x + radius);
+                let z0 = volume.min.z.max(agent.home.z - radius);
+                let z1 = volume.max.z.min(agent.home.z + radius);
+                Vec3::new(
+                    (x1 - x0).mul_add(0.5 + 0.45 * cos, x0),
+                    agent.home.y,
+                    (z1 - z0).mul_add(0.5 + 0.45 * sin, z0),
+                )
+            },
         );
+        if bounds.is_some() && candidate.distance(agent.home) > agent.def.wander_radius {
+            continue;
+        }
         let Some(point) = nav.nearest(
             class,
             candidate,
@@ -1560,8 +1921,30 @@ fn choose_wander_destination(agent: &AiAgent, ctx: &AiTickContext<'_>) -> Option
         ) else {
             continue;
         };
-        if point.position.distance(agent.position) > 0.5 {
-            return Some(point.position);
+        if bounds.is_none_or(|volume| {
+            volume.contains(point.position)
+                && point.position.distance(agent.home) <= agent.def.wander_radius
+        }) && point.position.distance(agent.position) > 0.5
+        {
+            let query = PathQuery {
+                class,
+                start: agent.position,
+                goal: point.position,
+                can_open_doors: agent.profile.can_open_doors,
+                max_expansions: 32768,
+                doors: ctx.doors,
+            };
+            let result = nav.path_into_bounded(&query, &mut agent.scratch, &mut agent.path, bounds);
+            out.path_queries = out.path_queries.saturating_add(1);
+            if result.is_ok() && agent.path.complete {
+                agent.path_goal = Some(point.position);
+                agent.path_door_version = ctx.door_version;
+                agent.path_age = 0.0;
+                agent.path_failed_at = None;
+                agent.path_done_goal = None;
+                agent.current_waypoint = 0;
+                return Some(point.position);
+            }
         }
     }
     None

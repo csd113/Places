@@ -163,7 +163,7 @@ class ShippedLevelTests(unittest.TestCase):
         shipped = {path.stem: load_level(path) for path in level_files()}
         self.assertEqual(
             set(shipped),
-            {"places_demo", "model_zoo", "lantern_hollow", "winter", "beach_demo", "frutiger_aero_demo", "home_showcase", "pool_showcase", "retro_arcade_demo"},
+            {"places_demo", "model_zoo", "lantern_hollow", "winter", "beach_demo", "frutiger_aero_demo", "home_showcase", "pool_showcase", "retro_arcade_demo", "office_demo"},
             "the curated showcases are the supported source lineup",
         )
         demo = shipped["places_demo"]

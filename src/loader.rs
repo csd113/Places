@@ -2731,6 +2731,13 @@ fn validate_components<'a>(
         }
         validate_component_value(context, i, component, facts)?;
     }
+    validate_moving_components(context, components)?;
+    facts.state_names = state_names;
+    Ok(())
+}
+
+/// Cross-component physical requirements for anchored or navigating actors.
+fn validate_moving_components(context: &str, components: &[ComponentDef]) -> Result<(), String> {
     let has_ai = components
         .iter()
         .any(|component| matches!(component, ComponentDef::Ai(_)));
@@ -2751,6 +2758,39 @@ fn validate_components<'a>(
             "{context} authors an `ai` component without a `nav_agent` body; an agent needs \
              the physical profile its baked navigation class is selected by"
         ));
+    }
+    if let Some(radius) = components.iter().find_map(|component| {
+        if let ComponentDef::NavAgent {
+            radius,
+            speed_mps: _,
+            height: _,
+            step_height: _,
+            max_slope: _,
+        } = component
+        {
+            Some(*radius)
+        } else {
+            None
+        }
+    }) {
+        for component in components {
+            if let ComponentDef::Ai(def) = component
+                && let Some(area) = def.home_bounds
+            {
+                let bounds = area.nav_bounds(radius);
+                if area.width <= radius * 2.0
+                    || area.depth <= radius * 2.0
+                    || def
+                        .hide_anchors
+                        .iter()
+                        .any(|anchor| !bounds.contains(Vec3::from_array(*anchor)))
+                {
+                    return Err(format!(
+                        "{context} `ai` home_bounds must contain the body and every hide anchor with radius clearance"
+                    ));
+                }
+            }
+        }
     }
     if components
         .iter()
@@ -2773,7 +2813,6 @@ fn validate_components<'a>(
             "{context} `balloon` cannot share a moving AI/navigation body; its anchor is fixed"
         ));
     }
-    facts.state_names = state_names;
     Ok(())
 }
 
@@ -2953,7 +2992,7 @@ fn validate_component_value<'a>(
         ComponentDef::Ai(def) => {
             if !def.is_valid() {
                 return Err(format!(
-                    "{context} `ai` component {i} has an invalid behavior, speed, range or tag"
+                    "{context} `ai` component {i} has an invalid behavior, speed, range, tag, home_bounds, shelter or clip"
                 ));
             }
         }

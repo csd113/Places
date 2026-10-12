@@ -6,7 +6,7 @@ world the offline compiler produced from an authoring source. The player does
 not compile maps, bake light, pack charts, capture reflections or generate
 static navigation; it decodes these records and uploads them.
 
-The repository tracks authored maps in `levels/`, with the nine maintained IDs
+The repository tracks authored maps in `levels/`, with the maintained IDs
 listed in `levels/lineup.txt`. Compiled `.placesmap` files are untracked build
 outputs. Rust builds and source tests work before any map is compiled; the
 player needs compiled packages to play.

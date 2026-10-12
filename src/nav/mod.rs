@@ -25,7 +25,7 @@ pub use bake::{
     NAV_MOVE_SUBSTEP_M, NavBakeInput, NavBakeOptions, NavBakeReport, NavWalkProxy, bake,
     neighbour_rule, reference_class,
 };
-pub use query::{NavMesh, NavPoint, NavScratch, Path, PathQuery, PathResult};
+pub use query::{NavBounds, NavMesh, NavPoint, NavScratch, Path, PathQuery, PathResult};
 
 use crate::door::{DoorPhase, Doors};
 use crate::package::navigation::NavClass;

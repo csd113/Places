@@ -57,6 +57,25 @@ pub struct NavPoint {
     pub position: Vec3,
 }
 
+/// Optional world-space volume a route must remain inside.
+///
+/// The caller insets X/Z by its body radius; Y bounds apply to feet surfaces.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct NavBounds {
+    /// Inclusive low corner.
+    pub min: Vec3,
+    /// Inclusive high corner.
+    pub max: Vec3,
+}
+
+impl NavBounds {
+    /// True when a finite point is inside every axis of the volume.
+    #[must_use]
+    pub fn contains(self, point: Vec3) -> bool {
+        point.is_finite() && point.cmpge(self.min).all() && point.cmple(self.max).all()
+    }
+}
+
 /// One query's contract: class, endpoints, door state and budget.
 pub struct PathQuery<'a> {
     /// Baked class index the agent's body matches.
@@ -560,6 +579,22 @@ impl NavMesh {
         scratch: &mut NavScratch,
         out: &mut Path,
     ) -> Result<(), PathResult> {
+        self.path_into_bounded(query, scratch, out, None)
+    }
+
+    /// Fills a route while excluding cells and shortcuts outside `bounds`.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same errors as [`Self::path_into`], including an
+    /// unreachable result when either endpoint is outside the volume.
+    pub fn path_into_bounded(
+        &self,
+        query: &PathQuery<'_>,
+        scratch: &mut NavScratch,
+        out: &mut Path,
+        bounds: Option<NavBounds>,
+    ) -> Result<(), PathResult> {
         out.clear();
         let Some(profile) = self.grid.classes.get(query.class).copied() else {
             return Err(PathResult::Invalid(format!(
@@ -571,6 +606,11 @@ impl NavMesh {
             return Err(PathResult::Invalid(
                 "navigation path endpoints are not finite".to_string(),
             ));
+        }
+        if bounds
+            .is_some_and(|volume| !volume.contains(query.start) || !volume.contains(query.goal))
+        {
+            return Err(PathResult::Unreachable);
         }
         let cell_m = self.grid.cell_m;
         let endpoint_tolerance = profile.height.max(1.0);
@@ -596,6 +636,11 @@ impl NavMesh {
         ) else {
             return Err(PathResult::Unreachable);
         };
+        if bounds.is_some_and(|volume| {
+            !volume.contains(start.position) || !volume.contains(goal.position)
+        }) {
+            return Err(PathResult::Unreachable);
+        }
         let cells = self.grid.cell_count();
         scratch.ensure(cells);
         scratch.epoch = scratch.epoch.wrapping_add(1);
@@ -666,8 +711,11 @@ impl NavMesh {
                 if !self.grid.is_walkable(query.class, next) {
                     continue;
                 }
+                if !self.cell_in_bounds(next, bounds) {
+                    continue;
+                }
                 let diagonal = dx != 0_i32 && dz != 0_i32;
-                if diagonal && !self.corner_open(query, cx, cz, dx, dz) {
+                if diagonal && !self.corner_open(query, cx, cz, dx, dz, bounds) {
                     continue;
                 }
                 let (Some(from_y), Some(to_y)) = (self.grid.surface(cell), self.grid.surface(next))
@@ -772,7 +820,8 @@ impl NavMesh {
                     point,
                     query.doors,
                     query.can_open_doors,
-                ) {
+                ) && self.segment_in_bounds(anchor, point, bounds)
+                {
                     next = candidate;
                     break;
                 }
@@ -797,7 +846,8 @@ impl NavMesh {
                 query.goal,
                 query.doors,
                 query.can_open_doors,
-            ) {
+            ) && self.segment_in_bounds(anchor, query.goal, bounds)
+            {
                 query.goal
             } else {
                 clamp_to_surface(&self.grid, goal.cell, query.goal)
@@ -811,6 +861,41 @@ impl NavMesh {
         }
         collect_door_requests(self, query, &chain, out);
         Ok(())
+    }
+
+    fn cell_in_bounds(&self, cell: usize, bounds: Option<NavBounds>) -> bool {
+        bounds.is_none_or(|volume| volume.contains(clamp_to_surface(&self.grid, cell, Vec3::ZERO)))
+    }
+
+    /// Samples the actual surface height so string pulling cannot skip a
+    /// forbidden ramp or ledge between two permitted endpoints.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        clippy::cast_sign_loss,
+        clippy::as_conversions,
+        reason = "The finite segment sample count is clamped to 1..=4096 before conversion; every index is exactly representable in f32."
+    )]
+    fn segment_in_bounds(&self, from: Vec3, to: Vec3, bounds: Option<NavBounds>) -> bool {
+        let Some(volume) = bounds else {
+            return true;
+        };
+        if !volume.contains(from) || !volume.contains(to) {
+            return false;
+        }
+        let distance = (to.x - from.x).hypot(to.z - from.z);
+        let steps = (distance / (self.grid.cell_m * 0.5))
+            .ceil()
+            .clamp(1.0, 4096.0) as u32;
+        (0..=steps).all(|step| {
+            let t = step as f32 / steps as f32;
+            let x = (to.x - from.x).mul_add(t, from.x);
+            let z = (to.z - from.z).mul_add(t, from.z);
+            self.grid
+                .cell_at(x, z)
+                .and_then(|(cx, cz)| self.grid.index_of(cx, cz))
+                .is_some_and(|cell| self.cell_in_bounds(cell, bounds))
+        })
     }
 
     /// True when a straight walked segment stays on walkable cells for the
@@ -957,14 +1042,25 @@ impl NavMesh {
     }
 
     /// True when a diagonal step's two orthogonal neighbours are walkable.
-    fn corner_open(&self, query: &PathQuery<'_>, cx: u32, cz: u32, dx: i32, dz: i32) -> bool {
+    fn corner_open(
+        &self,
+        query: &PathQuery<'_>,
+        cx: u32,
+        cz: u32,
+        dx: i32,
+        dz: i32,
+        bounds: Option<NavBounds>,
+    ) -> bool {
         let (Some(ax), Some(bz)) = (cx.checked_add_signed(dx), cz.checked_add_signed(dz)) else {
             return false;
         };
         let (Some(a), Some(b)) = (self.grid.index_of(ax, cz), self.grid.index_of(cx, bz)) else {
             return false;
         };
-        self.grid.is_walkable(query.class, a) && self.grid.is_walkable(query.class, b)
+        self.grid.is_walkable(query.class, a)
+            && self.grid.is_walkable(query.class, b)
+            && self.cell_in_bounds(a, bounds)
+            && self.cell_in_bounds(b, bounds)
     }
 
     /// An ASCII rendering of one class's walkable space for developer

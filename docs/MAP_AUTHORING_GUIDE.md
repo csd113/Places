@@ -160,7 +160,7 @@ Authoritative paths:
 | Per-room ceiling tile frame (`ceiling_tile_origin`, `ceiling_tile_rotation_degrees`) for offset/rotated ceiling patterns and decal snapping | Implemented |
 | Decal grid snapping (`decals[].align: "ceiling_grid"`) onto the ceiling's own panel module | Implemented |
 | Narrow intent annotations for the checker (`geometry_intent[]`) | Implemented (see [§32](#31-the-map-geometry-checker)) |
-| Ceiling/floor openings; traversal between stacked storeys | Not implemented (a stair or ramp between floors is; overlapping walkable surfaces at one `(x, z)` are not) |
+| Ceiling/floor openings | Not implemented; height-aware player support and ramps through a separate side shaft connect stacked storeys (Office) |
 | Runtime navmesh editing, off-mesh links, jumping/climbing agents, swimming agents, dynamic obstacle avoidance beyond door leaves | Not implemented |
 | Room-wide brightness/tint modifiers; non-fixture decor meshes beyond props | Not implemented |
 | WebP or formats other than PNG; arbitrary structural meshes | Not implemented |
@@ -689,7 +689,7 @@ A misspelled enum is a parse error, not a silently ignored key.
 **Where levels live.** Players load compiled `.placesmap` packages only.
 `assets/levels/*.placesmap` ships with the game; `levels/*.placesmap` are drop-in
 packages (under the writable state root, normally next to the asset root). Both appear
-in the Level Select menu. The eight maintained `.json` sources live directly in
+in the Level Select menu. The maintained `.json` sources live directly in
 `levels/`, with their compiler/export allowlist in `levels/lineup.txt`. Packages
 are ignored build outputs: run `sh tools/build-maps.sh` after a fresh checkout.
 JSON is never a playable row; discovery enumerates packages only and skips
@@ -1350,12 +1350,16 @@ The same room's walk-in step, one 0.35 m rise above the basin floor:
   rims that can be walked off from above and fallen from; the drop below a rim
   is not an invisible floor. There are no ramps or sloped regions outside
   `ramps[]`.
-* **Stacked/vertically overlapping rooms are supported geometrically** (different
-  `floor_y` over the same footprint) and are sealed from each other for lighting,
-  but there is **no vertical traversal**: no stairs between storeys beyond the 0.4 m
-  step rule, and **no floor/ceiling openings** exist as authorable features. Do not
-  promise a multi-storey building; use one continuous level with room-to-room
-  elevation steps, as Places Demo does (office 0.0 → stair hall −1.5 → corridor −0.9).
+* **Stacked/vertically overlapping rooms are supported** (different `floor_y`
+  over the same footprint) and are sealed from each other for lighting. The
+  player selects support and headroom in its current body-height band.
+  **No floor/ceiling openings** exist as authorable features. Connect storeys
+  through a separate shaft beyond their floor footprints, with continuous
+  ramps and landings. `office_demo` stacks floors at 0, 3.6 and 7.2 m and
+  uses two disjoint side-shaft ramps; its upper landing is a real raised room
+  floor above the lower landing, with an open ceiling because the shaft owns
+  the roof. Explicit fixture Y and prop offsets select each storey. Do not
+  run one ramp across overlapping rooms with different `floor_y` values.
 * **Light authors a storey**: when rooms share a footprint, an authored fixture `y`
   selects the storey (see [Rooms and lighting](#rooms-and-lighting)).
 * **Lightmaps and floors are tessellated**: floors and ceilings are cut into
@@ -3873,6 +3877,7 @@ All fixtures — ceiling and wall — live in the level's `ceiling_lights` array
 | `emission` | number | no | the fixture's `brightness` | Independent emissive strength of the visible face, finite, `≥ 0`, clamped to `8.0`. Lets a face read brighter (or dimmer) than the light the fixture casts. |
 | `switchable` | boolean | no | `false` | Marks the fixture as externally controllable: `{ "action": "set_light", "target": "<id>", "on": false }` or `{ "action": "toggle", "target": "<id>" }` may switch it at runtime (see §29). A switchable fixture is excluded from its room's baked baseline and contributes only its local pool; each switch state is prepared as its own selectable lightmap layer, so toggling **selects a prepared layer** — a real change of the baked illumination with no runtime rebake — and the visible face turns off with it. Moving objects and characters using a newly compiled v3 irradiance field receive the fixture's live direct light through reserved runtime source slots; base probes exclude switchable energy, so it is added once. Switched diffuse bounce is absent from the entity base field. Genuine legacy v2 fields retain their combined center path without switched entity response. A fixture that is **not** switchable is baked once and never changes: no action can move its illumination. Emission-only motion (`animated_emissions[]`) never changes illumination either; it animates the face's additive glow only. Layer selection needs the prepared lightmap variants (the default): with Lightmaps Off the level bakes into vertex colours, so the face still switches but the baked illumination cannot change until the level is reloaded. Leave it `false` unless a map action drives it. |
 | `align` | `"grid"` \| `"none"` | no | `"grid"` | Closed enum. Grid alignment snaps a fluorescent panel's centre onto its ceiling material's visible panel grid at load (see *Ceiling grid alignment* below). `"none"` keeps the authored `x`/`z` exactly. |
+| `hold_in_static` | boolean | no | `false` | Opt-in fallback for automated switchable fixtures: when prepared illumination is unavailable (Static), face and live receiver source hold their authored baked `enabled` state. Full follows ordinary actions and prepared layers. The Office's failing lamps use this so Static never shows a dark bulb over a permanently bright baked pool. Existing fixtures preserve their historical face-only Static switching. |
 
 Ceiling fixture, office default look (Places Demo, office room with red emergency
 light):
@@ -4805,7 +4810,7 @@ Components never carry actions — the bindings do that.
 | `water` | `enabled` (`true`) | The entity is a water volume controller. |
 | `nav_agent` | `radius`, `speed_mps`, `height` (`1.8`), `step_height` (`0.4`), `max_slope` (`2.6667`) | The entity's navigable body. Each distinct body becomes one baked agent class; navigation queries select the class that matches it. See §33. |
 | `nav_obstacle` | `size?` (`[w,h,d]`, default the resolved size), `affects_nav` (`true`) | An explicit box the offline navigation bake treats as an obstacle, so a proxy the collision build does not carry can still block navigation. |
-| `ai` | `behavior` (`idler`), `role?`, `reacts_to` (`[]`), speeds, ranges and catch fields | The entity runs the shared AI behavior (`idler`/`wanderer`/`prey`/`predator`/`follower`). Requires a `nav_agent` body; an entity with a route must not also author `ai`. See §33. |
+| `ai` | `behavior` (`idler`), `role?`, `reacts_to` (`[]`), speeds, ranges, home bounds, shelters and clip overrides | The entity runs the shared AI behavior (`idler`/`wanderer`/`skittish`/`prey`/`predator`/`follower`). Requires a `nav_agent` body; an entity with a route must not also author `ai`. See §33. |
 | `fade` | `period_seconds` (finite, `0 < p ≤ 3600`; default `6.0`, ignored in proximity mode), `phase?` (`0..=1`; omitted = deterministic per-instance), `min_opacity` (`0.0`), `max_opacity` (`1.0`, `≥ min_opacity`), `enabled` (`true`), `near_radius?`/`far_radius?` (finite, `0 < near < far`; both together), `fade_out_seconds?`/`fade_in_seconds?` (finite, `0 < s ≤ 600`; defaults `1.5`/`3.0`, only with the radii) | The entity's opacity cycles on a loop, or — when both radii are authored — fades out as the player approaches and back in as the player retreats. `enabled: false` holds `max_opacity`. A fade-only entity still fades without a route, AI or binding. |
 | `glow` | `enabled?` (`true`), `color?` (`[1.0, 0.86, 0.6]`, each channel `0..=1`), `intensity?` (`0.5`, `0..=8`), `range?` (`3.0` m, `0.05..=64`), `socket?` (animated joint/node name, non-blank), `offset?` (`[0, 0, 0]` entity-local metres, each `|v| ≤ 4`; used only when no socket resolves), `fade?` (`true`: intensity multiplies the fade opacity) | One attached dynamic light; `enable`/`disable` removes/restores its light independently of material emission. With a `socket` it follows the animated joint; without one it sits at the entity-local `offset`. |
 | `balloon` | `color` (`red`; also `royal_blue`, `golden_yellow`, `grass_green`, `deep_purple`, `orange`, `pink`), `scale` (`1`, `0.25..=2`), `string_length` (`1.1`, `0.15..=4` m), `anchor` (`[0,0,0]`, each axis ±8 m), `offset` (`[0,0,0]`, each axis ±2 m), `enabled` (`true`), `sway_amplitude` (`0.025`, `0..=0.15` m), `bob_amplitude` (`0.012`, `0..=0.15` m), `rotation_degrees` (`3`, `0..=12`), `speed_hz` (`0.19`, `0.01..=1`), `phase?`/`shared_phase?` (`0..=1` cycles), `shared_sway` (`0.007`, `0..=0.15` m) | Analytic simulation-time latex motion and twelve curved string segments tied to a fixed placement-local anchor. `enabled: false` holds the resting pose; `enable`/`disable` gates motion. Only the body receives the colour and uniform scale. |
@@ -6301,7 +6306,7 @@ finite and positive. An entity that authors `ai` **must** also author a
 
 | Field | Default | Meaning |
 | --- | --- | --- |
-| `behavior` | `idler` | `idler`, `wanderer`, `prey`, `predator` or `follower` |
+| `behavior` | `idler` | `idler`, `wanderer`, `skittish`, `prey`, `predator` or `follower` |
 | `role` | — | tag this agent advertises (`prey_rat`, `predator`, …) |
 | `reacts_to` | `[]` | role tags this agent reacts to |
 | `walk_speed` | `1.0` | ordinary walking speed, m/s |
@@ -6316,11 +6321,22 @@ finite and positive. An entity that authors `ai` **must** also author a
 | `wander_radius` | `4.0` | wander destinations stay inside this radius |
 | `idle_seconds` | `2.5` | hold time between wander destinations |
 | `can_open_doors` | `false` | may open an unlocked door on its route |
+| `home_bounds` | omitted | `{x,z,width,depth,min_y,max_y}` world rectangle and feet-height band; all destination and path cells stay inside it, inset by the body radius |
+| `hide_anchors` | `[]` | at most sixteen world `[x,y,z]` refuges for `skittish`; chosen by shortest complete reachable route, never straight-line proximity through walls |
+| `hide_seconds` | `8.0` | hidden hold, finite `0.1..=60` seconds |
+| `idle_clip` / `move_clip` | omitted | optional named looping clips selected from actual stopped/moving speed; ordinary locomotion remains the default |
 
 Behavior is data, never a model or map name: a `prey` flees every agent whose
 `role` appears in its `reacts_to`; a `predator` pursues and catches such an
 agent; a `follower` keeps one in sight; a `wanderer` picks navigable
 destinations around its post; an `idler` stands and reacts.
+
+`skittish` wanders until a reacting contact approaches, walks at run speed to
+the nearest reachable shelter, becomes invisible only after physically entering
+it, holds for `hide_seconds`, then visibly walks back to its pre-retreat point.
+`idle_seconds` also supplies a bounded respite after emerging. The reserved
+`player` role can be used in `reacts_to`; it is perceived with range, floor-band
+and real collision visibility checks and is never a catch target.
 
 Perception is evaluated on a staggered interval per agent (0.2 s), never as a
 global per-frame scan. Sight tests range, FOV, vertical separation and a real
@@ -6332,7 +6348,7 @@ see and the rat can hear the cat running behind it.
 
 ### 33.4 States, catching and animation
 
-The state machine is `idle`, `wander`, `follow`, `flee`, `investigate`,
+The state machine is `idle`, `wander`, `follow`, `flee`, `hide`, `hidden`, `return`, `investigate`,
 `pursue`, `catch`, `scripted` and `caught`. `ai_state` events are emitted on
 every transition (key = the state name) and `caught` fires **once** when a
 predator genuinely reaches a live, visible target on its own floor — never
@@ -6391,6 +6407,11 @@ template, the group, the tags and the sequence are all ordinary data.
 
 ### 33.7 Navigation and AI interfaces
 
+* Navigation stores one walkable Y per X/Z cell. Overlapping floors resolve
+  against the first room and are not a multi-layer AI mesh. The Office places
+  its basement first and bounds its actors to that floor; the player explores
+  all three floors through the separate shaft. Do not place AI on a collapsed
+  upper storey and assume it can navigate there.
 * Stair/ramp walkability is one rule: `nav::neighbour_rule` (step or
   continuous slope) plus the movement invariant
   `NAV_MOVE_SUBSTEP_M * NAV_MAX_SLOPE <= step_height`, pinned by a test. A

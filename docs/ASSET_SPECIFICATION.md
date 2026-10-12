@@ -809,6 +809,16 @@ beside their GLBs. Preserve their existing region frames: stop sign uses the
 only that face uses the emissive material. Globe and switch retain their three-cell 128² layouts; CRT retains
 screen/bezel/body/panel on a 128² 2×2 sheet. The mannequin uses one opaque
 256² light-grey concrete sheet at `entities/mannequin/textures/concrete_grey_01.png`.
+Its `run_arms_forward` maintenance clip reuses the existing run legs and
+forward-pose upper-body channels; mesh, skin, UVs and embedded PNG bytes stay exact.
+
+The Office cockroach uses an opaque 32² native derivative of the committed
+shared white sheet at `entities/cockroach/textures/white_01.png`, embedded
+unchanged by `tools/props/build_cockroach.py`. All UVs sample its centre;
+brown vertex colours and closed geometry supply the detail. The 480-triangle,
+25-joint GLB faces +Z, has a floor origin and includes idle/walk/run loops
+with articulated tripod scurry. This is an ordinary fitted model sheet,
+with clamp sampling, opaque alpha, no emission and no tiling.
 These source files are embedded during export; runtime reads the GLBs.
 
 The domestic remakes in `tools/props/parts/domestic_remade.py` retain those

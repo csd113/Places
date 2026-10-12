@@ -7214,10 +7214,39 @@
       ]
     },
     {
+      "id": "zoo:entity-cockroach:floor",
+      "display_name": "Cockroach",
+      "model": "entity:cockroach",
+      "x": 30.6,
+      "z": 96.1,
+      "size": [
+        0.087,
+        0.019,
+        0.132
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "zoo:home-cabinet_base:floor",
       "display_name": "Base Kitchen Cabinet",
       "model": "home:cabinet_base",
-      "x": 30.6,
+      "x": 36.6,
       "z": 96.1,
       "size": [
         0.6,
@@ -7246,7 +7275,7 @@
       "id": "zoo:outdoor-collision_peg:floor",
       "display_name": "Containment Collider Peg",
       "model": "outdoor:collision_peg",
-      "x": 36.6,
+      "x": 42.6,
       "z": 96.1,
       "size": [
         0.06,
@@ -7275,8 +7304,8 @@
       "id": "zoo:outdoor-concrete_step:floor",
       "display_name": "Concrete Step",
       "model": "outdoor:concrete_step",
-      "x": 42.6,
-      "z": 96.1,
+      "x": 6.6,
+      "z": 102.1,
       "size": [
         1.4,
         0.18,
@@ -7304,7 +7333,7 @@
       "id": "zoo:outdoor-fence_post:floor",
       "display_name": "Wooden Fence Post",
       "model": "outdoor:fence_post",
-      "x": 6.6,
+      "x": 12.6,
       "z": 102.1,
       "size": [
         0.12,
@@ -7333,7 +7362,7 @@
       "id": "zoo:outdoor-grass_patch_large:floor",
       "display_name": "Large Grass Tuft",
       "model": "outdoor:grass_patch_large",
-      "x": 12.6,
+      "x": 18.6,
       "z": 102.1,
       "size": [
         0.95,
@@ -7362,7 +7391,7 @@
       "id": "zoo:outdoor-grass_patch_small:floor",
       "display_name": "Small Grass Tuft",
       "model": "outdoor:grass_patch_small",
-      "x": 18.6,
+      "x": 24.6,
       "z": 102.1,
       "size": [
         0.55,
@@ -7391,7 +7420,7 @@
       "id": "zoo:outdoor-house_01_corner_trim:floor",
       "display_name": "House 1 Cream Clapboard Corner Trim",
       "model": "outdoor:house_01_corner_trim",
-      "x": 24.6,
+      "x": 30.6,
       "z": 102.1,
       "size": [
         0.18,
@@ -7420,7 +7449,7 @@
       "id": "zoo:outdoor-house_01_gable:floor",
       "display_name": "House 1 Cream Clapboard Gable Panel",
       "model": "outdoor:house_01_gable",
-      "x": 30.6,
+      "x": 36.6,
       "z": 102.1,
       "size": [
         3.0,
@@ -7449,7 +7478,7 @@
       "id": "zoo:outdoor-house_01_porch_deck:floor",
       "display_name": "House 1 Cream Clapboard Porch Deck",
       "model": "outdoor:house_01_porch_deck",
-      "x": 36.6,
+      "x": 42.6,
       "z": 102.1,
       "size": [
         3.0,
@@ -7478,8 +7507,8 @@
       "id": "zoo:outdoor-house_01_porch_post:floor",
       "display_name": "House 1 Cream Clapboard Porch Post",
       "model": "outdoor:house_01_porch_post",
-      "x": 42.6,
-      "z": 102.1,
+      "x": 6.6,
+      "z": 108.1,
       "size": [
         0.14,
         2.3,
@@ -7507,7 +7536,7 @@
       "id": "zoo:outdoor-house_01_roof_ridge:floor",
       "display_name": "House 1 Cream Clapboard Roof Ridge",
       "model": "outdoor:house_01_roof_ridge",
-      "x": 6.6,
+      "x": 12.6,
       "z": 108.1,
       "size": [
         3.4,
@@ -7536,7 +7565,7 @@
       "id": "zoo:outdoor-house_01_roof_slope:floor",
       "display_name": "House 1 Cream Clapboard Roof Slope",
       "model": "outdoor:house_01_roof_slope",
-      "x": 12.6,
+      "x": 18.6,
       "z": 108.1,
       "size": [
         3.4,
@@ -7565,7 +7594,7 @@
       "id": "zoo:outdoor-house_01_wall_doorway:floor",
       "display_name": "House 1 Cream Clapboard Wall Doorway",
       "model": "outdoor:house_01_wall_doorway",
-      "x": 18.6,
+      "x": 24.6,
       "z": 108.1,
       "size": [
         3.0,
@@ -7594,7 +7623,7 @@
       "id": "zoo:outdoor-house_01_wall_solid:floor",
       "display_name": "House 1 Cream Clapboard Wall Solid",
       "model": "outdoor:house_01_wall_solid",
-      "x": 24.6,
+      "x": 30.6,
       "z": 108.1,
       "size": [
         3.0,
@@ -7623,7 +7652,7 @@
       "id": "zoo:outdoor-house_01_wall_window:floor",
       "display_name": "House 1 Cream Clapboard Wall Window",
       "model": "outdoor:house_01_wall_window",
-      "x": 30.6,
+      "x": 36.6,
       "z": 108.1,
       "size": [
         3.0,
@@ -7652,7 +7681,7 @@
       "id": "zoo:outdoor-house_02_corner_trim:floor",
       "display_name": "House 2 Blue Clapboard Corner Trim",
       "model": "outdoor:house_02_corner_trim",
-      "x": 36.6,
+      "x": 42.6,
       "z": 108.1,
       "size": [
         0.18,
@@ -7681,8 +7710,8 @@
       "id": "zoo:outdoor-house_02_gable:floor",
       "display_name": "House 2 Blue Clapboard Gable Panel",
       "model": "outdoor:house_02_gable",
-      "x": 42.6,
-      "z": 108.1,
+      "x": 6.6,
+      "z": 114.1,
       "size": [
         3.0,
         1.02,
@@ -7710,7 +7739,7 @@
       "id": "zoo:outdoor-house_02_porch_deck:floor",
       "display_name": "House 2 Blue Clapboard Porch Deck",
       "model": "outdoor:house_02_porch_deck",
-      "x": 6.6,
+      "x": 12.6,
       "z": 114.1,
       "size": [
         3.0,
@@ -7739,7 +7768,7 @@
       "id": "zoo:outdoor-house_02_porch_post:floor",
       "display_name": "House 2 Blue Clapboard Porch Post",
       "model": "outdoor:house_02_porch_post",
-      "x": 12.6,
+      "x": 18.6,
       "z": 114.1,
       "size": [
         0.14,
@@ -7768,7 +7797,7 @@
       "id": "zoo:outdoor-house_02_roof_ridge:floor",
       "display_name": "House 2 Blue Clapboard Roof Ridge",
       "model": "outdoor:house_02_roof_ridge",
-      "x": 18.6,
+      "x": 24.6,
       "z": 114.1,
       "size": [
         3.4,
@@ -7797,7 +7826,7 @@
       "id": "zoo:outdoor-house_02_roof_slope:floor",
       "display_name": "House 2 Blue Clapboard Roof Slope",
       "model": "outdoor:house_02_roof_slope",
-      "x": 24.6,
+      "x": 30.6,
       "z": 114.1,
       "size": [
         3.4,
@@ -7826,7 +7855,7 @@
       "id": "zoo:outdoor-house_02_wall_doorway:floor",
       "display_name": "House 2 Blue Clapboard Wall Doorway",
       "model": "outdoor:house_02_wall_doorway",
-      "x": 30.6,
+      "x": 36.6,
       "z": 114.1,
       "size": [
         3.0,
@@ -7855,7 +7884,7 @@
       "id": "zoo:outdoor-house_02_wall_solid:floor",
       "display_name": "House 2 Blue Clapboard Wall Solid",
       "model": "outdoor:house_02_wall_solid",
-      "x": 36.6,
+      "x": 42.6,
       "z": 114.1,
       "size": [
         3.0,
@@ -7884,8 +7913,8 @@
       "id": "zoo:outdoor-house_02_wall_window:floor",
       "display_name": "House 2 Blue Clapboard Wall Window",
       "model": "outdoor:house_02_wall_window",
-      "x": 42.6,
-      "z": 114.1,
+      "x": 6.6,
+      "z": 120.1,
       "size": [
         3.0,
         2.7,
@@ -7913,7 +7942,7 @@
       "id": "zoo:outdoor-house_03_corner_trim:floor",
       "display_name": "House 3 Ochre Clapboard Corner Trim",
       "model": "outdoor:house_03_corner_trim",
-      "x": 6.6,
+      "x": 12.6,
       "z": 120.1,
       "size": [
         0.18,
@@ -7942,7 +7971,7 @@
       "id": "zoo:outdoor-house_03_gable:floor",
       "display_name": "House 3 Ochre Clapboard Gable Panel",
       "model": "outdoor:house_03_gable",
-      "x": 12.6,
+      "x": 18.6,
       "z": 120.1,
       "size": [
         3.0,
@@ -7971,7 +8000,7 @@
       "id": "zoo:outdoor-house_03_porch_deck:floor",
       "display_name": "House 3 Ochre Clapboard Porch Deck",
       "model": "outdoor:house_03_porch_deck",
-      "x": 18.6,
+      "x": 24.6,
       "z": 120.1,
       "size": [
         3.0,
@@ -8000,7 +8029,7 @@
       "id": "zoo:outdoor-house_03_porch_post:floor",
       "display_name": "House 3 Ochre Clapboard Porch Post",
       "model": "outdoor:house_03_porch_post",
-      "x": 24.6,
+      "x": 30.6,
       "z": 120.1,
       "size": [
         0.14,
@@ -8029,7 +8058,7 @@
       "id": "zoo:outdoor-house_03_roof_ridge:floor",
       "display_name": "House 3 Ochre Clapboard Roof Ridge",
       "model": "outdoor:house_03_roof_ridge",
-      "x": 30.6,
+      "x": 36.6,
       "z": 120.1,
       "size": [
         3.4,
@@ -8058,7 +8087,7 @@
       "id": "zoo:outdoor-house_03_roof_slope:floor",
       "display_name": "House 3 Ochre Clapboard Roof Slope",
       "model": "outdoor:house_03_roof_slope",
-      "x": 36.6,
+      "x": 42.6,
       "z": 120.1,
       "size": [
         3.4,
@@ -8087,8 +8116,8 @@
       "id": "zoo:outdoor-house_03_wall_doorway:floor",
       "display_name": "House 3 Ochre Clapboard Wall Doorway",
       "model": "outdoor:house_03_wall_doorway",
-      "x": 42.6,
-      "z": 120.1,
+      "x": 6.6,
+      "z": 126.1,
       "size": [
         3.0,
         2.7,
@@ -8116,7 +8145,7 @@
       "id": "zoo:outdoor-house_03_wall_solid:floor",
       "display_name": "House 3 Ochre Clapboard Wall Solid",
       "model": "outdoor:house_03_wall_solid",
-      "x": 6.6,
+      "x": 12.6,
       "z": 126.1,
       "size": [
         3.0,
@@ -8145,7 +8174,7 @@
       "id": "zoo:outdoor-house_03_wall_window:floor",
       "display_name": "House 3 Ochre Clapboard Wall Window",
       "model": "outdoor:house_03_wall_window",
-      "x": 12.6,
+      "x": 18.6,
       "z": 126.1,
       "size": [
         3.0,
@@ -8174,7 +8203,7 @@
       "id": "zoo:outdoor-house_04_corner_trim:floor",
       "display_name": "House 4 Green Board and Batten Corner Trim",
       "model": "outdoor:house_04_corner_trim",
-      "x": 18.6,
+      "x": 24.6,
       "z": 126.1,
       "size": [
         0.18,
@@ -8203,7 +8232,7 @@
       "id": "zoo:outdoor-house_04_gable:floor",
       "display_name": "House 4 Green Board and Batten Gable Panel",
       "model": "outdoor:house_04_gable",
-      "x": 24.6,
+      "x": 30.6,
       "z": 126.1,
       "size": [
         3.0,
@@ -8232,7 +8261,7 @@
       "id": "zoo:outdoor-house_04_porch_deck:floor",
       "display_name": "House 4 Green Board and Batten Porch Deck",
       "model": "outdoor:house_04_porch_deck",
-      "x": 30.6,
+      "x": 36.6,
       "z": 126.1,
       "size": [
         3.0,
@@ -8261,7 +8290,7 @@
       "id": "zoo:outdoor-house_04_porch_post:floor",
       "display_name": "House 4 Green Board and Batten Porch Post",
       "model": "outdoor:house_04_porch_post",
-      "x": 36.6,
+      "x": 42.6,
       "z": 126.1,
       "size": [
         0.14,
@@ -8290,8 +8319,8 @@
       "id": "zoo:outdoor-house_04_roof_ridge:floor",
       "display_name": "House 4 Green Board and Batten Roof Ridge",
       "model": "outdoor:house_04_roof_ridge",
-      "x": 42.6,
-      "z": 126.1,
+      "x": 6.6,
+      "z": 132.1,
       "size": [
         3.4,
         0.22,
@@ -8319,7 +8348,7 @@
       "id": "zoo:outdoor-house_04_roof_slope:floor",
       "display_name": "House 4 Green Board and Batten Roof Slope",
       "model": "outdoor:house_04_roof_slope",
-      "x": 6.6,
+      "x": 12.6,
       "z": 132.1,
       "size": [
         3.4,
@@ -8348,7 +8377,7 @@
       "id": "zoo:outdoor-house_04_wall_doorway:floor",
       "display_name": "House 4 Green Board and Batten Wall Doorway",
       "model": "outdoor:house_04_wall_doorway",
-      "x": 12.6,
+      "x": 18.6,
       "z": 132.1,
       "size": [
         3.0,
@@ -8377,7 +8406,7 @@
       "id": "zoo:outdoor-house_04_wall_solid:floor",
       "display_name": "House 4 Green Board and Batten Wall Solid",
       "model": "outdoor:house_04_wall_solid",
-      "x": 18.6,
+      "x": 24.6,
       "z": 132.1,
       "size": [
         3.0,
@@ -8406,7 +8435,7 @@
       "id": "zoo:outdoor-house_04_wall_window:floor",
       "display_name": "House 4 Green Board and Batten Wall Window",
       "model": "outdoor:house_04_wall_window",
-      "x": 24.6,
+      "x": 30.6,
       "z": 132.1,
       "size": [
         3.0,
@@ -8435,7 +8464,7 @@
       "id": "zoo:outdoor-house_05_corner_trim:floor",
       "display_name": "House 5 White Shiplap Corner Trim",
       "model": "outdoor:house_05_corner_trim",
-      "x": 30.6,
+      "x": 36.6,
       "z": 132.1,
       "size": [
         0.18,
@@ -8464,7 +8493,7 @@
       "id": "zoo:outdoor-house_05_gable:floor",
       "display_name": "House 5 White Shiplap Gable Panel",
       "model": "outdoor:house_05_gable",
-      "x": 36.6,
+      "x": 42.6,
       "z": 132.1,
       "size": [
         3.0,
@@ -8493,8 +8522,8 @@
       "id": "zoo:outdoor-house_05_porch_deck:floor",
       "display_name": "House 5 White Shiplap Porch Deck",
       "model": "outdoor:house_05_porch_deck",
-      "x": 42.6,
-      "z": 132.1,
+      "x": 6.6,
+      "z": 138.1,
       "size": [
         3.0,
         0.24,
@@ -8522,7 +8551,7 @@
       "id": "zoo:outdoor-house_05_porch_post:floor",
       "display_name": "House 5 White Shiplap Porch Post",
       "model": "outdoor:house_05_porch_post",
-      "x": 6.6,
+      "x": 12.6,
       "z": 138.1,
       "size": [
         0.14,
@@ -8551,7 +8580,7 @@
       "id": "zoo:outdoor-house_05_roof_ridge:floor",
       "display_name": "House 5 White Shiplap Roof Ridge",
       "model": "outdoor:house_05_roof_ridge",
-      "x": 12.6,
+      "x": 18.6,
       "z": 138.1,
       "size": [
         3.4,
@@ -8580,7 +8609,7 @@
       "id": "zoo:outdoor-house_05_roof_slope:floor",
       "display_name": "House 5 White Shiplap Roof Slope",
       "model": "outdoor:house_05_roof_slope",
-      "x": 18.6,
+      "x": 24.6,
       "z": 138.1,
       "size": [
         3.4,
@@ -8609,7 +8638,7 @@
       "id": "zoo:outdoor-house_05_wall_doorway:floor",
       "display_name": "House 5 White Shiplap Wall Doorway",
       "model": "outdoor:house_05_wall_doorway",
-      "x": 24.6,
+      "x": 30.6,
       "z": 138.1,
       "size": [
         3.0,
@@ -8638,7 +8667,7 @@
       "id": "zoo:outdoor-house_05_wall_solid:floor",
       "display_name": "House 5 White Shiplap Wall Solid",
       "model": "outdoor:house_05_wall_solid",
-      "x": 30.6,
+      "x": 36.6,
       "z": 138.1,
       "size": [
         3.0,
@@ -8667,7 +8696,7 @@
       "id": "zoo:outdoor-house_05_wall_window:floor",
       "display_name": "House 5 White Shiplap Wall Window",
       "model": "outdoor:house_05_wall_window",
-      "x": 36.6,
+      "x": 42.6,
       "z": 138.1,
       "size": [
         3.0,
@@ -8696,8 +8725,8 @@
       "id": "zoo:outdoor-house_corner_trim:floor",
       "display_name": "House Corner Board",
       "model": "outdoor:house_corner_trim",
-      "x": 42.6,
-      "z": 138.1,
+      "x": 6.6,
+      "z": 144.1,
       "size": [
         0.18,
         2.7,
@@ -8725,7 +8754,7 @@
       "id": "zoo:outdoor-house_roof_ridge:floor",
       "display_name": "House Roof Ridge Cap",
       "model": "outdoor:house_roof_ridge",
-      "x": 6.6,
+      "x": 12.6,
       "z": 144.1,
       "size": [
         3.4,
@@ -8754,7 +8783,7 @@
       "id": "zoo:outdoor-house_roof_slope:floor",
       "display_name": "House Roof Slope",
       "model": "outdoor:house_roof_slope",
-      "x": 12.6,
+      "x": 18.6,
       "z": 144.1,
       "size": [
         3.4,
@@ -8783,7 +8812,7 @@
       "id": "zoo:outdoor-house_wall_doorway:floor",
       "display_name": "House Wall Panel, Doorway",
       "model": "outdoor:house_wall_doorway",
-      "x": 18.6,
+      "x": 24.6,
       "z": 144.1,
       "size": [
         3.0,
@@ -8812,7 +8841,7 @@
       "id": "zoo:outdoor-house_wall_solid:floor",
       "display_name": "House Wall Panel",
       "model": "outdoor:house_wall_solid",
-      "x": 24.6,
+      "x": 30.6,
       "z": 144.1,
       "size": [
         3.0,
@@ -8841,7 +8870,7 @@
       "id": "zoo:outdoor-house_wall_window:floor",
       "display_name": "House Wall Panel, Window",
       "model": "outdoor:house_wall_window",
-      "x": 30.6,
+      "x": 36.6,
       "z": 144.1,
       "size": [
         3.0,
@@ -8870,7 +8899,7 @@
       "id": "zoo:outdoor-lamp_fence:floor",
       "display_name": "Fence-Post Lamp",
       "model": "outdoor:lamp_fence",
-      "x": 36.6,
+      "x": 42.6,
       "z": 144.1,
       "size": [
         0.32,
@@ -8899,8 +8928,8 @@
       "id": "zoo:outdoor-lamp_stand:floor",
       "display_name": "Standing Exterior Lamp",
       "model": "outdoor:lamp_stand",
-      "x": 42.6,
-      "z": 144.1,
+      "x": 6.6,
+      "z": 150.1,
       "size": [
         0.34,
         1.05,
@@ -8928,7 +8957,7 @@
       "id": "zoo:outdoor-lamp_wall:floor",
       "display_name": "Hanging Eave Lamp",
       "model": "outdoor:lamp_wall",
-      "x": 6.6,
+      "x": 12.6,
       "z": 150.1,
       "size": [
         0.3,
@@ -8957,7 +8986,7 @@
       "id": "zoo:outdoor-porch_post:floor",
       "display_name": "Porch Post",
       "model": "outdoor:porch_post",
-      "x": 12.6,
+      "x": 18.6,
       "z": 150.1,
       "size": [
         0.12,
@@ -8986,7 +9015,7 @@
       "id": "zoo:outdoor-porch_railing_corner:floor",
       "display_name": "Porch Railing Corner",
       "model": "outdoor:porch_railing_corner",
-      "x": 18.6,
+      "x": 24.6,
       "z": 150.1,
       "size": [
         0.3,
@@ -9015,7 +9044,7 @@
       "id": "zoo:outdoor-porch_railing_end:floor",
       "display_name": "Porch Railing End",
       "model": "outdoor:porch_railing_end",
-      "x": 24.6,
+      "x": 30.6,
       "z": 150.1,
       "size": [
         0.3,
@@ -9044,7 +9073,7 @@
       "id": "zoo:outdoor-porch_railing_straight:floor",
       "display_name": "Porch Railing Straight",
       "model": "outdoor:porch_railing_straight",
-      "x": 30.6,
+      "x": 36.6,
       "z": 150.1,
       "size": [
         1.8,
@@ -9073,7 +9102,7 @@
       "id": "zoo:outdoor-showcase_boulder:floor",
       "display_name": "Showcase Boulder",
       "model": "outdoor:showcase_boulder",
-      "x": 36.6,
+      "x": 42.6,
       "z": 150.1,
       "size": [
         1.4,
@@ -9102,8 +9131,8 @@
       "id": "zoo:outdoor-showcase_campfire:floor",
       "display_name": "Showcase Campfire",
       "model": "outdoor:showcase_campfire",
-      "x": 42.6,
-      "z": 150.1,
+      "x": 6.6,
+      "z": 156.1,
       "size": [
         1.3,
         1.25,
@@ -9131,7 +9160,7 @@
       "id": "zoo:outdoor-showcase_curb:floor",
       "display_name": "Showcase Curb",
       "model": "outdoor:showcase_curb",
-      "x": 6.6,
+      "x": 12.6,
       "z": 156.1,
       "size": [
         0.24,
@@ -9161,7 +9190,7 @@
       "id": "zoo:outdoor-showcase_curb_ramp:floor",
       "display_name": "Showcase Curb Ramp",
       "model": "outdoor:showcase_curb_ramp",
-      "x": 12.6,
+      "x": 18.6,
       "z": 156.1,
       "size": [
         1.2,
@@ -9190,7 +9219,7 @@
       "id": "zoo:outdoor-showcase_road_dash:floor",
       "display_name": "Showcase Road Dash",
       "model": "outdoor:showcase_road_dash",
-      "x": 18.6,
+      "x": 24.6,
       "z": 156.1,
       "size": [
         0.12,
@@ -9219,7 +9248,7 @@
       "id": "zoo:outdoor-showcase_road_gate:floor",
       "display_name": "Showcase Road Gate",
       "model": "outdoor:showcase_road_gate",
-      "x": 24.6,
+      "x": 30.6,
       "z": 156.1,
       "size": [
         8.0,
@@ -9249,7 +9278,7 @@
       "id": "zoo:outdoor-showcase_road_straight:floor",
       "display_name": "Showcase Road Straight",
       "model": "outdoor:showcase_road_straight",
-      "x": 30.6,
+      "x": 36.6,
       "z": 156.1,
       "size": [
         8.0,
@@ -9279,7 +9308,7 @@
       "id": "zoo:outdoor-showcase_road_unmarked:floor",
       "display_name": "Showcase Road Unmarked",
       "model": "outdoor:showcase_road_unmarked",
-      "x": 36.6,
+      "x": 42.6,
       "z": 156.1,
       "size": [
         8.0,
@@ -9309,8 +9338,8 @@
       "id": "zoo:outdoor-showcase_rock_face:floor",
       "display_name": "Showcase Rock Face",
       "model": "outdoor:showcase_rock_face",
-      "x": 42.6,
-      "z": 156.1,
+      "x": 6.6,
+      "z": 162.1,
       "size": [
         4.0,
         5.0,
@@ -9339,7 +9368,7 @@
       "id": "zoo:outdoor-showcase_rock_face_variant:floor",
       "display_name": "Showcase Rock Face Variant",
       "model": "outdoor:showcase_rock_face_variant",
-      "x": 6.6,
+      "x": 12.6,
       "z": 162.1,
       "size": [
         3.4,
@@ -9369,7 +9398,7 @@
       "id": "zoo:outdoor-showcase_sidewalk:floor",
       "display_name": "Showcase Sidewalk",
       "model": "outdoor:showcase_sidewalk",
-      "x": 12.6,
+      "x": 18.6,
       "z": 162.1,
       "size": [
         2.4,
@@ -9399,7 +9428,7 @@
       "id": "zoo:outdoor-showcase_sidewalk_corner:floor",
       "display_name": "Showcase Sidewalk Corner",
       "model": "outdoor:showcase_sidewalk_corner",
-      "x": 18.6,
+      "x": 24.6,
       "z": 162.1,
       "size": [
         2.4,
@@ -9428,7 +9457,7 @@
       "id": "zoo:outdoor-showcase_sidewalk_transition:floor",
       "display_name": "Showcase Sidewalk Transition",
       "model": "outdoor:showcase_sidewalk_transition",
-      "x": 24.6,
+      "x": 30.6,
       "z": 162.1,
       "size": [
         2.4,
@@ -9457,7 +9486,7 @@
       "id": "zoo:outdoor-showcase_stump_seat:floor",
       "display_name": "Showcase Stump Seat",
       "model": "outdoor:showcase_stump_seat",
-      "x": 30.6,
+      "x": 36.6,
       "z": 162.1,
       "size": [
         0.7,
@@ -9486,7 +9515,7 @@
       "id": "zoo:outdoor-streetlight:floor",
       "display_name": "Streetlight",
       "model": "outdoor:streetlight",
-      "x": 36.6,
+      "x": 42.6,
       "z": 162.1,
       "size": [
         0.5,
@@ -9515,8 +9544,8 @@
       "id": "zoo:outdoor-tree_01:floor",
       "display_name": "Leafy Tree",
       "model": "outdoor:tree_01",
-      "x": 42.6,
-      "z": 162.1,
+      "x": 6.6,
+      "z": 168.1,
       "size": [
         4.6,
         6.4,
@@ -9544,7 +9573,7 @@
       "id": "zoo:outdoor-tree_02:floor",
       "display_name": "Birch Tree",
       "model": "outdoor:tree_02",
-      "x": 6.6,
+      "x": 12.6,
       "z": 168.1,
       "size": [
         2.0,
@@ -9573,7 +9602,7 @@
       "id": "zoo:outdoor-tree_03:floor",
       "display_name": "Evergreen Tree",
       "model": "outdoor:tree_03",
-      "x": 12.6,
+      "x": 18.6,
       "z": 168.1,
       "size": [
         3.2,
@@ -9602,7 +9631,7 @@
       "id": "zoo:pumpkin-skeleton:floor",
       "display_name": "Pumpkin-Head Skeleton",
       "model": "pumpkin-skeleton",
-      "x": 18.6,
+      "x": 24.6,
       "z": 168.1,
       "size": [
         0.442,
@@ -9631,7 +9660,7 @@
       "id": "zoo:sheet-ghost:floor",
       "display_name": "Sheet Ghost",
       "model": "sheet-ghost",
-      "x": 24.6,
+      "x": 30.6,
       "z": 168.1,
       "size": [
         0.994,
@@ -9660,7 +9689,7 @@
       "id": "zoo:sheet-ghost-cat:floor",
       "display_name": "Sheet Ghost Cat",
       "model": "sheet-ghost-cat",
-      "x": 30.6,
+      "x": 36.6,
       "z": 168.1,
       "size": [
         0.226,
@@ -9689,7 +9718,7 @@
       "id": "zoo:winter-boulder_snow:floor",
       "display_name": "Boulder snow",
       "model": "winter:boulder_snow",
-      "x": 36.6,
+      "x": 42.6,
       "z": 168.1,
       "size": [
         1.4,
@@ -9718,8 +9747,8 @@
       "id": "zoo:winter-drift_fence:floor",
       "display_name": "Drift fence",
       "model": "winter:drift_fence",
-      "x": 42.6,
-      "z": 168.1,
+      "x": 6.6,
+      "z": 174.1,
       "size": [
         1.8,
         0.38,
@@ -9747,7 +9776,7 @@
       "id": "zoo:winter-drift_large:floor",
       "display_name": "Drift large",
       "model": "winter:drift_large",
-      "x": 6.6,
+      "x": 12.6,
       "z": 174.1,
       "size": [
         4.4,
@@ -9776,7 +9805,7 @@
       "id": "zoo:winter-drift_medium:floor",
       "display_name": "Drift medium",
       "model": "winter:drift_medium",
-      "x": 12.6,
+      "x": 18.6,
       "z": 174.1,
       "size": [
         2.4,
@@ -9805,7 +9834,7 @@
       "id": "zoo:winter-drift_small:floor",
       "display_name": "Drift small",
       "model": "winter:drift_small",
-      "x": 18.6,
+      "x": 24.6,
       "z": 174.1,
       "size": [
         1.2,
@@ -9834,7 +9863,7 @@
       "id": "zoo:winter-drift_wall:floor",
       "display_name": "Drift wall",
       "model": "winter:drift_wall",
-      "x": 24.6,
+      "x": 30.6,
       "z": 174.1,
       "size": [
         3.0,
@@ -9863,7 +9892,7 @@
       "id": "zoo:winter-fence_post_snow:floor",
       "display_name": "Fence post snow",
       "model": "winter:fence_post_snow",
-      "x": 30.6,
+      "x": 36.6,
       "z": 174.1,
       "size": [
         0.16,
@@ -9892,7 +9921,7 @@
       "id": "zoo:winter-mound_irregular:floor",
       "display_name": "Mound irregular",
       "model": "winter:mound_irregular",
-      "x": 36.6,
+      "x": 42.6,
       "z": 174.1,
       "size": [
         2.1,
@@ -9921,8 +9950,8 @@
       "id": "zoo:winter-railing_snow_corner:floor",
       "display_name": "Railing snow corner",
       "model": "winter:railing_snow_corner",
-      "x": 42.6,
-      "z": 174.1,
+      "x": 6.6,
+      "z": 180.1,
       "size": [
         0.3,
         1.125,
@@ -9950,7 +9979,7 @@
       "id": "zoo:winter-railing_snow_end:floor",
       "display_name": "Railing snow end",
       "model": "winter:railing_snow_end",
-      "x": 6.6,
+      "x": 12.6,
       "z": 180.1,
       "size": [
         0.3,
@@ -9979,7 +10008,7 @@
       "id": "zoo:winter-railing_snow_straight:floor",
       "display_name": "Railing snow straight",
       "model": "winter:railing_snow_straight",
-      "x": 12.6,
+      "x": 18.6,
       "z": 180.1,
       "size": [
         1.8,
@@ -10008,7 +10037,7 @@
       "id": "zoo:winter-rock_face_snow:floor",
       "display_name": "Rock face snow",
       "model": "winter:rock_face_snow",
-      "x": 18.6,
+      "x": 24.6,
       "z": 180.1,
       "size": [
         4.0,
@@ -10037,7 +10066,7 @@
       "id": "zoo:winter-tree_snow_01:floor",
       "display_name": "Tree snow 01",
       "model": "winter:tree_snow_01",
-      "x": 24.6,
+      "x": 30.6,
       "z": 180.1,
       "size": [
         3.2,
@@ -10066,7 +10095,7 @@
       "id": "zoo:winter-tree_snow_02:floor",
       "display_name": "Tree snow 02",
       "model": "winter:tree_snow_02",
-      "x": 30.6,
+      "x": 36.6,
       "z": 180.1,
       "size": [
         3.2,
@@ -10095,7 +10124,7 @@
       "id": "zoo:mannequin:pose",
       "display_name": "Concrete Mannequin",
       "model": "mannequin",
-      "x": 36.6,
+      "x": 42.6,
       "z": 180.1,
       "size": [
         0.42,
@@ -10124,8 +10153,8 @@
       "id": "zoo:skeleton:pose",
       "display_name": "Skeleton",
       "model": "skeleton",
-      "x": 42.6,
-      "z": 180.1,
+      "x": 6.6,
+      "z": 186.1,
       "size": [
         0.427,
         1.72,
@@ -10153,7 +10182,7 @@
       "id": "zoo:mannequin:stand",
       "display_name": "Concrete Mannequin",
       "model": "mannequin",
-      "x": 6.6,
+      "x": 12.6,
       "z": 186.1,
       "size": [
         0.42,
@@ -10193,7 +10222,7 @@
       "id": "zoo:mannequin:arms-up",
       "display_name": "Concrete Mannequin",
       "model": "mannequin",
-      "x": 12.6,
+      "x": 18.6,
       "z": 186.1,
       "size": [
         0.42,
@@ -10233,7 +10262,7 @@
       "id": "zoo:mannequin:arms-forward",
       "display_name": "Concrete Mannequin",
       "model": "mannequin",
-      "x": 18.6,
+      "x": 24.6,
       "z": 186.1,
       "size": [
         0.42,
@@ -10273,7 +10302,7 @@
       "id": "zoo:skeleton:stand",
       "display_name": "Skeleton",
       "model": "skeleton",
-      "x": 24.6,
+      "x": 30.6,
       "z": 186.1,
       "size": [
         0.427,
@@ -10313,7 +10342,7 @@
       "id": "zoo:skeleton:floor-sit",
       "display_name": "Skeleton",
       "model": "skeleton",
-      "x": 30.6,
+      "x": 36.6,
       "z": 186.1,
       "size": [
         0.427,
@@ -10353,7 +10382,7 @@
       "id": "zoo:skeleton:chair-sit",
       "display_name": "Skeleton",
       "model": "skeleton",
-      "x": 36.6,
+      "x": 42.6,
       "z": 186.105,
       "size": [
         0.427,
@@ -12037,7 +12066,7 @@
       "id": "zoo:core-chair:skeleton-seat",
       "display_name": "Chair",
       "model": "core:chair",
-      "x": 36.6,
+      "x": 42.6,
       "z": 186.102,
       "size": [
         0.5,

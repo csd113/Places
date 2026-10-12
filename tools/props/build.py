@@ -267,7 +267,8 @@ def main(argv: List[str] | None = None) -> int:
         missing = [entry["id"] for entry in buildable if entry["id"] not in registry
                    and entry["id"] not in maintained
                    and not (entry["id"] in {"mannequin", "rat", "skeleton",
-                                            "beach:seagull", "beach:crab", "beach:fish"}
+                                            "beach:seagull", "beach:crab", "beach:fish",
+                                            "entity:cockroach"}
                             and os.path.isfile(model_path(entry)))]
         if missing:
             raise SystemExit("no builder or shipped model for: " + ", ".join(missing))

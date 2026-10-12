@@ -107,6 +107,20 @@ struct SwitchableLight {
     light_index: usize,
     /// The material slot of its luminous face, for the on/off emission write.
     material_slot: usize,
+    /// Static cannot select prepared illumination; opt-in fixtures retain
+    /// the state their vertex-lit surfaces were baked with.
+    hold_in_static: bool,
+    baked_enabled: bool,
+}
+
+impl SwitchableLight {
+    const fn enabled_for_mode(self, requested: bool, prepared_illumination: bool) -> bool {
+        if self.hold_in_static && !prepared_illumination {
+            self.baked_enabled
+        } else {
+            requested
+        }
+    }
 }
 
 /// The dynamic object handles one door draws.
@@ -1512,6 +1526,8 @@ impl WgpuRenderer {
                 fixture_index,
                 light_index,
                 material_slot,
+                hold_in_static: fixture.hold_in_static,
+                baked_enabled: fixture.enabled,
             });
         }
         if let Some(face_materials) = self.world_materials.as_mut() {
@@ -1547,9 +1563,11 @@ impl WgpuRenderer {
             else {
                 continue;
             };
+            let effective_enabled =
+                binding.enabled_for_mode(*enabled, self.lightmaps.is_resident());
             // 1. The material uniform: the face's emission scale.
             if let Some(materials) = self.world_materials.as_mut() {
-                let scale = if *enabled { 1.0 } else { 0.0 };
+                let scale = if effective_enabled { 1.0 } else { 0.0 };
                 let _emission_scale_changed =
                     materials.set_emission_scale(&self.queue, binding.material_slot, scale);
             }
@@ -1557,7 +1575,7 @@ impl WgpuRenderer {
             let Some(lighting) = self.dynamic_lighting.as_mut() else {
                 continue;
             };
-            changed |= lighting.set_light_enabled(binding.light_index, *enabled);
+            changed |= lighting.set_light_enabled(binding.light_index, effective_enabled);
         }
         // The prepared CPU pages and the GPU layers never change; the static
         // environment uniform carries the live mask every static world, prop
@@ -5391,6 +5409,42 @@ mod tests {
 
     use super::*;
     use crate::render::ProbeFaceReadback;
+
+    /// No world bake or GPU is needed: this guards the fallback that prevents
+    /// animated faces disagreeing with immutable Static illumination, while
+    /// preserving historical fixtures and Full switching in both directions.
+    #[test]
+    fn automated_fixture_fallback_holds_the_baked_state_only_without_prepared_illumination() {
+        let mut binding = SwitchableLight {
+            fixture_index: 0,
+            light_index: 0,
+            material_slot: 0,
+            hold_in_static: true,
+            baked_enabled: true,
+        };
+        assert!(
+            binding.enabled_for_mode(false, false),
+            "Static retains baked-on light and face"
+        );
+        assert!(
+            !binding.enabled_for_mode(false, true),
+            "Full selects the requested off layer"
+        );
+        binding.baked_enabled = false;
+        assert!(
+            !binding.enabled_for_mode(true, false),
+            "Static also retains a baked-off fixture"
+        );
+        assert!(
+            binding.enabled_for_mode(true, true),
+            "Full selects the requested on layer"
+        );
+        binding.hold_in_static = false;
+        assert!(
+            binding.enabled_for_mode(true, false),
+            "ordinary fixtures keep their historical Static face switch"
+        );
+    }
 
     fn graphics_config(
         quality: QualityLevel,

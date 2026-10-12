@@ -8188,9 +8188,10 @@ fn the_shipped_mannequin_selects_its_poses_through_cues() {
             "pose_arms_up",
             "pose_arms_forward",
             "walk",
-            "run"
+            "run",
+            "run_arms_forward"
         ],
-        "the shipped mannequin carries three pose holds and two locomotion clips"
+        "the shipped mannequin carries three pose holds and three locomotion clips"
     );
     for animation in &model.animations {
         assert!(animation.looped, "every shipped clip loops");

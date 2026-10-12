@@ -24,18 +24,29 @@ The build is pure stdlib, deterministic and single-process. After writing it
     p_bind``) to prove the bind pose is grounded, that the arm poses actually
     reach, and that no vertex is flung across the room by a broken pivot.
 
-This is an offline geometric check, not engine playback.
+The committed model also carries later geometry refinements and walk/run
+clips that this original constructor does not reproduce. Preserve those with
+the maintenance export, which adds a running gait with the forward arm hold:
 
-    python3 tools/entities/build_mannequin.py
+    python3 tools/entities/build_mannequin.py --add-run-arms-forward
+
+That export reuses the committed run's pelvis and leg channels and the actual
+forward pose's upper-body channels; no geometry, skin, UV or PNG is rewritten.
+This is an offline geometric check, not engine playback. Review fresh legacy
+constructor exports in scratch rather than replacing the committed model:
+
+    python3 tools/entities/build_mannequin.py --out /tmp/mannequin-constructor.glb
 """
 
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import math
 import struct
 import sys
+import tempfile
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
@@ -673,6 +684,101 @@ def read_accessor(document: dict, binary: bytes, index: int) -> List[tuple]:
     ]
 
 
+def add_run_arms_forward(source_path: Path, out_path: Path) -> dict:
+    """Compose existing motion samplers without changing any binary payload.
+
+    Upper-body holds use the written pose rather than the constructor recipe,
+    so future refinements of the committed rig and pose remain authoritative.
+    Replacing an existing derived clip in place makes re-export idempotent.
+    """
+    document, binary = load_glb(source_path)
+    animations = document.get("animations", [])
+    by_name = {animation.get("name"): animation for animation in animations}
+    if len(by_name) != len(animations):
+        raise SystemExit("mannequin source has duplicate animation names")
+    if "run" not in by_name or "pose_arms_forward" not in by_name:
+        raise SystemExit("maintenance export requires the committed run and pose_arms_forward clips")
+
+    name = "run_arms_forward"
+    run = by_name["run"]
+    forward = by_name["pose_arms_forward"]
+    lower_body = {"root", "pelvis"}
+    lower_body.update(f"{part}_{side}" for part in ("thigh", "shin", "foot", "toe") for side in ("l", "r"))
+    forward_samplers = {
+        (channel["target"]["node"], channel["target"]["path"]): forward["samplers"][channel["sampler"]]
+        for channel in forward["channels"]
+    }
+    derived = copy.deepcopy(run)
+    derived["name"] = name
+    held_channels = 0
+    for channel in derived["channels"]:
+        target = channel["target"]
+        if document["nodes"][target["node"]]["name"] in lower_body:
+            continue
+        key = (target["node"], target["path"])
+        if key not in forward_samplers:
+            raise SystemExit(f"forward pose has no channel for {key}")
+        sampler = forward_samplers[key]
+        if read_accessor(document, binary, sampler["input"]) != [(0.0,)]:
+            raise SystemExit("forward pose must be a single-key hold at t=0")
+        derived["samplers"][channel["sampler"]] = copy.deepcopy(sampler)
+        held_channels += 1
+
+    marker = document.get("asset", {}).get("extras", {}).get("places_entity_clips", {})
+    metadata = marker.get("clips", [])
+    run_metadata = next((entry for entry in metadata if entry.get("name") == "run"), None)
+    if run_metadata is None:
+        raise SystemExit("run clip has no places_entity_clips metadata")
+    speed = run_metadata.get("reference_speed_mps")
+    if (not run_metadata.get("loop") or run_metadata.get("kind") != "run"
+            or not isinstance(speed, (int, float)) or not math.isfinite(speed) or speed <= 0.0):
+        raise SystemExit("run clip must declare a looping gait and positive finite reference speed")
+    derived_metadata = copy.deepcopy(run_metadata)
+    derived_metadata.update(name=name, channels=len(derived["channels"]))
+
+    for entries, replacement in ((animations, derived), (metadata, derived_metadata)):
+        for index, entry in enumerate(entries):
+            if entry.get("name") == name:
+                entries[index] = replacement
+                break
+        else:
+            entries.append(replacement)
+
+    # All samplers reference existing accessors; keep the entire BIN chunk,
+    # including embedded PNG compression/metadata and its original padding.
+    json_bytes = json.dumps(document, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    json_bytes += b" " * (-len(json_bytes) % 4)
+    total = 12 + 8 + len(json_bytes) + 8 + len(binary)
+    glb = (struct.pack("<III", 0x46546C67, 2, total)
+           + struct.pack("<II", len(json_bytes), 0x4E4F534A) + json_bytes
+           + struct.pack("<II", len(binary), 0x004E4942) + binary)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_bytes(glb)
+    return {
+        "path": str(out_path),
+        "source": str(source_path),
+        "bytes": len(glb),
+        "binary_bytes_preserved": len(binary),
+        "held_upper_body_channels": held_channels,
+        "running_lower_body_channels": len(derived["channels"]) - held_channels,
+        "clip": derived_metadata,
+    }
+
+
+def check_run_arms_forward(source_path: Path) -> dict:
+    """Regenerate into disposable storage and compare without modifying source."""
+    original = source_path.read_bytes()
+    with tempfile.TemporaryDirectory(prefix="places-mannequin-clip-") as scratch:
+        expected_path = Path(scratch) / "mannequin.glb"
+        add_run_arms_forward(source_path, expected_path)
+        matches = original == expected_path.read_bytes()
+    checked = check_model(source_path)
+    problems = list(checked["problems"])
+    if not matches:
+        problems.append("run_arms_forward is missing or stale; regenerate with --add-run-arms-forward")
+    return {"path": str(source_path), "matches_derived_clip": matches, "problems": problems}
+
+
 def _slerp(a: Sequence[float], b: Sequence[float], t: float) -> List[float]:
     dot = sum(x * y for x, y in zip(a, b))
     if dot < 0.0:
@@ -924,12 +1030,38 @@ def print_stats(stats: dict, checked: dict, verification: dict) -> None:
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Build the grey concrete mannequin entity")
     parser.add_argument("--out", default=DEFAULT_OUT, help="output GLB path (relative paths resolve in the repository root)")
+    maintenance = parser.add_mutually_exclusive_group()
+    maintenance.add_argument("--add-run-arms-forward", action="store_true", help="preserve the current model and derive the running arms-forward clip")
+    maintenance.add_argument("--check-run-arms-forward", action="store_true", help="read-only regeneration check of the running arms-forward clip")
+    parser.add_argument("--source", help="maintenance source GLB (defaults to the committed model)")
     parser.add_argument("--json", action="store_true", help="also print the stats as JSON")
     args = parser.parse_args(argv)
 
     out_path = Path(args.out)
     if not out_path.is_absolute():
         out_path = (REPO_ROOT / out_path).resolve()
+
+    if args.add_run_arms_forward or args.check_run_arms_forward:
+        source_path = Path(args.source or DEFAULT_OUT)
+        if not source_path.is_absolute():
+            source_path = (REPO_ROOT / source_path).resolve()
+        if args.check_run_arms_forward:
+            report = check_run_arms_forward(source_path)
+            if args.json:
+                print(json.dumps(report, indent=2, sort_keys=True))
+            if report["problems"]:
+                for problem in report["problems"]:
+                    print(f"mannequin clip check: {problem}", file=sys.stderr)
+                return 1
+            print("mannequin run_arms_forward regeneration check: OK (read-only)")
+            return 0
+        stats = add_run_arms_forward(source_path, out_path)
+        checked = check_model(out_path)
+        verification = verify(out_path)
+        print(json.dumps({"stats": stats, "check": checked, "verify": verification}, indent=2, sort_keys=True))
+        return 1 if checked["problems"] or verification["problems"] else 0
+    if args.source:
+        parser.error("--source requires --add-run-arms-forward or --check-run-arms-forward")
 
     stats = build(out_path)
     checked = check_model(out_path)

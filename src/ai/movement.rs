@@ -40,13 +40,20 @@ use super::AiState;
 /// How close an agent must come to a waypoint for it to count as reached.
 pub const ARRIVE_RADIUS_M: f32 = 0.22;
 
+/// Small bodies must enter a shelter rather than stopping a humanoid stride
+/// short of it; the historical tolerance remains for larger bodies.
+#[must_use]
+pub fn arrival_radius(radius: f32) -> f32 {
+    radius.clamp(0.025, ARRIVE_RADIUS_M)
+}
+
 /// Largest simulation step one move call integrates, in seconds.
 pub const MAX_MOVE_STEP_S: f32 = 0.10;
 
 /// The pose cue for one locomotion state and speed.
 #[must_use]
 pub fn cue_for(state: AiState, speed_mps: f32) -> crate::entity::PoseCue {
-    if state.is_moving() {
+    if state.is_moving() && speed_mps > 0.01 {
         crate::entity::PoseCue::Walk {
             speed_mps: speed_mps.max(0.01),
         }
@@ -130,7 +137,7 @@ impl AgentMove {
             waypoint.z - self.position.z,
         );
         let distance = flat.length();
-        if distance <= ARRIVE_RADIUS_M {
+        if distance <= arrival_radius(self.radius) {
             return MoveStep::Arrived;
         }
         let Some(direction) = flat.try_normalize() else {

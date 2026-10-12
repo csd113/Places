@@ -1423,7 +1423,7 @@ pub enum ComponentDef {
         affects_nav: bool,
     },
     /// The entity runs a shared AI behavior.
-    Ai(crate::ai::AiDef),
+    Ai(Box<crate::ai::AiDef>),
     /// The entity's opacity cycles on a looping authored period.
     Fade(FadeDef),
     /// One attached dynamic light on the entity.
@@ -5611,6 +5611,11 @@ pub struct LightFixtureDef {
     /// never changes — the default, and the cheapest.
     #[serde(default)]
     pub switchable: bool,
+    /// Hold the authored baked face/light state when prepared switchable
+    /// illumination is unavailable (Static). Full still follows actions.
+    /// Omitted preserves the existing face-only Static switching behavior.
+    #[serde(default)]
+    pub hold_in_static: bool,
     /// Ultraviolet excitation, separate from visible RGB and face emission.
     #[serde(default)]
     pub ultraviolet: f32,

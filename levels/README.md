@@ -17,12 +17,13 @@ playable menu row. All `.placesmap` output is ignored by Git.
 | `beach_demo` | Coastal settlement, shoreline and animals | `build_beach.py` |
 | `frutiger_aero_demo` | Day atrium, glass, water, fitted signage and interactive props | `build_frutiger_aero.py` |
 | `retro_arcade_demo` | Cosmic bowling lanes, six reactive carpets, period arcade and fixed seating | `build_retro_arcade.py` |
+| `office_demo` | Three connected Office storeys, a basement wanderer, rare hiding insects and failing lights | `build_office.py` |
 
 Generators live under `tools/levels/`; change a generator rather than its
 owned JSON. `--check` is read-only. Home and Pool are existing compact
 showcases; current detailed refinements also appear in Places Demo. The Office
-surface review under tests is a diagnostic fixture, so a dedicated Office
-walkthrough remains an enhancement request.
+surface review under tests remains a diagnostic fixture; `office_demo` is the
+playable three-floor environment.
 
 ```sh
 sh tools/build-maps.sh --workers 8

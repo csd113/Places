@@ -8861,6 +8861,24 @@
         "source": "environments/arcade/party/birthday_party.blend"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "entity:cockroach",
+      "display_name": "Cockroach",
+      "asset_class": "entity",
+      "asset_type": "entity",
+      "entity_type": "character",
+      "source": "file",
+      "model": "entities/cockroach/model/cockroach.glb",
+      "size": [
+        0.0874143732,
+        0.0185625857,
+        0.1321252692
+      ],
+      "color": "#572e16",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Tiny low-poly cockroach with six articulated legs and antennae; looping idle, walk and run tripod scurry."
     }
   ]
 }
