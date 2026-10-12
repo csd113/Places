@@ -4901,7 +4901,7 @@ impl WgpuRenderer {
         self.bake_reflection_probes();
     }
 
-    /// Reads every resident probe cubemap back as RGBA8 faces.
+    /// Reads every resident probe cubemap back as RGBA16F faces.
     ///
     /// # Errors
     ///

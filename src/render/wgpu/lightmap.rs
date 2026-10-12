@@ -46,8 +46,8 @@ use crate::lighting::lightmap::{LevelLightmaps, LightmapPage};
 /// One page pair per page and switchable group, selected by the vertex page
 /// byte plus the uniform's group index. A bake that needs more pages fails over
 /// to vertex lighting instead of dropping pages silently. Mirrors
-/// [`crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES`] (twelve Full pages:
-/// a 192 MiB layer group at its 1024px edge). Medium retains eight 1024px pages
+/// [`crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES`] (fourteen Full pages:
+/// a 224 MiB layer group at its 1024px edge). Medium retains eight 1024px pages
 /// and Low eight 512px pages; only resident pages and prepared groups allocate.
 pub const LIGHTMAP_ATLAS_MAX_PAGES: usize = crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES;
 

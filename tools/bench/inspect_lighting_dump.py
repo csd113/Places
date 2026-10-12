@@ -17,7 +17,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 # Mirror lightmap::LIGHTMAP_ATLAS_MAX_PAGES and the Rust dump envelope.
-MAX_DUMP_PAGES = 11
+MAX_DUMP_PAGES = 14
 
 
 def audit_records(records: list[dict]) -> dict:

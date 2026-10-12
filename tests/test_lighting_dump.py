@@ -26,13 +26,13 @@ class LightingDumpContract(unittest.TestCase):
                     texels_per_metre=[1, 1], triangle=False)
 
     def test_audit_accepts_last_two_pages_with_independent_reservations(self):
-        result = DUMP.audit_records([self.chart(page=9), self.chart(index=1, page=10, kind="prop")])
+        result = DUMP.audit_records([self.chart(page=12), self.chart(index=1, page=13, kind="prop")])
         self.assertEqual(result["error_count"], 0, result["errors"])
         self.assertEqual(result["pages"], 2)
         self.assertEqual(result["receiver_texels"], 8)
 
-    def test_audit_rejects_page_eleven_and_negative_pages_before_reservation(self):
-        for page in (11, -1):
+    def test_audit_rejects_page_fourteen_and_negative_pages_before_reservation(self):
+        for page in (14, -1):
             with self.subTest(page=page):
                 result = DUMP.audit_records([self.chart(page=page)])
                 self.assertEqual(result["errors"], [dict(chart=0, reason="Invalid padded atlas bounds")])
@@ -41,7 +41,7 @@ class LightingDumpContract(unittest.TestCase):
 
     def test_audit_rejects_gutter_overlap_on_the_last_page(self):
         # Receiver rectangles are disjoint; only their two-texel world gutters overlap.
-        records = [self.chart(page=10), self.chart(index=1, page=10, rectangle=[6, 2, 2, 2])]
+        records = [self.chart(page=13), self.chart(index=1, page=13, rectangle=[6, 2, 2, 2])]
         result = DUMP.audit_records(records)
         self.assertEqual(result["errors"], [dict(chart=1, reason="Overlapping padded atlas reservations")])
         records[1]["rectangle"] = [8, 2, 2, 2]
@@ -51,12 +51,12 @@ class LightingDumpContract(unittest.TestCase):
         for kind, gutter in (("floor", 2), ("prop", 1)):
             for rectangle in ([gutter, gutter, 2, 2], [1024 - gutter - 2, 1024 - gutter - 2, 2, 2]):
                 with self.subTest(kind=kind, rectangle=rectangle):
-                    result = DUMP.audit_records([self.chart(page=10, kind=kind, rectangle=rectangle)])
+                    result = DUMP.audit_records([self.chart(page=13, kind=kind, rectangle=rectangle)])
                     self.assertEqual(result["error_count"], 0, result["errors"])
             for rectangle in ([gutter - 1, gutter, 2, 2], [gutter, gutter - 1, 2, 2],
                               [1024 - gutter - 1, gutter, 2, 2], [gutter, 1024 - gutter - 1, 2, 2]):
                 with self.subTest(kind=kind, rectangle=rectangle):
-                    result = DUMP.audit_records([self.chart(page=10, kind=kind, rectangle=rectangle)])
+                    result = DUMP.audit_records([self.chart(page=13, kind=kind, rectangle=rectangle)])
                     self.assertEqual(result["errors"], [dict(chart=0, reason="Invalid padded atlas bounds")])
 
     def test_indirect_uses_saved_component_not_difference_of_reconstructions(self):
