@@ -2745,6 +2745,7 @@ fn test_prepare_level_lets_an_authored_run_suppress_the_generated_one() {
         y: Some(0.0),
         material: Some("test:trim".to_string()),
         shine: None,
+        uv_projection: crate::level::BaseboardUvProjection::Wall,
     });
     let catalog = baseboard_catalog();
     prepare_level(&mut authored, &catalog, None);
@@ -3356,6 +3357,58 @@ fn test_validate_rejects_duplicate_component_kinds() {
                             { "component": "state", "name": "b", "value": 1 } ] } ]"#,
     );
     validate_level(&distinct_states).expect("distinct state names may repeat");
+}
+
+/// Protects bounded balloon authoring and fixed-anchor ownership, without a model
+/// load or lighting bake. One tiny room and a handful of numerical mutations.
+#[test]
+fn balloon_components_reject_invalid_motion_and_moving_anchors() {
+    let level = binding_level(
+        r#""props": [ { "id": "balloon", "model": "arcade:party_balloon", "x": 2, "z": 2,
+        "solid": false, "components": [ { "component": "balloon", "color": "royal_blue" } ] } ]"#,
+    );
+    validate_level(&level).expect("default reusable balloon component validates");
+    for (field, value) in [
+        ("scale", 0.0),
+        ("speed_hz", 2.0),
+        ("phase", f32::INFINITY),
+        ("sway_amplitude", -0.01),
+    ] {
+        let mut invalid = level.clone();
+        if let Some(ComponentDef::Balloon(def)) = invalid
+            .props
+            .first_mut()
+            .and_then(|prop| prop.components.first_mut())
+        {
+            match field {
+                "scale" => def.scale = value,
+                "speed_hz" => def.speed_hz = value,
+                "phase" => def.phase = Some(value),
+                "sway_amplitude" => def.sway_amplitude = value,
+                _ => {}
+            }
+        }
+        let error = validate_level(&invalid).expect_err("unbounded or invalid motion is rejected");
+        assert!(error.contains(field), "named field diagnostic: {error}");
+    }
+    let mut moving = level.clone();
+    moving
+        .props
+        .first_mut()
+        .expect("fixture prop")
+        .components
+        .push(ComponentDef::NavAgent {
+            radius: 0.2,
+            speed_mps: 0.5,
+            height: 0.5,
+            step_height: 0.1,
+            max_slope: 1.0,
+        });
+    assert!(
+        validate_level(&moving)
+            .expect_err("a tied balloon cannot navigate")
+            .contains("anchor is fixed")
+    );
 }
 
 /// `fade` and `glow` accept the documented examples and every omitted field

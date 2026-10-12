@@ -462,12 +462,13 @@ fn low_quarters_the_same_sheet_to_the_documented_budget() {
 }
 
 #[test]
-fn a_prop_sheet_is_smaller_than_a_surface_sheet_under_every_level() {
-    let image = solid(512, [1, 2, 3, 255]);
+fn high_preserves_detailed_prop_prints_while_lower_levels_bound_their_cost() {
+    let image = solid(1_024, [1, 2, 3, 255]);
     let high = fit_image(&image, QualityLevel::High, TextureClass::Prop);
     let medium = fit_image(&image, QualityLevel::Medium, TextureClass::Prop);
     let low = fit_image(&image, QualityLevel::Low, TextureClass::Prop);
-    assert_eq!((high.width, high.height), (256, 256));
+    assert!(matches!(high, std::borrow::Cow::Borrowed(_)));
+    assert_eq!((high.width, high.height), (1_024, 1_024));
     assert_eq!((medium.width, medium.height), (256, 256));
     assert_eq!((low.width, low.height), (128, 128));
 }

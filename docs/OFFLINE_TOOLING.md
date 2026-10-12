@@ -119,6 +119,7 @@ The following owners have distinct behavior:
 | Owner | Scope and publication contract |
 | --- | --- |
 | `tools/props/build.py` | Catalog placeables with registered part-module `PROPS` constructors; writes the catalog's model paths. Normal builds skip foreign skinned/animated GLBs. |
+| Catalog `authoring: {"tool": "blender", "source": "<asset-relative>.blend"}` | Editable Blender-owned meshes. The source and GLB export must exist beneath `assets/`; ordinary and forced primitive builds preserve the export. Re-export through the source's documented Blender command, then run the same catalog/GLB/native checks. |
 | `tools/textures/build.py` | Merges each art module's `ART` registry by logical ID, rejects duplicate declarations, and exports selected manifest sheets. Office, Beach and Aero readers load committed art; some older modules remain offline painters. |
 | `tools/props/build_office_textures.py` | Exact standard-library box-filter derivatives of five opaque 1024² masters to 256² native atlases; `--check` compares bytes without writes. |
 | `tools/textures/author_home.py`, `author_pool.py`, `author_outdoors.py` | Explicit Pillow source/native artwork exporters. Running these intentionally rewrites their selected kit artwork; they do not provide a generic read-only check mode. |
@@ -335,6 +336,7 @@ from deliberate source-art exporters with additional dependencies.
 | `tools/props/build_office_textures.py` | Native derivatives from Office masters / byte `--check` | S/P; native PNGs | D bounded derivative set |
 | `tools/props/build_winter_textures.py` | Native derivatives from Winter masters / `--check` | S/T/I; native PNGs | D bounded derivative set |
 | `tools/props/build.py` | Catalog prop build/check; verify.sh and authoring | S/P; catalog GLBs | A build jobs; D cheap checks |
+| `tools/props/author_birthday_party.py` | Explicit party print/source/model authoring; source-only `--check` in CI and desktop gate | S/B/I; retained PNG masters/natives, editable `.blend`, GLBs and metadata | C native Blender export; D bounded file/UV/geometry checks, no map bake |
 | `tools/props/cat_motion.py` | IK and grounded clip sampling; animation baker | S/P; pose arrays | A; initialized model per worker |
 | `tools/props/geometry.py` | Adjacency/winding; builders and repair | S; audit/mesh arrays | D; near-linear bounded meshes |
 | `tools/props/glb.py` | GLB codec; builders/previews/validators | S; bytes and model arrays | D; bounded format operations |

@@ -83,8 +83,8 @@ fn art_budget_warning(model: &PropModel) -> Option<String> {
         .collect();
     if !oversized.is_empty() {
         reasons.push(format!(
-            "texture {} (native prop size {PROP_TEXTURE_NATIVE_SIZE}px; \
-             Full downsamples anything larger)",
+            "texture {} (ordinary native prop size {PROP_TEXTURE_NATIVE_SIZE}px; \
+             larger artwork requires an authoring review)",
             oversized.join(", ")
         ));
     }

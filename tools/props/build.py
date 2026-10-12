@@ -46,22 +46,19 @@ TRIANGLE_TARGET = 500
 TRIANGLE_REVIEW = 800
 TRIANGLE_ART_MAX = 1500
 TRIANGLE_ENGINE_MAX = 6000
-# 256x256 is the normal native prop texture size. A GLB embeds its runtime
-# atlas, and High and Medium already sample prop sheets at 256, so shipping
-# embedded art above the native size would spend GLB bytes on pixels no level
-# displays. Source/master artwork may still be kept larger beside the model for
-# future quality work; the renderer itself accepts GLB images up to 1024 and
-# downscales them to the active level's budget (High/Medium 256, Low 128).
+# 256x256 remains the ordinary prop size. Reviewed party cloths and wrapping
+# carry larger prints at their actual metre scale; High preserves up to1024,
+# Medium keeps256 and Low128. No image is upsampled at runtime.
 TEXTURE_NATIVE_MAX = 256
 TEXTURE_ENGINE_MAX = 1024
 # Decoded RGBA8 memory one shipped prop texture may embed: one engine-max
 # image. Larger dimensions are rejected before they can allocate.
 TEXTURE_DECODED_MAX = TEXTURE_ENGINE_MAX * TEXTURE_ENGINE_MAX * 4
-# Whole-pack decoded RGBA8 budget. A 64 MiB catalog supports 256 full-size
-# 256-square sheets or a larger mix of 128/256-square natives. Count every
-# embedded image, including numeric masks, so growth cannot silently exceed
-# the existing resource contract.
-PACK_TEXTURE_MEMORY_MAX = 64 * 1024 * 1024
+# Whole-pack decoded RGBA8 budget. Detailed party prints plus ink masks bring
+# the audited catalog to approximately104.4MiB;106MiB bounds that combined cost.
+# Count every embedded image, including numeric masks, so duplicated payloads
+# remain included in the real resource cost.
+PACK_TEXTURE_MEMORY_MAX = 106 * 1024 * 1024
 
 # Asset types the toolkit can build: entities place through the same pipeline.
 PLACEABLE_TYPES = ("prop", "entity")
@@ -116,9 +113,38 @@ def _toolkit_authored(document: dict) -> bool:
     return isinstance(extras, dict) and extras.get("places_props_toolkit") == 1
 
 
+def blender_source(entry: dict) -> Optional[Path]:
+    """Resolve explicit Blender ownership without replacing its exported GLB.
+
+    A catalog authoring record is offline metadata, independent of runtime
+    model loading. Its editable source must exist beneath assets/. Even force
+    rebuilding primitive constructors cannot discard an explicitly owned mesh.
+    """
+    authoring = entry.get("authoring")
+    if authoring is None:
+        return None
+    if not isinstance(authoring, dict) or authoring.get("tool") != "blender":
+        raise SystemExit(f"{entry['id']}: unsupported authoring record")
+    source = authoring.get("source")
+    if not isinstance(source, str) or not source or "\\" in source:
+        raise SystemExit(f"{entry['id']}: Blender authoring requires an asset-relative source")
+    relative = Path(source)
+    destination = Path(ASSET_ROOT) / relative
+    if relative.is_absolute() or ".." in relative.parts or not destination.resolve().is_relative_to(Path(ASSET_ROOT).resolve()):
+        raise SystemExit(f"{entry['id']}: Blender source escapes assets/")
+    if destination.suffix != ".blend" or not destination.is_file():
+        raise SystemExit(f"{entry['id']}: missing editable Blender source {source}")
+    if not os.path.isfile(model_path(entry)):
+        raise SystemExit(f"{entry['id']}: missing Blender model export {entry.get('model')}")
+    return destination
+
+
 def build_one(entry: dict, build_fn, force: bool = False, *, publish=True) -> Optional[dict]:
     prop_id = entry["id"]
     destination = model_path(entry)
+    if (source := blender_source(entry)) is not None:
+        print(f"SKIP {prop_id}: maintained in Blender source {source.relative_to(ASSET_ROOT)}")
+        return None
     # A hand-authored skinned/animated model must never be replaced by this
     # toolkit's static primitive build: the shipped entity carries a real rig
     # (see docs/assets/ENTITIES.md), and overwriting it would silently drop
@@ -230,6 +256,7 @@ def main(argv: List[str] | None = None) -> int:
     catalog = load_catalog()
     entries = catalog_placeables(catalog)
     registry = parts.collect()
+    maintained = {entry["id"] for entry in entries if blender_source(entry) is not None}
 
     if not args.check and not args.report:
         buildable = [
@@ -238,6 +265,7 @@ def main(argv: List[str] | None = None) -> int:
             if entry.get("model") and (not args.only or entry["id"] in args.only)
         ]
         missing = [entry["id"] for entry in buildable if entry["id"] not in registry
+                   and entry["id"] not in maintained
                    and not (entry["id"] in {"mannequin", "rat", "skeleton",
                                             "beach:seagull", "beach:crab", "beach:fish"}
                             and os.path.isfile(model_path(entry)))]
@@ -289,12 +317,15 @@ def main(argv: List[str] | None = None) -> int:
                         f"{entry['id']}: embedded texture decodes to {image_decoded} bytes, over the "
                         f"{TEXTURE_DECODED_MAX}-byte per-texture ceiling"
                     )
-                elif width > TEXTURE_NATIVE_MAX or height > TEXTURE_NATIVE_MAX:
-                    print(
-                        f"warning: {entry['id']}: embedded texture is {width}x{height}, above the "
-                        f"{TEXTURE_NATIVE_MAX}px native size; High and Medium will downsample it to "
-                        f"{TEXTURE_NATIVE_MAX}"
-                    )
+                else:
+                    native_max = (1024 if entry['id'].startswith('arcade:party_cloth_')
+                                  else 512 if entry['id'].startswith('arcade:party_gift_')
+                                  else TEXTURE_NATIVE_MAX)
+                    if width > native_max or height > native_max:
+                        failures.append(
+                            f"{entry['id']}: embedded texture is {width}x{height}, over its "
+                            f"{native_max}px reviewed native size"
+                        )
             report.append(
                 {
                     "id": entry["id"],
@@ -324,6 +355,9 @@ def main(argv: List[str] | None = None) -> int:
     selected = []
     for entry in entries:
         if args.only and entry["id"] not in args.only:
+            continue
+        if entry["id"] in maintained:
+            print(f"skip {entry['id']}: maintained by its catalogued Blender source")
             continue
         if entry["id"] not in registry:
             print(f"skip {entry['id']}: maintained by its entity generator")
@@ -389,7 +423,7 @@ def _print_report(report: List[dict]) -> None:
         f"budget: {TRIANGLE_TARGET} triangles preferred, {TRIANGLE_REVIEW} review, "
         f"{TRIANGLE_ART_MAX} shipped art max (engine {TRIANGLE_ENGINE_MAX}); "
         f"texture native {TEXTURE_NATIVE_MAX}x{TEXTURE_NATIVE_MAX} "
-        f"(engine {TEXTURE_ENGINE_MAX}, High/Medium sample {TEXTURE_NATIVE_MAX} / Low 128); "
+        f"(reviewed cloth1024/wrap512; High <=1024, Medium256, Low128); "
         f"pack decoded memory <= {PACK_TEXTURE_MEMORY_MAX // (1024 * 1024)} MiB"
     )
 

@@ -235,6 +235,12 @@ together. A 1024×1024 sheet on a 2 m repeat shows 2 mm per texel; the same
 sheet at 256×256 shows 8 mm per texel. The *layout* is unchanged by
 resolution.
 
+The Arcade party-room wall uses `arcade:tex_wall_party_purple_01`: a square,
+opaque, seamlessly tiling dark-purple painted stipple sheet. Its 1024-square
+master is retained beside the 256-square runtime PNG, with a 0.8 m world repeat.
+It has no emission or UV-reactive pigment; matching skirting uses the same
+ordinary artwork and a modest satin response.
+
 ### 5.1 Standard wall textures
 
 | Property | Value |
@@ -689,26 +695,26 @@ members must be rebuilt, or the family visibly drifts.
 The pipeline distinguishes three sizes:
 
 ```text
-source / master artwork        (optional, e.g. 512x512 or 1024x1024,
+source / master artwork        (optional, e.g. 512x 512 or 1024x1024,
         |                       kept beside the model as an authoring source)
         v
 asset build pipeline           (tools/props: embeds the native runtime sheet;
         |                       refuses to ship above the native size)
         v
-normal runtime texture         256x256 native
+normal runtime texture         256x 256 native
 ```
 
 | Property | Value |
 |---|---|
 | Aspect ratio | model-defined; shipped models use square sheets, but the loader accepts any shape up to 1024² |
 | Native size | **256×256** is the normal shipped prop texture size (`PROP_TEXTURE_NATIVE_SIZE`); 32/64/128 remain legal for lighter props |
-| Shipped sizes | 136 embedded sheets across 134 models: 32×32 (1), 64×64 (6), 128×128 (45), 256×256 (84); see `tools/assets/audit.py` for the current inventory |
-| Higher resolutions | The engine accepts embedded prop images up to 1024 px per edge (`MAX_PROP_TEXTURE_SIZE`) and downscales them to the active level's budget; no shipped atlas uses more than the native 256 because High never samples a prop sheet above it |
+| Shipped sizes | 363 embedded PNGs across 335 models: 32-square (23), 64-square (6), 128-square (74), 256-square (246), 512-square (6), 1024-square (8); `tools/assets/audit.py` supplies the current inventory |
+| Higher resolutions | Reviewed party cloths use 1024-square sheets and wrapping uses 512-square sheets for print fidelity at their model scale; ordinary props retain 256 or smaller |
 | Hard maximum | 1024 px per edge (parser rejects the model above it) |
-| Runtime budget | High and Medium upload prop sheets at ≤256 unchanged; Low at ≤128 (`TextureClass::Prop`); downscaling preserves aspect via one integer factor |
-| Pack budget | 64 MiB decoded RGBA8 for the whole shipped pack (`PROP_TEXTURE_PACK_BUDGET_BYTES`); the audited 134-model library decodes to approximately 24 MiB before runtime sharing/downsampling |
+| Runtime budget | High preserves sheets up to 1024; Medium ≤256 and Low ≤128 (`TextureClass::Prop`); smaller sheets remain unchanged and downscaling preserves aspect |
+| Pack budget | 106 MiB decoded RGBA8 for the entire shipped pack (`PROP_TEXTURE_PACK_BUDGET_BYTES`), counting per-model copies and numeric masks; the current detailed party-print set brings the pack to approximately 104.4 MiB |
 | Decoded memory | `width × height × 4` bytes per image (RGBA8), summed over a model for `texture_bytes`; the surface class additionally caps one sheet at `MAX_SURFACE_TEXTURE_BYTES` (4 MiB) |
-| Practical guidance | 256×256 is ordinary content, not a special high-quality variant; authoring above 256 only spends GLB bytes that no quality level displays |
+| Practical guidance | 256×256 remains ordinary content; larger sheets require reviewed metre-scale print detail and bounded whole-pack accounting |
 
 ### 8.5 Materials, alpha and emissive maps
 
@@ -1130,6 +1136,45 @@ locomotion animation and uses the existing water presentation.
 [Aero kit](assets/ENVIRONMENTS.md#frutiger-aero) records the complete
 coverage and collision/UV contracts.
 
+### 8.13 Birthday party Blender assets
+
+Party furniture, printed paper, gifts, cake, latex balloons and tabletop weights use the existing
+fitted prop/entity class. Editable `.blend` sources and exported GLBs live under
+`environments/arcade/party/`; each embedded PNG has an equivalent standalone
+source there. Printed artwork retains1024-square masters. Four cloth patterns use 1024-square
+native PNGs across eight rectangle/round variants; six gift wraps use dedicated
+512-square natives. Cups, plates and hats retain128-square sheets and the family
+palette retains32-square. High uploads these authored prints unchanged; Medium
+and Low intentionally reduce prop images to 256 and 128. These exceptions preserve
+fine print strokes at actual model scale. The round skirt unwrap follows its
+vertical drape length rather than projecting it into a narrow radial strip.
+
+Seven numeric RGB ink masks retain1024-square masters and256-square natives.
+Each shares the print's normalized UV frame/orientation; black ordinary backing
+and white printed ink give `extras.uv_response=0.65` through the existing
+`extras.uv_response_mask` texture binding. Printed stripes can fill the wrap.
+Ribbons/bows remain nonreactive. These masks add 3.5 MiB across 14 model payloads;
+together with larger prints, the pack uses approximately 104.4 MiB within its 106 MiB
+limit. Actual per-model copies remain counted. All sheets are opaque, clamped,
+non-tiling, with finite normalized UVs and +Y-up metre geometry. These printed
+surfaces supply no ordinary emission or illumination. Only tiny candle-flame
+material groups emit; their separate attached light supplies illumination.
+
+Every gift's underlying box is the same 0.30 m cube at scale 1. Ribbons and bows
+may extend beyond the box. Cloths are separate thin draped shells whose lowest
+hem is local Y=0; compose their published top height with the supporting table.
+The balloon source has a neutral glossy latex body, narrowed neck and knot,
+and named bounded string segments. Its runtime colour changes latex albedo,
+while its attachment remains fixed and the string follows simulation-time motion.
+Bouquet weights are separate ordinary opaque fitted props; strings attach to
+the published loop height above their contact origin, clear of tabletop cloth.
+
+Catalog entries may declare offline `authoring: {"tool": "blender", "source":
+"<asset-relative>.blend"}` ownership. `tools/props/build.py` verifies both source
+and GLB exist within `assets/` and preserves these exports even with `--force`.
+The ordinary `--check`, asset audit and Rust model tests still inspect the GLBs;
+this ownership record does not exempt geometry, UV, PNG, scale or budget rules.
+
 ## 9. Emissive textures and masks
 
 Places does **not** use dedicated emissive colour textures. Emission is
@@ -1213,8 +1258,8 @@ All Arcade model atlases are fitted square 1024-square retained masters with
 128-square palette-only native PNGs or 256-square graphic native PNGs. The
 palette class covers pins, balls, chairs, table, return, rack, batten, plush,
 gutter and divider; detailed cabinets, CRTs, vending, pinball and labelled
-small props retain 256-square natives. This preserves the existing 64 MiB
-decoded prop-pack budget. Their model-defined regions must be recorded by the
+small props retain 256-square natives. These existing atlases retain their resolution; the current 106 MiB
+decoded prop-pack budget includes detailed party prints and their ink masks. Their model-defined regions must be recorded by the
 builder and changed together with model texture UVs. Acoustic ceiling sheets
 are square repeats containing two 2:1 modules; visible fluorescent diffuser
 faces remain actual 2:1 PNGs (1024×512 master, 256×128 native). The bowling
@@ -1395,7 +1440,7 @@ a runtime edge budget per texture class:
 | Surface sheet | 1024 | 512 | 256 |
 | Fixture face | 1024 | 512 | 256 |
 | Decal sheet | 1024 | 512 | 256 |
-| Prop sheet (embedded) | 256 | 256 | 128 |
+| Prop sheet (embedded) | 1024 | 256 | 128 |
 | Emissive mask | 512 | 256 | 128 |
 | Sky panorama | 2048 | 1024 | 512 |
 | Lighting | Independent Static / Full | Same | Same |
@@ -1415,9 +1460,8 @@ saturation 1.03, contrast 1.02).
   surface upload unchanged; High never resamples an asset that already sits
   within its class budget.
 * Medium and Low are optional quality/performance reductions, not a hardware
-  requirement: Medium halves the sheets (1024 → 512) and keeps native prop
-  sheets, Low quarters the sheets and halves the native prop sheet
-  (256 → 128). They must never dictate the size of the asset stored in the
+  requirement: Medium halves surface sheets (1024 → 512) and limits props
+  to 256; Low limits surfaces to 256 and props to 128. They must never dictate the size of the asset stored in the
   repository.
 * Every level uses the same assets, ids, levels and geometry. A lower level is
   not a second art library. **Never author a separate low-resolution asset
@@ -1438,13 +1482,11 @@ any higher-resolution presentation without re-authoring. Medium derives its
 512 px image and Low its 256 px image from the same source. Replacing a
 1024×1024 sheet with a 256×256 sheet would visibly lower High quality.
 
-Prop sheets are the opposite case: the native size is 256×256, and High and
-Medium upload it unchanged. The engine can still read a third-party GLB with
-images up to 1024 px, but it downscales them to the level's budget, so the toolkit
-refuses to *ship* embedded prop art above the native size rather than spend GLB
-bytes on pixels no quality level displays. Larger master artwork may be kept beside
-the model (like `table.png`, which is the 256×256 source of `table.glb`) for
-future quality work; the hard limit exists for correctness, not as a target.
+Ordinary prop sheets retain 256×256 or smaller native sizes. Reviewed party
+cloth and wrapping prints use 1024 and 512 respectively, preserving original
+print definition across metre-scale drapes and folded wrapping. High retains
+accepted images up to 1024 unchanged; Medium and Low retain their existing 256
+and 128 budgets. The authoring policy and whole-pack budget bound these exceptions.
 
 ### 14.3 Hard limits
 
@@ -1792,7 +1834,7 @@ real-window/GPU checks; see [VERIFICATION.md](VERIFICATION.md).
 | NO DIVING sign: 1024², RGBA, transparent pixel | `tests/test_package.py` | same | yes |
 | Prop GLB: container parses, one mesh, `TEXCOORD_0` present | `tools/props/build.py --check` | `python3 tools/props/build.py --check` | yes (exit 1) for a missing or unparseable model; budgets, UV range and scale/origin are not evaluated here |
 | Prop GLB: UVs 0..1, triangle/vertex/texture budgets, scale/origin, PNG ≤1024 | Rust `props::tests`; runtime parser | `cargo test` | yes |
-| Prop art budgets (triangles, native 256 px texture, 64 MiB decoded pack budget) | Rust `props::tests::shipped_prop_assets_match_the_catalogue_and_budgets` and its policy tests | `cargo test` | yes |
+| Prop art budgets (triangles, ordinary 256 / reviewed cloth 1024 and wrap 512, 106 MiB decoded pack budget) | Rust `props::tests::shipped_prop_assets_match_the_catalogue_and_budgets` and its policy tests | `cargo test` | yes |
 | Prop GLB decoded texture memory (per-texture and pack total) | `tools/props/build.py --check` | `python3 tools/props/build.py --check` | yes (exit 1) |
 | Model textures: embedded PNG only, ≤1024, UV bounds | `src/gltf.rs` parser (runtime) + `cargo test` | game run / `cargo test` | fallback box / test failure |
 
@@ -1875,9 +1917,9 @@ without checking the implementation.
     does not update a GLB, which must be exported intentionally (§8.6).
 11. **No minimum sizes and no per-class maximum below the ordinary 1024, and the
     pack budget is aggregate.** A 16×16 surface sheet passes the dimension
-    tests; the prop toolkit refuses to ship an embedded atlas above the native
-    256×256 and the Rust props test enforces both that and the 64 MiB decoded
-    pack budget, but a single pathological sheet below the ordinary 1024 edge cap
+    tests; ordinary prop sheets are capped at 256×256, with reviewed cloth 1024 /
+    wrap 512 exceptions, and the toolkit/Rust tests enforce both these
+    authoring limits and the 106 MiB decoded pack budget, but a single pathological sheet below the ordinary 1024 edge cap
     is otherwise unconstrained. Art direction is the only guard for the rest.
 12. **Shipped fixture dimensions are pinned by a Rust test.** The loader test
     `test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog` asserts

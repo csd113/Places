@@ -267,6 +267,9 @@ def inspect_model(path):
             continue
         material = materials[material_index]
         references = [material.get("pbrMetallicRoughness", {}).get("baseColorTexture"), material.get("emissiveTexture")]
+        pigment = material.get("extras", {}).get("uv_response_mask")
+        if isinstance(pigment, dict) and "texture" in pigment:
+            references.append({"index": pigment["texture"]})
         for reference in references:
             if reference is not None:
                 used_images.add(document["textures"][reference["index"]]["source"])
@@ -279,8 +282,6 @@ def inspect_model(path):
         start = view.get("byteOffset", 0)
         record = image_record(binary[start:start+view["byteLength"]])
         record.update(index=index, name=image.get("name", ""), used=index in used_images)
-        if max(record["width"], record["height"]) > 256:
-            errors.append("embedded image exceeds native prop budget")
         images.append(record)
     animations = [animation_record(document, binary, a) for a in document.get("animations", [])]
     for animation in document.get("animations", []):
@@ -384,7 +385,14 @@ def inventory(root=ROOT, workers=None):
         name = path.relative_to(root).as_posix()
         entry = by_path.get(name, {})
         if "images" in record:
+            # Same reviewed metre-scale print exceptions as the authoring
+            # toolkit and Rust catalog test; uncatalogued models keep256.
+            asset_id = entry.get("id", "")
+            native_edge = (1024 if asset_id.startswith("arcade:party_cloth_")
+                           else 512 if asset_id.startswith("arcade:party_gift_") else 256)
             for image in record["images"]:
+                if max(image["width"], image["height"]) > native_edge:
+                    record["errors"].append("embedded image exceeds reviewed native prop budget")
                 image["source_pngs"] = source_by_hash[image["sha256"]]
                 image["equivalent_pixel_sources"] = source_by_pixels[image["pixel_sha256"]]
                 if not image["equivalent_pixel_sources"]:

@@ -1740,6 +1740,14 @@ dimension; ties → X), and an archway's opening is centred on that length.
 | `thresholds[]` | `length`, `thickness` (default 0.06), `height` (default 0.012) | `material` (default: the level's floor) | **No collision.** A 12 mm strip of trim; the player walks over it. The loader rejects a strip whose ends stand at different floor heights (more than 0.05 m), that lies outside every room, or that is buried in a wall solid. |
 | `baseboards[]` | `length`, `height` (default 0.09), `thickness` (default 0.018) | `material` (default: the level's wall) | **No collision.** The back face is not drawn (it is buried in the wall), and the run stands proud of the wall plane, so it never shares a plane with it. The loader rejects a board whose whole cross-section is inside a wall solid. A wall material may also declare an automatic trim (see *Automatic trim* below). |
 
+**Optional floor-print projection.** A baseboard may set
+`"uv_projection": "floor_fold"` to continue the world X/Z floor pattern up its
+front, cap and ends at the material's existing metre scale. Height is unfolded
+into the room from the local walkable floor, so stepped profiles share one
+print origin. The default `"wall"` retains the established local trim mapping.
+The birthday demo explicitly uses its adjacent fluorescent carpet materials;
+other maps and automatic trim keep their existing defaults.
+
 **Automatic trim from the catalog.** A wall material may declare a `baseboard`
 material id in `assets/catalog.json` (section 14). At load, every wall length
 face whose resolved material declares one — the per-face `faces` override, else
@@ -2471,7 +2479,7 @@ layouts preserved; see the table below and Asset Specification §12.3.
 | Property | Value |
 | --- | --- |
 | File format | **PNG only.** Signature-checked; RGB, RGBA, grayscale, grayscale+alpha and palette (with/without `tRNS`) all normalise to 8-bit RGBA; 16-bit is stripped to 8-bit. |
-| Hard edge limit | **1024 px** on either edge, enforced by the runtime decoder for ordinary PNGs (surfaces, decals, fixtures, embedded GLB images); sky panoramas have a separate 2048×1024 ceiling: `texture dimensions {w}x{h} exceed the 1024x1024 limit`. |
+| Hard edge limit | **1024 px** on either edge, enforced by the runtime decoder for ordinary PNGs (surfaces, decals, fixtures, embedded GLB images); sky panoramas have a separate 2048×1024 ceiling: `texture dimensions {w}x{h} exceed the 1024x 1024 limit`. |
 | Preferred edge | **256 px** — a soft tooling/policy warning, not a runtime error. |
 | Surface sheets | **Square** (both edges equal) per shipped-asset policy; the runtime accepts another shape, but a `tile_metres` cell would stretch. |
 | Decal sheets | **Power-of-two on both edges** (mipmapped fitted sampling; POT is the shipped-asset policy). |
@@ -2615,7 +2623,7 @@ target is rendered scene data. None is runtime-generated texture artwork.
 | Surface square | both edges equal | policy tests |
 | Surface decoded bytes | 4 MiB | policy tests |
 | Prop native edge | 256 | prop toolkit + props policy tests |
-| Prop pack decoded memory | 64 MiB | `tools/props/build.py --check` + props policy tests |
+| Prop pack decoded memory | 106 MiB | `tools/props/build.py --check` + props policy tests |
 | Decal / fixture faces | POT both edges | build.py warning; package tests fail non-POT fitted sheets |
 
 ---
@@ -2767,6 +2775,7 @@ anywhere).
 | `entity_type` | string | optional | none | entities |
 | `description` | string | optional | none | all |
 | `tags` | array of strings | optional | `[]` | currently unused |
+| `authoring` | object | optional | none | Offline ownership metadata: `{"tool":"blender","source":"<asset-relative>.blend"}` preserves editable Blender geometry through normal/forced primitive builds. Source and export must exist under `assets/`; the runtime continues loading the catalogued GLB. |
 
 A material's `texture` must name a declared, file-backed `texture` asset
 (`source: "file"`, `model` ending `.png`); `emissive_mask`, `uv_response_mask` and `normal_texture`
@@ -2919,8 +2928,8 @@ an unknown id) and the level keeps working.
 | Triangles — engine hard ceiling | 6000 (`MAX_PROP_TRIANGLES`; above it the model falls back to a box) |
 | Vertices per model | 65 535 (`MAX_PROP_VERTICES`) |
 | Primitives / materials / images per model | 32 / 16 / 16 |
-| Prop texture | **256×256 native** (the normal shipped size; 32/64/128 legal for lighter props); engine ceiling 1024 (`MAX_PROP_TEXTURE_SIZE`), downscaled to the runtime budget at upload |
-| Prop pack decoded memory | 64 MiB (`PROP_TEXTURE_PACK_BUDGET_BYTES`); the audited 134-model library is approximately 24 MiB before runtime sharing/downsampling; `tools/assets/audit.py` reports the current inventory |
+| Prop texture | **256×256 ordinary native**, with reviewed party cloth 1024 and wrapping 512; engine ceiling 1024 (`MAX_PROP_TEXTURE_SIZE`), High preserves authored size and Medium/Low reduce to 256/128 |
+| Prop pack decoded memory | 106 MiB (`PROP_TEXTURE_PACK_BUDGET_BYTES`); the current 335-model pack is approximately 104.4 MiB before runtime sharing/downsampling; `tools/assets/audit.py` reports the current inventory |
 | Materials per prop | one per primitive; a multi-material model costs one draw range per material per batch |
 | Distinct models per level | 4096 (`MAX_LEVEL_PROP_MODELS`; fallback boxes beyond it) |
 | Summed baked prop vertices per level | 24 000 000 (`MAX_LEVEL_PROP_VERTICES`; fallback boxes beyond it) |
@@ -4494,7 +4503,8 @@ language; possible engine rejection.
 
 **Prevention:** 500 triangles preferred, 800 justified, 1500 shipped art budget;
 256×256 is the native prop texture size (32/64/128 legal for lighter props), and
-the whole pack must decode to at most 64 MiB. Exceedances are allowlisted
+reviewed party cloth 1024/wrap 512 exceptions preserve print detail. The whole
+pack must decode to at most 106 MiB. Exceedances are allowlisted
 explicitly in `src/props/tests.rs`.
 
 ### Texture Seams / Incorrect Tiling
@@ -4545,7 +4555,7 @@ none of them is optional for a change that ships content.
 | `cargo fmt --all --check` | Rust formatting | **Yes** when code changed |
 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | Strict lints (`AGENTS.md` policy) | **Yes** when code changed |
 | `python3 tools/textures/build.py --check` | Texture/decal/fixture PNGs exist, parse, ≤1024 (sky ≤2048×1024, 2:1 POT); warns >256 / non-POT | Yes when art changed |
-| `python3 tools/props/build.py --check` | Every catalogued prop GLB exists and parses, and its decoded texture memory fits the per-texture and 64 MiB pack budgets; prints bounds/budget flags | Yes when props changed |
+| `python3 tools/props/build.py --check` | Every catalogued prop GLB exists and parses, and its decoded texture memory fits the per-texture and 106 MiB pack budgets; prints bounds/budget flags | Yes when props changed |
 | `python3 tools/assets/audit.py --workers 12` | Every GLB and standalone PNG, finite geometry/UVs/skin data/clip channels, fitted UV range, zero-area faces, native image budget and equivalent PNG source coverage; records topology, materials, bounds, clips, duplicates and map uses in JSON. Topology review candidates require visual interpretation | Yes when assets changed |
 | `./target/release/places-compile build <source>.json` | Compiles the edited source into its `.placesmap` (prepares geometry, lighting, atlas, collision and probe captures) | **Yes, after every map edit** |
 | `./target/release/places-compile validate <package>.placesmap` | Decodes every prepared record and re-hashes every entry and dependency | **Yes, before shipping** |
@@ -4785,7 +4795,7 @@ Components never carry actions — the bindings do that.
 | `component` | Fields (defaults) | What it grants |
 | --- | --- | --- |
 | `interactable` | `prompt?` (default `"Interact"`), `reach?` (default 2.5 m, `0 < reach ≤ 4.0`), `enabled` (`true`), `label?` | The entity is aimable with **E**; a press emits `interact`. `enabled: false` starts it aimed-but-silent until an `enable` action. `label` is the floating text a `toggle_label` may show. |
-| `animation` | `clip` (required, non-blank), `speed` (`1.0`), `looped` (`false`), `playing` (`false`) | The entity owns an animation state: `play_animation`, `toggle_animation` and `animation_complete` need it. `playing` starts the clip at load; the default rests on the authored pose. |
+| `animation` | `clip` (required, non-blank), `speed` (`1.0`), `looped` (`false`), `playing` (`false`) | The entity owns an animation state: `play_animation`, `toggle_animation` and `animation_complete` need it. `playing` seeds component state; use a `play_animation` action (for example an autostart timer) to cue a named render clip at load. The default rests on the authored pose. |
 | `audio` | `sound` (required), `gain` (`1.0`), `looped` (`false`), `enabled` (`true`), `playing` (`false`) | Typed emitter state: `play_sound`/`stop_sound` set `playing`/`looped`, `enable`/`disable` gate it, and the frame loop reports a requested sound once. **No audio device backend exists in this tree**, so nothing is audible; no shipped map authors one. |
 | `light` | `enabled` (`true`), `switchable` (`false`), `emission_scale` (`1.0`) | A prop's own static light state. **`switchable: true` is rejected on anything but a ceiling fixture**: only a fixture has prepared switchable lightmap layers, and a non-switchable light cannot be a `set_light`/`toggle` target either. |
 | `material` | `variants` (≥ 1 of `{ name, emission_scale }`), `current?` (default the first) | The entity selects one of several emission profiles at runtime with `change_material`. Only the emission profile can change; surface materials of baked geometry cannot. |
@@ -4797,10 +4807,28 @@ Components never carry actions — the bindings do that.
 | `nav_obstacle` | `size?` (`[w,h,d]`, default the resolved size), `affects_nav` (`true`) | An explicit box the offline navigation bake treats as an obstacle, so a proxy the collision build does not carry can still block navigation. |
 | `ai` | `behavior` (`idler`), `role?`, `reacts_to` (`[]`), speeds, ranges and catch fields | The entity runs the shared AI behavior (`idler`/`wanderer`/`prey`/`predator`/`follower`). Requires a `nav_agent` body; an entity with a route must not also author `ai`. See §33. |
 | `fade` | `period_seconds` (finite, `0 < p ≤ 3600`; default `6.0`, ignored in proximity mode), `phase?` (`0..=1`; omitted = deterministic per-instance), `min_opacity` (`0.0`), `max_opacity` (`1.0`, `≥ min_opacity`), `enabled` (`true`), `near_radius?`/`far_radius?` (finite, `0 < near < far`; both together), `fade_out_seconds?`/`fade_in_seconds?` (finite, `0 < s ≤ 600`; defaults `1.5`/`3.0`, only with the radii) | The entity's opacity cycles on a loop, or — when both radii are authored — fades out as the player approaches and back in as the player retreats. `enabled: false` holds `max_opacity`. A fade-only entity still fades without a route, AI or binding. |
-| `glow` | `color?` (`[1.0, 0.86, 0.6]`, each channel `0..=1`), `intensity?` (`0.5`, `0..=8`), `range?` (`3.0` m, `0.05..=64`), `socket?` (animated joint/node name, non-blank), `offset?` (`[0, 0, 0]` entity-local metres, each `|v| ≤ 4`; used only when no socket resolves), `fade?` (`true`: intensity multiplies the fade opacity) | One attached dynamic light. With a `socket` it follows the animated joint; without one it sits at the entity-local `offset`. |
+| `glow` | `enabled?` (`true`), `color?` (`[1.0, 0.86, 0.6]`, each channel `0..=1`), `intensity?` (`0.5`, `0..=8`), `range?` (`3.0` m, `0.05..=64`), `socket?` (animated joint/node name, non-blank), `offset?` (`[0, 0, 0]` entity-local metres, each `|v| ≤ 4`; used only when no socket resolves), `fade?` (`true`: intensity multiplies the fade opacity) | One attached dynamic light; `enable`/`disable` removes/restores its light independently of material emission. With a `socket` it follows the animated joint; without one it sits at the entity-local `offset`. |
+| `balloon` | `color` (`red`; also `royal_blue`, `golden_yellow`, `grass_green`, `deep_purple`, `orange`, `pink`), `scale` (`1`, `0.25..=2`), `string_length` (`1.1`, `0.15..=4` m), `anchor` (`[0,0,0]`, each axis ±8 m), `offset` (`[0,0,0]`, each axis ±2 m), `enabled` (`true`), `sway_amplitude` (`0.025`, `0..=0.15` m), `bob_amplitude` (`0.012`, `0..=0.15` m), `rotation_degrees` (`3`, `0..=12`), `speed_hz` (`0.19`, `0.01..=1`), `phase?`/`shared_phase?` (`0..=1` cycles), `shared_sway` (`0.007`, `0..=0.15` m) | Analytic simulation-time latex motion and twelve curved string segments tied to a fixed placement-local anchor. `enabled: false` holds the resting pose; `enable`/`disable` gates motion. Only the body receives the colour and uniform scale. |
 
 A component the engine cannot honour is a named load error. Unknown component
 tags are rejected at parse time.
+
+#### Anchored balloon rig
+
+`arcade:party_balloon` uses the normal rigid GLB entity path: an identity parent,
+a `balloon_body` node whose origin is the knot, and twelve sibling nodes named
+`balloon_string_00` through `balloon_string_11`. Each string cylinder runs from
+local Y=0 to Y=1. The component poses these nodes without rope physics or random
+frame updates. `string_length` is the resting knot height; `offset` fans bouquet
+copies above their common anchor. Keep resting knot height above the bob
+amplitude plus 0.05 m and check the whole motion envelope against the ceiling
+and neighbouring balloons. Colour is non-emissive linear latex albedo.
+
+`tools/levels/birthday_compositions.py` supplies independent balloons, configurable
+bouquets and four reusable table arrangements. The source uses common tie
+points with different phases, heights and offsets; no map-name renderer branch
+is involved. Opaque adjacent primitives with identical GLB material state are
+coalesced once at upload, retaining each vertex's rigid node ownership.
 
 #### Fades and attached glows
 
@@ -4881,8 +4909,10 @@ the ghost's slower fade-in lets it re-form gradually as the player walks away.
   resolve. The offset is in entity-local metres.
 * `fade: true` multiplies the intensity by the entity's live fade opacity, so
   an attached light dims with its ghost; `false` keeps it constant.
-* A `glow` may be authored on a plain prop, but in this build only a skinned
-  character driven through the entity frame updates it at runtime.
+* A `glow` may be authored on a plain prop; its retained entity frame drives
+  the attached light even without a route. Both world and entity diffuse
+  surfaces receive it in Static and Full lighting. The eight attached-light
+  slots are unshadowed: keep small decorative clusters local to their object.
 * At most one `fade` and one `glow` per entity, like every other component
   kind except `state`. A non-finite or out-of-range value is a named load
   error, never a clamp: the loader, the runtime and `tools/assets/validate.py`

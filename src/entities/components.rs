@@ -649,6 +649,8 @@ impl Fade {
 /// One attached dynamic light: the runtime of the `glow` component.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Glow {
+    /// False suppresses this attached light without changing model emission.
+    pub enabled: bool,
     /// Linear colour, each channel in `0..=1`.
     pub color: [f32; 3],
     /// Intensity in `0..=8`.
@@ -706,6 +708,8 @@ pub struct ComponentTables {
     pub fades: ComponentTable<Fade>,
     /// Attached dynamic lights.
     pub glows: ComponentTable<Glow>,
+    /// Fixed-anchor balloon motion, with resolved deterministic phases.
+    pub balloons: ComponentTable<crate::level::BalloonDef>,
 }
 
 impl ComponentTables {
@@ -733,6 +737,7 @@ impl ComponentTables {
             ais: ComponentTable::new(),
             fades: ComponentTable::new(),
             glows: ComponentTable::new(),
+            balloons: ComponentTable::new(),
         }
     }
 
@@ -758,6 +763,7 @@ impl ComponentTables {
         self.ais.clear();
         self.fades.clear();
         self.glows.clear();
+        self.balloons.clear();
     }
 
     /// Total entries across every table, for the diagnostics summary.
@@ -784,6 +790,7 @@ impl ComponentTables {
             self.ais.len(),
             self.fades.len(),
             self.glows.len(),
+            self.balloons.len(),
         ]
         .into_iter()
         .fold(0, usize::saturating_add)
@@ -817,6 +824,7 @@ impl ComponentTables {
         drop(self.ais.remove(handle));
         let _removed_value_10 = self.fades.remove(handle);
         drop(self.glows.remove(handle));
+        let _removed_balloon = self.balloons.remove(handle);
     }
 }
 

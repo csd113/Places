@@ -29,30 +29,26 @@
     {
       "x": 0,
       "z": 0,
-      "width": 10,
-      "depth": 15,
-      "height": 3.2
+      "width": 9.2,
+      "depth": 30,
+      "height": 3.2,
+      "material": "arcade:carpet_retro_swirl_01"
     },
     {
-      "x": 0,
-      "z": 15,
-      "width": 10,
-      "depth": 15,
-      "height": 3.2
-    },
-    {
-      "x": 10,
+      "x": 9.2,
       "z": 0,
-      "width": 10,
-      "depth": 15,
-      "height": 3.2
+      "width": 10.8,
+      "depth": 30,
+      "height": 3.2,
+      "material": "arcade:carpet_cosmic_bowl_01"
     },
     {
-      "x": 10,
-      "z": 15,
+      "x": 20,
+      "z": 17,
       "width": 10,
-      "depth": 15,
-      "height": 3.2
+      "depth": 13,
+      "height": 3.2,
+      "material": "arcade:carpet_neon_confetti_01"
     }
   ],
   "walls": [
@@ -67,7 +63,7 @@
     {
       "x": -0.24,
       "z": 30,
-      "width": 20.48,
+      "width": 20.36,
       "depth": 0.24,
       "height": 3.2,
       "material": "arcade:wall_navy_01"
@@ -81,12 +77,71 @@
       "material": "arcade:wall_navy_01"
     },
     {
-      "x": 20,
+      "x": 19.88,
+      "z": 0,
+      "width": 0.24,
+      "depth": 17,
+      "height": 3.2,
+      "material": "arcade:wall_navy_01"
+    },
+    {
+      "x": 9.08,
       "z": 0,
       "width": 0.24,
       "depth": 30,
       "height": 3.2,
-      "material": "arcade:wall_navy_01"
+      "material": "arcade:wall_navy_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 23.2,
+          "width": 3.2,
+          "height": 2.55
+        }
+      ]
+    },
+    {
+      "x": 19.88,
+      "z": 17,
+      "width": 0.24,
+      "depth": 13,
+      "height": 3.2,
+      "material": "arcade:wall_navy_01",
+      "faces": {
+        "east": "arcade:wall_party_purple_01"
+      },
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 7,
+          "width": 3.2,
+          "height": 2.55
+        }
+      ]
+    },
+    {
+      "x": 20.12,
+      "z": 16.76,
+      "width": 10.12,
+      "depth": 0.24,
+      "height": 3.2,
+      "material": "arcade:wall_party_purple_01"
+    },
+    {
+      "x": 30,
+      "z": 17,
+      "width": 0.24,
+      "depth": 13,
+      "height": 3.2,
+      "material": "arcade:wall_party_purple_01"
+    },
+    {
+      "x": 20.12,
+      "z": 30,
+      "width": 10.12,
+      "depth": 0.24,
+      "height": 3.2,
+      "material": "arcade:wall_party_purple_01"
     }
   ],
   "floor_patches": [
@@ -145,41 +200,6 @@
       "width": 8.0,
       "depth": 3.0,
       "material": "arcade:lane_wood_01"
-    },
-    {
-      "x": 0.4,
-      "z": 4.5,
-      "width": 4,
-      "depth": 4,
-      "material": "arcade:carpet_neon_confetti_01"
-    },
-    {
-      "x": 4.4,
-      "z": 4.5,
-      "width": 4,
-      "depth": 4,
-      "material": "arcade:carpet_starburst_01"
-    },
-    {
-      "x": 0.4,
-      "z": 8.5,
-      "width": 4,
-      "depth": 4,
-      "material": "arcade:carpet_retro_swirl_01"
-    },
-    {
-      "x": 4.4,
-      "z": 8.5,
-      "width": 4,
-      "depth": 4,
-      "material": "arcade:carpet_geometric_01"
-    },
-    {
-      "x": 0.4,
-      "z": 12.5,
-      "width": 8,
-      "depth": 4,
-      "material": "arcade:carpet_arcade_grid_01"
     }
   ],
   "floor_regions": [
@@ -2217,7 +2237,7 @@
     {
       "id": "table_0",
       "model": "arcade:pedestal_table",
-      "x": 10.5,
+      "x": 10.8,
       "y": 0,
       "z": 27.1,
       "rotation_degrees": 0,
@@ -2232,7 +2252,7 @@
     {
       "id": "table_0_bottle",
       "model": "arcade:soda_bottle",
-      "x": 10.66,
+      "x": 10.96,
       "y": 0.72,
       "z": 27.0,
       "rotation_degrees": 20,
@@ -2247,7 +2267,7 @@
     {
       "id": "chair_0_0",
       "model": "arcade:fixed_chair_red",
-      "x": 9.5,
+      "x": 9.8,
       "y": 0,
       "z": 27.1,
       "rotation_degrees": 90,
@@ -2262,7 +2282,7 @@
     {
       "id": "chair_0_1",
       "model": "arcade:fixed_chair_blue",
-      "x": 11.5,
+      "x": 11.8,
       "y": 0,
       "z": 27.1,
       "rotation_degrees": 270,
@@ -2277,10 +2297,10 @@
     {
       "id": "chair_0_2",
       "model": "arcade:fixed_chair_blue",
-      "x": 10.5,
+      "x": 10.8,
       "y": 0,
       "z": 28.25,
-      "rotation_degrees": 0,
+      "rotation_degrees": 180,
       "size": [
         0.6,
         0.92,
@@ -2292,10 +2312,10 @@
     {
       "id": "chair_0_3",
       "model": "arcade:fixed_chair_red",
-      "x": 10.5,
+      "x": 10.8,
       "y": 0,
       "z": 25.950000000000003,
-      "rotation_degrees": 180,
+      "rotation_degrees": 0,
       "size": [
         0.6,
         0.92,
@@ -2370,7 +2390,7 @@
       "x": 16.5,
       "y": 0,
       "z": 28.25,
-      "rotation_degrees": 0,
+      "rotation_degrees": 180,
       "size": [
         0.6,
         0.92,
@@ -2385,7 +2405,7 @@
       "x": 16.5,
       "y": 0,
       "z": 25.950000000000003,
-      "rotation_degrees": 180,
+      "rotation_degrees": 0,
       "size": [
         0.6,
         0.92,
@@ -2909,9 +2929,9 @@
     {
       "id": "bowl_neon",
       "model": "arcade:neon_bowl",
-      "x": 19.89,
+      "x": 19.77,
       "y": 1.72,
-      "z": 25.0,
+      "z": 21.5,
       "rotation_degrees": 270,
       "size": [
         1.82,
@@ -3097,6 +3117,1893 @@
           ]
         }
       ]
+    },
+    {
+      "id": "party_simple_table",
+      "model": "arcade:party_table_rect",
+      "x": 23.4,
+      "y": 0,
+      "z": 28.0,
+      "rotation_degrees": 0,
+      "size": [
+        2.1,
+        0.75,
+        0.85
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "party_simple_cloth",
+      "model": "arcade:party_cloth_rect_confetti",
+      "x": 23.4,
+      "y": 0.502,
+      "z": 28.0,
+      "rotation_degrees": 0,
+      "size": [
+        2.24718,
+        0.25126,
+        0.98932
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_simple_chair_0",
+      "model": "arcade:fixed_chair_red",
+      "x": 22.84,
+      "y": 0,
+      "z": 27.06,
+      "rotation_degrees": 3,
+      "size": [
+        0.6,
+        0.92,
+        0.6
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "party_simple_chair_1",
+      "model": "arcade:fixed_chair_blue",
+      "x": 23.96,
+      "y": 0,
+      "z": 27.06,
+      "rotation_degrees": 357,
+      "size": [
+        0.6,
+        0.92,
+        0.6
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "party_simple_chair_2",
+      "model": "arcade:fixed_chair_blue",
+      "x": 22.84,
+      "y": 0,
+      "z": 28.94,
+      "rotation_degrees": 182,
+      "size": [
+        0.6,
+        0.92,
+        0.6
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "party_simple_chair_3",
+      "model": "arcade:fixed_chair_red",
+      "x": 23.96,
+      "y": 0,
+      "z": 28.94,
+      "rotation_degrees": 176,
+      "size": [
+        0.6,
+        0.92,
+        0.6
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "party_simple_chair_4",
+      "model": "arcade:fixed_chair_red",
+      "x": 21.95,
+      "y": 0,
+      "z": 28.0,
+      "rotation_degrees": 92,
+      "size": [
+        0.6,
+        0.92,
+        0.6
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "party_simple_chair_5",
+      "model": "arcade:fixed_chair_blue",
+      "x": 24.85,
+      "y": 0,
+      "z": 28.0,
+      "rotation_degrees": 269,
+      "size": [
+        0.6,
+        0.92,
+        0.6
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "party_simple_plate_0",
+      "model": "arcade:party_plate_confetti",
+      "x": 22.84,
+      "y": 0.753,
+      "z": 27.75,
+      "rotation_degrees": 0,
+      "size": [
+        0.22,
+        0.016,
+        0.22
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_simple_hat_0",
+      "model": "arcade:party_hat_dots",
+      "x": 22.84,
+      "y": 0.759,
+      "z": 27.75,
+      "rotation_degrees": 11,
+      "size": [
+        0.15,
+        0.22,
+        0.15
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_simple_plate_1",
+      "model": "arcade:party_plate_balloons",
+      "x": 23.96,
+      "y": 0.753,
+      "z": 27.75,
+      "rotation_degrees": 0,
+      "size": [
+        0.22,
+        0.016,
+        0.22
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_simple_hat_1",
+      "model": "arcade:party_hat_stars",
+      "x": 23.96,
+      "y": 0.759,
+      "z": 27.75,
+      "rotation_degrees": 40,
+      "size": [
+        0.15,
+        0.22,
+        0.15
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_simple_plate_2",
+      "model": "arcade:party_plate_stars",
+      "x": 22.84,
+      "y": 0.753,
+      "z": 28.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.22,
+        0.016,
+        0.22
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_simple_hat_2",
+      "model": "arcade:party_hat_confetti",
+      "x": 22.84,
+      "y": 0.759,
+      "z": 28.25,
+      "rotation_degrees": 69,
+      "size": [
+        0.15,
+        0.22,
+        0.15
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_simple_plate_3",
+      "model": "arcade:party_plate_border",
+      "x": 23.96,
+      "y": 0.753,
+      "z": 28.25,
+      "rotation_degrees": 0,
+      "size": [
+        0.22,
+        0.016,
+        0.22
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_simple_hat_3",
+      "model": "arcade:party_hat_shapes",
+      "x": 23.96,
+      "y": 0.759,
+      "z": 28.25,
+      "rotation_degrees": 98,
+      "size": [
+        0.15,
+        0.22,
+        0.15
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_simple_plate_4",
+      "model": "arcade:party_plate_confetti",
+      "x": 22.54,
+      "y": 0.753,
+      "z": 28.0,
+      "rotation_degrees": 0,
+      "size": [
+        0.22,
+        0.016,
+        0.22
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_simple_plate_5",
+      "model": "arcade:party_plate_balloons",
+      "x": 24.26,
+      "y": 0.753,
+      "z": 28.0,
+      "rotation_degrees": 0,
+      "size": [
+        0.22,
+        0.016,
+        0.22
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_simple_cup_0",
+      "model": "arcade:party_cup_confetti",
+      "x": 23.12,
+      "y": 0.753,
+      "z": 27.76,
+      "rotation_degrees": 7,
+      "size": [
+        0.085,
+        0.122,
+        0.085
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_simple_cup_1",
+      "model": "arcade:party_cup_balloons",
+      "x": 23.68,
+      "y": 0.753,
+      "z": 27.76,
+      "rotation_degrees": 30,
+      "size": [
+        0.085,
+        0.122,
+        0.085
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_simple_cup_2",
+      "model": "arcade:party_cup_stars",
+      "x": 23.12,
+      "y": 0.753,
+      "z": 28.24,
+      "rotation_degrees": 53,
+      "size": [
+        0.085,
+        0.122,
+        0.085
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_simple_cup_3",
+      "model": "arcade:party_cup_geometric",
+      "x": 23.68,
+      "y": 0.753,
+      "z": 28.24,
+      "rotation_degrees": 76,
+      "size": [
+        0.085,
+        0.122,
+        0.085
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_simple_cup_4",
+      "model": "arcade:party_cup_confetti",
+      "x": 22.54,
+      "y": 0.753,
+      "z": 27.74,
+      "rotation_degrees": 99,
+      "size": [
+        0.085,
+        0.122,
+        0.085
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_simple_cup_5",
+      "model": "arcade:party_cup_balloons",
+      "x": 24.26,
+      "y": 0.753,
+      "z": 28.26,
+      "rotation_degrees": 122,
+      "size": [
+        0.085,
+        0.122,
+        0.085
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_simple_single_red_0",
+      "model": "arcade:party_balloon",
+      "x": 21.69016,
+      "y": 0.91,
+      "z": 28.00907,
+      "rotation_degrees": 0,
+      "size": [
+        0.3,
+        1.53,
+        0.3
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "red",
+          "scale": 0.94,
+          "string_length": 1.38,
+          "anchor": [
+            0,
+            0,
+            0
+          ],
+          "offset": [
+            0.05,
+            0,
+            0.08
+          ],
+          "enabled": true,
+          "sway_amplitude": 0.022,
+          "bob_amplitude": 0.01,
+          "rotation_degrees": 2.7,
+          "speed_hz": 0.16,
+          "phase": 0.11,
+          "shared_phase": 0.08,
+          "shared_sway": 0.007
+        }
+      ]
+    },
+    {
+      "id": "party_simple_single_pink_0",
+      "model": "arcade:party_balloon",
+      "x": 25.10996,
+      "y": 0.91,
+      "z": 28.00454,
+      "rotation_degrees": 0,
+      "size": [
+        0.3,
+        1.53,
+        0.3
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "pink",
+          "scale": 0.94,
+          "string_length": 1.49,
+          "anchor": [
+            0,
+            0,
+            0
+          ],
+          "offset": [
+            0.05,
+            0,
+            0.08
+          ],
+          "enabled": true,
+          "sway_amplitude": 0.022,
+          "bob_amplitude": 0.01,
+          "rotation_degrees": 2.7,
+          "speed_hz": 0.16,
+          "phase": 0.58,
+          "shared_phase": 0.54,
+          "shared_sway": 0.007
+        }
+      ]
+    },
+    {
+      "id": "party_gifts_table",
+      "model": "arcade:party_table_rect",
+      "x": 28.4,
+      "y": 0,
+      "z": 18.5,
+      "rotation_degrees": 0,
+      "size": [
+        2.1,
+        0.75,
+        0.85
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "party_gifts_cloth",
+      "model": "arcade:party_cloth_rect_arcade",
+      "x": 28.4,
+      "y": 0.502,
+      "z": 18.5,
+      "rotation_degrees": 0,
+      "size": [
+        2.24718,
+        0.25126,
+        0.98932
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_gifts_stack_0",
+      "model": "arcade:party_gift_stars",
+      "x": 28.595,
+      "y": 0.753,
+      "z": 18.695,
+      "rotation_degrees": 270,
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "solid": false,
+      "occludes": false,
+      "scale": 1.0
+    },
+    {
+      "id": "party_gifts_stack_1",
+      "model": "arcade:party_gift_confetti",
+      "x": 28.595,
+      "y": 0.753,
+      "z": 18.305,
+      "rotation_degrees": 0,
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "solid": false,
+      "occludes": false,
+      "scale": 1.0
+    },
+    {
+      "id": "party_gifts_stack_2",
+      "model": "arcade:party_gift_stripes",
+      "x": 28.205,
+      "y": 0.753,
+      "z": 18.305,
+      "rotation_degrees": 90,
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "solid": false,
+      "occludes": false,
+      "scale": 1.0
+    },
+    {
+      "id": "party_gifts_stack_3",
+      "model": "arcade:party_gift_arcade",
+      "x": 28.205,
+      "y": 0.753,
+      "z": 18.695,
+      "rotation_degrees": 180,
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "solid": false,
+      "occludes": false,
+      "scale": 1.0
+    },
+    {
+      "id": "party_gifts_stack_4",
+      "model": "arcade:party_gift_red",
+      "x": 28.4,
+      "y": 1.055,
+      "z": 18.5,
+      "rotation_degrees": 357,
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "solid": false,
+      "occludes": false,
+      "scale": 1.0
+    },
+    {
+      "id": "party_gifts_stack_5",
+      "model": "arcade:party_gift_green",
+      "x": 27.65,
+      "y": 0.753,
+      "z": 18.5,
+      "rotation_degrees": 12,
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "solid": false,
+      "occludes": false,
+      "scale": 1.0
+    },
+    {
+      "id": "party_gifts_stack_6",
+      "model": "arcade:party_gift_stars",
+      "x": 29.15,
+      "y": 0.753,
+      "z": 18.5,
+      "rotation_degrees": 346,
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "solid": false,
+      "occludes": false,
+      "scale": 1.0
+    },
+    {
+      "id": "party_gifts_cup",
+      "model": "arcade:party_cup_geometric",
+      "x": 27.91,
+      "y": 0.753,
+      "z": 18.23,
+      "rotation_degrees": 24,
+      "size": [
+        0.085,
+        0.122,
+        0.085
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_gifts_plate",
+      "model": "arcade:party_plate_border",
+      "x": 28.87,
+      "y": 0.753,
+      "z": 18.19,
+      "rotation_degrees": 9,
+      "size": [
+        0.22,
+        0.016,
+        0.22
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_gifts_bouquet_weight",
+      "model": "arcade:party_balloon_weight",
+      "x": 27.65,
+      "y": 0.753,
+      "z": 18.18,
+      "rotation_degrees": 0,
+      "size": [
+        0.07,
+        0.05442,
+        0.07
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_gifts_bouquet_0",
+      "model": "arcade:party_balloon",
+      "x": 27.65,
+      "y": 0.80742,
+      "z": 18.18,
+      "rotation_degrees": 0,
+      "size": [
+        0.3,
+        1.53,
+        0.3
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "red",
+          "scale": 0.94,
+          "string_length": 1.6,
+          "anchor": [
+            0,
+            0,
+            0
+          ],
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "enabled": true,
+          "sway_amplitude": 0.022,
+          "bob_amplitude": 0.01,
+          "rotation_degrees": 2.7,
+          "speed_hz": 0.16,
+          "phase": 0.2,
+          "shared_phase": 0.32,
+          "shared_sway": 0.007
+        }
+      ]
+    },
+    {
+      "id": "party_gifts_bouquet_1",
+      "model": "arcade:party_balloon",
+      "x": 27.65,
+      "y": 0.80742,
+      "z": 18.18,
+      "rotation_degrees": 0,
+      "size": [
+        0.3,
+        1.53,
+        0.3
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "royal_blue",
+          "scale": 0.965,
+          "string_length": 1.45,
+          "anchor": [
+            0,
+            0,
+            0
+          ],
+          "offset": [
+            0.56,
+            0,
+            0.0
+          ],
+          "enabled": true,
+          "sway_amplitude": 0.024999999999999998,
+          "bob_amplitude": 0.013000000000000001,
+          "rotation_degrees": 3.1,
+          "speed_hz": 0.178,
+          "phase": 0.417,
+          "shared_phase": 0.32,
+          "shared_sway": 0.007
+        }
+      ]
+    },
+    {
+      "id": "party_gifts_bouquet_2",
+      "model": "arcade:party_balloon",
+      "x": 27.65,
+      "y": 0.80742,
+      "z": 18.18,
+      "rotation_degrees": 0,
+      "size": [
+        0.3,
+        1.53,
+        0.3
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "golden_yellow",
+          "scale": 0.99,
+          "string_length": 1.6,
+          "anchor": [
+            0,
+            0,
+            0
+          ],
+          "offset": [
+            0.28,
+            0,
+            0.484974
+          ],
+          "enabled": true,
+          "sway_amplitude": 0.027999999999999997,
+          "bob_amplitude": 0.01,
+          "rotation_degrees": 2.7,
+          "speed_hz": 0.196,
+          "phase": 0.634,
+          "shared_phase": 0.32,
+          "shared_sway": 0.007
+        }
+      ]
+    },
+    {
+      "id": "party_gifts_bouquet_3",
+      "model": "arcade:party_balloon",
+      "x": 27.65,
+      "y": 0.80742,
+      "z": 18.18,
+      "rotation_degrees": 0,
+      "size": [
+        0.3,
+        1.53,
+        0.3
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "grass_green",
+          "scale": 0.94,
+          "string_length": 1.375,
+          "anchor": [
+            0,
+            0,
+            0
+          ],
+          "offset": [
+            -0.28,
+            0,
+            0.484974
+          ],
+          "enabled": true,
+          "sway_amplitude": 0.022,
+          "bob_amplitude": 0.013000000000000001,
+          "rotation_degrees": 3.1,
+          "speed_hz": 0.214,
+          "phase": 0.851,
+          "shared_phase": 0.32,
+          "shared_sway": 0.007
+        }
+      ]
+    },
+    {
+      "id": "party_gifts_bouquet_4",
+      "model": "arcade:party_balloon",
+      "x": 27.65,
+      "y": 0.80742,
+      "z": 18.18,
+      "rotation_degrees": 0,
+      "size": [
+        0.3,
+        1.53,
+        0.3
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "deep_purple",
+          "scale": 0.965,
+          "string_length": 1.525,
+          "anchor": [
+            0,
+            0,
+            0
+          ],
+          "offset": [
+            -0.56,
+            0,
+            0.0
+          ],
+          "enabled": true,
+          "sway_amplitude": 0.024999999999999998,
+          "bob_amplitude": 0.01,
+          "rotation_degrees": 2.7,
+          "speed_hz": 0.16,
+          "phase": 0.068,
+          "shared_phase": 0.32,
+          "shared_sway": 0.007
+        }
+      ]
+    },
+    {
+      "id": "party_gifts_bouquet_5",
+      "model": "arcade:party_balloon",
+      "x": 27.65,
+      "y": 0.80742,
+      "z": 18.18,
+      "rotation_degrees": 0,
+      "size": [
+        0.3,
+        1.53,
+        0.3
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "orange",
+          "scale": 0.99,
+          "string_length": 1.3,
+          "anchor": [
+            0,
+            0,
+            0
+          ],
+          "offset": [
+            -0.28,
+            0,
+            -0.484974
+          ],
+          "enabled": true,
+          "sway_amplitude": 0.027999999999999997,
+          "bob_amplitude": 0.013000000000000001,
+          "rotation_degrees": 3.1,
+          "speed_hz": 0.178,
+          "phase": 0.285,
+          "shared_phase": 0.32,
+          "shared_sway": 0.007
+        }
+      ]
+    },
+    {
+      "id": "party_gifts_bouquet_6",
+      "model": "arcade:party_balloon",
+      "x": 27.65,
+      "y": 0.80742,
+      "z": 18.18,
+      "rotation_degrees": 0,
+      "size": [
+        0.3,
+        1.53,
+        0.3
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "pink",
+          "scale": 0.94,
+          "string_length": 1.45,
+          "anchor": [
+            0,
+            0,
+            0
+          ],
+          "offset": [
+            0.28,
+            0,
+            -0.484974
+          ],
+          "enabled": true,
+          "sway_amplitude": 0.022,
+          "bob_amplitude": 0.01,
+          "rotation_degrees": 2.7,
+          "speed_hz": 0.196,
+          "phase": 0.502,
+          "shared_phase": 0.32,
+          "shared_sway": 0.007
+        }
+      ]
+    },
+    {
+      "id": "party_round_table",
+      "model": "arcade:party_table_round",
+      "x": 23.4,
+      "y": 0,
+      "z": 20.6,
+      "rotation_degrees": 0,
+      "size": [
+        1.2,
+        0.75287,
+        1.2
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "party_round_cloth",
+      "model": "arcade:party_cloth_round_balloons",
+      "x": 23.4,
+      "y": 0.52282,
+      "z": 20.6,
+      "rotation_degrees": 0,
+      "size": [
+        1.28199,
+        0.23018,
+        1.28199
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_round_chair_0",
+      "model": "arcade:fixed_chair_red",
+      "x": 22.37,
+      "y": 0,
+      "z": 20.6,
+      "rotation_degrees": 87,
+      "size": [
+        0.6,
+        0.92,
+        0.6
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "party_round_chair_1",
+      "model": "arcade:fixed_chair_blue",
+      "x": 24.43,
+      "y": 0,
+      "z": 20.6,
+      "rotation_degrees": 272,
+      "size": [
+        0.6,
+        0.92,
+        0.6
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "party_round_chair_2",
+      "model": "arcade:fixed_chair_blue",
+      "x": 23.4,
+      "y": 0,
+      "z": 19.57,
+      "rotation_degrees": 2,
+      "size": [
+        0.6,
+        0.92,
+        0.6
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "party_round_chair_3",
+      "model": "arcade:fixed_chair_red",
+      "x": 23.4,
+      "y": 0,
+      "z": 21.63,
+      "rotation_degrees": 179,
+      "size": [
+        0.6,
+        0.92,
+        0.6
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "party_round_plate_0",
+      "model": "arcade:party_plate_balloons",
+      "x": 23.12,
+      "y": 0.753,
+      "z": 20.37,
+      "rotation_degrees": 0,
+      "size": [
+        0.22,
+        0.016,
+        0.22
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_round_hat_0",
+      "model": "arcade:party_hat_stripes",
+      "x": 23.12,
+      "y": 0.759,
+      "z": 20.37,
+      "rotation_degrees": 0,
+      "size": [
+        0.15,
+        0.22,
+        0.15
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_round_plate_1",
+      "model": "arcade:party_plate_stars",
+      "x": 23.68,
+      "y": 0.753,
+      "z": 20.37,
+      "rotation_degrees": 0,
+      "size": [
+        0.22,
+        0.016,
+        0.22
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_round_plate_2",
+      "model": "arcade:party_plate_confetti",
+      "x": 23.12,
+      "y": 0.753,
+      "z": 20.83,
+      "rotation_degrees": 0,
+      "size": [
+        0.22,
+        0.016,
+        0.22
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_round_plate_3",
+      "model": "arcade:party_plate_border",
+      "x": 23.68,
+      "y": 0.753,
+      "z": 20.83,
+      "rotation_degrees": 0,
+      "size": [
+        0.22,
+        0.016,
+        0.22
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_round_hat_3",
+      "model": "arcade:party_hat_dots",
+      "x": 23.68,
+      "y": 0.759,
+      "z": 20.83,
+      "rotation_degrees": 114,
+      "size": [
+        0.15,
+        0.22,
+        0.15
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_round_cup_0",
+      "model": "arcade:party_cup_balloons",
+      "x": 22.94,
+      "y": 0.753,
+      "z": 20.63,
+      "rotation_degrees": 0,
+      "size": [
+        0.085,
+        0.122,
+        0.085
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_round_cup_1",
+      "model": "arcade:party_cup_stars",
+      "x": 23.86,
+      "y": 0.753,
+      "z": 20.63,
+      "rotation_degrees": 47,
+      "size": [
+        0.085,
+        0.122,
+        0.085
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_round_cup_2",
+      "model": "arcade:party_cup_confetti",
+      "x": 23.35,
+      "y": 0.753,
+      "z": 20.14,
+      "rotation_degrees": 94,
+      "size": [
+        0.085,
+        0.122,
+        0.085
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_round_cup_3",
+      "model": "arcade:party_cup_geometric",
+      "x": 23.35,
+      "y": 0.753,
+      "z": 21.06,
+      "rotation_degrees": 141,
+      "size": [
+        0.085,
+        0.122,
+        0.085
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_round_bouquet_weight",
+      "model": "arcade:party_balloon_weight",
+      "x": 23.4,
+      "y": 0.753,
+      "z": 20.6,
+      "rotation_degrees": 0,
+      "size": [
+        0.07,
+        0.05442,
+        0.07
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_round_bouquet_0",
+      "model": "arcade:party_balloon",
+      "x": 23.4,
+      "y": 0.80742,
+      "z": 20.6,
+      "rotation_degrees": 0,
+      "size": [
+        0.3,
+        1.53,
+        0.3
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "royal_blue",
+          "scale": 0.94,
+          "string_length": 1.25,
+          "anchor": [
+            0,
+            0,
+            0
+          ],
+          "offset": [
+            -0.38,
+            0,
+            0.08
+          ],
+          "enabled": true,
+          "sway_amplitude": 0.022,
+          "bob_amplitude": 0.01,
+          "rotation_degrees": 2.7,
+          "speed_hz": 0.16,
+          "phase": 0.43,
+          "shared_phase": 0.71,
+          "shared_sway": 0.007
+        }
+      ]
+    },
+    {
+      "id": "party_round_bouquet_1",
+      "model": "arcade:party_balloon",
+      "x": 23.4,
+      "y": 0.80742,
+      "z": 20.6,
+      "rotation_degrees": 0,
+      "size": [
+        0.3,
+        1.53,
+        0.3
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "golden_yellow",
+          "scale": 0.965,
+          "string_length": 1.4,
+          "anchor": [
+            0,
+            0,
+            0
+          ],
+          "offset": [
+            0.38,
+            0,
+            0.03
+          ],
+          "enabled": true,
+          "sway_amplitude": 0.024999999999999998,
+          "bob_amplitude": 0.013000000000000001,
+          "rotation_degrees": 3.1,
+          "speed_hz": 0.178,
+          "phase": 0.647,
+          "shared_phase": 0.71,
+          "shared_sway": 0.007
+        }
+      ]
+    },
+    {
+      "id": "party_round_bouquet_2",
+      "model": "arcade:party_balloon",
+      "x": 23.4,
+      "y": 0.80742,
+      "z": 20.6,
+      "rotation_degrees": 0,
+      "size": [
+        0.3,
+        1.53,
+        0.3
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "grass_green",
+          "scale": 0.99,
+          "string_length": 1.55,
+          "anchor": [
+            0,
+            0,
+            0
+          ],
+          "offset": [
+            0,
+            0,
+            -0.36
+          ],
+          "enabled": true,
+          "sway_amplitude": 0.027999999999999997,
+          "bob_amplitude": 0.01,
+          "rotation_degrees": 2.7,
+          "speed_hz": 0.196,
+          "phase": 0.864,
+          "shared_phase": 0.71,
+          "shared_sway": 0.007
+        }
+      ]
+    },
+    {
+      "id": "party_cake_table",
+      "model": "arcade:party_table_rect",
+      "x": 27.6,
+      "y": 0,
+      "z": 25.4,
+      "rotation_degrees": 90,
+      "size": [
+        2.1,
+        0.75,
+        0.85
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "party_cake_cloth",
+      "model": "arcade:party_cloth_rect_stars",
+      "x": 27.6,
+      "y": 0.502,
+      "z": 25.4,
+      "rotation_degrees": 90,
+      "size": [
+        2.24718,
+        0.25126,
+        0.98932
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_cake_chair_0",
+      "model": "arcade:fixed_chair_blue",
+      "x": 28.54,
+      "y": 0,
+      "z": 25.96,
+      "rotation_degrees": 264,
+      "size": [
+        0.6,
+        0.92,
+        0.6
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "party_cake_chair_1",
+      "model": "arcade:fixed_chair_red",
+      "x": 28.54,
+      "y": 0,
+      "z": 24.84,
+      "rotation_degrees": 274,
+      "size": [
+        0.6,
+        0.92,
+        0.6
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "party_cake_cake",
+      "model": "arcade:party_cake_lit",
+      "x": 27.6,
+      "y": 0.753,
+      "z": 25.68,
+      "rotation_degrees": 90,
+      "size": [
+        0.36,
+        0.236,
+        0.36
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "animation",
+          "clip": "candle_flicker",
+          "looped": true,
+          "playing": false
+        },
+        {
+          "component": "glow",
+          "color": [
+            1,
+            0.49,
+            0.16
+          ],
+          "intensity": 0.28,
+          "range": 0.8,
+          "offset": [
+            0,
+            0.218,
+            0
+          ],
+          "fade": false,
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "id": "party_cake_gifts_0",
+      "model": "arcade:party_gift_green",
+      "x": 27.6,
+      "y": 0.753,
+      "z": 24.9,
+      "rotation_degrees": 225,
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "solid": false,
+      "occludes": false,
+      "scale": 1.0
+    },
+    {
+      "id": "party_cake_gifts_1",
+      "model": "arcade:party_gift_red",
+      "x": 27.6,
+      "y": 0.753,
+      "z": 24.56,
+      "rotation_degrees": 45,
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "solid": false,
+      "occludes": false,
+      "scale": 1.0
+    },
+    {
+      "id": "party_cake_gifts_2",
+      "model": "arcade:party_gift_confetti",
+      "x": 27.6,
+      "y": 1.055,
+      "z": 24.73,
+      "rotation_degrees": 82,
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "solid": false,
+      "occludes": false,
+      "scale": 1.0
+    },
+    {
+      "id": "party_cake_plate_0",
+      "model": "arcade:party_plate_stars",
+      "x": 27.37,
+      "y": 0.753,
+      "z": 26.16,
+      "rotation_degrees": 90,
+      "size": [
+        0.22,
+        0.016,
+        0.22
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_cake_plate_1",
+      "model": "arcade:party_plate_confetti",
+      "x": 27.85,
+      "y": 0.753,
+      "z": 25.28,
+      "rotation_degrees": 90,
+      "size": [
+        0.22,
+        0.016,
+        0.22
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_cake_hat",
+      "model": "arcade:party_hat_stripes",
+      "x": 27.37,
+      "y": 0.759,
+      "z": 26.16,
+      "rotation_degrees": 107,
+      "size": [
+        0.15,
+        0.22,
+        0.15
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_cake_cup",
+      "model": "arcade:party_cup_stars",
+      "x": 27.83,
+      "y": 0.753,
+      "z": 26.08,
+      "rotation_degrees": 151,
+      "size": [
+        0.085,
+        0.122,
+        0.085
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_cake_cup_2",
+      "model": "arcade:party_cup_balloons",
+      "x": 27.34,
+      "y": 0.753,
+      "z": 25.28,
+      "rotation_degrees": 99,
+      "size": [
+        0.085,
+        0.122,
+        0.085
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_cake_bouquet_weight",
+      "model": "arcade:party_balloon_weight",
+      "x": 27.7,
+      "y": 0.753,
+      "z": 26.32,
+      "rotation_degrees": 90,
+      "size": [
+        0.07,
+        0.05442,
+        0.07
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_cake_bouquet_0",
+      "model": "arcade:party_balloon",
+      "x": 27.7,
+      "y": 0.80742,
+      "z": 26.32,
+      "rotation_degrees": 90,
+      "size": [
+        0.3,
+        1.53,
+        0.3
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "deep_purple",
+          "scale": 0.94,
+          "string_length": 1.32,
+          "anchor": [
+            0,
+            0,
+            0
+          ],
+          "offset": [
+            0.5,
+            0,
+            0.0
+          ],
+          "enabled": true,
+          "sway_amplitude": 0.022,
+          "bob_amplitude": 0.01,
+          "rotation_degrees": 2.7,
+          "speed_hz": 0.16,
+          "phase": 0.67,
+          "shared_phase": 0.44,
+          "shared_sway": 0.007
+        }
+      ]
+    },
+    {
+      "id": "party_cake_bouquet_1",
+      "model": "arcade:party_balloon",
+      "x": 27.7,
+      "y": 0.80742,
+      "z": 26.32,
+      "rotation_degrees": 90,
+      "size": [
+        0.3,
+        1.53,
+        0.3
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "pink",
+          "scale": 0.965,
+          "string_length": 1.47,
+          "anchor": [
+            0,
+            0,
+            0
+          ],
+          "offset": [
+            0.154508,
+            0,
+            0.475528
+          ],
+          "enabled": true,
+          "sway_amplitude": 0.024999999999999998,
+          "bob_amplitude": 0.013000000000000001,
+          "rotation_degrees": 3.1,
+          "speed_hz": 0.178,
+          "phase": 0.887,
+          "shared_phase": 0.44,
+          "shared_sway": 0.007
+        }
+      ]
+    },
+    {
+      "id": "party_cake_bouquet_2",
+      "model": "arcade:party_balloon",
+      "x": 27.7,
+      "y": 0.80742,
+      "z": 26.32,
+      "rotation_degrees": 90,
+      "size": [
+        0.3,
+        1.53,
+        0.3
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "golden_yellow",
+          "scale": 0.99,
+          "string_length": 1.62,
+          "anchor": [
+            0,
+            0,
+            0
+          ],
+          "offset": [
+            -0.404508,
+            0,
+            0.293893
+          ],
+          "enabled": true,
+          "sway_amplitude": 0.027999999999999997,
+          "bob_amplitude": 0.01,
+          "rotation_degrees": 2.7,
+          "speed_hz": 0.196,
+          "phase": 0.104,
+          "shared_phase": 0.44,
+          "shared_sway": 0.007
+        }
+      ]
+    },
+    {
+      "id": "party_cake_bouquet_3",
+      "model": "arcade:party_balloon",
+      "x": 27.7,
+      "y": 0.80742,
+      "z": 26.32,
+      "rotation_degrees": 90,
+      "size": [
+        0.3,
+        1.53,
+        0.3
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "royal_blue",
+          "scale": 0.94,
+          "string_length": 1.395,
+          "anchor": [
+            0,
+            0,
+            0
+          ],
+          "offset": [
+            -0.404508,
+            0,
+            -0.293893
+          ],
+          "enabled": true,
+          "sway_amplitude": 0.022,
+          "bob_amplitude": 0.013000000000000001,
+          "rotation_degrees": 3.1,
+          "speed_hz": 0.214,
+          "phase": 0.321,
+          "shared_phase": 0.44,
+          "shared_sway": 0.007
+        }
+      ]
+    },
+    {
+      "id": "party_cake_bouquet_4",
+      "model": "arcade:party_balloon",
+      "x": 27.7,
+      "y": 0.80742,
+      "z": 26.32,
+      "rotation_degrees": 90,
+      "size": [
+        0.3,
+        1.53,
+        0.3
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "orange",
+          "scale": 0.965,
+          "string_length": 1.545,
+          "anchor": [
+            0,
+            0,
+            0
+          ],
+          "offset": [
+            0.154508,
+            0,
+            -0.475528
+          ],
+          "enabled": true,
+          "sway_amplitude": 0.024999999999999998,
+          "bob_amplitude": 0.01,
+          "rotation_degrees": 2.7,
+          "speed_hz": 0.16,
+          "phase": 0.538,
+          "shared_phase": 0.44,
+          "shared_sway": 0.007
+        }
+      ]
+    },
+    {
+      "id": "party_streamer_0",
+      "model": "arcade:party_streamer_purple",
+      "x": 21.15,
+      "y": 2.49983,
+      "z": 17.012,
+      "rotation_degrees": 0,
+      "size": [
+        0.07811,
+        0.70012,
+        0.07
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_streamer_1",
+      "model": "arcade:party_streamer_pink",
+      "x": 21.6,
+      "y": 2.49983,
+      "z": 17.012,
+      "rotation_degrees": 0,
+      "size": [
+        0.07811,
+        0.70012,
+        0.07
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_streamer_2",
+      "model": "arcade:party_streamer_yellow",
+      "x": 22.05,
+      "y": 2.49983,
+      "z": 17.012,
+      "rotation_degrees": 0,
+      "size": [
+        0.07811,
+        0.70012,
+        0.07
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_streamer_3",
+      "model": "arcade:party_streamer_blue",
+      "x": 24.4,
+      "y": 2.49983,
+      "z": 17.012,
+      "rotation_degrees": 0,
+      "size": [
+        0.07811,
+        0.70012,
+        0.07
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_streamer_4",
+      "model": "arcade:party_streamer_orange",
+      "x": 24.85,
+      "y": 2.49983,
+      "z": 17.012,
+      "rotation_degrees": 0,
+      "size": [
+        0.07811,
+        0.70012,
+        0.07
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_streamer_5",
+      "model": "arcade:party_streamer_purple",
+      "x": 29.987,
+      "y": 2.49983,
+      "z": 21.6,
+      "rotation_degrees": 270,
+      "size": [
+        0.07811,
+        0.70012,
+        0.07
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_streamer_6",
+      "model": "arcade:party_streamer_pink",
+      "x": 29.987,
+      "y": 2.49983,
+      "z": 22.05,
+      "rotation_degrees": 270,
+      "size": [
+        0.07811,
+        0.70012,
+        0.07
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_streamer_7",
+      "model": "arcade:party_streamer_yellow",
+      "x": 29.987,
+      "y": 2.49983,
+      "z": 27.5,
+      "rotation_degrees": 270,
+      "size": [
+        0.07811,
+        0.70012,
+        0.07
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_streamer_8",
+      "model": "arcade:party_streamer_blue",
+      "x": 29.987,
+      "y": 2.49983,
+      "z": 27.95,
+      "rotation_degrees": 270,
+      "size": [
+        0.07811,
+        0.70012,
+        0.07
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "party_streamer_9",
+      "model": "arcade:party_streamer_orange",
+      "x": 29.987,
+      "y": 2.49983,
+      "z": 28.4,
+      "rotation_degrees": 270,
+      "size": [
+        0.07811,
+        0.70012,
+        0.07
+      ],
+      "solid": false,
+      "occludes": false
     }
   ],
   "decals": [
@@ -3639,8 +5546,8 @@
     {
       "id": "cosmic_uv_3",
       "fixture": "arcade:blacklight_tube",
-      "x": 16.2,
-      "z": 12.3,
+      "x": 25.4,
+      "z": 23.1,
       "align": "none",
       "brightness": 0.07,
       "color": [
@@ -3650,9 +5557,444 @@
       ],
       "emission": 0.5,
       "ultraviolet": 1.8,
-      "range": 9.0,
+      "range": 8.0,
       "enabled": true,
       "switchable": true
+    },
+    {
+      "id": "party_troffer_0",
+      "fixture": "arcade:fluorescent_panel_01",
+      "x": 25.8,
+      "z": 20.7,
+      "align": "none",
+      "brightness": 0.43,
+      "color": [
+        1,
+        0.94,
+        0.88
+      ],
+      "emission": 0.85,
+      "range": 5.5
+    },
+    {
+      "id": "party_troffer_1",
+      "fixture": "arcade:fluorescent_panel_01",
+      "x": 28.2,
+      "z": 19.5,
+      "align": "none",
+      "brightness": 0.18,
+      "color": [
+        1,
+        0.92,
+        0.84
+      ],
+      "emission": 0.85,
+      "range": 5.5
+    },
+    {
+      "id": "party_troffer_2",
+      "fixture": "arcade:fluorescent_panel_01",
+      "x": 22.2,
+      "z": 27.3,
+      "align": "none",
+      "brightness": 0.2,
+      "color": [
+        0.76,
+        0.82,
+        1
+      ],
+      "emission": 0.85,
+      "range": 5.5
+    },
+    {
+      "id": "party_troffer_3",
+      "fixture": "arcade:fluorescent_panel_01",
+      "x": 25.8,
+      "z": 26.1,
+      "align": "none",
+      "brightness": 0.43,
+      "color": [
+        1,
+        0.92,
+        0.85
+      ],
+      "emission": 0.85,
+      "range": 5.5
+    }
+  ],
+  "baseboards": [
+    {
+      "x": 0,
+      "z": 0.0,
+      "y": 0,
+      "length": 9.08,
+      "rotation_degrees": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "arcade:carpet_retro_swirl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 0,
+      "z": 0.0,
+      "y": 0.09,
+      "length": 9.08,
+      "rotation_degrees": 0,
+      "height": 0.01,
+      "thickness": 0.009,
+      "material": "arcade:carpet_retro_swirl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 9.32,
+      "z": 0.0,
+      "y": 0,
+      "length": 10.56,
+      "rotation_degrees": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "arcade:carpet_cosmic_bowl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 9.32,
+      "z": 0.0,
+      "y": 0.09,
+      "length": 10.56,
+      "rotation_degrees": 0,
+      "height": 0.01,
+      "thickness": 0.009,
+      "material": "arcade:carpet_cosmic_bowl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 9.08,
+      "z": 30,
+      "y": 0,
+      "length": 9.08,
+      "rotation_degrees": 180,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "arcade:carpet_retro_swirl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 9.08,
+      "z": 30,
+      "y": 0.09,
+      "length": 9.08,
+      "rotation_degrees": 180,
+      "height": 0.01,
+      "thickness": 0.009,
+      "material": "arcade:carpet_retro_swirl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 19.88,
+      "z": 30,
+      "y": 0,
+      "length": 10.56,
+      "rotation_degrees": 180,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "arcade:carpet_cosmic_bowl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 19.88,
+      "z": 30,
+      "y": 0.09,
+      "length": 10.56,
+      "rotation_degrees": 180,
+      "height": 0.01,
+      "thickness": 0.009,
+      "material": "arcade:carpet_cosmic_bowl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 30,
+      "z": 30,
+      "y": 0,
+      "length": 9.88,
+      "rotation_degrees": 180,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "arcade:carpet_neon_confetti_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 30,
+      "z": 30,
+      "y": 0.09,
+      "length": 9.88,
+      "rotation_degrees": 180,
+      "height": 0.01,
+      "thickness": 0.009,
+      "material": "arcade:carpet_neon_confetti_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 0.0,
+      "z": 29.98,
+      "y": 0,
+      "length": 29.96,
+      "rotation_degrees": 90,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "arcade:carpet_retro_swirl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 0.0,
+      "z": 29.98,
+      "y": 0.09,
+      "length": 29.96,
+      "rotation_degrees": 90,
+      "height": 0.01,
+      "thickness": 0.009,
+      "material": "arcade:carpet_retro_swirl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 19.88,
+      "z": 0.02,
+      "y": 0,
+      "length": 23.98,
+      "rotation_degrees": 270,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "arcade:carpet_cosmic_bowl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 19.88,
+      "z": 0.02,
+      "y": 0.09,
+      "length": 23.98,
+      "rotation_degrees": 270,
+      "height": 0.01,
+      "thickness": 0.009,
+      "material": "arcade:carpet_cosmic_bowl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 19.88,
+      "z": 27.2,
+      "y": 0,
+      "length": 2.78,
+      "rotation_degrees": 270,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "arcade:carpet_cosmic_bowl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 19.88,
+      "z": 27.2,
+      "y": 0.09,
+      "length": 2.78,
+      "rotation_degrees": 270,
+      "height": 0.01,
+      "thickness": 0.009,
+      "material": "arcade:carpet_cosmic_bowl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 9.32,
+      "z": 23.2,
+      "y": 0,
+      "length": 23.18,
+      "rotation_degrees": 90,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "arcade:carpet_cosmic_bowl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 9.32,
+      "z": 23.2,
+      "y": 0.09,
+      "length": 23.18,
+      "rotation_degrees": 90,
+      "height": 0.01,
+      "thickness": 0.009,
+      "material": "arcade:carpet_cosmic_bowl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 9.32,
+      "z": 29.98,
+      "y": 0,
+      "length": 3.58,
+      "rotation_degrees": 90,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "arcade:carpet_cosmic_bowl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 9.32,
+      "z": 29.98,
+      "y": 0.09,
+      "length": 3.58,
+      "rotation_degrees": 90,
+      "height": 0.01,
+      "thickness": 0.009,
+      "material": "arcade:carpet_cosmic_bowl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 9.08,
+      "z": 0.02,
+      "y": 0,
+      "length": 23.18,
+      "rotation_degrees": 270,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "arcade:carpet_retro_swirl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 9.08,
+      "z": 0.02,
+      "y": 0.09,
+      "length": 23.18,
+      "rotation_degrees": 270,
+      "height": 0.01,
+      "thickness": 0.009,
+      "material": "arcade:carpet_retro_swirl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 9.08,
+      "z": 26.4,
+      "y": 0,
+      "length": 3.58,
+      "rotation_degrees": 270,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "arcade:carpet_retro_swirl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 9.08,
+      "z": 26.4,
+      "y": 0.09,
+      "length": 3.58,
+      "rotation_degrees": 270,
+      "height": 0.01,
+      "thickness": 0.009,
+      "material": "arcade:carpet_retro_swirl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 20.12,
+      "z": 24,
+      "y": 0,
+      "length": 6.98,
+      "rotation_degrees": 90,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "arcade:carpet_neon_confetti_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 20.12,
+      "z": 24,
+      "y": 0.09,
+      "length": 6.98,
+      "rotation_degrees": 90,
+      "height": 0.01,
+      "thickness": 0.009,
+      "material": "arcade:carpet_neon_confetti_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 20.12,
+      "z": 29.98,
+      "y": 0,
+      "length": 2.78,
+      "rotation_degrees": 90,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "arcade:carpet_neon_confetti_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 20.12,
+      "z": 29.98,
+      "y": 0.09,
+      "length": 2.78,
+      "rotation_degrees": 90,
+      "height": 0.01,
+      "thickness": 0.009,
+      "material": "arcade:carpet_neon_confetti_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 20.12,
+      "z": 17.0,
+      "y": 0,
+      "length": 9.88,
+      "rotation_degrees": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "arcade:carpet_neon_confetti_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 20.12,
+      "z": 17.0,
+      "y": 0.09,
+      "length": 9.88,
+      "rotation_degrees": 0,
+      "height": 0.01,
+      "thickness": 0.009,
+      "material": "arcade:carpet_neon_confetti_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 30,
+      "z": 17.02,
+      "y": 0,
+      "length": 12.96,
+      "rotation_degrees": 270,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "arcade:carpet_neon_confetti_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 30,
+      "z": 17.02,
+      "y": 0.09,
+      "length": 12.96,
+      "rotation_degrees": 270,
+      "height": 0.01,
+      "thickness": 0.009,
+      "material": "arcade:carpet_neon_confetti_01",
+      "uv_projection": "floor_fold"
+    }
+  ],
+  "timers": [
+    {
+      "id": "party_cake_candles_start",
+      "seconds": 0.01,
+      "autostart": true,
+      "repeat": false,
+      "bindings": [
+        {
+          "on": "timer",
+          "actions": [
+            {
+              "action": "play_animation",
+              "target": "party_cake_cake",
+              "clip": "candle_flicker",
+              "loop": true
+            }
+          ]
+        }
+      ]
     }
   ]
 }

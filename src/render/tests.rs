@@ -6789,6 +6789,137 @@ fn a_per_surface_shine_override_reaches_the_batch_key() {
 
 // ------------------------------------------------- generic architecture
 
+/// Only the vertical front triangles, excluding cap/end vertices at shared edges.
+fn baseboard_uv_test_front(vertices: &[Vertex], board: &crate::level::BaseboardDef) -> Vec<Vertex> {
+    let (ax, az) = board.across();
+    let base = board.y.expect("fixture authors its base height");
+    vertices
+        .as_chunks::<3>()
+        .0
+        .iter()
+        .filter(|triangle| {
+            triangle.iter().all(|vertex| {
+                let cross = ax.mul_add(vertex.pos[0] - board.x, az * (vertex.pos[2] - board.z));
+                (cross - board.thickness).abs() < 0.00001
+            }) && triangle.iter().any(|vertex| vertex.pos[1] > base + 0.00001)
+                && triangle
+                    .iter()
+                    .any(|vertex| (vertex.pos[1] - base).abs() < 0.00001)
+        })
+        .flat_map(|triangle| triangle.iter().copied())
+        .collect()
+}
+
+fn assert_baseboard_floor_fold_mesh(mesh: &LevelMesh, level: &LevelDef, tile: f32) {
+    let board = &level.baseboards[0];
+    let (ax, az) = board.across();
+    let base = board.y.expect("fixture authors its base height");
+    let top = base + board.height;
+    let floor_base = level.rooms[0].floor_y;
+    let vertices = material_vertices(mesh, level, "arcade:carpet_cosmic_bowl_01");
+    for vertex in &vertices {
+        let height = vertex.pos[1] - floor_base;
+        let expected = [
+            ax.mul_add(height, vertex.pos[0]) / tile,
+            az.mul_add(height, vertex.pos[2]) / tile,
+        ];
+        assert!(
+            (vertex.uv[0] - expected[0]).abs() < 0.00001
+                && (vertex.uv[1] - expected[1]).abs() < 0.00001,
+            "floor, front, cap and ends share world floor projection"
+        );
+    }
+    let front = baseboard_uv_test_front(&vertices, board);
+    assert!(!front.is_empty(), "folded front face is present");
+    let floor = batch_slice(mesh, SurfaceKind::Floor);
+    for vertex in front
+        .iter()
+        .filter(|vertex| (vertex.pos[1] - base).abs() < 0.00001)
+    {
+        let same_xz = |candidate: &&Vertex| {
+            (candidate.pos[0] - vertex.pos[0]).abs() < 0.00001
+                && (candidate.pos[2] - vertex.pos[2]).abs() < 0.00001
+        };
+        if (base - floor_base).abs() < 0.00001 {
+            let floor_vertex = floor
+                .iter()
+                .filter(same_xz)
+                .find(|candidate| (candidate.pos[1] - base).abs() < 0.00001)
+                .expect("front bottom edge coincides with the actual floor mesh");
+            assert!(
+                (vertex.uv[0] - floor_vertex.uv[0]).abs() < 0.00001
+                    && (vertex.uv[1] - floor_vertex.uv[1]).abs() < 0.00001,
+                "floor and folded board meet without a texture seam"
+            );
+        }
+        let upper = front
+            .iter()
+            .filter(same_xz)
+            .find(|candidate| (candidate.pos[1] - top).abs() < 0.00001)
+            .expect("matching front upper edge exists");
+        assert!(
+            (upper.uv[0] - vertex.uv[0] - ax * board.height / tile).abs() < 0.00001
+                && (upper.uv[1] - vertex.uv[1] - az * board.height / tile).abs() < 0.00001,
+            "height unfolds into the room at unit metre density"
+        );
+    }
+}
+
+/// Source-only trim regression: six tiny 3 m open-room meshes, no production
+/// map bake or GLB/image load. Protects floor/trim seams, world-axis orientation,
+/// metre density and the existing wall projection through the public mesh path.
+#[test]
+fn baseboard_floor_fold_continues_floor_uvs_and_preserves_default_wall_uvs() {
+    let tile = 4.0_f32;
+    for (rotation, x, z) in [(0.0_f32, 4.0_f32, 4.97_f32), (90.0, 3.97, 8.0)] {
+        let mut source = serde_json::json!({
+            "format_version": 3_u32, "id": "trim_fold", "name": "Trim fold",
+            "spawn": {"x": 5.0_f32, "z": 6.0_f32},
+            "defaults": {"floor": "arcade:carpet_cosmic_bowl_01"},
+            "rooms": [{"x": 4.0_f32, "z": 5.0_f32, "width": 3.0_f32, "depth": 3.0_f32,
+                       "floor_y": 1.25_f32, "height": 3.0_f32, "ceiling": {"kind": "open"}}],
+            "baseboards": [{"x": x, "z": z, "length": 3.0_f32, "rotation_degrees": rotation,
+                            "height": 0.12_f32, "thickness": 0.03_f32, "y": 1.25_f32,
+                            "material": "arcade:carpet_cosmic_bowl_01"}]
+        });
+        let wall_level =
+            LevelDef::from_json(&source.to_string()).expect("default trim fixture parses");
+        let wall_board = &wall_level.baseboards[0];
+        assert_eq!(
+            wall_board.uv_projection,
+            crate::level::BaseboardUvProjection::Wall,
+            "an omitted projection keeps the existing wall contract"
+        );
+        let wall_mesh = build_level_geometry(&wall_level);
+        let (dx, dz) = wall_board.direction();
+        let front = baseboard_uv_test_front(
+            &material_vertices(&wall_mesh, &wall_level, "arcade:carpet_cosmic_bowl_01"),
+            wall_board,
+        );
+        assert!(!front.is_empty(), "default front face is present");
+        for vertex in &front {
+            let along = dx.mul_add(vertex.pos[0] - x, dz * (vertex.pos[2] - z));
+            assert!(
+                (vertex.uv[0] - along / tile).abs() < 0.00001,
+                "default front U remains local along distance"
+            );
+            assert!(
+                (vertex.uv[1] - (1.37 - vertex.pos[1]) / tile).abs() < 0.00001,
+                "default front V keeps the historical top-to-bottom orientation"
+            );
+        }
+        source["baseboards"][0]["uv_projection"] = serde_json::json!("floor_fold");
+        let level = LevelDef::from_json(&source.to_string()).expect("floor_fold fixture parses");
+        assert_baseboard_floor_fold_mesh(&build_level_geometry(&level), &level, tile);
+        // The upper step begins above the floor but keeps the same unfolded
+        // print origin, avoiding a reset at the body/profile seam.
+        source["baseboards"][0]["y"] = serde_json::json!(1.34_f32);
+        source["baseboards"][0]["height"] = serde_json::json!(0.01_f32);
+        let raised = LevelDef::from_json(&source.to_string()).expect("raised profile parses");
+        assert_baseboard_floor_fold_mesh(&build_level_geometry(&raised), &raised, tile);
+    }
+}
+
 /// Small open-room fixtures exercise the public mesh path for both ramp axes.
 /// A distinct edge material isolates ramp skirts from adjacent region skirts.
 fn ramp_side_test_level(features: &str, axis: crate::level::WallAxis) -> LevelDef {
@@ -7762,6 +7893,7 @@ fn two_placed_characters_follow_independent_entity_frames() {
             transform: Some((glam::Vec3::new(5.0, 0.0, 2.0), std::f32::consts::FRAC_PI_2)),
             cue: PoseCue::Walk { speed_mps: 0.5 },
             opacity: 1.0,
+            balloon: None,
             glow: None,
         },
         EntityFrame {
@@ -7773,6 +7905,7 @@ fn two_placed_characters_follow_independent_entity_frames() {
                 paused: false,
             },
             opacity: 1.0,
+            balloon: None,
             glow: None,
         },
     ];
@@ -7855,6 +7988,7 @@ fn an_entity_frame_yaw_rotates_the_model_front_from_plus_z_towards_plus_x() {
         transform: Some((glam::Vec3::new(1.0, 0.0, 1.0), std::f32::consts::FRAC_PI_2)),
         cue: PoseCue::Idle,
         opacity: 1.0,
+        balloon: None,
         glow: None,
     }];
     drop(scene.update(1.0 / 60.0, LocomotionSnapshot::default(), &frames));
@@ -7894,6 +8028,7 @@ fn a_glowing_placed_character_produces_one_keyed_attached_light() {
         transform: None,
         cue: PoseCue::Idle,
         opacity: 0.5,
+        balloon: None,
         glow: Some(GlowCue {
             socket: None,
             offset: [0.0, 0.2, 0.0],
@@ -8755,6 +8890,7 @@ fn graphics_rebuild_preserves_each_characters_live_playback_by_instance_id() {
             transform: Some((glam::Vec3::new(5.0, 0.0, 2.0), 0.4)),
             cue: PoseCue::Walk { speed_mps: 0.5 },
             opacity: 1.0,
+            balloon: None,
             glow: None,
         },
         EntityFrame {
@@ -8762,6 +8898,7 @@ fn graphics_rebuild_preserves_each_characters_live_playback_by_instance_id() {
             transform: Some((glam::Vec3::new(2.0, 0.0, 4.0), 1.2)),
             cue: PoseCue::Walk { speed_mps: 0.9 },
             opacity: 1.0,
+            balloon: None,
             glow: None,
         },
     ];

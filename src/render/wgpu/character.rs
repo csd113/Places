@@ -69,6 +69,34 @@ const fn character_submesh_pass(alpha: crate::materials::MaterialAlpha) -> Batch
     BatchPass::of(alpha)
 }
 
+/// Coalesces adjacent opaque/cutout ranges with identical material state once,
+/// during upload. Vertex joint ownership and blend ordering are untouched.
+fn coalesced_submeshes(sources: &[crate::gltf::PropSubmesh]) -> Vec<crate::gltf::PropSubmesh> {
+    let mut ranges: Vec<crate::gltf::PropSubmesh> = Vec::with_capacity(sources.len());
+    for source in sources.iter().filter(|source| source.index_count > 0) {
+        if let Some(previous) = ranges.last_mut() {
+            let same_material = previous.material == source.material
+                && previous.texture == source.texture
+                && previous.emission == source.emission
+                && previous.alpha == source.alpha
+                && previous.response == source.response
+                && previous.double_sided == source.double_sided;
+            let adjacent =
+                previous.first_index.checked_add(previous.index_count) == Some(source.first_index);
+            if same_material
+                && adjacent
+                && source.alpha.mode != crate::materials::AlphaMode::Blend
+                && let Some(count) = previous.index_count.checked_add(source.index_count)
+            {
+                previous.index_count = count;
+                continue;
+            }
+        }
+        ranges.push(*source);
+    }
+    ranges
+}
+
 /// One primitive of a character model.
 #[derive(Clone, Copy)]
 struct CharacterSubmeshGpu {
@@ -365,11 +393,7 @@ impl WgpuCharacters {
         let mut submeshes: Vec<CharacterSubmeshGpu> = Vec::with_capacity(model.submeshes.len());
         let mut materials: Vec<usize> = Vec::with_capacity(model.submeshes.len());
         let mut emissive: Vec<bool> = Vec::with_capacity(model.submeshes.len());
-        for source in model
-            .submeshes
-            .iter()
-            .filter(|submesh| submesh.index_count > 0)
-        {
+        for source in coalesced_submeshes(&model.submeshes) {
             let texture = source
                 .texture
                 .map(usize::from)
@@ -807,6 +831,75 @@ mod tests {
     use super::*;
     use crate::entity::PoseCue;
     use crate::materials::{AlphaMode, MaterialAlpha};
+
+    /// Protects the shared balloon rig's 13-to-2 draw reduction and material,
+    /// transparency and index boundaries. Thirteen source ranges, no GPU or bake.
+    #[test]
+    fn adjacent_character_ranges_merge_without_crossing_material_or_blend_boundaries() {
+        let body = crate::gltf::PropSubmesh {
+            double_sided: false,
+            response: crate::materials::MaterialResponse::NONE,
+            material: 0,
+            texture: Some(0),
+            emission: crate::materials::MaterialEmission::NONE,
+            alpha: MaterialAlpha::OPAQUE,
+            first_index: 0,
+            index_count: 30,
+        };
+        let mut sources = vec![body];
+        for segment in 0_u32..12 {
+            sources.push(crate::gltf::PropSubmesh {
+                material: 1,
+                first_index: 30_u32.saturating_add(segment.saturating_mul(6)),
+                index_count: 6,
+                ..body
+            });
+        }
+        let merged = coalesced_submeshes(&sources);
+        assert_eq!(
+            merged.len(),
+            2,
+            "one latex and one shared-string draw replace thirteen node draws"
+        );
+        assert_eq!(
+            merged.first().copied(),
+            Some(body),
+            "body material and range survive exactly"
+        );
+        assert_eq!(
+            merged
+                .get(1)
+                .map(|part| (part.first_index, part.index_count)),
+            Some((30, 72)),
+            "all twelve strings remain in the same index buffer"
+        );
+        let mut different = sources.clone();
+        if let Some(part) = different.get_mut(5) {
+            part.material = 2;
+        }
+        assert_eq!(
+            coalesced_submeshes(&different).len(),
+            4,
+            "distinct material cannot merge into its neighbours"
+        );
+        for part in different.iter_mut().skip(1) {
+            part.alpha = MaterialAlpha::blend(0.5);
+        }
+        assert_eq!(
+            coalesced_submeshes(&different).len(),
+            13,
+            "blend ranges preserve their original order and granularity"
+        );
+        let mut discontinuous = sources;
+        if let Some(part) = discontinuous.get_mut(5) {
+            part.first_index = part.first_index.saturating_add(1);
+        }
+        assert_eq!(
+            coalesced_submeshes(&discontinuous).len(),
+            4,
+            "a discontinuous range cannot swallow another range's indices"
+        );
+    }
 
     fn mannequin_model() -> Result<crate::gltf::PropModel, String> {
         crate::gltf::parse_glb(include_bytes!(

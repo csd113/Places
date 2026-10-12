@@ -135,10 +135,18 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
             model.triangles
         );
         for texture in &model.textures {
+            // These reviewed large surfaces need crisp print at their actual
+            // metre scale. All other shipped sheets keep the ordinary budget.
+            let native_size = if entry.id.starts_with("arcade:party_cloth_") {
+                1_024
+            } else if entry.id.starts_with("arcade:party_gift_") {
+                512
+            } else {
+                PROP_TEXTURE_NATIVE_SIZE
+            };
             assert!(
-                texture.width <= PROP_TEXTURE_NATIVE_SIZE
-                    && texture.height <= PROP_TEXTURE_NATIVE_SIZE,
-                "{}: texture is {}x{}, above the {PROP_TEXTURE_NATIVE_SIZE}px native prop size",
+                texture.width <= native_size && texture.height <= native_size,
+                "{}: texture is {}x{}, above its {native_size}px reviewed native prop size",
                 entry.id,
                 texture.width,
                 texture.height
@@ -240,7 +248,13 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
     // supported bough coats: 1284/1380 triangles, both under 1500.
     // Aero dome retains 16 structural ribs, a closed glazed shell and radial soffit
     // at meaningful 12 m scale: 1152 triangles, under the existing 1500 ceiling.
+    // Party cakes use closed piped frosting shells, eight scalloped icing accents,
+    // eighteen sprinkles and seven striped candles/wicks; the lit variant also
+    // retains seven tiny animated flames. Their reviewed 1352/1492 triangles
+    // preserve those focal-point silhouettes below the existing 1500 ceiling.
     let detailed_props = [
+        "arcade:party_cake_lit",
+        "arcade:party_cake_unlit",
         "frutiger_aero:atrium_dome",
         "spooner-man",
         "mannequin",
@@ -502,7 +516,7 @@ fn art_budget_warnings_name_the_broken_budget_and_never_fail_a_load() {
 
 /// A normal collection of native 256x256 sheets fits the desktop budget with
 /// years of headroom: the eight refreshed domestic props together use 2 MiB
-/// against a 64 MiB pack budget.
+/// against a 106 MiB pack budget.
 #[test]
 fn a_normal_256_collection_fits_the_desktop_pack_budget_with_headroom() {
     let native_props = 8usize;
@@ -522,14 +536,14 @@ fn a_normal_256_collection_fits_the_desktop_pack_budget_with_headroom() {
     );
 }
 
-/// The pack budget still rejects pathological content: sixteen engine-max
-/// images are 64 MiB and one byte more is over budget.
+/// The pack budget still rejects pathological content: one byte beyond its
+/// documented limit is over budget.
 #[test]
 fn a_pathological_texture_pack_is_still_rejected() {
     let engine_max =
         crate::assets::decoded_rgba_bytes(MAX_PROP_TEXTURE_SIZE, MAX_PROP_TEXTURE_SIZE);
     assert_eq!(engine_max, MAX_PROP_TEXTURE_BYTES);
-    assert_eq!(PROP_TEXTURE_PACK_BUDGET_BYTES, 64 * 1024 * 1024);
+    assert_eq!(PROP_TEXTURE_PACK_BUDGET_BYTES, 106 * 1024 * 1024);
     assert!(
         pack_texture_budget_exceeded(PROP_TEXTURE_PACK_BUDGET_BYTES + 1),
         "one byte over the pack budget must be rejected"

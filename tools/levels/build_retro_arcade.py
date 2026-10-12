@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Compose the reference bowling alley and arcade from reusable file-backed assets.
+"""Compose connected bowling, arcade and birthday rooms from reusable assets.
 
-The four-lane hall, arcade bays and seating share one continuous commercial
-interior. Geometry/material edits belong here; the normal compiler prepares
+The original lanes and arcade retain their quiet commercial character beside a
+separate prepared party room. Geometry/material edits belong here; the compiler prepares
 lighting, collision and probes. No artwork is synthesized by this generator.
 """
 from __future__ import annotations
@@ -11,6 +11,11 @@ import argparse
 import json
 from pathlib import Path
 
+if __package__:
+    from .birthday_compositions import PartyComposer
+else:
+    from birthday_compositions import PartyComposer
+
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / "levels/retro_arcade_demo.json"
 CARPET = "arcade:carpet_cosmic_bowl_01"
@@ -18,28 +23,174 @@ WALL = "arcade:wall_navy_01"
 CEILING = "arcade:ceiling_acoustic_01"
 WOOD = "arcade:lane_wood_01"
 GUTTER = "arcade:gutter_dark_01"
+PARTY_WALL = "arcade:wall_party_purple_01"
+
+
+def baseboard_profile(level):
+    """Two modest stock bands on real interior wall faces, clear of passages.
+
+    Each strip uses the actual adjoining floor material and floor-folded UVs.
+    Existing baseboard geometry owns corner clipping and has no collision. The
+    upper inset band is a small stepped profile, not a second coplanar layer.
+    Runs merge along a continuous face so adjacent wall records never introduce
+    paired end caps. This helper authors source geometry; it does no rendering.
+    """
+    def subtract(spans, cuts):
+        for cut_lo, cut_hi in cuts:
+            pieces = []
+            for lo, hi in spans:
+                if cut_hi <= lo or cut_lo >= hi:
+                    pieces.append((lo, hi))
+                else:
+                    if lo < cut_lo:
+                        pieces.append((lo, cut_lo))
+                    if cut_hi < hi:
+                        pieces.append((cut_hi, hi))
+            spans = pieces
+        return spans
+
+    def solids(wall):
+        horizontal = wall["width"] >= wall["depth"]
+        lo = wall["x"] if horizontal else wall["z"]
+        length = wall["width"] if horizontal else wall["depth"]
+        cuts = [(lo+opening["offset"], lo+opening["offset"]+opening["width"])
+                for opening in wall.get("openings", [])
+                if opening.get("sill", 0) < .10]
+        for start, end in subtract([(lo, lo+length)], cuts):
+            yield ((start, wall["z"], end, wall["z"]+wall["depth"]) if horizontal
+                   else (wall["x"], start, wall["x"]+wall["width"], end))
+
+    grouped = {}
+    for index, wall in enumerate(level["walls"]):
+        horizontal = wall["width"] >= wall["depth"]
+        along = "x" if horizontal else "z"
+        across = "z" if horizontal else "x"
+        length = wall["width"] if horizontal else wall["depth"]
+        thickness = wall["depth"] if horizontal else wall["width"]
+        faces = (("south", wall[across]+thickness, 1, 0),
+                 ("north", wall[across], -1, 180)) if horizontal else (
+                 ("east", wall[across]+thickness, 1, 90),
+                 ("west", wall[across], -1, 270))
+        for face, plane, normal, yaw in faces:
+            spans = []
+            for room in level["rooms"]:
+                extent = room["depth"] if horizontal else room["width"]
+                if not room[across] <= plane+normal*.005 <= room[across]+extent:
+                    continue
+                room_length = room["width"] if horizontal else room["depth"]
+                lo, hi = max(wall[along], room[along]), min(wall[along]+length, room[along]+room_length)
+                if hi > lo:
+                    spans.append((lo, hi, room.get("material", level["defaults"]["floor"])))
+            cuts = [(wall[along]+o["offset"], wall[along]+o["offset"]+o["width"])
+                    for o in wall.get("openings", []) if o.get("sill", 0) < .10]
+            # A perpendicular wall's stock closes a corner or splits this face;
+            # hidden trim is omitted instead of continuing through that stock.
+            for other_index, other in enumerate(level["walls"]):
+                if other_index == index:
+                    continue
+                for x0, z0, x1, z1 in solids(other):
+                    sample = plane+normal*.009
+                    if horizontal and z0 < sample < z1:
+                        cuts.append((x0, x1))
+                    elif not horizontal and x0 < sample < x1:
+                        cuts.append((z0, z1))
+            for lo, hi, room_material in spans:
+                floor_spans = [(start, end, room_material)
+                               for start, end in subtract([(lo, hi)], cuts)]
+                # Later floor patches win, then floor regions. Splitting their
+                # boundaries keeps wood/deck stock ordinary wherever it reaches
+                # a wall, instead of assigning fluorescent carpet by room name.
+                for patch in [*level["floor_patches"], *level["floor_regions"]]:
+                    extent = patch["depth"] if horizontal else patch["width"]
+                    if not patch[across] <= plane+normal*.020 <= patch[across]+extent:
+                        continue
+                    patch_length = patch["width"] if horizontal else patch["depth"]
+                    patch_lo, patch_hi = patch[along], patch[along]+patch_length
+                    pieces = []
+                    for start, end, material in floor_spans:
+                        near, far = max(start, patch_lo), min(end, patch_hi)
+                        if far <= near:
+                            pieces.append((start, end, material))
+                            continue
+                        if start < near:
+                            pieces.append((start, near, material))
+                        pieces.append((near, far, patch.get("material", room_material)))
+                        if far < end:
+                            pieces.append((far, end, material))
+                    floor_spans = pieces
+                for start, end, material in floor_spans:
+                    key = (horizontal, round(plane, 6), normal, yaw, material)
+                    grouped.setdefault(key, []).append((start, end))
+
+    boards = []
+    for (horizontal, plane, normal, yaw, material), spans in grouped.items():
+        merged = []
+        for lo, hi in sorted(spans):
+            if merged and lo <= merged[-1][1]+1e-6:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], hi))
+            elif hi-lo > .001:
+                merged.append((lo, hi))
+        for lo, hi in merged:
+            if not horizontal:
+                # Butt the long north/south stock 2 mm clear of the east/west
+                # body's front. Quarter-turn f32 endpoint drift otherwise
+                # turns overlapping corner caps into metre-long micro-slivers.
+                # The wall closes these tiny fitting seams; no surface offset
+                # or geometry-check suppression is involved.
+                for cross_wall in level["walls"]:
+                    if cross_wall["width"] < cross_wall["depth"]:
+                        continue
+                    for x0, z0, x1, z1 in solids(cross_wall):
+                        if not x0 <= plane+normal*.009 <= x1:
+                            continue
+                        if abs(lo-z1) < 1e-6:
+                            lo += .020
+                        if abs(hi-z0) < 1e-6:
+                            hi -= .020
+            start = lo if yaw in (0, 270) else hi
+            x, z = (start, plane) if horizontal else (plane, start)
+            for y, height, thickness in ((0, .09, .018), (.09, .010, .009)):
+                boards.append(dict(x=round(x, 6), z=round(z, 6), y=y,
+                    length=round(hi-lo, 6), rotation_degrees=yaw,
+                    height=height, thickness=thickness, material=material,
+                    uv_projection="floor_fold"))
+    return boards
 
 
 def build_level():
     catalog = json.loads((ROOT / "assets/catalog.json").read_text())
-    sizes = {e["id"]: e["size"] for e in catalog["assets"] if e.get("asset_type") == "prop"}
+    sizes = {e["id"]: e["size"] for e in catalog["assets"]
+             if e.get("asset_type") in {"prop", "entity"}}
     level = dict(format_version=3, id="retro_arcade_demo", name="Cosmic Lanes & Arcade",
                  author="Places", spawn=dict(x=6.8, z=28.0, yaw_degrees=25),
                  defaults=dict(wall=WALL, floor=CARPET, ceiling=CEILING),
                  environment=dict(fog=dict(color=[.025, .035, .09], density=0,
                                            reference_y=1, height_gain=0)),
                  rooms=[], walls=[], floor_patches=[], floor_regions=[],
-                 props=[], decals=[], ceiling_lights=[])
-    # Adjacent cells are a single open hall. Small atlas charts preserve detail
-    # without overlapping room ownership or an artificial internal partition.
-    for x in (0, 10):
-        for z in (0, 15):
-            level["rooms"].append(dict(x=x, z=z, width=10, depth=15, height=3.2))
+                 props=[], decals=[], ceiling_lights=[], baseboards=[])
+    # Three nonoverlapping volumes own their respective carpets and lights.
+    # Floors meet at the centre planes of the two shared passage walls, so
+    # threshold support has one owner on either side rather than a spare slab.
+    level["rooms"] = [
+        dict(x=0, z=0, width=9.2, depth=30, height=3.2,
+             material="arcade:carpet_retro_swirl_01"),
+        dict(x=9.2, z=0, width=10.8, depth=30, height=3.2, material=CARPET),
+        dict(x=20, z=17, width=10, depth=13, height=3.2,
+             material="arcade:carpet_neon_confetti_01"),
+    ]
     level["walls"] = [
         dict(x=-.24, z=-.24, width=20.48, depth=.24, height=3.2, material=WALL),
-        dict(x=-.24, z=30, width=20.48, depth=.24, height=3.2, material=WALL),
+        dict(x=-.24, z=30, width=20.36, depth=.24, height=3.2, material=WALL),
         dict(x=-.24, z=0, width=.24, depth=30, height=3.2, material=WALL),
-        dict(x=20, z=0, width=.24, depth=30, height=3.2, material=WALL),
+        dict(x=19.88, z=0, width=.24, depth=17, height=3.2, material=WALL),
+        dict(x=9.08, z=0, width=.24, depth=30, height=3.2, material=WALL,
+             openings=[dict(kind="passage", offset=23.2, width=3.2, height=2.55)]),
+        dict(x=19.88, z=17, width=.24, depth=13, height=3.2, material=WALL,
+             faces=dict(east=PARTY_WALL),
+             openings=[dict(kind="passage", offset=7, width=3.2, height=2.55)]),
+        dict(x=20.12, z=16.76, width=10.12, depth=.24, height=3.2, material=PARTY_WALL),
+        dict(x=30, z=17, width=.24, depth=13, height=3.2, material=PARTY_WALL),
+        dict(x=20.12, z=30, width=10.12, depth=.24, height=3.2, material=PARTY_WALL),
     ]
 
     def prop(name, x, z, identity, y=0, yaw=0, solid=None, **extra):
@@ -115,21 +266,16 @@ def build_level():
 
     # Comfortable fixed seating and ordinary laminate, plastic and metal all
     # remain nonemitters under the same mixed practical/blacklight scene.
-    for group, x in enumerate((10.5, 16.5)):
+    for group, x in enumerate((10.8, 16.5)):
         prop("pedestal_table", x, 27.1, f"table_{group}")
         prop("soda_bottle", x+.16, 27.0, f"table_{group}_bottle", y=.72, yaw=20)
         for slot, (dx, dz, yaw, color) in enumerate((
             (-1.0, 0, 90, "red"), (1.0, 0, 270, "blue"),
-            (0, 1.15, 0, "blue"), (0, -1.15, 180, "red"))):
+            (0, 1.15, 180, "blue"), (0, -1.15, 0, "red"))):
             prop("fixed_chair_"+color, x+dx, 27.1+dz, f"chair_{group}_{slot}", yaw=yaw)
 
-    # Distinct carpet bays accompany game families. The space design remains
-    # the broad shared floor while all six reusable sheets are explorable.
-    for family, x, z, width, depth in (
-        ("neon_confetti", .4, 4.5, 4, 4), ("starburst", 4.4, 4.5, 4, 4),
-        ("retro_swirl", .4, 8.5, 4, 4), ("geometric", 4.4, 8.5, 4, 4),
-        ("arcade_grid", .4, 12.5, 8, 4)):
-        patch(x, z, width, depth, "arcade:carpet_"+family+"_01")
+    # The six carpets remain reusable catalog assets. This composed interior
+    # chooses one different design per room rather than showroom floor bays.
 
     def cabinet(name, x, z, identity, yaw=90, color=(.18, .43, 1), dim=False):
         size = sizes["arcade:"+name]
@@ -164,7 +310,7 @@ def build_level():
                  dict(shape="point", offset=[0, 2.13, .5], color=[.5, .65, 1],
                       intensity=.15, range=1.5)])
     prop("cat_plush", .9, 25, "vending_cat_plush", y=2.03, yaw=90)
-    prop("neon_bowl", 19.89, 25.0, "bowl_neon", y=1.72, yaw=270,
+    prop("neon_bowl", 19.77, 21.5, "bowl_neon", y=1.72, yaw=270,
          lights=[dict(shape="point", offset=[0, .4, .09], color=[1, .08, .14],
                       intensity=.18, range=3.2),
                  dict(shape="point", offset=[.65, .45, .09], color=[.12, .25, 1],
@@ -189,7 +335,7 @@ def build_level():
             brightness=brightness, color=[.58, .68, 1] if x == 4.2 else [1, .95, .88],
             emission=.95, range=6.5))
     for index, (x, z, reach) in enumerate(((4.2, 7.5, 8.0), (4.2, 17.1, 8.0),
-                                        (13.8, 24.3, 8.5), (16.2, 12.3, 9.0))):
+                                        (13.8, 24.3, 8.5), (25.4, 23.1, 8.0))):
         level["ceiling_lights"].append(dict(id=f"cosmic_uv_{index}",
             fixture="arcade:blacklight_tube", x=x, z=z, align="none",
             brightness=.07, color=[.32, .12, .8], emission=.5, ultraviolet=1.8,
@@ -201,6 +347,39 @@ def build_level():
                     dict(component="animation", clip="toggle", looped=False, playing=False)],
         bindings=[dict(on="interact", actions=[dict(action="toggle_animation", clip="toggle")]
             +[dict(action="toggle", target=f"cosmic_uv_{index}") for index in range(4)])]))
+
+    party_metadata = json.loads((ROOT / "assets/environments/arcade/party/asset_metadata.json").read_text())
+    weight_anchor = party_metadata["models"]["arcade:party_balloon_weight"]["anchor_height"]
+    party = PartyComposer(sizes, weight_anchor_height=weight_anchor)
+    party.simple_rect(23.4, 28.0, "party_simple")
+    party.present_table(28.4, 18.5, "party_gifts")
+    party.round_table(23.4, 20.6, "party_round")
+    party.cake_table(27.6, 25.4, "party_cake", yaw=90)
+    # Small hanging curls attach beside the walls, never spanning an entrance
+    # or obscuring the cake sightline. Each colour remains ordinary paper.
+    for index, (color, x, z, yaw) in enumerate((
+        ("purple", 21.15, 17.012, 0), ("pink", 21.60, 17.012, 0),
+        ("yellow", 22.05, 17.012, 0), ("blue", 24.40, 17.012, 0),
+        ("orange", 24.85, 17.012, 0), ("purple", 29.987, 21.6, 270),
+        ("pink", 29.987, 22.05, 270), ("yellow", 29.987, 27.5, 270),
+        ("blue", 29.987, 27.95, 270), ("orange", 29.987, 28.4, 270),
+    )):
+        party.prop("streamer_"+color, x, z, f"party_streamer_{index}", y=2.49983, yaw=yaw)
+    level["props"].extend(party.props)
+    level["timers"] = party.timers
+    # Two central local keys enter the existing four always-on entity-direct
+    # slots, giving latex genuine normal-dependent illumination. Redistribute
+    # the same 1.24 total output; room-wide brightness is not increased.
+    for index, (x, z, brightness, color) in enumerate((
+        (25.8, 20.7, .43, [1, .94, .88]),
+        (28.2, 19.5, .18, [1, .92, .84]),
+        (22.2, 27.3, .20, [.76, .82, 1]),
+        (25.8, 26.1, .43, [1, .92, .85]),
+    )):
+        level["ceiling_lights"].append(dict(id=f"party_troffer_{index}",
+            fixture="arcade:fluorescent_panel_01", x=x, z=z, align="none",
+            brightness=brightness, color=color, emission=.85, range=5.5))
+    level["baseboards"] = baseboard_profile(level)
     return level
 
 

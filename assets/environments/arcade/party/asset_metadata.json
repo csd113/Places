@@ -1,0 +1,919 @@
+{
+  "authoring_tool": "5.2.2 LTS",
+  "refinement_pass": "C",
+  "asset_class": "fitted model PNG (opaque)",
+  "models": {
+    "arcade:party_table_rect": {
+      "model": "environments/arcade/party/models/party_table_rect.glb",
+      "size": [
+        2.1,
+        0.75,
+        0.85
+      ],
+      "bounds_min": [
+        -1.05,
+        0.0,
+        -0.425
+      ],
+      "bounds_max": [
+        1.05,
+        0.75,
+        0.425
+      ],
+      "triangles": 376,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend",
+      "tabletop_y": 0.75
+    },
+    "arcade:party_table_round": {
+      "model": "environments/arcade/party/models/party_table_round.glb",
+      "size": [
+        1.2,
+        0.75287,
+        1.2
+      ],
+      "bounds_min": [
+        -0.6,
+        -0.00287,
+        -0.6
+      ],
+      "bounds_max": [
+        0.6,
+        0.75,
+        0.6
+      ],
+      "triangles": 424,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend",
+      "tabletop_y": 0.75
+    },
+    "arcade:party_cloth_rect_confetti": {
+      "model": "environments/arcade/party/models/party_cloth_rect_confetti.glb",
+      "size": [
+        2.24718,
+        0.25126,
+        0.98932
+      ],
+      "bounds_min": [
+        -1.12369,
+        -0.00026,
+        -0.49467
+      ],
+      "bounds_max": [
+        1.12349,
+        0.251,
+        0.49466
+      ],
+      "triangles": 216,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend",
+      "cloth_top_y": 0.25
+    },
+    "arcade:party_cloth_round_confetti": {
+      "model": "environments/arcade/party/models/party_cloth_round_confetti.glb",
+      "size": [
+        1.28199,
+        0.23018,
+        1.28199
+      ],
+      "bounds_min": [
+        -0.64099,
+        0.0,
+        -0.64099
+      ],
+      "bounds_max": [
+        0.64099,
+        0.23018,
+        0.64099
+      ],
+      "triangles": 192,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend",
+      "cloth_top_y": 0.22918
+    },
+    "arcade:party_cloth_rect_balloons": {
+      "model": "environments/arcade/party/models/party_cloth_rect_balloons.glb",
+      "size": [
+        2.24718,
+        0.25126,
+        0.98932
+      ],
+      "bounds_min": [
+        -1.12369,
+        -0.00026,
+        -0.49467
+      ],
+      "bounds_max": [
+        1.12349,
+        0.251,
+        0.49466
+      ],
+      "triangles": 216,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend",
+      "cloth_top_y": 0.25
+    },
+    "arcade:party_cloth_round_balloons": {
+      "model": "environments/arcade/party/models/party_cloth_round_balloons.glb",
+      "size": [
+        1.28199,
+        0.23018,
+        1.28199
+      ],
+      "bounds_min": [
+        -0.64099,
+        0.0,
+        -0.64099
+      ],
+      "bounds_max": [
+        0.64099,
+        0.23018,
+        0.64099
+      ],
+      "triangles": 192,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend",
+      "cloth_top_y": 0.22918
+    },
+    "arcade:party_cloth_rect_stars": {
+      "model": "environments/arcade/party/models/party_cloth_rect_stars.glb",
+      "size": [
+        2.24718,
+        0.25126,
+        0.98932
+      ],
+      "bounds_min": [
+        -1.12369,
+        -0.00026,
+        -0.49467
+      ],
+      "bounds_max": [
+        1.12349,
+        0.251,
+        0.49466
+      ],
+      "triangles": 216,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend",
+      "cloth_top_y": 0.25
+    },
+    "arcade:party_cloth_round_stars": {
+      "model": "environments/arcade/party/models/party_cloth_round_stars.glb",
+      "size": [
+        1.28199,
+        0.23018,
+        1.28199
+      ],
+      "bounds_min": [
+        -0.64099,
+        0.0,
+        -0.64099
+      ],
+      "bounds_max": [
+        0.64099,
+        0.23018,
+        0.64099
+      ],
+      "triangles": 192,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend",
+      "cloth_top_y": 0.22918
+    },
+    "arcade:party_cloth_rect_arcade": {
+      "model": "environments/arcade/party/models/party_cloth_rect_arcade.glb",
+      "size": [
+        2.24718,
+        0.25126,
+        0.98932
+      ],
+      "bounds_min": [
+        -1.12369,
+        -0.00026,
+        -0.49467
+      ],
+      "bounds_max": [
+        1.12349,
+        0.251,
+        0.49466
+      ],
+      "triangles": 216,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend",
+      "cloth_top_y": 0.25
+    },
+    "arcade:party_cloth_round_arcade": {
+      "model": "environments/arcade/party/models/party_cloth_round_arcade.glb",
+      "size": [
+        1.28199,
+        0.23018,
+        1.28199
+      ],
+      "bounds_min": [
+        -0.64099,
+        0.0,
+        -0.64099
+      ],
+      "bounds_max": [
+        0.64099,
+        0.23018,
+        0.64099
+      ],
+      "triangles": 192,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend",
+      "cloth_top_y": 0.22918
+    },
+    "arcade:party_hat_dots": {
+      "model": "environments/arcade/party/models/party_hat_dots.glb",
+      "size": [
+        0.15,
+        0.22,
+        0.15
+      ],
+      "bounds_min": [
+        -0.075,
+        0.0,
+        -0.075
+      ],
+      "bounds_max": [
+        0.075,
+        0.22,
+        0.075
+      ],
+      "triangles": 128,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend"
+    },
+    "arcade:party_hat_stars": {
+      "model": "environments/arcade/party/models/party_hat_stars.glb",
+      "size": [
+        0.15,
+        0.22,
+        0.15
+      ],
+      "bounds_min": [
+        -0.075,
+        0.0,
+        -0.075
+      ],
+      "bounds_max": [
+        0.075,
+        0.22,
+        0.075
+      ],
+      "triangles": 128,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend"
+    },
+    "arcade:party_hat_confetti": {
+      "model": "environments/arcade/party/models/party_hat_confetti.glb",
+      "size": [
+        0.15,
+        0.22,
+        0.15
+      ],
+      "bounds_min": [
+        -0.075,
+        0.0,
+        -0.075
+      ],
+      "bounds_max": [
+        0.075,
+        0.22,
+        0.075
+      ],
+      "triangles": 128,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend"
+    },
+    "arcade:party_hat_shapes": {
+      "model": "environments/arcade/party/models/party_hat_shapes.glb",
+      "size": [
+        0.15,
+        0.22,
+        0.15
+      ],
+      "bounds_min": [
+        -0.075,
+        0.0,
+        -0.075
+      ],
+      "bounds_max": [
+        0.075,
+        0.22,
+        0.075
+      ],
+      "triangles": 128,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend"
+    },
+    "arcade:party_hat_stripes": {
+      "model": "environments/arcade/party/models/party_hat_stripes.glb",
+      "size": [
+        0.15,
+        0.22,
+        0.15
+      ],
+      "bounds_min": [
+        -0.075,
+        0.0,
+        -0.075
+      ],
+      "bounds_max": [
+        0.075,
+        0.22,
+        0.075
+      ],
+      "triangles": 128,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend"
+    },
+    "arcade:party_cup_confetti": {
+      "model": "environments/arcade/party/models/party_cup_confetti.glb",
+      "size": [
+        0.085,
+        0.122,
+        0.085
+      ],
+      "bounds_min": [
+        -0.0425,
+        0.0,
+        -0.0425
+      ],
+      "bounds_max": [
+        0.0425,
+        0.122,
+        0.0425
+      ],
+      "triangles": 188,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend"
+    },
+    "arcade:party_cup_balloons": {
+      "model": "environments/arcade/party/models/party_cup_balloons.glb",
+      "size": [
+        0.085,
+        0.122,
+        0.085
+      ],
+      "bounds_min": [
+        -0.0425,
+        0.0,
+        -0.0425
+      ],
+      "bounds_max": [
+        0.0425,
+        0.122,
+        0.0425
+      ],
+      "triangles": 188,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend"
+    },
+    "arcade:party_cup_stars": {
+      "model": "environments/arcade/party/models/party_cup_stars.glb",
+      "size": [
+        0.085,
+        0.122,
+        0.085
+      ],
+      "bounds_min": [
+        -0.0425,
+        0.0,
+        -0.0425
+      ],
+      "bounds_max": [
+        0.0425,
+        0.122,
+        0.0425
+      ],
+      "triangles": 188,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend"
+    },
+    "arcade:party_cup_geometric": {
+      "model": "environments/arcade/party/models/party_cup_geometric.glb",
+      "size": [
+        0.085,
+        0.122,
+        0.085
+      ],
+      "bounds_min": [
+        -0.0425,
+        0.0,
+        -0.0425
+      ],
+      "bounds_max": [
+        0.0425,
+        0.122,
+        0.0425
+      ],
+      "triangles": 188,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend"
+    },
+    "arcade:party_plate_confetti": {
+      "model": "environments/arcade/party/models/party_plate_confetti.glb",
+      "size": [
+        0.22,
+        0.016,
+        0.22
+      ],
+      "bounds_min": [
+        -0.11,
+        0.0,
+        -0.11
+      ],
+      "bounds_max": [
+        0.11,
+        0.016,
+        0.11
+      ],
+      "triangles": 220,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend"
+    },
+    "arcade:party_plate_balloons": {
+      "model": "environments/arcade/party/models/party_plate_balloons.glb",
+      "size": [
+        0.22,
+        0.016,
+        0.22
+      ],
+      "bounds_min": [
+        -0.11,
+        0.0,
+        -0.11
+      ],
+      "bounds_max": [
+        0.11,
+        0.016,
+        0.11
+      ],
+      "triangles": 220,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend"
+    },
+    "arcade:party_plate_stars": {
+      "model": "environments/arcade/party/models/party_plate_stars.glb",
+      "size": [
+        0.22,
+        0.016,
+        0.22
+      ],
+      "bounds_min": [
+        -0.11,
+        0.0,
+        -0.11
+      ],
+      "bounds_max": [
+        0.11,
+        0.016,
+        0.11
+      ],
+      "triangles": 220,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend"
+    },
+    "arcade:party_plate_border": {
+      "model": "environments/arcade/party/models/party_plate_border.glb",
+      "size": [
+        0.22,
+        0.016,
+        0.22
+      ],
+      "bounds_min": [
+        -0.11,
+        0.0,
+        -0.11
+      ],
+      "bounds_max": [
+        0.11,
+        0.016,
+        0.11
+      ],
+      "triangles": 220,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend"
+    },
+    "arcade:party_gift_stars": {
+      "model": "environments/arcade/party/models/party_gift_stars.glb",
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "bounds_min": [
+        -0.152,
+        0.0,
+        -0.152
+      ],
+      "bounds_max": [
+        0.152,
+        0.3748,
+        0.152
+      ],
+      "triangles": 464,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend",
+      "box_size": [
+        0.3,
+        0.3,
+        0.3
+      ],
+      "bow_offset_xz": [
+        0.065,
+        -0.065
+      ],
+      "stack_step_y": 0.3
+    },
+    "arcade:party_gift_confetti": {
+      "model": "environments/arcade/party/models/party_gift_confetti.glb",
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "bounds_min": [
+        -0.152,
+        0.0,
+        -0.152
+      ],
+      "bounds_max": [
+        0.152,
+        0.3748,
+        0.152
+      ],
+      "triangles": 464,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend",
+      "box_size": [
+        0.3,
+        0.3,
+        0.3
+      ],
+      "bow_offset_xz": [
+        0.065,
+        -0.065
+      ],
+      "stack_step_y": 0.3
+    },
+    "arcade:party_gift_stripes": {
+      "model": "environments/arcade/party/models/party_gift_stripes.glb",
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "bounds_min": [
+        -0.152,
+        0.0,
+        -0.152
+      ],
+      "bounds_max": [
+        0.152,
+        0.3748,
+        0.152
+      ],
+      "triangles": 464,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend",
+      "box_size": [
+        0.3,
+        0.3,
+        0.3
+      ],
+      "bow_offset_xz": [
+        0.065,
+        -0.065
+      ],
+      "stack_step_y": 0.3
+    },
+    "arcade:party_gift_arcade": {
+      "model": "environments/arcade/party/models/party_gift_arcade.glb",
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "bounds_min": [
+        -0.152,
+        0.0,
+        -0.152
+      ],
+      "bounds_max": [
+        0.152,
+        0.3748,
+        0.152
+      ],
+      "triangles": 464,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend",
+      "box_size": [
+        0.3,
+        0.3,
+        0.3
+      ],
+      "bow_offset_xz": [
+        0.065,
+        -0.065
+      ],
+      "stack_step_y": 0.3
+    },
+    "arcade:party_gift_red": {
+      "model": "environments/arcade/party/models/party_gift_red.glb",
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "bounds_min": [
+        -0.152,
+        0.0,
+        -0.152
+      ],
+      "bounds_max": [
+        0.152,
+        0.3748,
+        0.152
+      ],
+      "triangles": 464,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend",
+      "box_size": [
+        0.3,
+        0.3,
+        0.3
+      ],
+      "bow_offset_xz": [
+        0.065,
+        -0.065
+      ],
+      "stack_step_y": 0.3
+    },
+    "arcade:party_gift_green": {
+      "model": "environments/arcade/party/models/party_gift_green.glb",
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "bounds_min": [
+        -0.152,
+        0.0,
+        -0.152
+      ],
+      "bounds_max": [
+        0.152,
+        0.3748,
+        0.152
+      ],
+      "triangles": 464,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend",
+      "box_size": [
+        0.3,
+        0.3,
+        0.3
+      ],
+      "bow_offset_xz": [
+        0.065,
+        -0.065
+      ],
+      "stack_step_y": 0.3
+    },
+    "arcade:party_cake_lit": {
+      "model": "environments/arcade/party/models/party_cake_lit.glb",
+      "size": [
+        0.36,
+        0.236,
+        0.36
+      ],
+      "bounds_min": [
+        -0.18,
+        0.0,
+        -0.18
+      ],
+      "bounds_max": [
+        0.18,
+        0.236,
+        0.18
+      ],
+      "triangles": 1492,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend",
+      "cake_body_diameter": 0.3,
+      "cake_top_y": 0.13,
+      "flame_cluster_offset": [
+        0,
+        0.218,
+        0
+      ],
+      "candle_count": 7,
+      "cake_emissive": false,
+      "clip": "candle_flicker"
+    },
+    "arcade:party_cake_unlit": {
+      "model": "environments/arcade/party/models/party_cake_unlit.glb",
+      "size": [
+        0.36,
+        0.218,
+        0.36
+      ],
+      "bounds_min": [
+        -0.18,
+        0.0,
+        -0.18
+      ],
+      "bounds_max": [
+        0.18,
+        0.218,
+        0.18
+      ],
+      "triangles": 1352,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend",
+      "cake_body_diameter": 0.3,
+      "cake_top_y": 0.13,
+      "flame_cluster_offset": [
+        0,
+        0.218,
+        0
+      ],
+      "candle_count": 7,
+      "cake_emissive": false,
+      "clip": null
+    },
+    "arcade:party_streamer_purple": {
+      "model": "environments/arcade/party/models/party_streamer_purple.glb",
+      "size": [
+        0.07811,
+        0.70012,
+        0.07
+      ],
+      "bounds_min": [
+        -0.04218,
+        0.0,
+        -0.03473
+      ],
+      "bounds_max": [
+        0.03593,
+        0.70012,
+        0.03527
+      ],
+      "triangles": 164,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend"
+    },
+    "arcade:party_streamer_pink": {
+      "model": "environments/arcade/party/models/party_streamer_pink.glb",
+      "size": [
+        0.07811,
+        0.70012,
+        0.07
+      ],
+      "bounds_min": [
+        -0.04218,
+        0.0,
+        -0.03473
+      ],
+      "bounds_max": [
+        0.03593,
+        0.70012,
+        0.03527
+      ],
+      "triangles": 164,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend"
+    },
+    "arcade:party_streamer_yellow": {
+      "model": "environments/arcade/party/models/party_streamer_yellow.glb",
+      "size": [
+        0.07811,
+        0.70012,
+        0.07
+      ],
+      "bounds_min": [
+        -0.04218,
+        0.0,
+        -0.03473
+      ],
+      "bounds_max": [
+        0.03593,
+        0.70012,
+        0.03527
+      ],
+      "triangles": 164,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend"
+    },
+    "arcade:party_streamer_blue": {
+      "model": "environments/arcade/party/models/party_streamer_blue.glb",
+      "size": [
+        0.07811,
+        0.70012,
+        0.07
+      ],
+      "bounds_min": [
+        -0.04218,
+        0.0,
+        -0.03473
+      ],
+      "bounds_max": [
+        0.03593,
+        0.70012,
+        0.03527
+      ],
+      "triangles": 164,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend"
+    },
+    "arcade:party_streamer_orange": {
+      "model": "environments/arcade/party/models/party_streamer_orange.glb",
+      "size": [
+        0.07811,
+        0.70012,
+        0.07
+      ],
+      "bounds_min": [
+        -0.04218,
+        0.0,
+        -0.03473
+      ],
+      "bounds_max": [
+        0.03593,
+        0.70012,
+        0.03527
+      ],
+      "triangles": 164,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend"
+    },
+    "arcade:party_balloon": {
+      "model": "environments/arcade/party/models/party_balloon.glb",
+      "size": [
+        0.3,
+        1.53,
+        0.3
+      ],
+      "bounds_min": [
+        -0.15,
+        0.0,
+        -0.15
+      ],
+      "bounds_max": [
+        0.15,
+        1.53,
+        0.15
+      ],
+      "triangles": 524,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend",
+      "body_size": [
+        0.3,
+        0.43,
+        0.3
+      ],
+      "body_bind_translation": [
+        0,
+        1.1,
+        0
+      ],
+      "string_segment_count": 12,
+      "string_radius": 0.0017,
+      "clip": "balloon_rest"
+    },
+    "arcade:party_balloon_weight": {
+      "model": "environments/arcade/party/models/party_balloon_weight.glb",
+      "size": [
+        0.07,
+        0.05442,
+        0.07
+      ],
+      "bounds_min": [
+        -0.035,
+        0.0,
+        -0.035
+      ],
+      "bounds_max": [
+        0.035,
+        0.05442,
+        0.035
+      ],
+      "triangles": 172,
+      "source_tool": "blender",
+      "source_scene": "environments/arcade/party/birthday_party.blend",
+      "puck_body_size": [
+        0.07,
+        0.04,
+        0.07
+      ],
+      "tabletop_anchor_offset": [
+        0,
+        0.05442,
+        0
+      ],
+      "anchor_height": 0.05442
+    }
+  }
+}

@@ -39,7 +39,7 @@
     {
       "id": "arcade",
       "display_name": "Retro Bowling & Arcade",
-      "description": "Empty operational 1995–2005 cosmic bowling: navy interiors, warm maple lanes, CRT cabinets and masked blacklight-reactive carpet."
+      "description": "Empty operational 1995\u20132005 cosmic bowling: navy interiors, warm maple lanes, CRT cabinets and masked blacklight-reactive carpet."
     }
   ],
   "assets": [
@@ -7915,10 +7915,11 @@
       "specular": 0,
       "shine": 0,
       "tint": [
-        0.14,
-        0.2,
-        0.43
-      ]
+        0.12,
+        0.17,
+        0.37
+      ],
+      "description": "Slightly darker blue-grey commercial acoustic tiles, retaining ordinary tile detail and module seams."
     },
     {
       "id": "arcade:lane_wood_01",
@@ -7956,7 +7957,7 @@
       "asset_type": "light",
       "source": "file",
       "model": "environments/arcade/textures/lights/fluorescent_panel_01.png",
-      "description": "Existing 1.2×0.6 m recessed family with fitted 2:1 diffuser; real neutral-warm local lighting."
+      "description": "Existing 1.2\u00d70.6 m recessed family with fitted 2:1 diffuser; real neutral-warm local lighting."
     },
     {
       "id": "arcade:blacklight_tube",
@@ -7966,7 +7967,7 @@
       "asset_type": "light",
       "source": "file",
       "model": "environments/arcade/textures/lights/blacklight_tube_01.png",
-      "description": "Operational 1.2×0.15 m narrow batten with fitted 8:1 violet lens and nonemissive dark housing. Visible brightness and ultraviolet excitation are distinct."
+      "description": "Operational 1.2\u00d70.15 m narrow batten with fitted 8:1 violet lens and nonemissive dark housing. Visible brightness and ultraviolet excitation are distinct."
     },
     {
       "id": "arcade:decal_bowling_mural_01",
@@ -7994,6 +7995,872 @@
       "asset_type": "decal",
       "source": "file",
       "model": "environments/arcade/decals/foul_line_01.png"
+    },
+    {
+      "id": "arcade:tex_wall_party_purple_01",
+      "display_name": "Purple Painted Wall Artwork",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "environments/arcade/textures/walls/wall_party_purple_01.png",
+      "description": "Seamless dark-purple commercial roller stipple; retained 1024 master, ordinary non-emissive 256 native."
+    },
+    {
+      "id": "arcade:wall_party_purple_01",
+      "display_name": "Dark Purple Party Wall",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "arcade:tex_wall_party_purple_01",
+      "tile_metres": 0.8,
+      "tint": [
+        0.78,
+        0.55,
+        1.0
+      ],
+      "specular": 0.06,
+      "shine": 0.12,
+      "description": "Dark-purple commercial painted stipple at 0.8 m repeat; ordinary non-emissive walls and matched skirting."
+    },
+    {
+      "id": "arcade:party_table_rect",
+      "display_name": "Party Table Rect",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_table_rect.glb",
+      "size": [
+        2.1,
+        0.75,
+        0.85
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": true,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_table_round",
+      "display_name": "Party Table Round",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_table_round.glb",
+      "size": [
+        1.2,
+        0.75287,
+        1.2
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": true,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_cloth_rect_confetti",
+      "display_name": "Party Cloth Rect Confetti",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_cloth_rect_confetti.glb",
+      "size": [
+        2.24718,
+        0.25126,
+        0.98932
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_cloth_round_confetti",
+      "display_name": "Party Cloth Round Confetti",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_cloth_round_confetti.glb",
+      "size": [
+        1.28199,
+        0.23018,
+        1.28199
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_cloth_rect_balloons",
+      "display_name": "Party Cloth Rect Balloons",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_cloth_rect_balloons.glb",
+      "size": [
+        2.24718,
+        0.25126,
+        0.98932
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_cloth_round_balloons",
+      "display_name": "Party Cloth Round Balloons",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_cloth_round_balloons.glb",
+      "size": [
+        1.28199,
+        0.23018,
+        1.28199
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_cloth_rect_stars",
+      "display_name": "Party Cloth Rect Stars",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_cloth_rect_stars.glb",
+      "size": [
+        2.24718,
+        0.25126,
+        0.98932
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_cloth_round_stars",
+      "display_name": "Party Cloth Round Stars",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_cloth_round_stars.glb",
+      "size": [
+        1.28199,
+        0.23018,
+        1.28199
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_cloth_rect_arcade",
+      "display_name": "Party Cloth Rect Arcade",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_cloth_rect_arcade.glb",
+      "size": [
+        2.24718,
+        0.25126,
+        0.98932
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_cloth_round_arcade",
+      "display_name": "Party Cloth Round Arcade",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_cloth_round_arcade.glb",
+      "size": [
+        1.28199,
+        0.23018,
+        1.28199
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_hat_dots",
+      "display_name": "Party Hat Dots",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_hat_dots.glb",
+      "size": [
+        0.15,
+        0.22,
+        0.15
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_hat_stars",
+      "display_name": "Party Hat Stars",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_hat_stars.glb",
+      "size": [
+        0.15,
+        0.22,
+        0.15
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_hat_confetti",
+      "display_name": "Party Hat Confetti",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_hat_confetti.glb",
+      "size": [
+        0.15,
+        0.22,
+        0.15
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_hat_shapes",
+      "display_name": "Party Hat Shapes",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_hat_shapes.glb",
+      "size": [
+        0.15,
+        0.22,
+        0.15
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_hat_stripes",
+      "display_name": "Party Hat Stripes",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_hat_stripes.glb",
+      "size": [
+        0.15,
+        0.22,
+        0.15
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_cup_confetti",
+      "display_name": "Party Cup Confetti",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_cup_confetti.glb",
+      "size": [
+        0.085,
+        0.122,
+        0.085
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_cup_balloons",
+      "display_name": "Party Cup Balloons",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_cup_balloons.glb",
+      "size": [
+        0.085,
+        0.122,
+        0.085
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_cup_stars",
+      "display_name": "Party Cup Stars",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_cup_stars.glb",
+      "size": [
+        0.085,
+        0.122,
+        0.085
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_cup_geometric",
+      "display_name": "Party Cup Geometric",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_cup_geometric.glb",
+      "size": [
+        0.085,
+        0.122,
+        0.085
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_plate_confetti",
+      "display_name": "Party Plate Confetti",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_plate_confetti.glb",
+      "size": [
+        0.22,
+        0.016,
+        0.22
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_plate_balloons",
+      "display_name": "Party Plate Balloons",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_plate_balloons.glb",
+      "size": [
+        0.22,
+        0.016,
+        0.22
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_plate_stars",
+      "display_name": "Party Plate Stars",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_plate_stars.glb",
+      "size": [
+        0.22,
+        0.016,
+        0.22
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_plate_border",
+      "display_name": "Party Plate Border",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_plate_border.glb",
+      "size": [
+        0.22,
+        0.016,
+        0.22
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_gift_stars",
+      "display_name": "Party Gift Stars",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_gift_stars.glb",
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_gift_confetti",
+      "display_name": "Party Gift Confetti",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_gift_confetti.glb",
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_gift_stripes",
+      "display_name": "Party Gift Stripes",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_gift_stripes.glb",
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_gift_arcade",
+      "display_name": "Party Gift Arcade",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_gift_arcade.glb",
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_gift_red",
+      "display_name": "Party Gift Red",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_gift_red.glb",
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_gift_green",
+      "display_name": "Party Gift Green",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_gift_green.glb",
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_cake_lit",
+      "display_name": "Party Cake Lit",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "entity",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_cake_lit.glb",
+      "size": [
+        0.36,
+        0.236,
+        0.36
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_cake_unlit",
+      "display_name": "Party Cake Unlit",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_cake_unlit.glb",
+      "size": [
+        0.36,
+        0.218,
+        0.36
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_streamer_purple",
+      "display_name": "Party Streamer Purple",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_streamer_purple.glb",
+      "size": [
+        0.07811,
+        0.70012,
+        0.07
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_streamer_pink",
+      "display_name": "Party Streamer Pink",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_streamer_pink.glb",
+      "size": [
+        0.07811,
+        0.70012,
+        0.07
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_streamer_yellow",
+      "display_name": "Party Streamer Yellow",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_streamer_yellow.glb",
+      "size": [
+        0.07811,
+        0.70012,
+        0.07
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_streamer_blue",
+      "display_name": "Party Streamer Blue",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_streamer_blue.glb",
+      "size": [
+        0.07811,
+        0.70012,
+        0.07
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_streamer_orange",
+      "display_name": "Party Streamer Orange",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_streamer_orange.glb",
+      "size": [
+        0.07811,
+        0.70012,
+        0.07
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_balloon",
+      "display_name": "Party Balloon",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "entity",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_balloon.glb",
+      "size": [
+        0.3,
+        1.53,
+        0.3
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+    },
+    {
+      "id": "arcade:party_balloon_weight",
+      "display_name": "Party Balloon Weight",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/party/models/party_balloon_weight.glb",
+      "size": [
+        0.07,
+        0.05442,
+        0.07
+      ],
+      "color": "#e8dfd0",
+      "category": "Party",
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/arcade/party/birthday_party.blend"
+      },
+      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     }
   ]
 }

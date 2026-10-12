@@ -208,7 +208,8 @@ impl EntityRoutes {
                     | crate::level::ComponentDef::Ai(_)
                     // The render-side components never move the body.
                     | crate::level::ComponentDef::Fade(_)
-                    | crate::level::ComponentDef::Glow(_) => None,
+                    | crate::level::ComponentDef::Glow(_)
+                    | crate::level::ComponentDef::Balloon(_) => None,
                 });
             let (radius, body_height, step_height) = body.unwrap_or_else(|| {
                 (
@@ -542,6 +543,8 @@ pub struct EntityFrame {
     /// The attached light this frame, `None` when the entity has no `glow`
     /// component.
     pub glow: Option<GlowCue>,
+    /// Analytic fixed-anchor balloon pose; absent for other entity types.
+    pub balloon: Option<crate::entities::balloon::BalloonPose>,
 }
 
 /// Shortest signed angular difference `to - from`, in radians.

@@ -33,9 +33,9 @@ use super::{
     emit_lit_surface_grid, lit_surface_grid, shade, stamp_lightmap_quad, tiled_uv,
 };
 use crate::level::{
-    ArcWallDef, ArchwayDef, BaseboardDef, ColumnDef, GuardrailDef, HalfWallDef, LevelDef,
-    LevelSurfaces, MaterialRef, PillarDef, RampDef, StairDef, ThresholdDef, VoidWallDef, WallAxis,
-    axis_positions, round_point,
+    ArcWallDef, ArchwayDef, BaseboardDef, BaseboardUvProjection, ColumnDef, GuardrailDef,
+    HalfWallDef, LevelDef, LevelSurfaces, MaterialRef, PillarDef, RampDef, StairDef, ThresholdDef,
+    VoidWallDef, WallAxis, axis_positions, round_point,
 };
 use crate::lighting::light_grid_cells;
 use crate::lighting::lightmap::PatchKind;
@@ -3344,6 +3344,26 @@ fn cap_front_gap(planes: &[BaseboardPlane; 4], thickness: f32) -> Option<(f32, f
     }
 }
 
+/// Projects a trim point, retaining legacy coordinates unless the level
+/// explicitly opts into continuing its world-space floor print up the board.
+fn baseboard_uv(
+    projection: BaseboardUvProjection,
+    frame: &RunFrame,
+    local: [f32; 3],
+    base: f32,
+    tile: f32,
+    wall_uv: [f32; 2],
+) -> [f32; 2] {
+    match projection {
+        BaseboardUvProjection::Wall => wall_uv,
+        BaseboardUvProjection::FloorFold => {
+            let [along, across, y] = local;
+            let [x, _, z] = frame.point(along, across + (y - base), y);
+            tiled_uv(x, z, tile)
+        }
+    }
+}
+
 /// Emits one baseboard run: its front face, its top edge and its two ends,
 /// trimmed at each end that butts into an earlier run.
 ///
@@ -3387,6 +3407,13 @@ fn emit_baseboard(
     let top = base + board.height();
     let thickness = board.thickness();
     let run = board.length;
+    // Raised profile bands share the adjacent floor's print origin. Sampling
+    // just beyond the front avoids a back plane buried in wall/outside room.
+    let (floor_x, floor_z) = board.point_at(0.5, thickness + 0.001);
+    let uv_base = context
+        .surfaces
+        .floor_y_at(floor_x, floor_z)
+        .unwrap_or(base);
 
     // Joints: other runs this board's ends butt into. An earlier run is kept
     // whole; this board subtracts its cap rectangle and skips the end face
@@ -3453,7 +3480,16 @@ fn emit_baseboard(
             [high, thickness, top],
             [low, thickness, top],
         ];
-        let front_uv = front.map(|[along, _, y]| tiled_uv(along, top - y, tile));
+        let front_uv = front.map(|[along, across, y]| {
+            baseboard_uv(
+                board.uv_projection,
+                &frame,
+                [along, across, y],
+                uv_base,
+                tile,
+                tiled_uv(along, top - y, tile),
+            )
+        });
         emit_local_face(
             context,
             buckets,
@@ -3483,7 +3519,16 @@ fn emit_baseboard(
                 .all(|(((&a, &b), &c), &d)| ((b - a) + (d - c)).abs() <= 1.0e-6);
             if parallelogram {
                 let locals = [*p0, *p1, *p2, *p3].map(|[along, across]| [along, across, top]);
-                let uv = locals.map(|[along, across, _]| tiled_uv(along, across, tile));
+                let uv = locals.map(|[along, across, y]| {
+                    baseboard_uv(
+                        board.uv_projection,
+                        &frame,
+                        [along, across, y],
+                        uv_base,
+                        tile,
+                        tiled_uv(along, across, tile),
+                    )
+                });
                 emit_local_face(
                     context,
                     buckets,
@@ -3511,7 +3556,16 @@ fn emit_baseboard(
                 let [px, pz] = previous;
                 let [qx, qz] = *point;
                 let locals = [[fx, fz, top], [px, pz, top], [qx, qz, top], [qx, qz, top]];
-                let uv = locals.map(|[along, across, _]| tiled_uv(along, across, tile));
+                let uv = locals.map(|[along, across, y]| {
+                    baseboard_uv(
+                        board.uv_projection,
+                        &frame,
+                        [along, across, y],
+                        uv_base,
+                        tile,
+                        tiled_uv(along, across, tile),
+                    )
+                });
                 emit_local_face(
                     context,
                     buckets,
@@ -3544,7 +3598,16 @@ fn emit_baseboard(
             [at, thickness, top],
             [at, 0.0, top],
         ];
-        let uv = locals.map(|[_, across, y]| tiled_uv(across, top - y, tile));
+        let uv = locals.map(|[along, across, y]| {
+            baseboard_uv(
+                board.uv_projection,
+                &frame,
+                [along, across, y],
+                uv_base,
+                tile,
+                tiled_uv(across, top - y, tile),
+            )
+        });
         emit_local_face(
             context,
             buckets,

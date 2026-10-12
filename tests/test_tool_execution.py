@@ -113,6 +113,28 @@ class ExecutionTests(unittest.TestCase):
             build.model_path({'id': 'bad', 'model': '../../outside.glb'})
         self.assertTrue(Path(build.model_path({'id':'safe', 'model':'shared/props/safe.glb'})).is_relative_to(ROOT/'assets'))
 
+    def test_blender_owned_export_survives_forced_primitive_build(self):
+        # A tiny isolated source/export protects manual Blender edits from the
+        # generic force flag. No Blender launch or production map bake is needed.
+        from unittest import mock
+        from tools.props import build
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'authored.blend'
+            source.write_bytes(b'BLENDER-v410')
+            model = Path(directory) / 'authored.glb'
+            model.write_bytes(b'export must remain exact')
+            entry = dict(id='test:authored', model='authored.glb',
+                         authoring=dict(tool='blender', source='authored.blend'))
+            with mock.patch.object(build, 'ASSET_ROOT', directory):
+                def forbidden(_builder):
+                    self.fail('A primitive builder must not run for a Blender-owned export')
+                self.assertIsNone(build.build_one(entry, forbidden, force=True))
+                self.assertEqual(model.read_bytes(), b'export must remain exact')
+                for invalid in ('../escape.blend', '/outside.blend', 'missing.blend'):
+                    entry['authoring']['source'] = invalid
+                    with self.assertRaises(SystemExit):
+                        build.blender_source(entry)
+
     def test_atomic_replace_has_no_leftover(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'result'

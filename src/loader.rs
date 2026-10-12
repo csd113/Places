@@ -2572,6 +2572,16 @@ fn validate_instance_ids(level: &LevelDef) -> Result<LevelIndex<'_>, String> {
         let mut facts = EntityFacts::of("prop");
         facts.is_prop = true;
         validate_components(&context, &prop.components, &mut facts)?;
+        if prop
+            .components
+            .iter()
+            .any(|component| matches!(component, ComponentDef::Balloon(_)))
+            && (prop.float.is_some() || level.routes.iter().any(|route| route.id.trim() == id))
+        {
+            return Err(format!(
+                "{context} `balloon` cannot float or follow a route; its anchor is fixed"
+            ));
+        }
         drop(index.entities.insert(id.clone(), facts));
     }
     for (i, door) in level.doors.iter().enumerate() {
@@ -2699,73 +2709,24 @@ fn validate_components<'a>(
     let mut singles: HashSet<&'static str> = HashSet::new();
     let mut state_names: HashSet<&'a str> = HashSet::new();
     for (i, component) in components.iter().enumerate() {
-        match component {
-            ComponentDef::State { name, value: _ } => {
-                let state_name = name.trim();
-                if state_name.is_empty() {
-                    return Err(format!(
-                        "{context} `state` component {i} must name a non-empty state"
-                    ));
-                }
-                if !state_names.insert(state_name) {
-                    return Err(format!(
-                        "{context} declares two `state` components named `{state_name}`; state \
-                         names must be unique per entity"
-                    ));
-                }
+        if let ComponentDef::State { name, value: _ } = component {
+            let state_name = name.trim();
+            if state_name.is_empty() {
+                return Err(format!(
+                    "{context} `state` component {i} must name a non-empty state"
+                ));
             }
-            other @ (ComponentDef::Interactable {
-                prompt: _,
-                reach: _,
-                enabled: _,
-                label: _,
+            if !state_names.insert(state_name) {
+                return Err(format!(
+                    "{context} declares two `state` components named `{state_name}`; state names must be unique per entity"
+                ));
             }
-            | ComponentDef::Animation {
-                clip: _,
-                speed: _,
-                looped: _,
-                playing: _,
-            }
-            | ComponentDef::Audio {
-                sound: _,
-                gain: _,
-                looped: _,
-                enabled: _,
-                playing: _,
-            }
-            | ComponentDef::Light {
-                enabled: _,
-                switchable: _,
-                emission_scale: _,
-            }
-            | ComponentDef::Material {
-                variants: _,
-                current: _,
-            }
-            | ComponentDef::Lifetime { seconds: _ }
-            | ComponentDef::Steam { enabled: _ }
-            | ComponentDef::Water { enabled: _ }
-            | ComponentDef::NavAgent {
-                radius: _,
-                speed_mps: _,
-                height: _,
-                step_height: _,
-                max_slope: _,
-            }
-            | ComponentDef::NavObstacle {
-                size: _,
-                affects_nav: _,
-            }
-            | ComponentDef::Fade(_)
-            | ComponentDef::Glow(_)
-            | ComponentDef::Ai(_)) => {
-                let kind = other.kind();
-                if !singles.insert(kind) {
-                    return Err(format!(
-                        "{context} declares more than one `{kind}` component; only `state` \
-                         components may repeat, with distinct names"
-                    ));
-                }
+        } else {
+            let kind = component.kind();
+            if !singles.insert(kind) {
+                return Err(format!(
+                    "{context} declares more than one `{kind}` component; only `state` components may repeat, with distinct names"
+                ));
             }
         }
         validate_component_value(context, i, component, facts)?;
@@ -2789,6 +2750,27 @@ fn validate_components<'a>(
         return Err(format!(
             "{context} authors an `ai` component without a `nav_agent` body; an agent needs \
              the physical profile its baked navigation class is selected by"
+        ));
+    }
+    if components
+        .iter()
+        .any(|component| matches!(component, ComponentDef::Balloon(_)))
+        && components.iter().any(|component| {
+            matches!(
+                component,
+                ComponentDef::Ai(_)
+                    | ComponentDef::NavAgent {
+                        radius: _,
+                        speed_mps: _,
+                        height: _,
+                        step_height: _,
+                        max_slope: _
+                    }
+            )
+        })
+    {
+        return Err(format!(
+            "{context} `balloon` cannot share a moving AI/navigation body; its anchor is fixed"
         ));
     }
     facts.state_names = state_names;
@@ -3064,6 +3046,18 @@ fn validate_component_value<'a>(
                         "{context} `fade` component {i} authors far_radius without near_radius"
                     ));
                 }
+            }
+        }
+        ComponentDef::Balloon(def) => {
+            if !facts.is_prop && !facts.is_spawn_template {
+                return Err(format!(
+                    "{context} `balloon` component {i} requires a prop or spawn template"
+                ));
+            }
+            if let Some((field, bound)) = def.invalid_field() {
+                return Err(format!(
+                    "{context} `balloon` component {i} {field} must be finite within {bound}"
+                ));
             }
         }
         ComponentDef::Glow(def) => {
@@ -4798,6 +4792,7 @@ fn validate_routes(level: &LevelDef) -> Result<(), String> {
                 }
                 | ComponentDef::Fade(_)
                 | ComponentDef::Glow(_)
+                | ComponentDef::Balloon(_)
                 | ComponentDef::Ai(_) => None,
             })
             .unwrap_or_else(|| {
@@ -5737,6 +5732,7 @@ fn generate_wall_baseboards(
                 y: Some(floor),
                 material: Some(baseboard.to_string()),
                 shine: None,
+                uv_projection: crate::level::BaseboardUvProjection::Wall,
             };
             if baseboard_run_is_hidden(level, &run) {
                 continue;

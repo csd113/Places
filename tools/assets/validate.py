@@ -140,6 +140,7 @@ COMPONENT_TAGS = (
     "ai",
     "fade",
     "glow",
+    "balloon",
 )
 EVENT_KINDS = (
     "interact",
@@ -1359,6 +1360,7 @@ def _entity_facts(kind: str) -> Dict:
         "has_audio": False,
         "has_nav_agent": False,
         "has_ai": False,
+        "has_balloon": False,
         "state_names": set(),
         "material_variants": [],
     }
@@ -1588,7 +1590,48 @@ def _validate_components(context: str, components: object, facts: Dict, errors: 
                         errors.append(
                             f"{entry} {key} must be in (0, {MAX_FADE_SECONDS}]"
                         )
+        elif tag == "balloon":
+            facts["has_balloon"] = True
+            if not facts.get("is_prop") and not facts.get("is_spawn_template"):
+                errors.append(f"{entry} balloon requires a prop or spawn template")
+            if component.get("color", "red") not in (
+                "red", "royal_blue", "golden_yellow", "grass_green", "deep_purple", "orange", "pink"
+            ):
+                errors.append(f"{entry} color must be a supported latex colour")
+            for key, default, low, high in (
+                ("scale", 1.0, 0.25, 2.0),
+                ("string_length", 1.1, 0.15, 4.0),
+                ("sway_amplitude", 0.025, 0.0, 0.15),
+                ("bob_amplitude", 0.012, 0.0, 0.15),
+                ("shared_sway", 0.007, 0.0, 0.15),
+                ("rotation_degrees", 3.0, 0.0, 12.0),
+                ("speed_hz", 0.19, 0.01, 1.0),
+            ):
+                value = component.get(key, default)
+                if not is_finite_number(value) or not low <= value <= high:
+                    errors.append(f"{entry} {key} must be finite within [{low}, {high}]")
+            for key in ("phase", "shared_phase"):
+                value = component.get(key)
+                if value is not None and (not is_finite_number(value) or not 0.0 <= value <= 1.0):
+                    errors.append(f"{entry} {key} must be finite within [0, 1]")
+            for key, limit in (("anchor", 8.0), ("offset", 2.0)):
+                value = component.get(key, [0.0, 0.0, 0.0])
+                if not isinstance(value, list) or len(value) != 3 or not all(
+                    is_finite_number(axis) and abs(axis) <= limit for axis in value
+                ):
+                    errors.append(f"{entry} {key} must be three finite axes within +/-{limit}")
+            offset = component.get("offset", [0.0, 0.0, 0.0])
+            length = component.get("string_length", 1.1)
+            bob = component.get("bob_amplitude", 0.012)
+            if (isinstance(offset, list) and len(offset) == 3 and is_finite_number(offset[1])
+                and is_finite_number(length) and is_finite_number(bob)
+                and length + offset[1] <= bob + 0.05):
+                errors.append(f"{entry} resting knot height must exceed bob_amplitude + 0.05 metres")
+            if not isinstance(component.get("enabled", True), bool):
+                errors.append(f"{entry} enabled must be a boolean")
         elif tag == "glow":
+            if not isinstance(component.get("enabled", True), bool):
+                errors.append(f"{entry} enabled must be a boolean")
             color = component.get("color", [1.0, 0.86, 0.6])
             if (
                 not isinstance(color, list)
@@ -1641,6 +1684,8 @@ def _validate_ai_body(context: str, facts: Dict, errors: List[str]) -> None:
         errors.append(
             f"{context} authors an `ai` component without a `nav_agent` body"
         )
+    if facts.get("has_balloon") and (facts.get("has_ai") or facts.get("has_nav_agent")):
+        errors.append(f"{context}: balloon cannot share a moving AI/navigation body")
 
 
 def _validate_instance_id(
@@ -1692,6 +1737,12 @@ def _index_level_entities(level: dict, where: str, errors: List[str]) -> Dict:
             errors.append(f"{context} display_name must not be blank when specified")
         _validate_components(context, prop.get("components"), facts, errors)
         _validate_ai_body(context, facts, errors)
+        if facts.get("has_balloon") and (
+            prop.get("float") is not None
+            or any(isinstance(route, dict) and str(route.get("id", "")).strip() == ident
+                   for route in level.get("routes") or [])
+        ):
+            errors.append(f"{context}: balloon cannot float or follow a route; its anchor is fixed")
         entities[ident] = facts
 
     for index, fixture in enumerate(level.get("ceiling_lights") or []):

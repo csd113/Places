@@ -25,8 +25,8 @@
 //!
 //! Ordinary images remain bounded by [`crate::assets::MAX_TEXTURE_DIMENSION`];
 //! 2:1 skies have their own [`crate::assets::MAX_SKY_TEXTURE_DIMENSION`] limit.
-//! The shipped prop art budget
-//! still caps a prop atlas at its 256x256 native size. A quality level only
+//! Ordinary prop atlases retain their 256x256 native size; reviewed large print
+//! surfaces may use the engine's 1024x1024 ceiling. A quality level only
 //! decides how much of an *accepted* source reaches the GPU; it never raises
 //! the source limit.
 //!
@@ -84,8 +84,11 @@ pub enum TextureClass {
 
 /// Full-quality edge budget: surfaces and fitted sheets at 1024.
 const FULL_SHEET_EDGE: u32 = 1_024;
-/// Full-quality edge budget: props at their native 256, uploaded unchanged.
-const FULL_PROP_EDGE: u32 = 256;
+/// Full-quality edge budget: preserve reviewed detailed print sheets as well
+/// as the ordinary 256-square prop atlases, without upsampling either.
+const FULL_PROP_EDGE: u32 = 1_024;
+/// Medium-quality edge budget: ordinary native prop sheets remain unchanged.
+const MEDIUM_PROP_EDGE: u32 = 256;
 /// Full-quality edge budget: emissive masks at 512.
 const FULL_MASK_EDGE: u32 = 512;
 /// Full-quality edge budget: 2048x1024 panoramas.
@@ -363,7 +366,7 @@ impl QualityLevel {
                 TextureClass::Surface | TextureClass::FixtureFace | TextureClass::DecalSheet => {
                     MEDIUM_SHEET_EDGE
                 }
-                TextureClass::Prop => FULL_PROP_EDGE,
+                TextureClass::Prop => MEDIUM_PROP_EDGE,
                 TextureClass::EmissionMask => MEDIUM_MASK_EDGE,
                 TextureClass::Sky => MEDIUM_SKY_EDGE,
             },

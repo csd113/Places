@@ -1,5 +1,7 @@
 mod ground;
 pub use ground::GroundSurfaces;
+mod balloon;
+pub use balloon::{BalloonColor, BalloonDef};
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -1426,6 +1428,8 @@ pub enum ComponentDef {
     Fade(FadeDef),
     /// One attached dynamic light on the entity.
     Glow(GlowDef),
+    /// One gently moving balloon with a fixed anchor and a curved string.
+    Balloon(BalloonDef),
 }
 
 /// One authored `fade` cycle or proximity fade: a looping opacity animation,
@@ -1566,6 +1570,9 @@ const fn default_fade_period() -> f32 {
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct GlowDef {
+    /// False removes the attached light until an `enable` action; defaults to true.
+    #[serde(default = "default_true")]
+    pub enabled: bool,
     /// Linear colour; each channel finite in `0..=1`; defaults to warm white.
     #[serde(default = "default_glow_color")]
     pub color: [f32; 3],
@@ -1792,6 +1799,7 @@ impl ComponentDef {
             Self::Ai(_) => "ai",
             Self::Fade(_) => "fade",
             Self::Glow(_) => "glow",
+            Self::Balloon(_) => "balloon",
         }
     }
 }
@@ -4937,6 +4945,18 @@ impl ThresholdDef {
     }
 }
 
+/// How a baseboard projects its ordinary tiling material.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BaseboardUvProjection {
+    /// Historical local wall/trim coordinates; default for every existing run.
+    #[default]
+    Wall,
+    /// World floor X/Z coordinates, unfolded into the room by the height
+    /// above the adjacent walkable floor. All profile bands and face edges share this mapping.
+    FloorFold,
+}
+
 /// A reusable baseboard / skirting run: a thin trim board along the bottom of a
 /// wall.
 ///
@@ -4978,6 +4998,11 @@ pub struct BaseboardDef {
     /// Per-surface shine override for [`Self::material`].
     #[serde(default)]
     pub shine: Option<f32>,
+    /// Optional texture projection. `floor_fold` continues the adjacent floor
+    /// print from the front bottom edge upward into the room at unit density.
+    /// Omitted or `wall` preserves the historical trim UVs.
+    #[serde(default)]
+    pub uv_projection: BaseboardUvProjection,
 }
 
 const fn default_baseboard_height() -> f32 {
@@ -6647,12 +6672,12 @@ pub const MAX_PROP_TEXTURE_BYTES: usize =
     crate::assets::decoded_rgba_bytes(MAX_PROP_TEXTURE_SIZE, MAX_PROP_TEXTURE_SIZE);
 /// Decoded RGBA8 budget for the whole shipped prop pack.
 ///
-/// A deliberately desktop-scale limit: 64 MiB holds 256 native 256x256 sheets
-/// (the current 33-prop pack decodes to under 4 MiB), so ordinary content
-/// growth never has to trade texture quality against the budget. It still
+/// A deliberately desktop-scale limit: 106 MiB accommodates reviewed 1024-square
+/// party cloths, 512-square wrapping and their ink masks. The measured catalog
+/// uses approximately 104.4 MiB, counting every per-model image copy. It still
 /// refuses a pathological or accidentally duplicated multi-gigabyte set
 /// before it can become resident.
-pub const PROP_TEXTURE_PACK_BUDGET_BYTES: usize = 64 * 1024 * 1024;
+pub const PROP_TEXTURE_PACK_BUDGET_BYTES: usize = 106 * 1024 * 1024;
 
 /// Hard ceiling on the number of distinct prop models a single level may use.
 ///

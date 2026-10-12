@@ -1,0 +1,219 @@
+{
+  "format_version": 1,
+  "level": "retro_arcade_demo",
+  "source": "levels/retro_arcade_demo.json",
+  "package": "assets/levels/retro_arcade_demo.placesmap",
+  "settings": {
+    "bindings": {
+      "forward": "W",
+      "backward": "S",
+      "strafe_left": "A",
+      "strafe_right": "D",
+      "look_up": "UP",
+      "look_down": "DOWN",
+      "look_left": "LEFT",
+      "look_right": "RIGHT",
+      "jump": "SPACE",
+      "crouch": "C",
+      "interact": "E"
+    },
+    "look_speed_h": 90,
+    "look_speed_v": 60,
+    "walk_speed": 3,
+    "invert_look": false,
+    "mouse_sensitivity": 0.12,
+    "quality": "high",
+    "texture_filtering": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true,
+    "use_low_quality_lighting": false,
+    "vsync": false,
+    "fov_degrees": 60,
+    "window_mode": "windowed",
+    "window_width": 640,
+    "window_height": 360
+  },
+  "bake": {
+    "variants": [
+      "off",
+      "full"
+    ],
+    "workers": 8,
+    "force_for_cold_measurement": false,
+    "algorithm": "unchanged normal compiler defaults; see package inspect for prepared settings"
+  },
+  "environment": {
+    "sky": "absent; enclosed interior",
+    "fog": "authored zero density",
+    "animation": "17 anchored latex balloons, separate phases; one candle_flicker cake and warm attached light; no people."
+  },
+  "capture": {
+    "ready_world_seconds": 0.5,
+    "warmup_frames": 15,
+    "limit_frames": 2400,
+    "expected_drawable": [
+      1280,
+      720
+    ]
+  },
+  "views": [
+    {
+      "name": "party_hero",
+      "spawn": [
+        21.3,
+        29.4,
+        40
+      ],
+      "camera": [
+        40,
+        -9
+      ],
+      "purpose": "Party room: four tables, purple walls, open cake view and corner gifts"
+    },
+    {
+      "name": "cake",
+      "spawn": [
+        25.9,
+        25.7,
+        90
+      ],
+      "camera": [
+        90,
+        -27
+      ],
+      "purpose": "Piped cream cake, seven candles and local warm table illumination"
+    },
+    {
+      "name": "gifts",
+      "spawn": [
+        26.6,
+        19.8,
+        55
+      ],
+      "camera": [
+        55,
+        -15
+      ],
+      "purpose": "Corner gift table: all six equal cube designs and stable stack"
+    },
+    {
+      "name": "rectangular",
+      "spawn": [
+        23.4,
+        26.1,
+        180
+      ],
+      "camera": [
+        180,
+        -20
+      ],
+      "purpose": "Folding table, confetti plastic cloth and anchored single balloon"
+    },
+    {
+      "name": "round",
+      "spawn": [
+        25.6,
+        22.7,
+        315
+      ],
+      "camera": [
+        315,
+        -25
+      ],
+      "purpose": "Round table, matching ware and independent bouquet"
+    },
+    {
+      "name": "connections",
+      "spawn": [
+        18.4,
+        25.3,
+        90
+      ],
+      "camera": [
+        90,
+        -10
+      ],
+      "purpose": "Bowling-to-party opening, wall separation and carpet transition"
+    },
+    {
+      "name": "arcade",
+      "spawn": [
+        7.4,
+        17.8,
+        306
+      ],
+      "camera": [
+        306,
+        5
+      ],
+      "purpose": "Distinct arcade room and Retro Swirl carpet"
+    },
+    {
+      "name": "bowling",
+      "spawn": [
+        14.65,
+        24.8,
+        0
+      ],
+      "camera": [
+        0,
+        0
+      ],
+      "purpose": "Preserved wooden lanes and Cosmic Bowl circulation"
+    },
+    {
+      "name": "traversal",
+      "spawn": [
+        6.8,
+        25.2,
+        90
+      ],
+      "camera": [
+        90,
+        0
+      ],
+      "purpose": "Actual held-control out-and-back traversal through arcade, bowling and party openings"
+    },
+    {
+      "name": "cake_close",
+      "spawn": [
+        26.65,
+        1.25,
+        25.7,
+        90
+      ],
+      "camera": [
+        90,
+        -25
+      ],
+      "purpose": "Piped frosting, sprinkles, striped candles and real local warm table light"
+    },
+    {
+      "name": "single_balloon",
+      "spawn": [
+        21.5,
+        24.4,
+        176
+      ],
+      "camera": [
+        176,
+        6
+      ],
+      "purpose": "One latex balloon, visible curved string and chair-back attachment"
+    },
+    {
+      "name": "bouquet",
+      "spawn": [
+        26.4,
+        21.8,
+        24
+      ],
+      "camera": [
+        24,
+        0
+      ],
+      "purpose": "Seven independent latex balloons converging to a visible tabletop weight"
+    }
+  ]
+}

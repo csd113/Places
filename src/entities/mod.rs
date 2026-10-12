@@ -24,6 +24,7 @@
 //! entries inert (their owner handle goes stale) until the end-of-tick
 //! compaction, so a binding index can never be invalidated mid-wave.
 
+pub mod balloon;
 pub mod components;
 pub mod events;
 pub mod id;
@@ -1225,6 +1226,7 @@ impl EntityWorld {
                         self.components.glows.insert(
                             handle,
                             Glow {
+                                enabled: glow_def.enabled,
                                 color: glow_def.color,
                                 intensity: glow_def.intensity,
                                 range: glow_def.range,
@@ -1239,6 +1241,15 @@ impl EntityWorld {
                             },
                         ),
                     );
+                }
+                ComponentDef::Balloon(balloon_def) => {
+                    let mut resolved = *balloon_def;
+                    resolved.phase = Some(balloon_def.phase.unwrap_or_else(|| {
+                        crate::level::default_fade_phase(
+                            self.names.id_of(handle).map_or("", EntityId::as_str),
+                        )
+                    }));
+                    let _previous_balloon = self.components.balloons.insert(handle, resolved);
                 }
             }
         }
@@ -2535,6 +2546,20 @@ impl EntityWorld {
             entry.playing = enable && entry.playing;
             before != enable
         });
+        changed |= self
+            .components
+            .balloons
+            .get_mut(handle)
+            .is_some_and(|entry| {
+                let before = entry.enabled;
+                entry.enabled = enable;
+                before != enable
+            });
+        changed |= self.components.glows.get_mut(handle).is_some_and(|entry| {
+            let before = entry.enabled;
+            entry.enabled = enable;
+            before != enable
+        });
         changed |= self.components.steam.get_mut(handle).is_some_and(|entry| {
             let before = entry.enabled;
             entry.enabled = enable;
@@ -2587,6 +2612,7 @@ impl EntityWorld {
         }
         if changed {
             self.rebuild_interactables_from_tables();
+            self.rebuild_entity_frames();
             let _event_queued = self.emit_state(id, "enabled", StateValue::Bool(enable), None, 0);
         }
         changed
@@ -3508,6 +3534,8 @@ impl EntityWorld {
             // fade changed the opacity: the renderer handoff is rebuilt even
             // when the level authors no routes.
             self.rebuild_entity_frames();
+        } else {
+            self.refresh_balloon_frames();
         }
         tick
     }
@@ -4013,14 +4041,41 @@ impl EntityWorld {
 
     /// The attached-light cue of one entity, when it carries a `glow`.
     fn frame_glow(&self, handle: EntityHandle) -> Option<GlowCue> {
-        self.components.glows.get(handle).map(|glow| GlowCue {
-            socket: glow.socket.clone(),
-            offset: glow.offset,
-            color: glow.color,
-            intensity: glow.intensity,
-            range: glow.range,
-            fade_with_opacity: glow.fade_with_opacity,
-        })
+        self.components
+            .glows
+            .get(handle)
+            .filter(|glow| glow.enabled)
+            .map(|glow| GlowCue {
+                socket: glow.socket.clone(),
+                offset: glow.offset,
+                color: glow.color,
+                intensity: glow.intensity,
+                range: glow.range,
+                fade_with_opacity: glow.fade_with_opacity,
+            })
+    }
+
+    fn frame_balloon(&self, handle: EntityHandle) -> Option<balloon::BalloonPose> {
+        self.components
+            .balloons
+            .get(handle)
+            .map(|def| balloon::sample(def, self.sim_time))
+    }
+
+    /// Refreshes retained balloon cues without rebuilding frame ids or vectors.
+    fn refresh_balloon_frames(&mut self) {
+        for (handle, def) in self.components.balloons.iter() {
+            let Some(id) = self.names.id_of(handle).map(EntityId::as_str) else {
+                continue;
+            };
+            if let Some(frame) = self
+                .entity_frames
+                .iter_mut()
+                .find(|frame| frame.instance_id == id)
+            {
+                frame.balloon = Some(balloon::sample(def, self.sim_time));
+            }
+        }
     }
 
     /// The fade opacity and attached-light cue of one placed instance, at the
@@ -4076,6 +4131,7 @@ impl EntityWorld {
                 cue,
                 opacity,
                 glow,
+                balloon: None,
             });
         }
         let ai_owned: Vec<&str> = self
@@ -4102,6 +4158,7 @@ impl EntityWorld {
                 cue,
                 opacity,
                 glow,
+                balloon: None,
             });
         }
         let routed: Vec<String> = self
@@ -4126,8 +4183,15 @@ impl EntityWorld {
                 cue: cue.clone(),
                 opacity,
                 glow,
+                balloon: self
+                    .handle_of(instance_id)
+                    .and_then(|handle| self.frame_balloon(handle)),
             });
         }
+        self.append_visual_frames();
+    }
+
+    fn append_visual_frames(&mut self) {
         // A placed entity that carries a fade or a glow but no route, AI or
         // animation override still needs a frame: its opacity and its attached
         // light change every tick even though nothing moves. Without this a
@@ -4143,16 +4207,19 @@ impl EntityWorld {
                 visual_handles.push(handle);
             }
         }
+        for (handle, _) in self.components.balloons.iter() {
+            if !visual_handles.contains(&handle) {
+                visual_handles.push(handle);
+            }
+        }
         for handle in visual_handles {
             let Some(instance_id) = self.id_of(handle).map(str::to_string) else {
                 continue;
             };
-            if ai_owned.contains(&instance_id.as_str())
-                || routed.iter().any(|id| id == &instance_id)
-                || self
-                    .animation_overrides
-                    .iter()
-                    .any(|(id, _)| id == &instance_id)
+            if self
+                .entity_frames
+                .iter()
+                .any(|frame| frame.instance_id == instance_id)
             {
                 continue;
             }
@@ -4164,6 +4231,7 @@ impl EntityWorld {
                 cue: PoseCue::Idle,
                 opacity,
                 glow,
+                balloon: self.frame_balloon(handle),
             });
         }
     }
@@ -5569,6 +5637,77 @@ mod tests {
         assert!(
             (framed_opacity(&world, "ghost") - 1.0).abs() < 1e-6,
             "an empty-route publish still rebuilt the fading entity's frame"
+        );
+    }
+
+    /// Protects fixed-instance frame reuse and candle light gating. One tiny
+    /// source-only fixture, 120 analytic samples; no GLB, GPU or map bake.
+    #[test]
+    fn balloons_reuse_frames_and_attached_glows_can_be_switched_off() {
+        let level = base_level(
+            r#""props": [
+            { "id": "balloon", "model": "arcade:party_balloon", "x": 1, "z": 1,
+              "components": [ { "component": "balloon" } ] },
+            { "id": "cake", "model": "arcade:party_cake_lit", "x": 2, "z": 2,
+              "components": [ { "component": "glow", "range": 0.8 } ] }
+        ]"#,
+        );
+        let mut world = EntityWorld::from_level(&level);
+        let balloon_frame = world
+            .entity_frames
+            .iter()
+            .position(|frame| frame.instance_id == "balloon")
+            .expect("balloon gets a frame without an animation binding");
+        let frames_address = world.entity_frames.as_ptr();
+        let id_address = world.entity_frames[balloon_frame].instance_id.as_ptr();
+        let capacity = world.entity_frames.capacity();
+        let start = world.entity_frames[balloon_frame]
+            .balloon
+            .expect("initial analytic pose");
+        for frame in 0_u16..120 {
+            world.sim_time = f32::from(frame) / 30.0;
+            world.refresh_balloon_frames();
+        }
+        assert_eq!(
+            world.entity_frames.as_ptr(),
+            frames_address,
+            "frame storage remains allocated once"
+        );
+        assert_eq!(
+            world.entity_frames[balloon_frame].instance_id.as_ptr(),
+            id_address,
+            "balloon updates retain the id allocation"
+        );
+        assert_eq!(
+            world.entity_frames.capacity(),
+            capacity,
+            "no frame-list growth"
+        );
+        assert_ne!(
+            world.entity_frames[balloon_frame]
+                .balloon
+                .expect("live pose")
+                .knot,
+            start.knot,
+            "motion reaches retained renderer frame"
+        );
+        let cake = world.handle_of("cake").expect("cake entity");
+        assert!(world.frame_glow(cake).is_some(), "candles start lit");
+        assert!(
+            world.set_enabled_by_id("cake", false),
+            "disable controls an attached glow"
+        );
+        assert!(
+            world.frame_glow(cake).is_none(),
+            "disabled glow publishes no light"
+        );
+        assert!(
+            world.set_enabled_by_id("cake", true),
+            "enable restores the same light"
+        );
+        assert!(
+            world.frame_glow(cake).is_some(),
+            "light comes back without a new entity"
         );
     }
 

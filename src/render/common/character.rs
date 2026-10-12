@@ -58,6 +58,7 @@ use super::Vertex;
 use super::mesh::LIGHTMAP_NONE;
 use super::props::{prop_instance_matrix, transform_bounds};
 use super::{DynamicLight, DynamicLightSet};
+use crate::entities::balloon::{BalloonPose, STRING_NODE_NAMES};
 use crate::game::{LocomotionSnapshot, LocomotionState};
 use crate::gltf::{AnimationInterpolation, PropAnimation, PropNode, PropSkin};
 use crate::level::LevelSurfaces;
@@ -166,6 +167,20 @@ fn character_claim_plan(
         let Some(animator) = CharacterAnimator::new(&asset.model) else {
             continue;
         };
+        if prop
+            .components
+            .iter()
+            .any(|component| matches!(component, crate::level::ComponentDef::Balloon(_)))
+            && animator.balloon_rig.is_none()
+        {
+            crate::logging::warn_once(
+                format!("balloon-rig:{model_path}"),
+                format!(
+                    "[balloons] {model_path} needs an identity-parent balloon_body and twelve named string nodes; keeping its static fallback"
+                ),
+            );
+            continue;
+        }
         placements.push(PlacedCharacter {
             prop_index,
             asset,
@@ -276,7 +291,7 @@ pub struct CharacterUpdate {
 }
 
 /// One node's local pose: the animator's working TRS.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 struct LocalTrs {
     translation: Vec3,
     rotation: Quat,
@@ -1006,6 +1021,9 @@ pub struct Character {
     spatial_lighting: Option<Box<super::light_transport::EntitySpatialLighting>>,
     spatial_key: Option<super::light_transport::EntitySpatialKey>,
     lighting_local_centre: Vec3,
+    lighting_local_bounds: Aabb,
+    /// Applied latex tint; avoids repeating immutable albedo work each frame.
+    balloon_color: Option<[f32; 3]>,
     world_bounds: Aabb,
     /// Placed-instance id, so a route or an interaction can address this
     /// character. `None` for a placement outside the prop id namespace.
@@ -1058,6 +1076,9 @@ impl Character {
     /// Culling padding is excluded; animation silhouette remains approximate.
     #[must_use]
     pub fn contact_bounds(&self) -> Aabb {
+        if self.balloon_color.is_some() {
+            return transform_bounds(&self.lighting_local_bounds, &self.transform);
+        }
         self.asset.model.bounds().map_or(Aabb::EMPTY, |(min, max)| {
             transform_bounds(&Aabb { min, max }, &self.transform)
         })
@@ -1090,6 +1111,72 @@ impl Character {
         self.transform =
             Mat4::from_scale_rotation_translation(Vec3::splat(self.scale), rotation, position);
         self.world_bounds = character_bounds(&self.asset, &self.transform);
+    }
+
+    /// Applies one bounded balloon pose; reusable rig/albedo buffers allocate nothing.
+    fn set_balloon_pose(&mut self, pose: BalloonPose) -> bool {
+        let Some(rig) = self.animator.balloon_rig else {
+            return false;
+        };
+        let bounds = pose.body_bounds(rig.body_bounds);
+        if self.lighting_local_bounds != bounds {
+            self.lighting_local_bounds = bounds;
+            self.spatial_key = None;
+        }
+        self.lighting_local_centre = pose.body_centre(rig.body_bounds);
+        let envelope = bounds
+            .expanded([
+                pose.anchor.x - 0.04,
+                pose.anchor.y - 0.04,
+                pose.anchor.z - 0.04,
+            ])
+            .expanded([
+                pose.anchor.x + 0.04,
+                pose.anchor.y + 0.04,
+                pose.anchor.z + 0.04,
+            ]);
+        self.world_bounds = transform_bounds(&envelope, &self.transform);
+        let tint_changed = self.balloon_color != Some(pose.color);
+        if tint_changed {
+            for (index, (albedo, vertex)) in self
+                .albedo
+                .iter_mut()
+                .zip(&self.asset.model.vertices)
+                .enumerate()
+            {
+                if self
+                    .asset
+                    .model
+                    .joints
+                    .get(index)
+                    .and_then(|joints| joints.first())
+                    .is_some_and(|joint| {
+                        self.animator
+                            .rig
+                            .joint_nodes
+                            .get(usize::from(*joint))
+                            .copied()
+                            .map(usize::from)
+                            == Some(rig.body)
+                    })
+                {
+                    for ((channel, base), tint) in albedo
+                        .iter_mut()
+                        .take(3)
+                        .zip(vertex.color.iter())
+                        .zip(pose.color)
+                    {
+                        *channel = *base * tint;
+                    }
+                }
+            }
+            self.balloon_color = Some(pose.color);
+        }
+        let moved = self.animator.pose_balloon(pose);
+        if tint_changed && !moved {
+            self.animator.revision = self.animator.revision.wrapping_add(1);
+        }
+        moved || tint_changed
     }
 
     /// Model-space material albedo per vertex, independent of lighting.
@@ -1301,6 +1388,7 @@ impl CharacterScene {
                 .map(|id| id.trim())
                 .filter(|id| !id.is_empty())
                 .map(str::to_string);
+            let lighting_local_bounds = asset_bounds(&asset);
             characters.push(Character {
                 asset,
                 transform,
@@ -1310,6 +1398,8 @@ impl CharacterScene {
                 spatial_lighting: None,
                 spatial_key: None,
                 lighting_local_centre,
+                lighting_local_bounds,
+                balloon_color: None,
                 world_bounds,
                 instance_id,
                 scale: prop.scale,
@@ -1413,6 +1503,7 @@ impl CharacterScene {
         let entity_lighting = sample_character_light(&asset, &transform, lighting, irradiance);
         let lighting_local_centre = model_lighting_centre(&asset);
         let world_bounds = character_bounds(&asset, &transform);
+        let lighting_local_bounds = asset_bounds(&asset);
         let character = Character {
             asset,
             transform,
@@ -1422,6 +1513,8 @@ impl CharacterScene {
             spatial_lighting: None,
             spatial_key: None,
             lighting_local_centre,
+            lighting_local_bounds,
+            balloon_color: None,
             world_bounds,
             instance_id: Some(trimmed_id.to_string()),
             scale,
@@ -1559,17 +1652,18 @@ impl CharacterScene {
                 lighting, irradiance, transform, scene, context,
             );
             if character.spatial_key != spatial_key {
-                character.spatial_lighting =
-                    character.asset.model.bounds().and_then(|(min, max)| {
+                character.spatial_lighting = (!character.lighting_local_bounds.is_empty())
+                    .then(|| {
                         super::light_transport::entity_spatial_lighting_with_visibility(
                             lighting,
                             irradiance,
-                            Aabb { min, max },
+                            character.lighting_local_bounds,
                             transform,
                             scene,
                             context,
                         )
-                    });
+                    })
+                    .flatten();
                 character.spatial_key = spatial_key;
             }
         }
@@ -1591,14 +1685,25 @@ impl CharacterScene {
             let Some(instance_id) = character.instance_id() else {
                 continue;
             };
-            let mut key =
-                String::with_capacity(GLOW_KEY_PREFIX.len().saturating_add(instance_id.len()));
-            key.push_str(GLOW_KEY_PREFIX);
-            key.push_str(instance_id);
             let glow = frames
                 .iter()
                 .find(|frame| frame.instance_id == instance_id)
                 .and_then(|frame| frame.glow.as_ref());
+            // Ordinary balloons carry no glow. Do not allocate a light key
+            // for a character that has never had an attached light.
+            if glow.is_none()
+                && !self
+                    .dynamic_lights
+                    .lights()
+                    .iter()
+                    .any(|light| light.key.strip_prefix(GLOW_KEY_PREFIX) == Some(instance_id))
+            {
+                continue;
+            }
+            let mut key =
+                String::with_capacity(GLOW_KEY_PREFIX.len().saturating_add(instance_id.len()));
+            key.push_str(GLOW_KEY_PREFIX);
+            key.push_str(instance_id);
             let Some(glow_cue) = glow else {
                 let _removed_value = self.dynamic_lights.remove(&key);
                 continue;
@@ -1678,6 +1783,9 @@ impl CharacterScene {
                     && !transforms_agree(character.transform, position, character.scale, yaw)
                 {
                     character.set_pose(position, yaw);
+                }
+                if let Some(balloon) = entity_frame.balloon {
+                    return character.set_balloon_pose(balloon);
                 }
                 character
                     .animator
@@ -1761,6 +1869,13 @@ fn model_lighting_centre(asset: &LoadedPropAsset) -> Vec3 {
     })
 }
 
+fn asset_bounds(asset: &LoadedPropAsset) -> Aabb {
+    asset
+        .model
+        .bounds()
+        .map_or(Aabb::EMPTY, |(min, max)| Aabb { min, max })
+}
+
 /// Padded bind-pose envelope for a placed character's scene queries.
 fn character_bounds(asset: &LoadedPropAsset, transform: &Mat4) -> Aabb {
     let Some((low, high)) = asset.model.bounds() else {
@@ -1792,6 +1907,8 @@ pub struct CharacterAnimator {
     /// prop). A rigid animator ignores the locomotion snapshot: with no pose
     /// cue it holds its current pose.
     rigid: bool,
+    /// Named fixed-size node mapping, resolved once for the shared balloon rig.
+    balloon_rig: Option<BalloonRig>,
     /// Blend weight per locomotion state; the current state approaches one and
     /// the others approach zero.
     weights: [f32; STATE_COUNT],
@@ -1851,6 +1968,68 @@ pub struct CharacterAnimator {
     revision: u64,
 }
 
+#[derive(Clone, Copy)]
+struct BalloonRig {
+    body: usize,
+    strings: [usize; 12],
+    body_bounds: Aabb,
+}
+
+impl BalloonRig {
+    fn new(model: &crate::gltf::PropModel, rig: &Rig) -> Option<Self> {
+        if model.skin.is_some() {
+            return None;
+        }
+        let body = rig
+            .nodes
+            .iter()
+            .position(|node| node.name == "balloon_body")?;
+        let parent = rig.nodes.get(body)?.parent;
+        let parent_global = parent
+            .and_then(|index| rig.rest_global.get(usize::from(index)))
+            .copied()
+            .unwrap_or(Mat4::IDENTITY);
+        if parent_global
+            .to_cols_array()
+            .iter()
+            .zip(Mat4::IDENTITY.to_cols_array())
+            .any(|(actual, expected)| (*actual - expected).abs() > 0.00001)
+        {
+            return None;
+        }
+        let mut strings = [0_usize; 12];
+        for (slot, name) in strings.iter_mut().zip(STRING_NODE_NAMES) {
+            let index = rig.nodes.iter().position(|node| node.name == name)?;
+            if rig.nodes.get(index)?.parent != parent {
+                return None;
+            }
+            *slot = index;
+        }
+        let inverse = rig.rest_global.get(body)?.inverse();
+        let mut body_bounds = Aabb::EMPTY;
+        for (index, vertex) in model.vertices.iter().enumerate() {
+            if model
+                .joints
+                .get(index)
+                .and_then(|joints| joints.first())
+                .and_then(|joint| rig.joint_nodes.get(usize::from(*joint)))
+                .is_some_and(|node| usize::from(*node) == body)
+            {
+                body_bounds.expand(
+                    inverse
+                        .transform_point3(Vec3::from_array(vertex.pos))
+                        .to_array(),
+                );
+            }
+        }
+        (!body_bounds.is_empty()).then_some(Self {
+            body,
+            strings,
+            body_bounds,
+        })
+    }
+}
+
 /// What one explicit cue resolved to.
 struct CueState {
     clip: usize,
@@ -1900,6 +2079,7 @@ impl CharacterAnimator {
             None => (Rig::new_rigid(&model.nodes)?, true),
         };
         let node_count = rig.nodes.len();
+        let balloon_rig = BalloonRig::new(model, &rig);
         let clips = ClipPlayer::new(&model.animations, node_count);
         let mut pose: Vec<LocalTrs> = Vec::with_capacity(node_count);
         for node in &rig.nodes {
@@ -1965,6 +2145,7 @@ impl CharacterAnimator {
         Some(Self {
             rig,
             rigid,
+            balloon_rig,
             weights,
             phase: 0.0,
             clock: 0.0,
@@ -2132,6 +2313,46 @@ impl CharacterAnimator {
             self.morphs.copy_from_slice(&self.morph_a);
         }
         true
+    }
+
+    /// Poses the latex node and twelve visible string segments from an analytic cue.
+    /// Existing node/pose/delta buffers are overwritten; no per-frame allocation.
+    fn pose_balloon(&mut self, sampled: BalloonPose) -> bool {
+        let Some(rig) = self.balloon_rig else {
+            return false;
+        };
+        let mut changed = false;
+        let body_pose = LocalTrs {
+            translation: sampled.knot,
+            rotation: sampled.rotation,
+            scale: Vec3::splat(sampled.scale),
+        };
+        if let Some(slot) = self.pose.get_mut(rig.body) {
+            changed |= *slot != body_pose;
+            *slot = body_pose;
+        }
+        let mut start = sampled.anchor;
+        for (segment, node) in (1_u8..=12).zip(rig.strings) {
+            let end = sampled.string_point(f32::from(segment) / 12.0);
+            let vector = Vec3::new(end.x - start.x, end.y - start.y, end.z - start.z);
+            let length = vector.length();
+            let string_pose = LocalTrs {
+                translation: start,
+                rotation: Quat::from_rotation_arc(Vec3::Y, vector.normalize_or_zero()),
+                scale: Vec3::new(1.0, length.max(0.0001), 1.0),
+            };
+            if let Some(slot) = self.pose.get_mut(node) {
+                changed |= *slot != string_pose;
+                *slot = string_pose;
+            }
+            start = end;
+        }
+        if changed {
+            self.compose_globals();
+            self.compute_deltas();
+            self.revision = self.revision.wrapping_add(1);
+        }
+        changed
     }
 
     /// The pose revision; it changes exactly when [`Self::update`] changed the
@@ -2904,6 +3125,92 @@ mod tests {
     use super::*;
     use crate::gltf::{AnimationPath, PropAnimationChannel, PropModel, PropNode, PropSkin};
     use crate::test_support::{assert_exact, assert_exact_array};
+
+    /// Protects actual rigid skinning deltas/string attachment and retained pose
+    /// buffer capacities. Fourteen nodes, 27 vertices, 60 samples; no asset bake.
+    #[test]
+    fn balloon_rig_keeps_string_endpoints_and_pose_buffers_stable() {
+        let mut model = rigged_model(Vec::new());
+        model.skin = None;
+        model.nodes.clear();
+        model.vertices.clear();
+        model.joints.clear();
+        model.weights.clear();
+        model.nodes.push(PropNode {
+            name: "root".into(),
+            parent: None,
+            children: (1_u16..14).collect(),
+            translation: [0.0; 3],
+            rotation: [0.0, 0.0, 0.0, 1.0],
+            scale: [1.0; 3],
+        });
+        model.nodes.push(PropNode {
+            name: "balloon_body".into(),
+            parent: Some(0),
+            children: Vec::new(),
+            translation: [0.0, 1.1, 0.0],
+            rotation: [0.0, 0.0, 0.0, 1.0],
+            scale: [1.0; 3],
+        });
+        model.vertices.push(crate::gltf::PropVertex {
+            normal: Some([0.0, 1.0, 0.0]),
+            pos: [0.0, 1.3, 0.0],
+            color: [1.0; 4],
+            uv: [0.0; 2],
+        });
+        model.joints.push([1, 0, 0, 0]);
+        model.weights.push([1.0, 0.0, 0.0, 0.0]);
+        for (segment, name) in (0_u16..12).zip(STRING_NODE_NAMES) {
+            let y = f32::from(segment) * (1.1 / 12.0);
+            model.nodes.push(PropNode {
+                name: name.into(),
+                parent: Some(0),
+                children: Vec::new(),
+                translation: [0.0, y, 0.0],
+                rotation: [0.0, 0.0, 0.0, 1.0],
+                scale: [1.0, 1.1 / 12.0, 1.0],
+            });
+            for end in [y, y + 1.1 / 12.0] {
+                model.vertices.push(crate::gltf::PropVertex {
+                    normal: Some([1.0, 0.0, 0.0]),
+                    pos: [0.0, end, 0.0],
+                    color: [1.0; 4],
+                    uv: [0.0; 2],
+                });
+                model.joints.push([segment + 2, 0, 0, 0]);
+                model.weights.push([1.0, 0.0, 0.0, 0.0]);
+            }
+        }
+        let mut animator = CharacterAnimator::new(&model).expect("rigid balloon animator");
+        assert!(animator.balloon_rig.is_some(), "named rig resolves once");
+        let allocation = animator.allocation_probe();
+        let def = crate::level::BalloonDef {
+            offset: [0.4, 0.0, 0.2],
+            phase: Some(0.21),
+            ..crate::level::BalloonDef::default()
+        };
+        for frame in 0_u16..60 {
+            let pose = crate::entities::balloon::sample(&def, f32::from(frame) / 30.0);
+            let _changed = animator.pose_balloon(pose);
+            let first =
+                animator.skin_position(model.joints[1], model.weights[1], model.vertices[1].pos);
+            let last =
+                animator.skin_position(model.joints[24], model.weights[24], model.vertices[24].pos);
+            assert!(
+                (Vec3::from_array(first) - pose.anchor).length() < 0.00001,
+                "first string vertex stays anchored"
+            );
+            assert!(
+                (Vec3::from_array(last) - pose.knot).length() < 0.00001,
+                "last string vertex stays tied to moving knot"
+            );
+        }
+        assert_eq!(
+            animator.allocation_probe(),
+            allocation,
+            "balloon animation grows no pose buffers"
+        );
+    }
 
     /// A synthetic three-node rig: a body, a front-left leg and a tail, with
     /// one vertex skinned to all three.
@@ -3960,6 +4267,7 @@ mod tests {
             transform: Some((Vec3::new(2.0, 0.5, -1.0), std::f32::consts::FRAC_PI_2)),
             cue: PoseCue::Walk { speed_mps: 0.2 },
             opacity: 1.0,
+            balloon: None,
             glow: None,
         };
         let update = scene.update(
@@ -4035,6 +4343,7 @@ mod tests {
             transform: None,
             cue: PoseCue::Idle,
             opacity,
+            balloon: None,
             glow: frame_glow,
         };
 

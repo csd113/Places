@@ -1,0 +1,76 @@
+{
+  "format_version": 1,
+  "level": "birthday_light_response",
+  "source": "tests/fixtures/native/birthday-light-response.json",
+  "package": "assets/levels/birthday_light_response.placesmap",
+  "settings": {
+    "bindings": {
+      "forward": "W",
+      "backward": "S",
+      "strafe_left": "A",
+      "strafe_right": "D",
+      "look_up": "UP",
+      "look_down": "DOWN",
+      "look_left": "LEFT",
+      "look_right": "RIGHT",
+      "jump": "SPACE",
+      "crouch": "C",
+      "interact": "E"
+    },
+    "look_speed_h": 90,
+    "look_speed_v": 60,
+    "walk_speed": 3,
+    "invert_look": false,
+    "mouse_sensitivity": 0.12,
+    "quality": "high",
+    "texture_filtering": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true,
+    "use_low_quality_lighting": false,
+    "vsync": false,
+    "fov_degrees": 60,
+    "window_mode": "windowed",
+    "window_width": 640,
+    "window_height": 360
+  },
+  "bake": {
+    "variants": [
+      "off",
+      "full"
+    ],
+    "workers": 8,
+    "force_for_cold_measurement": false,
+    "algorithm": "unchanged normal compiler defaults; see package inspect for prepared settings"
+  },
+  "environment": {
+    "sky": "absent; enclosed interior",
+    "fog": "authored zero density",
+    "animation": "17 anchored latex balloons, separate phases; one candle_flicker cake and warm attached light; no people."
+  },
+  "capture": {
+    "ready_world_seconds": 0.5,
+    "warmup_frames": 15,
+    "limit_frames": 2400,
+    "expected_drawable": [
+      1280,
+      720
+    ]
+  },
+  "views": [
+    {
+      "name": "light_response",
+      "spawn": [
+        2.5,
+        1.25,
+        1.25,
+        180
+      ],
+      "camera": [
+        180,
+        -28
+      ],
+      "purpose": "One small explicit developer fixture checks flame-independent attached light and lit latex"
+    }
+  ]
+}

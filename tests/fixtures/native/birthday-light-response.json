@@ -1,0 +1,610 @@
+{
+  "format_version": 3,
+  "id": "birthday_light_response",
+  "name": "Birthday lighting developer fixture",
+  "author": "Places",
+  "spawn": {
+    "x": 2.5,
+    "z": 0.8,
+    "yaw_degrees": 180
+  },
+  "defaults": {
+    "wall": "arcade:wall_party_purple_01",
+    "floor": "arcade:carpet_neon_confetti_01",
+    "ceiling": "arcade:ceiling_acoustic_01"
+  },
+  "rooms": [
+    {
+      "x": 0,
+      "z": 0,
+      "width": 5,
+      "depth": 4,
+      "height": 3.2
+    }
+  ],
+  "walls": [
+    {
+      "x": -0.2,
+      "z": -0.2,
+      "width": 5.4,
+      "depth": 0.2,
+      "height": 3.2
+    },
+    {
+      "x": -0.2,
+      "z": 4,
+      "width": 5.4,
+      "depth": 0.2,
+      "height": 3.2
+    },
+    {
+      "x": -0.2,
+      "z": 0,
+      "width": 0.2,
+      "depth": 4,
+      "height": 3.2
+    },
+    {
+      "x": 5,
+      "z": 0,
+      "width": 0.2,
+      "depth": 4,
+      "height": 3.2
+    }
+  ],
+  "props": [
+    {
+      "id": "review_cake_table",
+      "model": "arcade:party_table_rect",
+      "x": 2.5,
+      "y": 0,
+      "z": 2.3,
+      "rotation_degrees": 0,
+      "size": [
+        2.1,
+        0.75,
+        0.85
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "review_cake_cloth",
+      "model": "arcade:party_cloth_rect_stars",
+      "x": 2.5,
+      "y": 0.502,
+      "z": 2.3,
+      "rotation_degrees": 0,
+      "size": [
+        2.24718,
+        0.25126,
+        0.98932
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "review_cake_chair_0",
+      "model": "arcade:fixed_chair_blue",
+      "x": 1.94,
+      "y": 0,
+      "z": 3.24,
+      "rotation_degrees": 174,
+      "size": [
+        0.6,
+        0.92,
+        0.6
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "review_cake_chair_1",
+      "model": "arcade:fixed_chair_red",
+      "x": 3.06,
+      "y": 0,
+      "z": 3.24,
+      "rotation_degrees": 184,
+      "size": [
+        0.6,
+        0.92,
+        0.6
+      ],
+      "solid": true,
+      "occludes": false
+    },
+    {
+      "id": "review_cake_cake",
+      "model": "arcade:party_cake_lit",
+      "x": 2.22,
+      "y": 0.753,
+      "z": 2.3,
+      "rotation_degrees": 0,
+      "size": [
+        0.36,
+        0.236,
+        0.36
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "animation",
+          "clip": "candle_flicker",
+          "looped": true,
+          "playing": false
+        },
+        {
+          "component": "glow",
+          "color": [
+            1,
+            0.49,
+            0.16
+          ],
+          "intensity": 0.28,
+          "range": 0.8,
+          "offset": [
+            0,
+            0.218,
+            0
+          ],
+          "fade": false,
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "id": "review_cake_gifts_0",
+      "model": "arcade:party_gift_green",
+      "x": 3.0,
+      "y": 0.753,
+      "z": 2.3,
+      "rotation_degrees": 135,
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "solid": false,
+      "occludes": false,
+      "scale": 1.0
+    },
+    {
+      "id": "review_cake_gifts_1",
+      "model": "arcade:party_gift_red",
+      "x": 3.34,
+      "y": 0.753,
+      "z": 2.3,
+      "rotation_degrees": 315,
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "solid": false,
+      "occludes": false,
+      "scale": 1.0
+    },
+    {
+      "id": "review_cake_gifts_2",
+      "model": "arcade:party_gift_confetti",
+      "x": 3.17,
+      "y": 1.055,
+      "z": 2.3,
+      "rotation_degrees": 352,
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "solid": false,
+      "occludes": false,
+      "scale": 1.0
+    },
+    {
+      "id": "review_cake_plate_0",
+      "model": "arcade:party_plate_stars",
+      "x": 1.74,
+      "y": 0.753,
+      "z": 2.07,
+      "rotation_degrees": 0,
+      "size": [
+        0.22,
+        0.016,
+        0.22
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "review_cake_plate_1",
+      "model": "arcade:party_plate_confetti",
+      "x": 2.62,
+      "y": 0.753,
+      "z": 2.55,
+      "rotation_degrees": 0,
+      "size": [
+        0.22,
+        0.016,
+        0.22
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "review_cake_hat",
+      "model": "arcade:party_hat_stripes",
+      "x": 1.74,
+      "y": 0.759,
+      "z": 2.07,
+      "rotation_degrees": 17,
+      "size": [
+        0.15,
+        0.22,
+        0.15
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "review_cake_cup",
+      "model": "arcade:party_cup_stars",
+      "x": 1.82,
+      "y": 0.753,
+      "z": 2.53,
+      "rotation_degrees": 61,
+      "size": [
+        0.085,
+        0.122,
+        0.085
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "review_cake_cup_2",
+      "model": "arcade:party_cup_balloons",
+      "x": 2.62,
+      "y": 0.753,
+      "z": 2.04,
+      "rotation_degrees": 9,
+      "size": [
+        0.085,
+        0.122,
+        0.085
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "review_cake_bouquet_weight",
+      "model": "arcade:party_balloon_weight",
+      "x": 1.58,
+      "y": 0.753,
+      "z": 2.4,
+      "rotation_degrees": 0,
+      "size": [
+        0.07,
+        0.05442,
+        0.07
+      ],
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "review_cake_bouquet_0",
+      "model": "arcade:party_balloon",
+      "x": 1.58,
+      "y": 0.80742,
+      "z": 2.4,
+      "rotation_degrees": 0,
+      "size": [
+        0.3,
+        1.53,
+        0.3
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "deep_purple",
+          "scale": 0.94,
+          "string_length": 1.32,
+          "anchor": [
+            0,
+            0,
+            0
+          ],
+          "offset": [
+            0.5,
+            0,
+            0.0
+          ],
+          "enabled": true,
+          "sway_amplitude": 0.022,
+          "bob_amplitude": 0.01,
+          "rotation_degrees": 2.7,
+          "speed_hz": 0.16,
+          "phase": 0.67,
+          "shared_phase": 0.44,
+          "shared_sway": 0.007
+        }
+      ]
+    },
+    {
+      "id": "review_cake_bouquet_1",
+      "model": "arcade:party_balloon",
+      "x": 1.58,
+      "y": 0.80742,
+      "z": 2.4,
+      "rotation_degrees": 0,
+      "size": [
+        0.3,
+        1.53,
+        0.3
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "pink",
+          "scale": 0.965,
+          "string_length": 1.47,
+          "anchor": [
+            0,
+            0,
+            0
+          ],
+          "offset": [
+            0.154508,
+            0,
+            0.475528
+          ],
+          "enabled": true,
+          "sway_amplitude": 0.024999999999999998,
+          "bob_amplitude": 0.013000000000000001,
+          "rotation_degrees": 3.1,
+          "speed_hz": 0.178,
+          "phase": 0.887,
+          "shared_phase": 0.44,
+          "shared_sway": 0.007
+        }
+      ]
+    },
+    {
+      "id": "review_cake_bouquet_2",
+      "model": "arcade:party_balloon",
+      "x": 1.58,
+      "y": 0.80742,
+      "z": 2.4,
+      "rotation_degrees": 0,
+      "size": [
+        0.3,
+        1.53,
+        0.3
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "golden_yellow",
+          "scale": 0.99,
+          "string_length": 1.62,
+          "anchor": [
+            0,
+            0,
+            0
+          ],
+          "offset": [
+            -0.404508,
+            0,
+            0.293893
+          ],
+          "enabled": true,
+          "sway_amplitude": 0.027999999999999997,
+          "bob_amplitude": 0.01,
+          "rotation_degrees": 2.7,
+          "speed_hz": 0.196,
+          "phase": 0.104,
+          "shared_phase": 0.44,
+          "shared_sway": 0.007
+        }
+      ]
+    },
+    {
+      "id": "review_cake_bouquet_3",
+      "model": "arcade:party_balloon",
+      "x": 1.58,
+      "y": 0.80742,
+      "z": 2.4,
+      "rotation_degrees": 0,
+      "size": [
+        0.3,
+        1.53,
+        0.3
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "royal_blue",
+          "scale": 0.94,
+          "string_length": 1.395,
+          "anchor": [
+            0,
+            0,
+            0
+          ],
+          "offset": [
+            -0.404508,
+            0,
+            -0.293893
+          ],
+          "enabled": true,
+          "sway_amplitude": 0.022,
+          "bob_amplitude": 0.013000000000000001,
+          "rotation_degrees": 3.1,
+          "speed_hz": 0.214,
+          "phase": 0.321,
+          "shared_phase": 0.44,
+          "shared_sway": 0.007
+        }
+      ]
+    },
+    {
+      "id": "review_cake_bouquet_4",
+      "model": "arcade:party_balloon",
+      "x": 1.58,
+      "y": 0.80742,
+      "z": 2.4,
+      "rotation_degrees": 0,
+      "size": [
+        0.3,
+        1.53,
+        0.3
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "orange",
+          "scale": 0.965,
+          "string_length": 1.545,
+          "anchor": [
+            0,
+            0,
+            0
+          ],
+          "offset": [
+            0.154508,
+            0,
+            -0.475528
+          ],
+          "enabled": true,
+          "sway_amplitude": 0.024999999999999998,
+          "bob_amplitude": 0.01,
+          "rotation_degrees": 2.7,
+          "speed_hz": 0.16,
+          "phase": 0.538,
+          "shared_phase": 0.44,
+          "shared_sway": 0.007
+        }
+      ]
+    }
+  ],
+  "timers": [
+    {
+      "id": "review_cake_candles_start",
+      "seconds": 0.01,
+      "autostart": true,
+      "repeat": false,
+      "bindings": [
+        {
+          "on": "timer",
+          "actions": [
+            {
+              "action": "play_animation",
+              "target": "review_cake_cake",
+              "clip": "candle_flicker",
+              "loop": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "review_light_False",
+      "seconds": 2,
+      "autostart": true,
+      "repeat": false,
+      "bindings": [
+        {
+          "on": "timer",
+          "actions": [
+            {
+              "action": "disable",
+              "target": "review_cake_cake"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "review_light_True",
+      "seconds": 4,
+      "autostart": true,
+      "repeat": false,
+      "bindings": [
+        {
+          "on": "timer",
+          "actions": [
+            {
+              "action": "enable",
+              "target": "review_cake_cake"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "id": "review_fluorescent",
+      "fixture": "arcade:fluorescent_panel_01",
+      "x": 2.5,
+      "z": 2,
+      "align": "none",
+      "brightness": 0.65,
+      "color": [
+        1,
+        0.97,
+        0.92
+      ],
+      "emission": 0.85,
+      "range": 6,
+      "enabled": true,
+      "switchable": true
+    },
+    {
+      "id": "review_purple",
+      "fixture": "arcade:blacklight_tube",
+      "x": 1,
+      "z": 2,
+      "align": "none",
+      "brightness": 0.06,
+      "color": [
+        0.36,
+        0.08,
+        0.75
+      ],
+      "emission": 0.5,
+      "ultraviolet": 1.8,
+      "range": 5,
+      "enabled": true,
+      "switchable": true
+    },
+    {
+      "id": "review_ambient_purple",
+      "fixture": "arcade:blacklight_tube",
+      "x": 3.8,
+      "z": 2.4,
+      "align": "none",
+      "brightness": 0.15,
+      "color": [
+        0.52,
+        0.2,
+        0.76
+      ],
+      "emission": 0.3,
+      "ultraviolet": 0.35,
+      "range": 6,
+      "enabled": true,
+      "switchable": false
+    }
+  ]
+}
