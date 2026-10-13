@@ -13,12 +13,12 @@ There is no prescribed route through these spaces. Open a door, try a light
 switch, look around a corner. Some places feel familiar. Others become stranger
 the longer you stay.
 
-[![Cosmic Lanes & Arcade: click to watch the native walkthrough](docs/images/release-0.9.0/arcade.png)](docs/videos/places-0.9.0.mp4)
+[![Cosmic Lanes & Arcade: click to download the native walkthrough](docs/images/release-0.9.0/arcade.png)](docs/videos/places-0.9.0.mp4?raw=true)
 
-[Watch or download the 32-second walkthrough](docs/videos/places-0.9.0.mp4) —
+[Download the 32-second walkthrough (MP4)](docs/videos/places-0.9.0.mp4?raw=true) —
 real walking footage from all eight environments, with a short cut between each.
 
-[![Animated gameplay preview from all eight environments](docs/images/release-0.9.0/walkthrough-preview.gif)](docs/videos/places-0.9.0.mp4)
+[![Animated gameplay preview from all eight environments](docs/images/release-0.9.0/walkthrough-preview.gif)](docs/videos/places-0.9.0.mp4?raw=true)
 
 ## Somewhere to go
 

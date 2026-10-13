@@ -56,7 +56,7 @@ rather than represented as an uninterrupted successful run.
 
 ## Native showcase
 
-[Watch or download the walkthrough](../videos/places-0.9.0.mp4): **32 seconds**,
+[Download the walkthrough](../videos/places-0.9.0.mp4?raw=true): **32 seconds**,
 960×540, H.264/YUV420P, 30 fps, approximately **3.47 MiB**, with eight chapters
 and simple cuts. It contains consecutive native frames from real held player
 controls in each current package: Office → Pool → Home → Lantern Hollow → Winter
@@ -70,8 +70,9 @@ There is no audio track. The eight-second GIF samples moving footage from every
 environment at 384×216/6 fps and is approximately 953 KiB. The thumbnail reuses
 the native Arcade PNG. Four unaltered 1280×720 still frames are retained in
 `docs/images/release-0.9.0/`; raw sequences and intermediate clips are disposable
-after publication validation. Public links/rendering and exact staging/main CI
-identities are verified in the release handoff.
+after publication validation. GitHub renders the GIF; its file viewer does not
+show this MP4 inline, so the README links directly to the raw download. Public
+download bytes and exact staging/main CI identities are verified in the handoff.
 
 ## Honest limitations and preservation
 
