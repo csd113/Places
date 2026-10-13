@@ -142,6 +142,52 @@ fn prop_texture_slot(
         .unwrap_or(fallback)
 }
 
+/// Visibility is consumed only by fluorescent primitives. OR their referenced
+/// vertices so shared indices retain coverage, independently of lighting quality.
+fn pack_prop_vertices(
+    batch: &PropMeshBatch,
+    mut visibility: impl FnMut(&crate::render::Vertex) -> [f32; 4],
+) -> Vec<WorldVertex> {
+    let mut receivers = Vec::new();
+    for part in batch
+        .submeshes
+        .iter()
+        .filter(|part| part.response.fluorescence.strength > 0.0)
+    {
+        if receivers.is_empty() {
+            receivers.resize(batch.vertices.len(), false);
+        }
+        let referenced = usize::try_from(part.first_index).ok().and_then(|start| {
+            let end = start.checked_add(usize::try_from(part.index_count).ok()?)?;
+            batch.indices.get(start..end)
+        });
+        let Some(indices) = referenced else {
+            // Invalid draw metadata retains the previous conservative coverage.
+            receivers.fill(true);
+            break;
+        };
+        for index in indices {
+            let Some(receiver) = receivers.get_mut(usize::from(*index)) else {
+                receivers.fill(true);
+                break;
+            };
+            *receiver = true;
+        }
+    }
+    batch
+        .vertices
+        .iter()
+        .enumerate()
+        .map(|(index, vertex)| {
+            let mut gpu = WorldVertex::from(vertex);
+            if receivers.get(index).copied().unwrap_or(false) {
+                gpu.uv_visibility = visibility(vertex);
+            }
+            gpu
+        })
+        .collect()
+}
+
 /// Bounds and distinct referenced vertices of one immutable primitive range.
 /// Invalid metadata falls back to the whole batch rather than hiding geometry.
 fn prop_draw_geometry(batch: &PropMeshBatch, first: u32, count: u32) -> Option<(Aabb, u32)> {
@@ -443,17 +489,9 @@ impl WgpuProps {
         batch: &PropMeshBatch,
         visibility: Option<crate::render::common::blacklight::BlacklightVisibility<'_>>,
     ) -> PropChunk {
-        let vertices: Vec<WorldVertex> = batch
-            .vertices
-            .iter()
-            .map(|vertex| {
-                let mut gpu = WorldVertex::from(*vertex);
-                if let Some(context) = visibility {
-                    gpu.uv_visibility = context.vertex(vertex);
-                }
-                gpu
-            })
-            .collect();
+        let vertices = pack_prop_vertices(batch, |vertex| {
+            visibility.map_or([0.0; 4], |context| context.vertex(vertex))
+        });
         let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("places-wgpu-prop-vertices"),
             size: u64::try_from(vertices.len())
@@ -564,6 +602,74 @@ mod tests {
         let stats = PropGpuStats::default();
         assert_eq!(stats.batches, 0);
         assert_eq!(stats.draws, 0);
+    }
+
+    /// Three vertices protect skipped ray work and mixed-material UV
+    /// coverage without a device, texture decode, transport build or map bake.
+    #[test]
+    fn ordinary_props_skip_uv_queries_and_mixed_props_preserve_shared_vertices()
+    -> Result<(), String> {
+        let part = crate::render::common::props::PropSubmeshBatch {
+            response: crate::materials::MaterialResponse::default(),
+            texture: None,
+            emission: crate::materials::MaterialEmission::default(),
+            alpha: crate::materials::MaterialAlpha::default(),
+            first_index: 0,
+            index_count: 3,
+        };
+        let mut batch = PropMeshBatch {
+            model: String::new(),
+            casts_static_lighting: true,
+            textures: Vec::new(),
+            submeshes: vec![part.clone(), part],
+            source_primitives: Vec::new(),
+            vertices: vec![Vertex::UNLIT; 3],
+            indices: vec![0, 1, 2, 0, 1, 0],
+            bounds: Aabb::EMPTY,
+        };
+        let mut queries = 0_usize;
+        let ordinary = pack_prop_vertices(&batch, |_| {
+            queries = queries.saturating_add(1);
+            [0.25; 4]
+        });
+        assert_eq!(queries, 0, "nonreactive vertices never trace UV rays");
+        assert!(
+            ordinary
+                .iter()
+                .all(|vertex| vertex.uv_visibility == [0.0; 4])
+        );
+        let reactive = batch.submeshes.get_mut(1).ok_or("mixed primitive")?;
+        reactive.first_index = 3;
+        reactive.response.fluorescence.strength = 1.0;
+        let mixed = pack_prop_vertices(&batch, |_| {
+            queries = queries.saturating_add(1);
+            [0.25; 4]
+        });
+        assert_eq!(queries, 2, "each shared vertex keeps its UV visibility");
+        for (index, ((before, after), source)) in
+            ordinary.iter().zip(&mixed).zip(&batch.vertices).enumerate()
+        {
+            assert_eq!(before.position, source.pos);
+            assert_eq!(after.position, before.position);
+            assert_eq!(after.color, before.color);
+            assert_eq!(
+                after.uv_visibility,
+                if index < 2 { [0.25; 4] } else { [0.0; 4] }
+            );
+        }
+        batch
+            .submeshes
+            .get_mut(1)
+            .ok_or("mixed primitive")?
+            .first_index = u32::MAX;
+        let fallback = pack_prop_vertices(&batch, |_| [0.25; 4]);
+        assert!(
+            fallback
+                .iter()
+                .all(|vertex| vertex.uv_visibility == [0.25; 4]),
+            "invalid draw metadata keeps conservative coverage"
+        );
+        Ok(())
     }
 
     #[test]

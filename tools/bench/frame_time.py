@@ -57,6 +57,7 @@ def main() -> None:
     parser.add_argument("--spawn", default="-1.6,1.6,2.8,90", help="X,Y,Z,yaw; use --spawn= for negative X")
     parser.add_argument("--camera", default="90,0", help="yaw,pitch in degrees")
     parser.add_argument("--size", default="1280x720", help="logical window size; actual drawable is recorded")
+    parser.add_argument("--expected-drawable", help="reject a native run unless its drawable matches WIDTHxHEIGHT")
     parser.add_argument("--fullscreen", action="store_true")
     parser.add_argument("--vsync", action="store_true", help="otherwise request Immediate presentation")
     parser.add_argument("--frames", type=int, default=600)
@@ -66,6 +67,7 @@ def main() -> None:
     parser.add_argument("--interact", default="", help="authored interactable IDs at startup, e.g. restroom_entry")
     parser.add_argument("--graphics-cycle", default="", help="existing benchmark Advanced-settings cycle")
     parser.add_argument("--quality-cycle", default="", help="existing benchmark texture-quality cycle")
+    parser.add_argument("--lighting-sequence", type=Path, help="existing bounded entity/light/door/capture actions")
     parser.add_argument("--capture-frame", type=int, help="capture instead of measuring performance")
     parser.add_argument("--gpu-trace", action="store_true", help="three labelled raw GPU samples; diagnostic run")
     parser.add_argument("--no-gpu-timing", action="store_true", help="same-build instrumentation control")
@@ -82,6 +84,14 @@ def main() -> None:
     width, height = map(int, size.groups())
     if not (64 <= width <= 8192 and 64 <= height <= 8192):
         parser.error("window dimensions must be 64..8192")
+    expected_drawable = None
+    if args.expected_drawable:
+        expected = re.fullmatch(r"(\d+)x(\d+)", args.expected_drawable)
+        if expected is None:
+            parser.error("expected drawable must be WIDTHxHEIGHT")
+        expected_drawable = tuple(map(int, expected.groups()))
+        if not all(64 <= edge <= 16384 for edge in expected_drawable):
+            parser.error("expected drawable dimensions must be 64..16384")
     binary = args.binary.resolve(strict=True)
     package = (ROOT / "assets/levels" / f"{args.level}.placesmap").resolve(strict=True)
     out = args.out.resolve()
@@ -108,6 +118,7 @@ def main() -> None:
         "PLACES_INTERACT": args.interact,
         "PLACES_BENCH_GRAPHICS_CYCLE": args.graphics_cycle,
         "PLACES_BENCH_QUALITY_CYCLE": args.quality_cycle,
+        "PLACES_BENCH_LIGHTING_SEQUENCE": str(args.lighting_sequence.resolve(strict=True)) if args.lighting_sequence else "",
         "PLACES_BENCH_GPU_TRACE": "1" if args.gpu_trace else "",
         "PLACES_BENCH_GPU_TIMING": "off" if args.no_gpu_timing else "",
     }
@@ -137,6 +148,11 @@ def main() -> None:
         raise RuntimeError(f"native run failed ({result.returncode}); see {out / 'native.log'}")
     if any(message in log.lower() for message in ("validation error", "panicked", "fatal device", "catalog hash mismatch")):
         raise RuntimeError(f"native validation failed; see {out / 'native.log'}")
+    if expected_drawable is not None:
+        drawables = [tuple(map(int, match)) for match in re.findall(
+            r"^\[(?:renderer|window)\].*drawable[: ]+(\d+)x(\d+)", log, re.MULTILINE)]
+        if not drawables or any(size != expected_drawable for size in drawables):
+            raise RuntimeError(f"drawable mismatch: expected {expected_drawable}, observed {drawables}; see {out / 'native.log'}")
     events = [json.loads(line) for line in (out / "trace.jsonl").read_text().splitlines()]
     presented = sum(event["event"] == "present" and event["detail"] == "ready" for event in events)
     missed = sum(event["event"] == "surface_not_presented" and event["detail"] == "ready" for event in events)
@@ -161,10 +177,11 @@ def main() -> None:
         for key in ("loop_ms", "frame_ms", "update_ms", "render_ms", "swap_ms")
     }
     receipt = dict(
-        kind="capture" if capture else "diagnostic" if (args.gpu_trace or args.graphics_cycle or args.quality_cycle) else "timing",
+        kind="capture" if capture else "diagnostic" if (args.gpu_trace or args.graphics_cycle or args.quality_cycle or args.lighting_sequence) else "timing",
         started_utc=started_utc, elapsed_seconds=time.monotonic() - started,
         binary=str(binary), binary_sha256=binary_sha256, package=str(package), package_sha256=package_sha256,
         settings=settings, spawn=args.spawn, camera=args.camera,
+        expected_drawable=expected_drawable,
         environment={key: value for key, value in env.items() if key.startswith("PLACES_")},
         load_before=load_before, load_after=os.getloadavg(), presented_ready=presented, missed_ready=missed,
         native_identity=[line for line in log.splitlines()

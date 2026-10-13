@@ -205,6 +205,19 @@ struct PreparedInstall {
     precompiled_probes: bool,
 }
 
+/// Texture/filtering/reflection changes cannot alter immutable atlas data.
+/// New or absent CPU resources, including reload replacements, require upload.
+fn resident_atlas_matches(
+    resident: bool,
+    current: Option<&Arc<crate::lighting::lightmap::LevelLightmaps>>,
+    next: Option<&Arc<crate::lighting::lightmap::LevelLightmaps>>,
+) -> bool {
+    resident
+        && current
+            .zip(next)
+            .is_some_and(|(installed, prepared)| Arc::ptr_eq(installed, prepared))
+}
+
 #[derive(Clone, Copy)]
 enum UploadPhase {
     Atlas,
@@ -617,10 +630,9 @@ pub struct WgpuRenderer {
     /// Every switchable fixture's runtime bindings: the baked light it drives
     /// and the material slot of its luminous face.
     switchable_lights: Vec<SwitchableLight>,
-    /// The prepared CPU pages, kept so a runtime light switch can rebuild the
-    /// environment uniform's page count and switchable selection without a
-    /// bake.
-    lightmap_cpu: Option<crate::lighting::lightmap::LevelLightmaps>,
+    /// Share immutable prepared pages with the retained build; light switches
+    /// read only the page count and source identities, never mutate texels.
+    lightmap_cpu: Option<Arc<crate::lighting::lightmap::LevelLightmaps>>,
     /// The id of the level currently resident. Installing a different
     /// level clears the neutral dynamic scene; a quality rebuild of the same
     /// level keeps it, so its objects survive a quality change.
@@ -2239,11 +2251,7 @@ impl WgpuRenderer {
         };
         match pending.phase {
             UploadPhase::Atlas => {
-                pending.atlas = Some(LightmapAtlas::upload(
-                    &self.device,
-                    &self.queue,
-                    pending.build.lightmaps.as_deref(),
-                ));
+                pending.atlas = Some(self.prepare_atlas(&pending.build));
                 pending.phase = UploadPhase::World;
             }
             UploadPhase::World => {
@@ -2330,6 +2338,23 @@ impl WgpuRenderer {
         }
         self.prepared_install = Some(pending);
         false
+    }
+
+    /// Share resident handles only for the exact immutable prepared atlas.
+    fn prepare_atlas(&self, build: &LevelBuild) -> LightmapAtlas {
+        if resident_atlas_matches(
+            self.lightmaps.is_resident(),
+            self.lightmap_cpu.as_ref(),
+            build.lightmaps.as_ref(),
+        ) {
+            logging::info(format!(
+                "[lightmaps] reuse resident immutable atlas: {} bytes; no upload",
+                self.lightmaps.stats().resident_bytes
+            ));
+            self.lightmaps.clone()
+        } else {
+            LightmapAtlas::upload(&self.device, &self.queue, build.lightmaps.as_deref())
+        }
     }
 
     fn upload_prop_step(&self, pending: &mut PreparedInstall) {
@@ -2756,7 +2781,7 @@ impl WgpuRenderer {
         // lightmap selection is derived from, installed before the group-3
         // bindings are created so they carry the level's real page and
         // switchable state.
-        self.lightmap_cpu = build.lightmaps.as_deref().cloned();
+        self.lightmap_cpu.clone_from(&build.lightmaps);
         // The packaged chain's top level is the shader's roughness bound; a
         // developer install bakes level 0 only and leaves it at zero. Set
         // before the environment bindings are created so the first uniform
@@ -5542,6 +5567,33 @@ mod tests {
 
     use super::*;
     use crate::render::ProbeFaceReadback;
+
+    /// Resource identity protects reload replacement and fallback behavior;
+    /// two tiny metadata allocations need neither pixels nor a GPU device.
+    #[test]
+    fn atlas_reuse_requires_the_same_immutable_resource_and_a_resident_texture() {
+        let current = Arc::new(crate::lighting::lightmap::LevelLightmaps {
+            pages: Vec::new(),
+            charts: Vec::new(),
+            stats: crate::lighting::lightmap::LightmapStats::default(),
+            cache_key: String::new(),
+            padding: 0,
+            switchable: Vec::new(),
+        });
+        let shared = Arc::clone(&current);
+        let replacement = Arc::new(current.as_ref().clone());
+        assert!(resident_atlas_matches(true, Some(&current), Some(&shared)));
+        assert!(
+            !resident_atlas_matches(true, Some(&current), Some(&replacement)),
+            "equal content in a replacement resource requires a new upload"
+        );
+        assert!(
+            !resident_atlas_matches(false, Some(&current), Some(&shared)),
+            "a fallback is never reused as a resident atlas"
+        );
+        assert!(!resident_atlas_matches(true, None, Some(&shared)));
+        assert!(!resident_atlas_matches(true, Some(&current), None));
+    }
 
     /// Resolves fixture asset IDs even when the ordinary material table is
     /// empty, and isolates another panel asset. Four JSON placements, no bake,

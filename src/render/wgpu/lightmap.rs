@@ -249,6 +249,7 @@ pub fn upload_stats(lightmaps: Option<&LevelLightmaps>) -> LightmapUploadStats {
 /// bind group borrows the view, so the renderer holds this value for as long as
 /// the bind group can be used. The array has exactly the resident layer count;
 /// [`Self::view`] returns the fallback's pair view when no atlas is resident.
+#[derive(Clone)]
 pub struct LightmapAtlas {
     /// The resident page array, kept alive for its view; `None` on the
     /// vertex-lit path.

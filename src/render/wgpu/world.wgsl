@@ -408,23 +408,31 @@ fn entity_direct_term(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
         attenuation += environment.entity_anchors[corner].attenuation.rgb * anchor_weight(in.local_position, corner);
     }
     for (var index = 0u; index < 8u; index = index + 1u) {
-        let source = environment.entity_direct[index];
-        if (source.color_strength.w <= 0.0) { continue; }
-        let delta = source.position_range.xyz - in.world_position;
-        let horizontal = max(abs(delta.xz) - source.extent_falloff.xy, vec2<f32>(0.0));
-        let distance = select(length(delta), length(horizontal), source.extent_falloff.w > 0.5);
-        let relative = distance / max(source.position_range.w, 1.0e-6);
+        // Keep the tap array in uniform storage rather than copying the whole
+        // source into fragment-local storage for its dynamically indexed taps.
+        let color_strength = environment.entity_direct[index].color_strength;
+        if (color_strength.w <= 0.0) { continue; }
+        let position_range = environment.entity_direct[index].position_range;
+        let extent_falloff = environment.entity_direct[index].extent_falloff;
+        let delta = position_range.xyz - in.world_position;
+        let horizontal = max(abs(delta.xz) - extent_falloff.xy, vec2<f32>(0.0));
+        let distance = select(length(delta), length(horizontal), extent_falloff.w > 0.5);
+        let relative = distance / max(position_range.w, 1.0e-6);
         if (relative >= 1.0) { continue; }
         let u = 1.0 - max(relative, 0.0);
         var falloff = u * u * (1.0 + 2.0 * max(relative, 0.0));
-        if (source.extent_falloff.z > 1.5) { falloff = 1.0; }
-        else if (source.extent_falloff.z > 0.5) { falloff = u; }
+        if (extent_falloff.z > 1.5) { falloff = 1.0; }
+        else if (extent_falloff.z > 0.5) { falloff = u; }
         // All taps share the same trilinear receiver weights. Interpolate
         // once per in-range source, preserving each tap's independent value.
         let visibility = source_visibility(in.local_position, index);
+        // An exactly occluded source contributes zero for every receiver
+        // normal. Partial visibility keeps the original per-tap arithmetic.
+        if (all(visibility == vec4<f32>(0.0))) { continue; }
         var cosine = 0.0;
         for (var tap = 0u; tap < 4u; tap = tap + 1u) {
-            let sample = source.taps[tap];
+            if (visibility[tap] == 0.0) { continue; }
+            let sample = environment.entity_direct[index].taps[tap];
             if (sample.w <= 0.0) { continue; }
             let incoming = sample.xyz - in.world_position;
             let distance_to_tap = length(incoming);
@@ -432,7 +440,7 @@ fn entity_direct_term(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
                 cosine += sample.w * visibility[tap] * max(dot(normal, incoming / distance_to_tap), 0.0);
             }
         }
-        result += source.color_strength.rgb * source.color_strength.w * falloff * cosine;
+        result += color_strength.rgb * color_strength.w * falloff * cosine;
     }
     return result * attenuation;
 }

@@ -646,11 +646,13 @@ fn normal_math_test() {
     normal_test_results[26] = vec4<f32>(entity_direct_term(receiver, vec3<f32>(0.0, 1.0, 0.0)), 0.0);
     receiver.local_position = outside;
     normal_test_results[27] = vec4<f32>(entity_direct_term(receiver, vec3<f32>(0.0, 1.0, 0.0)), 0.0);
+    receiver.local_position = vec3<f32>(0.0);
+    normal_test_results[28] = vec4<f32>(entity_direct_term(receiver, vec3<f32>(0.0, 1.0, 0.0)), 0.0);
 }
 ";
 
-// Six normal witnesses plus twenty visibility and two direct-light results.
-const NORMAL_MATH_RESULT_BYTES: u64 = 448;
+// Six normal witnesses plus twenty visibility and three direct-light results.
+const NORMAL_MATH_RESULT_BYTES: u64 = 464;
 
 fn visibility_corner(corner: usize) -> [f32; 3] {
     std::array::from_fn(|axis| {
@@ -758,7 +760,7 @@ fn gpu_normal_math_results(renderer: &WgpuRenderer) -> Vec<[f32; 4]> {
     // Execute the production helpers themselves. The compute entry supplies
     // analytic directions/visibility fields rather than duplicating shader math.
     // The added witnesses protect vector lane/source selection and its tap caller:
-    // one existing device, dispatch and readback; 448-byte results and one 6240-byte
+    // one existing device, dispatch and readback; 464-byte results and one 6240-byte
     // uniform, no map/transport bake and no added default GPU/test requirement.
     let source = format!(
         "{}\n{NORMAL_MATH_ENTRY}",
@@ -868,6 +870,8 @@ fn normal_direction_helpers_keep_extreme_and_degenerate_vectors_finite_on_gpu() 
     // colour/strength, then [1, 1/2, 1/4] anchor attenuation. Cosine/falloff are 1.
     expected.push([0.75, 0.398_437_5, 123.0 / 512.0, 0.0]);
     expected.push([173.0 / 192.0, 151.0 / 384.0, 323.0 / 1536.0, 0.0]);
+    // Fully occluded source 0 must not remove the independently visible source 7.
+    expected.push([1.0, 0.25, 0.0625, 0.0]);
     assert_eq!(
         actual.len(),
         expected.len(),
