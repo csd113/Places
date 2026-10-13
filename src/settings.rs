@@ -59,10 +59,10 @@ pub const NO_LIGHTMAPS_OVERRIDE_ENV: &str = "PLACES_NO_LIGHTMAPS";
 /// Keys the shell owns and a gameplay action may never bind.
 ///
 /// `ESC` opens the pause menu and cancels a rebind; `-` / keypad `-` toggles
-/// the performance overlay. Accepting one of these as a gameplay binding would
+/// the performance overlay and developer console. Accepting one of these as a gameplay binding would
 /// create a control that can never fire, so the rebind is rejected with a
 /// message instead.
-pub const RESERVED_KEYS: [&str; 3] = ["ESC", "-", "KP_MINUS"];
+pub const RESERVED_KEYS: [&str; 4] = ["ESC", "-", "KP_MINUS", "`"];
 
 /// True when `name` (as produced by [`crate::input::keycode_to_str`]) is
 /// reserved by the shell.
@@ -425,6 +425,9 @@ pub struct Settings {
     /// Flip the vertical look direction. Off is the historical behaviour.
     #[serde(default = "default_invert_look")]
     pub invert_look: bool,
+    /// Opt-in developer console. Backtick is reserved even when disabled.
+    #[serde(default)]
+    pub developer_console: bool,
     /// Mouse look sensitivity: degrees of camera rotation per pixel of relative
     /// mouse motion. Pixel motion carries no time, so the simulation applies it
     /// without a delta-time factor; `0.12` is the fresh-install default.
@@ -562,6 +565,7 @@ impl Default for Settings {
             walk_speed: default_walk_speed(),
             fov_degrees: default_fov(),
             invert_look: default_invert_look(),
+            developer_console: false,
             mouse_sensitivity: default_mouse_sensitivity(),
             vsync: default_vsync(),
             texture_filtering: "high".to_string(),

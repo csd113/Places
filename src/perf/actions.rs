@@ -15,13 +15,41 @@ const MAX_SCRIPT_BYTES: u64 = 65_536;
 #[derive(Clone, Debug, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
-    Load { level: String },
+    Load {
+        level: String,
+    },
     Escape {},
-    Resize { width: u32, height: u32 },
-    Quality { level: String },
-    Lightmaps { quality: String },
-    LowLighting { enabled: bool },
-    Focus { focused: bool },
+    ConsoleEnabled {
+        enabled: bool,
+    },
+    Key {
+        key: String,
+        pressed: bool,
+    },
+    Text {
+        text: String,
+        #[serde(default)]
+        submit: bool,
+    },
+    Capture {
+        name: String,
+    },
+    Resize {
+        width: u32,
+        height: u32,
+    },
+    Quality {
+        level: String,
+    },
+    Lightmaps {
+        quality: String,
+    },
+    LowLighting {
+        enabled: bool,
+    },
+    Focus {
+        focused: bool,
+    },
     Quit {},
 }
 #[derive(Clone, Debug, Deserialize)]
@@ -67,7 +95,28 @@ fn parse(bytes: &[u8]) -> Result<Vec<Step>, String> {
             {
                 return Err("Invalid lightmap quality".to_string());
             }
-            Action::Load { level: _ }
+            Action::Key { key, pressed: _ }
+                if sdl3::keyboard::Keycode::from_name(key).is_none() =>
+            {
+                return Err("Unknown SDL key name".to_string());
+            }
+            Action::Text { text, submit: _ } if text.len() > 256 || !text.is_ascii() => {
+                return Err("Native text input must be at most 256 ASCII bytes".to_string());
+            }
+            Action::Capture { name }
+                if name.is_empty()
+                    || name.len() > 64
+                    || !name
+                        .chars()
+                        .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-')) =>
+            {
+                return Err("Capture name must be a short filename stem".to_string());
+            }
+            Action::ConsoleEnabled { enabled: _ }
+            | Action::Key { key: _, pressed: _ }
+            | Action::Text { text: _, submit: _ }
+            | Action::Capture { name: _ }
+            | Action::Load { level: _ }
             | Action::Escape {}
             | Action::Resize {
                 width: _,

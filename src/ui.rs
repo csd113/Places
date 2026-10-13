@@ -61,7 +61,7 @@ impl SettingsPage {
                 }
             }
             Self::Display => 3,
-            Self::Controls => 18,
+            Self::Controls => 19,
         }
     }
 }
@@ -112,6 +112,7 @@ pub enum SettingsValue {
     LookSpeedH,
     LookSpeedV,
     InvertLook,
+    DeveloperConsole,
     MouseSensitivity,
     WalkSpeed,
     Fov,
@@ -238,6 +239,7 @@ fn ui_signature(
     settings.walk_speed.to_bits().hash(&mut hasher);
     settings.fov_degrees.to_bits().hash(&mut hasher);
     settings.invert_look.hash(&mut hasher);
+    settings.developer_console.hash(&mut hasher);
     // The *effective* values: a startup override changes what the screen says.
     settings.vsync_enabled().hash(&mut hasher);
     settings.bloom_enabled().hash(&mut hasher);
@@ -716,6 +718,12 @@ fn controls_rows(settings: &Settings) -> Vec<SettingsRow> {
         selector(&format!("{:.0} deg", settings.fov_degrees)),
         SettingsRowKind::Value(SettingsValue::Fov),
     );
+    push_row(
+        &mut rows,
+        "Developer Console",
+        selector(on_off(settings.developer_console)),
+        SettingsRowKind::Value(SettingsValue::DeveloperConsole),
+    );
     push_row(&mut rows, "Back", String::new(), SettingsRowKind::Back);
     rows
 }
@@ -866,6 +874,10 @@ fn adjust_value(
         SettingsValue::LookSpeedV => {
             step_range(&mut settings.look_speed_v, direction, 15.0, 30.0, 150.0);
             ui_state.set_status("Vertical look speed updated", false);
+        }
+        SettingsValue::DeveloperConsole => {
+            settings.developer_console = !settings.developer_console;
+            ui_state.set_status("Developer console: backtick opens during play", false);
         }
         SettingsValue::InvertLook => {
             settings.set_invert_look(!settings.invert_look);
@@ -1377,11 +1389,11 @@ mod tests {
     /// 0.02 degrees per pixel and never leaving its documented range.
     #[test]
     fn the_controls_page_shows_jump_and_mouse_sensitivity() {
-        assert_eq!(SettingsPage::Controls.item_count(false), 18);
+        assert_eq!(SettingsPage::Controls.item_count(false), 19);
         let display = DisplayStatus::default();
         let mut settings = Settings::default();
         let rows = settings_rows(SettingsPage::Controls, &settings, &display, false);
-        assert_eq!(rows.len(), 18);
+        assert_eq!(rows.len(), 19);
 
         let jump = rows
             .iter()

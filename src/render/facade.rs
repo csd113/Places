@@ -292,6 +292,13 @@ impl Renderer {
         self.renderer.update_dynamic(delta_seconds)
     }
 
+    /// Actual bounds of a small rigid catalog prop, using the shared cache.
+    /// # Errors
+    /// Rejects unknown/non-placeable IDs, missing models, characters and large props.
+    pub fn rigid_runtime_model_bounds(&mut self, id: &str) -> Result<([f32; 3], [f32; 3]), String> {
+        self.renderer.rigid_runtime_model_bounds(id)
+    }
+
     /// Spawns one runtime entity's model as a dynamic object.
     ///
     /// `key` is the engine's stable runtime token; spawning a live key replaces

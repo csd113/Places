@@ -19,6 +19,7 @@ use crate::level::{
 use crate::materials::GroundSurface;
 use crate::settings::Settings;
 
+mod developer;
 mod recovery;
 use recovery::{PlayableSpace, RecoveryDestination};
 
@@ -432,6 +433,7 @@ pub struct Game {
     outside_map_seconds: f32,
     /// A validated spawn pose, kept separately from an invalid authored spawn.
     recovery_spawn: Option<RecoveryDestination>,
+    noclip: Option<developer::ReturnPose>,
     ground_surfaces: GroundSurfaces,
     /// Last collision-constrained planar velocity. Normal walking still uses
     /// immediate input; only ice (and its airborne takeoff) integrates it.
@@ -648,6 +650,7 @@ impl Game {
             playable_space: world.playable_space,
             outside_map_seconds: 0.0,
             recovery_spawn: None,
+            noclip: None,
             running: true,
             app_state: AppState::MainMenu,
             last_frame_time: Instant::now(),
@@ -851,6 +854,7 @@ impl Game {
     /// release, so a fresh press works immediately. A level load passes
     /// `false` because the frame loop has already released gameplay inputs.
     fn clear_run_state(&mut self, spawn_pos: Vec3, spawn_yaw: f32, suppress_held: bool) {
+        self.noclip = None;
         self.player_floor_y = spawn_pos.y - EYE_HEIGHT;
         self.player_position = spawn_pos;
         self.feet_y = spawn_pos.y - EYE_HEIGHT;
@@ -1164,6 +1168,11 @@ impl Game {
 
         // While paused or in menus, do not update player movement or looking
         if self.app_state != AppState::Playing {
+            return;
+        }
+
+        if self.noclip_enabled() {
+            self.update_noclip(&frame_input, settings, motion);
             return;
         }
 

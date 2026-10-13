@@ -59,6 +59,7 @@ def main() -> None:
     parser.add_argument("--size", default="1280x720", help="logical window size; actual drawable is recorded")
     parser.add_argument("--expected-drawable", help="reject a native run unless its drawable matches WIDTHxHEIGHT")
     parser.add_argument("--fullscreen", action="store_true")
+    parser.add_argument("--console-open", action="store_true", help="enable/open the console through the SDL acceptance action path")
     parser.add_argument("--vsync", action="store_true", help="otherwise request Immediate presentation")
     parser.add_argument("--frames", type=int, default=600)
     parser.add_argument("--warmup", type=int, default=120)
@@ -101,7 +102,7 @@ def main() -> None:
         window_width=width, window_height=height,
         window_mode="fullscreen" if args.fullscreen else "windowed", vsync=args.vsync,
         quality="high", texture_filtering="high", lightmaps="full", reflections="full",
-        bloom=True, use_low_quality_lighting=False, fov_degrees=60,
+        bloom=True, use_low_quality_lighting=False, fov_degrees=60, developer_console=args.console_open,
     )
     (out / "settings.json").write_text(json.dumps(settings, indent=2) + "\n")
     env = {key: value for key, value in os.environ.items()
@@ -123,6 +124,14 @@ def main() -> None:
         "PLACES_BENCH_GPU_TIMING": "off" if args.no_gpu_timing else "",
     }
     env.update({key: value for key, value in optional.items() if value})
+    if args.console_open:
+        actions_path = out / "console-actions.json"
+        actions_path.write_text(json.dumps([
+            dict(after=f"ready:{args.level}", delay_ms=0, action=dict(kind="key", key="`", pressed=True)),
+            dict(after=f"ready:{args.level}", delay_ms=10, action=dict(kind="text", text="/help", submit=True)),
+        ]) + "\n")
+        env["PLACES_BENCH_ACTIONS"] = str(actions_path)
+
     if args.capture_frame is not None:
         if not 1 <= args.capture_frame <= 2400:
             parser.error("capture frame must be 1..2400")

@@ -553,6 +553,9 @@ fn description(
                         "Camera turning speed for the look keys."
                     }
                     SettingsValue::InvertLook => "Reverse vertical mouse and key look.",
+                    SettingsValue::DeveloperConsole => {
+                        "Enable testing commands. Press backtick during play."
+                    }
                     SettingsValue::WalkSpeed => "Your movement speed while walking.",
                     SettingsValue::Fov => "How much of your surroundings you can see.",
                 },
@@ -786,7 +789,12 @@ impl UiState {
         } else if matches!(state, AppState::Settings | AppState::PauseSettings)
             && self.settings_page == SettingsPage::Controls
         {
-            (&mut self.settings_scroll, &mut self.settings_idx, 17, 7)
+            (
+                &mut self.settings_scroll,
+                &mut self.settings_idx,
+                SettingsPage::Controls.item_count(false).saturating_sub(1),
+                7,
+            )
         } else {
             return;
         };

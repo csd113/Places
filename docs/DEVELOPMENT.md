@@ -165,3 +165,11 @@ outside `target`, stop owned jobs and clean build output only when it is unowned
 Verify or rebuild selected maps explicitly before native/package acceptance;
 a previous campaign does not establish present currency. The
 [0.9.0 release summary](reports/release-0.9.0.md) records the final local lineup.
+
+## Developer console
+
+Enable **Settings → Controls → Developer Console**, then press backtick during
+play. See [console use and implementation](reports/developer-console-0.10.0.md)
+for commands, safe noclip recovery and the current visual-prop limit of `/give`.
+The opt-in `tools/bench/developer_console.py` acceptance tool reuses installed
+packages and exercises the normal SDL event path; it does not bake maps.

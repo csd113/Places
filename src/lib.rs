@@ -7,6 +7,7 @@ pub mod canonical_json;
 pub mod collision;
 pub mod collision_index;
 pub mod compiler;
+pub mod console;
 mod diagnostics;
 pub mod display;
 pub mod door;
@@ -762,6 +763,8 @@ struct FrameLoop<'a> {
     settings: &'a mut Settings,
     ui_state: &'a mut UiState,
     perf_overlay: &'a mut PerfOverlay,
+    console: console::Console,
+    console_runtime: console::runtime::Runtime,
     ui_cache: &'a mut UiGeometryCache,
     ui_scratch: &'a mut Vec<Vertex>,
     applied_filtering: &'a mut String,
@@ -1005,6 +1008,7 @@ impl FrameLoop<'_> {
         // frame; it is two enum checks when nothing is in flight.
         self.refresh_graphics_status_hint();
         self.refresh_display_status();
+        self.reconcile_console();
         self.sync_menu_pointer();
         self.sync_mouse_capture();
         if self.game.frame_count() == 1 {
@@ -1023,9 +1027,11 @@ impl FrameLoop<'_> {
         {
             self.game.set_benchmark_simulation_delta(delta);
         }
-        self.apply_move_script();
-        self.game
-            .update_player_movement(self.input_handler.state_mut(), self.settings);
+        if !self.console.is_open() {
+            self.apply_move_script();
+            self.game
+                .update_player_movement(self.input_handler.state_mut(), self.settings);
+        }
         self.log_player_state();
         // One press is one interaction: consume the edge the movement update
         // latched, resolve the object under the crosshair and run its
@@ -1082,7 +1088,10 @@ impl FrameLoop<'_> {
 
     /// Advances weather controls only while the loaded world is playing.
     fn advance_weather(&mut self) {
-        let delta = if self.load_intent.is_none() && self.game.app_state() == AppState::Playing {
+        let delta = if !self.console.is_open()
+            && self.load_intent.is_none()
+            && self.game.app_state() == AppState::Playing
+        {
             self.game.sim_delta_seconds()
         } else {
             0.0
@@ -1095,6 +1104,9 @@ impl FrameLoop<'_> {
 
     /// Advances controlled visual time only while the diagnostic world is playing.
     fn visual_delta_seconds(&self) -> f32 {
+        if self.console.is_open() {
+            return 0.0;
+        }
         self.bench.fixed_delta_seconds().map_or_else(
             || self.game.delta_seconds(),
             |delta| {
@@ -1874,13 +1886,23 @@ impl FrameLoop<'_> {
     /// focus change, an OS capture change), and the mode is re-asserted on the
     /// next frame whenever it differs from the desired one.
     fn sync_mouse_capture(&self) {
-        let desired = self.load_intent.is_none()
+        let desired = !self.console.is_open()
+            && self.load_intent.is_none()
             && self.game.app_state() == AppState::Playing
             && self.window_focused;
         if self.sdl.mouse().relative_mouse_mode(self.window) != desired {
             self.sdl
                 .mouse()
                 .set_relative_mouse_mode(self.window, desired);
+        }
+        let text_input = self.video_subsystem.text_input();
+        let wants_text = self.console.is_open() && self.window_focused;
+        if text_input.is_active(self.window) != wants_text {
+            if wants_text {
+                text_input.start(self.window);
+            } else {
+                text_input.stop(self.window);
+            }
         }
         if self.sdl.mouse().is_cursor_showing() == desired {
             self.sdl.mouse().show_cursor(!desired);
@@ -2069,26 +2091,29 @@ impl FrameLoop<'_> {
                 }
             }
             perf::actions::Action::Escape {} => {
-                let _handle_event_status = self.handle_event(&Event::KeyDown {
+                self.scripted_key("Escape", true);
+                self.scripted_key("Escape", false);
+            }
+            perf::actions::Action::ConsoleEnabled { enabled } => {
+                self.settings.developer_console = enabled;
+                self.reconcile_console();
+                self.sync_mouse_capture();
+            }
+            perf::actions::Action::Key { key, pressed } => self.scripted_key(&key, pressed),
+            perf::actions::Action::Text { text, submit } => {
+                let _handled = self.handle_event(&Event::TextInput {
                     timestamp: 0,
                     window_id: self.window.id(),
-                    keycode: Some(Keycode::Escape),
-                    scancode: None,
-                    keymod: sdl3::keyboard::Mod::NOMOD,
-                    repeat: false,
-                    which: 0,
-                    raw: 0,
+                    text,
                 });
-                let _handle_event_status_2 = self.handle_event(&Event::KeyUp {
-                    timestamp: 0,
-                    window_id: self.window.id(),
-                    keycode: Some(Keycode::Escape),
-                    scancode: None,
-                    keymod: sdl3::keyboard::Mod::NOMOD,
-                    repeat: false,
-                    which: 0,
-                    raw: 0,
-                });
+                if submit {
+                    self.scripted_key("Return", true);
+                    self.scripted_key("Return", false);
+                }
+            }
+            perf::actions::Action::Capture { name } => {
+                let path = assets::state_root().join(format!("{name}.png"));
+                write_capture(self.renderer, &path);
             }
             perf::actions::Action::Resize { width, height } => {
                 if let Err(error) = self.window.set_size(width, height) {
@@ -2132,6 +2157,7 @@ impl FrameLoop<'_> {
                 return self.handle_event(&Event::Quit { timestamp: 0 });
             }
         }
+        self.trace_world("action_result");
         self.game.is_running()
     }
 
@@ -2154,6 +2180,7 @@ impl FrameLoop<'_> {
         {
             if matches!(win_event, WindowEvent::FocusLost) {
                 self.window_focused = false;
+                self.close_console();
                 // A key released while another window had focus may never
                 // deliver its KeyUp. Releasing everything keeps a held Jump,
                 // Crouch or Interact from surviving the refocus.
@@ -2246,6 +2273,10 @@ impl FrameLoop<'_> {
         }
 
         if self.handle_graphics_key_release(event) {
+            return true;
+        }
+
+        if self.handle_console_event(event) {
             return true;
         }
 
@@ -2532,6 +2563,7 @@ impl FrameLoop<'_> {
     /// and "Load failed: ..." would appear in Settings, because one `UiState`
     /// field backs every screen's status line.
     fn goto(&mut self, state: AppState) {
+        self.close_console();
         if self.load_intent.is_some() && state == AppState::Playing {
             return;
         }
@@ -2601,6 +2633,7 @@ impl FrameLoop<'_> {
     }
 
     fn request_load(&mut self, source: loading::Source, intent: LoadIntent) {
+        self.close_console();
         // An outstanding preparation for the same world and effective lightmap
         // quality is promoted instead of restarted: the startup background
         // world must survive the player selecting that same level, and a
@@ -2945,6 +2978,10 @@ impl FrameLoop<'_> {
             "renderer_quality": renderer_quality.name(), "renderer_lightmaps": renderer_lightmaps.name(),
             "renderer_lighting": self.renderer.graphics_applied().lighting.name(),
             "bloom": self.settings.bloom_enabled(), "window_focused": self.window_focused,
+            "console_last": self.console.latest_message(), "console_scroll": self.console.scroll_offset(),
+            "console_open": self.console.is_open(), "console_enabled": self.settings.developer_console, "noclip": self.game.noclip_enabled(),
+            "relative_mouse": self.sdl.mouse().relative_mouse_mode(self.window),
+            "input": format!("{:?}", self.input_handler.state()),
             "doors": doors, "light_states": self.game.light_states(),
             "state": format!("{:?}", self.game.app_state()), "frame": self.game.frame_count(),
             "filtering": self.settings.texture_filtering_preset(), "rss_bytes": perf::process_resident_bytes(),
@@ -2963,6 +3000,8 @@ impl FrameLoop<'_> {
         else {
             return;
         };
+        self.console_runtime.clear_previews(self.renderer);
+        self.close_console();
         self.trace.record("gpu_ready", id, &loaded.level.id);
         logging::info(format!("[loading] committed {}", loaded.level.id));
         self.load_intent = None;
@@ -3158,7 +3197,7 @@ impl FrameLoop<'_> {
         // Labels are only appended while actually playing, never in a menu or a
         // pause; the overlay is appended on demand.
         let show_labels = self.game.app_state() == AppState::Playing;
-        if show_labels || self.perf_overlay.is_visible() {
+        if show_labels || self.perf_overlay.is_visible() || self.console.is_open() {
             self.ui_scratch.clear();
             self.ui_scratch.extend_from_slice(ui_vertices);
             if show_labels {
@@ -3177,6 +3216,20 @@ impl FrameLoop<'_> {
             if self.perf_overlay.is_visible() {
                 self.ui_scratch
                     .extend_from_slice(self.perf_overlay.cached_vertices());
+            }
+            if self.game.noclip_enabled() && !self.console.is_open() {
+                ui::draw_text(
+                    self.ui_scratch,
+                    "NOCLIP",
+                    12.0,
+                    12.0,
+                    1.0,
+                    [1.0, 0.88, 0.62],
+                );
+            }
+            if self.console.is_open() {
+                self.ui_scratch
+                    .extend_from_slice(self.console.vertices(self.game.noclip_enabled()));
             }
             self.renderer.render_ui(self.ui_scratch);
         } else {
@@ -3714,6 +3767,8 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
         settings: &mut settings,
         ui_state: &mut ui_state,
         perf_overlay: &mut perf_overlay,
+        console: console::Console::default(),
+        console_runtime: console::runtime::Runtime::default(),
         ui_cache: &mut ui_cache,
         ui_scratch: &mut ui_scratch,
         applied_filtering: &mut applied_filtering,

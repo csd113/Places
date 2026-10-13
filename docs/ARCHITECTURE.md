@@ -117,6 +117,8 @@ where the bytes live:
 | `src/door.rs` | Door runtimes: the closed/opening/open/closing phase machine, the `locked` state, current angle and collider pose, the id→index map, and per-level reset/advance |
 | `src/interact.rs` | Interaction targeting (ray/reach/occlusion), the aiming table derived from `interactable` components, door aim bounds and the world-anchored label/prompt emission |
 | `src/ui.rs` | The menu, level select and settings screens |
+| `src/console/` | Opt-in developer console: typed registry/parser, bounded session state, cached native text UI, SDL focus ownership and runtime command dispatch |
+| `src/game/developer.rs` | Noclip flight, validated walking recovery and conservative rigid-prop preview placement |
 | `assets/catalog.json` | The authoritative registry mapping every logical id to a file, material or generated resource |
 | `assets/environments/**`, `assets/shared/**`, `assets/entities/**` | Shipped surfaces, decals, fixture faces, props and entity models (PNG/GLB) |
 | `assets/levels/` | Ignored compiled lineup packages, generated with `sh tools/build-maps.sh` |

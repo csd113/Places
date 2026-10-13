@@ -1262,6 +1262,41 @@ impl WgpuRenderer {
         }
     }
 
+    /// Resolve a bounded rigid catalog prop through the existing asset cache.
+    /// No file-path fallback or frozen character pose is accepted here.
+    pub fn rigid_runtime_model_bounds(&mut self, id: &str) -> Result<([f32; 3], [f32; 3]), String> {
+        let entry = self
+            .prop_catalog
+            .assets()
+            .get(id)
+            .ok_or_else(|| format!("Unknown catalog ID `{id}`."))?;
+        if !entry.is_placeable() {
+            return Err(format!("`{id}` is not a placeable prop."));
+        }
+        let path = entry
+            .model
+            .as_deref()
+            .ok_or_else(|| format!("`{id}` has no runtime model."))?;
+        let asset = self.prop_assets.resolve(path)?;
+        if asset.model.skin.is_some() || !asset.model.morph_targets.is_empty() {
+            return Err("Characters/morph models require an entity template; /give supports rigid prop previews only.".to_string());
+        }
+        let bounds = asset
+            .model
+            .bounds()
+            .ok_or_else(|| "Model has no usable bounds.".to_string())?;
+        let [x0, y0, z0] = bounds.0;
+        let [x1, y1, z1] = bounds.1;
+        let extent = glam::Vec3::new(x1 - x0, y1 - y0, z1 - z0);
+        if !extent.is_finite() || extent.min_element() <= 0.0 || extent.max_element() > 1.5 {
+            return Err(
+                "Preview props must have positive bounds no larger than 1.5 m per axis."
+                    .to_string(),
+            );
+        }
+        Ok(bounds)
+    }
+
     /// Spawns one runtime entity's model as a dynamic object.
     ///
     /// `key` is the engine's stable runtime token: spawning with a live key

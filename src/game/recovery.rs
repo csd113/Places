@@ -90,8 +90,8 @@ impl PlayableSpace {
 
 #[derive(Debug, Clone, Copy)]
 pub(super) struct RecoveryDestination {
-    eye: Vec3,
-    yaw: f32,
+    pub(super) eye: Vec3,
+    pub(super) yaw: f32,
 }
 
 impl Game {
@@ -106,11 +106,15 @@ impl Game {
         if self.playable_space.areas.is_empty() && self.water.is_empty() {
             return false;
         }
-        !self.playable_space.contains(
-            Vec3::new(self.player_position.x, self.feet_y, self.player_position.z),
-            &self.water,
-            &self.walls,
-        )
+        !self.playable_feet(Vec3::new(
+            self.player_position.x,
+            self.feet_y,
+            self.player_position.z,
+        ))
+    }
+
+    pub(super) fn playable_feet(&self, feet: Vec3) -> bool {
+        self.playable_space.contains(feet, &self.water, &self.walls)
     }
 
     pub(super) fn player_motion_is_finite(&self) -> bool {
@@ -138,7 +142,7 @@ impl Game {
 
     /// The single destination policy. Future authored respawn destinations
     /// can be selected here without changing detection or motion reset.
-    fn recovery_destination(&self) -> Option<RecoveryDestination> {
+    pub(super) fn recovery_destination(&self) -> Option<RecoveryDestination> {
         let destination = self.recovery_spawn?;
         let feet = Vec3::new(
             destination.eye.x,

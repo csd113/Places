@@ -328,7 +328,8 @@ pub enum MenuNavEvent {
 /// compares against. The table is explicit (rather than a wildcard match over
 /// SDL3's extensible `Keycode` enum) so a future SDL3 key constant can never be
 /// mistaken for one of these spellings.
-const KEY_NAME_OVERRIDES: [(Keycode, &str); 16] = [
+const KEY_NAME_OVERRIDES: [(Keycode, &str); 17] = [
+    (Keycode::Grave, "`"),
     (Keycode::Period, "."),
     (Keycode::Minus, "-"),
     (Keycode::Equals, "="),
