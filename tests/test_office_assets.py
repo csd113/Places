@@ -19,6 +19,24 @@ MODELS = ROOT / "assets/environments/office/props"
 
 
 class OfficeAssetTests(unittest.TestCase):
+    def test_fluorescent_backplates_clear_their_local_ceiling(self):
+        # One JSON parse protects the real ceiling/backplate z-fighting bug;
+        # no mesh build, lighting bake or native process is needed.
+        level = json.loads((ROOT / "levels/office_demo.json").read_text())
+        for light in level["ceiling_lights"]:
+            if light["fixture"] != "core:fluorescent_panel_01":
+                continue
+            with self.subTest(light=light["id"]):
+                ceilings = [room.get("floor_y", 0) + room["height"]
+                    for room in level["rooms"]
+                    if room["x"] <= light["x"] <= room["x"] + room["width"]
+                    and room["z"] <= light["z"] <= room["z"] + room["depth"]
+                    and room.get("floor_y", 0) + room["height"] >= light["y"]]
+                self.assertTrue(ceilings, "fixture must have a local ceiling")
+                clearance = min(ceilings) - light["y"]
+                self.assertGreater(clearance, .005, "backplate cannot share the roof plane")
+                self.assertLess(clearance, .02, "retain the documented flush mounting")
+
     def test_surface_exporters_preserve_authored_pixels_and_fixture_ratio(self):
         entries = list(office_art.ART.values())
         entries.append(lights_art.ART["core:fluorescent_panel_01"])

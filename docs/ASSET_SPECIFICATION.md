@@ -831,11 +831,25 @@ forward-pose upper-body channels; mesh, skin, UVs and embedded PNG bytes stay ex
 The Office cockroach uses an opaque 32² native derivative of the committed
 shared white sheet at `entities/cockroach/textures/white_01.png`, embedded
 unchanged by `tools/props/build_cockroach.py`. All UVs sample its centre;
-brown vertex colours and closed geometry supply the detail. The 480-triangle,
+brown vertex pigment and closed geometry supply the detail. `COLOR_0` is a
+linear glTF channel; the material's linear `baseColorFactor`
+`[0.2231106261, 0.1249638443, 0.0856918012, 1]` anchors that palette to the intended
+dark-brown `#462412` shell under unit white light. Its nonmetal roughness `0.48`
+provides a restrained cuticle response from the existing environmental lighting.
+The 480-triangle,
 25-joint GLB faces +Z, has a floor origin and includes idle/walk/run loops
 with articulated tripod scurry. This is an ordinary fitted model sheet,
 with clamp sampling, opaque alpha, no emission and no tiling.
 These source files are embedded during export; runtime reads the GLBs.
+
+`core:table_sideways` is the existing repaired `shared/props/table.glb` rotated
+offline by +90 degrees around Z, then centred and grounded on its long edge.
+Its tabletop normal faces -X and its legs extend toward +X; ordinary level yaw
+still controls placement. `tools/props/parts/furniture.py` preserves every
+visible source triangle, vertex pigment, UV and the embedded 256² `table.png`
+bytes. Only two zero-area source triangles are omitted. The 338-triangle variant
+has size `[0.75, 1.4, 0.8]`, opaque alpha, clamp sampling and the same single
+non-emissive oak material. It creates no raster artwork or new UV layout.
 
 The domestic remakes in `tools/props/parts/domestic_remade.py` retain those
 atlas regions and the tableware layouts. Bed and office chair now load their

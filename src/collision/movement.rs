@@ -277,6 +277,25 @@ pub fn sweep_horizontal(
                 nearer(&mut best, hit, remaining);
             }
         });
+        floor.for_each_terrain_barrier(
+            feet,
+            height,
+            if allow_steps {
+                super::PLAYER_STEP_HEIGHT
+            } else {
+                0.0
+            },
+            |wall, outward| {
+                if let Some(hit) = cast_disc(position, remaining, radius, wall)
+                    && hit.normal.dot(outward) > GRAZING_EPS
+                {
+                    // Terrain faces block entry from outside. A body following
+                    // the ramp/stair walking surface can leave from inside,
+                    // including when its leading disc reaches a higher end.
+                    nearer(&mut best, hit, remaining);
+                }
+            },
+        );
         let Some(hit) = best else {
             position = point_on_path(position, remaining, 1.0);
             break;

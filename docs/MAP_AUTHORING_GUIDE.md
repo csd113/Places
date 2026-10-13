@@ -864,6 +864,18 @@ Known-valid header (from Places Demo):
   ceiling `core:ceiling_panel_01`. If `defaults` is present, author all three keys
   (see the warning in section 5).
 
+The player automatically returns to the resolved start after remaining outside
+all local authored room, ladder, water and solid-support volumes for one second.
+The detector preserves gaps between rooms, storey elevations, recesses, ramp
+extents and circular water footprints; an ordinary brief edge jump receives
+grace. Recovery clears player motion, stance, ladder/water transitions and held
+action edges, and re-seeds trigger membership without resetting doors or AI.
+The destination must have real support and standing-body clearance. An invalid
+or obstructed start is refused with a warning rather than repeatedly teleporting
+into it. There is no checkpoint or save format; the destination-selection method
+is the extension point for a future alternative. Enclose maps correctly and fix
+collision defects independently of this fallback.
+
 ---
 
 ## 7. Rooms
@@ -1660,9 +1672,14 @@ How the two behave:
   steepest legal ramp (2 m of rise per metre of run) a sub-step rises at most
   0.3 m, and an exact-limit riser (0.4 m) is climbed even on a floor whose
   height is metres above zero.
-* **They have no collision boxes of their own.** The walking surface *is* the
-  collision: a step of more than 0.4 m at the piece's edge refuses the player,
-  exactly like a floor-region rim. A ramp or flight that lands flush on a raised
+* **Their walking surface owns collision.** A step of more than 0.4 m at the
+  piece's edge refuses the player, exactly like a floor-region rim. Ramp
+  and staircase perimeter sweeps additionally clip the actual side/end faces
+  against the live feet and step plane. Stair flights also sweep their real
+  riser bands. Incoming contacts block an airborne body from entering the
+  closed terrain while inside exits, the low end and legal climb stay open.
+  Falling disc support includes internal ramp edges and staircase treads.
+  A ramp or flight that lands flush on a raised
   platform is closed by that platform's own skirt, and the platform's rim does
   not wall the landing off (the rim rule samples the walking surface on either
   side of a grid edge).
@@ -1670,8 +1687,7 @@ How the two behave:
   only to the actual adjacent floor, ramp or stair tread; equal adjoining slopes
   emit no buried side. A staircase's sides close each step down to
   the floor line beside it, so a flight or slope is never an open wedge. The side
-  is not a collider: the height rule keeps the player off it because the walkable
-  floor inside the footprint is the piece's own surface.
+  is backed by the terrain perimeter sweep as well as the walkable height rule.
 * **The space under a ramp or flight is not walkable.** The walkable floor at a
   point over the footprint is the piece's own height, so the volume beneath it
   is solid to the player by construction.
@@ -1818,6 +1834,10 @@ Rules that matter:
   above the treads; the same is true beside a ramp. Author `rise` (with `y`) to
   pin an explicit line, such as a level landing rail on sloping ground. Posts
   stay vertical and the barrier box follows the slope.
+  Place every post footprint over the supporting floor or slope: an explicit
+  base line does not extend the floor underneath an outboard post. A slight
+  inset and bounded base penetration keep vertical post corners grounded on
+  slopes without coplanar foot faces.
 
 ---
 
@@ -3201,7 +3221,7 @@ Two prepared-path rules keep a solved map readable, and both are automatic:
   models). Visibility origins stay on the geometric side. Compression alone is not an irradiance integral:
   opposing grazing sources must not manufacture illumination. Each bounce
   transports only the previous order; two bounces mean `D + KD + K²D`.
-  Current solver revision 18 invalidates earlier atlas and package fingerprints; sky is
+  Current solver revision 20 invalidates earlier atlas and package fingerprints; sky is
   injected only into the first diffuse order. Cache interpolation also tests
   visibility so one floor triangle spanning a divider cannot transfer light
   through that divider.
@@ -3360,7 +3380,9 @@ sample = clamp(AMBIENT_LEVEL + room/partition-area baseline
 ```
 
 1. **Room baseline.** Each room sums `intensity × height factor × colour` over the
-   fixtures it owns, spreads it over its floor area, compresses the density and maps
+   fixtures it owns, spreads it over its floor area, compresses the strongest
+   channel's density and applies that one amplitude to the summed RGB ratios above
+   neutral ambient. This preserves source hue and the white-light calibration. It maps
    it onto `[AMBIENT_LEVEL, BASELINE_MAX = 0.52]`. The baseline is deliberately the
    *fill* level, not the highlight: it is the one term a static occluder cannot
    remove, so it leaves the visibility-tested direct pools room to read as light and
@@ -3372,6 +3394,10 @@ sample = clamp(AMBIENT_LEVEL + room/partition-area baseline
    separates while a doorway keeps a bounded blend; a window does not connect
    baselines at all. The connectivity probe runs 0.15 m below the ceiling, so a wall
    must cross more than 0.75 m into the room before it is a partition candidate.
+   Occupancy is tested at that storey's probe height. If a cell crosses a wall,
+   an air sample uses a visible local cell on its own side; the coarse cell
+   boundary cannot paint a stripe onto a continuous corridor ceiling. Full
+   receiver endpoints use the same inset air origin as visibility rays.
 3. **Local fixture pools.** Each fixture adds a bounded local pool on top of the
    fill. A **ceiling fixture's** pool is directional: it falls with the horizontal
    distance from the emitting rectangle (`(1 - d/range)²`), is weighted by the
@@ -3654,6 +3680,12 @@ sheet (no error); a named-but-broken sheet logs
 `[fixtures] fixture {id} sheet {path}: {error}; drawing the untextured sheet instead`.
 The first shared light of a family decides that family's shared sheet.
 Switchable and animated fixtures retain their own authored sheet and face slot.
+
+An explicit ceiling-fixture `y` is the mounting world plane and is used unchanged.
+For a fluorescent panel, place it 0.01 m below the local ceiling, matching the
+automatic default. Its opaque backplate occupies that plane: setting `y` exactly
+to the ceiling creates coplanar metal/ceiling faces and ambiguous receivers.
+Wall-fixture mounts continue to use their authored wall point.
 
 ### The residential flush mount
 
@@ -4366,7 +4398,8 @@ disambiguates stacked rooms.
 level in a gable room.
 
 **Cause:** wall fixtures use the authored world `y`; ceiling fixtures derive it from
-the ceiling under their footprint (0.01 m below it).
+the ceiling under their footprint (0.01 m below it) unless an explicit mounting
+`y` is supplied unchanged.
 
 **Authoring rule:** wall fixtures need `y` (validation requires it). Ceiling fixtures
 need no `y` unless you are choosing a storey; under a gable they follow the ceiling

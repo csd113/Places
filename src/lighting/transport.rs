@@ -266,7 +266,10 @@ pub fn solver_fingerprint() -> u64 {
 ///   additionally integrate 8×8 positions without changing atlas density.
 /// - 19: rectangular finite sources sample equal-area cell centres instead of
 ///   their boundary, preserving aperture energy behind real fixture frames.
-pub const SOLVER_REVISION: u64 = 19;
+/// - 20: baseline amplitude compression preserves summed source RGB ratios;
+///   partition occupancy uses its own storey's roof probe; target lookups use
+///   the sample's visible wall side and inset exact architectural endpoints.
+pub const SOLVER_REVISION: u64 = 20;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;
@@ -1280,11 +1283,12 @@ pub fn receiver_targets(
         }
         for_each_texel(chart, |u, v| {
             let point = patch.point_at(u, v);
+            let origin = receiver_ray_origin(patch, u, v, patch_normal(patch));
             let room = patch
                 .room
                 .or_else(|| lighting.room_index_at_height(point[0], point[1], point[2]));
             out.push(room.map_or([0.0; 3], |room_index| {
-                target_in_room(lighting, room_index, point[0], point[2])
+                target_in_room(lighting, room_index, origin[0], origin[2])
             }));
         });
     }

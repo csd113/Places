@@ -19,6 +19,9 @@ use crate::level::{
 use crate::materials::GroundSurface;
 use crate::settings::Settings;
 
+mod recovery;
+use recovery::{PlayableSpace, RecoveryDestination};
+
 pub const TWO_PI: f32 = std::f32::consts::TAU;
 pub const EYE_HEIGHT: f32 = 1.6;
 
@@ -325,6 +328,8 @@ pub struct CollisionWorld {
     /// from geometry; the offline compiler bakes it and the loader installs
     /// the decoded record.
     pub navigation: Option<crate::nav::NavMesh>,
+    /// Local authored volumes used to recognise a genuine escape from a map.
+    playable_space: PlayableSpace,
 }
 
 impl CollisionWorld {
@@ -351,6 +356,7 @@ impl CollisionWorld {
             ladders: Ladders::from_level(level),
             world: EntityWorld::from_level(level),
             navigation: None,
+            playable_space: PlayableSpace::from_level(level),
         }
     }
 
@@ -380,6 +386,7 @@ impl CollisionWorld {
             ladders: statics.ladders,
             world: EntityWorld::from_level(level),
             navigation,
+            playable_space: PlayableSpace::from_level(level),
         }
     }
 }
@@ -420,6 +427,11 @@ pub use crate::entities::DispatchReport;
     reason = "The flags are independent, documented state machines (Rust's enum-per-flag would obscure the existing public fields), not interchangeable booleans."
 )]
 pub struct Game {
+    playable_space: PlayableSpace,
+    /// Time continuously outside every authored movement volume.
+    outside_map_seconds: f32,
+    /// A validated spawn pose, kept separately from an invalid authored spawn.
+    recovery_spawn: Option<RecoveryDestination>,
     ground_surfaces: GroundSurfaces,
     /// Last collision-constrained planar velocity. Normal walking still uses
     /// immediate input; only ice (and its airborne takeoff) integrates it.
@@ -633,6 +645,9 @@ impl Game {
     pub fn new(spawn_pos: Vec3, spawn_yaw: f32, world: CollisionWorld) -> Self {
         let grounded = false;
         let mut game = Self {
+            playable_space: world.playable_space,
+            outside_map_seconds: 0.0,
+            recovery_spawn: None,
             running: true,
             app_state: AppState::MainMenu,
             last_frame_time: Instant::now(),
@@ -680,6 +695,7 @@ impl Game {
         };
         game.recover_spawn_overlap();
         game.refresh_ground_support();
+        game.remember_recovery_spawn();
         game.world.seed_volumes(Vec3::new(
             game.player_position.x,
             game.feet_y(),
@@ -721,6 +737,7 @@ impl Game {
         self.spawn_position = spawn_pos;
         self.spawn_yaw = spawn_yaw.rem_euclid(TWO_PI);
         self.clear_run_state(spawn_pos, self.spawn_yaw, false);
+        self.remember_recovery_spawn();
         self.world
             .reseed_volumes(Vec3::new(spawn_pos.x, self.feet_y(), spawn_pos.z));
         self.seed_routes_at_rest();
@@ -783,10 +800,12 @@ impl Game {
         self.ladders = world.ladders;
         self.world = world.world;
         self.navigation = world.navigation;
+        self.playable_space = world.playable_space;
         self.spawn_position = spawn_pos;
         self.spawn_yaw = spawn_yaw.rem_euclid(TWO_PI);
         self.reset_count = 0;
         self.clear_run_state(spawn_pos, self.spawn_yaw, false);
+        self.remember_recovery_spawn();
         self.world
             .seed_volumes(Vec3::new(spawn_pos.x, self.feet_y(), spawn_pos.z));
         self.seed_routes_at_rest();
@@ -845,12 +864,15 @@ impl Game {
         self.grounded = false;
         self.swimming = false;
         self.water_exit = None;
+        self.pressed_exit_support = None;
+        self.ceiling_contact_this_frame = false;
+        self.outside_map_seconds = 0.0;
         self.float_hold = false;
         self.bob_phase = 0.0;
         self.stance = Stance::Standing;
+        self.climbing = None;
         self.recover_spawn_overlap();
         self.refresh_ground_support();
-        self.climbing = None;
         self.jump_latched = suppress_held;
         self.crouch_latched = suppress_held;
         self.interact_latched = suppress_held;
@@ -1145,7 +1167,18 @@ impl Game {
             return;
         }
 
+        // Non-finite positions must be restored before collision queries can
+        // clamp or integrate them. Finite escapes receive the grace interval
+        // after this frame's ordinary locomotion has had a chance to return.
+        if !self.player_motion_is_finite() {
+            let _recovered = self.recover_out_of_map();
+            return;
+        }
+
         let trigger_origin = self.update_playing_frame(&frame_input, settings, motion);
+        if self.recover_out_of_map() {
+            return;
+        }
         self.update_world(trigger_origin);
         if self.movement_debug {
             crate::logging::warn(format_args!(
@@ -1926,7 +1959,7 @@ impl Game {
     fn support_at(&self, x: f32, z: f32, max_top: f32) -> Option<f32> {
         // A floor above the reference is not a support: the feet would be
         // snapping *up* through it.
-        let floor = self.floor.height_below_disc(
+        let floor = self.floor.landing_height_below_disc(
             Vec2::new(x, z),
             PLAYER_RADIUS - CONTACT_EPS,
             max_top + CONTACT_EPS,
@@ -2335,12 +2368,16 @@ impl Game {
     }
 
     fn body_fits_at(&self, feet: Vec3) -> bool {
+        self.body_fits_with_height(feet, self.body_height())
+    }
+
+    fn body_fits_with_height(&self, feet: Vec3, height: f32) -> bool {
         let mut clear = true;
         self.ceiling.for_each_body_contact(
             Vec2::new(feet.x, feet.z),
             PLAYER_RADIUS - CONTACT_EPS,
             feet.y,
-            self.body_height(),
+            height,
             |_| clear = false,
         );
         self.collision_index.for_each_disc(
@@ -2350,7 +2387,7 @@ impl Game {
             &self.walls,
             |wall| {
                 if wall.max_y > feet.y + CONTACT_EPS
-                    && wall.min_y < feet.y + self.body_height() - CONTACT_EPS
+                    && wall.min_y < feet.y + height - CONTACT_EPS
                     && wall.overlaps_disc(feet.x, feet.z, PLAYER_RADIUS - CONTACT_EPS)
                 {
                     clear = false;
@@ -2359,15 +2396,15 @@ impl Game {
         );
         clear
             && !self.world.door_colliders().iter().any(|door| {
-                door.overlaps_body_y(feet.y, self.body_height())
+                door.overlaps_body_y(feet.y, height)
                     && door.overlaps_disc(feet.x, feet.z, PLAYER_RADIUS - CONTACT_EPS)
             })
             && self
                 .head_limit_at(feet.x, feet.z, feet.y)
-                .is_none_or(|ceiling| ceiling >= feet.y + self.body_height() - CONTACT_EPS)
+                .is_none_or(|ceiling| ceiling >= feet.y + height - CONTACT_EPS)
             && self
                 .floor
-                .height_below(feet.x, feet.z, feet.y + self.body_height() - CONTACT_EPS)
+                .height_below(feet.x, feet.z, feet.y + height - CONTACT_EPS)
                 .is_none_or(|floor| floor <= feet.y + CONTACT_EPS)
     }
 

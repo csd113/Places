@@ -30,6 +30,7 @@ import math
 from pathlib import Path
 
 import palette
+from glb import read_glb
 from parts.refreshed import load_atlas, solid_box, solid_cylinder, padded_box
 from mesh import FACE_KEYS, PropBuilder
 from tex import decode_png
@@ -41,6 +42,7 @@ TARGETS = {
     "core:armchair": 250,
     "core:chair": 180,
     "core:table": 120,
+    "core:table_sideways": 120,
     "core:desk": 160,
     "core:bookshelf": 200,
     "core:cabinet": 180,
@@ -387,6 +389,53 @@ def build_table(p: PropBuilder) -> None:
     p.add_note("closed slab and frame, four downward-tapered square legs, four aprons; file-backed oak atlas")
 
 
+class _ExistingTableTexture:
+    """An immutable file-backed PNG, preserving the table export byte-for-byte."""
+
+    def __init__(self, png: bytes):
+        self.width, self.height, _pixels = decode_png(png)
+        self.png = png
+
+    def png_bytes(self) -> bytes:
+        return self.png
+
+
+def build_table_sideways(p: PropBuilder) -> None:
+    """Rotate the shipped repaired table without rebuilding its geometry."""
+    source = Path(__file__).resolve().parents[3] / "assets/shared/props/table.glb"
+    table = read_glb(source.read_bytes())
+    if table.material_count != 1 or len(table.texture_pngs) != 1:
+        raise ValueError("sideways table expects the shipped single-material oak table")
+    p.mesh.uvs = table.uvs.copy()
+    p.mesh.colors = [tuple(round(channel * 255) for channel in color[:3])
+                     for color in table.colors]
+    p.mesh.indices = []
+    # The repaired source retains two collinear cap triangles. They have no
+    # visible area; omit them so the normal authoring check stays strict.
+    for first in range(0, len(table.indices), 3):
+        triangle = table.indices[first:first + 3]
+        a, b, c = [table.positions[index] for index in triangle]
+        ab, ac = [b[i] - a[i] for i in range(3)], [c[i] - a[i] for i in range(3)]
+        normal = (ab[1] * ac[2] - ab[2] * ac[1],
+                  ab[2] * ac[0] - ab[0] * ac[2],
+                  ab[0] * ac[1] - ab[1] * ac[0])
+        if math.sqrt(sum(value * value for value in normal)) >= 1e-7:
+            p.mesh.indices.extend(triangle)
+    p.tex = _ExistingTableTexture(table.texture_png)
+    pbr = table.json["materials"][0]["pbrMetallicRoughness"]
+    p.mesh.roughness = pbr.get("roughnessFactor", 1.0)
+    p.mesh.metallic = pbr.get("metallicFactor", 0.0)
+    # +90 degrees about Z puts the tabletop normal toward -X and the feet
+    # toward +X. A proper rotation preserves winding, UVs and every edge.
+    rotated = [(-y, x, z) for x, y, z in table.positions]
+    low = [min(point[axis] for point in rotated) for axis in range(3)]
+    high = [max(point[axis] for point in rotated) for axis in range(3)]
+    offset = ((low[0] + high[0]) * .5, low[1], (low[2] + high[2]) * .5)
+    p.mesh.positions = [tuple(value - shift for value, shift in zip(point, offset))
+                        for point in rotated]
+    p.add_note("table rotated +90 degrees around Z, centred and grounded on its long edge")
+
+
 def build_desk(p: PropBuilder) -> None:
     """Desk: a near-black laminate office desk.
 
@@ -635,6 +684,7 @@ PROPS = {
     "core:armchair": build_armchair,
     "core:chair": office_refined.chair,
     "core:table": build_table,
+    "core:table_sideways": build_table_sideways,
     "core:desk": office_refined.desk,
     "core:bookshelf": build_bookshelf,
     "core:cabinet": office_refined.cabinet,

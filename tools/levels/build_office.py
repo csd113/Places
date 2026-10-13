@@ -155,14 +155,19 @@ def build_level():
             rotation_degrees=yaw, y=y, rise=rise, height=1.05,
             post_spacing=1.25, material=TRIM))
 
-    for x in (24.8, 28.2):
-        rail(x, 4, 10, 270, 0, 3.6)
-    for x in (30.8, 34.2):
-        rail(x, 14, 10, 90, 3.6, 3.6)
-    for x, length in ((24.32, .48), (28.2, 1.5), (30.3, .5), (34.2, 1.5)):
-        rail(x, 14.18, length, 0, 3.6)
-    for x, length in ((24.32, 6.48), (34.2, 1.5)):
-        rail(x, 3.82, length, 0, 7.2)
+    # The 60 mm posts sit fully on each 3 m ramp, with 5 mm of edge margin.
+    # A 20 mm penetration grounds even the uphill corner of each vertical
+    # post on the 0.36 slope, while leaving 2.86 m between the rail faces.
+    for x in (25.035, 27.965):
+        rail(x, 4, 10, 270, -.02, 3.6)
+    for x in (31.035, 33.965):
+        rail(x, 14, 10, 90, 3.58, 3.6)
+    # Landing runs meet the slope end posts. Their small X/Z/base offsets
+    # make real penetrating joints rather than coincident post faces.
+    for x, length in ((24.32, .72), (27.96, 1.74), (30.3, .74), (33.96, 1.74)):
+        rail(x, 14.04, length, 0, 3.585)
+    for x, length in ((24.32, 6.72), (33.96, 1.74)):
+        rail(x, 3.96, length, 0, 7.185)
     level['geometry_intent'].append(dict(check='missing-wall', x=24, z=3.5,
         width=12, depth=1, note='Upper bridge edge opens to the ramp shaft; authored guardrails protect the drops.'))
 
@@ -195,15 +200,21 @@ def build_level():
          comment='Intentional 0.26 m floor burial, away from the through route.')
     prop('core:desk', 16.68, 3, 'middle_wall_desk', 3.6, 90,
          comment='Intentional desktop penetration into the partition; no coplanar faces.')
+    prop('core:table_sideways', 8.4, 1.9, 'middle_sideways_table', 3.42, 15,
+         comment='Table lies on its side with 0.18 m of its lower edge buried in carpet; the north pocket leaves the passage clear.')
+    prop('core:desk', 9.35, 8.5, 'middle_sunken_desk', 3.18, 318,
+         comment='Intentional 0.42 m floor burial exposes the skewed desktop and drawer tops, clear of both through openings.')
+    prop('core:chair', 5.04, 7.4, 'middle_wall_chair', 3.48, 36,
+         comment='Intentional 0.12 m floor burial and partial partition intersection, between the two passage lanes.')
     prop('core:cabinet', 9.3, 14.8, 'middle_cabinet', 3.6, 31)
     prop('core:water_cooler', 19.2, 16.7, 'middle_landmark', 3.6, 180)
     prop('core:desk', 15.2, 11.8, 'basement_abandoned_desk', 0, 180)
     prop('core:chair', 15.7, 10.6, 'basement_abandoned_chair', 0, 205)
     prop('core:water_cooler', 22.4, 4.3, 'basement_water_landmark')
-    # Three tangible hide cavities under raised filing plinths. Short support
+    # Four tangible hide cavities under raised filing plinths. Short support
     # feet and the front skirting lip conceal a 35mm-tall insect without using
     # an inaccessible point inside wall collision.
-    anchors = [[2, 0, 1.2], [14.5, 0, 10.1], [21.5, 0, 16.7]]
+    anchors = [[2, 0, 1.2], [14.5, 0, 10.1], [21.5, 0, 16.7], [9.7, 0, 1.2]]
     for index, (x, _, z) in enumerate(anchors):
         prop('core:cabinet', x, z, f'basement_hide_{index}', .09)
         for dx in (-.37, .37):
@@ -223,7 +234,9 @@ def build_level():
                           run_speed=2.244582, sight_range=0, hearing_range=0,
                           wander_radius=30, idle_seconds=3.2, home_bounds=bounds,
                           idle_clip='pose_stand', move_clip='run_arms_forward')])
-    for index, (x, z) in enumerate(((2.8, 2), (20.8, 15.8))):
+    # Four small insects remain sparse across the 432 square metre basement;
+    # separated start pockets and long refuge holds avoid a busy infestation.
+    for index, (x, z) in enumerate(((2.8, 2), (20.8, 15.8), (8.4, 1.8), (14.7, 16.1))):
         prop('entity:cockroach', x, z, f'basement_roach_{index}', solid=False,
              components=[dict(component='nav_agent', radius=.055, height=.035,
                               speed_mps=.16, step_height=.1, max_slope=1),
@@ -235,6 +248,9 @@ def build_level():
                               home_bounds=bounds)])
 
     def light(identity, x, z, y, brightness, reach=4.5, color=(1, .95, .85), **extra):
+        # The opaque backplate is emitted at the mount plane. Keep the
+        # documented ceiling clearance instead of sharing the roof's face.
+        y = round(y - .01, 2)
         level['ceiling_lights'].append(dict(id=identity, fixture='core:fluorescent_panel_01',
             x=x, z=z, y=y, brightness=brightness, emission=.8, range=reach,
             color=list(color), rotation_degrees=0, **extra))
@@ -250,13 +266,15 @@ def build_level():
         light(f'middle_light_{index}', x, z, 6.4, power, 3.4, (1, .91, .72))
     for index, (x, z, power) in enumerate(((3.5, 3.5, .18), (3.5, 14.5, .2),
             (8.5, 4.5, .18), (15.5, 16.5, .2), (21.5, 6.5, .22))):
-        light(f'basement_light_{index}', x, z, 2.8, power, 2.7, (.87, .94, .79))
+        # Broader low-power pools keep nearby floor readable without filling
+        # the unlit maze termini or changing fixture brightness.
+        light(f'basement_light_{index}', x, z, 2.8, power, 3.8, (.87, .94, .79))
     # Two independent failures use the real prepared switchable contributions.
     # Long quiet periods and >=180ms interruptions avoid a strobing animation.
     for identity, x, z, delay, period, waits in (
             ('basement_failing_a', 8.5, 9.5, 1.8, 17.3, (.25, .5, 1.1)),
             ('basement_failing_b', 20.5, 12.5, 7.1, 23.7, (.35, .7, 1.4))):
-        light(identity, x, z, 2.8, .32, 3, (.86, .95, .81), switchable=True,
+        light(identity, x, z, 2.8, .32, 4.2, (.86, .95, .81), switchable=True,
               hold_in_static=True)
         sequence = identity+'_failure'
         steps = []

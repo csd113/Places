@@ -1,0 +1,39 @@
+{
+  "format_version": 3,
+  "id": "terrain_side_contact_native",
+  "name": "Terrain side contact native control",
+  "spawn": { "x": 6.9, "z": 3.5, "yaw_degrees": 270 },
+  "defaults": {
+    "wall": "home:wall_paint_offwhite_01",
+    "floor": "home:ceiling_white_01",
+    "ceiling": "home:ceiling_white_01"
+  },
+  "rooms": [
+    { "x": 0, "z": 0, "width": 8, "depth": 4, "height": 8 }
+  ],
+  "ramps": [
+    {
+      "x": 1, "z": 0, "width": 1.5, "depth": 4, "offset_y": 0, "rise": 3.6,
+      "material": "core:carpet_beige_01",
+      "edge_material": "core:wallpaper_stained_01"
+    }
+  ],
+  "stairs": [
+    {
+      "x": 5, "z": 0, "width": 1.5, "depth": 4, "offset_y": 0, "rise": 2.4, "steps": 6,
+      "material": "core:pool_tile_basin_01",
+      "riser_material": "core:pool_tile_wall_01",
+      "side_material": "core:pool_tile_wall_01"
+    }
+  ],
+  "ceiling_lights": [
+    { "fixture": "core:fluorescent_panel_01", "x": 2, "z": 2, "y": 7.8, "brightness": 0.65, "align": "none" },
+    { "fixture": "core:fluorescent_panel_01", "x": 6, "z": 2, "y": 7.8, "brightness": 0.65, "align": "none" }
+  ],
+  "geometry_intent": [
+    {
+      "check": "missing-wall", "x": 0, "z": 0, "width": 8, "depth": 4,
+      "note": "Bounded native terrain contact control; sides are deliberately unenclosed."
+    }
+  ]
+}

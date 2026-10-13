@@ -8717,6 +8717,92 @@ impl WalkableStair {
     fn pitch_height_at(&self, x: f32, z: f32) -> f32 {
         self.floor_y + self.surface.pitch_offset_at(x, z)
     }
+
+    fn tread_height(&self, index: u32) -> f32 {
+        let (x0, x1, z0, z1) = self.surface.bounds();
+        let (start, end) = self.surface.tread_span(index);
+        match self.surface.axis() {
+            WallAxis::X => self.height_at(f32::midpoint(start, end), f32::midpoint(z0, z1)),
+            WallAxis::Z => self.height_at(f32::midpoint(x0, x1), f32::midpoint(start, end)),
+        }
+    }
+
+    fn face(&self, run: (f32, f32), across: (f32, f32), y: (f32, f32)) -> WallAabb {
+        let (x, z, width, depth) = match self.surface.axis() {
+            WallAxis::X => (run.0, across.0, run.1 - run.0, across.1 - across.0),
+            WallAxis::Z => (across.0, run.0, across.1 - across.0, run.1 - run.0),
+        };
+        WallAabb::with_y(x, y.0, z, width, y.1 - y.0, depth)
+    }
+
+    /// Exact closed tread sides, front risers and the flight's far end.
+    /// Only the outward face blocks entry; legal step-up and inside exits stay
+    /// governed by the same pitch line and step allowance as ordinary walking.
+    fn for_each_body_barrier(
+        &self,
+        feet: f32,
+        height: f32,
+        step: f32,
+        visit: &mut impl FnMut(&WallAabb, glam::Vec2),
+    ) {
+        let backing = self.floor_y + self.surface.base_offset().min(0.0);
+        let head = feet + height - crate::collision::CONTACT_EPS;
+        if head <= backing {
+            return;
+        }
+        let tolerance = if step > 0.0 {
+            crate::collision::STEP_EPS
+        } else {
+            crate::collision::CONTACT_EPS
+        };
+        let threshold = feet + step + tolerance;
+        let (x0, x1, z0, z1) = self.surface.bounds();
+        let (across, front, back, low_side, high_side) = match self.surface.axis() {
+            WallAxis::X => (
+                (z0, z1),
+                -glam::Vec2::X,
+                glam::Vec2::X,
+                -glam::Vec2::Y,
+                glam::Vec2::Y,
+            ),
+            WallAxis::Z => (
+                (x0, x1),
+                -glam::Vec2::Y,
+                glam::Vec2::Y,
+                -glam::Vec2::X,
+                glam::Vec2::X,
+            ),
+        };
+        for index in 0..self.surface.step_count() {
+            let top = self.tread_height(index);
+            if top <= threshold {
+                continue;
+            }
+            let (start, end) = self.surface.tread_span(index);
+            let riser_bottom = if index == 0 {
+                backing
+            } else {
+                self.tread_height(index.saturating_sub(1))
+            };
+            for (at, normal) in [(across.0, low_side), (across.1, high_side)] {
+                visit(&self.face((start, end), (at, at), (backing, top)), normal);
+            }
+            // Grounded pitch-line walking may span multiple short treads with
+            // its leading disc. Each legal riser is still an ordinary step;
+            // airborne bodies must instead clear that riser's actual top.
+            if riser_bottom < head
+                && (step <= 0.0 || top - riser_bottom > step + crate::collision::STEP_EPS)
+            {
+                visit(
+                    &self.face((start, start), across, (riser_bottom, top)),
+                    front,
+                );
+            }
+            if index.saturating_add(1) == self.surface.step_count() {
+                visit(&self.face((end, end), across, (backing, top)), back);
+            }
+        }
+    }
 }
 
 /// One room of the walkable surface model.
@@ -8864,23 +8950,135 @@ impl WalkableFloor {
         self.resolve_height_below(x, z, max_y, StairSampling::Stepped)
     }
 
-    /// Room-edge support includes the part of the feet disc beyond its centre.
-    /// Interior ramps and stair pitch lines retain their authored heightfield
-    /// convention; this query prevents falling through a platform's outer edge.
+    /// Room and ramp-edge support includes the feet disc beyond its centre.
+    /// Stair walking remains centre-sampled so its first riser occurs at the
+    /// actual flight foot, followed by the continuous nosing pitch line.
     #[must_use]
     pub fn height_below_disc(&self, point: glam::Vec2, radius: f32, max_y: f32) -> Option<f32> {
         self.rooms
             .iter()
-            .filter_map(|room| {
+            .flat_map(|room| {
                 let x = point.x.clamp(room.x0, room.x1);
                 let z = point.y.clamp(room.z0, room.z1);
-                if point.distance_squared(glam::Vec2::new(x, z)) >= radius * radius {
-                    return None;
-                }
-                Self::room_height_at(room, x, z, StairSampling::Stepped)
-                    .filter(|height| *height <= max_y)
+                let floor = (point.distance_squared(glam::Vec2::new(x, z)) < radius * radius)
+                    .then(|| Self::room_height_at(room, x, z, StairSampling::Stepped))
+                    .flatten()
+                    .filter(|height| *height <= max_y);
+                // An internal ramp edge is a landing surface too. Otherwise a
+                // descending body's leading edge enters the wedge while its
+                // centre still samples the lower room floor beside the ramp.
+                let ramps = room.ramps.iter().filter_map(move |ramp| {
+                    let (x0, x1, z0, z1) = ramp.surface.bounds();
+                    let ramp_x = point.x.clamp(x0, x1);
+                    let ramp_z = point.y.clamp(z0, z1);
+                    let height = ramp.height_at(ramp_x, ramp_z);
+                    (point.distance_squared(glam::Vec2::new(ramp_x, ramp_z)) < radius * radius
+                        && height <= max_y)
+                        .then_some(height)
+                });
+                floor.into_iter().chain(ramps)
             })
             .max_by(f32::total_cmp)
+    }
+
+    /// Falling disc support additionally catches internal staircase edges.
+    /// Grounded walking uses [`Self::height_below_disc`] to preserve its
+    /// centre-sampled pitch line instead of raising toes before the first riser.
+    pub(crate) fn landing_height_below_disc(
+        &self,
+        point: glam::Vec2,
+        radius: f32,
+        max_y: f32,
+    ) -> Option<f32> {
+        let floor = self.height_below_disc(point, radius, max_y);
+        let stairs = self.rooms.iter().flat_map(|room| {
+            room.stairs.iter().filter_map(move |stair| {
+                let (x0, x1, z0, z1) = stair.surface.bounds();
+                let stair_x = point.x.clamp(x0, x1);
+                let stair_z = point.y.clamp(z0, z1);
+                let height = stair.height_at(stair_x, stair_z);
+                (point.distance_squared(glam::Vec2::new(stair_x, stair_z)) < radius * radius
+                    && height <= max_y)
+                    .then_some(height)
+            })
+        });
+        floor.into_iter().chain(stairs).max_by(f32::total_cmp)
+    }
+
+    /// Exposed ramp/flight perimeters and stair risers in the live body band.
+    ///
+    /// Clip the sloping side at the exact feet plane (or grounded step reach),
+    /// rather than making a whole-run box whose highest endpoint walls off the
+    /// low end. Both signed rises share the rendered ramp's surface arithmetic.
+    /// Ramp interiors stay heightfields; stair contacts use actual tread spans.
+    pub(crate) fn for_each_terrain_barrier(
+        &self,
+        feet: f32,
+        height: f32,
+        step: f32,
+        mut visit: impl FnMut(&WallAabb, glam::Vec2),
+    ) {
+        let threshold = feet + step + crate::collision::CONTACT_EPS;
+        for room in &self.rooms {
+            for ramp in &room.ramps {
+                let backing = room.floor_y + ramp.surface.low_offset().min(0.0);
+                if feet + height <= backing + crate::collision::CONTACT_EPS
+                    || room.floor_y + ramp.surface.high_offset() <= threshold
+                {
+                    continue;
+                }
+                let (x0, x1, z0, z1) = ramp.surface.bounds();
+                let (start, end) = match ramp.surface.axis() {
+                    WallAxis::X => (x0, x1),
+                    WallAxis::Z => (z0, z1),
+                };
+                let rise = ramp.surface.rise();
+                let fraction = if rise.abs() > crate::collision::CONTACT_EPS {
+                    ((threshold - room.floor_y - ramp.surface.base_offset()) / rise).clamp(0.0, 1.0)
+                } else {
+                    0.0
+                };
+                let crossing = (end - start).mul_add(fraction, start);
+                let (low, high) = if rise > 0.0 {
+                    (crossing, end)
+                } else if rise < 0.0 {
+                    (start, crossing)
+                } else {
+                    (start, end)
+                };
+                match ramp.surface.axis() {
+                    WallAxis::X => {
+                        for (z, normal) in [(z0, -glam::Vec2::Y), (z1, glam::Vec2::Y)] {
+                            visit(
+                                &WallAabb::with_y(low, backing, z, high - low, 0.0, 0.0),
+                                normal,
+                            );
+                        }
+                        for (x, normal) in [(x0, -glam::Vec2::X), (x1, glam::Vec2::X)] {
+                            if ramp.height_at(x, z0) > threshold {
+                                visit(&WallAabb::with_y(x, backing, z0, 0.0, 0.0, z1 - z0), normal);
+                            }
+                        }
+                    }
+                    WallAxis::Z => {
+                        for (x, normal) in [(x0, -glam::Vec2::X), (x1, glam::Vec2::X)] {
+                            visit(
+                                &WallAabb::with_y(x, backing, low, 0.0, 0.0, high - low),
+                                normal,
+                            );
+                        }
+                        for (z, normal) in [(z0, -glam::Vec2::Y), (z1, glam::Vec2::Y)] {
+                            if ramp.height_at(x0, z) > threshold {
+                                visit(&WallAabb::with_y(x0, backing, z, x1 - x0, 0.0, 0.0), normal);
+                            }
+                        }
+                    }
+                }
+            }
+            for stair in &room.stairs {
+                stair.for_each_body_barrier(feet, height, step, &mut visit);
+            }
+        }
     }
 
     /// A raised room's floor also blocks a head approaching from underneath.

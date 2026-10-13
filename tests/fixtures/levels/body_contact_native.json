@@ -1,0 +1,36 @@
+{
+  "format_version": 3,
+  "id": "body_contact_native",
+  "name": "Body contact native control",
+  "spawn": { "x": 4, "z": 2.2, "yaw_degrees": 180 },
+  "defaults": {
+    "wall": "home:wall_paint_offwhite_01",
+    "floor": "home:ceiling_white_01",
+    "ceiling": "home:ceiling_white_01"
+  },
+  "rooms": [{ "x": 0, "z": 0, "width": 8, "depth": 6, "height": 4 }],
+  "walls": [
+    { "x": -0.2, "z": -0.2, "width": 8.4, "depth": 0.2, "height": 4 },
+    { "x": -0.2, "z": 6, "width": 8.4, "depth": 0.2, "height": 4 },
+    { "x": -0.2, "z": 0, "width": 0.2, "depth": 6, "height": 4 },
+    { "x": 8, "z": 0, "width": 0.2, "depth": 6, "height": 4 },
+    {
+      "x": 0, "z": 3, "width": 8, "depth": 0.2, "height": 4,
+      "openings": [{ "kind": "door", "offset": 3.5, "width": 1, "height": 2.1 }]
+    },
+    { "x": 1, "z": 1, "width": 2, "depth": 1, "y": 1.85, "height": 0.2 }
+  ],
+  "doors": [
+    {
+      "id": "closed_operable", "x": 3.5, "z": 3.1, "width": 1,
+      "height": 2.1, "rotation_degrees": 0, "swing_degrees": 90,
+      "initial_state": "closed", "material": "home:wall_paint_offwhite_01",
+      "components": [{ "component": "interactable", "prompt": "Open test door" }],
+      "bindings": [{ "on": "interact", "actions": [{ "action": "toggle" }] }]
+    }
+  ],
+  "ceiling_lights": [
+    { "fixture": "core:fluorescent_panel_01", "x": 4, "z": 1.5, "y": 3.99, "brightness": 0.6, "align": "none" },
+    { "fixture": "core:fluorescent_panel_01", "x": 4, "z": 4.5, "y": 3.99, "brightness": 0.6, "align": "none" }
+  ]
+}

@@ -25,6 +25,7 @@ mod ice;
 mod movement_diagnostics;
 mod movement_performance;
 mod movement_regression;
+mod recovery;
 mod water_posture;
 mod winter;
 
@@ -364,7 +365,7 @@ fn test_controller_walks_off_the_last_floor_and_falls_into_the_void() {
     )
     .expect("open edge json");
     let mut game = game_for(&level);
-    walk_forward(&mut game, 60);
+    walk_forward(&mut game, 38);
     assert!(
         game.player_position.x > 10.3,
         "the unsupported edge must be crossable: {}",
@@ -372,6 +373,10 @@ fn test_controller_walks_off_the_last_floor_and_falls_into_the_void() {
     );
     assert!(!game.grounded, "the void cannot support the player");
     assert!(game.feet_y() < -1.0, "the player falls below world zero");
+    advance_frames(&mut game, 90);
+    assert_eq!(game.reset_count(), 1, "a sustained void fall recovers once");
+    assert_eq!(game.player_position, spawn_position(&level));
+    assert!(game.grounded, "recovery restores real spawn support");
 }
 
 /// A walkable riser cannot raise the body into the underside of a header.
@@ -5616,7 +5621,7 @@ fn a_door_blocks_the_player_when_closed_and_passes_when_open() {
             "id": "door_collision",
             "name": "Door Collision",
             "spawn": { "x": 4.0, "z": 2.0, "yaw_degrees": 180.0 },
-            "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 44.0, "height": 3.0 } ],
             "doors": [
                 { "id": "barrier", "x": 2.0, "y": 0.0, "z": 4.0,
                   "rotation_degrees": 0.0, "width": 4.0, "height": 2.2,
@@ -5674,6 +5679,11 @@ fn a_door_blocks_the_player_when_closed_and_passes_when_open() {
         "the open door lets the player through: z={}",
         game.player_position.z
     );
+    assert!(
+        game.grounded,
+        "the entire open-door route retains real floor"
+    );
+    assert_eq!(game.reset_count(), 0, "valid door traversal never recovers");
 }
 
 /// A manually interactable door is an aimable interactable: interaction

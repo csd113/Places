@@ -109,6 +109,23 @@
       "solid": true
     },
     {
+      "id": "core:table_sideways",
+      "display_name": "Table on its side",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "shared/props/table_sideways.glb",
+      "size": [
+        0.75,
+        1.4,
+        0.8
+      ],
+      "color": "#6f5a41",
+      "category": "Furniture",
+      "solid": true,
+      "description": "Existing oak table resting on its long edge, with its legs projecting sideways."
+    },
+    {
       "id": "core:desk",
       "display_name": "Desk",
       "asset_class": "environment",

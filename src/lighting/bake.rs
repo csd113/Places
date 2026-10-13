@@ -359,20 +359,65 @@ impl RoomZones {
         self.edges_x.len().saturating_sub(1)
     }
 
-    /// Area index containing `(x, z)`, clamped into the room footprint.
-    fn zone_at(&self, x: f32, z: f32) -> Option<u32> {
-        let ix = cell_index(&self.edges_x, x)?;
-        let iz = cell_index(&self.edges_z, z)?;
-        let index = iz.saturating_mul(self.cells_x()).saturating_add(ix);
-        self.zone_of_cell.get(index).copied()
-    }
-
     /// Baseline of the area containing `(x, z)`.
-    fn baseline_at(&self, x: f32, z: f32) -> Option<LightColor> {
-        let zone = self.zone_at(x, z)?;
+    fn baseline_at(
+        &self,
+        room: &RoomLighting,
+        occluders: &Occluders,
+        x: f32,
+        z: f32,
+    ) -> Option<LightColor> {
+        let zone = self.zone_at(room, occluders, x, z)?;
         self.zones
             .get(usize::try_from(zone).ok()?)
             .map(|area| area.baseline)
+    }
+
+    /// A grid cell can straddle a partition while its centre owns only one
+    /// side. Resolve air samples against visible neighbouring air centres at
+    /// the same roof probe height as the flood fill, keeping real walls sealed.
+    fn zone_at(&self, room: &RoomLighting, occluders: &Occluders, x: f32, z: f32) -> Option<u32> {
+        let ix = cell_index(&self.edges_x, x)?;
+        let iz = cell_index(&self.edges_z, z)?;
+        let columns = self.cells_x();
+        let rows = self.edges_z.len().saturating_sub(1);
+        let own_cell = iz.saturating_mul(columns).saturating_add(ix);
+        let original = self.zone_of_cell.get(own_cell).copied();
+        // Buried samples have no unambiguous side; retain their existing
+        // deterministic inheritance. Surface callers supply an owning-side
+        // air origin at exact architecture boundaries.
+        let probe_y = (room.ceiling_y_at(x, z) - ZONE_PROBE_DROP_M)
+            .max(room.floor_y + ZONE_PROBE_MIN_ABOVE_FLOOR_M);
+        if occluders.wall_contains_at([x, probe_y, z]) {
+            return original;
+        }
+        let visible = |cell: usize| {
+            let (cx, cz) = cell_centre(&self.edges_x, &self.edges_z, columns, cell);
+            let ceiling = room.ceiling_y_at(x, z).min(room.ceiling_y_at(cx, cz));
+            let y = (ceiling - ZONE_PROBE_DROP_M).max(room.floor_y + ZONE_PROBE_MIN_ABOVE_FLOOR_M);
+            !occluders.wall_contains_at([cx, y, cz])
+                && !occluders.walls_block([x, y, z], [cx, y, cz])
+        };
+        if visible(own_cell) {
+            return original;
+        }
+        let mut nearest: Option<(f32, u32)> = None;
+        for row in iz.saturating_sub(1)..=iz.saturating_add(1).min(rows.saturating_sub(1)) {
+            for column in ix.saturating_sub(1)..=ix.saturating_add(1).min(columns.saturating_sub(1))
+            {
+                let cell = row.saturating_mul(columns).saturating_add(column);
+                let Some(&zone) = self.zone_of_cell.get(cell) else {
+                    continue;
+                };
+                let (cx, cz) = cell_centre(&self.edges_x, &self.edges_z, columns, cell);
+                let distance = (cx - x).mul_add(cx - x, (cz - z) * (cz - z));
+                if nearest.is_some_and(|(best, _)| best <= distance) || !visible(cell) {
+                    continue;
+                }
+                nearest = Some((distance, zone));
+            }
+        }
+        nearest.map_or(original, |(_, zone)| Some(zone))
     }
 }
 
@@ -1255,7 +1300,9 @@ fn room_baseline_zones(
     let air: Vec<bool> = (0..cell_count)
         .map(|cell| {
             let (x, z) = cell_centre(&edges_x, &edges_z, columns, cell);
-            !occluders.contains_point(x, z)
+            let y = (room.ceiling_y_at(x, z) - ZONE_PROBE_DROP_M)
+                .max(room.floor_y + ZONE_PROBE_MIN_ABOVE_FLOOR_M);
+            !occluders.wall_contains_at([x, y, z])
         })
         .collect();
     if !air.iter().any(|is_air| *is_air) {
@@ -1508,19 +1555,17 @@ struct OpeningSide {
 fn opening_side(
     rooms: &[RoomLighting],
     room_zones: &[Option<RoomZones>],
+    occluders: &Occluders,
     x: f32,
     z: f32,
 ) -> Option<OpeningSide> {
     let room = LevelLighting::room_index_of(rooms, x, z)?;
+    let info = rooms.get(room)?;
     let zones = room_zones.get(room).and_then(Option::as_ref);
-    let zone = zones.and_then(|selected_zones| selected_zones.zone_at(x, z));
+    let zone = zones.and_then(|selected_zones| selected_zones.zone_at(info, occluders, x, z));
     let baseline = zones
-        .and_then(|selected_zones| selected_zones.baseline_at(x, z))
-        .unwrap_or_else(|| {
-            rooms
-                .get(room)
-                .map_or_else(ambient_color, |info| info.baseline)
-        });
+        .and_then(|selected_zones| selected_zones.baseline_at(info, occluders, x, z))
+        .unwrap_or(info.baseline);
     Some(OpeningSide {
         room,
         zone,
@@ -1537,6 +1582,7 @@ fn opening_blends(
     level: &LevelDef,
     rooms: &[RoomLighting],
     room_zones: &[Option<RoomZones>],
+    occluders: &Occluders,
     light_site_count: u32,
 ) -> (Vec<Vec<OpeningBlend>>, Vec<QuerySite>) {
     let mut blends: Vec<Vec<OpeningBlend>> = vec![Vec::new(); rooms.len()];
@@ -1590,8 +1636,8 @@ fn opening_blends(
                 WallAxis::Z => ((center_x + probe, center_z), (center_x - probe, center_z)),
             };
             let (Some(a), Some(b)) = (
-                opening_side(rooms, room_zones, side_a.0, side_a.1),
-                opening_side(rooms, room_zones, side_b.0, side_b.1),
+                opening_side(rooms, room_zones, occluders, side_a.0, side_a.1),
+                opening_side(rooms, room_zones, occluders, side_b.0, side_b.1),
             ) else {
                 continue;
             };
@@ -1760,7 +1806,8 @@ impl LevelLighting {
 
         // Link the areas on either side of every walk-through opening.
         let light_site_count = u32::try_from(lights.len()).unwrap_or(u32::MAX);
-        let (blends, blend_sites) = opening_blends(level, &rooms, &room_zones, light_site_count);
+        let (blends, blend_sites) =
+            opening_blends(level, &rooms, &room_zones, &occluders, light_site_count);
 
         // Opaque geometry for the whole bake. Query sites are the fixtures
         // first (one per light, in fixture order) and then the doorway blends,
@@ -1984,7 +2031,14 @@ impl LevelLighting {
         self.room_zones
             .get(room)
             .and_then(Option::as_ref)
-            .map_or(Some(0), |zones| zones.zone_at(position[0], position[2]))
+            .map_or(Some(0), |zones| {
+                zones.zone_at(
+                    self.rooms.get(room)?,
+                    self.visibility.wall_occluders(),
+                    position[0],
+                    position[2],
+                )
+            })
     }
 
     /// Whether two positions share an existing connected lighting area.
@@ -2062,7 +2116,10 @@ impl LevelLighting {
             .map_or_else(ambient_color, |info| info.baseline);
         let zones = self.room_zones.get(room).and_then(Option::as_ref);
         zones
-            .and_then(|room_zones| room_zones.baseline_at(x, z))
+            .and_then(|room_zones| {
+                let info = self.rooms.get(room)?;
+                room_zones.baseline_at(info, self.visibility.wall_occluders(), x, z)
+            })
             .unwrap_or(uniform)
     }
 
@@ -2653,7 +2710,14 @@ impl LevelLighting {
             .room_zones
             .get(room)
             .and_then(Option::as_ref)
-            .and_then(|zones| zones.zone_at(x, z));
+            .and_then(|zones| {
+                zones.zone_at(
+                    self.rooms.get(room)?,
+                    self.visibility.wall_occluders(),
+                    x,
+                    z,
+                )
+            });
         for blend in blends {
             // A partitioned room carries one entry per side of the opening;
             // only the entry whose own area contains the sample may speak for

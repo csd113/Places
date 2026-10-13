@@ -14,6 +14,7 @@
 )]
 
 use super::bake::PoolTerm;
+use super::tuning::BASELINE_MAX;
 use super::*;
 use crate::level::LevelDef;
 use crate::test_support::{assert_exact, scan, scan_below};
@@ -856,6 +857,120 @@ fn sample_points_use_the_smaller_overlapping_room() {
 // -----------------------------------------------------------------------
 // RGB lighting
 // -----------------------------------------------------------------------
+
+// A few scalar queries protect the coloured recovery target from desaturation
+// without baking any fixture; white-light calibration must remain exact.
+#[test]
+fn baseline_compression_preserves_rgb_power_ratios_and_white_calibration() {
+    for area in [9.0, 432.0] {
+        for power in [0.01, 0.5, 8.0] {
+            let white = room_baseline(area, LightColor::grey(power));
+            let component =
+                saturating_brightness(compressed_density(power / area * REFERENCE_LIGHT_AREA_M2));
+            let expected = (BASELINE_MAX - AMBIENT_LEVEL).mul_add(component, AMBIENT_LEVEL);
+            assert_eq!(white, LightColor::grey(expected));
+            for colour in [[1.0, 0.1, 0.45], [0.0, 0.2, 1.0]] {
+                let baseline = room_baseline(area, LightColor::from(colour.map(|c| c * power)));
+                let amplitude = white.r - AMBIENT_LEVEL;
+                for (actual, ratio) in baseline.to_array().into_iter().zip(colour) {
+                    assert!((actual - AMBIENT_LEVEL - amplitude * ratio).abs() < 1.0e-7);
+                }
+            }
+        }
+    }
+    for power in [
+        LightColor::BLACK,
+        LightColor::rgb(f32::NAN, f32::NEG_INFINITY, -1.0),
+        LightColor::rgb(f32::INFINITY, 1.0, 0.0),
+    ] {
+        let baseline = room_baseline(f32::NAN, power);
+        assert!(baseline.is_finite());
+        assert!(baseline.min_channel() >= AMBIENT_LEVEL);
+        assert!(baseline.max_channel() <= BASELINE_MAX);
+    }
+}
+
+// Four 35-cell baseline grids and 25 receiver targets protect real partition
+// isolation and a continuous ceiling at sub-cell wall boundaries, without GI.
+#[test]
+fn corridor_baseline_uses_its_actual_wall_side_and_storey() {
+    use super::lightmap::{Chart, LightmapPatch, PatchKind};
+
+    for opening_height in [2.35_f32, 2.8_f32] {
+        let mut original = None;
+        for lower_wall in [false, true] {
+            let extra_wall = if lower_wall {
+                r#",{"x":3.9,"z":0,"width":0.2,"depth":6,"y":0,"height":2.8}"#
+            } else {
+                ""
+            };
+            let level = LevelDef::from_json(&format!(
+                r#"{{"format_version":3,"id":"corridor_baseline","name":"Corridor baseline",
+                "spawn":{{"x":4,"z":3}},
+                "rooms":[{{"x":0,"z":0,"width":8,"depth":6,"floor_y":3.6,"height":2.8}}],
+                "walls":[
+                  {{"x":0,"z":1.88,"width":8,"depth":0.24,"y":3.6,"height":2.8,
+                    "openings":[{{"kind":"passage","offset":3.4,"width":1.2,"height":{opening_height}}}]}},
+                  {{"x":0,"z":3.88,"width":8,"depth":0.24,"y":3.6,"height":2.8}}
+                  {extra_wall}],
+                "ceiling_lights":[{{"fixture":"core:fluorescent_panel_01","x":4,"z":3,
+                    "y":6.4,"align":"none","brightness":0.5,"color":[1,1,1]}}]}}"#
+            ))
+            .expect("small partition fixture");
+            let lighting = LevelLighting::bake(&level);
+            let corridor = lighting.baseline_in_room(0, 4.0, 3.0);
+            assert!(corridor.min_channel() > AMBIENT_LEVEL);
+            if let Some(baseline) = original {
+                assert_eq!(
+                    corridor, baseline,
+                    "another storey's wall changed the baseline"
+                );
+            } else {
+                original = Some(corridor);
+            }
+            for z in [2.13, 2.3, 2.41, 3.0, 3.87] {
+                assert_eq!(lighting.baseline_in_room(0, 4.0, z), corridor);
+            }
+            assert_eq!(lighting.baseline_in_room(0, 4.0, 5.4), ambient_color());
+            let north = lighting.baseline_in_room(0, 4.0, 1.0);
+            if opening_height < 2.65_f32 {
+                assert_eq!(
+                    north,
+                    ambient_color(),
+                    "the solid header must isolate the north area"
+                );
+            } else {
+                assert_eq!(
+                    north, corridor,
+                    "a full-height aperture must retain its connected area"
+                );
+            }
+            let patch = LightmapPatch::from_quad(
+                PatchKind::Ceiling,
+                [
+                    [0.0, 6.4, 2.12],
+                    [8.0, 6.4, 2.12],
+                    [8.0, 6.4, 3.88],
+                    [0.0, 6.4, 3.88],
+                ],
+                Some(0),
+            )
+            .expect("small ceiling");
+            let chart = Chart {
+                page: 0,
+                x: 2,
+                y: 2,
+                width: 5,
+                height: 5,
+            };
+            for target in super::transport::receiver_targets(&lighting, &[(patch, chart)]) {
+                for (actual, baseline) in target.into_iter().zip(corridor.to_array()) {
+                    assert!((actual - (baseline - AMBIENT_LEVEL)).abs() < 1.0e-7);
+                }
+            }
+        }
+    }
+}
 
 #[test]
 fn a_red_fixture_lights_geometry_red() {

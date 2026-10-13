@@ -85,6 +85,24 @@ fn metadata_navigation_reuse_has_no_orphans_and_matches_clean_at_one_and_many_wo
         let _with_extension_status = std::fs::copy(&out, source.with_extension("placesmap"))
             .expect("retain playable variant");
         let manifest = inspect(&out).expect("inspect current package");
+        if iteration == 0 {
+            // Reuse this tiny existing bake: shared recipes previously made
+            // the diagnostic exporter fail before any atlas could be read.
+            let exported = directory.join("export");
+            let _report = diagnostics::export_lighting(&out, &exported, &[LightmapQuality::Off])
+                .expect("export a shared-prop variant");
+            let mut reader = open_package(&out).expect("read shared-prop archive");
+            let expected = crate::package::shared_props::read_record(
+                &mut reader,
+                &manifest.variants[0].entries.props,
+            )
+            .expect("reconstruct exact runtime props");
+            assert_eq!(
+                std::fs::read(exported.join("off/props.record")).expect("exported runtime props"),
+                expected,
+                "diagnostics must export the exact decoder-readable PLMP bytes"
+            );
+        }
         let navigation: Vec<_> = manifest
             .entries
             .iter()

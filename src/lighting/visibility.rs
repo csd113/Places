@@ -1261,6 +1261,20 @@ impl Occluders {
             })
     }
 
+    /// Roof-probe occupancy for one storey, independent of other floors' walls.
+    pub(super) fn wall_contains_at(&self, point: [f32; 3]) -> bool {
+        let mut contains = false;
+        self.wall_grid.for_each_in_rect(
+            &self.walls,
+            point[0],
+            point[0],
+            point[2],
+            point[2],
+            |wall| contains |= wall.contains(point),
+        );
+        contains
+    }
+
     /// True when any wall reaches into the room's interior.
     ///
     /// A cheap pre-pass for the partition flood fill: a room whose walls all
@@ -1906,6 +1920,11 @@ impl Visibility {
     #[must_use]
     pub(super) const fn wall_blocker_count(&self) -> usize {
         self.occluders.wall_count()
+    }
+
+    /// The existing wall connectivity oracle used by baseline area lookup.
+    pub(super) const fn wall_occluders(&self) -> &Occluders {
+        &self.occluders
     }
 
     /// Number of static prop occlusion boxes the set tests against.

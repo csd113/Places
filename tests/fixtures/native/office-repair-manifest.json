@@ -1,0 +1,295 @@
+{
+  "format_version": 1,
+  "level": "office_demo",
+  "source": "levels/office_demo.json",
+  "package": "assets/levels/office_demo.placesmap",
+  "settings": {
+    "bindings": {
+      "forward": "W",
+      "backward": "S",
+      "strafe_left": "A",
+      "strafe_right": "D",
+      "look_up": "UP",
+      "look_down": "DOWN",
+      "look_left": "LEFT",
+      "look_right": "RIGHT",
+      "jump": "SPACE",
+      "crouch": "C",
+      "interact": "E"
+    },
+    "look_speed_h": 90,
+    "look_speed_v": 60,
+    "walk_speed": 3,
+    "invert_look": false,
+    "mouse_sensitivity": 0.12,
+    "quality": "high",
+    "texture_filtering": "high",
+    "lightmaps": "full",
+    "reflections": "off",
+    "bloom": true,
+    "use_low_quality_lighting": false,
+    "vsync": false,
+    "fov_degrees": 65,
+    "window_mode": "windowed",
+    "window_width": 640,
+    "window_height": 360
+  },
+  "capture": {
+    "ready_world_seconds": 0.5,
+    "warmup_frames": 0,
+    "limit_frames": 2400,
+    "expected_drawable": [
+      1280,
+      720
+    ]
+  },
+  "views": [
+    {
+      "name": "top-door-west",
+      "spawn": [
+        5.7,
+        8.8,
+        9,
+        270
+      ],
+      "camera": [
+        270,
+        24
+      ]
+    },
+    {
+      "name": "top-door-east",
+      "spawn": [
+        13,
+        8.8,
+        9,
+        90
+      ],
+      "camera": [
+        90,
+        24
+      ]
+    },
+    {
+      "name": "basement",
+      "spawn": [
+        21,
+        1.6,
+        10,
+        0
+      ],
+      "camera": [
+        0,
+        -3
+      ]
+    },
+    {
+      "name": "ramp-lower",
+      "spawn": [
+        26.5,
+        3.4,
+        9,
+        90
+      ],
+      "camera": [
+        90,
+        -30
+      ]
+    },
+    {
+      "name": "ramp-upper",
+      "spawn": [
+        32.5,
+        7.36,
+        8,
+        90
+      ],
+      "camera": [
+        90,
+        -30
+      ]
+    },
+    {
+      "name": "ramps",
+      "spawn": [
+        26.5,
+        5.2,
+        16.2,
+        0
+      ],
+      "camera": [
+        0,
+        7
+      ]
+    },
+    {
+      "name": "middle",
+      "spawn": [
+        7.5,
+        5.2,
+        11.5,
+        0
+      ],
+      "camera": [
+        0,
+        -3
+      ]
+    },
+    {
+      "name": "roach",
+      "spawn": [
+        5,
+        1.6,
+        4,
+        0
+      ],
+      "camera": [
+        0,
+        -22
+      ]
+    },
+    {
+      "name": "jump-escape",
+      "spawn": [
+        24.55,
+        1.6,
+        8,
+        90
+      ],
+      "camera": [
+        90,
+        0
+      ]
+    },
+    {
+      "name": "side-left",
+      "spawn": [
+        24.4,
+        1.6,
+        9,
+        90
+      ],
+      "camera": [
+        90,
+        -5
+      ]
+    },
+    {
+      "name": "side-right",
+      "spawn": [
+        28.6,
+        1.6,
+        9,
+        270
+      ],
+      "camera": [
+        270,
+        -5
+      ]
+    },
+    {
+      "name": "corner-left",
+      "spawn": [
+        24.4,
+        1.6,
+        3.3,
+        135
+      ],
+      "camera": [
+        135,
+        -5
+      ]
+    },
+    {
+      "name": "corner-right",
+      "spawn": [
+        28.6,
+        1.6,
+        3.3,
+        225
+      ],
+      "camera": [
+        225,
+        -5
+      ]
+    },
+    {
+      "name": "wall-west",
+      "spawn": [
+        24.55,
+        1.6,
+        8,
+        270
+      ],
+      "camera": [
+        270,
+        -5
+      ]
+    },
+    {
+      "name": "outer-wall",
+      "spawn": [
+        35.5,
+        1.6,
+        10,
+        90
+      ],
+      "camera": [
+        90,
+        -5
+      ]
+    },
+    {
+      "name": "sideways-table",
+      "spawn": [
+        8.5,
+        5.2,
+        3.2,
+        0
+      ],
+      "camera": [
+        0,
+        -18
+      ]
+    },
+    {
+      "name": "upper-side-east",
+      "spawn": [
+        35,
+        1.6,
+        9,
+        270
+      ],
+      "camera": [
+        270,
+        -5
+      ]
+    },
+    {
+      "name": "upper-side-west",
+      "spawn": [
+        30.55,
+        1.6,
+        9,
+        90
+      ],
+      "camera": [
+        90,
+        -5
+      ]
+    },
+    {
+      "name": "sideways-table-front",
+      "spawn": [
+        7.2,
+        5.2,
+        2.8,
+        53.13
+      ],
+      "camera": [
+        53.13,
+        -30
+      ]
+    }
+  ]
+}

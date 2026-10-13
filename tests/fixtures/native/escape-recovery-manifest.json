@@ -1,0 +1,87 @@
+{
+  "format_version": 1,
+  "level": "escape_recovery_native",
+  "source": "tests/fixtures/levels/escape_recovery_native.json",
+  "package": "local/office-repair/recovery-native.placesmap",
+  "settings": {
+    "bindings": {
+      "forward": "W",
+      "backward": "S",
+      "strafe_left": "A",
+      "strafe_right": "D",
+      "look_up": "UP",
+      "look_down": "DOWN",
+      "look_left": "LEFT",
+      "look_right": "RIGHT",
+      "jump": "SPACE",
+      "crouch": "C",
+      "interact": "E"
+    },
+    "look_speed_h": 90,
+    "look_speed_v": 60,
+    "walk_speed": 3,
+    "invert_look": false,
+    "mouse_sensitivity": 0.12,
+    "quality": "high",
+    "texture_filtering": "high",
+    "lightmaps": "full",
+    "reflections": "off",
+    "bloom": true,
+    "use_low_quality_lighting": false,
+    "vsync": false,
+    "fov_degrees": 65,
+    "window_mode": "windowed",
+    "window_width": 640,
+    "window_height": 360
+  },
+  "capture": {
+    "ready_world_seconds": 0.5,
+    "warmup_frames": 0,
+    "limit_frames": 2400,
+    "expected_drawable": [
+      1280,
+      720
+    ]
+  },
+  "views": [
+    {
+      "name": "escape",
+      "spawn": [
+        1,
+        1.6,
+        1,
+        90
+      ],
+      "camera": [
+        90,
+        -5
+      ]
+    },
+    {
+      "name": "normal-jump",
+      "spawn": [
+        1,
+        1.6,
+        1,
+        90
+      ],
+      "camera": [
+        90,
+        -5
+      ]
+    },
+    {
+      "name": "water",
+      "spawn": [
+        10,
+        0,
+        2,
+        0
+      ],
+      "camera": [
+        0,
+        -5
+      ]
+    }
+  ]
+}

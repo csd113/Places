@@ -33,6 +33,7 @@ sys.path.insert(0, str(REPO_ROOT / "tools" / "props"))
 from build_beach_common import Animal, cross, dot, subtract, unit  # noqa: E402
 from glb import read_glb  # noqa: E402
 from rig import Clip, check_model, quat_compose, quat_normalize, quat_rot_y, write_model  # noqa: E402
+from resize_embedded_textures import read_glb as read_container, write_glb as write_container  # noqa: E402
 from tex import decode_png  # noqa: E402
 from validate_entities import Model  # noqa: E402
 
@@ -57,6 +58,29 @@ CLIPS = {
     "walk": {"duration": 0.44, "stride": 0.012, "lift": 0.0020, "keys": 24},
     "run": {"duration": 0.22, "stride": 0.016, "lift": 0.0030, "keys": 24},
 }
+SHELL_ROUGHNESS = 0.48
+
+
+def shell_color_factor():
+    """Keep the chosen dark-brown display palette in glTF's linear channel.
+
+    COLOR_0 is linear, but the palette was selected as ordinary sRGB bytes.
+    A material factor anchors its shell to that intended colour while keeping
+    all existing per-part contrast and the file-backed white sheet unchanged.
+    """
+    srgb = [channel / 255 for channel in PALETTE["shell"]]
+    linear = [value / 12.92 if value <= .04045 else ((value + .055) / 1.055) ** 2.4
+              for value in srgb]
+    return [target / source for target, source in zip(linear, srgb)] + [1.0]
+
+
+def configure_material(path):
+    """Apply this asset's pigment and restrained cuticle sheen after export."""
+    document, binary = read_container(path)
+    pbr = document["materials"][0]["pbrMetallicRoughness"]
+    pbr["baseColorFactor"] = shell_color_factor()
+    pbr["roughnessFactor"] = SHELL_ROUGHNESS
+    write_container(path, document, binary)
 
 
 def add(a, b):
@@ -278,6 +302,22 @@ def verify(path, animal):
         raise ValueError("written joint index is out of bounds")
     check_topology(animal)
     primitive = model.document["meshes"][0]["primitives"][0]
+    colors = model._read_accessor(primitive["attributes"]["COLOR_0"], "VEC4")
+    expected_colors = [tuple(channel / 255 for channel in color) + (1.0,)
+                       for color in animal.mesh.colors]
+    if len(colors) != len(expected_colors) or any(
+           any(abs(actual - expected) > 1e-7 for actual, expected in zip(color, wanted))
+           for color, wanted in zip(colors, expected_colors)):
+        raise ValueError("written model lost its authored per-part pigment")
+    material = model.document["materials"][primitive["material"]]
+    pbr = material["pbrMetallicRoughness"]
+    if (pbr.get("baseColorTexture") != {"index": 0}
+            or pbr.get("baseColorFactor") != shell_color_factor()
+            or pbr.get("roughnessFactor") != SHELL_ROUGHNESS
+            or pbr.get("metallicFactor") != 0.0
+            or material.get("alphaMode", "OPAQUE") != "OPAQUE"
+            or material.get("emissiveFactor", [0.0] * 3) != [0.0] * 3):
+        raise ValueError("written model lost its dark-brown opaque non-emissive shell response")
     uvs = model._read_accessor(primitive["attributes"]["TEXCOORD_0"], "VEC2")
     if any(not math.isfinite(v) or not 0 <= v <= 1 for uv in uvs for v in uv):
         raise ValueError("written UVs leave the non-tiling model contract")
@@ -322,7 +362,10 @@ def verify(path, animal):
             "joints": len(model.joints), "closed_pieces": len(animal.pieces),
             "size_m": size, "bounds_m": {"min": bounds[0], "max": bounds[1]},
             "texture_size": [width, height], "texture_decoded_bytes": len(pixels),
-            "texture_sha256": hashlib.sha256(png).hexdigest(), "clips": samples}
+            "texture_sha256": hashlib.sha256(png).hexdigest(),
+            "base_color_factor_linear": pbr["baseColorFactor"],
+            "roughness": pbr["roughnessFactor"], "metallic": pbr["metallicFactor"],
+            "clips": samples}
 
 
 def main():
@@ -333,6 +376,7 @@ def main():
     if not args.check:
         write_model(MODEL_PATH, animal.skinned(), animal.rig, build_clips(animal),
                     TEXTURE_PATH.read_bytes(), name="cockroach", generator=GENERATOR)
+        configure_material(MODEL_PATH)
     report = verify(MODEL_PATH, animal)
     print(json.dumps(report, indent=2, sort_keys=True))
     return 0

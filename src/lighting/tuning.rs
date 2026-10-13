@@ -542,6 +542,8 @@ pub fn model_fingerprint() -> u64 {
     // Source policy 1: panel emitters use the recessed luminous aperture,
     // independently of the outer footprint used for mounting clearance.
     write(&mut hash, 1);
+    // Baseline policy 2: shared RGB amplitude preserves emitted hue.
+    write(&mut hash, 2);
     for value in [
         AMBIENT_LEVEL,
         MAX_BRIGHTNESS,

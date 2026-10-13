@@ -8,7 +8,7 @@ use super::color::LightColor;
 use super::tuning::{
     AMBIENT_LEVEL, BASELINE_MAX, FixtureKind, LIGHT_GRID_CELL_M, MAX_LIGHT_GRID_CELLS,
     MAX_LIGHT_INTENSITY, MAX_WALL_LIGHT_SEGMENTS, MAX_ZONE_GRID_CELLS, MIN_ROOM_AREA_M2,
-    REFERENCE_CEILING_HEIGHT_M, REFERENCE_LIGHT_AREA_M2, ZONE_GRID_CELL_M,
+    REFERENCE_CEILING_HEIGHT_M, REFERENCE_LIGHT_AREA_M2, ZONE_GRID_CELL_M, ambient_color,
     fixture_profile_for_kind,
 };
 
@@ -152,9 +152,10 @@ pub fn compressed_density(normalized_density: f32) -> f32 {
 /// Baseline illumination of a room from its floor area and the summed emitted
 /// colour of the fixtures it owns.
 ///
-/// Each channel is treated as an independent scalar light: the effective power
-/// of the channel is spread over the floor area, compressed logarithmically and
-/// mapped onto `[AMBIENT_LEVEL, BASELINE_MAX]` by the saturating curve. The
+/// The strongest channel's effective power is spread over the floor area and
+/// compressed logarithmically by the saturating curve. One shared amplitude
+/// then scales the summed RGB power, preserving its hue above the neutral
+/// ambient floor and retaining the exact white-light calibration. The
 /// baseline is the room-wide fill, not the whole range: the remaining headroom
 /// is what local fixture pools (and therefore every shadow they cast) live in;
 /// see [`BASELINE_MAX`]. A room with no fixtures returns exactly
@@ -167,28 +168,33 @@ pub fn room_baseline(area_m2: f32, effective_power: LightColor) -> LightColor {
     } else {
         MIN_ROOM_AREA_M2
     };
-    let channel = |power: f32| -> f32 {
-        // An undefined power emits nothing; +infinity means "as bright as the
-        // curve allows" rather than an error, matching the old scalar contract.
-        let finite_power = if power.is_finite() {
+    // An undefined power emits nothing; +infinity saturates its channel.
+    let powers = effective_power.to_array().map(|power| {
+        if power.is_finite() {
             power.max(0.0)
         } else if power > 0.0 {
             f32::INFINITY
         } else {
             0.0
-        };
-        let density = finite_power / area;
-        let normalized = compressed_density(density * REFERENCE_LIGHT_AREA_M2);
-        let component = saturating_brightness(normalized);
-        (BASELINE_MAX - AMBIENT_LEVEL)
-            .mul_add(component, AMBIENT_LEVEL)
-            .clamp(AMBIENT_LEVEL, BASELINE_MAX)
-    };
-    LightColor {
-        r: channel(effective_power.r),
-        g: channel(effective_power.g),
-        b: channel(effective_power.b),
+        }
+    });
+    let maximum = powers.into_iter().fold(0.0_f32, f32::max);
+    if maximum <= 0.0 {
+        return ambient_color();
     }
+    let density = maximum / area;
+    let normalized = compressed_density(density * REFERENCE_LIGHT_AREA_M2);
+    let component = saturating_brightness(normalized);
+    LightColor::from(powers.map(|power| {
+        let ratio = if maximum.is_infinite() {
+            if power.is_infinite() { 1.0 } else { 0.0 }
+        } else {
+            power / maximum
+        };
+        (BASELINE_MAX - AMBIENT_LEVEL)
+            .mul_add(component * ratio, AMBIENT_LEVEL)
+            .clamp(AMBIENT_LEVEL, BASELINE_MAX)
+    }))
 }
 
 /// Number of baked-lighting grid cells along one surface axis of `extent_m`.

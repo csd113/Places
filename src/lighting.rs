@@ -33,8 +33,10 @@
 //!
 //! 1. **Room baseline.** Every room sums the emitted colour of the light
 //!    sources it owns (`colour x intensity x ceiling-height factor`), divides
-//!    each channel by its floor area and feeds that through a logarithmic
-//!    compression and a smoothly saturating curve. The compression is what
+//!    its strongest channel by its floor area and feeds that through a
+//!    logarithmic compression and a smoothly saturating curve. This shared
+//!    amplitude scales the summed RGB power without changing its hue above
+//!    neutral ambient. The compression is what
 //!    keeps the game's deliberately sparse large rooms (a long corridor or a
 //!    hall with a handful of widely spaced panels) broadly illuminated without
 //!    also saturating small, densely lit rooms; see [`compressed_density`]. A

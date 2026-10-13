@@ -614,3 +614,107 @@ fn spawn_across_a_gabled_roof_uses_separate_bounded_recovery() {
     }
     assert!(game.grounded);
 }
+
+/// A walking press followed by a jump protects the Office escape without
+/// loading or baking its production map. Both phases must keep the whole disc
+/// clear; signed rises pin the descending case, and existing tests cover runs.
+#[test]
+fn a_jump_cannot_enter_the_solid_side_of_either_ramp_direction() {
+    for (offset, rise) in [(0.0_f32, 3.6_f32), (3.6_f32, -3.6_f32), (7.2_f32, -3.6_f32)] {
+        let source = format!(
+            r#"{{"format_version":3,"id":"ramp_side_contact","name":"Ramp side contact",
+            "spawn":{{"x":24.55,"z":9,"yaw_degrees":90}},
+            "rooms":[{{"x":24,"z":0,"width":12,"depth":18,"height":10}}],
+            "ramps":[{{"x":25,"z":4,"width":3,"depth":10,
+                "offset_y":{offset},"rise":{rise}}}]}}"#
+        );
+        let level = LevelDef::from_json(&source).expect("bounded ramp fixture");
+        for (label, pattern) in FRAME_PATTERNS {
+            let mut game = game_for(&level);
+            game.set_app_state(AppState::Playing);
+            let mut elapsed = 0.0;
+            for delta in pattern.iter().cycle() {
+                if elapsed >= 2.0 {
+                    break;
+                }
+                let controls = if elapsed < 1.0 {
+                    &[Control::MoveForward][..]
+                } else {
+                    &[Control::MoveForward, Control::Jump][..]
+                };
+                let phase_end = if elapsed < 1.0 { 1.0 } else { 2.0 };
+                frame(&mut game, controls, delta.min(phase_end - elapsed));
+                elapsed += game.sim_delta_seconds;
+                assert!(
+                    game.player_position.x <= 25.0 - PLAYER_RADIUS + CONTACT_EPS,
+                    "{label}, rise {rise}: body entered ramp side at {:?}",
+                    game.player_position
+                );
+                assert!(game.feet_y() >= -CONTACT_EPS, "shaft floor was lost");
+            }
+            assert!(game.grounded, "jump returns to the shaft floor");
+        }
+    }
+}
+
+/// Standalone stairs exercise the same heightfield hole as ramps without
+/// guardrails or floor-region rims masking the missing closed-side contact.
+#[test]
+fn pressing_a_stair_side_then_jumping_keeps_the_whole_body_outside() {
+    let level = LevelDef::from_json(include_str!(
+        "../../../tests/fixtures/levels/terrain_side_contact_native.json"
+    ))
+    .expect("bounded terrain side fixture");
+    for (label, pattern) in FRAME_PATTERNS {
+        let mut game = game_for(&level);
+        game.set_app_state(AppState::Playing);
+        let mut elapsed = 0.0;
+        for delta in pattern.iter().cycle() {
+            if elapsed >= 2.0 {
+                break;
+            }
+            let controls = if elapsed < 1.0 {
+                &[Control::MoveForward][..]
+            } else {
+                &[Control::MoveForward, Control::Jump][..]
+            };
+            let phase_end = if elapsed < 1.0 { 1.0 } else { 2.0 };
+            frame(&mut game, controls, delta.min(phase_end - elapsed));
+            elapsed += game.sim_delta_seconds;
+            assert!(
+                game.player_position.x >= 6.5 + PLAYER_RADIUS - CONTACT_EPS,
+                "{label}, phase {elapsed}: body entered stair side at {:?}",
+                game.player_position
+            );
+            assert!(
+                game.feet_y() >= -CONTACT_EPS,
+                "the real floor stays underfoot"
+            );
+        }
+        assert!(game.grounded, "the jump lands beside the stairs");
+        assert_eq!(game.reset_count(), 0, "contact cannot rely on recovery");
+    }
+
+    // Short legal treads put multiple risers inside the leading disc. The new
+    // physical riser contacts must retain grounded pitch-line traversal.
+    let mut short = level;
+    let stair = short.stairs.first_mut().expect("one fixture flight");
+    stair.z = 1.0;
+    stair.width = 1.0;
+    stair.depth = 1.2;
+    crate::loader::validate_level(&short).expect("short flight remains legal");
+    for (label, pattern) in FRAME_PATTERNS {
+        let mut game = game_for(&short);
+        play_at(&mut game, 5.5, 0.0, 0.5, 180.0, 0.0);
+        let _highest = run_for(&mut game, &[Control::MoveForward], 1.6 / 3.0, pattern);
+        assert!(
+            (game.player_position.z - 2.1).abs() < STEP_EPS
+                && (game.feet_y() - 2.4).abs() < STEP_EPS
+                && game.grounded,
+            "{label}: short legal flight traversal at {:?}, feet {}",
+            game.player_position,
+            game.feet_y()
+        );
+        assert_eq!(game.reset_count(), 0, "legal traversal does not recover");
+    }
+}
