@@ -18,7 +18,7 @@ the longer you stay.
 [Download the 32-second walkthrough (MP4)](docs/videos/places-0.9.0.mp4?raw=true) —
 real walking footage from all eight environments, with a short cut between each.
 
-[![Animated gameplay preview from all eight environments](docs/images/release-0.9.0/walkthrough-preview.gif)](docs/videos/places-0.9.0.mp4?raw=true)
+[![Animated gameplay preview from all eight environments](docs/images/release-0.9.0/walkthrough-preview.webp)](docs/videos/places-0.9.0.mp4?raw=true)
 
 ## Somewhere to go
 

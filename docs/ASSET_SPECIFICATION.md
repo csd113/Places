@@ -1450,8 +1450,9 @@ the current compiler builds maps against the installed asset bundle; see
   preserve frame chronology, camera orientation and composition within each
   segment. Use simple cuts between environments, with no synthetic scenes.
 * Its thumbnail reuses an unchanged native PNG in `docs/images/release-0.9.0/`.
-  A compact GIF preview may sample the same footage at 384×216 and 6 fps;
-  retain 16:9 orientation and actual motion. These documentation derivatives
+  A compact animated lossless WebP preview samples the original native RGB
+  frames at 384×216 and 6 fps; retain the full colour range, 16:9 orientation
+  and actual motion. Never derive it from a palette-reduced GIF. These derivatives
   are outside the runtime catalog and never replace game textures.
 
 ### 12.2 Shared untextured white sheet
