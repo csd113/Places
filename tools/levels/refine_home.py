@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Idempotent Home-only concept dressing, preserving encounters and routes."""
+"""Historical Home concept dressing on an explicit working copy; preserves encounters and routes."""
+import argparse
 import json
 import math
 from pathlib import Path
@@ -28,8 +29,16 @@ def board(level, x, z, length, yaw, y, height, thickness=.028):
 
 
 def main():
-    path = ROOT / "levels/places_demo.json"
-    level = json.loads(path.read_text())
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source", type=Path, required=True,
+                        help="Historical Demo source or an explicit working copy")
+    parser.add_argument("--out", type=Path, required=True,
+                        help="Working output JSON; frozen archive sources are never overwritten")
+    args = parser.parse_args()
+    path = args.out.resolve()
+    if path.is_relative_to(ROOT / "docs/archive"):
+        parser.error("Preserve frozen historical sources; choose a working output outside docs/archive")
+    level = json.loads(args.source.read_text())
     local_materials = {
         "home:wall_paint_offwhite_01": "home:wall_paint_warm_01",
         "home:hardwood_oak_01": "home:hardwood_oak_warm_01",

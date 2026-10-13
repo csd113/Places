@@ -135,8 +135,8 @@ Authoritative paths:
 | Presentation-only ambient effects (`effects[]`, steam) | Implemented (see [§30](#30-doors-switches-and-effects)) |
 | Offscreen scene rendering presented by a fullscreen quad, UI at drawable resolution | Implemented |
 | Selective reflections: per-material `reflection_mode` (`none` / `probe` / `planar`); independent Reflections Full/Medium use 64/48-texel probes and a half-resolution planar pass, Off releases both | Implemented |
-| Restrained post-processing: emission-driven bloom, a tone shoulder, the global distance fog and a subtle grade, with the UI drawn outside it | Implemented (optional `environment` authors fixed presentation and global atmosphere; regional fog volumes add to it — see [§11](#fog-a-global-atmosphere-plus-level-authored-regions)) |
-| Level-authored regional fog volumes (`fog_regions[]`, ≤ 16) | Implemented (see [§11](#fog-a-global-atmosphere-plus-level-authored-regions)) |
+| Restrained post-processing: emission-driven bloom, a tone shoulder, the global distance fog and a subtle grade, with the UI drawn outside it | Implemented (optional `environment` authors fixed presentation and global atmosphere; regional fog volumes add to it — see [§11](#fog-authored-global-atmosphere-plus-level-authored-regions)) |
+| Level-authored regional fog volumes (`fog_regions[]`, ≤ 16) | Implemented (see [§11](#fog-authored-global-atmosphere-plus-level-authored-regions)) |
 | Opaque void wall / floor boxes (`void_walls[]`, ≤ 256) for hiding the void | Implemented (see [§11](#void-wall-and-floor-boxes)) |
 | Animated emissions: `animated_emissions[]` makes a material or fixture face pulse or flicker, deterministically | Implemented |
 | Low / Medium / High runtime quality levels over the same level content | Implemented |
@@ -7032,7 +7032,7 @@ awning shelters its porch rails and window sills. Keep those supports bare.
 Pond corner drifts sit on tapered dry shelves, and forest scatter leaves a
 clear packed walking spine and a small illuminated resting place. The generator
 also synchronizes the severe review's composition while preserving its existing
-weather. See `docs/reports/winter-integration.md` for native evidence and limits.
+weather. See `docs/reports/winter-final-audit.md` for native evidence and limits.
 
 ### Winter string-light modules
 

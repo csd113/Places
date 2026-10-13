@@ -1,6 +1,8 @@
 # Benchmark and capture suite
 
-These tools drive release binaries on this development machine. Most suites
+These tools drive release binaries on this development machine. Historical Demo
+camera suites require an explicit matching preserved package/asset payload;
+the active lineup does not provide Demo or Zoo. Most suites
 default to `target/agent-work/`; the compiler harnesses require an explicit
 output directory. Local measurements belong in ignored `tools/bench/results/`.
 Preserve custom map sources, packages, assets and runnable builds in a durable
@@ -49,8 +51,7 @@ python3 tools/bench/compiler_compare.py --baseline baseline/places-compile \
     --repeat 3 --label "documented desktop background load; own jobs sequential"
 python3 tools/bench/compiler_bench.py --binary target/release/places-compile \
     --out tools/bench/results/compiler-clean --repeat 3 \
-    --maps tests/fixtures/levels/test_room.json levels/places_demo.json \
-           levels/lantern_hollow.json
+    --maps tests/fixtures/levels/test_room.json levels/office_demo.json
 python3 tools/bench/compiler_bench.py --binary target/release/places-compile \
     --out tools/bench/results/compiler-scaling --repeat 3 --workers 1 2 4 8 12 \
     --maps tests/fixtures/levels/test_room.json
@@ -172,10 +173,10 @@ rather than one long batch per build:
 ```sh
 # repeat with -r2, -r3, alternating baseline and candidate each round
 python3 tools/bench/loading.py --binary target/agent-work/baseline/places \
-    --out target/agent-work/load-baseline-r1 --levels places_demo model_zoo \
+    --out target/agent-work/load-baseline-r1 --levels office_demo \
     --repeat 1 --window-size 1512x850
 python3 tools/bench/loading.py --binary target/release/places \
-    --out target/agent-work/load-new-r1 --levels places_demo model_zoo \
+    --out target/agent-work/load-new-r1 --levels office_demo \
     --repeat 1 --window-size 1512x850
 ```
 
@@ -251,8 +252,9 @@ Their camera/settings contract is documented in [BASELINE.md](../../docs/rendere
 and three curated High/Low pairs live in [the renderer reference gallery](../../docs/images/renderer-reference).
 `PLACES_QUALITY=high` and `PLACES_QUALITY=low` select one
 profile, and any other value is
-rejected. Delete the state root before a run to
-force a cold lightmap bake rather than reusing its cache. The script's own
+rejected. Use isolated state for each current run; runtime never bakes lightmaps.
+The preserved GLES2 implementation has its own historical cache contract.
+The script's own
 default writes current captures to ignored `target/verification/renderer-baseline-captures/{high,low}`.
 Use `PLACES_CAPTURE_DIR` to retain separate runs; `compare_baseline.py` reads
 `tests/fixtures/native/gles2-reference/{high,low}` as its default reference.
@@ -429,7 +431,7 @@ python3 tools/bench/capture_compiler.py --binary target/release/places \
   --out target/verification/compiler-native-comparison
 ```
 
-## Hero incremental inputs and quality paths
+## Focused fixtures, historical journals and quality paths
 
 The focused architecture fixture [camera manifest](../../tests/fixtures/native/hero-manifest.json)
 is the default for `capture_art_style_hero.py` and `snapshot_art_style_hero.py`.
@@ -471,3 +473,18 @@ ranges including occluded geometry. `scene_budget.py --package P --log L
 manifest/variant identity before emitting warnings. It rejects empty telemetry,
 and uses the real final capture receipt when supplied. Neither captures nor
 zero-draw window summaries establish ordinary gameplay FPS or fragment overdraw.
+
+
+## Historical camera journals and capacity controls
+
+`capture_home.py`, `capture_pool.py` and `capture_outdoors.py` preserve frozen
+Places Demo camera tables through `capture_demo_views.py`. Their CLI paths,
+settings and receipts are unchanged; Outdoors appends receipts for additional
+views. Supply a preserved compatible payload through `--root` and a real native
+binary through `--binary`. They do not capture today's standalone Home/Pool maps.
+
+`measure_capacity.sh` uses the explicit capacity fixture package by default.
+Optional historical Demo/Zoo cases require `PLACES_CAPACITY_DEMO_PACKAGE` /
+`PLACES_CAPACITY_ZOO_PACKAGE`. Compiling the active lineup cannot supply them.
+Native artifacts and specialized weather/string-light/Metal/probe controls remain
+separate because their acceptance conditions and measurements differ.

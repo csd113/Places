@@ -16,7 +16,7 @@ The integrated guides retain Office art contracts and the painting/aurora
 cross-references. The useful asset results are in
 [Office refinement](office-refinement.md),
 [hanging painting](hanging-painting.md) and
-[Winter aurora](winter-aurora.md).
+[Winter aurora](winter-final-audit.md).
 
 Five normal packages passed currentness and full decode: Places Demo, Model Zoo,
 Movement Test, Lantern Hollow and Winter. The Winter identity refresh took

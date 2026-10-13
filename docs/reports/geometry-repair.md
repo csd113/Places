@@ -61,7 +61,7 @@ Paths below are relative to the repository root. The JSON manifest contains exac
 - The 18 GLBs marked repaired above, in their existing project locations.
 - `tools/props/geometry.py`: seam-aware topology audit and winding logic.
 - `tools/props/repair_geometry.py`: reviewed, geometry-only GLB repair CLI; read-only by default.
-- `tools/props/test_geometry.py`: four regression checks for closed-shell orientation, float32 planar surfaces, cavity direction and UV/color seams.
+- `tests/test_asset_audit.py::PropGeometryRepairTests`: four consolidated regression checks for closed-shell orientation, float32 planar surfaces, cavity direction and UV/color seams.
 - `tools/props/README.md`: geometry maintenance instructions and rebuild caveat.
 - `docs/reports/geometry-repair.md`: this report.
 - `docs/reports/geometry-repair/inspection-1.png`, `inspection-2.png`, `inspection-3.png`: front/top and rear/underside inspection sheets with back-face culling enabled.

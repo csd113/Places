@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Apply the concept-derived static Pool dressing to the playable demo only.
+"""Apply the concept-derived static Pool dressing to an explicit historical Demo working copy.
 
 Stable tags make the dressing idempotent. Water, ladders, entities and the
 connected environments are retained byte-for-byte as parsed JSON values.
 """
+import argparse
 import json
 import math
 from pathlib import Path
@@ -29,8 +30,16 @@ def board(level, x, z, length, yaw, y, height, material, thickness=.018):
 
 
 def main():
-    path=ROOT/"levels/places_demo.json"
-    level=json.loads(path.read_text())
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source", type=Path, required=True,
+                        help="Historical Demo source or an explicit working copy")
+    parser.add_argument("--out", type=Path, required=True,
+                        help="Working output JSON; frozen archive sources are never overwritten")
+    args = parser.parse_args()
+    path = args.out.resolve()
+    if path.is_relative_to(ROOT / "docs/archive"):
+        parser.error("Preserve frozen historical sources; choose a working output outside docs/archive")
+    level=json.loads(args.source.read_text())
     for key in ("props","baseboards","thresholds","columns","floor_regions","decals"):
         level[key]=[p for p in level.get(key,[]) if not p.get("comment","").startswith(TAG)]
     level['walls']=[w for w in level['walls'] if not w.get('comment','').startswith(TAG)]
@@ -119,7 +128,7 @@ def main():
             material='pool:decal_lane_01',surface='floor',
             comment='32:1 navy basin lane, exact source aspect; the decal snaps to the basin floor.')
     path.write_text(json.dumps(level,indent=2)+'\n')
-    print('Refined Pool architecture and static dressing in places_demo.json')
+    print(f'Refined historical Pool architecture and static dressing in {path}')
 
 
 if __name__=='__main__':main()

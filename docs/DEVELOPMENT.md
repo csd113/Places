@@ -1,7 +1,7 @@
-# Developer orientation and repository cleanup
+# Developer orientation
 
 Places keeps authored content, developer controls and generated output separate.
-Start at the root README to run the player, then use these ownership boundaries.
+Use these ownership boundaries, then select the source, package or native workflow below.
 
 | Directory | Contents |
 | --- | --- |
@@ -141,29 +141,20 @@ Cargo source packages exclude optional `levels/` and generated `assets/levels/`.
 See [map independence verification](reports/map-independence.md) for the empty
 installation and external-map acceptance evidence.
 
-## Cleanup preservation
+## Evidence and generated output
 
-The cleanup preserves every preexisting tracked PNG/GLB byte and all eight kept
-map sources. Asset moves repair the catalog, loaders, tests, schemas, generators
-and native manifests together. Final reports and curated images remain readable;
-bulk receipts and raw logs stay in ignored verification directories.
-The documentation image set is curated to 69 originals; 80 repeated campaign
-frames are preserved under `local/retained/repo-cleanup-20261011/docs/images/`.
-Native golden images and immutable concept references remain intact.
+Keep current contracts in the guides and finalized conclusions in the
+[documentation index](README.md). Raw receipts and captures belong in ignored
+verification directories. The curated original images, native reference fixtures,
+immutable concepts and source masters retain their distinct roles.
 
-All 73 formerly tracked compiled packages are removed from the current Git tree
-and globally ignored. Useful local packages, historical debug bundles and unique
-evidence are retained under ignored `local/retained/`; existing caches and native
-deliverables remain available for the separate storage audit. No history or LFS
-object purge is part of this cleanup. Fresh checkouts require none of those local
-recovery files.
+Compiled packages, caches and local recovery collections are generated or
+machine-specific output, not fresh-checkout prerequisites. No history or LFS
+purge is part of documentation cleanup. Preserve requested runnable deliverables
+outside `target`, stop owned jobs and clean build output only when it is unowned.
 
-Cleanup acceptance covers all eight normal Off/Medium/Full builds, archive hashes,
-authored climate, native resource loading and the portable export. An isolated
-source-only tree passes source checks and compiles a normal Home package that
-matches the repository build byte for byte. Preserved Demo, Zoo, Hollow, Winter
-and Beach packages retain identical geometry, lightmaps, collision and reflection
-records after accounting for moved model paths. The initial eight-map build took
-about 63 minutes on the native verification host with eight workers; subsequent
-unchanged builds verify and reuse their outputs. The final handoff records the
-published commit, exact-head CI and local gate results.
+At the October 13 documentation/tooling handoff, only the Office package was
+current after shared engine changes; the seven other installed packages were
+unchanged and stale. They were not refreshed for this cleanup. Verify or rebuild
+selected maps explicitly before native/package acceptance; a previous all-map
+campaign does not establish present currency.

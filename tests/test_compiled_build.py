@@ -238,7 +238,12 @@ class CompiledBuildSmokeTests(unittest.TestCase):
         self.assertTrue(settings["lightmaps"])
         # A missing asset root is reported exactly once, not once per caller.
         self.assertEqual(output.count("no asset root found"), 1, output)
-        self.assertIn("compile maps with `sh tools/build-maps.sh`", output)
+        # Keep meaningful empty-install guidance: a requested missing map returns
+        # to a menu that can discover/import external packages.
+        self.assertIn(
+            "Requested map is not installed. Open Explore to choose or import a .placesmap.",
+            output,
+        )
         self.assertNotIn("panicked", output)
 
     # -- 3. Restart loads the saved configuration ---------------------------

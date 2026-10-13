@@ -246,14 +246,13 @@ The map's overhead/rail sources use .32/4.5 m and .10/3 m intensity/range.
 
 The aurora retains opaque 2048×1024 equirectangular U-repeat/V-clamp artwork;
 its source and exact seam correction are documented in
-[aurora provenance](../reports/winter-aurora.md) and specification §26.
+[aurora provenance](../reports/winter-final-audit.md#aurora-and-weather) and specification §26.
 Calm snowfall and configurable blizzard presentation are map/environment
 features. The lodge's manual strengths and timed cycle are documented in
 [environment refinement](../reports/environment-refinement.md).
-[Winter reconstruction](../style-upgrade-20261007/winter/README.md),
-[foundation](../reports/winter-foundation.md), and the
-[final audit](../reports/winter-final-audit.md) retain accepted evidence and
-its limitations; their historical timings are not current performance claims.
+[Winter reconstruction](../style-upgrade-20261007/winter/README.md) and the
+[consolidated development history](../reports/winter-final-audit.md) retain
+accepted evidence and limits; dated timings are not current performance claims.
 
 ## Beach
 

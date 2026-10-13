@@ -1,55 +1,52 @@
 # Places documentation
 
-Start with [developer orientation and cleanup](DEVELOPMENT.md),
-[architecture](ARCHITECTURE.md), [renderer](RENDERER.md) and
-[desktop verification](VERIFICATION.md). Map and asset work follows the
-[map authoring guide](MAP_AUTHORING_GUIDE.md) and
-[asset specification](ASSET_SPECIFICATION.md); the
-[package format](PACKAGE_FORMAT.md) defines archive and safety contracts.
+Start with [developer orientation](DEVELOPMENT.md), then follow the guide for
+what you are changing:
 
-The [seven-stage Art-style record](style-upgrade-20261007/art-style-history.md)
-and [completed integration](art-style/stage7/README.md) preserve the historical
-results and their limits. The separate
-[model-lighting correction](reports/model-lighting-root-cause-and-fix.md) documents the
-later kitchen, corridor and skeleton defects, their causes and matched native
-before/after PNGs. Selected historical captures are under `images/`; individual
-final reports in `reports/` explain their own accepted findings and limitations.
+| Task | Canonical guide |
+| --- | --- |
+| Understand engine ownership and data flow | [Architecture](ARCHITECTURE.md) |
+| Understand rendering and diagnostics | [Renderer](RENDERER.md) |
+| Author maps, placement, lights and materials | [Map authoring](MAP_AUTHORING_GUIDE.md) |
+| Create or replace PNGs, models and source masters | [Asset specification](ASSET_SPECIFICATION.md) |
+| Select a generator or offline check | [Python tooling](OFFLINE_TOOLING.md) |
+| Run source, package or native acceptance | [Verification](VERIFICATION.md) |
+| Inspect archive formats and safety limits | [Package format](PACKAGE_FORMAT.md) |
+| Diagnose movement | [Movement diagnostics](MOVEMENT_DIAGNOSTICS.md) |
 
-## Curated image selection
+[Environment profiles](assets/ENVIRONMENTS.md) and [entity profiles](assets/ENTITIES.md)
+explain kit-specific contracts. The [map index](../levels/README.md) lists eight
+active sources and their owners; [regression scenes](../tests/fixtures/levels/README.md)
+are separate developer controls. Places Demo and Model Zoo remain frozen JSON in
+`archive/levels/`, outside discovery and default compilation.
 
-The October 11 selection keeps 69 tracked PNGs under `docs/images/`: essential
-before/after pairs, current environment/menu views, diagnostic composites, animal
-presentation and all six renderer reference images. Repeated campaign frames are
-retained byte for byte under
-`local/retained/repo-cleanup-20261011/docs/images/`, using their original paths.
-Reports keep their original findings, measurements and replay instructions;
-archived frames remain historical evidence rather than fresh gate results.
-Concept references and functional GLES fixtures keep their separate contracts.
+## Project evolution and visual history
 
-## Historical documentation cleanup
+Historical reports describe the version they measured. They do not establish
+current package currency, test counts or platform performance.
 
-On October 9, 2026, final reports were consolidated before retiring generated
-logs, trace dumps, receipts, intermediate narratives and redundant captures.
-The original inventory contained 6,517 files and 2,050,460 text lines, including
-the corrective mission's pending evidence. The retained guides, final reports,
-107 curated genuine PNGs and one functional asset preset occupy approximately
-21,800 text lines. That earlier cleanup preserved source assets and custom debug maps. The
-[October 11 repository cleanup](DEVELOPMENT.md) subsequently retired obsolete
-dev maps under the updated curated-lineup policy.
+- [Feature expansion](reports/feature-expansion-summary.md): movement, entities,
+  geometry, capacity and measured offline tooling.
+- [Winter development](reports/winter-final-audit.md): settlement, snow kit, ice,
+  warm lights, aurora and sheltered weather, with curated comparisons.
+- [Environment reconstruction](style-upgrade-20261007/README.md) and
+  [seven Art-style milestones](style-upgrade-20261007/art-style-history.md):
+  the original-to-final visual progression and bounded technical results.
+- [Completed renderer integration](art-style/stage7/README.md) and
+  [model-lighting correction](reports/model-lighting-root-cause-and-fix.md):
+  what the campaigns proved and the defects later close-up controls exposed.
+- [Map independence](reports/map-independence.md): empty installation and external
+  package acceptance. [Storage and lighting](reports/map-storage-lighting.md)
+  records exact compact formats and independent quality controls.
+- [Office implementation](reports/office-demo.md) and
+  [Office defect repairs](reports/office-defect-repair.md): the connected environment,
+  collision/recovery and lighting fixes.
 
-Reusable camera/sequence/ray inputs now live in `tests/fixtures/native/`.
-The former renderer's 50 original PNG comparison inputs are preserved byte for
-byte in `tests/fixtures/native/gles2-reference/`. Tools and tests use those
-locations; generated capture output goes to ignored debug/verification folders.
-These are functional test inputs rather than published audit dumps.
-
-The 4,666 retired historical files (727,416,245 bytes) were moved to genuine
-macOS Trash and hash-verified there. Their single recoverable payload is named
-`retired-historical-docs-20261009T1600Z`, with repository-relative originals,
-`RESTORE.md` and an exact per-file SHA256 restore manifest. Unique controller
-sources, prompts and motion videos remain recoverable in that payload.
-No unique evidence was permanently purged. The 3,280 superseded corrective files (4,954,083,519 bytes) were likewise
-hash-verified in `retired-corrective-evidence-20261009T1650Z`. Both payloads retain
-their restore manifests. The active final runnable bundle, replay controls,
-curated before/after PNGs and compact accepted verification summaries remain
-outside `target`; redundant campaigns are no longer active workspace clutter.
+Other finalized reports in `reports/` retain distinct investigations and asset
+provenance. Raw receipts, timing logs and repeated campaign captures belong in
+ignored local verification output. `images/` holds the curated original native
+PNG selection; immutable concept art lives under `assets/references/`.
+Reusable camera/sequence inputs and the former renderer's 50 comparison PNGs
+live in `tests/fixtures/native/`; those are functional inputs, not audit clutter.
+Recoverable tracked deletions remain in Git history. A fresh checkout does not
+need machine-specific Trash payloads or local backup collections.

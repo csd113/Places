@@ -197,7 +197,7 @@ required step passed. Additional checks are listed below:
 | `sh tools/bench/capture_doors.sh` with five maintained view selections | Captured maintained interior, sauna and exterior door views. |
 | Native tub capture at `PLACES_SPAWN=36.6,21.6,0`, `PLACES_CAMERA=0,-8`, frame 4 | Before/after capture succeeded. |
 | Table-only `repair_geometry.process(path, apply=True)` and a second read-only pass | Removed two closure triangles/four unused vertices; second pass is byte-idempotent. Bounds, texture and material definitions preserved. |
-| `python3 -m unittest discover -s tools/props -p test_geometry.py` | Passed, four existing winding/cavity/seam regressions. |
+| `python3 -m unittest tests.test_asset_audit.PropGeometryRepairTests` | Four winding/cavity/seam regressions passed in the historical tool; now consolidated under this test class. |
 | Fresh pool-showcase package and identical-camera table comparison | Geometry-only proposal restored the pale tabletop under the existing baker; no lighting code or albedo change. |
 | In-memory legacy table builder/source comparison | Loads the exact retained 256×256 PNG pixels. No blanket model regeneration; shipped hand-finished geometry retained. |
 | CPU profile of the new inventory | PNG decoding dominated; reused existing bounded process helper instead of adding dependencies. |

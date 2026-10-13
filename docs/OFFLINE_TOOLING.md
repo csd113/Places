@@ -47,16 +47,15 @@ only completed image comparisons are parallelized.
 ## Commands
 
 ```sh
-# Compiled map packages: the explicit edit -> compile -> launch workflow.
+# Active content: explicit edit -> compile -> launch, separate from source CI.
 cargo build --release
-./target/release/places-compile build levels/places_demo.json --out assets/levels/places_demo.placesmap
-./target/release/places-compile build levels/model_zoo.json --out assets/levels/model_zoo.placesmap --workers 8
-sh tools/build-maps.sh  # maintained lineup, explicit assets/levels/ destinations
-./target/release/places-compile validate assets/levels/places_demo.placesmap
-./target/release/places-compile inspect assets/levels/places_demo.placesmap
-./target/release/places-compile verify levels/places_demo.json \
-    --package assets/levels/places_demo.placesmap
-PLACES_LEVEL=places_demo ./target/release/places
+./target/release/places-compile build levels/office_demo.json \
+    --out assets/levels/office_demo.placesmap --asset-root assets --workers 8
+./target/release/places-compile validate assets/levels/office_demo.placesmap
+./target/release/places-compile verify levels/office_demo.json \
+    --package assets/levels/office_demo.placesmap --require-current
+sh tools/build-maps.sh  # optional full maintained lineup; performs offline bakes
+PLACES_LEVEL=office_demo ./target/release/places
 
 # Discovery only: the playable rows the Level Select menu would show, without a
 # window or a GPU. One `id<TAB>source<TAB>path` row per compiled package; the
@@ -81,7 +80,8 @@ python3 tools/entities/build_rat.py --workers 8 --out target/rat.glb
 python3 tools/entities/validate_entities.py --workers 8
 python3 tools/entities/render_contact_sheets.py --workers 6 --blender-threads 2
 python3 tools/entities/render_contact_sheets.py --workers 1 --blender-threads 1  # single CPU reference
-python3 tools/levels/build_model_zoo.py --check --no-cache --workers 4
+# Historical reconstruction uses explicit scratch output, never archive writes.
+python3 tools/levels/build_model_zoo.py --out /tmp/model-zoo-working.json --no-cache --workers 4
 ```
 
 The performance/equivalence command is separate from fast CI correctness checks:
@@ -234,7 +234,7 @@ from loop closure. Neither substitutes for native playback, collision or lightin
 ## Lighting, probes and quality variants the compiler prepares
 
 `places-compile build` runs the offline transport solver
-(`src/lighting/transport.rs`) for every `medium`/`full` variant: direct
+(`src/lighting/transport.rs`) for the current `full` variant: direct
 emitter sampling with soft shadows, one or two visibility-tested diffuse
 bounces, a moment per-texel encoding (an irradiance mean plus the signed
 vector sum of the per-channel first moments), and a prepared
@@ -246,13 +246,13 @@ per switchable fixture), a `PLPF` irradiance-field record and prefiltered
 reflection cubemap mip chains. The `off` variant ships the historical
 vertex-lit mesh and no atlas.
 
-Quality variants differ in prepared data, never in runtime work: Medium runs
-one bounce with two emitter taps per axis at 12 texels/m; Full runs two
-bounces with three taps at 16 texels/m. `--workers N` sets the shared CPU
-budget for the solve (default from the host's available parallelism, clamped
-to 12; `PLACES_TOOL_WORKERS` is the environment fallback and the flag wins).
-`--workers 1` is the serial reference path and is tested to produce identical
-values to the parallel path.
+Current packages contain Static (`off`) and Full lighting. Full prepares two
+bounces with three emitter taps per axis at 16 texels/m; legacy Medium records
+remain readable. Texture quality and filtering are independent of selected
+lighting. `--workers N` selects the shared CPU budget, with
+`PLACES_TOOL_WORKERS` as fallback and a maximum of 12. One worker is the serial
+reference. See [verification](VERIFICATION.md) and the [package format](PACKAGE_FORMAT.md)
+for current representation, atlas and allocation limits.
 
 ## Navigation the compiler prepares
 
@@ -286,122 +286,77 @@ or an AI behavior keeps that key and the compiler reuses the previous package's
 prepared geometry, lightmaps, probes and collision, rebuilding only the
 semantic and navigation records (`loader::tests::an_ai_only_edit_reuses_the_prepared_lighting`).
 
-## Tool inventory
+## Choosing a tool
 
-A = CPU work partitioned at the listed consumer; B = already parallel; C = I/O or
-external orchestration; D = bounded/inherently serial; E = obsolete, unavailable or failing prerequisites.
-Libraries return in-memory data; their consumers publish the listed outputs.
-Dependencies: S = standard library, P = prop toolkit, T = texture toolkit,
-E = entity toolkit, B = Blender, I = Pillow. The table distinguishes core checks
-from deliberate source-art exporters with additional dependencies.
+This inventory follows imports, registries, CLI entry points and the build/CI
+hooks. A tool's age or original author does not determine whether it is useful.
+The [benchmark guide](../tools/bench/README.md) describes native and performance
+campaigns; each CLI's `--help` names its inputs. Normal source tests never require
+production map bakes.
 
-| Entry point | Purpose / consumers | Dependencies / output | Class and execution |
-| --- | --- | --- | --- |
-| `src/bin/places-compile.rs` | Offline map compiler CLI (build/build-collection/validate/inspect/verify) | S/Places library; `.placesmap` packages | A per atlas fill (1..=3), plus one headless GPU probe capture per variant; serial across sources |
-| `tests/test_compiled_build.py` | Packaged native windowed smoke | S/Places; scratch runtime output | C; sequential native subprocesses |
-| `tests/test_bench_metrics.py` | Trace interval and committed-world metric known answers | S/bench helpers; scratch JSON | D; tiny deterministic fixtures |
-| `tests/test_lightmap_harness.py` | Capture environment and missing-output rejection | S/mock subprocess; scratch paths | D; no native game |
-| `tests/test_package.py` | Repository/asset regressions; verify.sh | S/validators; scratch/stdout | D; bounded assertions |
-| `tests/test_tool_execution.py` | Known answers, failure/cancellation, ordering and budgets | S/tools; scratch/stdout | B; fast spawn regressions |
-| `tests/test_wgpu_bootstrap.py` | Native renderer lifecycle/quality regressions | S/Places; scratch captures | C; sequential native subprocesses |
-| `tests/test_zoo_generator.py` | Catalog growth/determinism regressions | S/zoo; scratch/stdout | B; serial and spawn inspection |
-| `tools/assets/audit.py` | File inventory, source/embedded coverage and duplicate diagnostics | S/P; inventory JSON under target by default | A decode batches; parent report |
-| `tools/assets/validate.py` | Catalog/map schema checks; gate/package tests | S; stdout | D; fast structural validation |
-| `tools/bench/bench_local.py` | Native game repeated timing; evidence | S/Places; JSON/logs | C; serial to avoid measurement interference |
-| `tools/bench/check_holes.py` | Capture dark-pixel audit | S; stdout/JSON | A per-image spawn |
-| `tools/bench/check_tool_parallelism.py` | Original/serial/parallel scratch benchmark | S/tools; scratch hashes/logs/times | C; serial orchestration of bounded heavy jobs |
-| `tools/bench/compare_baseline.py` | Frozen baseline byte comparisons | S; stdout | C; file reads and byte comparison |
-| `tools/bench/compare_captures.py` | Per-view capture differences | S; stdout | A per-pair spawn |
-| `tools/bench/lightmap_report.py` | Native capture and lighting telemetry | S/Places; PNG/log/report | C; serial native game |
-| `tools/bench/loading.py` | Already-built native startup and application-cache comparison | S/Places; isolated state, raw logs, traces and timings JSON | C; serial native runs; cold means an empty application cache, with OS/GPU caches untouched |
-| `tools/bench/visual_check.py` | Two-build capture and connected-difference audit | S/Places; captures/report | C serial capture; A spawn comparisons |
-| `tools/entities/build_beach_common.py` | Shared atlas derivative, rigid rig and export-sweep helpers | S/P/E; in-memory data and checks | D bounded builders |
-| `tools/entities/build_beach_seagull.py`, `build_beach_crab.py`, `build_beach_fish.py` | Beach rig authoring / deterministic `--check` | S/P/E; GLB/source PNGs, temporary check output | D bounded direct construction |
-| `tools/entities/build_mannequin.py` | Mannequin mesh and three poses; entity authoring | S/P/E; GLB and concrete PNG | D; bounded direct construction |
-| `tools/entities/author_halloween_assets.py` | Material contracts for the Halloween entity GLBs; `--check` acceptance | S/E; GLB bytes and stdout | D; bounded single-file rewriting |
-| `tools/entities/build_rat.py` | Rat mesh and clips; entity authoring | S/P/E/B; GLB, fur PNG, reports | C; serial owning scene, bounded native Boolean |
-| `tools/entities/build_skeleton.py` | Skeleton mesh and three poses; entity authoring | S/P/E; GLB, bone PNG, optional preview | D; bounded construction, renderer used for preview |
-| `tools/entities/check_clip_boundaries.py` | Exported loop/transition checks; acceptance | S/E; stdout | D; small endpoint comparisons |
-| `tools/entities/rat_surface.py` | Exact anatomical union; rat builder | S/B; isolated numerical JSON | C; explicit native CPU budget |
-| `tools/entities/render_contact_sheets.py` | GLB reimport and clip/pose renders; acceptance | S/P/B; scratch cells and parent PNG sheets | B; bounded native processes, thread orchestration |
-| `tools/entities/rig.py` | Rig/GLB API, --check/--selftest; builders | S/P; GLB bytes and checks | D; bounded math/writer |
-| `tools/entities/validate_entities.py` | Sampled skin/contact checks; acceptance/zoo | S/E; report JSON/stdout | B; initialized spawn frame chunks, shared budget |
-| `tools/execution.py` | Shared worker budget, spawn executor and atomic output | S; results/encoded files | B; shared execution helper |
-| `tools/levels/build_capacity_fixtures.py` | Two capacity fixture layouts; tests | S/catalog; fixture JSONs | D; bounded layout synthesis |
-| `tools/levels/build_fixture_levels.py` | Showcase/stress layouts; tests | S/catalog; fixture JSONs | D; bounded layout synthesis |
-| `tools/levels/build_model_zoo.py` | Catalog inspection and zoo regeneration | S/E; zoo JSON and cache | B; cached spawn inspection, shared budget |
-| `target/release/places --repair-geometry` | Read-only wall-joint repair planner; one level; `--plan` writes the machine-readable plan (same classification as `--check-geometry`) | S; one level | serial |
-| `tools/levels/repair_alignment.py` | Verifies/applies a wall-joint repair plan byte-faithfully with an atomic replace, checker post-validation and idempotence proof (`--check` / `--apply`) | S; one level | serial |
-| `tools/props/animate_spooner_man.py` | Canonical cat clip baking and --check | S/P; guarded canonical GLB | A; six spawn clip jobs, parent export |
-| `tools/props/build_office_textures.py` | Native derivatives from Office masters / byte `--check` | S/P; native PNGs | D bounded derivative set |
-| `tools/props/build_winter_textures.py` | Native derivatives from Winter masters / `--check` | S/T/I; native PNGs | D bounded derivative set |
-| `tools/props/build.py` | Catalog prop build/check; verify.sh and authoring | S/P; catalog GLBs | A build jobs; D cheap checks |
-| `tools/props/author_birthday_party.py` | Explicit party print/source/model authoring; source-only `--check` in CI and desktop gate | S/B/I; retained PNG masters/natives, editable `.blend`, GLBs and metadata | C native Blender export; D bounded file/UV/geometry checks, no map bake |
-| `tools/props/cat_motion.py` | IK and grounded clip sampling; animation baker | S/P; pose arrays | A; initialized model per worker |
-| `tools/props/geometry.py` | Adjacency/winding; builders and repair | S; audit/mesh arrays | D; near-linear bounded meshes |
-| `tools/props/glb.py` | GLB codec; builders/previews/validators | S; bytes and model arrays | D; bounded format operations |
-| `tools/props/glyphs.py` | Font/polygon painter; signs/decals | S; pixels | D; small glyph work |
-| `tools/props/mesh.py` | Primitive mesh API; builders | S/P; mesh arrays | D; bounded primitives |
-| `tools/props/palette.py` | Color helpers; builders | S; tuples | D; trivial arithmetic |
-| `tools/props/parts/__init__.py` |   init   builders; prop build registry | S/P; mesh/texture buffers | D individually; A through parent build batches |
-| `tools/props/parts/appliances.py` | appliances builders; prop build registry | S/P; mesh/texture buffers | D individually; A through parent build batches |
-| `tools/props/parts/decor.py` | decor builders; prop build registry | S/P; mesh/texture buffers | D individually; A through parent build batches |
-| `tools/props/parts/domestic_remade.py` | domestic remade builders; prop build registry | S/P; mesh/texture buffers | D individually; A through parent build batches |
-| `tools/props/parts/duck_remade.py` | duck remade builders; prop build registry | S/P; mesh/texture buffers | D individually; A through parent build batches |
-| `tools/props/parts/furniture.py` | furniture builders; prop build registry | S/P; mesh/texture buffers | D individually; A through parent build batches |
-| `tools/props/parts/home.py` | home builders; prop build registry | S/P; mesh/texture buffers | D individually; A through parent build batches |
-| `tools/props/parts/pool.py` | pool builders; prop build registry | S/P; mesh/texture buffers | D individually; A through parent build batches |
-| `tools/props/parts/pool_remade.py` | pool remade builders; prop build registry | S/P; mesh/texture buffers | D individually; A through parent build batches |
-| `tools/props/parts/refreshed.py` | refreshed builders; prop build registry | S/P; mesh/texture buffers | D individually; A through parent build batches |
-| `tools/props/parts/signage.py` | signage builders; prop build registry | S/P; mesh/texture buffers | D individually; A through parent build batches |
-| `tools/props/parts/tableware.py` | tableware builders; prop build registry | S/P; mesh/texture buffers | D individually; A through parent build batches |
-| `tools/props/parts/utility.py` | utility builders; prop build registry | S/P; mesh/texture buffers | D individually; A through parent build batches |
-| `tools/props/preview.py` | Software raster previews; authoring/skeleton | S/P; PNG/contact sheets | A; per-model spawn jobs |
-| `tools/props/repair_geometry.py` | Reviewed topology audit/repair; authoring | S/P; optional GLBs and report | A; per-model proposals, parent hash preflight |
-| `tools/props/resize_embedded_textures.py` | Embedded PNG conversion; imports | S; in-place GLB | A; initialized source, output row bands |
-| `tools/props/test_geometry.py` | Winding/cavity/seam regressions | S/P; unittest output | D; tiny fixtures |
-| `tools/props/tex.py` | PNG codec and pixel API; builders/previews | S/P; pixels/PNG bytes | A via consumer batches |
-| `tools/props/validate_domestic_remake.py` | Ten-model structure/texture/switch audit | S/P; fixed report JSON | D; bounded audit; run in scratch |
-| `tools/textures/author_home.py`, `author_pool.py`, `author_outdoors.py` | Explicit source/native artwork exports | S/T/I; committed PNGs | D kit authoring |
-| `tools/textures/beach_art.py`, `frutiger_aero_art.py` | Committed-art readers plus explicit `--author` / byte `--check` | S/T/I for author/check; PNGs | D bounded authoring |
-| `tools/textures/normalize_sky_seam.py` | Longitude-edge-only normalization / `--check` | S/T; named PNGs | D per-image |
-| `tools/textures/artkit.py` | Canvas/noise/PNG API; painters | S; pixels/PNG bytes | A via painter jobs |
-| `tools/textures/build.py` | Texture painter/check CLI; verify.sh | S/T; catalog PNGs | A spawn painter jobs; D header checks |
-| `tools/textures/decal_art.py` | decal art painters; textures/build.py | S/T; canvas | A through parent painter batches; lattice cache shared where applicable |
-| `tools/textures/diagnostic_art.py` | diagnostic art painters; textures/build.py | S/T; canvas | A through parent painter batches; lattice cache shared where applicable |
-| `tools/textures/extra_art.py` | extra art painters; textures/build.py | S/T; canvas | A through parent painter batches; lattice cache shared where applicable |
-| `tools/textures/home_art.py` | home art painters; textures/build.py | S/T; canvas | A through parent painter batches; lattice cache shared where applicable |
-| `tools/textures/lights_art.py` | lights art painters; textures/build.py | S/T; canvas | A through parent painter batches; lattice cache shared where applicable |
-| `tools/textures/office_art.py` | office art painters; textures/build.py | S/T; canvas | A through parent painter batches; lattice cache shared where applicable |
-| `tools/textures/pool_art.py` | pool art painters; textures/build.py | S/T; canvas | A through parent painter batches; lattice cache shared where applicable |
-| `tools/textures/seam_repair.py` | PNG seam report/check/repair; authoring | S; PNGs/diagnostics | A per-image spawn, parent writes |
-| `tools/textures/water_art.py` | water art painters; textures/build.py | S/T; canvas | A through parent painter batches; lattice cache shared where applicable |
+| Workflow | Entry points and ownership |
+| --- | --- |
+| Fast source acceptance | `tools/assets/validate.py`, texture/prop `build.py --check`, maintained map generators `--check`, Python test discovery; exact automatic checks are in `.github/workflows/rust.yml` |
+| Map publication | `tools/levels/compile.py`, `tools/build-maps.sh`; explicit eight-source allowlist, generated packages under ignored `assets/levels/` |
+| Format conversion / wall repair | `convert_v3.py` retains tested v2 conversion; `repair_alignment.py` checks source hashes/old values and only applies with post-validation and rollback |
+| Generated scenes | Maintained map owners in the [map index](../levels/README.md); `build_fixture_levels.py`, `build_outdoor_fixture.py`, `build_lighting_quality.py`, `build_capacity_fixtures.py` own focused controls |
+| Historical source reconstruction | `build_model_zoo.py`, `build_outdoor_route.py`, `refine_home.py`, `refine_pool.py`; explicit working inputs/outputs, never the frozen archive as output |
+| PNG / GLB authoring | `tools/textures/` saved-art readers and explicit exporters; `tools/props/build.py` dispatches registered `parts/` constructors; `mesh`, `tex`, `glb`, `geometry`, `glyphs` and `refreshed` are shared libraries |
+| Distinct source owners | Office/Winter texture derivatives, Arcade/birthday/restroom/Bepsi artwork and models, Beach animals, original entity constructors and Spoonerman refinement/animation; use the owner table above |
+| Asset inspection / repair | `audit.py`, `preview.py`, `validate_domestic_remake.py`, `repair_geometry.py`, `resize_embedded_textures.py`, seam tools, entity validators/contact sheets and `inspect_arcade_vending.py`; reports or explicit selected writes, no default map bake |
+| Compiler measurement | `compiler_bench.py`, `compiler_compare.py`, `compiler_incremental.py`, `compare_packages.py`, `capture_compiler.py`; clean, paired and incremental experiments protect different claims |
+| Native acceptance | `native_regression_maps.py`, `capture_art_style_hero.py`, themed camera scripts, movement/weather/traversal controls, `check_quality_regression.py`; serial real-player runs |
+| Diagnostics / comparison | Loading traces, scene budgets, lightmap/probe/Metal inspectors, colour controls, Winter string-light audit, image comparisons and map storage/delivery tools; retain distinct numerical methods |
+| Durable replay | `snapshot_art_style_hero.py` preserves an explicit binary/package and their dependencies; its default cameras now name the compact architecture fixture |
 
-`places-compile` runs one bounded CPU budget: `--workers N` selects it,
-`PLACES_TOOL_WORKERS` is the environment fallback and the flag wins; `--workers
-1` takes the serial atlas path. Its probe capture uses the one native GPU
-sequentially. Builds publish atomically, so an interrupted run leaves the last
-valid package in place.
+### Historical tooling and cleanup decisions
 
-The inventory highlights maintained entry points and their execution contracts;
-theme-specific prop modules also live under `tools/props/parts/`. For arbitrary
-authoring directories, `build-collection` writes sibling `.placesmap` files;
-`tools/build-maps.sh` explicitly publishes the maintained lineup under
-`assets/levels/`.
-`tools/verify.sh` consumes the Python validation and native suites. The tracked
-[GitHub Rust workflow](../.github/workflows/rust.yml) runs its own CI gates; see
-[verification](VERIFICATION.md) for the required desktop checks. Historical functional
-results, equivalence measurements and limitations are recorded in the
-[feature-expansion summary](reports/feature-expansion-summary.md). These results describe
-specific runs, not current gate status.
+The Home, Pool and Outdoors capture commands keep their original frozen Demo
+cameras, options, settings, failure checks and receipt format. Their identical
+runner now lives in `tools/bench/capture_demo_views.py`; Outdoors still appends its
+manifest while Home/Pool begin a new one. A matching preserved Demo payload is
+required. These cameras are not valid substitutes for today's standalone maps.
 
-Native startup measurements use an already-built binary and a fresh output directory:
+Home/Pool concept dressing now requires `--source PATH --out PATH`. This removes
+the broken implicit `levels/places_demo.json` lookup while retaining the authored
+transformation. Archive output is refused. For example, reconstruct in scratch:
 
 ```sh
-python3 tools/bench/loading.py --binary target/release/places --out target/loading-check --repeat 2
+python3 tools/levels/refine_home.py --source docs/archive/levels/places_demo.json \
+    --out /tmp/home-demo-working.json
 ```
 
-The tool runs each level sequentially with isolated application state, first
-with an empty application cache and then reusing it. It does not flush OS or
-GPU caches. Preserve the binary identity, logs and timing JSON when comparing
-runs; do not run competing builds or CPU-heavy tooling during measurement.
+`measure_capacity.sh` defaults to the maintained capacity fixture. Optional Demo
+and Zoo measurements require `PLACES_CAPACITY_DEMO_PACKAGE` and
+`PLACES_CAPACITY_ZOO_PACKAGE`; building the active lineup cannot provide them.
+No archived source is reactivated or baked by default.
+
+The four winding/cavity/UV-colour seam regressions formerly isolated in
+`tools/props/test_geometry.py` are consolidated into `tests/test_asset_audit.py`
+so normal discovery runs them. They use a triangle, quad or tetrahedron and export
+no asset. Source/master generators, useful baseline controls and specialized
+validators are retained. Superseded primitive constructors are also retained as
+source provenance; current `PROPS` bindings select their refined owners. No
+asset output, catalog binding or generator algorithm changed.
+
+Documentation consolidates the eight superseded Winter pass reports into
+[Winter development](reports/winter-final-audit.md). The developer and benchmark
+guides now distinguish active workflows from historical replay; redundant machine
+cleanup inventories and stale example launches are removed. Curated images,
+immutable concepts, all eight active maps and both frozen historical JSON sources
+remain unchanged. Unique untracked HDR/size audit evidence remains untouched.
+
+The October 13 cleanup validation passed the 354-test Python source suite
+(0 failures, 4 intentional opt-in skips), strict configured Clippy and workspace
+Rust tests (2,269 passed, 18 existing ignored diagnostics). The focused native
+empty-install smoke passed with the rebuilt release player, and its menu capture
+was inspected. Direct/module capture CLI checks, all-camera/all-quality runner
+comparison, scratch dressing repeatability/archive-write rejection and bounded
+capacity orchestration passed. Catalog and prop checks passed; texture checks
+passed with 96 existing size/manifest advisories, and Office source currency
+passed. Tracked Markdown destinations/anchors and Python syntax were checked.
+
+No artwork exporter, production map bake or broad native campaign ran. The
+other seven installed packages remain unchanged/stale; archived Demo/Zoo were
+not reactivated. Source CI and the publication handoff record exact revision
+status separately. Unknown-owner untracked HDR/size audit files remain present.
