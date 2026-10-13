@@ -17,6 +17,7 @@
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+use compiler::progress::{Mode, Session};
 use places::compiler::{self, BuildRequest};
 use places::quality::LightmapQuality;
 
@@ -26,8 +27,10 @@ places-compile: build and inspect Places map packages (.placesmap)
 USAGE:
   places-compile build <source.json> [--out <package>] [--variants static,full]
                        [--asset-root <dir>] [--workers N] [--force] [--json]
+                       [--progress auto|plain|off]
   places-compile build-collection <dir> [--variants static,full]
                        [--asset-root <dir>] [--workers N] [--force] [--json]
+                       [--progress auto|plain|off]
   places-compile validate <package> [--json]
   places-compile inspect <package> [--json]
   places-compile export-lighting <package> --out <new-directory>
@@ -51,9 +54,13 @@ OPTIONS:
                       Build default: the source's sibling .placesmap.
   --force             Rebuild even when the existing package is current.
   --json              Machine-readable result on stdout.
+  --progress <mode>   Build feedback on stderr (default: auto). Auto redraws on
+                      a capable terminal; redirected/CI output is plain text.
+                      Plain always logs stages; off suppresses progress.
 ";
 
 fn main() -> ExitCode {
+    places::logging::diagnostics_to_stderr();
     let parsed_arguments: Result<Vec<String>, CliError> = std::env::args_os()
         .skip(1)
         .map(|argument| {
@@ -77,12 +84,17 @@ fn main() -> ExitCode {
             eprintln!("places-compile: {message}");
             ExitCode::FAILURE
         }
+        Err(CliError::Interrupted) => {
+            eprintln!("places-compile: build interrupted");
+            ExitCode::from(130)
+        }
     }
 }
 
 enum CliError {
     Usage(String),
     Failure(String),
+    Interrupted,
 }
 
 impl From<String> for CliError {
@@ -97,6 +109,7 @@ struct Options {
     variants: Vec<LightmapQuality>,
     json: bool,
     require_current: bool,
+    progress: Mode,
 }
 
 fn parse_options(args: &[String]) -> Result<Options, CliError> {
@@ -106,10 +119,24 @@ fn parse_options(args: &[String]) -> Result<Options, CliError> {
         variants: LightmapQuality::ALL.to_vec(),
         json: false,
         require_current: false,
+        progress: Mode::Auto,
     };
     let mut index = 0;
     while index < args.len() {
         match args.get(index).map(String::as_str) {
+            Some("--progress") => {
+                options.progress = match args.get(index.saturating_add(1)).map(String::as_str) {
+                    Some("auto") => Mode::Auto,
+                    Some("plain") => Mode::Plain,
+                    Some("off") => Mode::Off,
+                    _ => {
+                        return Err(CliError::Usage(
+                            "--progress needs auto, plain or off".into(),
+                        ));
+                    }
+                };
+                index = index.saturating_add(2);
+            }
             Some("--asset-root") => {
                 let Some(next) = index.checked_add(1) else {
                     return Err(CliError::Usage(
@@ -227,6 +254,7 @@ fn run(args: &[String]) -> Result<(), CliError> {
         "--variants",
         "--out",
         "--package",
+        "--progress",
     ];
     let mut it = rest.iter();
     while let Some(arg) = it.next() {
@@ -265,7 +293,12 @@ fn run(args: &[String]) -> Result<(), CliError> {
                 force: option_args.iter().any(|arg| arg == "--force"),
                 capture_probes: true,
             };
-            let report = compiler::build(&request)?;
+            let session = Session::start(options.progress)?;
+            let result = compiler::build(&request);
+            if session.interrupted() {
+                return Err(CliError::Interrupted);
+            }
+            let report = result?;
             if options.json {
                 print_json(&report)?;
             } else {
@@ -307,13 +340,18 @@ fn run(args: &[String]) -> Result<(), CliError> {
                 .ok_or_else(|| CliError::Usage("build-collection needs a directory".to_string()))?;
             let asset_root = compiler::resolve_asset_root(options.asset_root.as_deref())?;
             pin_asset_root(&asset_root);
-            let results = compiler::build_collection(
+            let session = Session::start(options.progress)?;
+            let collection_result = compiler::build_collection(
                 &PathBuf::from(directory.as_str()),
                 &asset_root,
                 &options.variants,
                 options.workers,
                 option_args.iter().any(|arg| arg == "--force"),
-            )?;
+            );
+            if session.interrupted() {
+                return Err(CliError::Interrupted);
+            }
+            let results = collection_result?;
             let mut failures = 0_usize;
             for result in &results {
                 match result {
@@ -502,6 +540,30 @@ fn print_json<T: serde::Serialize>(value: &T) -> Result<(), CliError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn progress_modes_are_explicit_and_validated() {
+        for (name, mode) in [
+            ("auto", Mode::Auto),
+            ("plain", Mode::Plain),
+            ("off", Mode::Off),
+        ] {
+            assert!(
+                parse_options(&["--progress".into(), name.into()])
+                    .is_ok_and(|options| options.progress == mode),
+                "requested mode must be preserved"
+            );
+        }
+        for args in [
+            vec!["--progress".into()],
+            vec!["--progress".into(), "unknown".into()],
+        ] {
+            assert!(
+                matches!(parse_options(&args), Err(CliError::Usage(_))),
+                "missing and invalid modes must be usage errors"
+            );
+        }
+    }
 
     #[test]
     fn explicit_worker_budget_is_positive_and_bounded() {

@@ -1,5 +1,6 @@
 //! Compiler input identity, bounded workers and safe incremental publication.
 use super::*;
+use crate::package::archive::write_archive;
 
 fn evidence_directory(tag: &str) -> PathBuf {
     let base = std::env::var_os("PLACES_COMPILER_TEST_EVIDENCE").map_or_else(

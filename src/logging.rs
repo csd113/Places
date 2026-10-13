@@ -15,7 +15,66 @@
 use std::any::Any;
 use std::collections::HashSet;
 use std::fmt::Display;
+use std::io::{self, Write};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
+
+static DIAGNOSTIC_STDERR: AtomicBool = AtomicBool::new(false);
+static OUTPUT: Mutex<Output> = Mutex::new(Output { live: None });
+
+/// Keeps compiler diagnostics off its result stream, including `--json`.
+/// Call once from the CLI before dispatch; the player retains its usual output.
+pub fn diagnostics_to_stderr() {
+    DIAGNOSTIC_STDERR.store(true, Ordering::Relaxed);
+}
+
+struct Output {
+    live: Option<String>,
+}
+
+impl Output {
+    fn clear(&self, writer: &mut impl Write) -> io::Result<()> {
+        if self.live.is_some() {
+            write!(writer, "\r\x1b[2K")?;
+        }
+        Ok(())
+    }
+
+    fn line(&self, writer: &mut impl Write, message: impl Display) -> io::Result<()> {
+        self.clear(writer)?;
+        writeln!(writer, "{message}")?;
+        if let Some(live) = &self.live {
+            write!(writer, "\r{live}")?;
+        }
+        writer.flush()
+    }
+
+    fn progress(&mut self, writer: &mut impl Write, line: Option<String>) -> io::Result<()> {
+        self.clear(writer)?;
+        if let Some(text) = &line {
+            write!(writer, "\r{text}")?;
+        }
+        self.live = line;
+        writer.flush()
+    }
+}
+
+/// Replaces the compiler's single live stderr line. `None` clears it.
+/// Only the compiler's TTY display calls this; plain logs never use escapes.
+pub(crate) fn progress_line(line: Option<String>) {
+    if let Ok(mut output) = OUTPUT.lock() {
+        // A broken diagnostic stream must not fail an otherwise valid build.
+        if output.progress(&mut io::stderr().lock(), line).is_err() {
+            output.live = None;
+        }
+    }
+}
+
+fn stderr_line(message: impl Display) {
+    if let Ok(output) = OUTPUT.lock() {
+        let _written = output.line(&mut io::stderr().lock(), message);
+    }
+}
 
 /// Environment variable that turns developer telemetry on.
 ///
@@ -54,7 +113,11 @@ fn truthy(value: &str) -> bool {
 )]
 pub fn info(message: impl Display) {
     if verbose() {
-        println!("{message}");
+        if DIAGNOSTIC_STDERR.load(Ordering::Relaxed) {
+            stderr_line(message);
+        } else {
+            println!("{message}");
+        }
     }
 }
 
@@ -62,9 +125,8 @@ pub fn info(message: impl Display) {
 ///
 /// Use for a genuine problem the player can act on (a level that failed to
 /// load, a missing asset root, an unwritable settings file).
-#[expect(clippy::print_stderr, reason = "this is the central warning output")]
 pub fn warn(message: impl Display) {
-    eprintln!("{message}");
+    stderr_line(message);
 }
 
 /// Prints one warning the first time `key` is seen in this process.
@@ -72,10 +134,6 @@ pub fn warn(message: impl Display) {
 /// `key` identifies the problem class (usually the asset id or file path), so
 /// repeated encounters collapse into one line. Use for problems that can occur
 /// once per item in a loop.
-#[expect(
-    clippy::print_stderr,
-    reason = "this is the central deduplicated warning output"
-)]
 pub fn warn_once(key: impl AsRef<str>, message: impl Display) {
     static SEEN: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
     let seen = SEEN.get_or_init(|| Mutex::new(HashSet::new()));
@@ -83,13 +141,37 @@ pub fn warn_once(key: impl AsRef<str>, message: impl Display) {
         .lock()
         .is_ok_and(|mut set| set.insert(key.as_ref().to_string()));
     if first {
-        eprintln!("{message}");
+        stderr_line(message);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{panic_message, truthy};
+
+    // A memory writer protects the exact clear/log/redraw boundary without
+    // touching global logging state or spawning a renderer.
+    #[test]
+    fn diagnostics_clear_and_restore_the_live_line() -> std::io::Result<()> {
+        let mut output = super::Output { live: None };
+        let mut bytes = Vec::new();
+        output.line(&mut bytes, "plain warning")?;
+        assert_eq!(
+            bytes, b"plain warning\n",
+            "plain logs must not contain escapes"
+        );
+        bytes.clear();
+        output.progress(&mut bytes, Some("full: direct 1/4".into()))?;
+        output.line(&mut bytes, "worker warning")?;
+        output.progress(&mut bytes, None)?;
+        output.line(&mut bytes, "complete")?;
+        assert_eq!(
+            bytes,
+            b"\rfull: direct 1/4\r\x1b[2Kworker warning\n\rfull: direct 1/4\r\x1b[2Kcomplete\n",
+            "a warning stays on its own line and completion clears progress"
+        );
+        Ok(())
+    }
 
     #[test]
     fn worker_panic_messages_preserve_string_payloads() {

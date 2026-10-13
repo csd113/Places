@@ -21,6 +21,7 @@ impl TransportScene {
         bake_probes: bool,
     ) -> Result<TransportSolve, LightmapFailure> {
         let started = std::time::Instant::now();
+        crate::compiler::progress::stage("building shared base and switched receivers");
         let receivers = self.receivers(charts)?;
         let receiver_ms = started.elapsed().as_secs_f64() * 1_000.0_f64;
         if !self.receiver_target.is_empty() && self.receiver_target.len() != receivers.len() {
@@ -131,6 +132,7 @@ impl TransportScene {
         if !active.iter().any(|channel| *channel) {
             return Ok((combined, 0, 0));
         }
+        crate::compiler::progress::stage("building shared diffuse radiance cache");
         let cache = RadianceCache::build(receivers);
         let mut previous = combined.clone();
         for order in 0..options.bounces {
@@ -201,6 +203,11 @@ impl TransportScene {
         let count = options.gather_samples.clamp(1, MAX_BOUNCE_RAYS);
         let inverse_count = 1.0 / f32::from(u16::try_from(count).unwrap_or(u16::MAX));
         let audit = super::diagnostics::enabled().then(GatherAudit::default);
+        crate::compiler::progress::stage(format!(
+            "shared bounce {}/{}",
+            order.saturating_add(1),
+            options.bounces
+        ));
         let sampled = parallel_map(receivers.len(), options.workers, cancel, |index| {
             let receiver = &receivers[index];
             let geometric_normal = self

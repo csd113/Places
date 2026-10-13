@@ -578,6 +578,44 @@ fn archives_round_trip_deterministically_and_reject_traversal() {
     crate::test_support::remove_dir_if_present(&dir);
 }
 
+// One tiny record: cancellation after compression must preserve the existing
+// package and remove only the writer's temporary. No map or GPU preparation.
+#[test]
+fn interrupted_archive_publication_preserves_previous_output() {
+    let dir = scratch_dir("cancel-publication");
+    let path = dir.join("previous.placesmap");
+    std::fs::write(&path, b"previous package").expect("previous output");
+    let checks = std::cell::Cell::new(0_usize);
+    let result = super::archive::write_archive_checked(
+        &path,
+        vec![PendingEntry {
+            name: "manifest.json".into(),
+            bytes: b"{}".to_vec(),
+        }],
+        || {
+            let step = checks.get();
+            checks.set(step.saturating_add(1));
+            if step >= 2 {
+                Err("interrupted before publication".into())
+            } else {
+                Ok(())
+            }
+        },
+    );
+    assert!(result.is_err(), "late interruption must refuse publication");
+    assert_eq!(
+        std::fs::read(&path).expect("read output"),
+        b"previous package",
+        "an interruption cannot replace the previous package"
+    );
+    assert_eq!(
+        std::fs::read_dir(&dir).expect("list scratch").count(),
+        1,
+        "the partial archive must be removed"
+    );
+    crate::test_support::remove_dir_if_present(&dir);
+}
+
 /// Builds a bare ZIP end-of-central-directory plus central directory carrying
 /// `names`, with no local entries. The package scanner validates exactly these
 /// bytes before the ZIP reader builds its name-keyed index.

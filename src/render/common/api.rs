@@ -630,6 +630,7 @@ fn bake_request_with_workers(
         solution.cache_cells
     ));
     let atlas_started = std::time::Instant::now();
+    crate::compiler::progress::stage("assembling lightmap atlases");
     let base: Vec<Vec<LightmapTexel>> = solution
         .charts
         .iter()

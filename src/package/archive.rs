@@ -364,7 +364,18 @@ pub struct PendingEntry {
 ///
 /// # Errors
 /// Returns an error when the input is malformed, out of bounds or unsupported.
-pub fn write_archive(path: &Path, mut entries: Vec<PendingEntry>) -> Result<(), String> {
+pub fn write_archive(path: &Path, entries: Vec<PendingEntry>) -> Result<(), String> {
+    write_archive_checked(path, entries, || Ok(()))
+}
+
+/// Compiler cancellation boundaries; encoding and atomic publication are the
+/// same as `write_archive`. Never publish after the final check fails.
+pub(crate) fn write_archive_checked(
+    path: &Path,
+    mut entries: Vec<PendingEntry>,
+    check: impl Fn() -> Result<(), String>,
+) -> Result<(), String> {
+    check()?;
     entries.sort_by(|left, right| left.name.cmp(&right.name));
     if entries.len() > MAX_ENTRIES {
         return Err(format!(
@@ -383,7 +394,7 @@ pub fn write_archive(path: &Path, mut entries: Vec<PendingEntry>) -> Result<(), 
     // Own the temporary before writing or cleaning it up. Exclusive creation
     // never truncates a pre-existing file or follows a pre-existing symlink.
     let (temporary, file) = create_temporary(path)?;
-    let result = write_archive_to(file, &entries);
+    let result = write_archive_to(file, &entries, &check).and_then(|()| check());
     if let Err(error) = result {
         return Err(cleanup_failed_write(&temporary, error));
     }
@@ -411,9 +422,14 @@ fn cleanup_failed_write(path: &Path, error: String) -> String {
 }
 
 /// Writes a sorted entry list to an exclusively owned file before publication.
-fn write_archive_to(file: std::fs::File, entries: &[PendingEntry]) -> Result<(), String> {
+fn write_archive_to(
+    file: std::fs::File,
+    entries: &[PendingEntry],
+    check: &impl Fn() -> Result<(), String>,
+) -> Result<(), String> {
     let mut writer = zip::ZipWriter::new(file);
     for entry in entries {
+        check()?;
         let options = zip::write::SimpleFileOptions::default()
             .compression_method(zip::CompressionMethod::Deflated)
             .compression_level(Some(6))

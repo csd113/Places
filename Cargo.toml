@@ -21,6 +21,9 @@ visual-diagnostics = []
 # camera uniform). Already a transitive wgpu dependency; the derive feature
 # makes the layout contract explicit without unsafe transmutation.
 bytemuck = { version = "1.25", default-features = false, features = ["derive"] }
+# Compiler-only terminal sizing and cooperative Ctrl-C handling; no UI runtime.
+ctrlc = "3.5.2"
+terminal_size = "0.4.4"
 glam = "0.29"
 png = "0.18.1"
 # Blocking adapter/device initialization for the wgpu backend: two futures and

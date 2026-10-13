@@ -35,6 +35,7 @@
 
 pub mod diagnostics;
 mod probes;
+pub mod progress;
 mod storage;
 
 use storage::factor_prepared_props;
@@ -50,7 +51,7 @@ use std::sync::Arc;
 use crate::game::CollisionWorld;
 use crate::level::LevelDef;
 use crate::materials::{MaterialTable, TextureCache};
-use crate::package::archive::{PendingEntry, write_archive};
+use crate::package::archive::{PendingEntry, write_archive_checked};
 use crate::package::collision::{CompiledCollision, write_collision};
 use crate::package::hash::{blob_name, sha256_hex};
 use crate::package::lighting::write_lighting;
@@ -259,8 +260,16 @@ pub struct VerifyReport {
 /// or catalog is missing, any preparation step fails, a record cannot be
 /// encoded, or the archive cannot be published. A failed build never replaces
 /// an existing package.
-#[expect(clippy::too_many_lines, reason = "one cohesive build pipeline")] // one cohesive build pipeline
 pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
+    let scope = progress::BuildScope::start(&request.source);
+    let result = build_inner(request);
+    scope.finish(&result);
+    result
+}
+
+#[expect(clippy::too_many_lines, reason = "one cohesive build pipeline")]
+fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
+    progress::check_cancelled()?;
     let started = Instant::now();
     let mut phases = Vec::new();
     if request.workers == 0 {
@@ -285,9 +294,11 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
     let source_hash = sha256_hex(&source_bytes);
     let mut assets = crate::props::PropAssets::with_root(request.asset_root.clone());
 
+    progress::stage("resolving assets and dependency identities");
     let dependencies = collect_dependencies(&level, &catalog, &request.asset_root, &mut warnings)?;
     record_phase(&mut phases, "load_validate_prepare_dependencies", started);
     let tool_started = Instant::now();
+    progress::stage("hashing compiler identity");
     let build_inputs = BuildInputs {
         revision: 1,
         source_sha256: source_hash.clone(),
@@ -311,6 +322,7 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
     );
     record_phase(&mut phases, "fingerprints", phase_started);
     let integrity_started = Instant::now();
+    progress::stage("checking current package integrity");
 
     let mut cache_decisions = Vec::new();
     let current = if request.force {
@@ -369,8 +381,10 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
     let mut variants = Vec::with_capacity(request.variants.len());
     let mut variant_stats = Vec::with_capacity(request.variants.len());
     let mut cache = crate::lighting::lightmap::LightmapCache::memory_only();
-    let cancelled = std::sync::atomic::AtomicBool::new(false);
+    let cancelled = progress::cancellation_flag();
     let navigation_started = Instant::now();
+    progress::check_cancelled()?;
+    progress::stage("preparing navigation and collision inputs");
     // Navigation is variant-independent: bake and insert it once, then let
     // every variant reference the same content-addressed blob.
     let (navigation_bytes, navigation_report) = bake_navigation(&level, workers, &mut warnings)?;
@@ -381,6 +395,7 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
         navigation_started,
     );
     let reuse_started = Instant::now();
+    progress::stage("checking reusable prepared records");
     // Reuse the previous package's prepared geometry, lighting, probes and
     // collision when the lighting stage fingerprint matches: an AI-only edit
     // must not rebake illumination.
@@ -391,6 +406,7 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
     };
     record_phase(&mut phases, "prepared_package_integrity", reuse_started);
     if let Ok((reused_variants, reused_blobs)) = reused {
+        progress::stage("reusing verified geometry, lighting, probes and collision");
         cache_decisions.push(CacheDecision {
             stage: "prepared_world".to_string(),
             status: "hit".to_string(),
@@ -437,6 +453,8 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
             reasons: vec![reason],
         });
         let device_started = Instant::now();
+        progress::check_cancelled()?;
+        progress::stage("resolving capture materials");
         let mut capture = if request.capture_probes {
             Some(CaptureContext::new(&level, &catalog, &request.asset_root)?)
         } else {
@@ -451,6 +469,9 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
         )?;
         record_phase(&mut phases, "capture_device_materials", device_started);
         for quality in &request.variants {
+            progress::check_cancelled()?;
+            progress::variant(quality.name());
+            progress::stage("preparing geometry and lightmap layout");
             crate::logging::info(format_args!(
                 "[compiler-progress] preparing {}",
                 quality.name()
@@ -494,6 +515,8 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
                 // Preparation and capture share the resolved material state.
                 if stats.probe_points > 0 && !quality.is_off() {
                     let capture_started = Instant::now();
+                    progress::check_cancelled()?;
+                    progress::stage("capturing reflection probes");
                     crate::logging::info(format_args!(
                         "[compiler-progress] capturing {}",
                         quality.name()
@@ -513,10 +536,14 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
     }
 
     let sharing_started = Instant::now();
+    progress::check_cancelled()?;
+    progress::variant("");
+    progress::stage("sharing prepared prop records");
     factor_prepared_props(&mut variants, &mut blobs)?;
     record_phase(&mut phases, "share_prepared_props", sharing_started);
 
     let manifest_started = Instant::now();
+    progress::stage("hashing records and validating manifest");
     let input_bytes = crate::canonical_json::canonical_json_bytes(&build_inputs)
         .map_err(|error| format!("could not serialize compiler input provenance: {error}"))?;
     drop(blobs.insert(
@@ -611,7 +638,9 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
     });
     record_phase(&mut phases, "record_hashes_manifest", manifest_started);
     let publication_started = Instant::now();
-    write_archive(&request.out, entries)?;
+    progress::check_cancelled()?;
+    progress::stage("compressing and publishing archive");
+    write_archive_checked(&request.out, entries, progress::check_cancelled)?;
     record_phase(&mut phases, "archive_compress_publish", publication_started);
     let bytes = std::fs::metadata(&request.out).map_or(0, |metadata| metadata.len());
     Ok(BuildReport {
@@ -667,6 +696,7 @@ pub fn build_collection(
     sources.sort();
     let mut results = Vec::with_capacity(sources.len());
     for source in sources {
+        progress::check_cancelled()?;
         let request = BuildRequest {
             source: source.clone(),
             out: package_path_for(&source),
@@ -909,6 +939,7 @@ impl CaptureContext {
             return Ok(Vec::new());
         }
         if self.renderer.is_none() {
+            progress::stage("initializing reflection capture device");
             self.renderer = Some(crate::render::Renderer::new_headless(
                 crate::render::DrawableSize::new(1280, 720),
             )?);
@@ -918,6 +949,7 @@ impl CaptureContext {
             .as_mut()
             .ok_or("capture device is unavailable")?;
         renderer.set_quality(QualityLevel::High);
+        progress::stage("uploading prepared reflection scene");
         renderer.set_lightmap_quality(quality);
         renderer.set_reflection_quality(ReflectionQuality::Full);
         renderer.install_prepared(
@@ -928,12 +960,17 @@ impl CaptureContext {
             false,
         );
         while !renderer.advance_prepared_install() {
+            progress::check_cancelled()?;
             // Upload phases advance one bounded step per call.
         }
         let mut payloads = Vec::with_capacity(2);
+        progress::check_cancelled()?;
+        progress::stage("rendering and reading Full reflection faces");
         let full = renderer.read_back_probe_faces()?;
         payloads.push(probe_payload(&full, &probe_points, blobs)?);
         renderer.reprepare_reflection_probes(ReflectionQuality::Medium);
+        progress::check_cancelled()?;
+        progress::stage("rendering and reading Medium reflection faces");
         let medium = renderer.read_back_probe_faces()?;
         payloads.push(probe_payload(&medium, &probe_points, blobs)?);
         Ok(payloads)
@@ -970,7 +1007,13 @@ fn probe_payload(
         return Err(format!("probe capture produced {} probes", probes.len()));
     }
     let mut cubemaps = Vec::with_capacity(probes.len());
+    let work = progress::Work::start(
+        "prefiltering and encoding reflection probes",
+        probes.len(),
+        "probes",
+    );
     for probe in probes {
+        progress::check_cancelled()?;
         if probe.face_size != face_edge {
             return Err("probe capture mixed face sizes".to_string());
         }
@@ -981,7 +1024,9 @@ fn probe_payload(
             ".probe.ktx2",
             "probes",
         ));
+        work.advance(1);
     }
+    work.finish();
     // The positions record names the *routing* probe points, which the
     // player recomputes from the decoded mesh and matches against; the cube
     // itself is captured from the lifted bake position.
@@ -1335,6 +1380,8 @@ fn build_variant(
     }
 
     let material_state = crate::render::MaterialRenderState::from_table(materials);
+    progress::check_cancelled()?;
+    progress::stage("encoding prepared records and Static circuit state");
     let routing = crate::render::routing_from_mesh(
         &build.mesh,
         &material_state.reflections,

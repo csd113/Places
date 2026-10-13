@@ -2612,6 +2612,11 @@ impl TransportScene {
         cache_cells: &mut usize,
         probes: Option<&mut Option<ProbeField>>,
     ) -> Result<Vec<SolvedChart>, LightmapFailure> {
+        crate::compiler::progress::stage(if apply_fill {
+            "building base receivers"
+        } else {
+            "building switched receivers"
+        });
         let started = std::time::Instant::now();
         let receivers = self.receivers(charts)?;
         let audit = StageAudit {
@@ -2725,6 +2730,7 @@ impl TransportScene {
         if apply_fill {
             self.audit_indirect(charts, receivers, &indirect, taps);
         }
+        crate::compiler::progress::stage("filtering indirect light");
         let mut filtered = filter::filter_accumulators(self, charts, receivers, &indirect, direct)?;
         audit.texels("filtered", filtered.iter().copied());
         let filter_ms = filter_started.elapsed().as_secs_f64() * 1_000.0_f64;
@@ -2780,6 +2786,7 @@ impl TransportScene {
         // The cache is derived from the receiver positions alone, which do
         // not move between passes; only the solved values it is read
         // against change. Build it once for every bounce pass.
+        crate::compiler::progress::stage("building diffuse radiance cache");
         let cache = RadianceCache::build(receivers);
         let cache_cells = cache.occupied_cells();
         let mut previous_order = accumulators.clone();
@@ -2960,6 +2967,7 @@ impl TransportScene {
         }
         // Visibility-supported fill is independent per texel. Share the
         // immutable scene and preserve each texel's exact arithmetic order.
+        crate::compiler::progress::stage("receiver recovery");
         parallel_map(texels.len(), workers, cancel, |index| {
             let mut texel = texels[index];
             let receiver = &receivers[index];
@@ -3025,6 +3033,11 @@ impl TransportScene {
         let count = samples.clamp(1, MAX_BOUNCE_RAYS);
         let inverse_count = 1.0 / f32::from(u16::try_from(count).unwrap_or(u16::MAX));
         let audit = diagnostics::enabled().then(GatherAudit::default);
+        crate::compiler::progress::stage(format!(
+            "{} bounce {}",
+            if include_sky { "base" } else { "switched" },
+            pass_index.saturating_add(1)
+        ));
         let gathered = parallel_map(receivers.len(), workers, cancel, |index| {
             let Some(receiver) = receivers.get(index) else {
                 return Accumulator::default();
@@ -3565,6 +3578,7 @@ fn bake_probe_field(
     if audit && let Err(error) = probe_audit::dump_receivers(scene, receivers, values, bounces) {
         crate::logging::warn(format_args!("[probe-diagnostics] {error}"));
     }
+    crate::compiler::progress::stage_with_unit("solving irradiance probes", "probes");
     let baked = parallel_map(count, workers, cancel, |index| {
         let position = lattice.position(index);
         bake_probe(
@@ -4840,17 +4854,20 @@ fn parallel_map<T: Send>(
     cancel: Option<&AtomicBool>,
     task: impl Fn(usize) -> T + Sync,
 ) -> Result<Vec<T>, LightmapFailure> {
-    if count == 0 {
-        return Ok(Vec::new());
-    }
-    if workers <= 1 || count == 1 {
+    let work = crate::compiler::progress::Work::current(count);
+    if workers <= 1 || count <= 1 {
         let mut out = Vec::with_capacity(count);
         for index in 0..count {
             if cancel.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
                 return Err(LightmapFailure::FillSize);
             }
             out.push(task(index));
+            if index.saturating_add(1).is_multiple_of(64) {
+                work.advance(64);
+            }
         }
+        work.advance(count % 64);
+        work.finish();
         return Ok(out);
     }
     let bounded_workers = workers.min(MAX_TRANSPORT_WORKERS).min(count);
@@ -4871,6 +4888,7 @@ fn parallel_map<T: Send>(
         for worker in 0..job_workers {
             let worker_task = &task;
             let next_job = &next;
+            let worker_progress = &work;
             let handle = std::thread::Builder::new()
                 .name(format!("transport-solve-{worker}"))
                 .spawn_scoped(scope, move || {
@@ -4888,7 +4906,11 @@ fn parallel_map<T: Send>(
                                 break;
                             }
                             values.push(worker_task(index));
+                            if values.len().is_multiple_of(64) {
+                                worker_progress.advance(64);
+                            }
                         }
+                        worker_progress.advance(values.len() % 64);
                         completed.push((job, values));
                     }
                     completed
@@ -4932,6 +4954,7 @@ fn parallel_map<T: Send>(
         }
         out.append(&mut values);
     }
+    work.finish();
     Ok(out)
 }
 

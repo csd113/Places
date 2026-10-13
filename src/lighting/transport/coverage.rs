@@ -207,6 +207,11 @@ pub(super) fn direct_pass(
     workers: usize,
     cancel: Option<&AtomicBool>,
 ) -> Result<(Vec<super::Accumulator>, usize), LightmapFailure> {
+    crate::compiler::progress::stage(if global {
+        "base direct visibility"
+    } else {
+        "switched direct visibility"
+    });
     if taps <= 1 {
         let centres = parallel_map(receivers.len(), workers, cancel, |index| {
             receivers
