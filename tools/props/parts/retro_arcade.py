@@ -28,6 +28,8 @@ CABINET_REGIONS = {
     "control": (0,128,128,64), "coin": (0,192,64,64),
     "body": (64,192,32,32), "metal": (96,192,32,32),
     "dark": (64,224,32,32), "white": (96,224,32,32), "side": (128,0,128,256),
+    "red_cap": (96,224,16,16), "amber_cap": (112,224,16,16),
+    "cyan_cap": (96,240,16,16), "ivory_cap": (112,240,16,16),
 }
 SCORE_REGIONS = {
     "screen": (0,0,192,144), "inactive": (0,144,128,96),
@@ -408,14 +410,15 @@ def pedestal_table(p):
 
 
 def soda_bottle(p):
-    t=atlas(p);material(p,'bottle_glass',.16,metallic=.04,alpha_mode='blend',opacity=.87)
+    t=atlas(p,'soda_bottle',dict(label=(0,0,256,128),bottle=(0,128,128,128),blue=(128,128,128,128)))
+    material(p,'bottle_glass',.16,metallic=.04,alpha_mode='blend',opacity=.87)
     lathe(p,(0,0,0),[(0,.037),(.018,.0475),(.195,.0475),(.225,.030),(.247,.019),(.265,.019)],t.uv('bottle',2),12)
     material(p,'printed_label',.43)
     lathe(p,(0,0,0),[(.070,.048),(.157,.048)],t.uv('label',2),12)
     material(p,'bottle_cap',.34)
     lathe(p,(0,0,0),[(.263,.022),(.277,.022),(.28,.019)],t.uv('blue',2),12)
     if p.id.endswith('fallen'): transform_new(p,0,(0,0,0),x_angle=90)
-    finish(p,'slightly translucent dark soda bottle, visible shoulder/neck, blue cap and period STRIKE COLA label')
+    finish(p,'slightly translucent dark soda bottle, visible shoulder/neck, blue cap and three upright Bepsi label repeats')
 
 
 def vending_machine(p):
@@ -505,10 +508,19 @@ def cabinet_side(p,polygon,x0,x1,uv,body,art_slot=None,body_slot=None):
         p.mesh.quad(rows[0][i],rows[0][j],rows[1][j],rows[1][i],uv=body,color=WHITE)
 
 
-def joystick(p,x,y,z,metal,dark):
+def joystick(p,x,y,z,metal,cap):
     cylinder(p,(x,y,z),.026,.010,metal,8)
     cylinder(p,(x,y+.009,z),.011,.07,metal,6)
-    sphere(p,(x,y+.086,z),(.029,.029,.029),dark,0)
+    sphere(p,(x,y+.086,z),(.040,.040,.040),cap,0)
+
+
+def cabinet_trim(p,a,b,uv):
+    """Closed molding prism in a cabinet's Y/Z profile plane: twelve triangles."""
+    center=tuple((left+right)/2 for left,right in zip(a,b))
+    dy,dz=b[1]-a[1],b[2]-a[2]
+    start=len(p.mesh.positions)
+    box(p,center,(.012,math.hypot(dy,dz),.012),uv)
+    transform_new(p,start,center,x_angle=math.degrees(math.atan2(dz,dy)))
 
 
 def cabinet(p):
@@ -518,56 +530,102 @@ def cabinet(p):
     side_settings={'uv_response':.6,'uv_response_mask':(ROOT/'cabinet_scifi_uv_mask.png').read_bytes()} if kind=='scifi' else {}
     side_slot=p.material('arcade_cabinet_side_print',roughness=.52,**side_settings)
     f=d/2;b=-d/2
-    deck=.94 if kind!='scifi' else 1.01
-    # Distinct cap, screen and deck slopes preserve recognizable cabinet profiles.
-    screen_top=1.60 if kind=='shooter' else 1.55
-    screen_z=f-(.23 if kind=='shooter' else .30)
-    polygon=[(b,0),(f-.14,0),(f-.10,deck-.10),(f,deck),
-             (f-.03,deck+.13),(screen_z,screen_top),(f-.12,h-.24),(f-.12,h),(b+.03,h),(b,h-.08)]
+    deck,screen_y,screen_w,screen_tilt,cap_recess={
+        'racing':(.93,1.34,.57,-19,.11),
+        'shooter':(.98,1.39,.515,-10,.075),
+        'action':(.96,1.34,.54,-16,.10),
+        'fighting':(.96,1.325,.60,-14,.08),
+        'scifi':(1.01,1.40,.555,-20,.15),
+    }[kind]
+    screen_top=screen_y+screen_w*.375+.09
+    screen_z=f-(.225 if kind=='shooter' else .30)
+    polygon=[(b,0),(f-.14,0),(f-.105,deck-.12),(f,deck),
+             (f-.04,deck+.105),(screen_z,screen_top),
+             (f-cap_recess,h-.24),(f-cap_recess,h),(b+.035,h),(b,h-.08)]
     for x0,x1 in ((-w/2,-w/2+.042),(w/2-.042,w/2)):
         cabinet_side(p,polygon,x0,x1,t.uv('side',2),body,side_slot,body_slot)
+    # Thin physical T-molding reveals the front profile in ordinary light.
+    # Three deliberate runs per side add 72 triangles; printed stock never emits.
+    trim=t.uv('amber_cap' if kind in ('racing','action') else 'red_cap' if kind=='fighting' else 'cyan_cap',2)
+    for x in (-w/2+.009,w/2-.009):
+        for a,bp in ((polygon[1],polygon[2]),(polygon[4],polygon[5]),(polygon[5],polygon[6])):
+            cabinet_trim(p,(x,a[1],a[0]),(x,bp[1],bp[0]),trim)
     # Narrow centre carcass stays behind the recessed CRT and controls.
     box(p,(0,.43,(b+f-.15)/2),(w-.085,.86,d-.15),body)
     box(p,(0,(h+.9)/2,b+.055),(w-.085,h-.9,.11),body)
     box(p,(0,h-.15,(b+f-.15)/2),(w-.085,.27,d-.15),body)
     box(p,(0,.04,0),(w-.08,.08,d-.10),dark)
     # Slanted control panel with fitted printed art; hardware is independent.
-    tilted_box(p,(0,deck+.03,f-.155),(w-.10,.045,.32),t.uv('control',2),angle=10)
+    deck_center=(0,deck+.03,f-(.162 if kind=='racing' else .155))
+    deck_uv={face:body for face in ('+x','-x','+y','-y','+z','-z')}
+    deck_uv['+y']=t.uv('control',2)
+    if kind=='racing':
+        # A real central notch lets the lowered wheel rim clear the front
+        # laminate; one closed U-shaped extrusion keeps a continuous print.
+        top=t.uv('control',2);u0,v0,u1,v1=top
+        half=(w-.10)/2;gap=.28
+        outline=[(-half,-.16),(half,-.16),(half,.16),(gap/2,.16),
+                 (gap/2,0),(-gap/2,0),(-gap/2,.16),(-half,.16)]
+        deck_start=len(p.mesh.positions)
+        rows=[[(x,deck_center[1]+y,deck_center[2]+z) for x,z in outline]
+              for y in (-.0225,.0225)]
+        for row_index,row in enumerate(rows):
+            for ids in _ear_triangles(outline):
+                coords=[(u0+(outline[i][0]+half)/(half*2)*(u1-u0),
+                         v0+(outline[i][1]+.16)/.32*(v1-v0)) for i in ids]
+                if row_index==0:coords=[(body[0],body[1]),(body[2],body[1]),(body[2],body[3])]
+                p.mesh.triangle(*(row[i] for i in ids),uvs=coords,color=WHITE)
+        for i in range(len(outline)):
+            j=(i+1)%len(outline)
+            p.mesh.quad(rows[0][i],rows[0][j],rows[1][j],rows[1][i],uv=body,color=WHITE)
+        transform_new(p,deck_start,deck_center,x_angle=10)
+    else:
+        tilted_box(p,deck_center,(w-.10,.045,.32),deck_uv,angle=10)
     box(p,(0,.46,f-.092),(.27,.29,.02),{'+z':t.uv('coin',2),'-z':body,'+x':metal,'-x':metal,'+y':metal,'-y':metal})
     box(p,(.014,.48,f-.077),(.105,.012,.012),dark)
     box(p,(.0,.365,f-.065),(.10,.035,.024),metal)
     # Deep CRT bezel, pitched with the glass, never a modern flat display.
-    center=(0,1.345,f-.235)
+    center=(0,screen_y,f-.235)
     start=len(p.mesh.positions)
-    rect_frame(p,center,w-.095,.54,.065,.12,dark)
-    transform_new(p,start,center,x_angle=-16 if kind!='shooter' else -11)
-    material(p,'cabinet_screen',.14,emissive=(1,1,1),strength=1.45)
-    curved_screen(p,(0,1.345,f-.174),w-.23,(w-.23)*.75,t.uv('screen',2),tilt=-16 if kind!='shooter' else -11,bulge=.010)
-    marquee_slot=material(p,'cabinet_marquee',.31,emissive=(1,1,1),strength=1.65)
+    rect_frame(p,center,screen_w+.12,screen_w*.75+.12,.060,.12,dark)
+    transform_new(p,start,center,x_angle=screen_tilt)
+    material(p,'cabinet_screen',.14,emissive=(1,1,1),strength=1.15)
+    curved_screen(p,(0,screen_y,f-.174),screen_w,screen_w*.75,t.uv('screen',2),tilt=screen_tilt,bulge=.010)
+    marquee_slot=material(p,'cabinet_marquee',.31,emissive=(1,1,1),strength=1.20)
     illuminated_panel(p,(0,h-.15,f-.089),(w-.105,.175,.035),t.uv('marquee',2),body,marquee_slot,body_slot)
     material(p,'control_hardware',.32,metallic=.15)
+    hardware_start=len(p.mesh.positions)
     if kind=='racing':
         # Real ring wheel with three spokes, broad driving deck and pedals.
-        outer=[(.145*math.cos(math.tau*i/12),.145*math.sin(math.tau*i/12)) for i in range(12)]
-        inner=[(.116*math.cos(math.tau*i/12),.116*math.sin(math.tau*i/12)) for i in range(12)]
-        frame(p,(0,deck+.18,f-.05),outer,inner,.035,dark)
+        wheel_center=(0,deck+.095,f-.088)
+        outer=[(.125*math.cos(math.tau*i/12),.125*math.sin(math.tau*i/12)) for i in range(12)]
+        inner=[(.099*math.cos(math.tau*i/12),.099*math.sin(math.tau*i/12)) for i in range(12)]
+        frame(p,wheel_center,outer,inner,.035,dark)
         for angle in (90,210,330):
             a=math.radians(angle)
-            beam(p,(0,deck+.18,f-.05),(.12*math.cos(a),deck+.18+.12*math.sin(a),f-.05),.018,.018,metal)
-        cylinder(p,(0,deck+.18,f-.087),.035,.05,metal,8,axis='z')
+            beam(p,wheel_center,(.104*math.cos(a),wheel_center[1]+.104*math.sin(a),wheel_center[2]),.018,.018,metal)
+        cylinder(p,(0,wheel_center[1],wheel_center[2]-.037),.035,.05,metal,8,axis='z')
+        # The useful 25 cm wheel clears the entire CRT from a standing front
+        # view; its lower rim sits in the real panel notch within the footprint.
+        transform_new(p,hardware_start,wheel_center,x_angle=-35)
         for x in (-.11,.11): tilted_box(p,(x,.11,f-.11),(.09,.025,.14),metal,angle=-15)
     elif kind=='scifi':
-        sphere(p,(-.12,deck+.088,f-.13),(.062,.045,.062),t.uv('white',2),1)
-        for x in (.13,.23): cylinder(p,(x,deck+.065,f-.18),.021,.015,metal,8)
+        sphere(p,(-.12,deck+.075,f-.13),(.062,.045,.062),t.uv('ivory_cap',2),1)
+        for x in (.13,.23): cylinder(p,(x,deck+.052,f-.18),.023,.018,t.uv('cyan_cap',2),8)
     else:
         xs=(-.25,.16) if kind=='fighting' else (-.17,)
-        for x in xs: joystick(p,x,deck+.067,f-.14,metal,dark)
+        for i,x in enumerate(xs): joystick(p,x,deck+.052,f-.14,metal,t.uv('red_cap' if i==0 else 'cyan_cap',2))
         clusters=(.0,.32) if kind=='fighting' else (.11,)
         for cx in clusters:
             for j in range(6 if kind=='fighting' else 3):
                 x=cx+(j%3-.8)*.047;z=f-.12-(j//3)*.055
-                cylinder(p,(x,deck+.065,z),.016,.014,t.uv('white',2),6 if kind=='fighting' else 8)
-    finish(p,f'distinct {kind} commercial cabinet silhouette, fitted side art, thick tilted CRT, original game screen, printed marquee and raised controls')
+                cap='red_cap' if cx==.0 else 'cyan_cap' if kind=='fighting' else 'amber_cap'
+                cylinder(p,(x,deck+.052,z),.022,.018,t.uv(cap,2),6 if kind=='fighting' else 8)
+    if kind!='racing':
+        # Build on the unrotated deck's top, then rotate the whole assembly
+        # with its supporting plane so controls have no floating bases.
+        transform_new(p,hardware_start,deck_center,x_angle=10)
+    finish(p,f'distinct {kind} commercial cabinet profile, fitted illustrated side print, correctly framed 4:3 tilted CRT, original game screen, illustrated marquee and colored physical controls')
 
 
 def pinball(p):

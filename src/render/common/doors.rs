@@ -179,7 +179,7 @@ pub fn build_door_models(
 
     let mut frame_mesh = MeshBuilder::default();
     if def.kind == DoorKind::Restroom {
-        push_restroom_frame(&mut frame_mesh, def, frame_image.tile);
+        push_restroom_frame(&mut frame_mesh, def, frame, frame_image.tile);
     } else {
         push_frame(&mut frame_mesh, def, frame, frame_image.tile);
     }
@@ -701,15 +701,37 @@ fn hinge_heights(height: f32) -> [f32; 2] {
 }
 
 /// Thin commercial jambs fit partition stock without residential casings.
-fn push_restroom_frame(builder: &mut MeshBuilder, def: &DoorDef, tile: f32) {
+fn push_restroom_frame(builder: &mut MeshBuilder, def: &DoorDef, frame: DoorFrame, tile: f32) {
     let metal = Paint::new(SLOT_FRAME, tile, 0.9);
-    let depth = def.thickness.mul_add(0.5, 0.014);
+    let (near, far) = frame.span();
+    let z_lo = near - FRAME_EMBED_M;
+    let z_hi = far + FRAME_EMBED_M;
     for (lo, hi) in [(-0.03, 0.004), (def.width - 0.004, def.width + 0.03)] {
-        builder.push_box([lo, -def.y, -depth], [hi, def.height, depth], metal);
+        builder.push_box([lo, -def.y, z_lo], [hi, def.height, z_hi], metal);
     }
     builder.push_box(
-        [-0.03, def.height, -depth],
-        [def.width + 0.03, def.height + 0.035, depth],
+        [-0.03, def.height, z_lo],
+        [def.width + 0.03, def.height + 0.055, z_hi],
+        metal,
+    );
+    // The leaf has an 8 mm fitting clearance. A separate stop overlaps that
+    // clearance behind the closed leaf, on the side opposite its swing. The
+    // liner alone cannot prevent an oblique sightline through the side gap.
+    let swing_sign = def.signed_swing().signum();
+    let stop_near = swing_sign * def.thickness.mul_add(0.5, 0.002);
+    let stop_far = swing_sign * def.thickness.mul_add(0.5, 0.014);
+    let stop_lo = stop_near.min(stop_far);
+    let stop_hi = stop_near.max(stop_far);
+    for (lo, hi) in [(-0.025, 0.016), (def.width - 0.016, def.width + 0.025)] {
+        builder.push_box(
+            [lo, -def.y, stop_lo],
+            [hi, def.height - 0.012, stop_hi],
+            metal,
+        );
+    }
+    builder.push_box(
+        [-0.025, def.height - 0.012, stop_lo],
+        [def.width + 0.025, def.height + 0.050, stop_hi],
         metal,
     );
     for height in hinge_heights(def.height) {
@@ -1243,6 +1265,71 @@ mod tests {
     /// itself stays lint-clean. Test-only, bounded model coordinates.
     fn sub(a: Vec3, b: Vec3) -> Vec3 {
         Vec3::new(a.x - b.x, a.y - b.y, a.z - b.z)
+    }
+
+    // A bounded ray through the actual model triangles protects privacy at
+    // the fitting clearance. This tiny door fixture needs no map bake or GPU.
+    fn model_blocks_segment(model: &PropModel, from: Vec3, to: Vec3) -> bool {
+        let direction = sub(to, from);
+        model.indices.as_chunks::<3>().0.iter().any(|indices| {
+            let [corner, second, third] =
+                indices.map(|index| Vec3::from(model.vertices[usize::from(index)].pos));
+            let edge = sub(second, corner);
+            let other = sub(third, corner);
+            let cross = direction.cross(other);
+            let determinant = edge.dot(cross);
+            if determinant.abs() < 1e-8 {
+                return false;
+            }
+            let offset = sub(from, corner);
+            let u = offset.dot(cross) / determinant;
+            let edge_cross = offset.cross(edge);
+            let v = direction.dot(edge_cross) / determinant;
+            let distance = other.dot(edge_cross) / determinant;
+            (0.0..=1.0).contains(&u) && v >= 0.0 && u + v <= 1.0 && (0.0..=1.0).contains(&distance)
+        })
+    }
+
+    #[test]
+    fn a_closed_restroom_rebate_blocks_edge_sightlines_without_filling_the_passage() {
+        let table = materials();
+        for swing in [
+            crate::level::DoorSwing::Left,
+            crate::level::DoorSwing::Right,
+        ] {
+            let mut def = door(DoorKind::Restroom, 1.4, 2.4);
+            def.open_direction = swing;
+            let models = build_door_models(
+                &def,
+                &table,
+                DoorFrame {
+                    depth: 0.24,
+                    center: 0.04,
+                },
+            )
+            .expect("commercial frame");
+            for edge in [0.006_f32, def.width - 0.006] {
+                let from = Vec3::new(edge - 0.004, 1.6, 0.3);
+                let to = Vec3::new(edge + 0.004, 1.6, -0.3);
+                assert!(
+                    !model_blocks_segment(&models.leaf, from, to),
+                    "fitting clearance witness"
+                );
+                assert!(
+                    model_blocks_segment(&models.frame, from, to),
+                    "rebate blocks both directions at {edge}"
+                );
+                assert!(model_blocks_segment(&models.frame, to, from));
+            }
+            assert!(
+                !model_blocks_segment(
+                    &models.frame,
+                    Vec3::new(0.7, 1.6, 0.3),
+                    Vec3::new(0.7, 1.6, -0.3),
+                ),
+                "the open frame keeps the walking aperture clear"
+            );
+        }
     }
 
     /// Fails when two faces with the same facing sit in one plane and overlap.

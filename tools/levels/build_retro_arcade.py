@@ -304,6 +304,30 @@ def build_level():
         cabinet("cabinet_"+name, .82, z, "west_"+name, color=color)
     cabinet("cabinet_fighting", 5.8, 1.2, "north_fighting", yaw=0, dim=True)
     cabinet("cabinet_racing", 7.1, 1.2, "north_racing", yaw=0)
+    # Closely fitted wall rows and two three-wide, back-to-back islands turn
+    # the empty floor into a working arcade. Keep the restroom landing, the
+    # southern pinball/concourse and the bowling passage clear. The islands'
+    # side edges leave at least 1.8 m to both facing wall rows.
+    cabinet("cabinet_shooter", 3.2, 1.2, "north_shooter", yaw=0, color=(.25,.62,1))
+    cabinet("cabinet_action", 4.5, 1.2, "north_action", yaw=0, color=(1,.28,.42))
+    for index, (name,z,color) in enumerate((
+        ("action",5.0,(1,.28,.42)), ("fighting",7.0,(1,.18,.62)),
+        ("scifi",9.0,(.52,.25,1)), ("racing",11.0,(.30,.52,1)),
+        ("shooter",13.2,(.25,.62,1)), ("action",15.5,(1,.28,.42)),
+    )):
+        cabinet("cabinet_"+name,.82,z,f"west_infill_{index}",color=color)
+    games=(("racing",(.30,.52,1)),("fighting",(1,.18,.62)),
+           ("shooter",(.25,.62,1)),("scifi",(.52,.25,1)),("action",(1,.28,.42)))
+    for index,z in enumerate((5.0,6.2,7.4,8.6,9.8,11.0,12.2,13.4,14.6)):
+        name,color=games[index%len(games)]
+        cabinet("cabinet_"+name,8.4,z,f"east_{index}",yaw=270,color=color)
+    for island,z in enumerate((9.5,15.5)):
+        for slot,x in enumerate((3.65,4.6,5.55)):
+            for face,yaw in enumerate((180,0)):
+                name,color=games[(island*3+slot+face)%len(games)]
+                depth=sizes["arcade:cabinet_"+name][2]
+                cabinet("cabinet_"+name,x,z+(-1 if face==0 else 1)*(depth/2+.025),
+                        f"island_{island}_{slot}_{face}",yaw=yaw,color=color)
     for index, name in enumerate(("pinball_cosmic", "pinball_comet")):
         prop(name, 1.1, 18.0+index*2.1, f"pinball_{index}", yaw=90,
              lights=[dict(shape="point", offset=[0, 1.65, -.46],

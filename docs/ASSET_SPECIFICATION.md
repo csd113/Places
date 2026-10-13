@@ -1237,6 +1237,21 @@ small metal latches and narrow jambs, with existing PNG material references.
 They start closed and swing into the room/bays. The kit's standalone leaf GLB
 remains a reusable static construction piece; it is not the playable collider.
 
+### 8.16 Arcade Bepsi bottle label
+
+Both upright `soda_bottle` and `litter_bottle_fallen` embed the same opaque
+256-square `props/soda_bottle.png`, derived from its retained 1024-square
+master by the explicit offline `tools/props/author_bepsi_bottle.py`. It fits the
+existing production vending globe/word artwork; vending sources are unchanged.
+Native UV rectangles are label `(0,0,256,128)`, bottle `(0,128,128,128)` and
+blue cap `(128,128,128,128)`. U traverses the label circumference once; V runs
+upright from shoulder to base. Three upright logo repeats preserve readable
+branding around the 12-sided bottle. The same normalized frame is embedded in
+both exports; the fallen bottle rotates geometry after fitting the upright UVs.
+The ordinary blue printed label and cap remain non-emissive and non-reactive;
+only the existing glass slot uses BLEND opacity 0.87. All images are clamped,
+non-tiling, with normalized UVs. Model dimensions and collision are unchanged.
+
 ## 9. Emissive textures and masks
 
 Places does **not** use dedicated emissive colour textures. Emission is
@@ -1329,6 +1344,33 @@ mural is a fitted 4:1 RGBA decal (1024×256) with transparent outer margins;
 each level placement must retain that ratio and stay within the 10 m decal
 edge limit. Reference boards remain unchanged source records and are never
 cropped into production textures.
+
+The five upright cabinet atlases retain their explicit native-pixel regions:
+4:3 screen `(0,0,128,96)`, 4:1 marquee `(0,96,128,32)`, 2:1 control deck
+`(0,128,128,64)`, square coin door `(0,192,64,64)`, body/metal/dark cells
+`(64,192,32,32)`, `(96,192,32,32)`, `(64,224,32,32)`, and 1:2 printed side
+`(128,0,128,256)`. The existing pale hardware cell `(96,224,32,32)` now
+contains four 16-square fitted swatches, in reading order: red, amber, cyan,
+ivory. Cabinet UVs and regenerated GLBs publish this subdivision together.
+Opaque RGB original cabinet illustration inputs live in
+`environments/arcade/props/illustrations/cabinet_<kind>_side.png`; these are
+flat, text-free 1:2 portrait print sources, at least 512×1024, with a 2048-pixel
+source-only edge ceiling. They are deliberately fitted into the existing 1:2
+side region of the 1024-square master before its Lanczos 256-square derivative
+is embedded. They are never loaded at runtime or registered as surface sheets.
+Original gameplay inputs beside them use `cabinet_<kind>_screen.png`: opaque
+RGB, 4:3, at least 512×384 with the same 2048-pixel source-only edge ceiling.
+They fit the existing 128×96 native screen region, with deterministic score,
+lap/round/health and credit text composed in the retained master. No generated
+reference-board pixels, frame, physical monitor or baked scanlines enter them.
+Printed body, side, coin door and controls remain nonemissive; only CRT glass
+and the marquee face emit. The sci-fi cabinet preserves its co-registered
+256-square numeric ultraviolet mask and 1024-square master; that pigment
+response remains independent of emission. `author_retro_arcade.py --only
+cabinet_<kind>` authors the saved sheets; the normal selected `build.py` export
+reads those PNGs and validates closed geometry, UVs, dimensions and its stricter
+800-triangle family ceiling. Native renderer captures judge artwork, controls
+and silhouette under the actual Arcade lighting.
 
 ---
 

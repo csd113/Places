@@ -2820,6 +2820,1369 @@
       ]
     },
     {
+      "id": "north_shooter",
+      "model": "arcade:cabinet_shooter",
+      "x": 3.2,
+      "y": 0,
+      "z": 1.2,
+      "rotation_degrees": 0,
+      "size": [
+        0.74,
+        1.96,
+        0.84
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.44999999999999996
+          ],
+          "color": [
+            0.25,
+            0.62,
+            1
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.83,
+            0.44999999999999996
+          ],
+          "color": [
+            0.25,
+            0.62,
+            1
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "north_action",
+      "model": "arcade:cabinet_action",
+      "x": 4.5,
+      "y": 0,
+      "z": 1.2,
+      "rotation_degrees": 0,
+      "size": [
+        0.76,
+        1.88,
+        0.87
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.46499999999999997
+          ],
+          "color": [
+            1,
+            0.28,
+            0.42
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.75,
+            0.46499999999999997
+          ],
+          "color": [
+            1,
+            0.28,
+            0.42
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "west_infill_0",
+      "model": "arcade:cabinet_action",
+      "x": 0.82,
+      "y": 0,
+      "z": 5.0,
+      "rotation_degrees": 90,
+      "size": [
+        0.76,
+        1.88,
+        0.87
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.46499999999999997
+          ],
+          "color": [
+            1,
+            0.28,
+            0.42
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.75,
+            0.46499999999999997
+          ],
+          "color": [
+            1,
+            0.28,
+            0.42
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "west_infill_1",
+      "model": "arcade:cabinet_fighting",
+      "x": 0.82,
+      "y": 0,
+      "z": 7.0,
+      "rotation_degrees": 90,
+      "size": [
+        0.9,
+        1.88,
+        0.93
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.495
+          ],
+          "color": [
+            1,
+            0.18,
+            0.62
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.75,
+            0.495
+          ],
+          "color": [
+            1,
+            0.18,
+            0.62
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "west_infill_2",
+      "model": "arcade:cabinet_scifi",
+      "x": 0.82,
+      "y": 0,
+      "z": 9.0,
+      "rotation_degrees": 90,
+      "size": [
+        0.78,
+        2.0,
+        0.89
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.475
+          ],
+          "color": [
+            0.52,
+            0.25,
+            1
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.87,
+            0.475
+          ],
+          "color": [
+            0.52,
+            0.25,
+            1
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "west_infill_3",
+      "model": "arcade:cabinet_racing",
+      "x": 0.82,
+      "y": 0,
+      "z": 11.0,
+      "rotation_degrees": 90,
+      "size": [
+        0.82,
+        1.91,
+        1.0
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.53
+          ],
+          "color": [
+            0.3,
+            0.52,
+            1
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.7799999999999998,
+            0.53
+          ],
+          "color": [
+            0.3,
+            0.52,
+            1
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "west_infill_4",
+      "model": "arcade:cabinet_shooter",
+      "x": 0.82,
+      "y": 0,
+      "z": 13.2,
+      "rotation_degrees": 90,
+      "size": [
+        0.74,
+        1.96,
+        0.84
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.44999999999999996
+          ],
+          "color": [
+            0.25,
+            0.62,
+            1
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.83,
+            0.44999999999999996
+          ],
+          "color": [
+            0.25,
+            0.62,
+            1
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "west_infill_5",
+      "model": "arcade:cabinet_action",
+      "x": 0.82,
+      "y": 0,
+      "z": 15.5,
+      "rotation_degrees": 90,
+      "size": [
+        0.76,
+        1.88,
+        0.87
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.46499999999999997
+          ],
+          "color": [
+            1,
+            0.28,
+            0.42
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.75,
+            0.46499999999999997
+          ],
+          "color": [
+            1,
+            0.28,
+            0.42
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "east_0",
+      "model": "arcade:cabinet_racing",
+      "x": 8.4,
+      "y": 0,
+      "z": 5.0,
+      "rotation_degrees": 270,
+      "size": [
+        0.82,
+        1.91,
+        1.0
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.53
+          ],
+          "color": [
+            0.3,
+            0.52,
+            1
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.7799999999999998,
+            0.53
+          ],
+          "color": [
+            0.3,
+            0.52,
+            1
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "east_1",
+      "model": "arcade:cabinet_fighting",
+      "x": 8.4,
+      "y": 0,
+      "z": 6.2,
+      "rotation_degrees": 270,
+      "size": [
+        0.9,
+        1.88,
+        0.93
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.495
+          ],
+          "color": [
+            1,
+            0.18,
+            0.62
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.75,
+            0.495
+          ],
+          "color": [
+            1,
+            0.18,
+            0.62
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "east_2",
+      "model": "arcade:cabinet_shooter",
+      "x": 8.4,
+      "y": 0,
+      "z": 7.4,
+      "rotation_degrees": 270,
+      "size": [
+        0.74,
+        1.96,
+        0.84
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.44999999999999996
+          ],
+          "color": [
+            0.25,
+            0.62,
+            1
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.83,
+            0.44999999999999996
+          ],
+          "color": [
+            0.25,
+            0.62,
+            1
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "east_3",
+      "model": "arcade:cabinet_scifi",
+      "x": 8.4,
+      "y": 0,
+      "z": 8.6,
+      "rotation_degrees": 270,
+      "size": [
+        0.78,
+        2.0,
+        0.89
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.475
+          ],
+          "color": [
+            0.52,
+            0.25,
+            1
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.87,
+            0.475
+          ],
+          "color": [
+            0.52,
+            0.25,
+            1
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "east_4",
+      "model": "arcade:cabinet_action",
+      "x": 8.4,
+      "y": 0,
+      "z": 9.8,
+      "rotation_degrees": 270,
+      "size": [
+        0.76,
+        1.88,
+        0.87
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.46499999999999997
+          ],
+          "color": [
+            1,
+            0.28,
+            0.42
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.75,
+            0.46499999999999997
+          ],
+          "color": [
+            1,
+            0.28,
+            0.42
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "east_5",
+      "model": "arcade:cabinet_racing",
+      "x": 8.4,
+      "y": 0,
+      "z": 11.0,
+      "rotation_degrees": 270,
+      "size": [
+        0.82,
+        1.91,
+        1.0
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.53
+          ],
+          "color": [
+            0.3,
+            0.52,
+            1
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.7799999999999998,
+            0.53
+          ],
+          "color": [
+            0.3,
+            0.52,
+            1
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "east_6",
+      "model": "arcade:cabinet_fighting",
+      "x": 8.4,
+      "y": 0,
+      "z": 12.2,
+      "rotation_degrees": 270,
+      "size": [
+        0.9,
+        1.88,
+        0.93
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.495
+          ],
+          "color": [
+            1,
+            0.18,
+            0.62
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.75,
+            0.495
+          ],
+          "color": [
+            1,
+            0.18,
+            0.62
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "east_7",
+      "model": "arcade:cabinet_shooter",
+      "x": 8.4,
+      "y": 0,
+      "z": 13.4,
+      "rotation_degrees": 270,
+      "size": [
+        0.74,
+        1.96,
+        0.84
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.44999999999999996
+          ],
+          "color": [
+            0.25,
+            0.62,
+            1
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.83,
+            0.44999999999999996
+          ],
+          "color": [
+            0.25,
+            0.62,
+            1
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "east_8",
+      "model": "arcade:cabinet_scifi",
+      "x": 8.4,
+      "y": 0,
+      "z": 14.6,
+      "rotation_degrees": 270,
+      "size": [
+        0.78,
+        2.0,
+        0.89
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.475
+          ],
+          "color": [
+            0.52,
+            0.25,
+            1
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.87,
+            0.475
+          ],
+          "color": [
+            0.52,
+            0.25,
+            1
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "island_0_0_0",
+      "model": "arcade:cabinet_racing",
+      "x": 3.65,
+      "y": 0,
+      "z": 8.975,
+      "rotation_degrees": 180,
+      "size": [
+        0.82,
+        1.91,
+        1.0
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.53
+          ],
+          "color": [
+            0.3,
+            0.52,
+            1
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.7799999999999998,
+            0.53
+          ],
+          "color": [
+            0.3,
+            0.52,
+            1
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "island_0_0_1",
+      "model": "arcade:cabinet_fighting",
+      "x": 3.65,
+      "y": 0,
+      "z": 9.99,
+      "rotation_degrees": 0,
+      "size": [
+        0.9,
+        1.88,
+        0.93
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.495
+          ],
+          "color": [
+            1,
+            0.18,
+            0.62
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.75,
+            0.495
+          ],
+          "color": [
+            1,
+            0.18,
+            0.62
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "island_0_1_0",
+      "model": "arcade:cabinet_fighting",
+      "x": 4.6,
+      "y": 0,
+      "z": 9.01,
+      "rotation_degrees": 180,
+      "size": [
+        0.9,
+        1.88,
+        0.93
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.495
+          ],
+          "color": [
+            1,
+            0.18,
+            0.62
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.75,
+            0.495
+          ],
+          "color": [
+            1,
+            0.18,
+            0.62
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "island_0_1_1",
+      "model": "arcade:cabinet_shooter",
+      "x": 4.6,
+      "y": 0,
+      "z": 9.945,
+      "rotation_degrees": 0,
+      "size": [
+        0.74,
+        1.96,
+        0.84
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.44999999999999996
+          ],
+          "color": [
+            0.25,
+            0.62,
+            1
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.83,
+            0.44999999999999996
+          ],
+          "color": [
+            0.25,
+            0.62,
+            1
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "island_0_2_0",
+      "model": "arcade:cabinet_shooter",
+      "x": 5.55,
+      "y": 0,
+      "z": 9.055,
+      "rotation_degrees": 180,
+      "size": [
+        0.74,
+        1.96,
+        0.84
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.44999999999999996
+          ],
+          "color": [
+            0.25,
+            0.62,
+            1
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.83,
+            0.44999999999999996
+          ],
+          "color": [
+            0.25,
+            0.62,
+            1
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "island_0_2_1",
+      "model": "arcade:cabinet_scifi",
+      "x": 5.55,
+      "y": 0,
+      "z": 9.97,
+      "rotation_degrees": 0,
+      "size": [
+        0.78,
+        2.0,
+        0.89
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.475
+          ],
+          "color": [
+            0.52,
+            0.25,
+            1
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.87,
+            0.475
+          ],
+          "color": [
+            0.52,
+            0.25,
+            1
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "island_1_0_0",
+      "model": "arcade:cabinet_scifi",
+      "x": 3.65,
+      "y": 0,
+      "z": 15.03,
+      "rotation_degrees": 180,
+      "size": [
+        0.78,
+        2.0,
+        0.89
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.475
+          ],
+          "color": [
+            0.52,
+            0.25,
+            1
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.87,
+            0.475
+          ],
+          "color": [
+            0.52,
+            0.25,
+            1
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "island_1_0_1",
+      "model": "arcade:cabinet_action",
+      "x": 3.65,
+      "y": 0,
+      "z": 15.96,
+      "rotation_degrees": 0,
+      "size": [
+        0.76,
+        1.88,
+        0.87
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.46499999999999997
+          ],
+          "color": [
+            1,
+            0.28,
+            0.42
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.75,
+            0.46499999999999997
+          ],
+          "color": [
+            1,
+            0.28,
+            0.42
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "island_1_1_0",
+      "model": "arcade:cabinet_action",
+      "x": 4.6,
+      "y": 0,
+      "z": 15.04,
+      "rotation_degrees": 180,
+      "size": [
+        0.76,
+        1.88,
+        0.87
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.46499999999999997
+          ],
+          "color": [
+            1,
+            0.28,
+            0.42
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.75,
+            0.46499999999999997
+          ],
+          "color": [
+            1,
+            0.28,
+            0.42
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "island_1_1_1",
+      "model": "arcade:cabinet_racing",
+      "x": 4.6,
+      "y": 0,
+      "z": 16.025,
+      "rotation_degrees": 0,
+      "size": [
+        0.82,
+        1.91,
+        1.0
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.53
+          ],
+          "color": [
+            0.3,
+            0.52,
+            1
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.7799999999999998,
+            0.53
+          ],
+          "color": [
+            0.3,
+            0.52,
+            1
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "island_1_2_0",
+      "model": "arcade:cabinet_racing",
+      "x": 5.55,
+      "y": 0,
+      "z": 14.975,
+      "rotation_degrees": 180,
+      "size": [
+        0.82,
+        1.91,
+        1.0
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.53
+          ],
+          "color": [
+            0.3,
+            0.52,
+            1
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.7799999999999998,
+            0.53
+          ],
+          "color": [
+            0.3,
+            0.52,
+            1
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
+      "id": "island_1_2_1",
+      "model": "arcade:cabinet_fighting",
+      "x": 5.55,
+      "y": 0,
+      "z": 15.99,
+      "rotation_degrees": 0,
+      "size": [
+        0.9,
+        1.88,
+        0.93
+      ],
+      "solid": true,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.25,
+            0.495
+          ],
+          "color": [
+            1,
+            0.18,
+            0.62
+          ],
+          "intensity": 0.36,
+          "range": 2.4
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.75,
+            0.495
+          ],
+          "color": [
+            1,
+            0.18,
+            0.62
+          ],
+          "intensity": 0.18,
+          "range": 1.8
+        }
+      ]
+    },
+    {
       "id": "pinball_0",
       "model": "arcade:pinball_cosmic",
       "x": 1.1,

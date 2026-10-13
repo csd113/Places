@@ -5607,7 +5607,9 @@ Three kinds ship:
 * **`restroom`** — a flat laminate leaf with a compact metal latch on both
   faces, thin metal jambs and hinge knuckles. Defaults:
   `arcade:restroom_partition_01` leaf, `core:metal_brushed_01` frame/handle.
-  A raised partition leaf's jambs extend to the floor. It uses the same door
+  A raised partition leaf's jambs extend to the floor. Its liner follows the
+  resolved wall depth and a separate stop overlaps the leaf's fitting clearance
+  behind its closed face, opposite the authored swing. It uses the same door
   interaction, navigation portal, collision and obstruction handling.
 
 ### Frame and leaf builds

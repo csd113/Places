@@ -124,102 +124,114 @@ def palette():
 
 
 def cabinet(kind, title, accent):
+    """Compose original period prints and gameplay into the fixed cabinet atlas."""
     a=Art("cabinet_"+kind)
-    # 4:3 screen; 4:1 marquee; 2:1 controls; square coin panel.
-    a.box((0,0,128,96),(7,13,27))
-    a.box((3,4,125,92),(12,23,45))
-    a.box((0,96,128,128),accent)
-    a.box((2,98,126,126),(24,26,41))
-    a.text(title,(4,98,124,121),accent,15)
-    a.text("INSERT COIN",(32,120,96,127),(218,216,200),4)
-    a.box((0,128,128,192),(32,36,43))
-    for x in (8,118):
-        a.line([(x,133),(x,188)],accent,2)
-    a.text(title,(8,132,120,145),accent,7)
-    a.box((0,192,64,256),(37,43,50))
-    a.box((8,206,56,246),(14,18,24),outline=(114,121,124),width=1)
-    a.text("25¢",(18,213,46,227),(187,190,174),7)
-    a.text("PUSH",(19,235,45,243),(187,190,174),4)
-    for i,(name,color) in enumerate((('body',(26,30,38)),('metal',(151,153,154)),('dark',(7,10,17)),('white',(233,229,213)))):
-        stock(a,(64+i%2*32,192+i//2*32,32,32),color,i)
-    # Side art fills a true 1:2 region, on both sides without mirroring text.
-    a.box((128,0,256,256),(19,23,37))
-    a.poly([(129,0),(178,0),(256,154),(256,219)],accent)
-    a.poly([(128,208),(173,176),(256,216),(256,256),(128,256)],tuple(round(v*.6) for v in accent))
-    a.text(title.split()[0],(133,10,250,35),(235,226,190),20)
-    a.text(" ".join(title.split()[1:]),(136,32,250,49),(235,226,190),13)
+    # Original full-bleed gameplay, fitted once to the mandatory 4:3 glass.
+    a.illustration('cabinet_'+kind+'_screen.png',(0,0,128,96))
+    a.box((0,0,128,11),(8,12,27))
+    ivory=(239,221,164);cyan=(126,214,227)
     if kind=='racing':
-        a.box((5,4,123,44),(129,63,48))
-        a.poly([(5,44),(123,44),(123,77),(5,77)],(111,84,50))
-        a.poly([(50,44),(79,44),(120,91),(8,91)],(47,48,48))
-        a.line([(64,49),(61,64),(58,84)],(210,193,135),2)
-        a.poly([(51,70),(74,70),(81,85),(43,85)],(205,48,45))
-        a.box((54,69,73,77),(60,100,128))
-        a.text("LAP 02    186",(6,7,122,16),(243,221,155),6)
-        a.poly([(141,126),(163,108),(219,109),(247,131),(245,149),(138,148)],(203,63,46))
-        a.poly([(161,110),(176,86),(207,86),(222,112)],(52,115,150))
-        for x in (160,226): a.oval((x-12,137,x+12,161),(14,18,25),outline=(174,175,163),width=2)
-        a.text("GRAND TOUR",(135,176,250,196),(245,221,176),11)
+        a.text('LAP 02/03',(4,1,57,10),ivory,6)
+        a.text('TIME 064',(76,1,124,10),ivory,6)
+        a.text('186 KM/H',(6,82,56,91),ivory,6)
     elif kind=='shooter':
-        for i in range(22):
-            x=8+(i*37)%112;y=17+(i*19)%65
-            a.box((x,y,x+1,y+1),(191,205,204))
-        for row in range(3):
-            for col in range(5):
-                x=21+col*19;y=24+row*13
-                a.poly([(x-4,y+3),(x,y-2),(x+4,y+3),(x,y+1)],(78,174,192))
-        a.poly([(59,84),(64,72),(69,84)],(217,224,205))
-        a.text("P1 003850",(4,6,90,15),(146,203,213),6)
-        a.poly([(145,158),(192,64),(235,158),(200,137),(192,180),(183,137)],(123,200,209))
-        a.oval((174,105,210,141),(29,68,97))
-        a.line([(150,168),(133,215)],accent,3)
-        a.line([(231,168),(249,218)],accent,3)
+        a.text('P1 003850',(4,1,60,10),cyan,6)
+        a.text('HI 013000',(70,1,124,10),ivory,6)
+        for x in (7,13,19):a.poly([(x,82),(x-2,88),(x+2,88)],cyan)
     elif kind=='action':
-        a.box((5,5,123,69),(45,41,63))
-        for i in range(7):
-            x=6+i*19;h=19+(i*7)%24
-            a.box((x,68-h,x+16,72),(69,65,75))
-            for yy in range(48,65,7): a.box((x+4,yy,x+6,yy+3),(148,126,86))
-        a.box((5,72,123,91),(74,55,44))
-        a.box((33,63,40,80),(210,171,55));a.box((35,57,39,64),(204,162,127))
-        a.box((85,63,94,80),(140,50,48));a.box((88,57,93,64),(203,162,127))
-        a.text("QUEST 03  ♥♥♥",(4,7,122,16),(232,188,80),6)
-        a.poly([(159,194),(163,126),(177,100),(194,102),(210,140),(207,194)],(210,156,47))
-        a.oval((174,69,200,101),(199,153,110))
-        a.poly([(177,136),(193,132),(230,173),(223,181)],(198,156,109))
-        a.text("THE CITY CALLS",(133,211,250,231),(228,203,145),10)
+        a.text('STAGE 03',(4,1,56,10),ivory,6)
+        a.text('P1 03500',(72,1,124,10),ivory,6)
+        for x in (7,13,19):a.box((x,83,x+3,87),(220,74,85))
     elif kind=='fighting':
-        a.box((5,7,123,70),(44,28,59))
-        a.box((5,70,123,91),(80,59,69))
-        for x,c in ((28,(183,56,69)),(89,(42,114,155))):
-            a.oval((x-4,41,x+4,49),(212,168,126));a.box((x-6,49,x+6,67),c)
-            a.line([(x-4,67),(x-9,80)],c,4);a.line([(x+3,67),(x+8,80)],c,4)
-            a.line([(x,53),(x+14 if x==28 else x-14,56)],c,4)
-        a.box((8,17,53,21),(198,57,66));a.box((76,17,120,21),(66,127,169))
-        a.text("ROUND 2",(38,6,91,15),(230,211,164),6)
-        for x,c in ((164,(181,58,65)),(224,(37,97,143))):
-            a.oval((x-10,77,x+10,99),(202,155,114))
-            a.poly([(x-15,104),(x+12,102),(x+18,154),(x-20,156)],c)
-            a.line([(x-10,151),(x-20,203)],c,14);a.line([(x+9,151),(x+20,203)],c,14)
-        a.text("CHOOSE YOUR SIDE",(133,218,250,237),(222,197,163),9)
+        a.box((4,1,124,16),(11,12,28))
+        for rect,color in (((5,7,52,11),(199,58,76)),((76,7,123,11),(65,158,194))):
+            a.box(rect,color)
+        a.text('P1',(4,0,17,7),ivory,4)
+        a.text('P2',(111,0,124,7),ivory,4)
+        a.text('99',(54,2,74,13),ivory,7)
+        a.text('ROUND 2',(44,14,85,21),ivory,5)
     else:
-        a.poly([(8,10),(37,40),(38,79),(8,91)],(28,57,71))
-        a.poly([(120,10),(91,40),(90,79),(120,91)],(28,57,71))
-        a.box((39,31,91,80),(18,37,48),outline=(56,107,126),width=1)
-        for yy in range(41,76,8): a.line([(43,yy),(87,yy)],(39,83,105),1)
-        a.oval((55,49,75,69),None,outline=(130,164,158),width=1)
-        a.line([(64,46),(64,72)],(130,164,158),1)
-        a.text("SECTOR 7   0440",(5,6,123,15),(155,190,171),6)
-        a.oval((143,63,242,166),(39,64,77),outline=(135,175,172),width=3)
-        a.poly([(171,185),(191,81),(215,185),(192,163)],(157,185,180))
-        a.oval((187,120,202,145),(21,67,84))
-        a.text("BEYOND THE EDGE",(133,214,250,235),(174,203,192),10)
+        a.text('SECTOR 7',(4,1,55,10),cyan,6)
+        a.text('SCORE 0440',(65,1,124,10),ivory,6)
+        a.line([(60,48),(68,48)],cyan,.65)
+        a.line([(64,44),(64,52)],cyan,.65)
+        a.box((6,83,49,87),(25,45,54),outline=cyan,width=.6)
+        a.box((7,84,37,86),(62,151,125))
+        a.text('AMMO 024',(77,80,122,89),ivory,5)
+    a.box((2,90,126,94),(8,12,27))
+    a.text('CREDIT 00',(40,90,89,95),ivory,4)
+    a.box((0,0,127,95),None,outline=(9,13,23),width=2)
+    # Printed laminate deck, with large control legends and hardware surrounds.
+    stock(a,(0,128,128,64),(51,39,58),31)
+    a.poly([(2,185),(8,180),(120,180),(126,185),(126,190),(2,190)],(91,59,92))
+    for x in (8,120):a.line([(x,134),(x,187)],accent,2)
+    a.text(title,(12,132,116,145),accent,8)
+    if kind=='racing':
+        a.text('STEER / ACCELERATE',(10,167,118,179),(196,181,167),6)
+        a.poly([(47,153),(64,146),(81,153),(64,160)],accent)
+    elif kind=='scifi':
+        a.oval((26,153,50,177),None,outline=accent,width=1.5)
+        a.text('TRACKBALL',(17,178,59,187),(202,196,186),4)
+        for x in (89,107):a.oval((x-5,151,x+5,161),(19,23,36),outline=accent,width=1)
+    else:
+        sticks=(24,90) if kind=='fighting' else (31,)
+        for x in sticks:a.oval((x-7,156,x+7,170),(20,24,38),outline=accent,width=1)
+        clusters=(63,113) if kind=='fighting' else (89,)
+        for cx in clusters:
+            for j in range(6 if kind=='fighting' else 3):
+                x=cx+(j%3-1)*7.5;y=165-(j//3)*11
+                a.oval((x-4.5,y-4.5,x+4.5,y+4.5),(20,24,38),outline=accent,width=.9)
+        a.text('MOVE',(14,176,46,185),(209,193,173),4)
+        a.text('ATTACK',(77,177,113,185),(209,193,173),4)
+    stock(a,(0,192,64,64),(66,62,72),17)
+    a.box((7,202,57,248),(16,20,29),outline=(126,123,133),width=1.5)
+    a.box((13,210,24,218),(133,142,151))
+    a.box((15,212,22,214),(8,12,20))
+    a.text('25¢',(26,210,50,224),(221,208,179),8)
+    a.text('PUSH TO REJECT',(11,231,53,238),(168,173,171),4)
+    a.box((15,241,49,245),(78,83,94))
+    for rect,color in (((64,192,96,224),(42,35,46)),((96,192,128,224),(151,153,154)),
+                       ((64,224,96,256),(13,14,24)),((96,224,112,240),(181,41,63)),
+                       ((112,224,128,240),(224,173,70)),((96,240,112,256),(51,149,186)),
+                       ((112,240,128,256),(223,220,198))):
+        a.box(rect,color)
+    # Original text-free print input; no reference-board pixels are reused.
+    illustration='cabinet_'+kind+'_side.png'
+    a.illustration(illustration,(128,0,128,256))
+    a.text(title.split()[0],(133,8,251,30),(241,216,165),21)
+    a.text(' '.join(title.split()[1:]),(134,29,250,47),accent,15)
+    a.text({'racing':'COAST TO COAST','shooter':'DEFEND THE ORBIT',
+            'action':'THE CITY CALLS','fighting':'CHOOSE YOUR SIDE',
+            'scifi':'BEYOND THE EDGE'}[kind],(134,236,250,249),(221,208,186),7)
+    # Painted image under large ivory titles, inside the fixed 4:1 marquee.
+    a.illustration(illustration,(0,96,128,32))
+    overlay=Image.new('RGB',(128*SCALE,32*SCALE),(15,18,34))
+    region=a.image.crop((0,96*SCALE,128*SCALE,128*SCALE))
+    a.image.paste(Image.blend(region,overlay,.60),(0,96*SCALE))
+    title_band=a.image.crop((3*SCALE,99*SCALE,125*SCALE,123*SCALE))
+    quiet=Image.new('RGB',title_band.size,(12,15,29))
+    a.image.paste(Image.blend(title_band,quiet,.40),(3*SCALE,99*SCALE))
+    a.box((1,97,127,127),None,outline=accent,width=1)
+    a.text(title,(4,99,124,122),(14,13,27),16)
+    a.text(title,(3,98,123,121),(244,214,153),16)
+    # A quiet lower strip replaces subtitle microtype that blurred in native
+    # front views; the painted image remains visible around the main title.
+    a.box((3,123,125,126),(12,15,29))
+    a.line([(9,125),(119,125)],accent,.6)
     a.finish()
     if kind=='scifi':
         mask=Art('cabinet_scifi_uv_mask',(0,0,0))
-        mask.oval((143,63,242,166),None,outline=(210,210,210),width=3)
-        mask.poly([(171,185),(191,81),(215,185),(192,163)],(155,155,155))
-        mask.oval((187,120,202,145),(0,0,0))
+        # Co-registered highlight pigment, independent of material emission.
+        region=a.image.crop((128*SCALE,0,256*SCALE,256*SCALE))
+        source=region.load();pixels=[]
+        for y in range(region.height):
+            for x in range(region.width):
+                r,g,b=source[x,y]
+                pigment=max(0,min(155,round((max(r,g,b)-58)*.8)))
+                if b<r*.60 or max(r,g,b)-min(r,g,b)<15:pigment=0
+                pixels.append((pigment,pigment,pigment))
+        numeric=Image.new('RGB',region.size);numeric.putdata(pixels)
+        mask.image.paste(numeric,(128*SCALE,0))
         mask.finish()
 
 
