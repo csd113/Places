@@ -121,11 +121,18 @@ pub fn info(message: impl Display) {
     }
 }
 
+/// A low-frequency lifecycle event retained even during a quiet player launch.
+pub(crate) fn event(message: impl Display) {
+    crate::diagnostics::record("event", &message);
+    info(message);
+}
+
 /// Prints one warning, always.
 ///
 /// Use for a genuine problem the player can act on (a level that failed to
 /// load, a missing asset root, an unwritable settings file).
 pub fn warn(message: impl Display) {
+    crate::diagnostics::record("warning", &message);
     stderr_line(message);
 }
 
@@ -141,6 +148,7 @@ pub fn warn_once(key: impl AsRef<str>, message: impl Display) {
         .lock()
         .is_ok_and(|mut set| set.insert(key.as_ref().to_string()));
     if first {
+        crate::diagnostics::record("warning", &message);
         stderr_line(message);
     }
 }

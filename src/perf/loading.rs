@@ -25,6 +25,31 @@ impl LoadTrace {
     }
 
     pub fn record(&mut self, event: &str, request: u64, detail: &str) {
+        if matches!(
+            event,
+            "entry"
+                | "window_ready"
+                | "request"
+                | "phase"
+                | "cpu_ready"
+                | "gpu_ready"
+                | "world_committed"
+                | "runtime_context"
+                | "failed"
+                | "cancel"
+                | "load_cancelled"
+                | "load_recovered"
+                | "graphics_cancelled"
+                | "settings_change"
+                | "settings_applied"
+                | "window_size_observed"
+                | "shutdown_requested"
+                | "shutdown_complete"
+                | "menu_ready"
+                | "action"
+        ) {
+            crate::diagnostics::record(event, format_args!("request={request} {detail}"));
+        }
         let Some(output) = &mut self.output else {
             return;
         };

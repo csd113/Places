@@ -7,6 +7,7 @@ pub mod canonical_json;
 pub mod collision;
 pub mod collision_index;
 pub mod compiler;
+mod diagnostics;
 pub mod display;
 pub mod door;
 pub mod entities;
@@ -285,10 +286,7 @@ fn use_package_assets() -> PathBuf {
 ///
 /// Developer telemetry: only printed when `PLACES_VERBOSE` is set.
 fn log_package(package: &Path) {
-    if !logging::verbose() {
-        return;
-    }
-    logging::info(format!(
+    logging::event(format!(
         "[package] {} (assets: {})",
         package.display(),
         package.join("assets/levels").display()
@@ -296,9 +294,9 @@ fn log_package(package: &Path) {
     match crate::assets::resolve_asset_root() {
         Some(assets) => {
             let shown = std::fs::canonicalize(&assets).unwrap_or(assets);
-            logging::info(format!("[package] asset root: {}", shown.display()));
+            logging::event(format!("[package] asset root: {}", shown.display()));
         }
-        None => logging::info("[package] asset root: NONE"),
+        None => logging::event("[package] asset root: NONE"),
     }
 }
 
@@ -715,7 +713,7 @@ fn write_capture(renderer: &mut Renderer, path: &Path) {
 ///
 /// Grouping them keeps `main` a readable setup sequence and lets each step of a
 /// frame be reviewed (and unit-tested) on its own.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum LoadIntent {
     Background,
     Play,
@@ -749,6 +747,8 @@ struct PresentationState {
 }
 
 struct FrameLoop<'a> {
+    diagnostic_tick: Instant,
+    diagnostic_state: Option<AppState>,
     window: &'a mut Window,
     /// The SDL context, for the mouse-capture reconciliation.
     sdl: &'a Sdl,
@@ -920,9 +920,20 @@ impl FrameLoop<'_> {
             .record("shutdown_complete", self.load_generation, "");
     }
 
+    fn record_diagnostic_context(&mut self) {
+        if self.diagnostic_state != Some(self.game.app_state())
+            || self.diagnostic_tick.elapsed() >= std::time::Duration::from_secs(15)
+        {
+            self.diagnostic_state = Some(self.game.app_state());
+            self.diagnostic_tick = Instant::now();
+            self.trace_world("runtime_context");
+        }
+    }
+
     /// One complete frame: input, simulation, render, present, telemetry.
     // one cohesive frame: input, update, draw
     fn frame(&mut self) {
+        self.record_diagnostic_context();
         // A fatal GPU condition must stop the process through the normal
         // shutdown path instead of issuing more work on a lost device.
         if self.stop_on_fatal_renderer_error() {
@@ -2599,6 +2610,17 @@ impl FrameLoop<'_> {
             return;
         }
         let level_id = source.level_id().to_string();
+        let (entry, identity) = match &source {
+            loading::Source::Entry(entry, identity) => (entry, identity),
+            loading::Source::Retained(loaded, identity) => (&loaded.entry, identity),
+        };
+        diagnostics::record(
+            "map_request",
+            format_args!(
+                "level={level_id} intent={intent:?} path={} identity={identity:?}",
+                entry.path.display()
+            ),
+        );
         let lightmaps = self.settings.lightmap_quality();
         let request = loading::Request {
             source: source.clone(),
@@ -2912,6 +2934,9 @@ impl FrameLoop<'_> {
             "renderer_quality": renderer_quality.name(), "renderer_lightmaps": renderer_lightmaps.name(),
             "renderer_lighting": self.renderer.graphics_applied().lighting.name(),
             "bloom": self.settings.bloom_enabled(), "window_focused": self.window_focused,
+            "state": format!("{:?}", self.game.app_state()), "frame": self.game.frame_count(),
+            "filtering": self.settings.texture_filtering_preset(), "rss_bytes": perf::process_resident_bytes(),
+            "gpu_timing": format!("{:?}", self.renderer.gpu_timing()),
         }).to_string());
     }
 
@@ -3418,10 +3443,7 @@ impl FrameLoop<'_> {
 /// This is the line that makes a startup override visible: it reports what the
 /// process is really running with, not what the saved file says.
 fn log_effective_settings(settings: &Settings) {
-    if !logging::verbose() {
-        return;
-    }
-    logging::info(format!(
+    logging::event(format!(
         "[settings] quality {} (saved {}){} | lighting {} | bloom {} | reflections {}{} | lightmaps {}{} | vsync {} | filtering {} | window {} {}",
         settings.quality_level().name(),
         settings.quality,
@@ -3597,10 +3619,22 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     if dispatch_list_levels_cli(&args) {
         return Ok(());
     }
+    let interrupted = diagnostics::start();
+    let result = run_player(interrupted);
+    let error = result.as_ref().err().map(ToString::to_string);
+    if let Some(message) = error.as_deref() {
+        diagnostics::show_notice("Places could not continue", message);
+    }
+    diagnostics::finish(error.as_deref());
+    result
+}
+
+fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
     let mut trace = perf::loading::LoadTrace::new();
     trace.record("entry", 0, "");
     perf::startup_begin();
     let (sdl_context, video_subsystem, mut window, mut settings, mut bench) = bootstrap()?;
+    diagnostics::previous_session_notice(interrupted);
 
     let mut level_manager = loader::LevelManager::new();
     log_asset_catalog(&level_manager);
@@ -3640,6 +3674,8 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let initial_lightmaps = settings.lightmap_quality();
     let mut frame_loop = FrameLoop {
+        diagnostic_tick: Instant::now(),
+        diagnostic_state: None,
         window: &mut window,
         sdl: &sdl_context,
         video_subsystem: &video_subsystem,

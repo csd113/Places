@@ -311,6 +311,12 @@ fn airborne_side_contact_never_steps_or_becomes_ground_and_slides() {
             vec![WallAabb::with_y(0.0, 0.0, -4.0, 0.01, 4.0, 8.0).allowing_step()],
         );
         game.player_yaw = std::f32::consts::FRAC_PI_2;
+        // Protect the reported two-phase path with the existing ordinary wall:
+        // a grounded press keeps the eye a full radius outside, then the jump
+        // cannot cross the same contact. The per-frame helper checks overlap.
+        let _pressed_height = run_for(&mut game, &[Control::MoveForward], 1.0, pattern);
+        assert!(game.grounded, "pressed wall cannot remove floor support");
+        assert!(game.player_position.x <= -PLAYER_RADIUS + CONTACT_EPS);
         let apex = run_for(
             &mut game,
             &[Control::Jump, Control::MoveForward, Control::StrafeRight],

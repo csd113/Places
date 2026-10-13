@@ -162,6 +162,45 @@ not receive those events cannot be reported as manual-input coverage.
 
 ## Interpreting diagnostics and platform evidence
 
+Normal player launches retain `diagnostics/player.log` and
+`diagnostics/player.previous.log` below the same state root as `settings.json`
+(or `PLACES_STATE_ROOT`). Each log is capped at 256 KiB, each record at 4 KiB;
+rotation preserves the session identity and latest runtime context. A small
+`session.active` marker distinguishes completed shutdown from an abrupt stop.
+One locked `owner.lock` file prevents a second player from rotating an active
+session's evidence. A concurrent launch or unwritable directory falls back to
+stderr and reports that persistent evidence is unavailable.
+
+Logs contain startup version/platform and exact executable SHA-256, adapter,
+map path and manifest identity, loading/cancellation, window and graphics
+transitions, warnings, and a 15-second state/RSS/GPU-timing context sample.
+No credentials, full environment, image buffers or OS reports are collected.
+Panic messages/location and a bounded backtrace are recorded by a panic hook;
+the ordinary fatal behavior remains. Returned fatal errors show a readable SDL
+dialog. Explicit `PLACES_BENCH=1` runs retain the same evidence on stderr/disk
+without blocking unattended tooling on dialogs.
+
+An interrupted-session notice means the prior process did not finish normally;
+it cannot distinguish a native crash, force quit, power loss or external signal
+by itself. For macOS native failures, open Console > Crash Reports and select
+the report for `places` at the matching session time. Share the two small player
+logs and the relevant sanitized report excerpt. Review local paths before
+sharing. No signal handler attempts unsafe logging/UI, and no panic is swallowed.
+Allocation aborts, SIGKILL and failures before logging initializes may leave
+only the last context and OS evidence. Read-only or full disks can prevent even
+that evidence; a log write failure disables further disk writes for the session.
+
+The explicit small GPU control for drawable-limit failures is:
+
+```sh
+cargo test --lib native_oversized_drawable_is_reported_before_gpu_allocation \
+  -- --ignored --test-threads=1
+```
+
+It creates only a 64×64 renderer, captures the old invalid allocation in a
+validation scope, then verifies the runtime guard avoids that allocation and
+reports the fatal remedy. It needs native GPU access and bakes no map.
+
 Texture checks distinguish preferred-size/manifest advisories from hard format,
 alpha, aspect and budget failures. Accepted source art may have advisories; report
 actual output rather than relying on an old fixed warning count. Package tests

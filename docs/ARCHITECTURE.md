@@ -505,10 +505,11 @@ a plain `video.window(...)` and no renderer-specific window setup exists.
 - SDL3 initialization, window operations, the event pump and the game loop run
   on the main thread; Places spawns no platform or rendering threads.
 - The window is declared before the renderer in `main`, so Rust drops the
-  renderer first on every path, including error returns; the renderer never
-  touches the window in `Drop`.
-- SDL's video subsystem and the window live for the whole frame loop, which is
-  the only time the surface is used.
+  renderer first on every path, including error returns. The safe renderer API
+  additionally retains an SDL window clone as its final field, so raw handles
+  remain valid even when another caller releases its original window first.
+- The retained window shares its SDL context and keeps the video subsystem
+  alive. Lost surfaces are recreated from that same retained window.
 - The two `unsafe` operations needed by the raw-window-handle surface path
   (handle extraction and `create_surface_unsafe`) are confined to one
   `unsafe fn` in `src/render/wgpu/surface.rs`, with a written `SAFETY`
@@ -516,6 +517,13 @@ a plain `video.window(...)` and no renderer-specific window setup exists.
   surface type is `Surface<'static>` by the raw-handle API's contract, upheld
   by the drop order above), no leaked window and no reliance on undocumented
   destruction order. The surface is recreated from the same window on loss.
+
+The player's bounded persistent diagnostics live at `<state-root>/diagnostics`.
+Lifecycle events and a 15-second context sample retain executable SHA-256,
+version, map/package identity, effective graphics state and process RSS. Fatal
+returned errors use an SDL message box; Rust panics retain evidence without
+continuing execution. Native signals rely on OS crash reports and an interrupted
+session notice on the next start. See [verification](VERIFICATION.md) for limits.
 
 ## 7. Build targets, dependencies and portability
 

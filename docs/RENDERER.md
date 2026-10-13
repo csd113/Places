@@ -41,15 +41,15 @@ fullscreen; SDL_SyncWindow after a boot-time fullscreen request)
         -> create the depth target with the same size
 ```
 
-Destruction is the exact reverse, enforced by field declaration order inside `WgpuRenderer`: the pending frame (if any) is discarded first, then the surface, then the device, queue and instance, with the depth target and the remaining plain state following. The pending frame must precede the surface because discarding it reaches back into the surface's swapchain, and the surface must precede the device/instance so the layer it owns is released before the device it references. The window outlives the renderer (see [ARCHITECTURE.md](ARCHITECTURE.md) §6).
+Destruction is enforced by field declaration order inside `WgpuRenderer`: the pending frame is discarded before the surface, followed by the device, queue, instance and remaining GPU resources. A retained SDL window clone is the final field, keeping the raw handles alive throughout surface destruction even when a caller drops its original window. The pending frame must precede the surface because discarding it reaches back into the swapchain (see [ARCHITECTURE.md](ARCHITECTURE.md) §6).
 
 ### 1.3 Unsafe surface creation
 
 `render::wgpu::surface::create` copies the window's raw window/display handles with `SurfaceTargetUnsafe::from_display_and_window` and calls `Instance::create_surface_unsafe`. Safe surface creation is not usable here: `Surface<'window>` would borrow the `Window` for the renderer's lifetime while `main` still needs `&mut Window` for `set_size`/`set_fullscreen`. The unsafe block is isolated in one function with a written `SAFETY` argument; the invariant is:
 
-- the renderer is a local in `main` declared **after** the window, so Rust drops it before the window on every path, including error returns;
-- SDL's video subsystem and the window live for the whole frame loop, which is the only time the surface is used;
-- the renderer never touches the window in `Drop`.
+- the renderer retains a clone of the exact SDL window that supplied its handles;
+- the surface drops before that clone, whose shared SDL context also retains the video subsystem;
+- recovery creates a surface from the retained window, preserving the same lifetime contract.
 
 No transmutes, no faked `'static` in the type system, no leaked window and no reliance on undocumented destruction order. The surface is recreated from the same window on loss.
 
@@ -58,6 +58,11 @@ No transmutes, no faked `'static` in the type system, no leaked window and no re
 Surface format is chosen deterministically over the capabilities the surface reports: `Bgra8UnormSrgb`, then `Rgba8UnormSrgb`, then the first reported format. The first two keep the presentation target sRGB, which is where the display-space pipeline performs its single conversion; the third rule means an unusual surface is never blocked by a hard-coded format. If the adapter offers only a linear format the renderer logs one warning, because no shader variant can present the authored display values without the hardware's encode. `SurfaceColorSpace::Auto` is used.
 
 Presentation mode: VSync on (the shipped default) prefers `Fifo`, then `FifoRelaxed`; VSync explicitly off prefers `Immediate`, then `Fifo`; if nothing is supported the first reported mode is used, else `Fifo`. Uncapped/tearing presentation is never enabled by default. `set_swap_interval` reconfigures the surface live when the player changes the setting and reports the interval in force; no SDL swap-interval handle is involved.
+
+Every nonempty physical drawable must fit the requested device's
+`max_texture_dimension_2d` before surface configuration or attachment allocation.
+Oversized windows stop with a message naming the observed size, device limit and
+smaller-resolution remedy. A zero edge remains a normal minimized state.
 
 Depth: one main depth texture, `Depth32Float` (`render::wgpu::surface::DEPTH_FORMAT`), `RENDER_ATTACHMENT` usage, sized to the configured surface and cleared to `1.0` in the same pass as the colour clear. It is recreated only when the drawable size changes. There are no shadow, lightmap or reflection depth resources.
 

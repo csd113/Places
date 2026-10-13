@@ -167,6 +167,18 @@ pub(super) fn world_device_limits() -> wgpu::Limits {
     }
 }
 
+/// Physical pixels must fit every size-dependent GPU attachment. Empty windows
+/// remain a normal minimized state; failure stops before any allocation.
+fn validate_drawable(size: DrawableSize, maximum: u32) -> Result<(), String> {
+    if size.is_empty() || (size.width <= maximum && size.height <= maximum) {
+        return Ok(());
+    }
+    Err(format!(
+        "The window drawable is {}x{} pixels; this GPU device supports at most {maximum} pixels per edge. Choose a smaller window resolution and restart Places.",
+        size.width, size.height
+    ))
+}
+
 /// Resources for a new world stay separate until every upload is ready.
 struct PreparedInstall {
     loaded: LoadedLevel,
@@ -665,6 +677,9 @@ pub struct WgpuRenderer {
     /// rendered, and after a level or size change that invalidated the state.
     last_frame: Option<super::world::WorldFrame>,
     adapter_info: wgpu::AdapterInfo,
+    /// Keeps the raw SDL handles alive until after the surface and GPU fields.
+    /// Headless compilers retain no window. SDL's clone owns the same context.
+    window: Option<Window>,
 }
 
 impl WgpuRenderer {
@@ -696,9 +711,10 @@ impl WgpuRenderer {
             ..wgpu::InstanceDescriptor::new_without_display_handle()
         });
 
-        // SAFETY: the SDL window outlives this renderer in `main`; see
-        // `surface::create`.
-        let wgpu_surface = unsafe { surface::create(&instance, window) }?;
+        let retained_window = window.clone();
+        // SAFETY: the clone owns the same SDL handles. It is retained by the
+        // renderer after its surface field, including during surface recovery.
+        let wgpu_surface = unsafe { surface::create(&instance, &retained_window) }?;
         let adapter = Self::request_adapter(&instance, &wgpu_surface)?;
         let adapter_info = adapter.get_info();
         Self::check_native_backend(&adapter_info)?;
@@ -729,7 +745,11 @@ impl WgpuRenderer {
         })?;
         let device_lost = Self::watch_device_loss(&device);
         let (width, height) = window.size_in_pixels();
-        Ok(Self::assemble(
+        validate_drawable(
+            DrawableSize::new(width, height),
+            device.limits().max_texture_dimension_2d,
+        )?;
+        let mut renderer = Self::assemble(
             instance,
             Some(wgpu_surface),
             Some(capabilities),
@@ -742,7 +762,9 @@ impl WgpuRenderer {
             alpha_mode,
             DrawableSize::new(width, height),
             device_lost,
-        ))
+        );
+        renderer.window = Some(retained_window);
+        Ok(renderer)
     }
 
     /// Builds a window-free renderer for the offline probe capture.
@@ -799,6 +821,7 @@ impl WgpuRenderer {
             )
         })?;
         let device_lost = Self::watch_device_loss(&device);
+        validate_drawable(drawable_size, device.limits().max_texture_dimension_2d)?;
         // A synthetic presentation configuration: pipelines that name the
         // surface format must exist, but no surface is ever configured or
         // presented. Probe captures render to the fixed reflection format.
@@ -870,6 +893,7 @@ impl WgpuRenderer {
 
         let gpu_timer = GpuTimer::new(&adapter, &device, &queue);
         let renderer = Self {
+            window: None,
             surface,
             capabilities,
             config,
@@ -1041,7 +1065,7 @@ impl WgpuRenderer {
     /// Developer telemetry: printed only when `PLACES_VERBOSE` is set. The
     /// adapter line is what proves which native backend actually initialized.
     fn log_startup(&self) {
-        logging::info(format!(
+        logging::event(format!(
             "[renderer] wgpu | adapter: {} | backend: {:?} | device type: {:?} | surface format: {:?} | present mode: {:?} | alpha mode: {:?} | depth format: {:?} | drawable: {}x{}",
             self.adapter_info.name,
             self.adapter_info.backend,
@@ -1131,6 +1155,10 @@ impl WgpuRenderer {
         }
         self.drawable_size = size;
         self.needs_configure = true;
+        if let Err(error) = validate_drawable(size, self.device.limits().max_texture_dimension_2d) {
+            self.pending_frame = None;
+            self.mark_fatal(error);
+        }
         if size.is_empty() {
             // The window holds no drawable while minimized: drop any acquired
             // frame and wait for a real size.
@@ -4756,12 +4784,12 @@ impl WgpuRenderer {
     /// still cycled so the presentation path and its timing remain real. A
     /// surface reported lost is recreated here, where the SDL window is
     /// available, and presentation resumes in the same call.
-    pub fn present(&mut self, window: &Window) -> bool {
+    pub fn present(&mut self, _window: &Window) -> bool {
         if self.check_device_lost() {
             return false;
         }
         if self.surface_lost {
-            self.recreate_surface(window);
+            self.recreate_surface();
         }
         if let Some(texture) = self.pending_frame.take() {
             self.queue.present(texture);
@@ -5020,6 +5048,20 @@ impl WgpuRenderer {
         ));
     }
 
+    /// Reject capture work after a fatal device or drawable failure.
+    fn validate_capture_device(&mut self) -> Result<(), String> {
+        if self.check_device_lost() {
+            return Err(self
+                .fatal
+                .clone()
+                .unwrap_or_else(|| "GPU device unavailable for capture".to_string()));
+        }
+        validate_drawable(
+            self.drawable_size,
+            self.device.limits().max_texture_dimension_2d,
+        )
+    }
+
     /// Reads back the last rendered frame as a top-down RGBA8 image.
     ///
     /// The post path's presented image already carries the resolved scene and
@@ -5042,6 +5084,7 @@ impl WgpuRenderer {
     /// Returns a message when the drawable is empty, no frame has been
     /// rendered, or the world pipeline/depth target has not been built.
     pub fn capture_default_framebuffer(&mut self) -> Result<crate::loader::RawImage, String> {
+        self.validate_capture_device()?;
         if let Ok(selector) = std::env::var("PLACES_ENTITY_LIGHT_TRACE") {
             self.trace_entity_lighting(&selector);
         }
@@ -5227,6 +5270,14 @@ impl WgpuRenderer {
         if self.drawable_size.is_empty() || self.fatal.is_some() {
             return;
         }
+        if let Err(error) = validate_drawable(
+            self.drawable_size,
+            self.device.limits().max_texture_dimension_2d,
+        ) {
+            self.pending_frame = None;
+            self.mark_fatal(error);
+            return;
+        }
         if self.depth_size != self.drawable_size {
             self.depth = Some(Self::create_depth(&self.device, self.drawable_size));
             self.depth_size = self.drawable_size;
@@ -5347,12 +5398,18 @@ impl WgpuRenderer {
     }
 
     /// Recreates the surface from the SDL window and reconfigures it.
-    fn recreate_surface(&mut self, window: &Window) {
+    fn recreate_surface(&mut self) {
         self.surface_lost = false;
         // The old surface must not be replaced while one of its textures is
         // alive; the frame is dropped first.
         self.pending_frame = None;
-        // SAFETY: the window outlives the renderer (see `surface::create`).
+        let Some(window) = self.window.as_ref() else {
+            self.mark_fatal(
+                "Cannot recreate a surface without its retained SDL window".to_string(),
+            );
+            return;
+        };
+        // SAFETY: the renderer retains this exact window until after surface drop.
         match unsafe { surface::create(&self.instance, window) } {
             Ok(recreated) => {
                 let capabilities = recreated.get_capabilities(&self.adapter);
@@ -5975,3 +6032,59 @@ mod entity_lighting_tests;
 #[cfg(test)]
 #[path = "low_lighting_tests.rs"]
 mod low_lighting_tests;
+
+#[cfg(test)]
+mod lifecycle_tests {
+    use super::*;
+
+    #[test]
+    fn drawable_limit_accepts_minimization_and_rejects_both_oversized_edges() {
+        // Value-only boundary fixture protects the pre-allocation guard, including
+        // HiDPI overflow of either edge. No texture, window or map is allocated.
+        for size in [DrawableSize::new(0, u32::MAX), DrawableSize::new(8192, 64)] {
+            assert!(validate_drawable(size, 8192).is_ok());
+        }
+        for size in [DrawableSize::new(8193, 64), DrawableSize::new(64, 8193)] {
+            let error = validate_drawable(size, 8192).err().unwrap_or_default();
+            assert!(error.contains("8192"));
+            assert!(error.contains("restart Places"));
+        }
+    }
+
+    #[test]
+    #[ignore = "explicit native Metal/Vulkan/D3D12 lifecycle control; no map bake"]
+    fn native_oversized_drawable_is_reported_before_gpu_allocation() -> Result<(), String> {
+        // The invalid depth call reproduces the former validation cause inside
+        // an error scope, then the real lifecycle proves it no longer reaches
+        // that call. Only a 64x64 renderer and invalid handles are constructed.
+        let mut renderer = WgpuRenderer::new_headless(DrawableSize::new(64, 64))?;
+        let maximum = renderer.device.limits().max_texture_dimension_2d;
+        let oversized = DrawableSize::new(maximum.saturating_add(1), 64);
+        let scope_before = renderer
+            .device
+            .push_error_scope(wgpu::ErrorFilter::Validation);
+        let invalid_depth = WgpuRenderer::create_depth(&renderer.device, oversized);
+        let before = pollster::block_on(scope_before.pop());
+        assert!(
+            before.is_some(),
+            "the old depth allocation violates the actual device limit"
+        );
+        drop(invalid_depth);
+        let scope_after = renderer
+            .device
+            .push_error_scope(wgpu::ErrorFilter::Validation);
+        let _changed = renderer.set_drawable_size(oversized);
+        renderer.ensure_ready();
+        let after = pollster::block_on(scope_after.pop());
+        assert!(
+            after.is_none(),
+            "the guard must prevent GPU validation errors: {after:?}"
+        );
+        assert!(
+            renderer
+                .fatal_error()
+                .is_some_and(|error| error.contains("smaller window"))
+        );
+        Ok(())
+    }
+}
