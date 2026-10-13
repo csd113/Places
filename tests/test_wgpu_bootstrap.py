@@ -25,8 +25,8 @@ presents exercises actual level replacement and resource reuse. Direct launch
 separately proves that no intermediate demo world is prepared.
 The material-resolution tests read the material diagnostic and assert the
 opaque/cut-out/translucent breakdown matches the draw set, the demo's glass and
-grille are present, the response/reflection metadata follows the quality
-level and nothing is created per frame.
+grille are present, the response/reflection metadata follows the independent
+lighting choice and nothing is created per frame.
 
 The tests need a graphical session and a release binary; they skip themselves
 otherwise. All scratch state lives under ``target/agent-work/wgpu-smoke/``.
@@ -405,6 +405,30 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
                 f"the wgpu smoke test has no expected backend for {sys.platform!r}"
             )
         os.makedirs(SMOKE_ROOT, exist_ok=True)
+        # Share one runtime catalog snapshot across the bounded native fixtures.
+        # File links avoid copying artwork; platforms without symlink permission
+        # copy each catalog file once. Installed maps cannot choose a background.
+        cls.asset_root = os.path.join(SMOKE_ROOT, "payload")
+        runtime_assets = os.path.join(cls.asset_root, "assets")
+        shutil.rmtree(cls.asset_root, ignore_errors=True)
+        os.makedirs(runtime_assets)
+        catalog_path = os.path.join(ROOT, "assets", "catalog.json")
+        shutil.copy2(catalog_path, os.path.join(runtime_assets, "catalog.json"))
+        with open(catalog_path, encoding="utf-8") as stream:
+            catalog = json.load(stream)
+        for asset in catalog["assets"]:
+            relative = asset.get("model")
+            if not relative:
+                continue
+            destination = os.path.join(runtime_assets, relative)
+            if os.path.lexists(destination):
+                continue
+            os.makedirs(os.path.dirname(destination), exist_ok=True)
+            source = os.path.join(ROOT, "assets", relative)
+            try:
+                os.symlink(source, destination)
+            except OSError:
+                shutil.copy2(source, destination)
         _write_level(os.path.join(SMOKE_ROOT, "primary"), _primary_level())
 
     def run_binary(self, extra_env=None, timeout=240, *, memory_report=None):
@@ -425,6 +449,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
                 "PLACES_BENCH_FRAMES": "60",
                 "PLACES_VERBOSE": "1",
                 "PLACES_LEVEL": "wgpu_smoke_primary",
+                "PLACES_ASSET_ROOT": self.asset_root,
                 # Pinned so a previous test's `PLACES_QUALITY=low` (persisted in
                 # the shared smoke state root) cannot leak into this run.
                 "PLACES_QUALITY": "high",
@@ -705,11 +730,15 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertEqual(level, "high", "high is the shipped default")
         self.assertLess(materials, draws, "materials are shared across draws")
 
-    def test_the_quality_level_gates_the_material_response(self):
-        _high_code, high = self.run_binary({"PLACES_QUALITY": "high"})
-        _low_code, low = self.run_binary(
-            {"PLACES_QUALITY": "low"}
-        )
+    def test_lighting_gates_material_response_at_low_texture_quality(self):
+        # Same two short runs/fixture: protect Full response at Low textures and
+        # Static's response gate independently of the existing texture-budget test.
+        full_code, high = self.run_binary({"PLACES_QUALITY": "low", "PLACES_NO_LIGHTMAPS": "full"})
+        static_code, low = self.run_binary({"PLACES_QUALITY": "low", "PLACES_NO_LIGHTMAPS": "off"})
+        self.assertEqual(full_code, 0, high)
+        self.assertEqual(static_code, 0, low)
+        self.assert_no_gpu_failure(high)
+        self.assert_no_gpu_failure(low)
 
         high_load = self.material_loads(high)[0]
         low_load = self.material_loads(low)[0]
@@ -717,13 +746,17 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assert_material_resolution_is_sane(low_load, low)
         self.assertEqual(high_load[10], "enabled")
         self.assertEqual(low_load[10], "disabled")
+        self.assertEqual(high_load[11], "low")
         self.assertEqual(low_load[11], "low")
         # The response gate zeroes the sheen and therefore the reflection
-        # weight, and no normal map is bound on Low; the albedo, tint, alpha
+        # weight, and no normal map is bound on Static; the albedo, tint, alpha
         # and pass classification are untouched.
-        self.assertEqual(low_load[1], 0, "Low draws no surface response")
-        self.assertEqual(low_load[2], 0, "Low reflects nothing")
-        self.assertEqual(low_load[3], 0, "Low binds no normal map")
+        self.assertGreater(high_load[1], 0, "Full retains surface response at Low textures")
+        self.assertGreater(high_load[2], 0, "Full retains reflection eligibility at Low textures")
+        self.assertGreater(high_load[3], 0, "Full retains normal maps at Low textures")
+        self.assertEqual(low_load[1], 0, "Static draws no surface response")
+        self.assertEqual(low_load[2], 0, "Static reflects nothing")
+        self.assertEqual(low_load[3], 0, "Static binds no normal map")
         self.assertEqual(high_load[6], low_load[6], "opaque draw count is level-independent")
         self.assertEqual(high_load[7], low_load[7], "cut-out draw count is level-independent")
         self.assertEqual(
@@ -1119,7 +1152,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertEqual(snapshot["lightmaps"], snapshot["renderer_lightmaps"])
 
     @unittest.skipIf(DISPLAY_LOCKED, LOCKED_REASON)
-    def test_graphics_changes_during_preparation_commit_only_latest_low_full(self):
+    def test_texture_change_during_preparation_retains_full_and_commits_latest(self):
         anchor = f"request:{SECOND_LEVEL_ID}"
         events, _ = self.run_loading_actions("pending-quality-state", [_second_level()], SECOND_LEVEL_ID, [
             {"after": anchor, "delay_ms": 100, "action": {"kind": "quality", "level": "low"}},
@@ -1128,7 +1161,9 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
             {"after": anchor, "delay_ms": 550, "action": {"kind": "focus", "focused": True}},
         ])
         requests = [event for event in events if event["event"] == "request"]
-        self.assertGreaterEqual(len(requests), 2, "effective graphics change must supersede pending configuration")
+        # The existing delayed one-room run protects late configuration capture:
+        # textures change at GPU staging; unchanged Full preparation is retained.
+        self.assertEqual(len(requests), 1, "texture changes must retain pending Full preparation")
         committed = [event for event in events if event["event"] == "world_committed"]
         self.assertEqual(len(committed), 1, "no obsolete quality world may activate")
         self.assertEqual(committed[0]["request"], requests[-1]["request"])

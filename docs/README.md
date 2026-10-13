@@ -25,6 +25,8 @@ are separate developer controls. Places Demo and Model Zoo remain frozen JSON in
 Historical reports describe the version they measured. They do not establish
 current package currency, test counts or platform performance.
 
+- [0.9.0 release summary](reports/release-0.9.0.md): final supported-package,
+  empty-install and native acceptance, with remaining limitations.
 - [Feature expansion](reports/feature-expansion-summary.md): movement, entities,
   geometry, capacity and measured offline tooling.
 - [Winter development](reports/winter-final-audit.md): settlement, snow kit, ice,

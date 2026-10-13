@@ -1,89 +1,47 @@
-# Places
+<p align="center">
+  <img src="logo.png" alt="Places" width="180">
+</p>
 
-### an experience
+<h1 align="center">Places</h1>
+<p align="center"><strong>Take a walk. Stay a while.</strong></p>
 
-A slow first-person exploration game. You walk through quiet, over-lit
-institutional interiors — an office that keeps going, a swimming pool that has
-been closed for years — and the building stops being finished around you. There
-is nothing to collect, fight or solve.
+Places is a game for walking and experiencing places. Wander through quiet
+interiors, follow a trail into the night, or spend a little longer beside the
+water. Let the architecture, light and small details set the pace.
 
-Places is a desktop game written in Rust: `sdl3` for the window and input,
-`wgpu` (Metal on macOS, Vulkan on Linux, Direct3D 12 on Windows) and a
-baked-lighting renderer with no dynamic shadow maps. Every fixture bakes into a lightmap atlas for static geometry, props
-occlude the bake, and emission, transparency, selective reflections and a
-restrained post-processing stage are all authored as content. Its content is
-data: levels are JSON, surfaces are PNGs, props are GLBs, and a catalog maps
-stable logical ids onto all of it.
+There is no prescribed route through these spaces. Open a door, try a light
+switch, look around a corner. Some places feel familiar. Others become stranger
+the longer you stay.
 
-![An office interior](docs/screenshots/01-office.png)
+[![Cosmic Lanes & Arcade: click to watch the native walkthrough](docs/images/release-0.9.0/arcade.png)](docs/videos/places-0.9.0.mp4)
 
-## Build and run
+[Watch or download the 32-second walkthrough](docs/videos/places-0.9.0.mp4) —
+real walking footage from all eight environments, with a short cut between each.
 
-Rust 1.99.0 is pinned in `rust-toolchain.toml`. Install SDL3 and `pkg-config`
-([desktop prerequisites](#desktop-prerequisites)), then run from the repository:
+[![Animated gameplay preview from all eight environments](docs/images/release-0.9.0/walkthrough-preview.gif)](docs/videos/places-0.9.0.mp4)
 
-```sh
-cargo build --locked --release
-sh tools/build-maps.sh --workers 8
-./target/release/places --list-levels
-PLACES_LEVEL=retro_arcade_demo ./target/release/places
-```
+## Somewhere to go
 
-Git contains authored JSON maps, PNG artwork, GLB models and generators.
-**Compiled `.placesmap` files are local outputs and are never tracked.** The
-explicit build step prepares Static and Full lighting and reflection
-captures in `assets/levels/`. Cargo can build the compiler and run the source
-checks before any package exists. The player loads packages; it never compiles.
-A missing map leaves the menu available for Import and reports the build command.
+Eight environments offer different moods: the three floors of **Office: After
+Hours**, the still water of **Pool**, the domestic spaces of **Home**, the
+night trails of **Lantern Hollow**, the snow and ice of **Winter**, the open
+waterfront of **Beach**, the bright architecture of **Frutiger Aero**, and the
+bowling lanes, cabinets, birthday room and restroom of **Cosmic Lanes & Arcade**.
 
-After changing one source or one of its assets:
-
-```sh
-./target/release/places-compile build levels/retro_arcade_demo.json \
-  --out assets/levels/retro_arcade_demo.placesmap --asset-root assets --workers 8
-```
-
-The compiler reuses current output and rebuilds changed dependencies. See
-[developer orientation](docs/DEVELOPMENT.md) for the layout, checks and export
-workflow; read the [map authoring guide](docs/MAP_AUTHORING_GUIDE.md) and
-[asset specification](docs/ASSET_SPECIFICATION.md) before authoring content.
-
-## Maps
-
-[levels/](levels/README.md) contains the curated source lineup:
-`pool_showcase`, `home_showcase`, `lantern_hollow`, `winter`, `beach_demo`,
-`frutiger_aero_demo`, `retro_arcade_demo` and `office_demo`.
-Places Demo and Model Zoo are frozen historical JSON in `docs/archive/levels/`,
-outside active discovery, default builds and bake campaigns.
-Regression scenes live under `tests/fixtures/levels/` and are
-excluded from the distribution.
-
-The dedicated Office connects three storeys. Winter has an ice
-pond and weather controls; Beach and Aero have their own day environments.
-Cosmic Lanes & Arcade connects four bowling lanes, fixed seating and period
-game cabinets, a birthday room and connected commercial restroom, with six
-carpet designs and controllable blacklights.
-The [Retro Bowling & Arcade report](docs/reports/retro-bowling-arcade.md) covers
-the reference-led asset pack, native screenshots and reusable UV response.
-The [refinement report](docs/reports/environment-refinement.md) records current
-native acceptance. Earlier Office/Pool screenshots remain documented as
-historical views:
-
-| Office | Pool |
+| Office: After Hours | Beach |
 | --- | --- |
-| ![Office](docs/screenshots/02-office-window.png) | ![Pool](docs/screenshots/04-pool.png) |
+| ![Office: fluorescent light across the upper floor](docs/images/release-0.9.0/office.png) | ![Beach: palms, pier and open water](docs/images/release-0.9.0/beach.png) |
+
+![Winter: a snowy settlement under an aurora](docs/images/release-0.9.0/winter.png)
+
+Doors, switches, weather and occasional encounters give the spaces their own
+rhythms. Adjustable graphics and remappable controls let you settle into yours.
+**Custom game modes are coming.** The current game focuses on exploration.
 
 ## Controls
 
-Menus use `W`/`S` to move through items, `ENTER` to activate and `ESC` to go
-back; a Settings value uses `A`/`D` (or `ENTER`) to change it.
-
-Settings is organized into three sections — **Graphics**, **Display** and
-**Controls** — reached from either the main menu or the pause menu, so the game
-can be reconfigured without leaving a level.
-
-Gameplay defaults (all eleven bindings can be changed in Settings →
-Controls; `Restore Defaults` puts them back):
+Move with WASD and look with the mouse or arrow keys. Gameplay bindings can be
+changed in Settings; Escape always pauses.
 
 | Action | Key |
 | --- | --- |
@@ -91,66 +49,24 @@ Controls; `Restore Defaults` puts them back):
 | Walk backward | `S` |
 | Strafe left | `A` |
 | Strafe right | `D` |
-| Jump / swim up | `SPACE` |
-| Crouch (toggle) | `C` |
-| Interact (press once) | `E` |
 | Look up | `UP` |
 | Look down | `DOWN` |
 | Look left | `LEFT` |
 | Look right | `RIGHT` |
-| Mouse look | mouse movement (sensitivity in Settings → Controls) |
-| Pause menu | `ESC` (fixed) |
-| Performance overlay | `-` (fixed, hidden by default) |
+| Jump / swim up | `SPACE` |
+| Crouch (toggle) | `C` |
+| Interact | `E` |
+| Pause | `ESC` |
 
-Gameplay captures the mouse to the window with relative motion and hides the
-pointer; the system cursor is never warped. Opening any menu — including the
-pause menu — releases it, returning to gameplay captures it again, and losing
-window focus releases it until focus comes back.
+## About this version
 
-Graphics and display preferences, custom bindings, look speed, walk speed,
-field of view and look inversion are saved to `settings.json` in the package
-root and kept across launches. The defaults are a 1920×1080 windowed desktop
-window; a fresh installation writes that configuration on first run. Changes
-apply immediately: Texture Quality (Low / Medium / High), Lighting (Static /
-Full), Bloom, VSync and the Advanced group (Texture Filtering, Reflections), Window Mode,
-Resolution, sensitivity, look inversion and bindings all take effect without
-restarting the application. Changing texture quality sets matching filtering
-and preserves the chosen lighting and reflection preferences. See
-[renderer reference](docs/RENDERER.md) for what each option changes.
+**Places 0.9.0** is in active development. Current native validation is on
+macOS with Metal. The [release summary](docs/reports/release-0.9.0.md) records
+what was checked and the remaining limitations.
 
+The images and walking footage above are current captures from the native game.
+[Developer documentation](docs/DEVELOPMENT.md) · [Changelog](CHANGELOG.md) ·
+[Documentation index](docs/README.md)
 
-## Desktop prerequisites
-
-macOS is the verified host: `brew install sdl3 pkg-config`.
-Linux needs SDL3 development headers, `pkg-config`, the Vulkan loader and a
-native driver (for example `libsdl3-dev pkg-config libvulkan1 mesa-vulkan-drivers`
-on Debian/Ubuntu). Windows needs SDL3, a C/C++ build toolchain and Direct3D 12.
-Linux and Windows setup is reviewed against the build configuration; the
-[verification matrix](docs/VERIFICATION.md) records what has actually run.
-
-Python 3 with Pillow and NumPy supports the offline asset and image tools.
-The game and map compiler do not load those Python dependencies.
-
-## Export and custom maps
-
-After building the player and curated maps, `sh tools/package.sh` creates
-`target/package/Places/` and `target/package/Places.app/`. Export checks every
-curated package against its source before publishing. It ships the catalog,
-runtime assets and exactly the curated packages; local review maps, concept
-boards, masters and build caches are excluded.
-
-A portable payload runs from any working directory. `PLACES_ASSET_ROOT` selects
-an alternate asset root; `PLACES_STATE_ROOT` selects writable settings, import
-and custom-map storage. Compile custom JSON with `places-compile build`, then
-import its `.placesmap` or copy it into the state root's `levels/` directory.
-
-## Developer references
-
-- [Developer orientation and cleanup](docs/DEVELOPMENT.md)
-- [Architecture](docs/ARCHITECTURE.md) and [renderer](docs/RENDERER.md)
-- [Map authoring](docs/MAP_AUTHORING_GUIDE.md), [asset contracts](docs/ASSET_SPECIFICATION.md)
-  and [offline tooling](docs/OFFLINE_TOOLING.md)
-- [Package format](docs/PACKAGE_FORMAT.md) and [verification](docs/VERIFICATION.md)
-- [Documentation index](docs/README.md) and [changelog](CHANGELOG.md)
-
-MIT; see [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_LICENSES.txt).
+Places is open source under the [MIT license](LICENSE).
+[Third-party notices](THIRD_PARTY_LICENSES.txt).

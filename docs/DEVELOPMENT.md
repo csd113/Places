@@ -27,8 +27,13 @@ Prop sheets stay beside their GLBs; logical `core:` and theme IDs are unchanged.
 
 ## Build from source
 
-Install the [desktop prerequisites](../README.md#desktop-prerequisites). The
-repository toolchain is pinned in `rust-toolchain.toml`.
+Rust 1.99.0 is pinned in `rust-toolchain.toml`. Install SDL3 and `pkg-config`
+before building. macOS is the verified host: `brew install sdl3 pkg-config`.
+Linux needs SDL3 development headers, `pkg-config`, the Vulkan loader and a
+native driver. Windows needs SDL3, a C/C++ build toolchain and Direct3D 12.
+The [verification matrix](VERIFICATION.md) records actual platform acceptance.
+Python 3 with Pillow and NumPy supports offline asset/image tooling; the player
+and map compiler do not load those Python dependencies.
 
 ```sh
 cargo build --locked --release
@@ -38,6 +43,10 @@ cargo build --locked --release
 
 No map source or compiled package is required to build, test, package or launch.
 The player opens a usable menu with zero maps; Settings and Quit remain available.
+Graphics, display and control preferences are persisted in `settings.json`
+under the writable state root. `PLACES_STATE_ROOT` selects that root;
+`PLACES_ASSET_ROOT` can select an alternate runtime payload. Defaults and current
+graphics behavior are described in the [renderer guide](RENDERER.md).
 Explore rescans external packages on opening. Drop a `.placesmap` into the writable
 `levels/` folder, or into `import/` and choose Import levels (which rescans both).
 `PLACES_LEVEL` optionally selects an installed ID or display name; an unknown
@@ -153,8 +162,6 @@ machine-specific output, not fresh-checkout prerequisites. No history or LFS
 purge is part of documentation cleanup. Preserve requested runnable deliverables
 outside `target`, stop owned jobs and clean build output only when it is unowned.
 
-At the October 13 documentation/tooling handoff, only the Office package was
-current after shared engine changes; the seven other installed packages were
-unchanged and stale. They were not refreshed for this cleanup. Verify or rebuild
-selected maps explicitly before native/package acceptance; a previous all-map
-campaign does not establish present currency.
+Verify or rebuild selected maps explicitly before native/package acceptance;
+a previous campaign does not establish present currency. The
+[0.9.0 release summary](reports/release-0.9.0.md) records the final local lineup.

@@ -1438,9 +1438,21 @@ the current compiler builds maps against the installed asset bundle; see
 ### 12.1 Application icon and documentation screenshots
 
 * `icon.png`: PNG, square, RGBA, non-interlaced, ≤512 px; asserted by
-  `tests/test_package.py`.
+  `tests/test_package.py`. `logo.png` is the user's approved byte-identical
+  copy for the promotional README; keep its original square composition,
+  orientation and alpha. It is documentation artwork, not a runtime texture.
 * `docs/screenshots/*.png`: 960×544 documentation captures. Not runtime
   assets; no contract beyond being still frames.
+* `docs/videos/places-0.9.0.mp4`: non-runtime promotional gameplay footage,
+  16:9, native source at least 960×540 with 960×540 delivery at 30 fps,
+  H.264/YUV420P with fast-start
+  metadata. Capture real held player controls from current installed packages;
+  preserve frame chronology, camera orientation and composition within each
+  segment. Use simple cuts between environments, with no synthetic scenes.
+* Its thumbnail reuses an unchanged native PNG in `docs/images/release-0.9.0/`.
+  A compact GIF preview may sample the same footage at 384×216 and 6 fps;
+  retain 16:9 orientation and actual motion. These documentation derivatives
+  are outside the runtime catalog and never replace game textures.
 
 ### 12.2 Shared untextured white sheet
 

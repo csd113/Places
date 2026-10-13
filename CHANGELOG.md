@@ -1,3 +1,31 @@
+## 0.9.0 — 2026-10-13
+
+Places continues as a game for walking and experiencing places. Custom game
+modes are coming; this version focuses on exploration, content and reliability.
+
+- Eight supported environments: Pool, Home, Lantern Hollow, Winter, Beach,
+  Frutiger Aero, Cosmic Lanes & Arcade, and Office: After Hours. Arcade gains
+  birthday-room dressing, ultraviolet materials and a connected restroom;
+  Office connects three floors with sparse basement encounters.
+- Engine builds, ordinary tests, CI and default exports work without installed
+  maps. Compiled packages remain local external content. Places Demo and Model
+  Zoo are historical JSON only, outside active discovery and compilation.
+- Static and Full lighting remain independent of texture quality. Compact map
+  storage, shared capture resources, lightmap packing and fixture/colour fixes
+  improve the prepared content pipeline; the compiler reports terminal progress.
+- Shared ramp/stair contacts prevent the reproduced Office pressed-wall camera
+  penetration and jump escape. Validated-spawn recovery handles sustained escape;
+  Office rail mounts, ceiling lighting and basement reach are corrected.
+- Renderer drawable bounds and SDL-window ownership are hardened. Bounded
+  persistent diagnostics retain session context and readable failure notices.
+- A refreshed promotional README uses a curated set of current native captures
+  and a compact walking montage through all eight environments.
+
+Validation and remaining limitations are recorded in the
+[0.9.0 release summary](docs/reports/release-0.9.0.md). The original intermittent
+gameplay crashes remain unattributed. Current native acceptance is macOS/Metal;
+Linux/Vulkan and Windows/Direct3D 12 were not exercised in this release campaign.
+
 ## 0.8.0 — 2026-10-04
 
 The SDL3/wgpu desktop generation, including the engine, compiler and content

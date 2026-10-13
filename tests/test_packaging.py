@@ -42,7 +42,7 @@ class PackageDestinationGuardTests(unittest.TestCase):
             source = root / 'source'
             (source / 'tools').mkdir(parents=True)
             shutil.copyfile(PACKAGE_SH, source / 'tools/package.sh')
-            (source / 'Cargo.toml').write_text('[package]\nversion = "0.8.0"\n')
+            (source / 'Cargo.toml').write_text('[package]\nversion = "0.9.0"\n')
             for name in ('README.md', 'THIRD_PARTY_LICENSES.txt'):
                 (source / name).write_text('fixture')
             for name in ('shared', 'environments', 'entities', 'diagnostic', 'levels'):

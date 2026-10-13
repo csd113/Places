@@ -81,10 +81,10 @@ never triggers procedural geometry generation.
 ```json
 {
   "package_format": 1,
-  "id": "places_demo",
-  "name": "Places Demo",
+  "id": "office_demo",
+  "name": "Office: After Hours",
   "author": "Places",
-  "created_by": "places-compile 0.8.0",
+  "created_by": "places-compile 0.9.0",
   "compiler_fingerprint": "<sha256>",
   "required_capabilities": ["geometry", "props", "lighting", "collision",
                             "lightmaps-hdr", "irradiance-probes", "probes-hdr"],

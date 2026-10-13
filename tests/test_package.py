@@ -1392,11 +1392,14 @@ class SourceHygieneTests(unittest.TestCase):
         for entry in ("/target", "tools/bench/results/"):
             self.assertIn(entry, ignored)
 
-    def test_readme_documents_controls_and_prerequisites(self):
+    def test_player_and_developer_documentation_have_their_respective_guidance(self):
+        # Two small text reads retain setup coverage after its move from promotion.
         readme = (PACKAGE / "README.md").read_text(encoding="utf-8")
-        for needle in ("## Controls", "## Desktop prerequisites", "settings.json"):
+        for needle in ("## Controls", "docs/DEVELOPMENT.md"):
             self.assertIn(needle, readme)
-        self.assertIn("SDL3", readme)
+        developer = (PACKAGE / "docs/DEVELOPMENT.md").read_text(encoding="utf-8")
+        self.assertIn("SDL3", developer)
+        self.assertIn("settings.json", developer)
 
     def test_readme_documents_wasd_and_arrow_defaults(self):
         readme = (PACKAGE / "README.md").read_text(encoding="utf-8")
