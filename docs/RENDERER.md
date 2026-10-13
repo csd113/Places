@@ -1228,7 +1228,7 @@ Load-time lines (never per frame) cover the world upload, textures, materials an
 Recoverable events (surface timeout, surface lost/outdated) are reported at most once per process; a VSync change logs the presentation mode it selected; minimize/restore is silent; there are no per-frame logs.
 
 The `-` performance overlay normally uses two readable rows: system CPU
-utilization and whole-device GPU utilization, then `GPU render N.NNms`,
+utilization and whole-device GPU utilization, then `GPU elapsed N.NNms`,
 `Game RAM RSS NMiB` and FPS. Device utilization includes other applications;
 it is distinct from this game's hardware render-pass duration. The existing
 system CPU sampling is unchanged. Unsupported counters add a short explicit
@@ -1250,7 +1250,7 @@ layout of 96 bytes (`resident_size` at offset 8); Linux reads `VmRSS` from
 memory, physical footprint, or an attempted sum of process RAM and driver-owned
 GPU/unified-memory allocations. Unsupported platforms show N/A.
 
-`GPU render N.NNms` comes from hardware
+`GPU elapsed N.NNms` comes from hardware
 render-pass timestamps. Device creation requests `TIMESTAMP_QUERY` only when
 the selected adapter supports it; arbitrary encoder timestamp writes are not
 required, so Apple Metal GPUs can use their supported pass boundaries. The
@@ -1259,15 +1259,27 @@ period in nanoseconds per tick, and the measurement scope. An unsupported
 adapter, invalid period or failed readback produces an explicit `GPU N/A`
 reason; initial asynchronous samples show `GPU pending`.
 
-The duration sums each submitted frame's actual planar, scene, emission,
-blur, resolve, UI and surface-copy pass intervals. It excludes CPU submission,
-upload/copy work, presentation waits and screenshot re-renders, and is not a
-whole-device utilization percentage. Three persistent query/resolve/readback
+The duration unions each submitted frame's planar, scene, emission,
+blur, resolve, UI and surface-copy timestamp spans. Metal samples vertex-stage
+start through fragment-stage end: these spans can overlap across passes.
+Overlapping time counts once, and disjoint gaps are excluded. The spans can
+include GPU scheduling stalls and work interleaved with other stages; this is
+elapsed GPU timeline coverage, not active execution time, an additive breakdown
+of pass costs, or whole-device utilization. CPU durations and the separate
+whole-device utilization counter retain their own meanings. Screenshot
+re-renders are excluded. Three persistent query/resolve/readback
 slots avoid reuse while mapping is pending. A busy ring skips timing instead
 of waiting; ordinary device polling delivers the asynchronous callbacks.
 Mapped views are released before unmapping/reusing their slots. Tick
 differences are multiplied by the queue timestamp period and converted from
-nanoseconds to milliseconds.
+nanoseconds to milliseconds. Interval merging uses a fixed sixteen-pair array.
+
+For bounded native diagnosis, `PLACES_BENCH=1 PLACES_BENCH_GPU_TRACE=1`
+records three labelled raw samples from a loaded scene with bloom passes.
+`PLACES_BENCH_GPU_TIMING=off` under the benchmark disables query/readback
+resources for a same-build instrumentation control and reports that explicit
+reason. Both switches are inert in normal play. Per-pass spans overlap and
+must not be added as independent GPU costs.
 
 After the final surface-copy submission (UI in the direct fallback), a
 nonblocking queue-completion callback marks the written slot ready. Only then

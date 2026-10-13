@@ -626,12 +626,140 @@ fn normal_math_test() {
     normal_test_results[5] = vec4<f32>(unit_direction_or_zero(cross(
         rescale_direction(vec3<f32>(2.0e-20, 4.0e-20, 0.0)),
         rescale_direction(vec3<f32>(2.0e20, 4.0e20, 0.0)))), 0.0);
+    for (var corner = 0u; corner < 8u; corner += 1u) {
+        let point = vec3<f32>(
+            select(0.0, 1.0, (corner & 1u) != 0u),
+            select(0.0, 1.0, (corner & 2u) != 0u),
+            select(0.0, 1.0, (corner & 4u) != 0u));
+        normal_test_results[6u + corner] = source_visibility(point, 0u);
+        normal_test_results[14u + corner] = source_visibility(point, 7u);
+    }
+    let inside = vec3<f32>(0.25, 0.5, 0.75);
+    let outside = vec3<f32>(-0.5, 2.0, 0.25);
+    normal_test_results[22] = source_visibility(inside, 0u);
+    normal_test_results[23] = source_visibility(inside, 7u);
+    normal_test_results[24] = source_visibility(outside, 0u);
+    normal_test_results[25] = source_visibility(outside, 7u);
+    var receiver: VsOut;
+    receiver.world_position = vec3<f32>(0.0);
+    receiver.local_position = inside;
+    normal_test_results[26] = vec4<f32>(entity_direct_term(receiver, vec3<f32>(0.0, 1.0, 0.0)), 0.0);
+    receiver.local_position = outside;
+    normal_test_results[27] = vec4<f32>(entity_direct_term(receiver, vec3<f32>(0.0, 1.0, 0.0)), 0.0);
 }
 ";
 
+// Six normal witnesses plus twenty visibility and two direct-light results.
+const NORMAL_MATH_RESULT_BYTES: u64 = 448;
+
+fn visibility_corner(corner: usize) -> [f32; 3] {
+    std::array::from_fn(|axis| {
+        if corner & (1_usize << axis) == 0 {
+            0.0
+        } else {
+            1.0
+        }
+    })
+}
+
+/// Analytic affine fields give known interpolated values without reproducing
+/// the production corner-weight/interpolation loop in the expected result.
+fn visibility_ramp(position: [f32; 3], reversed: bool) -> [f32; 4] {
+    let [x, y, z] = position.map(|axis| axis.clamp(0.0, 1.0));
+    let mean = (x + y + z) / 3.0;
+    if reversed {
+        [1.0 - z, 1.0 - x, 1.0 - y, 1.0 - mean]
+    } else {
+        [x, y, z, mean]
+    }
+}
+
+fn visibility_math_uniform() -> EnvironmentUniform {
+    use crate::render::common::light_transport::EntityDirectLight;
+
+    let mut uniform = EnvironmentUniform::new(
+        [1.0; 3],
+        false,
+        crate::render::common::atmosphere::FogState::SHIPPED,
+    );
+    uniform.entity_bounds_min = [0.0; 4];
+    uniform.entity_bounds_extent = [1.0, 1.0, 1.0, 0.0];
+    for (corner, anchor) in uniform.entity_anchors.iter_mut().enumerate() {
+        let point = visibility_corner(corner);
+        anchor.visibility[0] = visibility_ramp(point, false);
+        anchor.visibility[7] = visibility_ramp(point, true);
+        anchor.attenuation = [1.0, 0.5, 0.25, 0.0];
+    }
+    // Both sources have unit receiver cosine and constant calibrated falloff.
+    // Different colours and four distinct tap weights expose source/tap swaps.
+    uniform.entity_direct[0] = EntityDirectLight {
+        position_range: [0.0, 4.0, 0.0, 100.0],
+        color_strength: [0.25, 0.5, 0.75, 2.0],
+        extent_falloff: [0.0, 0.0, 2.0, 0.0],
+        taps: [
+            [0.0, 1.0, 0.0, 1.0 / 16.0],
+            [0.0, 2.0, 0.0, 3.0 / 16.0],
+            [0.0, 3.0, 0.0, 5.0 / 16.0],
+            [0.0, 4.0, 0.0, 7.0 / 16.0],
+        ],
+    };
+    uniform.entity_direct[7] = EntityDirectLight {
+        position_range: [0.0, 6.0, 0.0, 100.0],
+        color_strength: [1.0, 0.5, 0.25, 1.0],
+        extent_falloff: [0.0, 0.0, 2.0, 0.0],
+        taps: [
+            [0.0, 1.0, 0.0, 7.0 / 16.0],
+            [0.0, 2.0, 0.0, 5.0 / 16.0],
+            [0.0, 3.0, 0.0, 3.0 / 16.0],
+            [0.0, 4.0, 0.0, 1.0 / 16.0],
+        ],
+    };
+    uniform
+}
+
+fn visibility_math_bindings(
+    renderer: &WgpuRenderer,
+    pipeline: &wgpu::ComputePipeline,
+) -> [wgpu::BindGroup; 3] {
+    let environment = renderer.device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("entity-normal-math-environment"),
+        size: super::super::world::ENVIRONMENT_UNIFORM_SIZE,
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    renderer.queue.write_buffer(
+        &environment,
+        0,
+        bytemuck::bytes_of(&visibility_math_uniform()),
+    );
+    let environment_binding = renderer
+        .device
+        .create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("entity-normal-math-environment-binding"),
+            layout: &pipeline.get_bind_group_layout(3),
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: environment.as_entire_binding(),
+            }],
+        });
+    let [first_gap, second_gap] = [1_u32, 2].map(|group| {
+        renderer
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("entity-normal-math-empty-binding"),
+                layout: &pipeline.get_bind_group_layout(group),
+                entries: &[],
+            })
+    });
+    [first_gap, second_gap, environment_binding]
+}
+
 fn gpu_normal_math_results(renderer: &WgpuRenderer) -> Vec<[f32; 4]> {
     // Execute the production helpers themselves. The compute entry supplies
-    // analytic directions rather than duplicating their arithmetic in Rust.
+    // analytic directions/visibility fields rather than duplicating shader math.
+    // The added witnesses protect vector lane/source selection and its tap caller:
+    // one existing device, dispatch and readback; 448-byte results and one 6240-byte
+    // uniform, no map/transport bake and no added default GPU/test requirement.
     let source = format!(
         "{}\n{NORMAL_MATH_ENTRY}",
         super::super::world::WORLD_SHADER_SRC
@@ -654,13 +782,13 @@ fn gpu_normal_math_results(renderer: &WgpuRenderer) -> Vec<[f32; 4]> {
         });
     let output = renderer.device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("entity-normal-math-output"),
-        size: 96,
+        size: NORMAL_MATH_RESULT_BYTES,
         usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
         mapped_at_creation: false,
     });
     let staging = renderer.device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("entity-normal-math-readback"),
-        size: 96,
+        size: NORMAL_MATH_RESULT_BYTES,
         usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
@@ -674,6 +802,8 @@ fn gpu_normal_math_results(renderer: &WgpuRenderer) -> Vec<[f32; 4]> {
                 resource: output.as_entire_binding(),
             }],
         });
+    let [first_gap, second_gap, environment_binding] =
+        visibility_math_bindings(renderer, &pipeline);
     let mut encoder = renderer
         .device
         .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -686,9 +816,12 @@ fn gpu_normal_math_results(renderer: &WgpuRenderer) -> Vec<[f32; 4]> {
         });
         pass.set_pipeline(&pipeline);
         pass.set_bind_group(0, &binding, &[]);
+        pass.set_bind_group(1, &first_gap, &[]);
+        pass.set_bind_group(2, &second_gap, &[]);
+        pass.set_bind_group(3, &environment_binding, &[]);
         pass.dispatch_workgroups(1, 1, 1);
     }
-    encoder.copy_buffer_to_buffer(&output, 0, &staging, 0, 96);
+    encoder.copy_buffer_to_buffer(&output, 0, &staging, 0, NORMAL_MATH_RESULT_BYTES);
     let _submission = renderer.queue.submit([encoder.finish()]);
     read_normal_math_buffer(&renderer.device, &staging)
 }
@@ -715,7 +848,7 @@ fn read_normal_math_buffer(device: &wgpu::Device, staging: &wgpu::Buffer) -> Vec
 fn normal_direction_helpers_keep_extreme_and_degenerate_vectors_finite_on_gpu() {
     let renderer = WgpuRenderer::new_headless(DrawableSize::new(16, 16)).expect("GPU");
     let actual = gpu_normal_math_results(&renderer);
-    let expected = [
+    let mut expected = vec![
         [0.0_f32, 0.6, 0.8, 0.0],
         [0.0, 0.6, 0.8, 0.0],
         [0.0; 4],
@@ -723,16 +856,28 @@ fn normal_direction_helpers_keep_extreme_and_degenerate_vectors_finite_on_gpu() 
         [0.0, 0.0, -1.0, 0.0],
         [0.0; 4],
     ];
+    for reversed in [false, true] {
+        expected.extend((0..8).map(|corner| visibility_ramp(visibility_corner(corner), reversed)));
+    }
+    for position in [[0.25, 0.5, 0.75], [-0.5, 2.0, 0.25]] {
+        for reversed in [false, true] {
+            expected.push(visibility_ramp(position, reversed));
+        }
+    }
+    // Independent analytic direct-light totals: weighted ramp values, source
+    // colour/strength, then [1, 1/2, 1/4] anchor attenuation. Cosine/falloff are 1.
+    expected.push([0.75, 0.398_437_5, 123.0 / 512.0, 0.0]);
+    expected.push([173.0 / 192.0, 151.0 / 384.0, 323.0 / 1536.0, 0.0]);
     assert_eq!(
         actual.len(),
         expected.len(),
-        "all normal cases were executed"
+        "all normal, visibility and direct-light cases were executed"
     );
     for (index, (value, reference)) in actual.iter().zip(&expected).enumerate() {
         for (channel, (component, wanted)) in value.iter().zip(reference).enumerate() {
             assert!(
                 component.is_finite() && (component - wanted).abs() < 1.0e-5,
-                "normal case {index}, channel {channel}: actual={value:?}, expected={reference:?}"
+                "entity helper case {index}, channel {channel}: actual={value:?}, expected={reference:?}"
             );
         }
     }

@@ -6,6 +6,7 @@
 /// Why the hardware GPU render-pass meter cannot supply a measurement.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GpuTimingUnavailable {
+    BenchmarkDisabled,
     AdapterUnsupported,
     FeatureNotEnabled,
     InvalidTimestampPeriod,
@@ -18,6 +19,7 @@ impl GpuTimingUnavailable {
     #[must_use]
     pub const fn reason(self) -> &'static str {
         match self {
+            Self::BenchmarkDisabled => "disabled by benchmark control",
             Self::AdapterUnsupported => "adapter lacks timestamps",
             Self::FeatureNotEnabled => "timestamps not enabled",
             Self::InvalidTimestampPeriod => "invalid timestamp period",
@@ -34,9 +36,11 @@ pub struct GpuTimingSample {
     pub id: u64,
     /// Renderer frame id measured by these queries, independent of readback lag.
     pub frame: u64,
-    /// Sum of the frame's rendered pass durations in milliseconds, including
+    /// Union of rendered pass timestamp spans in milliseconds, including
     /// planar reflection, bloom, resolve, UI and the surface copy when drawn.
-    /// CPU submission, upload/copy work and presentation waits are excluded.
+    /// Overlapping vertex/fragment stages count once; disjoint gaps are excluded.
+    /// Stage spans can contain GPU scheduling stalls, so this is elapsed GPU
+    /// timeline coverage, not active execution time or utilization.
     pub milliseconds: f32,
 }
 

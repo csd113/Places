@@ -1078,7 +1078,7 @@ impl WgpuRenderer {
             self.drawable_size.height
         ));
         logging::info(format!(
-            "[wgpu] GPU timing: {} | pass timestamps supported={} requested={} | encoder timestamps supported={} | period={} ns/tick | scope=sum of render passes (scene, planar, bloom, resolve, UI, surface copy); excludes CPU submission, uploads and presentation waits",
+            "[wgpu] GPU timing: {} | pass timestamps supported={} requested={} | encoder timestamps supported={} | period={} ns/tick | scope=union of GPU pass stage spans (scene, planar, bloom, resolve, UI, surface copy); overlaps count once, disjoint gaps excluded; includes GPU scheduling stalls, not active utilization",
             self.gpu_timer.status().status(),
             self.adapter
                 .features()
@@ -3872,7 +3872,7 @@ impl WgpuRenderer {
                     }),
                     stencil_ops: None,
                 }),
-                timestamp_writes: scene_timer.and_then(GpuTimer::pass_writes),
+                timestamp_writes: scene_timer.and_then(|value| value.pass_writes("scene")),
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
@@ -4113,7 +4113,7 @@ impl WgpuRenderer {
                 },
             })],
             depth_stencil_attachment: depth_attachment,
-            timestamp_writes: direct_timer.and_then(GpuTimer::pass_writes),
+            timestamp_writes: direct_timer.and_then(|value| value.pass_writes("direct-scene")),
             occlusion_query_set: None,
             multiview_mask: None,
         });
@@ -4692,7 +4692,7 @@ impl WgpuRenderer {
                     }),
                     stencil_ops: None,
                 }),
-                timestamp_writes: self.gpu_timer.pass_writes(),
+                timestamp_writes: self.gpu_timer.pass_writes("planar"),
                 occlusion_query_set: None,
                 multiview_mask: None,
             });

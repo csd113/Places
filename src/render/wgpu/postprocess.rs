@@ -669,7 +669,7 @@ impl PostProcess {
                 }),
                 stencil_ops: None,
             }),
-            timestamp_writes: timer.and_then(GpuTimer::pass_writes),
+            timestamp_writes: timer.and_then(|value| value.pass_writes("emission")),
             occlusion_query_set: None,
             multiview_mask: None,
         }))
@@ -1042,7 +1042,7 @@ impl PostProcess {
 /// afterwards.
 fn encode_fullscreen(
     encoder: &mut wgpu::CommandEncoder,
-    label: &str,
+    label: &'static str,
     view: &wgpu::TextureView,
     pipeline: &wgpu::RenderPipeline,
     bind: &wgpu::BindGroup,
@@ -1061,7 +1061,7 @@ fn encode_fullscreen(
             },
         })],
         depth_stencil_attachment: None,
-        timestamp_writes: timer.and_then(GpuTimer::pass_writes),
+        timestamp_writes: timer.and_then(|value| value.pass_writes(label)),
         occlusion_query_set: None,
         multiview_mask: None,
     });

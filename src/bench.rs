@@ -22,10 +22,11 @@
 //! * `frame_ms` — `t_begin` to `t_swap`: the complete frame including the swap.
 //! * `loop_ms` — `t_begin` of this frame to `t_begin` of the next: the real
 //!   presentation cadence, which is what an FPS counter should be derived from.
-//! * `gpu_render_ms` — asynchronous hardware timestamps summed across actual
-//!   render passes (including planar, bloom, resolve, UI and surface copy).
-//!   Upload/copy work and CPU/presentation waits are excluded. Its sample and
-//!   renderer-frame ids identify readback lag; repeated ids are one sample.
+//! * `gpu_render_ms` — union of asynchronous hardware timestamp spans across
+//!   actual render passes (including planar, bloom, resolve, UI and surface copy).
+//!   Overlapping stages count once; disjoint gaps are excluded. Stage spans can
+//!   include GPU scheduling stalls and are not active-device utilization. Sample
+//!   and renderer-frame ids identify readback lag; repeated ids are one sample.
 //!
 //! Scripted live cycles drive real settings and the real window from the
 //! environment: `PLACES_BENCH_QUALITY_CYCLE` selects the overall quality

@@ -14,8 +14,11 @@ const READBACK_SLOTS: usize = 3;
 // A normal frame has at most eight passes: planar, scene, emission, two blurs,
 // resolve, UI and surface copy. Leave bounded room for another small pass.
 const MAX_QUERIES: u32 = 32;
+const MAX_PASS_LABELS: usize = 16;
 // 32 eight-byte query values also fill one resolve-alignment block.
 const QUERY_BYTES: u64 = 256;
+const RAW_TRACE_FIRST_FRAME: u64 = 600;
+const RAW_TRACE_MAX_SAMPLES: u8 = 3;
 
 /// The optional feature needed by all native render-pass timestamp writes.
 pub(super) fn required_features(available: wgpu::Features) -> wgpu::Features {
@@ -27,6 +30,7 @@ struct FrameQueries {
     queries: u32,
     frame: u64,
     empty_pairs: u32,
+    labels: [&'static str; MAX_PASS_LABELS],
 }
 
 struct PendingReadback {
@@ -85,18 +89,31 @@ pub struct GpuTimer {
     active: Option<usize>,
     used_queries: Cell<u32>,
     empty_pairs: Cell<u32>,
+    pass_labels: Cell<[&'static str; MAX_PASS_LABELS]>,
     period_ns: f32,
     frame: u64,
     samples: u64,
     status: GpuTiming,
     rejected_sample_reports: u8,
+    raw_trace_enabled: bool,
+    raw_trace_reports: u8,
 }
 
 impl GpuTimer {
     #[must_use]
     pub fn new(adapter: &wgpu::Adapter, device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
+        // Explicit benchmark controls are read once. Stray developer variables
+        // cannot change normal gameplay or allocate a per-frame trace.
+        let benchmark = std::env::var("PLACES_BENCH").is_ok_and(|value| value.trim() == "1");
+        let timing_disabled = benchmark
+            && std::env::var("PLACES_BENCH_GPU_TIMING")
+                .is_ok_and(|value| value.trim().eq_ignore_ascii_case("off"));
+        let raw_trace_enabled = benchmark
+            && std::env::var("PLACES_BENCH_GPU_TRACE").is_ok_and(|value| value.trim() == "1");
         let period_ns = queue.get_timestamp_period();
-        let unavailable = if !adapter.features().contains(wgpu::Features::TIMESTAMP_QUERY) {
+        let unavailable = if timing_disabled {
+            Some(GpuTimingUnavailable::BenchmarkDisabled)
+        } else if !adapter.features().contains(wgpu::Features::TIMESTAMP_QUERY) {
             Some(GpuTimingUnavailable::AdapterUnsupported)
         } else if !device.features().contains(wgpu::Features::TIMESTAMP_QUERY) {
             Some(GpuTimingUnavailable::FeatureNotEnabled)
@@ -114,11 +131,14 @@ impl GpuTimer {
             active: None,
             used_queries: Cell::new(0),
             empty_pairs: Cell::new(0),
+            pass_labels: Cell::new([""; MAX_PASS_LABELS]),
             period_ns,
             frame: 0,
             samples: 0,
             status: unavailable.map_or(GpuTiming::Pending, GpuTiming::Unavailable),
             rejected_sample_reports: 0,
+            raw_trace_enabled,
+            raw_trace_reports: 0,
         }
     }
 
@@ -148,6 +168,7 @@ impl GpuTimer {
         self.frame = self.frame.saturating_add(1);
         self.used_queries.set(0);
         self.empty_pairs.set(0);
+        self.pass_labels.set([""; MAX_PASS_LABELS]);
         // A failed sample says nothing about adapter support. A loading pass
         // may execute no vertex/fragment stages, so keep sampling supported
         // hardware and let a later complete result recover the meter.
@@ -174,14 +195,18 @@ impl GpuTimer {
     }
 
     /// Allocates one contiguous pair immediately before a real render pass.
+    /// Static labels occupy fixed storage retained through asynchronous readback.
     #[must_use]
-    pub fn pass_writes(&self) -> Option<wgpu::RenderPassTimestampWrites<'_>> {
+    pub fn pass_writes(&self, label: &'static str) -> Option<wgpu::RenderPassTimestampWrites<'_>> {
         let slot = self.slots.get(self.active?)?;
         let beginning = self.used_queries.get();
         let end = beginning.checked_add(1)?;
         if end >= MAX_QUERIES {
             return None;
         }
+        let mut labels = self.pass_labels.get();
+        *labels.get_mut(usize::try_from(beginning / 2).ok()?)? = label;
+        self.pass_labels.set(labels);
         self.used_queries.set(end.saturating_add(1));
         Some(wgpu::RenderPassTimestampWrites {
             query_set: &slot.queries,
@@ -217,6 +242,7 @@ impl GpuTimer {
                     queries,
                     frame: self.frame,
                     empty_pairs,
+                    labels: self.pass_labels.get(),
                 },
             })
         });
@@ -234,7 +260,7 @@ impl GpuTimer {
                         Ok(()) => {
                             let frame = written.frame;
                             slot.pending = Some(PendingSlot::Readback(resolve_completed(
-                                slot, device, queue, frame,
+                                slot, device, queue, &frame,
                             )));
                         }
                         Err(TryRecvError::Disconnected) => {
@@ -264,6 +290,14 @@ impl GpuTimer {
                         .get_mapped_range()
                         .map_err(|error| TimestampDecodeError::MappedRange(error.to_string()))
                         .and_then(|mapped| {
+                            if self.raw_trace_enabled
+                                && self.raw_trace_reports < RAW_TRACE_MAX_SAMPLES
+                                && pending.frame.frame >= RAW_TRACE_FIRST_FRAME
+                                && pending.frame.queries >= 10
+                            {
+                                trace_raw_sample(&mapped, &pending.frame, self.period_ns);
+                                self.raw_trace_reports = self.raw_trace_reports.saturating_add(1);
+                            }
                             decode_milliseconds(
                                 &mapped,
                                 pending.frame.queries,
@@ -318,6 +352,58 @@ impl GpuTimer {
     }
 }
 
+/// At most three explicit benchmark records, each bounded to sixteen pairs.
+/// Preserve labelled boundaries to inspect stage overlap independently of the
+/// aggregate meter. This diagnostic never changes the measured rendering work.
+fn trace_raw_sample(bytes: &[u8], frame: &FrameQueries, period_ns: f32) {
+    let pairs: Vec<_> = bytes
+        .as_chunks::<16>()
+        .0
+        .iter()
+        .take(usize::try_from(MAX_QUERIES / 2).unwrap_or(0))
+        .enumerate()
+        .map(|(index, pair)| {
+            let mut chunks = pair.as_chunks::<8>().0.iter();
+            let beginning = chunks.next().map_or(0, |value| u64::from_ne_bytes(*value));
+            let end = chunks.next().map_or(0, |value| u64::from_ne_bytes(*value));
+            let empty = u32::try_from(index)
+                .ok()
+                .and_then(|shift| 1_u32.checked_shl(shift))
+                .is_some_and(|bit| frame.empty_pairs & bit != 0);
+            let duration_ms = end
+                .checked_sub(beginning)
+                .filter(|_| beginning != u64::MAX && end != u64::MAX)
+                .map(|ticks| {
+                    #[expect(
+                        clippy::as_conversions,
+                        clippy::cast_precision_loss,
+                        reason = "Convert only elapsed hardware ticks to diagnostic milliseconds after integer subtraction"
+                    )]
+                    let elapsed = ticks as f64;
+                    elapsed * f64::from(period_ns) / 1_000_000.0_f64
+                });
+            serde_json::json!({
+                "pair": index,
+                "label": frame.labels.get(index).copied().unwrap_or(""),
+                "begin_ticks": beginning,
+                "end_ticks": end,
+                "duration_ms": duration_ms,
+                "excluded_empty": empty,
+            })
+        })
+        .collect();
+    crate::logging::info(format!(
+        "[wgpu-gpu-trace] {}",
+        serde_json::json!({
+            "frame": frame.frame,
+            "queries": frame.queries,
+            "period_ns": period_ns,
+            "empty_pairs": frame.empty_pairs,
+            "pairs": pairs,
+        })
+    ));
+}
+
 /// Completion notification for already submitted GPU writes, without a wait.
 fn completion_receiver(queue: &wgpu::Queue) -> Receiver<()> {
     let (sender, receiver) = std::sync::mpsc::sync_channel(1);
@@ -333,7 +419,7 @@ fn resolve_completed(
     slot: &Slot,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
-    frame: FrameQueries,
+    frame: &FrameQueries,
 ) -> PendingReadback {
     let bytes = u64::from(frame.queries).saturating_mul(u64::from(wgpu::QUERY_SIZE));
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -351,7 +437,10 @@ fn resolve_completed(
         },
     );
     let _submission = queue.submit([encoder.finish()]);
-    PendingReadback { receiver, frame }
+    PendingReadback {
+        receiver,
+        frame: *frame,
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -404,7 +493,8 @@ fn decode_milliseconds(
     if (pair_mask(queries) & !empty_pairs) == 0 {
         return Err(TimestampDecodeError::NoRenderedPasses);
     }
-    let mut ticks = 0_u64;
+    let mut intervals = [(0_u64, 0_u64); MAX_PASS_LABELS];
+    let mut count = 0_usize;
     for (pair_index, pair) in bytes.as_chunks::<16>().0.iter().enumerate() {
         if 1_u32
             .checked_shl(u32::try_from(pair_index).unwrap_or(u32::MAX))
@@ -432,15 +522,45 @@ fn decode_milliseconds(
                 end,
             });
         }
-        let elapsed = end
-            .checked_sub(beginning)
-            .ok_or(TimestampDecodeError::ReversedBoundary {
+        if end < beginning {
+            return Err(TimestampDecodeError::ReversedBoundary {
                 pair: pair_index,
                 beginning,
                 end,
-            })?;
+            });
+        }
+        let interval = intervals
+            .get_mut(count)
+            .ok_or(TimestampDecodeError::InvalidLayout)?;
+        *interval = (beginning, end);
+        count = count.saturating_add(1);
+    }
+    // Metal samples vertex-start through fragment-end. Different passes can
+    // overlap even in one command buffer; summing them charged the same time
+    // up to seven times. Union the bounded intervals, excluding disjoint gaps.
+    let rendered = intervals
+        .get_mut(..count)
+        .ok_or(TimestampDecodeError::InvalidLayout)?;
+    rendered.sort_unstable();
+    let mut current: Option<(u64, u64)> = None;
+    let mut ticks = 0_u64;
+    for &(beginning, end) in rendered.iter() {
+        match current {
+            Some((start, stop)) if beginning <= stop => {
+                current = Some((start, stop.max(end)));
+            }
+            Some((start, stop)) => {
+                ticks = ticks
+                    .checked_add(stop.saturating_sub(start))
+                    .ok_or(TimestampDecodeError::Overflow)?;
+                current = Some((beginning, end));
+            }
+            None => current = Some((beginning, end)),
+        }
+    }
+    if let Some((start, stop)) = current {
         ticks = ticks
-            .checked_add(elapsed)
+            .checked_add(stop.saturating_sub(start))
             .ok_or(TimestampDecodeError::Overflow)?;
     }
     // Only elapsed render-pass ticks are converted, normally milliseconds of
@@ -478,8 +598,8 @@ mod tests {
     }
 
     #[test]
-    fn timestamp_readback_sums_passes_in_milliseconds_and_rejects_invalid_data() {
-        // Two 16-byte pairs protect units, subtraction before float conversion,
+    fn timestamp_readback_unions_pass_spans_and_rejects_invalid_data() {
+        // Small timestamp pairs protect units, subtraction before float conversion,
         // and exclusion of queue/CPU gaps. No map bake or device is needed.
         let origin = 9_007_199_254_740_992_u64;
         let values = [
@@ -491,6 +611,25 @@ mod tests {
         let bytes: Vec<u8> = values.into_iter().flat_map(u64::to_ne_bytes).collect();
         assert!(
             matches!(decode_milliseconds(&bytes, 4, 2.0, 0), Ok(ms) if (ms - 6.0).abs() < f32::EPSILON)
+        );
+        // Unordered, contained and partially overlapping Metal spans must not
+        // inflate elapsed time. Adds one 64-byte decoder case, no GPU.
+        let overlapping: Vec<u8> = [
+            4_000_000_u64,
+            16_000_000,
+            0,
+            15_000_000,
+            2_000_000,
+            8_000_000,
+            20_000_000,
+            21_000_000,
+        ]
+        .into_iter()
+        .flat_map(u64::to_ne_bytes)
+        .collect();
+        assert!(
+            matches!(decode_milliseconds(&overlapping, 8, 1.0, 0), Ok(ms) if (ms - 17.0).abs() < f32::EPSILON),
+            "overlap is counted once; the four-millisecond gap is excluded",
         );
         let zero_origin: Vec<u8> = [0_u64, 1_000_000_u64]
             .into_iter()

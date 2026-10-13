@@ -20,6 +20,7 @@ The current workflow uses the following tools:
 | `compare_packages.py` | compares every compiled record byte, including all HDR lightmaps and probe mips |
 | `capture_compiler.py` | compares baseline and optimized packages through identical native renderer settings and authored animation frame |
 | `bench_local.py` | repeats one benchmark configuration and prints min/median/max per field |
+| `frame_time.py` | bounded native fixed-camera or held-control frame times, real presentation checks, deduplicated GPU elapsed spans, and capture provenance; uses existing packages |
 | `loading.py` | measures isolated cold/warm startup and loading with the `PLACES_LOAD_TRACE` trace; reports separately named startup, package-loading, first-usable-scene and settings-transition metrics |
 | `capture_views.sh` | renders the fixed validation view set, one PNG per view |
 | `capture_winter_integration.py` | native calm/severe Winter views and held-control traversal assertions, with package/binary identities and weather telemetry |

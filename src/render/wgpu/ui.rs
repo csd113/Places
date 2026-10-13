@@ -40,7 +40,7 @@ pub enum UiTiming<'a> {
 impl UiTiming<'_> {
     fn pass_writes(&self) -> Option<wgpu::RenderPassTimestampWrites<'_>> {
         match self {
-            Self::Continue(timer) | Self::Finish(timer) => timer.pass_writes(),
+            Self::Continue(timer) | Self::Finish(timer) => timer.pass_writes("ui"),
         }
     }
 }

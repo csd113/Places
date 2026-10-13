@@ -164,7 +164,7 @@ fn test_perf_overlay_text_format_and_caching() {
     let text = overlay.cached_text();
     assert!(text.starts_with("CPU "), "Text must begin with CPU: {text}");
     assert!(
-        text.contains("GPU render 4.25ms"),
+        text.contains("GPU elapsed 4.25ms"),
         "Hardware duration must include the render scope and milliseconds: {text}"
     );
     assert!(text.contains("FPS "), "Text must contain FPS: {text}");
@@ -196,7 +196,7 @@ fn test_perf_overlay_text_format_and_caching() {
     assert!(
         overlay
             .cached_text()
-            .contains("GPU render: adapter lacks timestamps"),
+            .contains("GPU elapsed: adapter lacks timestamps"),
         "Unsupported hardware must have an accurate reason"
     );
 
@@ -215,7 +215,7 @@ fn test_perf_overlay_text_format_and_caching() {
     );
     assert_eq!(
         reference,
-        "CPU system 12%  GPU device 37%\nGPU render 4.25ms  Game RAM RSS 3MiB  FPS 60"
+        "CPU system 12%  GPU device 37%\nGPU elapsed 4.25ms  Game RAM RSS 3MiB  FPS 60"
     );
     assert!(
         reference.lines().all(|line| char_count(line) <= 58.0),

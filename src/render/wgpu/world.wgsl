@@ -388,13 +388,14 @@ fn anchor_weight(local_position: vec3<f32>, corner: u32) -> f32 {
     return x * y * z;
 }
 
-fn source_visibility(local_position: vec3<f32>, source: u32, tap: u32) -> f32 {
-    var visibility = 0.0;
+fn source_visibility(local_position: vec3<f32>, source: u32) -> vec4<f32> {
+    var visibility = vec4<f32>(0.0);
     for (var corner = 0u; corner < 8u; corner = corner + 1u) {
-        let anchor = environment.entity_anchors[corner];
-        visibility += anchor_weight(local_position, corner) * anchor.visibility[source][tap];
+        // Read only this source's four taps from uniform storage. Copying the
+        // complete anchor here introduces a fragment-local visibility array.
+        visibility += anchor_weight(local_position, corner) * environment.entity_anchors[corner].visibility[source];
     }
-    return clamp(visibility, 0.0, 1.0);
+    return clamp(visibility, vec4<f32>(0.0), vec4<f32>(1.0));
 }
 
 // The same source-wide authored distance calibration and finite tap pattern as
@@ -418,6 +419,9 @@ fn entity_direct_term(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
         var falloff = u * u * (1.0 + 2.0 * max(relative, 0.0));
         if (source.extent_falloff.z > 1.5) { falloff = 1.0; }
         else if (source.extent_falloff.z > 0.5) { falloff = u; }
+        // All taps share the same trilinear receiver weights. Interpolate
+        // once per in-range source, preserving each tap's independent value.
+        let visibility = source_visibility(in.local_position, index);
         var cosine = 0.0;
         for (var tap = 0u; tap < 4u; tap = tap + 1u) {
             let sample = source.taps[tap];
@@ -425,7 +429,7 @@ fn entity_direct_term(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
             let incoming = sample.xyz - in.world_position;
             let distance_to_tap = length(incoming);
             if (distance_to_tap > 1.0e-6) {
-                cosine += sample.w * source_visibility(in.local_position, index, tap) * max(dot(normal, incoming / distance_to_tap), 0.0);
+                cosine += sample.w * visibility[tap] * max(dot(normal, incoming / distance_to_tap), 0.0);
             }
         }
         result += source.color_strength.rgb * source.color_strength.w * falloff * cosine;

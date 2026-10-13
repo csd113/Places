@@ -568,9 +568,9 @@ fn overlay_text(
         platform::GpuUtilization::Unavailable(_) => "GPU device N/A".to_string(),
     };
     let work_text = match timing {
-        GpuTiming::Pending => "GPU render pending".to_string(),
-        GpuTiming::Measured(sample) => format!("GPU render {:.2}ms", sample.milliseconds),
-        GpuTiming::Unavailable(_) => "GPU render N/A".to_string(),
+        GpuTiming::Pending => "GPU elapsed pending".to_string(),
+        GpuTiming::Measured(sample) => format!("GPU elapsed {:.2}ms", sample.milliseconds),
+        GpuTiming::Unavailable(_) => "GPU elapsed N/A".to_string(),
     };
     let ram_text = resident.map_or_else(
         || "Game RAM RSS N/A".to_string(),
@@ -582,7 +582,7 @@ fn overlay_text(
         text.push_str(reason);
     }
     if let GpuTiming::Unavailable(reason) = timing {
-        text.push_str("\nGPU render: ");
+        text.push_str("\nGPU elapsed: ");
         text.push_str(reason.reason());
     }
     text

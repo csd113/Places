@@ -2921,6 +2921,17 @@ impl FrameLoop<'_> {
         let (renderer_level, renderer_quality, renderer_lightmaps) =
             self.renderer.installed_identity();
         let position = self.game.player_position.to_array();
+        let doors: Vec<_> = self
+            .game
+            .doors()
+            .iter()
+            .map(|door| {
+                serde_json::json!({
+                    "id": door.def.id, "angle_degrees": door.angle(),
+                    "phase": format!("{:?}", door.phase()), "obstructed": door.obstructed,
+                })
+            })
+            .collect();
         self.trace.record(event, self.load_generation, &serde_json::json!({
             "current_level_id": self.current_level.as_ref().map(|loaded| loaded.level.id.as_str()),
             "renderer_level_id": renderer_level,
@@ -2934,6 +2945,7 @@ impl FrameLoop<'_> {
             "renderer_quality": renderer_quality.name(), "renderer_lightmaps": renderer_lightmaps.name(),
             "renderer_lighting": self.renderer.graphics_applied().lighting.name(),
             "bloom": self.settings.bloom_enabled(), "window_focused": self.window_focused,
+            "doors": doors, "light_states": self.game.light_states(),
             "state": format!("{:?}", self.game.app_state()), "frame": self.game.frame_count(),
             "filtering": self.settings.texture_filtering_preset(), "rss_bytes": perf::process_resident_bytes(),
             "gpu_timing": format!("{:?}", self.renderer.gpu_timing()),
@@ -3187,6 +3199,17 @@ impl FrameLoop<'_> {
                 self.game.player_pitch.to_degrees(),
             )
         });
+        let doors: Vec<_> = self
+            .game
+            .doors()
+            .iter()
+            .map(|door| {
+                serde_json::json!({
+                    "id": door.def.id, "angle_degrees": door.angle(),
+                    "phase": format!("{:?}", door.phase()), "obstructed": door.obstructed,
+                })
+            })
+            .collect();
         crate::logging::info(format!(
             "[lighting-capture-state] {}",
             serde_json::json!({
@@ -3197,6 +3220,8 @@ impl FrameLoop<'_> {
                 "render_eye": eye,
                 "render_yaw_pitch_degrees": [yaw, pitch],
                 "fov_degrees": self.settings.fov_degrees,
+                "doors": doors,
+                "light_states": self.game.light_states(),
             })
         ));
     }
@@ -3431,6 +3456,7 @@ impl FrameLoop<'_> {
                     .as_ref()
                     .is_none_or(perf::actions::Actions::complete)
             {
+                self.trace_world("benchmark_complete");
                 self.bench.finish();
                 self.game.stop();
             }
