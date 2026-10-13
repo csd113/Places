@@ -372,12 +372,10 @@ struct FreeRect {
     height: u32,
 }
 
-/// Places chart rectangles on square pages with a deterministic
-/// best-short-side-fit MAXRECTS policy for architecture and disjoint guillotine
-/// pages for the many small model charts.
+/// Places chart rectangles on square pages with deterministic best-short-side fit.
 ///
-/// At the shared page limit,
-/// props can consume proven free rectangles on architecture pages.
+/// Architecture uses MAXRECTS, then disjoint guillotine holes are shared with
+/// the many small model charts.
 ///
 /// The allocator is designed to run *inline*, while the mesh is being emitted:
 /// each chart is placed the moment its patch is built, using only the patches
@@ -387,7 +385,7 @@ struct FreeRect {
 pub struct ChartAllocator {
     config: LightmapConfig,
     pages: Vec<Vec<FreeRect>>,
-    prop_pages: Vec<bool>,
+    guillotine_pages: Vec<bool>,
     failed: bool,
 }
 
@@ -398,7 +396,7 @@ impl ChartAllocator {
         Self {
             config,
             pages: Vec::new(),
-            prop_pages: Vec::new(),
+            guillotine_pages: Vec::new(),
             failed: false,
         }
     }
@@ -456,13 +454,30 @@ impl ChartAllocator {
             return None;
         }
         let prop = patch.kind == super::PatchKind::Prop;
-        let mut placement = self.best_placement(outer_w, outer_h, prop);
-        if placement.is_none() && prop && self.pages.len() >= self.config.max_pages.min(11) {
-            // Preserve every layout the former eleven-page Full policy could
-            // place: it reused architecture holes at that limit. A twelfth
-            // page is available only after those same holes cannot fit this
-            // chart. Lower caps reach this branch at their unchanged limit.
-            placement = self.best_placement(outer_w, outer_h, false);
+        if prop {
+            // Architecture is emitted first. Preserve its placements, then
+            // partition its overlapping MAXRECTS holes exactly once, so small
+            // model receivers can use all available area without quadratic
+            // containment pruning on every triangle. Late architecture can
+            // also use these holes under their disjoint ownership policy.
+            for (page, guillotine) in self.pages.iter_mut().zip(&mut self.guillotine_pages) {
+                if !*guillotine {
+                    partition_disjoint(page);
+                    *guillotine = true;
+                }
+            }
+        }
+        let mut placement = self.best_placement(outer_w, outer_h);
+        if placement.is_none() {
+            // Adjacent disjoint holes may jointly fit this chart. Recover them
+            // before page growth, retaining previous chart coordinates and
+            // never merging the overlapping MAXRECTS representation.
+            for (page, guillotine) in self.pages.iter_mut().zip(&self.guillotine_pages) {
+                if *guillotine {
+                    coalesce_disjoint(page);
+                }
+            }
+            placement = self.best_placement(outer_w, outer_h);
         }
         if placement.is_none() && self.pages.len() < self.config.max_pages {
             let edge = self.config.page_edge;
@@ -472,32 +487,14 @@ impl ChartAllocator {
                 width: edge,
                 height: edge,
             }]);
-            self.prop_pages.push(prop);
-            placement = self.best_placement(outer_w, outer_h, prop);
-        }
-        if placement.is_none() && prop && self.pages.len() >= self.config.max_pages {
-            // Exhausting a page family is not exhausting the atlas. Preserve
-            // the requested density and both gutters by reusing an existing
-            // architecture hole under that page's MAXRECTS ownership policy.
-            placement = self.best_placement(outer_w, outer_h, false);
-        }
-        if placement.is_none() && prop {
-            // Guillotine splits can leave adjacent disjoint holes that jointly
-            // fit this chart. Recover them only at final overflow: every
-            // previously valid placement and all architecture layouts stay
-            // unchanged. MAXRECTS holes overlap and must never be merged.
-            for (page, prop_page) in self.pages.iter_mut().zip(&self.prop_pages) {
-                if *prop_page {
-                    coalesce_disjoint(page);
-                }
-            }
-            placement = self.best_placement(outer_w, outer_h, true);
+            self.guillotine_pages.push(prop);
+            placement = self.best_placement(outer_w, outer_h);
         }
         let Some((page_index, x, y)) = placement else {
             self.failed = true;
             return None;
         };
-        let placed = if self.prop_pages.get(page_index).copied() == Some(true) {
+        let placed = if self.guillotine_pages.get(page_index).copied() == Some(true) {
             self.place_prop(page_index, x, y, outer_w, outer_h)
         } else {
             self.place(page_index, x, y, outer_w, outer_h)
@@ -517,12 +514,9 @@ impl ChartAllocator {
     /// remainder, then the lowest `y`, the leftmost `x` and finally the
     /// earliest page. Returns `(page, x, y)`, where `(x, y)` is the outer
     /// rectangle's top-left corner.
-    fn best_placement(&self, outer_w: u32, outer_h: u32, prop: bool) -> Option<(usize, u32, u32)> {
+    fn best_placement(&self, outer_w: u32, outer_h: u32) -> Option<(usize, u32, u32)> {
         let mut best: Option<(u32, u32, u32, u32, usize)> = None;
         for (page_index, page) in self.pages.iter().enumerate() {
-            if self.prop_pages.get(page_index).copied() != Some(prop) {
-                continue;
-            }
             for free in page {
                 if outer_w > free.width || outer_h > free.height {
                     continue;
@@ -540,11 +534,11 @@ impl ChartAllocator {
         best.map(|(_, _, y, x, page)| (page, x, y))
     }
 
-    /// Model triangles have many small independent charts. Dedicated pages use
+    /// Model triangles have many small independent charts. Shared pages use
     /// disjoint guillotine remainders, avoiding quadratic containment pruning on
     /// every face. Architecture keeps its established MAXRECTS layout. Both page
     /// kinds share the same configured budget and identical chart/gutter format;
-    /// props placed in an architecture hole use `place` instead.
+    /// architecture holes are converted before model placements begin.
     fn place_prop(&mut self, page_index: usize, x: u32, y: u32, width: u32, height: u32) -> bool {
         let Some(page) = self.pages.get_mut(page_index) else {
             return false;
@@ -633,6 +627,106 @@ impl ChartAllocator {
         *page = next;
         true
     }
+}
+
+/// Partition the union of overlapping MAXRECTS holes into exact disjoint
+/// vertical bands. Every boundary is integral; neither free nor occupied area
+/// is expanded or discarded. The one-time sweep is deterministic and leaves
+/// all existing chart rectangles intact. Coalescing removes incidental cuts.
+fn partition_disjoint(rects: &mut Vec<FreeRect>) {
+    let mut edges: Vec<u32> = rects
+        .iter()
+        .flat_map(|rect| [rect.x, rect.x.saturating_add(rect.width)])
+        .collect();
+    edges.sort_unstable();
+    edges.dedup();
+    let mut disjoint = Vec::new();
+    for interval in edges.windows(2) {
+        let [left, right] = interval else {
+            continue;
+        };
+        let mut bands: Vec<(u32, u32)> = rects
+            .iter()
+            .filter(|rect| rect.x <= *left && rect.x.saturating_add(rect.width) >= *right)
+            .map(|rect| (rect.y, rect.y.saturating_add(rect.height)))
+            .collect();
+        bands.sort_unstable();
+        let mut joined: Vec<(u32, u32)> = Vec::new();
+        for (bottom, top) in bands {
+            if let Some(previous) = joined.last_mut()
+                && bottom <= previous.1
+            {
+                previous.1 = previous.1.max(top);
+            } else {
+                joined.push((bottom, top));
+            }
+        }
+        disjoint.extend(joined.into_iter().map(|(bottom, top)| FreeRect {
+            x: *left,
+            y: bottom,
+            width: right.saturating_sub(*left),
+            height: top.saturating_sub(bottom),
+        }));
+    }
+    coalesce_disjoint(&mut disjoint);
+    *rects = disjoint;
+}
+
+/// Protect the conversion's exact free area independently of its sweep:
+/// three overlapping holes on a 16px grid, with no atlas or transport work.
+#[cfg(test)]
+#[test]
+fn hole_partition_preserves_the_union_without_overlapping_ownership() {
+    let mut holes = vec![
+        FreeRect {
+            x: 0,
+            y: 4,
+            width: 8,
+            height: 8,
+        },
+        FreeRect {
+            x: 4,
+            y: 0,
+            width: 8,
+            height: 8,
+        },
+        FreeRect {
+            x: 10,
+            y: 4,
+            width: 6,
+            height: 12,
+        },
+    ];
+    let coverage = |rects: &[FreeRect]| {
+        std::array::from_fn::<_, 256, _>(|index| {
+            let x = u32::try_from(index % 16).unwrap_or(u32::MAX);
+            let y = u32::try_from(index / 16).unwrap_or(u32::MAX);
+            rects
+                .iter()
+                .filter(|rect| {
+                    x >= rect.x
+                        && x < rect.x.saturating_add(rect.width)
+                        && y >= rect.y
+                        && y < rect.y.saturating_add(rect.height)
+                })
+                .count()
+        })
+    };
+    let before = coverage(&holes).map(|count| count > 0);
+    partition_disjoint(&mut holes);
+    let after = coverage(&holes);
+    assert_eq!(
+        before,
+        after.map(|count| count > 0),
+        "all free pixels survive exactly"
+    );
+    assert!(
+        after.iter().all(|count| *count <= 1),
+        "free holes have disjoint ownership"
+    );
+    let mut again = holes.clone();
+    partition_disjoint(&mut again);
+    assert_eq!(holes, again, "partitioning is deterministic and idempotent");
 }
 
 /// Merge exact shared edges on disjoint prop-page holes. Sorting each axis

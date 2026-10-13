@@ -3955,7 +3955,7 @@ fn fixture_faces_keep_their_sheet_and_panel_housing_binds_nonemissive_metal() {
         );
     }
 
-    // The panel's twelve housing quads bind the existing ordinary metal
+    // The panel's nine housing quads bind the existing ordinary metal
     // texture. This tiny family fixture protects material discovery even in
     // a map without a metal wall or door, and routing excludes vertex emission.
     let materials = logical_materials(&level);
@@ -3976,7 +3976,7 @@ fn fixture_faces_keep_their_sheet_and_panel_housing_binds_nonemissive_metal() {
             .expect("metal material slot"),
     );
     let panel_housing = mesh.triangles_for_key(metal_key);
-    assert_eq!(panel_housing.len(), 12 * 6, "twelve metal housing quads");
+    assert_eq!(panel_housing.len(), 9 * 6, "nine metal housing quads");
     assert!(
         panel_housing.iter().all(|vertex| !vertex.is_lightmapped()),
         "the small housing keeps the ordinary baked vertex receiver path"
@@ -3987,7 +3987,7 @@ fn fixture_faces_keep_their_sheet_and_panel_housing_binds_nonemissive_metal() {
         "the housing binds its zero material emission, never the diffuser term"
     );
     // Full uses existing receiver charts so a switched contribution can turn
-    // off on the housing too. Planning this twelve-quad body needs no atlas
+    // off on the housing too. Planning this nine-quad body needs no atlas
     // fill, GPU or production-map bake.
     let lighting = LevelLighting::bake(&level);
     let mut plan = crate::lighting::lightmap::LightmapPlan::new(
@@ -4034,6 +4034,51 @@ fn fixture_faces_keep_their_sheet_and_panel_housing_binds_nonemissive_metal() {
         housing.len() + (1 + 10 + 1 + 10) * 6,
         "other fixture bodies remain in their original family"
     );
+}
+
+/// A closed troffer must block source support through its back while keeping
+/// the room-facing diffuser unobstructed. This uses only one small room's
+/// triangles and source taps; no atlas pixels, transport solve or GPU bake.
+#[test]
+fn fluorescent_backplate_blocks_ceiling_light_without_blocking_the_diffuser() {
+    for rotation in [0.0_f32, 90.0] {
+        let level = LevelDef::from_json(&format!(
+            r#"{{"format_version":3,"id":"troffer_back","name":"Troffer back",
+                "spawn":{{"x":1,"z":1}},
+                "rooms":[{{"x":0,"z":0,"width":4,"depth":4,"height":3}}],
+                "ceiling_lights":[{{"fixture":"core:fluorescent_panel_01",
+                    "x":2,"z":2,"align":"none","rotation_degrees":{rotation},
+                    "color":[1,0.24,0.66],"brightness":0.3}}]}}"#
+        ))
+        .expect("small closed troffer fixture");
+        let lighting = LevelLighting::bake(&level);
+        let materials = logical_materials(&level);
+        let mesh = build_level_geometry(&level);
+        let (scene, _) = common::light_transport::build_transport_scene(
+            &level,
+            &mesh,
+            &[],
+            &materials,
+            &lighting,
+            &[],
+        )
+        .expect("bounded triangle scene");
+        let source = &scene.emitters()[0];
+        for position in [[2.0, 2.999, 2.0], [2.1, 2.999, 2.1]] {
+            assert_eq!(
+                source.direct(&scene, position, 3).0,
+                [0.0; 3],
+                "the opaque backplate must block direct and recovery support from the ceiling"
+            );
+        }
+        let received = source.direct(&scene, [2.0, 1.0, 2.0], 3).0;
+        assert!(received[0] > 0.0, "the diffuser still illuminates the room");
+        assert!(
+            (received[1] / received[0] - 0.24).abs() < 1.0e-6
+                && (received[2] / received[0] - 0.66).abs() < 1.0e-6,
+            "the physical received light keeps the source colour"
+        );
+    }
 }
 
 /// A sheet is fitted once across the face it draws: UVs stay inside the sheet,
@@ -4257,13 +4302,13 @@ fn the_office_panel_emits_a_real_housing_and_one_emissive_diffuser() {
     );
 
     // The housing has a neutral base for its separate ordinary metal material.
-    assert_eq!(housing.len(), 12 * 6, "twelve housing quads");
+    assert_eq!(housing.len(), 9 * 6, "nine housing quads");
     for vertex in &housing {
         assert!(!is_emission(vertex.color), "the housing is not emissive");
         assert_eq!(vertex.color, [1.0; 4], "the material owns housing colour");
     }
     // Four side walls span the drop, four bottom-frame strips sit at the frame
-    // bottom and four top-flange strips close the body at the ceiling plane.
+    // bottom and one opaque backplate closes the entire mounting footprint.
     let y_bottom = 2.0 - PANEL_BODY_DROP_M;
     let mut sides = 0_i32;
     let mut frame = 0_i32;
@@ -4287,8 +4332,8 @@ fn the_office_panel_emits_a_real_housing_and_one_emissive_diffuser() {
     }
     assert_eq!(
         (sides, frame, flange),
-        (4_i32, 4_i32, 4_i32),
-        "side walls, bottom frame and top flange are all real"
+        (4_i32, 4_i32, 1_i32),
+        "side walls, bottom frame and backplate are all real"
     );
     // The housing covers the family's full outer footprint.
     assert!(

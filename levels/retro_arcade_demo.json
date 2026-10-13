@@ -6702,6 +6702,36 @@
           ]
         }
       ]
+    },
+    {
+      "id": "restroom_vent_0",
+      "model": "core:ceiling_diffuser_01",
+      "x": -5.1,
+      "y": 3.135,
+      "z": 6.9,
+      "size": [
+        0.6,
+        0.065,
+        0.6
+      ],
+      "rotation_degrees": 0,
+      "solid": false,
+      "occludes": true
+    },
+    {
+      "id": "restroom_vent_1",
+      "model": "core:ceiling_diffuser_01",
+      "x": -1.5,
+      "y": 3.135,
+      "z": 0.9,
+      "size": [
+        0.6,
+        0.065,
+        0.6
+      ],
+      "rotation_degrees": 0,
+      "solid": false,
+      "occludes": true
     }
   ],
   "decals": [
@@ -7033,24 +7063,6 @@
       "width": 0.1,
       "height": 0.1,
       "surface": "floor",
-      "rotation_degrees": 0
-    },
-    {
-      "material": "core:decal_ceiling_vent_01",
-      "x": -5.1,
-      "z": 6.9,
-      "width": 0.54,
-      "height": 0.54,
-      "surface": "ceiling",
-      "rotation_degrees": 0
-    },
-    {
-      "material": "core:decal_ceiling_vent_01",
-      "x": -1.5,
-      "z": 0.9,
-      "width": 0.54,
-      "height": 0.54,
-      "surface": "ceiling",
       "rotation_degrees": 0
     }
   ],

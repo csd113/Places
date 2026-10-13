@@ -43,7 +43,9 @@ use super::{LevelLightmaps, LightmapConfig};
 /// * `14` — compatible coplanar model triangles share their native quad domain;
 ///   model topology is explicit rather than implied by the receiver family,
 ///   and small opaque models resolve transport at twice architecture's density.
-pub const LIGHTMAP_FORMAT_VERSION: u32 = 14;
+/// * `15` — model charts reuse disjoint architecture holes before page growth,
+///   with free-edge coalescing before opening another model page.
+pub const LIGHTMAP_FORMAT_VERSION: u32 = 15;
 
 /// Process-level memory cache of prepared atlases.
 ///

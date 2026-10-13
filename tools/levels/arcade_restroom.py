@@ -74,9 +74,9 @@ def compose_restroom(level, sizes, metadata):
                     dict(component='animation',clip='toggle',looped=False,playing=False)],
         bindings=[dict(on='interact',actions=[dict(action='toggle_animation',clip='toggle'),
                                            dict(action='toggle',target='restroom_troffer_0')])]))
-    for x,z in ((-5.1,6.9),(-1.5,.9)):
-        level['decals'].append(dict(material='core:decal_ceiling_vent_01',
-            x=x,z=z,width=.54,height=.54,surface='ceiling',rotation_degrees=0))
+    for i,(x,z) in enumerate(((-5.1,6.9),(-1.5,.9))):
+        level['props'].append(dict(id=f'restroom_vent_{i}',model='core:ceiling_diffuser_01',
+            x=x,y=3.135,z=z,size=[.6,.065,.6],rotation_degrees=0,solid=False,occludes=True))
     level.setdefault('thresholds',[]).append(dict(x=-.12,z=2.8,length=1.38,
         rotation_degrees=90,thickness=.08,height=.008,material='home:baseboard_white_01'))
 

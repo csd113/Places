@@ -381,7 +381,7 @@ fn architecture_free_space_keeps_prop_charts_within_the_existing_budget() {
     let config = LightmapConfig {
         texels_per_metre: 1.0,
         page_edge: 32,
-        max_pages: 1,
+        max_pages: 4,
         padding: 2,
         bytes_per_texel: 16,
     };
@@ -410,7 +410,7 @@ fn architecture_free_space_keeps_prop_charts_within_the_existing_budget() {
         assert_eq!(
             allocator.page_count(),
             1,
-            "mixed charts retain the original page limit"
+            "mixed charts reuse free architecture area before opening spare pages"
         );
         assert!(
             !allocator.failed(),
@@ -466,85 +466,94 @@ fn adjacent_prop_holes_recover_false_overflow_without_moving_existing_charts() {
     // assets or transport are allocated; transposition covers both merge axes
     // and the padded case protects the complete gutter, not just data texels.
     for padding in [0, 1] {
-        for transpose in [false, true] {
-            let config = LightmapConfig {
-                texels_per_metre: 1.0,
-                page_edge: 16,
-                max_pages: 1,
-                padding,
-                bytes_per_texel: 16,
-            };
-            let patches = [(7_u32, 8_u32), (8, 8), (4, 8), (12, 4)].map(|(w, h)| {
-                let span = |size: u32| f32::from(u16::try_from(size - 2 * padding - 1).unwrap());
-                let mut surface = if transpose {
-                    patch(span(h), span(w))
-                } else {
-                    patch(span(w), span(h))
+        for max_pages in [1, 2] {
+            for transpose in [false, true] {
+                let config = LightmapConfig {
+                    texels_per_metre: 1.0,
+                    page_edge: 16,
+                    max_pages,
+                    padding,
+                    bytes_per_texel: 16,
                 };
-                surface.kind = PatchKind::Prop;
-                surface
-            });
-            let pack = || {
-                let mut allocator = ChartAllocator::new(config);
-                let charts: Vec<_> = patches
-                    .iter()
-                    .map(|surface| {
-                        allocator
-                            .allocate(surface)
-                            .expect("adjacent free area fits the chart")
-                    })
-                    .collect();
-                assert_eq!(
-                    allocator.page_count(),
-                    1,
-                    "recovery retains the page budget"
-                );
-                let mut too_big = patch(15.0, 15.0);
-                too_big.kind = PatchKind::Prop;
-                assert!(
-                    allocator.allocate(&too_big).is_none(),
-                    "genuine overflow still fails"
-                );
-                assert!(allocator.failed(), "failure remains sticky");
-                assert!(
-                    allocator.allocate(&patches[0]).is_none(),
-                    "cannot append after failure"
-                );
-                charts
-            };
-            let charts = pack();
-            assert_eq!(charts, pack(), "recovered layout is deterministic");
-            for (index, ((surface, chart), (x, y))) in patches
-                .iter()
-                .zip(&charts)
-                .zip([(0, 0), (7, 0), (0, 8), (4, 8)])
-                .enumerate()
-            {
-                let (outer_x, outer_y) = if transpose { (y, x) } else { (x, y) };
-                assert_eq!(
-                    (chart.x, chart.y),
-                    (outer_x + padding, outer_y + padding),
-                    "old placements stay put; final chart uses the joined hole"
-                );
-                assert_eq!(
-                    (chart.width, chart.height),
-                    config.chart_texels(surface),
-                    "density is preserved"
-                );
-                let right = chart.x + chart.width + padding;
-                let bottom = chart.y + chart.height + padding;
-                assert!(
-                    right <= config.page_edge && bottom <= config.page_edge,
-                    "gutters stay on the page"
-                );
-                for other in charts.iter().take(index) {
-                    assert!(
-                        right <= other.x - padding
-                            || other.x + other.width + padding <= chart.x - padding
-                            || bottom <= other.y - padding
-                            || other.y + other.height + padding <= chart.y - padding,
-                        "occupied rectangles including gutters remain disjoint"
+                let patches = [(7_u32, 8_u32), (8, 8), (4, 8), (12, 4)].map(|(w, h)| {
+                    let span =
+                        |size: u32| f32::from(u16::try_from(size - 2 * padding - 1).unwrap());
+                    let mut surface = if transpose {
+                        patch(span(h), span(w))
+                    } else {
+                        patch(span(w), span(h))
+                    };
+                    surface.kind = PatchKind::Prop;
+                    surface
+                });
+                let pack = || {
+                    let mut allocator = ChartAllocator::new(config);
+                    let charts: Vec<_> = patches
+                        .iter()
+                        .map(|surface| {
+                            allocator
+                                .allocate(surface)
+                                .expect("adjacent free area fits the chart")
+                        })
+                        .collect();
+                    assert_eq!(
+                        allocator.page_count(),
+                        1,
+                        "recovery retains the page budget"
                     );
+                    let mut too_big = patch(15.0, 15.0);
+                    too_big.kind = PatchKind::Prop;
+                    for _ in 1..max_pages {
+                        assert!(
+                            allocator.allocate(&too_big).is_some(),
+                            "genuinely needed spare page fits"
+                        );
+                    }
+                    assert!(
+                        allocator.allocate(&too_big).is_none(),
+                        "genuine overflow still fails"
+                    );
+                    assert!(allocator.failed(), "failure remains sticky");
+                    assert!(
+                        allocator.allocate(&patches[0]).is_none(),
+                        "cannot append after failure"
+                    );
+                    charts
+                };
+                let charts = pack();
+                assert_eq!(charts, pack(), "recovered layout is deterministic");
+                for (index, ((surface, chart), (x, y))) in patches
+                    .iter()
+                    .zip(&charts)
+                    .zip([(0, 0), (7, 0), (0, 8), (4, 8)])
+                    .enumerate()
+                {
+                    let (outer_x, outer_y) = if transpose { (y, x) } else { (x, y) };
+                    assert_eq!(
+                        (chart.x, chart.y),
+                        (outer_x + padding, outer_y + padding),
+                        "old placements stay put; final chart uses the joined hole"
+                    );
+                    assert_eq!(
+                        (chart.width, chart.height),
+                        config.chart_texels(surface),
+                        "density is preserved"
+                    );
+                    let right = chart.x + chart.width + padding;
+                    let bottom = chart.y + chart.height + padding;
+                    assert!(
+                        right <= config.page_edge && bottom <= config.page_edge,
+                        "gutters stay on the page"
+                    );
+                    for other in charts.iter().take(index) {
+                        assert!(
+                            right <= other.x - padding
+                                || other.x + other.width + padding <= chart.x - padding
+                                || bottom <= other.y - padding
+                                || other.y + other.height + padding <= chart.y - padding,
+                            "occupied rectangles including gutters remain disjoint"
+                        );
+                    }
                 }
             }
         }
@@ -1857,14 +1866,14 @@ fn switchable_groups_follow_the_base_layers_in_a_dense_pair_layout() {
 }
 
 /// The format version is bumped whenever the atlas layout, texel encoding or key
-/// inputs change; version 14 shares supported coplanar prop chart domains and
-/// records explicit triangle/quad topology. Pinned so layout changes invalidate
+/// inputs change; version 15 reuses architecture holes before model page growth.
+/// Pinned so layout changes invalidate
 /// transient atlases even when all source level and model bytes are unchanged.
 #[test]
 fn the_format_version_is_current_and_is_part_of_every_key_prefix() {
     // The value itself is pinned by the cache module's version notes; the
     // contract under test is that the key carries it.
-    assert_eq!(LIGHTMAP_FORMAT_VERSION, 14);
+    assert_eq!(LIGHTMAP_FORMAT_VERSION, 15);
     let level = crate::level::LevelDef::from_json(
         r#"{
             "format_version": 3,

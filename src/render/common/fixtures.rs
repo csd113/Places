@@ -28,7 +28,7 @@
 //! brushed-metal material, with no emission; other families keep their flat
 //! authored body colours through the shared white sheet. The office panel is
 //! a real recessed troffer: four housing side walls drop from the ceiling
-//! plane, a bottom frame borders the aperture, a top flange closes the housing
+//! plane, a bottom frame borders the aperture, an opaque backplate closes the housing
 //! and the fitted sheet is recessed a lip above the frame's bottom, so nothing but the
 //! diffuser glows and the fixture reads with a frame and real depth.
 //!
@@ -157,7 +157,7 @@ pub fn add_blacklight_fixture(
 /// The outer footprint is the family's 1.2 x 0.6 m rectangle, hanging just
 /// below the ceiling plane at `y`. The housing is a real shallow body: four
 /// side walls drop to [`PANEL_BODY_DROP_M`], a bottom frame borders the
-/// aperture, and a top flange closes the body at the ceiling plane. The
+/// aperture, and a full opaque backplate closes the body at the mounting plane. The
 /// diffuser samples the whole fitted sheet ([`SHEET_UV`]) once, recessed
 /// [`PANEL_LIP_M`] above the frame's bottom; its aperture is inset by
 /// [`PANEL_BORDER_WIDTH_M`] across the width axis and
@@ -247,12 +247,11 @@ pub fn add_panel_fixture(
     panel_down_quad(housing, x0, x1, dz1, z1, y_bottom);
     panel_down_quad(housing, x0, dx0, dz0, dz1, y_bottom);
     panel_down_quad(housing, dx1, x1, dz0, dz1, y_bottom);
-    // The top flange: the same ring at the ceiling plane, reaching in to the
-    // aperture edge so the body is closed and the recess has a ceiling.
-    panel_down_quad(housing, x0, x1, z0, dz0, y);
-    panel_down_quad(housing, x0, x1, dz1, z1, y);
-    panel_down_quad(housing, x0, dx0, dz0, dz1, y);
-    panel_down_quad(housing, dx1, x1, dz0, dz1, y);
+    // The opaque backplate seals the entire footprint. A ring leaves the back
+    // open above the diffuser: ceiling receivers can then see its analytic
+    // source and acquire direct light plus desaturated room recovery fill. The source
+    // stays below this plate, so legitimate room-facing illumination survives.
+    panel_down_quad(housing, x0, x1, z0, z1, y);
     panel_diffuser(
         lit,
         [dx0, dx1, dz0, dz1],

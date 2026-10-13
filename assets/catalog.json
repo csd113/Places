@@ -1006,6 +1006,22 @@
       "description": "Low-poly ceiling supply grille, an external PNG cut-out sized to sit centred on one 0.6 m ceiling tile."
     },
     {
+      "id": "core:ceiling_diffuser_01",
+      "display_name": "Commercial Ceiling Diffuser",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "shared/props/ceiling_diffuser_01.glb",
+      "size": [
+        0.6,
+        0.065,
+        0.6
+      ],
+      "color": "#dededb",
+      "solid": false,
+      "description": "600 mm square painted-steel four-way ceiling air diffuser, inset geometric louvers and opaque plenum; non-emissive static receiver. Base at Y=0, mount at ceiling height minus 0.065 m."
+    },
+    {
       "id": "core:decal_no_diving_01",
       "display_name": "No Diving Sign",
       "asset_class": "environment",

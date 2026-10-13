@@ -737,7 +737,8 @@ const WALL_COINCIDENCE_EPS: f32 = 1e-3;
 /// 9 = neighbor-clipped ramp sides, including partial footprints and crossings.
 /// 10 = continuous parent-wall UV phase and prepared Static light circuits.
 /// 11 = source-coloured fixture diffusers and non-emissive metal panel housings.
-pub const GEOMETRY_REVISION: u32 = 11;
+/// 12 = opaque fluorescent backplates prevent source leakage onto the ceiling.
+pub const GEOMETRY_REVISION: u32 = 12;
 
 /// One material run of a coalesced wall group: a rectangle in the group's own
 /// (length, height) space over which the visible material is constant.

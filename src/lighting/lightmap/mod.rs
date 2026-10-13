@@ -263,8 +263,9 @@ impl LightmapFailure {
 /// endpoints and gutters: more than thirteen 1024px pages can hold. Its
 /// deterministic plan fits the minimum fourteen pages (224 MiB for one group).
 /// The package byte bound still caps two groups at ten pages; lower profiles
-/// retain their established budget. Architecture-hole reuse starts at the
-/// former eleven-page threshold, preserving all previously fitting layouts.
+/// retain their established budget. Model charts reuse the architecture's
+/// free area before allocating further pages; all receiver samples and gutters
+/// retain their physical dimensions.
 pub const LIGHTMAP_ATLAS_MAX_PAGES: usize = 14;
 
 /// Low and Medium retain their established eight-page atlas budgets.

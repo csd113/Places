@@ -96,6 +96,19 @@ class RetroArcadeContracts(unittest.TestCase):
         targets = {a["target"] for a in switch["bindings"][0]["actions"] if a["action"] == "toggle"}
         self.assertEqual(targets, {fixtures[0]["id"]})
         self.assertTrue(-6.6 < switch["x"] < 0 and 0 < switch["z"] < 7.8)
+        # The ceiling replacement must use real static receivers, not fixed
+        # decal colours. Two source placements and one small GLB material record
+        # protect circuit response, mounting and non-emission without a map bake.
+        vents = [p for p in self.level["props"] if p.get("model") == "core:ceiling_diffuser_01"]
+        self.assertEqual({(p["x"], p["z"]) for p in vents}, {(-5.1, 6.9), (-1.5, .9)})
+        self.assertTrue(all(p["size"] == [.6, .065, .6] and not p["solid"] for p in vents))
+        self.assertTrue(all(math.isclose(p["y"] + p["size"][1], 3.2) for p in vents))
+        self.assertFalse(any(d["material"] == "core:decal_ceiling_vent_01" for d in self.level["decals"]))
+        path = ROOT / "assets" / self.assets["core:ceiling_diffuser_01"]["model"]
+        data = path.read_bytes()
+        document = json.loads(data[20:20 + struct.unpack_from("<I", data, 12)[0]])
+        self.assertFalse(any(any(m.get("emissiveFactor", [0, 0, 0])) for m in document["materials"]))
+        self.assertTrue(all("baseColorTexture" in m["pbrMetallicRoughness"] for m in document["materials"]))
 
     def test_party_room_preserves_a_clear_three_room_walking_route(self):
         # This source-only witness catches blocked passages/approaches without

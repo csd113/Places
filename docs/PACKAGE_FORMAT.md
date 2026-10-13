@@ -207,11 +207,13 @@ path; no compiler output reaches it, and the prepared solve never runs in the
 player.
 
 Full's profile planning cap is fourteen pages; lower profiles retain eight.
-At eleven pages the allocator tries existing architectural holes before opening
-further pages, preserving formerly valid eleven- and twelve-page layouts. At final overflow,
-exact adjacent free rectangles on disjoint model pages are joined and retried;
-existing placements, physical density and gutters remain unchanged. Architecture
-MAXRECTS holes overlap and retain their existing packing policy.
+Architecture uses MAXRECTS until model receivers begin. Its free-rectangle union
+is then partitioned into disjoint guillotine holes, retaining all existing chart
+coordinates and occupied texels. Model charts reuse this free area immediately.
+Exact adjacent disjoint holes are joined before opening another page; physical
+sampling density, inclusive endpoints and gutters remain unchanged. Atlas content
+key revision 15 invalidates previous layouts. Legacy packaged layouts and codecs
+remain readable without a package-format migration.
 Before geometry emission, the planner also bounds that cap by the actual base
 and switchable illumination groups, the typed record bytes (including the exact
 196-byte single-mip KTX2 header), the codec payload/layer bounds and the decoder

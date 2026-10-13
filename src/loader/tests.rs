@@ -4827,8 +4827,8 @@ fn the_geometry_revision_is_part_of_both_build_fingerprints() {
 
     // The shipped revision is the one the fix introduced, not a placeholder.
     assert_eq!(
-        revision, 11,
-        "source-coloured fixture faces require geometry revision 11"
+        revision, 12,
+        "closed fluorescent backplates require geometry revision 12"
     );
 }
 

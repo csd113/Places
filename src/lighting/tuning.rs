@@ -347,8 +347,8 @@ pub const fn fixture_profile_for_kind(kind: FixtureKind) -> FixtureProfile {
             half_width: FIXTURE_HALF_WIDTH_M,
             half_depth: FIXTURE_HALF_DEPTH_M,
             // One luminous diffuser plus four housing side walls, a four-strip
-            // bottom frame and a four-strip top flange.
-            quads: 13,
+            // bottom frame and one full opaque backplate.
+            quads: 10,
         },
         FixtureKind::BlacklightTube => FixtureProfile {
             kind,

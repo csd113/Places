@@ -763,8 +763,8 @@ fn thousands_of_model_charts_pack_deterministically_without_gutter_overlap_or_ex
         .collect::<std::collections::BTreeSet<_>>();
     assert!(!architecture.is_empty() && !models.is_empty());
     assert!(
-        architecture.is_disjoint(&models),
-        "interleaved architecture and model allocation must use disjoint shared-budget pages"
+        !architecture.is_disjoint(&models),
+        "interleaved receivers reuse architecture holes before page growth"
     );
 
     let placements = inputs
@@ -774,7 +774,7 @@ fn thousands_of_model_charts_pack_deterministically_without_gutter_overlap_or_ex
         .collect::<Vec<_>>();
     assert_chart_gutters_disjoint(&config, pages, &placements);
 
-    // Architecture and model pools share one cap: one full-page chart from
+    // Both receiver families share one cap: one full-page chart from
     // each family exhausts a two-page budget, and failure stays sticky.
     let mut capped = ChartAllocator::new(LightmapConfig {
         page_edge: 32,
@@ -870,7 +870,11 @@ fn adjacent_model_charts_assemble_with_their_own_single_texel_gutters_and_preser
             (patch, chart)
         })
         .collect::<Vec<_>>();
-    assert_eq!(allocator.page_count(), 2);
+    assert_eq!(
+        allocator.page_count(),
+        1,
+        "both families share a page without losing gutters"
+    );
     assert_chart_gutters_disjoint(&config, allocator.page_count(), &charts);
     let values = charts
         .iter()

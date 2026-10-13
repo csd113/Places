@@ -420,8 +420,8 @@ Shipped asset: `core:fluorescent_panel_01` →
 
 The 1.2 × 0.6 m outer footprint is the *housing*: four brushed-metal side walls
 drop 0.045 m from the ceiling plane, a bottom frame borders the diffuser on all
-four sides, a top flange closes the body and the diffuser sits 0.012 m recessed
-above the frame's bottom. Only the fitted sheet glows; the housing binds
+four sides, a full opaque backplate closes the mounting footprint and the diffuser
+sits 0.012 m recessed above the frame's bottom. Only the fitted sheet glows; the housing binds
 `core:fluorescent_panel_housing` with zero emission and ordinary receiver lighting.
 
 A `90°`/`270°` placement uses the fixture's existing quarter-turn convention:
@@ -555,6 +555,19 @@ it within a ceiling panel. The authored PNG is the source of truth;
 `tools/textures/decal_art.py::build_ceiling_vent` loads it without repainting.
 `python3 tools/textures/build.py --only core:decal_ceiling_vent_01` round-trips
 that artwork and validates it.
+
+The commercial replacement is **`core:ceiling_diffuser_01`**, a static GLB prop
+with a 0.6 × 0.065 × 0.6 m outer frame, closed back and four-way concentric inset
+louvers. Its base-centred origin remains at minimum Y=0; mount it at ceiling Y
+minus 0.065 m. It has no collision or emission. Full uses ordinary model receiver
+charts and circuit layers; Static uses the existing baked on/off prop variants.
+Its square opaque painted-metal sheet is
+`assets/shared/props/ceiling_diffuser_01.png` (256×256 native), with the retained
+1024-square ImageGen master alongside it. Every geometric face fits the full
+sheet in [0,1] without tiling. Recess depth, gaps and sloping louver faces are
+geometry, so the bitmap contains only paint grain, no baked illumination.
+The old decal remains readable for historical/test sources; active Arcade vents
+use the model at their original ceiling centres.
 
 A new decal sheet does not need to be square, but it does need POT edges, an
 alpha cut-out and a level placement whose width/height match its proportions.
@@ -1463,7 +1476,7 @@ Computed lighting images are derived from level geometry and light settings:
 
 | Image | Producer | Purpose |
 |---|---|---|
-| Lightmap atlas pages | `src/lighting/lightmap/` + offline compiler | Incident linear HDR and signed moment pairs, prepared into compact PLLC1 blobs (legacy/exact KTX2 remains readable), expanding to the same linear half-float GPU planes. Full plans up to twelve pages per contribution group; lower profiles retain eight. The player uploads the exact produced layers, subject to the measured 320 MiB +64 KiB typed record bound and unchanged switch-group/aggregate/shape guards. PNG dumps are diagnostics, not authored assets. |
+| Lightmap atlas pages | `src/lighting/lightmap/` + offline compiler | Incident linear HDR and signed moment pairs, prepared into compact PLLC1 blobs (legacy/exact KTX2 remains readable), expanding to the same linear half-float GPU planes. Full plans up to fourteen pages per contribution group; lower profiles retain eight. The player uploads the exact produced layers, subject to the measured 320 MiB +64 KiB typed record bound and unchanged switch-group/aggregate/shape guards. PNG dumps are diagnostics, not authored assets. |
 | Reflection probe cubemaps | `src/render/common/reflections.rs` (routing) and `src/render/wgpu/reflections.rs` (offline capture) | Packaged HDR probe captures and roughness mip chains, uploaded at level load; the player does not recapture them. |
 
 Diagnostic textures under `assets/diagnostic/textures/` are real PNGs but are
