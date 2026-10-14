@@ -107,6 +107,24 @@ def pitch_to(eye_y: float, target_y: float, distance: float) -> float:
     return math.degrees(math.atan2(target_y - eye_y, distance))
 
 
+def reserve_capture_latency(steps: list[dict]) -> list[dict]:
+    """Keep real key edges apart while a large fullscreen PNG blocks the loop."""
+    out = []
+    offset = 0
+    ready_after = 0
+    for step in steps:
+        deadline = step["delay_ms"] + offset
+        if deadline < ready_after:
+            offset += ready_after - deadline
+            deadline = ready_after
+        out.append({**step, "delay_ms": deadline})
+        if step["action"]["kind"] == "capture":
+            ready_after = deadline + 1000
+    if out and out[-1]["delay_ms"] > 60_000:
+        raise ValueError("fullscreen capture spacing exceeds the native 60000 ms action budget")
+    return out
+
+
 class Plan:
     def __init__(self, level: str = LEVEL) -> None:
         self.steps: list[dict] = []
@@ -2560,11 +2578,14 @@ def native_run(args: argparse.Namespace, out: Path) -> None:
     shutil.copyfile(package, installed)
     settings = json.loads((ROOT / "tests/fixtures/native/retro-arcade-manifest.json").read_text())["settings"]
     width, height = map(int, args.size.split("x"))
-    settings.update(window_width=width, window_height=height, window_mode="windowed", vsync=True,
+    settings.update(window_width=width, window_height=height,
+                    window_mode="fullscreen" if args.fullscreen else "windowed", vsync=True,
                     developer_console=False, quality="high", texture_filtering="high",
                     lightmaps="full", reflections="full", bloom=True, fov_degrees=60,
                     use_low_quality_lighting=False)
     steps = plan_for(args.mode)
+    if args.fullscreen:
+        steps = reserve_capture_latency(steps)
     write_json(out / "settings.json", settings)
     write_json(out / "actions.json", steps)
     env = {key: value for key, value in os.environ.items()
@@ -2840,6 +2861,8 @@ def compare_run(args: argparse.Namespace, out: Path) -> None:
                            "--frames", str(args.frames), "--warmup", "120", "--size", args.size]
                 if args.expected_drawable:
                     command.extend(("--expected-drawable", args.expected_drawable))
+                if args.fullscreen:
+                    command.append("--fullscreen")
                 if args.comparison_asset_root:
                     command.extend(("--asset-root", str(args.comparison_asset_root.resolve(strict=True))))
                 result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=300)
@@ -2883,6 +2906,7 @@ def main() -> None:
     parser.add_argument("--ffprobe", type=Path, default=Path("/opt/homebrew/bin/ffprobe"))
     parser.add_argument("--sim-delta", type=float, default=1 / 60, help="exact native physics seconds per frame (finite >0..1)")
     parser.add_argument("--size", choices=("640x360", "1280x720"), default="1280x720", help="logical native window dimensions")
+    parser.add_argument("--fullscreen", action="store_true", help="present on the native display; measure its actual drawable explicitly")
     parser.add_argument("--expected-drawable", help="reject a native run unless its actual drawable matches WIDTHxHEIGHT")
     parser.add_argument("--baseline", type=Path, default=BASELINE, help="preserved developer-console binary for compare")
     parser.add_argument("--comparison-asset-root", type=Path, help="same preserved asset/package bundle for every comparison pair")
@@ -2904,7 +2928,7 @@ def main() -> None:
         parser.error("sim-delta must be finite, positive and no greater than 1 second")
     if not 1 <= args.video_frames <= 900 or not 0 <= args.video_start_frame <= 3600:
         parser.error("video frames must be 1..900 and start frame 0..3600")
-    if args.record_video and (args.mode != "bowling" or args.size != "640x360" or args.expected_drawable != "1280x720"
+    if args.record_video and (args.fullscreen or args.mode != "bowling" or args.size != "640x360" or args.expected_drawable != "1280x720"
                               or args.sim_delta != 1 / 60):
         parser.error("record-video requires bowling, --size 640x360, --expected-drawable 1280x720 and --sim-delta 1/60")
     if args.mode == "compare" and args.sim_delta != 1 / 60:

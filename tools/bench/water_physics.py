@@ -500,10 +500,13 @@ def run_case(args: argparse.Namespace, out: Path, case: str, source: dict, binar
         links[entry.name] = str(target)
     settings = json.loads((ROOT / "tests/fixtures/native/retro-arcade-manifest.json").read_text())["settings"]
     width, height = map(int, args.size.split("x"))
-    settings.update(window_width=width, window_height=height, window_mode="windowed", vsync=case != "performance",
+    settings.update(window_width=width, window_height=height,
+                    window_mode="fullscreen" if args.fullscreen else "windowed", vsync=case != "performance",
                     developer_console=False, quality="high", texture_filtering="high", lightmaps="full",
                     reflections="full", bloom=True, use_low_quality_lighting=False, fov_degrees=60)
     steps = plan_for(case, source)
+    if args.fullscreen:
+        steps = native.reserve_capture_latency(steps)
     if case == "performance" and args.activate_demo:
         active = native.Plan(LEVEL)
         active.action(100, "activate", id=CONTROL)
@@ -690,6 +693,7 @@ def main() -> None:
     parser.add_argument("--pairs", type=int, default=2, help="serial alternating performance pairs (1..3)")
     parser.add_argument("--frames", type=int, default=600, help="performance measured frames after 120 warmup (120..1800)")
     parser.add_argument("--size", choices=("640x360", "1280x720"), default="640x360", help="logical window; 640x360 produces 1280x720 on a 2x display")
+    parser.add_argument("--fullscreen", action="store_true", help="present on the native display; measure its actual drawable explicitly")
     parser.add_argument("--expected-drawable", default="1280x720", help="required actual native source/capture dimensions")
     parser.add_argument("--video-frames", type=int, default=600, help="actual consecutive video samples at 30 fps (1..900)")
     parser.add_argument("--video-start-frame", type=int, default=0, help="eligible first 60 Hz native ready frame (0..90)")
@@ -711,7 +715,7 @@ def main() -> None:
         parser.error("pairs must be 1..3 and frames 120..1800")
     if not 1 <= args.video_frames <= 900 or not 0 <= args.video_start_frame <= 90:
         parser.error("video frames must be 1..900 and start frame 0..90")
-    if args.mode == "video" and args.expected_drawable != "1280x720":
+    if args.mode == "video" and (args.fullscreen or args.expected_drawable != "1280x720"):
         parser.error("video requires actual 1280x720 source dimensions")
     match = re.fullmatch(r"(\d+)x(\d+)", args.expected_drawable)
     if match is None or not all(64 <= int(edge) <= 16384 for edge in match.groups()):

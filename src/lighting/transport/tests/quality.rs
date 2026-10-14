@@ -731,28 +731,32 @@ fn a_ceiling_shields_the_interior_from_pitched_roof_triangles() {
 fn shared_model_edges_keep_the_receiver_faces_normals_and_albedo() {
     let face = TransportTriangle::new([0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.4; 3])
         .expect("floor");
-    let adjacent =
-        TransportTriangle::new([0.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0], [0.9; 3])
-            .expect("side");
     let patch =
         LightmapPatch::from_quad(PatchKind::Prop, [face.p0, face.p1, face.p2, face.p2], None)
             .expect("patch");
-    let scene = TransportScene::new(vec![adjacent, face], Vec::new()).expect("scene");
-    let receivers = scene
-        .receivers(&[(
-            patch,
-            Chart {
-                page: 0,
-                x: 0,
-                y: 0,
-                width: 9,
-                height: 9,
-            },
-        )])
-        .expect("receivers");
-    assert!(receivers.iter().all(|receiver| receiver.surface == 1
-        && receiver.albedo == [0.4; 3]
-        && receiver.normal == [0.0, 1.0, 0.0]));
+    // Two tiny domains, no solve/rays: the shallow fold reproduces curved
+    // porcelain choosing its neighbour at an exact edge, beyond hard-edge
+    // coverage. That wrong identity clips half its visibility footprint.
+    for corner in [[0.0, 1.0, 0.0], [-1.0, 0.006, 0.0]] {
+        let adjacent = TransportTriangle::new([0.0, 0.0, 0.0], [0.0, 0.0, -1.0], corner, [0.9; 3])
+            .expect("side");
+        let scene = TransportScene::new(vec![adjacent, face], Vec::new()).expect("scene");
+        let receivers = scene
+            .receivers(&[(
+                patch,
+                Chart {
+                    page: 0,
+                    x: 0,
+                    y: 0,
+                    width: 9,
+                    height: 9,
+                },
+            )])
+            .expect("receivers");
+        assert!(receivers.iter().all(|receiver| receiver.surface == 1
+            && receiver.albedo == [0.4; 3]
+            && receiver.normal == [0.0, 1.0, 0.0]));
+    }
 }
 
 #[expect(

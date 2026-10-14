@@ -663,8 +663,8 @@ fn the_tone_map_preserves_the_calibrated_range_and_compresses_highlights() {
 #[test]
 fn the_solver_fingerprint_is_stable_and_distinct_from_the_lighting_model() {
     assert_eq!(
-        SOLVER_REVISION, 20,
-        "solver revision 20 retains rectangle cell-centre quadrature and repairs baseline colour and partition lookup"
+        SOLVER_REVISION, 21,
+        "solver revision 21 preserves the owning geometric face at shallow model folds"
     );
     let first = solver_fingerprint();
     assert_eq!(

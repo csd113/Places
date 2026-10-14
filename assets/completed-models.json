@@ -1376,7 +1376,7 @@
     ]
   },
   "environments/arcade/props/vending_machine.glb": {
-    "sha256": "2180912882e9aa23f464484ee41cae51570b29a20a47eb66203c5448d538f721",
+    "sha256": "7c6f257682ef89fd39da3d5d3cf5cfc32c457d4b0a0cba55877906b22814c1ef",
     "triangles": 1284,
     "texture_edge": 512,
     "identities": [
@@ -1391,7 +1391,9 @@
       0.47999998927116394,
       2.0300002098083496,
       0.4320000112056732
-    ]
+    ],
+    "delivery_sha256": "2180912882e9aa23f464484ee41cae51570b29a20a47eb66203c5448d538f721",
+    "correction": "tools/props/trim_bepsi_dispenser.py: lower-print trim with original affine UVs; 0.2mm rim clearance"
   },
   "environments/arcade/restroom/restroom_grab_bar.glb": {
     "sha256": "fec32e33cc28d525c9ba589548101781538f12161786a79462a4ab551df680f1",

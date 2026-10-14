@@ -269,7 +269,9 @@ pub fn solver_fingerprint() -> u64 {
 /// - 20: baseline amplitude compression preserves summed source RGB ratios;
 ///   partition occupancy uses its own storey's roof probe; target lookups use
 ///   the sample's visible wall side and inset exact architectural endpoints.
-pub const SOLVER_REVISION: u64 = 20;
+/// - 21: shallow model folds retain their actual receiver face identity,
+///   preventing a neighbour's plane from clipping the visibility footprint.
+pub const SOLVER_REVISION: u64 = 21;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;
@@ -2288,8 +2290,11 @@ impl TransportScene {
                         }
                         // At a shared hard edge several faces are equally close.
                         // Receiver identity must follow its own geometric face.
+                        // A shallow fold is also a different plane: accepting
+                        // it here clips coverage against the neighbour while
+                        // tracing from this patch, shadowing half the footprint.
                         if normal.is_some_and(|surface_normal| {
-                            dot(surface_normal, triangle.normal) < 0.9999
+                            dot(surface_normal, triangle.normal) < 1.0 - 8.0 * f32::EPSILON
                         }) {
                             continue;
                         }

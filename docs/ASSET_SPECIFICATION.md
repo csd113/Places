@@ -2212,7 +2212,8 @@ The normal runtime loads these committed PNGs through the existing sampler.
 
 `assets/completed-models.json` records the 103 accepted v36 runtime exports for
 107 identities, their exact SHA-256, measured bounds and reviewed geometry/image
-budgets. The GLBs retain the delivered bytes. Catalog `authoring.tool: completed`
+budgets. Except for the documented Bepsi print trim below, GLBs retain the
+delivered bytes. Catalog `authoring.tool: completed`
 prevents the original primitive/Blender exporters from replacing them; final
 editable masters remain in Downloads/Places-completed-models-2026-10-14.
 The original Spooner-Man body-only refiner and party/Halloween source writers
@@ -2269,3 +2270,20 @@ f32 calibration fails the existing strict cosine-integral check, the compiler
 stores that finite nonnegative integral isotropically for that texel. Ordinary
 directional calibration and the validation tolerance remain unchanged; this
 avoids huge opposing coefficients rather than amplifying rounding error.
+
+Bepsi's v36 lower print and dispenser rim shared local Z=0.4320000112 across
+15–17 mm bands. `tools/props/trim_bepsi_dispenser.py` trims only twelve print
+vertices to the rim's outer opening plus 0.2 mm clearance, preserving the
+original affine UV scale. Other primitives, embedded PNGs, normals, indices,
+materials, bounds and collision remain unchanged. The review records both
+original delivery and corrected runtime hashes. Reapply this hash-guarded
+offline recipe to the original v36 export; completed ownership prevents an
+older exporter from silently restoring the overlap. Downloads retains the
+original editable master and export for source analysis.
+
+Full transport receiver identity uses the existing numerical plane-normal
+tolerance (eight f32 epsilon), including shallow folds. A neighbouring face
+within the former 0.9999 dot allowance could steal a bowl-edge receiver and
+clip its coverage against the wrong plane, creating dark triangular seams.
+Solver revision 21 corrects the identity without changing model artwork,
+normal transforms, illumination powers, brightness response or atlas density.

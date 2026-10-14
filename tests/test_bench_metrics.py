@@ -16,6 +16,23 @@ from tools.bench.loading import (
 )
 from tools.bench.lightmap_report import parse_logs
 from tools.bench.capture_snowfall import expected_budgets, validate_run
+from tools.bench.item_physics import reserve_capture_latency
+
+
+class NativeCaptureSchedulingTests(unittest.TestCase):
+    def test_blocking_capture_keeps_key_edges_separate_and_action_budget_bounded(self):
+        # Four dictionaries, no native launch/bake: a >200ms PNG previously
+        # made the 50ms E down/up arrive together, losing the ordinary drop.
+        steps = [dict(delay_ms=100, action=dict(kind='capture')),
+                 dict(delay_ms=300, action=dict(kind='key', pressed=True)),
+                 dict(delay_ms=350, action=dict(kind='key', pressed=False)),
+                 dict(delay_ms=500, action=dict(kind='quit'))]
+        spaced = reserve_capture_latency(steps)
+        self.assertEqual([step['delay_ms'] for step in spaced], [100, 1100, 1150, 1300])
+        self.assertEqual(steps[1]['delay_ms'], 300)
+        with self.assertRaises(ValueError):
+            reserve_capture_latency([dict(delay_ms=59_500, action=dict(kind='capture')),
+                                     dict(delay_ms=59_600, action=dict(kind='quit'))])
 
 
 class WinterNativeEvidenceTests(unittest.TestCase):

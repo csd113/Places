@@ -3278,7 +3278,7 @@ Two prepared-path rules keep a solved map readable, and both are automatic:
   models). Visibility origins stay on the geometric side. Compression alone is not an irradiance integral:
   opposing grazing sources must not manufacture illumination. Each bounce
   transports only the previous order; two bounces mean `D + KD + K²D`.
-  Current solver revision 20 invalidates earlier atlas and package fingerprints; sky is
+  Current solver revision 21 invalidates earlier atlas and package fingerprints; sky is
   injected only into the first diffuse order. Cache interpolation also tests
   visibility so one floor triangle spanning a divider cannot transfer light
   through that divider.
@@ -8274,3 +8274,10 @@ rings with 7 bounded convex slabs, preserving 1.5 kg versus the 5 kg ball, inert
 dormant starts, recovery and carrying behavior. Gutter interior/hulls are untouched.
 Both opposite-colour benches fit the east Arcade waiting wall before the passage.
 The cat plush remains standalone and absent from Bepsi vending placement.
+
+Bepsi's lower print has a documented offline trim to avoid the dispenser rim's
+coplanar overlap; bounds, collision and PNG artwork remain exact. The original
+export, corrected hash and reproducible recipe are identified in
+ASSET_SPECIFICATION.md. Full solver 21 also retains the owning plane at shallow
+model folds: do not compensate for bowl-edge lighting seams with emitter power,
+emissive porcelain or changed authored normals.
