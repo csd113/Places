@@ -118,6 +118,8 @@ ACTION_TAGS = (
     "spawn_entity",
     "despawn_entity",
     "reset_to_start",
+    "reset_physics_group",
+    "activate_physics_group",
 )
 IMPLEMENTED_ACTIONS = tuple(
     tag for tag in ACTION_TAGS if tag not in ("play_sound", "stop_sound")
@@ -223,6 +225,164 @@ _ASSET_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9:_-]*$")
 def load_catalog(path: str = CATALOG_PATH) -> dict:
     with open(path, "r", encoding="utf-8") as handle:
         return json.load(handle)
+
+
+
+def _unique_gameplay_object(pairs: list) -> dict:
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate gameplay key '{key}'")
+        result[key] = value
+    return result
+
+
+def _bounded_physical_number(value: object, low: float, high: float) -> bool:
+    return (isinstance(value, (int, float)) and not isinstance(value, bool)
+            and low <= value <= high and math.isfinite(value))
+
+
+def _is_reset_group(value: object) -> bool:
+    return isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9_-]{1,64}", value) is not None
+
+
+def _validate_physics_shape(shape: object, where: str, scale: float, compound: bool = True) -> List[str]:
+    if not isinstance(shape, dict) or not isinstance(shape.get("kind"), str):
+        return [f"{where}: physics shape must be an object with a string kind"]
+    kind = shape["kind"]
+    if kind == "compound":
+        parts = shape.get("parts")
+        if (not compound or set(shape) != {"kind", "parts"} or
+                not isinstance(parts, list) or not 1 <= len(parts) <= 8):
+            return [f"{where}: compound requires 1..8 non-recursive primitive parts"]
+        errors = []
+        for index, part in enumerate(parts):
+            context = f"{where} compound part {index}"
+            if not isinstance(part, dict) or set(part) != {"offset", "shape"}:
+                errors.append(f"{context}: malformed part or unknown fields")
+                continue
+            offset = part["offset"]
+            if (not isinstance(offset, list) or len(offset) != 3 or
+                    not all(_bounded_physical_number(value, -100.0, 100.0) and
+                            _bounded_physical_number(value * scale, -100.0, 100.0) for value in offset)):
+                errors.append(f"{context}: offsets must be finite and within +/-100 local/scaled metres")
+            errors.extend(_validate_physics_shape(part["shape"], context, scale, compound=False))
+        return errors
+    if kind == "convex_hull":
+        points = shape.get("points")
+        if (set(shape) != {"kind", "points"} or not isinstance(points, list)
+                or not 4 <= len(points) <= 96 or any(not isinstance(point, list) or len(point) != 3
+                or not all(_bounded_physical_number(value, -100.0, 100.0) and
+                _bounded_physical_number(value * scale, -100.0, 100.0) for value in point) for point in points)):
+            return [f"{where}: hull requires 4..96 finite points within +/-100 local/scaled metres"]
+        extents = [max(point[axis] for point in points) - min(point[axis] for point in points) for axis in range(3)]
+        if not all(_bounded_physical_number(extent, 0.001, 100.0) and
+                _bounded_physical_number(extent * scale, 0.001, 100.0) for extent in extents):
+            return [f"{where}: hull extents must be finite in 0.001..100 local/scaled metres"]
+        origin = points[0]
+        vectors = [[point[axis] - origin[axis] for axis in range(3)] for point in points[1:]]
+        first = max(vectors, key=lambda vector: sum(value * value for value in vector))
+        cross = lambda a, b: [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]]
+        normal = max((cross(first, vector) for vector in vectors), key=lambda vector: sum(value*value for value in vector))
+        if max(abs(sum(normal[axis] * vector[axis] for axis in range(3))) for vector in vectors) <= 1e-12:
+            return [f"{where}: hull points must span a nondegenerate 3D volume"]
+        return []
+    expected = {"cuboid": {"kind", "half_extents"}, "sphere": {"kind", "radius"},
+                "cylinder": {"kind", "half_height", "radius"}}.get(kind)
+    if expected is None or set(shape) != expected:
+        return [f"{where}: malformed physics shape or unknown fields"]
+    dimensions = shape.get("half_extents") if kind == "cuboid" else [
+        shape[field] for field in sorted(expected - {"kind"})]
+    if (not isinstance(dimensions, list) or (kind == "cuboid" and len(dimensions) != 3) or
+            not all(_bounded_physical_number(value, 0.001, 100.0) and
+                    _bounded_physical_number(value * scale, 0.001, 100.0) for value in dimensions)):
+        return [f"{where}: shape dimensions must be finite in 0.001..100 local/scaled metres"]
+    return []
+
+
+def validate_physics_profile(profile: object, where: str, scale: float = 1.0) -> List[str]:
+    """Mirror the strict PhysicsDef/ShapeDef authoring contract in Rust."""
+    errors = []
+    allowed = {"motion", "shape", "mass_kg", "friction", "restitution",
+               "linear_damping", "angular_damping", "pickup", "reset_group"}
+    if not isinstance(profile, dict) or set(profile) - allowed:
+        return [f"{where}: invalid physics object or unknown fields"]
+    if not _bounded_physical_number(scale, 0.001, 100.0):
+        return [f"{where}: physics scale must be finite in 0.001..100"]
+    motion = profile.get("motion", "fixed")
+    if motion not in ("fixed", "dynamic", "kinematic"):
+        errors.append(f"{where}: invalid physics motion")
+    pickup = profile.get("pickup", False)
+    if not isinstance(pickup, bool) or (pickup and motion != "dynamic"):
+        errors.append(f"{where}: physics pickup requires dynamic motion and a boolean")
+    group = profile.get("reset_group")
+    if group is not None and (not _is_reset_group(group) or motion not in ("dynamic", "kinematic")):
+        errors.append(f"{where}: reset_group requires movable motion and an ASCII 1..64 identifier")
+    for field, low, high, default in (
+        ("mass_kg", 0.001, 1000.0, 1.0), ("friction", 0.0, 2.0, 0.6),
+        ("restitution", 0.0, 1.0, 0.05), ("linear_damping", 0.0, 100.0, 0.1),
+        ("angular_damping", 0.0, 100.0, 0.2),
+    ):
+        if not _bounded_physical_number(profile.get(field, default), low, high):
+            errors.append(f"{where}: physics {field} must be finite in {low}..{high}")
+    if profile.get("shape") is not None:
+        errors.extend(_validate_physics_shape(profile["shape"], where, scale))
+    return errors
+
+
+def _authored_physics_groups(level: dict) -> set:
+    result = set()
+    for prop in level.get("props") or []:
+        physics = prop.get("physics") if isinstance(prop, dict) else None
+        if isinstance(physics, dict) and physics.get("motion") in ("dynamic", "kinematic"):
+            group = physics.get("reset_group")
+            if _is_reset_group(group):
+                result.add(group)
+    return result
+
+
+def validate_gameplay_document(gameplay: object, catalog: dict) -> List[str]:
+    """Physical-only overrides must name existing compatible catalog entries."""
+    if (not isinstance(gameplay, dict) or set(gameplay) != {"format_version", "assets"}
+            or type(gameplay["format_version"]) is not int or gameplay["format_version"] != 1
+            or not isinstance(gameplay["assets"], dict)):
+        return ["gameplay.json: invalid strict version-1 schema"]
+    entries = {entry.get("id"): entry for entry in catalog_entries(catalog)}
+    errors = []
+    for asset_id, override in gameplay["assets"].items():
+        where = f"gameplay asset '{asset_id}'"
+        entry = entries.get(asset_id)
+        if entry is None:
+            errors.append(f"{where}: unknown catalog id")
+            continue
+        if (not isinstance(override, dict) or set(override) - {"physics", "ground_friction"}
+                or not any(override.get(field) is not None for field in ("physics", "ground_friction"))):
+            errors.append(f"{where}: empty physical override or unknown fields")
+            continue
+        if override.get("physics") is not None:
+            if entry.get("asset_type") not in PLACEABLE_TYPES:
+                errors.append(f"{where}: physics requires a prop or entity")
+            errors.extend(validate_physics_profile(override["physics"], where))
+        if override.get("ground_friction") is not None:
+            if entry.get("asset_type") != "material" or entry.get("source", "definition") != "definition":
+                errors.append(f"{where}: ground_friction requires a material definition")
+            if not _bounded_physical_number(override["ground_friction"], 0.0, 2.0):
+                errors.append(f"{where}: ground_friction must be finite in 0..2")
+    return errors
+
+
+def validate_gameplay_file(catalog: dict, catalog_path: str) -> List[str]:
+    path = os.path.join(os.path.dirname(catalog_path), "gameplay.json")
+    if not os.path.exists(path):
+        return []
+    try:
+        if os.path.getsize(path) > 1048576:
+            return ["gameplay.json: exceeds the 1 MiB size limit"]
+        with open(path, "r", encoding="utf-8") as handle:
+            gameplay = json.load(handle, object_pairs_hook=_unique_gameplay_object)
+        return validate_gameplay_document(gameplay, catalog)
+    except (OSError, ValueError) as error:
+        return [f"gameplay.json: {error}"]
 
 
 def catalog_entries(catalog: dict) -> List[dict]:
@@ -1933,6 +2093,7 @@ def _index_level_entities(level: dict, where: str, errors: List[str]) -> Dict:
         "weather_toggleable": level.get("weather") is not None and level.get("weather_alternate") is not None,
         "weather_blendable": _weather_blendable(level),
         "weather_cycle": level.get("weather_cycle") is not None,
+        "physics_reset_groups": _authored_physics_groups(level),
     }
 
 
@@ -2027,7 +2188,11 @@ def _validate_actions(
                     f"`{tag}` requires {requirement}"
                 )
 
-        if tag == "toggle_weather":
+        if tag in ("reset_physics_group", "activate_physics_group"):
+            group = action.get("group")
+            if not _is_reset_group(group) or group not in index["physics_reset_groups"]:
+                errors.append(f"{entry}: {tag} requires a declared movable physics group")
+        elif tag == "toggle_weather":
             if not index["weather_toggleable"]:
                 errors.append(f"{entry} ('toggle_weather') requires weather and weather_alternate")
         elif tag == "set_weather_strength":
@@ -2493,6 +2658,9 @@ def validate_interactions(level: dict, where: str, errors: List[str]) -> None:
     unknown tags are rejected.
     """
     index = _index_level_entities(level, where, errors)
+    for position, prop in enumerate(level.get("props") or []):
+        if isinstance(prop, dict) and prop.get("physics") is not None:
+            errors.extend(validate_physics_profile(prop["physics"], f"{where} prop {position}", prop.get("scale", 1.0)))
 
     for position, prop in enumerate(level.get("props") or []):
         if not isinstance(prop, dict):
@@ -3036,7 +3204,7 @@ def main(argv: List[str] | None = None) -> int:
 
     catalog_errors, catalog_warnings = validate_catalog(catalog)
     level_errors, level_warnings = validate_levels(catalog)
-    errors = catalog_errors + level_errors
+    errors = catalog_errors + validate_gameplay_file(catalog, args.catalog) + level_errors
     warnings = catalog_warnings + level_warnings
 
     if not args.quiet:

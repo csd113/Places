@@ -491,14 +491,40 @@ fn shared_stencils_preserve_interpolation_and_fallback_bits() {
     }
 }
 
+fn reference_layer_pass(
+    scene: &TransportScene,
+    charts: &[(LightmapPatch, Chart)],
+    emitters: &[usize],
+    apply_fill: bool,
+    options: SolveOptions,
+    counters: &mut (usize, usize, usize),
+    probe_output: Option<&mut Option<ProbeField>>,
+) -> Vec<SolvedChart> {
+    let (direct_rays, bounce_rays, cache_cells) = counters;
+    scene
+        .solve_pass(
+            charts,
+            emitters,
+            apply_fill,
+            options.taps_per_axis,
+            options.bounces,
+            options.gather_samples,
+            options.workers,
+            None,
+            direct_rays,
+            bounce_rays,
+            cache_cells,
+            probe_output,
+        )
+        .expect("reference pass")
+}
+
 fn reference_layer_solve(
     scene: &TransportScene,
     charts: &[(LightmapPatch, Chart)],
     options: SolveOptions,
 ) -> TransportSolve {
-    let mut direct_rays = 0;
-    let mut bounce_rays = 0;
-    let mut cache_cells = 0;
+    let mut counters = (0, 0, 0);
     let mut probes = None;
     let base_emitters: Vec<_> = scene
         .emitters
@@ -507,35 +533,34 @@ fn reference_layer_solve(
         .filter(|(_, emitter)| emitter.switchable.is_none() && emitter.intensity > 0.0)
         .map(|(index, _)| index)
         .collect();
-    let mut pass = |emitters: &[usize], apply_fill, probe_output| {
-        scene
-            .solve_pass(
-                charts,
-                emitters,
-                apply_fill,
-                options.taps_per_axis,
-                options.bounces,
-                options.gather_samples,
-                options.workers,
-                None,
-                &mut direct_rays,
-                &mut bounce_rays,
-                &mut cache_cells,
-                probe_output,
-            )
-            .expect("reference pass")
-    };
-    let base = pass(&base_emitters, true, Some(&mut probes));
-    let switchable = scene
-        .emitters
-        .iter()
-        .enumerate()
-        .filter_map(|(index, emitter)| {
-            emitter
-                .switchable
-                .map(|light| (light, pass(&[index], false, None)))
-        })
-        .collect();
+    let base = reference_layer_pass(
+        scene,
+        charts,
+        &base_emitters,
+        true,
+        options,
+        &mut counters,
+        Some(&mut probes),
+    );
+    let mut switchable = Vec::new();
+    for (light, emitters) in scene.switchable_emitter_groups() {
+        let mut switched_probes = None;
+        let solved_charts = reference_layer_pass(
+            scene,
+            charts,
+            &emitters,
+            false,
+            options,
+            &mut counters,
+            Some(&mut switched_probes),
+        );
+        // Keep each independent surface solve and its counters; prepare the
+        // same indirect-only field before joining aligned, keyed planes.
+        append_switchable_probe_field(&mut probes, light, switched_probes)
+            .expect("reference switched field");
+        switchable.push((light, solved_charts));
+    }
+    let (direct_rays, bounce_rays, cache_cells) = counters;
     TransportSolve {
         solution: TransportSolution {
             charts: base,

@@ -106,6 +106,10 @@ pub struct WorldContext<'a> {
 /// One renderer/audio command produced by the world.
 #[derive(Clone, Debug, PartialEq)]
 pub enum WorldCommand {
+    /// Restore one authored physics group's starting poses and clear momentum.
+    ResetPhysicsGroup { group: String },
+    /// Activate dormant members of an authored physical group.
+    ActivatePhysicsGroup { group: String },
     /// Select one of the two prepared, map-authored weather configurations.
     SetWeatherAlternate {
         /// True selects `weather_alternate`; false restores `weather`.
@@ -334,6 +338,8 @@ pub struct EntityWorld {
     weather_cycle_default: bool,
     weather_cycle_available: bool,
     weather_endpoints: WeatherEndpoints,
+    /// Authored physical reset groups addressable by the generic action.
+    physics_reset_groups: Vec<String>,
     moves: Vec<MoveGoal>,
     /// Entities spawned at runtime and still alive, in spawn order.
     live_spawns: Vec<EntityHandle>,
@@ -421,6 +427,7 @@ impl EntityWorld {
             weather_cycle_default: false,
             weather_cycle_available: false,
             weather_endpoints: WeatherEndpoints::Absent,
+            physics_reset_groups: Vec::new(),
             moves: Vec::new(),
             live_spawns: Vec::new(),
             dynamic_keys: Vec::new(),
@@ -480,6 +487,7 @@ impl EntityWorld {
             WeatherEndpoints::Absent
         };
         self.moves.clear();
+        self.physics_reset_groups = level.physics_reset_groups().map(str::to_string).collect();
         self.live_spawns.clear();
         self.dynamic_keys.clear();
         self.next_dynamic_key = 1;
@@ -1337,12 +1345,12 @@ impl EntityWorld {
             let (bounds, own_box, anchor) = {
                 let own_box = prop.solid.then(|| {
                     WallAabb::with_y(
-                        size_x.mul_add(-0.5, prop.x),
+                        extent_x.mul_add(-1.0, prop.x),
                         base_y,
-                        size_z.mul_add(-0.5, prop.z),
-                        size_x,
+                        extent_z.mul_add(-1.0, prop.z),
+                        extent_x * 2.0,
                         size_y,
-                        size_z,
+                        extent_z * 2.0,
                     )
                 });
                 (
@@ -1365,6 +1373,7 @@ impl EntityWorld {
                 reach,
                 anchor,
                 bounds,
+                yaw_degrees: prop.rotation_degrees,
                 size,
                 own_box,
                 door_index: None,
@@ -1386,6 +1395,7 @@ impl EntityWorld {
                 reach: component.reach,
                 anchor: sync.anchor,
                 bounds: sync.bounds,
+                yaw_degrees: 0.0,
                 size: [door.def.width, door.def.height, door.def.thickness],
                 own_box: None,
                 door_index: Some(door_index),
@@ -1465,6 +1475,7 @@ impl EntityWorld {
                     ],
                 },
                 size,
+                yaw_degrees: yaw,
                 own_box: None,
                 door_index: None,
                 enabled: component.enabled,
@@ -1807,6 +1818,8 @@ impl EntityWorld {
         self.pump_events(&mut tick);
         self.report_queue_refusals(&mut tick);
         if tick.frames_dirty {
+            self.sync_transformed_interactables();
+            self.sync_routed_interactables();
             self.rebuild_entity_frames();
         }
         Some(DispatchReport {
@@ -1893,6 +1906,26 @@ impl EntityWorld {
             ActionDef::ResetToStart => {
                 report.actions_run = report.actions_run.saturating_add(1);
                 report.player_reset = true;
+            }
+            ActionDef::ResetPhysicsGroup { group } | ActionDef::ActivatePhysicsGroup { group } => {
+                if crate::physics::config::validate_reset_group(group).is_err()
+                    || !self.physics_reset_groups.contains(group)
+                {
+                    report.unsupported = report.unsupported.saturating_add(1);
+                    return;
+                }
+                self.commands.push(
+                    if matches!(action, ActionDef::ActivatePhysicsGroup { group: _ }) {
+                        WorldCommand::ActivatePhysicsGroup {
+                            group: group.clone(),
+                        }
+                    } else {
+                        WorldCommand::ResetPhysicsGroup {
+                            group: group.clone(),
+                        }
+                    },
+                );
+                report.actions_run = report.actions_run.saturating_add(1);
             }
             ActionDef::ToggleWeather => {
                 if self.weather_endpoints == WeatherEndpoints::Absent {
@@ -3552,6 +3585,10 @@ impl EntityWorld {
         self.tick_lifetimes(ctx.delta_seconds, &mut tick);
         self.pump_events(&mut tick);
         self.report_queue_refusals(&mut tick);
+        if tick.frames_dirty {
+            self.sync_transformed_interactables();
+            self.sync_routed_interactables();
+        }
         if tick.frames_dirty || self.any_enabled_fade() {
             // A binding or sequence cued an animation this tick, or an enabled
             // fade changed the opacity: the renderer handoff is rebuilt even
@@ -4267,6 +4304,28 @@ impl EntityWorld {
                 glow,
                 balloon: self.frame_balloon(handle),
             });
+        }
+    }
+
+    /// Republishes AI, spawned and sequence-controlled aim poses from transforms.
+    fn sync_transformed_interactables(&mut self) {
+        for index in 0..self.interactables.len() {
+            let Some(item) = self.interactables.get(index) else {
+                continue;
+            };
+            if item.door_index.is_some() {
+                continue;
+            }
+            let Some(transform) = self
+                .handle_of(&item.id)
+                .and_then(|handle| self.components.transforms.get(handle))
+                .copied()
+            else {
+                continue;
+            };
+            let _live_pose_changed =
+                self.interactables
+                    .set_live_pose(index, transform.position, transform.yaw_degrees);
         }
     }
 
@@ -6216,6 +6275,14 @@ mod tests {
         world.tick(&ctx)
     }
 
+    fn assert_target_pose(world: &EntityWorld, id: &str, position: Vec3, yaw: f32) {
+        let index = world.interactables().index_of(id).expect("AI target index");
+        let aim = world.interactables().get(index).expect("AI target");
+        assert!((f32::midpoint(aim.bounds.min[0], aim.bounds.max[0]) - position.x).abs() < 1e-4);
+        assert!((f32::midpoint(aim.bounds.min[2], aim.bounds.max[2]) - position.z).abs() < 1e-4);
+        assert!((aim.yaw_degrees.to_radians() - yaw).abs() < 1e-5);
+    }
+
     /// The AI layer stores yaw in degrees, but the entity-frame handoff is
     /// radians, 0 facing world +Z: an agent walking east emits about +PI/2
     /// (a raw 90.0 would rotate the model to ~2.04 rad), the heading stays
@@ -6230,6 +6297,7 @@ mod tests {
                   "rotation_degrees": 90.0,
                   "components": [
                       { "component": "nav_agent", "radius": 0.3, "speed_mps": 2.0 },
+                      { "component": "interactable" },
                       { "component": "ai", "behavior": "predator", "role": "hunter",
                         "reacts_to": ["prey_rat"], "sight_range": 0.0,
                         "hearing_range": 12.0, "walk_speed": 2.0,
@@ -6276,6 +6344,7 @@ mod tests {
             );
         }
         let (east, east_yaw) = framed_transform(&world, "hunter");
+        assert_target_pose(&world, "hunter", east, east_yaw);
         let travel = east - start;
         assert!(
             travel.x > 1.5 && travel.z.abs() < 0.3,

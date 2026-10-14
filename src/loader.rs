@@ -333,6 +333,7 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_architecture(level)?;
     validate_ceiling_lights(level)?;
     validate_props(level)?;
+    validate_prop_physics(level)?;
     validate_prop_lights(level)?;
     validate_doors(level)?;
     validate_effects(level)?;
@@ -2343,6 +2344,117 @@ fn validate_props(level: &LevelDef) -> Result<(), String> {
     Ok(())
 }
 
+/// Rigid props have one pose owner and never leave immutable collision or light.
+fn validate_prop_physics(level: &LevelDef) -> Result<(), String> {
+    let fixed_count = level
+        .props
+        .iter()
+        .filter(|prop| prop.has_fixed_physics_shape())
+        .count();
+    if fixed_count > 1024 {
+        return Err("Level contains too many explicit fixed physics shapes (limit: 1024)".into());
+    }
+    let count = level
+        .props
+        .iter()
+        .filter(|prop| prop.is_physics_movable())
+        .count();
+    if count > crate::level::MAX_LEVEL_PHYSICS_PROPS {
+        return Err(format!(
+            "Level contains too many movable physics props: {count} (limit: {})",
+            crate::level::MAX_LEVEL_PHYSICS_PROPS
+        ));
+    }
+    let ids = if count == 0 && fixed_count == 0 {
+        Vec::new()
+    } else {
+        level.prop_instance_ids()
+    };
+    for (index, prop) in level.props.iter().enumerate() {
+        let Some(physics) = prop.physics.as_ref() else {
+            continue;
+        };
+        let context = format!("Prop {index} (`{}`)", prop.model);
+        physics
+            .validate()
+            .and_then(|()| physics.validate_scale(prop.scale))
+            .map_err(|error| format!("{context}: {error}"))?;
+        if !physics.motion.is_movable() && !prop.has_fixed_physics_shape() {
+            continue;
+        }
+        if [prop.x, prop.y, prop.z]
+            .iter()
+            .any(|coordinate| coordinate.abs() > crate::physics::config::MAX_ITEM_POSITION_M)
+        {
+            return Err(format!(
+                "{context} physics coordinates must stay within {} metres of the origin",
+                crate::physics::config::MAX_ITEM_POSITION_M
+            ));
+        }
+        if prop.size.is_some_and(|size| {
+            size.iter().any(|dimension| {
+                let scaled = *dimension * prop.scale;
+                !(crate::physics::config::MIN_SHAPE_LENGTH_M
+                    ..=crate::physics::config::MAX_SHAPE_LENGTH_M)
+                    .contains(&scaled)
+            })
+        }) {
+            return Err(format!(
+                "{context} physics size after scale must stay between {} and {} metres",
+                crate::physics::config::MIN_SHAPE_LENGTH_M,
+                crate::physics::config::MAX_SHAPE_LENGTH_M
+            ));
+        }
+        if ids
+            .get(index)
+            .is_some_and(|id| level.routes.iter().any(|route| route.id.trim() == id))
+        {
+            return Err(format!(
+                "{context} physics cannot also follow an entity route"
+            ));
+        }
+        if !physics.motion.is_movable() {
+            validate_fixed_prop_physics(prop, &context)?;
+            continue;
+        }
+        if prop.float.is_some() || !prop.lights.is_empty() {
+            return Err(format!(
+                "{context} movable physics cannot declare float or attached lights"
+            ));
+        }
+        if !prop.components.is_empty() || !prop.bindings.is_empty() {
+            return Err(format!(
+                "{context} movable physics currently supports passive rigid props and pickup; \
+                 components and bindings are unsupported"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_fixed_prop_physics(prop: &crate::level::PropDef, context: &str) -> Result<(), String> {
+    if prop.float.is_some()
+        || prop.components.iter().any(|component| {
+            matches!(
+                component,
+                ComponentDef::Animation {
+                    clip: _,
+                    speed: _,
+                    looped: _,
+                    playing: _
+                } | ComponentDef::Ai(_)
+                    | ComponentDef::Balloon(_)
+                    | ComponentDef::Lifetime { seconds: _ }
+            )
+        })
+    {
+        return Err(format!(
+            "{context} explicit fixed physics cannot declare floating, animation, AI, balloon or lifetime motion"
+        ));
+    }
+    Ok(())
+}
+
 /// Largest authored lifetime a `lifetime` component may declare, in seconds.
 ///
 /// A bound, not a tuning knob: a lifetime exists to remove a temporary or
@@ -2371,6 +2483,8 @@ struct LevelIndex<'a> {
     spawn_groups: HashSet<String>,
     /// Authored spawn point ids.
     spawn_points: HashSet<String>,
+    /// Groups declared by authored movable rigid bodies, separate from spawns.
+    physics_reset_groups: HashSet<&'a str>,
     /// Sequence id -> every entity the sequence can run on, discovered from
     /// the authored `start_sequence` sites.
     sequence_owners: HashMap<String, Vec<String>>,
@@ -2470,6 +2584,7 @@ fn validate_instance_ids(level: &LevelDef) -> Result<LevelIndex<'_>, String> {
     let mut seen: HashSet<&str> = HashSet::new();
     let mut first: HashMap<&str, String> = HashMap::new();
     let mut index = LevelIndex {
+        physics_reset_groups: level.physics_reset_groups().collect(),
         weather_toggleable: level.weather.is_some() && level.weather_alternate.is_some(),
         weather_blendable: level
             .weather
@@ -3560,6 +3675,15 @@ fn validate_action(
 ) -> Result<(), String> {
     match action {
         ActionDef::ResetToStart => {}
+        ActionDef::ResetPhysicsGroup { group } | ActionDef::ActivatePhysicsGroup { group } => {
+            crate::physics::config::validate_reset_group(group)?;
+            if !index.physics_reset_groups.contains(group.as_str()) {
+                return Err(format!(
+                    "{} references unknown movable physics group `{group}`",
+                    action_context_label(action_context)
+                ));
+            }
+        }
         ActionDef::ToggleWeather => {
             if !index.weather_toggleable {
                 return Err(format!(

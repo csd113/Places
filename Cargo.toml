@@ -25,6 +25,9 @@ bytemuck = { version = "1.25", default-features = false, features = ["derive"] }
 ctrlc = "3.5.2"
 terminal_size = "0.4.4"
 glam = "0.29"
+# Maintained pure-Rust rigid bodies (native and future WASM); the player keeps
+# its established controller and shares the same metre/second gravity value.
+rapier3d = "0.36.1"
 png = "0.18.1"
 # Blocking adapter/device initialization for the wgpu backend: two futures and
 # no async runtime.

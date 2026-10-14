@@ -360,6 +360,7 @@ mod tests {
             );
         }
         let field = ProbeField {
+            switchable_indirect: Vec::new(),
             min: [12.5, 11.0, 22.5],
             cell_m: 1.0,
             dims: [1; 3],

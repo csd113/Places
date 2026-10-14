@@ -516,6 +516,14 @@ fn validate_probe_references(
             ));
         }
     }
+    for plane in &field.switchable_indirect {
+        if usize::try_from(plane.light_index).map_or(true, |index| index >= lights) {
+            return Err(format!(
+                "irradiance probe references missing switched indirect source {}",
+                plane.light_index
+            ));
+        }
+    }
     Ok(())
 }
 
@@ -788,6 +796,7 @@ mod tests {
     fn irradiance_labels_must_reference_a_packaged_room() {
         use crate::lighting::probes::{ProbeField, ProbeSample};
         let mut field = ProbeField {
+            switchable_indirect: Vec::new(),
             local_direct: None,
             min: [0.0; 3],
             cell_m: 1.0,
@@ -809,7 +818,8 @@ mod tests {
     fn selected_probe_source_ids_must_reference_packaged_lighting() {
         use crate::lighting::lightmap::LightmapTexel;
         use crate::lighting::probes::{ProbeDirectField, ProbeField, ProbeSample};
-        let field = ProbeField {
+        let mut field = ProbeField {
+            switchable_indirect: Vec::new(),
             min: [0.0; 3],
             cell_m: 1.0,
             dims: [1; 3],
@@ -822,6 +832,20 @@ mod tests {
                 probes: vec![LightmapTexel::ZERO],
             }),
         };
+        assert!(validate_probe_references(&field, 1, 4).is_ok());
+        assert!(validate_probe_references(&field, 1, 3).is_err());
+        field
+            .local_direct
+            .as_mut()
+            .expect("sidecar")
+            .light_indices
+            .clear();
+        field
+            .switchable_indirect
+            .push(crate::lighting::probes::ProbeSwitchableField {
+                light_index: 3,
+                probes: vec![LightmapTexel::ZERO],
+            });
         assert!(validate_probe_references(&field, 1, 4).is_ok());
         assert!(validate_probe_references(&field, 1, 3).is_err());
     }

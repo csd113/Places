@@ -4,4 +4,7 @@
 # syn 3, and wgpu-hal's hashbrown 0.17 cannot be unified with the 0.16 that
 # gpu-allocator selects on the Vulkan/D3D12 targets. None can be unified without
 # changing upstream dependencies. Keep every other duplicate diagnostic.
-allowed-duplicate-crates = ["hashbrown", "miniz_oxide", "syn"]
+# Rapier 0.36's glamx requires glam 0.33; the existing renderer's glam 0.29
+# API stays intact. Rapier's nalgebra compatibility also records optional
+# glam 0.30/0.31/0.32 versions in Cargo.lock, which Clippy includes here.
+allowed-duplicate-crates = ["glam", "hashbrown", "miniz_oxide", "syn"]

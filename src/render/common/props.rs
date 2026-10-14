@@ -629,11 +629,10 @@ fn resolve_prop_instances_inner<'a>(
     let mut busy_vertices = 0usize;
 
     for prop in &level.props {
-        // A floating prop is drawn by the dynamic path at the water surface,
-        // not by the static batch at its dry authored position, and it is not
-        // a placeholder box either: the dynamic spawn reports its own asset
-        // failure.
-        if prop.float.is_some() {
+        // Movable props use the dynamic path at their live pose. Neither a
+        // static mesh nor a placeholder may remain at the authored position:
+        // both would draw twice and leave immutable lighting casters behind.
+        if prop.float.is_some() || prop.is_physics_movable() {
             continue;
         }
         let entry = catalog.get(&prop.model);
@@ -925,6 +924,46 @@ mod lighting_reuse_tests {
         LevelLighting, LevelSurfaces, append_instance_vertices, lighting_sources,
         resolve_prop_fallbacks, resolve_prop_instances,
     };
+
+    #[test]
+    fn movable_physics_props_never_leave_static_placeholder_geometry() -> Result<(), String> {
+        // Unknown IDs force the fallback branch if reached. This tiny fixture
+        // protects both moving modes without loading assets or baking a map.
+        let level = crate::level::LevelDef::from_json(
+            r#"{
+                "format_version":3, "id":"movable_fallback", "name":"Movable fallback",
+                "spawn":{"x":0,"z":0},
+                "rooms":[{"x":0,"z":0,"width":2,"depth":2,"height":3}],
+                "props":[
+                    {"id":"moving","model":"test:missing_dynamic","physics":{"motion":"dynamic"}},
+                    {"id":"driven","model":"test:missing_kinematic","physics":{"motion":"kinematic"}},
+                    {"id":"fixed","model":"test:missing_fixed","physics":{"motion":"fixed"}}
+                ]
+            }"#,
+        )
+        .map_err(|error| error.to_string())?;
+        let surfaces = LevelSurfaces::new(&level);
+        let (batches, fallbacks) = resolve_prop_instances(
+            &level,
+            &crate::loader::PropCatalog::builtin(),
+            &mut crate::props::PropAssets::default(),
+            &LevelLighting::default(),
+            &surfaces,
+        );
+        assert!(
+            batches.is_empty(),
+            "unknown static IDs supply only placeholders"
+        );
+        assert_eq!(
+            fallbacks
+                .iter()
+                .map(|prop| prop.id.as_deref())
+                .collect::<Vec<_>>(),
+            [Some("fixed")],
+            "movable bodies never reach immutable geometry or fallback casters"
+        );
+        Ok(())
+    }
 
     #[test]
     fn triangle_attributes_preserve_flat_normals_uvs_and_mirrored_handedness() -> Result<(), String>

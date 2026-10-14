@@ -755,6 +755,7 @@ impl PerfOverlay {
 mod tests;
 
 pub(crate) mod actions;
+pub(crate) mod video;
 
 /// Low-frequency crash context uses the same current-process RSS counter as HUD.
 pub(crate) fn process_resident_bytes() -> Option<u64> {

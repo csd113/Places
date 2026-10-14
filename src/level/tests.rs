@@ -16,6 +16,302 @@
 use super::*;
 use crate::test_support::{assert_exact, assert_exact_named};
 
+/// Four square metres, no asset lookup, geometry bake or native resources.
+fn physics_fixture() -> LevelDef {
+    LevelDef::from_json(
+        r#"{"format_version":3,"id":"physics_contract","name":"Physics contract",
+            "spawn":{"x":1,"z":1},"rooms":[{"width":2,"depth":2}]}"#,
+    )
+    .expect("tiny physics contract fixture parses")
+}
+
+/// Protects legacy placement compatibility and package semantics retention with
+/// four tiny props; collision generation is pure and performs no model loading.
+#[test]
+fn physics_metadata_round_trips_and_movable_props_leave_static_collision() {
+    use crate::physics::config::{BodyMotion, PhysicsDef, ShapeDef};
+
+    let mut level = physics_fixture();
+    let legacy: PropDef =
+        serde_json::from_str(r#"{"model":"test:box","size":[0.2,0.2,0.2],"solid":true}"#)
+            .expect("legacy prop parses without physics");
+    assert_eq!(legacy.physics, None);
+    assert!(!serde_json::to_string(&legacy).unwrap().contains("physics"));
+    level.props.push(legacy);
+    for (motion, shape, pickup) in [
+        (BodyMotion::Dynamic, ShapeDef::Sphere { radius: 0.1 }, true),
+        (
+            BodyMotion::Kinematic,
+            ShapeDef::Cylinder {
+                half_height: 0.1,
+                radius: 0.08,
+            },
+            false,
+        ),
+        (
+            BodyMotion::Fixed,
+            ShapeDef::Cuboid {
+                half_extents: [0.1; 3],
+            },
+            false,
+        ),
+    ] {
+        let mut prop = level.props[0].clone();
+        prop.physics = Some(PhysicsDef {
+            motion,
+            shape: Some(shape),
+            pickup,
+            ..PhysicsDef::default()
+        });
+        level.props.push(prop);
+    }
+    crate::loader::validate_level(&level).expect("all supported motions validate");
+    assert_eq!(level.collision_aabbs().len(), 2);
+    // The compiler writes this complete LevelDef to semantics.json, which the
+    // package reader reparses and validates. No separate physics payload exists.
+    let semantics = serde_json::to_string(&level).expect("semantics serialize");
+    let decoded = LevelDef::from_json(&semantics).expect("semantics reparse");
+    crate::loader::validate_level(&decoded).expect("package semantics validate");
+    for (authored, loaded) in level.props.iter().zip(&decoded.props) {
+        assert_eq!(authored.physics, loaded.physics);
+    }
+    let defaults: PhysicsDef = serde_json::from_str("{}").expect("fixed defaults parse");
+    assert_eq!(defaults.motion, BodyMotion::Fixed);
+    assert_eq!(defaults.shape, None);
+    assert!(!defaults.pickup);
+}
+
+/// Rejects misspelled authoring and unsafe simulator coefficients using only
+/// serde and one 2x2 level. The direct NaN check covers non-JSON API callers.
+#[test]
+fn malformed_physics_inputs_are_rejected_at_the_authoring_boundary() {
+    use crate::physics::config::PhysicsDef;
+
+    for invalid in [
+        r#"{"motion":"dynamik"}"#,
+        r#"{"mas_kg":1}"#,
+        r#"{"shape":{"kind":"sphere","radius":0.1,"raduis":0.2}}"#,
+        r#"{"shape":{"kind":"mesh"}}"#,
+        r#"{"shape":{"kind":"cuboid","half_extents":[0.1,0.1]}}"#,
+    ] {
+        assert!(serde_json::from_str::<PhysicsDef>(invalid).is_err());
+    }
+    let mut level = physics_fixture();
+    level
+        .props
+        .push(serde_json::from_str(r#"{"model":"test:item"}"#).expect("one item parses"));
+    for invalid in [
+        r#"{"mass_kg":0}"#,
+        r#"{"mass_kg":1001}"#,
+        r#"{"friction":-0.1}"#,
+        r#"{"friction":2.1}"#,
+        r#"{"restitution":1.1}"#,
+        r#"{"linear_damping":-1}"#,
+        r#"{"angular_damping":101}"#,
+        r#"{"pickup":true}"#,
+        r#"{"motion":"kinematic","pickup":true}"#,
+        r#"{"shape":{"kind":"sphere","radius":0}}"#,
+        r#"{"shape":{"kind":"cylinder","radius":0.1,"half_height":101}}"#,
+        r#"{"shape":{"kind":"cuboid","half_extents":[0.1,-0.1,0.1]}}"#,
+    ] {
+        level.props[0].physics = Some(serde_json::from_str(invalid).unwrap());
+        assert!(crate::loader::validate_level(&level).is_err(), "{invalid}");
+    }
+    let non_finite = PhysicsDef {
+        mass_kg: f32::NAN,
+        ..PhysicsDef::default()
+    };
+    assert!(non_finite.validate().is_err());
+    let overflowing = PhysicsDef {
+        shape: Some(crate::physics::config::ShapeDef::Sphere { radius: 100.0 }),
+        ..PhysicsDef::default()
+    };
+    assert!(overflowing.validate_scale(100.0).is_err());
+}
+
+/// Guards against stale baked poses, duplicate pose owners and unbounded active
+/// bodies. The largest fixture is 129 descriptors and never loads or bakes a map.
+#[test]
+fn movable_physics_rejects_pose_conflicts_and_an_over_budget_level() {
+    let mut level = physics_fixture();
+    let item: PropDef =
+        serde_json::from_str(r#"{"id":"item","model":"test:item","physics":{"motion":"dynamic"}}"#)
+            .expect("minimal dynamic item parses");
+    level.props.push(item.clone());
+    crate::loader::validate_level(&level).expect("minimal dynamic item validates");
+    for (field, value) in [
+        ("float", serde_json::json!({"draft": 0.01_f32})),
+        ("lights", serde_json::json!([{}])),
+        (
+            "components",
+            serde_json::json!([{"component":"interactable"}]),
+        ),
+        (
+            "bindings",
+            serde_json::json!([{"on":"interact","actions":[{"action":"toggle_label"}]}]),
+        ),
+        ("scale", serde_json::json!(100.1_f32)),
+        ("x", serde_json::json!(100_001_u32)),
+        ("size", serde_json::json!([101_u32, 1_u32, 1_u32])),
+    ] {
+        let mut authored = serde_json::to_value(&item).unwrap();
+        authored[field] = value;
+        level.props[0] = serde_json::from_value(authored).unwrap();
+        let error = crate::loader::validate_level(&level).expect_err(field);
+        assert!(error.contains("physics"), "{field}: {error}");
+    }
+    level.props[0] = item.clone();
+    level.routes = vec![EntityRouteDef {
+        id: "item".into(),
+        looped: false,
+        steps: vec![RouteStepDef::Wait { seconds: 1.0 }],
+    }];
+    assert!(
+        crate::loader::validate_level(&level)
+            .unwrap_err()
+            .contains("entity route")
+    );
+    level.routes.clear();
+    assert_explicit_fixed_physics_has_one_immutable_pose_owner();
+    level.props = vec![item; MAX_LEVEL_PHYSICS_PROPS.saturating_add(1)];
+    assert!(
+        crate::loader::validate_level(&level)
+            .unwrap_err()
+            .contains("too many movable physics props")
+    );
+}
+
+// Zero movable members protects fixed-only route ID resolution. Six tiny
+// metadata variants reject moving/removal ownership and retain a static switch.
+fn assert_explicit_fixed_physics_has_one_immutable_pose_owner() {
+    let mut level = physics_fixture();
+    let fixed: PropDef = serde_json::from_str(
+        r#"{"id":"fixed_item","model":"test:item","solid":false,
+        "physics":{"shape":{"kind":"cuboid","half_extents":[0.1,0.1,0.1]}}}"#,
+    )
+    .expect("explicit fixed shape");
+    level.props = vec![fixed.clone()];
+    level.routes = vec![EntityRouteDef {
+        id: "fixed_item".into(),
+        looped: false,
+        steps: vec![RouteStepDef::Wait { seconds: 1.0 }],
+    }];
+    assert!(
+        crate::loader::validate_level(&level)
+            .unwrap_err()
+            .contains("entity route")
+    );
+    level.routes.clear();
+    for component in [
+        serde_json::json!({"component":"animation","clip":"idle"}),
+        serde_json::json!({"component":"ai"}),
+        serde_json::json!({"component":"balloon","color":"royal_blue"}),
+        serde_json::json!({"component":"lifetime","seconds":1.0_f32}),
+    ] {
+        level.props[0] = fixed.clone();
+        level.props[0].components =
+            vec![serde_json::from_value(component).expect("typed motion conflict")];
+        assert!(
+            crate::loader::validate_level(&level)
+                .unwrap_err()
+                .contains("explicit fixed physics")
+        );
+    }
+    level.props[0] = fixed;
+    level.props[0].components = serde_json::from_value(serde_json::json!([
+        {"component":"interactable","label":"Fixed switch"},
+        {"component":"state","name":"on","value":true},
+        {"component":"fade","period_seconds":2.0_f32}
+    ]))
+    .expect("compatible fixed components");
+    crate::loader::validate_level(&level)
+        .expect("fixed switch, state and fade keep immutable collision");
+}
+
+/// A sub-kilobyte in-memory catalog proves reusable profiles propagate and
+/// reject non-placeable assets without depending on the shipped asset inventory.
+#[test]
+fn catalog_physics_profiles_are_typed_validated_and_opt_in_for_placements() {
+    let catalog_json = r#"{"assets":[{"id":"test:item","asset_class":"core",
+        "asset_type":"prop","physics":{"motion":"dynamic","pickup":true,
+        "shape":{"kind":"sphere","radius":0.1}}}]}"#;
+    let catalog = crate::assets::AssetCatalog::from_json_str(catalog_json).unwrap();
+    let profile = catalog.get("test:item").unwrap().physics.as_ref().unwrap();
+    assert!(profile.motion.is_movable() && profile.pickup);
+    let prop: PropDef = serde_json::from_str(r#"{"model":"test:item"}"#).unwrap();
+    assert!(!prop.is_physics_movable());
+    for (invalid, expected) in [
+        (
+            catalog_json.replace("\"prop\"", "\"texture\""),
+            "physics requires a prop or entity asset",
+        ),
+        (
+            catalog_json.replace("\"radius\":0.1", "\"radius\":-0.1"),
+            "shape dimensions",
+        ),
+    ] {
+        assert!(
+            crate::assets::AssetCatalog::from_json_str(&invalid)
+                .unwrap_err()
+                .contains(expected)
+        );
+    }
+}
+
+/// Two descriptors in the 2x2 fixture protect generic group references,
+/// serialization and command forwarding; no physics step or asset bake runs.
+#[test]
+fn physics_group_actions_validate_and_dispatch_an_authored_group() {
+    let mut level = physics_fixture();
+    level.props = serde_json::from_str(r#"[
+      {"model":"test:pin","physics":{"motion":"dynamic","reset_group":"test_pins"}},
+      {"model":"test:button","components":[{"component":"interactable"}],
+       "bindings":[{"on":"interact","actions":[{"action":"reset_physics_group","group":"test_pins"}]}]}
+    ]"#).expect("tiny grouped physics fixture parses");
+    for (tag, expected_command) in [
+        (
+            "reset_physics_group",
+            crate::entities::WorldCommand::ResetPhysicsGroup {
+                group: "test_pins".into(),
+            },
+        ),
+        (
+            "activate_physics_group",
+            crate::entities::WorldCommand::ActivatePhysicsGroup {
+                group: "test_pins".into(),
+            },
+        ),
+    ] {
+        let json = format!(r#"{{"action":"{tag}","group":"test_pins"}}"#);
+        let action: ActionDef = serde_json::from_str(&json).expect("group action parses");
+        assert_eq!(action.kind(), tag);
+        assert_eq!(action.target(), None);
+        let encoded = serde_json::to_string(&action).expect("action serializes");
+        assert_eq!(
+            serde_json::from_str::<ActionDef>(&encoded).expect("action reparses"),
+            action
+        );
+        level.props[1].bindings[0].actions[0] = action.clone();
+        crate::loader::validate_level(&level).expect("authored physics group validates");
+        let mut world = crate::entities::EntityWorld::from_level(&level);
+        let report = world.dispatch_actions(std::slice::from_ref(&action), None);
+        assert_eq!(report.actions_run, 1);
+        assert!(!report.player_reset);
+        assert_eq!(world.take_commands(), vec![expected_command]);
+        for group in ["", "bad group", "missing_group"] {
+            let invalid: ActionDef = serde_json::from_str(&json.replace("test_pins", group))
+                .expect("invalid group syntax remains a string");
+            level.props[1].bindings[0].actions[0] = invalid.clone();
+            assert!(
+                crate::loader::validate_level(&level).is_err(),
+                "{tag}: {group}"
+            );
+            assert_eq!(world.dispatch_actions(&[invalid], None).unsupported, 1);
+            assert_eq!(world.take_commands(), []);
+        }
+    }
+}
+
 #[test]
 fn zero_axis_cells_produce_one_finite_origin() {
     assert_eq!(

@@ -1262,8 +1262,20 @@ impl WgpuRenderer {
         }
     }
 
+    /// The installed catalog's reusable physics profile for a rigid prop.
+    ///
+    /// This cold metadata lookup clones the bounded profile without disk reads
+    /// or model decoding; frame updates retain their existing item state.
+    #[must_use]
+    pub fn rigid_runtime_model_physics(
+        &self,
+        id: &str,
+    ) -> Option<crate::physics::config::PhysicsDef> {
+        self.prop_catalog.assets().get(id)?.physics.clone()
+    }
+
     /// Resolve a bounded rigid catalog prop through the existing asset cache.
-    /// No file-path fallback or frozen character pose is accepted here.
+    /// No file-path fallback, animated bind pose or morph model is accepted here.
     pub fn rigid_runtime_model_bounds(&mut self, id: &str) -> Result<([f32; 3], [f32; 3]), String> {
         let entry = self
             .prop_catalog
@@ -1278,8 +1290,8 @@ impl WgpuRenderer {
             .as_deref()
             .ok_or_else(|| format!("`{id}` has no runtime model."))?;
         let asset = self.prop_assets.resolve(path)?;
-        if asset.model.skin.is_some() || !asset.model.morph_targets.is_empty() {
-            return Err("Characters/morph models require an entity template; /give supports rigid prop previews only.".to_string());
+        if asset.model.is_animatable() || !asset.model.morph_targets.is_empty() {
+            return Err("Rigid items and /give previews need a model without skin, animation clips or morph targets; animated models require an entity template.".to_string());
         }
         let bounds = asset
             .model
@@ -1288,9 +1300,9 @@ impl WgpuRenderer {
         let [x0, y0, z0] = bounds.0;
         let [x1, y1, z1] = bounds.1;
         let extent = glam::Vec3::new(x1 - x0, y1 - y0, z1 - z0);
-        if !extent.is_finite() || extent.min_element() <= 0.0 || extent.max_element() > 1.5 {
+        if !extent.is_finite() || extent.min_element() <= 0.0 || extent.max_element() > 100.0 {
             return Err(
-                "Preview props must have positive bounds no larger than 1.5 m per axis."
+                "Rigid props must have positive finite bounds no larger than 100 m per axis."
                     .to_string(),
             );
         }
@@ -1361,6 +1373,27 @@ impl WgpuRenderer {
         true
     }
 
+    /// Spawns an authored prop through the shared runtime model cache.
+    ///
+    /// `position` is the prop's world-space model origin, including its resolved
+    /// floor height and authored vertical offset. The level's catalog resolves
+    /// `prop.model`; authored yaw and uniform scale are retained. Runtime keys
+    /// and poses survive a graphics rebuild of the same installed level.
+    pub fn spawn_runtime_prop(
+        &mut self,
+        key: u64,
+        prop: &crate::level::PropDef,
+        position: [f32; 3],
+    ) -> bool {
+        self.spawn_runtime_model(
+            key,
+            &prop.model,
+            position,
+            prop.rotation_degrees,
+            prop.scale,
+        )
+    }
+
     /// Despawns the runtime object a key spawned, if it is still live.
     ///
     /// Returns whether the key held a live object. The GPU side is re-uploaded
@@ -1403,6 +1436,89 @@ impl WgpuRenderer {
             return false;
         };
         self.dynamic.set_transform(id, position, yaw_degrees, scale)
+    }
+
+    /// Sets a live runtime model's rigid-body pose while preserving its scale.
+    ///
+    /// `orientation` uses quaternion `[x, y, z, w]` order and is normalized.
+    /// Invalid poses or missing keys return `false` without changing the object.
+    /// The next dynamic update publishes model, bounds and lighting uniforms;
+    /// this call neither reloads assets nor uploads geometry.
+    pub fn set_runtime_model_pose(
+        &mut self,
+        key: u64,
+        position: [f32; 3],
+        orientation: [f32; 4],
+    ) -> bool {
+        let Some(id) = self.runtime_objects.get(&key).copied() else {
+            return false;
+        };
+        self.dynamic.set_pose(id, position, orientation)
+    }
+
+    /// Hides or restores a retained runtime model without reloading resources.
+    ///
+    /// Hidden models keep their key and scene budget, but do not draw, cast
+    /// movable shadows or receive lighting updates. The next dynamic update
+    /// refreshes the shared visibility resource and restored lighting.
+    pub fn set_runtime_model_visible(&mut self, key: u64, visible: bool) -> bool {
+        let Some(id) = self.runtime_objects.get(&key).copied() else {
+            return false;
+        };
+        if !self.dynamic.set_visible(id, visible) {
+            return false;
+        }
+        if let Some(slot) = self
+            .dynamic
+            .objects()
+            .iter()
+            .position(|object| object.id() == id)
+            && let Some(gpu) = self.world_dynamic.as_mut()
+        {
+            let _visibility_set = gpu.set_object_visible(slot, visible);
+        }
+        true
+    }
+
+    /// Read-only pose, sampled HDR and published uniform data for one runtime key.
+    /// Allocates only on an explicit diagnostic call and performs no GPU readback.
+    #[must_use]
+    pub fn runtime_model_lighting_snapshot(&self, key: u64) -> Option<serde_json::Value> {
+        let id = self.runtime_objects.get(&key)?;
+        let (slot, object) = self
+            .dynamic
+            .objects()
+            .iter()
+            .enumerate()
+            .find(|(_, object)| object.id() == *id)?;
+        let assets = self.prop_assets.stats();
+        let mut snapshot = object.diagnostic_lighting_snapshot();
+        let fields = snapshot.as_object_mut()?;
+        let _previous_key = fields.insert("key".to_string(), serde_json::json!(key));
+        let _previous_published = fields.insert(
+            "published".to_string(),
+            self.world_dynamic
+                .as_ref()
+                .and_then(|gpu| gpu.diagnostic_lighting_snapshot(slot))
+                .unwrap_or(serde_json::Value::Null),
+        );
+        let _previous_resources = fields.insert(
+            "resources".to_string(),
+            serde_json::json!({
+                "geometry_revision": self.dynamic.revision(),
+                "gpu": self.world_dynamic.as_ref().map(WgpuDynamic::stats),
+                "visibility": self.dynamic_visibility.stats(),
+                "visibility_revision": self.dynamic_visibility.revision(),
+                "visibility_error": self.dynamic_visibility_error,
+            "switchable_indirect_sources": self.dynamic_field.as_ref().map(|field| {
+                field.switchable_indirect.iter().map(|plane| plane.light_index).collect::<Vec<_>>()
+            }),
+                "models_loaded": assets.models_loaded,
+                "models_failed": assets.models_failed,
+                "texture_bytes": assets.texture_bytes,
+            }),
+        );
+        Some(snapshot)
     }
 
     /// Selects the emission scale of a live runtime object.
@@ -3137,6 +3253,7 @@ impl WgpuRenderer {
             .dynamic
             .objects()
             .iter()
+            .filter(|object| object.visible())
             .filter(|object| {
                 object
                     .mesh()

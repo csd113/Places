@@ -437,6 +437,136 @@ pub fn fit_text(text: &str, max_width: f32, scale: f32) -> String {
     format!("{kept}...")
 }
 
+/// Appends the interaction hand with the configured key inside its white palm.
+///
+/// The caller owns target eligibility and gameplay visibility.
+/// Geometry uses the existing atlas's white cell, without a generated texture.
+pub fn append_interaction_hint(vertices: &mut Vec<Vertex>, key: &str) {
+    const KEY_SCALE: f32 = 0.75;
+    const PALM_Y: f32 = 216.0;
+
+    let label = fit_text(key, 180.0, KEY_SCALE);
+    let key_width = text_width(&label, KEY_SCALE);
+    let palm_width = (key_width + 6.0).max(14.0);
+    let left = palm_width.mul_add(-0.5, 240.0);
+    draw_interaction_hand(vertices, left, PALM_Y, palm_width);
+    draw_text(
+        vertices,
+        &label,
+        key_width.mul_add(-0.5, 240.0),
+        PALM_Y - 3.0,
+        KEY_SCALE,
+        [0.02, 0.02, 0.025],
+    );
+}
+
+/// Rounded fingertips join a curved palm and a naturally angled thumb.
+fn draw_interaction_hand(vertices: &mut Vec<Vertex>, left: f32, y: f32, width: f32) {
+    let center_x = width.mul_add(0.5, left);
+    for (margin, color) in [(0.45, [0.02, 0.02, 0.025]), (0.0, [1.0, 1.0, 1.0])] {
+        add_ui_disc(
+            vertices,
+            [center_x, y],
+            [width.mul_add(0.5, margin), 7.5 + margin],
+            color,
+        );
+        add_ui_capsule(
+            vertices,
+            [center_x, y + 5.0],
+            [center_x, y + 9.0],
+            3.3 + margin,
+            color,
+        );
+        for (fraction, tip, root, radius) in [
+            (0.10, -11.5, -1.0, 1.3),
+            (0.36, -13.5, -2.0, 1.4),
+            (0.63, -12.5, -1.0, 1.35),
+            (0.88, -9.5, 0.5, 1.15),
+        ] {
+            let finger_x = width.mul_add(fraction, left);
+            add_ui_capsule(
+                vertices,
+                [finger_x, y + tip],
+                [finger_x, y + root],
+                radius + margin,
+                color,
+            );
+        }
+        add_ui_capsule(
+            vertices,
+            [left + 1.5, y + 2.5],
+            [left - 3.5, y - 2.0],
+            1.6 + margin,
+            color,
+        );
+    }
+}
+
+fn add_ui_capsule(
+    vertices: &mut Vec<Vertex>,
+    start: [f32; 2],
+    end: [f32; 2],
+    radius: f32,
+    color: [f32; 3],
+) {
+    let [start_x, start_y] = start;
+    let [end_x, end_y] = end;
+    let delta_x = end_x - start_x;
+    let delta_y = end_y - start_y;
+    let length = delta_x.hypot(delta_y);
+    if length > f32::EPSILON {
+        let offset_x = -delta_y / length * radius;
+        let offset_y = delta_x / length * radius;
+        add_solid_ui_quad(
+            vertices,
+            [
+                [start_x + offset_x, start_y + offset_y],
+                [end_x + offset_x, end_y + offset_y],
+                [end_x - offset_x, end_y - offset_y],
+                [start_x - offset_x, start_y - offset_y],
+            ],
+            color,
+        );
+    }
+    add_ui_disc(vertices, start, [radius; 2], color);
+    add_ui_disc(vertices, end, [radius; 2], color);
+}
+
+fn add_ui_disc(vertices: &mut Vec<Vertex>, center: [f32; 2], radii: [f32; 2], color: [f32; 3]) {
+    const SEGMENTS: u16 = 12;
+    let [center_x, center_y] = center;
+    let [radius_x, radius_y] = radii;
+    let mut previous = [center_x + radius_x, center_y];
+    for step in 1..=SEGMENTS {
+        let angle = f32::from(step) * (std::f32::consts::TAU / f32::from(SEGMENTS));
+        let (sine, cosine) = angle.sin_cos();
+        let point = [
+            radius_x.mul_add(cosine, center_x),
+            radius_y.mul_add(sine, center_y),
+        ];
+        add_solid_ui_triangle(vertices, [center, previous, point], color);
+        previous = point;
+    }
+}
+
+fn add_solid_ui_quad(vertices: &mut Vec<Vertex>, points: [[f32; 2]; 4], color: [f32; 3]) {
+    let [top_left, top_right, bottom_right, bottom_left] = points;
+    add_solid_ui_triangle(vertices, [top_left, top_right, bottom_right], color);
+    add_solid_ui_triangle(vertices, [top_left, bottom_right, bottom_left], color);
+}
+
+fn add_solid_ui_triangle(vertices: &mut Vec<Vertex>, points: [[f32; 2]; 3], color: [f32; 3]) {
+    let [white_u, white_v, _, _] = get_white_uv();
+    for [pixel_x, pixel_y] in points {
+        vertices.push(Vertex {
+            pos: [pixel_x, pixel_y, 0.0],
+            color: [color[0], color[1], color[2], 1.0],
+            uv: [white_u, white_v],
+            ..Vertex::UNLIT
+        });
+    }
+}
+
 /// Menu vertices and pointer regions share the same reference-space layout.
 #[must_use]
 pub fn build_ui_geometry(
@@ -965,6 +1095,62 @@ mod tests {
         // Short text and an exact fit are untouched.
         assert_eq!(fit_text("ok", 80.0, 1.0), "ok");
         assert_eq!(fit_text("1234567890", 80.0, 1.0), "1234567890");
+    }
+
+    #[test]
+    fn interaction_hand_shows_only_the_bound_key() {
+        // CPU-only geometry protects the hand/key contrast, long rebound labels
+        // and absence of tutorial text. No map bake or GPU is required.
+        let [white_u, white_v, _, _] = get_white_uv();
+        for key in ["E", "F", "BACKSPACE"] {
+            let mut vertices = Vec::new();
+            append_interaction_hint(&mut vertices, key);
+            assert!(
+                vertices.len() <= 1200,
+                "the small hand must retain a bounded UI geometry budget"
+            );
+            assert!(
+                vertices.iter().any(|vertex| {
+                    vertex.pos[0].total_cmp(&240.0).is_eq()
+                        && vertex.pos[1].total_cmp(&216.0).is_eq()
+                        && vertex.color[0].total_cmp(&1.0).is_eq()
+                        && vertex.uv[0].total_cmp(&white_u).is_eq()
+                        && vertex.uv[1].total_cmp(&white_v).is_eq()
+                }),
+                "a white palm must back the black key at the hand's centre"
+            );
+            assert!(
+                vertices.iter().all(|vertex| {
+                    (195.0..=285.0).contains(&vertex.pos[0])
+                        && (199.0..=229.0).contains(&vertex.pos[1])
+                }),
+                "the hand remains compact and centred in the lower viewport"
+            );
+            let glyphs: Vec<_> = vertices
+                .as_chunks::<6>()
+                .0
+                .iter()
+                .filter(|quad| {
+                    quad[0].uv[0].total_cmp(&white_u).is_ne()
+                        || quad[0].uv[1].total_cmp(&white_v).is_ne()
+                })
+                .collect();
+            assert_eq!(
+                glyphs.len(),
+                key.len(),
+                "the hand has only the configured key's glyphs"
+            );
+            let first = glyphs.first().expect("configured key draws a glyph");
+            let last = glyphs.last().expect("configured key draws a glyph");
+            assert_exact(f32::midpoint(first[0].pos[0], last[1].pos[0]), 240.0);
+            assert_exact(first[0].pos[1], 213.0);
+            for (glyph, ch) in glyphs.iter().zip(key.chars()) {
+                let expected_uv = get_char_uv(ch).expect("configured key is supported ASCII");
+                assert_exact(glyph[0].uv[0], expected_uv[0]);
+                assert_exact(glyph[0].uv[1], expected_uv[1]);
+                assert_exact(glyph[0].color[0], 0.02);
+            }
+        }
     }
 
     #[test]

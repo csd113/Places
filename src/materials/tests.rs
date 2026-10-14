@@ -44,6 +44,18 @@ fn shipped_catalog() -> AssetCatalog {
     AssetCatalog::load_default()
 }
 
+/// Two metadata descriptors, no PNG decoding or map bake.
+fn ground_catalog(fields: &str) -> Result<AssetCatalog, String> {
+    AssetCatalog::from_json_str(&format!(
+        r#"{{"assets":[{{"id":"test:sheet","asset_class":"core","asset_type":"texture",
+          "source":"file","model":"test/ground.png"}},
+          {{"id":"test:ground","asset_class":"core","asset_type":"material",
+          "source":"definition","texture":"test:sheet"{fields}}}]}}"#,
+    ))
+}
+
+/// Extends the existing ground-property regression to protect coefficient
+/// defaults, explicit overrides and input bounds using tiny logical tables.
 #[test]
 fn ice_traction_is_a_validated_material_property_separate_from_visual_response() {
     let level = basic_level("winter:snow_01", "winter:ice_01", "winter:snow_01");
@@ -51,6 +63,7 @@ fn ice_traction_is_a_validated_material_property_separate_from_visual_response()
     let table = MaterialTable::logical(&level, &catalog, None);
     let ice = table.entry_of("winter:ice_01").expect("ice material");
     assert_eq!(ice.ground_surface, GroundSurface::Ice);
+    assert_eq!(ice.ground_friction, 0.025);
     assert_eq!(ice.alpha.mode, AlphaMode::Blend);
     assert_eq!(ice.reflection.mode, ReflectionMode::Probe);
     assert_eq!(ice.reflection.strength, 0.28);
@@ -70,13 +83,52 @@ fn ice_traction_is_a_validated_material_property_separate_from_visual_response()
         AssetCatalog::from_json_str(&json).is_err(),
         "unknown traction is rejected"
     );
+    let tiny = basic_level("test:ground", "test:ground", "test:ground");
+    for (fields, surface, friction) in [
+        ("", GroundSurface::Normal, 0.7_f32),
+        (r#", "ground_surface":"ice""#, GroundSurface::Ice, 0.025_f32),
+        (r#", "ground_friction":0"#, GroundSurface::Normal, 0.0_f32),
+        (r#", "ground_friction":2"#, GroundSurface::Normal, 2.0_f32),
+        (
+            r#", "ground_surface":"ice", "ground_friction":0.9"#,
+            GroundSurface::Ice,
+            0.9_f32,
+        ),
+    ] {
+        let metadata = ground_catalog(fields).expect("valid physical metadata");
+        let resolved = MaterialTable::logical(&tiny, &metadata, None);
+        assert_eq!(
+            resolved
+                .entry_of("test:ground")
+                .expect("ground material")
+                .ground_surface,
+            surface,
+        );
+        assert_eq!(resolved.ground_friction("test:ground"), friction);
+        assert_eq!(resolved.ground_friction("test:missing"), 0.7);
+    }
+    for invalid in ["-0.1", "2.01", "1e1000", r#""smooth""#] {
+        assert!(ground_catalog(&format!(", \"ground_friction\":{invalid}")).is_err());
+    }
+    let misplaced = r#"{"assets":[{"id":"test:item","asset_class":"core",
+        "asset_type":"prop","ground_friction":0.5}]}"#;
+    assert!(
+        AssetCatalog::from_json_str(misplaced)
+            .expect_err("friction on a prop is rejected")
+            .contains("ground_friction requires a material definition")
+    );
 }
 
+/// Retains pack defaults and JSON round-trip while rejecting malformed numeric
+/// physical metadata with four in-memory descriptors and no image decoding.
 #[test]
 fn pack_materials_can_author_ice_traction() {
-    let definitions = parse_materials_json(Some(
-        r#"{"pack:ice":{"texture":"core:tex_glass_clear_01","ground_surface":"ice"},"pack:normal":{"texture":"core:tex_glass_clear_01"}}"#,
-    ));
+    let source = r#"{
+        "pack:ice":{"texture":"core:tex_glass_clear_01","ground_surface":"ice"},
+        "pack:normal":{"texture":"core:tex_glass_clear_01"},
+        "pack:carpet":{"texture":"core:tex_glass_clear_01","ground_friction":1.0},
+        "pack:shorthand":"core:tex_glass_clear_01"}"#;
+    let definitions = parse_materials_json(Some(source));
     assert_eq!(
         definitions.get("pack:ice").expect("ice").ground_surface,
         GroundSurface::Ice
@@ -88,6 +140,38 @@ fn pack_materials_can_author_ice_traction() {
             .ground_surface,
         GroundSurface::Normal
     );
+    for (id, friction) in [
+        ("pack:ice", 0.025_f32),
+        ("pack:normal", 0.7_f32),
+        ("pack:carpet", 1.0_f32),
+        ("pack:shorthand", 0.7_f32),
+    ] {
+        assert_eq!(
+            definitions
+                .get(id)
+                .expect("pack definition")
+                .ground_friction(),
+            friction
+        );
+    }
+    let encoded = serde_json::to_string(
+        &serde_json::from_str::<serde_json::Value>(source).expect("pack source parses"),
+    )
+    .expect("pack JSON serializes");
+    assert_eq!(definitions, parse_materials_json(Some(&encoded)));
+    let level = basic_level("pack:ice", "pack:carpet", "pack:normal");
+    let catalog = shipped_catalog();
+    let pack = PackMaterials::new("friction", Some(&encoded), HashMap::new());
+    let table = MaterialTable::logical(&level, &catalog, Some(&pack));
+    assert_eq!(table.ground_friction("pack:ice"), 0.025);
+    assert_eq!(table.ground_friction("pack:carpet"), 1.0);
+    for invalid in ["-0.1", "2.01", "1e1000", r#""smooth""#, "null"] {
+        let json = format!(
+            r#"{{"pack:invalid":{{"texture":"core:tex_glass_clear_01","ground_friction":{invalid}}}}}"#
+        );
+        assert!(super::pack::parse_materials_json_checked(Some(&json)).is_err());
+        assert!(parse_materials_json(Some(&json)).is_empty());
+    }
 }
 
 /// Encodes raw samples with an explicit PNG colour type (test helper).

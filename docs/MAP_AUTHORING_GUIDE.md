@@ -124,7 +124,8 @@ Authoritative paths:
 | Baked lightmaps for static world geometry (floors, ceilings, walls, reveals, skirts), with the baked-vertex path as the exact fallback | Implemented |
 | Baked vertex lighting, 3 fixture families, per-light colour/intensity/range/falloff, partitions, vertical isolation | Implemented |
 | Static props occlude baked light (contact darkening, blocked pools), derived from the placed model's own triangles | Implemented |
-| A separate dynamic-object render path (per-frame transforms, no rebuild of static geometry or lightmaps) | Implemented (authorable `doors[]` leaves plus one engine-created drum demonstration) |
+| A separate dynamic-object render path (per-frame transforms, no rebuild of static geometry or lightmaps) | Implemented (authorable `doors[]` leaves, opt-in rigid `props[].physics`, floating props and the engine-created drum demonstration) |
+| Reusable rigid item physics, box/sphere/cylinder colliders and player pickup/drop | Implemented; passive props opt in with `physics`, catalog profiles serve developer-spawned items (see §19) |
 | Generic engine-level lights (point / rect / line) owned by fixtures and props | Implemented |
 | Material emission (`emissive`, `emissive_intensity`, `emissive_mask`) and per-fixture `emission` | Implemented |
 | Masked ultraviolet pigment response (`uv_response`, `uv_response_mask`, fixture `ultraviolet`) | Implemented; static, dynamic and character meshes |
@@ -293,8 +294,9 @@ shows the shape and the common fields; the complete field-by-field contract is i
 tables of sections 6–10, 16, 17 and 19–21, plus doors, switches and effects in
 [§30](#30-doors-switches-and-effects), and the skeleton below names every current
 field at least once. Unknown keys
-are **silently ignored** (the structs do not use
-`deny_unknown_fields`), so a typo disappears without an error; diff against the
+are generally **silently ignored**, so a typo disappears without an error. The
+`physics` profile and its `shape` are strict: unknown keys reject the level.
+Diff against the
 skeleton and the per-field tables.
 
 ```jsonc
@@ -536,6 +538,7 @@ skeleton and the per-field tables.
       "scale": 1.0,                        // optional, default 1.0, must be > 0
       "size": [1.6, 0.75, 0.7],            // optional [w,h,d]; collision box, x scale
       "solid": true,                       // optional, default false
+      "physics": { "motion": "fixed" },   // optional; dynamic/kinematic passive props opt in, see §19
       "occludes": true,                    // optional, default true; false for alpha-cutout scenery (grass)
       "components": [                      // optional typed capabilities; see §29
         { "component": "interactable", "prompt": "Toggle name", "reach": 2.5 },
@@ -733,6 +736,7 @@ constant in `src/level.rs`, not an inline literal.
 | Walls | ≤ 60 000 (`MAX_LEVEL_WALLS`) | Loader rejection |
 | Ceiling lights | ≤ 50 000 (`MAX_LEVEL_CEILING_LIGHTS`) | Loader rejection |
 | Props | ≤ 100 000 (`MAX_LEVEL_PROPS`) | Loader rejection |
+| Movable physics props | ≤ 128 (`MAX_LEVEL_PHYSICS_PROPS`) | Loader rejection; shared authored/developer runtime body budget is 128 |
 | Decals | ≤ 20 000 (`MAX_LEVEL_DECALS`) | Loader rejection |
 | Decal edge (`width`, `height`) | ≤ 10 m | Loader rejection |
 | Floor regions | ≤ 8000 | Loader rejection |
@@ -783,11 +787,10 @@ constant in `src/level.rs`, not an inline literal.
 | Distinct prop models placed | ≤ 4096 (`MAX_LEVEL_PROP_MODELS`) | **Not a rejection:** later placements draw placeholder boxes |
 | Summed prop vertices (after instancing) | ≤ 24 000 000 (`MAX_LEVEL_PROP_VERTICES`) | **Not a rejection:** further placements draw placeholder boxes |
 
-Doors stay at 24 by derivation, not by accident: a door draws its frame and its
-leaf as two dynamic objects, one level's dynamic scene is bounded by
-`MAX_DYNAMIC_OBJECTS` (64), and the level's other dynamic content (floating
-props, the demonstration drum) needs slots in the same budget. Two objects per
-door over the cap would starve those, so 24 is the real renderer ceiling.
+Doors retain their loader cap of 24: each draws its frame and leaf as two
+dynamic objects. The dynamic scene is bounded separately by
+`MAX_DYNAMIC_OBJECTS` (256), shared with movable physics props, floating props
+and demonstration drums. Physics bodies have their own 128-body runtime cap.
 
 Distinct materials are counted exactly as the renderer binds them: the loader
 counts the id set `crate::materials::referenced_material_ids` resolves and
@@ -1300,6 +1303,28 @@ A material definition may author `"ground_surface": "ice"`; the default is
 alpha and reflections. It applies to the supporting room floor, latest patch,
 region, ramp or stair material, using the same precedence as rendered surfaces.
 Solid props, bridges and another storey above ice retain normal traction.
+
+Rigid-body item friction uses the optional material-definition
+`ground_friction` coefficient, independent of this player movement flag. The
+coefficient must be finite in `0..=2`; omitted values resolve to **0.7** for
+normal ground and **0.025** for ice. Floor contacts use multiplication with the
+item's own coefficient: a 0.55-friction body on default ice contacts at 0.01375.
+The contacted room/default, latest floor patch, region, ramp or stair material
+supplies the coefficient, so the same body changes sliding behavior as it crosses
+material boundaries. Explicit catalog examples are carpet at 1.0, oak/walnut
+wood at 0.6 and home/deck tile at 0.7. This metadata changes no pixels, tint,
+reflection or stored light; player acceleration and braking remain as below.
+
+Material-only floor patches do not cut rigid-body collision geometry. The
+original floor slab remains continuous, so a carpet/wood/ice boundary cannot
+introduce a vertical face for a sliding item to hit. Rapier 0.36 applies friction
+per contact manifold: the runtime samples each actual world-space support anchor,
+averages its floor coefficients within that manifold, and multiplies by the
+item's coefficient. A footprint spanning two materials therefore transitions
+between their traction values; compound subshapes retain independent manifolds.
+This is a contact-material approximation, not a separate friction force or a
+change to the body's velocity. Real ramp, stair, recess and room-height geometry
+still supplies its original slopes, risers and backing.
 
 Ice approaches requested walk velocity at 4.5/s, coasts with 1.6/s drag and
 retains ordinary maximum walk speed. Direction changes and braking take time;
@@ -1977,6 +2002,7 @@ catalog (with the asset id in the message), not just the field.
 | `tint` | `[r,g,b]` | `[1,1,1]` | Each channel `0.0`–`1.0`. Static multiply on the sampled texture. Only a material may declare it. | White; no tint. |
 | `surface` | string | none | `wall`, `floor` or `ceiling`. Documentation/validation only; geometry decides which family a material draws on, so any material may legally be used on any surface. | No surface tag. |
 | `ground_surface` | string | `"normal"` | `"normal"` or `"ice"`; material definitions only | Physical traction on supporting floor surfaces; unrelated to visual gloss. |
+| `ground_friction` | number | normal: `0.7`; ice: `0.025` | Finite `0..=2`; material definitions only | Rigid-body ground contact coefficient multiplied with the body's friction. Independent of player normal/ice movement and visual response. |
 | `emissive` | `[r,g,b]` | none | Each channel `0.0`–`1.0`. Adds an emissive term on top of baked light. Only a `material` `definition` may declare emission. | The surface does not emit. |
 | `emissive_intensity` | number | `1.0` when `emissive` is set | `0.0`–`8.0`. Multiplier on the emissive colour. Asserting it without `emissive` is a catalog error. | `1.0`. |
 | `emissive_mask` | string | none | Logical id of a file-backed `texture`. Its RGB modulates where the surface emits; it must resolve or the whole material degrades to the diagnostic texture. Asserting it without `emissive` is a catalog error. | No mask; the material's own texture modulates the glow. |
@@ -2789,6 +2815,9 @@ anywhere).
 | `color` | `"#rrggbb"` | optional | `#8a8a8a` | props, entities (placeholder box) |
 | `category` | string | optional | `"Other"` | props, entities (organizational) |
 | `solid` | boolean | optional | `false` | props, entities (catalog advisory; level `solid` controls collision) |
+| `physics` | object | optional | none | props, entities. Reusable rigid item profile for developer spawning, with the same strict fields and bounds as `props[].physics` (§19). It does not change existing level placements; a placement must explicitly author its own profile. |
+| `ground_surface` | `"normal"` \| `"ice"` | optional | `"normal"` | material definitions. Selects the established player movement behavior and default rigid-body friction. |
+| `ground_friction` | number | optional | normal: `0.7`; ice: `0.025` | material definitions. Finite `0..=2` coefficient for rigid-body ground contacts; player movement and appearance are unchanged. |
 | `surface` | string | optional | none | materials/textures; `wall`/`floor`/`ceiling` documentation/validation |
 | `texture` | string | **required for `material`** | — | materials. Logical id of a `texture` asset. Not allowed on other types. |
 | `baseboard` | string | optional | — | materials. Logical id of a `material` asset used as the automatic trim for wall faces finished with this material (section 10, *Automatic trim*). Must resolve to a declared material; a present-but-blank value is a catalog error. |
@@ -3242,13 +3271,21 @@ enables deterministic JSON diagnostics; use `--force` and a separate directory
 per source/build. See [Probe baker audit](reports/probe-baker-audit.md) and
 [the PLPF contract](PACKAGE_FORMAT.md#61-irradiance-field-for-moving-objects).
 
-Current PLPF v3 keeps combined light and a selected local-direct sidecar. Entities
+Current PLPF v4 keeps combined light, a selected local-direct sidecar and separate
+indirect probe planes for switched atlas groups. Entities add only the currently
+enabled groups' reflected surface radiance; live direct coefficients remain
+separate and are evaluated once. Turning a group off removes its bounce too.
+The compiler gathers these planes from the existing switched surface solves,
+without baking direct, global, sky or baseline fill into them. Entities
 subtract that selected energy before reconstructing indirect response and evaluate
 the corresponding finite sources at their actual transformed surfaces. Eight
 bounds anchors retain spatial response and tested visibility; they do not replace
-the static atlas. Every new field preserves this v3 path, including zero selected
+the static atlas. Every new field preserves the spatial path, including zero selected
 source fields with aligned zero direct coefficients. Legacy v2 keeps its combined
-centre sample. Texture resolution
+centre sample. Legacy v3 has live switched direct sources but lacks their indirect
+planes; these packages retain that limitation until the map is recompiled.
+The player never adds an ambient floor or synthesizes missing bounce.
+Texture resolution
 and filtering remain independent of live lighting quality. The current controls,
 limits and capture workflow are in [Stage 4](art-style/stage4/contracts.md).
 
@@ -3593,15 +3630,18 @@ collision box).
 
 The engine has a separate render path for objects whose transform changes every
 frame — moving components that must not be re-baked, re-batched or written into
-the static lightmap. A level authors its own moving solids as doors: see
-[§30](#30-doors-switches-and-effects). The path is also proven by one generated
+the static lightmap. A level authors doors (see
+[§30](#30-doors-switches-and-effects)), floating props and passive rigid props
+with `physics` (§19). The path is also proven by one generated
 object: a `core:washer_drum` turning inside every placed `core:washing_machine`,
 behind its open porthole and inside the machine's cavity (the machine itself is
 an ordinary static prop and participates in the bake).
 
 * **Door frames and leaves** are authored in level JSON and both draw through
-  the dynamic path; the leaf carries the collision and is the level's only
-  map-authored movable solid.
+  the dynamic path; the leaf carries the established door collision.
+* **Rigid props** with dynamic or kinematic `physics.motion` draw at the
+  simulator's live pose and contribute no immutable collision or baked shadow.
+  Their pickup and body contacts do not rebuild lightmaps or static batches.
 * The **washer-drum demonstration** is engine-created: placing a
   `core:washing_machine` is the only way a level influences one.
 * Movable receivers use eight inset bind-bounds support anchors for residual
@@ -3764,7 +3804,8 @@ Exact level syntax (all fields verified against `src/level.rs::PropDef`):
   "rotation_degrees": 180.0,     // optional Y rotation; model +Z faces this way at 0.
   "scale": 1.0,                  // optional, default 1.0, must be > 0. Scales model and explicit size.
   "size": [1.6, 0.75, 0.7],      // optional [w,h,d] metres for collision/placeholder.
-  "solid": true,                 // optional, default false. Only this flag creates collision.
+  "solid": true,                 // optional, default false. Fixed placements use the legacy collision box.
+  "physics": { "motion": "fixed" }, // optional rigid item profile; omitted keeps static placement.
   "occludes": true,              // optional, default true. Set false for alpha-cutout scenery (grass).
   "components": [                // optional typed capabilities (see §29).
     { "component": "interactable",   // an E-aimable object.
@@ -3803,7 +3844,7 @@ Semantics:
 * `y` is **not absolute world Y**: `base_y = walkable floor at (x,z) + y`. A negative
   `y` deliberately sinks a prop into the floor and is never corrected. On a room with
   `floor_y: -1.5`, a prop at `y: 0` stands on that room's floor.
-* **Collision box = level `size` (or `PROP_FALLBACK_SIZE [0.6, 0.9, 0.6]`) × `scale`.**
+* **Fixed collision box = level `size` (or `PROP_FALLBACK_SIZE [0.6, 0.9, 0.6]`) × `scale`.**
   The catalog `size` is never used for collision. A solid prop that should block like
   its picture must author `size`. Validation rejects non-positive/non-finite `size`
   and `scale`.
@@ -3840,7 +3881,7 @@ Semantics:
   level `size` when authored, else the catalog `size`, × `scale`.
 * `props` are never tested against their render mesh for placement; intentional
   clipping and overlap are preserved.
-* **Every placed prop occludes baked lighting**, automatically, from its rendered
+* **Every static placed prop occludes baked lighting**, automatically, from its rendered
   model: the floor under it darkens, it blocks the fixtures behind it, and it
   darkens the wall it stands against. `solid` controls collision only — a
   non-solid prop still occludes, because the occlusion comes from the drawn
@@ -3860,6 +3901,176 @@ Semantics:
   as well — see §35.2 for a containment collider that does.
 
 | `float` | object | no | — | Water-driven motion for a floating prop: `{ "draft": 0.03, "bob": 0.012, "bob_seconds": 2.8, "heel_degrees": 6.0, "heel_seconds": 3.6, "phase": 0.0 }`. The prop is drawn by the dynamic path on the water surface, at `surface_y - draft + bob · sin(...)`, with **no horizontal drift**; `heel_degrees` rolls it about its own forward axis. It must be `solid: false`, author `size`, sit fully inside one water volume once the swept footprint (half-diagonal plus the heel's excursion) is added, and it cannot be routed. `phase` is `0..=1`; omitted, a deterministic per-placement phase keeps two floats out of lockstep. |
+
+### Reusable rigid item physics
+
+`physics` is optional on a prop placement and on a catalog prop/entity entry.
+An omitted placement profile preserves the existing fixed render, lighting and
+`solid` box behavior, including when the model's catalog entry has a profile.
+Catalog profiles are the reusable defaults used for developer-spawned items.
+The shipped reusable profiles and floor coefficients are in the optional
+`assets/gameplay.json` runtime-only sidecar, applied after catalog load. Inline
+catalog fields remain supported; explicit sidecar fields override them. Pure
+`AssetCatalog::from_json_str` parsing reads only the given catalog document.
+The compiler retains authored placement physics in `semantics.json`; the package
+reader parses and validates the same record. No map-format version change or
+separate baked physics payload is required.
+
+The sidecar schema is strict and keyed by existing catalog ids:
+
+```json
+{ "format_version": 1, "assets": {
+  "arcade:party_cup_confetti": {
+    "physics": { "motion": "dynamic", "pickup": true, "mass_kg": 0.08,
+      "shape": { "kind": "cylinder", "half_height": 0.055, "radius": 0.04 } }
+  },
+  "core:carpet_beige_01": { "ground_friction": 1.0 }
+} }
+```
+
+Only `physics` on prop/entity ids and `ground_friction` on material definitions
+are allowed. Unknown ids, duplicate ids, unknown fields, empty overrides and
+malformed physical values reject the document; overrides apply atomically after
+all records validate. An absent sidecar preserves ordinary inline catalog
+behavior. `python3 tools/assets/validate.py` checks a sibling sidecar too.
+
+The full raw `catalog.json` hash continues to protect the render package's
+prepared assets. Runtime-only physical tuning belongs in `gameplay.json`, which
+cannot change a visual field and does not invalidate stored geometry, lights or
+catalog provenance. Changing the visual catalog still follows normal package
+validation and rebuilding. The internal pack-material parser also validates
+`ground_friction` strictly: malformed coefficients reject the document rather
+than silently assigning ordinary friction.
+
+A level placement with `motion: "fixed"` keeps static rendering and baked
+lighting. Without an explicit shape it keeps its legacy `solid` box. An explicit
+fixed shape installs an immutable collider for rigid items, independently of
+`solid`; the item's solver excludes that placement's old box. The player's
+established `solid`/`size` standable box remains independent. This allows a fixed
+open channel or concave compound without blocking it with a bounds cuboid.
+At most 1024 explicit fixed placements are cached once, separately from the
+128 movable-body budget. Fixed shapes do not allocate a solver until the first
+movable/runtime body is spawned. Cached and later inserted fixed shapes enter
+collision queries immediately, including before the first solver step. Explicit
+fixed shapes cannot also declare routes, floating, animation, AI, balloon or
+lifetime components; compatible static switch/label/state/light/fade behavior
+remains available.
+
+```json
+{ "id": "pickup_cup", "model": "arcade:party_cup_confetti",
+  "x": 1.0, "y": 0.85, "z": 1.0,
+  "physics": { "motion": "dynamic", "pickup": true, "mass_kg": 0.08,
+    "shape": { "kind": "cylinder", "half_height": 0.055, "radius": 0.04 },
+    "friction": 0.6, "restitution": 0.05 } }
+```
+
+| Physics field | Default | Accepted values and effect |
+| --- | --- | --- |
+| `motion` | `"fixed"` | `fixed` preserves immutable placement; authored `dynamic` and `kinematic` props start dormant at their exact authored pose. Activated dynamic bodies integrate forces, gravity and contacts; kinematic poses are prescribed by runtime code and receive no gravity. |
+| `shape` | omitted | A cuboid from the resolved model bounds. Explicit shapes are `{"kind":"cuboid","half_extents":[x,y,z]}`, `{"kind":"sphere","radius":r}` or `{"kind":"cylinder","half_height":h,"radius":r}`, plus `{"kind":"convex_hull","points":[[x,y,z],...]}`. The cylinder axis is local Y. Shapes are centred on the model bounds, with dimensions in local metres, multiplied by placement `scale`. |
+| `mass_kg` | `1.0` | Finite `0.001..=1000` kilograms; total body mass independent of collider volume. |
+| `friction` | `0.6` | Finite `0..=2` contact coefficient. Floor contacts multiply this by the contacted material's `ground_friction`. |
+| `restitution` | `0.05` | Finite `0..=1` bounce coefficient. |
+| `linear_damping` | `0.1` | Finite `0..=100` linear velocity damping. |
+| `angular_damping` | `0.2` | Finite `0..=100` angular velocity damping. |
+| `pickup` | `false` | `true` permits player pickup/drop and requires `motion: "dynamic"`. |
+| `reset_group` | omitted | Optional ASCII identifier `[A-Za-z0-9_-]`, 1..64 bytes, on dynamic/kinematic bodies. The same group supports `activate_physics_group` and `reset_physics_group`; reset restores authored members to their starting pose and dormant state. |
+
+Convex hulls require 4..96 finite points forming a nondegenerate solid; axis
+extents are `0.001..=100` metres before/after scale and point axes stay within
+±100 metres. Standalone points are relative to the bounds centre; compound
+points plus their part offset are relative to the model origin. Compounds keep
+1..8 non-recursive parts. These are economical collision volumes, independent
+of the visual triangle mesh.
+
+The physics object and shape reject unknown keys. Every authored shape dimension
+must be finite and within `0.001..=100` metres both before and after scale. Physics
+placement scale is bounded to `0.001..=100`; a movable prop's scaled `size`, when
+authored, uses the same metre bounds, and its coordinates must stay within
+±100000 metres. Resolved model bounds receive runtime checks too.
+
+At most **128 movable physics props** may be authored per level. Dynamic and
+kinematic props are excluded from static prop batches, compiled `solid` AABBs
+and baked light transport regardless of `solid` or `occludes`. They use live
+rigid colliders for item contacts. The player's established movement controller
+continues to own walking, support and gravity; its live kinematic body pushes
+rigid items. Movable items do not become standable surfaces for that controller.
+
+**Authored movable bodies start dormant in every map.** Dormant preserves the
+exact authored model-origin position and rotation; gravity, settling and ordinary
+solver contacts cannot shift it on load. Looking at an item does not activate it.
+Pickup, an explicit activation action or a prescribed kinematic pose activates
+motion. A meaningful impact from an already active dynamic body activates dormant
+dynamic bodies. Dormant neighbors and stationary support contacts do not start
+a cascade. This is the engine-wide
+default; there is no map flag, physics-profile field or special Arcade path.
+Existing authored movable records receive it without map migration or rebaking.
+The explicit runtime spawn API and physical developer-given items start active.
+
+Dormant is separate from fixed placement: a dormant movable prop retains its
+runtime shape, pickup reach, dynamic renderer object and ability to activate;
+a fixed placement remains legacy static geometry. Dormant is also separate from
+solver sleep after activation. Graphics/quality rebuilds retain the same item
+world, including dormant/active/held state and current poses; they do not recreate
+or activate bodies. Replacing/reloading a world restores authored starting state.
+
+The initial authored movable scope is **passive rigid props with optional
+pickup**. They must not declare `float`, `lights`, components, event bindings or
+an entity route: those systems have separate pose or lifecycle ownership. Use
+fixed placements for existing interactable/animated/navigation/light behavior.
+Movable rigid items and `/give` previews also reject skinned, morph and rigid
+animated GLBs, including clips-only models such as `home:wall_switch`, with an
+explicit model-support error. These models require an entity template; they
+cannot supply a frozen bind-pose item. Movable placements are excluded from
+character claims so they never leave an animated copy at their authored pose.
+GLB material emission remains a visual property. Box/sphere/cylinder shapes are
+contact approximations. A `compound` shape adds 1..8 primitive parts for objects
+such as bowling pins:
+
+```json
+{ "kind": "compound", "parts": [
+  { "offset": [0.0, 0.08, 0.0], "shape": { "kind": "cylinder", "half_height": 0.08, "radius": 0.055 } },
+  { "offset": [0.0, 0.24, 0.0], "shape": { "kind": "sphere", "radius": 0.045 } }
+] }
+```
+
+Compound offsets are in the local **model-origin frame**, unlike standalone
+primitives centred on model bounds. Placement scale applies to both offsets and
+dimensions. Offset axes must be finite and within ±100 metres both locally and
+after scale. Parts accept only cuboid/sphere/cylinder primitives; nested compounds
+and triangle mesh colliders are unsupported. These shapes approximate contacts
+without changing the rendered GLB or creating texture imagery.
+
+A fixed button can reset any declared group through the normal interaction
+binding. Each authored movable member names the same `physics.reset_group`:
+
+```json
+{ "on": "interact", "actions": [
+  { "action": "reset_physics_group", "group": "lane_pins" }
+] }
+```
+
+The loader rejects unknown groups and malformed names. Reset returns the group's
+authored bodies to their initial poses and dormant state, clears velocity and releases a held member;
+unrelated bodies and the player keep their state. This is a reusable action,
+independent of a map name, model id or bowling-specific engine path.
+Reset first validates every destination against the live player, doors and
+unrelated bodies. Authored members preserve their original intersections with
+immutable scenery, so a slightly imperfect authored placement can return to its
+exact dormant pose. Runtime-spawned members also retain static-world clearance
+checks. A blocked destination refuses the entire reset with a reported reason;
+all member poses, velocities and held ownership remain unchanged. Runtime-spawned
+bodies can join a declared group through the same profile; shipped `/give`
+profiles omit group membership.
+
+`activate_physics_group` uses that same group namespace. It activates dormant
+members at their current authored poses without moving them or resetting already
+active bodies' motion. A normal binding, timer, trigger volume or sequence can
+emit the action; the loader requires at least one authored movable member.
+
+```json
+{ "action": "activate_physics_group", "group": "lane_pins" }
+```
 
 
 Known-valid examples:
@@ -3977,6 +4188,23 @@ Stacked-storey selection (ceiling fixtures only):
 { "fixture": "core:fluorescent_panel_01", "x": 5.0, "z": 5.0, "y": 6.2 }
 ```
 
+Active items use a scale-aware Rapier contact skin of at most 2 mm, with CCD
+allowing two collisions per 120 Hz interval. The renderer uses the body's real
+transform; it never adds a visual floor offset. Authored dormant poses stay exact.
+
+Out-of-world recovery is a separate safety net. Local room/terrain, water,
+ladder and solid footprints preserve gaps, lower storeys and open-sky throws.
+An active item outside coverage or wholly below the local bottom receives one
+second of grace. Invalid motion is sanitized before the broadphase/solver.
+Recovery tries its supported clear initial pose, a cached pose, then bounded
+floor-backed offsets, checking the complete shape against scenery, actors and
+other items. It clears motion, forces, interpolation and held ownership. An
+exact authored return becomes dormant. If every candidate is blocked, the
+body suspends once and stops drawing until a validated explicit reset; it does
+not retry or teleport every frame. A bounded event preserves the original
+escaped state and reason. Collision tests must still reject tunnelling before
+recovery; a restored item is not evidence that collision prevention passed.
+
 ### Ceiling grid alignment
 
 Ceiling artwork is a world-space tile: a ceiling material whose catalog entry
@@ -4053,7 +4281,8 @@ reads fully bright while still casting only its dim 0.18 pool.
 
 ### Lights owned by props
 
-Any placed prop may own generic light sources. `lights` is a level array on the prop
+Any fixed placed prop may own generic light sources. Movable physics props reject
+attached lights. `lights` is a level array on the prop
 (0–8 entries; more is a level error). The emitter's **offset is scaled by the prop's
 `scale`**, its yaw is added to the prop's rotation, and its shape is scaled with the
 prop. It then casts light through exactly the same engine path as a fixture.
@@ -5124,6 +5353,8 @@ whose target cannot do the thing is a named load error.
 | `spawn_entity` | `template?`, `point?`, `group?`, `name?` | — (see below) | instantiate a template at a point |
 | `despawn_entity` | `target` (required) | an entity id, a spawn-template id or a spawn-group id | remove a live instance (or a whole group's member) |
 | `reset_to_start` | — | — | return the player to the authored spawn, re-arm triggers, clear pose/route overrides and return doors to `initial_state`; ends the batch |
+| `reset_physics_group` | `group` (required ASCII id, 1..64 bytes) | an authored movable physics group | restore starting poses and dormant state, clear linear/angular motion and release a held member; unrelated bodies and player state are preserved |
+| `activate_physics_group` | `group` (required ASCII id, 1..64 bytes) | an authored movable physics group | activate dormant members without teleporting them or resetting already active motion |
 
 `spawn_entity` resolution: with a `point`, the point's own template is used
 unless `template` overrides it; a `template` alone has no world position and is
@@ -7073,9 +7304,10 @@ authoring. They are not invitations to change the engine as part of an authoring
    whole-pack decoded texture budget.
 6. **`emission` on a fixture is emission only.** It never changes illumination; if a
    glowing face should also light the room, that is `brightness`/`enabled`.
-7. **No `deny_unknown_fields`.** Misspelled or unsupported level keys are silently
-   ignored: `"rotation": 90` does nothing, `"brightnesss": 0.5` does nothing. Diff
-   against the schema skeleton and the field tables.
+7. **Most level records ignore unknown fields.** Misspelled or unsupported keys
+   such as `"rotation": 90` and `"brightnesss": 0.5` do nothing. The physics
+   profile and collider shape reject unknown fields. Diff against the schema
+   skeleton and field tables.
 8. **Invalid levels are reported, then skipped.** Discovery logs
    `[levels] skipping {path}: {reason}`; the level is absent from the menu. Boot with
    `PLACES_LEVEL=<id>` to reproduce.
@@ -7093,9 +7325,10 @@ authoring. They are not invitations to change the engine as part of an authoring
     point and ignores `half_width`/`half_depth`/`length`. `tools/assets/validate.py`
     currently infers a shape from those fields, so a level can pass the tool and
     still bake as a point; author `shape` explicitly.
-14. **Beyond `doors[]`, dynamic objects are engine-created.** A level authors its
-    moving leaves as doors; the washer-drum demonstration is spawned by placing
-    `core:washing_machine` and cannot be placed or driven directly.
+14. **Rigid prop motion is explicitly opt-in.** Use `props[].physics` for passive
+    rigid bodies with optional pickup (§19). Fixed placements retain the existing
+    behavior; catalog profiles alone do not move them. The washer-drum
+    demonstration is spawned by placing `core:washing_machine`.
 15. **Documentation drift in shipped sources** (recorded here so agents trust the
     code): `src/level.rs`'s `y` comment says a ceiling fixture's `y` is ignored,
     but the bake honours it for storey selection.

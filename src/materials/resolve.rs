@@ -37,6 +37,9 @@ pub enum TextureOrigin {
 pub struct ResolvedMaterial {
     /// Physical traction, consumed by the controller only while supported.
     pub ground_surface: super::GroundSurface,
+    /// Resolved rigid-body ground contact coefficient, independent of visuals
+    /// and the player's normal/ice movement state.
+    pub ground_friction: f32,
     /// The material id exactly as the level wrote it.
     pub id: String,
     /// Session-unique texture key (logical texture id, or `pack:<ns>:<path>`).
@@ -181,6 +184,16 @@ impl MaterialTable {
             self.entries
                 .get(usize::try_from(index).unwrap_or(usize::MAX))
         })
+    }
+
+    /// Rigid-body ground friction for an authored material id, defaulting to
+    /// ordinary ground when the material cannot be found.
+    #[must_use]
+    pub fn ground_friction(&self, material_id: &str) -> f32 {
+        self.entry_of(material_id)
+            .map_or(super::GroundSurface::Normal.default_friction(), |entry| {
+                entry.ground_friction
+            })
     }
 
     /// The entry for a material index.
@@ -458,6 +471,7 @@ fn material_base(
 ) -> ResolvedMaterial {
     ResolvedMaterial {
         ground_surface: super::GroundSurface::Normal,
+        ground_friction: super::GroundSurface::Normal.default_friction(),
         id: id.to_string(),
         texture_key,
         texture_index: 0,
@@ -475,8 +489,9 @@ fn material_base(
 }
 
 impl ResolvedMaterial {
-    const fn with_ground_surface(mut self, surface: super::GroundSurface) -> Self {
+    fn with_ground_surface(mut self, surface: super::GroundSurface, friction: Option<f32>) -> Self {
         self.ground_surface = surface;
+        self.ground_friction = surface.resolve_friction(friction);
         self
     }
 
@@ -656,7 +671,8 @@ fn describe_catalog_material(
                 "material `{id}` declares no `texture`; using the diagnostic texture"
             )),
         )
-        .with_grid_metres(grid_metres);
+        .with_grid_metres(grid_metres)
+        .with_ground_surface(entry.ground_surface, entry.ground_friction);
     }
     let tile_metres = entry.tile_metres.unwrap_or(DEFAULT_TILE_METRES);
     let grid_scale = entry.grid_metres.unwrap_or(tile_metres);
@@ -673,7 +689,8 @@ fn describe_catalog_material(
                 "material `{id}` references texture `{texture_id}`, which has no PNG file in the catalog"
             )),
         )
-        .with_grid_metres(grid_scale);
+        .with_grid_metres(grid_scale)
+        .with_ground_surface(entry.ground_surface, entry.ground_friction);
     }
     material_base(
         id,
@@ -686,7 +703,7 @@ fn describe_catalog_material(
     )
     .with_grid_metres(grid_scale)
     .with_surface(catalog_response(entry), catalog_alpha(entry))
-    .with_ground_surface(entry.ground_surface)
+    .with_ground_surface(entry.ground_surface, entry.ground_friction)
     .with_reflection(catalog_reflection(entry))
 }
 
@@ -719,7 +736,7 @@ fn describe_pack_material(
                 None,
             )
             .with_surface(response, alpha)
-            .with_ground_surface(pack_material.ground_surface)
+            .with_ground_surface(pack_material.ground_surface, pack_material.ground_friction)
             .with_reflection(pack_material.reflection());
         }
         if pack.is_some_and(|material_pack| material_pack.lookup(&pack_material.texture).is_some())
@@ -734,7 +751,7 @@ fn describe_pack_material(
                 None,
             )
             .with_surface(response, alpha)
-            .with_ground_surface(pack_material.ground_surface);
+            .with_ground_surface(pack_material.ground_surface, pack_material.ground_friction);
         }
         return material_base(
             id,
@@ -747,7 +764,8 @@ fn describe_pack_material(
                 "pack material `{id}`: `materials.json` names `{}`, which is not present in the pack",
                 pack_material.texture
             )),
-        );
+        )
+        .with_ground_surface(pack_material.ground_surface, pack_material.ground_friction);
     }
     if let Some(path) = pack.and_then(|material_pack| material_pack.texture_for(id)) {
         return material_base(

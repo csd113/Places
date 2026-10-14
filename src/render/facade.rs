@@ -292,9 +292,19 @@ impl Renderer {
         self.renderer.update_dynamic(delta_seconds)
     }
 
-    /// Actual bounds of a small rigid catalog prop, using the shared cache.
+    /// Reusable physics metadata from the installed catalog, without asset reads.
+    #[must_use]
+    pub fn rigid_runtime_model_physics(
+        &self,
+        id: &str,
+    ) -> Option<crate::physics::config::PhysicsDef> {
+        self.renderer.rigid_runtime_model_physics(id)
+    }
+
+    /// Actual bounds of a rigid catalog prop, using the shared cache.
     /// # Errors
-    /// Rejects unknown/non-placeable IDs, missing models, characters and large props.
+    /// Rejects unknown/non-placeable IDs, missing or animated models, skins,
+    /// morphs and non-positive/non-finite bounds or extents above 100 metres.
     pub fn rigid_runtime_model_bounds(&mut self, id: &str) -> Result<([f32; 3], [f32; 3]), String> {
         self.renderer.rigid_runtime_model_bounds(id)
     }
@@ -316,6 +326,19 @@ impl Renderer {
     ) -> bool {
         self.renderer
             .spawn_runtime_model(key, model, position, yaw_degrees, scale)
+    }
+
+    /// Spawns an authored prop at its resolved world-space model origin.
+    ///
+    /// The installed catalog, authored yaw and uniform scale are retained.
+    /// Runtime keys and poses survive same-level graphics changes.
+    pub fn spawn_runtime_prop(
+        &mut self,
+        key: u64,
+        prop: &crate::level::PropDef,
+        position: [f32; 3],
+    ) -> bool {
+        self.renderer.spawn_runtime_prop(key, prop, position)
     }
 
     /// Despawns the runtime object a key spawned; returns whether it was live.
@@ -340,6 +363,36 @@ impl Renderer {
     ) -> bool {
         self.renderer
             .set_runtime_transform(key, position, yaw_degrees)
+    }
+
+    /// Sets a live runtime model's rigid pose, preserving mesh, scale and material.
+    ///
+    /// `orientation` is a normalized quaternion in `[x, y, z, w]` order.
+    /// Invalid positions or zero/non-finite rotations are refused. The next
+    /// dynamic update refreshes bounds and lighting without a geometry upload.
+    pub fn set_runtime_model_pose(
+        &mut self,
+        key: u64,
+        position: [f32; 3],
+        orientation: [f32; 4],
+    ) -> bool {
+        self.renderer
+            .set_runtime_model_pose(key, position, orientation)
+    }
+
+    /// Hides or restores a retained runtime model without reloading geometry.
+    /// Hidden objects retain their key and budget; ordinary dynamic updates
+    /// refresh movable visibility and restored lighting. Returns whether the
+    /// key addresses a live model.
+    pub fn set_runtime_model_visible(&mut self, key: u64, visible: bool) -> bool {
+        self.renderer.set_runtime_model_visible(key, visible)
+    }
+
+    /// Explicit trace snapshot of live pose, sampled HDR and published uniforms.
+    /// Missing runtime keys return `None`; this performs no GPU readback.
+    #[must_use]
+    pub fn runtime_model_lighting_snapshot(&self, key: u64) -> Option<serde_json::Value> {
+        self.renderer.runtime_model_lighting_snapshot(key)
     }
 
     /// Selects the object's emission scale (the runtime material-variant

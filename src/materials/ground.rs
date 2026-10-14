@@ -11,6 +11,22 @@ pub enum GroundSurface {
 }
 
 impl GroundSurface {
+    /// Default rigid-body contact friction, independent of player locomotion.
+    #[must_use]
+    pub const fn default_friction(self) -> f32 {
+        match self {
+            Self::Normal => 0.7,
+            Self::Ice => 0.025,
+        }
+    }
+
+    /// Resolves an optional coefficient while preserving safe pack defaults.
+    pub(crate) fn resolve_friction(self, authored: Option<f32>) -> f32 {
+        authored
+            .filter(|value| value.is_finite() && (0.0..=2.0).contains(value))
+            .unwrap_or_else(|| self.default_friction())
+    }
+
     pub(crate) fn parse(raw: &str) -> Option<Self> {
         match raw {
             "normal" => Some(Self::Normal),

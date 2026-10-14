@@ -31,6 +31,39 @@ pub enum Action {
         #[serde(default)]
         submit: bool,
     },
+    Player {
+        position: [f32; 3],
+        yaw: f32,
+        pitch: f32,
+    },
+    ItemPose {
+        id: String,
+        position: [f32; 3],
+        rotation: [f32; 4],
+    },
+    ItemVelocity {
+        id: String,
+        linear: [f32; 3],
+        angular: [f32; 3],
+    },
+    Fixture {
+        id: String,
+        on: bool,
+    },
+    AimItem {
+        id: String,
+    },
+    /// Direct authored-actor dispatch for explicit acceptance cases such as
+    /// resetting a held group member. Normal gameplay continues to use Interact.
+    Activate {
+        id: String,
+    },
+    Mouse {
+        button: String,
+        pressed: bool,
+        #[serde(default)]
+        recapture: bool,
+    },
     Capture {
         name: String,
     },
@@ -61,6 +94,67 @@ struct Step {
     action: Action,
 }
 
+fn validate_pose_action(action: &Action) -> Result<(), String> {
+    if let Action::ItemVelocity {
+        id,
+        linear,
+        angular,
+    } = action
+        && (id.is_empty()
+            || id.len() > 256
+            || linear
+                .iter()
+                .chain(angular.iter())
+                .any(|value| !value.is_finite())
+            || glam::Vec3::from_array(*linear).length() > 20.0
+            || glam::Vec3::from_array(*angular).length() > 20.0)
+    {
+        return Err(
+            "Native item velocity requires an id and finite magnitudes at most 20".to_string(),
+        );
+    }
+    if let Action::Fixture { id, on: _ } | Action::AimItem { id } | Action::Activate { id } = action
+        && (id.is_empty() || id.len() > 256)
+    {
+        return Err("Native fixture requires a bounded id".to_string());
+    }
+    if let Action::Player {
+        position,
+        yaw,
+        pitch,
+    } = action
+        && (position
+            .iter()
+            .any(|value| !value.is_finite() || value.abs() > 100_000.0)
+            || !yaw.is_finite()
+            || !pitch.is_finite()
+            || pitch.abs() > 85.0)
+    {
+        return Err(
+            "Native player pose must have finite bounded coordinates and pitch".to_string(),
+        );
+    }
+    if let Action::ItemPose {
+        id,
+        position,
+        rotation,
+    } = action
+        && (id.is_empty()
+            || id.len() > 256
+            || position
+                .iter()
+                .any(|value| !value.is_finite() || value.abs() > 100_000.0)
+            || rotation.iter().any(|value| !value.is_finite())
+            || (glam::Quat::from_array(*rotation).length_squared() - 1.0).abs() > 0.001)
+    {
+        return Err(
+            "Native item pose requires an authored id, bounded position and unit quaternion"
+                .to_string(),
+        );
+    }
+    Ok(())
+}
+
 fn parse(bytes: &[u8]) -> Result<Vec<Step>, String> {
     let steps: Vec<Step> = serde_json::from_slice(bytes).map_err(|error| error.to_string())?;
     if steps.is_empty() || steps.len() > MAX_ACTIONS {
@@ -78,6 +172,7 @@ fn parse(bytes: &[u8]) -> Result<Vec<Step>, String> {
         if !valid_anchor || step.delay_ms > 60_000 {
             return Err("Invalid action anchor or delay (maximum 60000 ms)".to_string());
         }
+        validate_pose_action(&step.action)?;
         match &step.action {
             Action::Load { level } if level.is_empty() || level.len() > 256 => {
                 return Err("Invalid requested level id".to_string());
@@ -103,6 +198,13 @@ fn parse(bytes: &[u8]) -> Result<Vec<Step>, String> {
             Action::Text { text, submit: _ } if text.len() > 256 || !text.is_ascii() => {
                 return Err("Native text input must be at most 256 ASCII bytes".to_string());
             }
+            Action::Mouse {
+                button,
+                pressed: _,
+                recapture: _,
+            } if button != "left" => {
+                return Err("Native item mouse action supports the left button".to_string());
+            }
             Action::Capture { name }
                 if name.is_empty()
                     || name.len() > 64
@@ -115,6 +217,29 @@ fn parse(bytes: &[u8]) -> Result<Vec<Step>, String> {
             Action::ConsoleEnabled { enabled: _ }
             | Action::Key { key: _, pressed: _ }
             | Action::Text { text: _, submit: _ }
+            | Action::Player {
+                position: _,
+                yaw: _,
+                pitch: _,
+            }
+            | Action::ItemPose {
+                id: _,
+                position: _,
+                rotation: _,
+            }
+            | Action::ItemVelocity {
+                id: _,
+                linear: _,
+                angular: _,
+            }
+            | Action::Fixture { id: _, on: _ }
+            | Action::AimItem { id: _ }
+            | Action::Activate { id: _ }
+            | Action::Mouse {
+                button: _,
+                pressed: _,
+                recapture: _,
+            }
             | Action::Capture { name: _ }
             | Action::Load { level: _ }
             | Action::Escape {}

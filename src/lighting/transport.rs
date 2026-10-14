@@ -87,7 +87,7 @@ pub(crate) mod probe_audit;
 pub use alpha::{TransportAlphaSurface, TransportTextureAddress};
 
 use crate::lighting::lightmap::{Chart, LightmapFailure, LightmapPatch, LightmapTexel, PatchKind};
-use crate::lighting::probes::{ProbeDirectField, ProbeField, ProbeSample};
+use crate::lighting::probes::{ProbeDirectField, ProbeField, ProbeSample, ProbeSwitchableField};
 use crate::lighting::{AMBIENT_LEVEL, LevelLighting, LightFalloff, LightShape};
 
 /// Minimum normal offset, equal to four single-precision rounding steps at
@@ -2564,6 +2564,7 @@ impl TransportScene {
         )?;
         let mut switchable = Vec::with_capacity(switchable_emitters.len());
         for (light_index, emitter) in &switchable_emitters {
+            let mut switched_probes = None;
             let solved = self.solve_pass(
                 charts,
                 emitter,
@@ -2576,8 +2577,13 @@ impl TransportScene {
                 &mut direct_rays,
                 &mut bounce_rays,
                 &mut cache_cells,
-                None,
+                if bake_probes {
+                    Some(&mut switched_probes)
+                } else {
+                    None
+                },
             )?;
+            append_switchable_probe_field(&mut probes, *light_index, switched_probes)?;
             switchable.push((*light_index, solved));
         }
         Ok(TransportSolve {
@@ -2720,6 +2726,7 @@ impl TransportScene {
                 bounces,
                 workers,
                 cancel,
+                apply_fill,
             )?);
         }
         let probe_ms = probe_started.elapsed().as_secs_f64() * 1_000.0_f64;
@@ -3540,6 +3547,7 @@ fn bake_probe_field(
     bounces: u8,
     workers: usize,
     cancel: Option<&AtomicBool>,
+    base: bool,
 ) -> Result<ProbeField, LightmapFailure> {
     let Some((original_min, original_cell, original_dims)) =
         probe_lattice(receivers.iter().map(|receiver| &receiver.position))
@@ -3577,7 +3585,7 @@ fn bake_probe_field(
     }
     let cache = RadianceCache::build(receivers);
     let rays = PROBE_BAKE_RAYS;
-    let audit = diagnostics::directory(probe_audit::DUMP_ENV).is_some();
+    let audit = base && diagnostics::directory(probe_audit::DUMP_ENV).is_some();
     // Optional inspection I/O cannot invalidate an otherwise physical solve.
     if audit && let Err(error) = probe_audit::dump_receivers(scene, receivers, values, bounces) {
         crate::logging::warn(format_args!("[probe-diagnostics] {error}"));
@@ -3586,7 +3594,7 @@ fn bake_probe_field(
     let baked = parallel_map(count, workers, cancel, |index| {
         let position = lattice.position(index);
         bake_probe(
-            scene, receivers, values, &cache, position, index, taps, audit,
+            scene, receivers, values, &cache, position, index, taps, audit, base,
         )
     })?;
     let (mut baked_charts, remainder): (Vec<_>, Vec<_>) = baked
@@ -3595,7 +3603,9 @@ fn bake_probe_field(
         .unzip();
     let (local_probes, diagnostics): (Vec<_>, Vec<_>) = remainder.into_iter().unzip();
     // Use the same local support field and continuous response as the atlas.
-    scene.apply_probe_fill(&mut baked_charts);
+    if base {
+        scene.apply_probe_fill(&mut baked_charts);
+    }
     if baked_charts
         .iter()
         .any(|(probe, _)| probe.validate().is_err())
@@ -3604,6 +3614,7 @@ fn bake_probe_field(
     }
     let probes = baked_charts.into_iter().map(|(probe, _)| probe).collect();
     let field = ProbeField {
+        switchable_indirect: Vec::new(),
         min,
         cell_m: cell,
         dims: [
@@ -3624,10 +3635,33 @@ fn bake_probe_field(
     if field.validate_local_direct().is_err() {
         return Err(LightmapFailure::FillNonFinite);
     }
-    if let Err(error) = probe_audit::dump_bake(&field, &diagnostics, rays, bounces) {
+    if audit && let Err(error) = probe_audit::dump_bake(&field, &diagnostics, rays, bounces) {
         crate::logging::warn(format_args!("[probe-diagnostics] {error}"));
     }
     Ok(field)
+}
+
+fn append_switchable_probe_field(
+    probes: &mut Option<ProbeField>,
+    light_index: usize,
+    switched: Option<ProbeField>,
+) -> Result<(), LightmapFailure> {
+    let (Some(base), Some(plane)) = (probes.as_mut(), switched) else {
+        return Ok(());
+    };
+    if base.min.map(f32::to_bits) != plane.min.map(f32::to_bits)
+        || base.cell_m.to_bits() != plane.cell_m.to_bits()
+        || base.dims != plane.dims
+        || base.probes.len() != plane.probes.len()
+    {
+        return Err(LightmapFailure::FillSize);
+    }
+    base.switchable_indirect.push(ProbeSwitchableField {
+        light_index: u32::try_from(light_index).map_err(|_index| LightmapFailure::FillSize)?,
+        probes: plane.probes.into_iter().map(ProbeSample::texel).collect(),
+    });
+    base.validate_switchable_indirect()
+        .map_err(|_invalid| LightmapFailure::FillNonFinite)
 }
 
 fn probe_front_face(
@@ -3703,6 +3737,25 @@ fn selected_probe_direct(
     compress(&local)
 }
 
+fn initial_probe_contributions(
+    scene: &TransportScene,
+    position: [f32; 3],
+    attenuation: [f32; 3],
+    taps: u8,
+    audit: bool,
+    base: bool,
+) -> (Accumulator, LightmapTexel, Vec<usize>) {
+    let mut combined = Accumulator::default();
+    if !base {
+        return (combined, LightmapTexel::ZERO, Vec::new());
+    }
+    let _global = scene.accumulate_global(&mut combined, position, None, attenuation, taps);
+    let visible =
+        accumulate_probe_emitters(scene, &mut combined, position, attenuation, taps, audit);
+    let local = selected_probe_direct(scene, position, attenuation, taps);
+    (combined, local, visible)
+}
+
 fn bake_probe(
     scene: &TransportScene,
     receivers: &[TransportReceiver],
@@ -3712,6 +3765,7 @@ fn bake_probe(
     index: usize,
     taps: u8,
     audit: bool,
+    base: bool,
 ) -> (
     ProbeSample,
     [f32; 3],
@@ -3741,12 +3795,8 @@ fn bake_probe(
             }),
         );
     }
-    let mut accumulator = Accumulator::default();
-    let _accumulate_global_status =
-        scene.accumulate_global(&mut accumulator, position, None, attenuation, taps);
-    let visible_emitters =
-        accumulate_probe_emitters(scene, &mut accumulator, position, attenuation, taps, audit);
-    let local_direct = selected_probe_direct(scene, position, attenuation, taps);
+    let (mut accumulator, local_direct, visible_emitters) =
+        initial_probe_contributions(scene, position, attenuation, taps, audit, base);
     let mut diagnostic =
         audit.then(|| probe_audit::ProbeAudit::new(position, target_room, &accumulator));
     if let Some(chart_diagnostic) = &mut diagnostic {
@@ -3764,14 +3814,16 @@ fn bake_probe(
             }
             // Environment radiance is an incoming contribution just like
             // a reflected surface, with the same sphere-mean convention.
-            accumulate_lobe(
-                &mut indirect,
-                attenuate(
-                    scale(scene.sky_radiance, 2.0 * inverse_rays * throughput),
-                    attenuation,
-                ),
-                direction,
-            );
+            if base {
+                accumulate_lobe(
+                    &mut indirect,
+                    attenuate(
+                        scale(scene.sky_radiance, 2.0 * inverse_rays * throughput),
+                        attenuation,
+                    ),
+                    direction,
+                );
+            }
             continue;
         };
         let Some(triangle) = scene.triangles.get(triangle_index) else {

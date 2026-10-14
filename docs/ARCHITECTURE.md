@@ -118,8 +118,11 @@ where the bytes live:
 | `src/interact.rs` | Interaction targeting (ray/reach/occlusion), the aiming table derived from `interactable` components, door aim bounds and the world-anchored label/prompt emission |
 | `src/ui.rs` | The menu, level select and settings screens |
 | `src/console/` | Opt-in developer console: typed registry/parser, bounded session state, cached native text UI, SDL focus ownership and runtime command dispatch |
-| `src/game/developer.rs` | Noclip flight, validated walking recovery and conservative rigid-prop preview placement |
+| `src/game/developer.rs` | Noclip flight, validated walking recovery and conservative rigid-prop placement |
+| `src/physics/` | Rapier rigid-body world, shared metre/second gravity, strict authored profiles, dormant authored poses with explicit/pickup/active-impact activation, fixed-step interpolation, primitive/convex/compound colliders, reusable activation/reset groups collision-aware carrying and bounded supported-pose escape recovery. Pair-based solved-impulse onsets are exposed for future presentation; no sound layer lives here. Player movement remains in `game` |
+| `src/item_runtime.rs` | Small native-loop adapter owning the visited world's physical items; installs authored props dormant, publishes poses to cached renderer objects and routes activation/reset/pickup/drop. Graphics rebuilds retain dormant/active/held state; world replacement restores authored starting state |
 | `assets/catalog.json` | The authoritative registry mapping every logical id to a file, material or generated resource |
+| `assets/gameplay.json` | Strict optional catalog-id-keyed runtime physics/ground-friction overrides. Contains no visual overrides and leaves prepared render-package catalog provenance intact |
 | `assets/environments/**`, `assets/shared/**`, `assets/entities/**` | Shipped surfaces, decals, fixture faces, props and entity models (PNG/GLB) |
 | `assets/levels/` | Ignored compiled lineup packages, generated with `sh tools/build-maps.sh` |
 | `levels/` | Maintained source maps and the explicit `lineup.txt` offline compiler allowlist |

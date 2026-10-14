@@ -43,6 +43,7 @@ pub struct DynamicVisibility {
     meshes: HashMap<usize, CachedMesh>,
     casters: Vec<Caster>,
     revision: u64,
+    scene_revision: u64,
     model_builds: usize,
     preparation_millis: f64,
 }
@@ -76,10 +77,17 @@ impl DynamicVisibility {
     /// Call after every object transform advanced and before receiver samples.
     /// A stationary scene performs no allocation, scene construction or update.
     pub fn sync(&mut self, dynamic: &DynamicScene) -> Result<bool, String> {
-        let changed = dynamic.objects().len() != self.casters.len()
+        let changed = dynamic.revision() != self.scene_revision
             || dynamic
                 .objects()
                 .iter()
+                .filter(|object| object.visible())
+                .count()
+                != self.casters.len()
+            || dynamic
+                .objects()
+                .iter()
+                .filter(|object| object.visible())
                 .zip(&self.casters)
                 .any(|(object, previous)| {
                     object.id() != previous.id
@@ -89,7 +97,7 @@ impl DynamicVisibility {
         if !changed {
             return Ok(false);
         }
-        for object in dynamic.objects() {
+        for object in dynamic.objects().iter().filter(|object| object.visible()) {
             let transform = object.transform();
             let bounds = object.world_bounds();
             if !transform.is_finite()
@@ -131,7 +139,7 @@ impl DynamicVisibility {
             ));
         }
         self.casters.clear();
-        for object in dynamic.objects() {
+        for object in dynamic.objects().iter().filter(|object| object.visible()) {
             let transform = object.transform();
             let inverse = transform.inverse();
             let bounds = object.world_bounds();
@@ -156,6 +164,7 @@ impl DynamicVisibility {
             })
         });
         self.revision = self.revision.wrapping_add(1);
+        self.scene_revision = dynamic.revision();
         Ok(true)
     }
 
@@ -375,6 +384,68 @@ mod tests {
             1,
             "motion reuses the mesh BVH"
         );
+        // Tipping the same panel about Z exercises a full rigid-body pose:
+        // the old vertical occluder must disappear without a new mesh BVH.
+        let tipped = glam::Quat::from_rotation_z(std::f32::consts::FRAC_PI_2);
+        assert!(dynamic.set_pose(id, [0.0; 3], tipped.to_array()));
+        assert!(visibility.sync(&dynamic)?);
+        assert_eq!(
+            visibility
+                .transmittance([-1.0, 1.0, 0.5], [1.0, 1.0, 0.5], None)
+                .to_bits(),
+            1.0_f32.to_bits(),
+            "tipped geometry leaves no caster at the old pose"
+        );
+        assert_eq!(visibility.stats().model_builds, 1);
+        assert!(dynamic.set_pose(id, [0.0; 3], tipped.to_array().map(|value| -value)));
+        assert!(
+            !visibility.sync(&dynamic)?,
+            "equivalent quaternion signs keep the visibility payload resident"
+        );
+        assert_suspension_retains_resources(&mut dynamic, &mut visibility, id, from, to)
+    }
+
+    fn assert_suspension_retains_resources(
+        dynamic: &mut DynamicScene,
+        visibility: &mut DynamicVisibility,
+        id: DynamicId,
+        from: [f32; 3],
+        to: [f32; 3],
+    ) -> Result<(), String> {
+        // Recovery suspension must stop drawing and occluding immediately,
+        // while restoration reuses the same model and ray resource. This tiny
+        // panel exercises the lifetime without a GPU or a shipped map bake.
+        assert!(dynamic.set_pose(id, [0.0; 3], glam::Quat::IDENTITY.to_array()));
+        assert!(visibility.sync(dynamic)?);
+        let geometry_revision = dynamic.revision();
+        let mesh = Arc::clone(dynamic.get(id).ok_or("panel object")?.mesh());
+        assert!(dynamic.set_visible(id, false));
+        assert!(!dynamic.get(id).ok_or("hidden panel")?.visible());
+        assert_eq!(dynamic.draw_count(), 0);
+        assert_eq!(dynamic.vertex_count(), 0);
+        assert_eq!(dynamic.len(), 1, "suspension retains the object budget");
+        assert!(visibility.sync(dynamic)?);
+        assert_eq!(visibility.stats().casters, 0);
+        assert_eq!(visibility.stats().meshes, 1);
+        assert_eq!(visibility.stats().model_builds, 1);
+        assert_eq!(
+            visibility.transmittance(from, to, None).to_bits(),
+            1.0_f32.to_bits()
+        );
+        assert!(!visibility.sync(dynamic)?, "hidden state stays resident");
+        assert!(dynamic.set_visible(id, true));
+        assert!(visibility.sync(dynamic)?);
+        assert_eq!(visibility.stats().casters, 1);
+        assert_eq!(visibility.stats().model_builds, 1);
+        assert_eq!(dynamic.revision(), geometry_revision);
+        assert!(Arc::ptr_eq(
+            dynamic.get(id).ok_or("restored panel")?.mesh(),
+            &mesh
+        ));
+        assert_eq!(
+            visibility.transmittance(from, to, None).to_bits(),
+            0.0_f32.to_bits()
+        );
         Ok(())
     }
 
@@ -426,6 +497,7 @@ mod tests {
         let level = crate::level::LevelDef::from_json(r#"{"format_version":3,"id":"movable_support","name":"Movable support","spawn":{"x":0,"z":0},"rooms":[{"x":-3,"z":-3,"width":6,"depth":6,"height":4}]}"#).map_err(|error| error.to_string())?;
         let lighting = crate::lighting::LevelLighting::bake(&level);
         let field = crate::lighting::probes::ProbeField {
+            switchable_indirect: Vec::new(),
             local_direct: Some(crate::lighting::probes::ProbeDirectField {
                 light_indices: Vec::new(),
                 probes: vec![crate::lighting::lightmap::LightmapTexel::ZERO],

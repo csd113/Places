@@ -24,6 +24,9 @@ use super::{
 pub struct PackMaterialDef {
     /// Physical traction; malformed optional pack values retain normal ground.
     pub ground_surface: super::GroundSurface,
+    /// Optional rigid-body contact coefficient; omission uses the ground
+    /// surface default. Malformed authored coefficients reject the document.
+    pub ground_friction: Option<f32>,
     /// Path inside the pack, or a logical catalog texture id.
     pub texture: String,
     /// World metres per repeat; `None` keeps [`DEFAULT_TILE_METRES`].
@@ -56,6 +59,12 @@ pub struct PackMaterialDef {
 }
 
 impl PackMaterialDef {
+    /// The bounded ground coefficient used by rigid-body contacts.
+    #[must_use]
+    pub fn ground_friction(&self) -> f32 {
+        self.ground_surface.resolve_friction(self.ground_friction)
+    }
+
     #[must_use]
     pub fn tile_metres(&self) -> f32 {
         self.tile_metres
@@ -278,111 +287,146 @@ impl PackMaterials {
 /// (`"pack:wall": "textures/wall.png"`) or objects carrying `texture`/`file`/
 /// plus the optional `tile_metres`, `tint`, `emissive`,
 /// `emissive_intensity`, `emissive_mask` and `shine` fields. Unknown fields are
-/// ignored and malformed values fall back to the defaults, so a pack written
-/// against a different engine revision keeps loading. The string shorthand is
+/// ignored and malformed visual values fall back to defaults. Malformed physical
+/// `ground_friction` rejects the document with a named warning. The string shorthand is
 /// emission-free by construction.
 #[must_use]
 pub fn parse_materials_json(json_str: Option<&str>) -> HashMap<String, PackMaterialDef> {
+    match parse_materials_json_checked(json_str) {
+        Ok(definitions) => definitions,
+        Err(error) => {
+            crate::logging::warn_once("pack-materials-invalid", format!("[materials] {error}"));
+            HashMap::new()
+        }
+    }
+}
+
+/// Parses pack definitions while rejecting malformed physical coefficients.
+///
+/// # Errors
+/// Returns a named error for invalid JSON or a non-numeric, non-finite or
+/// out-of-range authored `ground_friction`. Other optional visual fields retain
+/// the existing permissive pack behavior.
+pub fn parse_materials_json_checked(
+    json_str: Option<&str>,
+) -> Result<HashMap<String, PackMaterialDef>, String> {
     let mut result = HashMap::new();
     let Some(source_json) = json_str else {
-        return result;
+        return Ok(result);
     };
-    let Ok(value) = serde_json::from_str::<serde_json::Value>(source_json) else {
-        return result;
-    };
+    let value: serde_json::Value = serde_json::from_str(source_json)
+        .map_err(|error| format!("invalid pack material JSON: {error}"))?;
     let table = value
         .get("materials")
-        .and_then(|materials| materials.as_object())
+        .and_then(serde_json::Value::as_object)
         .or_else(|| value.as_object());
     let Some(definitions) = table else {
-        return result;
+        return Ok(result);
     };
     for (key, material_value) in definitions {
         if key == "materials" {
             continue;
         }
-        let definition = if let Some(path) = material_value.as_str() {
-            PackMaterialDef {
+        let possible_definition = if let Some(path) = material_value.as_str() {
+            Some(PackMaterialDef {
                 texture: path.to_string(),
                 ..PackMaterialDef::default()
-            }
+            })
         } else {
-            let Some(path) = material_value
-                .get("texture")
-                .and_then(|texture| texture.as_str())
-            else {
-                continue;
-            };
-            PackMaterialDef {
-                ground_surface: material_value
-                    .get("ground_surface")
-                    .and_then(serde_json::Value::as_str)
-                    .and_then(super::GroundSurface::parse)
-                    .unwrap_or_default(),
-                texture: path.to_string(),
-                tile_metres: material_value
-                    .get("tile_metres")
-                    .and_then(parse_tile_metres),
-                tint: material_value.get("tint").and_then(parse_unit_rgb),
-                emissive: material_value.get("emissive").and_then(parse_unit_rgb),
-                emissive_intensity: material_value
-                    .get("emissive_intensity")
-                    .and_then(parse_emissive_intensity),
-                emissive_mask: material_value
-                    .get("emissive_mask")
-                    .and_then(|mask| mask.as_str())
-                    .map(str::trim)
-                    .filter(|mask| !mask.is_empty())
-                    .map(str::to_string),
-                uv_response: material_value
-                    .get("uv_response")
-                    .and_then(serde_json::Value::as_f64)
-                    .and_then(finite_material_number)
-                    .unwrap_or(0.0),
-                uv_response_mask: material_value
-                    .get("uv_response_mask")
-                    .and_then(serde_json::Value::as_str)
-                    .map(str::to_string),
-                normal_texture: material_value
-                    .get("normal_texture")
-                    .and_then(|texture| texture.as_str())
-                    .map(str::trim)
-                    .filter(|texture| !texture.is_empty())
-                    .map(str::to_string),
-                normal_strength: material_value
-                    .get("normal_strength")
-                    .and_then(parse_unit_number),
-                specular: material_value.get("specular").and_then(parse_unit_number),
-                specular_color: material_value
-                    .get("specular_color")
-                    .and_then(parse_unit_rgb),
-                shine: material_value.get("shine").and_then(parse_unit_number),
-                alpha_mode: material_value
-                    .get("alpha_mode")
-                    .and_then(|mode| mode.as_str())
-                    .map(str::trim)
-                    .filter(|mode| !mode.is_empty())
-                    .map(str::to_string),
-                opacity: material_value.get("opacity").and_then(parse_unit_number),
-                alpha_cutoff: material_value
-                    .get("alpha_cutoff")
-                    .and_then(parse_unit_number),
-                reflection_mode: material_value
-                    .get("reflection_mode")
-                    .and_then(|mode| mode.as_str())
-                    .map(str::trim)
-                    .filter(|mode| !mode.is_empty())
-                    .map(str::to_string),
-                reflection_strength: material_value
-                    .get("reflection_strength")
-                    .and_then(parse_unit_number),
-            }
+            parse_pack_material(key, material_value)?
         };
-        if !definition.texture.is_empty() {
-            drop(result.insert(key.clone(), definition));
+        if let Some(parsed_definition) =
+            possible_definition.filter(|candidate| !candidate.texture.is_empty())
+        {
+            drop(result.insert(key.clone(), parsed_definition));
         }
     }
-    result
+    Ok(result)
+}
+
+fn parse_pack_material(
+    key: &str,
+    material_value: &serde_json::Value,
+) -> Result<Option<PackMaterialDef>, String> {
+    let ground_friction = material_value
+        .get("ground_friction")
+        .map(|value| {
+            parse_ground_friction(value).ok_or_else(|| {
+                format!("pack material `{key}` ground_friction must be finite and between 0 and 2")
+            })
+        })
+        .transpose()?;
+    let Some(path) = material_value
+        .get("texture")
+        .and_then(serde_json::Value::as_str)
+    else {
+        return Ok(None);
+    };
+    Ok(Some(PackMaterialDef {
+        ground_surface: material_value
+            .get("ground_surface")
+            .and_then(serde_json::Value::as_str)
+            .and_then(super::GroundSurface::parse)
+            .unwrap_or_default(),
+        ground_friction,
+        texture: path.to_string(),
+        tile_metres: material_value
+            .get("tile_metres")
+            .and_then(parse_tile_metres),
+        tint: material_value.get("tint").and_then(parse_unit_rgb),
+        emissive: material_value.get("emissive").and_then(parse_unit_rgb),
+        emissive_intensity: material_value
+            .get("emissive_intensity")
+            .and_then(parse_emissive_intensity),
+        emissive_mask: material_value
+            .get("emissive_mask")
+            .and_then(|mask| mask.as_str())
+            .map(str::trim)
+            .filter(|mask| !mask.is_empty())
+            .map(str::to_string),
+        uv_response: material_value
+            .get("uv_response")
+            .and_then(serde_json::Value::as_f64)
+            .and_then(finite_material_number)
+            .unwrap_or(0.0),
+        uv_response_mask: material_value
+            .get("uv_response_mask")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string),
+        normal_texture: material_value
+            .get("normal_texture")
+            .and_then(|texture| texture.as_str())
+            .map(str::trim)
+            .filter(|texture| !texture.is_empty())
+            .map(str::to_string),
+        normal_strength: material_value
+            .get("normal_strength")
+            .and_then(parse_unit_number),
+        specular: material_value.get("specular").and_then(parse_unit_number),
+        specular_color: material_value
+            .get("specular_color")
+            .and_then(parse_unit_rgb),
+        shine: material_value.get("shine").and_then(parse_unit_number),
+        alpha_mode: material_value
+            .get("alpha_mode")
+            .and_then(|mode| mode.as_str())
+            .map(str::trim)
+            .filter(|mode| !mode.is_empty())
+            .map(str::to_string),
+        opacity: material_value.get("opacity").and_then(parse_unit_number),
+        alpha_cutoff: material_value
+            .get("alpha_cutoff")
+            .and_then(parse_unit_number),
+        reflection_mode: material_value
+            .get("reflection_mode")
+            .and_then(|mode| mode.as_str())
+            .map(str::trim)
+            .filter(|mode| !mode.is_empty())
+            .map(str::to_string),
+        reflection_strength: material_value
+            .get("reflection_strength")
+            .and_then(parse_unit_number),
+    }))
 }
 
 /// Narrows a JSON scalar to the material's finite `f32` representation.
@@ -399,6 +443,15 @@ fn finite_material_number(number: f64) -> Option<f32> {
 /// Reads an optional `tile_metres` number; the accessor checks positivity.
 fn parse_tile_metres(value: &serde_json::Value) -> Option<f32> {
     finite_material_number(value.as_f64()?)
+}
+
+/// Reads ground friction, rejecting unsafe values before rounding to `f32`.
+fn parse_ground_friction(value: &serde_json::Value) -> Option<f32> {
+    let number = value.as_f64()?;
+    if !(0.0_f64..=2.0_f64).contains(&number) {
+        return None;
+    }
+    finite_material_number(number)
 }
 
 /// Reads an intensity, checking its authored range before rounding to `f32`.

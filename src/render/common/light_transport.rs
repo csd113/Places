@@ -220,7 +220,7 @@ const ENTITY_ANCHOR_INSET_FRACTION: f32 = 0.02;
 /// One bounded source and its deterministic finite-emitter taps. Stored
 /// strength has the compiler's calibration but no receiver cosine/falloff.
 #[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable, serde::Serialize)]
 pub struct EntityDirectLight {
     pub position_range: [f32; 4],
     pub color_strength: [f32; 4],
@@ -275,7 +275,7 @@ impl EntityDirectLight {
 
 /// Residual field coefficients and important-source visibility at one anchor.
 #[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable, serde::Serialize)]
 pub struct EntityLightingAnchor {
     pub irradiance: [f32; 4],
     pub moment: [f32; 4],
@@ -300,6 +300,28 @@ pub struct EntitySpatialLighting {
     pub bounds_extent: [f32; 4],
     pub anchors: [EntityLightingAnchor; ENTITY_LIGHTING_ANCHORS],
     pub direct: [EntityDirectLight; super::dynamic_lights::MAX_ENTITY_DIRECT_LIGHTS],
+}
+
+impl EntitySpatialLighting {
+    /// The eight world support positions represented by this sampled payload.
+    /// `model` must be the transform retained by the payload's cache key.
+    #[must_use]
+    pub fn diagnostic_world_anchors(
+        &self,
+        model: glam::Mat4,
+    ) -> [[f32; 3]; ENTITY_LIGHTING_ANCHORS] {
+        let [x, y, z, _enabled] = self.bounds_min;
+        let [dx, dy, dz, _padding] = self.bounds_extent;
+        std::array::from_fn(|corner| {
+            model
+                .transform_point3(glam::Vec3::new(
+                    if corner & 1 == 0 { x } else { x + dx },
+                    if corner & 2 == 0 { y } else { y + dy },
+                    if corner & 4 == 0 { z } else { z + dz },
+                ))
+                .to_array()
+        })
+    }
 }
 
 struct EntityAnchorPositions {
@@ -396,6 +418,28 @@ pub struct EntitySpatialKey {
     receiver: Option<super::dynamic::DynamicId>,
 }
 
+impl EntitySpatialKey {
+    /// The actual model transform used when the cached anchors were sampled.
+    #[must_use]
+    pub fn diagnostic_model(self) -> glam::Mat4 {
+        glam::Mat4::from_cols_array_2d(&self.model.map(|column| column.map(f32::from_bits)))
+    }
+
+    /// Read-only cache identities for explicit native acceptance traces.
+    #[must_use]
+    pub fn diagnostic_snapshot(self) -> serde_json::Value {
+        serde_json::json!({
+            "field_identity": self.field,
+            "transport_identity": self.scene,
+            "sampled_model": self.diagnostic_model().to_cols_array_2d(),
+            "enabled_mask": self.enabled,
+            "visibility_identity": self.dynamic,
+            "visibility_revision": self.dynamic_revision,
+            "receiver": self.receiver.map(|id| format!("{id:?}")),
+        })
+    }
+}
+
 /// Optional current movable geometry and the rigid receiver's self identity.
 #[derive(Clone, Copy, Default)]
 pub struct EntityVisibility<'a> {
@@ -448,6 +492,13 @@ fn runtime_entity_light_ids(
     ids
 }
 
+fn probe_light_enabled(lighting: &LevelLighting, index: u32) -> bool {
+    usize::try_from(index)
+        .ok()
+        .and_then(|id| lighting.lights().get(id))
+        .is_some_and(crate::lighting::BakedLight::is_active)
+}
+
 #[cfg(test)]
 #[must_use]
 pub fn entity_spatial_key(
@@ -476,6 +527,12 @@ pub fn entity_spatial_key_with_visibility(
             .is_some_and(crate::lighting::BakedLight::is_active);
         if active {
             enabled |= 1_u64.checked_shl(u32::try_from(slot).ok()?).unwrap_or(0);
+        }
+    }
+    for (group, plane) in prepared.switchable_indirect.iter().enumerate() {
+        if probe_light_enabled(lighting, plane.light_index) {
+            let bit = group.saturating_add(super::dynamic_lights::MAX_ENTITY_DIRECT_LIGHTS);
+            enabled |= 1_u64.checked_shl(u32::try_from(bit).ok()?).unwrap_or(0);
         }
     }
     Some(EntitySpatialKey {
@@ -531,19 +588,27 @@ pub fn entity_spatial_lighting_with_visibility(
     let _selected_direct = prepared.local_direct.as_ref()?;
     let positions = entity_anchor_positions(bounds, model)?;
     let sample = |point| {
-        prepared.sample_nonlocal_filtered_with_rooms(point, None, |probe, label| {
-            lighting.labelled_probe_visible_from(point, probe, label)
-                && visibility.transmittance(point, probe) > 0.0
-        })
+        prepared.sample_nonlocal_with_switchable_indirect(
+            point,
+            None,
+            |index| probe_light_enabled(lighting, index),
+            |probe, label| {
+                lighting.labelled_probe_visible_from(point, probe, label)
+                    && visibility.transmittance(point, probe) > 0.0
+            },
+        )
     };
     let samples = positions.world.map(|world| (world, sample(world)));
     let centre_sample = sample(positions.centre);
     if centre_sample.is_none() && samples.iter().all(|(_, value)| value.is_none()) {
         let has_static_support = |point| {
             prepared
-                .sample_nonlocal_filtered_with_rooms(point, None, |probe, label| {
-                    lighting.labelled_probe_visible_from(point, probe, label)
-                })
+                .sample_nonlocal_with_switchable_indirect(
+                    point,
+                    None,
+                    |index| probe_light_enabled(lighting, index),
+                    |probe, label| lighting.labelled_probe_visible_from(point, probe, label),
+                )
                 .is_some()
         };
         if visibility.dynamic.is_none()
@@ -660,9 +725,12 @@ pub fn entity_lighting(
         .filter(|r| lighting.probe_region_at(*r, position).is_some());
     let prepared = room.and_then(|_| {
         irradiance.and_then(|field| {
-            field.sample_filtered_with_rooms(position, None, |probe, label| {
-                lighting.labelled_probe_visible_from(position, probe, label)
-            })
+            field.sample_with_switchable_indirect(
+                position,
+                None,
+                |index| probe_light_enabled(lighting, index),
+                |probe, label| lighting.labelled_probe_visible_from(position, probe, label),
+            )
         })
     });
     let source = if !finite {
@@ -1283,6 +1351,7 @@ mod tests {
         .expect("spatial fixture");
         let lighting = LevelLighting::bake(&level);
         let field = crate::lighting::probes::ProbeField {
+            switchable_indirect: Vec::new(),
             min: [-2.0, 0.0, -2.0],
             cell_m: 4.0,
             dims: [1; 3],
@@ -1381,6 +1450,7 @@ mod tests {
 
     fn framed_receiver_field() -> crate::lighting::probes::ProbeField {
         crate::lighting::probes::ProbeField {
+            switchable_indirect: Vec::new(),
             min: [-0.01, 0.85, -1.5],
             cell_m: 1.5,
             dims: [1, 1, 2],
@@ -1765,17 +1835,74 @@ mod tests {
         assert_eq!(centre.prepared.expect("combined").irradiance, [0.7; 3]);
     }
 
-    #[test]
-    fn switchable_direct_joins_the_reserved_slot_without_subtracting_base_energy() {
-        let (mut lighting, mut field) = spatial_fixture();
+    fn prepare_serialized_switchable_bounce(field: &mut crate::lighting::probes::ProbeField) {
         field.local_direct = Some(crate::lighting::probes::ProbeDirectField {
             light_indices: Vec::new(),
             probes: vec![crate::lighting::lightmap::LightmapTexel::ZERO],
         });
+        // One probe checks the missing switched-bounce regression without any
+        // transport solve. Its side-facing response must change with the lamp,
+        // while the direct descriptor remains the existing finite source.
+        field
+            .switchable_indirect
+            .push(crate::lighting::probes::ProbeSwitchableField {
+                light_index: 0,
+                probes: vec![crate::lighting::lightmap::LightmapTexel {
+                    irradiance: [0.125; 3],
+                    direction: [0.125, 0.0, 0.0],
+                    axis: [0.5; 2],
+                }],
+            });
         let encoded = field.write().expect("empty selected-source field");
-        field = crate::lighting::probes::ProbeField::read(&encoded)
+        let version = encoded
+            .get(4..6)
+            .expect("version bytes")
+            .try_into()
+            .expect("two version bytes");
+        assert_eq!(u16::from_le_bytes(version), 4_u16);
+        assert!(
+            crate::lighting::probes::ProbeField::read(
+                encoded
+                    .get(..encoded.len().saturating_sub(1))
+                    .expect("truncated bytes")
+            )
+            .is_err(),
+            "truncated switched coefficient payload rejects before allocation"
+        );
+        let mut invalid = field.clone();
+        let duplicate = invalid
+            .switchable_indirect
+            .first()
+            .expect("one plane")
+            .clone();
+        invalid.switchable_indirect.push(duplicate);
+        assert!(
+            invalid.write().is_err(),
+            "a switched source cannot contribute twice"
+        );
+        let _duplicate_plane = invalid.switchable_indirect.pop();
+        invalid
+            .switchable_indirect
+            .first_mut()
+            .expect("one plane")
+            .probes
+            .clear();
+        assert!(
+            invalid.write().is_err(),
+            "switched coefficients must align with the base lattice"
+        );
+        *field = crate::lighting::probes::ProbeField::read(&encoded)
             .expect("serialized switch-only runtime field");
-        let direct = field.local_direct.as_ref().expect("v3 presence marker");
+    }
+
+    #[test]
+    fn switchable_direct_and_serialized_bounce_preserve_base_and_restore_exactly() {
+        let (mut lighting, mut field) = spatial_fixture();
+        prepare_serialized_switchable_bounce(&mut field);
+        let direct = field
+            .local_direct
+            .as_ref()
+            .expect("spatial presence marker");
         assert_eq!(direct.light_indices, [0_u32; 0]);
         assert_eq!(direct.probes.len(), field.probes.len());
         assert!(
@@ -1807,8 +1934,17 @@ mod tests {
         .expect("on");
         assert!(on.direct.first().expect("live source").color_strength[3] > 0.0);
         assert_eq!(
+            on.direct.first().expect("live source"),
+            &EntityDirectLight::from_baked(lighting.lights().first().expect("lamp")),
+            "prepared bounce never changes or duplicates the live direct term"
+        );
+        assert_eq!(
             on.anchors.first().expect("base").irradiance,
-            [0.7, 0.7, 0.7, 1.0]
+            [0.825, 0.825, 0.825, 1.0]
+        );
+        assert_eq!(
+            on.anchors.first().expect("moment").moment,
+            [0.125, 0.3, 0.0, 0.0]
         );
         assert!(lighting.set_light_enabled(0, false));
         let off_key =
@@ -1832,6 +1968,8 @@ mod tests {
         assert_eq!(
             off.anchors,
             on.anchors.map(|mut anchor| {
+                anchor.irradiance = [0.7, 0.7, 0.7, 1.0];
+                anchor.moment = [0.0, 0.3, 0.0, 0.0];
                 anchor.visibility = [[0.0; 4]; 8];
                 anchor
             })

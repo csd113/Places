@@ -1,0 +1,80 @@
+{
+  "format_version": 3,
+  "id": "item_surfaces_native",
+  "name": "Native Item Floor Surfaces",
+  "author": "Places",
+  "comment": "Opt-in four-station friction comparison plus one contiguous ice/wood/carpet seam lane. One exact dynamic box is reused for every trial. No default test or CI bake depends on this source.",
+  "spawn": { "x": 1.25, "z": 1.0, "yaw_degrees": 180.0 },
+  "defaults": {
+    "wall": "home:wall_paint_offwhite_01",
+    "floor": "home:hardwood_oak_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "rooms": [
+    { "x": 0.0, "z": 0.0, "width": 2.5, "depth": 8.0, "height": 3.2, "material": "winter:ice_01" },
+    { "x": 4.0, "z": 0.0, "width": 2.5, "depth": 8.0, "height": 3.2, "material": "home:hardwood_oak_01" },
+    { "x": 8.0, "z": 0.0, "width": 2.5, "depth": 8.0, "height": 3.2, "material": "home:tile_home_01" },
+    { "x": 12.0, "z": 0.0, "width": 2.5, "depth": 8.0, "height": 3.2, "material": "core:carpet_beige_01" },
+    { "x": 16.0, "z": 0.0, "width": 2.5, "depth": 8.0, "height": 3.2, "material": "home:hardwood_oak_01" }
+  ],
+  "floor_patches": [
+    { "x": 16.0, "z": 0.0, "width": 2.5, "depth": 2.5, "material": "core:carpet_beige_01" },
+    { "x": 16.0, "z": 5.5, "width": 2.5, "depth": 2.5, "material": "winter:ice_01" }
+  ],
+  "walls": [
+    { "x": -0.2, "z": -0.2, "width": 2.9, "depth": 0.2, "height": 3.2 },
+    { "x": -0.2, "z": 8.0, "width": 2.9, "depth": 0.2, "height": 3.2 },
+    { "x": -0.2, "z": 0.0, "width": 0.2, "depth": 8.0, "height": 3.2 },
+    { "x": 2.5, "z": 0.0, "width": 0.2, "depth": 8.0, "height": 3.2 },
+    { "x": 3.8, "z": -0.2, "width": 2.9, "depth": 0.2, "height": 3.2 },
+    { "x": 3.8, "z": 8.0, "width": 2.9, "depth": 0.2, "height": 3.2 },
+    { "x": 3.8, "z": 0.0, "width": 0.2, "depth": 8.0, "height": 3.2 },
+    { "x": 6.5, "z": 0.0, "width": 0.2, "depth": 8.0, "height": 3.2 },
+    { "x": 7.8, "z": -0.2, "width": 2.9, "depth": 0.2, "height": 3.2 },
+    { "x": 7.8, "z": 8.0, "width": 2.9, "depth": 0.2, "height": 3.2 },
+    { "x": 7.8, "z": 0.0, "width": 0.2, "depth": 8.0, "height": 3.2 },
+    { "x": 10.5, "z": 0.0, "width": 0.2, "depth": 8.0, "height": 3.2 },
+    { "x": 11.8, "z": -0.2, "width": 2.9, "depth": 0.2, "height": 3.2 },
+    { "x": 11.8, "z": 8.0, "width": 2.9, "depth": 0.2, "height": 3.2 },
+    { "x": 11.8, "z": 0.0, "width": 0.2, "depth": 8.0, "height": 3.2 },
+    { "x": 14.5, "z": 0.0, "width": 0.2, "depth": 8.0, "height": 3.2 },
+    { "x": 15.8, "z": -0.2, "width": 2.9, "depth": 0.2, "height": 3.2 },
+    { "x": 15.8, "z": 8.0, "width": 2.9, "depth": 0.2, "height": 3.2 },
+    { "x": 15.8, "z": 0.0, "width": 0.2, "depth": 8.0, "height": 3.2 },
+    { "x": 18.5, "z": 0.0, "width": 0.2, "depth": 8.0, "height": 3.2 }
+  ],
+  "void_walls": [
+    {
+      "id": "ice_depth_backing", "min": [0.0, -0.12, 0.0], "max": [2.5, -0.04, 8.0],
+      "material": "home:tile_home_01", "faces": "outward", "solid": false, "occludes": false
+    },
+    {
+      "id": "seam_ice_depth_backing", "min": [16.0, -0.12, 5.5], "max": [18.5, -0.04, 8.0],
+      "material": "home:tile_home_01", "faces": "outward", "solid": false, "occludes": false
+    }
+  ],
+  "ceiling_lights": [
+    { "id": "ice_light", "fixture": "core:fluorescent_panel_01", "x": 1.25, "z": 4.0, "y": 3.2, "align": "none", "range": 6.0, "brightness": 0.8 },
+    { "id": "wood_light", "fixture": "core:fluorescent_panel_01", "x": 5.25, "z": 4.0, "y": 3.2, "align": "none", "range": 6.0, "brightness": 0.8 },
+    { "id": "tile_light", "fixture": "core:fluorescent_panel_01", "x": 9.25, "z": 4.0, "y": 3.2, "align": "none", "range": 6.0, "brightness": 0.8 },
+    { "id": "carpet_light", "fixture": "core:fluorescent_panel_01", "x": 13.25, "z": 4.0, "y": 3.2, "align": "none", "range": 6.0, "brightness": 0.8 },
+    { "id": "seam_light", "fixture": "core:fluorescent_panel_01", "x": 17.25, "z": 4.0, "y": 3.2, "align": "none", "range": 6.0, "brightness": 0.8 }
+  ],
+  "props": [
+    {
+      "id": "surface_activate", "model": "home:wall_switch", "x": 0.05, "y": 1.2, "z": 1.0,
+      "rotation_degrees": 90.0, "size": [0.18, 0.18, 0.1], "solid": false,
+      "components": [{ "component": "interactable", "prompt": "Activate surface item", "reach": 1.8 }],
+      "bindings": [{ "on": "interact", "actions": [{ "action": "activate_physics_group", "group": "native_surfaces" }] }]
+    },
+    {
+      "id": "surface_box", "model": "core:crate", "x": 1.25, "y": 0.006, "z": 6.0,
+      "scale": 0.4, "size": [0.6, 0.6, 0.6], "solid": false, "occludes": false,
+      "physics": {
+        "motion": "dynamic", "reset_group": "native_surfaces", "shape": { "kind": "cuboid", "half_extents": [0.3, 0.3, 0.3] },
+        "mass_kg": 0.3, "friction": 0.6, "restitution": 0.0,
+        "linear_damping": 0.0, "angular_damping": 0.0, "pickup": true
+      }
+    }
+  ]
+}

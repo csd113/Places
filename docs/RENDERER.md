@@ -706,13 +706,14 @@ atomically and share one group; up to eight switched sources fit the live receiv
 budget. The illumination change
 is a real transport change, not an emissive-only tint.
 
-The moving-object irradiance field (§7.1.2) is solved from the non-switchable
-transport only and is never rewritten when a fixture changes state. Moving
-objects and characters receive the fixture's enabled direct contribution through
-reserved runtime entity-light slots; the enabled mask also invalidates their
-spatial lighting key. Toggling selects the static atlas layer group and changes
-that live direct term. Per-state indirect/bounce field layers are deliberately
-not prepared.
+The moving-object irradiance field (§7.1.2) stores non-switchable transport and,
+in PLPF v4, an indirect-only plane for each prepared switch group. Enabled planes
+join the base field at the live receiver; direct contribution remains evaluated
+through the reserved runtime entity-light slots. The enabled mask invalidates
+the spatial lighting key, so toggles update both bounced and direct illumination
+without a runtime bake. Legacy v2/v3 records remain readable with their original
+base/direct behavior; switched bounce requires explicitly compiling affected
+maps with the new compiler.
 
 Static normally retains immutable vertex illumination. One opted-in circuit
 (`static_switch: "prepared"` on every member) also ships an exact off mesh/prop

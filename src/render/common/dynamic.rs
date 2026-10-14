@@ -9,7 +9,7 @@
 //! ```text
 //! static                              dynamic (this module)
 //! ------                              ----------------------
-//! authored in the level JSON          spawned by game code, never in the level
+//! authored in the level JSON          spawned by game code or movable props
 //! transformed once at level load      transformed every frame (matrix only)
 //! baked into LevelMesh / prop batch   uploaded once in model space
 //! baked light in vertex colour        baked light in the u_light_scale uniform
@@ -66,11 +66,10 @@ use crate::spatial::Aabb;
 
 /// Most dynamic objects one scene holds.
 ///
-/// Deliberately small: the draw path is one draw call per object per material,
-/// so a level with hundreds of dynamic objects would cost more than the static
-/// batches it is meant to sit beside. The limit is enforced on spawn, and the
-/// scene never allocates on the update path.
-pub const MAX_DYNAMIC_OBJECTS: usize = 64;
+/// Bounded headroom for 128 physics items alongside doors, floats and runtime
+/// entities. Each object still costs one draw per material, so static scenery
+/// remains batched. The limit is enforced on spawn; pose updates reuse geometry.
+pub const MAX_DYNAMIC_OBJECTS: usize = 256;
 
 /// Most distinct dynamic meshes one scene holds, each getting its own vertex
 /// buffer. Matches the static prop path's practical model budget.
@@ -333,11 +332,42 @@ fn spin_matrix(axis: Vec3, degrees: f32) -> Mat4 {
     }
 }
 
+/// Normalizes an externally supplied pose without overflowing its norm.
+/// Equivalent quaternion signs and signed zeroes share one transform/cache key.
+fn normalized_pose_rotation(orientation: [f32; 4]) -> Option<Quat> {
+    if !orientation.iter().all(|value| value.is_finite()) {
+        return None;
+    }
+    let magnitude = orientation.into_iter().map(f32::abs).fold(0.0, f32::max);
+    if magnitude == 0.0 {
+        return None;
+    }
+    let normalized = Quat::from_array(orientation.map(|value| value / magnitude))
+        .normalize()
+        .to_array();
+    let negate = normalized
+        .iter()
+        .rev()
+        .find(|value| **value != 0.0)
+        .is_some_and(|value| *value < 0.0);
+    Some(Quat::from_array(normalized.map(|value| {
+        if value == 0.0 {
+            0.0
+        } else if negate {
+            -value
+        } else {
+            value
+        }
+    })))
+}
+
 /// One live dynamic object: a shared model-space mesh plus its own transform,
 /// spin and light probe.
 #[derive(Debug)]
 pub struct DynamicObject {
     id: DynamicId,
+    /// Retained objects can be suspended without releasing their resources.
+    visible: bool,
     mesh_index: usize,
     mesh: Arc<DynamicMesh>,
     translation: Vec3,
@@ -413,6 +443,12 @@ impl DynamicObject {
     #[must_use]
     pub const fn id(&self) -> DynamicId {
         self.id
+    }
+
+    /// Whether the retained object draws, casts shadows and receives lighting.
+    #[must_use]
+    pub const fn visible(&self) -> bool {
+        self.visible
     }
 
     /// The shared model-space mesh this object draws.
@@ -563,6 +599,69 @@ impl DynamicObject {
         self.spatial_lighting.as_deref()
     }
 
+    /// Captures live pose and actual sampled lighting for explicit diagnostics.
+    /// This allocates JSON only when called; it performs no sampling or upload.
+    #[must_use]
+    pub fn diagnostic_lighting_snapshot(&self) -> serde_json::Value {
+        let model = self.transform();
+        let normal_model = if model.determinant().abs() > 1.0e-12 {
+            model.inverse().transpose()
+        } else {
+            Mat4::IDENTITY
+        };
+        let [normal_x, normal_y, normal_z, _translation] = normal_model.to_cols_array_2d();
+        let bounds = self.world_bounds();
+        let sampled_model = self.spatial_key.map_or(
+            model,
+            super::light_transport::EntitySpatialKey::diagnostic_model,
+        );
+        let vertex_normals: Vec<_> = self
+            .mesh
+            .vertices
+            .iter()
+            .take(8)
+            .map(|vertex| {
+                serde_json::json!({
+                    "local": vertex.normal,
+                    "world": normal_model.transform_vector3(Vec3::from_array(vertex.normal))
+                        .normalize_or_zero().to_array(),
+                })
+            })
+            .collect();
+        serde_json::json!({
+            "model_path": self.model_path(),
+            "live": {
+                "visible": self.visible,
+                "position": self.translation(),
+                "orientation": model.to_scale_rotation_translation().1.to_array(),
+                "scale": self.scale,
+                "model": model.to_cols_array_2d(),
+                "normal_model": [normal_x, normal_y, normal_z],
+                "world_bounds": {"min": bounds.min, "max": bounds.max},
+                "centre": self.centre().to_array(),
+                "vertex_normals": vertex_normals,
+            },
+            "sample": {
+                "probe_position": self.probe_position,
+                "probe_valid": self.probe_valid,
+                "source": self.entity_lighting.map(|sample| format!("{:?}", sample.source)),
+                "hdr": self.entity_lighting.map(|sample| sample.display),
+                "prepared": self.entity_lighting.and_then(|sample| sample.prepared).map(|texel| {
+                    serde_json::json!({"irradiance": texel.irradiance, "direction": texel.direction})
+                }),
+                "spatial": self.spatial_lighting().map(|spatial| serde_json::json!({
+                    "bounds_min": spatial.bounds_min,
+                    "bounds_extent": spatial.bounds_extent,
+                    "anchors": spatial.anchors,
+                    "direct": spatial.direct,
+                    "world_anchors": spatial.diagnostic_world_anchors(sampled_model),
+                })),
+                "cache": self.spatial_key.map(super::light_transport::EntitySpatialKey::diagnostic_snapshot),
+                "spatial_payload_identity": self.spatial_lighting().map(|payload| std::ptr::from_ref(payload).addr()),
+            },
+        })
+    }
+
     /// True when [`Self::light_scale`] has been sampled from the bake.
     #[must_use]
     pub const fn probe_valid(&self) -> bool {
@@ -659,6 +758,7 @@ impl DynamicScene {
     pub fn draw_count(&self) -> usize {
         self.objects
             .iter()
+            .filter(|object| object.visible)
             .map(|object| object.mesh.draw_count())
             .sum()
     }
@@ -668,6 +768,7 @@ impl DynamicScene {
     pub fn vertex_count(&self) -> usize {
         self.objects
             .iter()
+            .filter(|object| object.visible)
             .map(|object| object.mesh.vertex_count())
             .sum()
     }
@@ -920,6 +1021,7 @@ impl DynamicScene {
         self.next_id = self.next_id.wrapping_add(1);
         self.objects.push(DynamicObject {
             id,
+            visible: true,
             mesh_index,
             mesh,
             translation: Vec3::from(translation),
@@ -1013,6 +1115,7 @@ impl DynamicScene {
         self.next_id = self.next_id.wrapping_add(1);
         self.objects.push(DynamicObject {
             id,
+            visible: true,
             mesh_index,
             mesh,
             translation: Vec3::from(translation),
@@ -1081,8 +1184,7 @@ impl DynamicScene {
     }
 
     /// Sets an object's transform (translation, spin about its own axis,
-    /// uniform scale). The base orientation and spin axis are spawn-time
-    /// properties and are not changed here.
+    /// uniform scale). The base orientation and spin axis are not changed here.
     ///
     /// Returns `false` for an unknown handle or a non-finite/negative-scale
     /// value. The probe is not re-sampled here: [`Self::update`] owns that, so
@@ -1108,6 +1210,50 @@ impl DynamicScene {
         object.translation = Vec3::from(translation);
         object.spin_degrees = spin_degrees;
         object.scale = scale;
+        true
+    }
+
+    /// Sets an externally simulated rigid pose, preserving scale and materials.
+    ///
+    /// `orientation` is a quaternion in `[x, y, z, w]` order. Finite nonzero
+    /// quaternions are normalized; invalid positions, zero/non-finite rotations
+    /// and unknown handles leave the object unchanged. The absolute pose stops
+    /// the object's procedural spin and floating motion. Bounds, visibility
+    /// and lighting use this same transform during the next update, without
+    /// rebuilding the mesh or changing the scene's geometry revision.
+    pub fn set_pose(
+        &mut self,
+        id: DynamicId,
+        translation: [f32; 3],
+        orientation: [f32; 4],
+    ) -> bool {
+        if !translation.iter().all(|value| value.is_finite()) {
+            return false;
+        }
+        let Some(rotation) = normalized_pose_rotation(orientation) else {
+            return false;
+        };
+        let Some(object) = self.objects.iter_mut().find(|object| object.id == id) else {
+            return false;
+        };
+        object.translation = Vec3::from(translation);
+        object.base_rotation = rotation;
+        object.spin_degrees = 0.0;
+        object.spin_degrees_per_second = 0.0;
+        object.float = None;
+        true
+    }
+
+    /// Suspends or restores an object without changing its pose or resources.
+    ///
+    /// Hidden objects keep their handles and count against the scene budget.
+    /// Visibility and lighting are refreshed on the next update; changing this
+    /// flag never bumps the geometry revision or reloads the model.
+    pub fn set_visible(&mut self, id: DynamicId, visible: bool) -> bool {
+        let Some(object) = self.objects.iter_mut().find(|object| object.id == id) else {
+            return false;
+        };
+        object.visible = visible;
         true
     }
 
@@ -1224,6 +1370,9 @@ impl DynamicScene {
     ) -> DynamicUpdate {
         let mut update = DynamicUpdate::default();
         for object in &mut self.objects {
+            if !object.visible {
+                continue;
+            }
             let Some(level_lighting) = lighting else {
                 continue;
             };
@@ -1700,6 +1849,65 @@ mod tests {
     }
 
     #[test]
+    fn rigid_pose_preserves_geometry_scale_and_tracks_rotated_bounds() {
+        // One off-centre triangle exposes a tipped model-origin/centre mismatch
+        // without loading a GLB or building a level. The same fixture checks
+        // finite quaternion extremes and cache-stable equivalent signs.
+        let asset = synthetic_asset(MaterialEmission::NONE);
+        let mut scene = DynamicScene::new();
+        let id = scene.spawn(&asset, [0.0; 3], 35.0, 2.0, 90.0).unwrap();
+        let other = scene.spawn(&asset, [1.0; 3], 0.0, 1.0, 0.0).unwrap();
+        let revision = scene.revision();
+        let mesh = Arc::clone(scene.get(id).unwrap().mesh());
+        assert!(scene.set_pose(id, [4.0, 5.0, 6.0], [1.0, 0.0, 0.0, 1.0]));
+        let object = scene.get(id).unwrap();
+        let transform = object.transform();
+        assert!(
+            transform
+                .transform_point3(Vec3::Y)
+                .distance(Vec3::new(4.0, 5.0, 8.0))
+                < 1e-5
+        );
+        assert!(object.centre().distance(Vec3::new(5.0, 5.0, 7.0)) < 1e-5);
+        assert!(
+            Vec3::from_array(object.world_bounds().min).distance(Vec3::new(4.0, 5.0, 6.0)) < 1e-5
+        );
+        assert!(
+            Vec3::from_array(object.world_bounds().max).distance(Vec3::new(6.0, 5.0, 8.0)) < 1e-5
+        );
+        assert_eq!(object.scale(), 2.0, "physics must keep the authored scale");
+        assert!(
+            Arc::ptr_eq(object.mesh(), &mesh),
+            "pose changes reuse mesh storage"
+        );
+        assert_eq!(scene.get(other).unwrap().translation(), [1.0; 3]);
+        assert_eq!(
+            scene.update(1.0, None).moved,
+            0,
+            "external poses stop procedural spin"
+        );
+        for rotation in [
+            [-1.0, -0.0, -0.0, -1.0],
+            [f32::MAX, 0.0, 0.0, f32::MAX],
+            [f32::from_bits(1), 0.0, 0.0, f32::from_bits(1)],
+        ] {
+            assert!(scene.set_pose(id, [4.0, 5.0, 6.0], rotation));
+            assert_eq!(scene.get(id).unwrap().transform(), transform);
+        }
+        for invalid in [[0.0; 4], [f32::NAN; 4], [f32::INFINITY; 4]] {
+            assert!(!scene.set_pose(id, [9.0; 3], invalid));
+            assert_eq!(scene.get(id).unwrap().transform(), transform);
+        }
+        assert!(!scene.set_pose(id, [f32::NAN; 3], Quat::IDENTITY.to_array()));
+        assert_eq!(scene.get(id).unwrap().transform(), transform);
+        assert_eq!(
+            scene.revision(),
+            revision,
+            "pose changes never rebuild geometry"
+        );
+    }
+
+    #[test]
     fn spinning_advances_the_default_yaw_and_wraps_deterministically() {
         let asset = synthetic_asset(MaterialEmission::NONE);
         let mut scene = DynamicScene::new();
@@ -1768,6 +1976,7 @@ mod tests {
             .expect("spawn");
         let centre = scene.get(id).expect("object").centre().to_array();
         let mut field = ProbeField {
+            switchable_indirect: Vec::new(),
             local_direct: Some(crate::lighting::probes::ProbeDirectField {
                 light_indices: Vec::new(),
                 probes: vec![crate::lighting::lightmap::LightmapTexel::ZERO],
@@ -1804,7 +2013,32 @@ mod tests {
             scene.set_transform(id, [2.01, 1.0, 2.0], 10.0, 1.0),
             "small translation and rotation are accepted"
         );
+        // The native trace must expose a stale payload before refresh, rather
+        // than synthesizing its sampled transform from the new live pose.
+        let pending_trace = scene
+            .get(id)
+            .expect("object")
+            .diagnostic_lighting_snapshot();
+        assert_ne!(
+            pending_trace.pointer("/live/model"),
+            pending_trace.pointer("/sample/cache/sampled_model"),
+            "diagnostics retain the actual last sampled transform"
+        );
         let _moved_spatial = scene.update_with_field(0.0, Some(&lighting), Some(&field));
+        let refreshed_trace = scene
+            .get(id)
+            .expect("object")
+            .diagnostic_lighting_snapshot();
+        assert_eq!(
+            refreshed_trace.pointer("/live/model"),
+            refreshed_trace.pointer("/sample/cache/sampled_model"),
+            "native traces expose the refreshed cache transform"
+        );
+        assert_eq!(
+            refreshed_trace.pointer("/live/centre"),
+            refreshed_trace.pointer("/sample/probe_position"),
+            "the traced probe follows the live bounds centre"
+        );
         assert_ne!(
             scene.get(id).expect("object").spatial_key,
             first_key,

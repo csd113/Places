@@ -22,6 +22,8 @@ pub mod geometry_check;
 pub mod gltf;
 pub mod input;
 pub mod interact;
+mod item_input;
+mod item_runtime;
 pub mod level;
 pub mod lighting;
 #[cfg(test)]
@@ -43,6 +45,7 @@ pub mod materials;
 pub mod nav;
 pub mod package;
 pub mod perf;
+pub mod physics;
 pub mod props;
 pub mod quality;
 pub mod render;
@@ -765,6 +768,8 @@ struct FrameLoop<'a> {
     perf_overlay: &'a mut PerfOverlay,
     console: console::Console,
     console_runtime: console::runtime::Runtime,
+    items: item_runtime::Items,
+    video: Option<perf::video::Recording>,
     ui_cache: &'a mut UiGeometryCache,
     ui_scratch: &'a mut Vec<Vertex>,
     applied_filtering: &'a mut String,
@@ -1028,19 +1033,14 @@ impl FrameLoop<'_> {
             self.game.set_benchmark_simulation_delta(delta);
         }
         if !self.console.is_open() {
-            self.apply_move_script();
-            self.game
-                .update_player_movement(self.input_handler.state_mut(), self.settings);
+            self.update_player_input();
         }
         self.log_player_state();
         // One press is one interaction: consume the edge the movement update
         // latched, resolve the object under the crosshair and run its
         // map-authored actions. `window_focused` gates the key the same way it
         // gates relative mouse mode.
-        let interact_pressed = self.game.take_interact_press();
-        if interact_pressed && self.window_focused {
-            self.dispatch_interaction();
-        }
+        self.dispatch_player_interactions();
         self.dispatch_dev_interactions();
         // Door leaves follow the gameplay state: the drawn slab and the
         // physical collider read the same angle, so a door can never stop the
@@ -1056,8 +1056,7 @@ impl FrameLoop<'_> {
         // The entity runtime's spawn/despawn/move/material/audio commands are
         // applied before this frame draws, so a spawn requested by a trigger
         // or interaction is visible on the frame it happened.
-        self.apply_world_commands();
-        self.apply_bench_lighting_actions();
+        self.apply_live_scene_commands();
         // Advance the dynamic objects (the demonstration drum and any other
         // spawned object) once per frame: transform only, never a geometry or
         // lightmap rebuild.
@@ -1170,7 +1169,14 @@ impl FrameLoop<'_> {
     /// The dispatcher itself is engine state ([`Game`]); this only narrates
     /// the outcome to the developer log, and never reaches into the renderer.
     fn dispatch_interaction(&mut self) {
-        let Some(report) = self.game.dispatch_interaction() else {
+        if self.dispatch_item_interaction() {
+            return;
+        }
+        let Some(item_runtime::InteractionTarget::World { index, distance: _ }) = self.items.target
+        else {
+            return;
+        };
+        let Some(report) = self.game.dispatch_interaction_at(Some(index)) else {
             return;
         };
         if report.player_reset {
@@ -1209,6 +1215,12 @@ impl FrameLoop<'_> {
         let commands = self.game.entities_mut().take_commands();
         for command in commands {
             match command {
+                crate::entities::WorldCommand::ActivatePhysicsGroup { group } => {
+                    self.activate_item_group(&group);
+                }
+                crate::entities::WorldCommand::ResetPhysicsGroup { group } => {
+                    self.reset_item_group(&group);
+                }
                 crate::entities::WorldCommand::SetWeatherAlternate { alternate } => {
                     let _weather_changed = self.renderer.set_weather_alternate(alternate);
                 }
@@ -1885,12 +1897,16 @@ impl FrameLoop<'_> {
     /// last call asked for: a platform can drop relative mode on its own (a
     /// focus change, an OS capture change), and the mode is re-asserted on the
     /// next frame whenever it differs from the desired one.
-    fn sync_mouse_capture(&self) {
+    fn sync_mouse_capture(&mut self) {
         let desired = !self.console.is_open()
             && self.load_intent.is_none()
             && self.game.app_state() == AppState::Playing
             && self.window_focused;
-        if self.sdl.mouse().relative_mouse_mode(self.window) != desired {
+        let captured = self.sdl.mouse().relative_mouse_mode(self.window);
+        if !desired || !captured {
+            self.items.input.invalidate();
+        }
+        if captured != desired {
             self.sdl
                 .mouse()
                 .set_relative_mouse_mode(self.window, desired);
@@ -2067,15 +2083,8 @@ impl FrameLoop<'_> {
     }
 
     fn handle_scripted_action(&mut self, received: perf::actions::Received) -> bool {
-        self.trace.record(
-            "action",
-            self.load_generation,
-            &serde_json::json!({
-                "id": received.id, "kind": format!("{:?}", received.action),
-                "latency_ms": received.latency.as_secs_f64() * 1_000.0_f64,
-            })
-            .to_string(),
-        );
+        self.trace_scripted_action(&received);
+        self.apply_item_script_action(&received.action);
         match received.action {
             perf::actions::Action::Load { level } => {
                 if let Some(index) = self
@@ -2101,19 +2110,33 @@ impl FrameLoop<'_> {
             }
             perf::actions::Action::Key { key, pressed } => self.scripted_key(&key, pressed),
             perf::actions::Action::Text { text, submit } => {
-                let _handled = self.handle_event(&Event::TextInput {
-                    timestamp: 0,
-                    window_id: self.window.id(),
-                    text,
-                });
-                if submit {
-                    self.scripted_key("Return", true);
-                    self.scripted_key("Return", false);
-                }
+                self.scripted_text(text, submit);
             }
+            perf::actions::Action::Player {
+                position: _,
+                yaw: _,
+                pitch: _,
+            }
+            | perf::actions::Action::ItemPose {
+                id: _,
+                position: _,
+                rotation: _,
+            }
+            | perf::actions::Action::ItemVelocity {
+                id: _,
+                linear: _,
+                angular: _,
+            }
+            | perf::actions::Action::Fixture { id: _, on: _ }
+            | perf::actions::Action::AimItem { id: _ }
+            | perf::actions::Action::Activate { id: _ }
+            | perf::actions::Action::Mouse {
+                button: _,
+                pressed: _,
+                recapture: _,
+            } => {}
             perf::actions::Action::Capture { name } => {
-                let path = assets::state_root().join(format!("{name}.png"));
-                write_capture(self.renderer, &path);
+                self.items.captures.push_back(name);
             }
             perf::actions::Action::Resize { width, height } => {
                 if let Err(error) = self.window.set_size(width, height) {
@@ -2154,11 +2177,27 @@ impl FrameLoop<'_> {
                 });
             }
             perf::actions::Action::Quit {} => {
+                if !self.items.captures.is_empty() {
+                    self.items.quit_after_captures = true;
+                    return true;
+                }
                 return self.handle_event(&Event::Quit { timestamp: 0 });
             }
         }
         self.trace_world("action_result");
         self.game.is_running()
+    }
+
+    fn trace_scripted_action(&mut self, received: &perf::actions::Received) {
+        self.trace.record(
+            "action",
+            self.load_generation,
+            &serde_json::json!({
+                "id": received.id, "kind": format!("{:?}", received.action),
+                "latency_ms": received.latency.as_secs_f64() * 1_000.0_f64,
+            })
+            .to_string(),
+        );
     }
 
     fn handle_graphics_key_release(&mut self, event: &Event) -> bool {
@@ -2178,6 +2217,11 @@ impl FrameLoop<'_> {
             window_id: _,
         } = event
         {
+            if matches!(win_event, WindowEvent::FocusLost | WindowEvent::FocusGained) {
+                self.items
+                    .input
+                    .focus_changed(self.event_pump.mouse_state().left());
+            }
             if matches!(win_event, WindowEvent::FocusLost) {
                 self.window_focused = false;
                 self.close_console();
@@ -2201,6 +2245,7 @@ impl FrameLoop<'_> {
 
     /// Handles one SDL event; returns `false` when the pump should stop.
     fn handle_event(&mut self, event: &Event) -> bool {
+        self.observe_item_mouse(event);
         if let Some(received) = self
             .actions
             .as_ref()
@@ -2966,12 +3011,17 @@ impl FrameLoop<'_> {
             })
             .collect();
         self.trace.record(event, self.load_generation, &serde_json::json!({
+            "physics": {"held": self.items.world.held(), "stats": self.items.world.stats(), "bodies": self.items.world.snapshots(), "contacts": self.items.world.contact_pairs(), "contact_impulses": self.items.world.contact_impulses(), "authored": self.items.authored, "lighting": self.item_lighting_snapshots()},
             "current_level_id": self.current_level.as_ref().map(|loaded| loaded.level.id.as_str()),
             "renderer_level_id": renderer_level,
             "walls": self.game.walls().len(), "interactables": self.game.interactables().len(),
             "routes": self.game.routes().len(), "triggers": self.game.volume_count(),
             "characters": self.renderer.character_count(), "dynamic_objects": self.renderer.dynamic_scene().len(),
             "player_position": position, "quality": self.settings.quality_level().name(),
+            "view_direction": self.game.view_direction().to_array(),
+            "interaction_target": self.interaction_target_snapshot(),
+            "interaction_hand_visible": self.items.hand_visible(),
+            "player_yaw": self.game.player_yaw, "player_pitch": self.game.player_pitch,
             "lighting": self.settings.lighting_quality().name(),
             "use_low_quality_lighting": self.settings.use_low_quality_lighting,
             "lightmaps": self.settings.lightmap_quality().name(), "reflections": self.settings.reflection_quality().name(),
@@ -3000,7 +3050,10 @@ impl FrameLoop<'_> {
         else {
             return;
         };
-        self.console_runtime.clear_previews(self.renderer);
+        if !matches!(intent, LoadIntent::Graphics) {
+            self.console_runtime
+                .clear_given_props(self.renderer, &mut self.items.world);
+        }
         self.close_console();
         self.trace.record("gpu_ready", id, &loaded.level.id);
         logging::info(format!("[loading] committed {}", loaded.level.id));
@@ -3013,6 +3066,7 @@ impl FrameLoop<'_> {
             *self.spawn_yaw = loaded.level.spawn.yaw_degrees.to_radians();
             self.game
                 .reset_level(*self.spawn_pos, *self.spawn_yaw, collision);
+            self.install_physical_items(&loaded.level, &loaded.materials);
             if matches!(intent, LoadIntent::Play) {
                 self.game.set_app_state(AppState::Playing);
             }
@@ -3196,12 +3250,13 @@ impl FrameLoop<'_> {
         );
         // Labels are only appended while actually playing, never in a menu or a
         // pause; the overlay is appended on demand.
-        let show_labels = self.game.app_state() == AppState::Playing;
+        let show_labels = self.game.app_state() == AppState::Playing && !self.console.is_open();
         if show_labels || self.perf_overlay.is_visible() || self.console.is_open() {
             self.ui_scratch.clear();
             self.ui_scratch.extend_from_slice(ui_vertices);
             if show_labels {
-                interact::append_world_labels(
+                let item_hint = self.items.hand_visible();
+                interact::append_world_labels_with_hint(
                     self.ui_scratch,
                     self.game,
                     &render::RenderCamera::new(
@@ -3211,7 +3266,12 @@ impl FrameLoop<'_> {
                         self.settings.fov_degrees,
                     ),
                     drawable,
+                    false,
+                    &self.settings.bindings.interact,
                 );
+                if item_hint {
+                    ui::append_interaction_hint(self.ui_scratch, &self.settings.bindings.interact);
+                }
             }
             if self.perf_overlay.is_visible() {
                 self.ui_scratch
@@ -3281,9 +3341,9 @@ impl FrameLoop<'_> {
 
     /// Frame-based screenshots also support the settled source-only menu.
     /// Timed lighting captures continue to require a prepared world.
-    fn capture_ready_screen(&mut self, world_ready: bool) {
+    fn capture_ready_screen(&mut self, world_ready: bool, frame_begin: Instant) {
         let capture_ready = world_ready
-            || (self.capture_path.is_some()
+            || ((self.capture_path.is_some() || !self.items.captures.is_empty())
                 && self.capture_at_seconds.is_none()
                 && self.current_level.is_none()
                 && self.load_intent.is_none()
@@ -3291,6 +3351,8 @@ impl FrameLoop<'_> {
                 && self.game.app_state() == AppState::MainMenu);
         if capture_ready {
             self.ready_frames = self.ready_frames.saturating_add(1);
+            self.capture_item_frame();
+            self.record_video_frame(frame_begin);
         }
         self.capture_if_due(capture_ready);
     }
@@ -3319,6 +3381,7 @@ impl FrameLoop<'_> {
             ));
         }
         if !ready
+            || !self.items.captures.is_empty()
             || !self
                 .actions
                 .as_ref()
@@ -3469,7 +3532,7 @@ impl FrameLoop<'_> {
         }
 
         let ready = self.current_level.is_some() && self.load_intent.is_none();
-        self.capture_ready_screen(ready);
+        self.capture_ready_screen(ready, frame_begin);
 
         // Swap window buffer (double buffered, VSync synchronized). The
         // renderer presents its acquired surface texture.
@@ -3508,6 +3571,7 @@ impl FrameLoop<'_> {
                     .actions
                     .as_ref()
                     .is_none_or(perf::actions::Actions::complete)
+                && self.items.captures.is_empty()
             {
                 self.trace_world("benchmark_complete");
                 self.bench.finish();
@@ -3769,6 +3833,8 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
         perf_overlay: &mut perf_overlay,
         console: console::Console::default(),
         console_runtime: console::runtime::Runtime::default(),
+        items: item_runtime::Items::new(),
+        video: perf::video::Recording::from_env(),
         ui_cache: &mut ui_cache,
         ui_scratch: &mut ui_scratch,
         applied_filtering: &mut applied_filtering,

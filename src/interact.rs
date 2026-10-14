@@ -8,8 +8,7 @@
 //!
 //! * [`Interactable`] / [`Interactables`] — the aiming table derived from the
 //!   entities that carry an `interactable` component (plus label-only targets),
-//!   resolved once at level load into a world-space anchor and an axis-aligned
-//!   bound;
+//!   resolved into a world anchor, oriented aim box and conservative label bound;
 //! * [`nearest_target`] — the controller's "nearest eligible object the player
 //!   is looking at" test, including reach, occlusion and the acting player's
 //!   stance-aware eye;
@@ -59,6 +58,9 @@ const SELF_OCCLUSION_EPS_M: f32 = 1.0e-3;
 /// grazes that surface.
 const LABEL_OCCLUSION_EPS_M: f32 = 0.05;
 
+/// Millimetre tolerance for interaction surfaces and foreground blockers.
+pub const INTERACTION_OCCLUSION_EPS_M: f32 = 0.001;
+
 /// Scale of floating world labels in the 480x272 reference space.
 const LABEL_TEXT_SCALE: f32 = 1.0;
 
@@ -89,8 +91,11 @@ pub struct Interactable {
     pub reach: f32,
     /// World position the floating label anchors to (top centre, plus margin).
     pub anchor: Vec3,
-    /// Conservative world-space bounds for the view-ray test.
+    /// Conservative world-space bounds for label placement and broad queries.
     pub bounds: Aabb,
+    /// Current prop yaw for its exact oriented aim box; doors use their live
+    /// collider instead. AI and route updates republish this with the bounds.
+    pub yaw_degrees: f32,
     /// The instance's collision size contract `[width, height, depth]`, scaled:
     /// the authored `size` or the standard prop box. A routed instance
     /// republishes its live bounds from this and its current yaw.
@@ -322,6 +327,9 @@ impl Interactables {
     /// `own_box` is not moved: a routed entity is validated as `solid: false`,
     /// and a solid prop's box stays where the level authored it.
     pub fn set_live_pose(&mut self, index: usize, position: Vec3, yaw_degrees: f32) -> bool {
+        if !position.is_finite() || !yaw_degrees.is_finite() {
+            return false;
+        }
         let Some(item) = self.items.get_mut(index) else {
             return false;
         };
@@ -343,6 +351,7 @@ impl Interactables {
                 position.y + size_y + LABEL_HEIGHT_MARGIN_M,
                 position.z,
             );
+            item.yaw_degrees = yaw_degrees;
         }
         true
     }
@@ -350,7 +359,7 @@ impl Interactables {
 
 /// The axis-aligned half-extents of a yaw-rotated rectangle, in `(x, z)`.
 ///
-/// The interaction bound is conservative: rotating the model can only grow its
+/// The label bound is conservative: rotating the model can only grow its
 /// axis-aligned footprint, never shrink it.
 #[must_use]
 pub(crate) fn rotated_half_extents(
@@ -373,8 +382,8 @@ pub(crate) fn rotated_half_extents(
 ///
 /// `direction` need not be normalised. A target is eligible when the ray enters
 /// its bounds within that instance's reach and no wall obstructs the ray before
-/// that entry. A door's aim entry is measured against the leaf's own oriented
-/// box, never the conservative axis-aligned bound that only the label uses: an
+/// that entry. Props use their oriented size box and doors use the current leaf,
+/// never the conservative axis-aligned bound that only the label uses: an
 /// open leaf's swept AABB covers a wide angle around the hinge, and a ray that
 /// misses the leaf but crosses that bound must not steal the aim from whatever
 /// is actually on the line. A solid prop's own collision box is part of
@@ -389,10 +398,10 @@ pub fn nearest_target(
     walls: &[WallAabb],
     doors: &[DoorCollider],
 ) -> Option<usize> {
-    if items.is_empty() || direction.length_squared() <= f32::EPSILON {
+    if items.is_empty() || !origin.is_finite() {
         return None;
     }
-    let unit_direction = direction.normalize();
+    let unit_direction = direction.try_normalize()?;
     let mut best: Option<(usize, f32)> = None;
     for (index, item) in items.iter().enumerate() {
         if !item.enabled {
@@ -405,8 +414,11 @@ pub fn nearest_target(
             origin,
             unit_direction,
             entry,
-            item.own_box.as_ref(),
-            item.door_index,
+            OcclusionTarget {
+                own_box: item.own_box.as_ref(),
+                own_door: item.door_index,
+                margin: INTERACTION_OCCLUSION_EPS_M,
+            },
             walls,
             doors,
         ) {
@@ -419,14 +431,25 @@ pub fn nearest_target(
     best.map(|(index, _)| index)
 }
 
-/// The distance at which a ray enters one aimable instance, or `None` when it
-/// misses or is beyond the instance's own reach.
+/// Surface distance to one enabled target on an exact view ray, within reach.
 ///
-/// A door target is the one case with two representations: its item bound is
-/// the conservative AABB of the swinging leaf (used for labels), while the
-/// leaf itself is an oriented box. The oriented box is the exact one, so the
-/// entry is measured there; everything else is measured against its bound.
+/// `direction` is normalized before testing the prop's oriented size box or a
+/// door's current leaf. This reports target geometry only; callers combine it
+/// with world occlusion or nearer physics contacts to choose a global target.
 #[must_use]
+pub fn target_distance(
+    origin: Vec3,
+    direction: Vec3,
+    item: &Interactable,
+    doors: &[DoorCollider],
+) -> Option<f32> {
+    if !origin.is_finite() || !item.enabled {
+        return None;
+    }
+    target_entry(origin, direction.try_normalize()?, item, doors)
+}
+
+/// Exact ray entry into an oriented target, with an already normalized ray.
 fn target_entry(
     origin: Vec3,
     direction: Vec3,
@@ -437,7 +460,33 @@ fn target_entry(
         let door = doors.get(door_index)?;
         return door.ray_entry(origin, direction, item.reach);
     }
-    let entry = ray_aabb_entry(origin, direction, item.bounds.min, item.bounds.max)?;
+    let [width, height, depth] = item.size;
+    let [min_x, base_y, min_z] = item.bounds.min;
+    let [max_x, _, max_z] = item.bounds.max;
+    if !item.yaw_degrees.is_finite()
+        || !item.size.iter().all(|size| size.is_finite() && *size > 0.0)
+        || item.bounds.is_empty()
+        || !item
+            .bounds
+            .min
+            .iter()
+            .chain(&item.bounds.max)
+            .all(|value| value.is_finite())
+    {
+        return None;
+    }
+    let relative_origin = Vec3::new(
+        origin.x - f32::midpoint(min_x, max_x),
+        origin.y - base_y,
+        origin.z - f32::midpoint(min_z, max_z),
+    );
+    let inverse_yaw = glam::Quat::from_rotation_y(-item.yaw_degrees.to_radians());
+    let entry = ray_aabb_entry(
+        inverse_yaw.mul_vec3(relative_origin),
+        inverse_yaw.mul_vec3(direction),
+        [-width * 0.5, 0.0, -depth * 0.5],
+        [width * 0.5, height, depth * 0.5],
+    )?;
     (entry <= item.reach).then_some(entry)
 }
 
@@ -455,10 +504,10 @@ pub fn nearest_target_indexed(
     walls: &[WallAabb],
     doors: &[DoorCollider],
 ) -> Option<usize> {
-    if items.is_empty() || direction.length_squared() <= f32::EPSILON {
+    if items.is_empty() || !origin.is_finite() {
         return None;
     }
-    let unit_direction = direction.normalize();
+    let unit_direction = direction.try_normalize()?;
     let mut best: Option<(usize, f32)> = None;
     for (item_index, item) in items.iter().enumerate() {
         if !item.enabled {
@@ -471,9 +520,10 @@ pub fn nearest_target_indexed(
             origin,
             unit_direction,
             entry,
-            OwnBody {
+            OcclusionTarget {
                 own_box: item.own_box.as_ref(),
                 own_door: item.door_index,
+                margin: INTERACTION_OCCLUSION_EPS_M,
             },
             index,
             walls,
@@ -488,13 +538,15 @@ pub fn nearest_target_indexed(
     best.map(|(nearest_index, _)| nearest_index)
 }
 
-/// A target's own collision body, which never occludes its own entry.
+/// Self-collision exclusions and the sight margin for a target or label query.
 #[derive(Clone, Copy)]
-struct OwnBody<'a> {
+struct OcclusionTarget<'a> {
     /// A solid prop's own box, if the target is one.
     own_box: Option<&'a WallAabb>,
     /// The target door's leaf index, if the target is a door.
     own_door: Option<usize>,
+    /// Interaction uses one millimetre; projected labels retain five centimetres.
+    margin: f32,
 }
 
 /// True when the collision world leaves the finite sight line from `origin` to
@@ -526,7 +578,11 @@ pub fn clear_line_of_sight_indexed(
         origin,
         direction,
         length,
-        OwnBody { own_box, own_door },
+        OcclusionTarget {
+            own_box,
+            own_door,
+            margin: LABEL_OCCLUSION_EPS_M,
+        },
         index,
         walls,
         doors,
@@ -541,12 +597,12 @@ fn occluded_before_indexed(
     origin: Vec3,
     direction: Vec3,
     entry: f32,
-    own: OwnBody<'_>,
+    own: OcclusionTarget<'_>,
     index: &crate::collision_index::CollisionIndex,
     walls: &[WallAabb],
     doors: &[DoorCollider],
 ) -> bool {
-    let limit = entry - LABEL_OCCLUSION_EPS_M;
+    let limit = entry - own.margin;
     if nearest_door_entry(doors, origin, direction, limit)
         .is_some_and(|(door_index, _)| own.own_door != Some(door_index))
     {
@@ -578,22 +634,21 @@ fn occluded_before(
     origin: Vec3,
     direction: Vec3,
     entry: f32,
-    own_box: Option<&WallAabb>,
-    own_door: Option<usize>,
+    own: OcclusionTarget<'_>,
     walls: &[WallAabb],
     doors: &[DoorCollider],
 ) -> bool {
     // Float comparison against a fixed tolerance; no overflow path exists for
     // bounded world coordinates.
 
-    let limit = entry - LABEL_OCCLUSION_EPS_M;
+    let limit = entry - own.margin;
     if nearest_door_entry(doors, origin, direction, limit)
-        .is_some_and(|(index, _)| own_door != Some(index))
+        .is_some_and(|(index, _)| own.own_door != Some(index))
     {
         return true;
     }
     for wall in walls {
-        if own_box.is_some_and(|own| same_box(wall, own)) {
+        if own.own_box.is_some_and(|own_box| same_box(wall, own_box)) {
             continue;
         }
         let wall_min = [wall.min_x, wall.min_y, wall.min_z];
@@ -624,7 +679,7 @@ fn same_box(a: &WallAabb, b: &WallAabb) -> bool {
 }
 
 /// Appends the floating display names of every toggled-on instance and the
-/// prompt of the currently aimed-at instance to an existing UI vertex list.
+/// interaction hand for the currently aimed-at instance to a UI vertex list.
 ///
 /// The caller passes the same camera and drawable the frame is rendered with,
 /// so labels track the scene; the vertices use the existing 2D text pipeline
@@ -635,6 +690,19 @@ pub fn append_world_labels(
     game: &Game,
     camera: &RenderCamera,
     drawable: DrawableSize,
+) {
+    append_world_labels_with_hint(vertices, game, camera, drawable, true, "E");
+}
+
+/// Appends world labels with a shared, rebound-key interaction hint when the
+/// frame's selected item does not own that hint.
+pub fn append_world_labels_with_hint(
+    vertices: &mut Vec<Vertex>,
+    game: &Game,
+    camera: &RenderCamera,
+    drawable: DrawableSize,
+    show_hint: bool,
+    key: &str,
 ) {
     let viewport = drawable.ui_viewport();
     if viewport.width <= 0_i32 || viewport.height <= 0_i32 {
@@ -661,10 +729,11 @@ pub fn append_world_labels(
             draw_world_label(vertices, &item.display_name, x, y);
         }
     }
-    if let Some(target) = game.interaction_target()
-        && let Some(item) = items.get(target)
+    if show_hint
+        && let Some(target) = game.interaction_target()
+        && items.get(target).is_some()
     {
-        draw_interaction_prompt(vertices, &item.prompt);
+        crate::ui::append_interaction_hint(vertices, key);
     }
 }
 
@@ -749,24 +818,6 @@ fn draw_world_label(vertices: &mut Vec<Vertex>, text: &str, x: f32, y: f32) {
     );
 }
 
-/// Draws the Interact prompt under the crosshair when something is in reach.
-fn draw_interaction_prompt(vertices: &mut Vec<Vertex>, prompt: &str) {
-    // Reference-space layout arithmetic: fixed, bounded pixel offsets.
-    let text = format!("[E] {prompt}");
-    let width = crate::ui::text_width(&text, 1.0);
-    let x = width.mul_add(-0.5, pixel_f32(UI_REFERENCE_WIDTH) * 0.5);
-    let y = pixel_f32(UI_REFERENCE_HEIGHT).mul_add(0.5, 22.0);
-    crate::ui::add_rect_rgba(
-        vertices,
-        x - 4.0,
-        y - 3.0,
-        x + width + 4.0,
-        y + 11.0,
-        [0.05, 0.05, 0.06, 0.55],
-    );
-    crate::ui::draw_text(vertices, &text, x, y, 1.0, [0.98, 0.96, 0.80]);
-}
-
 #[cfg(test)]
 mod tests {
     // Test code: unwrap/expect, indexing and permissive arithmetic are
@@ -780,6 +831,149 @@ mod tests {
     use super::*;
     use crate::collision::WallAabb;
     use crate::game::{CollisionWorld, Game, spawn_position};
+
+    fn box_target(position: Vec3, size: [f32; 3], yaw_degrees: f32, reach: f32) -> Interactable {
+        let mut table = Interactables::with_items(vec![Interactable {
+            id: "box".into(),
+            display_name: "box".into(),
+            prompt: String::new(),
+            reach,
+            anchor: Vec3::ZERO,
+            bounds: Aabb::EMPTY,
+            yaw_degrees,
+            size,
+            own_box: None,
+            door_index: None,
+            enabled: true,
+        }]);
+        assert!(table.set_live_pose(0, position, yaw_degrees));
+        table.get(0).expect("one synchronized target").clone()
+    }
+
+    /// Three descriptors cover nearest surface, off-axis rejection, distance
+    /// normalization, reach and wall blocking without images or a map bake.
+    #[test]
+    fn exact_ray_targets_only_the_nearest_in_reach_surface() {
+        let origin = Vec3::new(0.0, 0.5, 0.0);
+        let direction = Vec3::NEG_Z;
+        let near = box_target(Vec3::new(0.0, 0.0, -1.0), [0.1, 1.0, 0.1], 0.0, 2.5);
+        let far = box_target(Vec3::new(0.0, 0.0, -2.0), [0.1, 1.0, 0.1], 0.0, 2.5);
+        let off_axis = box_target(Vec3::new(0.25, 0.0, -0.4), [0.1, 1.0, 0.1], 0.0, 2.5);
+        assert!(target_distance(origin, direction, &off_axis, &[]).is_none());
+        assert_eq!(
+            nearest_target(origin, direction, &[off_axis, far, near.clone()], &[], &[]),
+            Some(2)
+        );
+        let distance = target_distance(origin, Vec3::new(0.0, 0.0, -10.0), &near, &[])
+            .expect("normalized ray intersects the near surface");
+        assert!((distance - 0.95).abs() < 1.0e-5);
+        let mut outside_reach = near.clone();
+        outside_reach.reach = 0.9;
+        assert!(target_distance(origin, direction, &outside_reach, &[]).is_none());
+        let wall = WallAabb::with_y(-0.2, 0.0, -0.7, 0.4, 1.0, 0.05);
+        let collision_index = crate::collision_index::CollisionIndex::build(&[wall]);
+        assert_eq!(
+            nearest_target(origin, direction, std::slice::from_ref(&near), &[wall], &[]),
+            None
+        );
+        assert_eq!(
+            nearest_target_indexed(
+                origin,
+                direction,
+                std::slice::from_ref(&near),
+                &collision_index,
+                &[wall],
+                &[]
+            ),
+            None
+        );
+        assert!(target_distance(origin, Vec3::ZERO, &near, &[]).is_none());
+        let close_wall = WallAabb::with_y(-0.2, 0.0, -0.945, 0.4, 1.0, 0.005);
+        let close_index = crate::collision_index::CollisionIndex::build(&[close_wall]);
+        assert_eq!(
+            nearest_target(
+                origin,
+                direction,
+                std::slice::from_ref(&near),
+                &[close_wall],
+                &[]
+            ),
+            None
+        );
+        assert_eq!(
+            nearest_target_indexed(
+                origin,
+                direction,
+                std::slice::from_ref(&near),
+                &close_index,
+                &[close_wall],
+                &[]
+            ),
+            None
+        );
+        assert!(
+            clear_line_of_sight_indexed(
+                origin,
+                Vec3::new(0.0, 0.5, -0.95),
+                None,
+                None,
+                &close_index,
+                &[close_wall],
+                &[],
+            ),
+            "labels retain their five-centimetre surface margin"
+        );
+        assert!(target_distance(Vec3::splat(f32::NAN), direction, &near, &[]).is_none());
+    }
+
+    /// A thin diagonal target leaves empty corners in its AABB. This fixture
+    /// catches off-axis selection and proves a live turn updates the exact box.
+    #[test]
+    fn thin_rotated_targets_use_their_live_oriented_box() {
+        let item = box_target(Vec3::new(0.0, 0.0, -1.0), [2.0, 1.0, 0.05], 45.0, 4.0);
+        let corner_origin = Vec3::new(0.6, 0.5, -0.4);
+        assert!(ray_aabb_entry(corner_origin, Vec3::X, item.bounds.min, item.bounds.max).is_some());
+        assert!(target_distance(corner_origin, Vec3::X, &item, &[]).is_none());
+        let across_center = Vec3::new(0.0, 0.5, 0.0);
+        assert!(target_distance(across_center, Vec3::NEG_Z, &item, &[]).is_some());
+        let mut table = Interactables::with_items(vec![item]);
+        assert!(table.set_live_pose(0, Vec3::new(0.0, 0.0, -1.0), 0.0));
+        assert!(
+            target_distance(
+                corner_origin,
+                Vec3::X,
+                table.get(0).expect("live target"),
+                &[]
+            )
+            .is_none()
+        );
+        assert!(table.set_live_pose(0, Vec3::new(0.0, 0.0, -0.4), 0.0));
+        assert!(
+            target_distance(
+                corner_origin,
+                Vec3::X,
+                table.get(0).expect("moved target"),
+                &[]
+            )
+            .is_some()
+        );
+        let mut level = test_level();
+        level.spawn.x = 2.5;
+        level.props[0].rotation_degrees = 45.0;
+        level.props[0].size = Some([2.0, 1.8, 0.05]);
+        let game = facing_game(&level);
+        assert_eq!(
+            nearest_target(
+                game.player_position,
+                game.view_direction(),
+                game.interactables().items(),
+                game.walls(),
+                &[],
+            ),
+            Some(0),
+            "the conservative solid collider must not occlude its rotated target"
+        );
+    }
 
     fn test_level() -> LevelDef {
         LevelDef::from_json(
@@ -990,6 +1184,7 @@ mod tests {
             reach: 4.0,
             anchor: sync.anchor,
             bounds: sync.bounds,
+            yaw_degrees: 0.0,
             size: [1.6, 2.1, 0.05],
             own_box: None,
             door_index: Some(0),
@@ -1008,6 +1203,7 @@ mod tests {
                 min: [1.3, 0.0, 0.75],
                 max: [1.5, 1.2, 1.05],
             },
+            yaw_degrees: 0.0,
             size: [0.2, 1.2, 0.3],
             own_box: None,
             door_index: None,

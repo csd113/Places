@@ -127,7 +127,9 @@ fn character_claim_plan(
     let mut counts: HashMap<String, (usize, usize)> = HashMap::new();
     let mut overflow_reported = false;
     for (prop_index, prop) in level.props.iter().enumerate() {
-        if prop.float.is_some() {
+        // Water and rigid-body motion own their live transforms. Claiming the
+        // authored pose here would leave a second animated copy behind.
+        if prop.float.is_some() || prop.is_physics_movable() {
             continue;
         }
         let Some(model_path) = catalog.get(&prop.model).model else {
@@ -4549,6 +4551,7 @@ mod tests {
         let asset = Arc::clone(actor.asset());
         let centre = actor.lighting_sample_position();
         let mut field = ProbeField {
+            switchable_indirect: Vec::new(),
             local_direct: None,
             min: centre.map(|v| v - 0.5),
             cell_m: 1.0,

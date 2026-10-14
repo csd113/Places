@@ -770,6 +770,7 @@ fn prepared_blend_decals_read_the_probe_field_and_cutout_decals_do_not() {
     let (mut mesh, _) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
     let lighting = LevelLighting::bake(&level);
     let field = crate::lighting::probes::ProbeField {
+        switchable_indirect: Vec::new(),
         local_direct: None,
         min: [-10.0, -10.0, -10.0],
         cell_m: 40.0,
@@ -1819,6 +1820,7 @@ fn placeholder_prop_boxes_receive_the_environment_lighting() {
             components: Vec::new(),
             bindings: Vec::new(),
             lights: Vec::new(),
+            physics: None,
             float: None,
         },
         PropDef {
@@ -1836,6 +1838,7 @@ fn placeholder_prop_boxes_receive_the_environment_lighting() {
             components: Vec::new(),
             bindings: Vec::new(),
             lights: Vec::new(),
+            physics: None,
             float: None,
         },
     ];
@@ -1891,6 +1894,7 @@ fn vertically_offset_props_sample_their_true_world_position() {
         components: Vec::new(),
         bindings: Vec::new(),
         lights: Vec::new(),
+        physics: None,
         float: None,
     };
     let mut raised = base.clone();
@@ -8816,23 +8820,46 @@ fn a_scrub_cue_reverses_from_the_current_pose_and_holds_its_ends() {
     assert!(animator.take_cue_finished(), "arrival is reported once");
 }
 
-/// an idle rigid prop holds its bind pose. It has no locomotion state,
-/// so the character path must not loop its non-locomotion clip.
+/// An idle rigid prop holds its bind pose. It has no locomotion state,
+/// so the character path must not loop its non-locomotion clip. Movable
+/// physics twins never claim an additional authored-pose character.
 #[test]
 fn an_idle_rigid_prop_holds_its_bind_pose() {
     let bytes = std::fs::read("assets/environments/home/props/wall_switch.glb")
         .expect("the shipped wall switch is readable");
     let model = crate::gltf::parse_glb(&bytes).expect("the wall switch parses");
+    assert!(
+        model.is_animatable(),
+        "fixture must exercise rigid animation claims"
+    );
     let catalog = shipped_catalog();
     let mut assets = shipped_assets();
     let level = duck_pool_level(
         r#"[{ "id": "hall_switch", "model": "home:wall_switch", "x": 2.0, "z": 2.0,
-              "size": [0.18, 0.18, 0.1] }]"#,
+              "size": [0.18, 0.18, 0.1], "physics": { "motion": "fixed" } },
+            { "id": "moving_switch", "model": "home:wall_switch", "x": 3.0, "z": 2.0,
+              "physics": { "motion": "dynamic" } },
+            { "id": "driven_switch", "model": "home:wall_switch", "x": 4.0, "z": 2.0,
+              "physics": { "motion": "kinematic" } }]"#,
     );
     let lighting = LevelLighting::bake(&level);
     let mut scene = CharacterScene::spawn_characters(&level, &catalog, &mut assets, &lighting);
-    assert_eq!(scene.len(), 1, "the switch is claimed as a rigid character");
+    assert_eq!(
+        scene.len(),
+        1,
+        "only the fixed switch is claimed as a character"
+    );
+    let model_path = catalog
+        .get("home:wall_switch")
+        .model
+        .expect("switch model path");
+    assert_eq!(
+        scene.claimed_models(),
+        std::slice::from_ref(&model_path),
+        "movable twins never prevent the fixed instance's complete claim"
+    );
     let character = scene.characters().first().expect("one character");
+    assert_eq!(character.instance_id(), Some("hall_switch"));
     assert!(character.animator().is_rigid());
     let pivot = 1usize;
     let before = character
@@ -9032,6 +9059,7 @@ fn placeholder_prop_box_faces_point_out_of_the_box() {
     level.props = vec![PropDef {
         id: None,
         display_name: None,
+        physics: None,
         float: None,
         model: "core:crate".into(),
         x: 2.0,
@@ -9637,6 +9665,7 @@ fn single_probe(
     room: i32,
 ) -> crate::lighting::probes::ProbeField {
     crate::lighting::probes::ProbeField {
+        switchable_indirect: Vec::new(),
         local_direct: None,
         min: [position[0] - 1.0, position[1] - 1.0, position[2] - 1.0],
         cell_m: 2.0,
@@ -9922,6 +9951,7 @@ fn entity_probes_reject_room_labels_below_floors_and_above_ceilings() {
     use crate::render::common::light_transport::entity_lighting;
     let lighting = LevelLighting::bake(&one_fixture_room());
     let field = ProbeField {
+        switchable_indirect: Vec::new(),
         local_direct: None,
         min: [0.0, -2.0, 0.0],
         cell_m: 2.0,
@@ -9980,6 +10010,7 @@ fn entity_probe_blending_crosses_open_doorways_but_not_solid_walls() {
         .expect("doorway level")
     };
     let field = ProbeField {
+        switchable_indirect: Vec::new(),
         local_direct: None,
         min: [0.0; 3],
         cell_m: 2.0,

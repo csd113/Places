@@ -53,6 +53,11 @@ pub const ASSET_ROOT_CANDIDATES: [&str; 3] = ["assets", "./assets", "../assets"]
 /// Catalog file name inside the asset root.
 pub const CATALOG_FILE_NAME: &str = "catalog.json";
 
+/// Optional runtime-only physical metadata beside the render asset catalog.
+pub const GAMEPLAY_FILE_NAME: &str = "gameplay.json";
+
+const MAX_GAMEPLAY_JSON_BYTES: usize = 1_048_576;
+
 /// Environment variable that overrides where writable runtime state lives.
 ///
 /// The state root is the directory that owns `settings.json`, the drop-in
@@ -708,6 +713,9 @@ pub struct AssetThemeDef {
 pub struct AssetEntry {
     /// Physical traction on walkable surfaces using this material.
     pub ground_surface: crate::materials::GroundSurface,
+    /// Optional rigid-body ground contact coefficient; player locomotion still
+    /// follows `ground_surface`. Omission uses that surface's friction default.
+    pub ground_friction: Option<f32>,
     /// Stable logical id used by levels (`core:desk`, `spooner-man`).
     pub id: String,
     /// Human-readable name for tools and menus.
@@ -724,6 +732,9 @@ pub struct AssetEntry {
     pub color: Option<[f32; 3]>,
     pub category: Option<String>,
     pub solid: bool,
+    /// Optional reusable developer-spawned rigid item profile. Level placements
+    /// remain static unless they explicitly author their own physics settings.
+    pub physics: Option<crate::physics::config::PhysicsDef>,
     /// Surface a material applies to (`wall`, `floor`, `ceiling`).
     pub surface: Option<String>,
     /// Base texture asset a material draws with (`core:tex_carpet_beige_01`).
@@ -823,6 +834,63 @@ impl AssetEntry {
 pub struct AssetCatalog {
     entries: HashMap<String, AssetEntry>,
     themes: Vec<AssetThemeDef>,
+}
+
+/// A strict runtime-only override; visual catalog fields are never accepted.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GameplayOverride {
+    #[serde(default)]
+    physics: Option<crate::physics::config::PhysicsDef>,
+    #[serde(default)]
+    ground_friction: Option<f32>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GameplayFile {
+    format_version: u32,
+    assets: GameplayEntries,
+}
+
+/// JSON maps normally discard duplicate keys; physical overrides reject them.
+struct GameplayEntries(std::collections::BTreeMap<String, GameplayOverride>);
+
+impl<'de> serde::Deserialize<'de> for GameplayEntries {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct EntriesVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for EntriesVisitor {
+            type Value = GameplayEntries;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("an object of unique catalog ids and physical overrides")
+            }
+
+            fn visit_map<M: serde::de::MapAccess<'de>>(
+                self,
+                mut map: M,
+            ) -> Result<Self::Value, M::Error> {
+                let mut entries = std::collections::BTreeMap::new();
+                while let Some((id, value)) = map.next_entry::<String, GameplayOverride>()? {
+                    match entries.entry(id) {
+                        std::collections::btree_map::Entry::Vacant(entry) => {
+                            let _inserted = entry.insert(value);
+                        }
+                        std::collections::btree_map::Entry::Occupied(entry) => {
+                            return Err(serde::de::Error::custom(format!(
+                                "duplicate gameplay asset id `{}`",
+                                entry.key()
+                            )));
+                        }
+                    }
+                }
+                Ok(GameplayEntries(entries))
+            }
+        }
+
+        deserializer.deserialize_map(EntriesVisitor)
+    }
 }
 
 #[derive(serde::Deserialize)]
@@ -960,6 +1028,8 @@ struct CatalogEntryFile {
     #[serde(default)]
     ground_surface: Option<crate::materials::GroundSurface>,
     #[serde(default)]
+    ground_friction: Option<f32>,
+    #[serde(default)]
     id: String,
     #[serde(default)]
     display_name: String,
@@ -981,6 +1051,8 @@ struct CatalogEntryFile {
     category: Option<String>,
     #[serde(default)]
     solid: bool,
+    #[serde(default)]
+    physics: Option<crate::physics::config::PhysicsDef>,
     #[serde(default)]
     surface: Option<String>,
     #[serde(default)]
@@ -1052,6 +1124,14 @@ impl CatalogEntryFile {
         let id = self.logical_id()?;
         let asset_class = self.resolve_class(&id)?;
         let asset_type = self.resolve_type(&id)?;
+        if let Some(physics) = self.physics.as_ref() {
+            if !matches!(asset_type.as_str(), AssetType::PROP | AssetType::ENTITY) {
+                return Err(format!("{id}: physics requires a prop or entity asset"));
+            }
+            physics
+                .validate()
+                .map_err(|error| format!("{id}: {error}"))?;
+        }
         let theme = parse_optional_slug(self.theme.as_deref(), "theme", &id, AssetTheme::parse)?;
         let model = self.resolve_model(&id)?;
         let texture = self.resolve_texture(&id, &asset_type)?;
@@ -1060,6 +1140,7 @@ impl CatalogEntryFile {
         let grid_metres = self.resolve_grid_metres(&id, &asset_type)?;
         let tint = self.resolve_tint(&id, &asset_type)?;
         let source = self.resolve_source(&id, model.as_deref(), texture.as_deref())?;
+        let ground_friction = self.resolve_ground_friction(&id, &asset_type, source)?;
         let emission = self.resolve_emissive(&id, &asset_type, source)?;
         let response = self.resolve_response(&id, &asset_type, source)?;
         let uv_response_mask = self.resolve_fluorescence(&id, &asset_type, source)?;
@@ -1075,6 +1156,7 @@ impl CatalogEntryFile {
             .filter(|size| size.iter().all(|value| value.is_finite() && *value > 0.0));
         Ok(AssetEntry {
             ground_surface: self.ground_surface.unwrap_or_default(),
+            ground_friction,
             display_name: self.resolved_display_name(&id),
             id,
             asset_class,
@@ -1091,6 +1173,7 @@ impl CatalogEntryFile {
                 .filter(|category| !category.is_empty())
                 .map(str::to_string),
             solid: self.solid,
+            physics: self.physics.clone(),
             surface: self
                 .surface
                 .as_deref()
@@ -1131,6 +1214,29 @@ impl CatalogEntryFile {
                 .map(str::to_string),
             tags: self.tags.clone(),
         })
+    }
+
+    /// Ground friction is physical metadata on a material definition only.
+    fn resolve_ground_friction(
+        &self,
+        id: &str,
+        asset_type: &AssetType,
+        source: AssetSource,
+    ) -> Result<Option<f32>, String> {
+        let Some(friction) = self.ground_friction else {
+            return Ok(None);
+        };
+        if asset_type.as_str() != AssetType::MATERIAL || source != AssetSource::Definition {
+            return Err(format!(
+                "{id}: ground_friction requires a material definition"
+            ));
+        }
+        if !friction.is_finite() || !(0.0..=2.0).contains(&friction) {
+            return Err(format!(
+                "{id}: ground_friction must be finite and between 0 and 2"
+            ));
+        }
+        Ok(Some(friction))
     }
 
     /// Trims and validates the logical id.
@@ -1722,6 +1828,65 @@ impl AssetCatalog {
         check_references(&catalog)?;
         Ok(catalog)
     }
+
+    /// Applies runtime-only physical overrides without changing visual entries.
+    /// Catalog parsing itself remains independent of this optional sidecar.
+    ///
+    /// # Errors
+    /// Rejects malformed schema, unknown/duplicate ids, invalid physical values
+    /// or fields on incompatible asset types. Rejection leaves the catalog intact.
+    pub fn apply_gameplay_json(&mut self, json: &str) -> Result<(), String> {
+        if json.len() > MAX_GAMEPLAY_JSON_BYTES {
+            return Err("gameplay metadata exceeds the 1 MiB size limit".into());
+        }
+        let file: GameplayFile = serde_json::from_str(json)
+            .map_err(|error| format!("invalid gameplay metadata JSON: {error}"))?;
+        if file.format_version != 1 {
+            return Err("gameplay metadata format_version must be 1".into());
+        }
+        for (id, definition) in &file.assets.0 {
+            let entry = self
+                .entries
+                .get(id)
+                .ok_or_else(|| format!("gameplay asset `{id}` is not declared in the catalog"))?;
+            if definition.physics.is_none() && definition.ground_friction.is_none() {
+                return Err(format!(
+                    "gameplay asset `{id}` declares no physical override"
+                ));
+            }
+            if let Some(physics) = definition.physics.as_ref() {
+                if !entry.is_placeable() {
+                    return Err(format!("{id}: physics requires a prop or entity asset"));
+                }
+                physics
+                    .validate()
+                    .map_err(|error| format!("{id}: {error}"))?;
+            }
+            if let Some(friction) = definition.ground_friction {
+                if !entry.is_material() || entry.source != AssetSource::Definition {
+                    return Err(format!(
+                        "{id}: ground_friction requires a material definition"
+                    ));
+                }
+                if !friction.is_finite() || !(0.0..=2.0).contains(&friction) {
+                    return Err(format!(
+                        "{id}: ground_friction must be finite and between 0 and 2"
+                    ));
+                }
+            }
+        }
+        for (id, definition) in file.assets.0 {
+            if let Some(entry) = self.entries.get_mut(&id) {
+                if let Some(physics) = definition.physics {
+                    entry.physics = Some(physics);
+                }
+                if let Some(friction) = definition.ground_friction {
+                    entry.ground_friction = Some(friction);
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 /// Checks every cross-entry reference of a parsed catalog.
@@ -1810,7 +1975,16 @@ impl AssetCatalog {
     #[must_use]
     pub fn load_from_path(path: &Path) -> Option<Self> {
         let content = fs::read_to_string(path).ok()?;
-        match Self::from_json_str(&content) {
+        let parsed = Self::from_json_str(&content).and_then(|mut catalog| {
+            let sidecar = path.with_file_name(GAMEPLAY_FILE_NAME);
+            match read_gameplay_file(&sidecar) {
+                Ok(json) => catalog.apply_gameplay_json(&json)?,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(format!("{}: {error}", sidecar.display())),
+            }
+            Ok(catalog)
+        });
+        match parsed {
             Ok(catalog) => Some(catalog),
             Err(error) => {
                 crate::logging::warn_once(
@@ -1988,6 +2162,17 @@ impl AssetCatalog {
     }
 }
 
+fn read_gameplay_file(path: &Path) -> std::io::Result<String> {
+    use std::io::Read;
+    let file = fs::File::open(path)?;
+    let limit = u64::try_from(MAX_GAMEPLAY_JSON_BYTES)
+        .unwrap_or(u64::MAX)
+        .saturating_add(1);
+    let mut json = String::new();
+    let _bytes = file.take(limit).read_to_string(&mut json)?;
+    Ok(json)
+}
+
 /// Parses a `#rrggbb` catalog colour. The leading `#` is optional.
 #[must_use]
 pub fn parse_hex_color(value: &str) -> Option<[f32; 3]> {
@@ -2007,3 +2192,122 @@ pub fn parse_hex_color(value: &str) -> Option<[f32; 3]> {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod gameplay_tests {
+    use super::AssetCatalog;
+    use crate::physics::config::BodyMotion;
+
+    const CATALOG: &str = r#"{"assets":[
+        {"id":"test:item","asset_class":"core","asset_type":"prop"},
+        {"id":"test:sheet","asset_class":"core","asset_type":"texture","source":"file","model":"test/ground.png"},
+        {"id":"test:floor","asset_class":"core","asset_type":"material","source":"definition","texture":"test:sheet"}]}"#;
+
+    struct TestDirectory(std::path::PathBuf);
+
+    impl Drop for TestDirectory {
+        fn drop(&mut self) {
+            let _removed = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    /// Three in-memory descriptors protect strict, atomic runtime overrides and
+    /// inline compatibility without loading images, compiling or baking a map.
+    #[test]
+    fn gameplay_sidecar_is_strict_atomic_and_preserves_inline_catalog_behavior()
+    -> Result<(), String> {
+        let mut catalog = AssetCatalog::from_json_str(CATALOG)?;
+        let item_before = catalog.get("test:item").cloned().ok_or("missing item")?;
+        let floor_before = catalog.get("test:floor").cloned().ok_or("missing floor")?;
+        for invalid in [
+            r#"{"format_version":2,"assets":{}}"#,
+            r#"{"format_version":1,"texture":"changed","assets":{}}"#,
+            r#"{"format_version":1,"assets":{"test:unknown":{"ground_friction":0.5}}}"#,
+            r#"{"format_version":1,"assets":{"test:item":{"ground_friction":0.5}}}"#,
+            r#"{"format_version":1,"assets":{"test:floor":{"physics":{"motion":"dynamic"}}}}"#,
+            r#"{"format_version":1,"assets":{"test:floor":{"ground_friction":-0.1}}}"#,
+            r#"{"format_version":1,"assets":{"test:item":{"physics":{"mass_kg":0}}}}"#,
+            r#"{"format_version":1,"assets":{"test:item":{"texture":"changed"}}}"#,
+            r#"{"format_version":1,"assets":{"test:item":{}}}"#,
+            r#"{"format_version":1,"assets":{"test:item":{"physics":{}},"test:item":{"physics":{}}}}"#,
+            r#"{"format_version":1,"assets":{"test:floor":{"ground_friction":1},"test:item":{"physics":{"motion":"bad"}}}}"#,
+        ] {
+            assert!(catalog.apply_gameplay_json(invalid).is_err(), "{invalid}");
+            assert_eq!(catalog.get("test:item"), Some(&item_before));
+            assert_eq!(catalog.get("test:floor"), Some(&floor_before));
+        }
+        catalog.apply_gameplay_json(
+            r#"{"format_version":1,"assets":{
+            "test:item":{"physics":{"motion":"dynamic","pickup":true}},
+            "test:floor":{"ground_friction":1.0}}}"#,
+        )?;
+        let item = catalog.get("test:item").ok_or("missing item")?;
+        assert_eq!(
+            item.physics.as_ref().map(|physics| physics.motion),
+            Some(BodyMotion::Dynamic)
+        );
+        let mut expected_item = item_before;
+        expected_item.physics.clone_from(&item.physics);
+        assert_eq!(item, &expected_item, "visual metadata is unchanged");
+        let floor = catalog.get("test:floor").ok_or("missing floor")?;
+        let mut expected_floor = floor_before;
+        expected_floor.ground_friction = Some(1.0);
+        assert_eq!(floor, &expected_floor);
+        assert!(
+            AssetCatalog::from_json_str(CATALOG)?
+                .get("test:item")
+                .is_some_and(|entry| entry.physics.is_none())
+        );
+        let inline = CATALOG.replace(
+            "\"asset_type\":\"prop\"",
+            "\"asset_type\":\"prop\",\"physics\":{\"motion\":\"dynamic\"}",
+        );
+        assert!(
+            AssetCatalog::from_json_str(&inline)?
+                .get("test:item")
+                .is_some_and(|entry| entry.physics.is_some())
+        );
+        Ok(())
+    }
+
+    /// Two sub-kilobyte files prove the disk loader applies its sibling sidecar
+    /// and rejects a bad one. No images, compiler or map bake are required.
+    #[test]
+    fn catalog_disk_loader_applies_only_a_valid_optional_gameplay_sidecar() -> Result<(), String> {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|error| error.to_string())?;
+        let root = std::env::temp_dir().join(format!(
+            "places-gameplay-{}-{}",
+            std::process::id(),
+            stamp.as_nanos()
+        ));
+        std::fs::create_dir(&root).map_err(|error| error.to_string())?;
+        let _cleanup = TestDirectory(root.clone());
+        let path = root.join("catalog.json");
+        std::fs::write(&path, CATALOG).map_err(|error| error.to_string())?;
+        assert!(AssetCatalog::load_from_path(&path).is_some_and(|catalog| {
+            catalog
+                .get("test:item")
+                .is_some_and(|entry| entry.physics.is_none())
+        }));
+        let sidecar = root.join("gameplay.json");
+        std::fs::write(
+            &sidecar,
+            r#"{"format_version":1,"assets":{"test:item":{"physics":{"motion":"dynamic"}}}}"#,
+        )
+        .map_err(|error| error.to_string())?;
+        assert!(AssetCatalog::load_from_path(&path).is_some_and(|catalog| {
+            catalog
+                .get("test:item")
+                .is_some_and(|entry| entry.physics.is_some())
+        }));
+        std::fs::write(
+            &sidecar,
+            r#"{"format_version":1,"assets":{"test:item":{"model":"changed"}}}"#,
+        )
+        .map_err(|error| error.to_string())?;
+        assert!(AssetCatalog::load_from_path(&path).is_none());
+        Ok(())
+    }
+}

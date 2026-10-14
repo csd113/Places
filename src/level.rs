@@ -2,6 +2,7 @@ mod ground;
 pub use ground::GroundSurfaces;
 mod balloon;
 pub use balloon::{BalloonColor, BalloonDef};
+mod physics;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -935,6 +936,16 @@ pub enum ActionDef {
     },
     /// Return the player to the level's authored spawn and re-arm triggers.
     ResetToStart,
+    /// Restore authored movable bodies in one reusable physics reset group.
+    ResetPhysicsGroup {
+        /// Group id declared by one or more authored movable physics props.
+        group: String,
+    },
+    /// Activate dormant movable bodies in one authored physics group.
+    ActivatePhysicsGroup {
+        /// Group id declared by authored movable physics props.
+        group: String,
+    },
 }
 
 impl ActionDef {
@@ -949,6 +960,8 @@ impl ActionDef {
             Self::Disable { target: _ } => "disable",
             Self::SetLight { target: _, on: _ } => "set_light",
             Self::ToggleWeather => "toggle_weather",
+            Self::ResetPhysicsGroup { group: _ } => "reset_physics_group",
+            Self::ActivatePhysicsGroup { group: _ } => "activate_physics_group",
             Self::SetWeatherStrength {
                 strength: _,
                 transition_seconds: _,
@@ -1072,6 +1085,8 @@ impl ActionDef {
             }
             | Self::DespawnEntity { target: _ }
             | Self::ResetToStart
+            | Self::ResetPhysicsGroup { group: _ }
+            | Self::ActivatePhysicsGroup { group: _ }
             | Self::ToggleWeather
             | Self::SetWeatherStrength {
                 strength: _,
@@ -5878,6 +5893,9 @@ pub const MAX_PROP_LIGHTS: usize = 8;
 /// neither the placed prop nor the prop catalog provides explicit sizes.
 pub const PROP_FALLBACK_SIZE: [f32; 3] = [0.6, 0.9, 0.6];
 
+/// Largest number of authored movable rigid props in one level.
+pub const MAX_LEVEL_PHYSICS_PROPS: usize = 128;
+
 const fn default_prop_scale() -> f32 {
     1.0
 }
@@ -5923,6 +5941,10 @@ pub struct PropDef {
     /// When true the prop blocks the player (axis-aligned box from position/size). Defaults to false.
     #[serde(default)]
     pub solid: bool,
+    /// Opt-in rigid-body settings. Omitted keeps the legacy static placement,
+    /// even if the catalog declares a developer-spawned item profile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub physics: Option<crate::physics::config::PhysicsDef>,
     /// Whether this placement contributes its model's silhouette to the baked
     /// lighting as an occluder. Defaults to true, the historical behaviour.
     ///
@@ -5998,6 +6020,23 @@ const fn default_float_period() -> f32 {
 }
 
 impl PropDef {
+    /// Explicit immutable rigid collision; the player's legacy standable box
+    /// remains independent to preserve controller behavior.
+    #[must_use]
+    pub fn has_fixed_physics_shape(&self) -> bool {
+        self.physics.as_ref().is_some_and(|def| {
+            def.motion == crate::physics::BodyMotion::Fixed && def.shape.is_some()
+        })
+    }
+    /// Whether physics owns the pose instead of immutable placement geometry.
+    #[must_use]
+    pub const fn is_physics_movable(&self) -> bool {
+        match self.physics.as_ref() {
+            Some(physics) => physics.motion.is_movable(),
+            None => false,
+        }
+    }
+
     /// Box extents in metres, applying `scale` to the explicit `size` when
     /// present or to `fallback` otherwise.
     #[must_use]
@@ -7052,6 +7091,16 @@ fn ceiling_grid_decal_centre(
 }
 
 impl LevelDef {
+    /// Authored movable physics reset groups, in placement order.
+    /// Several bodies may name the same group; developer-spawned profiles do
+    /// not create an authored group or an action reference.
+    pub fn physics_reset_groups(&self) -> impl Iterator<Item = &str> {
+        self.props
+            .iter()
+            .filter(|prop| prop.is_physics_movable())
+            .filter_map(|prop| prop.physics.as_ref()?.reset_group.as_deref())
+    }
+
     /// # Errors
     ///
     /// Returns the `serde_json` error when the document is not valid JSON or
@@ -7675,6 +7724,17 @@ impl LevelDef {
     /// the mesh draws under a depression are solid to the player too.
     #[must_use]
     pub fn collision_aabbs(&self) -> Vec<WallAabb> {
+        self.collision_aabbs_impl(false)
+    }
+
+    /// Item scenery collision excludes the legacy box when an explicit fixed
+    /// shape supplies the actual geometry. Player boxes retain their contract.
+    #[must_use]
+    pub fn item_collision_aabbs(&self) -> Vec<WallAabb> {
+        self.collision_aabbs_impl(true)
+    }
+
+    fn collision_aabbs_impl(&self, explicit_fixed_shapes: bool) -> Vec<WallAabb> {
         let surfaces = LevelSurfaces::new(self);
         let mut aabbs = Vec::new();
 
@@ -7753,6 +7813,9 @@ impl LevelDef {
         }
 
         for prop in &self.props {
+            if explicit_fixed_shapes && prop.has_fixed_physics_shape() {
+                continue;
+            }
             if let Some(collider) = prop.solid_collider(&surfaces) {
                 aabbs.push(collider);
             }
@@ -7826,7 +7889,7 @@ impl PropDef {
     /// passing through where it is.
     #[must_use]
     fn solid_collider(&self, surfaces: &LevelSurfaces<'_>) -> Option<WallAabb> {
-        if !self.solid {
+        if !self.solid || self.is_physics_movable() {
             return None;
         }
         let size = self.resolved_size(PROP_FALLBACK_SIZE);

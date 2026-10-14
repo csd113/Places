@@ -48,10 +48,15 @@ pub const PROBE_FIELD_MAGIC: [u8; 4] = *b"PLPF";
 ///   stable compiled light indices. A zero-source field retains an aligned
 ///   zero sidecar and the spatial runtime contract. Version 2 remains a
 ///   combined-only field.
-pub const PROBE_FIELD_RECORD_VERSION: u16 = 3;
+/// * `4` — independently switched indirect coefficients from each prepared
+///   atlas group. Versions 2 and 3 remain readable with no switched bounce.
+pub const PROBE_FIELD_RECORD_VERSION: u16 = 4;
 
 /// Maximum globally stable local sources evaluated live for prepared entities.
 pub const MAX_RUNTIME_PROBE_LIGHTS: usize = 8;
+
+/// Independent switchable atlas groups admitted by the prepared field.
+pub const MAX_SWITCHABLE_PROBE_GROUPS: usize = 4;
 
 /// Preferred probe spacing, in metres.
 pub const PROBE_SPACING_M: f32 = 1.5;
@@ -123,6 +128,15 @@ pub struct ProbeDirectField {
     pub probes: Vec<LightmapTexel>,
 }
 
+/// Reflected surface radiance from one switchable atlas group, without direct,
+/// global, sky or baseline fill. Indices align with the base probe lattice.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProbeSwitchableField {
+    /// Representative compiled light index for the shared switch group.
+    pub light_index: u32,
+    pub probes: Vec<LightmapTexel>,
+}
+
 /// One prepared probe field: a uniform grid over the mapped world.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProbeField {
@@ -138,6 +152,8 @@ pub struct ProbeField {
     /// Absent only in legacy combined-only fields. Never includes switchable
     /// lights; a newly solved field with no selected sources stores zeroes.
     pub local_direct: Option<ProbeDirectField>,
+    /// Prepared switched bounce. Empty in legacy v2/v3 records.
+    pub switchable_indirect: Vec<ProbeSwitchableField>,
 }
 
 impl ProbeField {
@@ -371,6 +387,102 @@ impl ProbeField {
             clippy::as_conversions,
             clippy::cast_possible_truncation,
             reason = "Validated HDR coefficients form a bounded convex residual; convert once after f64 accumulation."
+        )]
+        let texel = LightmapTexel {
+            irradiance: energy.map(|value| (value / sum).max(0.0) as f32),
+            direction: moment.map(|value| (value / sum) as f32),
+            axis: [0.5; 2],
+        };
+        Some(texel)
+    }
+
+    /// Combined centre coefficients plus currently enabled switched bounce.
+    #[must_use]
+    pub fn sample_with_switchable_indirect<F, G>(
+        &self,
+        position: [f32; 3],
+        room: Option<usize>,
+        enabled: F,
+        accept: G,
+    ) -> Option<LightmapTexel>
+    where
+        F: Fn(u32) -> bool,
+        G: Fn([f32; 3], i32) -> bool,
+    {
+        if self.switchable_indirect.is_empty() {
+            return self.sample_filtered_with_rooms(position, room, accept);
+        }
+        self.sample_live_coefficients(position, room, false, enabled, accept)
+    }
+
+    /// Residual coefficients plus enabled switched bounce; selected direct
+    /// sources remain evaluated once at the actual moving surface.
+    #[must_use]
+    pub fn sample_nonlocal_with_switchable_indirect<F, G>(
+        &self,
+        position: [f32; 3],
+        room: Option<usize>,
+        enabled: F,
+        accept: G,
+    ) -> Option<LightmapTexel>
+    where
+        F: Fn(u32) -> bool,
+        G: Fn([f32; 3], i32) -> bool,
+    {
+        if self.switchable_indirect.is_empty() {
+            return self.sample_nonlocal_filtered_with_rooms(position, room, accept);
+        }
+        self.sample_live_coefficients(position, room, true, enabled, accept)
+    }
+
+    fn sample_live_coefficients<F, G>(
+        &self,
+        position: [f32; 3],
+        room: Option<usize>,
+        replace_local_direct: bool,
+        enabled: F,
+        accept: G,
+    ) -> Option<LightmapTexel>
+    where
+        F: Fn(u32) -> bool,
+        G: Fn([f32; 3], i32) -> bool,
+    {
+        let mut energy = [0.0_f64; 3];
+        let mut moment = [0.0_f64; 3];
+        let sum = self.visit_candidates(position, room, accept, |id, _, probe, weight| {
+            let local = self
+                .local_direct
+                .as_ref()
+                .filter(|_| replace_local_direct)
+                .and_then(|direct| direct.probes.get(id));
+            for channel in 0..3 {
+                energy[channel] += weight
+                    * (f64::from(probe.irradiance[channel])
+                        - local.map_or(0.0_f64, |value| f64::from(value.irradiance[channel])));
+                moment[channel] += weight
+                    * (f64::from(probe.direction[channel])
+                        - local.map_or(0.0_f64, |value| f64::from(value.direction[channel])));
+            }
+            for plane in &self.switchable_indirect {
+                if enabled(plane.light_index)
+                    && let Some(value) = plane.probes.get(id)
+                {
+                    for channel in 0..3 {
+                        energy[channel] += weight * f64::from(value.irradiance[channel]);
+                        moment[channel] += weight * f64::from(value.direction[channel]);
+                    }
+                }
+            }
+        })?;
+        if sum <= 0.0_f64 {
+            return None;
+        }
+        // At most four validated HDR planes join a validated base; their f64
+        // convex sum fits f32. Only a subtraction-rounding tail may be negative.
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_possible_truncation,
+            reason = "A bounded convex sum of at most five validated f32 fields fits f32; convert after f64 accumulation"
         )]
         let texel = LightmapTexel {
             irradiance: energy.map(|value| (value / sum).max(0.0) as f32),
@@ -654,6 +766,7 @@ impl ProbeField {
                 .map_err(|error| format!("probe {index}: {error}"))?;
         }
         self.validate_local_direct()?;
+        self.validate_switchable_indirect()?;
         let count = self.probes.len();
         if count > MAX_PROBES {
             return Err(format!(
@@ -674,7 +787,16 @@ impl ProbeField {
                     .saturating_mul(4)
                     .saturating_add(count.saturating_mul(24))
                     .saturating_add(4)
-            }));
+            }))
+            .saturating_add(if self.switchable_indirect.is_empty() {
+                0
+            } else {
+                4_usize.saturating_add(
+                    self.switchable_indirect
+                        .len()
+                        .saturating_mul(4_usize.saturating_add(count.saturating_mul(24))),
+                )
+            });
         if u64::try_from(bytes).unwrap_or(u64::MAX) > MAX_PROBE_FIELD_BYTES {
             return Err(format!(
                 "probe field is {bytes} bytes (limit {MAX_PROBE_FIELD_BYTES})"
@@ -682,8 +804,10 @@ impl ProbeField {
         }
         let mut out = Vec::with_capacity(bytes);
         out.extend_from_slice(&PROBE_FIELD_MAGIC);
-        let version = if self.local_direct.is_some() {
+        let version = if !self.switchable_indirect.is_empty() {
             PROBE_FIELD_RECORD_VERSION
+        } else if self.local_direct.is_some() {
+            3_u16
         } else {
             2_u16
         };
@@ -725,6 +849,19 @@ impl ProbeField {
                 }
             }
         }
+        if version >= 4 {
+            let groups = u32::try_from(self.switchable_indirect.len())
+                .map_err(|error| format!("switchable probe group count is too large: {error}"))?;
+            out.extend_from_slice(&groups.to_le_bytes());
+            for plane in &self.switchable_indirect {
+                out.extend_from_slice(&plane.light_index.to_le_bytes());
+                for probe in &plane.probes {
+                    for value in probe.irradiance.into_iter().chain(probe.direction) {
+                        out.extend_from_slice(&value.to_le_bytes());
+                    }
+                }
+            }
+        }
         Ok(out)
     }
 
@@ -741,12 +878,15 @@ impl ProbeField {
         reason = "Decoded axis counts are validated to be 1..=64 before the f32 extent calculation, so the integer conversions are exact."
     )]
     pub fn read(bytes: &[u8]) -> Result<Self, String> {
+        if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > MAX_PROBE_FIELD_BYTES {
+            return Err("probe field exceeds the serialized byte limit".to_string());
+        }
         let mut cursor = Cursor::new(bytes);
         if cursor.take(4)? != &PROBE_FIELD_MAGIC[..] {
             return Err("probe field is not a PLPF record".to_string());
         }
         let version = cursor.u16()?;
-        if version != 2 && version != PROBE_FIELD_RECORD_VERSION {
+        if version != 2 && version != 3 && version != PROBE_FIELD_RECORD_VERSION {
             return Err(format!(
                 "probe field version {version} is not supported (this build reads {PROBE_FIELD_RECORD_VERSION})"
             ));
@@ -824,6 +964,37 @@ impl ProbeField {
                 probes: direct_probes,
             })
         };
+        let mut switchable_indirect = Vec::new();
+        if version >= 4 {
+            let groups = usize::try_from(cursor.u32()?)
+                .map_err(|error| format!("switchable probe group count is too large: {error}"))?;
+            if groups > MAX_SWITCHABLE_PROBE_GROUPS {
+                return Err("probe field switchable group count is out of range".to_string());
+            }
+            let plane_bytes = count
+                .checked_mul(24)
+                .and_then(|value| value.checked_add(4))
+                .and_then(|value| value.checked_mul(groups))
+                .ok_or("probe switchable payload length overflows")?;
+            if cursor.remaining() != plane_bytes {
+                return Err("probe switchable payload length does not match its groups".to_string());
+            }
+            for _ in 0..groups {
+                let light_index = cursor.u32()?;
+                let mut coefficients = Vec::with_capacity(count);
+                for _ in 0..count {
+                    coefficients.push(LightmapTexel {
+                        irradiance: [cursor.f32()?, cursor.f32()?, cursor.f32()?],
+                        direction: [cursor.f32()?, cursor.f32()?, cursor.f32()?],
+                        axis: [0.5; 2],
+                    });
+                }
+                switchable_indirect.push(ProbeSwitchableField {
+                    light_index,
+                    probes: coefficients,
+                });
+            }
+        }
         if !cursor.is_at_end() {
             return Err(format!(
                 "probe field has {} trailing byte(s)",
@@ -841,9 +1012,49 @@ impl ProbeField {
             dims,
             probes,
             local_direct,
+            switchable_indirect,
         };
         field.validate_local_direct()?;
+        field.validate_switchable_indirect()?;
         Ok(field)
+    }
+
+    pub(crate) fn validate_switchable_indirect(&self) -> Result<(), String> {
+        if self.switchable_indirect.len() > MAX_SWITCHABLE_PROBE_GROUPS
+            || (!self.switchable_indirect.is_empty() && self.local_direct.is_none())
+        {
+            return Err(
+                "probe field has invalid switched indirect group count or base sidecar".to_string(),
+            );
+        }
+        for (group, plane) in self.switchable_indirect.iter().enumerate() {
+            if plane.probes.len() != self.probes.len()
+                || self
+                    .switchable_indirect
+                    .iter()
+                    .take(group)
+                    .any(|other| other.light_index == plane.light_index)
+            {
+                return Err(
+                    "probe switched indirect has duplicate source or misaligned coefficients"
+                        .to_string(),
+                );
+            }
+            for (index, texel) in plane.probes.iter().enumerate() {
+                ProbeSample {
+                    irradiance: texel.irradiance,
+                    direction: texel.direction,
+                    axis: texel.axis,
+                    room: -1,
+                }
+                .validate()
+                .map_err(|error| format!("switched probe group {group} sample {index}: {error}"))?;
+                if texel.axis.map(f32::to_bits) != [0.5_f32.to_bits(); 2] {
+                    return Err("probe switched indirect reserved axis must be 0.5".to_string());
+                }
+            }
+        }
+        Ok(())
     }
 
     pub(crate) fn validate_local_direct(&self) -> Result<(), String> {
@@ -1075,6 +1286,7 @@ mod tests {
 
     fn field() -> ProbeField {
         ProbeField {
+            switchable_indirect: Vec::new(),
             local_direct: None,
             min: [0.0, 0.0, 0.0],
             cell_m: 1.0,

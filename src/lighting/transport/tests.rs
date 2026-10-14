@@ -785,13 +785,11 @@ fn two_room_scene_with(albedo: f32, open: bool) -> (TransportScene, Vec<(Lightma
     )
 }
 
-/// The prepared moving-object field excludes switchable fixtures in every
-/// state: a switchable fixture's contribution exists only as its own atlas
-/// layer pair. This pins the documented limitation (`docs/RENDERER.md` §7.1.3
-/// and `docs/PACKAGE_FORMAT.md` §6.1); when per-state field layers land, this
-/// test and that documentation must change together.
+/// The base field excludes switches; reflected surface light stays in its
+/// independently enabled plane. One 4x4 floor, sixteen receivers and the same
+/// existing two solves protect the native black-side regression without a map bake.
 #[test]
-fn switchable_fixtures_are_excluded_from_the_moving_object_field() {
+fn switchable_bounce_has_its_own_plane_and_never_changes_the_base_field() {
     let material = [0.7; 3];
     let charts = vec![floor_patch(0.0, 0.0, 4.0, 4.0, 4, 4)];
     let plain = point([1.0, 2.5, 1.0], 4.0);
@@ -818,6 +816,20 @@ fn switchable_fixtures_are_excluded_from_the_moving_object_field() {
         "the base atlas must not contain the switchable fixture's light"
     );
     let mut field = solved.probes.expect("solved field");
+    assert_eq!(
+        field.switchable_indirect.len(),
+        1,
+        "one switched atlas group has one bounce plane"
+    );
+    let switched = &field.switchable_indirect[0];
+    assert_eq!(switched.light_index, 0);
+    assert!(
+        switched
+            .probes
+            .iter()
+            .any(|probe| probe.irradiance.iter().any(|channel| *channel > 0.0)),
+        "illuminated floor radiance reaches the reflected-light plane"
+    );
     let mut reference_field = reference.probes.expect("reference field");
     // The compiler labels rooms before packaging; sampling needs valid rooms.
     field.assign_rooms(|_| Some(0));
@@ -849,6 +861,32 @@ fn switchable_fixtures_are_excluded_from_the_moving_object_field() {
         }
     }
     assert!(sampled > 0_i32, "at least one probe position must resolve");
+    // Black receivers contribute no reflected light, even with a directly
+    // visible switched source and bright sky. Neither joins the bounce plane.
+    let scene_with_sky = with_switchable.with_sky([0.25; 3]);
+    let receivers = scene_with_sky.receivers(&charts).expect("tiny receivers");
+    let black = vec![Accumulator::default(); receivers.len()];
+    let cache = RadianceCache::build(&receivers);
+    let (indirect, _, local, _) = bake_probe(
+        &scene_with_sky,
+        &receivers,
+        &black,
+        &cache,
+        [2.0, 1.0, 2.0],
+        0,
+        1,
+        false,
+        false,
+    );
+    assert_eq!(
+        indirect.irradiance, [0.0; 3],
+        "switch plane contains reflected radiance only"
+    );
+    assert_eq!(
+        local,
+        LightmapTexel::ZERO,
+        "live direct is never baked into the switched plane"
+    );
 }
 
 // ------------------------------------------------- water and translucency

@@ -271,6 +271,49 @@ Same rules as walls, with two differences:
   authored map-style image reads with north (−Z) at the top;
 * the floor material's own `tile_metres`, `tint` and alpha mode apply.
 
+Floor contact behavior is separate material metadata. A catalog material
+definition may author `ground_friction`, a finite coefficient in `0..=2` for
+rigid-body contacts. Omitted coefficients resolve to **0.7** on ordinary ground
+and **0.025** when `ground_surface: "ice"` is authored. The numeric coefficient
+does not change player locomotion, PNG pixels, UVs, alpha, visual sheen or baked
+lighting. The existing `ground_surface` normal/ice flag continues to select the
+player's movement behavior. Contact friction multiplies the item's coefficient
+by the contacted floor material's coefficient.
+
+Representative catalog choices are `core:carpet_beige_01` and
+`home:carpet_cream_01` at **1.0**, `home:hardwood_oak_01` and
+`home:hardwood_walnut_02` at **0.6**, and `home:tile_home_01` plus
+`core:pool_tile_deck_01` at **0.7**. These are explicit catalog values, not
+runtime guesses from ids, colours or texture appearance. The shipped runtime
+values live in the optional `assets/gameplay.json` sidecar, keyed by catalog id.
+This strict version-1 document may override only `physics` on prop/entity entries
+and `ground_friction` on material definitions. It cannot override images or any
+visual material field. Unknown/duplicate ids, unknown fields and invalid physical
+values reject the sidecar and catalog load.
+
+Rigid profiles may use a bounded compound collider of 1..8 primitive or convex-hull parts;
+offsets use local model-origin metres and uniform placement scale. Primitive
+dimensions stay within `0.001..=100` metres and offset axes within ±100 metres
+before and after scale. Convex hulls use 4..96 finite points, bounded local/scaled coordinates and a nondegenerate 3D volume. Fixed explicit shapes provide immutable rigid-item collision while static visual geometry and player standable boxes keep their existing contracts. Nested compounds are rejected. Optional `reset_group`
+identifiers use ASCII `[A-Za-z0-9_-]`, 1..64 bytes, on movable bodies and connect
+to the generic `reset_physics_group` action. These are physical descriptors;
+the PNG, GLB geometry, UV layout, alpha and visual material contracts are unchanged.
+
+Authored movable placements start dormant at the exact authored pose in every
+map. This default is runtime behavior, without a catalog/sidecar field or map
+opt-in. Pickup, explicit `activate_physics_group` and prescribed kinematic movement
+activate them; meaningful active-body impacts activate dormant dynamic bodies.
+Reset returns authored members to dormant. Solver sleep remains a separate state.
+Runtime/developer spawning
+starts active. Graphics rebuilds preserve item state, and this default requires
+no image, GLB, map-format or prepared-render-package changes.
+
+Render packages retain the exact raw `catalog.json` provenance that prepared
+their geometry and lighting. Keep runtime-only physical tuning in the sidecar
+so that changing it does not invalidate those packages or require a light bake.
+Inline catalog physical fields remain supported for future catalog revisions;
+the sidecar takes precedence only for the fields it explicitly supplies.
+
 **Do not assume floors and walls are interchangeable.** They share the shape
 and tiling contract, but a floor sheet is sampled on the ground plane and a
 wall sheet on vertical faces; orientation and the material's response
@@ -952,6 +995,8 @@ supplies `alpha_mode: "blend"`, opacity 0.84, modest specular/shine (0.38),
 no normal/emission maps and no reflection image. A darker opaque material reuses
 this PNG on a shallow non-solid backing. `ground_surface: "ice"` controls
 traction independently of the PNG's opaque alpha and the material's visual sheen.
+Its omitted `ground_friction` resolves to 0.025 for rigid items while the player's
+established ice movement remains selected by `ground_surface`.
 Validate with the standard texture budget/seam checks and native pond views.
 
 ### Winter string lights
@@ -1443,6 +1488,9 @@ the current compiler builds maps against the installed asset bundle; see
   orientation and alpha. It is documentation artwork, not a runtime texture.
 * `docs/screenshots/*.png`: 960×544 documentation captures. Not runtime
   assets; no contract beyond being still frames.
+* `docs/images/item-physics-0.10.0/*.png`: unchanged native gameplay
+  captures, 1280×720 or 2560×1440 RGB/RGBA. Retain full frame, orientation
+  and colour; these are diagnostic evidence, outside the runtime catalog.
 * `docs/videos/places-0.9.0.mp4`: non-runtime promotional gameplay footage,
   16:9, native source at least 960×540 with 960×540 delivery at 30 fps,
   H.264/YUV420P with fast-start
@@ -1498,6 +1546,13 @@ existing atlas accessors and decal material slot remain unchanged. The shared
 decode accepts only a closed set of embedded repository files; failure is a
 repository build invariant, covered by complete pixel hashes and dimension
 checks. External images continue to use fallible decoding and the checker.
+
+The lower-screen interaction hand is vector UI geometry sampling the font
+atlas's existing opaque white cell. Its rounded white silhouette and thin dark
+outline introduce no generated texture or altered atlas layout. The actual
+bound interaction key uses existing glyph cells in black at the palm centre.
+Visibility follows the precise eligible aim target and disappears throughout
+holding, menus and console use.
 
 Computed lighting images are derived from level geometry and light settings:
 

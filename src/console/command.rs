@@ -38,7 +38,7 @@ pub const REGISTRY: [CommandSpec; 4] = [
         kind: CommandKind::Give,
         name: "give",
         usage: "/give <catalog-id>",
-        description: "Place a rigid visual prop ahead (no inventory/physics).",
+        description: "Place a physical item or clearly labelled visual preview ahead.",
     },
 ];
 

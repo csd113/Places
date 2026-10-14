@@ -1844,6 +1844,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
             solid: false,
             occludes: true,
             lights: Vec::new(),
+            physics: None,
             float: None,
         }],
         ..empty.clone()

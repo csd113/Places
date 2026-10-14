@@ -43,7 +43,7 @@ pub const MAX_PITCH: f32 = 1.4835; // ~85 degrees in radians
 
 /// Downward acceleration applied to the vertical velocity while airborne, in
 /// m/s^2. One world unit is one metre, so this is the physical 9.8 m/s^2.
-pub const GRAVITY: f32 = 9.8;
+pub use crate::physics::GRAVITY;
 
 /// Height of a full jump's apex above the take-off floor, in metres.
 ///
@@ -1143,6 +1143,18 @@ impl Game {
     /// of them and owns the frame while attached. Area triggers run last, on
     /// the swept segment from the frame's start feet to the resolved feet.
     pub fn update_player_movement(&mut self, input: &mut InputState, settings: &Settings) {
+        self.update_player_movement_constrained(input, settings, |game| game.player_position);
+    }
+
+    /// Applies an optional collision constraint to the resolved planar motion
+    /// before triggers and recovery see it. Vertical movement, stance and the
+    /// existing controller retain ownership of height and gravity.
+    pub fn update_player_movement_constrained(
+        &mut self,
+        input: &mut InputState,
+        settings: &Settings,
+        constrain: impl FnOnce(&Self) -> Vec3,
+    ) {
         self.ceiling_contact_this_frame = false;
         // A press is consumed exactly once and never survives a non-Playing
         // frame: the interaction latch is re-derived below, and the frame loop
@@ -1185,6 +1197,21 @@ impl Game {
         }
 
         let trigger_origin = self.update_playing_frame(&frame_input, settings, motion);
+        let constrained = constrain(self);
+        let planar_difference = Vec2::new(
+            constrained.x - self.player_position.x,
+            constrained.z - self.player_position.z,
+        );
+        if constrained.is_finite()
+            && planar_difference.length_squared() > 0.0
+            && self.body_fits_with_height(
+                Vec3::new(constrained.x, self.feet_y, constrained.z),
+                self.body_height(),
+            )
+        {
+            self.player_position.x = constrained.x;
+            self.player_position.z = constrained.z;
+        }
         if self.recover_out_of_map() {
             return;
         }
@@ -1752,6 +1779,12 @@ impl Game {
     /// reach.
     pub fn dispatch_interaction(&mut self) -> Option<DispatchReport> {
         let target = self.interaction_target();
+        self.dispatch_interaction_at(target)
+    }
+
+    /// Dispatches the native loop's already selected, occlusion-checked target.
+    /// This keeps the action and hand affordance on the same world instance.
+    pub fn dispatch_interaction_at(&mut self, target: Option<usize>) -> Option<DispatchReport> {
         let report = self.world.dispatch_interaction(target)?;
         if report.player_reset {
             self.reset_to_spawn();

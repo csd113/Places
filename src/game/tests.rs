@@ -3878,6 +3878,7 @@ fn crouched_eye_height_and_occlusion_respect_geometry() {
         components: Vec::new(),
         bindings: Vec::new(),
         lights: Vec::new(),
+        physics: None,
         float: None,
     });
     let mut game = game_for(&level);

@@ -15,8 +15,10 @@ import math
 import os
 from pathlib import Path
 import re
+import resource
 import statistics
 import subprocess
+import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -52,6 +54,7 @@ def digest(path: Path) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, default=ROOT / "target/release/places")
+    parser.add_argument("--asset-root", type=Path, default=ROOT, help="package root containing assets; supports preserved baseline bundles")
     parser.add_argument("--out", type=Path, required=True, help="new isolated result directory")
     parser.add_argument("--level", default="retro_arcade_demo")
     parser.add_argument("--spawn", default="-1.6,1.6,2.8,90", help="X,Y,Z,yaw; use --spawn= for negative X")
@@ -94,7 +97,8 @@ def main() -> None:
         if not all(64 <= edge <= 16384 for edge in expected_drawable):
             parser.error("expected drawable dimensions must be 64..16384")
     binary = args.binary.resolve(strict=True)
-    package = (ROOT / "assets/levels" / f"{args.level}.placesmap").resolve(strict=True)
+    asset_root = args.asset_root.resolve(strict=True)
+    package = (asset_root / "assets/levels" / f"{args.level}.placesmap").resolve(strict=True)
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=False)
     settings = json.loads((ROOT / "tests/fixtures/native/retro-arcade-manifest.json").read_text())["settings"]
@@ -108,7 +112,7 @@ def main() -> None:
     env = {key: value for key, value in os.environ.items()
            if not key.startswith("PLACES_") and key != "SDL_VIDEODRIVER"}
     env.update(
-        PLACES_ASSET_ROOT=str(ROOT), PLACES_STATE_ROOT=str(out), PLACES_LEVEL=args.level,
+        PLACES_ASSET_ROOT=str(asset_root), PLACES_STATE_ROOT=str(out), PLACES_LEVEL=args.level,
         PLACES_BENCH="1", PLACES_VERBOSE="1", PLACES_SPAWN=args.spawn, PLACES_CAMERA=args.camera,
         PLACES_BENCH_WARMUP=str(args.warmup), PLACES_BENCH_FRAMES=str(args.frames),
         PLACES_BENCH_FIXED_DELTA_SECONDS="0.016666667", PLACES_BENCH_OUT=str(out / "frames.csv"),
@@ -189,13 +193,15 @@ def main() -> None:
         kind="capture" if capture else "diagnostic" if (args.gpu_trace or args.graphics_cycle or args.quality_cycle or args.lighting_sequence) else "timing",
         started_utc=started_utc, elapsed_seconds=time.monotonic() - started,
         binary=str(binary), binary_sha256=binary_sha256, package=str(package), package_sha256=package_sha256,
-        settings=settings, spawn=args.spawn, camera=args.camera,
+        asset_root=str(asset_root), settings=settings, spawn=args.spawn, camera=args.camera,
         expected_drawable=expected_drawable,
         environment={key: value for key, value in env.items() if key.startswith("PLACES_")},
         load_before=load_before, load_after=os.getloadavg(), presented_ready=presented, missed_ready=missed,
         native_identity=[line for line in log.splitlines()
                          if line.startswith(("[renderer]", "[window]", "[settings]", "[wgpu] GPU timing", "[wgpu] present mode"))],
         metrics=metrics, gpu_elapsed_ms=None if capture else statistics_for(list(gpu.values())),
+        peak_native_rss_bytes=int(resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss)
+            * (1 if sys.platform == "darwin" else 1024),
         base_scene_draws=statistics_for([int(row["draw_calls"]) for row in rows]),
         base_scene_triangles=statistics_for([int(row["visible_indices"]) // 3 for row in rows]),
         reflection_passes=sorted({int(row["reflection_passes"]) for row in rows}),

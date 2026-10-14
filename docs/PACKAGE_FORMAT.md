@@ -595,21 +595,38 @@ materials ask for.
 characters sample every frame instead of re-baking light:
 
 ```text
-magic "PLPF" | version u16 = 3 (version 2 remains supported)
+magic "PLPF" | version u16 = 4 (versions 2 and 3 remain supported)
 origin f32 x 3 | cell_m f32 | dims u32 x 3 | count u32
 probes count x {
   irradiance f32 x 3 | direction f32 x 3 | axis f32 x 2 | room i32
 }
 selected_source_count u32 | selected_source_indices u32 x selected_source_count
 selected_local_direct count x { irradiance f32 x 3 | direction f32 x 3 }
+switchable_group_count u32
+switchable_indirect switchable_group_count x {
+  representative_light_index u32
+  coefficients count x { irradiance f32 x 3 | direction f32 x 3 }
+}
 ```
 
 The field is a bounded uniform 3D grid baked from the same physical surface
 transport solve as the lightmap atlas: visible non-switchable emitters, reflected
 surface radiance, and authored sky radiance on escaping rays. Switchable fixtures
-are excluded in every state; static surfaces use their atlas layers and v3 entity
-lighting uses reserved runtime direct slots. Their diffuse bounce is not stored
-in the base entity field. Material emission without an authored light source is
+are excluded from the base in every state. Version 4 gathers each switched
+atlas group's reflected surface radiance into an independent aligned probe plane;
+this plane contains no source direct term, global light, escaping sky or baseline
+fill. Entities add enabled planes before reconstructing their residual response,
+and reserved runtime direct slots evaluate the finite sources at the actual
+surface. Disabled groups add neither term. Group count is at most four; indices
+are unique and must reference compiled lights. Every plane has exactly `count`
+finite, nonnegative HDR means and bounded signed moments.
+
+Version 3 retains selected direct-source data but has no switched indirect planes;
+version 2 retains combined base data only. These packages remain readable and
+keep their historical switched-bounce limitation. Recompile a map to prepare the
+missing planes; the player does not synthesize bounce or rebuild a map on load.
+Fields without switched planes keep their existing v2/v3 encoding.
+Material emission without an authored light source is
 appearance, not transport emission.
 
 All integers/floats are little-endian, without alignment padding: the header is

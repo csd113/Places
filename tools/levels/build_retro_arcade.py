@@ -165,6 +165,7 @@ def baseboard_profile(level):
 
 def build_level():
     catalog = json.loads((ROOT / "assets/catalog.json").read_text())
+    gameplay = json.loads((ROOT / "assets/gameplay.json").read_text())["assets"]
     sizes = {e["id"]: e["size"] for e in catalog["assets"]
              if e.get("asset_type") in {"prop", "entity"}}
     level = dict(format_version=3, id="retro_arcade_demo", name="Cosmic Lanes & Arcade",
@@ -214,6 +215,9 @@ def build_level():
     def patch(x, z, width, depth, material):
         level["floor_patches"].append(dict(x=x, z=z, width=width, depth=depth, material=material))
 
+    def lane_physics(model):
+        return dict(gameplay[model]["physics"], reset_group="arcade_lane_1")
+
     def decal(material, x, z, width, height, surface="floor", y=0, yaw=0):
         level["decals"].append(dict(material="arcade:decal_" + material + "_01",
             x=x, z=z, y=y, width=width, height=height, surface=surface,
@@ -241,7 +245,10 @@ def build_level():
                 z = 3.25 + segment*3
                 # Prop y is relative to the recessed support (-.17 m). The
                 # body starts at -.125 m and its rim meets the lane at .01 m.
-                prop("gutter_segment", gx, z, f"lane_{lane}_gutter_{side}_{segment}", y=.045)
+                # The fixed convex strips follow the existing curved stock;
+                # its recessed floor alone sits 6 cm below the visible bowl.
+                prop("gutter_segment", gx, z, f"lane_{lane}_gutter_{side}_{segment}", y=.045,
+                     physics=gameplay["arcade:gutter_segment"]["physics"])
         for segment in range(6):
             prop("lane_divider", x+.96, 3.25+segment*3, f"lane_{lane}_divider_{segment}")
         decal("foul_line", x, 20.02, 1.05, .525)
@@ -251,8 +258,9 @@ def build_level():
         # Ten pins per lane, recognisable triangular arrangement and red bands.
         for row in range(4):
             for index in range(row+1):
+                extra = dict(physics=lane_physics("arcade:bowling_pin")) if lane == 1 else {}
                 prop("bowling_pin", x+(index-row/2)*.21, 3.6-row*.19,
-                     f"lane_{lane}_pin_{row}_{index}")
+                     f"lane_{lane}_pin_{row}_{index}", **extra)
         monitor = "score_monitor_inactive" if lane == 4 else "score_monitor"
         spill = [] if lane == 4 else [dict(shape="point", offset=[0, .28, .37],
             color=[.17, .35, 1], intensity=.10, range=2.4)]
@@ -266,10 +274,27 @@ def build_level():
         prop("ball_rack", x, 24.2, f"rack_{group}")
         for slot, color in enumerate(("purple", "burgundy", "cobalt") if group == 0
                                       else ("black", "red", "green")):
-            prop("bowling_ball_"+color, x+(slot-1)*.28, 24.2,
-                 f"rack_{group}_ball_{slot}", y=(.55001, .55707, .55394)[slot],
-                 yaw=slot*38)
+            if group == 0 and slot == 2:
+                # The reusable rack keeps its existing solid bounds. The
+                # playable ball starts on clear approach floor instead of
+                # intersecting that legacy collider below its 0.72 m top.
+                prop("bowling_ball_"+color, lane_centres[0], 21.2,
+                     f"rack_{group}_ball_{slot}", y=.006, yaw=slot*38,
+                     physics=lane_physics("arcade:bowling_ball_cobalt"))
+            else:
+                prop("bowling_ball_"+color, x+(slot-1)*.28, 24.2,
+                     f"rack_{group}_ball_{slot}", y=(.55001, .55707, .55394)[slot],
+                     yaw=slot*38)
     prop("bowling_ball_marbled", 15.65, 23.05, "return_marbled_ball", y=.42355, yaw=18)
+    # One ordinary switch is mounted on the existing return housing's left
+    # side. The authored action resets only the ten pins and one ball above.
+    level["props"].append(dict(id="lane_1_reset_switch", model="home:wall_switch",
+        x=11.20, y=.65, z=22.5, rotation_degrees=270, size=sizes["home:wall_switch"],
+        solid=False, occludes=False,
+        components=[dict(component="interactable", prompt="Reset lane", reach=1.7),
+                    dict(component="animation", clip="toggle", looped=False, playing=False)],
+        bindings=[dict(on="interact", actions=[dict(action="toggle_animation", clip="toggle"),
+            dict(action="reset_physics_group", group="arcade_lane_1")])]))
 
     # Comfortable fixed seating and ordinary laminate, plastic and metal all
     # remain nonemitters under the same mixed practical/blacklight scene.

@@ -676,6 +676,7 @@ mod tests {
             room: 7,
         };
         let field = ProbeField {
+            switchable_indirect: Vec::new(),
             local_direct: None,
             min: [-1.0, 0.0, 2.0],
             cell_m: 1.5,

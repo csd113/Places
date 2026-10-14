@@ -1250,6 +1250,7 @@ fn an_opaque_backface_blocks_light_without_emitting_front_light() {
         0,
         1,
         false,
+        true,
     );
     assert!(
         probe.irradiance.iter().all(|value| *value < 1.0e-6),

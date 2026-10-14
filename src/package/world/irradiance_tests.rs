@@ -98,6 +98,7 @@ fn variant_reader_preserves_empty_selected_v3_and_legacy_presence() -> Result<()
         .map_err(|error| error.to_string())?;
     for legacy in [false, true] {
         let field = ProbeField {
+            switchable_indirect: Vec::new(),
             min: [0.0; 3],
             cell_m: 1.0,
             dims: [2, 1, 1],

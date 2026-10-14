@@ -4,6 +4,17 @@ use sdl3::event::Event;
 use sdl3::keyboard::Keycode;
 
 impl FrameLoop<'_> {
+    pub(crate) fn scripted_text(&mut self, text: String, submit: bool) {
+        let _handled = self.handle_event(&Event::TextInput {
+            timestamp: 0,
+            window_id: self.window.id(),
+            text,
+        });
+        if submit {
+            self.scripted_key("Return", true);
+            self.scripted_key("Return", false);
+        }
+    }
     pub(crate) fn scripted_key(&mut self, key: &str, pressed: bool) {
         if let Some(keycode) = Keycode::from_name(key) {
             let event = if pressed {
@@ -49,7 +60,8 @@ impl FrameLoop<'_> {
                 self.settings.developer_console = true;
                 self.ui_state.set_status(error, true);
             } else {
-                self.console_runtime.clear_previews(self.renderer);
+                self.console_runtime
+                    .clear_given_props(self.renderer, &mut self.items.world);
                 self.close_console();
             }
         }
@@ -81,8 +93,13 @@ impl FrameLoop<'_> {
             return true;
         }
         if let Some(command) = self.console.handle_event(event) {
-            self.console_runtime
-                .execute(command, &mut self.console, self.game, self.renderer);
+            self.console_runtime.execute(
+                command,
+                &mut self.console,
+                self.game,
+                self.renderer,
+                &mut self.items.world,
+            );
             self.trace_world("console_command");
         }
         true

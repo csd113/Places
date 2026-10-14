@@ -64,6 +64,7 @@ struct DynamicSubmeshGpu {
 
 /// One live object's GPU state.
 struct DynamicObjectGpu {
+    visible: bool,
     culling_reflected: Option<bool>,
     /// Slot into [`WgpuDynamic::meshes`].
     mesh: usize,
@@ -79,7 +80,7 @@ struct DynamicObjectGpu {
 }
 
 /// What one dynamic upload or frame did, as plain counters.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize)]
 pub struct DynamicGpuStats {
     /// Distinct models uploaded.
     pub meshes: usize,
@@ -294,6 +295,7 @@ impl WgpuDynamic {
                 emissive.push(record.is_emissive());
             }
             value.objects.push(DynamicObjectGpu {
+                visible: object.visible(),
                 culling_reflected: super::world::culling_reflected(object.transform()),
                 mesh: mesh_index,
                 environment,
@@ -398,6 +400,10 @@ impl WgpuDynamic {
             let Some(live) = scene.objects().get(slot) else {
                 continue;
             };
+            object.visible = live.visible();
+            if !object.visible {
+                continue;
+            }
             let uniform = environment
                 .with_model(live.transform())
                 .with_entity_lighting(live.entity_lighting())
@@ -412,13 +418,47 @@ impl WgpuDynamic {
             object.world_bounds = live.world_bounds();
             object.culling_reflected = super::world::culling_reflected(live.transform());
         }
+        self.stats.draws = scene.draw_count();
+        self.stats.vertices = scene.vertex_count();
+    }
+
+    /// Changes draw visibility without releasing any object or mesh resources.
+    /// The next ordinary sync refreshes restored lighting and frame counters.
+    pub fn set_object_visible(&mut self, slot: usize, visible: bool) -> bool {
+        let Some(object) = self.objects.get_mut(slot) else {
+            return false;
+        };
+        object.visible = visible;
+        true
     }
 
     /// The exact uniform last sent for the scene slot.
+    #[must_use]
     pub fn diagnostic_uniform(&self, slot: usize) -> Option<&EnvironmentUniform> {
         self.objects
             .get(slot)
-            .map(|o| o.environment.uploaded_uniform())
+            .map(|object| object.environment.uploaded_uniform())
+    }
+
+    /// Lighting/model values in the exact CPU mirror of the last GPU upload.
+    /// No command submission or GPU readback occurs on this diagnostic path.
+    #[must_use]
+    pub fn diagnostic_lighting_snapshot(&self, slot: usize) -> Option<serde_json::Value> {
+        let uniform = self.diagnostic_uniform(slot)?;
+        Some(serde_json::json!({
+            "visible": self.objects.get(slot)?.visible,
+            "model": uniform.model,
+            "normal_model": uniform.normal_model,
+            "entity_irradiance": uniform.entity_irradiance,
+            "entity_moment": uniform.entity_moment,
+            "light_scale": uniform.light_scale,
+            "entity_bounds_min": uniform.entity_bounds_min,
+            "entity_bounds_extent": uniform.entity_bounds_extent,
+            "entity_anchors": uniform.entity_anchors,
+            "entity_direct": uniform.entity_direct,
+            "lightmap_switchable": uniform.lightmap_switchable,
+            "lightmap_enabled": uniform.lightmap_enabled,
+        }))
     }
 
     /// The upload and frame counters.
@@ -432,6 +472,7 @@ impl WgpuDynamic {
     pub fn environment(&self, object: usize) -> Option<&wgpu::BindGroup> {
         self.objects
             .get(object)
+            .filter(|gpu_object| gpu_object.visible)
             .map(|gpu_object| gpu_object.environment.bind_group())
     }
 
@@ -440,6 +481,7 @@ impl WgpuDynamic {
     pub fn world_bounds(&self, object: usize) -> Option<Aabb> {
         self.objects
             .get(object)
+            .filter(|gpu_object| gpu_object.visible)
             .map(|gpu_object| gpu_object.world_bounds)
     }
 
@@ -467,6 +509,7 @@ impl WgpuDynamic {
     pub fn submesh_count(&self, object: usize) -> usize {
         self.objects
             .get(object)
+            .filter(|gpu_object| gpu_object.visible)
             .and_then(|gpu_object| self.meshes.get(gpu_object.mesh))
             .map_or(0, |mesh| mesh.submeshes.len())
     }

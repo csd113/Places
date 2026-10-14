@@ -5,8 +5,8 @@ use super::{
     Accumulator, AtomicBool, BOUNCE_GAIN, Chart, GatherAudit, GatherEvent, LightmapFailure,
     LightmapPatch, MAX_BOUNCE_RAYS, RadianceCache, SolveOptions, StageAudit, SurfaceCacheTarget,
     TransportReceiver, TransportScene, TransportSolution, TransportSolve, accumulate_surface_lobe,
-    add, add_scaled, attenuate, coverage, dot, hemisphere_sample, lattice_cell, next_pair,
-    parallel_map, ray_seed, record_gather, scale,
+    add, add_scaled, append_switchable_probe_field, attenuate, coverage, dot, hemisphere_sample,
+    lattice_cell, next_pair, parallel_map, ray_seed, record_gather, scale,
 };
 
 impl TransportScene {
@@ -62,10 +62,7 @@ impl TransportScene {
             .try_into()
             .map_err(|_incomplete_layers: Vec<Vec<Accumulator>>| LightmapFailure::FillSize)?;
         let active = [
-            options.bounces > 0
-                && (!base_emitters.is_empty()
-                    || !self.global_lights.is_empty()
-                    || self.sky_radiance.iter().any(|channel| *channel > 0.0)),
+            self.paired_base_bounce_enabled(base_emitters, options.bounces),
             options.bounces > 0,
         ];
         let bounce_started = std::time::Instant::now();
@@ -95,9 +92,10 @@ impl TransportScene {
             true,
             options,
             cancel,
-            if bake_probes { Some(&mut probes) } else { None },
+            bake_probes.then_some(&mut probes),
             [receiver_ms, direct_ms[0], bounce_ms],
         )?;
+        let mut switched_probes = None;
         let switchable = self.finish_pass(
             charts,
             &receivers,
@@ -106,9 +104,10 @@ impl TransportScene {
             false,
             options,
             cancel,
-            None,
+            bake_probes.then_some(&mut switched_probes),
             [0.0_f64, direct_ms[1], 0.0_f64],
         )?;
+        append_switchable_probe_field(&mut probes, light_index, switched_probes)?;
         Ok(TransportSolve {
             solution: TransportSolution {
                 charts: base,
@@ -119,6 +118,13 @@ impl TransportScene {
             },
             probes,
         })
+    }
+
+    fn paired_base_bounce_enabled(&self, emitters: &[usize], bounces: u8) -> bool {
+        bounces > 0
+            && (!emitters.is_empty()
+                || !self.global_lights.is_empty()
+                || self.sky_radiance.iter().any(|channel| *channel > 0.0))
     }
 
     fn bounce_pair_orders(
