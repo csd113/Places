@@ -1,6 +1,8 @@
 //! Bounded solver ownership, snapshots and interpolated rendering poses.
 
 use std::collections::{BTreeMap, VecDeque};
+#[cfg(not(target_arch = "wasm32"))]
+use std::sync::Arc;
 use std::time::Instant;
 
 use glam::{Quat, Vec3};
@@ -26,7 +28,7 @@ use super::contacts::ContactOnsets;
 use super::hold::HeldItem;
 use super::recovery::{RecoverySpace, RecoveryState, RecoveryTracker};
 use super::surfaces::{FloorContactHooks, FloorSurfaces};
-use super::water::WaterBody;
+use super::water::{WaterBody, WaterWork};
 use super::{FIXED_STEP, GRAVITY, MAX_BODIES};
 
 const MAX_SUBSTEPS: usize = 12;
@@ -34,6 +36,33 @@ const MAX_FRAME_SECONDS: f32 = 0.1;
 const MAX_IMPACTS: usize = 32;
 const MAX_CONTACT_PAIRS: usize = 256;
 const MAX_FIXED_PROP_SHAPES: usize = 1024;
+#[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
+const MIN_PARALLEL_SOLVER_BODIES: usize = 128;
+
+#[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
+#[derive(Default)]
+struct SolverPoolPolicy {
+    parallel: bool,
+    quiet_seconds: f32,
+}
+
+#[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
+impl SolverPoolPolicy {
+    fn update(&mut self, active: usize, delta: f32) -> bool {
+        if active >= MIN_PARALLEL_SOLVER_BODIES {
+            self.quiet_seconds = 0.0;
+            self.parallel = true;
+        } else if active < 112 {
+            self.quiet_seconds = (self.quiet_seconds + delta.min(MAX_FRAME_SECONDS)).min(0.25);
+            if self.quiet_seconds >= 0.25 {
+                self.parallel = false;
+            }
+        } else {
+            self.quiet_seconds = 0.0;
+        }
+        self.parallel
+    }
+}
 
 struct FixedPropShape {
     shape: SharedShape,
@@ -251,6 +280,13 @@ pub(super) struct Runtime {
     pub wake_sweeps: Vec<WakeSweep>,
     pub wake_targets: Vec<WakeTarget>,
     pub recovery: RecoveryState,
+    pub water_work: Vec<WaterWork>,
+    #[cfg(not(target_arch = "wasm32"))]
+    pub worker_pool: Option<Arc<rayon::ThreadPool>>,
+    #[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
+    serial_solver_pool: Arc<rayon::ThreadPool>,
+    #[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
+    solver_pool_policy: SolverPoolPolicy,
 }
 
 /// A level's reusable item simulation. Rapier and static shapes are allocated
@@ -268,6 +304,8 @@ pub struct ItemWorld {
     pending_doors: Vec<DoorCollider>,
     accumulator: f32,
     pub(super) stats: PhysicsStats,
+    #[cfg(not(target_arch = "wasm32"))]
+    worker_pool: Option<Arc<rayon::ThreadPool>>,
 }
 
 impl Default for ItemWorld {
@@ -285,6 +323,8 @@ impl Default for ItemWorld {
             pending_doors: Vec::new(),
             accumulator: 0.0,
             stats: PhysicsStats::default(),
+            #[cfg(not(target_arch = "wasm32"))]
+            worker_pool: None,
         }
     }
 }
@@ -322,6 +362,8 @@ impl ItemWorld {
             pending_doors: Vec::new(),
             accumulator: 0.0,
             stats: PhysicsStats::default(),
+            #[cfg(not(target_arch = "wasm32"))]
+            worker_pool: None,
         }
     }
 
@@ -339,7 +381,23 @@ impl ItemWorld {
         }
     }
 
-    fn initialize(&mut self) -> &mut Runtime {
+    /// Selects an explicit bounded pool for developer comparisons. It can be
+    /// configured before the first spawn and does not reset solver history.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn set_worker_pool(&mut self, pool: Arc<rayon::ThreadPool>) {
+        self.worker_pool = Some(Arc::clone(&pool));
+        if let Some(runtime) = self.runtime.as_mut() {
+            #[cfg(feature = "parallel-physics")]
+            runtime.world.set_thread_pool(Some(Arc::clone(&pool)));
+            runtime.worker_pool = Some(pool);
+        }
+    }
+
+    fn initialize(
+        &mut self,
+        #[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
+        serial_solver_pool: Arc<rayon::ThreadPool>,
+    ) -> &mut Runtime {
         self.runtime.get_or_insert_with(|| {
             let mut world = PhysicsWorld {
                 gravity: Vector::new(0.0, -GRAVITY, 0.0),
@@ -359,6 +417,14 @@ impl ItemWorld {
                 },
                 ..PhysicsWorld::default()
             };
+            // Clearing a configured Rapier pool selects Rayon's global pool.
+            // Always bind a bounded pool, including the one-worker reference.
+            #[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
+            world.set_thread_pool(Some(
+                self.worker_pool
+                    .clone()
+                    .unwrap_or_else(|| Arc::clone(&serial_solver_pool)),
+            ));
             let floor_contacts = install_static(
                 &mut world,
                 &self.walls,
@@ -395,6 +461,13 @@ impl ItemWorld {
                 wake_sweeps: Vec::with_capacity(MAX_BODIES),
                 wake_targets: Vec::with_capacity(MAX_BODIES),
                 recovery: RecoveryState::default(),
+                water_work: Vec::new(),
+                #[cfg(not(target_arch = "wasm32"))]
+                worker_pool: self.worker_pool.clone(),
+                #[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
+                serial_solver_pool,
+                #[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
+                solver_pool_policy: SolverPoolPolicy::default(),
             };
             if let Some(context) = self.pending_player {
                 initialized.previous_player = Some(context.feet);
@@ -465,7 +538,12 @@ impl ItemWorld {
             .friction(def.friction)
             .restitution(def.restitution)
             .user_data(u128::from(key).saturating_add(1));
-        let runtime = self.initialize();
+        #[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
+        let serial_solver_pool = crate::runtime_work::serial_pool()?;
+        let runtime = self.initialize(
+            #[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
+            serial_solver_pool,
+        );
         let (body, collider_handle) = runtime.world.insert(builder, collider);
         // Collider attachment computes mass properties immediately. The body
         // pose is a reference frame, so interpolate its actual mass center for
@@ -812,6 +890,8 @@ impl ItemWorld {
         if !delta.is_finite() || delta <= 0.0 || !player.valid() {
             return;
         }
+        #[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
+        runtime.configure_solver_pool(delta);
         let started = Instant::now();
         let interval = delta.min(MAX_FRAME_SECONDS);
         self.stats.clamped_seconds = delta - interval;
@@ -1037,6 +1117,35 @@ impl PlayerContext {
 }
 
 impl Runtime {
+    #[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
+    fn configure_solver_pool(&mut self, delta: f32) {
+        if self.worker_pool.is_some() {
+            return;
+        }
+        let active = self
+            .entries
+            .values()
+            .filter(|entry| !entry.dormant && !entry.recovery.suspended)
+            .filter_map(|entry| self.world.bodies.get(entry.body))
+            .filter(|body| body.is_enabled() && body.is_dynamic() && !body.is_sleeping())
+            .count();
+        let parallel = self.solver_pool_policy.update(active, delta);
+        let selected = if parallel {
+            crate::runtime_work::pool().filter(|pool| pool.current_num_threads() > 1)
+        } else {
+            None
+        }
+        .unwrap_or_else(|| Arc::clone(&self.serial_solver_pool));
+        if self
+            .world
+            .thread_pool()
+            .as_ref()
+            .is_none_or(|current| !Arc::ptr_eq(current, &selected))
+        {
+            self.world.set_thread_pool(Some(selected));
+        }
+    }
+
     pub(super) fn clear_item_contacts(&mut self, key: u64) {
         if let Some(entry) = self.entries.get(&key) {
             self.contact_onsets.remove_collider(entry.collider);
@@ -1373,5 +1482,28 @@ impl Runtime {
             });
         }
         self.contact_onsets.finish_step();
+    }
+}
+
+#[cfg(all(test, feature = "parallel-physics", not(target_arch = "wasm32")))]
+mod pool_policy_tests {
+    use super::SolverPoolPolicy;
+
+    // Eight bytes of policy state protect hysteresis without physics/map work.
+    #[test]
+    fn brief_active_count_changes_do_not_chatter_between_solver_pools() {
+        let mut policy = SolverPoolPolicy::default();
+        assert!(!policy.update(0, 0.1), "idle stays serial");
+        assert!(policy.update(128, 0.01), "measured heavy workload enters");
+        assert!(policy.update(127, 0.1), "one sleeper does not switch pools");
+        assert!(
+            policy.update(0, 0.1),
+            "brief quiet interval retains the pool"
+        );
+        assert!(
+            policy.update(0, 0.1),
+            "quarter-second exit delay is respected"
+        );
+        assert!(!policy.update(0, 0.1), "sustained quiet returns to serial");
     }
 }

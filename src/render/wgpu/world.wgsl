@@ -381,33 +381,62 @@ fn reconstruct_irradiance(energy: vec3<f32>, moment: vec3<f32>, normal: vec3<f32
     return max(vec3<f32>(0.0), energy + select(vec3<f32>(0.0), energy / max(k, 1.0e-6) * lobe, k > 1.0e-6));
 }
 
-fn anchor_weight(local_position: vec3<f32>, corner: u32) -> f32 {
+struct EntityAnchorWeights {
+    lower: vec4<f32>,
+    upper: vec4<f32>,
+};
+
+fn entity_anchor_weights(local_position: vec3<f32>) -> EntityAnchorWeights {
     let coordinate = clamp((local_position - environment.entity_bounds_min.xyz) / max(environment.entity_bounds_extent.xyz, vec3<f32>(1.0e-6)), vec3<f32>(0.0), vec3<f32>(1.0));
-    let x = select(1.0 - coordinate.x, coordinate.x, (corner & 1u) != 0u);
-    let y = select(1.0 - coordinate.y, coordinate.y, (corner & 2u) != 0u);
-    let z = select(1.0 - coordinate.z, coordinate.z, (corner & 4u) != 0u);
-    return x * y * z;
+    let inverse = vec3<f32>(1.0) - coordinate;
+    // X-fastest corner order. Keep each original (x * y) * z product; two
+    // vectors hold all eight weights without a dynamically indexed array.
+    let xy = vec4<f32>(
+        inverse.x * inverse.y,
+        coordinate.x * inverse.y,
+        inverse.x * coordinate.y,
+        coordinate.x * coordinate.y,
+    );
+    var weights: EntityAnchorWeights;
+    weights.lower = xy * inverse.z;
+    weights.upper = xy * coordinate.z;
+    return weights;
+}
+
+fn source_visibility_with_weights(weights: EntityAnchorWeights, source: u32) -> vec4<f32> {
+    var visibility = vec4<f32>(0.0);
+    // Read only the selected source's four taps from uniform storage. Each
+    // constant corner retains the original 0..7 accumulation order without
+    // copying an anchor's visibility array into fragment-local storage.
+    visibility += weights.lower.x * environment.entity_anchors[0u].visibility[source];
+    visibility += weights.lower.y * environment.entity_anchors[1u].visibility[source];
+    visibility += weights.lower.z * environment.entity_anchors[2u].visibility[source];
+    visibility += weights.lower.w * environment.entity_anchors[3u].visibility[source];
+    visibility += weights.upper.x * environment.entity_anchors[4u].visibility[source];
+    visibility += weights.upper.y * environment.entity_anchors[5u].visibility[source];
+    visibility += weights.upper.z * environment.entity_anchors[6u].visibility[source];
+    visibility += weights.upper.w * environment.entity_anchors[7u].visibility[source];
+    return clamp(visibility, vec4<f32>(0.0), vec4<f32>(1.0));
 }
 
 fn source_visibility(local_position: vec3<f32>, source: u32) -> vec4<f32> {
-    var visibility = vec4<f32>(0.0);
-    for (var corner = 0u; corner < 8u; corner = corner + 1u) {
-        // Read only this source's four taps from uniform storage. Copying the
-        // complete anchor here introduces a fragment-local visibility array.
-        visibility += anchor_weight(local_position, corner) * environment.entity_anchors[corner].visibility[source];
-    }
-    return clamp(visibility, vec4<f32>(0.0), vec4<f32>(1.0));
+    return source_visibility_with_weights(entity_anchor_weights(local_position), source);
 }
 
 // The same source-wide authored distance calibration and finite tap pattern as
 // TransportEmitter. Visibility is spatially interpolated at bounds anchors;
 // receiver cosines and falloff use the actual transformed fragment position.
-fn entity_direct_term(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
+fn entity_direct_term_with_weights(in: VsOut, normal: vec3<f32>, weights: EntityAnchorWeights) -> vec3<f32> {
     var result = vec3<f32>(0.0);
     var attenuation = vec3<f32>(0.0);
-    for (var corner = 0u; corner < 8u; corner = corner + 1u) {
-        attenuation += environment.entity_anchors[corner].attenuation.rgb * anchor_weight(in.local_position, corner);
-    }
+    attenuation += environment.entity_anchors[0u].attenuation.rgb * weights.lower.x;
+    attenuation += environment.entity_anchors[1u].attenuation.rgb * weights.lower.y;
+    attenuation += environment.entity_anchors[2u].attenuation.rgb * weights.lower.z;
+    attenuation += environment.entity_anchors[3u].attenuation.rgb * weights.lower.w;
+    attenuation += environment.entity_anchors[4u].attenuation.rgb * weights.upper.x;
+    attenuation += environment.entity_anchors[5u].attenuation.rgb * weights.upper.y;
+    attenuation += environment.entity_anchors[6u].attenuation.rgb * weights.upper.z;
+    attenuation += environment.entity_anchors[7u].attenuation.rgb * weights.upper.w;
     for (var index = 0u; index < 8u; index = index + 1u) {
         // Keep the tap array in uniform storage rather than copying the whole
         // source into fragment-local storage for its dynamically indexed taps.
@@ -426,7 +455,7 @@ fn entity_direct_term(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
         else if (extent_falloff.z > 0.5) { falloff = u; }
         // All taps share the same trilinear receiver weights. Interpolate
         // once per in-range source, preserving each tap's independent value.
-        let visibility = source_visibility(in.local_position, index);
+        let visibility = source_visibility_with_weights(weights, index);
         // An exactly occluded source contributes zero for every receiver
         // normal. Partial visibility keeps the original per-tap arithmetic.
         if (all(visibility == vec4<f32>(0.0))) { continue; }
@@ -446,19 +475,35 @@ fn entity_direct_term(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
     return result * attenuation;
 }
 
-fn spatial_entity_indirect(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
+fn entity_direct_term(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
+    return entity_direct_term_with_weights(in, normal, entity_anchor_weights(in.local_position));
+}
+
+fn spatial_entity_indirect(weights: EntityAnchorWeights, normal: vec3<f32>) -> vec3<f32> {
     var energy = vec3<f32>(0.0);
     var moment = vec3<f32>(0.0);
-    for (var corner = 0u; corner < 8u; corner = corner + 1u) {
-        let weight = anchor_weight(in.local_position, corner);
-        energy += environment.entity_anchors[corner].irradiance.rgb * weight;
-        moment += environment.entity_anchors[corner].moment.rgb * weight;
-    }
+    energy += environment.entity_anchors[0u].irradiance.rgb * weights.lower.x;
+    moment += environment.entity_anchors[0u].moment.rgb * weights.lower.x;
+    energy += environment.entity_anchors[1u].irradiance.rgb * weights.lower.y;
+    moment += environment.entity_anchors[1u].moment.rgb * weights.lower.y;
+    energy += environment.entity_anchors[2u].irradiance.rgb * weights.lower.z;
+    moment += environment.entity_anchors[2u].moment.rgb * weights.lower.z;
+    energy += environment.entity_anchors[3u].irradiance.rgb * weights.lower.w;
+    moment += environment.entity_anchors[3u].moment.rgb * weights.lower.w;
+    energy += environment.entity_anchors[4u].irradiance.rgb * weights.upper.x;
+    moment += environment.entity_anchors[4u].moment.rgb * weights.upper.x;
+    energy += environment.entity_anchors[5u].irradiance.rgb * weights.upper.y;
+    moment += environment.entity_anchors[5u].moment.rgb * weights.upper.y;
+    energy += environment.entity_anchors[6u].irradiance.rgb * weights.upper.z;
+    moment += environment.entity_anchors[6u].moment.rgb * weights.upper.z;
+    energy += environment.entity_anchors[7u].irradiance.rgb * weights.upper.w;
+    moment += environment.entity_anchors[7u].moment.rgb * weights.upper.w;
     return reconstruct_irradiance(energy, moment, normal);
 }
 
 fn spatial_entity_light(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
-    return spatial_entity_indirect(in, normal) + entity_direct_term(in, normal);
+    let weights = entity_anchor_weights(in.local_position);
+    return spatial_entity_indirect(weights, normal) + entity_direct_term_with_weights(in, normal, weights);
 }
 
 fn movable_contact_visibility(in: VsOut, normal: vec3<f32>) -> f32 {
@@ -685,6 +730,11 @@ fn surface_reflection(in: VsOut, normal: vec3<f32>, view: vec3<f32>) -> vec3<f32
 // index, the global density is added to the winner, and the mixed-to colour is
 // the winner's colour (else the global one). The one place fog is evaluated.
 fn atmosphere(world_position: vec3<f32>) -> vec4<f32> {
+    // With no global or regional fog, neither the surface mix nor emission
+    // transmission uses a fog colour. Skip distance, extinction and decoding.
+    if (environment.fog_density == 0.0 && environment.fog_region_count == 0u) {
+        return vec4<f32>(0.0);
+    }
     let distance = length(camera.position - world_position);
     let below = max(0.0, environment.fog_reference_y - world_position.y);
     let global_density = environment.fog_density * (1.0 + environment.fog_height_gain * min(below, 12.0));

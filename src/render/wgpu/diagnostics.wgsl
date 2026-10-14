@@ -38,7 +38,7 @@ fn visual_atlas_layer(in: VsOut, layer: u32, normal: vec3<f32>) -> vec3<f32> {
 fn visual_baked(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
     if (environment.entity_irradiance.w > 0.5) {
         if (environment.entity_bounds_min.w > 0.5) {
-            return visual_hdr(spatial_entity_indirect(in, normal) + entity_direct_term(in, normal));
+            return visual_hdr(spatial_entity_light(in, normal));
         }
         return visual_hdr(visual_reconstruct(environment.entity_irradiance.rgb, environment.entity_moment.xyz, normal));
     }
@@ -101,7 +101,7 @@ fn visual_diagnostic_display(in: VsOut, base: vec3<f32>, normal: vec3<f32>, mode
             return visual_unavailable();
         }
         case 14u: {
-            if (environment.entity_bounds_min.w > 0.5) { return visual_hdr(spatial_entity_indirect(in, normal)); }
+            if (environment.entity_bounds_min.w > 0.5) { return visual_hdr(spatial_entity_indirect(entity_anchor_weights(in.local_position), normal)); }
             return visual_unavailable();
         }
         default: { return visual_unavailable(); }

@@ -49,6 +49,7 @@ pub mod physics;
 pub mod props;
 pub mod quality;
 pub mod render;
+pub mod runtime_work;
 pub mod settings;
 pub mod spatial;
 #[cfg(test)]

@@ -91,6 +91,25 @@ use crate::render::common::reflections::{
 use crate::render::common::stats::{GpuTiming, LevelBuildStats, RenderStats};
 use crate::render::common::view::DrawableSize;
 
+/// Three warm steady frames only; the explicit diagnostic is excluded from timing.
+fn cpu_trace_start(seconds: f32) -> Option<std::time::Instant> {
+    static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    let enabled = ENABLED.get_or_init(|| {
+        std::env::var_os("PLACES_BENCH").is_some()
+            && std::env::var_os("PLACES_BENCH_CPU_TRACE").is_some()
+    });
+    (*enabled && (3.0..3.05).contains(&seconds)).then(std::time::Instant::now)
+}
+
+fn cpu_trace_finish(stage: &str, started: Option<std::time::Instant>) {
+    if let Some(begin) = started {
+        logging::info(format!(
+            "[cpu-stage] {stage} {:.6} ms",
+            begin.elapsed().as_secs_f64() * 1_000.0_f64
+        ));
+    }
+}
+
 /// Where one installed door stands: its hinge and closed-leaf yaw.
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct DoorPlacement {
@@ -551,6 +570,8 @@ pub struct WgpuRenderer {
     material_animations: LevelEmissionAnimations,
     /// Seconds of emission-animation time accumulated since the level load.
     animation_seconds: f32,
+    /// Invalidates centre samples when immutable lighting resources or switches change.
+    entity_lighting_revision: u64,
     /// The level's atmosphere (global fog plus any regional volumes), applied
     /// by every world draw from the shared group-3 uniform.
     fog: LevelFog,
@@ -955,6 +976,7 @@ impl WgpuRenderer {
             fixture_sheets: Vec::new(),
             material_animations: LevelEmissionAnimations::default(),
             animation_seconds: 0.0,
+            entity_lighting_revision: 0,
             fog: LevelFog::global_only(),
             bloom_requested: true,
             #[cfg(feature = "visual-diagnostics")]
@@ -1204,7 +1226,10 @@ impl WgpuRenderer {
         // emitters advanced. Their billboards are synced in `render_scene`,
         // where the frame's camera exists.
         let _update_stats_2 = self.effects.update(self.animation_seconds);
+        let lighting_started = cpu_trace_start(self.animation_seconds);
         let update = self.refresh_dynamic_lighting(delta_seconds);
+        cpu_trace_finish("dynamic_lighting", lighting_started);
+        let upload_started = cpu_trace_start(self.animation_seconds);
         let environment = self.level_environment();
         if let Some(dynamic) = self.world_dynamic.as_mut() {
             dynamic.sync_with_blacklight(
@@ -1227,6 +1252,7 @@ impl WgpuRenderer {
         if self.visual_diagnostic == super::diagnostics::VisualDiagnosticMode::ProbeNeighborhood {
             self.refresh_probe_visualization();
         }
+        cpu_trace_finish("dynamic_upload", upload_started);
         update
     }
 
@@ -1235,12 +1261,13 @@ impl WgpuRenderer {
             .dynamic_transport
             .as_ref()
             .map(|_| &mut self.dynamic_visibility);
-        match self.dynamic.update_with_visibility(
+        match self.dynamic.update_with_visibility_and_lighting_revision(
             delta_seconds,
             self.dynamic_lighting.as_ref(),
             self.dynamic_field.as_deref(),
             self.dynamic_transport.as_deref(),
             visibility,
+            self.entity_lighting_revision,
         ) {
             Ok(update) => {
                 self.dynamic_visibility_error = None;
@@ -1810,6 +1837,7 @@ impl WgpuRenderer {
         // environment uniform carries the live mask every static world, prop
         // and capture draw reads.
         if changed {
+            self.entity_lighting_revision = self.entity_lighting_revision.wrapping_add(1);
             let uniform = self.level_environment();
             if let Some(environment) = self.environment.as_mut() {
                 let _update_stats = environment.update(&self.queue, &uniform);
@@ -1992,24 +2020,31 @@ impl WgpuRenderer {
         locomotion: LocomotionSnapshot,
         frames: &[EntityFrame],
     ) -> crate::render::CharacterUpdate {
+        let animation_started = cpu_trace_start(self.animation_seconds);
         let update = self.characters.update(delta_seconds, locomotion, frames);
+        cpu_trace_finish("character_animation", animation_started);
+        let lighting_started = cpu_trace_start(self.animation_seconds);
         if let Some(lighting) = self.dynamic_lighting.as_ref() {
-            self.characters.refresh_lighting_with_visibility(
-                lighting,
-                self.dynamic_field.as_deref(),
-                self.dynamic_transport.as_deref(),
-                self.dynamic_transport
-                    .as_ref()
-                    .filter(|_| self.dynamic_visibility_error.is_none())
-                    .map(|_| &self.dynamic_visibility),
-            );
+            self.characters
+                .refresh_lighting_with_visibility_and_revision(
+                    lighting,
+                    self.dynamic_field.as_deref(),
+                    self.dynamic_transport.as_deref(),
+                    self.dynamic_transport
+                        .as_ref()
+                        .filter(|_| self.dynamic_visibility_error.is_none())
+                        .map(|_| &self.dynamic_visibility),
+                    self.entity_lighting_revision,
+                );
         }
         let generation = self.characters.runtime_generation();
+        cpu_trace_finish("character_lighting", lighting_started);
         if generation != self.character_runtime_generation {
             self.character_runtime_generation = generation;
             self.upload_characters_gpu();
         }
         let environment = self.level_environment();
+        let upload_started = cpu_trace_start(self.animation_seconds);
         if let Some(characters) = self.world_characters.as_mut() {
             let _sync_status = characters.sync_with_blacklight(
                 &self.queue,
@@ -2027,6 +2062,7 @@ impl WgpuRenderer {
                 }),
             );
         }
+        cpu_trace_finish("character_skin_upload", upload_started);
         update
     }
 
@@ -2863,6 +2899,7 @@ impl WgpuRenderer {
         }
         self.blacklights = blacklights;
         self.dynamic_lighting = Some(build.lighting.clone());
+        self.entity_lighting_revision = self.entity_lighting_revision.wrapping_add(1);
         self.dynamic_field.clone_from(&build.probes);
         self.dynamic_transport = uv_transport.or_else(|| {
             build.probes.as_ref().and_then(|field| {

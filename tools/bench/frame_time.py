@@ -32,6 +32,7 @@ def statistics_for(values: list[float]) -> dict | None:
         "samples": len(ordered),
         "median": statistics.median(ordered),
         "p95": ordered[max(0, math.ceil(len(ordered) * 0.95) - 1)],
+        "p99": ordered[max(0, math.ceil(len(ordered) * 0.99) - 1)],
         "worst": ordered[-1],
     }
 
@@ -75,6 +76,10 @@ def main() -> None:
     parser.add_argument("--capture-frame", type=int, help="capture instead of measuring performance")
     parser.add_argument("--gpu-trace", action="store_true", help="three labelled raw GPU samples; diagnostic run")
     parser.add_argument("--no-gpu-timing", action="store_true", help="same-build instrumentation control")
+    parser.add_argument("--runtime-workers", type=int, choices=range(1, 9), help="bounded CPU pool; 1 runs inline")
+    parser.add_argument("--lightmaps", choices=("static", "full"), default="full", help="matched lighting control")
+    parser.add_argument("--entity-light-trace", default="", help="capture-only entity lighting payload witness")
+    parser.add_argument("--cpu-trace", action="store_true", help="three steady frames of CPU stage spans; diagnostic")
     args = parser.parse_args()
     if not 1 <= args.frames <= 3600 or not 0 <= args.warmup <= 1200:
         parser.error("frames must be 1..3600; warmup must be 0..1200")
@@ -105,7 +110,7 @@ def main() -> None:
     settings.update(
         window_width=width, window_height=height,
         window_mode="fullscreen" if args.fullscreen else "windowed", vsync=args.vsync,
-        quality="high", texture_filtering="high", lightmaps="full", reflections="full",
+        quality="high", texture_filtering="high", lightmaps=args.lightmaps, reflections="full",
         bloom=True, use_low_quality_lighting=False, fov_degrees=60, developer_console=args.console_open,
     )
     (out / "settings.json").write_text(json.dumps(settings, indent=2) + "\n")
@@ -119,6 +124,9 @@ def main() -> None:
         PLACES_STATE_LOG=str(out / "player.csv"), PLACES_LOAD_TRACE=str(out / "trace.jsonl"),
     )
     optional = {
+        "PLACES_RUNTIME_WORKERS": str(args.runtime_workers) if args.runtime_workers else "",
+        "PLACES_ENTITY_LIGHT_TRACE": args.entity_light_trace,
+        "PLACES_BENCH_CPU_TRACE": "1" if args.cpu_trace else "",
         "PLACES_MOVE_SCRIPT": lateral_script() if args.motion else args.move_script,
         "PLACES_INTERACT": args.interact,
         "PLACES_BENCH_GRAPHICS_CYCLE": args.graphics_cycle,
@@ -203,7 +211,7 @@ def main() -> None:
         for key in ("loop_ms", "frame_ms", "update_ms", "render_ms", "swap_ms")
     }
     receipt = dict(
-        kind="capture" if capture else "diagnostic" if (args.gpu_trace or args.graphics_cycle or args.quality_cycle or args.lighting_sequence) else "timing",
+        kind="capture" if capture else "diagnostic" if (args.cpu_trace or args.gpu_trace or args.graphics_cycle or args.quality_cycle or args.lighting_sequence) else "timing",
         started_utc=started_utc, elapsed_seconds=time.monotonic() - started,
         binary=str(binary), binary_sha256=binary_sha256, package=str(package), package_sha256=package_sha256,
         asset_root=str(asset_root), settings=settings, spawn=args.spawn, camera=args.camera,

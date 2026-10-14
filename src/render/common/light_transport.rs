@@ -666,6 +666,7 @@ pub fn entity_spatial_lighting_with_visibility(
             attenuation: [ar, ag, ab, 0.0],
         }
     });
+    disable_fully_occluded_entity_lights(&mut direct, &anchors);
     let [x, y, z] = positions.minimum.to_array();
     let [dx, dy, dz] = positions.extent.to_array();
     Some(Box::new(EntitySpatialLighting {
@@ -674,6 +675,27 @@ pub fn entity_spatial_lighting_with_visibility(
         anchors,
         direct,
     }))
+}
+
+fn disable_fully_occluded_entity_lights(
+    sources: &mut [EntityDirectLight; super::dynamic_lights::MAX_ENTITY_DIRECT_LIGHTS],
+    anchors: &[EntityLightingAnchor; ENTITY_LIGHTING_ANCHORS],
+) {
+    for (slot, source) in sources.iter_mut().enumerate() {
+        // Clamped trilinear weights are nonnegative. A source whose every tap
+        // is zero at every support point is therefore zero for all fragments.
+        // Keep its descriptor/taps intact and clear only the strength, which
+        // the shader checks before falloff and visibility interpolation.
+        if anchors.iter().all(|anchor| {
+            anchor
+                .visibility
+                .get(slot)
+                .is_some_and(|taps| taps.iter().all(|value| *value == 0.0))
+        }) {
+            let [red, green, blue, _strength] = source.color_strength;
+            source.color_strength = [red, green, blue, 0.0];
+        }
+    }
 }
 
 fn spatial_anchor_visibility(
@@ -1758,6 +1780,7 @@ mod tests {
                 .sum::<f32>(),
             1.0
         );
+        assert_occluded_entity_sources_preserve_partial_lane(source);
         let key = entity_spatial_key(&lighting, Some(&field), model, Some(&scene));
         assert_eq!(
             key,
@@ -1767,6 +1790,40 @@ mod tests {
         assert_ne!(
             key,
             entity_spatial_key(&lighting, Some(&field), model, Some(&scene))
+        );
+    }
+
+    // A 1.4 KiB lattice isolates the cull boundary: one nonzero tap at the
+    // final anchor/source must keep that source, even at tiny throughput.
+    // Reuse the source fixture; no additional scene build, GPU dispatch or test.
+    fn assert_occluded_entity_sources_preserve_partial_lane(source: &EntityDirectLight) {
+        let mut anchors = [EntityLightingAnchor::ZERO; ENTITY_LIGHTING_ANCHORS];
+        *anchors
+            .last_mut()
+            .expect("final anchor")
+            .visibility
+            .last_mut()
+            .expect("final source")
+            .last_mut()
+            .expect("final tap") = f32::MIN_POSITIVE;
+        let mut sources = [*source; super::super::dynamic_lights::MAX_ENTITY_DIRECT_LIGHTS];
+        disable_fully_occluded_entity_lights(&mut sources, &anchors);
+        let [red, green, blue, _strength] = source.color_strength;
+        let disabled = EntityDirectLight {
+            color_strength: [red, green, blue, 0.0],
+            ..*source
+        };
+        assert!(
+            sources
+                .iter()
+                .take(super::super::dynamic_lights::MAX_ENTITY_DIRECT_LIGHTS.saturating_sub(1))
+                .all(|value| *value == disabled),
+            "only fully occluded sources lose strength; descriptors and taps survive"
+        );
+        assert_eq!(
+            sources.last(),
+            Some(source),
+            "one nonzero lane at any anchor preserves the exact source"
         );
     }
 
@@ -1800,6 +1857,8 @@ mod tests {
             vertex_alpha: [1.0; 3],
             address: TransportTextureAddress::Clamp,
         };
+        let opaque_scene =
+            TransportScene::new(triangles.clone(), Vec::new()).expect("opaque pane scene");
         let scene = TransportScene::new(triangles, Vec::new())
             .expect("pane scene")
             .with_surface_alpha(vec![Some(alpha.clone()), Some(alpha)])
@@ -1846,6 +1905,52 @@ mod tests {
                 "receiver-depth colour extinction remains independent of alpha"
             );
         }
+        let source = EntityDirectLight::from_baked(lighting.lights().first().expect("source"));
+        assert_eq!(
+            spatial.direct.first(),
+            Some(&source),
+            "partial blend throughput keeps the exact source and finite-emitter taps"
+        );
+        assert_fully_occluded_entity_payload(&lighting, &field, &opaque_scene, &source);
+    }
+
+    // The same two triangles exercise the production payload cull, using
+    // opaque coverage rather than an additional authored scene or map.
+    fn assert_fully_occluded_entity_payload(
+        lighting: &LevelLighting,
+        field: &crate::lighting::probes::ProbeField,
+        scene: &TransportScene,
+        source: &EntityDirectLight,
+    ) {
+        let blocked = entity_spatial_lighting(
+            lighting,
+            Some(field),
+            crate::spatial::Aabb {
+                min: [-0.2, 0.2, -0.2],
+                max: [0.2, 0.8, 0.2],
+            },
+            glam::Mat4::IDENTITY,
+            Some(scene),
+        )
+        .expect("fully occluded receiver");
+        assert!(
+            blocked.anchors.iter().all(|anchor| anchor
+                .visibility
+                .first()
+                .expect("selected source")
+                .iter()
+                .all(|tap| *tap == 0.0)),
+            "opaque pane blocks every anchor and tap"
+        );
+        let [red, green, blue, _strength] = source.color_strength;
+        assert_eq!(
+            blocked.direct.first(),
+            Some(&EntityDirectLight {
+                color_strength: [red, green, blue, 0.0],
+                ..*source
+            }),
+            "fully occluded source skips shader work without changing its descriptor"
+        );
     }
 
     #[test]

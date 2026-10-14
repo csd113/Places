@@ -1056,7 +1056,9 @@ fn encode_fullscreen(
             depth_slice: None,
             resolve_target: None,
             ops: wgpu::Operations {
-                load: wgpu::LoadOp::Load,
+                // This quad covers the full target with blending disabled.
+                // Prior attachment pixels have no reader in this pass.
+                load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
                 store: wgpu::StoreOp::Store,
             },
         })],

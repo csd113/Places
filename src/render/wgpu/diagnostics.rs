@@ -410,7 +410,7 @@ mod tests {
             .map_err(|error| error.emit_to_string(&source))?;
         let _validated = Validator::new(ValidationFlags::all(), Capabilities::all())
             .validate(&module)
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| error.emit_to_string(&source))?;
         Ok(())
     }
 }

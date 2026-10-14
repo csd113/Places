@@ -1020,6 +1020,8 @@ pub struct Character {
     /// to the model's `vertices`.
     albedo: Vec<[f32; 4]>,
     entity_lighting: super::light_transport::EntityLighting,
+    center_light_key: Option<super::dynamic::EntityCenterLightKey>,
+    lighting_refresh_key: Option<super::dynamic::EntityLightingRefreshKey>,
     spatial_lighting: Option<Box<super::light_transport::EntitySpatialLighting>>,
     spatial_key: Option<super::light_transport::EntitySpatialKey>,
     lighting_local_centre: Vec3,
@@ -1323,6 +1325,10 @@ impl CharacterScene {
         // Runtime actors have no authored placement to re-create. Retain them
         // across a graphics rebuild and re-sample the newly installed field.
         self.runtime = std::mem::take(&mut previous.runtime);
+        for character in &mut self.runtime {
+            character.center_light_key = None;
+            character.lighting_refresh_key = None;
+        }
         self.runtime_generation = previous.runtime_generation;
         for character in &mut self.characters {
             let Some(id) = character.instance_id.as_deref() else {
@@ -1397,6 +1403,8 @@ impl CharacterScene {
                 animator,
                 albedo,
                 entity_lighting,
+                center_light_key: None,
+                lighting_refresh_key: None,
                 spatial_lighting: None,
                 spatial_key: None,
                 lighting_local_centre,
@@ -1512,6 +1520,8 @@ impl CharacterScene {
             animator,
             albedo,
             entity_lighting,
+            center_light_key: None,
+            lighting_refresh_key: None,
             spatial_lighting: None,
             spatial_key: None,
             lighting_local_centre,
@@ -1639,35 +1649,115 @@ impl CharacterScene {
         scene: Option<&crate::lighting::transport::TransportScene>,
         visibility: Option<&super::dynamic_visibility::DynamicVisibility>,
     ) {
+        self.refresh_lighting_with_revision(lighting, irradiance, scene, visibility, None);
+    }
+
+    /// Reuses center probes against a caller-owned lighting revision. Increment
+    /// it whenever authored lighting or field contents change, including
+    /// switches and in-place edits. Spatial samples still follow every movable
+    /// visibility revision and every exact placement transform.
+    pub fn refresh_lighting_with_visibility_and_revision(
+        &mut self,
+        lighting: &LevelLighting,
+        irradiance: Option<&crate::lighting::probes::ProbeField>,
+        scene: Option<&crate::lighting::transport::TransportScene>,
+        visibility: Option<&super::dynamic_visibility::DynamicVisibility>,
+        lighting_revision: u64,
+    ) {
+        self.refresh_lighting_with_revision(
+            lighting,
+            irradiance,
+            scene,
+            visibility,
+            Some(lighting_revision),
+        );
+    }
+
+    fn refresh_lighting_with_revision(
+        &mut self,
+        lighting: &LevelLighting,
+        irradiance: Option<&crate::lighting::probes::ProbeField>,
+        scene: Option<&crate::lighting::transport::TransportScene>,
+        visibility: Option<&super::dynamic_visibility::DynamicVisibility>,
+        lighting_revision: Option<u64>,
+    ) {
+        const PARALLEL_LIGHTING_MIN_RECEIVERS: usize = 8;
         let context = super::light_transport::EntityVisibility {
             dynamic: visibility,
             receiver: None,
         };
-        for character in self.characters.iter_mut().chain(self.runtime.iter_mut()) {
-            character.entity_lighting = super::light_transport::entity_lighting(
-                lighting,
-                irradiance,
-                character.lighting_sample_position(),
-            );
-            let transform = character.transform();
-            let spatial_key = super::light_transport::entity_spatial_key_with_visibility(
-                lighting, irradiance, transform, scene, context,
-            );
-            if character.spatial_key != spatial_key {
-                character.spatial_lighting = (!character.lighting_local_bounds.is_empty())
-                    .then(|| {
-                        super::light_transport::entity_spatial_lighting_with_visibility(
-                            lighting,
-                            irradiance,
-                            character.lighting_local_bounds,
-                            transform,
-                            scene,
-                            context,
-                        )
-                    })
-                    .flatten();
-                character.spatial_key = spatial_key;
+        let refresh_context = super::dynamic::EntityLightingRefreshContext::new(
+            lighting,
+            irradiance,
+            scene,
+            visibility,
+            lighting_revision,
+        );
+        let dirty = |character: &Character| {
+            refresh_context
+                .key(
+                    character.transform(),
+                    character.lighting_local_bounds,
+                    character.lighting_sample_position(),
+                    None,
+                )
+                .is_none_or(|key| character.lighting_refresh_key != Some(key))
+        };
+        let refresh = |character: &mut Character| {
+            if !dirty(character) {
+                return;
             }
+            let position = character.lighting_sample_position();
+            let transform = character.transform();
+            let refresh_key =
+                refresh_context.key(transform, character.lighting_local_bounds, position, None);
+            let center_key = lighting_revision.map(|revision| {
+                super::dynamic::EntityCenterLightKey::new(revision, lighting, irradiance, position)
+            });
+            let center_changed = character.center_light_key != center_key;
+            if center_key.is_none() || center_changed {
+                character.entity_lighting =
+                    super::light_transport::entity_lighting(lighting, irradiance, position);
+                character.center_light_key = center_key;
+            }
+            if refresh_key.is_none_or(|key| key.spatial_changed(character.lighting_refresh_key)) {
+                let spatial_key = super::light_transport::entity_spatial_key_with_visibility(
+                    lighting, irradiance, transform, scene, context,
+                );
+                if character.spatial_key != spatial_key || refresh_key.is_some() {
+                    character.spatial_lighting = (!character.lighting_local_bounds.is_empty())
+                        .then(|| {
+                            super::light_transport::entity_spatial_lighting_with_visibility(
+                                lighting,
+                                irradiance,
+                                character.lighting_local_bounds,
+                                transform,
+                                scene,
+                                context,
+                            )
+                        })
+                        .flatten();
+                    character.spatial_key = spatial_key;
+                }
+            }
+            character.lighting_refresh_key = refresh_key;
+        };
+        // Each receiver owns its output; field/transport/visibility are shared
+        // immutable snapshots. Join before the backend observes these samples.
+        for receivers in [&mut self.characters, &mut self.runtime] {
+            let dirty_count = receivers
+                .iter()
+                .filter(|character| dirty(character))
+                .count();
+            if dirty_count == 0 {
+                continue;
+            }
+            let min_receivers = if dirty_count >= PARALLEL_LIGHTING_MIN_RECEIVERS {
+                PARALLEL_LIGHTING_MIN_RECEIVERS
+            } else {
+                usize::MAX
+            };
+            crate::runtime_work::for_each_mut(receivers, min_receivers, refresh);
         }
     }
 
@@ -4610,6 +4700,131 @@ mod tests {
                 assert_eq!(actor_light(&scene), sample);
             }
         }
+        // Exercise the opt-in cache on the already-loaded actor: no extra
+        // model decode, fixture bake or animation campaign is needed.
+        assert_character_lighting_revision_cache(&mut scene, &lighting, &mut field);
+    }
+
+    fn assert_character_lighting_revision_cache(
+        scene: &mut CharacterScene,
+        lighting: &LevelLighting,
+        field: &mut crate::lighting::probes::ProbeField,
+    ) {
+        let actor_light = |actors: &CharacterScene| {
+            actors
+                .runtime_character("neutral")
+                .expect("actor")
+                .entity_lighting()
+        };
+        field.local_direct = Some(crate::lighting::probes::ProbeDirectField {
+            light_indices: Vec::new(),
+            probes: vec![crate::lighting::lightmap::LightmapTexel::ZERO; field.probes.len()],
+        });
+        scene.refresh_lighting_with_visibility_and_revision(lighting, Some(field), None, None, 1);
+        let cache_key = scene
+            .runtime_character("neutral")
+            .expect("actor")
+            .center_light_key;
+        assert!(
+            cache_key.is_some(),
+            "revisioned character lighting installs a key"
+        );
+        let cached_sample = actor_light(scene);
+        scene.refresh_lighting_with_visibility_and_revision(lighting, Some(field), None, None, 1);
+        assert_eq!(actor_light(scene), cached_sample);
+        field
+            .probes
+            .iter_mut()
+            .for_each(|probe| probe.irradiance = [0.4; 3]);
+        scene.refresh_lighting_with_visibility_and_revision(lighting, Some(field), None, None, 2);
+        assert!((actor_light(scene).display[0] - 0.4).abs() < 1.0e-6);
+        assert_ne!(
+            scene
+                .runtime_character("neutral")
+                .expect("actor")
+                .center_light_key,
+            cache_key
+        );
+        let extent = scene
+            .runtime_character("neutral")
+            .expect("actor")
+            .spatial_lighting()
+            .expect("anchors")
+            .bounds_extent[0];
+        scene
+            .runtime
+            .first_mut()
+            .expect("actor")
+            .lighting_local_bounds
+            .max[0] += 0.01;
+        scene.refresh_lighting_with_visibility_and_revision(lighting, Some(field), None, None, 2);
+        assert!(
+            scene
+                .runtime_character("neutral")
+                .expect("actor")
+                .spatial_lighting()
+                .expect("resized anchors")
+                .bounds_extent[0]
+                > extent,
+            "exact local bounds invalidate even with an unchanged center/model/revision"
+        );
+        assert_moving_center_reuses_character_spatial_lighting(scene, lighting, field);
+        scene.refresh_lighting(lighting, None);
+        assert!(
+            scene
+                .runtime_character("neutral")
+                .expect("actor")
+                .center_light_key
+                .is_none()
+        );
+    }
+
+    /// The existing actor/lattice emulate a balloon center moving inside its
+    /// stable swept bounds. Spatial allocation must survive center resampling.
+    fn assert_moving_center_reuses_character_spatial_lighting(
+        scene: &mut CharacterScene,
+        lighting: &LevelLighting,
+        field: &mut crate::lighting::probes::ProbeField,
+    ) {
+        for (index, probe) in field.probes.iter_mut().enumerate() {
+            probe.irradiance = if index == 0 { [0.1; 3] } else { [0.8; 3] };
+        }
+        scene.refresh_lighting_with_visibility_and_revision(lighting, Some(field), None, None, 3);
+        let actor = scene.runtime_character("neutral").expect("actor");
+        let initial_sample = actor.entity_lighting();
+        let initial_center_key = actor.center_light_key;
+        let spatial_pointer = actor
+            .spatial_lighting()
+            .map(|payload| std::ptr::from_ref(payload).addr());
+        scene
+            .runtime
+            .first_mut()
+            .expect("actor")
+            .lighting_local_centre
+            .x += 0.125;
+        scene.refresh_lighting_with_visibility_and_revision(lighting, Some(field), None, None, 3);
+        let moved_actor = scene.runtime_character("neutral").expect("actor");
+        assert_ne!(moved_actor.center_light_key, initial_center_key);
+        assert_ne!(
+            moved_actor.entity_lighting(),
+            initial_sample,
+            "the moving center reads new coefficients"
+        );
+        assert_eq!(
+            moved_actor.entity_lighting(),
+            super::super::light_transport::entity_lighting(
+                lighting,
+                Some(field),
+                moved_actor.lighting_sample_position()
+            )
+        );
+        assert_eq!(
+            moved_actor
+                .spatial_lighting()
+                .map(|payload| std::ptr::from_ref(payload).addr()),
+            spatial_pointer,
+            "a center-only change retains the exact spatial anchor allocation"
+        );
     }
 
     #[test]

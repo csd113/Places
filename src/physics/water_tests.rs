@@ -77,6 +77,88 @@ fn snapshot(world: &ItemWorld, key: u64) -> BodySnapshot {
         .expect("existing water fixture body")
 }
 
+// Protects the phase split: all immersion reads finish before stable-key body
+// mutations. Sixty-four tiny tilted floats take one fixed step, about 9,216
+// primitive rays; two explicit pools avoid changing the process-wide executor.
+#[test]
+#[cfg(not(target_arch = "wasm32"))]
+fn parallel_immersion_preserves_exact_poses_velocities_and_contacts() -> Result<(), String> {
+    let level = pool();
+    let build = |workers| -> Result<ItemWorld, String> {
+        let worker_pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(workers)
+            .build()
+            .map(std::sync::Arc::new)
+            .map_err(|error| error.to_string())?;
+        let mut world = ItemWorld::from_level(&level, &[]);
+        world.set_worker_pool(worker_pool);
+        let definition = profile(4.0, Some(0.008));
+        for index in 0..64_u16 {
+            let key = u64::from(index).saturating_add(1);
+            let position = Vec3::new(
+                f32::from(index % 8).mul_add(0.35, -1.3),
+                -0.01,
+                f32::from(index / 8).mul_add(0.35, -1.3),
+            );
+            world.spawn(
+                key,
+                &definition,
+                (Vec3::splat(-0.1), Vec3::splat(0.1)),
+                position,
+                0.0,
+                1.0,
+            )?;
+            assert!(
+                world.set_fixture_pose(
+                    key,
+                    ItemPose {
+                        position,
+                        rotation: Quat::from_rotation_z(0.7),
+                    }
+                ),
+                "tilted partial immersion exercises quadrature"
+            );
+            assert!(
+                world.set_fixture_velocity(
+                    key,
+                    Vec3::new(0.05, -0.03, 0.02),
+                    Vec3::new(0.1, 0.0, 0.15)
+                ),
+                "finite initial velocities exercise both fluid decays"
+            );
+        }
+        world.step(FIXED_STEP, context(), &[]);
+        Ok(world)
+    };
+    let serial = build(1)?;
+    let parallel = build(2)?;
+    assert!(
+        parallel
+            .runtime
+            .as_ref()
+            .is_some_and(|runtime| runtime.water_work.len() == 64),
+        "the delayed immersion branch measured all sixty-four bodies"
+    );
+    let serial_snapshots = serial.snapshots();
+    let parallel_snapshots = parallel.snapshots();
+    assert!(
+        parallel_snapshots
+            .iter()
+            .all(|body| body.submerged_fraction > 0.0 && body.submerged_fraction < 1.0),
+        "every tilted float remains partially immersed"
+    );
+    let encode = |world: &ItemWorld, snapshots: Vec<BodySnapshot>| {
+        serde_json::to_vec(&(snapshots, world.contact_pairs(), world.contact_impulses()))
+            .map_err(|error| error.to_string())
+    };
+    assert_eq!(
+        encode(&serial, serial_snapshots)?,
+        encode(&parallel, parallel_snapshots)?,
+        "worker count preserves exact poses, velocities, immersion and contacts"
+    );
+    Ok(())
+}
+
 // Protects profile round-tripping, bounded source/scaled lift and strict nested
 // keys. Pure metadata plus one rejected spawn; no solver campaign is needed.
 #[test]

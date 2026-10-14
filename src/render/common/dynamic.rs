@@ -76,8 +76,124 @@ pub const MAX_DYNAMIC_OBJECTS: usize = 256;
 pub const MAX_DYNAMIC_MESHES: usize = 16;
 
 /// Historical movement threshold, retained for API compatibility. Runtime
-/// lighting now samples every frame; this value no longer creates a dead zone.
+/// lighting follows exact sample positions; this value creates no dead zone.
 pub const PROBE_EPSILON_M: f32 = 0.05;
+
+/// Receiver refreshes can issue hundreds of independent visibility rays.
+/// Small scenes stay on the caller; larger batches share the runtime pool.
+const PARALLEL_LIGHTING_MIN_RECEIVERS: usize = 8;
+
+/// Center samples depend on the field, authored lighting and exact position,
+/// independently of movable-caster visibility. The caller's revision covers
+/// resource contents, including in-place mutations and fixture switches.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct EntityCenterLightKey {
+    revision: u64,
+    lighting: usize,
+    field: usize,
+    position: [u32; 3],
+}
+
+impl EntityCenterLightKey {
+    pub(super) fn new(
+        revision: u64,
+        lighting: &LevelLighting,
+        field: Option<&crate::lighting::probes::ProbeField>,
+        position: [f32; 3],
+    ) -> Self {
+        Self {
+            revision,
+            lighting: std::ptr::from_ref(lighting).addr(),
+            field: field.map_or(0, |value| std::ptr::from_ref(value).addr()),
+            position: position.map(f32::to_bits),
+        }
+    }
+}
+
+/// Exact revisioned receiver dependencies, checked before emitter enumeration
+/// or worker dispatch. Bounds/center also cover animated balloon lighting.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct EntityLightingRefreshKey {
+    center: EntityCenterLightKey,
+    model: [[u32; 4]; 4],
+    bounds: [[u32; 3]; 2],
+    scene: usize,
+    dynamic: usize,
+    dynamic_revision: u64,
+    receiver: Option<DynamicId>,
+}
+
+impl EntityLightingRefreshKey {
+    /// A moving center diagnostic can stay inside unchanged spatial bounds.
+    /// Only resources, bounds, placement and source visibility invalidate the
+    /// anchor payload; the center position has its independent sample key.
+    pub(super) fn spatial_changed(self, previous: Option<Self>) -> bool {
+        previous.is_none_or(|cached| {
+            self.center.revision != cached.center.revision
+                || self.center.lighting != cached.center.lighting
+                || self.center.field != cached.center.field
+                || self.model != cached.model
+                || self.bounds != cached.bounds
+                || self.scene != cached.scene
+                || self.dynamic != cached.dynamic
+                || self.dynamic_revision != cached.dynamic_revision
+                || self.receiver != cached.receiver
+        })
+    }
+}
+
+#[derive(Clone, Copy)]
+pub(super) struct EntityLightingRefreshContext<'a> {
+    lighting: &'a LevelLighting,
+    field: Option<&'a crate::lighting::probes::ProbeField>,
+    scene: Option<&'a crate::lighting::transport::TransportScene>,
+    visibility: Option<&'a super::dynamic_visibility::DynamicVisibility>,
+    revision: Option<u64>,
+}
+
+impl<'a> EntityLightingRefreshContext<'a> {
+    pub(super) const fn new(
+        lighting: &'a LevelLighting,
+        field: Option<&'a crate::lighting::probes::ProbeField>,
+        scene: Option<&'a crate::lighting::transport::TransportScene>,
+        visibility: Option<&'a super::dynamic_visibility::DynamicVisibility>,
+        revision: Option<u64>,
+    ) -> Self {
+        Self {
+            lighting,
+            field,
+            scene,
+            visibility,
+            revision,
+        }
+    }
+
+    pub(super) fn key(
+        self,
+        model: Mat4,
+        bounds: Aabb,
+        position: [f32; 3],
+        receiver: Option<DynamicId>,
+    ) -> Option<EntityLightingRefreshKey> {
+        Some(EntityLightingRefreshKey {
+            center: EntityCenterLightKey::new(self.revision?, self.lighting, self.field, position),
+            model: model
+                .to_cols_array_2d()
+                .map(|column| column.map(f32::to_bits)),
+            bounds: [bounds.min.map(f32::to_bits), bounds.max.map(f32::to_bits)],
+            scene: self
+                .scene
+                .map_or(0, |value| std::ptr::from_ref(value).addr()),
+            dynamic: self
+                .visibility
+                .map_or(0, |value| std::ptr::from_ref(value).addr()),
+            dynamic_revision: self
+                .visibility
+                .map_or(0, super::dynamic_visibility::DynamicVisibility::revision),
+            receiver,
+        })
+    }
+}
 
 /// Degrees per second the demonstration drum turns.
 pub const DEMO_SPIN_DEGREES_PER_SECOND: f32 = 12.0;
@@ -388,6 +504,8 @@ pub struct DynamicObject {
     albedo_tint: [f32; 3],
     light_scale: [f32; 3],
     entity_lighting: Option<super::light_transport::EntityLighting>,
+    center_light_key: Option<EntityCenterLightKey>,
+    lighting_refresh_key: Option<EntityLightingRefreshKey>,
     spatial_lighting: Option<Box<super::light_transport::EntitySpatialLighting>>,
     spatial_key: Option<super::light_transport::EntitySpatialKey>,
     probe_position: [f32; 3],
@@ -692,6 +810,74 @@ impl DynamicObject {
     #[must_use]
     pub fn vertex_count(&self) -> usize {
         self.mesh.vertex_count()
+    }
+
+    /// Only this receiver's output changes; the current visibility snapshot is
+    /// complete before the batch starts. The result counts changed GPU probes.
+    fn refresh_lighting(
+        &mut self,
+        lighting: &LevelLighting,
+        irradiance: Option<&crate::lighting::probes::ProbeField>,
+        scene: Option<&crate::lighting::transport::TransportScene>,
+        visibility: Option<&super::dynamic_visibility::DynamicVisibility>,
+        lighting_revision: Option<u64>,
+    ) -> bool {
+        if !self.visible {
+            return false;
+        }
+        let probe = self.centre().to_array();
+        if !probe.iter().all(|value| value.is_finite()) {
+            return false;
+        }
+        let transform = self.transform();
+        let refresh_key = EntityLightingRefreshContext::new(
+            lighting,
+            irradiance,
+            scene,
+            visibility,
+            lighting_revision,
+        )
+        .key(transform, self.mesh.bounds, probe, Some(self.id));
+        if refresh_key.is_some() && self.lighting_refresh_key == refresh_key {
+            return false;
+        }
+        let center_key = lighting_revision
+            .map(|revision| EntityCenterLightKey::new(revision, lighting, irradiance, probe));
+        let center_changed = self.center_light_key != center_key;
+        let mut changed = false;
+        if center_key.is_none() || center_changed {
+            let sample = super::light_transport::entity_lighting(lighting, irradiance, probe);
+            changed = self.entity_lighting != Some(sample)
+                || self.probe_position.map(f32::to_bits) != probe.map(f32::to_bits);
+            self.light_scale = sample.display;
+            self.entity_lighting = Some(sample);
+            self.center_light_key = center_key;
+            self.probe_position = probe;
+            self.probe_valid = true;
+        }
+        let context = super::light_transport::EntityVisibility {
+            dynamic: visibility,
+            receiver: Some(self.id),
+        };
+        if refresh_key.is_none_or(|key| key.spatial_changed(self.lighting_refresh_key)) {
+            let spatial_key = super::light_transport::entity_spatial_key_with_visibility(
+                lighting, irradiance, transform, scene, context,
+            );
+            if self.spatial_key != spatial_key || refresh_key.is_some() {
+                self.spatial_lighting =
+                    super::light_transport::entity_spatial_lighting_with_visibility(
+                        lighting,
+                        irradiance,
+                        self.mesh.bounds,
+                        transform,
+                        scene,
+                        context,
+                    );
+                self.spatial_key = spatial_key;
+            }
+        }
+        self.lighting_refresh_key = refresh_key;
+        changed
     }
 }
 
@@ -1042,6 +1228,8 @@ impl DynamicScene {
             albedo_tint: [1.0; 3],
             light_scale: [crate::lighting::AMBIENT_LEVEL; 3],
             entity_lighting: None,
+            center_light_key: None,
+            lighting_refresh_key: None,
             spatial_lighting: None,
             spatial_key: None,
             probe_position: [f32::NAN; 3],
@@ -1137,6 +1325,8 @@ impl DynamicScene {
             albedo_tint: [1.0; 3],
             light_scale: [crate::lighting::AMBIENT_LEVEL; 3],
             entity_lighting: None,
+            center_light_key: None,
+            lighting_refresh_key: None,
             spatial_lighting: None,
             spatial_key: None,
             probe_position: [f32::NAN; 3],
@@ -1337,7 +1527,7 @@ impl DynamicScene {
         scene: Option<&crate::lighting::transport::TransportScene>,
     ) -> DynamicUpdate {
         let moved = self.advance_spins(delta_seconds);
-        let mut update = self.refresh_entity_lighting(lighting, irradiance, scene, None);
+        let mut update = self.refresh_entity_lighting(lighting, irradiance, scene, None, None);
         update.moved = moved;
         update
     }
@@ -1356,6 +1546,52 @@ impl DynamicScene {
         scene: Option<&crate::lighting::transport::TransportScene>,
         visibility: Option<&mut super::dynamic_visibility::DynamicVisibility>,
     ) -> Result<DynamicUpdate, String> {
+        self.update_with_visibility_revision(
+            delta_seconds,
+            lighting,
+            irradiance,
+            scene,
+            visibility,
+            None,
+        )
+    }
+
+    /// Uses a caller-owned lighting revision to reuse unchanged center probes.
+    /// Increment it whenever lighting or field contents change, including
+    /// fixture switches and in-place edits. Movable-caster changes refresh the
+    /// spatial payload independently and do not invalidate the center probe.
+    ///
+    /// # Errors
+    /// Returns the same movable-visibility preparation errors as
+    /// [`Self::update_with_visibility`].
+    pub fn update_with_visibility_and_lighting_revision(
+        &mut self,
+        delta_seconds: f32,
+        lighting: Option<&LevelLighting>,
+        irradiance: Option<&crate::lighting::probes::ProbeField>,
+        scene: Option<&crate::lighting::transport::TransportScene>,
+        visibility: Option<&mut super::dynamic_visibility::DynamicVisibility>,
+        lighting_revision: u64,
+    ) -> Result<DynamicUpdate, String> {
+        self.update_with_visibility_revision(
+            delta_seconds,
+            lighting,
+            irradiance,
+            scene,
+            visibility,
+            Some(lighting_revision),
+        )
+    }
+
+    fn update_with_visibility_revision(
+        &mut self,
+        delta_seconds: f32,
+        lighting: Option<&LevelLighting>,
+        irradiance: Option<&crate::lighting::probes::ProbeField>,
+        scene: Option<&crate::lighting::transport::TransportScene>,
+        visibility: Option<&mut super::dynamic_visibility::DynamicVisibility>,
+        lighting_revision: Option<u64>,
+    ) -> Result<DynamicUpdate, String> {
         let moved = self.advance_spins(delta_seconds);
         let current = if let Some(provider) = visibility {
             let _visibility_changed = provider.sync(self)?;
@@ -1363,7 +1599,8 @@ impl DynamicScene {
         } else {
             None
         };
-        let mut update = self.refresh_entity_lighting(lighting, irradiance, scene, current);
+        let mut update =
+            self.refresh_entity_lighting(lighting, irradiance, scene, current, lighting_revision);
         update.moved = moved;
         Ok(update)
     }
@@ -1391,59 +1628,54 @@ impl DynamicScene {
         irradiance: Option<&crate::lighting::probes::ProbeField>,
         scene: Option<&crate::lighting::transport::TransportScene>,
         visibility: Option<&super::dynamic_visibility::DynamicVisibility>,
+        lighting_revision: Option<u64>,
     ) -> DynamicUpdate {
-        let mut update = DynamicUpdate::default();
-        for object in &mut self.objects {
-            if !object.visible {
-                continue;
-            }
-            let Some(level_lighting) = lighting else {
-                continue;
-            };
-            let centre = object.centre();
-            let probe = [centre.x, centre.y, centre.z];
-            if !probe.iter().all(|value| value.is_finite()) {
-                continue;
-            }
-            // Re-evaluate every frame: movement, resource replacement and
-            // light switches all affect this value. GPU writes still compare
-            // uniforms, so stationary unchanged objects upload nothing.
-            let sample = super::light_transport::entity_lighting(level_lighting, irradiance, probe);
-            let transform = object.transform();
-            let context = super::light_transport::EntityVisibility {
-                dynamic: visibility,
-                receiver: Some(object.id),
-            };
-            let spatial_key = super::light_transport::entity_spatial_key_with_visibility(
+        let Some(level_lighting) = lighting else {
+            return DynamicUpdate::default();
+        };
+        let context = EntityLightingRefreshContext::new(
+            level_lighting,
+            irradiance,
+            scene,
+            visibility,
+            lighting_revision,
+        );
+        let dirty = |object: &DynamicObject| {
+            object.visible
+                && context
+                    .key(
+                        object.transform(),
+                        object.mesh.bounds,
+                        object.centre().to_array(),
+                        Some(object.id),
+                    )
+                    .is_none_or(|key| object.lighting_refresh_key != Some(key))
+        };
+        let dirty_count = self.objects.iter().filter(|object| dirty(object)).count();
+        if dirty_count == 0 {
+            return DynamicUpdate::default();
+        }
+        let min_receivers = if dirty_count >= PARALLEL_LIGHTING_MIN_RECEIVERS {
+            PARALLEL_LIGHTING_MIN_RECEIVERS
+        } else {
+            usize::MAX
+        };
+        let refreshed = std::sync::atomic::AtomicUsize::new(0);
+        crate::runtime_work::for_each_mut(&mut self.objects, min_receivers, |object| {
+            if object.refresh_lighting(
                 level_lighting,
                 irradiance,
-                transform,
                 scene,
-                context,
-            );
-            if object.spatial_key != spatial_key {
-                object.spatial_lighting =
-                    super::light_transport::entity_spatial_lighting_with_visibility(
-                        level_lighting,
-                        irradiance,
-                        object.mesh.bounds,
-                        transform,
-                        scene,
-                        context,
-                    );
-                object.spatial_key = spatial_key;
+                visibility,
+                lighting_revision,
+            ) {
+                let _previous_count = refreshed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             }
-            let changed = object.entity_lighting != Some(sample)
-                || object.probe_position.map(f32::to_bits) != probe.map(f32::to_bits);
-            object.light_scale = sample.display;
-            object.entity_lighting = Some(sample);
-            object.probe_position = probe;
-            object.probe_valid = true;
-            if changed {
-                update.probes_refreshed = update.probes_refreshed.saturating_add(1);
-            }
+        });
+        DynamicUpdate {
+            probes_refreshed: refreshed.into_inner(),
+            ..DynamicUpdate::default()
         }
-        update
     }
 
     /// Registers the dynamic drum inside every placed washing machine.
@@ -1956,6 +2188,250 @@ mod tests {
     }
 
     // ------------------------------------------------------------------ probes
+
+    /// Sixteen one-triangle receivers and a 48-probe lattice compare the real
+    /// ray-sampling operation on two persistent workers and the caller. This
+    /// protects publication/order and exact results through caster movement;
+    /// it adds no external assets, GPU work or performance threshold.
+    #[test]
+    fn parallel_receiver_refresh_matches_serial_after_caster_and_field_changes() {
+        use crate::lighting::probes::{ProbeDirectField, ProbeField, ProbeSample};
+
+        let lighting = LevelLighting::bake(&demo_level());
+        let asset = synthetic_asset(MaterialEmission::NONE);
+        let mut serial = DynamicScene::new();
+        let mut parallel = DynamicScene::new();
+        for slot in 0_u16..16 {
+            let position = [f32::from(slot).mul_add(0.05, 1.0), 0.5, 1.0];
+            assert!(serial.spawn(&asset, position, 0.0, 1.0, 0.0).is_some());
+            assert!(parallel.spawn(&asset, position, 0.0, 1.0, 0.0).is_some());
+        }
+        let mut field = ProbeField {
+            min: [0.0; 3],
+            cell_m: 1.0,
+            dims: [4, 3, 4],
+            probes: vec![
+                ProbeSample {
+                    irradiance: [0.8; 3],
+                    axis: [0.5; 2],
+                    room: 0,
+                    ..ProbeSample::default()
+                };
+                48
+            ],
+            local_direct: Some(ProbeDirectField {
+                light_indices: vec![0],
+                probes: vec![crate::lighting::lightmap::LightmapTexel::ZERO; 48],
+            }),
+            switchable_indirect: Vec::new(),
+        };
+        let mut visibility = super::super::dynamic_visibility::DynamicVisibility::new();
+        let workers = crate::runtime_work::RuntimeWork::new(2).expect("bounded workers");
+        for revision in 1_u64..=3 {
+            if revision > 1 {
+                for (reference, concurrent) in serial.objects.iter_mut().zip(&mut parallel.objects)
+                {
+                    reference.translation.x += 0.0125;
+                    concurrent.translation = reference.translation;
+                }
+                field
+                    .probes
+                    .iter_mut()
+                    .for_each(|probe| probe.irradiance[0] += 0.1);
+            }
+            let _visibility_changed = visibility.sync(&serial).expect("current casters");
+            let refresh = |object: &mut DynamicObject| {
+                let _probe_changed = object.refresh_lighting(
+                    &lighting,
+                    Some(&field),
+                    None,
+                    Some(&visibility),
+                    Some(revision),
+                );
+            };
+            serial.objects.iter_mut().for_each(refresh);
+            workers.for_each_mut(&mut parallel.objects, 2, refresh);
+            for (reference, concurrent) in serial.objects.iter().zip(&parallel.objects) {
+                assert_eq!(reference.id, concurrent.id, "receiver order is retained");
+                assert_eq!(reference.entity_lighting, concurrent.entity_lighting);
+                assert_eq!(reference.probe_position, concurrent.probe_position);
+                assert_eq!(reference.spatial_lighting(), concurrent.spatial_lighting());
+                assert_eq!(reference.spatial_key, concurrent.spatial_key);
+            }
+        }
+    }
+
+    /// One triangle and one probe protect the opt-in cache's dependency
+    /// contract, including caster-only invalidation and mutable field revisions.
+    /// No assets, GPU resources or map bake are required.
+    #[test]
+    fn revisioned_center_cache_keeps_caster_refresh_and_resource_changes_independent() {
+        use crate::lighting::probes::{ProbeDirectField, ProbeField, ProbeSample};
+
+        let mut lighting = LevelLighting::bake(&demo_level());
+        let asset = synthetic_asset(MaterialEmission::NONE);
+        let mut scene = DynamicScene::new();
+        let receiver = scene
+            .spawn(&asset, [2.0, 1.0, 2.0], 0.0, 1.0, 0.0)
+            .expect("receiver");
+        let caster = scene
+            .spawn(&asset, [5.0, 1.0, 5.0], 0.0, 1.0, 0.0)
+            .expect("caster");
+        let centre = scene.get(receiver).expect("receiver").centre().to_array();
+        let mut field = ProbeField {
+            min: centre.map(|value| value - 0.5),
+            cell_m: 1.0,
+            dims: [1; 3],
+            probes: vec![ProbeSample {
+                irradiance: [0.2; 3],
+                axis: [0.5; 2],
+                room: 0,
+                ..ProbeSample::default()
+            }],
+            local_direct: Some(ProbeDirectField {
+                light_indices: Vec::new(),
+                probes: vec![crate::lighting::lightmap::LightmapTexel::ZERO],
+            }),
+            switchable_indirect: Vec::new(),
+        };
+        let mut visibility = super::super::dynamic_visibility::DynamicVisibility::new();
+        let _first = scene
+            .update_with_visibility_and_lighting_revision(
+                0.0,
+                Some(&lighting),
+                Some(&field),
+                None,
+                Some(&mut visibility),
+                1,
+            )
+            .expect("initial visibility");
+        let first_center = scene.get(receiver).expect("receiver").center_light_key;
+        let first_spatial = scene.get(receiver).expect("receiver").spatial_key;
+        assert!(
+            first_center.is_some(),
+            "revisioned sampling installs a center key"
+        );
+        let first_refresh = scene.get(receiver).expect("receiver").lighting_refresh_key;
+        let idle = scene
+            .update_with_visibility_and_lighting_revision(
+                0.0,
+                Some(&lighting),
+                Some(&field),
+                None,
+                Some(&mut visibility),
+                1,
+            )
+            .expect("unchanged receivers");
+        assert_eq!(idle.probes_refreshed, 0);
+        assert_eq!(
+            scene.get(receiver).expect("receiver").lighting_refresh_key,
+            first_refresh
+        );
+        assert!(scene.set_transform(caster, [5.0, 1.0, 5.01], 0.0, 1.0));
+        let _caster_update = scene
+            .update_with_visibility_and_lighting_revision(
+                0.0,
+                Some(&lighting),
+                Some(&field),
+                None,
+                Some(&mut visibility),
+                1,
+            )
+            .expect("moved caster visibility");
+        assert_eq!(
+            scene.get(receiver).expect("receiver").center_light_key,
+            first_center
+        );
+        assert_ne!(
+            scene.get(receiver).expect("receiver").spatial_key,
+            first_spatial
+        );
+        assert_ne!(
+            scene.get(receiver).expect("receiver").lighting_refresh_key,
+            first_refresh,
+            "a caster revision invalidates the prepass key"
+        );
+
+        field.probes[0].irradiance = [0.6; 3];
+        let _field_update = scene
+            .update_with_visibility_and_lighting_revision(
+                0.0,
+                Some(&lighting),
+                Some(&field),
+                None,
+                Some(&mut visibility),
+                2,
+            )
+            .expect("revised coefficients");
+        assert_eq!(
+            scene.get(receiver).expect("receiver").light_scale(),
+            [0.6; 3]
+        );
+        assert_eq!(
+            scene
+                .get(receiver)
+                .expect("receiver")
+                .spatial_lighting()
+                .expect("anchors")
+                .anchors[0]
+                .irradiance[0],
+            0.6,
+            "a lighting revision also refreshes spatial coefficients"
+        );
+        assert!(scene.set_transform(receiver, [2.01, 1.0, 2.0], 0.0, 1.0));
+        let _move_update = scene
+            .update_with_visibility_and_lighting_revision(
+                0.0,
+                Some(&lighting),
+                Some(&field),
+                None,
+                Some(&mut visibility),
+                2,
+            )
+            .expect("exact moved center");
+        assert_ne!(
+            scene.get(receiver).expect("receiver").center_light_key,
+            first_center
+        );
+
+        assert!(lighting.set_light_enabled(0, false));
+        let _fallback_update = scene
+            .update_with_visibility_and_lighting_revision(
+                0.0,
+                Some(&lighting),
+                None,
+                None,
+                Some(&mut visibility),
+                3,
+            )
+            .expect("disabled fallback light");
+        let fallback_position = scene.get(receiver).expect("receiver").centre().to_array();
+        assert_eq!(
+            scene.get(receiver).expect("receiver").entity_lighting(),
+            Some(super::super::light_transport::entity_lighting(
+                &lighting,
+                None,
+                fallback_position
+            )),
+            "field-less fallback follows the same lighting revision"
+        );
+
+        // The established API keeps accepting in-place edits without a token.
+        let _uncached_update = scene.update_with_field(0.0, Some(&lighting), Some(&field));
+        field.probes[0].irradiance = [0.8; 3];
+        let _mutated_update = scene.update_with_field(0.0, Some(&lighting), Some(&field));
+        assert_eq!(
+            scene.get(receiver).expect("receiver").light_scale(),
+            [0.8; 3]
+        );
+        assert!(
+            scene
+                .get(receiver)
+                .expect("receiver")
+                .center_light_key
+                .is_none()
+        );
+    }
 
     #[test]
     fn a_light_probe_tracks_small_movement_and_stays_stable_when_stationary() {

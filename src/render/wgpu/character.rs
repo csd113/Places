@@ -126,6 +126,15 @@ enum CharacterKey {
     Runtime(String),
 }
 
+impl CharacterKey {
+    fn resolve<'a>(&self, scene: &'a CharacterScene) -> Option<&'a Character> {
+        match self {
+            Self::Placed(slot) => scene.characters().get(*slot),
+            Self::Runtime(instance_id) => scene.runtime_character(instance_id),
+        }
+    }
+}
+
 /// One live character's GPU state.
 struct CharacterGpu {
     /// Slot into [`WgpuCharacters::meshes`].
@@ -146,6 +155,10 @@ struct CharacterGpu {
     pose_bounds: Aabb,
     /// Current pose bounds transformed by the uploaded placement.
     world_bounds: Aabb,
+    /// Reused model-space CPU target, prepared before any frame uploads.
+    posed_vertices: Vec<WorldVertex>,
+    /// The frame's CPU-prepared environment; queue writes follow the join.
+    pending_environment: EnvironmentUniform,
 }
 
 /// What one character upload or frame did, as plain counters.
@@ -179,8 +192,20 @@ pub struct WgpuCharacters {
     /// an untextured primitive still draws instead of disappearing.
     fallback: Option<Arc<GpuTexture>>,
     stats: CharacterGpuStats,
-    /// Reused CPU skinning target; capacity covers the largest character.
+    /// Inline frames retain the original shared, cache-hot skin/upload target.
     scratch: Vec<WorldVertex>,
+}
+
+/// Below this total changed vertex count, a frame avoids worker dispatch.
+/// Work is independent per character; a one-character scene also stays serial.
+const PARALLEL_SKINNING_MIN_VERTICES: usize = 8_192;
+
+const fn skinning_min_characters(changed_vertices: usize) -> usize {
+    if changed_vertices >= PARALLEL_SKINNING_MIN_VERTICES {
+        2
+    } else {
+        usize::MAX
+    }
 }
 
 /// The renderer state a character upload needs: the shared texture cache, the
@@ -341,6 +366,12 @@ impl WgpuCharacters {
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
+            let pending_environment = ctx
+                .environment
+                .with_model(character.transform())
+                .with_entity_lighting(Some(character.entity_lighting()))
+                .with_spatial_lighting(character.spatial_lighting())
+                .with_opacity(character.opacity());
             let environment = EnvironmentBindings::new(
                 ctx.device,
                 ctx.queue,
@@ -351,15 +382,12 @@ impl WgpuCharacters {
                 ctx.planar,
                 ctx.probe_fallback,
                 ctx.planar_fallback,
-                &ctx.environment
-                    .with_model(character.transform())
-                    .with_entity_lighting(Some(character.entity_lighting()))
-                    .with_spatial_lighting(character.spatial_lighting())
-                    .with_opacity(character.opacity()),
+                &pending_environment,
             );
-            let pose_bounds = Self::fill_vertices(character, &mut value.scratch);
+            let mut posed_vertices = Vec::with_capacity(character.asset().model.vertices.len());
+            let pose_bounds = Self::fill_vertices(character, &mut posed_vertices);
             ctx.queue
-                .write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(&value.scratch));
+                .write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(&posed_vertices));
             value.characters.push(CharacterGpu {
                 mesh: mesh_index,
                 key,
@@ -369,6 +397,8 @@ impl WgpuCharacters {
                 uploaded_transform: character.transform(),
                 pose_bounds,
                 world_bounds: posed_world_bounds(&pose_bounds, &character.transform()),
+                posed_vertices,
+                pending_environment,
             });
         }
         value.finish_stats();
@@ -524,7 +554,7 @@ impl WgpuCharacters {
         )
     }
 
-    /// Fills the reusable scratch buffer with one character's posed vertices.
+    /// Fills one character's reusable CPU target with its posed vertices.
     ///
     /// Skins in model space with the animator's current deltas and attaches
     /// material albedo while measuring exactly the positions uploaded; no
@@ -623,36 +653,114 @@ impl WgpuCharacters {
         environment: &EnvironmentUniform,
         visibility: Option<crate::render::common::blacklight::BlacklightVisibility<'_>>,
     ) -> usize {
+        // Static lighting's short GPU workload benefits from interleaved pose
+        // uploads: batching preparation raised measured Retina frame-time tails.
+        // Use the installed environment, so live lighting changes switch safely.
+        if environment.lightmap_enabled <= 0.5 {
+            return self.sync_inline(queue, scene, environment, visibility);
+        }
+        let changed_vertices = self
+            .characters
+            .iter()
+            .filter_map(|gpu| {
+                let character = gpu.key.resolve(scene)?;
+                (character.animator().revision() != gpu.uploaded_revision)
+                    .then_some(character.asset().model.vertices.len())
+            })
+            .fold(0_usize, usize::saturating_add);
+        let min_characters = skinning_min_characters(changed_vertices);
+        if self.characters.len() < min_characters || crate::runtime_work::global().workers() == 1 {
+            return self.sync_inline(queue, scene, environment, visibility);
+        }
+        crate::runtime_work::for_each_mut(&mut self.characters, min_characters, |gpu| {
+            let Some(character) = gpu.key.resolve(scene) else {
+                return;
+            };
+            let pose_changed = character.animator().revision() != gpu.uploaded_revision;
+            if pose_changed {
+                gpu.pose_bounds = Self::fill_vertices(character, &mut gpu.posed_vertices);
+            }
+            gpu.pending_environment = environment
+                .with_model(character.transform())
+                .with_entity_lighting(Some(character.entity_lighting()))
+                .with_spatial_lighting(character.spatial_lighting())
+                .with_uv_receiver(
+                    visibility.filter(|_| {
+                        character
+                            .asset()
+                            .model
+                            .submeshes
+                            .iter()
+                            .any(|submesh| submesh.response.fluorescence.strength > 0.0)
+                    }),
+                    gpu.pose_bounds,
+                    character.transform(),
+                    None,
+                )
+                .with_opacity(character.opacity());
+            if character.transform() != gpu.uploaded_transform || pose_changed {
+                gpu.world_bounds = posed_world_bounds(&gpu.pose_bounds, &character.transform());
+            }
+        });
+
+        // The bounded CPU work has joined: all wgpu queue writes remain on
+        // the caller thread and each uploaded revision names the finished pose.
         let mut uploaded = 0usize;
         for gpu in &mut self.characters {
-            let character = match &gpu.key {
-                CharacterKey::Placed(slot) => scene.characters().get(*slot),
-                CharacterKey::Runtime(instance_id) => scene.runtime_character(instance_id),
-            };
-            let Some(scene_character) = character else {
+            let Some(scene_character) = gpu.key.resolve(scene) else {
                 continue;
             };
             // A fade is a per-frame environment write, so the comparison also
             // covers opacity: a still, settled pose writes nothing, while a
             // fading ghost rewrites only its own uniform.
-            let transform_changed = scene_character.transform() != gpu.uploaded_transform;
             let pose_changed = scene_character.animator().revision() != gpu.uploaded_revision;
             if pose_changed {
-                gpu.pose_bounds = Self::fill_vertices(scene_character, &mut self.scratch);
-                queue.write_buffer(&gpu.vertex_buffer, 0, bytemuck::cast_slice(&self.scratch));
+                queue.write_buffer(
+                    &gpu.vertex_buffer,
+                    0,
+                    bytemuck::cast_slice(&gpu.posed_vertices),
+                );
                 gpu.uploaded_revision = scene_character.animator().revision();
                 uploaded = uploaded.saturating_add(1);
             }
 
+            let _update_stats = gpu.environment.update(queue, &gpu.pending_environment);
+            gpu.uploaded_transform = scene_character.transform();
+        }
+        uploaded
+    }
+
+    /// Inline preparation uploads each pose immediately, retaining the original
+    /// shared scratch and avoiding staged uniform copies in the serial path.
+    fn sync_inline(
+        &mut self,
+        queue: &wgpu::Queue,
+        scene: &CharacterScene,
+        environment: &EnvironmentUniform,
+        visibility: Option<crate::render::common::blacklight::BlacklightVisibility<'_>>,
+    ) -> usize {
+        let mut uploaded = 0_usize;
+        for gpu in &mut self.characters {
+            let Some(character) = gpu.key.resolve(scene) else {
+                continue;
+            };
+            let transform_changed = character.transform() != gpu.uploaded_transform;
+            let pose_changed = character.animator().revision() != gpu.uploaded_revision;
+            if pose_changed {
+                gpu.pose_bounds = Self::fill_vertices(character, &mut self.scratch);
+                queue.write_buffer(&gpu.vertex_buffer, 0, bytemuck::cast_slice(&self.scratch));
+                gpu.uploaded_revision = character.animator().revision();
+                uploaded = uploaded.saturating_add(1);
+            }
             let _update_stats = gpu.environment.update(
                 queue,
                 &environment
-                    .with_model(scene_character.transform())
-                    .with_entity_lighting(Some(scene_character.entity_lighting()))
-                    .with_spatial_lighting(scene_character.spatial_lighting())
+                    .with_model(character.transform())
+                    .with_entity_lighting(Some(character.entity_lighting()))
+                    .with_spatial_lighting(character.spatial_lighting())
                     .with_uv_receiver(
                         visibility.filter(|_| {
-                            scene_character
+                            character
                                 .asset()
                                 .model
                                 .submeshes
@@ -660,12 +768,12 @@ impl WgpuCharacters {
                                 .any(|submesh| submesh.response.fluorescence.strength > 0.0)
                         }),
                         gpu.pose_bounds,
-                        scene_character.transform(),
+                        character.transform(),
                         None,
                     )
-                    .with_opacity(scene_character.opacity()),
+                    .with_opacity(character.opacity()),
             );
-            gpu.uploaded_transform = scene_character.transform();
+            gpu.uploaded_transform = character.transform();
             if transform_changed || pose_changed {
                 gpu.world_bounds = posed_world_bounds(&gpu.pose_bounds, &gpu.uploaded_transform);
             }
@@ -829,6 +937,178 @@ mod tests {
     use super::*;
     use crate::entity::PoseCue;
     use crate::materials::{AlphaMode, MaterialAlpha};
+
+    fn tiny_scaled_rig() -> crate::gltf::PropModel {
+        use crate::gltf::{
+            AnimationInterpolation, AnimationPath, PropAnimation, PropAnimationChannel, PropNode,
+            PropSkin, PropVertex,
+        };
+
+        let nodes: Vec<PropNode> = ["root", "scaled"]
+            .into_iter()
+            .map(|name| PropNode {
+                name: name.to_string(),
+                parent: None,
+                children: Vec::new(),
+                translation: [0.0; 3],
+                rotation: [0.0, 0.0, 0.0, 1.0],
+                scale: [1.0; 3],
+            })
+            .collect();
+        let rotation = glam::Quat::from_rotation_y(0.7).to_array();
+        let mut rotations = vec![0.0, 0.0, 0.0, 1.0];
+        rotations.extend(rotation);
+        let channel = |node, path, values_per_key, values| PropAnimationChannel {
+            node,
+            path,
+            interpolation: AnimationInterpolation::Linear,
+            times: vec![0.0, 1.0],
+            values,
+            values_per_key,
+        };
+        let vertex = |pos, normal, uv| PropVertex {
+            pos,
+            normal,
+            color: [1.0; 4],
+            uv,
+        };
+        crate::gltf::PropModel {
+            vertices: vec![
+                vertex(
+                    [1.0, 1.0, 0.0],
+                    Some([
+                        std::f32::consts::FRAC_1_SQRT_2,
+                        std::f32::consts::FRAC_1_SQRT_2,
+                        0.0,
+                    ]),
+                    [0.25, 0.5],
+                ),
+                vertex([0.0, 0.0, 1.0], Some([0.0, 1.0, 0.0]), [0.75, 0.25]),
+                vertex([4.0, -3.0, 2.0], None, [0.5, 0.75]),
+                vertex([0.0, 1.0, -1.0], Some([0.0, 0.0, 1.0]), [1.0, 0.0]),
+            ],
+            indices: vec![0, 1, 2],
+            textures: Vec::new(),
+            submeshes: Vec::new(),
+            triangles: 1,
+            materials: 0,
+            skin: Some(PropSkin {
+                joints: vec![0, 1],
+                inverse_bind: vec![Mat4::IDENTITY; 2],
+                nodes: nodes.clone(),
+                root: Some(0),
+                mesh_node: None,
+            }),
+            joints: vec![[0; 4], [1, 0, 0, 0], [0; 4], [0, 1, 99, 0]],
+            weights: vec![
+                [1.0, 0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0; 4],
+                [0.5, 0.5, 0.25, -1.0],
+            ],
+            morph_targets: Vec::new(),
+            morph_weights: Vec::new(),
+            mesh_morph_ranges: Vec::new(),
+            animations: vec![PropAnimation {
+                name: "scaled_pose".to_string(),
+                duration: 1.0,
+                channels: vec![
+                    channel(
+                        0,
+                        AnimationPath::Scale,
+                        3,
+                        vec![1.0, 1.0, 1.0, 2.0, 0.5, 1.5],
+                    ),
+                    channel(0, AnimationPath::Rotation, 4, rotations),
+                    channel(
+                        0,
+                        AnimationPath::Translation,
+                        3,
+                        vec![0.0, 0.0, 0.0, 3.0, -2.0, 1.0],
+                    ),
+                    channel(
+                        1,
+                        AnimationPath::Scale,
+                        3,
+                        vec![1.0, 1.0, 1.0, 0.0, 1.0, 2.0],
+                    ),
+                ],
+                looped: false,
+                reference_speed_mps: None,
+                kind: None,
+            }],
+            nodes,
+        }
+    }
+
+    /// Two four-vertex poses exercise joined character preparation, including
+    /// scaled/singular normals and unweighted/missing-joint fallback. It reuses
+    /// one two-worker pool and fixed storage; no GPU, assets or map bake.
+    #[test]
+    fn parallel_skinning_matches_serial_vertex_bytes_and_reuses_storage() -> Result<(), String> {
+        let model = tiny_scaled_rig();
+        let rest = CharacterAnimator::new(&model).ok_or("tiny rest rig is missing")?;
+        let mut scaled = CharacterAnimator::new(&model).ok_or("tiny scaled rig is missing")?;
+        play_pose(&mut scaled, "scaled_pose");
+        let albedo = [[0.8, 0.4, 0.2, 0.6], [0.3, 0.5, 0.7, 1.0]];
+        let make_targets = || {
+            [&rest, &scaled].map(|animator| {
+                (
+                    animator,
+                    Vec::with_capacity(model.vertices.len()),
+                    Aabb::EMPTY,
+                )
+            })
+        };
+        let mut serial = make_targets();
+        let mut parallel = make_targets();
+        let executor = crate::runtime_work::RuntimeWork::new(2)?;
+        let operation = |target: &mut (&CharacterAnimator, Vec<WorldVertex>, Aabb)| {
+            target.2 =
+                WgpuCharacters::fill_posed_vertices(&model, target.0, &albedo, &mut target.1);
+        };
+        for _ in 0_u8..3 {
+            serial.iter_mut().for_each(operation);
+            executor.for_each_mut(&mut parallel, 2, operation);
+            for (reference, actual) in serial.iter().zip(&parallel) {
+                assert_eq!(
+                    bytemuck::cast_slice::<WorldVertex, u8>(&actual.1),
+                    bytemuck::cast_slice::<WorldVertex, u8>(&reference.1),
+                    "joined workers preserve every uploaded vertex field and order"
+                );
+                assert_eq!(
+                    actual.2, reference.2,
+                    "pose bounds match the submitted bytes"
+                );
+                assert_eq!(
+                    actual.1.capacity(),
+                    model.vertices.len(),
+                    "repeated preparation retains the fixed CPU allocation"
+                );
+            }
+        }
+        let posed = parallel.get(1).ok_or("scaled output is missing")?;
+        let rotated = posed.1.first().ok_or("scaled vertex is missing")?;
+        let delta = scaled.joint_delta(0).ok_or("scaled delta is missing")?;
+        assert!(
+            glam::Vec3::from_array(rotated.normal)
+                .dot(delta.transform_vector3(glam::Vec3::new(1.0, -1.0, 0.0)))
+                .abs()
+                < 1.0e-5,
+            "scaled normals retain inverse-transpose orthogonality"
+        );
+        assert_eq!(
+            posed.1.get(1).map(|vertex| vertex.normal),
+            Some([0.0; 3]),
+            "a singular posed joint retains the zero-normal guard"
+        );
+        assert_eq!(
+            posed.1.get(2).map(|vertex| (vertex.position, vertex.color)),
+            Some(([4.0, -3.0, 2.0], [1.0; 4])),
+            "unweighted vertices and absent albedo keep their existing fallbacks"
+        );
+        Ok(())
+    }
 
     /// Protects the shared balloon rig's 13-to-2 draw reduction and material,
     /// transparency and index boundaries. Thirteen source ranges, no GPU or bake.

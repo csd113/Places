@@ -7,7 +7,9 @@
 
 use glam::Vec3;
 use rapier3d::parry::bounding_volume::Aabb;
-use rapier3d::prelude::{Pose, Ray, SharedShape, Vector};
+use rapier3d::prelude::{Pose, Ray, RigidBody, SharedShape, Vector};
+#[cfg(not(target_arch = "wasm32"))]
+use rayon::prelude::*;
 
 use crate::level::{WaterShape, WaterVolume, WaterVolumes};
 
@@ -20,6 +22,9 @@ use super::{FIXED_STEP, GRAVITY};
 const WATER_DENSITY_KG_M3: f32 = 1000.0;
 /// Bound expensive clipped-domain shape casts even in densely tiled water.
 const MAX_CLIPPED_REGIONS: usize = 16;
+/// Tiny water scenes retain the direct loop; sampled immersion is independent
+/// per body, while every solver mutation still follows stable item-key order.
+const MIN_PARALLEL_WATER_BODIES: usize = 64;
 /// Midpoints of six equal intervals. Each domain needs at most 72 shape rays.
 const COLUMN_OFFSETS: [f32; 6] = [
     1.0 / 12.0,
@@ -52,6 +57,12 @@ struct Immersion {
     // Preserve an analytic centre without multiplying/dividing world positions.
     // Their round-trip error otherwise creates torque on symmetric floats.
     exact_centre: Option<Vec3>,
+}
+
+pub(super) struct WaterWork {
+    key: u64,
+    pose: Pose,
+    immersion: Immersion,
 }
 
 impl WaterBody {
@@ -434,6 +445,106 @@ fn clip_interval(volume: &WaterVolume, bottom: f32, top: f32) -> Option<(f32, f3
 
 impl Runtime {
     pub(super) fn apply_water(&mut self, water: &WaterVolumes) {
+        if self.entries.len() < MIN_PARALLEL_WATER_BODIES || water.is_empty() {
+            self.apply_water_serial(water);
+            return;
+        }
+        // Qualify the active workload before asking for the lazily initialized
+        // pool. Authored/dry/sleeping entries must not start unused workers.
+        let held_key = self.held.as_ref().map(|held| held.key);
+        let eligible = self
+            .entries
+            .iter()
+            .filter(|(key, entry)| {
+                entry.water.is_some()
+                    && !entry.dormant
+                    && !entry.recovery.suspended
+                    && held_key != Some(**key)
+            })
+            .filter_map(|(_, entry)| self.world.bodies.get(entry.body))
+            .filter(|body| !body.is_sleeping() && body.is_enabled() && body.is_dynamic())
+            .take(MIN_PARALLEL_WATER_BODIES)
+            .count();
+        if eligible < MIN_PARALLEL_WATER_BODIES {
+            self.apply_water_serial(water);
+            return;
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        let selected_pool = self.worker_pool.clone().or_else(crate::runtime_work::pool);
+        #[cfg(not(target_arch = "wasm32"))]
+        let parallel_available = selected_pool
+            .as_ref()
+            .is_some_and(|executor| executor.current_num_threads() > 1);
+        #[cfg(target_arch = "wasm32")]
+        let parallel_available = crate::runtime_work::global().workers() > 1;
+        if !parallel_available {
+            self.apply_water_serial(water);
+            return;
+        }
+        let mut work = std::mem::take(&mut self.water_work);
+        work.clear();
+        for (&key, entry) in &mut self.entries {
+            let Some(response) = entry.water.as_mut() else {
+                continue;
+            };
+            if entry.dormant
+                || entry.recovery.suspended
+                || self.held.as_ref().is_some_and(|held| held.key == key)
+            {
+                response.submerged_fraction = 0.0;
+                continue;
+            }
+            let Some(body) = self.world.bodies.get(entry.body) else {
+                continue;
+            };
+            if body.is_sleeping() || !body.is_enabled() || !body.is_dynamic() {
+                continue;
+            }
+            work.push(WaterWork {
+                key,
+                pose: *body.position(),
+                immersion: Immersion::default(),
+            });
+        }
+        let measure = |job: &mut WaterWork| {
+            if let Some(response) = self
+                .entries
+                .get(&job.key)
+                .and_then(|entry| entry.water.as_ref())
+            {
+                job.immersion = response.immersion(job.pose, water);
+            }
+        };
+        #[cfg(not(target_arch = "wasm32"))]
+        let configured_pool = (work.len() >= MIN_PARALLEL_WATER_BODIES)
+            .then_some(selected_pool)
+            .flatten();
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(worker_pool) =
+            configured_pool.filter(|executor| executor.current_num_threads() > 1)
+        {
+            worker_pool.install(|| work.par_iter_mut().with_min_len(4).for_each(measure));
+        } else {
+            work.iter_mut().for_each(measure);
+        }
+        #[cfg(target_arch = "wasm32")]
+        work.iter_mut().for_each(measure);
+        for job in &work {
+            let Some(entry) = self.entries.get_mut(&job.key) else {
+                continue;
+            };
+            let Some(response) = entry.water.as_mut() else {
+                continue;
+            };
+            let Some(body) = self.world.bodies.get_mut(entry.body) else {
+                continue;
+            };
+            apply_immersion(response, body, &job.immersion);
+        }
+        self.water_work = work;
+    }
+
+    fn apply_water_serial(&mut self, water: &WaterVolumes) {
         for (&key, entry) in &mut self.entries {
             let Some(response) = entry.water.as_mut() else {
                 continue;
@@ -452,28 +563,7 @@ impl Runtime {
                 continue;
             }
             let immersion = response.immersion(*body.position(), water);
-            let fraction = (immersion.volume_m3 / response.volume_m3).clamp(0.0, 1.0);
-            response.submerged_fraction = fraction;
-            if immersion.volume_m3 <= 0.0 {
-                continue;
-            }
-            // Exponential mass-weighted damping is stable even at the validated
-            // 100/s maximum, unlike an explicit velocity-proportional force.
-            // Existing dry damping and every collision/CCD constraint remain
-            // owned by Rapier. Drag adds no horizontal current or scripted bob.
-            let fluid_mass_ratio = WATER_DENSITY_KG_M3 * immersion.volume_m3 / body.mass();
-            let linear_decay = (-response.linear_drag * fluid_mass_ratio * FIXED_STEP).exp();
-            let angular_decay = (-response.angular_drag * fluid_mass_ratio * FIXED_STEP).exp();
-            body.set_linvel(vector(scaled(point(body.linvel()), linear_decay)), false);
-            body.set_angvel(vector(scaled(point(body.angvel()), angular_decay)), false);
-            let centre = immersion
-                .exact_centre
-                .unwrap_or_else(|| scaled(immersion.moment, 1.0 / immersion.volume_m3));
-            let impulse = WATER_DENSITY_KG_M3 * GRAVITY * immersion.volume_m3 * FIXED_STEP;
-            // This is the resultant of the distributed columns, including its
-            // moment about the true mass centre. A fixed-step impulse avoids
-            // Rapier's persistent-force accumulation across frames and releases.
-            body.apply_impulse_at_point(Vector::new(0.0, impulse, 0.0), vector(centre), false);
+            apply_immersion(response, body, &immersion);
         }
     }
 
@@ -484,4 +574,29 @@ impl Runtime {
             }
         }
     }
+}
+
+fn apply_immersion(response: &mut WaterBody, body: &mut RigidBody, immersion: &Immersion) {
+    let fraction = (immersion.volume_m3 / response.volume_m3).clamp(0.0, 1.0);
+    response.submerged_fraction = fraction;
+    if immersion.volume_m3 <= 0.0 {
+        return;
+    }
+    // Exponential mass-weighted damping is stable even at the validated
+    // 100/s maximum, unlike an explicit velocity-proportional force.
+    // Existing dry damping and every collision/CCD constraint remain
+    // owned by Rapier. Drag adds no horizontal current or scripted bob.
+    let fluid_mass_ratio = WATER_DENSITY_KG_M3 * immersion.volume_m3 / body.mass();
+    let linear_decay = (-response.linear_drag * fluid_mass_ratio * FIXED_STEP).exp();
+    let angular_decay = (-response.angular_drag * fluid_mass_ratio * FIXED_STEP).exp();
+    body.set_linvel(vector(scaled(point(body.linvel()), linear_decay)), false);
+    body.set_angvel(vector(scaled(point(body.angvel()), angular_decay)), false);
+    let centre = immersion
+        .exact_centre
+        .unwrap_or_else(|| scaled(immersion.moment, 1.0 / immersion.volume_m3));
+    let impulse = WATER_DENSITY_KG_M3 * GRAVITY * immersion.volume_m3 * FIXED_STEP;
+    // This is the resultant of the distributed columns, including its
+    // moment about the true mass centre. A fixed-step impulse avoids
+    // Rapier's persistent-force accumulation across frames and releases.
+    body.apply_impulse_at_point(Vector::new(0.0, impulse, 0.0), vector(centre), false);
 }

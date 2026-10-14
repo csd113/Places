@@ -497,3 +497,39 @@ Optional historical Demo/Zoo cases require `PLACES_CAPACITY_DEMO_PACKAGE` /
 `PLACES_CAPACITY_ZOO_PACKAGE`. Compiling the active lineup cannot supply them.
 Native artifacts and specialized weather/string-light/Metal/probe controls remain
 separate because their acceptance conditions and measurements differ.
+
+
+### Multicore runtime and matched GPU checks
+
+`multicore.py` is explicit native tooling, outside Rust tests and CI. It uses
+existing packages, alternates comparison order, and rejects mismatched settings,
+physical drawable, player bounds, reflections or median submitted geometry.
+Without a baseline it compares one-worker and automatic execution of one build;
+with a baseline it compares published and candidate builds. Each run retains the
+underlying `frame_time.py` command, binary/package hashes and complete receipt.
+
+```sh
+python3 tools/bench/multicore.py --binary target/release/places \
+  --out local/new-multicore --scenes door lateral cabinets party lanes home pool office
+# Add --baseline-binary /preserved/places for the same-settings publication comparison.
+# Add --lightmaps static or --vsync for independent matched controls.
+# --plan-only writes the commands without launching a game.
+
+cargo build --release --bin places-physics-bench
+./target/release/places-physics-bench --workers 4 --frames 240 --repeats 5
+cargo build --release --features parallel-physics --bin places-physics-bench
+./target/release/places-physics-bench --workers 4 --frames 240 --repeats 5
+```
+
+The physics tool runs bounded 12/32/64/128-body contact, immersion and dormant
+fixtures with no renderer/assets/map bake. It hashes every frame's body state,
+contacts and impulses independently of timing, and compares one/four-worker
+results. Median uses the middle pair; p95/p99 use nearest rank. Build first, then
+measure with no other owned build/bake/native process running.
+
+`frame_time.py --cpu-trace` records three warm CPU-stage samples and labels the
+receipt diagnostic. `--entity-light-trace all --capture-frame 120 --warmup 0`
+retains actual lighting payloads plus an image; exclude captures and scripted
+settings transitions from steady timings. GPU elapsed is unioned pass-stage
+coverage, including scheduling stalls, and is not utilization or an additive
+per-pass cost. See `docs/reports/multicore-0.10.0.md` for this pass's evidence.

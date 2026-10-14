@@ -568,3 +568,49 @@ Cancellation is checked per texel row. Receivers are dropped before joins on err
 and cancellation so blocked senders can exit. Inline/headless bakes and ordinary
 unit-test invocations remain serial; explicit parity tests exercise the bounded
 parallel path. This avoids multiplying chart pools across concurrently running tests.
+
+
+## Runtime CPU execution
+
+`runtime_work` owns one persistent native Rayon pool. Automatic worker count is
+at most four and leaves one available logical CPU outside its budget; explicit
+`PLACES_RUNTIME_WORKERS=1..8` diagnostics remain bounded by that hardware budget.
+One-core hosts and wasm32 use the same work inline. Pool creation failure logs
+once and falls back inline. No Tokio runtime or per-frame thread creation is
+introduced. Every batch joins before its results are observed.
+
+Independent dirty receiver lighting (at least eight receivers), Full-lighting
+character skinning/environment preparation (at least 8,192 changed vertices
+across two characters), and immersion quadrature (at least 64 awake enabled
+dynamic water bodies) share this executor. Small batches use the caller. Character queue
+writes, GPU resource changes, SDL input and ordered physics impulses stay on the
+caller/main thread. Character staging reuses bounded per-character vertex
+storage; serial frames retain the interleaved upload path. Static lighting also
+uses that interleaved path: batching its shorter GPU workload raised measured
+Retina frame-time tails. The installed environment selects this policy during
+live lighting changes. Map replacement and shutdown cannot inherit outstanding
+CPU batches.
+
+The renderer owns an explicit lighting revision for immutable resource
+installation and changed fixture switches. Exact placement/bounds/caster keys
+control spatial anchors; center samples have a separate position key. Moving a
+balloon center inside its stable swept bounds must not refresh those anchors.
+Legacy public sampling APIs still resample mutable fields without requiring a
+revision. New revisioned callers must advance their token on in-place edits.
+
+Rapier 0.36.1's `parallel` feature is available through the developer-only
+`parallel-physics` feature. It binds the same bounded pool rather than Rayon's
+global pool, and uses an explicit one-worker reference for small solver work.
+Selection counts awake enabled dynamic solver bodies, never authored/static
+prop totals. The measured high-load entry is 128 active bodies; exit requires
+less than 112 for a quarter second, and unchanged pool bindings are retained.
+Explicit developer pool overrides bypass selection. Production keeps ordinary
+Rapier: measured parallel-mode overhead exceeds its total benefit at current
+scene sizes. Water work and renderer preparation select parallel execution
+automatically in the normal build, without player settings.
+
+Future audio is not implemented or tied to a library here. These joined CPU
+batches are not suitable for a real-time audio callback: that callback must not
+wait on this pool, allocate its jobs or take its locks. Later audio integration
+must account for its own real-time CPU needs when choosing the shared gameplay
+budget. No browser runtime or audio scheduler is introduced by this pass.
