@@ -299,17 +299,11 @@ impl PropUpload {
                 .entry((batch.model.clone(), index))
                 .or_insert_with(|| ImageIdentity {
                     image: Arc::clone(image),
-                    key: super::texture::image_content_key(
-                        &format!("prop:{}:{index}", batch.model),
-                        image,
-                    ),
+                    key: super::texture::model_image_key(image),
                 });
             if !Arc::ptr_eq(&identity.image, image) {
                 identity.image = Arc::clone(image);
-                identity.key = super::texture::image_content_key(
-                    &format!("prop:{}:{index}", batch.model),
-                    image,
-                );
+                identity.key = super::texture::model_image_key(image);
             }
             let logical = &identity.key;
             let (outcome, texture) = cache.get_or_upload_fitted(
@@ -394,6 +388,7 @@ impl PropUpload {
                         &mask_texture,
                         &uv_mask,
                         super::material::ModelMaterial {
+                            albedo_tint: [1.0; 3],
                             emission: record,
                             alpha: submesh.alpha,
                             response: submesh.response,

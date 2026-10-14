@@ -16,22 +16,33 @@ library. Paths are relative to `assets/entities/`:
 
 | Logical id | Model path | Catalog bind size XYZ, metres | Triangles / joints / primitives |
 | --- | --- | --- | --- |
-| `spooner-man` | `spooner-man/model/spooner-man.glb` | 0.165 × 0.389 × 0.626 | 1950 / 26 / 3 |
-| `mannequin` | `mannequin/model/mannequin.glb` | 0.420 × 1.720 × 0.305 | 1376 / 23 / 1 |
-| `rat` | `rat/model/rat.glb` | 0.095 × 0.139 × 0.613 | 1428 / 25 / 1 |
-| `skeleton` | `skeleton/model/skeleton.glb` | 0.4266 × 1.720 × 0.315 | 1492 / 24 / 1 |
-| `carved-pumpkin` | `carved-pumpkin/model/carved-pumpkin.glb` | 0.701 × 0.654 × 0.635 | 1498 / 4 / 2 |
+| `spooner-man` | `spooner-man/model/spooner-man.glb` | 0.159043 × 0.348864 × 0.622915 | 5688 / 26 / 6 |
+| `mannequin` | `mannequin/model/mannequin.glb` | 0.578539 × 1.723035 × 0.316965 | 1124 / 17 / 2 |
+| `rat` | `rat/model/rat.glb` | 0.112014 × 0.129887 × 0.472315 | 1718 / 25 / 1 |
+| `skeleton` | `skeleton/model/skeleton.glb` | 0.414955 × 1.722652 × 0.298664 | 4650 / 24 / 1 |
+| `carved-pumpkin` | `carved-pumpkin/model/carved-pumpkin.glb` | 0.579556 × 0.631126 × 0.521600 | 2384 / 4 / 4 |
 | `sheet-ghost` | `sheet-ghost/model/sheet-ghost.glb` | 0.994 × 1.619 × 0.716 | 1270 / 3 / 2 |
-| `pumpkin-skeleton` | `pumpkin-skeleton/model/pumpkin-skeleton.glb` | 0.442 × 1.808 × 0.403 | 2278 / 94 / 2 |
+| `pumpkin-skeleton` | `pumpkin-skeleton/model/pumpkin-skeleton.glb` | 0.497499 × 1.822028 × 0.583294 | 5554 / 94 / 5 |
 | `sheet-ghost-cat` | `sheet-ghost-cat/model/sheet-ghost-cat.glb` | 0.226 × 0.323 × 0.593 | 902 / 5 / 2 |
 | `beach:seagull` | `beach_seagull/model/beach_seagull.glb` | 1.096 × 0.747 × 0.886 | 458 / 13 / 1 |
 | `beach:crab` | `beach_crab/model/beach_crab.glb` | 0.832090 × 0.381 × 0.561201 | 692 / 18 / 1 |
 | `beach:fish` | `beach_fish/model/beach_fish.glb` | 0.294 × 0.377 × 0.638 | 288 / 6 / 1 |
 
-Counts and clip tables describe the committed files inspected on 2026-10-11.
-All embedded images are native 256² PNGs. Spooner-Man has three images; the
-other models have one. Standalone artwork remains in each entity's `textures/`
-directory, including the larger Beach masters.
+The six completed rigs were adopted from the verified v36 delivery on
+2026-10-14. Exact export hashes, measured bounds and image budgets are in
+`assets/completed-models.json`; the table uses conservative root-centred X/Z
+catalog envelopes. Their original root pivots are retained. Spooner-Man and
+mannequin use512², pumpkin-skeleton512×256, and rat/skeleton/carved-pumpkin256²
+images, each with one shared embedded sheet. Unchanged ghost and Beach entries
+retain their previous contracts. Unique final source PNGs remain beneath each
+model's `textures/` directory. Final Blender/GIMP masters remain in Downloads.
+
+The construction recipes below are retained as pre-v36 history where they
+refer to original builders, old atlases or old rest transforms. They cannot
+recreate the six adopted rigs and must not overwrite them. Current runtime
+playback uses each delivered rig's own hierarchy/inverse binds and named clips;
+clip declaration order is immaterial. Model ownership is guarded by the catalog
+completed-source record and `tools/props/build.py --check`.
 
 `asset.extras.places_entity_clips` v2 records clip kind, duration, loop flag and
 `reference_speed_mps`. Ground routes advance the placement and scale playback
@@ -47,6 +58,12 @@ a ground route would resolve its height against the floor. Prop `y` is an
 offset above the resolved floor, not an absolute world elevation.
 
 ## Spooner-Man
+
+The current export contains26 joints, six material primitives and one512² sheet.
+Rest proportions and skinning were reconstructed. Seven named clip durations,
+loop/kind semantics remain; measured walk/run references are0.156/0.466m/s.
+The body-only refiner below describes the previous export, not the current source.
+
 
 A hand-authored Blender tuxedo cat with the `cat_rig` skin. The single
 [canonical model](../../assets/entities/spooner-man/model/spooner-man.glb) is
@@ -66,8 +83,8 @@ three passes, native comparisons and the user-accepted remaining concept differe
 | Clip | Duration | Playback | Kind / reference speed |
 | --- | --- | --- | --- |
 | `idle` | 4.0 s | loop | idle |
-| `walk` | 0.6 s | loop | walk / 0.20 m/s |
-| `run` | 0.46 s | loop | run / 0.60 m/s |
+| `walk` | 0.6 s | loop | walk / 0.156 m/s |
+| `run` | 0.46 s | loop | run / 0.466 m/s |
 | `sit_down` | 1.8 s | once | sit_down |
 | `sit_idle` | 5.0 s | loop | sit_idle |
 | `stand_up` | 1.5 s | once | stand_up |
@@ -90,6 +107,14 @@ previews and the historical 60 Hz export sweep. The static prop builder's
 foreign-rig guard protects this model; it is not a replacement source.
 
 ## Concrete mannequin
+
+The current export uses17 joints, including `hand.L`/`hand.R` rather than the
+former underscored names, two primitives and one512² sheet. Named pose/locomotion
+clips remain. Native pose tests measure raised hands near1.896m and forward
+reach near0.621m. Constant Blender scale tracks conservatively select two-sided
+character rendering; the current posed bounds, rather than old bind padding,
+determine visibility. The23-joint constructor below is historical.
+
 
 A concrete artist's lay figure with a 23-joint hierarchy: root/pelvis, two
 spine joints/chest/neck/head, paired shoulder/upperarm/forearm/hand chains,
@@ -162,6 +187,11 @@ native lighting context are in the
 [entity lighting integration](../reports/entity-lighting-integration.md) reports.
 
 ## Skeleton
+
+The delivered24-joint rig retains named holds. Its chair pelvis is approximately
+0.4976905m, supporting actual bones at a0.45m seat; the former0.45m pelvis recipe
+below is historical. Native contact acceptance must use the adopted silhouette.
+
 
 A 24-joint human rig: root/pelvis/spine_01/spine_02/chest/neck/head/jaw,
 paired shoulder/upperarm/forearm/hand chains, and thigh/shin/foot/toe chains.

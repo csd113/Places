@@ -312,7 +312,13 @@ fn every_file_asset_exists_exactly_once() {
             .as_deref()
             .unwrap_or_else(|| panic!("{}: file assets must name a model", entry.id));
         if let Some(other) = claimed.insert(model, &entry.id) {
-            panic!("{} and {other} claim the same resource {model}", entry.id);
+            assert!(
+                entry.asset_type.as_str() == AssetType::PROP
+                    && entry.tint.is_some()
+                    && catalog.get(other).is_some_and(|asset| asset.tint.is_some()),
+                "{} and {other} share {model} without explicit colour presets",
+                entry.id
+            );
         }
         assert!(
             root.join(model).is_file(),

@@ -72,7 +72,9 @@ class AssetAuditTests(unittest.TestCase):
         self.assertGreater(wall_count, 0)
 
     def test_reader_retains_all_texture_slots_and_triangle_materials(self):
-        path = ROOT / "assets/entities/spooner-man/model/spooner-man.glb"
+        # The immutable three-image export is a deliberate reader fixture;
+        # the adopted rig shares one image across six material primitives.
+        path = ROOT / "tools/props/sources/spooner_man_original.glb"
         mesh = glb.read_glb(path.read_bytes())
         self.assertEqual(len(mesh.texture_pngs), 3)
         self.assertEqual(len(mesh.triangle_materials), mesh.triangle_count)

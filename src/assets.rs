@@ -756,7 +756,7 @@ pub struct AssetEntry {
     /// centres; an absent value falls back to [`Self::tile_metres`]. Only a
     /// ceiling material has a meaningful use for it.
     pub grid_metres: Option<f32>,
-    /// Static multiply tint the renderer applies to a material's texture.
+    /// Linear RGB multiplier for a material or static prop colour preset.
     pub tint: Option<[f32; 3]>,
     /// Emissive colour a material's surface reads with, if the catalog authors
     /// one. Emission is additive on top of baked illumination and never lights
@@ -1384,14 +1384,14 @@ impl CatalogEntryFile {
         Ok(Some(value))
     }
 
-    /// The validated static tint of a material.
+    /// The validated linear tint of a material or static prop preset.
     fn resolve_tint(&self, id: &str, asset_type: &AssetType) -> Result<Option<[f32; 3]>, String> {
         let Some(tint) = self.tint else {
             return Ok(None);
         };
-        if asset_type.as_str() != AssetType::MATERIAL {
+        if !matches!(asset_type.as_str(), AssetType::MATERIAL | AssetType::PROP) {
             return Err(format!(
-                "{id}: only a `material` asset may declare a `tint`"
+                "{id}: only a `material` or `prop` asset may declare a `tint`"
             ));
         }
         if !tint

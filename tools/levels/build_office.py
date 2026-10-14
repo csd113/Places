@@ -228,7 +228,7 @@ def build_level():
     prop('mannequin', 8.5, 8.3, 'basement_mannequin', solid=False,
          # The moving clip reaches 0.68 m forward; a conservative 0.72 m
          # disc keeps the arms and running legs clear while rounding corners.
-         components=[dict(component='nav_agent', radius=.72, height=1.72,
+         components=[dict(component='nav_agent', radius=.72, height=1.724,
                           speed_mps=2.244582, step_height=.3, max_slope=1),
                      dict(component='ai', behavior='wanderer', walk_speed=2.244582,
                           run_speed=2.244582, sight_range=0, hearing_range=0,

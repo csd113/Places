@@ -724,7 +724,7 @@ mod tests {
 
     #[test]
     fn prepared_page_budget_accounts_for_every_illumination_group() {
-        for (switchable, pages) in [(0, 20), (1, 10), (2, 6), (3, 5), (4, 4)] {
+        for (switchable, pages) in [(0, 24), (1, 12), (2, 8), (3, 6), (4, 4)] {
             assert_eq!(preparation_page_limit(1_024, switchable), pages);
         }
         assert_eq!(preparation_page_limit(4_096, 0), 1);

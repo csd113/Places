@@ -3461,6 +3461,23 @@ fn compress_surface(accumulator: &Accumulator, normal: [f32; 3]) -> LightmapTexe
         .surface_light
         .map(|value| value * mean / reconstructed);
     texel.direction = scale(texel.direction, target / reconstructed);
+    // Filtering can retain a neighbour's positive cosine integral while the
+    // aggregate moment nearly cancels at this normal. Scaling that tiny
+    // reconstruction creates huge opposing f32 terms and loses the integral.
+    // As for an exactly zero reconstruction above, retain the finite physical
+    // integral isotropically when the directional encoding is ill-conditioned.
+    // Invalid source energy still reaches the caller's unchanged strict gate.
+    if accumulator.is_finite()
+        && accumulator.irradiance.iter().all(|value| *value >= 0.0)
+        && accumulator.surface_light.iter().all(|value| *value >= 0.0)
+        && mean.is_finite()
+        && target.is_finite()
+        && normal.iter().all(|value| value.is_finite())
+        && !surface_energy_matches(texel, normal, accumulator.surface_light)
+    {
+        texel.irradiance = accumulator.surface_light;
+        texel.direction = [0.0; 3];
+    }
     texel
 }
 

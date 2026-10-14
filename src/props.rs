@@ -17,7 +17,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock, Weak};
 
 use crate::gltf::{GltfError, PropModel, parse_glb};
 use crate::level::{
@@ -58,6 +58,9 @@ pub const fn pack_texture_budget_exceeded(decoded_bytes: usize) -> bool {
 /// documented detail at metre scale; new or similarly named models still use
 /// the ordinary budget until reviewed.
 fn prop_texture_art_budget(model_path: &str) -> u32 {
+    if let Some(review) = completed_model_review(model_path) {
+        return review.texture_edge.max(PROP_TEXTURE_NATIVE_SIZE);
+    }
     match model_path {
         "environments/arcade/party/models/party_cloth_rect_confetti.glb"
         | "environments/arcade/party/models/party_cloth_round_confetti.glb"
@@ -77,6 +80,45 @@ fn prop_texture_art_budget(model_path: &str) -> u32 {
     }
 }
 
+/// Exact reviewed exports retain their authored detail without increasing the
+/// ordinary asset limits. The shipped gate also verifies each accepted hash.
+#[derive(serde::Deserialize)]
+struct CompletedModelReview {
+    sha256: String,
+    triangles: usize,
+    texture_edge: u32,
+    #[serde(default)]
+    clamped_uv_overscan: bool,
+}
+
+fn completed_model_review(model_path: &str) -> Option<&'static CompletedModelReview> {
+    static REVIEWS: OnceLock<std::collections::BTreeMap<String, CompletedModelReview>> =
+        OnceLock::new();
+    REVIEWS
+        .get_or_init(|| {
+            serde_json::from_str(include_str!("../assets/completed-models.json"))
+                .unwrap_or_default()
+        })
+        .get(model_path)
+}
+
+fn prop_triangle_art_budget(model_path: &str, skinned: bool) -> usize {
+    completed_model_review(model_path).map_or(
+        if skinned {
+            ENTITY_TRIANGLE_BUDGET
+        } else {
+            PROP_TRIANGLE_BUDGET
+        },
+        |review| {
+            review.triangles.max(if skinned {
+                ENTITY_TRIANGLE_BUDGET
+            } else {
+                PROP_TRIANGLE_BUDGET
+            })
+        },
+    )
+}
+
 /// The Places art budget a loaded model breaks, if any.
 ///
 /// The art budget is deliberately softer than the parser's engine ceilings: a
@@ -86,11 +128,7 @@ fn art_budget_warning(model_path: &str, model: &PropModel) -> Option<String> {
     let mut reasons: Vec<String> = Vec::new();
     // A skinned model is a character; it gets the documented entity art
     // budget rather than the static-prop one.
-    let triangle_budget = if model.skin.is_some() {
-        ENTITY_TRIANGLE_BUDGET
-    } else {
-        PROP_TRIANGLE_BUDGET
-    };
+    let triangle_budget = prop_triangle_art_budget(model_path, model.skin.is_some());
     if model.triangles > triangle_budget {
         reasons.push(format!(
             "{} triangles (art budget {triangle_budget})",
@@ -133,6 +171,9 @@ pub struct PropAssets {
     model_identities: HashMap<String, String>,
     root: Option<PathBuf>,
     models: HashMap<String, Result<Arc<LoadedPropAsset>, String>>,
+    /// Weak ownership permits inactive request images to disappear while
+    /// equal family atlases share one decoded allocation across model paths.
+    textures: HashMap<(u32, u32, String), Weak<crate::loader::RawImage>>,
     /// Model paths that already produced a fallback, so the renderer logs each
     /// broken asset exactly once instead of once per placement.
     reported_failures: Vec<String>,
@@ -161,6 +202,7 @@ impl PropAssets {
         Self {
             root: resolve_prop_root(),
             models: HashMap::new(),
+            textures: HashMap::new(),
             inputs: HashMap::new(),
             model_identities: HashMap::new(),
             reported_failures: Vec::new(),
@@ -173,6 +215,7 @@ impl PropAssets {
         Self {
             root: Some(root.into()),
             models: HashMap::new(),
+            textures: HashMap::new(),
             inputs: HashMap::new(),
             model_identities: HashMap::new(),
             reported_failures: Vec::new(),
@@ -217,6 +260,7 @@ impl PropAssets {
             .retain(|path| self.models.contains_key(path));
         self.reported_budget_warnings
             .retain(|path| self.models.contains_key(path));
+        self.textures.retain(|_, image| image.strong_count() > 0);
         self.model_identities = identities;
     }
 
@@ -243,17 +287,46 @@ impl PropAssets {
         result
     }
 
-    fn load(&self, model_path: &str) -> Result<Arc<LoadedPropAsset>, String> {
+    fn load(&mut self, model_path: &str) -> Result<Arc<LoadedPropAsset>, String> {
         let bytes = match self.inputs.get(model_path) {
             Some(input) => input.clone()?,
             None => self.read_input(model_path)?,
         };
-        let model = parse_glb(&bytes)
+        let review = completed_model_review(model_path);
+        if let Some(accepted) = review
+            && crate::package::hash::sha256_hex(&bytes) != accepted.sha256
+        {
+            return Err(format!(
+                "completed model {model_path} differs from its accepted export"
+            ));
+        }
+        let parsed = if review.is_some_and(|entry| entry.clamped_uv_overscan) {
+            crate::gltf::parse_glb_with_clamped_overscan(&bytes)
+        } else {
+            parse_glb(&bytes)
+        };
+        let mut model = parsed
             .map_err(|error: GltfError| format!("prop model {model_path} is invalid: {error}"))?;
+        for image in &mut model.textures {
+            self.intern_texture(image);
+        }
         Ok(Arc::new(LoadedPropAsset {
             model_path: model_path.to_string(),
             model,
         }))
+    }
+
+    fn intern_texture(&mut self, image: &mut Arc<crate::loader::RawImage>) {
+        let key = (
+            image.width,
+            image.height,
+            crate::package::hash::sha256_hex(&image.rgba),
+        );
+        if let Some(shared) = self.textures.get(&key).and_then(Weak::upgrade) {
+            *image = shared;
+        } else {
+            drop(self.textures.insert(key, Arc::downgrade(image)));
+        }
     }
 
     /// Prints a one-time developer warning for a model that fell back.
@@ -305,13 +378,16 @@ impl PropAssets {
                 Ok(asset) => {
                     stats.models_loaded = stats.models_loaded.saturating_add(1);
                     stats.triangles = stats.triangles.saturating_add(asset.model.triangles);
-                    stats.texture_bytes = stats
-                        .texture_bytes
-                        .saturating_add(texture_bytes(&asset.model));
                 }
                 Err(_) => stats.models_failed = stats.models_failed.saturating_add(1),
             }
         }
+        stats.texture_bytes = self
+            .textures
+            .values()
+            .filter_map(Weak::upgrade)
+            .map(|image| image.rgba.len())
+            .sum();
         stats
     }
 }

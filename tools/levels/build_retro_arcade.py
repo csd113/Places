@@ -166,6 +166,7 @@ def baseboard_profile(level):
 def build_level():
     catalog = json.loads((ROOT / "assets/catalog.json").read_text())
     gameplay = json.loads((ROOT / "assets/gameplay.json").read_text())["assets"]
+    adopted = json.loads((ROOT / "assets/environments/arcade/adopted_placement.json").read_text())
     sizes = {e["id"]: e["size"] for e in catalog["assets"]
              if e.get("asset_type") in {"prop", "entity"}}
     level = dict(format_version=3, id="retro_arcade_demo", name="Cosmic Lanes & Arcade",
@@ -283,13 +284,14 @@ def build_level():
                      physics=lane_physics("arcade:bowling_ball_cobalt"))
             else:
                 prop("bowling_ball_"+color, x+(slot-1)*.28, 24.2,
-                     f"rack_{group}_ball_{slot}", y=(.55001, .55707, .55394)[slot],
+                     f"rack_{group}_ball_{slot}", y=adopted['ball_support_heights'][slot],
                      yaw=slot*38)
-    prop("bowling_ball_marbled", 15.65, 23.05, "return_marbled_ball", y=.42355, yaw=18)
-    # One ordinary switch is mounted on the existing return housing's left
-    # side. The authored action resets only the ten pins and one ball above.
+    prop("bowling_ball_marbled", 15.65, 23.05, "return_marbled_ball", y=adopted['return_ball_height'], yaw=18)
+    # The rear housing face is exactly Z=-.905 in the accepted export. Mount
+    # the reset outside that face and its conservative solid box; the tapered
+    # left face would put the control behind invisible collision stock.
     level["props"].append(dict(id="lane_1_reset_switch", model="home:wall_switch",
-        x=11.20, y=.65, z=22.5, rotation_degrees=270, size=sizes["home:wall_switch"],
+        x=11.65, y=.65, z=21.585, rotation_degrees=180, size=sizes["home:wall_switch"],
         solid=False, occludes=False,
         components=[dict(component="interactable", prompt="Reset lane", reach=1.7),
                     dict(component="animation", clip="toggle", looped=False, playing=False)],
@@ -310,12 +312,12 @@ def build_level():
     # chooses one different design per room rather than showroom floor bays.
 
     def cabinet(name, x, z, identity, yaw=90, color=(.24, .43, 1), dim=False):
-        size = sizes["arcade:"+name]
+        offsets = adopted['cabinets']["arcade:"+name]['light_offsets']
         scale = .16 if dim else 1
         entry = prop(name, x, z, identity, yaw=yaw, lights=[
-            dict(shape="point", offset=[0, 1.25, size[2]/2+.03],
+            dict(shape="point", offset=offsets[0],
                  color=list(color), intensity=.36*scale, range=2.4),
-            dict(shape="point", offset=[0, size[1]-.13, size[2]/2+.03],
+            dict(shape="point", offset=offsets[1],
                  color=list(color), intensity=.18*scale, range=1.8)])
         if dim:
             entry["components"] = [dict(component="material", current="standby",
@@ -350,7 +352,7 @@ def build_level():
         for slot,x in enumerate((3.65,4.6,5.55)):
             for face,yaw in enumerate((180,0)):
                 name,color=games[(island*3+slot+face)%len(games)]
-                depth=sizes["arcade:cabinet_"+name][2]
+                depth=adopted['cabinets']["arcade:cabinet_"+name]['layout_depth']
                 cabinet("cabinet_"+name,x,z+(-1 if face==0 else 1)*(depth/2+.025),
                         f"island_{island}_{slot}_{face}",yaw=yaw,color=color)
     for index, name in enumerate(("pinball_cosmic", "pinball_comet")):
@@ -360,6 +362,11 @@ def build_level():
                      dict(shape="point", offset=[0, 1.14, .12],
                           color=[1, .82, .55], intensity=.40, range=1.15)])
     prop("change_machine", .5, 23, "change_machine", yaw=90)
+    # Paired waiting seats fit the east Arcade wall, ahead of the passage.
+    # Upholstery swaps preserve one structural design and an open concourse.
+    for name, z in (("red_blue_red", 18.6), ("blue_red_blue", 21.3)):
+        prop("bench_three_seat_"+name, 8.65, z, "waiting_bench_"+name,
+             yaw=270, solid=True)
     prop("vending_machine", .9, 25, "vending_machine", yaw=90,
          lights=[dict(shape="point", offset=[0, 1.35, .51], color=[.3, .55, 1],
                       intensity=.46, range=3.8),

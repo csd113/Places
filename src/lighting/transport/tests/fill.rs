@@ -166,6 +166,22 @@ fn a_second_bounce_cannot_repeat_a_single_reflection_path() {
 }
 
 #[test]
+fn grazing_filtered_moment_keeps_surface_energy_without_hdr_amplification() {
+    // One accumulator, no map or rays: a near-tangent aggregate direction with
+    // a positive neighbouring cosine integral made calibration subtract huge
+    // opposing f32 terms. This protects the denser Arcade's final filter gate.
+    let field = Accumulator {
+        irradiance: [0.1, 0.2, 0.3],
+        moment: [[0.1, 0.000_001, 0.0], [0.2, 0.0, 0.0], [0.3, 0.0, 0.0]],
+        surface_light: [0.003, 0.004, 0.005],
+    };
+    let normal = [0.0, 1.0, 0.0];
+    let texel = compress_surface(&field, normal);
+    assert!(surface_energy_matches(texel, normal, field.surface_light));
+    assert!(texel.irradiance.iter().sum::<f32>() <= 0.012_1);
+}
+
+#[test]
 fn diffuse_hemisphere_preserves_the_cosine_integral() {
     // Equal solid-angle quadrature with mean cosine 1/2. For unit Lambertian
     // radiance, integral(2*cos(theta) dOmega / 2pi) = 1, not 1.5.

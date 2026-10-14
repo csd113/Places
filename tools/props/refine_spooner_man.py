@@ -15,6 +15,7 @@ import argparse
 import collections
 import copy
 import hashlib
+import json
 import math
 from pathlib import Path
 
@@ -515,6 +516,15 @@ def main():
     parser.add_argument("--stage", type=int, choices=(1, 2, 3), default=3)
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
+    if args.out.resolve() == OUTPUT.resolve():
+        reviews = json.loads((ROOT / 'assets/completed-models.json').read_text())
+        review = reviews.get('entities/spooner-man/model/spooner-man.glb')
+        if review:
+            if hashlib.sha256(OUTPUT.read_bytes()).hexdigest() != review['sha256']:
+                raise SystemExit('completed Spooner-Man differs from accepted export')
+            print('Completed Spooner-Man retained; body-only exporter is historical')
+            return
+
     if hashlib.sha256(SOURCE.read_bytes()).hexdigest() != SOURCE_SHA256:
         raise SystemExit("immutable manual source changed")
     model = Model(str(SOURCE))

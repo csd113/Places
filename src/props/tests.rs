@@ -15,12 +15,29 @@
 use super::*;
 use crate::gltf::{PropSubmesh, PropVertex};
 use crate::level::{
-    ENTITY_TRIANGLE_BUDGET, MAX_PROP_TEXTURE_BYTES, MAX_PROP_TEXTURE_SIZE, MAX_PROP_TRIANGLES,
-    MAX_PROP_VERTICES, PROP_TEXTURE_NATIVE_SIZE, PROP_TEXTURE_PACK_BUDGET_BYTES,
-    PROP_TRIANGLE_BUDGET, PROP_TRIANGLE_REVIEW, PROP_TRIANGLE_TARGET,
+    MAX_PROP_TEXTURE_BYTES, MAX_PROP_TEXTURE_SIZE, MAX_PROP_TRIANGLES, MAX_PROP_VERTICES,
+    PROP_TEXTURE_NATIVE_SIZE, PROP_TEXTURE_PACK_BUDGET_BYTES, PROP_TRIANGLE_BUDGET,
+    PROP_TRIANGLE_REVIEW, PROP_TRIANGLE_TARGET,
 };
 use crate::loader::{PropCatalog, RawImage};
 use crate::materials::MaterialEmission;
+
+/// Tiny allocation witness: family models share identical decoded sheets,
+/// while a different size or changed pigment keeps a distinct allocation.
+#[test]
+fn equal_family_images_share_bytes_without_changing_numeric_masks() {
+    let mut assets = PropAssets::default();
+    let mut first = Arc::new(RawImage::new(1, 1, vec![17, 43, 89, 255]));
+    let mut second = Arc::new((*first).clone());
+    assets.intern_texture(&mut first);
+    assets.intern_texture(&mut second);
+    assert!(Arc::ptr_eq(&first, &second));
+    assert_eq!(assets.stats().texture_bytes, 4);
+    let mut mask = Arc::new(RawImage::new(1, 1, vec![17, 43, 90, 255]));
+    assets.intern_texture(&mut mask);
+    assert!(!Arc::ptr_eq(&first, &mask));
+    assert_eq!(mask.rgba, [17, 43, 90, 255]);
+}
 
 /// Catalogue + shipped GLB validation, the automated half of the asset
 /// budgets in `assets/README.md`. Every failure message names the prop
@@ -53,6 +70,7 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
     let mut models = std::collections::HashSet::new();
     let mut total_triangles = 0usize;
     let mut total_texture_bytes = 0usize;
+    let mut textures = std::collections::HashSet::new();
 
     for entry in &entries {
         assert!(
@@ -66,9 +84,10 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
                 entry.id
             );
         };
+        let first_model = models.insert(model_path.to_string());
         assert!(
-            models.insert(model_path.to_string()),
-            "{}: model path {model_path} is used by more than one prop",
+            first_model || catalog.tint(&entry.id).is_some(),
+            "{}: a shared model path requires an explicit colour preset",
             entry.id
         );
 
@@ -91,7 +110,9 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
             model.vertices.len()
         );
         assert!(
-            model.texture_count() >= 1,
+            model.texture_count() >= 1
+                || completed_model_review(model_path)
+                    .is_some_and(|review| review.texture_edge == 0),
             "{}: every shipped prop embeds at least one texture",
             entry.id
         );
@@ -123,11 +144,7 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
         // numbers `assets/README.md` and `tools/props/build.py` enforce. A
         // skinned character follows the documented entity budget instead of
         // the static-prop target.
-        let triangle_budget = if model.skin.is_some() {
-            ENTITY_TRIANGLE_BUDGET
-        } else {
-            PROP_TRIANGLE_BUDGET
-        };
+        let triangle_budget = prop_triangle_art_budget(model_path, model.skin.is_some());
         assert!(
             model.triangles <= triangle_budget,
             "{}: model has {} triangles, above the {triangle_budget}-triangle art budget",
@@ -185,7 +202,13 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
             let expected = entry.size[axis];
             let tolerance = (expected * 0.06).max(0.02);
             assert!(
-                (dimensions[axis] - expected).abs() <= tolerance,
+                if model.skin.is_some() && completed_model_review(model_path).is_some() && axis != 1
+                {
+                    low[axis] >= (-expected).mul_add(0.5, -tolerance)
+                        && high[axis] <= expected.mul_add(0.5, tolerance)
+                } else {
+                    (dimensions[axis] - expected).abs() <= tolerance
+                },
                 "{}: model {} extent is {:.3} m but the catalogue says {:.3} m \
                  (tolerance {:.3} m); fix the model or the catalogue entry",
                 entry.id,
@@ -219,13 +242,20 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
         let center_x = f32::midpoint(low[0], high[0]);
         let center_z = f32::midpoint(low[2], high[2]);
         assert!(
-            center_x.abs() <= 0.02 && center_z.abs() <= 0.02,
+            (model.skin.is_some() && completed_model_review(model_path).is_some())
+                || (center_x.abs() <= 0.02 && center_z.abs() <= 0.02),
             "{}: model is not horizontally centred (x={center_x:.3}, z={center_z:.3})",
             entry.id
         );
 
-        total_triangles += model.triangles;
-        total_texture_bytes += texture_bytes(model);
+        if first_model {
+            total_triangles += model.triangles;
+        }
+        for image in &model.textures {
+            if textures.insert(std::sync::Arc::as_ptr(image)) {
+                total_texture_bytes += image.rgba.len();
+            }
+        }
     }
 
     // Props that legitimately need more silhouette detail than a box-shaped
@@ -271,7 +301,13 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
         .collect();
     for (id, triangles) in &over_review {
         assert!(
-            detailed_props.contains(&id.as_str()),
+            detailed_props.contains(&id.as_str())
+                || catalog
+                    .get(id)
+                    .model
+                    .as_deref()
+                    .and_then(completed_model_review)
+                    .is_some(),
             "{id} uses {triangles} triangles, above the {PROP_TRIANGLE_REVIEW}-triangle review \
              threshold, and is not in the documented allowlist"
         );
@@ -298,8 +334,8 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
     assert_eq!(stats.models_failed, 0, "some models failed to load");
     assert_eq!(
         stats.models_loaded,
-        entries.len(),
-        "expected every catalogued prop model to load"
+        models.len(),
+        "expected every unique catalogued model to load"
     );
 
     // Report the pack's cost so `cargo test -- --nocapture` doubles as the

@@ -853,12 +853,12 @@ normal runtime texture         256x 256 native
   origin, triangle and texture budgets. The shipped Spooner-Man entity rig is
   hand-authored and maintained by `tools/props/animate_spooner_man.py`; it is
   never rebuilt from the placeable-prop builders.
-  Its body refinement is reproduced by `tools/props/refine_spooner_man.py`
-  from the immutable manual export in `tools/props/sources/`. The original
-  head attributes, PNG bytes, rig and motion keys remain exact. Run that
-  generator with `--check` and `tools/entities/check_spooner_refinement.py`
-  after body edits; see the [refinement report](reports/spoonerman-body-refinement.md)
-  for native comparisons and the user-accepted remaining concept differences.
+  The October14 complete rebuild supersedes its earlier body-only refinement.
+  `completed-models.json` guards the adopted export; final editable masters remain
+  in Downloads. `refine_spooner_man.py` retains the historical immutable-source
+  recipe and refuses to overwrite the adopted rig. The earlier
+  [refinement report](reports/spoonerman-body-refinement.md) remains dated evidence;
+  original head/PNG/rest-transform preservation does not describe the new export.
 
 The refined sign/fixture/CRT builders also load standalone PNG source atlases
 beside their GLBs. Preserve their existing region frames: stop sign uses the
@@ -2206,3 +2206,66 @@ columns per side. It preserves every interior pixel, dimensions, PNG mode, alpha
 and metadata; it never joins the vertical poles. The shipped correction changes
 at most 4/255 per channel. All four catalog sky sheets have exact U edge matches.
 The normal runtime loads these committed PNGs through the existing sampler.
+
+
+### October 14 completed model adoption
+
+`assets/completed-models.json` records the 103 accepted v36 runtime exports for
+107 identities, their exact SHA-256, measured bounds and reviewed geometry/image
+budgets. The GLBs retain the delivered bytes. Catalog `authoring.tool: completed`
+prevents the original primitive/Blender exporters from replacing them; final
+editable masters remain in Downloads/Places-completed-models-2026-10-14.
+The original Spooner-Man body-only refiner and party/Halloween source writers
+remain historical tools. Current checks validate accepted export identity,
+actual rig/clip boundaries, bounded Rust playback and native placement instead
+of requiring the superseded head, joint order or authoring scene.
+
+Larger sheets preserve their fitted authored frames: ordinary Shared 256;
+reviewed entities 256/512, Arcade family atlases 256/512, party tableware 512×256,
+cloth 1024², gift 512², cake 1024×256 and restroom 1024×512. All are embedded PNGs
+with equivalent unique standalone PNG sources under assets/. No image is
+resized, regenerated, repacked or given a new alpha contract during adoption.
+Identical decoded RGBA images (dimensions included) share an Arc across models;
+numeric fluorescence values remain exact. The 106 MiB unique decoded pack budget
+is retained; per-GLB embedded copies are storage representation, not separate
+resident images. Weak ownership releases unused family sheets on dependency
+changes. Toolkit accounting conservatively deduplicates exact embedded PNG bytes.
+
+Four accepted rectangular cloth exports contain a fitted U overscan reaching
+1.0495164. Their hash-verified import profile permits only the upper 0.05 gutter,
+preserving the complete authored UV layout and the existing CLAMP_TO_EDGE
+sampling semantics. No tiling or repeat is introduced. Ordinary and unapproved
+GLBs keep the 0..1±0.01 contract; replacing any accepted bytes fails identity
+verification before this profile can apply. Round cloths retain ordinary UV bounds.
+
+Five streamer catalog aliases use one untextured neutral `party_streamer.glb`.
+Their `tint` is authored linear RGB in 0..1 and is applied to each static instance's
+albedo vertices before packaging, independently of lighting and emission. All
+five keep the same shared decoded mesh; no PNG or GLB is duplicated per colour.
+The shared white runtime sheet handles untextured triangles. Developer previews retain the same per-object albedo tint through a bounded
+GPU material uniform, without copying mesh or image payloads or altering alpha,
+fluorescence or emission; balloon body colour retains its named analytic rig path.
+
+Entity rigs preserve their delivered root pivots, including asymmetric bind
+silhouettes. Their catalog X/Z envelopes conservatively cover both sides of the
+root; measured min/max remain in the review record. The runtime still uses the
+actual posed geometry for bounds. Two new 1.980×0.990722×0.605500 m benches are
+ordinary non-emissive floor props with identical structure and swapped upholstery.
+Reviewed triangle exceptions are bounded to the exact named exports: up to 2430
+for cabinets, 1620 for benches, 1548 for neon, 1532 for pinball and 5688 for the
+Spooner-Man rig. Ordinary 1500/3000 art budgets and 6000 engine ceiling remain.
+
+Full receiver geometry for the denser completed Arcade models exceeds the former
+six-page allowance with two switch circuits. The typed atlas record now admits
+384 MiB plus 64 KiB container overhead, sufficient for eight 1024px pages across
+three illumination groups. Sampling/gutters, the 512 MiB KTX2 payload guard, exact
+shape/length checks and 1 GiB aggregate cap remain. This preserves actual Full
+lighting instead of accepting the whole-world vertex fallback; native memory
+and timing must be reported against the valid pre-adoption package.
+
+At a nearly grazing receiver, filtering can retain positive neighbouring
+surface energy while the aggregate directional moment nearly cancels. If its
+f32 calibration fails the existing strict cosine-integral check, the compiler
+stores that finite nonnegative integral isotropically for that texel. Ordinary
+directional calibration and the validation tolerance remain unchanged; this
+avoids huge opposing coefficients rather than amplifying rounding error.

@@ -1369,6 +1369,9 @@ impl WgpuRenderer {
             return false;
         };
         let _previous_value = self.runtime_objects.insert(key, id);
+        if let Some(tint) = self.prop_catalog.tint(model) {
+            let _tint_applied = self.dynamic.set_albedo_tint(id, tint);
+        }
         self.upload_dynamic();
         true
     }

@@ -39,7 +39,7 @@
     {
       "id": "arcade",
       "display_name": "Retro Bowling & Arcade",
-      "description": "Empty operational 1995\u20132005 cosmic bowling: navy interiors, warm maple lanes, CRT cabinets and masked blacklight-reactive carpet."
+      "description": "Empty operational 1995–2005 cosmic bowling: navy interiors, warm maple lanes, CRT cabinets and masked blacklight-reactive carpet."
     }
   ],
   "assets": [
@@ -57,7 +57,11 @@
       ],
       "color": "#6b5f4a",
       "category": "Furniture",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:armchair",
@@ -73,7 +77,11 @@
       ],
       "color": "#7a6a55",
       "category": "Furniture",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:chair",
@@ -106,7 +114,11 @@
       ],
       "color": "#6f5a41",
       "category": "Furniture",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:table_sideways",
@@ -123,7 +135,11 @@
       "color": "#6f5a41",
       "category": "Furniture",
       "solid": true,
-      "description": "Existing oak table resting on its long edge, with its legs projecting sideways."
+      "description": "Existing oak table resting on its long edge, with its legs projecting sideways.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:desk",
@@ -156,7 +172,11 @@
       ],
       "color": "#57452f",
       "category": "Furniture",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:cabinet",
@@ -189,7 +209,11 @@
       ],
       "color": "#7d7568",
       "category": "Furniture",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:stove",
@@ -205,7 +229,11 @@
       ],
       "color": "#8f8a80",
       "category": "Appliances",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:sink",
@@ -221,7 +249,11 @@
       ],
       "color": "#9aa0a0",
       "category": "Appliances",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:fridge",
@@ -237,7 +269,11 @@
       ],
       "color": "#b8bcc0",
       "category": "Appliances",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:washing_machine",
@@ -253,7 +289,11 @@
       ],
       "color": "#a2a6aa",
       "category": "Appliances",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:washer_drum",
@@ -270,7 +310,11 @@
       "color": "#b4b8ba",
       "category": "Appliances",
       "solid": false,
-      "description": "Loose drum basket: the dynamic-object demonstrator, spawned and turned inside a placed washing machine's cavity, behind the porthole."
+      "description": "Loose drum basket: the dynamic-object demonstrator, spawned and turned inside a placed washing machine's cavity, behind the porthole.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:vending_machine",
@@ -514,7 +558,11 @@
       ],
       "color": "#4f6b43",
       "category": "Decorative",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:rug",
@@ -530,7 +578,11 @@
       ],
       "color": "#6d5a52",
       "category": "Decorative",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:lamp",
@@ -546,7 +598,11 @@
       ],
       "color": "#8a8272",
       "category": "Decorative",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:tv",
@@ -562,7 +618,11 @@
       ],
       "color": "#33363a",
       "category": "Decorative",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:painting_frame_landscape_01",
@@ -579,7 +639,11 @@
       "color": "#66503b",
       "category": "Decorative",
       "solid": false,
-      "description": "Timber hanging frame with a 1.800 x 1.092 m recessed painting face. Pair with core:decal_temptation_adam_eve_01 at its documented offset to preserve the artwork's full resolution."
+      "description": "Timber hanging frame with a 1.800 x 1.092 m recessed painting face. Pair with core:decal_temptation_adam_eve_01 at its documented offset to preserve the artwork's full resolution.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:wallpaper_yellow_01",
@@ -1102,14 +1166,18 @@
       "source": "file",
       "model": "entities/spooner-man/model/spooner-man.glb",
       "size": [
-        0.165,
-        0.389,
-        0.626
+        0.159043,
+        0.348864,
+        0.622915
       ],
       "color": "#33343a",
       "category": "Decorative",
       "solid": false,
-      "description": "Low-poly tuxedo cat placed through the ordinary prop placement system."
+      "description": "Low-poly tuxedo cat placed through the ordinary prop placement system.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:tex_glass_clear_01",
@@ -1974,14 +2042,18 @@
       "source": "file",
       "model": "entities/mannequin/model/mannequin.glb",
       "size": [
-        0.42,
-        1.72,
-        0.305
+        0.578539,
+        1.723035,
+        0.316965
       ],
       "color": "#a8a7a1",
       "category": "Decorative",
       "solid": false,
-      "description": "Grey concrete artist's lay figure with three selectable poses on one rig (pose_stand, pose_arms_up, pose_arms_forward)."
+      "description": "Grey concrete artist's lay figure with three selectable poses on one rig (pose_stand, pose_arms_up, pose_arms_forward).",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "rat",
@@ -1992,14 +2064,18 @@
       "source": "file",
       "model": "entities/rat/model/rat.glb",
       "size": [
-        0.095,
-        0.139,
-        0.613
+        0.112014,
+        0.129887,
+        0.472315
       ],
       "color": "#6b5a4a",
       "category": "Decorative",
       "solid": false,
-      "description": "Low-poly rat with articulated legs, paws and a five-segment tail; looping idle/walk/run clips with measured reference speeds (0.199 m/s walk, 0.573 m/s run)."
+      "description": "Low-poly rat with articulated legs, paws and a five-segment tail; looping idle/walk/run clips with measured reference speeds (0.199 m/s walk, 0.573 m/s run).",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "skeleton",
@@ -2010,14 +2086,18 @@
       "source": "file",
       "model": "entities/skeleton/model/skeleton.glb",
       "size": [
-        0.4266,
-        1.72,
-        0.315
+        0.414955,
+        1.722652,
+        0.298664
       ],
       "color": "#d8d2b8",
       "category": "Decorative",
       "solid": false,
-      "description": "Low-poly articulated skeleton prop with a real animation rig and three held poses (pose_stand, pose_sit_floor, pose_sit_chair); the chair pose fits the 0.45 m seat of core:chair."
+      "description": "Low-poly articulated skeleton prop with a real animation rig and three held poses (pose_stand, pose_sit_floor, pose_sit_chair); the chair pose fits the 0.45 m seat of core:chair.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "carved-pumpkin",
@@ -2028,14 +2108,18 @@
       "source": "file",
       "model": "entities/carved-pumpkin/model/carved-pumpkin.glb",
       "size": [
-        0.701,
-        0.654,
-        0.635
+        0.579556,
+        0.631126,
+        0.5216
       ],
       "color": "#c9761f",
       "category": "Decorative",
       "solid": false,
-      "description": "Carved pumpkin with a candle and an emissive flame primitive on the animated flame node; hopping loop hop_forward (authored for 0.5 m/s) and the laughing loop laugh (2.4 s). Attach a glow component with socket flame for the candle light."
+      "description": "Carved pumpkin with a candle and an emissive flame primitive on the animated flame node; hopping loop hop_forward (authored for 0.5 m/s) and the laughing loop laugh (2.4 s). Attach a glow component with socket flame for the candle light.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "sheet-ghost",
@@ -2064,14 +2148,18 @@
       "source": "file",
       "model": "entities/pumpkin-skeleton/model/pumpkin-skeleton.glb",
       "size": [
-        0.442,
-        1.808,
-        0.403
+        0.497499,
+        1.822028,
+        0.583294
       ],
       "color": "#c9b48a",
       "category": "Decorative",
       "solid": false,
-      "description": "Walking skeleton whose skull is replaced by an emissive pumpkin head on the piece_pumpkin_head joint; in-place walk loop (authored for 0.571 m/s) and the collapse_reassemble gesture. Attach a glow component with socket piece_pumpkin_head for the head light."
+      "description": "Walking skeleton whose skull is replaced by an emissive pumpkin head on the piece_pumpkin_head joint; in-place walk loop (authored for 0.571 m/s) and the collapse_reassemble gesture. Attach a glow component with socket piece_pumpkin_head for the head light.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:stop_sign",
@@ -7042,7 +7130,11 @@
       "color": "#ffffff",
       "category": "Arcade",
       "solid": false,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:bowling_ball_purple",
@@ -7060,7 +7152,11 @@
       "color": "#ffffff",
       "category": "Arcade",
       "solid": false,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:bowling_ball_burgundy",
@@ -7078,7 +7174,11 @@
       "color": "#ffffff",
       "category": "Arcade",
       "solid": false,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:bowling_ball_black",
@@ -7096,7 +7196,11 @@
       "color": "#ffffff",
       "category": "Arcade",
       "solid": false,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:bowling_ball_cobalt",
@@ -7114,7 +7218,11 @@
       "color": "#ffffff",
       "category": "Arcade",
       "solid": false,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:bowling_ball_red",
@@ -7132,7 +7240,11 @@
       "color": "#ffffff",
       "category": "Arcade",
       "solid": false,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:bowling_ball_green",
@@ -7150,7 +7262,11 @@
       "color": "#ffffff",
       "category": "Arcade",
       "solid": false,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:bowling_ball_marbled",
@@ -7168,7 +7284,11 @@
       "color": "#ffffff",
       "category": "Arcade",
       "solid": false,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:ball_return",
@@ -7179,14 +7299,18 @@
       "source": "file",
       "model": "environments/arcade/props/ball_return.glb",
       "size": [
-        0.86,
-        1.06,
-        1.85
+        0.63,
+        0.785,
+        1.81
       ],
       "color": "#ffffff",
       "category": "Arcade",
       "solid": true,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:ball_rack",
@@ -7198,13 +7322,17 @@
       "model": "environments/arcade/props/ball_rack.glb",
       "size": [
         1.1,
-        0.72,
+        0.73,
         0.64
       ],
       "color": "#ffffff",
       "category": "Arcade",
       "solid": true,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:score_monitor",
@@ -7222,7 +7350,11 @@
       "color": "#ffffff",
       "category": "Arcade",
       "solid": true,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:score_monitor_inactive",
@@ -7240,7 +7372,11 @@
       "color": "#ffffff",
       "category": "Arcade",
       "solid": true,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:fixed_chair_red",
@@ -7251,14 +7387,18 @@
       "source": "file",
       "model": "environments/arcade/props/fixed_chair_red.glb",
       "size": [
-        0.6,
+        0.54,
         0.92,
-        0.6
+        0.539725
       ],
       "color": "#ffffff",
       "category": "Arcade",
       "solid": true,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:fixed_chair_blue",
@@ -7269,14 +7409,18 @@
       "source": "file",
       "model": "environments/arcade/props/fixed_chair_blue.glb",
       "size": [
-        0.6,
+        0.54,
         0.92,
-        0.6
+        0.539725
       ],
       "color": "#ffffff",
       "category": "Arcade",
       "solid": true,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:pedestal_table",
@@ -7294,7 +7438,11 @@
       "color": "#ffffff",
       "category": "Arcade",
       "solid": true,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:soda_bottle",
@@ -7312,7 +7460,11 @@
       "color": "#ffffff",
       "category": "Arcade",
       "solid": false,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:vending_machine",
@@ -7330,7 +7482,11 @@
       "color": "#ffffff",
       "category": "Arcade",
       "solid": true,
-      "description": "Tall period blue soda cabinet with illuminated logo and drink selection windows, central payment strip and recessed delivery tray; +Z front, floor-contact origin."
+      "description": "Tall period blue soda cabinet with illuminated logo and drink selection windows, central payment strip and recessed delivery tray; +Z front, floor-contact origin.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:cabinet_racing",
@@ -7341,14 +7497,18 @@
       "source": "file",
       "model": "environments/arcade/props/cabinet_racing.glb",
       "size": [
-        0.82,
-        1.91,
-        1.0
+        0.822486,
+        2.04,
+        1.056388
       ],
       "color": "#ffffff",
       "category": "Arcade",
       "solid": true,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:cabinet_shooter",
@@ -7359,14 +7519,18 @@
       "source": "file",
       "model": "environments/arcade/props/cabinet_shooter.glb",
       "size": [
-        0.74,
-        1.96,
-        0.84
+        0.762486,
+        2.04,
+        0.882
       ],
       "color": "#ffffff",
       "category": "Arcade",
       "solid": true,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:cabinet_action",
@@ -7377,14 +7541,18 @@
       "source": "file",
       "model": "environments/arcade/props/cabinet_action.glb",
       "size": [
-        0.76,
-        1.88,
-        0.87
+        0.782486,
+        2.04,
+        0.902001
       ],
       "color": "#ffffff",
       "category": "Arcade",
       "solid": true,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:cabinet_fighting",
@@ -7395,14 +7563,18 @@
       "source": "file",
       "model": "environments/arcade/props/cabinet_fighting.glb",
       "size": [
-        0.9,
-        1.88,
-        0.93
+        0.942486,
+        2.04,
+        0.952001
       ],
       "color": "#ffffff",
       "category": "Arcade",
       "solid": true,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:cabinet_scifi",
@@ -7413,14 +7585,18 @@
       "source": "file",
       "model": "environments/arcade/props/cabinet_scifi.glb",
       "size": [
-        0.78,
-        2.0,
-        0.89
+        0.802486,
+        2.04,
+        0.942
       ],
       "color": "#ffffff",
       "category": "Arcade",
       "solid": true,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:pinball_cosmic",
@@ -7432,13 +7608,17 @@
       "model": "environments/arcade/props/pinball_cosmic.glb",
       "size": [
         0.74,
-        1.88,
+        1.94,
         1.42
       ],
       "color": "#ffffff",
       "category": "Arcade",
       "solid": true,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:pinball_comet",
@@ -7450,13 +7630,17 @@
       "model": "environments/arcade/props/pinball_comet.glb",
       "size": [
         0.74,
-        1.88,
+        1.94,
         1.42
       ],
       "color": "#ffffff",
       "category": "Arcade",
       "solid": true,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:change_machine",
@@ -7474,7 +7658,11 @@
       "color": "#ffffff",
       "category": "Arcade",
       "solid": true,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:neon_bowl",
@@ -7492,7 +7680,11 @@
       "color": "#ffffff",
       "category": "Arcade",
       "solid": false,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:blacklight_fixture",
@@ -7510,7 +7702,11 @@
       "color": "#ffffff",
       "category": "Arcade",
       "solid": false,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:cat_plush",
@@ -7521,14 +7717,18 @@
       "source": "file",
       "model": "environments/arcade/props/cat_plush.glb",
       "size": [
-        0.25,
+        0.1924,
         0.36,
-        0.235
+        0.157609
       ],
       "color": "#ffffff",
       "category": "Arcade",
       "solid": false,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:litter_can",
@@ -7546,7 +7746,11 @@
       "color": "#ffffff",
       "category": "Arcade",
       "solid": false,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:litter_cup",
@@ -7564,7 +7768,11 @@
       "color": "#ffffff",
       "category": "Arcade",
       "solid": false,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:litter_wrapper",
@@ -7582,7 +7790,11 @@
       "color": "#ffffff",
       "category": "Arcade",
       "solid": false,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:litter_paper",
@@ -7600,7 +7812,11 @@
       "color": "#ffffff",
       "category": "Arcade",
       "solid": false,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:litter_bottle_fallen",
@@ -7618,7 +7834,11 @@
       "color": "#ffffff",
       "category": "Arcade",
       "solid": false,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:gutter_segment",
@@ -7636,7 +7856,11 @@
       "color": "#ffffff",
       "category": "Arcade",
       "solid": false,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:lane_divider",
@@ -7654,7 +7878,11 @@
       "color": "#ffffff",
       "category": "Arcade",
       "solid": false,
-      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z."
+      "description": "Static period bowling and arcade prop; +Z front, +Y up, floor-contact origin centered in X/Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:tex_carpet_cosmic_bowl_01",
@@ -8017,7 +8245,7 @@
       "asset_type": "light",
       "source": "file",
       "model": "environments/arcade/textures/lights/fluorescent_panel_01.png",
-      "description": "Existing 1.2\u00d70.6 m recessed family with fitted 2:1 diffuser; real neutral-warm local lighting."
+      "description": "Existing 1.2×0.6 m recessed family with fitted 2:1 diffuser; real neutral-warm local lighting."
     },
     {
       "id": "arcade:blacklight_tube",
@@ -8027,7 +8255,7 @@
       "asset_type": "light",
       "source": "file",
       "model": "environments/arcade/textures/lights/blacklight_tube_01.png",
-      "description": "Operational 1.2\u00d70.15 m narrow batten with fitted 8:1 violet lens and nonemissive dark housing. Visible brightness and ultraviolet excitation are distinct."
+      "description": "Operational 1.2×0.15 m narrow batten with fitted 8:1 violet lens and nonemissive dark housing. Visible brightness and ultraviolet excitation are distinct."
     },
     {
       "id": "arcade:decal_bowling_mural_01",
@@ -8103,8 +8331,8 @@
       "category": "Party",
       "solid": true,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8125,8 +8353,8 @@
       "category": "Party",
       "solid": true,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8147,8 +8375,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8169,8 +8397,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8191,8 +8419,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8213,8 +8441,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8235,8 +8463,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8257,8 +8485,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8279,8 +8507,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8301,8 +8529,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8323,8 +8551,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8345,8 +8573,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8367,8 +8595,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8389,8 +8617,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8411,8 +8639,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8433,8 +8661,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8455,8 +8683,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8477,8 +8705,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8499,8 +8727,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8521,8 +8749,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8543,8 +8771,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8565,8 +8793,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8587,8 +8815,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8609,8 +8837,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8631,8 +8859,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8653,8 +8881,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8675,8 +8903,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8697,8 +8925,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8719,8 +8947,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8741,8 +8969,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8763,8 +8991,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8775,20 +9003,25 @@
       "theme": "arcade",
       "asset_type": "prop",
       "source": "file",
-      "model": "environments/arcade/party/models/party_streamer_purple.glb",
+      "model": "environments/arcade/party/models/party_streamer.glb",
       "size": [
-        0.07811,
+        0.033648,
         0.70012,
-        0.07
+        0.033576
       ],
       "color": "#e8dfd0",
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
-      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+      "description": "Colour preset for one canonical neutral non-emissive paper streamer; authored linear RGB tint is applied per placed instance.",
+      "tint": [
+        0.13286832155381798,
+        0.02518685962736163,
+        0.3277780980565422
+      ]
     },
     {
       "id": "arcade:party_streamer_pink",
@@ -8797,20 +9030,25 @@
       "theme": "arcade",
       "asset_type": "prop",
       "source": "file",
-      "model": "environments/arcade/party/models/party_streamer_pink.glb",
+      "model": "environments/arcade/party/models/party_streamer.glb",
       "size": [
-        0.07811,
+        0.033648,
         0.70012,
-        0.07
+        0.033576
       ],
       "color": "#e8dfd0",
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
-      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+      "description": "Colour preset for one canonical neutral non-emissive paper streamer; authored linear RGB tint is applied per placed instance.",
+      "tint": [
+        0.7230551289219693,
+        0.03560131487502034,
+        0.25015828472995344
+      ]
     },
     {
       "id": "arcade:party_streamer_yellow",
@@ -8819,20 +9057,25 @@
       "theme": "arcade",
       "asset_type": "prop",
       "source": "file",
-      "model": "environments/arcade/party/models/party_streamer_yellow.glb",
+      "model": "environments/arcade/party/models/party_streamer.glb",
       "size": [
-        0.07811,
+        0.033648,
         0.70012,
-        0.07
+        0.033576
       ],
       "color": "#e8dfd0",
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
-      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+      "description": "Colour preset for one canonical neutral non-emissive paper streamer; authored linear RGB tint is applied per placed instance.",
+      "tint": [
+        0.8549926081242338,
+        0.4969329950608704,
+        0.018500220128379697
+      ]
     },
     {
       "id": "arcade:party_streamer_blue",
@@ -8841,20 +9084,25 @@
       "theme": "arcade",
       "asset_type": "prop",
       "source": "file",
-      "model": "environments/arcade/party/models/party_streamer_blue.glb",
+      "model": "environments/arcade/party/models/party_streamer.glb",
       "size": [
-        0.07811,
+        0.033648,
         0.70012,
-        0.07
+        0.033576
       ],
       "color": "#e8dfd0",
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
-      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+      "description": "Colour preset for one canonical neutral non-emissive paper streamer; authored linear RGB tint is applied per placed instance.",
+      "tint": [
+        0.013702083047289686,
+        0.07618538148130785,
+        0.5149176653765214
+      ]
     },
     {
       "id": "arcade:party_streamer_orange",
@@ -8863,20 +9111,25 @@
       "theme": "arcade",
       "asset_type": "prop",
       "source": "file",
-      "model": "environments/arcade/party/models/party_streamer_orange.glb",
+      "model": "environments/arcade/party/models/party_streamer.glb",
       "size": [
-        0.07811,
+        0.033648,
         0.70012,
-        0.07
+        0.033576
       ],
       "color": "#e8dfd0",
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
-      "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
+      "description": "Colour preset for one canonical neutral non-emissive paper streamer; authored linear RGB tint is applied per placed instance.",
+      "tint": [
+        0.7912979403326302,
+        0.1301364766903643,
+        0.0202885630566524
+      ]
     },
     {
       "id": "arcade:party_balloon",
@@ -8887,16 +9140,16 @@
       "source": "file",
       "model": "environments/arcade/party/models/party_balloon.glb",
       "size": [
-        0.3,
+        0.296,
         1.53,
-        0.3
+        0.296
       ],
       "color": "#e8dfd0",
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8917,8 +9170,8 @@
       "category": "Party",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/party/birthday_party.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       },
       "description": "Reusable Blender-authored birthday asset; +Y up, metres, centered contact origin; printed surfaces are non-emissive."
     },
@@ -8957,8 +9210,8 @@
       "category": "Restroom",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/restroom/restroom.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       }
     },
     {
@@ -8978,8 +9231,8 @@
       "category": "Restroom",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/restroom/restroom.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       }
     },
     {
@@ -8999,8 +9252,8 @@
       "category": "Restroom",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/restroom/restroom.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       }
     },
     {
@@ -9020,8 +9273,8 @@
       "category": "Restroom",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/restroom/restroom.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       }
     },
     {
@@ -9041,8 +9294,8 @@
       "category": "Restroom",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/restroom/restroom.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       }
     },
     {
@@ -9056,14 +9309,14 @@
       "size": [
         1.126,
         1.68,
-        0.1055
+        0.1015
       ],
       "color": "#71958d",
       "category": "Restroom",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/restroom/restroom.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       }
     },
     {
@@ -9083,8 +9336,8 @@
       "category": "Restroom",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/restroom/restroom.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       }
     },
     {
@@ -9104,8 +9357,8 @@
       "category": "Restroom",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/restroom/restroom.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       }
     },
     {
@@ -9117,16 +9370,16 @@
       "source": "file",
       "model": "environments/arcade/restroom/restroom_grab_bar.glb",
       "size": [
-        0.905,
-        0.1,
+        0.93,
+        0.09,
         0.096
       ],
       "color": "#71958d",
       "category": "Restroom",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/restroom/restroom.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       }
     },
     {
@@ -9146,8 +9399,8 @@
       "category": "Restroom",
       "solid": false,
       "authoring": {
-        "tool": "blender",
-        "source": "environments/arcade/restroom/restroom.blend"
+        "tool": "completed",
+        "source": "completed-models.json"
       }
     },
     {
@@ -9203,6 +9456,50 @@
       "source": "definition",
       "surface": "wall",
       "description": "Ordinary commercial teal laminate for interactive flat restroom leaves; no emission or UV excitation."
+    },
+    {
+      "id": "arcade:bench_three_seat_blue_red_blue",
+      "display_name": "Bench Three Seat Blue Red Blue",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/bench_three_seat_blue_red_blue.glb",
+      "size": [
+        1.98,
+        0.990722,
+        0.6055
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": true,
+      "description": "Three upholstered seats on closed steel supports; floor origin, +Y up and +Z front. Opposite seat colour presets share identical construction.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "arcade:bench_three_seat_red_blue_red",
+      "display_name": "Bench Three Seat Red Blue Red",
+      "asset_class": "environment",
+      "theme": "arcade",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/arcade/props/bench_three_seat_red_blue_red.glb",
+      "size": [
+        1.98,
+        0.990722,
+        0.6055
+      ],
+      "color": "#ffffff",
+      "category": "Arcade",
+      "solid": true,
+      "description": "Three upholstered seats on closed steel supports; floor origin, +Y up and +Z front. Opposite seat colour presets share identical construction.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     }
   ]
 }

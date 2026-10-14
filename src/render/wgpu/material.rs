@@ -114,6 +114,8 @@ pub struct MaterialUniform {
     pub uv_mask_enabled: f32,
     /// Linear pigment tint. The fourth component pads the GPU record.
     pub uv_tint: [f32; 4],
+    /// Per-object linear albedo multiplier; static presets are already in vertices.
+    pub albedo_tint: [f32; 4],
 }
 
 /// Bytes one material uniform occupies.
@@ -205,6 +207,7 @@ impl MaterialUniform {
                 0.0
             },
             uv_tint: [pigment_red, pigment_green, pigment_blue, 0.0],
+            albedo_tint: [1.0; 4],
         }
     }
 
@@ -1052,6 +1055,8 @@ impl GpuMaterial {
 /// Scalar model controls shared by all geometry paths.
 #[derive(Clone, Copy)]
 pub struct ModelMaterial {
+    /// Linear albedo preset for one object sharing a canonical model.
+    pub albedo_tint: [f32; 3],
     pub emission: EmissionRecord,
     pub alpha: crate::materials::MaterialAlpha,
     pub response: crate::materials::MaterialResponse,
@@ -1078,7 +1083,10 @@ impl GpuMaterial {
         state.specular = parameters.response.specular;
         state.roughness = parameters.response.roughness;
         state.response_enabled = parameters.response_enabled;
-        let uniform = MaterialUniform::from_state_with_emission(&state, false, parameters.emission);
+        let mut uniform =
+            MaterialUniform::from_state_with_emission(&state, false, parameters.emission);
+        let [red, green, blue] = parameters.albedo_tint;
+        uniform.albedo_tint = [red, green, blue, 1.0];
         Self::new(
             device,
             queue,
@@ -1171,12 +1179,12 @@ pub fn upload_uv_mask(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     cache: &mut TextureCache,
-    logical: &str,
+    _logical: &str,
     image: &crate::materials::RawImage,
     level: QualityLevel,
 ) -> Arc<GpuTexture> {
     let key = super::texture::TextureKey {
-        logical: super::texture::image_content_key(logical, image),
+        logical: super::texture::model_image_key(image),
         semantic: TextureSemantic::DataLinear,
         class: crate::quality::TextureClass::EmissionMask,
         level,
@@ -1330,12 +1338,13 @@ mod tests {
 
     #[test]
     fn the_material_uniform_layout_matches_the_declared_offsets() {
-        assert_eq!(std::mem::size_of::<MaterialUniform>(), 96);
-        assert_eq!(MATERIAL_UNIFORM_SIZE, 96);
+        assert_eq!(std::mem::size_of::<MaterialUniform>(), 112);
+        assert_eq!(MATERIAL_UNIFORM_SIZE, 112);
         // The host struct aligns to 16 exactly like WGSL's struct; the explicit
         // offsets above and the uniform's `min_binding_size` pin the rest.
         assert_eq!(std::mem::align_of::<MaterialUniform>(), 16);
         assert_eq!(std::mem::offset_of!(MaterialUniform, uv_tint), 80);
+        assert_eq!(std::mem::offset_of!(MaterialUniform, albedo_tint), 96);
         assert_eq!(std::mem::offset_of!(MaterialUniform, specular), 0);
         assert_eq!(std::mem::offset_of!(MaterialUniform, roughness), 12);
         assert_eq!(std::mem::offset_of!(MaterialUniform, normal_strength), 16);

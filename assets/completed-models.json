@@ -1,0 +1,1864 @@
+{
+  "entities/carved-pumpkin/model/carved-pumpkin.glb": {
+    "sha256": "7162ef1f1499eabf39bf348f318f067cff6f12df74f597b057a58290fccc5c93",
+    "triangles": 2384,
+    "texture_edge": 256,
+    "identities": [
+      "carved-pumpkin"
+    ],
+    "bounds_min": [
+      -0.2897777557373047,
+      0.0,
+      -0.26079997420310974
+    ],
+    "bounds_max": [
+      0.2897777557373047,
+      0.6311264634132385,
+      0.26079997420310974
+    ]
+  },
+  "entities/mannequin/model/mannequin.glb": {
+    "sha256": "462d42f3ec492b5db1c0b3b1740a82ed33e1b05b1ed8a82ac022d4ad954470a3",
+    "triangles": 1124,
+    "texture_edge": 512,
+    "identities": [
+      "mannequin"
+    ],
+    "bounds_min": [
+      -0.2892695367336273,
+      0.0,
+      -0.10175465047359467
+    ],
+    "bounds_max": [
+      0.2892695367336273,
+      1.7230345010757446,
+      0.1584823876619339
+    ]
+  },
+  "entities/pumpkin-skeleton/model/pumpkin-skeleton.glb": {
+    "sha256": "ee4439721cf785d6bd19325f35d18f94bd2789ffa1463f033b89898debfb655a",
+    "triangles": 5554,
+    "texture_edge": 512,
+    "identities": [
+      "pumpkin-skeleton"
+    ],
+    "bounds_min": [
+      -0.24697469174861908,
+      7.003545521300225e-10,
+      -0.1961599439382553
+    ],
+    "bounds_max": [
+      0.24874937534332275,
+      1.8220276832580566,
+      0.2916468679904938
+    ]
+  },
+  "entities/rat/model/rat.glb": {
+    "sha256": "22fb9e6293c01ca82a6093ed3c8763ed22f37d0d8d27b840938f7ffed131a8a0",
+    "triangles": 1718,
+    "texture_edge": 256,
+    "identities": [
+      "rat"
+    ],
+    "bounds_min": [
+      -0.0560070276260376,
+      0.0,
+      -0.22661282122135162
+    ],
+    "bounds_max": [
+      0.05600636452436447,
+      0.1298867166042328,
+      0.23615746200084686
+    ]
+  },
+  "entities/skeleton/model/skeleton.glb": {
+    "sha256": "449cf146e3a1768e3cbd4f99614d4f424b08d932d66876e34c17af7fe8357e07",
+    "triangles": 4650,
+    "texture_edge": 256,
+    "identities": [
+      "skeleton"
+    ],
+    "bounds_min": [
+      -0.20747728645801544,
+      7.003545521300225e-10,
+      -0.13340778648853302
+    ],
+    "bounds_max": [
+      0.20327600836753845,
+      1.7226518392562866,
+      0.14933210611343384
+    ]
+  },
+  "entities/spooner-man/model/spooner-man.glb": {
+    "sha256": "e0aa64e6c7378d53e1bd08d3aca1c68f1e7beb178a54e7193abf55b232edd87f",
+    "triangles": 5688,
+    "texture_edge": 512,
+    "identities": [
+      "spooner-man"
+    ],
+    "bounds_min": [
+      -0.07952148467302322,
+      0.0,
+      -0.3114573061466217
+    ],
+    "bounds_max": [
+      0.07949423789978027,
+      0.3488635718822479,
+      0.2323114275932312
+    ]
+  },
+  "environments/arcade/party/models/party_balloon.glb": {
+    "sha256": "e97ff359f6228359bb0ff0e6b299a79cbbf82d0d8563184c519b6274b97c6678",
+    "triangles": 588,
+    "texture_edge": 32,
+    "identities": [
+      "arcade:party_balloon"
+    ],
+    "bounds_min": [
+      -0.14800000190734863,
+      0.0,
+      -0.14800000190734863
+    ],
+    "bounds_max": [
+      0.14800000190734863,
+      1.5300000309944153,
+      0.14800000190734863
+    ]
+  },
+  "environments/arcade/party/models/party_balloon_weight.glb": {
+    "sha256": "09274c8591d761d9f4a6306afa35a05efe1c8e0b3827b8d0da3ef8440633274c",
+    "triangles": 268,
+    "texture_edge": 32,
+    "identities": [
+      "arcade:party_balloon_weight"
+    ],
+    "bounds_min": [
+      -0.03500000014901161,
+      0.0,
+      -0.03500000014901161
+    ],
+    "bounds_max": [
+      0.03500000014901161,
+      0.05441823974251747,
+      0.03500000014901161
+    ]
+  },
+  "environments/arcade/party/models/party_cake_lit.glb": {
+    "sha256": "d7971c1841d3699dd2ee7d1597d88c9c0a52c34920338492ea36172a0732e185",
+    "triangles": 1164,
+    "texture_edge": 1024,
+    "identities": [
+      "arcade:party_cake_lit"
+    ],
+    "bounds_min": [
+      -0.18000000715255737,
+      0.0,
+      -0.18000000715255737
+    ],
+    "bounds_max": [
+      0.18000000715255737,
+      0.23599999397993088,
+      0.18000000715255737
+    ]
+  },
+  "environments/arcade/party/models/party_cake_unlit.glb": {
+    "sha256": "614cca0838b0eac7633e16faa331e9cd8a5191ead35693ec1cd19e3517cf6a73",
+    "triangles": 912,
+    "texture_edge": 1024,
+    "identities": [
+      "arcade:party_cake_unlit"
+    ],
+    "bounds_min": [
+      -0.18000000715255737,
+      0.0,
+      -0.18000000715255737
+    ],
+    "bounds_max": [
+      0.18000000715255737,
+      0.21799999475479126,
+      0.18000000715255737
+    ]
+  },
+  "environments/arcade/party/models/party_cloth_rect_arcade.glb": {
+    "sha256": "3868e5dc46348683b9e042894e05d01d3ff597be83877c23576f76512f1f614e",
+    "triangles": 384,
+    "texture_edge": 1024,
+    "identities": [
+      "arcade:party_cloth_rect_arcade"
+    ],
+    "bounds_min": [
+      -1.1100000143051147,
+      0.0017166524194180965,
+      -0.48500001430511475
+    ],
+    "bounds_max": [
+      1.1100000143051147,
+      0.25099998712539673,
+      0.48500001430511475
+    ],
+    "clamped_uv_overscan": true
+  },
+  "environments/arcade/party/models/party_cloth_rect_balloons.glb": {
+    "sha256": "0e7d92adf6874e3de2bb8ef13f26a981f24150a4a1f7f8babbe992224f4ed2ca",
+    "triangles": 384,
+    "texture_edge": 1024,
+    "identities": [
+      "arcade:party_cloth_rect_balloons"
+    ],
+    "bounds_min": [
+      -1.1100000143051147,
+      0.0017166524194180965,
+      -0.48500001430511475
+    ],
+    "bounds_max": [
+      1.1100000143051147,
+      0.25099998712539673,
+      0.48500001430511475
+    ],
+    "clamped_uv_overscan": true
+  },
+  "environments/arcade/party/models/party_cloth_rect_confetti.glb": {
+    "sha256": "8f4704d52fd1b4a29b0b34ab67fb855dffb4aec53b6f55f13ac9a077ee4e791c",
+    "triangles": 384,
+    "texture_edge": 1024,
+    "identities": [
+      "arcade:party_cloth_rect_confetti"
+    ],
+    "bounds_min": [
+      -1.1100000143051147,
+      0.0017166524194180965,
+      -0.48500001430511475
+    ],
+    "bounds_max": [
+      1.1100000143051147,
+      0.25099998712539673,
+      0.48500001430511475
+    ],
+    "clamped_uv_overscan": true
+  },
+  "environments/arcade/party/models/party_cloth_rect_stars.glb": {
+    "sha256": "76291501f4f98bd747567c8fbc6b4b27768c63ca22b10e0f6b16c3e6dce9f7b3",
+    "triangles": 384,
+    "texture_edge": 1024,
+    "identities": [
+      "arcade:party_cloth_rect_stars"
+    ],
+    "bounds_min": [
+      -1.1100000143051147,
+      0.0017166524194180965,
+      -0.48500001430511475
+    ],
+    "bounds_max": [
+      1.1100000143051147,
+      0.25099998712539673,
+      0.48500001430511475
+    ],
+    "clamped_uv_overscan": true
+  },
+  "environments/arcade/party/models/party_cloth_round_arcade.glb": {
+    "sha256": "1a7aa8bffa18b7fb1eeb19d1557f647cf0b0b30fe2791edc41b929ce69fa8ce6",
+    "triangles": 576,
+    "texture_edge": 1024,
+    "identities": [
+      "arcade:party_cloth_round_arcade"
+    ],
+    "bounds_min": [
+      -0.6460000276565552,
+      0.0018147180089727044,
+      -0.6460000276565552
+    ],
+    "bounds_max": [
+      0.6460000276565552,
+      0.2301815152168274,
+      0.6460000276565552
+    ]
+  },
+  "environments/arcade/party/models/party_cloth_round_balloons.glb": {
+    "sha256": "7036ebe9ff9e5c155fa5abd8ac2b366b44f9f3bfff163e05b1fccc876c0fe762",
+    "triangles": 576,
+    "texture_edge": 1024,
+    "identities": [
+      "arcade:party_cloth_round_balloons"
+    ],
+    "bounds_min": [
+      -0.6460000276565552,
+      0.0018147180089727044,
+      -0.6460000276565552
+    ],
+    "bounds_max": [
+      0.6460000276565552,
+      0.2301815152168274,
+      0.6460000276565552
+    ]
+  },
+  "environments/arcade/party/models/party_cloth_round_confetti.glb": {
+    "sha256": "773151496fbb6288e9f903d5abc10021d966dcf631b1931a10eb82798f4096ae",
+    "triangles": 576,
+    "texture_edge": 1024,
+    "identities": [
+      "arcade:party_cloth_round_confetti"
+    ],
+    "bounds_min": [
+      -0.6460000276565552,
+      0.0018147180089727044,
+      -0.6460000276565552
+    ],
+    "bounds_max": [
+      0.6460000276565552,
+      0.2301815152168274,
+      0.6460000276565552
+    ]
+  },
+  "environments/arcade/party/models/party_cloth_round_stars.glb": {
+    "sha256": "93284857291e467cd4bed09652fb405f645969e2cc7b69bfdd0725d2adbce7ea",
+    "triangles": 576,
+    "texture_edge": 1024,
+    "identities": [
+      "arcade:party_cloth_round_stars"
+    ],
+    "bounds_min": [
+      -0.6460000276565552,
+      0.0018147180089727044,
+      -0.6460000276565552
+    ],
+    "bounds_max": [
+      0.6460000276565552,
+      0.2301815152168274,
+      0.6460000276565552
+    ]
+  },
+  "environments/arcade/party/models/party_cup_balloons.glb": {
+    "sha256": "3a6d65fc9762a30eceb75d5cd864cc4741d5628374152407fd6512f073087390",
+    "triangles": 288,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:party_cup_balloons"
+    ],
+    "bounds_min": [
+      -0.042500000447034836,
+      0.0,
+      -0.042500000447034836
+    ],
+    "bounds_max": [
+      0.042500000447034836,
+      0.12200000137090683,
+      0.042500000447034836
+    ]
+  },
+  "environments/arcade/party/models/party_cup_confetti.glb": {
+    "sha256": "c0a33105974e322bcd1634aa0aeb397e807b2cba1c8dabdf319ca2b525208b9e",
+    "triangles": 288,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:party_cup_confetti"
+    ],
+    "bounds_min": [
+      -0.042500000447034836,
+      0.0,
+      -0.042500000447034836
+    ],
+    "bounds_max": [
+      0.042500000447034836,
+      0.12200000137090683,
+      0.042500000447034836
+    ]
+  },
+  "environments/arcade/party/models/party_cup_geometric.glb": {
+    "sha256": "f3d601b87aecf1c9965ffba038d1709751308ad1b6f6961661e39c5a20433421",
+    "triangles": 288,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:party_cup_geometric"
+    ],
+    "bounds_min": [
+      -0.042500000447034836,
+      0.0,
+      -0.042500000447034836
+    ],
+    "bounds_max": [
+      0.042500000447034836,
+      0.12200000137090683,
+      0.042500000447034836
+    ]
+  },
+  "environments/arcade/party/models/party_cup_stars.glb": {
+    "sha256": "8ae4cfad460d2f630b73ddb9abe2c4214619181680fb962e2f8a47277025c0b1",
+    "triangles": 288,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:party_cup_stars"
+    ],
+    "bounds_min": [
+      -0.042500000447034836,
+      0.0,
+      -0.042500000447034836
+    ],
+    "bounds_max": [
+      0.042500000447034836,
+      0.12200000137090683,
+      0.042500000447034836
+    ]
+  },
+  "environments/arcade/party/models/party_gift_arcade.glb": {
+    "sha256": "39614124ae7768b6dadbe9cef61928826e809b89cc3895b0a3cefc39226880b9",
+    "triangles": 656,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:party_gift_arcade"
+    ],
+    "bounds_min": [
+      -0.15150000154972076,
+      0.0,
+      -0.15150000154972076
+    ],
+    "bounds_max": [
+      0.15150000154972076,
+      0.3634149730205536,
+      0.15150000154972076
+    ]
+  },
+  "environments/arcade/party/models/party_gift_confetti.glb": {
+    "sha256": "e3b8d8c160d83f3abefb65a949897991081d040214f9ea98f41cdb0e1ed4688c",
+    "triangles": 656,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:party_gift_confetti"
+    ],
+    "bounds_min": [
+      -0.15150000154972076,
+      0.0,
+      -0.15150000154972076
+    ],
+    "bounds_max": [
+      0.15150000154972076,
+      0.3634149730205536,
+      0.15150000154972076
+    ]
+  },
+  "environments/arcade/party/models/party_gift_green.glb": {
+    "sha256": "8e28a4aaf2eec3ef00110077396669726b47bafbfdb165d4979f61b405bb81bd",
+    "triangles": 656,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:party_gift_green"
+    ],
+    "bounds_min": [
+      -0.15150000154972076,
+      0.0,
+      -0.15150000154972076
+    ],
+    "bounds_max": [
+      0.15150000154972076,
+      0.3634149730205536,
+      0.15150000154972076
+    ]
+  },
+  "environments/arcade/party/models/party_gift_red.glb": {
+    "sha256": "0c0d4c9860947987fc64edc6d6c1955270cc6704e6823fb81b8eaac711c124b9",
+    "triangles": 656,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:party_gift_red"
+    ],
+    "bounds_min": [
+      -0.15150000154972076,
+      0.0,
+      -0.15150000154972076
+    ],
+    "bounds_max": [
+      0.15150000154972076,
+      0.3634149730205536,
+      0.15150000154972076
+    ]
+  },
+  "environments/arcade/party/models/party_gift_stars.glb": {
+    "sha256": "d0b61be5c49febe0756f4ec8451682150230ad98154580f2a714a5c33291a3f1",
+    "triangles": 656,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:party_gift_stars"
+    ],
+    "bounds_min": [
+      -0.15150000154972076,
+      0.0,
+      -0.15150000154972076
+    ],
+    "bounds_max": [
+      0.15150000154972076,
+      0.3634149730205536,
+      0.15150000154972076
+    ]
+  },
+  "environments/arcade/party/models/party_gift_stripes.glb": {
+    "sha256": "dcc35c9b59c8b936b970cb47ac72f7b39c3cc6f7a7c30390f3b501e8594e0cc5",
+    "triangles": 656,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:party_gift_stripes"
+    ],
+    "bounds_min": [
+      -0.15150000154972076,
+      0.0,
+      -0.15150000154972076
+    ],
+    "bounds_max": [
+      0.15150000154972076,
+      0.3634149730205536,
+      0.15150000154972076
+    ]
+  },
+  "environments/arcade/party/models/party_hat_confetti.glb": {
+    "sha256": "4ef8e7bff75e5752e065cf1e7f7e7707663a0c9caf8209d274385d15f0162fbb",
+    "triangles": 188,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:party_hat_confetti"
+    ],
+    "bounds_min": [
+      -0.07500000298023224,
+      0.0,
+      -0.07500000298023224
+    ],
+    "bounds_max": [
+      0.07500000298023224,
+      0.2199999988079071,
+      0.07500000298023224
+    ]
+  },
+  "environments/arcade/party/models/party_hat_dots.glb": {
+    "sha256": "803c765b92aedfc2b8780d189ba6a1623ef2b28753b4ad07e76431cc4926fcf3",
+    "triangles": 188,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:party_hat_dots"
+    ],
+    "bounds_min": [
+      -0.07500000298023224,
+      0.0,
+      -0.07500000298023224
+    ],
+    "bounds_max": [
+      0.07500000298023224,
+      0.2199999988079071,
+      0.07500000298023224
+    ]
+  },
+  "environments/arcade/party/models/party_hat_shapes.glb": {
+    "sha256": "810eda02d6c83c4124eb2a06061b44b957fb7de346f9b6cc273f7caa4225997f",
+    "triangles": 188,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:party_hat_shapes"
+    ],
+    "bounds_min": [
+      -0.07500000298023224,
+      0.0,
+      -0.07500000298023224
+    ],
+    "bounds_max": [
+      0.07500000298023224,
+      0.2199999988079071,
+      0.07500000298023224
+    ]
+  },
+  "environments/arcade/party/models/party_hat_stars.glb": {
+    "sha256": "ef8ee70df9c270fce3ee3bc6bafcd6fe485c503de4cab442059e1c3d35b29c1a",
+    "triangles": 188,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:party_hat_stars"
+    ],
+    "bounds_min": [
+      -0.07500000298023224,
+      0.0,
+      -0.07500000298023224
+    ],
+    "bounds_max": [
+      0.07500000298023224,
+      0.2199999988079071,
+      0.07500000298023224
+    ]
+  },
+  "environments/arcade/party/models/party_hat_stripes.glb": {
+    "sha256": "799956dc1e5e462415b444c839a6430f232c5d8e9bbb91522b71795a41373bad",
+    "triangles": 188,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:party_hat_stripes"
+    ],
+    "bounds_min": [
+      -0.07500000298023224,
+      0.0,
+      -0.07500000298023224
+    ],
+    "bounds_max": [
+      0.07500000298023224,
+      0.2199999988079071,
+      0.07500000298023224
+    ]
+  },
+  "environments/arcade/party/models/party_plate_balloons.glb": {
+    "sha256": "ffa1087eed3fcfde09d3928f87b093621b014ce34d172bd5e68e5abe5cf8939a",
+    "triangles": 384,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:party_plate_balloons"
+    ],
+    "bounds_min": [
+      -0.10999999940395355,
+      0.0,
+      -0.10999999940395355
+    ],
+    "bounds_max": [
+      0.10999999940395355,
+      0.01600000075995922,
+      0.10999999940395355
+    ]
+  },
+  "environments/arcade/party/models/party_plate_border.glb": {
+    "sha256": "13cd4810dbf100188f629a729471656243a37c1a86a6b9560ebf4cb9cabe463f",
+    "triangles": 384,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:party_plate_border"
+    ],
+    "bounds_min": [
+      -0.10999999940395355,
+      0.0,
+      -0.10999999940395355
+    ],
+    "bounds_max": [
+      0.10999999940395355,
+      0.01600000075995922,
+      0.10999999940395355
+    ]
+  },
+  "environments/arcade/party/models/party_plate_confetti.glb": {
+    "sha256": "2f939f173aa3f3a2130ad69ccbb30510d354e9d120f28a78ffe795df7f698009",
+    "triangles": 384,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:party_plate_confetti"
+    ],
+    "bounds_min": [
+      -0.10999999940395355,
+      0.0,
+      -0.10999999940395355
+    ],
+    "bounds_max": [
+      0.10999999940395355,
+      0.01600000075995922,
+      0.10999999940395355
+    ]
+  },
+  "environments/arcade/party/models/party_plate_stars.glb": {
+    "sha256": "edeee6e90dc1a61b723832ff5c3ff74196dc5c3e47dbe37bc0072cb2f419ff53",
+    "triangles": 384,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:party_plate_stars"
+    ],
+    "bounds_min": [
+      -0.10999999940395355,
+      0.0,
+      -0.10999999940395355
+    ],
+    "bounds_max": [
+      0.10999999940395355,
+      0.01600000075995922,
+      0.10999999940395355
+    ]
+  },
+  "environments/arcade/party/models/party_streamer.glb": {
+    "sha256": "8772e0efe3aa82af411f29965e256b88fbd62ea2f79cc19e88adbc4ee7a8de0e",
+    "triangles": 436,
+    "texture_edge": 0,
+    "identities": [
+      "arcade:party_streamer_purple",
+      "arcade:party_streamer_pink",
+      "arcade:party_streamer_yellow",
+      "arcade:party_streamer_blue",
+      "arcade:party_streamer_orange"
+    ],
+    "bounds_min": [
+      -0.016895297914743423,
+      0.0,
+      -0.009282656013965607
+    ],
+    "bounds_max": [
+      0.016752853989601135,
+      0.7001199722290039,
+      0.024293076246976852
+    ]
+  },
+  "environments/arcade/party/models/party_table_rect.glb": {
+    "sha256": "eda7147468cb82d9a8bdbf2c89e15920588a47ca84b30077ce5a0ab88c51eaf9",
+    "triangles": 848,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:party_table_rect"
+    ],
+    "bounds_min": [
+      -1.0499999523162842,
+      0.0,
+      -0.42500001192092896
+    ],
+    "bounds_max": [
+      1.0499999523162842,
+      0.75,
+      0.42500001192092896
+    ]
+  },
+  "environments/arcade/party/models/party_table_round.glb": {
+    "sha256": "595bd435e58ec0040f5deb0f79c4ca40cfd34267f14de8d9eae6876a11e26804",
+    "triangles": 576,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:party_table_round"
+    ],
+    "bounds_min": [
+      -0.6000000238418579,
+      0.0,
+      -0.6000000238418579
+    ],
+    "bounds_max": [
+      0.6000000238418579,
+      0.75,
+      0.6000000238418579
+    ]
+  },
+  "environments/arcade/props/ball_rack.glb": {
+    "sha256": "3359aa8f853efe9cb4fcce16e448dceec73d8d461f20aa1cf1af9c3429c328e9",
+    "triangles": 432,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:ball_rack"
+    ],
+    "bounds_min": [
+      -0.550000011920929,
+      -1.862645149230957e-09,
+      -0.3199999928474426
+    ],
+    "bounds_max": [
+      0.550000011920929,
+      0.7299999594688416,
+      0.3199999928474426
+    ]
+  },
+  "environments/arcade/props/ball_return.glb": {
+    "sha256": "479ae504680378ec4b51a873db376a7e54454434e7ef4282dc5891df983aec4f",
+    "triangles": 452,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:ball_return"
+    ],
+    "bounds_min": [
+      -0.3149999976158142,
+      0.0,
+      -0.9049999713897705
+    ],
+    "bounds_max": [
+      0.3149999976158142,
+      0.7850000262260437,
+      0.9049999713897705
+    ]
+  },
+  "environments/arcade/props/bench_three_seat_blue_red_blue.glb": {
+    "sha256": "26aabc444925d00c02136c76c58b4e02ca3340e7958f904162600dbf71bf903d",
+    "triangles": 1620,
+    "texture_edge": 128,
+    "identities": [
+      "arcade:bench_three_seat_blue_red_blue"
+    ],
+    "bounds_min": [
+      -0.9900000169873238,
+      0.0,
+      -0.30274999886751175
+    ],
+    "bounds_max": [
+      0.9900000169873238,
+      0.9907220784287291,
+      0.30275001376867294
+    ]
+  },
+  "environments/arcade/props/bench_three_seat_red_blue_red.glb": {
+    "sha256": "2e405fadaebe0a4e1e8bb9a91886fe2975c3a608ea76276205578823d62bd319",
+    "triangles": 1620,
+    "texture_edge": 128,
+    "identities": [
+      "arcade:bench_three_seat_red_blue_red"
+    ],
+    "bounds_min": [
+      -0.9900000169873238,
+      0.0,
+      -0.30274999886751175
+    ],
+    "bounds_max": [
+      0.9900000169873238,
+      0.9907220784287291,
+      0.30275001376867294
+    ]
+  },
+  "environments/arcade/props/blacklight_fixture.glb": {
+    "sha256": "15fa1649fd7d7eb265a0ea7c01b658a58f52fe5d30ed34b490a13c398756015c",
+    "triangles": 456,
+    "texture_edge": 256,
+    "identities": [
+      "arcade:blacklight_fixture"
+    ],
+    "bounds_min": [
+      -0.6200000047683716,
+      0.0,
+      -0.06499999761581421
+    ],
+    "bounds_max": [
+      0.6200000047683716,
+      0.10499999672174454,
+      0.06499999761581421
+    ]
+  },
+  "environments/arcade/props/bowling_ball_black.glb": {
+    "sha256": "497ea77d36cfe2a2a9f4f98312d6ad519c184bc1748cf618fb34d40b41c04880",
+    "triangles": 654,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:bowling_ball_black"
+    ],
+    "bounds_min": [
+      -0.10799998790025711,
+      0.0,
+      -0.1080000028014183
+    ],
+    "bounds_max": [
+      0.1080000028014183,
+      0.2160000056028366,
+      0.1080000028014183
+    ]
+  },
+  "environments/arcade/props/bowling_ball_burgundy.glb": {
+    "sha256": "20c607d9ae9a52636e35a1e073dda48bea5e5e48af673216754fe7be30924ff2",
+    "triangles": 654,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:bowling_ball_burgundy"
+    ],
+    "bounds_min": [
+      -0.10799998790025711,
+      0.0,
+      -0.1080000028014183
+    ],
+    "bounds_max": [
+      0.1080000028014183,
+      0.2160000056028366,
+      0.1080000028014183
+    ]
+  },
+  "environments/arcade/props/bowling_ball_cobalt.glb": {
+    "sha256": "a234d89de1806caf83181ba0f2fac3a9305cf47ba9b9df7ceca5fd1b668ca647",
+    "triangles": 654,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:bowling_ball_cobalt"
+    ],
+    "bounds_min": [
+      -0.10799998790025711,
+      0.0,
+      -0.1080000028014183
+    ],
+    "bounds_max": [
+      0.1080000028014183,
+      0.2160000056028366,
+      0.1080000028014183
+    ]
+  },
+  "environments/arcade/props/bowling_ball_green.glb": {
+    "sha256": "4cd6e29aa3e27dd992f1720f30e234a96541e8e2914fad1af30ebc13154dda09",
+    "triangles": 654,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:bowling_ball_green"
+    ],
+    "bounds_min": [
+      -0.10799998790025711,
+      0.0,
+      -0.1080000028014183
+    ],
+    "bounds_max": [
+      0.1080000028014183,
+      0.2160000056028366,
+      0.1080000028014183
+    ]
+  },
+  "environments/arcade/props/bowling_ball_marbled.glb": {
+    "sha256": "f1bf8c5db3c42bc55ec814bc73eca5df515b76daaf906cf531319cd916e306c7",
+    "triangles": 654,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:bowling_ball_marbled"
+    ],
+    "bounds_min": [
+      -0.10799998790025711,
+      0.0,
+      -0.1080000028014183
+    ],
+    "bounds_max": [
+      0.1080000028014183,
+      0.2160000056028366,
+      0.1080000028014183
+    ]
+  },
+  "environments/arcade/props/bowling_ball_purple.glb": {
+    "sha256": "4ca5b33c37b7269d348b12ba11e4ba4138518b95bd46d786a6036b1196f59a7e",
+    "triangles": 654,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:bowling_ball_purple"
+    ],
+    "bounds_min": [
+      -0.10799998790025711,
+      0.0,
+      -0.1080000028014183
+    ],
+    "bounds_max": [
+      0.1080000028014183,
+      0.2160000056028366,
+      0.1080000028014183
+    ]
+  },
+  "environments/arcade/props/bowling_ball_red.glb": {
+    "sha256": "0206b0d9d2217490ff3662f681c8f0124d1126210ec02be7e412624ea7ede2f9",
+    "triangles": 654,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:bowling_ball_red"
+    ],
+    "bounds_min": [
+      -0.10799998790025711,
+      0.0,
+      -0.1080000028014183
+    ],
+    "bounds_max": [
+      0.1080000028014183,
+      0.2160000056028366,
+      0.1080000028014183
+    ]
+  },
+  "environments/arcade/props/bowling_pin.glb": {
+    "sha256": "b69dbe1e804c9859c7c3454970c2c93f4a323f242fc5076f5c6f63432c14fbb8",
+    "triangles": 356,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:bowling_pin"
+    ],
+    "bounds_min": [
+      -0.05999999865889549,
+      0.0,
+      -0.05999999865889549
+    ],
+    "bounds_max": [
+      0.05999999865889549,
+      0.3799999952316284,
+      0.05999999865889549
+    ]
+  },
+  "environments/arcade/props/cabinet_action.glb": {
+    "sha256": "95d183bdb4eba5b4cdaf61410decd104916001d42425292391059e716f38473f",
+    "triangles": 1822,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:cabinet_action"
+    ],
+    "bounds_min": [
+      -0.3912426233291626,
+      0.0,
+      -0.45100000500679016
+    ],
+    "bounds_max": [
+      0.3912426233291626,
+      2.0399999618530273,
+      0.45100000500679016
+    ]
+  },
+  "environments/arcade/props/cabinet_fighting.glb": {
+    "sha256": "0348a2d75c61b3ef213bddcd28adad5fe54575f357621b40c0fc48070d636273",
+    "triangles": 2430,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:cabinet_fighting"
+    ],
+    "bounds_min": [
+      -0.47124266624450684,
+      0.0,
+      -0.47600001096725464
+    ],
+    "bounds_max": [
+      0.47124266624450684,
+      2.0399999618530273,
+      0.47600001096725464
+    ]
+  },
+  "environments/arcade/props/cabinet_racing.glb": {
+    "sha256": "45ebf2d9e40f8f00699d74417ba7eb10730f3675612bf99b9a31afcb8d8eb926",
+    "triangles": 2058,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:cabinet_racing"
+    ],
+    "bounds_min": [
+      -0.4112427234649658,
+      0.0,
+      -0.5281937122344971
+    ],
+    "bounds_max": [
+      0.41124260425567627,
+      2.0399999618530273,
+      0.5281937122344971
+    ]
+  },
+  "environments/arcade/props/cabinet_scifi.glb": {
+    "sha256": "dfb10945a0f6b280c1b34933e5bc034ec44e517f77d1c9dac8ed8ffca353c17c",
+    "triangles": 1826,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:cabinet_scifi"
+    ],
+    "bounds_min": [
+      -0.40124261379241943,
+      0.0,
+      -0.47099998593330383
+    ],
+    "bounds_max": [
+      0.401242733001709,
+      2.0399999618530273,
+      0.47099998593330383
+    ]
+  },
+  "environments/arcade/props/cabinet_shooter.glb": {
+    "sha256": "48d7d561108f4434d9a8a196a3403fcc70d0b89ece38a1b78a802c126eacde63",
+    "triangles": 1822,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:cabinet_shooter"
+    ],
+    "bounds_min": [
+      -0.38124263286590576,
+      0.0,
+      -0.44099998474121094
+    ],
+    "bounds_max": [
+      0.38124263286590576,
+      2.0399999618530273,
+      0.44099998474121094
+    ]
+  },
+  "environments/arcade/props/cat_plush.glb": {
+    "sha256": "33faafd23411a834610b241928c644148b7201ee425a674503b0991cafaadc47",
+    "triangles": 1328,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:cat_plush"
+    ],
+    "bounds_min": [
+      -0.0820000022649765,
+      0.0,
+      -0.07100000232458115
+    ],
+    "bounds_max": [
+      0.1103999987244606,
+      0.36000001430511475,
+      0.0866086333990097
+    ]
+  },
+  "environments/arcade/props/change_machine.glb": {
+    "sha256": "a732446f0af3691d5cf21188c2dfcf9d613b6b8724ac95248a9db94ba5e72b78",
+    "triangles": 788,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:change_machine"
+    ],
+    "bounds_min": [
+      -0.25999999046325684,
+      0.0,
+      -0.24000000953674316
+    ],
+    "bounds_max": [
+      0.25999999046325684,
+      1.4600000381469727,
+      0.24000000953674316
+    ]
+  },
+  "environments/arcade/props/fixed_chair_blue.glb": {
+    "sha256": "f50dd7e68e49d087d0fb207423eae718af7f88d8e4f8c439e06b985827420905",
+    "triangles": 244,
+    "texture_edge": 256,
+    "identities": [
+      "arcade:fixed_chair_blue"
+    ],
+    "bounds_min": [
+      -0.27000001072883606,
+      0.0,
+      -0.26986250281333923
+    ],
+    "bounds_max": [
+      0.27000001072883606,
+      0.9200000166893005,
+      0.26986250281333923
+    ]
+  },
+  "environments/arcade/props/fixed_chair_red.glb": {
+    "sha256": "1f996c9a4ddbbba9383c2103c91ca876216d3b942c5e8dbc67ef393cf59b10f9",
+    "triangles": 244,
+    "texture_edge": 256,
+    "identities": [
+      "arcade:fixed_chair_red"
+    ],
+    "bounds_min": [
+      -0.27000001072883606,
+      0.0,
+      -0.26986250281333923
+    ],
+    "bounds_max": [
+      0.27000001072883606,
+      0.9200000166893005,
+      0.26986250281333923
+    ]
+  },
+  "environments/arcade/props/gutter_segment.glb": {
+    "sha256": "d80d475b9715a0aef527daca2a3b64127c6218e1e88afa3b9172d1ff9bd35ccf",
+    "triangles": 148,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:gutter_segment"
+    ],
+    "bounds_min": [
+      -0.13500000536441803,
+      0.0,
+      -1.5
+    ],
+    "bounds_max": [
+      0.13500000536441803,
+      0.13500000536441803,
+      1.5
+    ]
+  },
+  "environments/arcade/props/lane_divider.glb": {
+    "sha256": "0bdc9274f222fe50ee80d7f42fe0bcf706c68bf7b1b04b397d035fe7032cd8f7",
+    "triangles": 20,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:lane_divider"
+    ],
+    "bounds_min": [
+      -0.03750000149011612,
+      0.0,
+      -1.5
+    ],
+    "bounds_max": [
+      0.03750000149011612,
+      0.14000000059604645,
+      1.5
+    ]
+  },
+  "environments/arcade/props/litter_bottle_fallen.glb": {
+    "sha256": "bec7375fb247f52f85dab237afa694059375fbd8c4b30d4e5158a87733395a00",
+    "triangles": 500,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:litter_bottle_fallen"
+    ],
+    "bounds_min": [
+      -0.04800000041723251,
+      -4.1723252630632146e-10,
+      -0.14000000059604645
+    ],
+    "bounds_max": [
+      0.047999992966651917,
+      0.09600000083446503,
+      0.14000000059604645
+    ]
+  },
+  "environments/arcade/props/litter_can.glb": {
+    "sha256": "7dc50582c3ade31228a05ff615acee896ce6c9330458c5ded86e9a561b6053ac",
+    "triangles": 440,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:litter_can"
+    ],
+    "bounds_min": [
+      -0.032999999821186066,
+      0.0,
+      -0.03293700888752937
+    ],
+    "bounds_max": [
+      0.032999999821186066,
+      0.12000000476837158,
+      0.032999999821186066
+    ]
+  },
+  "environments/arcade/props/litter_cup.glb": {
+    "sha256": "41854c4994631cbff81ea5b242ac63d81cfff0b5dbcc5304874f38030249bc1c",
+    "triangles": 284,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:litter_cup"
+    ],
+    "bounds_min": [
+      -0.04500000178813934,
+      0.0,
+      -0.04500000178813934
+    ],
+    "bounds_max": [
+      0.043871231377124786,
+      0.14000000059604645,
+      0.04499104619026184
+    ]
+  },
+  "environments/arcade/props/litter_paper.glb": {
+    "sha256": "51b750aad313b5b2d244ca5d8a2c43a802cec905b939f43e05ef023ccd62c4cd",
+    "triangles": 76,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:litter_paper"
+    ],
+    "bounds_min": [
+      -0.10499999672174454,
+      0.0,
+      -0.07400000095367432
+    ],
+    "bounds_max": [
+      0.10499999672174454,
+      0.00989999994635582,
+      0.07400000095367432
+    ]
+  },
+  "environments/arcade/props/litter_wrapper.glb": {
+    "sha256": "8b8f18d7e1b3a8bb60a034a66f691b9d3ebfa631bde6a60051d795c2fef67c39",
+    "triangles": 76,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:litter_wrapper"
+    ],
+    "bounds_min": [
+      -0.05999999865889549,
+      0.0,
+      -0.042500000447034836
+    ],
+    "bounds_max": [
+      0.05999999865889549,
+      0.010199999436736107,
+      0.042500000447034836
+    ]
+  },
+  "environments/arcade/props/neon_bowl.glb": {
+    "sha256": "e099ebc952bf6fa5bc523db0935d9bca0eae1e27d5293009c978da52a7dc5df9",
+    "triangles": 1548,
+    "texture_edge": 256,
+    "identities": [
+      "arcade:neon_bowl"
+    ],
+    "bounds_min": [
+      -0.9100000262260437,
+      0.0,
+      -0.06449999660253525
+    ],
+    "bounds_max": [
+      0.9100000262260437,
+      0.8600000143051147,
+      0.06450000405311584
+    ]
+  },
+  "environments/arcade/props/pedestal_table.glb": {
+    "sha256": "0640eac6aa650147613b67a58c68fea486e3b8b9bda34f45b7173dceff58b7c8",
+    "triangles": 364,
+    "texture_edge": 256,
+    "identities": [
+      "arcade:pedestal_table"
+    ],
+    "bounds_min": [
+      -0.44999998807907104,
+      0.0,
+      -0.44999998807907104
+    ],
+    "bounds_max": [
+      0.44999998807907104,
+      0.7200000286102295,
+      0.44999998807907104
+    ]
+  },
+  "environments/arcade/props/pinball_comet.glb": {
+    "sha256": "b061726e9cbf26b6ceeddf61fdebd710eac649c1a8547d5b9acb2495df036198",
+    "triangles": 1532,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:pinball_comet"
+    ],
+    "bounds_min": [
+      -0.3700000047683716,
+      0.0,
+      -0.7100000381469727
+    ],
+    "bounds_max": [
+      0.3700000047683716,
+      1.940000057220459,
+      0.7100000381469727
+    ]
+  },
+  "environments/arcade/props/pinball_cosmic.glb": {
+    "sha256": "7c0140e07cc6a5568275e5f175968839482ba7f4a87b126ed4cc3c2b10b7bdfc",
+    "triangles": 1532,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:pinball_cosmic"
+    ],
+    "bounds_min": [
+      -0.3700000047683716,
+      0.0,
+      -0.7100000381469727
+    ],
+    "bounds_max": [
+      0.3700000047683716,
+      1.940000057220459,
+      0.7100000381469727
+    ]
+  },
+  "environments/arcade/props/score_monitor.glb": {
+    "sha256": "f9f3c807fab8ab519782a68b99edc2192c0a4309f8c0d42b9d6157753de697d2",
+    "triangles": 646,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:score_monitor"
+    ],
+    "bounds_min": [
+      -0.4000000059604645,
+      0.0,
+      -0.33524999022483826
+    ],
+    "bounds_max": [
+      0.4000000059604645,
+      1.1200000047683716,
+      0.33524999022483826
+    ]
+  },
+  "environments/arcade/props/score_monitor_inactive.glb": {
+    "sha256": "0fa30cc16877c73fa9ac5623f0836b48d1879008ef5c29ef9cfaacc517b11c80",
+    "triangles": 646,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:score_monitor_inactive"
+    ],
+    "bounds_min": [
+      -0.4000000059604645,
+      0.0,
+      -0.33524999022483826
+    ],
+    "bounds_max": [
+      0.4000000059604645,
+      1.1200000047683716,
+      0.33524999022483826
+    ]
+  },
+  "environments/arcade/props/soda_bottle.glb": {
+    "sha256": "c30c4349b27bf6e2e8223f407a77f0fe9550d9dc46ba2e44440a4ab76f5f9ca2",
+    "triangles": 500,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:soda_bottle"
+    ],
+    "bounds_min": [
+      -0.047999992966651917,
+      0.0,
+      -0.04800000041723251
+    ],
+    "bounds_max": [
+      0.04800000041723251,
+      0.2800000011920929,
+      0.04800000041723251
+    ]
+  },
+  "environments/arcade/props/vending_machine.glb": {
+    "sha256": "2180912882e9aa23f464484ee41cae51570b29a20a47eb66203c5448d538f721",
+    "triangles": 1284,
+    "texture_edge": 512,
+    "identities": [
+      "arcade:vending_machine"
+    ],
+    "bounds_min": [
+      -0.48000001907348633,
+      0.0,
+      -0.4320000112056732
+    ],
+    "bounds_max": [
+      0.47999998927116394,
+      2.0300002098083496,
+      0.4320000112056732
+    ]
+  },
+  "environments/arcade/restroom/restroom_grab_bar.glb": {
+    "sha256": "fec32e33cc28d525c9ba589548101781538f12161786a79462a4ab551df680f1",
+    "triangles": 460,
+    "texture_edge": 1024,
+    "identities": [
+      "arcade:restroom_grab_bar"
+    ],
+    "bounds_min": [
+      -0.4649999737739563,
+      0.0,
+      -0.04800001159310341
+    ],
+    "bounds_max": [
+      0.4649999737739563,
+      0.09000000357627869,
+      0.04800001159310341
+    ]
+  },
+  "environments/arcade/restroom/restroom_mirror_frame.glb": {
+    "sha256": "3426c8f5490ff84012541aeb853d4ec5fd7147cd9468264df881031a177b86b9",
+    "triangles": 96,
+    "texture_edge": 1024,
+    "identities": [
+      "arcade:restroom_mirror_frame"
+    ],
+    "bounds_min": [
+      -0.48399999737739563,
+      0.0,
+      -0.020999999716877937
+    ],
+    "bounds_max": [
+      0.48399999737739563,
+      0.9100000262260437,
+      0.020999999716877937
+    ]
+  },
+  "environments/arcade/restroom/restroom_paper_holder.glb": {
+    "sha256": "76ed83d0fcfbf5c69e89a512db3248ee420ca171074af3784f91577c44d9024a",
+    "triangles": 436,
+    "texture_edge": 1024,
+    "identities": [
+      "arcade:restroom_paper_holder"
+    ],
+    "bounds_min": [
+      -0.09549999982118607,
+      0.0,
+      -0.054499998688697815
+    ],
+    "bounds_max": [
+      0.09549999982118607,
+      0.14000000059604645,
+      0.054499998688697815
+    ]
+  },
+  "environments/arcade/restroom/restroom_sink.glb": {
+    "sha256": "0d4714fce8c5fda4b751a4a199fd6a4f0cf989b563a45671d51f2ee74443c338",
+    "triangles": 792,
+    "texture_edge": 1024,
+    "identities": [
+      "arcade:restroom_sink"
+    ],
+    "bounds_min": [
+      -0.3400000035762787,
+      0.0,
+      -0.2749999761581421
+    ],
+    "bounds_max": [
+      0.3400000035762787,
+      0.5020000338554382,
+      0.2749999761581421
+    ]
+  },
+  "environments/arcade/restroom/restroom_soap_dispenser.glb": {
+    "sha256": "db34289428ea31f3a5edd2632262da0157226d8a2498420536fa445cc7bfaa51",
+    "triangles": 100,
+    "texture_edge": 1024,
+    "identities": [
+      "arcade:restroom_soap_dispenser"
+    ],
+    "bounds_min": [
+      -0.07999999821186066,
+      0.0,
+      -0.06199999898672104
+    ],
+    "bounds_max": [
+      0.07999999821186066,
+      0.23999999463558197,
+      0.06199999898672104
+    ]
+  },
+  "environments/arcade/restroom/restroom_stall_divider.glb": {
+    "sha256": "1526e856a369528c5614b755cd9912171d11028cbb2e8ea892e34da0e1260c5e",
+    "triangles": 264,
+    "texture_edge": 1024,
+    "identities": [
+      "arcade:restroom_stall_divider"
+    ],
+    "bounds_min": [
+      -1.25,
+      0.0,
+      -0.039000000804662704
+    ],
+    "bounds_max": [
+      1.25,
+      1.996000051498413,
+      0.039000000804662704
+    ]
+  },
+  "environments/arcade/restroom/restroom_stall_door.glb": {
+    "sha256": "371b25ab18786cc6fc8b34a715370ce4a82df51b0896b6f323847f68761e951a",
+    "triangles": 200,
+    "texture_edge": 1024,
+    "identities": [
+      "arcade:restroom_stall_door"
+    ],
+    "bounds_min": [
+      -0.562999963760376,
+      0.0,
+      -0.0507499985396862
+    ],
+    "bounds_max": [
+      0.562999963760376,
+      1.6799999475479126,
+      0.0507499985396862
+    ]
+  },
+  "environments/arcade/restroom/restroom_stall_front.glb": {
+    "sha256": "db3e16ca3ae1afd267cc95f3a760d4a07eb43a490b9da0f8672abbabc54bc068",
+    "triangles": 264,
+    "texture_edge": 1024,
+    "identities": [
+      "arcade:restroom_stall_front"
+    ],
+    "bounds_min": [
+      -0.44999998807907104,
+      0.0,
+      -0.039000000804662704
+    ],
+    "bounds_max": [
+      0.44999998807907104,
+      1.996000051498413,
+      0.039000000804662704
+    ]
+  },
+  "environments/arcade/restroom/restroom_stall_front_wide.glb": {
+    "sha256": "54d5fbf93e2b2b1274ccf000c4cdab830772d3f1ad3a24e872e4af0efe4cf443",
+    "triangles": 264,
+    "texture_edge": 1024,
+    "identities": [
+      "arcade:restroom_stall_front_wide"
+    ],
+    "bounds_min": [
+      -0.75,
+      0.0,
+      -0.039000000804662704
+    ],
+    "bounds_max": [
+      0.75,
+      1.996000051498413,
+      0.039000000804662704
+    ]
+  },
+  "environments/arcade/restroom/restroom_toilet.glb": {
+    "sha256": "982ebf190e4a8ace8a63aad9581254a1a275bb7a8ea4b4eec6cfccbe7bc3e500",
+    "triangles": 760,
+    "texture_edge": 1024,
+    "identities": [
+      "arcade:restroom_toilet"
+    ],
+    "bounds_min": [
+      -0.22100000083446503,
+      0.0,
+      -0.35074999928474426
+    ],
+    "bounds_max": [
+      0.22100000083446503,
+      0.8830000162124634,
+      0.35074999928474426
+    ]
+  },
+  "shared/props/armchair.glb": {
+    "sha256": "957fa9cb1f4dad245b63b1f0f872162cfdc5400e31ea71374b549ec84f98606d",
+    "triangles": 454,
+    "texture_edge": 256,
+    "identities": [
+      "core:armchair"
+    ],
+    "bounds_min": [
+      -0.44999998807907104,
+      0.0,
+      -0.44999998807907104
+    ],
+    "bounds_max": [
+      0.44999998807907104,
+      0.8999999761581421,
+      0.44999998807907104
+    ]
+  },
+  "shared/props/bed.glb": {
+    "sha256": "8229ccd767ec341a4b44d4acce0fbfe3f0d4a7295466734410a5fcd16855d7ec",
+    "triangles": 780,
+    "texture_edge": 256,
+    "identities": [
+      "core:bed"
+    ],
+    "bounds_min": [
+      -0.699999988079071,
+      0.0,
+      -1.0
+    ],
+    "bounds_max": [
+      0.6999999284744263,
+      0.5499999523162842,
+      1.0
+    ]
+  },
+  "shared/props/bookshelf.glb": {
+    "sha256": "ad50a9be15073ccefe1a19df5effca463cf5398ec5fe93a8e86de64e5b9101fb",
+    "triangles": 468,
+    "texture_edge": 256,
+    "identities": [
+      "core:bookshelf"
+    ],
+    "bounds_min": [
+      -0.5,
+      0.0,
+      -0.17499999701976776
+    ],
+    "bounds_max": [
+      0.4999999701976776,
+      1.7999999523162842,
+      0.17500001192092896
+    ]
+  },
+  "shared/props/couch.glb": {
+    "sha256": "e11ef19a923d0ef5ae0372112799b411049f72fa60af99b7fd6775123c086b3b",
+    "triangles": 580,
+    "texture_edge": 256,
+    "identities": [
+      "core:couch"
+    ],
+    "bounds_min": [
+      -1.0,
+      0.0,
+      -0.44999998807907104
+    ],
+    "bounds_max": [
+      1.0,
+      0.8999999761581421,
+      0.44999998807907104
+    ]
+  },
+  "shared/props/fridge.glb": {
+    "sha256": "95adfd7b52d9d920508b53a02ad5c5108f15065b19bc96b300d68ef2a5fb1264",
+    "triangles": 596,
+    "texture_edge": 256,
+    "identities": [
+      "core:fridge"
+    ],
+    "bounds_min": [
+      -0.3500000238418579,
+      1.862645149230957e-09,
+      -0.3500000238418579
+    ],
+    "bounds_max": [
+      0.3499999940395355,
+      1.8000000715255737,
+      0.3499999940395355
+    ]
+  },
+  "shared/props/lamp.glb": {
+    "sha256": "af28478ff1eab79cc85574ade5ea1b8d0bc791f73e9633e4fc91de74445fe8e6",
+    "triangles": 700,
+    "texture_edge": 256,
+    "identities": [
+      "core:lamp"
+    ],
+    "bounds_min": [
+      -0.17499999701976776,
+      0.0,
+      -0.17499999701976776
+    ],
+    "bounds_max": [
+      0.17499999701976776,
+      1.5,
+      0.17499999701976776
+    ]
+  },
+  "shared/props/painting_frame_landscape_01.glb": {
+    "sha256": "85469ac4b2811779473280e60a75e65fbdcac936d3532df7787d1fefcb967d49",
+    "triangles": 48,
+    "texture_edge": 256,
+    "identities": [
+      "core:painting_frame_landscape_01"
+    ],
+    "bounds_min": [
+      -0.949999988079071,
+      0.0,
+      -0.029999999329447746
+    ],
+    "bounds_max": [
+      0.949999988079071,
+      1.1920000314712524,
+      0.029999999329447746
+    ]
+  },
+  "shared/props/plant.glb": {
+    "sha256": "37ad0d0b56561bd1ccb6e7db99253484e167467a84aafd47eafb0c381a2b069f",
+    "triangles": 868,
+    "texture_edge": 256,
+    "identities": [
+      "core:plant"
+    ],
+    "bounds_min": [
+      -0.20621159672737122,
+      0.0,
+      -0.20918318629264832
+    ],
+    "bounds_max": [
+      0.20621159672737122,
+      0.9850000143051147,
+      0.20918318629264832
+    ]
+  },
+  "shared/props/rug.glb": {
+    "sha256": "db4f28e44f123c67357ba966eb89fc96fea121e230e71f56757c610d82fa015a",
+    "triangles": 60,
+    "texture_edge": 256,
+    "identities": [
+      "core:rug"
+    ],
+    "bounds_min": [
+      -1.0,
+      0.0,
+      -0.699999988079071
+    ],
+    "bounds_max": [
+      1.0,
+      0.019999999552965164,
+      0.699999988079071
+    ]
+  },
+  "shared/props/sink.glb": {
+    "sha256": "ff81be96768a072288d43132a250c00b5723895c30056f32ebc25567424afc6e",
+    "triangles": 684,
+    "texture_edge": 256,
+    "identities": [
+      "core:sink"
+    ],
+    "bounds_min": [
+      -0.30000001192092896,
+      0.0,
+      -0.2750000059604645
+    ],
+    "bounds_max": [
+      0.30000001192092896,
+      1.100000023841858,
+      0.2750000059604645
+    ]
+  },
+  "shared/props/stove.glb": {
+    "sha256": "bd64864b9c4273428e0fd1629f62608fad36d5afb1e775e730926e465553ec9e",
+    "triangles": 552,
+    "texture_edge": 256,
+    "identities": [
+      "core:stove"
+    ],
+    "bounds_min": [
+      -0.30000001192092896,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      0.30000001192092896,
+      0.8999999761581421,
+      0.29999998211860657
+    ]
+  },
+  "shared/props/table.glb": {
+    "sha256": "324d6868bd3f142a06216f0f9e366688e463b06dec234162e787edb92720d071",
+    "triangles": 300,
+    "texture_edge": 256,
+    "identities": [
+      "core:table"
+    ],
+    "bounds_min": [
+      -0.699999988079071,
+      0.0,
+      -0.4000000059604645
+    ],
+    "bounds_max": [
+      0.699999988079071,
+      0.75,
+      0.4000000059604645
+    ]
+  },
+  "shared/props/table_sideways.glb": {
+    "sha256": "1bfda1496ebdbed0bc2ec4e3273038f804b853c6178cc45b86499b43d806584b",
+    "triangles": 428,
+    "texture_edge": 256,
+    "identities": [
+      "core:table_sideways"
+    ],
+    "bounds_min": [
+      -0.3750000298023224,
+      -5.960464477539063e-08,
+      -0.4000000059604645
+    ],
+    "bounds_max": [
+      0.375,
+      1.3999998569488525,
+      0.4000000059604645
+    ]
+  },
+  "shared/props/tv.glb": {
+    "sha256": "004d03205324003aacf7d4dd7dec2a173b449d4df30a908fc9a3d8c6e7ec9f4d",
+    "triangles": 280,
+    "texture_edge": 256,
+    "identities": [
+      "core:tv"
+    ],
+    "bounds_min": [
+      -0.550000011920929,
+      0.0,
+      -0.05000000074505806
+    ],
+    "bounds_max": [
+      0.550000011920929,
+      0.699999988079071,
+      0.05000000074505806
+    ]
+  },
+  "shared/props/washer_drum.glb": {
+    "sha256": "51288d5497e30aa8b77260b3da4c1cc818875c8773896f378a3821d7ab380e37",
+    "triangles": 352,
+    "texture_edge": 256,
+    "identities": [
+      "core:washer_drum"
+    ],
+    "bounds_min": [
+      -0.20999999344348907,
+      0.0,
+      -0.20999999344348907
+    ],
+    "bounds_max": [
+      0.20999999344348907,
+      0.30000001192092896,
+      0.20999999344348907
+    ]
+  },
+  "shared/props/washing_machine.glb": {
+    "sha256": "51d2efcbe80315281ab20d51a967f8812a56e20ec510b235de97183bd5e3ac0f",
+    "triangles": 552,
+    "texture_edge": 256,
+    "identities": [
+      "core:washing_machine"
+    ],
+    "bounds_min": [
+      -0.30000001192092896,
+      0.0,
+      -0.29999998211860657
+    ],
+    "bounds_max": [
+      0.30000001192092896,
+      0.8500000238418579,
+      0.30000001192092896
+    ]
+  }
+}

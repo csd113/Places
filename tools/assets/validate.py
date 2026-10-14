@@ -549,6 +549,7 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
 
     seen_ids: Dict[str, int] = {}
     seen_models: Dict[str, str] = {}
+    preset_models = set()
     material_textures: List[Tuple[str, str]] = []
     material_emissive_masks: List[Tuple[str, str]] = []
     material_uv_masks: List[Tuple[str, str]] = []
@@ -614,9 +615,12 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
             elif not os.path.isfile(os.path.join(asset_root, model)):
                 errors.append(f"{where}: model file '{model}' does not exist below assets/")
             elif model in seen_models:
-                errors.append(f"{where}: model '{model}' is already claimed by {seen_models[model]}")
+                if model not in preset_models or asset_type != 'prop' or entry.get('tint') is None:
+                    errors.append(f"{where}: model '{model}' is already claimed by {seen_models[model]}")
             else:
                 seen_models[model] = raw_id
+                if asset_type == 'prop' and entry.get('tint') is not None:
+                    preset_models.add(model)
             if source == "generated":
                 errors.append(f"{where}: a generated asset must not declare a model")
             if source == "definition":
@@ -636,9 +640,11 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
         elif source == "definition" and not texture_id:
             errors.append(f"{where}: a definition asset must declare a texture")
         if asset_type != "material":
-            for field in ("texture", "tile_metres", "tint"):
+            for field in ("texture", "tile_metres"):
                 if field in entry:
                     errors.append(f"{where}: only a material may declare {field}")
+            if 'tint' in entry and asset_type != 'prop':
+                errors.append(f"{where}: only a material or prop may declare tint")
         if texture_id:
             if not _ASSET_ID.match(texture_id):
                 errors.append(f"{where}: malformed texture id '{texture_id}'")

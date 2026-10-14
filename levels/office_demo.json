@@ -1159,16 +1159,16 @@
       "y": 0,
       "rotation_degrees": 0,
       "size": [
-        0.42,
-        1.72,
-        0.305
+        0.578539,
+        1.723035,
+        0.316965
       ],
       "solid": false,
       "components": [
         {
           "component": "nav_agent",
           "radius": 0.72,
-          "height": 1.72,
+          "height": 1.724,
           "speed_mps": 2.244582,
           "step_height": 0.3,
           "max_slope": 1

@@ -24,9 +24,10 @@ The build is pure stdlib, deterministic and single-process. After writing it
     p_bind``) to prove the bind pose is grounded, that the arm poses actually
     reach, and that no vertex is flung across the room by a broken pivot.
 
-The committed model also carries later geometry refinements and walk/run
-clips that this original constructor does not reproduce. Preserve those with
-the maintenance export, which adds a running gait with the forward arm hold:
+The completed October 14 model supersedes this constructor and maintenance
+recipe. Its accepted bytes are protected below; current clip boundaries and
+actual posed geometry are checked by check_clip_boundaries.py and Rust tests.
+For historical exports, the maintenance recipe adds a running forward arm hold:
 
     python3 tools/entities/build_mannequin.py --add-run-arms-forward
 
@@ -42,6 +43,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import json
 import math
 import struct
@@ -1041,10 +1043,23 @@ def main(argv: Optional[List[str]] = None) -> int:
     if not out_path.is_absolute():
         out_path = (REPO_ROOT / out_path).resolve()
 
+    completed_path = REPO_ROOT / DEFAULT_OUT
+    source_path = Path(args.source or DEFAULT_OUT)
+    if not source_path.is_absolute():
+        source_path = (REPO_ROOT / source_path).resolve()
+    if out_path == completed_path or source_path == completed_path:
+        reviews = json.loads((REPO_ROOT / "assets/completed-models.json").read_text())
+        review = reviews.get(DEFAULT_OUT.removeprefix("assets/"))
+        if review is not None:
+            if hashlib.sha256(completed_path.read_bytes()).hexdigest() != review["sha256"]:
+                raise SystemExit("completed mannequin differs from accepted export")
+            if args.check_run_arms_forward and source_path == completed_path:
+                print("Completed mannequin identity: OK; historical clip writer is superseded")
+                return 0
+            if out_path == completed_path and not args.check_run_arms_forward:
+                raise SystemExit("completed mannequin is immutable; use a scratch --out for historical exports")
+
     if args.add_run_arms_forward or args.check_run_arms_forward:
-        source_path = Path(args.source or DEFAULT_OUT)
-        if not source_path.is_absolute():
-            source_path = (REPO_ROOT / source_path).resolve()
         if args.check_run_arms_forward:
             report = check_run_arms_forward(source_path)
             if args.json:

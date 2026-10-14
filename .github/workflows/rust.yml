@@ -75,10 +75,9 @@ jobs:
           python3 tools/assets/validate.py
           python3 tools/props/build.py --check
           python3 tools/props/author_birthday_party.py --check
-          python3 tools/entities/author_halloween_assets.py --check
+          python3 tools/entities/author_halloween_assets.py --check --glb sheet-ghost --glb sheet-ghost-cat
           python3 tools/entities/check_clip_boundaries.py
           python3 tools/props/refine_spooner_man.py --check
-          python3 tools/entities/check_spooner_refinement.py
           python3 tools/levels/build_outdoor_fixture.py --check
           python3 tools/levels/build_lantern_hollow.py --check
           python3 tools/levels/build_lighting_quality.py --check

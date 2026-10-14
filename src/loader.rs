@@ -244,6 +244,13 @@ impl PropCatalog {
         self.assets.placeable(model).is_some()
     }
 
+    /// Linear albedo preset for a placed static model; decoded geometry and
+    /// textures remain shared by canonical resource path.
+    #[must_use]
+    pub fn tint(&self, model: &str) -> Option<[f32; 3]> {
+        self.assets.placeable(model).and_then(|entry| entry.tint)
+    }
+
     /// True when the catalog has no placeable entries.
     #[must_use]
     pub fn is_empty(&self) -> bool {

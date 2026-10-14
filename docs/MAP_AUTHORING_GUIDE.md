@@ -8253,3 +8253,24 @@ When you update this guide:
 
 The metadata block is a verification marker, not a freshness guarantee: a
 correct-looking hash does not make a stale claim true. Re-verify against the code.
+
+
+### October 14 completed-model placement contract
+
+The completed v36 model adoption and fitted-sheet exception are recorded in
+ASSET_SPECIFICATION.md and assets/completed-models.json. Static `prop` catalog
+entries may carry a bounded linear RGB `tint`; each placement multiplies only
+its albedo, retaining shared model/image allocations and normal Static/Full
+lighting. Streamer colour IDs are presets of one neutral canonical resource.
+
+Arcade uses measured cabinet/pinball/fixed-seat bounds. Its cabinet positions,
+standby emission and source powers remain; only display/marquee offsets follow
+the final exported modules. adopted_placement.json retains the original island
+layout depths and the final hash-bound supported-ball heights. The playable
+cobalt ball stays on the clear approach floor, preserving newer bowling physics.
+The smaller return uses a 0.630×0.785×1.810 m envelope and a surface-fitted reset
+switch. The rack includes its 0.730 m drawn stock. Pin compounds follow final
+rings with 7 bounded convex slabs, preserving 1.5 kg versus the 5 kg ball, inertia,
+dormant starts, recovery and carrying behavior. Gutter interior/hulls are untouched.
+Both opposite-colour benches fit the east Arcade waiting wall before the passage.
+The cat plush remains standalone and absent from Bepsi vending placement.

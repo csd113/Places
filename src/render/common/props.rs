@@ -313,6 +313,16 @@ impl BatchBuilder {
         }
     }
 
+    fn tint_instance(&mut self, first_vertex: usize, preset: Option<[f32; 3]>) {
+        if let Some(tint) = preset {
+            for vertex in self.vertices.get_mut(first_vertex..).into_iter().flatten() {
+                for (channel, factor) in vertex.color.iter_mut().take(3).zip(tint) {
+                    *channel *= factor;
+                }
+            }
+        }
+    }
+
     fn finish(self) -> PropMeshBatch {
         let mut indices: Vec<u16> = Vec::with_capacity(self.index_count);
         let mut submeshes: Vec<PropSubmeshBatch> = Vec::with_capacity(self.primitives.len());
@@ -717,6 +727,7 @@ fn resolve_prop_instances_inner<'a>(
             continue;
         };
         builder.bounds = builder.bounds.union(&instance_bounds);
+        let first_vertex = builder.vertices.len();
         if lightmapped && let Some(active_plan) = plan.as_deref_mut() {
             builder.push_lightmapped_instance(&model, &asset, active_plan, &instance_bounds);
         } else {
@@ -727,6 +738,7 @@ fn resolve_prop_instances_inner<'a>(
                 defer_static_lighting && !asset.model.is_animatable(),
             );
         }
+        builder.tint_instance(first_vertex, catalog.tint(&prop.model));
         busy_vertices =
             busy_vertices.saturating_add(instance_vertex_count(&asset.model, lightmapped));
     }
@@ -1010,6 +1022,60 @@ mod lighting_reuse_tests {
             assert_eq!(vertex.handedness, -1.0);
             assert!(glam::Vec3::from_array(vertex.tangent).dot(expected).abs() < 1.0e-6);
         }
+        Ok(())
+    }
+
+    // One small two-instance fixture protects preset colours without duplicating
+    // the canonical model or baking any production map.
+    #[test]
+    fn static_colour_presets_share_a_model_and_keep_alpha() -> Result<(), String> {
+        let mut raw: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../tests/fixtures/levels/test_room.json"
+        ))
+        .map_err(|error| error.to_string())?;
+        *raw.get_mut("props").ok_or("fixture props")? = serde_json::json!([
+            {"model":"arcade:party_streamer_purple", "x":1.0_f64, "z":1.0_f64},
+            {"model":"arcade:party_streamer_orange", "x":1.2_f64, "z":1.0_f64}
+        ]);
+        let level = crate::level::LevelDef::from_json(&raw.to_string())
+            .map_err(|error| error.to_string())?;
+        let catalog = crate::loader::PropCatalog::load_default();
+        let mut assets = crate::props::PropAssets::load_default();
+        let lighting = LevelLighting::bake(&level);
+        let surfaces = LevelSurfaces::new(&level);
+        let (batches, fallbacks) =
+            resolve_prop_fallbacks(&level, &catalog, &mut assets, &lighting, &surfaces);
+        assert!(fallbacks.is_empty());
+        assert_eq!(batches.len(), 1);
+        let batch = batches.first().ok_or("preset batch")?;
+        let asset = assets.resolve(&batch.model)?;
+        let count = asset.model.vertices.len();
+        assert_eq!(batch.vertices.len(), count.saturating_mul(2));
+        for (index, identity) in [
+            "arcade:party_streamer_purple",
+            "arcade:party_streamer_orange",
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let tint = catalog.tint(identity).ok_or("preset tint")?;
+            let start = index.saturating_mul(count);
+            for (actual, source) in batch
+                .vertices
+                .get(start..start.saturating_add(count))
+                .ok_or("preset vertices")?
+                .iter()
+                .zip(&asset.model.vertices)
+            {
+                for ((actual_channel, source_channel), factor) in
+                    actual.color.iter().take(3).zip(source.color).zip(tint)
+                {
+                    assert!(source_channel.mul_add(-factor, *actual_channel).abs() < 1.0e-6);
+                }
+                assert_eq!(actual.color.get(3), source.color.get(3));
+            }
+        }
+        assert_eq!(assets.stats().models_loaded, 1);
         Ok(())
     }
 

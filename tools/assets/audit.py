@@ -191,6 +191,14 @@ def inspect_rigid_frames(document, binary, animation, duration):
 
 def inspect_model(path):
     data = path.read_bytes()
+    accepted = {}
+    try:
+        relative = path.resolve().relative_to(ROOT / 'assets').as_posix()
+        review = json.loads((ROOT / 'assets/completed-models.json').read_text()).get(relative, {})
+        if digest(data) == review.get('sha256'):
+            accepted = review
+    except ValueError:
+        pass
     model = glb.read_glb(data)
     document, binary = rig._load_glb(path)
     errors = []
@@ -198,7 +206,8 @@ def inspect_model(path):
     for name, rows in (("positions", model.positions), ("UVs", model.uvs), ("colors", model.colors)):
         if not finite_rows(rows):
             errors.append(f"non-finite {name}")
-    if any(v < -0.01 or v > 1.01 for row in model.uvs for v in row):
+    uv_max = 1.05 if accepted.get('clamped_uv_overscan') else 1.01
+    if any(v < -0.01 or v > uv_max for row in model.uvs for v in row):
         errors.append("UV outside supported fitted range")
     if errors:
         return {"format": "GLB 2.0", "bytes": len(data), "sha256": digest(data), "errors": errors}
@@ -304,6 +313,7 @@ def inspect_model(path):
         if not all(math.isfinite(v) for k, row in transform.items() if k != "node" for v in row):
             errors.append("non-finite node transform")
     return {"format": "GLB 2.0", "bytes": len(data), "sha256": digest(data),
+            "reviewed_texture_edge": accepted.get('texture_edge'),
             "vertices": len(model.positions), "triangles": model.triangle_count,
             "bounds": [low, high], "dimensions": [b-a for a, b in zip(low, high)],
             "topology": topology, "duplicate_faces": duplicate_faces,
@@ -388,7 +398,7 @@ def inventory(root=ROOT, workers=None):
             # Same reviewed metre-scale print exceptions as the authoring
             # toolkit and Rust catalog test; uncatalogued models keep256.
             asset_id = entry.get("id", "")
-            native_edge = (1024 if asset_id.startswith("arcade:party_cloth_")
+            native_edge = record.get('reviewed_texture_edge') or (1024 if asset_id.startswith("arcade:party_cloth_")
                            else 512 if asset_id.startswith("arcade:party_gift_") else 256)
             for image in record["images"]:
                 if max(image["width"], image["height"]) > native_edge:

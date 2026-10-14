@@ -201,6 +201,9 @@ def plan_for(mode: str) -> list[dict]:
         p.capture(12_600, "dormant-reset-wait")
         return p.finish(12_800)
     if mode == "bowling":
+        switch = next(p for p in json.loads(BOWLING_FIXTURE.read_text())['props'] if p.get('id') == BOWLING_RESET)
+        switch_x, switch_z = switch['x'], switch['z']
+        switch_y = switch['y'] + .06
         def pin_camera(ms: int) -> None:
             # Stand on the ordinary inter-lane deck, ahead and to the side
             # of the rack. The full-lane ball continues under the solver.
@@ -229,12 +232,12 @@ def plan_for(mode: str) -> list[dict]:
         p.capture(16_000, "bowling-scatter-1")
         # Occupy the authored ball destination while the scattered ball is
         # elsewhere. Aim through the real switch's narrow front and press E.
-        p.player(16_200, 10.65, 21.2, math.degrees(math.atan2(0.55, -1.3)),
-                 pitch_to(1.6, 0.71, math.hypot(0.55, 1.3)))
+        p.player(16_200, 10.65, 21.2, math.degrees(math.atan2(switch_x-10.65, 21.2-switch_z)),
+                 pitch_to(1.6, switch_y, math.hypot(switch_x-10.65, switch_z-21.2)))
         p.capture(16_450, "bowling-reset-blocked-target")
         p.tap(16_500, "E")
         p.capture(16_750, "bowling-reset-blocked")
-        p.player(17_000, 10.25, 22.5, 90, pitch_to(1.6, 0.71, 0.95))
+        p.player(17_000, 10.25, switch_z, 90, pitch_to(1.6, switch_y, switch_x-10.25))
         p.capture(17_300, "bowling-reset-target-1")
         p.tap(17_500, "E")
         p.capture(18_100, "bowling-reset-1")
@@ -251,7 +254,7 @@ def plan_for(mode: str) -> list[dict]:
         p.capture(21_350, "bowling-roll-2")
         pin_camera(21_550)
         p.capture(33_500, "bowling-scatter-2")
-        p.player(33_800, 10.25, 22.5, 90, pitch_to(1.6, 0.71, 0.95))
+        p.player(33_800, 10.25, switch_z, 90, pitch_to(1.6, switch_y, switch_x-10.25))
         p.capture(34_100, "bowling-reset-target-2")
         p.tap(34_300, "E")
         p.capture(34_900, "bowling-reset-2")

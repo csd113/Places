@@ -58,6 +58,7 @@ struct Material {
     uv_response: f32,
     uv_mask_enabled: f32,
     uv_tint: vec4<f32>,
+    albedo_tint: vec4<f32>,
 };
 
 // One authored regional fog volume, in world space. `min_falloff.xyz` is the
@@ -807,7 +808,7 @@ fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
     let sheen = surface_sheen(in, normal, view, light);
     let reflection = surface_reflection(in, normal, view);
     let emission = surface_emission(in, base_linear);
-    let lit = lit_linear(base_linear, in.color.rgb, light, material.emission_vertex);
+    let lit = lit_linear(base_linear * material.albedo_tint.rgb, in.color.rgb, light, material.emission_vertex);
     let pigment = base_linear * material.uv_tint.rgb;
     let fluorescence = ultraviolet_response(in, normal, pigment);
     let color = fogged(lit + sheen + reflection + emission + fluorescence, in.world_position);

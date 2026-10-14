@@ -217,8 +217,8 @@ fn pin_hulls_cover_the_mesh_and_keep_authored_mass_through_activation() {
     );
     let origin_com = add(centre, point(body.local_center_of_mass()));
     assert!(
-        (origin_com.y - 0.1522).abs() < 0.001,
-        "mesh-fitted mass centre stays in the belly"
+        (origin_com.y - 0.149_971).abs() < 0.001,
+        "mesh-fitted mass centre stays in the belly: {origin_com:?}"
     );
     let inertia = properties.local_mprops.principal_inertia();
     let inertia_per_kg = Vector::new(
@@ -233,7 +233,7 @@ fn pin_hulls_cover_the_mesh_and_keep_authored_mass_through_activation() {
         properties.local_mprops.principal_inertia_local_frame
     );
     assert!(
-        (inertia_per_kg.max_element() - 0.01004).abs() < 0.00015,
+        (inertia_per_kg.max_element() - 0.00975).abs() < 0.00015,
         "pitch and roll inertia must match the pin silhouette; actual={inertia_per_kg:?}, mass={}, COM={origin_com:?}",
         body.mass()
     );

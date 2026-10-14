@@ -63,6 +63,32 @@ fn minimal_triangle_glb() -> Vec<u8> {
     glb_container(&json, &binary)
 }
 
+// One triangle protects strict ordinary UV bounds and the finite, bounded
+// clamped profile; the shipping gate verifies the four eligible export hashes.
+#[test]
+fn fitted_cloth_overscan_does_not_relax_ordinary_imports() -> Result<(), String> {
+    let (json, mut binary) = minimal_triangle_parts();
+    binary
+        .get_mut(44..48)
+        .ok_or("fixture UV")?
+        .copy_from_slice(&1.04_f32.to_le_bytes());
+    let bytes = glb_container(&json, &binary);
+    assert!(parse_glb(&bytes).is_err());
+    let model = parse_glb_with_clamped_overscan(&bytes).map_err(|error| error.to_string())?;
+    assert!(
+        model
+            .vertices
+            .iter()
+            .any(|vertex| vertex.uv.first() == Some(&1.04_f32))
+    );
+    binary
+        .get_mut(44..48)
+        .ok_or("fixture UV")?
+        .copy_from_slice(&1.06_f32.to_le_bytes());
+    assert!(parse_glb_with_clamped_overscan(&glb_container(&json, &binary)).is_err());
+    Ok(())
+}
+
 /// The JSON and binary chunks used by [`minimal_triangle_glb`], exposed so
 /// tests can mutate one part of the document.
 fn minimal_triangle_parts() -> (String, Vec<u8>) {
@@ -406,8 +432,8 @@ fn every_shipped_prop_model_parses_as_real_geometry() {
             entry.id
         );
         assert!(
-            model.texture_count() >= 1,
-            "{}: every shipped model embeds a texture",
+            model.texture_count() >= 1 || catalog.tint(&entry.id).is_some(),
+            "{}: every shipped model embeds a texture or declares an untextured colour preset",
             entry.id
         );
         parsed += 1_i32;
@@ -2005,8 +2031,8 @@ fn parses_the_shipped_spoonerman_bind_pose_and_skeleton() {
         );
     }
     let (low, high) = model.bounds().expect("bind-pose bounds");
-    let expected_low = [-0.0918_f32, 0.0, -0.2967];
-    let expected_high = [0.0918_f32, 0.389, 0.329];
+    let expected_low = [-0.079_521_f32, 0.0, -0.311_457];
+    let expected_high = [0.079_495_f32, 0.348_864, 0.232_312];
     for axis in 0..3 {
         assert!((low[axis] - expected_low[axis]).abs() < 2e-3, "{low:?}");
         assert!((high[axis] - expected_high[axis]).abs() < 2e-3, "{high:?}");

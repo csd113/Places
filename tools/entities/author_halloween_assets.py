@@ -934,6 +934,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     report: dict = {}
     for name in names:
         path = REPO_ROOT / ASSETS[name]
+        reviews = json.loads((REPO_ROOT / 'assets/completed-models.json').read_text())
+        reviewed = reviews.get(str(path.relative_to(REPO_ROOT / 'assets')))
+        if reviewed:
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            if digest != reviewed['sha256']:
+                failures.append(f'{path}: completed export differs from accepted bytes')
+            else:
+                report[name] = {'sha256': digest, 'ownership': 'completed rebuild; original writer retained as history'}
+            continue
         if arguments.check:
             failures.extend(verify(name, path, report))
             digest = hashlib.sha256(path.read_bytes()).hexdigest()

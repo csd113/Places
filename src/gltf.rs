@@ -447,6 +447,16 @@ impl PropModel {
 /// budgets, or vertex data that is non-finite or outside the documented UV
 /// range.
 pub fn parse_glb(bytes: &[u8]) -> Result<PropModel, GltfError> {
+    parse_glb_with_uv_max(bytes, 1.01)
+}
+
+/// Hash-verified delivered cloths retain a small fitted-sheet overscan. The
+/// normal import contract remains strict; all model samplers clamp to the edge.
+pub(crate) fn parse_glb_with_clamped_overscan(bytes: &[u8]) -> Result<PropModel, GltfError> {
+    parse_glb_with_uv_max(bytes, 1.05)
+}
+
+fn parse_glb_with_uv_max(bytes: &[u8], uv_max: f32) -> Result<PropModel, GltfError> {
     let (json, binary) = parse_container(bytes)?;
     let materials = validate_document_root(&json)?;
     let mut doc = Doc::new(&json, &binary, materials)?;
@@ -454,7 +464,7 @@ pub fn parse_glb(bytes: &[u8]) -> Result<PropModel, GltfError> {
         doc.traverse_node(root, Mat4::IDENTITY, &mut Vec::new())?;
     }
     doc.finish_morphs();
-    let triangles = validate_mesh(&doc.vertices, &doc.indices)?;
+    let triangles = validate_mesh(&doc.vertices, &doc.indices, uv_max)?;
     let animations = parse_animations(&json, &binary)?;
     // Joint and weight arrays are parallel to `vertices`. A rigged document
     // that binds nothing to a node has nothing for the character path to
@@ -3369,7 +3379,11 @@ fn components<const N: usize>(values: &[f32]) -> Result<[f32; N], GltfError> {
 ///
 /// Returns the triangle count on success, so the caller can store it without
 /// recomputing it from the index list.
-fn validate_mesh(vertices: &[PropVertex], indices: &[u16]) -> Result<usize, GltfError> {
+fn validate_mesh(
+    vertices: &[PropVertex],
+    indices: &[u16],
+    uv_max: f32,
+) -> Result<usize, GltfError> {
     if vertices.is_empty() || indices.is_empty() {
         return Err(GltfError::new(
             "prop model contains no triangles; a prop needs a triangle mesh",
@@ -3401,9 +3415,9 @@ fn validate_mesh(vertices: &[PropVertex], indices: &[u16]) -> Result<usize, Gltf
             }
         }
         if vertex.uv[0] < -0.01
-            || vertex.uv[0] > 1.01
+            || vertex.uv[0] > uv_max
             || vertex.uv[1] < -0.01
-            || vertex.uv[1] > 1.01
+            || vertex.uv[1] > uv_max
         {
             return Err(GltfError::new(format!(
                 "UV {:.3},{:.3} lies outside 0..1; props use non-tiling UVs",

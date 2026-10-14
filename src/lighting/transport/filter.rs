@@ -293,6 +293,13 @@ pub(super) fn filter_accumulators(
                 );
                 let texel = compress_surface(&averaged, receiver.normal);
                 if !surface_energy_matches(texel, receiver.normal, averaged.surface_light) {
+                    crate::logging::warn(format_args!(
+                        "[transport-energy] chart={chart_index} receiver={index} position={:?} normal={:?} expected={:?} reconstructed={:?}",
+                        receiver.position,
+                        receiver.normal,
+                        averaged.surface_light,
+                        texel.light_at(receiver.normal)
+                    ));
                     return Err(LightmapFailure::TransportEnergy);
                 }
                 out.push(texel);

@@ -2556,7 +2556,9 @@ mod tests {
             "the previous atlas budget rejects it"
         );
         assert!(entry.bytes <= declared_entry_limit(&entry));
-        assert_eq!(declared_entry_limit(&entry), 335_609_856);
+        assert_eq!(declared_entry_limit(&entry), 402_718_720);
+        entry.bytes = 402_653_380; // Eight1024px pages, three groups, exact KTX2 header.
+        assert!(entry.bytes <= declared_entry_limit(&entry));
         entry.bytes = 268_435_652; // Preserved eight-page Demo remains accepted.
         assert!(entry.bytes <= declared_entry_limit(&entry));
         entry.bytes = crate::package::MAX_LIGHTMAP_ATLAS_BYTES + 1;

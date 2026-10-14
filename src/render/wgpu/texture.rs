@@ -107,21 +107,16 @@ impl TextureWrap {
     }
 }
 
-/// Embedded sheets have no standalone PNG identity after GLB decoding. Hash
-/// exact dimensions and pixels once per model upload, never during drawing.
-pub(super) fn image_content_key(logical: &str, image: &RawImage) -> String {
-    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
-    for byte in image
-        .width
-        .to_le_bytes()
-        .into_iter()
-        .chain(image.height.to_le_bytes())
-        .chain(image.rgba.iter().copied())
-    {
-        hash ^= u64::from(byte);
-        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
-    }
-    format!("{logical}#rgba-v1-{hash:016x}")
+/// Model families share exact pixels independently of resource path. Semantic,
+/// quality and wrapping remain separate `TextureKey` fields. A content key has
+/// no mutable logical revision prefix to evict a different family's atlas.
+pub(super) fn model_image_key(image: &RawImage) -> String {
+    format!(
+        "model-image-v1:{}:{}:{}",
+        image.width,
+        image.height,
+        crate::package::hash::sha256_hex(&image.rgba)
+    )
 }
 
 fn revision_source(key: &str) -> Option<&str> {
@@ -2373,19 +2368,22 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
 #[cfg(test)]
 mod image_identity_tests {
-    use super::{RawImage, image_content_key, revision_source};
+    use super::{RawImage, model_image_key, revision_source};
 
     #[test]
     fn embedded_identity_tracks_dimensions_and_every_channel() {
         let first = RawImage::new(2, 1, vec![1, 2, 3, 4, 5, 6, 7, 8]);
         let changed = RawImage::new(2, 1, vec![1, 2, 3, 4, 5, 6, 7, 9]);
         let reshaped = RawImage::new(1, 2, first.rgba.clone());
-        let key = image_content_key("prop:model:0", &first);
-        assert_eq!(key, image_content_key("prop:model:0", &first));
-        assert_ne!(key, image_content_key("prop:model:0", &changed));
-        assert_ne!(key, image_content_key("prop:model:0", &reshaped));
-        assert_ne!(key, image_content_key("prop:model:1", &first));
-        assert_eq!(revision_source(&key), Some("prop:model:0"));
+        let key = model_image_key(&first);
+        assert_eq!(key, model_image_key(&first));
+        assert_ne!(key, model_image_key(&changed));
+        assert_ne!(key, model_image_key(&reshaped));
+        assert_eq!(
+            revision_source(&key),
+            None,
+            "another atlas cannot retire this immutable content key"
+        );
         assert_eq!(revision_source("core:wall#png-v1-abc"), Some("core:wall"));
         assert_eq!(revision_source("diagnostic"), None);
     }

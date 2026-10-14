@@ -123,6 +123,15 @@ def blender_source(entry: dict) -> Optional[Path]:
     authoring = entry.get("authoring")
     if authoring is None:
         return None
+    if isinstance(authoring, dict) and authoring.get('tool') == 'completed':
+        import hashlib
+        source = Path(ASSET_ROOT) / 'completed-models.json'
+        if authoring.get('source') != source.name:
+            raise SystemExit(f"{entry['id']}: invalid completed-model source")
+        review = json.loads(source.read_text()).get(entry['model'])
+        if not review or hashlib.sha256(Path(model_path(entry)).read_bytes()).hexdigest() != review['sha256']:
+            raise SystemExit(f"{entry['id']}: completed model differs from its accepted export")
+        return source
     if not isinstance(authoring, dict) or authoring.get("tool") != "blender":
         raise SystemExit(f"{entry['id']}: unsupported authoring record")
     source = authoring.get("source")
@@ -143,7 +152,7 @@ def build_one(entry: dict, build_fn, force: bool = False, *, publish=True) -> Op
     prop_id = entry["id"]
     destination = model_path(entry)
     if (source := blender_source(entry)) is not None:
-        print(f"SKIP {prop_id}: maintained in Blender source {source.relative_to(ASSET_ROOT)}")
+        print(f"SKIP {prop_id}: maintained by authored source {source.relative_to(ASSET_ROOT)}")
         return None
     # A hand-authored skinned/animated model must never be replaced by this
     # toolkit's static primitive build: the shipped entity carries a real rig
@@ -277,6 +286,7 @@ def main(argv: List[str] | None = None) -> int:
             print(f"warning: builders registered but not in the catalogue: {', '.join(sorted(extra))}")
 
     report: List[dict] = []
+    unique_images = {}
     failures: List[str] = []
 
     if args.check or args.report:
@@ -308,6 +318,8 @@ def main(argv: List[str] | None = None) -> int:
                     pixels = [width, height]
                 image_decoded = width * height * 4
                 decoded += image_decoded
+                import hashlib
+                unique_images[hashlib.sha256(image).digest()] = image_decoded
                 if width > TEXTURE_ENGINE_MAX or height > TEXTURE_ENGINE_MAX:
                     failures.append(
                         f"{entry['id']}: embedded texture is {width}x{height}, over the "
@@ -319,7 +331,8 @@ def main(argv: List[str] | None = None) -> int:
                         f"{TEXTURE_DECODED_MAX}-byte per-texture ceiling"
                     )
                 else:
-                    native_max = (1024 if entry['id'].startswith('arcade:party_cloth_')
+                    reviews = json.loads((Path(ASSET_ROOT) / 'completed-models.json').read_text())
+                    native_max = reviews.get(entry['model'], {}).get('texture_edge') or (1024 if entry['id'].startswith('arcade:party_cloth_')
                                   else 512 if entry['id'].startswith('arcade:party_gift_')
                                   else TEXTURE_NATIVE_MAX)
                     if width > native_max or height > native_max:
@@ -342,13 +355,13 @@ def main(argv: List[str] | None = None) -> int:
                     "notes": [],
                 }
             )
-        pack_decoded = sum(item["decoded_texture_bytes"] for item in report)
+        pack_decoded = sum(unique_images.values())
         if pack_decoded > PACK_TEXTURE_MEMORY_MAX:
             failures.append(
                 f"the pack's decoded prop textures total {pack_decoded} bytes, over the "
                 f"{PACK_TEXTURE_MEMORY_MAX}-byte desktop pack budget"
             )
-        _print_report(report)
+        _print_report(report, pack_decoded)
         for failure in failures:
             print(f"FAIL {failure}")
         return 1 if failures else 0
@@ -391,10 +404,12 @@ def main(argv: List[str] | None = None) -> int:
     return 0
 
 
-def _print_report(report: List[dict]) -> None:
+def _print_report(report: List[dict], unique_bytes=None) -> None:
     if not report:
         return
     header = f"{'prop':<24}{'tris':>6}{'verts':>7}{'tex':>10}{'glb':>9}  notes"
+    if unique_bytes is not None:
+        print(f"Unique family-image residency: {unique_bytes / (1024 * 1024):.3f} MiB (exact PNG identity; conservative over decoded-pixel sharing)")
     print(header)
     print("-" * len(header))
     total_tris = 0

@@ -161,6 +161,17 @@ def main() -> None:
         raise RuntimeError(f"native run failed ({result.returncode}); see {out / 'native.log'}")
     if any(message in log.lower() for message in ("validation error", "panicked", "fatal device", "catalog hash mismatch")):
         raise RuntimeError(f"native validation failed; see {out / 'native.log'}")
+    if (re.search(r"\[props\] \d+ models cached \([1-9]\d* failed\)", log)
+            or "drawing the diagnostic sheet instead" in log):
+        raise RuntimeError(f"native asset realization failed; see {out / 'native.log'}")
+    if args.lighting_sequence:
+        last_frame = args.capture_frame or args.frames + args.warmup
+        for step in json.loads(args.lighting_sequence.read_text()):
+            if step.get("capture") and step["frame"] <= last_frame:
+                path = Path(step["capture"]).resolve()
+                marker = f"capture_attempt ready_frame={step['frame']} path={path}"
+                if marker not in log or not path.is_file():
+                    raise RuntimeError(f"native sequence did not capture {path}; see {out / 'native.log'}")
     if expected_drawable is not None:
         drawables = [tuple(map(int, match)) for match in re.findall(
             r"^\[(?:renderer|window)\].*drawable[: ]+(\d+)x(\d+)", log, re.MULTILINE)]
@@ -177,6 +188,8 @@ def main() -> None:
     if capture:
         if not (out / "view.png").is_file():
             raise RuntimeError("missing native capture")
+        if not rows or int(rows[-1]["draw_calls"]) == 0:
+            raise RuntimeError(f"native capture contains no submitted scene geometry; see {out / 'native.log'}")
     elif len(rows) != args.frames or not all(int(row["draw_calls"]) > 0 for row in rows):
         raise RuntimeError("missing measured frames or real scene submissions")
     gpu = {}

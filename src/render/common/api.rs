@@ -1190,9 +1190,9 @@ mod tests {
         fixture.enabled = false;
         for (switches, full, medium) in [
             (0_usize, 14, 8),
-            (1, 10, 8),
-            (2, 6, 6),
-            (3, 5, 5),
+            (1, 12, 8),
+            (2, 8, 8),
+            (3, 6, 6),
             (4, 4, 4),
         ] {
             level.ceiling_lights = (0_usize..switches).map(|_| fixture.clone()).collect();
@@ -1228,12 +1228,12 @@ mod tests {
         let lighting = LevelLighting::bake(&level);
         let requested = LightmapBuildOptions::for_lightmaps(LightmapQuality::Full);
         let mut capped = requested;
-        capped.config.max_pages = 10;
+        capped.config.max_pages = 12;
         assert_eq!(
             lightmap_content_key(&level, &lighting, requested),
             lightmap_content_key(&level, &lighting, capped)
         );
-        capped.config.max_pages = 9;
+        capped.config.max_pages = 11;
         assert_ne!(
             lightmap_content_key(&level, &lighting, requested),
             lightmap_content_key(&level, &lighting, capped)

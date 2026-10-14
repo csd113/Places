@@ -165,7 +165,7 @@ impl WgpuDynamic {
                     textures.push(ctx.cache.fallback());
                     continue;
                 }
-                let logical = format!("dynamic:{}:{}", mesh.model_path, index);
+                let logical = super::texture::model_image_key(image);
                 let (outcome, texture) = ctx.cache.get_or_upload_fitted(
                     ctx.device,
                     ctx.queue,
@@ -285,6 +285,7 @@ impl WgpuDynamic {
                     &mask,
                     &uv_mask,
                     super::material::ModelMaterial {
+                        albedo_tint: object.albedo_tint(),
                         emission: record,
                         alpha: submesh.alpha,
                         response: submesh.response,

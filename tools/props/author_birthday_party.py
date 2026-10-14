@@ -962,7 +962,18 @@ def main():
     p.add_argument("--pass",dest="stage",choices=("A","B","C"),default="A")
     p.add_argument("--preview")
     args=p.parse_args(argv)
-    if args.check:
+    reviews = json.loads((REPO / 'assets/completed-models.json').read_text())
+    adopted = {path: record for path, record in reviews.items()
+               if path.startswith('environments/arcade/party/models/')}
+    if adopted:
+        import hashlib
+        for path, record in adopted.items():
+            if hashlib.sha256((REPO / 'assets' / path).read_bytes()).hexdigest() != record['sha256']:
+                raise ValueError(f'{path}: completed export differs from accepted bytes')
+        print(f'PARTY_COMPLETED_EXPORTS_OK models={len(adopted)}; original authoring scene is historical')
+        if not args.check:
+            raise SystemExit('Use the delivered editable masters for completed assets; the original writer cannot replace them')
+    elif args.check:
         check_assets()
     elif args.textures:
         paint_textures()

@@ -18,7 +18,7 @@ const RANGE_BYTES: usize = 48;
 const MODE_COMPACT: u8 = 1;
 const MODE_EXACT: u8 = 2;
 const RESERVED_ALPHA: u16 = 0x3800;
-const MAX_EXPANDED_BYTES: u64 = 320 * 1024 * 1024;
+const MAX_EXPANDED_BYTES: u64 = super::MAX_LIGHTMAP_ATLAS_BYTES.saturating_sub(64 * 1024);
 const MAX_CODES: [u16; 6] = [2047, 2047, 2047, 1023, 1023, 1023];
 const BIT_OFFSETS: [u32; 6] = [0, 11, 22, 33, 43, 53];
 // Two binary16 relative ULPs plus four smallest binary16 subnormals. Energy
@@ -107,7 +107,9 @@ impl Shape {
             .and_then(|bytes| bytes.checked_mul(2))
             .ok_or_else(|| "compact lightmap expanded size overflows".to_string())?;
         if expanded > MAX_EXPANDED_BYTES {
-            return Err("compact lightmap expanded payload exceeds 320 MiB".to_string());
+            return Err(format!(
+                "compact lightmap expanded payload exceeds {MAX_EXPANDED_BYTES} bytes"
+            ));
         }
         Ok(Self {
             edge,
@@ -159,7 +161,7 @@ impl Shape {
 /// chart allocation, linear-light interpretation or independent group order.
 ///
 /// # Errors
-/// Rejects unsupported dimensions/groups, expanded size over 320 MiB, wrong
+/// Rejects unsupported dimensions/groups, expanded size over the shared typed atlas budget, wrong
 /// input lengths, noncanonical alpha, nonfinite/negative irradiance, nonfinite
 /// moments and moments beyond the energy bound including binary16 rounding.
 pub fn encode(

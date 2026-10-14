@@ -385,6 +385,7 @@ pub struct DynamicObject {
     /// primitive's own material emission, so `0.0` switches the object's
     /// emission off.
     emission_scale: f32,
+    albedo_tint: [f32; 3],
     light_scale: [f32; 3],
     entity_lighting: Option<super::light_transport::EntityLighting>,
     spatial_lighting: Option<Box<super::light_transport::EntitySpatialLighting>>,
@@ -538,6 +539,12 @@ impl DynamicObject {
     #[must_use]
     pub const fn emission_scale(&self) -> f32 {
         self.emission_scale
+    }
+
+    /// Linear colour preset independent of illumination, alpha and emission.
+    #[must_use]
+    pub const fn albedo_tint(&self) -> [f32; 3] {
+        self.albedo_tint
     }
 
     /// Selects the runtime emission scale, returning whether it was accepted.
@@ -1032,6 +1039,7 @@ impl DynamicScene {
             spin_degrees_per_second: 0.0,
             emission: None,
             emission_scale: 1.0,
+            albedo_tint: [1.0; 3],
             light_scale: [crate::lighting::AMBIENT_LEVEL; 3],
             entity_lighting: None,
             spatial_lighting: None,
@@ -1126,6 +1134,7 @@ impl DynamicScene {
             spin_degrees_per_second,
             emission: None,
             emission_scale: 1.0,
+            albedo_tint: [1.0; 3],
             light_scale: [crate::lighting::AMBIENT_LEVEL; 3],
             entity_lighting: None,
             spatial_lighting: None,
@@ -1279,6 +1288,21 @@ impl DynamicScene {
             return false;
         };
         object.set_emission_scale(scale)
+    }
+
+    /// Sets a bounded albedo preset while retaining the shared model buffers.
+    pub fn set_albedo_tint(&mut self, id: DynamicId, tint: [f32; 3]) -> bool {
+        if !tint
+            .iter()
+            .all(|channel| channel.is_finite() && (0.0..=1.0).contains(channel))
+        {
+            return false;
+        }
+        let Some(object) = self.objects.iter_mut().find(|object| object.id == id) else {
+            return false;
+        };
+        object.albedo_tint = tint;
+        true
     }
 
     /// Advances spinning objects and refreshes environmental lighting.
@@ -1715,6 +1739,11 @@ mod tests {
             .expect("second spawn");
         assert_eq!(scene.len(), 2);
         assert_eq!(scene.mesh_count(), 1);
+        assert!(scene.set_albedo_tint(first, [0.1, 0.3, 0.7]));
+        assert!(!scene.set_albedo_tint(first, [f32::NAN, 0.3, 0.7]));
+        assert_eq!(scene.get(first).unwrap().albedo_tint(), [0.1, 0.3, 0.7]);
+        assert_eq!(scene.get(second).unwrap().albedo_tint(), [1.0; 3]);
+        assert_eq!(scene.get(first).unwrap().emission_scale(), 1.0);
         assert!(Arc::ptr_eq(
             scene.get(first).unwrap().mesh(),
             scene.get(second).unwrap().mesh()
