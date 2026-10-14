@@ -304,7 +304,7 @@ def validate_physics_profile(profile: object, where: str, scale: float = 1.0) ->
     """Mirror the strict PhysicsDef/ShapeDef authoring contract in Rust."""
     errors = []
     allowed = {"motion", "shape", "mass_kg", "friction", "restitution",
-               "linear_damping", "angular_damping", "pickup", "reset_group"}
+               "linear_damping", "angular_damping", "pickup", "reset_group", "water"}
     if not isinstance(profile, dict) or set(profile) - allowed:
         return [f"{where}: invalid physics object or unknown fields"]
     if not _bounded_physical_number(scale, 0.001, 100.0):
@@ -327,6 +327,25 @@ def validate_physics_profile(profile: object, where: str, scale: float = 1.0) ->
             errors.append(f"{where}: physics {field} must be finite in {low}..{high}")
     if profile.get("shape") is not None:
         errors.extend(_validate_physics_shape(profile["shape"], where, scale))
+    water = profile.get("water")
+    if water is not None:
+        if (not isinstance(water, dict)
+                or set(water) - {"displaced_volume_m3", "linear_drag", "angular_drag"}):
+            errors.append(f"{where}: invalid water physics object or unknown fields")
+        else:
+            if motion != "dynamic":
+                errors.append(f"{where}: water physics requires dynamic motion")
+            volume = water.get("displaced_volume_m3")
+            if volume is not None and (
+                    not _bounded_physical_number(volume, 1e-9, 1000.0)
+                    or not _bounded_physical_number(volume * scale ** 3, 1e-9, 1000.0)):
+                errors.append(f"{where}: displaced_volume_m3 must be finite in 1e-9..1000 before and after scale cubed")
+            elif volume is not None and _bounded_physical_number(profile.get("mass_kg", 1.0), 0.001, 1000.0):
+                if volume * scale ** 3 > profile.get("mass_kg", 1.0) / 10.0:
+                    errors.append(f"{where}: displaced volume requires density of at least 10 kg/m3 after scale")
+            for field, default in (("linear_drag", 3.0), ("angular_drag", 2.0)):
+                if not _bounded_physical_number(water.get(field, default), 0.0, 100.0):
+                    errors.append(f"{where}: water {field} must be finite in 0..100")
     return errors
 
 

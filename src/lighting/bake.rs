@@ -2260,6 +2260,24 @@ impl LevelLighting {
         } else {
             ROOM_EDGE_EPS_M
         };
+        // A recessed room retains its nominal floor plane for ceilings and
+        // fixture mounting, but its air begins at the actual compiled floor.
+        // Regions apply the same offset to every storey covering this point;
+        // comparing the lowest interface and nominal floor preserves each
+        // storey's own vertical ownership, including after package decoding.
+        let floor_offset = y.map_or(0.0, |_| {
+            let nominal_floor = self
+                .room_index
+                .candidates(x, z)
+                .iter()
+                .filter_map(|index| self.rooms.get(*index))
+                .filter(|room| x >= room.x0 && x <= room.x1 && z >= room.z0 && z <= room.z1)
+                .map(|room| room.floor_y)
+                .min_by(f32::total_cmp);
+            nominal_floor
+                .zip(self.visibility.lowest_floor_y_at(x, z))
+                .map_or(0.0, |(nominal, compiled)| compiled - nominal)
+        });
         let mut best: Option<usize> = None;
         for &index in self.room_index.candidates(x, z) {
             let Some(room) = self.rooms.get(index) else {
@@ -2274,7 +2292,9 @@ impl LevelLighting {
             }
             if let Some(mount_y) = y {
                 let (floor, ceiling) = room.span_at(x, z);
-                if mount_y < floor - ROOM_EDGE_EPS_M || mount_y > ceiling + ROOM_EDGE_EPS_M {
+                if mount_y < floor + floor_offset - ROOM_EDGE_EPS_M
+                    || mount_y > ceiling + ROOM_EDGE_EPS_M
+                {
                     continue;
                 }
             }

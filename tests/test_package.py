@@ -1368,7 +1368,7 @@ class PoolContentTests(unittest.TestCase):
                 self.assertIn("size", prop, f"{prop['model']} needs an explicit collision size")
                 self.assertTrue(all(value > 0 for value in prop["size"]), prop)
 
-    def test_guardrails_and_the_ladder_have_collision(self):
+    def test_guardrails_block_and_the_open_ladder_has_item_collision_and_a_climb_volume(self):
         level = load_level(PACKAGE / "levels" / "pool_showcase.json")
         solid = {
             prop["model"]: prop
@@ -1382,7 +1382,16 @@ class PoolContentTests(unittest.TestCase):
         ):
             self.assertIn(guardrail, solid, f"{guardrail} must block the player")
             self.assertIn("size", solid[guardrail], f"{guardrail} needs an explicit collision box")
-        self.assertIn("core:pool_ladder", solid)
+        for rail in level["props"]:
+            if rail["model"] in ("core:pool_guardrail_straight", "core:pool_guardrail_end"):
+                self.assertGreater(rail["size"][0], rail["size"][2],
+                                   "rail sizes are model-local; yaw rotates their length into world Z")
+        ladder = next(prop for prop in level["props"] if prop["model"] == "core:pool_ladder")
+        self.assertFalse(ladder["solid"], "the player must be able to enter the open climb volume")
+        self.assertEqual(ladder["physics"]["motion"], "fixed")
+        self.assertEqual(ladder["physics"]["shape"]["kind"], "compound")
+        self.assertTrue(any(climb["bottom_y"] == -1.5 and climb["top_y"] == 0
+                            for climb in level.get("ladders", [])))
 
 
 class SourceHygieneTests(unittest.TestCase):

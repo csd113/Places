@@ -13,7 +13,7 @@ use rapier3d::prelude::{
 use serde::{Serialize, Serializer};
 
 use crate::collision::{DoorCollider, PLAYER_RADIUS, WallAabb};
-use crate::level::{LevelDef, WalkableCeiling, WalkableFloor};
+use crate::level::{LevelDef, WalkableCeiling, WalkableFloor, WaterVolumes};
 use crate::materials::MaterialTable;
 
 use super::activation::{WakeSweep, WakeTarget};
@@ -26,6 +26,7 @@ use super::contacts::ContactOnsets;
 use super::hold::HeldItem;
 use super::recovery::{RecoverySpace, RecoveryState, RecoveryTracker};
 use super::surfaces::{FloorContactHooks, FloorSurfaces};
+use super::water::WaterBody;
 use super::{FIXED_STEP, GRAVITY, MAX_BODIES};
 
 const MAX_SUBSTEPS: usize = 12;
@@ -132,6 +133,10 @@ pub struct BodySnapshot {
     pub principal_inertia: Vec3,
     pub friction: f32,
     pub restitution: f32,
+    /// Full-submersion physical displacement, including a scaled profile override.
+    pub displaced_volume_m3: f32,
+    /// Most recently integrated fraction inside enabled swimming water.
+    pub submerged_fraction: f32,
 }
 
 /// Most recent frame's bounded solver work.
@@ -210,6 +215,7 @@ pub(super) struct BodyEntry {
     pub previous: ItemPose,
     pub current: ItemPose,
     pub recovery: RecoveryTracker,
+    pub water: Option<WaterBody>,
 }
 
 impl BodyEntry {
@@ -254,6 +260,7 @@ pub struct ItemWorld {
     floor: WalkableFloor,
     surfaces: FloorSurfaces,
     ceiling: WalkableCeiling,
+    water: WaterVolumes,
     fixed_props: Vec<FixedPropShape>,
     pub(super) recovery_space: RecoverySpace,
     pub(super) runtime: Option<Box<Runtime>>,
@@ -270,6 +277,7 @@ impl Default for ItemWorld {
             floor: WalkableFloor::default(),
             surfaces: FloorSurfaces::default(),
             ceiling: WalkableCeiling::default(),
+            water: WaterVolumes::default(),
             fixed_props: Vec::new(),
             recovery_space: RecoverySpace::default(),
             runtime: None,
@@ -306,6 +314,7 @@ impl ItemWorld {
             floor: WalkableFloor::from_level(level),
             surfaces: FloorSurfaces::default(),
             ceiling: WalkableCeiling::from_level(level),
+            water: WaterVolumes::from_level(level),
             fixed_props: Vec::new(),
             recovery_space: RecoverySpace::from_level(level, walls),
             runtime: None,
@@ -431,6 +440,9 @@ impl ItemWorld {
         }
         let (shape, center, radius) = model_shape(def, bounds, scale)?;
         let physical_mass = mass_properties(&shape, def.mass_kg)?;
+        let water = (def.motion == BodyMotion::Dynamic && !self.water.is_empty())
+            .then(|| WaterBody::new(&shape, def.water.unwrap_or_default(), scale, def.mass_kg))
+            .transpose()?;
         let rotation = Quat::from_rotation_y(yaw);
         let initial = ItemPose { position, rotation };
         let builder = match def.motion {
@@ -479,6 +491,7 @@ impl ItemWorld {
                 previous: initial,
                 current: initial,
                 recovery: RecoveryTracker::new(initial),
+                water,
             },
         );
         runtime.refresh_queries();
@@ -832,6 +845,7 @@ impl ItemWorld {
                 entry.previous = entry.current;
             }
             runtime.advance_held(player);
+            runtime.apply_water(&self.water);
             runtime.activate_impacts();
             runtime.world.step_with_events(&runtime.floor_contacts, &());
             runtime.update_poses();
@@ -863,6 +877,27 @@ impl ItemWorld {
         runtime.update_player(player);
         runtime.update_doors(doors, true);
         runtime.refresh_queries();
+    }
+
+    /// Mirrors gameplay enable/disable actions onto the resolved water used by
+    /// rigid items. Unchanged flags allocate nothing and do not disturb sleep;
+    /// authored dormant bodies remain dormant when a volume changes.
+    pub fn sync_water(&mut self, water: &WaterVolumes) {
+        let changed = self
+            .water
+            .volumes()
+            .iter()
+            .zip(water.volumes())
+            .any(|(current, incoming)| current.enabled != incoming.enabled);
+        if !changed {
+            return;
+        }
+        for (index, incoming) in water.volumes().iter().enumerate() {
+            let _changed = self.water.set_enabled(index, incoming.enabled);
+        }
+        if let Some(runtime) = self.runtime.as_mut() {
+            runtime.wake_changed_water();
+        }
     }
 
     /// Emits interpolated model-origin poses in stable key order.
@@ -946,6 +981,11 @@ impl ItemWorld {
                     ),
                     friction: collider.friction(),
                     restitution: collider.restitution(),
+                    displaced_volume_m3: entry.water.as_ref().map_or(0.0, |water| water.volume_m3),
+                    submerged_fraction: entry
+                        .water
+                        .as_ref()
+                        .map_or(0.0, |water| water.submerged_fraction),
                 })
             })
             .collect()
@@ -1078,6 +1118,9 @@ impl Runtime {
         );
         entry.dormant = entry.authored && entry.motion.is_movable();
         entry.recovery.reset(entry.authored_pose);
+        if let Some(water) = entry.water.as_mut() {
+            water.submerged_fraction = 0.0;
+        }
         if let Some(collider) = self.world.colliders.get_mut(entry.collider) {
             collider.set_enabled(true);
         }

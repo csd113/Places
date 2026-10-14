@@ -590,6 +590,7 @@ impl FrameLoop<'_> {
             yaw: self.game.player_yaw,
             active: !self.game.noclip_enabled(),
         };
+        self.items.world.sync_water(&self.game.water);
         self.items
             .world
             .step(delta, context, self.game.door_colliders());

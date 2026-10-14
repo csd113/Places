@@ -1373,6 +1373,134 @@ mod tests {
         (lighting, field)
     }
 
+    fn compiled_recess_lighting() -> (LevelDef, LevelLighting) {
+        let level = LevelDef::from_json(
+            r#"{"format_version":3,"id":"recess_entity","name":"Recess entity",
+            "spawn":{"x":0.5,"z":0.5},
+            "rooms":[
+                {"x":0,"z":0,"width":4,"depth":3,"height":2.4},
+                {"x":0,"z":0,"width":4,"depth":3,"floor_y":6,"height":3}],
+            "floor_regions":[
+                {"x":1,"z":1,"width":1,"depth":1,"offset_y":-1.5},
+                {"x":2.5,"z":1,"width":1,"depth":1,"offset_y":0.5}],
+            "ceiling_lights":[{"fixture":"core:fluorescent_panel_01",
+                "x":1.5,"z":1.5,"align":"none"}]}"#,
+        )
+        .expect("tiny recessed storeys");
+        let mut writer = crate::package::binary::Writer::new();
+        LevelLighting::bake(&level)
+            .write_compiled(&mut writer)
+            .expect("compiled lighting");
+        let bytes = writer.into_bytes();
+        let lighting =
+            LevelLighting::read_compiled(&mut crate::package::binary::Reader::new(&bytes))
+                .expect("decoded lighting");
+        (level, lighting)
+    }
+
+    /// One probe and two tiny storeys protect submerged receiver ownership
+    /// after package decoding, plus real floor/ceiling rejection. No assets,
+    /// atlas, solver or full-map bake are needed.
+    #[test]
+    fn serialized_recess_air_retains_prepared_entity_lighting_and_solid_boundaries() {
+        let (level, lighting) = compiled_recess_lighting();
+        let scene = TransportScene::new(Vec::new(), Vec::new()).expect("empty placement scene");
+        let surfaces = crate::level::LevelSurfaces::new(&level);
+        let probe = [1.5, -1.3, 1.5];
+        assert_eq!(
+            crate::lighting::probe_placement::placement_at(
+                probe,
+                &surfaces,
+                &lighting,
+                &scene,
+                &[]
+            )
+            .0,
+            Some(0),
+            "the compiler labels actual basin air"
+        );
+        assert_eq!(lighting.probe_region_at(0, probe), Some(0));
+        assert_eq!(lighting.probe_region_at(1, probe), None);
+        assert_eq!(lighting.probe_region_at(1, [1.5, 4.8, 1.5]), Some(0));
+        assert_eq!(lighting.probe_region_at(0, [1.5, 4.8, 1.5]), None);
+        for point in [
+            [1.5, -1.7, 1.5], // beneath the basin
+            [0.5, -0.2, 0.5], // beneath unrecessed floor
+            [1.5, 3.0, 1.5],  // between actual storeys
+            [3.0, 0.25, 1.5], // beneath raised floor
+        ] {
+            assert!(lighting.probe_region_at(0, point).is_none());
+            assert!(lighting.probe_region_at(1, point).is_none());
+        }
+        assert!(
+            !lighting.probe_visible_from(probe, [1.5, 4.8, 1.5]),
+            "a ceiling and upper floor still separate the storeys"
+        );
+        assert!(
+            !lighting.runtime_probe_segment_visible([3.0, 0.25, 1.5], [3.0, 1.0, 1.5]),
+            "raised floors retain their solid interface"
+        );
+        let mut field = crate::lighting::probes::ProbeField {
+            min: [1.0, -1.8, 1.0],
+            cell_m: 1.0,
+            dims: [1; 3],
+            probes: vec![crate::lighting::probes::ProbeSample {
+                irradiance: [0.7; 3],
+                direction: [0.0; 3],
+                axis: [0.5; 2],
+                room: -1,
+            }],
+            local_direct: Some(crate::lighting::probes::ProbeDirectField {
+                light_indices: vec![0],
+                probes: vec![crate::lighting::lightmap::LightmapTexel {
+                    irradiance: [0.2; 3],
+                    direction: [0.0; 3],
+                    axis: [0.5; 2],
+                }],
+            }),
+            switchable_indirect: Vec::new(),
+        };
+        field.assign_rooms(|point| {
+            crate::lighting::probe_placement::placement_at(point, &surfaces, &lighting, &scene, &[])
+                .0
+        });
+        let decoded_field =
+            crate::lighting::probes::ProbeField::read(&field.write().expect("probe record"))
+                .expect("decoded probe");
+        let sample = entity_lighting(&lighting, Some(&decoded_field), probe);
+        assert_eq!(sample.source, EntityLightingSource::Prepared);
+        assert_eq!(
+            sample.prepared.expect("prepared energy").irradiance,
+            [0.7; 3]
+        );
+        let spatial = entity_spatial_lighting(
+            &lighting,
+            Some(&decoded_field),
+            crate::spatial::Aabb {
+                min: [-0.1, 0.0, -0.1],
+                max: [0.1, 0.3, 0.1],
+            },
+            glam::Mat4::from_translation(glam::Vec3::new(1.5, -1.45, 1.5)),
+            None,
+        )
+        .expect("submerged spatial receiver");
+        assert!(spatial.direct.first().expect("source").color_strength[3] > 0.0);
+        assert!(spatial.anchors.iter().all(|anchor| {
+            anchor.irradiance[3] == 1.0
+                && anchor
+                    .irradiance
+                    .iter()
+                    .take(3)
+                    .all(|channel| (*channel - 0.5).abs() < 1.0e-6)
+                && anchor
+                    .visibility
+                    .first()
+                    .expect("source taps")
+                    .iter()
+                    .any(|tap| *tap > 0.0)
+        }));
+    }
+
     fn framed_receiver() -> (
         super::super::dynamic::DynamicScene,
         super::super::dynamic::DynamicId,

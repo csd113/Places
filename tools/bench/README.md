@@ -94,6 +94,14 @@ sizes. Neither option permits lighting, geometry or other metadata differences.
 
 ## Local benchmark
 
+`water_physics.py` is the explicit Pool water campaign. Supply an already-built
+player and explicitly compiled Pool package; it never builds Rust or bakes maps.
+It isolates package discovery, checks upright entry/exit, dormant activation and
+reset, pickup/drop/throw, float/sink settling, contacts and live quality changes.
+`--mode stress` uses eighteen physical bodies; `--mode video` records genuine
+consecutive native frames. Matched `--mode performance` supports a preserved
+baseline binary and legacy-compatible physics profiles in the supplied package.
+
 `bench_local.py` runs the release binary directly and repeats one configuration
 `--repeat` times. It prints the minimum, median and maximum of every headline
 field (the minimum is the number least contaminated by unrelated system work)

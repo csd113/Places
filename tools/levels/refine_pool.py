@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Apply the concept-derived static Pool dressing to an explicit historical Demo working copy.
+"""Refine the active Pool Showcase or an explicit historical Demo working copy.
 
-Stable tags make the dressing idempotent. Water, ladders, entities and the
-connected environments are retained byte-for-byte as parsed JSON values.
+The standalone showcase restores its basin water and authors a reusable physical
+float/sink demonstration. Historical Demo dressing preserves water, ladders,
+entities and connected environments as parsed JSON values. Stable tags make both
+paths idempotent; frozen archive files are never overwritten.
 """
 import argparse
 import json
@@ -11,6 +13,119 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 TAG = "[pool-concept]"
+SHOWCASE_TAG = "[pool-water-demo]"
+
+
+def polish_showcase(level):
+    """Keep the existing depths, artwork and light strengths; finish their use."""
+    for key in ("props", "thresholds", "decals", "water", "ladders"):
+        level[key] = [piece for piece in level.get(key, [])
+                      if not piece.get("comment", "").startswith(SHOWCASE_TAG)]
+    level["spawn"] = dict(x=3.0, z=9.0, yaw_degrees=56.0)
+
+    def append(key, note, **piece):
+        piece["comment"] = SHOWCASE_TAG + " " + note
+        level[key].append(piece)
+
+    # Water describes the real, unchanged tiled recesses. The main basin is
+    # 1.35 m deep: an upright player wades and deliberate crouch swims. The
+    # adjacent shelf remains 20 cm deep and supports the ordinary rim pull-up.
+    for x, z, width, depth, bottom, note in (
+            (4.0, 3.0, 9.0, 4.5, -1.5, "Main basin: 1.35 m of standing-depth water."),
+            (9.0, 7.5, 4.0, .9, -.35, "Walk-in shelf: 20 cm of shallow water.")):
+        append("water", note, shape="rect", x=x, z=z, width=width, depth=depth,
+               surface_y=-.15, bottom_y=bottom, material="core:water_pool_01",
+               opacity=.42, attenuation_per_metre=.16, swimming=True)
+
+    # Match the existing closed ladder's floor-to-deck rise and east-facing
+    # return flanges. A generic solid bounds box would obstruct its climb.
+    ladder = next(prop for prop in level["props"] if prop["model"] == "core:pool_ladder")
+    ladder.update(x=12.805, solid=False)
+    # Item-only metal collision follows the open rails and treads. The player
+    # uses the climb volume instead of an impassable ladder bounds cuboid.
+    parts = []
+    for rail_x in (-.229, .229):
+        for rail_y, rail_z, half_height in ((.9825, -.19, .9525), (1.7175, .19, .2175)):
+            parts.append(dict(offset=[rail_x, rail_y, rail_z],
+                              shape=dict(kind="cylinder", half_height=half_height, radius=.024)))
+    for rung_y in (.35, .655, .96, 1.265):
+        parts.append(dict(offset=[0, rung_y, -.18],
+                          shape=dict(kind="cuboid", half_extents=[.2275, .014, .0525])))
+    ladder["physics"] = dict(motion="fixed", shape=dict(kind="compound", parts=parts))
+    # Sizes are model-local, then rotated by the shared collision resolver.
+    # These west rail boxes previously stored already-rotated dimensions and
+    # obstructed the dry deck across the rail instead of following its length.
+    for rail in level["props"]:
+        if rail["model"] == "core:pool_guardrail_straight":
+            rail["size"] = [2.0, 1.05, .08]
+        elif rail["model"] == "core:pool_guardrail_end":
+            rail["size"] = [.6, 1.05, .08]
+    append("ladders", "Climb towards the east deck through the real ladder rails.",
+           x=12.35, z=4.95, width=.6, depth=.6, bottom_y=-1.5, top_y=0.0,
+           facing_degrees=90.0)
+
+    # Caps sit wholly on dry supporting deck. Closed ends retain small ceramic
+    # joints; the east run leaves a clear landing around the ladder flanges.
+    for x, z, length, yaw in (
+            (8.5, 2.875, 9.244, 0), (3.875, 5.25, 4.5, 90),
+            (6.4375, 7.625, 5.119, 0), (8.875, 7.95, .896, 90),
+            (11.0, 8.525, 4.244, 0), (13.125, 3.9575, 1.919, 90),
+            (13.125, 6.9925, 2.819, 90)):
+        append("thresholds", "35 mm coping on dry deck; ladder landing and traversal remain clear.",
+               x=x, z=z, length=length, rotation_degrees=yaw, y=0.0,
+               thickness=.24, height=.035, material="pool:coping_01")
+
+    drain = next(prop for prop in level["props"] if prop["model"] == "pool:pool_drain")
+    drain.update(x=4.3, z=2.53)
+    for index in range(1, 15):
+        append("props", "Existing 60 cm overflow grate with 2 mm construction joint.",
+               model="pool:pool_drain", x=round(4.3 + index * .602, 3), z=2.53,
+               size=[.6, .014, .16], solid=False)
+    for z in (4.45, 6.05):
+        append("decals", "Existing navy basin lane sheet at its exact 32:1 fitted aspect.",
+               x=8.5, z=z, y=-1.5, width=8.0, height=.25,
+               material="pool:decal_lane_01", surface="floor")
+
+    # Reuse the table as the visible E control, on a dry observation position.
+    # Snapshot condition evaluation means one press runs one branch only.
+    table = next(prop for prop in level["props"] if prop["model"] == "core:pool_table")
+    table.update(id="pool_water_demo_control", display_name="Water physics demo",
+                 x=11.3, z=9.1,
+                 components=[dict(component="interactable", reach=2.5,
+                                  prompt="Run water demo: duck floats, metal sinks"),
+                             dict(component="state", name="running", value=False)],
+                 bindings=[])
+    for running, action, prompt in (
+            (False, "activate_physics_group", "Reset water demo"),
+            (True, "reset_physics_group", "Run water demo: duck floats, metal sinks")):
+        table["bindings"].append(dict(
+            on="interact", cooldown_seconds=.25,
+            when=[dict(check="state", target="pool_water_demo_control",
+                       name="running", equals=running)],
+            actions=[dict(action=action, group="pool_water_demo"),
+                     dict(action="set_state", name="running", value=not running),
+                     dict(action="set_prompt", prompt=prompt)]))
+    # Keep the existing seating clear of the hot-tub rim and the control aim.
+    chairs = [prop for prop in level["props"] if prop["model"] == "core:pool_chair"]
+    for chair, x, yaw in zip(chairs, (10.3, 12.3), (90.0, 270.0)):
+        chair.update(x=x, z=9.1, rotation_degrees=yaw, size=[.55, .85, .52])
+
+    # Authored bodies begin dormant, suspended a little above the water. E or
+    # pickup starts physical motion; reset returns exactly to this staging.
+    # Explicit source displacement scales by scale^3; mass stays total kg.
+    common = dict(motion="dynamic", pickup=True, friction=.5, restitution=.02,
+                  linear_damping=.1, angular_damping=.2, reset_group="pool_water_demo")
+    append("props", "Enlarged existing rubber duck: physical buoyancy, never analytic float.",
+           id="pool_physics_duck", model="core:rubber_duck", x=10.6, z=6.7,
+           y=1.56, scale=2.5, rotation_degrees=180.0, size=[.1, .12, .145],
+           solid=False, physics=dict(common,
+               shape=dict(kind="cuboid", half_extents=[.05, .06, .0725]), mass_kg=1.0,
+               water=dict(displaced_volume_m3=.00065, linear_drag=4.0, angular_drag=2.5)))
+    append("props", "Dense perforated metal basket: metal displaces water, its open envelope does not.",
+           id="pool_physics_sink", model="core:washer_drum", x=11.5, z=6.7,
+           y=1.56, size=[.42, .3, .42], solid=False, physics=dict(common,
+               shape=dict(kind="cuboid", half_extents=[.21, .15, .21]), mass_kg=6.4,
+               water=dict(displaced_volume_m3=.0008, linear_drag=4.0, angular_drag=2.5)))
 
 
 def add(level, key, **piece):
@@ -32,7 +147,7 @@ def board(level, x, z, length, yaw, y, height, material, thickness=.018):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, required=True,
-                        help="Historical Demo source or an explicit working copy")
+                        help="Pool Showcase source or an explicit historical Demo working copy")
     parser.add_argument("--out", type=Path, required=True,
                         help="Working output JSON; frozen archive sources are never overwritten")
     args = parser.parse_args()
@@ -40,6 +155,11 @@ def main():
     if path.is_relative_to(ROOT / "docs/archive"):
         parser.error("Preserve frozen historical sources; choose a working output outside docs/archive")
     level=json.loads(args.source.read_text())
+    if level.get("id") == "pool_showcase":
+        polish_showcase(level)
+        path.write_text(json.dumps(level, indent=2) + "\n")
+        print(f"Refined Pool Showcase water, physical demo and dry construction details in {path}")
+        return
     for key in ("props","baseboards","thresholds","columns","floor_regions","decals"):
         level[key]=[p for p in level.get(key,[]) if not p.get("comment","").startswith(TAG)]
     level['walls']=[w for w in level['walls'] if not w.get('comment','').startswith(TAG)]

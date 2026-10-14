@@ -7,10 +7,13 @@ mod contacts;
 mod hold;
 mod recovery;
 mod surfaces;
+mod water;
 mod world;
 
 pub use activation::ActivationReport;
-pub use config::{BodyMotion, CompoundPart, PhysicsDef, PrimitiveShapeDef, ShapeDef};
+pub use config::{
+    BodyMotion, CompoundPart, PhysicsDef, PrimitiveShapeDef, ShapeDef, WaterPhysicsDef,
+};
 pub use recovery::{EscapeReason, RecoveryEvent, RecoveryOutcome};
 pub use world::{
     BodySnapshot, BodyState, ContactImpulse, ImpactEvent, ItemPose, ItemWorld, PhysicsStats,
@@ -36,3 +39,6 @@ mod floor_tests;
 
 #[cfg(test)]
 mod hull_tests;
+
+#[cfg(test)]
+mod water_tests;

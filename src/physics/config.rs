@@ -19,6 +19,92 @@ pub const MAX_HULL_POINTS: usize = 96;
 /// Maximum byte length of a reusable reset-group identifier.
 pub const MAX_RESET_GROUP_BYTES: usize = 64;
 
+/// Smallest authored or placement-scaled displaced volume in cubic metres.
+pub const MIN_DISPLACED_VOLUME_M3: f32 = 1.0e-9;
+/// Largest authored or placement-scaled displaced volume in cubic metres.
+pub const MAX_DISPLACED_VOLUME_M3: f32 = 1000.0;
+/// Supported floats have density at least 10 kg/m³ (at most 100 times water lift).
+pub const MAX_DISPLACED_VOLUME_PER_KG: f32 = 0.1;
+
+/// Material-independent response to the level's enabled swimming water.
+///
+/// Mass remains in `PhysicsDef::mass_kg`; an explicit displaced volume can
+/// describe a hollow float or open metal basket independently of its collider.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct WaterPhysicsDef {
+    /// Full-submersion volume in source cubic metres, multiplied by scale cubed.
+    /// Omission uses the actual collision shape's solid volume.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub displaced_volume_m3: Option<f32>,
+    /// Linear decay per second per displaced-water-mass/body-mass ratio.
+    pub linear_drag: f32,
+    /// Angular decay per second per displaced-water-mass/body-mass ratio.
+    pub angular_drag: f32,
+}
+
+impl Default for WaterPhysicsDef {
+    fn default() -> Self {
+        Self {
+            displaced_volume_m3: None,
+            linear_drag: 3.0,
+            angular_drag: 2.0,
+        }
+    }
+}
+
+impl WaterPhysicsDef {
+    /// Checks finite bounded volume and drag coefficients.
+    ///
+    /// # Errors
+    /// Returns a field-specific error for a nonfinite or out-of-range value.
+    pub fn validate(&self) -> Result<(), String> {
+        if let Some(volume) = self.displaced_volume_m3 {
+            validate_displaced_volume(volume)?;
+        }
+        for (name, value) in [
+            ("linear_drag", self.linear_drag),
+            ("angular_drag", self.angular_drag),
+        ] {
+            if !value.is_finite() || !(0.0..=100.0).contains(&value) {
+                return Err(format!(
+                    "physics water {name} must be finite and between 0 and 100"
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub(super) fn scaled_volume(&self, scale: f32) -> Result<Option<f32>, String> {
+        self.displaced_volume_m3
+            .map(|volume| {
+                let scaled_volume = volume * scale * scale * scale;
+                validate_displaced_volume(scaled_volume)?;
+                Ok(scaled_volume)
+            })
+            .transpose()
+    }
+}
+
+pub(super) fn validate_volume_mass(volume: f32, mass_kg: f32) -> Result<(), String> {
+    if volume > mass_kg * MAX_DISPLACED_VOLUME_PER_KG {
+        return Err(
+            "physics water displaced volume must not exceed 0.1 cubic metres per kilogram before and after scale".into(),
+        );
+    }
+    Ok(())
+}
+
+fn validate_displaced_volume(volume: f32) -> Result<(), String> {
+    if !volume.is_finite() || !(MIN_DISPLACED_VOLUME_M3..=MAX_DISPLACED_VOLUME_M3).contains(&volume)
+    {
+        return Err(
+            "physics water displaced_volume_m3 must be finite and between 0.000000001 and 1000 before and after scale".into(),
+        );
+    }
+    Ok(())
+}
+
 /// How the simulator updates the body's pose.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -290,6 +376,9 @@ pub struct PhysicsDef {
     /// Optional group restored atomically by an authored reset action.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reset_group: Option<String>,
+    /// Optional volume/drag override; dynamic bodies otherwise use solid volume.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub water: Option<WaterPhysicsDef>,
 }
 
 impl Default for PhysicsDef {
@@ -304,6 +393,7 @@ impl Default for PhysicsDef {
             angular_damping: 0.2,
             pickup: false,
             reset_group: None,
+            water: None,
         }
     }
 }
@@ -331,6 +421,15 @@ impl PhysicsDef {
         if self.pickup && self.motion != BodyMotion::Dynamic {
             return Err("physics pickup requires dynamic motion".to_string());
         }
+        if let Some(water) = self.water {
+            if self.motion != BodyMotion::Dynamic {
+                return Err("physics water requires dynamic motion".into());
+            }
+            water.validate()?;
+            if let Some(volume) = water.displaced_volume_m3 {
+                validate_volume_mass(volume, self.mass_kg)?;
+            }
+        }
         if let Some(group) = self.reset_group.as_deref() {
             validate_reset_group(group)?;
             if !self.motion.is_movable() {
@@ -356,6 +455,11 @@ impl PhysicsDef {
         }
         if let Some(shape) = self.shape.as_ref() {
             shape.validate_scale(scale)?;
+        }
+        if let Some(water) = self.water
+            && let Some(volume) = water.scaled_volume(scale)?
+        {
+            validate_volume_mass(volume, self.mass_kg)?;
         }
         Ok(())
     }

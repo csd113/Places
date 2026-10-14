@@ -19,6 +19,32 @@
     "home:tile_home_01": {
       "ground_friction": 0.7
     },
+    "core:rubber_duck": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": { "kind": "cuboid", "half_extents": [0.05, 0.06, 0.0725] },
+        "mass_kg": 0.065,
+        "friction": 0.6,
+        "restitution": 0.08,
+        "linear_damping": 0.05,
+        "angular_damping": 0.15,
+        "pickup": true,
+        "water": { "displaced_volume_m3": 0.00065, "linear_drag": 4.0, "angular_drag": 2.5 }
+      }
+    },
+    "core:washer_drum": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": { "kind": "cuboid", "half_extents": [0.21, 0.15, 0.21] },
+        "mass_kg": 6.4,
+        "friction": 0.6,
+        "restitution": 0.04,
+        "linear_damping": 0.05,
+        "angular_damping": 0.15,
+        "pickup": true,
+        "water": { "displaced_volume_m3": 0.0008, "linear_drag": 4.0, "angular_drag": 2.5 }
+      }
+    },
     "arcade:bowling_pin": {
       "physics": {
         "motion": "dynamic",

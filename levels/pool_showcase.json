@@ -4,9 +4,9 @@
   "name": "Pool Showcase",
   "author": "Places",
   "spawn": {
-    "x": 8.0,
-    "z": 10.2,
-    "yaw_degrees": 0.0
+    "x": 3.0,
+    "z": 9.0,
+    "yaw_degrees": 56.0
   },
   "defaults": {
     "wall": "core:pool_tile_wall_01",
@@ -433,6 +433,26 @@
       "height": 0.9,
       "material": "core:decal_no_diving_01",
       "surface": "wall_south"
+    },
+    {
+      "x": 8.5,
+      "z": 4.45,
+      "y": -1.5,
+      "width": 8.0,
+      "height": 0.25,
+      "material": "pool:decal_lane_01",
+      "surface": "floor",
+      "comment": "[pool-water-demo] Existing navy basin lane sheet at its exact 32:1 fitted aspect."
+    },
+    {
+      "x": 8.5,
+      "z": 6.05,
+      "y": -1.5,
+      "width": 8.0,
+      "height": 0.25,
+      "material": "pool:decal_lane_01",
+      "surface": "floor",
+      "comment": "[pool-water-demo] Existing navy basin lane sheet at its exact 32:1 fitted aspect."
     }
   ],
   "ceiling_lights": [
@@ -595,7 +615,7 @@
   "props": [
     {
       "model": "core:pool_ladder",
-      "x": 12.72,
+      "x": 12.805,
       "z": 5.25,
       "rotation_degrees": 90.0,
       "size": [
@@ -603,40 +623,228 @@
         2.2,
         0.55
       ],
-      "solid": true
+      "solid": false,
+      "physics": {
+        "motion": "fixed",
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                -0.229,
+                0.9825,
+                -0.19
+              ],
+              "shape": {
+                "kind": "cylinder",
+                "half_height": 0.9525,
+                "radius": 0.024
+              }
+            },
+            {
+              "offset": [
+                -0.229,
+                1.7175,
+                0.19
+              ],
+              "shape": {
+                "kind": "cylinder",
+                "half_height": 0.2175,
+                "radius": 0.024
+              }
+            },
+            {
+              "offset": [
+                0.229,
+                0.9825,
+                -0.19
+              ],
+              "shape": {
+                "kind": "cylinder",
+                "half_height": 0.9525,
+                "radius": 0.024
+              }
+            },
+            {
+              "offset": [
+                0.229,
+                1.7175,
+                0.19
+              ],
+              "shape": {
+                "kind": "cylinder",
+                "half_height": 0.2175,
+                "radius": 0.024
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.35,
+                -0.18
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.2275,
+                  0.014,
+                  0.0525
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.655,
+                -0.18
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.2275,
+                  0.014,
+                  0.0525
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.96,
+                -0.18
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.2275,
+                  0.014,
+                  0.0525
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                1.265,
+                -0.18
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.2275,
+                  0.014,
+                  0.0525
+                ]
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "model": "core:pool_table",
-      "x": 6.0,
-      "z": 9.6,
+      "x": 11.3,
+      "z": 9.1,
       "size": [
         0.8,
         0.74,
         0.8
       ],
-      "solid": true
+      "solid": true,
+      "id": "pool_water_demo_control",
+      "display_name": "Water physics demo",
+      "components": [
+        {
+          "component": "interactable",
+          "reach": 2.5,
+          "prompt": "Run water demo: duck floats, metal sinks"
+        },
+        {
+          "component": "state",
+          "name": "running",
+          "value": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "when": [
+            {
+              "check": "state",
+              "target": "pool_water_demo_control",
+              "name": "running",
+              "equals": false
+            }
+          ],
+          "actions": [
+            {
+              "action": "activate_physics_group",
+              "group": "pool_water_demo"
+            },
+            {
+              "action": "set_state",
+              "name": "running",
+              "value": true
+            },
+            {
+              "action": "set_prompt",
+              "prompt": "Reset water demo"
+            }
+          ]
+        },
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "when": [
+            {
+              "check": "state",
+              "target": "pool_water_demo_control",
+              "name": "running",
+              "equals": true
+            }
+          ],
+          "actions": [
+            {
+              "action": "reset_physics_group",
+              "group": "pool_water_demo"
+            },
+            {
+              "action": "set_state",
+              "name": "running",
+              "value": false
+            },
+            {
+              "action": "set_prompt",
+              "prompt": "Run water demo: duck floats, metal sinks"
+            }
+          ]
+        }
+      ]
     },
     {
       "model": "core:pool_chair",
-      "x": 6.0,
-      "z": 8.72,
+      "x": 10.3,
+      "z": 9.1,
       "size": [
-        0.52,
+        0.55,
         0.85,
-        0.55
+        0.52
       ],
-      "solid": true
+      "solid": true,
+      "rotation_degrees": 90.0
     },
     {
       "model": "core:pool_chair",
-      "x": 6.0,
-      "z": 10.5,
+      "x": 12.3,
+      "z": 9.1,
       "size": [
-        0.52,
+        0.55,
         0.85,
-        0.55
+        0.52
       ],
-      "solid": true
+      "solid": true,
+      "rotation_degrees": 270.0
     },
     {
       "model": "core:pool_curtain_corner",
@@ -733,9 +941,9 @@
       "z": 5.5,
       "rotation_degrees": 90.0,
       "size": [
-        0.08,
+        2.0,
         1.05,
-        2.0
+        0.08
       ],
       "solid": true
     },
@@ -745,9 +953,9 @@
       "z": 6.8,
       "rotation_degrees": 90.0,
       "size": [
-        0.08,
+        0.6,
         1.05,
-        0.6
+        0.08
       ],
       "solid": true
     },
@@ -799,8 +1007,8 @@
     },
     {
       "model": "pool:pool_drain",
-      "x": 8.0,
-      "z": 2.45,
+      "x": 4.3,
+      "z": 2.53,
       "size": [
         0.6,
         0.014,
@@ -820,6 +1028,250 @@
       ],
       "solid": false,
       "comment": "[pool-concept] Native construction reference prop."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 4.902,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 5.504,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 6.106,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 6.708,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 7.31,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 7.912,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 8.514,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 9.116,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 9.718,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 10.32,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 10.922,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 11.524,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 12.126,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 12.728,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint."
+    },
+    {
+      "id": "pool_physics_duck",
+      "model": "core:rubber_duck",
+      "x": 10.6,
+      "z": 6.7,
+      "y": 1.56,
+      "scale": 2.5,
+      "rotation_degrees": 180.0,
+      "size": [
+        0.1,
+        0.12,
+        0.145
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "friction": 0.5,
+        "restitution": 0.02,
+        "linear_damping": 0.1,
+        "angular_damping": 0.2,
+        "reset_group": "pool_water_demo",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.05,
+            0.06,
+            0.0725
+          ]
+        },
+        "mass_kg": 1.0,
+        "water": {
+          "displaced_volume_m3": 0.00065,
+          "linear_drag": 4.0,
+          "angular_drag": 2.5
+        }
+      },
+      "comment": "[pool-water-demo] Enlarged existing rubber duck: physical buoyancy, never analytic float."
+    },
+    {
+      "id": "pool_physics_sink",
+      "model": "core:washer_drum",
+      "x": 11.5,
+      "z": 6.7,
+      "y": 1.56,
+      "size": [
+        0.42,
+        0.3,
+        0.42
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "friction": 0.5,
+        "restitution": 0.02,
+        "linear_damping": 0.1,
+        "angular_damping": 0.2,
+        "reset_group": "pool_water_demo",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.21,
+            0.15,
+            0.21
+          ]
+        },
+        "mass_kg": 6.4,
+        "water": {
+          "displaced_volume_m3": 0.0008,
+          "linear_drag": 4.0,
+          "angular_drag": 2.5
+        }
+      },
+      "comment": "[pool-water-demo] Dense perforated metal basket: metal displaces water, its open envelope does not."
     }
   ],
   "water": [
@@ -833,6 +1285,125 @@
       "material": "core:water_pool_01",
       "opacity": 0.62,
       "swimming": true
+    },
+    {
+      "shape": "rect",
+      "x": 4.0,
+      "z": 3.0,
+      "width": 9.0,
+      "depth": 4.5,
+      "surface_y": -0.15,
+      "bottom_y": -1.5,
+      "material": "core:water_pool_01",
+      "opacity": 0.42,
+      "attenuation_per_metre": 0.16,
+      "swimming": true,
+      "comment": "[pool-water-demo] Main basin: 1.35 m of standing-depth water."
+    },
+    {
+      "shape": "rect",
+      "x": 9.0,
+      "z": 7.5,
+      "width": 4.0,
+      "depth": 0.9,
+      "surface_y": -0.15,
+      "bottom_y": -0.35,
+      "material": "core:water_pool_01",
+      "opacity": 0.42,
+      "attenuation_per_metre": 0.16,
+      "swimming": true,
+      "comment": "[pool-water-demo] Walk-in shelf: 20 cm of shallow water."
+    }
+  ],
+  "thresholds": [
+    {
+      "x": 8.5,
+      "z": 2.875,
+      "length": 9.244,
+      "rotation_degrees": 0,
+      "y": 0.0,
+      "thickness": 0.24,
+      "height": 0.035,
+      "material": "pool:coping_01",
+      "comment": "[pool-water-demo] 35 mm coping on dry deck; ladder landing and traversal remain clear."
+    },
+    {
+      "x": 3.875,
+      "z": 5.25,
+      "length": 4.5,
+      "rotation_degrees": 90,
+      "y": 0.0,
+      "thickness": 0.24,
+      "height": 0.035,
+      "material": "pool:coping_01",
+      "comment": "[pool-water-demo] 35 mm coping on dry deck; ladder landing and traversal remain clear."
+    },
+    {
+      "x": 6.4375,
+      "z": 7.625,
+      "length": 5.119,
+      "rotation_degrees": 0,
+      "y": 0.0,
+      "thickness": 0.24,
+      "height": 0.035,
+      "material": "pool:coping_01",
+      "comment": "[pool-water-demo] 35 mm coping on dry deck; ladder landing and traversal remain clear."
+    },
+    {
+      "x": 8.875,
+      "z": 7.95,
+      "length": 0.896,
+      "rotation_degrees": 90,
+      "y": 0.0,
+      "thickness": 0.24,
+      "height": 0.035,
+      "material": "pool:coping_01",
+      "comment": "[pool-water-demo] 35 mm coping on dry deck; ladder landing and traversal remain clear."
+    },
+    {
+      "x": 11.0,
+      "z": 8.525,
+      "length": 4.244,
+      "rotation_degrees": 0,
+      "y": 0.0,
+      "thickness": 0.24,
+      "height": 0.035,
+      "material": "pool:coping_01",
+      "comment": "[pool-water-demo] 35 mm coping on dry deck; ladder landing and traversal remain clear."
+    },
+    {
+      "x": 13.125,
+      "z": 3.9575,
+      "length": 1.919,
+      "rotation_degrees": 90,
+      "y": 0.0,
+      "thickness": 0.24,
+      "height": 0.035,
+      "material": "pool:coping_01",
+      "comment": "[pool-water-demo] 35 mm coping on dry deck; ladder landing and traversal remain clear."
+    },
+    {
+      "x": 13.125,
+      "z": 6.9925,
+      "length": 2.819,
+      "rotation_degrees": 90,
+      "y": 0.0,
+      "thickness": 0.24,
+      "height": 0.035,
+      "material": "pool:coping_01",
+      "comment": "[pool-water-demo] 35 mm coping on dry deck; ladder landing and traversal remain clear."
+    }
+  ],
+  "ladders": [
+    {
+      "x": 12.35,
+      "z": 4.95,
+      "width": 0.6,
+      "depth": 0.6,
+      "bottom_y": -1.5,
+      "top_y": 0.0,
+      "facing_degrees": 90.0,
+      "comment": "[pool-water-demo] Climb towards the east deck through the real ladder rails."
     }
   ]
 }

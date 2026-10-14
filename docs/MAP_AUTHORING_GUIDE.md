@@ -1586,6 +1586,34 @@ the rim, or climb the chrome ladder at the east rim to leave. Walking off the
 deck is a real drop to the supporting basin floor, and pulling back onto the
 rim is a bounded 2.2 m/s climb.
 
+The active **Pool Showcase** (`levels/pool_showcase.json`) uses the same
+contract at its own coordinates: the main basin is `x 4..13, z 3..7.5`,
+floor `-1.5`, surface `-0.15` (1.35 m deep), with the adjacent walk-in shelf
+at `x 9..13, z 7.5..8.4`, floor `-0.35` (0.20 m deep). Both volumes use
+`core:water_pool_01`, opacity `0.42` and attenuation `0.16` per metre, so the
+existing basin tile and lane markings stay legible under the existing lights.
+Upright movement is chest-deep wading; explicit crouch permits submerging.
+The east ladder uses an open item-only fixed compound for its metal rails and
+treads, plus a player climb volume from floor `-1.5` to deck `0`, facing `90°`.
+Its player bounds box is disabled so it cannot block the climb. The dry spawn is `3, 9`, facing `56°`
+towards the main basin, with the staged duck within the standing camera's view.
+
+The existing resin table at `11.3, 9.1` is `pool_water_demo_control`: its normal
+E interaction alternates running and resetting `pool_water_demo`. The enlarged
+existing rubber duck (`pool_physics_duck`) and dense open metal drum basket
+(`pool_physics_sink`) start dormant just above the main water surface. Their
+explicit dynamic `physics` profiles own flotation and sinking after activation;
+neither authors analytic `float`. Reset restores their exact staging and
+dormancy. The source volume override for the perforated basket represents its
+metal displacement rather than its open bounds envelope. Section 19 documents
+the reusable physics contract. Reapply this active map's water, controls and
+restrained dry coping/drain details idempotently with:
+
+```sh
+python3 tools/levels/refine_pool.py --source levels/pool_showcase.json \
+  --out levels/pool_showcase.json
+```
+
 ### Ladders
 
 `ladders[]` authors **climbable volumes**. The volume is the space the climber
@@ -3975,6 +4003,53 @@ remains available.
 | `angular_damping` | `0.2` | Finite `0..=100` angular velocity damping. |
 | `pickup` | `false` | `true` permits player pickup/drop and requires `motion: "dynamic"`. |
 | `reset_group` | omitted | Optional ASCII identifier `[A-Za-z0-9_-]`, 1..64 bytes, on dynamic/kinematic bodies. The same group supports `activate_physics_group` and `reset_physics_group`; reset restores authored members to their starting pose and dormant state. |
+| `water` | omitted | Optional strict response object on dynamic bodies: `displaced_volume_m3`, `linear_drag`, `angular_drag`. Every active dynamic body participates in enabled swimming water even when this object is omitted. |
+
+#### Rigid bodies in water
+
+Water uses the same resolved rectangular/circular volumes as player movement.
+An active dynamic body receives upward buoyancy equal to `1000 kg/m³ × 9.8 m/s²
+× submerged displaced volume`. Its authored mass stays independent of scale;
+the displaced volume scales by the cube of placement scale. Density is therefore
+mass divided by full displaced volume: a dense item sinks, a hollow light item
+floats. The collider remains responsible for solid contacts and CCD.
+
+`physics.water.displaced_volume_m3` optionally describes full displacement in
+source cubic metres, independently of an economical collider (for example an
+open metal drum). Omission uses the collider's solid volume. Explicit volume is
+finite `1e-9..=1000` both before and after scaling.
+The supported rigid-water approximation requires density of at least `10 kg/m³`
+after scaling. Explicit displacement is checked against authored mass; inferred
+collider displacement is checked when spawning a dynamic body in a water map.
+Unsupported ratios reject the profile/spawn rather than injecting extreme motion.
+`linear_drag` / `angular_drag`
+are finite `0..=100` velocity decay coefficients per second at equal displaced
+water mass and object mass, default `3` / `2`. The effective rate multiplies by
+submerged water mass divided by object mass; a floating equilibrium therefore
+receives the authored rate while denser bodies resist water drag more strongly.
+Unknown fields are errors, and explicit water settings require dynamic
+motion. These controls work in both placements and reusable gameplay profiles.
+
+The runtime also rejects fluid stiffness above its supported 120 Hz integration
+bound (`1000 × 9.8 × volume × dt² / (mass × minimum collider thickness) > 1`).
+These checks prevent thin or extremely light colliders receiving unstable lift.
+Dry maps retain their existing rigid-body contract.
+
+Bounded vertical columns sample each posed convex collider part, clip wet lengths
+against actual footprints and finite bottom/surface heights, and integrate the
+submerged centroid. Full immersion uses cached solid volume and its exact
+centroid; vertical cuboids/cylinders wholly inside one footprint use an exact
+height slice. Tilted or boundary-crossing bodies retain column quadrature.
+Buoyancy at that centroid creates torque; exponential drag
+scales with submerged water mass. More than sixteen relevant unshadowed regions
+use a coarser fixed column grid with the same footprint/depth/priority rules,
+keeping shape ray work bounded; coincident covered regions are skipped.
+There is no surface-position constraint, asset-name rule,
+fluid solver or extra texture. Authored dormancy, pickup/carry, contacts, reset
+and bounded recovery retain their existing ownership. Water does not activate
+authored dormant props. Disabled or decorative (`swimming: false`) volumes
+supply no physical response. The player shares base gravity and retains the
+established upright controller and reduced effective underwater acceleration.
 
 Convex hulls require 4..96 finite points forming a nondegenerate solid; axis
 extents are `0.001..=100` metres before/after scale and point axes stay within

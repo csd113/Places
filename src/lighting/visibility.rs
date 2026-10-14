@@ -1927,6 +1927,31 @@ impl Visibility {
         &self.occluders
     }
 
+    /// Lowest compiled room-floor interface covering this point. Floor
+    /// regions offset every overlapping storey equally, so this identifies
+    /// their shared local offset without rebuilding geometry or package data.
+    pub(super) fn lowest_floor_y_at(&self, x: f32, z: f32) -> Option<f32> {
+        let mut lowest: Option<f32> = None;
+        self.occluders.horizontal_grid.for_each_in_rect(
+            &self.occluders.horizontals,
+            x,
+            x,
+            z,
+            z,
+            |solid| {
+                if let Horizontal::Floor(plane) = solid
+                    && x >= plane.x0
+                    && x <= plane.x1
+                    && z >= plane.z0
+                    && z <= plane.z1
+                {
+                    lowest = Some(lowest.map_or(plane.y, |current| current.min(plane.y)));
+                }
+            },
+        );
+        lowest
+    }
+
     /// Number of static prop occlusion boxes the set tests against.
     #[must_use]
     pub const fn prop_blocker_count(&self) -> usize {
