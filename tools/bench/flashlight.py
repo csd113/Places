@@ -18,6 +18,7 @@ Use --plan-only to write settings, actions and commands without starting a game.
 from __future__ import annotations
 
 import argparse
+import csv
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -92,6 +93,12 @@ class Plan:
 
 def plan_for(mode: str, video_seconds: int = 15) -> list[dict]:
     p = Plan(ARCADE if mode == "doors" else OFFICE)
+    if mode == "spin":
+        p.pose(0, [13, 1.6, 9.6], 0, -16); p.tap(100, "F")
+        p.capture(800, "spin-start"); p.capture(5500, "spin-far-doorway")
+        p.capture(11000, "spin-desk-chair"); p.capture(17000, "spin-partitions")
+        p.capture(23500, "spin-return"); p.capture(video_seconds * 1200, "spin-complete")
+        return p.finish(video_seconds * 1200 + 4000)
     if mode == "sweep":
         # All three shapes are existing authored basement models: cabinet at
         # (14.5,10.1), chair at (15.7,10.6), desk at (15.2,11.8). Only initial
@@ -276,6 +283,18 @@ def distance(a: list[float], b: list[float]) -> float:
 
 
 def audit(mode: str, samples: dict, checks: list[dict], out: Path) -> None:
+    if mode == "spin":
+        for name, sample in samples.items():
+            check(checks, f"{name}: continuous turn retains Office beam and position", sample.get("flashlight_on") is True
+                  and sample.get("current_level_id") == OFFICE
+                  and distance(sample.get("player_position", [0, 0, 0]), [13, 1.6, 9.6]) < 0.01)
+        with (out / "player.csv").open(newline="") as stream:
+            angles = [float(row[4]) for row in csv.reader(stream) if len(row) == 6
+                      and abs(float(row[1]) - 13) < 0.01 and abs(float(row[3]) - 9.6) < 0.01]
+        turns = [math.atan2(math.sin(b-a), math.cos(b-a)) for a, b in zip(angles, angles[1:])]
+        degrees = math.degrees(sum(turns))
+        check(checks, "one slow complete continuous clockwise turn", 359 <= degrees <= 361
+              and all(-0.001 <= turn < math.radians(2) for turn in turns), rotation_degrees=degrees)
     if mode == "sweep":
         for name in ("sweep-cabinet-chair", "sweep-floor-shadows", "sweep-materials"):
             sample = samples.get(name, {})
@@ -406,7 +425,8 @@ def video_command(args: argparse.Namespace, out: Path) -> list[str]:
 
 
 def video_path(args: argparse.Namespace, out: Path) -> Path:
-    return out / ("office-flashlight-sweep-native.mp4" if args.mode == "sweep" else "office-flashlight-native.mp4")
+    names = {"spin": "office-flashlight-360-native.mp4", "sweep": "office-flashlight-sweep-native.mp4"}
+    return out / names.get(args.mode, "office-flashlight-native.mp4")
 
 
 def audit_video(args: argparse.Namespace, out: Path, events: list[dict], checks: list[dict]) -> dict:
@@ -444,11 +464,13 @@ def run_native(args: argparse.Namespace, out: Path) -> None:
     settings["bindings"]["flashlight"] = "F"
     # The explicit recorder paces native source frames; FIFO presentation
     # would add another wait and shorten the requested consecutive-frame clip.
-    settings.update(window_width=width, window_height=height, window_mode="windowed", vsync=args.mode not in ("walkthrough", "sweep"),
+    settings.update(window_width=width, window_height=height, window_mode="windowed", vsync=args.mode not in ("walkthrough", "sweep", "spin"),
                     developer_console=False, quality="high", texture_filtering="high", lightmaps="full",
                     reflections="full", bloom=True, use_low_quality_lighting=False, fov_degrees=60)
     if args.mode == "sweep":
         settings.update(look_speed_h=24 * 15 / args.video_seconds, look_speed_v=35 * 15 / args.video_seconds)
+    if args.mode == "spin":
+        settings.update(look_speed_h=30)
     steps = plan_for(args.mode, args.video_seconds)
     write_json(out / "settings.json", settings); write_json(out / "actions.json", steps)
     env = {key: value for key, value in os.environ.items() if not key.startswith("PLACES_") and key != "SDL_VIDEODRIVER"}
@@ -457,15 +479,24 @@ def run_native(args: argparse.Namespace, out: Path) -> None:
     spawn = "-1.9,1.6,1.4,128" if level == ARCADE else VIEWS["dark"][0]
     if args.mode == "sweep":
         spawn = "13,1.6,12.6,45"
+    if args.mode == "spin":
+        spawn = "13,1.6,9.6,0"
     env.update(PLACES_ASSET_ROOT=str(out), PLACES_STATE_ROOT=str(out), PLACES_LEVEL=level,
                PLACES_SPAWN=spawn, PLACES_BENCH="1", PLACES_VERBOSE="1",
                PLACES_BENCH_ACTIONS=str(out / "actions.json"), PLACES_LOAD_TRACE=str(out / "trace.jsonl"),
                PLACES_STATE_LOG=str(out / "player.csv"), PLACES_BENCH_OUT=str(out / "frames.csv"),
                PLACES_BENCH_FRAMES="3600", PLACES_BENCH_WARMUP="120")
-    command = video_command(args, out) if args.mode in ("walkthrough", "sweep") else None
+    command = video_command(args, out) if args.mode in ("walkthrough", "sweep", "spin") else None
     if command:
         env.update(PLACES_BENCH_FIXED_DELTA_SECONDS="0.016666667", PLACES_BENCH_VIDEO_PIPE=str(out / "native-video.fifo"), PLACES_BENCH_VIDEO_SIZE=args.expected_drawable,
                    PLACES_BENCH_VIDEO_FRAMES=str(args.video_seconds * 30), PLACES_BENCH_VIDEO_STRIDE="2", PLACES_BENCH_VIDEO_START_FRAME="0")
+    if args.mode == "spin":
+        # Controls deliberately enforce a 30 deg/s minimum. Alternate one
+        # active and one idle simulation frame: each 30 fps recorded frame
+        # advances exactly 0.5 degrees, yielding one smooth 24 s revolution.
+        env["PLACES_MOVE_SCRIPT"] = ",".join(
+            f"look_right@{1 + index / 30 - 0.004:.6f}-{1 + index / 30 + 0.004:.6f}"
+            for index in range(720))
     receipt = dict(mode=args.mode, status="planned", binary=str(args.binary),
                    binary_sha256=digest(args.binary) if args.binary.is_file() else None,
                    package=str(package), package_sha256=digest(package), settings=settings,
@@ -654,7 +685,7 @@ def size(value: str) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mode", required=True, choices=("walkthrough", "sweep", "occlusion", "furniture", "nearwall", "input", "objects", "console", "doors", "performance"))
+    parser.add_argument("--mode", required=True, choices=("walkthrough", "sweep", "spin", "occlusion", "furniture", "nearwall", "input", "objects", "console", "doors", "performance"))
     parser.add_argument("--binary", type=Path, default=ROOT / "target/release/places")
     parser.add_argument("--asset-root", type=Path, default=ROOT)
     parser.add_argument("--package", type=Path, default=ROOT / "assets/levels/office_demo.placesmap")
@@ -665,19 +696,19 @@ def main() -> None:
     parser.add_argument("--lightmaps", choices=("static", "full"), default="full", help="matched performance lighting path")
     parser.add_argument("--ffmpeg", type=Path, default=Path("/opt/homebrew/bin/ffmpeg"))
     parser.add_argument("--ffprobe", type=Path, default=Path("/opt/homebrew/bin/ffprobe"))
-    parser.add_argument("--video-seconds", type=int, help="walkthrough: 24; sweep: 8..15 (default 15)")
+    parser.add_argument("--video-seconds", type=int, help="walkthrough: 24; sweep: 8..15 (default 15); spin: 26")
     parser.add_argument("--plan-only", action="store_true")
     args = parser.parse_args()
-    args.video_seconds = args.video_seconds if args.video_seconds is not None else (15 if args.mode == "sweep" else 24)
-    if args.mode in ("walkthrough", "sweep"):
-        minimum, maximum = (8, 15) if args.mode == "sweep" else (24, 24)
+    args.video_seconds = args.video_seconds if args.video_seconds is not None else {"sweep": 15, "spin": 26}.get(args.mode, 24)
+    if args.mode in ("walkthrough", "sweep", "spin"):
+        minimum, maximum = {"sweep": (8, 15), "spin": (26, 26)}.get(args.mode, (24, 24))
         if not minimum <= args.video_seconds <= maximum:
             parser.error(f"{args.mode} video seconds must be {minimum}..{maximum}")
     args.binary = args.binary.resolve(strict=not args.plan_only)
     args.asset_root = args.asset_root.resolve(strict=True)
     args.package = args.package.resolve(strict=args.mode != "doors")
     args.arcade_package = args.arcade_package.resolve(strict=args.mode == "doors")
-    if args.mode in ("walkthrough", "sweep") and args.expected_drawable != "1280x720":
+    if args.mode in ("walkthrough", "sweep", "spin") and args.expected_drawable != "1280x720":
         parser.error("native video requires --expected-drawable 1280x720; use --size 640x360 on a 2x display")
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=False)

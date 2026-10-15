@@ -56,7 +56,7 @@ Only Office was rebuilt, with eight workers. Its archive integrity and exact
 source/dependency/compiler currency passed. Existing Arcade and Pool packages
 loaded through the unchanged runtime format.
 
-Nine final sequential SDL/Metal cases passed **201 numeric checks**, with actual
+Nine core sequential SDL/Metal cases passed **201 numeric checks**, with actual
 native captures inspected. They cover direct stop/look/resume, dim-edge hold
 below activation (0.014–0.029 incident intensity; **zero position drift**), wall,
 floor and cabinet occlusion, close-wall retraction, static/moving/held/dropped/
@@ -102,7 +102,8 @@ is outside the warmed comparison. No universal frame-rate guarantee is claimed.
 `local/flashlight-0.10.0/` retains binaries, package checks, native receipts,
 performance distributions, the acceptance summary and Library delivery manifest.
 The final media directory contains a **24 s / 720-frame walkthrough**, a
-**15 s / 450-frame sweep**, and five PNGs. Both H.264 videos are 1280 × 720,
+**15 s / 450-frame sweep**, a **26 s / 780-frame 360° turn**, and five PNGs.
+All three H.264 videos are 1280 × 720,
 30 fps, YUV420P, BT.709 limited range, sampled from consecutive native source
 frames at stride two without inserted or duplicated frames. Movement/look/F use
 ordinary input; diagnostic camera aims leave entity motion autonomous. Decoded
@@ -112,6 +113,14 @@ The walkthrough Library ID is `libfile_e9309d61746081918d47f1eea1a4cf94`; the sw
 is `libfile_b0d861389f488191a11cc603f6432c43`. The requested final-width preview is
 `libfile_88b63b25352c8191bd3ad17f286ec027` (40.27°). Exact final commit, remote SHA,
 CI receipt and cleanup status are recorded in the local handoff after publication.
+
+The later requested complete rotation is `libfile_c8f3c77dc6bc81918cf2266eec96e699`.
+Native state logs verify 360.001° of continuous clockwise rotation at a fixed
+position, with the beam retained. The existing viewpoint puts a cabinet at about
+1.6 m, chair at 2.9 m, desk at 3.1 m and the doorway water-cooler landmark at
+10.8 m. Office is sparse around the remaining sectors; no props were invented or
+map data rebaked for the clip. Frame-based ordinary look input preserves the
+Controls speed bounds while producing a smooth recorded turn.
 
 Raster shadows retain opaque/cutout and nearly opaque blend coverage; ordinary
 glass/water transmit rather than casting colored or partial-blend shadows. CPU
