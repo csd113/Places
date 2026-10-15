@@ -45,6 +45,7 @@
 //! * [`texture`] — the texture cache, samplers and fallback sheet;
 //! * [`surface`] — SDL raw-window-handle surface creation and recovery.
 
+pub mod caustics;
 pub mod character;
 pub mod decals;
 #[cfg(feature = "visual-diagnostics")]

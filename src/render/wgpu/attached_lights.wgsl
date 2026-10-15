@@ -91,6 +91,11 @@ fn dynamic_light_term(normal: vec3<f32>, world_position: vec3<f32>) -> vec3<f32>
         let window = clamp(1.0 - distance / light.radius, 0.0, 1.0);
         sum += light.color * light.intensity * ndl * window * window;
     }
+    return sum;
+}
+
+fn flashlight_term(normal: vec3<f32>, world_position: vec3<f32>) -> vec3<f32> {
+    var sum = vec3<f32>(0.0);
     let beam = dynamic_lights.flashlight;
     if (beam.outer_enabled.y > 0.5) {
         let to_light = beam.position_range.xyz - world_position;

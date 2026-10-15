@@ -93,7 +93,9 @@ pub const WORLD_SHADER_SRC: &str = concat!(
     "\n",
     include_str!("attached_lights.wgsl"),
     "\n",
-    include_str!("world.wgsl")
+    include_str!("world.wgsl"),
+    "\n",
+    include_str!("caustics.wgsl")
 );
 
 /// Name of the world vertex entry point.
@@ -985,6 +987,23 @@ pub fn environment_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLa
             texture(4, wgpu::TextureViewDimension::Cube),
             texture(5, wgpu::TextureViewDimension::D2),
             wgpu::BindGroupLayoutEntry {
+                binding: 7,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: wgpu::BufferSize::new(64),
+                },
+                count: None,
+            },
+            texture(8, wgpu::TextureViewDimension::D2),
+            wgpu::BindGroupLayoutEntry {
+                binding: 9,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
                 binding: 6,
                 visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
@@ -1014,6 +1033,8 @@ pub fn environment_bind_group(
     probe: &wgpu::TextureView,
     planar: &wgpu::TextureView,
     reflection_sampler: &wgpu::Sampler,
+    caustics: &super::caustics::Caustics,
+    caustics_sampler: &wgpu::Sampler,
 ) -> wgpu::BindGroup {
     device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("places-wgpu-environment"),
@@ -1042,6 +1063,18 @@ pub fn environment_bind_group(
             wgpu::BindGroupEntry {
                 binding: 6,
                 resource: wgpu::BindingResource::Sampler(reflection_sampler),
+            },
+            wgpu::BindGroupEntry {
+                binding: 7,
+                resource: caustics.buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 8,
+                resource: wgpu::BindingResource::TextureView(caustics.texture.view()),
+            },
+            wgpu::BindGroupEntry {
+                binding: 9,
+                resource: wgpu::BindingResource::Sampler(caustics_sampler),
             },
         ],
     })
@@ -4562,7 +4595,7 @@ mod tests {
         // prepared irradiance/direction layer contract checked above.
         assert!(WORLD_SHADER_SRC.contains("var flashlight_depth: texture_depth_2d"));
         assert!(WORLD_SHADER_SRC.contains("var flashlight_sampler: sampler_comparison"));
-        assert!(!WORLD_SHADER_SRC.contains("@group(3) @binding(7)"));
+        assert!(WORLD_SHADER_SRC.contains("@group(3) @binding(7) var<storage, read> caustics"));
         // The environment declares the pair array and its sampler at the
         // frozen bindings: the page array at 1, the sampler at 3, and no
         // second page binding.

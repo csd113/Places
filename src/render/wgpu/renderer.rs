@@ -498,6 +498,7 @@ pub struct WgpuRenderer {
     /// scale, fog, the lightmap pages, the probe cubemap and the planar mirror.
     /// Created once with the device.
     environment_layout: wgpu::BindGroupLayout,
+    caustics: super::caustics::Caustics,
     /// The renderer-owned texture cache: layout, shared samplers, fallback and
     /// every uploaded texture. Renderer lifetime; pack entries are dropped per
     /// level.
@@ -912,6 +913,7 @@ impl WgpuRenderer {
         // The environment layout (group 3), the reflection fallbacks and the
         // fixture-sheet slots.
         let environment_layout = environment_bind_group_layout(&device);
+        let caustics = super::caustics::Caustics::empty(&device, &textures);
         let (probe_fallback, probe_fallback_view) = fallback_probe(&device);
         let (planar_fallback, planar_fallback_view) = fallback_planar(&device, &queue);
         let lightmaps = LightmapAtlas::upload(&device, &queue, None);
@@ -952,6 +954,7 @@ impl WgpuRenderer {
             world_materials: None,
             material_layout,
             environment_layout,
+            caustics,
             textures,
             filtering: TextureFiltering::DEFAULT,
             prop_catalog: crate::loader::PropCatalog::load_default(),
@@ -1228,6 +1231,7 @@ impl WgpuRenderer {
         }
         // Floats ride an absolute clock before the spin/probe pass, so a
         // moved float's probe is sampled at this frame's surface pose.
+        self.caustics.update(&self.queue, self.animation_seconds);
         let _update_stats = self.dynamic.update_floats(self.animation_seconds);
         // Ambient effects ride the same absolute clock: a particle's pose is a
         // pure function of it, so this only records the time and reports which
@@ -2029,6 +2033,9 @@ impl WgpuRenderer {
         // environment uniform carries the live mask every static world, prop
         // and capture draw reads.
         if changed {
+            if let Some(lighting) = self.dynamic_lighting.as_ref() {
+                self.caustics.refresh_sources(&self.queue, lighting);
+            }
             self.entity_lighting_revision = self.entity_lighting_revision.wrapping_add(1);
             let uniform = self.level_environment();
             if let Some(environment) = self.environment.as_mut() {
@@ -2185,6 +2192,7 @@ impl WgpuRenderer {
             cache: &mut self.textures,
             material_layout: &self.material_layout,
             environment_layout: &self.environment_layout,
+            caustics: &self.caustics,
             lightmaps: &self.lightmaps,
             environment,
             probes: &probe_views,
@@ -2382,6 +2390,7 @@ impl WgpuRenderer {
             cache: &mut self.textures,
             material_layout: &self.material_layout,
             environment_layout: &self.environment_layout,
+            caustics: &self.caustics,
             lightmaps: &self.lightmaps,
             environment,
             probes: &probe_views,
@@ -3082,11 +3091,8 @@ impl WgpuRenderer {
         };
         self.fixture_sheets = fixture_sheets;
         self.material_animations = animations;
-        // Snow seeds must retain their world phase across live quality changes.
-        // Other scenes preserve their established reset behavior.
-        if self.effects.snow().is_none()
-            || self.level_id.as_deref() != Some(loaded.level.id.as_str())
-        {
+        // Water and weather retain their shared world phase across live settings changes.
+        if level_changed {
             self.animation_seconds = 0.0;
         }
         self.blacklights = blacklights;
@@ -3178,6 +3184,15 @@ impl WgpuRenderer {
                 .first()
                 .map(|probe| probe.face_size),
         );
+        self.caustics = super::caustics::Caustics::upload(
+            &self.device,
+            &self.queue,
+            &mut self.textures,
+            &loaded.level,
+            &build.lighting,
+            self.quality,
+        );
+        self.caustics.update(&self.queue, self.animation_seconds);
         self.environment = Some(self.create_environment());
         self.world = Some(world);
         self.world_props = Some(world_props);
@@ -3563,6 +3578,7 @@ impl WgpuRenderer {
             planar,
             &self.probe_fallback_view,
             &self.planar_fallback_view,
+            &self.caustics,
             &self.level_environment(),
         )
     }

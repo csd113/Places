@@ -793,9 +793,19 @@ fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
     // is additive and never modifies `surface_light`, so every lightmap and
     // baked-occlusion result survives; with no attached lights it is exactly
     // zero. No baked energy is clipped before material evaluation.
-    let light = surface_light(in, normal) * movable_contact_visibility(in, normal) + dynamic_light_term(normal, in.world_position);
+    let beam = flashlight_term(normal, in.world_position);
+    let authored = unit_direction_or_zero(in.world_normal);
+    let derived = unit_direction_or_zero(cross(rescale_direction(dpdy(in.world_position)), rescale_direction(dpdx(in.world_position))));
+    let geometric = select(derived, authored, any(in.world_normal != vec3<f32>(0.0)));
+    let receiver_normal = select(vec3<f32>(0.0), geometric, front_facing);
+    let selected = caustic_volume(in.world_position, receiver_normal);
+    let modulation = caustic_modulation(in, selected, dpdx(in.world_position.xz * 0.45), dpdy(in.world_position.xz * 0.45), any(beam > vec3<f32>(0.0)));
+    let baked = surface_light(in, normal) * movable_contact_visibility(in, normal);
+    let attached = dynamic_light_term(normal, in.world_position);
+    let light = baked * (1.0 + modulation.x) + attached + beam * (1.0 + modulation.y);
     let view = normalize(camera.position - in.world_position);
-    let sheen = surface_sheen(in, normal, view, light);
+    let incident = baked + attached + beam;
+    let sheen = surface_sheen(in, normal, view, incident);
     let reflection = surface_reflection(in, normal, view);
     let emission = surface_emission(in, base_linear);
     let lit = lit_linear(base_linear * material.albedo_tint.rgb, in.color.rgb, light, material.emission_vertex);

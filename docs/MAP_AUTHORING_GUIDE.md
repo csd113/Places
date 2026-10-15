@@ -1484,6 +1484,20 @@ share stable back-to-front centre sorting, straight alpha and no depth writes.
 Intersecting triangles and large coalesced ranges still require authored
 separation. No refraction, ray tracing or new reflection pass is introduced.
 
+Animated caustics redistribute existing diffuse light across upward-facing
+submerged floors, steps and movable surfaces in Static and Full lighting.
+The runtime uses the resolved rectangle/circle, bottom and free surface; dry
+decks, walls, undersides and the water sheet itself are excluded. A shared
+PNG mask animates in world XZ without a new draw or render pass. Texture quality
+fits the mask independently of lighting. Local, above-water practical lights
+must reach the water; ambient, sky and sun alone do not enable this indoor
+pool effect. Volumes crossing rooms, opaque partitions or intervening room
+floors conservatively disable static caustics. An above-water flashlight can
+focus its existing shadowed beam only where its ray enters the water footprint;
+a submerged flashlight retains its ordinary beam. This is a bounded visual
+approximation, not refractive light transport. See the
+[caustics report](reports/pool-caustics.md) for native evidence and costs.
+
 How it behaves:
 
 * **The surface** is one quad per rectangle and one closed fan per circle at

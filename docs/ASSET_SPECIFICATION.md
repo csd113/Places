@@ -71,6 +71,8 @@ introducing it.
 1. **Production visual assets are real files in the repository.** Every
    texture, decal, fixture face, normal map and material image is a committed
    PNG under `assets/`, referenced through `assets/catalog.json` by logical id.
+   The renderer-owned caustic mask (§7.1b) is loaded by a fixed engine resource path,
+   outside the map catalog; it is never a level-authored asset reference.
    Prop and entity models also embed their runtime PNGs for self-contained
    loading (see §8). Every embedded image has an equivalent standalone PNG
    under `assets/`; the audit checks decoded pixels and dimensions, allowing
@@ -132,8 +134,8 @@ introducing it.
     fractions; moving or reordering texture regions invalidates the model's
     UVs and requires rebuilding the model (§8).
 
-11. **The catalog is the registry.** Levels reference logical ids, never file
-    paths. A new surface material, decal or fixture is a catalog entry plus a
+11. **The catalog is the registry for map-authored assets.** Levels reference logical ids, never file
+    paths. The renderer-owned caustic mask uses its fixed resource path (§7.1b). A new surface material, decal or fixture is a catalog entry plus a
     PNG; the runtime resolves the file from the catalog.
 
 ---
@@ -198,6 +200,7 @@ currently nothing enforces a minimum for any class.
 | Ceiling surface sheet | `ceiling_panel_01.png` | **1:1** | 1024×1024 (shipped) | none enforced | RGB shipped; ignored by default material | **yes, both axes** | world `(x, z)` ÷ `tile_metres` | ceiling material authors a grey tint |
 | Core shared sheet (glass/floor/wall) | `glass_clear_01.png` | **1:1** | 1024×1024 (current production); 128×128 painter output is contract-valid | none enforced | per material: `blend` glass, `cutout` grille, opaque otherwise | **yes, both axes** | world metres ÷ `tile_metres` | seam-gated with the environment set |
 | Steam effect sheet | `steam_01.png` | **1:1** | 256×256 (current production); 128×128 painter output is contract-valid | none enforced | **required**: a soft falloff reaching alpha 0 at every edge | sampled `REPEAT`, but its own edge alpha is 0 | one sheet per billboard; UV span = particle size ÷ the material's `tile_metres` | catalog `texture`; bound by the `core:steam_01`-style blended material; see §7.1 |
+| Caustic intensity mask | `caustics_01.png` | **1:1** | 1024×1024 source | none enforced | opaque; RGB numeric intensity, alpha unused | **yes, both axes** | animated world `(x, z)` projection, freely rotatable | numeric linear mask modulates existing incident light; no albedo or emission; see §7.1b |
 | Shared white sheet | `white_01.png` | **1:1** | 1024×1024 (current production); a flat fill, so any POT size is contract-valid | none enforced | opaque white | no | no authored UV contract: it is a flat fill bound wherever a surface is untextured | engine fallback loaded once at startup; see §12.2 |
 | Normal map | `normal_panel_01.png` | **1:1** | 1024×1024 (current production); 128×128 painter output is contract-valid | none enforced | alpha unused | **yes, both axes** | same UV as the albedo it augments | Surface quality class |
 | Fluorescent panel face | `fluorescent_panel_01.png` | **2:1** | 1024×512 (current production) | none enforced | ignored (face is opaque) | no | full sheet fit to the 1.12 × 0.56 m diffuser aperture; `u` across the width, `v` across the depth | POT both edges; replacement must stay 2:1 |
@@ -659,6 +662,65 @@ aspect, UV orientation, straight alpha and transparent borders remain intact.
 The corresponding blend material is `core:snowflake_01`. The PNG is artwork
 from the built-in imagegen tool, downsampled with alpha preserved; the game
 never synthesizes it. See `src/render/common/snow.rs` for geometry and fades.
+
+### 7.1b Caustic intensity mask
+
+The renderer loads the committed
+`assets/shared/textures/effects/caustics_01.png` by its fixed engine resource path. This is a numeric light-focus
+mask, rather than a billboard, surface albedo, normal map or emissive mask.
+It contains only slender, softly feathered irregular white/grey ridges over
+broad dark cell interiors; no tile grout, surface colour, directional shading,
+pool scene or baked illumination belongs in the sheet. The renderer samples
+the same sheet twice with counter-moving world-XZ coordinates to vary the
+bands smoothly. Existing source illumination supplies their colour and energy;
+the mask must not emit light or brighten an unlit pool independently.
+
+The mandatory contract is a square 8-bit PNG, seamless on **both** axes,
+with equal RGB channels and implicit or explicit opaque alpha (255).
+Preferred source size is **1024×1024**; the ordinary **1024 px per-edge** hard
+limit applies, with no enforced minimum. Black is zero intensity, white is
+maximum, and grey is a numeric intermediate. Upload as `DataLinear`
+(`Rgba8Unorm`), never sRGB. Repeat wrapping, numeric-average mipmaps and the
+fixed trilinear 4× sampler (1× on adapters without anisotropy) apply, like a lighting-data resource. World X/Z projection may rotate
+or offset the sheet freely; there is no north, fitted UV frame or dependency
+on the receiver's albedo repeat. Texture quality controls its upload budget
+independently of Static/Full lighting: `TextureClass::EmissionMask` fits High to 512, Medium to 192 and Low to 128 pixels. The mask owns no material tint,
+normal response, reflection, transparency or emission.
+
+This is renderer-owned lighting artwork with no map catalog entry or surface material.
+Its fixed path keeps map dependency identities independent of the effect; the
+normal asset export includes the shared texture directory. A missing or invalid
+PNG disables caustics with a diagnostic. The bounded Rust PNG-contract test
+checks the source dimensions, numeric channels and opacity.
+Keep replacements under `shared/textures/effects/` and preserve `_01` naming,
+opaque numeric channels, square aspect and both seamless wraps. Validate with
+`python3 tools/textures/seam_repair.py --check
+assets/shared/textures/effects/caustics_01.png`, the PNG-contract test, and a repeated-sheet visual inspection. This numeric contract is
+separate from steam/snow because its RGB controls incident-light modulation,
+while those sheets use alpha-covered particle artwork.
+
+Provenance: generated with the built-in `image_gen.imagegen` tool on October 15,
+2026, `transparent_background: false`, without input images. The original
+opaque RGB output was 1254×1254, SHA-256
+`d233a316ffd763b4c60c032ddbea0221f4e09c07c546fba7377c0fc149b065f4`.
+The saved production derivative converts it to grayscale RGB and resizes once
+to 1024×1024 with Pillow Lanczos; no texture art is synthesized by that
+conversion or at runtime. The original generated artwork already passed the
+repository seam metric; no seam repair was applied.
+
+Production PNG: 533,201 bytes, SHA-256
+`2dd38a6e4b496ade2d718b4a4ef5ddc8667b5094e5d6e3231cbdeae114f222d4`.
+The converted PNG passes both raw and smoothed wrap gates; its repeated 2×2
+sheet was visually inspected. Exact generation prompt:
+
+```text
+Use case: stylized-concept
+Asset type: production numeric caustic intensity mask for a low-poly swimming-pool renderer; one 1024 by 1024 square opaque PNG.
+Primary request: create a perfectly seamless repeating monochrome underwater caustics intensity texture. Narrow soft white and grey irregular water-focus bands form connected distorted organic cells over a mostly near-black field. Cell sizes and band brightness vary naturally, with several gently angular bends that suit restrained low-poly Places art. Leave broad dark interiors between bands. Focus ridges are smooth antialiased, slender and softly feathered, never hard outlined polygons.
+Composition: flat top-down texture only, filling the entire square uniformly, exactly tileable on both X and Y. Opposite edges continue every crossing band at matching position, angle and brightness. Use a varied network across roughly six to nine cells per edge; avoid an obvious centre or directional gradient.
+Color palette: strictly neutral grayscale numeric intensity: black is zero, white is maximum, mid-grey is partial intensity; all RGB channels equal; opaque alpha 255 throughout. No colour tint, transparency or premultiplied alpha.
+Constraints: no pool tile or grout, no albedo, no physical surface, no perspective, no directional illumination, no baked shadows or shading, no vignette, no frame, no text, no watermark, no scene objects, no diagonal streak motif. This is only a numeric mask to multiply existing source lighting; do not depict a lit swimming pool. Keep the mask restrained and mostly black, with natural nonuniform thin caustic ridges. Seamless repeating artwork is mandatory.
+```
 
 ### 7.2 Framed hanging paintings
 
@@ -1580,7 +1642,8 @@ are excluded from shipped levels and from the dimension-contract test below.
 
 * every environment surface sheet (walls, floors, ceilings);
 * the core surface sheets used as surfaces: glass, linoleum, metal, plastic
-  panels, grille and the normal maps.
+  panels, grille and the normal maps;
+* the shared caustic intensity mask (§7.1b).
 
 **Non-tileable classes** (never gated, never expected to wrap):
 

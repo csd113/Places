@@ -76,7 +76,7 @@ fn decal_light(in: VsOut) -> vec3<f32> {
     }
     normal = normal / max(length(normal), 1.0e-6);
     if (dot(normal, camera.position - in.world_position) < 0.0) { normal = -normal; }
-    return in.color.rgb + dynamic_light_term(normal, in.world_position);
+    return in.color.rgb + dynamic_light_term(normal, in.world_position) + flashlight_term(normal, in.world_position);
 }
 
 // The IEC 61966-2-1 transfer functions, the same two `world.wgsl` carries.

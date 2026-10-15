@@ -50,7 +50,7 @@ CONTROL = "pool_water_demo_control"
 GROUP = "pool_water_demo"
 SURFACE = -0.15
 BOTTOM = -1.5
-CASES = ("dormancy", "settling", "ownership", "quality", "player", "contacts")
+CASES = ("dormancy", "settling", "ownership", "quality", "player", "contacts", "caustics")
 VIEWS = {"main": [8, 1.6, 10.2, 0, -20], "west": [3, 1.6, 5.4, 90, -27],
          "hero": [3, 1.6, 9, 56, -12]}
 MAX_TRACE_BYTES = 64 * 1024 * 1024
@@ -73,6 +73,45 @@ def setup_body(p: native.Plan, ms: int, id: str, xyz: list[float]) -> None:
 
 def plan_for(case: str, source: dict) -> list[dict]:
     p = native.Plan(LEVEL)
+    if case == "caustics-video":
+        p.player(0, 3.8, 5.4, 90, -42)
+        p.capture(300, "initial")
+        p.capture(800, "caustics-video-start")
+        p.capture(8500, "caustics-video-end")
+        return p.finish(10_000)
+    if case == "caustics":
+        p.player(0, 3, 5.4, 90, -27)
+        p.capture(300, "initial")
+        # The actual Pool basin, shallow shelf and circular tub. Native input
+        # and settings own all transitions; poses only select inspection views.
+        p.capture(900, "caustics-full-a")
+        p.capture(3300, "caustics-full-b")
+        p.player(3500, 12.6, 8.9, 315, -48)
+        p.capture(4100, "caustics-shelf-edge")
+        p.player(4400, 7.5, 10.5, 0, -65)
+        p.capture(5000, "caustics-circle")
+        p.player(5200, 3, 5.4, 90, -27)
+        p.tap(5350, "F")
+        p.capture(6100, "caustics-flashlight-above")
+        p.tap(6350, "F")
+        p.action(6600, "activate", id=CONTROL)
+        p.capture(10_500, "caustics-moving-props")
+        pose(p, 11_000, [10, .1, 6], 0, -35)
+        p.tap(11_250, "C")
+        p.tap(11_550, "F")
+        p.capture(13_000, "caustics-flashlight-submerged")
+        p.tap(13_350, "F")
+        p.tap(13_650, "C")
+        p.player(14_000, 3, 5.4, 90, -27)
+        p.action(14_500, "lightmaps", quality="static")
+        p.capture(18_000, "caustics-static")
+        p.action(18_500, "quality", level="low")
+        p.capture(21_500, "caustics-static-low-textures")
+        p.action(22_000, "lightmaps", quality="full")
+        p.capture(25_000, "caustics-full-low-textures")
+        p.action(25_500, "quality", level="high")
+        p.capture(28_500, "caustics-restored")
+        return p.finish(29_000)
     if case in VIEWS:
         p.capture(900, f"view-{case}")
         return p.finish(1100)
@@ -253,6 +292,18 @@ def audit_samples(case: str, samples: dict, events: list[dict], checks: list[dic
     if not {DUCK, SINK}.issubset(initial):
         return
     check(checks, "authored water examples start dormant", all(initial[id]["dormant"] for id in (DUCK, SINK)))
+    if case == "caustics":
+        for name, mode, texture in (("caustics-static", "off", "high"),
+                                    ("caustics-static-low-textures", "off", "low"),
+                                    ("caustics-full-low-textures", "full", "low"),
+                                    ("caustics-restored", "full", "high")):
+            sample = samples[name]
+            check(checks, f"{name}: independent settings actually commit",
+                  sample["renderer_lightmaps"] == mode and sample["renderer_quality"] == texture)
+        check(checks, "above-water flashlight is actually enabled", samples["caustics-flashlight-above"]["flashlight_on"])
+        wet = samples["caustics-flashlight-submerged"]
+        check(checks, "submerged flashlight uses a real crouched underwater player",
+              wet["flashlight_on"] and wet["player_body"]["underwater"] and wet["player_body"]["crouched"])
     if case == "dormancy":
         check(checks, "untouched dormant startup spends no active solver substeps", all(
             samples[name]["physics"]["stats"]["active_bodies"] == 0
@@ -502,7 +553,7 @@ def run_case(args: argparse.Namespace, out: Path, case: str, source: dict, binar
     width, height = map(int, args.size.split("x"))
     settings.update(window_width=width, window_height=height,
                     window_mode="fullscreen" if args.fullscreen else "windowed", vsync=case != "performance",
-                    developer_console=False, quality="high", texture_filtering="high", lightmaps="full",
+                    developer_console=False, quality="high", texture_filtering="high", lightmaps=args.lightmaps,
                     reflections="full", bloom=True, use_low_quality_lighting=False, fov_degrees=60)
     steps = plan_for(case, source)
     if args.fullscreen:
@@ -539,7 +590,7 @@ def run_case(args: argparse.Namespace, out: Path, case: str, source: dict, binar
         env.update(PLACES_BENCH_CAMERA_POSITION=",".join(map(str, camera[:3])),
                    PLACES_CAMERA=",".join(map(str, camera[3:])))
     command = None
-    if case == "video":
+    if case in ("video", "caustics-video"):
         env.update(PLACES_BENCH_VIDEO_PIPE=str(out / "native-video.fifo"), PLACES_BENCH_VIDEO_SIZE="1280x720",
                    PLACES_BENCH_VIDEO_FRAMES=str(args.video_frames), PLACES_BENCH_VIDEO_STRIDE="2",
                    PLACES_BENCH_VIDEO_START_FRAME=str(args.video_start_frame))
@@ -678,7 +729,7 @@ def run_case(args: argparse.Namespace, out: Path, case: str, source: dict, binar
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--mode", choices=("baseline", "views", "acceptance", "stress", "video", "performance"), required=True)
+    parser.add_argument("--mode", choices=("baseline", "views", "acceptance", "stress", "video", "caustics-video", "performance"), required=True)
     parser.add_argument("--binary", type=Path, default=ROOT / "target/release/places")
     parser.add_argument("--package", type=Path, required=True, help="existing explicitly compiled Pool .placesmap")
     parser.add_argument("--source", type=Path, default=SOURCE, help="source matching the supplied package; receipts hash this provenance")
@@ -692,6 +743,7 @@ def main() -> None:
     parser.add_argument("--warmup", type=int, default=120, help="performance warmup frames; use at least 600 with given props")
     parser.add_argument("--pairs", type=int, default=2, help="serial alternating performance pairs (1..3)")
     parser.add_argument("--frames", type=int, default=600, help="performance measured frames after 120 warmup (120..1800)")
+    parser.add_argument("--lightmaps", choices=("static", "full"), default="full", help="independent lighting selection")
     parser.add_argument("--size", choices=("640x360", "1280x720"), default="640x360", help="logical window; 640x360 produces 1280x720 on a 2x display")
     parser.add_argument("--fullscreen", action="store_true", help="present on the native display; measure its actual drawable explicitly")
     parser.add_argument("--expected-drawable", default="1280x720", help="required actual native source/capture dimensions")
@@ -715,7 +767,7 @@ def main() -> None:
         parser.error("pairs must be 1..3 and frames 120..1800")
     if not 1 <= args.video_frames <= 900 or not 0 <= args.video_start_frame <= 90:
         parser.error("video frames must be 1..900 and start frame 0..90")
-    if args.mode == "video" and (args.fullscreen or args.expected_drawable != "1280x720"):
+    if args.mode in ("video", "caustics-video") and (args.fullscreen or args.expected_drawable != "1280x720"):
         parser.error("video requires actual 1280x720 source dimensions")
     match = re.fullmatch(r"(\d+)x(\d+)", args.expected_drawable)
     if match is None or not all(64 <= int(edge) <= 16384 for edge in match.groups()):
@@ -729,7 +781,7 @@ def main() -> None:
     source = json.loads(args.source.read_text())
     if source.get("id") != LEVEL:
         parser.error("this campaign targets pool_showcase only")
-    if args.mode in ("acceptance", "stress", "video") or args.activate_demo:
+    if args.mode in ("acceptance", "stress", "video", "caustics-video") or args.activate_demo:
         ids = {prop.get("id") for prop in source.get("props", [])}
         if not {DUCK, SINK, CONTROL}.issubset(ids):
             parser.error("supplied source needs the authored Pool duck, dense item and demo control")
@@ -744,7 +796,7 @@ def main() -> None:
         runs = [(view, args.binary, view, view) for view in views]
     elif args.mode == "acceptance":
         runs = [(case, args.binary, case, None) for case in ([args.case] if args.case else CASES)]
-    elif args.mode in ("stress", "video"):
+    elif args.mode in ("stress", "video", "caustics-video"):
         runs = [(args.mode, args.binary, args.mode, None)]
     elif args.mode == "performance":
         baseline = args.baseline_binary.resolve(strict=True) if args.baseline_binary else None

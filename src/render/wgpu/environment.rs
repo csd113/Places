@@ -142,6 +142,7 @@ impl EnvironmentBindings {
         planar: &wgpu::TextureView,
         fallback_probe: &wgpu::TextureView,
         fallback_planar: &wgpu::TextureView,
+        caustics: &super::caustics::Caustics,
         uniform: &EnvironmentUniform,
     ) -> Self {
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -165,6 +166,8 @@ impl EnvironmentBindings {
                     probe,
                     planar,
                     reflection_sampler,
+                    caustics,
+                    cache.sampler(SamplerPolicy::RepeatLow),
                 )
             })
             .collect();
@@ -178,6 +181,8 @@ impl EnvironmentBindings {
                 fallback_probe,
                 planar,
                 reflection_sampler,
+                caustics,
+                cache.sampler(SamplerPolicy::RepeatLow),
             ));
         }
         let capture_bind_group = environment_bind_group(
@@ -189,6 +194,8 @@ impl EnvironmentBindings {
             fallback_probe,
             fallback_planar,
             reflection_sampler,
+            caustics,
+            cache.sampler(SamplerPolicy::RepeatLow),
         );
         Self {
             buffer,

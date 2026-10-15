@@ -533,3 +533,13 @@ retains actual lighting payloads plus an image; exclude captures and scripted
 settings transitions from steady timings. GPU elapsed is unioned pass-stage
 coverage, including scheduling stalls, and is not utilization or an additive
 per-pass cost. See `docs/reports/multicore-0.10.0.md` for this pass's evidence.
+
+## Pool caustics
+
+The water campaign's explicit `--case caustics` inspects the current Pool
+basin, shallow shelf, circular hot tub, dry edges, moving bodies, flashlight
+above/below water, both lighting modes and independent texture quality.
+`--lightmaps static|full` also selects matched performance lighting.
+`frame_time.py --no-caustics` is a same-build disabled-effect benchmark control;
+it only applies under the explicit benchmark environment. Neither campaign
+bakes a map or changes production map sources.

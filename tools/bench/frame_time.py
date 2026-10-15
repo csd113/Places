@@ -72,9 +72,11 @@ def main() -> None:
     parser.add_argument("--interact", default="", help="authored interactable IDs at startup, e.g. restroom_entry")
     parser.add_argument("--graphics-cycle", default="", help="existing benchmark Advanced-settings cycle")
     parser.add_argument("--quality-cycle", default="", help="existing benchmark texture-quality cycle")
+    parser.add_argument("--actions", type=Path, help="bounded native SDL action script")
     parser.add_argument("--lighting-sequence", type=Path, help="existing bounded entity/light/door/capture actions")
     parser.add_argument("--capture-frame", type=int, help="capture instead of measuring performance")
     parser.add_argument("--gpu-trace", action="store_true", help="three labelled raw GPU samples; diagnostic run")
+    parser.add_argument("--no-caustics", action="store_true", help="same-build disabled-effect control")
     parser.add_argument("--no-gpu-timing", action="store_true", help="same-build instrumentation control")
     parser.add_argument("--runtime-workers", type=int, choices=range(1, 9), help="bounded CPU pool; 1 runs inline")
     parser.add_argument("--lightmaps", choices=("static", "full"), default="full", help="matched lighting control")
@@ -132,10 +134,14 @@ def main() -> None:
         "PLACES_BENCH_GRAPHICS_CYCLE": args.graphics_cycle,
         "PLACES_BENCH_QUALITY_CYCLE": args.quality_cycle,
         "PLACES_BENCH_LIGHTING_SEQUENCE": str(args.lighting_sequence.resolve(strict=True)) if args.lighting_sequence else "",
+        "PLACES_BENCH_ACTIONS": str(args.actions.resolve(strict=True)) if args.actions else "",
         "PLACES_BENCH_GPU_TRACE": "1" if args.gpu_trace else "",
         "PLACES_BENCH_GPU_TIMING": "off" if args.no_gpu_timing else "",
+        "PLACES_BENCH_CAUSTICS": "off" if args.no_caustics else "",
     }
     env.update({key: value for key, value in optional.items() if value})
+    if args.console_open and args.actions:
+        parser.error("select --console-open or --actions")
     if args.console_open:
         actions_path = out / "console-actions.json"
         actions_path.write_text(json.dumps([

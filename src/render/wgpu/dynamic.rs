@@ -119,6 +119,7 @@ pub struct DynamicUploadContext<'a> {
     pub cache: &'a mut TextureCache,
     pub material_layout: &'a wgpu::BindGroupLayout,
     pub environment_layout: &'a wgpu::BindGroupLayout,
+    pub caustics: &'a super::caustics::Caustics,
     pub lightmaps: &'a LightmapAtlas,
     /// The level environment every object's uniform starts from: unit light
     /// scale, the resident lightmap selection and the fog constants.
@@ -250,6 +251,7 @@ impl WgpuDynamic {
                 ctx.planar,
                 ctx.probe_fallback,
                 ctx.planar_fallback,
+                ctx.caustics,
                 &ctx.environment
                     .with_model(object.transform())
                     .with_entity_lighting(object.entity_lighting())
