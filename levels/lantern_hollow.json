@@ -4755,78 +4755,6 @@
       ]
     },
     {
-      "id": "house_0_garden_rail_-1_0",
-      "model": "outdoor:porch_railing_straight",
-      "x": -28.8,
-      "z": 9.65,
-      "solid": true,
-      "size": [
-        1.8,
-        1.05,
-        0.12
-      ]
-    },
-    {
-      "id": "house_0_garden_rail_1_0",
-      "model": "outdoor:porch_railing_straight",
-      "x": -25.2,
-      "z": 9.65,
-      "solid": true,
-      "size": [
-        1.8,
-        1.05,
-        0.12
-      ]
-    },
-    {
-      "id": "house_0_garden_rail_-1_1",
-      "model": "outdoor:porch_railing_straight",
-      "x": -30.6,
-      "z": 9.65,
-      "solid": true,
-      "size": [
-        1.8,
-        1.05,
-        0.12
-      ]
-    },
-    {
-      "id": "house_0_garden_rail_1_1",
-      "model": "outdoor:porch_railing_straight",
-      "x": -23.4,
-      "z": 9.65,
-      "solid": true,
-      "size": [
-        1.8,
-        1.05,
-        0.12
-      ]
-    },
-    {
-      "id": "house_0_garden_rail_-1_2",
-      "model": "outdoor:porch_railing_straight",
-      "x": -32.4,
-      "z": 9.65,
-      "solid": true,
-      "size": [
-        1.8,
-        1.05,
-        0.12
-      ]
-    },
-    {
-      "id": "house_0_garden_rail_1_2",
-      "model": "outdoor:porch_railing_straight",
-      "x": -21.6,
-      "z": 9.65,
-      "solid": true,
-      "size": [
-        1.8,
-        1.05,
-        0.12
-      ]
-    },
-    {
       "id": "house_1_front_doorway_0",
       "model": "outdoor:house_01_wall_doorway",
       "x": -9.0,
@@ -5237,78 +5165,6 @@
           ],
           "falloff": "smooth"
         }
-      ]
-    },
-    {
-      "id": "house_1_garden_rail_-1_0",
-      "model": "outdoor:porch_railing_straight",
-      "x": -10.8,
-      "z": 9.65,
-      "solid": true,
-      "size": [
-        1.8,
-        1.05,
-        0.12
-      ]
-    },
-    {
-      "id": "house_1_garden_rail_1_0",
-      "model": "outdoor:porch_railing_straight",
-      "x": -7.2,
-      "z": 9.65,
-      "solid": true,
-      "size": [
-        1.8,
-        1.05,
-        0.12
-      ]
-    },
-    {
-      "id": "house_1_garden_rail_-1_1",
-      "model": "outdoor:porch_railing_straight",
-      "x": -12.6,
-      "z": 9.65,
-      "solid": true,
-      "size": [
-        1.8,
-        1.05,
-        0.12
-      ]
-    },
-    {
-      "id": "house_1_garden_rail_1_1",
-      "model": "outdoor:porch_railing_straight",
-      "x": -5.4,
-      "z": 9.65,
-      "solid": true,
-      "size": [
-        1.8,
-        1.05,
-        0.12
-      ]
-    },
-    {
-      "id": "house_1_garden_rail_-1_2",
-      "model": "outdoor:porch_railing_straight",
-      "x": -14.4,
-      "z": 9.65,
-      "solid": true,
-      "size": [
-        1.8,
-        1.05,
-        0.12
-      ]
-    },
-    {
-      "id": "house_1_garden_rail_1_2",
-      "model": "outdoor:porch_railing_straight",
-      "x": -3.6,
-      "z": 9.65,
-      "solid": true,
-      "size": [
-        1.8,
-        1.05,
-        0.12
       ]
     },
     {
@@ -5725,78 +5581,6 @@
       ]
     },
     {
-      "id": "house_2_garden_rail_-1_0",
-      "model": "outdoor:porch_railing_straight",
-      "x": 7.2,
-      "z": 9.65,
-      "solid": true,
-      "size": [
-        1.8,
-        1.05,
-        0.12
-      ]
-    },
-    {
-      "id": "house_2_garden_rail_1_0",
-      "model": "outdoor:porch_railing_straight",
-      "x": 10.8,
-      "z": 9.65,
-      "solid": true,
-      "size": [
-        1.8,
-        1.05,
-        0.12
-      ]
-    },
-    {
-      "id": "house_2_garden_rail_-1_1",
-      "model": "outdoor:porch_railing_straight",
-      "x": 5.4,
-      "z": 9.65,
-      "solid": true,
-      "size": [
-        1.8,
-        1.05,
-        0.12
-      ]
-    },
-    {
-      "id": "house_2_garden_rail_1_1",
-      "model": "outdoor:porch_railing_straight",
-      "x": 12.6,
-      "z": 9.65,
-      "solid": true,
-      "size": [
-        1.8,
-        1.05,
-        0.12
-      ]
-    },
-    {
-      "id": "house_2_garden_rail_-1_2",
-      "model": "outdoor:porch_railing_straight",
-      "x": 3.6,
-      "z": 9.65,
-      "solid": true,
-      "size": [
-        1.8,
-        1.05,
-        0.12
-      ]
-    },
-    {
-      "id": "house_2_garden_rail_1_2",
-      "model": "outdoor:porch_railing_straight",
-      "x": 14.4,
-      "z": 9.65,
-      "solid": true,
-      "size": [
-        1.8,
-        1.05,
-        0.12
-      ]
-    },
-    {
       "id": "house_3_front_doorway_0",
       "model": "outdoor:house_03_wall_doorway",
       "x": 27.0,
@@ -6207,78 +5991,6 @@
           ],
           "falloff": "smooth"
         }
-      ]
-    },
-    {
-      "id": "house_3_garden_rail_-1_0",
-      "model": "outdoor:porch_railing_straight",
-      "x": 25.2,
-      "z": 9.65,
-      "solid": true,
-      "size": [
-        1.8,
-        1.05,
-        0.12
-      ]
-    },
-    {
-      "id": "house_3_garden_rail_1_0",
-      "model": "outdoor:porch_railing_straight",
-      "x": 28.8,
-      "z": 9.65,
-      "solid": true,
-      "size": [
-        1.8,
-        1.05,
-        0.12
-      ]
-    },
-    {
-      "id": "house_3_garden_rail_-1_1",
-      "model": "outdoor:porch_railing_straight",
-      "x": 23.4,
-      "z": 9.65,
-      "solid": true,
-      "size": [
-        1.8,
-        1.05,
-        0.12
-      ]
-    },
-    {
-      "id": "house_3_garden_rail_1_1",
-      "model": "outdoor:porch_railing_straight",
-      "x": 30.6,
-      "z": 9.65,
-      "solid": true,
-      "size": [
-        1.8,
-        1.05,
-        0.12
-      ]
-    },
-    {
-      "id": "house_3_garden_rail_-1_2",
-      "model": "outdoor:porch_railing_straight",
-      "x": 21.6,
-      "z": 9.65,
-      "solid": true,
-      "size": [
-        1.8,
-        1.05,
-        0.12
-      ]
-    },
-    {
-      "id": "house_3_garden_rail_1_2",
-      "model": "outdoor:porch_railing_straight",
-      "x": 32.4,
-      "z": 9.65,
-      "solid": true,
-      "size": [
-        1.8,
-        1.05,
-        0.12
       ]
     },
     {
@@ -15961,6 +15673,910 @@
       "rotation_degrees": 266.953,
       "scale": 0.9089,
       "occludes": false
+    },
+    {
+      "id": "house_0_garden_rail_-1_post_0_0",
+      "model": "outdoor:porch_post",
+      "x": -27.9,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_0_garden_rail_-1_post_0_1",
+      "model": "outdoor:porch_post",
+      "x": -29.7,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_0_garden_rail_-1_post_0_2",
+      "model": "outdoor:porch_post",
+      "x": -31.5,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_0_garden_rail_-1_post_0_3",
+      "model": "outdoor:porch_post",
+      "x": -33.3,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_0_garden_rail_-1_section_0_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": -28.8,
+      "z": 9.65,
+      "y": -0.006,
+      "rotation_degrees": 180.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693943,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "house_0_garden_rail_-1_section_0_1",
+      "model": "outdoor:porch_railing_straight",
+      "x": -30.6,
+      "z": 9.65,
+      "y": -0.006,
+      "rotation_degrees": 180.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693943,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "house_0_garden_rail_-1_section_0_2",
+      "model": "outdoor:porch_railing_straight",
+      "x": -32.4,
+      "z": 9.65,
+      "y": -0.006,
+      "rotation_degrees": 180.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693943,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "house_0_garden_rail_1_post_0_0",
+      "model": "outdoor:porch_post",
+      "x": -26.1,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_0_garden_rail_1_post_0_1",
+      "model": "outdoor:porch_post",
+      "x": -24.3,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_0_garden_rail_1_post_0_2",
+      "model": "outdoor:porch_post",
+      "x": -22.5,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_0_garden_rail_1_post_0_3",
+      "model": "outdoor:porch_post",
+      "x": -20.7,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_0_garden_rail_1_section_0_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": -25.2,
+      "z": 9.65,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693943,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "house_0_garden_rail_1_section_0_1",
+      "model": "outdoor:porch_railing_straight",
+      "x": -23.4,
+      "z": 9.65,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693943,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "house_0_garden_rail_1_section_0_2",
+      "model": "outdoor:porch_railing_straight",
+      "x": -21.6,
+      "z": 9.65,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693943,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "house_1_garden_rail_-1_post_0_0",
+      "model": "outdoor:porch_post",
+      "x": -9.9,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_1_garden_rail_-1_post_0_1",
+      "model": "outdoor:porch_post",
+      "x": -11.7,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_1_garden_rail_-1_post_0_2",
+      "model": "outdoor:porch_post",
+      "x": -13.5,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_1_garden_rail_-1_post_0_3",
+      "model": "outdoor:porch_post",
+      "x": -15.3,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_1_garden_rail_-1_section_0_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": -10.8,
+      "z": 9.65,
+      "y": -0.006,
+      "rotation_degrees": 180.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693943,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "house_1_garden_rail_-1_section_0_1",
+      "model": "outdoor:porch_railing_straight",
+      "x": -12.6,
+      "z": 9.65,
+      "y": -0.006,
+      "rotation_degrees": 180.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693943,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "house_1_garden_rail_-1_section_0_2",
+      "model": "outdoor:porch_railing_straight",
+      "x": -14.4,
+      "z": 9.65,
+      "y": -0.006,
+      "rotation_degrees": 180.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693943,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "house_1_garden_rail_1_post_0_0",
+      "model": "outdoor:porch_post",
+      "x": -8.1,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_1_garden_rail_1_post_0_1",
+      "model": "outdoor:porch_post",
+      "x": -6.3,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_1_garden_rail_1_post_0_2",
+      "model": "outdoor:porch_post",
+      "x": -4.5,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_1_garden_rail_1_post_0_3",
+      "model": "outdoor:porch_post",
+      "x": -2.7,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_1_garden_rail_1_section_0_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": -7.2,
+      "z": 9.65,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693943,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "house_1_garden_rail_1_section_0_1",
+      "model": "outdoor:porch_railing_straight",
+      "x": -5.4,
+      "z": 9.65,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693943,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "house_1_garden_rail_1_section_0_2",
+      "model": "outdoor:porch_railing_straight",
+      "x": -3.6,
+      "z": 9.65,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693943,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "house_2_garden_rail_-1_post_0_0",
+      "model": "outdoor:porch_post",
+      "x": 8.1,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_2_garden_rail_-1_post_0_1",
+      "model": "outdoor:porch_post",
+      "x": 6.3,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_2_garden_rail_-1_post_0_2",
+      "model": "outdoor:porch_post",
+      "x": 4.5,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_2_garden_rail_-1_post_0_3",
+      "model": "outdoor:porch_post",
+      "x": 2.7,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_2_garden_rail_-1_section_0_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": 7.2,
+      "z": 9.65,
+      "y": -0.006,
+      "rotation_degrees": 180.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693943,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "house_2_garden_rail_-1_section_0_1",
+      "model": "outdoor:porch_railing_straight",
+      "x": 5.4,
+      "z": 9.65,
+      "y": -0.006,
+      "rotation_degrees": 180.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693943,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "house_2_garden_rail_-1_section_0_2",
+      "model": "outdoor:porch_railing_straight",
+      "x": 3.6,
+      "z": 9.65,
+      "y": -0.006,
+      "rotation_degrees": 180.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693943,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "house_2_garden_rail_1_post_0_0",
+      "model": "outdoor:porch_post",
+      "x": 9.9,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_2_garden_rail_1_post_0_1",
+      "model": "outdoor:porch_post",
+      "x": 11.7,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_2_garden_rail_1_post_0_2",
+      "model": "outdoor:porch_post",
+      "x": 13.5,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_2_garden_rail_1_post_0_3",
+      "model": "outdoor:porch_post",
+      "x": 15.3,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_2_garden_rail_1_section_0_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": 10.8,
+      "z": 9.65,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693943,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "house_2_garden_rail_1_section_0_1",
+      "model": "outdoor:porch_railing_straight",
+      "x": 12.6,
+      "z": 9.65,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693943,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "house_2_garden_rail_1_section_0_2",
+      "model": "outdoor:porch_railing_straight",
+      "x": 14.4,
+      "z": 9.65,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693943,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "house_3_garden_rail_-1_post_0_0",
+      "model": "outdoor:porch_post",
+      "x": 26.1,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_3_garden_rail_-1_post_0_1",
+      "model": "outdoor:porch_post",
+      "x": 24.3,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_3_garden_rail_-1_post_0_2",
+      "model": "outdoor:porch_post",
+      "x": 22.5,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_3_garden_rail_-1_post_0_3",
+      "model": "outdoor:porch_post",
+      "x": 20.7,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_3_garden_rail_-1_section_0_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": 25.2,
+      "z": 9.65,
+      "y": -0.006,
+      "rotation_degrees": 180.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693943,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "house_3_garden_rail_-1_section_0_1",
+      "model": "outdoor:porch_railing_straight",
+      "x": 23.4,
+      "z": 9.65,
+      "y": -0.006,
+      "rotation_degrees": 180.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693943,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "house_3_garden_rail_-1_section_0_2",
+      "model": "outdoor:porch_railing_straight",
+      "x": 21.6,
+      "z": 9.65,
+      "y": -0.006,
+      "rotation_degrees": 180.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693943,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "house_3_garden_rail_1_post_0_0",
+      "model": "outdoor:porch_post",
+      "x": 27.9,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_3_garden_rail_1_post_0_1",
+      "model": "outdoor:porch_post",
+      "x": 29.7,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_3_garden_rail_1_post_0_2",
+      "model": "outdoor:porch_post",
+      "x": 31.5,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_3_garden_rail_1_post_0_3",
+      "model": "outdoor:porch_post",
+      "x": 33.3,
+      "z": 9.65,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "house_3_garden_rail_1_section_0_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": 28.8,
+      "z": 9.65,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693943,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "house_3_garden_rail_1_section_0_1",
+      "model": "outdoor:porch_railing_straight",
+      "x": 30.6,
+      "z": 9.65,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693943,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "house_3_garden_rail_1_section_0_2",
+      "model": "outdoor:porch_railing_straight",
+      "x": 32.4,
+      "z": 9.65,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693943,
+        "rise": 0.0
+      }
     }
   ],
   "ceiling_lights": [

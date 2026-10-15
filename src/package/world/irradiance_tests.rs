@@ -122,6 +122,7 @@ fn variant_reader_preserves_empty_selected_v3_and_legacy_presence() -> Result<()
             &variant,
             LightmapQuality::Medium,
             &mut crate::props::PropAssets::load_default(),
+            None,
         )?;
         assert!(
             loaded.props.is_empty(),

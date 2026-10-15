@@ -3880,6 +3880,8 @@ fn crouched_eye_height_and_occlusion_respect_geometry() {
         lights: Vec::new(),
         physics: None,
         float: None,
+        span: None,
+        material_overrides: std::collections::BTreeMap::new(),
     });
     let mut game = game_for(&level);
     game.set_app_state(AppState::Playing);

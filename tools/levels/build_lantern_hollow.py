@@ -13,6 +13,8 @@ import math
 import random
 from pathlib import Path
 
+from railings import RailingAuthor
+
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / "levels/lantern_hollow.json"
 SEED = 20260930
@@ -250,10 +252,7 @@ def build_level() -> dict:
                  components=[{"component": "animation", "clip": "laugh", "looped": True, "playing": True}],
                  lights=[light(.25, .18, 2.8)])
         # Fenced front gardens leave the path and both side passages open.
-        for j in range(3):
-            for sign in (-1, 1):
-                prop("outdoor:porch_railing_straight", cx + sign * (1.8 + j * 1.8), 9.65,
-                     f"{prefix}_garden_rail_{sign}_{j}", solid=True)
+        # Emitted after the outdoor floor tiles exist, using their real ground.
 
     # Shared coordinates keep adjacent trail cells continuous and bound each
     # room's floor grid. Arbitrary overlapping sample rectangles would multiply
@@ -371,6 +370,11 @@ def build_level() -> dict:
     # lookups. Put sealed cottages before adjoining open floor tiles so a
     # perimeter wall cannot accidentally inherit the outdoor 8 m ceiling.
     level["rooms"].sort(key=lambda room: room["ceiling"]["kind"] != "gable")
+    railings = RailingAuthor(level, catalog)
+    for index, cx in enumerate(HOUSE_CENTERS):
+        for sign in (-1, 1):
+            railings.run(f'house_{index}_garden_rail_{sign}',
+                         [(cx+sign*.9, 0, 9.65), (cx+sign*6.3, 0, 9.65)])
     return level
 
 

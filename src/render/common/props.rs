@@ -578,8 +578,17 @@ pub fn resolve_prop_instances<'a>(
     assets: &mut crate::props::PropAssets,
     lighting: &LevelLighting,
     surfaces: &LevelSurfaces<'_>,
+    materials: &crate::materials::MaterialTable,
 ) -> (Vec<PropMeshBatch>, Vec<&'a PropDef>) {
-    resolve_prop_instances_inner(level, catalog, assets, lighting, surfaces, None, false)
+    resolve_prop_instances_inner(
+        level,
+        catalog,
+        assets,
+        lighting,
+        surfaces,
+        materials,
+        PropLightingMode::Vertex,
+    )
 }
 
 /// Preserve historical model/batch budgets and fallback discovery without
@@ -591,8 +600,17 @@ pub(super) fn resolve_prop_fallbacks<'a>(
     assets: &mut crate::props::PropAssets,
     lighting: &LevelLighting,
     surfaces: &LevelSurfaces<'_>,
+    materials: &crate::materials::MaterialTable,
 ) -> (Vec<PropMeshBatch>, Vec<&'a PropDef>) {
-    resolve_prop_instances_inner(level, catalog, assets, lighting, surfaces, None, true)
+    resolve_prop_instances_inner(
+        level,
+        catalog,
+        assets,
+        lighting,
+        surfaces,
+        materials,
+        PropLightingMode::Deferred,
+    )
 }
 
 /// Resolves static surface receivers after architecture has reserved its atlas
@@ -603,6 +621,7 @@ pub fn resolve_prop_instances_lightmapped<'a>(
     assets: &mut crate::props::PropAssets,
     lighting: &LevelLighting,
     surfaces: &LevelSurfaces<'_>,
+    materials: &crate::materials::MaterialTable,
     plan: &mut crate::lighting::lightmap::LightmapPlan,
 ) -> (Vec<PropMeshBatch>, Vec<&'a PropDef>) {
     resolve_prop_instances_inner(
@@ -611,10 +630,35 @@ pub fn resolve_prop_instances_lightmapped<'a>(
         assets,
         lighting,
         surfaces,
-        Some(plan),
-        false,
+        materials,
+        PropLightingMode::Lightmap(plan),
     )
 }
+
+enum PropLightingMode<'a> {
+    Vertex,
+    Deferred,
+    Lightmap(&'a mut crate::lighting::lightmap::LightmapPlan),
+}
+
+impl<'a> PropLightingMode<'a> {
+    const fn into_options(
+        self,
+    ) -> (
+        Option<&'a mut crate::lighting::lightmap::LightmapPlan>,
+        bool,
+    ) {
+        match self {
+            Self::Vertex => (None, false),
+            Self::Deferred => (None, true),
+            Self::Lightmap(plan) => (Some(plan), false),
+        }
+    }
+}
+
+type PropVariantKey = (String, std::collections::BTreeMap<u16, String>);
+type PropVariantCache =
+    std::collections::HashMap<PropVariantKey, Arc<crate::props::LoadedPropAsset>>;
 
 // one bounded deterministic model/cell batching pass
 fn resolve_prop_instances_inner<'a>(
@@ -623,18 +667,21 @@ fn resolve_prop_instances_inner<'a>(
     assets: &mut crate::props::PropAssets,
     lighting: &LevelLighting,
     surfaces: &LevelSurfaces<'_>,
-    mut plan: Option<&mut crate::lighting::lightmap::LightmapPlan>,
-    defer_static_lighting: bool,
+    materials: &crate::materials::MaterialTable,
+    mode: PropLightingMode<'_>,
 ) -> (Vec<PropMeshBatch>, Vec<&'a PropDef>) {
     use std::collections::{HashMap, HashSet};
 
+    let (mut plan, defer_static_lighting) = mode.into_options();
     let grid = spatial_cell_grid(level);
     let claimed = super::character::claimed_character_models(level, catalog, assets);
     let mut builders: Vec<BatchBuilder> = Vec::new();
-    // Keyed by (model, cell): one drawable range per model per spatial cell.
-    let mut index_by_batch: HashMap<(String, crate::spatial::CellKey), usize> = HashMap::new();
+    // Variants share decoded input images; each material combination is built
+    // once during preparation and receives its own compatible draw ranges.
+    let mut variants = PropVariantCache::new();
+    let mut index_by_batch: HashMap<(PropVariantKey, crate::spatial::CellKey), usize> =
+        HashMap::new();
     let mut models_seen: HashSet<String> = HashSet::new();
-    let mut textures_by_model: HashMap<String, Vec<Arc<crate::loader::RawImage>>> = HashMap::new();
     let mut fallbacks: Vec<&'a PropDef> = Vec::new();
     let mut busy_vertices = 0usize;
 
@@ -654,7 +701,7 @@ fn resolve_prop_instances_inner<'a>(
             fallbacks.push(prop);
             continue;
         }
-        let asset = match assets.resolve(&model_path) {
+        let source_asset = match assets.resolve(&model_path) {
             Ok(asset) => asset,
             Err(error) => {
                 assets.report_failure(&model_path, &error);
@@ -662,6 +709,16 @@ fn resolve_prop_instances_inner<'a>(
                 continue;
             }
         };
+        let variant_key = (model_path.clone(), prop.material_overrides.clone());
+        let asset =
+            match resolve_material_variant(source_asset, &variant_key, materials, &mut variants) {
+                Ok(asset) => asset,
+                Err(error) => {
+                    assets.report_failure(&model_path, &error);
+                    fallbacks.push(prop);
+                    continue;
+                }
+            };
         if !models_seen.contains(&model_path)
             && models_seen.len() >= crate::level::MAX_LEVEL_PROP_MODELS
         {
@@ -679,23 +736,14 @@ fn resolve_prop_instances_inner<'a>(
         // Cull by the instance's real world-space extent, not by the cell it
         // happens to be centred in: a chair on a cell boundary must not be
         // culled while a sliver of it is still on screen.
-        let instance_bounds = match asset.model.bounds() {
-            Some((low, high)) => transform_bounds(
-                &crate::spatial::Aabb {
-                    min: low,
-                    max: high,
-                },
-                &model,
-            ),
-            None => crate::spatial::Aabb::from_point([prop.x, base_y + prop.y, prop.z]),
-        };
+        let instance_bounds = prop_instance_bounds(&asset.model, &model, prop, base_y);
         let cell = grid.cell_of(instance_bounds.centre());
 
         // One batch holds every instance of a model inside one spatial cell, but
         // never more than a 16-bit index can address: `PropMeshBatch::indices`
         // are `GL_UNSIGNED_SHORT` offsets into the batch's own vertex list, so a
         // cell holding hundreds of instances has to become several batches.
-        let key = (model_path.clone(), cell);
+        let key = (variant_key, cell);
         let batch_index = match index_by_batch.get(&key).copied() {
             Some(index)
                 if builders
@@ -706,11 +754,8 @@ fn resolve_prop_instances_inner<'a>(
             }
             _ => {
                 let _new_entry = models_seen.insert(model_path.clone());
-                let textures = textures_by_model
-                    .entry(model_path.clone())
-                    .or_insert_with(|| asset.model.textures.clone())
-                    .clone();
-                let mut builder = BatchBuilder::new(&model_path, &asset.model, textures);
+                let textures = asset.model.textures.clone();
+                let mut builder = BatchBuilder::new(&asset.model_path, &asset.model, textures);
                 builder.casts_static_lighting = !claimed.contains(&model_path);
                 if !builder.has_room_for(&asset.model, lightmapped) {
                     fallbacks.push(prop);
@@ -745,6 +790,176 @@ fn resolve_prop_instances_inner<'a>(
 
     let batches = builders.into_iter().map(BatchBuilder::finish).collect();
     (batches, fallbacks)
+}
+
+fn prop_instance_bounds(
+    model: &crate::gltf::PropModel,
+    transform: &glam::Mat4,
+    prop: &PropDef,
+    base_y: f32,
+) -> crate::spatial::Aabb {
+    model.bounds().map_or_else(
+        || crate::spatial::Aabb::from_point([prop.x, base_y + prop.y, prop.z]),
+        |(min, max)| transform_bounds(&crate::spatial::Aabb { min, max }, transform),
+    )
+}
+
+fn resolve_material_variant(
+    source: Arc<crate::props::LoadedPropAsset>,
+    key: &PropVariantKey,
+    materials: &crate::materials::MaterialTable,
+    variants: &mut PropVariantCache,
+) -> Result<Arc<crate::props::LoadedPropAsset>, String> {
+    if key.1.is_empty() {
+        return Ok(source);
+    }
+    if let Some(variant) = variants.get(key) {
+        return Ok(Arc::clone(variant));
+    }
+    if variants.len() >= crate::level::MAX_LEVEL_PROP_MODELS {
+        return Err("static prop material variant budget exceeded".into());
+    }
+    let variant = Arc::new(override_materials(&source, &key.1, materials)?);
+    let _previous = variants.insert(key.clone(), Arc::clone(&variant));
+    Ok(variant)
+}
+
+/// Resolves one immutable material variant. Vertex/index arrays are cloned
+/// once per distinct override set; decoded PNGs remain shared through Arc.
+fn override_materials(
+    source: &crate::props::LoadedPropAsset,
+    overrides: &std::collections::BTreeMap<u16, String>,
+    materials: &crate::materials::MaterialTable,
+) -> Result<crate::props::LoadedPropAsset, String> {
+    if source.model.is_animatable() {
+        return Err("material overrides require a static model".into());
+    }
+    let mut model = source.model.clone();
+    for (&slot, id) in overrides {
+        let material = materials
+            .entry_of(id)
+            .ok_or_else(|| format!("unknown material override `{id}`"))?;
+        if let Some(error) = &material.error {
+            return Err(format!("material override `{id}`: {error}"));
+        }
+        if !model
+            .submeshes
+            .iter()
+            .any(|submesh| submesh.material == slot)
+        {
+            return Err(format!(
+                "material override slot {slot} is absent from {}",
+                source.model_path
+            ));
+        }
+        if model.submeshes.iter().any(|submesh| {
+            submesh.material == slot && submesh.alpha.mode != crate::materials::AlphaMode::Opaque
+        }) {
+            return Err("material overrides require opaque source slots".into());
+        }
+        let (texture, response, emission) =
+            append_material_images(&mut model.textures, material, materials)?;
+        for submesh in &mut model.submeshes {
+            if submesh.material != slot {
+                continue;
+            }
+            submesh.texture = Some(texture);
+            submesh.response = response;
+            submesh.emission = emission;
+            submesh.alpha = material.alpha;
+            let start = usize::try_from(submesh.first_index).unwrap_or(usize::MAX);
+            let end = start.saturating_add(usize::try_from(submesh.index_count).unwrap_or(0));
+            for index in model.indices.get(start..end).into_iter().flatten() {
+                if let Some(vertex) = model.vertices.get_mut(usize::from(*index)) {
+                    let [red, green, blue] = material.tint;
+                    vertex.color = [red, green, blue, 1.0];
+                }
+            }
+        }
+    }
+    Ok(crate::props::LoadedPropAsset {
+        model_path: crate::props::model_variant_identity(&source.model_path, overrides),
+        model,
+    })
+}
+
+/// Package loading restores only shared image references; prepared vertices,
+/// material ranges and normal frames are already stored in the prop record.
+///
+/// # Errors
+/// Returns an error for an unresolved or non-opaque material override.
+pub fn override_material_textures(
+    source: &crate::props::LoadedPropAsset,
+    overrides: &std::collections::BTreeMap<u16, String>,
+    materials: &crate::materials::MaterialTable,
+) -> Result<Vec<Arc<crate::loader::RawImage>>, String> {
+    let mut textures = source.model.textures.clone();
+    for id in overrides.values() {
+        let material = materials
+            .entry_of(id)
+            .ok_or_else(|| format!("unknown material override `{id}`"))?;
+        let _binding = append_material_images(&mut textures, material, materials)?;
+    }
+    Ok(textures)
+}
+
+fn append_material_images(
+    textures: &mut Vec<Arc<crate::loader::RawImage>>,
+    material: &crate::materials::ResolvedMaterial,
+    materials: &crate::materials::MaterialTable,
+) -> Result<(u16, crate::materials::MaterialResponse, MaterialEmission), String> {
+    if material.alpha.mode != crate::materials::AlphaMode::Opaque {
+        return Err(format!(
+            "material override `{}` must be opaque",
+            material.id
+        ));
+    }
+    if let Some(error) = &material.error {
+        return Err(format!("material override `{}`: {error}", material.id));
+    }
+    let image = material
+        .image
+        .as_ref()
+        .ok_or_else(|| format!("material override `{}` has no decoded PNG", material.id))?;
+    let texture = intern_override_image(textures, image)?;
+    let mut response = material.response;
+    response.normal = remap_override_image(response.normal, materials, textures)?;
+    response.fluorescence.mask =
+        remap_override_image(response.fluorescence.mask, materials, textures)?;
+    let mut emission = material.emission;
+    emission.mask = remap_override_image(emission.mask, materials, textures)?;
+    Ok((texture, response, emission))
+}
+
+fn intern_override_image(
+    textures: &mut Vec<Arc<crate::loader::RawImage>>,
+    image: &Arc<crate::loader::RawImage>,
+) -> Result<u16, String> {
+    if let Some(index) = textures
+        .iter()
+        .position(|existing| Arc::ptr_eq(existing, image))
+    {
+        return u16::try_from(index).map_err(|error| error.to_string());
+    }
+    let index = u16::try_from(textures.len()).map_err(|error| error.to_string())?;
+    textures.push(Arc::clone(image));
+    Ok(index)
+}
+
+fn remap_override_image(
+    source_index: Option<u32>,
+    materials: &crate::materials::MaterialTable,
+    textures: &mut Vec<Arc<crate::loader::RawImage>>,
+) -> Result<Option<u32>, String> {
+    source_index
+        .map(|index| {
+            let image = materials
+                .textures()
+                .get(usize::try_from(index).unwrap_or(usize::MAX))
+                .ok_or_else(|| "material override references a missing texture".to_string())?;
+            intern_override_image(textures, &image.image).map(u32::from)
+        })
+        .transpose()
 }
 
 /// Flat triangles and atlas receivers need independent corners at hard edges.
@@ -912,23 +1127,154 @@ pub fn transform_bounds(
 /// `assets/README.md`).
 #[must_use]
 pub fn prop_instance_matrix(prop: &PropDef, base_y: f32) -> glam::Mat4 {
-    let rotation = glam::Mat4::from_rotation_y(prop.rotation_degrees.to_radians());
-    let scale = glam::Mat4::from_scale(glam::Vec3::splat(prop.scale));
-    let translation =
-        glam::Mat4::from_translation(glam::Vec3::new(prop.x, base_y + prop.y, prop.z));
-    // `glam` matrix multiplication is per-element `f32` arithmetic with no
-    // overflow or panic path; clippy cannot see that through the operator impl.
-    #[expect(
-        clippy::arithmetic_side_effects,
-        reason = "`glam` matrix multiplication is per-element `f32` arithmetic with no integer overflow or panic path; clippy cannot see that through the operator impl."
-    )]
-    let transform = translation * rotation * scale;
-    transform
+    prop.placement_matrix(base_y)
 }
 
 #[cfg(test)]
 #[path = "prop_chart_tests.rs"]
 mod prop_chart_tests;
+
+#[cfg(test)]
+mod material_variant_tests {
+    use super::*;
+
+    fn material_fixture() -> Result<
+        (
+            crate::materials::MaterialTable,
+            Arc<crate::props::LoadedPropAsset>,
+        ),
+        String,
+    > {
+        let level = LevelDef::from_json(
+            r#"{"format_version":3,"id":"material_variant","name":"Variant",
+          "spawn":{"x":0,"z":0},"rooms":[{"width":1,"depth":1}],
+          "defaults":{"wall":"pack:coat","floor":"pack:coat","ceiling":"pack:coat"}}
+        "#,
+        )
+        .map_err(|error| error.to_string())?;
+        let png = crate::materials::encode_png(&crate::loader::RawImage::new(
+            1,
+            1,
+            vec![128, 160, 200, 255],
+        ))?;
+        let pack = crate::materials::PackMaterials::new(
+            "rail_test",
+            Some(
+                r#"{"materials":{"pack:coat":{
+          "texture":"coat.png","tint":[0.5,0.6,0.7],"specular":0.4,
+          "normal_texture":"coat.png","emissive":[0.1,0.2,0.3],"emissive_mask":"coat.png",
+          "uv_response":0.5,"uv_response_mask":"coat.png"}}}"#,
+            ),
+            std::collections::HashMap::from([("coat.png".to_string(), Arc::<[u8]>::from(png))]),
+        );
+        let materials = crate::materials::resolve_materials(
+            &level,
+            &crate::assets::AssetCatalog::builtin(),
+            Some(&pack),
+            None,
+            &mut crate::materials::TextureCache::new(),
+        );
+        let vertex = crate::gltf::PropVertex {
+            pos: [0.0, 0.0, 0.0],
+            normal: Some([0.0, 1.0, 0.0]),
+            color: [0.2, 0.3, 0.4, 1.0],
+            uv: [0.25, 0.75],
+        };
+        let wood = crate::gltf::PropSubmesh {
+            double_sided: true,
+            response: crate::materials::MaterialResponse::NONE,
+            material: 0,
+            texture: None,
+            emission: MaterialEmission::NONE,
+            alpha: MaterialAlpha::OPAQUE,
+            first_index: 0,
+            index_count: 3,
+        };
+        let snow = crate::gltf::PropSubmesh {
+            material: 1,
+            first_index: 3,
+            ..wood
+        };
+        let source = Arc::new(crate::props::LoadedPropAsset {
+            model_path: "models/rail.glb".into(),
+            model: crate::gltf::PropModel {
+                vertices: vec![vertex; 6],
+                indices: vec![0, 1, 2, 3, 4, 5],
+                submeshes: vec![wood, snow],
+                triangles: 2,
+                materials: 2,
+                ..crate::gltf::PropModel::default()
+            },
+        });
+        Ok((materials, source))
+    }
+
+    /// Six vertices and one 1px in-memory PNG protect slot isolation, image
+    /// index remapping and cache reuse without loading or preparing a map.
+    #[test]
+    fn static_material_variants_preserve_snow_and_restore_shared_images() -> Result<(), String> {
+        let (materials, source) = material_fixture()?;
+        let overrides = std::collections::BTreeMap::from([(0, "pack:coat".to_string())]);
+        let key = (source.model_path.clone(), overrides.clone());
+        let mut cache = PropVariantCache::new();
+        let first = resolve_material_variant(Arc::clone(&source), &key, &materials, &mut cache)?;
+        let second = resolve_material_variant(Arc::clone(&source), &key, &materials, &mut cache)?;
+        assert!(
+            Arc::ptr_eq(&first, &second),
+            "one immutable geometry variant per override set"
+        );
+        assert!(
+            first.model_path.contains("#materials-"),
+            "batch identity separates materials"
+        );
+        assert_eq!(
+            first.model.submeshes.get(1),
+            source.model.submeshes.get(1),
+            "snow slot is untouched"
+        );
+        assert_eq!(
+            first.model.vertices.get(3),
+            source.model.vertices.get(3),
+            "snow vertices are untouched"
+        );
+        let timber = first.model.vertices.first().ok_or("timber vertex")?;
+        assert_eq!(
+            timber.color,
+            [0.5, 0.6, 0.7, 1.0],
+            "new material replaces imported base factors"
+        );
+        assert_eq!(
+            timber.uv,
+            source.model.vertices.first().ok_or("source vertex")?.uv,
+            "fitted source UV contract is preserved"
+        );
+        let primitive = first.model.submeshes.first().ok_or("timber primitive")?;
+        assert_eq!(
+            (
+                primitive.texture,
+                primitive.response.normal,
+                primitive.emission.mask,
+                primitive.response.fluorescence.mask
+            ),
+            (Some(0), Some(0), Some(0), Some(0)),
+            "shared PNG maps have correctly remapped indices"
+        );
+        let restored = override_material_textures(&source, &overrides, &materials)?;
+        assert_eq!(
+            restored.len(),
+            1,
+            "one shared sheet for all material channels"
+        );
+        assert!(
+            restored
+                .first()
+                .zip(first.model.textures.first())
+                .is_some_and(|(a, b)| Arc::ptr_eq(a, b)),
+            "package restoration shares the exact resolved PNG allocation"
+        );
+        Ok(())
+    }
+}
 
 #[cfg(test)]
 mod lighting_reuse_tests {
@@ -961,6 +1307,7 @@ mod lighting_reuse_tests {
             &mut crate::props::PropAssets::default(),
             &LevelLighting::default(),
             &surfaces,
+            &crate::materials::MaterialTable::default(),
         );
         assert!(
             batches.is_empty(),
@@ -1043,8 +1390,14 @@ mod lighting_reuse_tests {
         let mut assets = crate::props::PropAssets::load_default();
         let lighting = LevelLighting::bake(&level);
         let surfaces = LevelSurfaces::new(&level);
-        let (batches, fallbacks) =
-            resolve_prop_fallbacks(&level, &catalog, &mut assets, &lighting, &surfaces);
+        let (batches, fallbacks) = resolve_prop_fallbacks(
+            &level,
+            &catalog,
+            &mut assets,
+            &lighting,
+            &surfaces,
+            &crate::materials::MaterialTable::default(),
+        );
         assert!(fallbacks.is_empty());
         assert_eq!(batches.len(), 1);
         let batch = batches.first().ok_or("preset batch")?;
@@ -1101,10 +1454,22 @@ mod lighting_reuse_tests {
         let lighting = LevelLighting::bake(&level);
         let surfaces = LevelSurfaces::new(&level);
         let mut assets = crate::props::PropAssets::load_default();
-        let (reference, old_fallbacks) =
-            resolve_prop_instances(&level, &catalog, &mut assets, &lighting, &surfaces);
-        let (actual, fallbacks) =
-            resolve_prop_fallbacks(&level, &catalog, &mut assets, &lighting, &surfaces);
+        let (reference, old_fallbacks) = resolve_prop_instances(
+            &level,
+            &catalog,
+            &mut assets,
+            &lighting,
+            &surfaces,
+            &crate::materials::MaterialTable::default(),
+        );
+        let (actual, fallbacks) = resolve_prop_fallbacks(
+            &level,
+            &catalog,
+            &mut assets,
+            &lighting,
+            &surfaces,
+            &crate::materials::MaterialTable::default(),
+        );
         assert_eq!(
             fallbacks.iter().map(|prop| &prop.id).collect::<Vec<_>>(),
             old_fallbacks

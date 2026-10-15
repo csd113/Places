@@ -1822,6 +1822,8 @@ fn placeholder_prop_boxes_receive_the_environment_lighting() {
             lights: Vec::new(),
             physics: None,
             float: None,
+            span: None,
+            material_overrides: std::collections::BTreeMap::new(),
         },
         PropDef {
             id: None,
@@ -1840,6 +1842,8 @@ fn placeholder_prop_boxes_receive_the_environment_lighting() {
             lights: Vec::new(),
             physics: None,
             float: None,
+            span: None,
+            material_overrides: std::collections::BTreeMap::new(),
         },
     ];
     let mesh = build_level_geometry(&level);
@@ -1896,6 +1900,8 @@ fn vertically_offset_props_sample_their_true_world_position() {
         lights: Vec::new(),
         physics: None,
         float: None,
+        span: None,
+        material_overrides: std::collections::BTreeMap::new(),
     };
     let mut raised = base.clone();
     raised.y = 2.0;
@@ -9064,6 +9070,8 @@ fn placeholder_prop_box_faces_point_out_of_the_box() {
         display_name: None,
         physics: None,
         float: None,
+        span: None,
+        material_overrides: std::collections::BTreeMap::new(),
         model: "core:crate".into(),
         x: 2.0,
         y: 0.25,

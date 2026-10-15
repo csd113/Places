@@ -4897,174 +4897,445 @@
       "rotation_degrees": 90
     },
     {
-      "id": "rail_2_snow_0",
-      "model": "winter:snow_rail_top",
-      "x": 16.8,
-      "z": -14.4,
-      "y": 1.042,
-      "rotation_degrees": 270
+      "id": "lodge_rail_0_post_0_0",
+      "model": "outdoor:fence_two_rail_post",
+      "x": -14.91,
+      "z": -7.69,
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
     },
     {
-      "id": "rail_2_lower_snow_0",
-      "model": "winter:snow_rail_top",
-      "x": 16.8,
-      "z": -14.4,
-      "y": 0.322,
-      "rotation_degrees": 270,
-      "scale": 0.72
+      "id": "lodge_rail_0_post_0_1",
+      "model": "outdoor:fence_two_rail_post",
+      "x": -13.53,
+      "z": -7.69,
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
     },
     {
-      "id": "rail_2_snow_1",
-      "model": "winter:snow_rail_top",
-      "x": 16.8,
-      "z": -13.2,
-      "y": 1.042,
-      "rotation_degrees": 270
+      "id": "lodge_rail_0_post_0_2",
+      "model": "outdoor:fence_two_rail_post",
+      "x": -12.15,
+      "z": -7.69,
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
     },
     {
-      "id": "rail_2_snow_2",
-      "model": "winter:snow_rail_top",
-      "x": 16.8,
-      "z": -12.0,
-      "y": 1.042,
-      "rotation_degrees": 270
+      "id": "lodge_rail_0_section_0_0",
+      "model": "outdoor:fence_two_rail_section",
+      "x": -14.22,
+      "z": -7.69,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.78,
+        0.845,
+        0.065
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.78,
+        "length": 1.275314,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
     },
     {
-      "id": "rail_2_snow_3",
-      "model": "winter:snow_rail_top",
-      "x": 16.8,
-      "z": -10.8,
-      "y": 1.042,
-      "rotation_degrees": 270
+      "id": "lodge_rail_0_section_0_1",
+      "model": "outdoor:fence_two_rail_section",
+      "x": -12.84,
+      "z": -7.69,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.78,
+        0.845,
+        0.065
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.78,
+        "length": 1.275314,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
     },
     {
-      "id": "rail_2_lower_snow_3",
-      "model": "winter:snow_rail_top",
-      "x": 16.8,
-      "z": -10.8,
-      "y": 0.322,
-      "rotation_degrees": 270,
-      "scale": 0.72
+      "id": "lodge_rail_1_post_0_0",
+      "model": "outdoor:fence_two_rail_post",
+      "x": -10.85,
+      "z": -7.69,
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
     },
     {
-      "id": "rail_2_snow_4",
-      "model": "winter:snow_rail_top",
-      "x": 16.8,
-      "z": -9.6,
-      "y": 1.042,
-      "rotation_degrees": 270
+      "id": "lodge_rail_1_post_0_1",
+      "model": "outdoor:fence_two_rail_post",
+      "x": -9.47,
+      "z": -7.69,
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
     },
     {
-      "id": "rail_2_snow_5",
-      "model": "winter:snow_rail_top",
-      "x": 16.8,
-      "z": -8.4,
-      "y": 1.042,
-      "rotation_degrees": 270
+      "id": "lodge_rail_1_post_0_2",
+      "model": "outdoor:fence_two_rail_post",
+      "x": -8.09,
+      "z": -7.69,
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
     },
     {
-      "id": "rail_2_snow_6",
-      "model": "winter:snow_rail_top",
-      "x": 16.8,
-      "z": -7.2,
-      "y": 1.042,
-      "rotation_degrees": 270
+      "id": "lodge_rail_1_section_0_0",
+      "model": "outdoor:fence_two_rail_section",
+      "x": -10.16,
+      "z": -7.69,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.78,
+        0.845,
+        0.065
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.78,
+        "length": 1.275314,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
     },
     {
-      "id": "rail_2_lower_snow_6",
-      "model": "winter:snow_rail_top",
-      "x": 16.8,
-      "z": -7.2,
-      "y": 0.322,
-      "rotation_degrees": 270,
-      "scale": 0.72
+      "id": "lodge_rail_1_section_0_1",
+      "model": "outdoor:fence_two_rail_section",
+      "x": -8.78,
+      "z": -7.69,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.78,
+        0.845,
+        0.065
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.78,
+        "length": 1.275314,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
     },
     {
-      "id": "rail_2_snow_7",
-      "model": "winter:snow_rail_top",
-      "x": 16.8,
-      "z": -6.0,
-      "y": 1.042,
-      "rotation_degrees": 270
-    },
-    {
-      "id": "rail_2_snow_8",
-      "model": "winter:snow_rail_top",
-      "x": 16.8,
-      "z": -5.2,
-      "y": 1.042,
-      "rotation_degrees": 270,
-      "scale": 0.3333
-    },
-    {
-      "id": "rail_2_post_snow_0",
-      "model": "winter:snow_post_cap",
+      "id": "pond_rail_post_0_0",
+      "model": "winter:fence_two_rail_post_snow",
       "x": 16.8,
       "z": -15.0,
-      "y": 1.042
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
     },
     {
-      "id": "rail_2_post_snow_1",
-      "model": "winter:snow_post_cap",
+      "id": "pond_rail_post_0_1",
+      "model": "winter:fence_two_rail_post_snow",
       "x": 16.8,
-      "z": -13.8,
-      "y": 1.042
+      "z": -13.33333,
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
     },
     {
-      "id": "rail_2_post_snow_2",
-      "model": "winter:snow_post_cap",
+      "id": "pond_rail_post_0_2",
+      "model": "winter:fence_two_rail_post_snow",
       "x": 16.8,
-      "z": -12.6,
-      "y": 1.042
+      "z": -11.66667,
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
     },
     {
-      "id": "rail_2_post_snow_3",
-      "model": "winter:snow_post_cap",
+      "id": "pond_rail_post_0_3",
+      "model": "winter:fence_two_rail_post_snow",
       "x": 16.8,
-      "z": -11.4,
-      "y": 1.042
+      "z": -10.0,
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
     },
     {
-      "id": "rail_2_post_snow_4",
-      "model": "winter:snow_post_cap",
+      "id": "pond_rail_post_0_4",
+      "model": "winter:fence_two_rail_post_snow",
       "x": 16.8,
-      "z": -10.2,
-      "y": 1.042
+      "z": -8.33333,
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
     },
     {
-      "id": "rail_2_post_snow_5",
-      "model": "winter:snow_post_cap",
+      "id": "pond_rail_post_0_5",
+      "model": "winter:fence_two_rail_post_snow",
       "x": 16.8,
-      "z": -9.0,
-      "y": 1.042
+      "z": -6.66667,
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
     },
     {
-      "id": "rail_2_post_snow_6",
-      "model": "winter:snow_post_cap",
-      "x": 16.8,
-      "z": -7.8,
-      "y": 1.042
-    },
-    {
-      "id": "rail_2_post_snow_7",
-      "model": "winter:snow_post_cap",
-      "x": 16.8,
-      "z": -6.6,
-      "y": 1.042
-    },
-    {
-      "id": "rail_2_post_snow_8",
-      "model": "winter:snow_post_cap",
-      "x": 16.8,
-      "z": -5.4,
-      "y": 1.042
-    },
-    {
-      "id": "rail_2_post_snow_9",
-      "model": "winter:snow_post_cap",
+      "id": "pond_rail_post_0_6",
+      "model": "winter:fence_two_rail_post_snow",
       "x": 16.8,
       "z": -5.0,
-      "y": 1.042
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
+    },
+    {
+      "id": "pond_rail_section_0_0",
+      "model": "winter:fence_two_rail_section_snow",
+      "x": 16.8,
+      "z": -14.16667,
+      "y": -0.006,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.78,
+        0.845,
+        0.065
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.78,
+        "length": 1.561981,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
+    },
+    {
+      "id": "pond_rail_section_0_1",
+      "model": "winter:fence_two_rail_section_snow",
+      "x": 16.8,
+      "z": -12.5,
+      "y": -0.006,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.78,
+        0.845,
+        0.065
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.78,
+        "length": 1.561981,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
+    },
+    {
+      "id": "pond_rail_section_0_2",
+      "model": "winter:fence_two_rail_section_snow",
+      "x": 16.8,
+      "z": -10.83333,
+      "y": -0.006,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.78,
+        0.845,
+        0.065
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.78,
+        "length": 1.561981,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
+    },
+    {
+      "id": "pond_rail_section_0_3",
+      "model": "winter:fence_two_rail_section_snow",
+      "x": 16.8,
+      "z": -9.16667,
+      "y": -0.006,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.78,
+        0.845,
+        0.065
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.78,
+        "length": 1.561981,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
+    },
+    {
+      "id": "pond_rail_section_0_4",
+      "model": "winter:fence_two_rail_section_snow",
+      "x": 16.8,
+      "z": -7.5,
+      "y": -0.006,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.78,
+        0.845,
+        0.065
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.78,
+        "length": 1.561981,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
+    },
+    {
+      "id": "pond_rail_section_0_5",
+      "model": "winter:fence_two_rail_section_snow",
+      "x": 16.8,
+      "z": -5.83333,
+      "y": -0.006,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.78,
+        0.845,
+        0.065
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.78,
+        "length": 1.561981,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
     },
     {
       "id": "rail_2_drift",
@@ -5449,8 +5720,8 @@
     {
       "id": "lodge_rail_string_0",
       "model": "winter:string_lights_short",
-      "x": -13.575,
-      "z": -7.61,
+      "x": -13.53,
+      "z": -7.65,
       "y": 0.57,
       "occludes": false,
       "lights": [
@@ -5507,8 +5778,8 @@
     {
       "id": "lodge_rail_string_1",
       "model": "winter:string_lights_short",
-      "x": -9.425,
-      "z": -7.61,
+      "x": -9.47,
+      "z": -7.65,
       "y": 0.57,
       "occludes": false,
       "lights": [
@@ -6847,32 +7118,7 @@
       "occludes": false
     }
   ],
-  "guardrails": [
-    {
-      "x": -15,
-      "z": -7.65,
-      "y": 0.6,
-      "length": 2.85,
-      "height": 1.05,
-      "material": "winter:timber_01"
-    },
-    {
-      "x": -10.85,
-      "z": -7.65,
-      "y": 0.6,
-      "length": 2.85,
-      "height": 1.05,
-      "material": "winter:timber_01"
-    },
-    {
-      "x": 16.8,
-      "z": -15,
-      "length": 10,
-      "rotation_degrees": 270,
-      "height": 1.05,
-      "material": "winter:timber_01"
-    }
-  ],
+  "guardrails": [],
   "stairs": [
     {
       "x": -17.4,

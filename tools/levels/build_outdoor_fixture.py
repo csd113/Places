@@ -210,16 +210,16 @@ def kit_yard() -> List[Dict]:
     props.append(prop("outdoor:porch_post", corner_x, corner_z,
                       identifier="kit_rail_post", comment=(
                           "Railing support on the module corner: the corner piece wraps it.")))
-    props.append(prop("outdoor:porch_railing_corner", corner_x, corner_z,
+    props.append(prop("outdoor:porch_railing_corner", corner_x + .09, corner_z + .09,
                       identifier="kit_rail_corner"))
-    props.append(prop("outdoor:porch_railing_straight", corner_x + 1.05, corner_z,
+    props.append(prop("outdoor:porch_railing_straight", corner_x + 1.14, corner_z,
                       identifier="kit_rail_east_1"))
-    props.append(prop("outdoor:porch_railing_end", corner_x + 2.10, corner_z,
+    props.append(prop("outdoor:porch_railing_end", corner_x + 2.19, corner_z,
                       identifier="kit_rail_east_end"))
-    props.append(prop("outdoor:porch_railing_straight", corner_x, corner_z + 1.05,
-                      identifier="kit_rail_south_1"))
-    props.append(prop("outdoor:porch_railing_end", corner_x, corner_z + 2.10,
-                      identifier="kit_rail_south_end"))
+    props.append(prop("outdoor:porch_railing_straight", corner_x, corner_z + 1.14,
+                      identifier="kit_rail_south_1", rotation=270))
+    props.append(prop("outdoor:porch_railing_end", corner_x, corner_z + 2.19,
+                      identifier="kit_rail_south_end", rotation=270))
     return props
 
 

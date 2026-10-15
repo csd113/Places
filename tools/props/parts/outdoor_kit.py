@@ -41,10 +41,11 @@ the module corner, and the end terminates a run with a newel; the fixture in
 from __future__ import annotations
 
 import math
+from pathlib import Path
 
 import palette
 from mesh import FACE_KEYS, PropBuilder
-from parts.refreshed import orient_outward, outward_lathe, solid_box, solid_cylinder
+from parts.refreshed import load_atlas_from, orient_outward, outward_lathe, solid_box, solid_cylinder
 from tex import Rng, Texture
 
 # Triangle aims (the pack budget in ``build.py`` is the enforced one; every
@@ -962,44 +963,73 @@ RAIL_DEPTH = 0.12
 BALUSTER = 0.030
 
 
-def _railing_texture(p: PropBuilder, seed: int) -> Texture:
-    tex = p.set_texture(128, seed=seed)
+def _railing_texture(p: PropBuilder) -> Texture:
+    source = Path(__file__).resolve().parents[3] / 'assets/environments/outdoor/props'
+    tex = load_atlas_from(p, source / (p.id.split(':')[1] + '.png'), ())
     tex.region("wood", (0, 0, 64, 128))
     tex.region("metal", (64, 0, 64, 128))
-    _paint_rail_wood(tex, "wood", RAIL_WOOD, seed=seed + 2)
-    _paint_rail_metal(tex, "metal", seed=seed + 7)
     return tex
 
 
+def _rail_stock(p: PropBuilder, center, size, uv, color) -> None:
+    """Retain the shipped timber's small octagonal edge and upper chamfer."""
+    cx, cy, cz = center
+    hx, hy, hz = (value*.5 for value in size)
+    chamfer = min(.005, min(size)*.06)
+    rings = []
+    for y, inset, corner in ((cy-hy, 0, chamfer),
+                             (cy+hy-chamfer, 0, chamfer),
+                             (cy+hy, chamfer, chamfer*.4)):
+        x, z = hx-inset, hz-inset
+        rings.append([(cx+a, y, cz+b) for a, b in
+                      ((-x, -z+corner), (-x+corner, -z),
+                       (x-corner, -z), (x, -z+corner),
+                       (x, z-corner), (x-corner, z),
+                       (-x+corner, z), (-x, z-corner))])
+    start = len(p.mesh.indices)
+    for lower, upper in zip(rings, rings[1:]):
+        for index in range(8):
+            following = (index+1) % 8
+            p.mesh.quad(lower[index], lower[following], upper[following], upper[index],
+                        uv=uv, color=color)
+    u0, v0, u1, v1 = uv
+    for ring in (rings[0], rings[-1]):
+        centre = (cx, ring[0][1], cz)
+        for index in range(8):
+            p.mesh.triangle(centre, ring[index], ring[(index+1) % 8],
+                            uvs=[((u0+u1)/2, (v0+v1)/2), (u0, v0), (u1, v1)], color=color)
+    orient_outward(p.mesh, start, center)
+
+
 def _rail_run(p: PropBuilder, uv, wood_tint, metal_tint, *, x0: float, x1: float, axis: str = "x",
-              top: bool = True, bottom: bool = True, balusters: int = 0) -> None:
+              top: bool = True, bottom: bool = True, balusters: int = 0, offset: float = 0.0) -> None:
     """One rail span along ``axis`` with optional balusters between the rails."""
     length = x1 - x0
     centre = (x0 + x1) * 0.5
     if axis == "x":
         size_top = (length, RAIL_TOP_H, RAIL_DEPTH)
         size_bottom = (length, RAIL_BOTTOM_H, 0.08)
-        centre_top = (centre, RAIL_TOP_Y + RAIL_TOP_H * 0.5, 0.0)
-        centre_bottom = (centre, RAIL_BOTTOM_Y + RAIL_BOTTOM_H * 0.5, 0.0)
+        centre_top = (centre, RAIL_TOP_Y + RAIL_TOP_H * 0.5, offset)
+        centre_bottom = (centre, RAIL_BOTTOM_Y + RAIL_BOTTOM_H * 0.5, offset)
     else:
         size_top = (RAIL_DEPTH, RAIL_TOP_H, length)
         size_bottom = (0.08, RAIL_BOTTOM_H, length)
-        centre_top = (0.0, RAIL_TOP_Y + RAIL_TOP_H * 0.5, centre)
-        centre_bottom = (0.0, RAIL_BOTTOM_Y + RAIL_BOTTOM_H * 0.5, centre)
+        centre_top = (offset, RAIL_TOP_Y + RAIL_TOP_H * 0.5, centre)
+        centre_bottom = (offset, RAIL_BOTTOM_Y + RAIL_BOTTOM_H * 0.5, centre)
     if top:
-        _box(p, centre_top, size_top, uv, wood_tint)
+        _rail_stock(p, centre_top, size_top, uv, wood_tint)
     if bottom:
-        _box(p, centre_bottom, size_bottom, uv, wood_tint)
+        _rail_stock(p, centre_bottom, size_bottom, uv, wood_tint)
     for index in range(balusters):
         t = (index + 1) / (balusters + 1)
         point = x0 + length * t
         height = RAIL_TOP_Y - (RAIL_BOTTOM_Y + RAIL_BOTTOM_H)
         base_y = RAIL_BOTTOM_Y + RAIL_BOTTOM_H
         if axis == "x":
-            centre_bal = (point, base_y + height * 0.5, 0.0)
+            centre_bal = (point, base_y + height * 0.5, offset)
             size_bal = (BALUSTER, height, BALUSTER)
         else:
-            centre_bal = (0.0, base_y + height * 0.5, point)
+            centre_bal = (offset, base_y + height * 0.5, point)
             size_bal = (BALUSTER, height, BALUSTER)
         _box(p, centre_bal, size_bal, uv, metal_tint)
 
@@ -1012,7 +1042,7 @@ def build_porch_railing_straight(p: PropBuilder) -> None:
     the rail dies into a ``outdoor:porch_post`` wherever a post is placed on a
     module boundary.
     """
-    tex = _railing_texture(p, seed=8001)
+    tex = _railing_texture(p)
     wood_uv = tex.uv("wood", inset=2)
     metal_uv = tex.uv("metal", inset=2)
     wood_slot = p.material("railing_timber")
@@ -1024,23 +1054,22 @@ def build_porch_railing_straight(p: PropBuilder) -> None:
     _rail_run(p, wood_uv, wood_tint, metal_tint, x0=-0.9, x1=0.9, balusters=0)
     p.begin_material(metal_slot)
     _rail_run(p, wood_uv, wood_tint, metal_tint, x0=-0.9, x1=0.9, top=False, bottom=False, balusters=9)
-    _fit_to_size(p)
+    p.mesh.floor_clearance = RAIL_BOTTOM_Y
 
     p.add_note("module 1.8 m: top rail at 1.05 m, bottom rail at 0.18 m, nine metal balusters")
     p.add_note("the rail runs the full 1.8 m edge to edge: two modules butted at a module "
                "boundary join with no gap; an outdoor:porch_post on the boundary is the support")
-    p.add_note("origin at the floor, centred on the run; non-solid dressing over a prop or wall collider")
+    p.add_note("floor-reference origin; lowest stock is 0.14 m above the floor, centred on the run")
 
 
 def build_porch_railing_corner(p: PropBuilder) -> None:
     """Right-angle corner: two rail stubs wrapping a 0.12 m post.
 
-    The rails cross at the module corner and each reaches the catalogue edge
-    (0.15 m from the corner), so both legs meet an adjacent straight or end
-    module exactly. A ``outdoor:porch_post`` placed on the same module corner
-    is the support; without it the two stubs still read as a corner.
+    The post anchor is local (-0.09, -0.09) in X/Z. Each leg reaches its
+    positive catalogue edge at +0.15, so the bounding box stays centred
+    without distorting the shared rail/post cross sections.
     """
-    tex = _railing_texture(p, seed=8101)
+    tex = _railing_texture(p)
     wood_uv = tex.uv("wood", inset=2)
     metal_uv = tex.uv("metal", inset=2)
     wood_slot = p.material("railing_timber")
@@ -1049,22 +1078,19 @@ def build_porch_railing_corner(p: PropBuilder) -> None:
     metal_tint = _tint(RAIL_METAL, 0.45)
 
     p.begin_material(wood_slot)
-    _rail_run(p, wood_uv, wood_tint, metal_tint, x0=0.0, x1=0.15, axis="x", balusters=0)
-    _rail_run(p, wood_uv, wood_tint, metal_tint, x0=0.0, x1=0.15, axis="z", balusters=0)
+    _rail_run(p, wood_uv, wood_tint, metal_tint, x0=-0.09, x1=0.15, axis="x", offset=-0.09)
+    _rail_run(p, wood_uv, wood_tint, metal_tint, x0=-0.09, x1=0.15, axis="z", offset=-0.09)
     p.begin_material(metal_slot)
-    _rail_run(p, wood_uv, wood_tint, metal_tint, x0=0.0, x1=0.15, axis="x", top=False, bottom=False,
-              balusters=1)
-    _rail_run(p, wood_uv, wood_tint, metal_tint, x0=0.0, x1=0.15, axis="z", top=False, bottom=False,
-              balusters=1)
-    _fit_to_size(p)
+    _rail_run(p, wood_uv, wood_tint, metal_tint, x0=-0.09, x1=0.15, axis="x", top=False, bottom=False,
+              balusters=1, offset=-0.09)
+    _rail_run(p, wood_uv, wood_tint, metal_tint, x0=-0.09, x1=0.15, axis="z", top=False, bottom=False,
+              balusters=1, offset=-0.09)
+    p.mesh.floor_clearance = RAIL_BOTTOM_Y
 
-    p.add_note("right-angle corner: rails cross on the module corner and reach the 0.30 m "
-               "catalogue edge on both legs (+X and +Z at rotation 0; rotate 90/180/270 for "
-               "the other corners)")
-    p.add_note("pair it with outdoor:porch_post on the same module corner: the corner wraps "
-               "the 0.12 m post and the post is the support")
-    p.add_note("the two rail ends meet an adjacent straight or end module at the corner's "
-               "0.15 m edges, so a run has no gap")
+    p.add_note("right-angle corner: floor-reference origin, post anchor X/Z (-0.09,-0.09), "
+               "join endpoints (+0.15,-0.09) and (-0.09,+0.15) at yaw 0")
+    p.add_note("pair with one outdoor:porch_post on its post anchor; keep the unchanged "
+               "0.12 m top-rail depth and 0.14 m lower-rail underside")
 
 
 def build_porch_railing_end(p: PropBuilder) -> None:
@@ -1075,7 +1101,7 @@ def build_porch_railing_end(p: PropBuilder) -> None:
     meets the last straight module's rail end (0.15 m from the run's terminal
     module boundary).
     """
-    tex = _railing_texture(p, seed=8201)
+    tex = _railing_texture(p)
     wood_uv = tex.uv("wood", inset=2)
     metal_uv = tex.uv("metal", inset=2)
     wood_slot = p.material("railing_timber")
@@ -1086,9 +1112,9 @@ def build_porch_railing_end(p: PropBuilder) -> None:
     p.begin_material(wood_slot)
     _rail_run(p, wood_uv, wood_tint, metal_tint, x0=-0.15, x1=0.05, balusters=0)
     # Newel: a 0.12 m square post at the outer edge, capped at the 1.05 m top.
-    _box(p, (0.09, 0.475, 0.0), (0.118, 0.95, 0.118), wood_uv, wood_tint)
-    _box(p, (0.09, 1.00, 0.0), (0.12, 0.10, 0.12), wood_uv, _tint(RAIL_WOOD, 0.46))
-    _box(p, (0.09, 0.055, 0.0), (0.12, 0.11, 0.12), wood_uv, _tint(RAIL_WOOD, 0.94))
+    _rail_stock(p, (0.09, 0.475, 0.0), (0.118, 0.95, 0.118), wood_uv, wood_tint)
+    _rail_stock(p, (0.09, 1.00, 0.0), (0.12, 0.10, 0.12), wood_uv, _tint(RAIL_WOOD, 0.46))
+    _rail_stock(p, (0.09, 0.055, 0.0), (0.12, 0.11, 0.12), wood_uv, _tint(RAIL_WOOD, 0.94))
     p.begin_material(metal_slot)
     _rail_run(p, wood_uv, wood_tint, metal_tint, x0=-0.15, x1=-0.05, top=False, bottom=False, balusters=1)
     _fit_to_size(p)

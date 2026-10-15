@@ -1080,6 +1080,32 @@ glass. Model emission alone does not illuminate the environment.
 
 ### 8.8 Model geometry conventions (for context)
 
+Linked rail-only sections keep a **floor-reference origin at Y=0**, with
+intentional open space below their stock. `outdoor:porch_railing_straight`
+and `outdoor:porch_railing_corner` (and their Winter snow variants) start at
+Y=0.14; their top rail remains Y=0.95..1.05. `outdoor:fence_two_rail_section`
+and its Winter snow variant start at Y=0.345, with two original timber rails
+at Y=0.345..0.455 and 0.735..0.845. Their catalog height is measured from
+the floor reference to the visual top, rather than the occupied-mesh height.
+Only these documented sections use the exporter `floor_clearance` exception;
+their separate support posts retain real base contact at Y=0. Do not refit
+their occupied bounds to the full catalog height.
+
+The timber section and newel are selected from the original
+`fence_two_rail.glb` vertex/UV/color records, share its committed
+`fence_two_rail.png`, and have one `fence_timber` slot (0). Their Snow copies
+retain those records and add `snow` slot 1. The 1.78 m section's X endpoints
+are ±0.89; the separate newel has a 0.12 m shaft, 0.145 m foot and 0.16 m
+cap at Y=1.05. Snow seats 8 mm into both rails/caps and changes visual
+envelopes only. Use one shared upright per linked endpoint or corner.
+
+The repaired porch corner remains centred in its 0.30 m catalog envelope:
+its post anchor is local X/Z `[-0.09,-0.09]` and its two join endpoints are
+`[0.15,-0.09]` and `[-0.09,0.15]`. Its timber and metal slots remain 0 and
+1, with snow at slot 2. The end's newel is local X=0.09 and its rail meets
+an adjacent section at X=-0.15. Preserve these anchors instead of inferring
+them from a bounding-box edge.
+
 * 1 model unit = 1 metre; +Y up; +Z is the model's front at
   `rotation_degrees = 0`.
 * An **entity frame** (the per-frame handoff to the character renderer) carries
@@ -1553,6 +1579,8 @@ the current compiler builds maps against the installed asset bundle; see
 * `docs/images/item-physics-0.10.0/*.png`: unchanged native gameplay
   captures, 1280×720 or 2560×1440 RGB/RGBA. Retain full frame, orientation
   and colour; these are diagnostic evidence, outside the runtime catalog.
+* `docs/images/modular-railings/*.png`: unchanged 1600×900 native gameplay
+  captures. Retain full frame, orientation and colour; no runtime catalog entry.
 * `docs/videos/places-0.9.0.mp4`: non-runtime promotional gameplay footage,
   16:9, native source at least 960×540 with 960×540 delivery at 30 fps,
   H.264/YUV420P with fast-start

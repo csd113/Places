@@ -15,6 +15,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'props'))
 from string_lights import SPANS, attachment_height, lights
+from railings import RailingAuthor
 from parts.winter import (ROOF_SCALE, ROOF_SNOW_HIGH_Z, ROOF_SNOW_LIP,
                           roof_support_profile)
 
@@ -276,6 +277,7 @@ def build_level() -> dict:
     patch(17, -18, 1.6, 16.2)
     patch(0, -18, 18.6, 1.6)
 
+    rail_specs = []
     # Raised lodge deck: side stairs ascend +X; front ramp descends +Z.
     region(-15, -10, 7, 2.4, .6, 'home:hardwood_oak_01')
     level['stairs'].append({'x': -17.4, 'z': -9.6, 'width': 2.4, 'depth': 1.2,
@@ -284,8 +286,8 @@ def build_level() -> dict:
     level['ramps'].append({'x': -12.1, 'z': -7.6, 'width': 1.2, 'depth': 3,
         'offset_y': .6, 'rise': -.6, 'material': 'winter:snow_packed_01',
         'edge_material': 'winter:snow_01'})
-    for x, length in ((-15, 2.85), (-10.85, 2.85)):
-        level['guardrails'].append({'x': x, 'z': -7.65, 'y': .6, 'length': length,
+    for x, length in ((-14.91, 2.76), (-10.85, 2.76)):
+        rail_specs.append({'x': x, 'z': -7.69, 'y': .6, 'length': length,
             'height': 1.05, 'material': 'winter:timber_01'})
     # Sheltered terrace has a supported roof and a 2.7 m clear ceiling.
     box('lodge_awning', [-15.2, 3.33, -10.05], [-7.8, 3.51, -7.45], 'winter:timber_01')
@@ -307,7 +309,7 @@ def build_level() -> dict:
             z = -4-(strip+1)*.6 if south else -16+strip*.6
             region(x, z, width, .6, 0)
     # A pond railing leaves the west/south shore open for walking onto ice.
-    level['guardrails'].append({'x': 16.8, 'z': -15, 'length': 10, 'rotation_degrees': 270,
+    rail_specs.append({'x': 16.8, 'z': -15, 'length': 10, 'rotation_degrees': 270,
         'height': 1.05, 'material': 'winter:timber_01'})
     for i, (x, z) in enumerate(((-3.5, 2.5), (4, -2), (2.8, -21), (-12.5, 14.4))):
         lamp('outdoor:lamp_stand', x, z, f'path_lamp_{i}')
@@ -457,39 +459,28 @@ def build_level() -> dict:
         mounted('snow_stair_edge', -17.0+step*.8, -9.48, f'lodge_stair_snow_{step}',
                 (step+1)*.2-.008, yaw=90)
 
-    # Add snow to the original guardrails, preserving their exact dimensions,
-    # collision, post spacing and height. Top loads vary along each run.
-    for index, rail in enumerate(level['guardrails']):
-        if index < 2:
-            # Both porch rails lie fully beneath the awning. No snow on the
-            # deck, rail tops, sheltered sills or sealed lower rail space.
-            continue
+    # Match the concept's stout two-rail timber fence. One shared capped
+    # support closes each module boundary; exposed pond stock carries its own
+    # supported snow mesh. The sheltered porch stays bare under the awning.
+    railings = RailingAuthor(level, catalog)
+    for index, rail in enumerate(rail_specs):
         angle = math.radians(rail.get('rotation_degrees', 0))
-        def rail_point(along):
-            return rail['x']+math.cos(angle)*along, rail['z']-math.sin(angle)*along
         base = rail.get('y', local_floor(rail['x'], rail['z']))
-        length = rail['length']
-        for j in range(math.ceil(length/1.2)):
-            span = min(1.2, length-j*1.2)
-            px, pz = rail_point(j*1.2+span/2)
-            mounted('snow_rail_top', px, pz, f'rail_{index}_snow_{j}', base+rail['height']-.008,
-                    yaw=rail.get('rotation_degrees', 0), scale=span/1.2)
-            if j % 3 == 0:
-                mounted('snow_rail_top', px, pz, f'rail_{index}_lower_snow_{j}', base+.322,
-                        yaw=rail.get('rotation_degrees', 0), scale=span/1.2*.72)
-        posts = [j*1.2 for j in range(math.floor(length/1.2)+1)]
-        if length-posts[-1] < .3:
-            posts[-1] = length
-        elif length-posts[-1] > .03:
-            posts.append(length)
-        for j, along in enumerate(posts):
-            px, pz = rail_point(along)
-            mounted('snow_post_cap', px, pz, f'rail_{index}_post_snow_{j}', base+rail['height']-.008)
-        px, pz = rail_point(length*.63)
-        # Keep the pond-side drift above dry shore, never floating over ice.
-        mounted('drift_fence', px, pz,
-                f'rail_{index}_drift', -.008,
-                yaw=rail.get('rotation_degrees', 0))
+        end = (rail['x']+math.cos(angle)*rail['length'], base,
+               rail['z']-math.sin(angle)*rail['length'])
+        exposed = index >= 2
+        identity = 'pond_rail' if exposed else f'lodge_rail_{index}'
+        railings.run(identity, [(rail['x'], base, rail['z']), end],
+                     section='winter:fence_two_rail_section_snow' if exposed else 'outdoor:fence_two_rail_section',
+                     post='winter:fence_two_rail_post_snow' if exposed else 'outdoor:fence_two_rail_post',
+                     spacing=1.8, stock_height=.845, stock_depth=.065,
+                     materials={'0': 'winter:timber_01'},
+                     post_materials={'0': 'winter:timber_01'})
+        if exposed:
+            along = rail['length']*.63
+            mounted('drift_fence', rail['x']+math.cos(angle)*along,
+                    rail['z']-math.sin(angle)*along, f'rail_{index}_drift', -.008,
+                    yaw=rail.get('rotation_degrees', 0))
 
     # Low, supported shoreline loads gather outside the ice footprint. Open
     # west/south entries retain their shallow step and visible snow/ice boundary.
@@ -540,7 +531,7 @@ def build_level() -> dict:
     # Lodge spans hang between the existing awning posts and below the two
     # front rails. Keep the gap above the ramp open and the icicle line clear.
     string('long', -11.5, -7.78, 'lodge_porch_string', 3.25)
-    for i, rail in enumerate(level['guardrails'][:2]):
+    for i, rail in enumerate(rail_specs[:2]):
         string('short', rail['x']+rail['length']/2, rail['z']+.04,
                f'lodge_rail_string_{i}', rail['y']+rail['height']-.11, .10, 3.0)
 

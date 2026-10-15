@@ -1846,6 +1846,8 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
             lights: Vec::new(),
             physics: None,
             float: None,
+            span: None,
+            material_overrides: std::collections::BTreeMap::new(),
         }],
         ..empty.clone()
     };

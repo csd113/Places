@@ -24,6 +24,7 @@ The current workflow uses the following tools:
 | `loading.py` | measures isolated cold/warm startup and loading with the `PLACES_LOAD_TRACE` trace; reports separately named startup, package-loading, first-usable-scene and settings-transition metrics |
 | `capture_views.sh` | renders the fixed validation view set, one PNG per view |
 | `capture_winter_integration.py` | native calm/severe Winter views and held-control traversal assertions, with package/binary identities and weather telemetry |
+| `railings.py` | explicit Office slope/joint, Winter timber fence and Lantern Hollow captures; Static/Full lighting, flashlight, held-control barrier/jump/ramp checks and fixed-view frame costs, using supplied binaries/packages |
 | `capture_outdoor_kit.sh` | compiles/stages the outdoor kit fixture and captures its 17 validation views at one quality profile |
 | `capture_halloween.sh` | stages the Halloween entity fixture and captures motion sequences (jump arc, fade cycle, gait) at `high`, `medium` or `low`; `PLACES_NO_BLOOM` etc. pass through |
 | `capture_movement.sh` | captures real player-motion and moving-entity sequences in Places Demo (jumping onto the kitchen counter/stove/sink, pool entry and exit, the Home chase, the night skeleton) driven by `PLACES_MOVE_SCRIPT`, at `high`, `medium` or `low` |

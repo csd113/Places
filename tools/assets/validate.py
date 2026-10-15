@@ -1040,6 +1040,10 @@ def level_ids(level: dict):
     for prop in level.get("props") or []:
         if prop.get("model"):
             yield str(prop["model"]), "prop"
+        overrides = prop.get("material_overrides")
+        if isinstance(overrides, dict):
+            for material in overrides.values():
+                yield str(material), "prop material override"
     for index, animation in enumerate(level.get("animated_emissions") or []):
         if animation.get("material"):
             yield str(animation["material"]).strip(), f"animated_emissions[{index}] material"
@@ -3120,6 +3124,48 @@ def validate_entity_routes(level: dict, where: str, errors: List[str], prop_ids:
                     errors.append(f"{where}: {source} ('play') loop must be a boolean")
 
 
+def validate_static_prop_options(level: dict, where: str, errors: List[str]) -> None:
+    """Mirror bounded offline span fitting and numeric glTF material slots."""
+    slices = 0
+    for index, prop in enumerate(level.get("props") or []):
+        context = f"{where}: prop {index}"
+        span = prop.get("span")
+        overrides = prop.get("material_overrides") or {}
+        if not isinstance(overrides, dict) or len(overrides) > 16 or any(
+            not isinstance(slot, str) or len(slot) > 2 or not slot.isascii() or not slot.isdigit()
+            or not 0 <= int(slot) < 16 or not isinstance(material, str) or not material.strip()
+            for slot, material in (overrides.items() if isinstance(overrides, dict) else [])
+        ):
+            errors.append(f"{context} material overrides need non-empty ids and numeric slots below 16")
+        if span is None and not overrides:
+            continue
+        if (prop.get("physics") is not None or prop.get("float") is not None
+                or prop.get("components") or prop.get("bindings")):
+            errors.append(f"{context} span and material overrides require static scenery")
+        if span is None:
+            continue
+        if not isinstance(span, dict) or set(span) - {"source_length", "length", "rise"}:
+            errors.append(f"{context} span must be an object with source_length, length and optional rise")
+            continue
+        source, length, rise = span.get("source_length"), span.get("length"), span.get("rise", 0.0)
+        scale = prop.get("scale", 1.0)
+        if (not all(is_finite_number(value) for value in (source, length, rise, scale))
+                or source <= 0 or length <= 0 or scale <= 0
+                or length * scale > 32 or not .1 <= length / source <= 4
+                or abs(rise) > length * 2):
+            errors.append(f"{context} span needs positive finite lengths, a 0.1..4 ratio, at most 32 m after scale and slope <= 2")
+            continue
+        size = prop.get("size")
+        if (not isinstance(size, list) or len(size) != 3
+                or not all(is_finite_number(value) and value > 0 for value in size)
+                or abs(size[0] - source) > .001):
+            errors.append(f"{context} span requires positive size with size[0] matching source_length")
+        if prop.get("solid"):
+            slices += math.ceil(length * scale / .25)
+    if slices > 32768:
+        errors.append(f"{where}: span collision complexity exceeds 32768 slices")
+
+
 def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> Tuple[List[str], List[str]]:
     """Returns ``(errors, warnings)`` for every shipped level, drop-in level and fixture.
 
@@ -3205,6 +3251,7 @@ def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> 
             validate_weather(level, relative, errors)
             validate_water_shapes(level, relative, errors)
             validate_floats(level, relative, errors)
+            validate_static_prop_options(level, relative, errors)
             validate_surface_shine(level, relative, errors)
             validate_architecture(level, relative, errors)
             rooms = list(level.get("rooms") or [])

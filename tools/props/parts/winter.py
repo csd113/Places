@@ -52,6 +52,8 @@ SIZES = {
     'railing_snow_corner': (.3, 1.125, .3),
     'railing_snow_end': (.3, 1.135, .16),
     'fence_post_snow': (.16, 1.135, .16),
+    'fence_two_rail_section_snow': (1.78, .92, .11),
+    'fence_two_rail_post_snow': (.20, 1.135, .20),
     'icicle_short': (.07, .18, .07),
     'icicle_medium': (.10, .36, .10),
     'icicle_long': (.13, .65, .13),
@@ -110,7 +112,8 @@ def roof_support_profile(family='01'):
 
 def _canonical(p, name):
     model = glb.read_glb((OUTDOOR / (name + '.glb')).read_bytes())
-    source = name if (OUTDOOR / (name + '.png')).is_file() else 'showcase_surface'
+    source = ('fence_two_rail' if name.startswith('fence_two_rail_') else
+              name if (OUTDOOR / (name + '.png')).is_file() else 'showcase_surface')
     load_atlas_from(p, OUTDOOR / (source + '.png'), (), keep_alpha=True)
     p.ao_strength = 0
     p.begin_mesh('canonical_base')
@@ -417,19 +420,35 @@ def build_roof_blanket(p):
 
 def build_railing(p, name):
     _canonical(p, name)
+    if name in ('porch_railing_straight', 'porch_railing_corner'):
+        p.mesh.floor_clearance = .14
     if name == 'porch_railing_straight':
         _strip(p, 1.8, .075, .16, y=1.041)
         _strip(p, 1.8, .035, .135, y=.201, seed=51)
     elif name == 'porch_railing_corner':
-        _strip(p, .3, .075, .12, y=1.041)
+        _strip(p, .24, .075, .12, x=.03, z=-.09, y=1.041)
         start = len(p.mesh.positions)
-        _strip(p, .3, .075, .12, y=1.041)
-        p.mesh.positions[start:] = [(z, y+.008, -x) for x, y, z in p.mesh.positions[start:]]
+        _strip(p, .24, .075, .12, x=-.03, z=-.09, y=1.041)
+        p.mesh.positions[start:] = [(z, y, -x) for x, y, z in p.mesh.positions[start:]]
     elif name == 'porch_railing_end':
         _strip(p, .3, .085, .16, y=1.041)
     else:
         _strip(p, .16, .085, .16, y=1.041)
     p.add_note('canonical rail/post geometry retained; collider uses original dimensions')
+
+
+def build_timber_fence(p, name):
+    _canonical(p, name)
+    if name.endswith('_section'):
+        p.mesh.floor_clearance = .345
+        _strip(p, 1.78, .075, .11, y=.837)
+        _strip(p, 1.78, .035, .095, y=.447, seed=51)
+        p.add_note('snow sinks 8 mm into both original timber rails; no balusters or newels '
+                   'inside the section; source length 1.78 m')
+    else:
+        _strip(p, .20, .085, .20, y=1.042)
+        p.add_note('one reused capped timber newel with a supported snow crown; '
+                   'bare structural top y=1.05')
 
 
 def build_icicles(p, count=1):
@@ -462,6 +481,8 @@ for name in SIZES:
     elif name.startswith('railing_snow') or name == 'fence_post_snow':
         base = 'fence_post' if name == 'fence_post_snow' else 'porch_railing_' + name.removeprefix('railing_snow_')
         build = partial(build_railing, name=base)
+    elif name.startswith('fence_two_rail_'):
+        build = partial(build_timber_fence, name=name.removesuffix('_snow'))
     elif name == 'snow_roof_blanket':
         build = build_roof_blanket
     elif name.startswith('icicle_'):

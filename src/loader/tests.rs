@@ -4884,8 +4884,8 @@ fn the_geometry_revision_is_part_of_both_build_fingerprints() {
 
     // The shipped revision is the one the fix introduced, not a placeholder.
     assert_eq!(
-        revision, 12,
-        "closed fluorescent backplates require geometry revision 12"
+        revision, 13,
+        "fitted static prop spans and material variants require geometry revision 13"
     );
 }
 

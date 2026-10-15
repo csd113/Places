@@ -585,6 +585,1714 @@
   ],
   "props": [
     {
+      "id": "shaft_lower_west_post_0_0",
+      "model": "outdoor:porch_post",
+      "x": 24.32,
+      "z": 14.068,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_west_post_0_1",
+      "model": "outdoor:porch_post",
+      "x": 25.068,
+      "z": 14.068,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_west_section_0_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": 24.694,
+      "z": 14.068,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 0.641943,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_west_post_1_1",
+      "model": "outdoor:porch_post",
+      "x": 25.068,
+      "z": 12.63943,
+      "y": -0.02976,
+      "scale": 1.019788,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_west_post_1_2",
+      "model": "outdoor:porch_post",
+      "x": 25.068,
+      "z": 11.21086,
+      "y": -0.02976,
+      "scale": 1.023118,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_west_post_1_3",
+      "model": "outdoor:porch_post",
+      "x": 25.068,
+      "z": 9.78229,
+      "y": -0.02976,
+      "scale": 1.026449,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_west_post_1_4",
+      "model": "outdoor:porch_post",
+      "x": 25.068,
+      "z": 8.35371,
+      "y": -0.02976,
+      "scale": 1.02978,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_west_post_1_5",
+      "model": "outdoor:porch_post",
+      "x": 25.068,
+      "z": 6.92514,
+      "y": -0.02976,
+      "scale": 1.03311,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_west_post_1_6",
+      "model": "outdoor:porch_post",
+      "x": 25.068,
+      "z": 5.49657,
+      "y": -0.02976,
+      "scale": 1.036441,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_west_post_1_7",
+      "model": "outdoor:porch_post",
+      "x": 25.068,
+      "z": 4.068,
+      "y": -0.02976,
+      "scale": 1.039771,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_west_section_1_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": 25.068,
+      "z": 13.35379,
+      "y": -0.02873,
+      "rotation_degrees": 90.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.322356,
+        "rise": -0.472811
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_west_section_1_1",
+      "model": "outdoor:porch_railing_straight",
+      "x": 25.068,
+      "z": 11.92524,
+      "y": -0.02523,
+      "rotation_degrees": 90.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.321997,
+        "rise": -0.472683
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_west_section_1_2",
+      "model": "outdoor:porch_railing_straight",
+      "x": 25.068,
+      "z": 10.49667,
+      "y": -0.02174,
+      "rotation_degrees": 90.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.321597,
+        "rise": -0.47254
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_west_section_1_3",
+      "model": "outdoor:porch_railing_straight",
+      "x": 25.068,
+      "z": 9.0681,
+      "y": -0.01824,
+      "rotation_degrees": 90.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.321198,
+        "rise": -0.472397
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_west_section_1_4",
+      "model": "outdoor:porch_railing_straight",
+      "x": 25.068,
+      "z": 7.63953,
+      "y": -0.01474,
+      "rotation_degrees": 90.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.320798,
+        "rise": -0.472254
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_west_section_1_5",
+      "model": "outdoor:porch_railing_straight",
+      "x": 25.068,
+      "z": 6.21096,
+      "y": -0.01125,
+      "rotation_degrees": 90.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.320398,
+        "rise": -0.472111
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_west_section_1_6",
+      "model": "outdoor:porch_railing_straight",
+      "x": 25.068,
+      "z": 4.78239,
+      "y": -0.00775,
+      "rotation_degrees": 90.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.319999,
+        "rise": -0.471968
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_east_post_0_0",
+      "model": "outdoor:porch_post",
+      "x": 27.932,
+      "z": 4.068,
+      "y": -0.02976,
+      "scale": 1.039771,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_east_post_0_1",
+      "model": "outdoor:porch_post",
+      "x": 27.932,
+      "z": 5.49657,
+      "y": -0.02976,
+      "scale": 1.036441,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_east_post_0_2",
+      "model": "outdoor:porch_post",
+      "x": 27.932,
+      "z": 6.92514,
+      "y": -0.02976,
+      "scale": 1.03311,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_east_post_0_3",
+      "model": "outdoor:porch_post",
+      "x": 27.932,
+      "z": 8.35371,
+      "y": -0.02976,
+      "scale": 1.02978,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_east_post_0_4",
+      "model": "outdoor:porch_post",
+      "x": 27.932,
+      "z": 9.78229,
+      "y": -0.02976,
+      "scale": 1.026449,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_east_post_0_5",
+      "model": "outdoor:porch_post",
+      "x": 27.932,
+      "z": 11.21086,
+      "y": -0.02976,
+      "scale": 1.023118,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_east_post_0_6",
+      "model": "outdoor:porch_post",
+      "x": 27.932,
+      "z": 12.63943,
+      "y": -0.02976,
+      "scale": 1.019788,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_east_post_0_7",
+      "model": "outdoor:porch_post",
+      "x": 27.932,
+      "z": 14.068,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_east_section_0_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": 27.932,
+      "z": 4.78239,
+      "y": -0.00775,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.319999,
+        "rise": 0.471968
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_east_section_0_1",
+      "model": "outdoor:porch_railing_straight",
+      "x": 27.932,
+      "z": 6.21096,
+      "y": -0.01125,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.320398,
+        "rise": 0.472111
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_east_section_0_2",
+      "model": "outdoor:porch_railing_straight",
+      "x": 27.932,
+      "z": 7.63953,
+      "y": -0.01474,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.320798,
+        "rise": 0.472254
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_east_section_0_3",
+      "model": "outdoor:porch_railing_straight",
+      "x": 27.932,
+      "z": 9.0681,
+      "y": -0.01824,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.321198,
+        "rise": 0.472397
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_east_section_0_4",
+      "model": "outdoor:porch_railing_straight",
+      "x": 27.932,
+      "z": 10.49667,
+      "y": -0.02174,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.321597,
+        "rise": 0.47254
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_east_section_0_5",
+      "model": "outdoor:porch_railing_straight",
+      "x": 27.932,
+      "z": 11.92524,
+      "y": -0.02523,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.321997,
+        "rise": 0.472683
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_east_section_0_6",
+      "model": "outdoor:porch_railing_straight",
+      "x": 27.932,
+      "z": 13.35379,
+      "y": -0.02873,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.322356,
+        "rise": 0.472811
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_east_post_1_1",
+      "model": "outdoor:porch_post",
+      "x": 28.816,
+      "z": 14.068,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_east_post_1_2",
+      "model": "outdoor:porch_post",
+      "x": 29.7,
+      "z": 14.068,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_east_section_1_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": 28.374,
+      "z": 14.068,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 0.777943,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_lower_east_section_1_1",
+      "model": "outdoor:porch_railing_straight",
+      "x": 29.258,
+      "z": 14.068,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 0.777943,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_0_0",
+      "model": "outdoor:porch_post",
+      "x": 24.32,
+      "z": 3.932,
+      "y": 7.194,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_0_1",
+      "model": "outdoor:porch_post",
+      "x": 25.6696,
+      "z": 3.932,
+      "y": 7.194,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_0_2",
+      "model": "outdoor:porch_post",
+      "x": 27.0192,
+      "z": 3.932,
+      "y": 7.194,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_0_3",
+      "model": "outdoor:porch_post",
+      "x": 28.3688,
+      "z": 3.932,
+      "y": 7.194,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_0_4",
+      "model": "outdoor:porch_post",
+      "x": 29.7184,
+      "z": 3.932,
+      "y": 7.194,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_0_5",
+      "model": "outdoor:porch_post",
+      "x": 31.068,
+      "z": 3.932,
+      "y": 7.194,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_0_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": 24.9948,
+      "z": 3.932,
+      "y": 7.194,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.243543,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_0_1",
+      "model": "outdoor:porch_railing_straight",
+      "x": 26.3444,
+      "z": 3.932,
+      "y": 7.194,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.243543,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_0_2",
+      "model": "outdoor:porch_railing_straight",
+      "x": 27.694,
+      "z": 3.932,
+      "y": 7.194,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.243543,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_0_3",
+      "model": "outdoor:porch_railing_straight",
+      "x": 29.0436,
+      "z": 3.932,
+      "y": 7.194,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.243543,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_0_4",
+      "model": "outdoor:porch_railing_straight",
+      "x": 30.3932,
+      "z": 3.932,
+      "y": 7.194,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.243543,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_1_1",
+      "model": "outdoor:porch_post",
+      "x": 31.068,
+      "z": 5.38,
+      "y": -0.02976,
+      "scale": 1.023118,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_1_2",
+      "model": "outdoor:porch_post",
+      "x": 31.068,
+      "z": 6.828,
+      "y": -0.02976,
+      "scale": 1.02978,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_1_3",
+      "model": "outdoor:porch_post",
+      "x": 31.068,
+      "z": 8.276,
+      "y": -0.02976,
+      "scale": 1.036441,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_1_4",
+      "model": "outdoor:porch_post",
+      "x": 31.068,
+      "z": 9.724,
+      "y": -0.02976,
+      "scale": 1.043102,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_1_5",
+      "model": "outdoor:porch_post",
+      "x": 31.068,
+      "z": 11.172,
+      "y": -0.02976,
+      "scale": 1.049763,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_1_6",
+      "model": "outdoor:porch_post",
+      "x": 31.068,
+      "z": 12.62,
+      "y": -0.02976,
+      "scale": 1.056424,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_1_7",
+      "model": "outdoor:porch_post",
+      "x": 31.068,
+      "z": 14.068,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_1_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": 31.068,
+      "z": 4.65582,
+      "y": -0.02698,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.341584,
+        "rise": -0.47649
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_1_1",
+      "model": "outdoor:porch_railing_straight",
+      "x": 31.068,
+      "z": 6.1038,
+      "y": -0.01999,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.340826,
+        "rise": -0.476221
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_1_2",
+      "model": "outdoor:porch_railing_straight",
+      "x": 31.068,
+      "z": 7.5518,
+      "y": -0.013,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.340027,
+        "rise": -0.475937
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_1_3",
+      "model": "outdoor:porch_railing_straight",
+      "x": 31.068,
+      "z": 8.9998,
+      "y": -0.006,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.339227,
+        "rise": -0.475653
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_1_4",
+      "model": "outdoor:porch_railing_straight",
+      "x": 31.068,
+      "z": 10.4478,
+      "y": 0.00099,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.338428,
+        "rise": -0.475369
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_1_5",
+      "model": "outdoor:porch_railing_straight",
+      "x": 31.068,
+      "z": 11.8958,
+      "y": 0.00799,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.337629,
+        "rise": -0.475085
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_1_6",
+      "model": "outdoor:porch_railing_straight",
+      "x": 31.068,
+      "z": 13.34518,
+      "y": 0.01499,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.339586,
+        "rise": -0.47578
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_2_1",
+      "model": "outdoor:porch_post",
+      "x": 30.3,
+      "z": 14.068,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_2_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": 30.684,
+      "z": 14.068,
+      "y": -0.006,
+      "rotation_degrees": 180.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 0.661943,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_post_0_0",
+      "model": "outdoor:porch_post",
+      "x": 35.7,
+      "z": 3.932,
+      "y": 7.194,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_post_0_1",
+      "model": "outdoor:porch_post",
+      "x": 34.816,
+      "z": 3.932,
+      "y": 7.194,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_post_0_2",
+      "model": "outdoor:porch_post",
+      "x": 33.932,
+      "z": 3.932,
+      "y": 7.194,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_section_0_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": 35.258,
+      "z": 3.932,
+      "y": 7.194,
+      "rotation_degrees": 180.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 0.777943,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_section_0_1",
+      "model": "outdoor:porch_railing_straight",
+      "x": 34.374,
+      "z": 3.932,
+      "y": 7.194,
+      "rotation_degrees": 180.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 0.777943,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_post_1_1",
+      "model": "outdoor:porch_post",
+      "x": 33.932,
+      "z": 5.38,
+      "y": -0.02976,
+      "scale": 1.023118,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_post_1_2",
+      "model": "outdoor:porch_post",
+      "x": 33.932,
+      "z": 6.828,
+      "y": -0.02976,
+      "scale": 1.02978,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_post_1_3",
+      "model": "outdoor:porch_post",
+      "x": 33.932,
+      "z": 8.276,
+      "y": -0.02976,
+      "scale": 1.036441,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_post_1_4",
+      "model": "outdoor:porch_post",
+      "x": 33.932,
+      "z": 9.724,
+      "y": -0.02976,
+      "scale": 1.043102,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_post_1_5",
+      "model": "outdoor:porch_post",
+      "x": 33.932,
+      "z": 11.172,
+      "y": -0.02976,
+      "scale": 1.049763,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_post_1_6",
+      "model": "outdoor:porch_post",
+      "x": 33.932,
+      "z": 12.62,
+      "y": -0.02976,
+      "scale": 1.056424,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_post_1_7",
+      "model": "outdoor:porch_post",
+      "x": 33.932,
+      "z": 14.068,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_section_1_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": 33.932,
+      "z": 4.65582,
+      "y": -0.02698,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.341584,
+        "rise": -0.47649
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_section_1_1",
+      "model": "outdoor:porch_railing_straight",
+      "x": 33.932,
+      "z": 6.1038,
+      "y": -0.01999,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.340826,
+        "rise": -0.476221
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_section_1_2",
+      "model": "outdoor:porch_railing_straight",
+      "x": 33.932,
+      "z": 7.5518,
+      "y": -0.013,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.340027,
+        "rise": -0.475937
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_section_1_3",
+      "model": "outdoor:porch_railing_straight",
+      "x": 33.932,
+      "z": 8.9998,
+      "y": -0.006,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.339227,
+        "rise": -0.475653
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_section_1_4",
+      "model": "outdoor:porch_railing_straight",
+      "x": 33.932,
+      "z": 10.4478,
+      "y": 0.00099,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.338428,
+        "rise": -0.475369
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_section_1_5",
+      "model": "outdoor:porch_railing_straight",
+      "x": 33.932,
+      "z": 11.8958,
+      "y": 0.00799,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.337629,
+        "rise": -0.475085
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_section_1_6",
+      "model": "outdoor:porch_railing_straight",
+      "x": 33.932,
+      "z": 13.34518,
+      "y": 0.01499,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.339586,
+        "rise": -0.47578
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_post_2_1",
+      "model": "outdoor:porch_post",
+      "x": 34.816,
+      "z": 14.068,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_post_2_2",
+      "model": "outdoor:porch_post",
+      "x": 35.7,
+      "z": 14.068,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_section_2_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": 34.374,
+      "z": 14.068,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 0.777943,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_section_2_1",
+      "model": "outdoor:porch_railing_straight",
+      "x": 35.258,
+      "z": 14.068,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 0.777943,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
       "id": "top_desk_0",
       "model": "core:desk",
       "x": 3.2,
@@ -2050,118 +3758,7 @@
       "edge_material": "core:wallpaper_stained_01"
     }
   ],
-  "guardrails": [
-    {
-      "x": 25.035,
-      "z": 4,
-      "length": 10,
-      "rotation_degrees": 270,
-      "y": -0.02,
-      "rise": 3.6,
-      "height": 1.05,
-      "post_spacing": 1.25,
-      "material": "core:baseboard_office_01"
-    },
-    {
-      "x": 27.965,
-      "z": 4,
-      "length": 10,
-      "rotation_degrees": 270,
-      "y": -0.02,
-      "rise": 3.6,
-      "height": 1.05,
-      "post_spacing": 1.25,
-      "material": "core:baseboard_office_01"
-    },
-    {
-      "x": 31.035,
-      "z": 14,
-      "length": 10,
-      "rotation_degrees": 90,
-      "y": 3.58,
-      "rise": 3.6,
-      "height": 1.05,
-      "post_spacing": 1.25,
-      "material": "core:baseboard_office_01"
-    },
-    {
-      "x": 33.965,
-      "z": 14,
-      "length": 10,
-      "rotation_degrees": 90,
-      "y": 3.58,
-      "rise": 3.6,
-      "height": 1.05,
-      "post_spacing": 1.25,
-      "material": "core:baseboard_office_01"
-    },
-    {
-      "x": 24.32,
-      "z": 14.04,
-      "length": 0.72,
-      "rotation_degrees": 0,
-      "y": 3.585,
-      "rise": 0,
-      "height": 1.05,
-      "post_spacing": 1.25,
-      "material": "core:baseboard_office_01"
-    },
-    {
-      "x": 27.96,
-      "z": 14.04,
-      "length": 1.74,
-      "rotation_degrees": 0,
-      "y": 3.585,
-      "rise": 0,
-      "height": 1.05,
-      "post_spacing": 1.25,
-      "material": "core:baseboard_office_01"
-    },
-    {
-      "x": 30.3,
-      "z": 14.04,
-      "length": 0.74,
-      "rotation_degrees": 0,
-      "y": 3.585,
-      "rise": 0,
-      "height": 1.05,
-      "post_spacing": 1.25,
-      "material": "core:baseboard_office_01"
-    },
-    {
-      "x": 33.96,
-      "z": 14.04,
-      "length": 1.74,
-      "rotation_degrees": 0,
-      "y": 3.585,
-      "rise": 0,
-      "height": 1.05,
-      "post_spacing": 1.25,
-      "material": "core:baseboard_office_01"
-    },
-    {
-      "x": 24.32,
-      "z": 3.96,
-      "length": 6.72,
-      "rotation_degrees": 0,
-      "y": 7.185,
-      "rise": 0,
-      "height": 1.05,
-      "post_spacing": 1.25,
-      "material": "core:baseboard_office_01"
-    },
-    {
-      "x": 33.96,
-      "z": 3.96,
-      "length": 1.74,
-      "rotation_degrees": 0,
-      "y": 7.185,
-      "rise": 0,
-      "height": 1.05,
-      "post_spacing": 1.25,
-      "material": "core:baseboard_office_01"
-    }
-  ],
+  "guardrails": [],
   "baseboards": [
     {
       "x": 24.12,

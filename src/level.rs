@@ -5993,6 +5993,14 @@ pub struct PropDef {
     pub rotation_degrees: f32,
     #[serde(default = "default_prop_scale")]
     pub scale: f32,
+    /// Static local-X module fit. The model stays upright while its rails
+    /// follow the line between the two ends. Origin remains at the midpoint.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub span: Option<PropSpanDef>,
+    /// Catalog materials replacing selected numeric glTF material slots.
+    /// Original fitted UVs are retained; unmentioned slots remain unchanged.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub material_overrides: std::collections::BTreeMap<u16, String>,
     /// Optional explicit box extents [width, height, depth] in metres, overriding the catalog entry.
     #[serde(default)]
     pub size: Option<[f32; 3]>,
@@ -6033,6 +6041,29 @@ pub struct PropDef {
     #[serde(default)]
     pub float: Option<PropFloatDef>,
 }
+
+/// Offline fit of a centred, floor-reference, local-X static model module.
+///
+/// `length` and `rise` describe the span before the placement's uniform scale.
+/// The negative-X end is the start; `rise` is the positive-X end's height minus
+/// the start's. The Y shear retains upright supports instead of pitching them.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PropSpanDef {
+    /// Authored model contact length along local X, in metres.
+    pub source_length: f32,
+    /// Desired horizontal contact length along local X, in metres.
+    pub length: f32,
+    /// Signed height change from negative X to positive X, in metres.
+    #[serde(default)]
+    pub rise: f32,
+}
+
+/// Largest world-space span accepted for one module. Collision subdivision is
+/// bounded to 128 slices at the maximum length.
+pub const MAX_PROP_SPAN_LENGTH_M: f32 = 32.0;
+/// Maximum width of each continuous collision slice along a span.
+pub const PROP_SPAN_COLLISION_STEP_M: f32 = 0.25;
 
 /// Bounded, water-driven motion of a floating prop.
 ///
@@ -6078,6 +6109,32 @@ const fn default_float_period() -> f32 {
 }
 
 impl PropDef {
+    /// Shared placement transform for rendering, baked occlusion and tooling.
+    #[must_use]
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "finite validated float matrix math"
+    )]
+    pub fn placement_matrix(&self, base_y: f32) -> glam::Mat4 {
+        let fit = self.span.map_or(glam::Mat4::IDENTITY, |span| {
+            glam::Mat4::from_cols(
+                glam::Vec4::new(
+                    span.length / span.source_length,
+                    span.rise / span.source_length,
+                    0.0,
+                    0.0,
+                ),
+                glam::Vec4::Y,
+                glam::Vec4::Z,
+                glam::Vec4::W,
+            )
+        });
+        glam::Mat4::from_translation(glam::Vec3::new(self.x, base_y + self.y, self.z))
+            * glam::Mat4::from_rotation_y(self.rotation_degrees.to_radians())
+            * glam::Mat4::from_scale(glam::Vec3::splat(self.scale))
+            * fit
+    }
+
     /// Explicit immutable rigid collision; the player's legacy standable box
     /// remains independent to preserve controller behavior.
     #[must_use]
@@ -6100,9 +6157,15 @@ impl PropDef {
     #[must_use]
     pub fn resolved_size(&self, fallback: [f32; 3]) -> [f32; 3] {
         let base = self.size.unwrap_or(fallback);
+        let (width_scale, shear_height) = self.span.map_or((1.0, 0.0), |span| {
+            (
+                span.length / span.source_length,
+                span.rise.abs() * base[0] / span.source_length,
+            )
+        });
         [
-            base[0] * self.scale,
-            base[1] * self.scale,
+            base[0] * width_scale * self.scale,
+            (base[1] + shear_height) * self.scale,
             base[2] * self.scale,
         ]
     }
@@ -7874,9 +7937,7 @@ impl LevelDef {
             if explicit_fixed_shapes && prop.has_fixed_physics_shape() {
                 continue;
             }
-            if let Some(collider) = prop.solid_collider(&surfaces) {
-                aabbs.push(collider);
-            }
+            prop.push_solid_colliders(&surfaces, &mut aabbs);
         }
 
         aabbs
@@ -7939,6 +8000,64 @@ fn opening_glass_collider(wall: &WallDef, opening: &WallOpeningDef) -> Option<Wa
 }
 
 impl PropDef {
+    /// Span barriers use small overlapping boxes following the same sheared
+    /// baseline as the visible section. This closes slat gaps without leaving
+    /// a full-height rectangular blocker above the low end of a ramp.
+    fn push_solid_colliders(&self, surfaces: &LevelSurfaces<'_>, out: &mut Vec<WallAabb>) {
+        let Some(span) = self.span else {
+            if let Some(collider) = self.solid_collider(surfaces) {
+                out.push(collider);
+            }
+            return;
+        };
+        if !self.solid || self.is_physics_movable() {
+            return;
+        }
+        let size = self.size.unwrap_or(PROP_FALLBACK_SIZE);
+        let length = span.length * self.scale;
+        let rise = span.rise * self.scale;
+        let depth = size[2] * self.scale;
+        let height = size[1] * self.scale;
+        if ![length, depth, height]
+            .iter()
+            .all(|value| value.is_finite() && *value > 0.0)
+            || length > MAX_PROP_SPAN_LENGTH_M
+            || !rise.is_finite()
+        {
+            return;
+        }
+        let base_y = surfaces.floor_y_at(self.x, self.z).unwrap_or(0.0) + self.y;
+        let (sin, cos) = self.rotation_degrees.to_radians().sin_cos();
+        // A checked float-to-int conversion is unavailable in std; stepping a
+        // bounded distance also avoids author-controlled allocation counts.
+        let mut start = -length * 0.5;
+        for _ in 0..128_u16 {
+            if start >= length * 0.5 {
+                break;
+            }
+            let end = (start + PROP_SPAN_COLLISION_STEP_M).min(length * 0.5);
+            let centre = f32::midpoint(start, end);
+            let bottom = base_y + (rise * start / length).min(rise * end / length) - 0.025;
+            let top = base_y + (rise * start / length).max(rise * end / length) + height;
+            let (half_x, half_z) = rotated_half_extents_local(
+                (end - start).mul_add(0.5, 0.001),
+                depth * 0.5,
+                self.rotation_degrees,
+            );
+            let x = centre.mul_add(cos, self.x);
+            let z = (-centre).mul_add(sin, self.z);
+            out.push(WallAabb::with_y(
+                x - half_x,
+                bottom,
+                z - half_z,
+                half_x * 2.0,
+                top - bottom,
+                half_z * 2.0,
+            ));
+            start = end;
+        }
+    }
+
     /// The prop's collision box when it is solid, placed on its local floor.
     ///
     /// A yaw-rotated prop's box is conservatively covered by the axis-aligned

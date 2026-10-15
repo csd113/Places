@@ -1452,32 +1452,34 @@
     },
     {
       "model": "outdoor:porch_railing_corner",
-      "x": 23.0,
-      "z": 16.4,
+      "x": 23.09,
+      "z": 16.49,
       "id": "kit_rail_corner"
     },
     {
       "model": "outdoor:porch_railing_straight",
-      "x": 24.05,
+      "x": 24.14,
       "z": 16.4,
       "id": "kit_rail_east_1"
     },
     {
       "model": "outdoor:porch_railing_end",
-      "x": 25.1,
+      "x": 25.19,
       "z": 16.4,
       "id": "kit_rail_east_end"
     },
     {
       "model": "outdoor:porch_railing_straight",
       "x": 23.0,
-      "z": 17.45,
+      "z": 17.54,
+      "rotation_degrees": 270,
       "id": "kit_rail_south_1"
     },
     {
       "model": "outdoor:porch_railing_end",
       "x": 23.0,
-      "z": 18.5,
+      "z": 18.59,
+      "rotation_degrees": 270,
       "id": "kit_rail_south_end"
     },
     {

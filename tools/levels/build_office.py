@@ -12,6 +12,8 @@ import argparse
 import json
 from pathlib import Path
 
+from railings import RailingAuthor
+
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / 'levels/office_demo.json'
 CLEAN = 'core:wallpaper_yellow_01'
@@ -150,24 +152,23 @@ def build_level():
     level['floor_regions'] = [dict(x=24, z=14, width=12, depth=4, offset_y=3.6,
         material=CARPET, edge_material=DIRTY)]
 
-    def rail(x, z, length, yaw, y, rise=0):
-        level['guardrails'].append(dict(x=x, z=z, length=length,
-            rotation_degrees=yaw, y=y, rise=rise, height=1.05,
-            post_spacing=1.25, material=TRIM))
-
-    # The 60 mm posts sit fully on each 3 m ramp, with 5 mm of edge margin.
-    # A 20 mm penetration grounds even the uphill corner of each vertical
-    # post on the 0.36 slope, while leaving 2.86 m between the rail faces.
-    for x in (25.035, 27.965):
-        rail(x, 4, 10, 270, -.02, 3.6)
-    for x in (31.035, 33.965):
-        rail(x, 14, 10, 90, 3.58, 3.6)
-    # Landing runs meet the slope end posts. Their small X/Z/base offsets
-    # make real penetrating joints rather than coincident post faces.
-    for x, length in ((24.32, .72), (27.96, 1.74), (30.3, .74), (33.96, 1.74)):
-        rail(x, 14.04, length, 0, 3.585)
-    for x, length in ((24.32, 6.72), (33.96, 1.74)):
-        rail(x, 3.96, length, 0, 7.185)
+    # Real file-backed modules share one grounded post at each landing joint.
+    # Inset the full 12 cm stock footprint, including its uphill corners; the
+    # floor-aware linker fits equal bays and keeps every upright vertical.
+    railings = RailingAuthor(level, {a['id']: a for a in catalog['assets']})
+    paint = {'0': TRIM, '1': TRIM}
+    for name, points in (
+        ('lower_west', [(24.32, 3.6, 14.068), (25.068, 3.6, 14.068),
+                        (25.068, .02448, 4.068)]),
+        ('lower_east', [(27.932, .02448, 4.068), (27.932, 3.6, 14.068),
+                        (29.7, 3.6, 14.068)]),
+        ('upper_west', [(24.32, 7.2, 3.932), (31.068, 7.2, 3.932),
+                        (31.068, 3.6, 14.068), (30.3, 3.6, 14.068)]),
+        ('upper_east', [(35.7, 7.2, 3.932), (33.932, 7.2, 3.932),
+                        (33.932, 3.6, 14.068), (35.7, 3.6, 14.068)]),
+    ):
+        railings.run('shaft_'+name, points, spacing=1.5,
+                     materials=paint, post_materials={'0': TRIM})
     level['geometry_intent'].append(dict(check='missing-wall', x=24, z=3.5,
         width=12, depth=1, note='Upper bridge edge opens to the ramp shaft; authored guardrails protect the drops.'))
 

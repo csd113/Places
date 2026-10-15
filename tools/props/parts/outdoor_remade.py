@@ -5,6 +5,7 @@ ids keep their placement origins, lamp anchors and modular join conventions.
 """
 from pathlib import Path
 import math
+import glb
 
 from parts.refreshed import load_atlas_from, orient_outward, solid_box, solid_cylinder
 
@@ -187,6 +188,41 @@ def fence(p):
     fit(p);p.add_note('two horizontal timber rails between capped pale newels, with separate feet; 2m module')
 
 
+def fence_component(p):
+    """Reuse the approved fence's actual rail stock or one capped newel."""
+    model = glb.read_glb((ROOT / 'fence_two_rail.glb').read_bytes())
+    load_atlas_from(p, ROOT / 'fence_two_rail.png', ())
+    p.ao_strength = 0
+    p.begin_material(p.material('fence_timber'))
+    section = p.id.endswith('_section')
+    selected = []
+    for face in range(model.triangle_count):
+        indices = model.indices[face*3:face*3+3]
+        points = [model.positions[index] for index in indices]
+        rail = all(any(abs(point[1] - centre) <= .0551 for centre in (.40, .79))
+                   for point in points)
+        keep = rail if section else not rail and all(point[0] < 0 for point in points)
+        if keep:
+            selected.extend(indices)
+    vertices = sorted(set(selected))
+    remap = {old: new for new, old in enumerate(vertices)}
+    p.mesh.positions = [(model.positions[index][0] + (0 if section else .92),
+                         model.positions[index][1], model.positions[index][2])
+                        for index in vertices]
+    p.mesh.uvs = [model.uvs[index] for index in vertices]
+    p.mesh.colors = [tuple(round(value*255) for value in model.colors[index][:3])
+                     for index in vertices]
+    p.mesh.indices = [remap[index] for index in selected]
+    p.mesh._triangle_materials = [0] * (len(selected)//3)
+    if section:
+        p.mesh.floor_clearance = .345
+        p.add_note('approved fence rail stock reused verbatim: source length 1.78 m, '
+                   'floor reference y=0, rails y=.345..455 and .735..845; separate shared posts')
+    else:
+        p.add_note('approved fence newel reused verbatim, centred at x=0; .12 m shaft, '
+                   '.145 m foot, .16 m cap at y=1.05; one post per shared connection')
+
+
 def pier(p):
     t=atlas(p);uv=t.uv('detail',inset=2)
     for row in range(5):
@@ -253,7 +289,10 @@ REBUILDS={
 }
 PROPS={
  'outdoor:bush_round':bush,'outdoor:bush_low':bush,
- 'outdoor:fence_two_rail':fence,'outdoor:masonry_pier':pier,
+ 'outdoor:fence_two_rail':fence,
+ 'outdoor:fence_two_rail_section':fence_component,
+ 'outdoor:fence_two_rail_post':fence_component,
+ 'outdoor:masonry_pier':pier,
  'outdoor:porch_canopy':canopy,'outdoor:road_barrier':barrier,'outdoor:boundary_ridge':ridge,
  'outdoor:campfire_static':campfire_static,
 }

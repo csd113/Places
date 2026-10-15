@@ -214,12 +214,15 @@ class WinterAssemblyTests(unittest.TestCase):
                     self.assertLess(arm['min'][1], floor+2.7+fascia_top*winter.ROOF_SCALE)
                     self.assertLess(arm['max'][2]-arm['min'][2], .2)
             elif prop['id'].startswith('lodge_rail_string_'):
-                rail = self.level['guardrails'][int(prop['id'].split('_')[-1])]
-                for endpoint, x in zip(ends, (rail['x'], rail['x']+rail['length'])):
-                    self.assertLess(abs(endpoint[0]-x), .03+.025)
-                    self.assertLess(abs(endpoint[2]-rail['z']), .03+.02)
-                    self.assertGreater(endpoint[1], rail['y'])
-                    self.assertLess(endpoint[1], rail['y']+rail['height'])
+                prefix = 'lodge_rail_'+prop['id'].split('_')[-1]+'_post_'
+                supports = [p for p in self.level['props'] if p['id'].startswith(prefix)]
+                for endpoint in ends:
+                    support = min(supports, key=lambda p: math.hypot(p['x']-endpoint[0], p['z']-endpoint[2]))
+                    self.assertLess(abs(endpoint[0]-support['x']), .055)
+                    self.assertLess(abs(endpoint[2]-support['z']), .06)
+                    base = floor_at(self.level, support['x'], support['z'])+support['y']
+                    self.assertGreater(endpoint[1], base)
+                    self.assertLess(endpoint[1], base+1.05*support['scale'])
             else:
                 prefix = ('porch_post_' if prop['id'] == 'lodge_porch_string'
                           else 'string_post_'+str(2 if prop['id'] == 'path_string'

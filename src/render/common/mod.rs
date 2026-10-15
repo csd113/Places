@@ -738,7 +738,8 @@ const WALL_COINCIDENCE_EPS: f32 = 1e-3;
 /// 10 = continuous parent-wall UV phase and prepared Static light circuits.
 /// 11 = source-coloured fixture diffusers and non-emissive metal panel housings.
 /// 12 = opaque fluorescent backplates prevent source leakage onto the ceiling.
-pub const GEOMETRY_REVISION: u32 = 12;
+/// 13 = fitted static prop spans and independently batched material variants.
+pub const GEOMETRY_REVISION: u32 = 13;
 
 /// One material run of a coalesced wall group: a rectangle in the group's own
 /// (length, height) space over which the visible material is constant.
@@ -1806,7 +1807,10 @@ fn add_prop_box(
     lighting: &LevelLighting,
 ) {
     let half_w = size[0] * 0.5;
-    let half_h = size[1] * 0.5;
+    let span_rise = prop
+        .span
+        .map_or(0.0, |span| span.rise * size[0] / span.length);
+    let half_h = (size[1] - span_rise.abs()) * 0.5;
     let half_d = size[2] * 0.5;
     let center_y = base_y + prop.y + half_h;
 
@@ -1819,7 +1823,11 @@ fn add_prop_box(
     };
     let corner = |sx: f32, sy: f32, sz: f32| -> [f32; 3] {
         let (world_x, world_z) = rotate(sx * half_w, sz * half_d);
-        [world_x, sy.mul_add(half_h, center_y), world_z]
+        [
+            world_x,
+            sx.mul_add(span_rise * 0.5, sy.mul_add(half_h, center_y)),
+            world_z,
+        ]
     };
     let shaded = |mult: f32, point: [f32; 3], normal: [f32; 3]| -> [f32; 3] {
         let light = lighting

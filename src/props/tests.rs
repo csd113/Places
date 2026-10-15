@@ -197,6 +197,16 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
 
         // Scale/origin conventions: 1 unit = 1 metre, base at y = 0, centred.
         let (low, high) = model.bounds().expect("model has vertices");
+        // Linked sections have a floor-reference origin and an intentional
+        // open gap below the lower rail; their supports are separate props.
+        let floor_clearance = match entry.id.as_str() {
+            "outdoor:porch_railing_straight"
+            | "outdoor:porch_railing_corner"
+            | "winter:railing_snow_straight"
+            | "winter:railing_snow_corner" => Some(0.14),
+            "outdoor:fence_two_rail_section" | "winter:fence_two_rail_section_snow" => Some(0.345),
+            _ => None,
+        };
         let dimensions = [high[0] - low[0], high[1] - low[1], high[2] - low[2]];
         for axis in 0..3 {
             let expected = entry.size[axis];
@@ -206,6 +216,8 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
                 {
                     low[axis] >= (-expected).mul_add(0.5, -tolerance)
                         && high[axis] <= expected.mul_add(0.5, tolerance)
+                } else if axis == 1 && floor_clearance.is_some() {
+                    (high[1] - expected).abs() <= tolerance
                 } else {
                     (dimensions[axis] - expected).abs() <= tolerance
                 },
@@ -223,7 +235,14 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
         // and inside its own height: the level places it at y = 0 and the
         // hover is the asset's own bind pose, so it must neither sink below
         // the origin nor float away from it.
-        if model.skin.is_some() {
+        if let Some(clearance) = floor_clearance {
+            assert!(
+                (low[1] - clearance).abs() <= 0.012,
+                "{}: linked section must preserve its floor-reference clearance {clearance}, got {}",
+                entry.id,
+                low[1]
+            );
+        } else if model.skin.is_some() {
             assert!(
                 low[1] >= -0.012 && low[1] <= dimensions[1],
                 "{}: skinned model base sits at y={:.3}; a grounded character must \

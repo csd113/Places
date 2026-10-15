@@ -29,7 +29,9 @@ class WinterAssetTests(unittest.TestCase):
                  ('boulder_snow', 'showcase_boulder'), ('rock_face_snow', 'showcase_rock_face'),
                  ('railing_snow_straight', 'porch_railing_straight'),
                  ('railing_snow_corner', 'porch_railing_corner'),
-                 ('railing_snow_end', 'porch_railing_end'), ('fence_post_snow', 'fence_post')]
+                 ('railing_snow_end', 'porch_railing_end'), ('fence_post_snow', 'fence_post'),
+                 ('fence_two_rail_section_snow', 'fence_two_rail_section'),
+                 ('fence_two_rail_post_snow', 'fence_two_rail_post')]
         for variant, canonical in pairs:
             with self.subTest(variant=variant):
                 base, snow = load(canonical, 'outdoor'), load(variant)
@@ -55,9 +57,32 @@ class WinterAssetTests(unittest.TestCase):
                 self.assertLessEqual(model.triangle_count, 1500)
                 self.assertTrue(all(math.isfinite(v) and 0 <= v <= 1 for uv in model.uvs for v in uv))
                 low, high = model.bounds()
-                self.assertAlmostEqual(low[1], 0, places=5)
+                clearance = (.14 if name in ('railing_snow_straight', 'railing_snow_corner')
+                             else .345 if name == 'fence_two_rail_section_snow' else 0)
+                self.assertAlmostEqual(low[1], clearance, places=5)
                 for axis in range(3):
-                    self.assertLessEqual(abs(high[axis]-low[axis]-size[axis]), max(.02, size[axis]*.06))
+                    extent = high[axis] if axis == 1 and clearance else high[axis]-low[axis]
+                    self.assertLessEqual(abs(extent-size[axis]), max(.02, size[axis]*.06))
+
+    def test_linked_fence_components_reuse_stock_and_snow_contacts_each_rail(self):
+        # A few hundred saved vertices protect the actual modular asset contract:
+        # no duplicated newels, altered art, or snow hovering over shifted rails.
+        original = load('fence_two_rail', 'outdoor')
+        for name, triangles in (('section', 24), ('post', 36)):
+            part = load('fence_two_rail_'+name, 'outdoor')
+            self.assertEqual(part.triangle_count, triangles)
+            self.assertEqual(part.texture_png, original.texture_png)
+            source = {(tuple(round(v, 5) for v in point), uv, color)
+                      for point, uv, color in zip(original.positions, original.uvs, original.colors)}
+            for point, uv, color in zip(part.positions, part.uvs, part.colors):
+                original_point = (point[0]-(.92 if name == 'post' else 0), point[1], point[2])
+                self.assertIn((tuple(round(v, 5) for v in original_point), uv, color), source)
+        for name, bases in (('railing_snow_straight', (.201, 1.041)),
+                            ('fence_two_rail_section_snow', (.447, .837))):
+            model = load(name)
+            snow_y = {round(model.positions[index][1], 5) for index in snow_indices(model)}
+            for base in bases:
+                self.assertIn(base, snow_y)
 
     def test_tree_snow_is_supported_by_opaque_branches_and_varies_in_load(self):
         base = load('tree_03', 'outdoor')
@@ -114,7 +139,7 @@ class WinterAssetTests(unittest.TestCase):
         for name in winter.SIZES:
             if not name.startswith('railing_snow') and name not in (
                     'fence_post_snow', 'snow_porch_edge', 'snow_door_overhang',
-                    'snow_roof_slope', 'snow_roof_edge'):
+                    'snow_roof_slope', 'snow_roof_edge', 'snow_rail_top', 'snow_post_cap'):
                 self.assertIn('winter:'+name, models)
         # Small roof/eave modules remain reusable library/Zoo assets; the
         # maintained houses use continuous blankets without duplicated ends.
@@ -141,11 +166,13 @@ class WinterAssetTests(unittest.TestCase):
             if p['model'].startswith('winter:') and p.get('solid'):
                 expected = {'winter:stone_wall_snow':[.5,.98,2.4],
                             'winter:masonry_pier_snow':[.65,1.16,.65],
-                            'winter:timber_lantern':[.155,2.6,.155]}.get(p['model'])
+                            'winter:timber_lantern':[.155,2.6,.155],
+                            'winter:fence_two_rail_section_snow':[1.78,.845,.065],
+                            'winter:fence_two_rail_post_snow':[.12,1.05,.12]}.get(p['model'])
                 if expected is None:
                     expected = [1.4, .85, 1.3] if 'boulder' in p['model'] else [4, 5, 2.2] if 'rock_face' in p['model'] else [.6, 6.8, .6]
                 self.assertEqual(p['size'], expected, p)
-        self.assertEqual(len(level['guardrails']), 3)
+        self.assertFalse(level['guardrails'])
         self.assertEqual(level['stairs'][0]['rise'], .6)
         self.assertEqual(level['stairs'][0]['steps'], 3)
         self.assertFalse(level.get('water'))

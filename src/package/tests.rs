@@ -1203,6 +1203,112 @@ fn one_planar_material_on_two_floor_levels_keeps_both_routes() {
     );
 }
 
+/// A tiny Static compiler/package round trip protects material image hydration.
+#[test]
+fn linked_prop_materials_survive_small_static_package_round_trip() {
+    // Four square metres, three modules and a fallback exercise the real
+    // compiler/record/runtime image-binding boundary, with no Full solve or GPU.
+    let dir = scratch_dir("linked-prop-materials");
+    let source = dir.join("fixture.json");
+    let authored = r#"{"format_version":3,"id":"linked_materials","name":"Linked materials",
+      "spawn":{"x":0.5,"z":0.5},"rooms":[{"width":2,"depth":2,"height":3}],
+      "props":[
+        {"model":"winter:railing_snow_straight","x":1,"z":1,"size":[1.8,1.125,0.16],
+          "span":{"source_length":1.8,"length":1.6,"rise":0.2},"material_overrides":{"0":"home:handrail_wood_01"}},
+        {"model":"winter:railing_snow_straight","x":1,"z":1.2,"size":[1.8,1.125,0.16],
+          "material_overrides":{"0":"home:handrail_wood_01"}},
+        {"model":"winter:railing_snow_straight","x":1,"z":1.4,"size":[1.8,1.125,0.16],
+          "material_overrides":{"0":"core:metal_brass_01"}},
+        {"model":"test:missing_rail","x":1,"z":1.6,"size":[0.1,0.1,0.1],
+          "material_overrides":{"0":"home:handrail_wood_01"}}
+      ]}"#;
+    std::fs::write(&source, authored).expect("small source");
+    let out = dir.join("fixture.placesmap");
+    let request = crate::compiler::BuildRequest {
+        source,
+        out: out.clone(),
+        asset_root: std::path::PathBuf::from("assets"),
+        variants: vec![crate::quality::LightmapQuality::Off],
+        workers: 1,
+        force: false,
+        capture_probes: false,
+    };
+    let _report = crate::compiler::build(&request).expect("compile tiny Static linked modules");
+    let opened = crate::package::world::open(&out).expect("validated package semantics");
+    let mut assets = crate::props::PropAssets::load_default();
+    let loaded = crate::package::world::load_variant(
+        &out,
+        &opened.manifest,
+        crate::quality::LightmapQuality::Off,
+        &mut assets,
+    )
+    .expect("hydrate actual variants while retaining the missing-model placeholder");
+    assert_eq!(
+        loaded.props.len(),
+        2,
+        "equal overrides batch together; different materials remain separate"
+    );
+    assert!(
+        loaded
+            .mesh
+            .ranges
+            .iter()
+            .any(|range| range.key.kind == crate::render::SurfaceKind::PropFallback),
+        "missing source model retains its compiled placeholder"
+    );
+    let catalog = crate::loader::PropCatalog::load_default();
+    let table = crate::materials::resolve_materials(
+        &opened.level,
+        catalog.assets(),
+        None,
+        Some(std::path::Path::new("assets")),
+        &mut crate::materials::TextureCache::new(),
+    );
+    let raw_path = catalog
+        .get("winter:railing_snow_straight")
+        .model
+        .expect("snowy rail model");
+    let original = assets.resolve(&raw_path).expect("source snow material");
+    for id in ["home:handrail_wood_01", "core:metal_brass_01"] {
+        let identity = crate::props::model_variant_identity(
+            &raw_path,
+            &std::collections::BTreeMap::from([(0, id.to_string())]),
+        );
+        let batch = loaded
+            .props
+            .iter()
+            .find(|batch| batch.model == identity)
+            .expect("variant survives binary records");
+        let timber = batch.submeshes.first().expect("timber primitive");
+        let image = &batch.textures[usize::from(timber.texture.expect("replacement PNG binding"))];
+        assert_eq!(
+            image.rgba,
+            table
+                .entry_of(id)
+                .expect("catalog material")
+                .image
+                .as_ref()
+                .expect("PNG")
+                .rgba,
+            "runtime image slot retains the selected catalog texture"
+        );
+        let snow = batch.submeshes.get(2).expect("snow primitive");
+        let source_snow = original.model.submeshes.get(2).expect("source snow");
+        assert_eq!(
+            snow.response, source_snow.response,
+            "snow response stays unchanged"
+        );
+        assert_eq!(
+            snow.emission, source_snow.emission,
+            "snow remains non-emissive"
+        );
+        assert_eq!(
+            snow.texture, source_snow.texture,
+            "snow retains its source image slot"
+        );
+    }
+}
+
 /// One small room compiles only Static and verifies its alternate colours,
 /// codec round trip and navigation-only reuse. No shipped map or GPU bake.
 #[test]

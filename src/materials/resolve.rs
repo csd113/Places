@@ -352,6 +352,11 @@ pub fn referenced_material_ids(level: &LevelDef) -> Vec<String> {
     for patch in &level.floor_patches {
         push(&patch.material);
     }
+    for prop in &level.props {
+        for material in prop.material_overrides.values() {
+            push(material);
+        }
+    }
     for region in &level.floor_regions {
         if let Some(material) = &region.material {
             push(material);

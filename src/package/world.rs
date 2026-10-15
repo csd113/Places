@@ -384,22 +384,99 @@ fn decode_named_variant<R: std::io::Read + std::io::Seek>(
     let variant = manifest
         .variant(name)
         .ok_or_else(|| format!("package '{}' has no '{name}' variant", manifest.id))?;
-    decode_variant(reader, variant, quality, assets)
+    decode_variant(reader, variant, quality, assets, Some(manifest))
 }
 
-fn decode_variant<R: std::io::Read + std::io::Seek>(
+/// Reattaches PNG allocations for compiled material variants. Only semantic
+/// catalog references are resolved here; geometry and lighting stay prepared.
+fn material_variant_textures<R: std::io::Read + std::io::Seek>(
     reader: &mut PackageReader<R>,
-    variant: &Variant,
-    quality: LightmapQuality,
+    manifest: &Manifest,
     assets: &mut crate::props::PropAssets,
-) -> Result<LoadedVariant, String> {
-    let mesh_bytes = reader.read_blob(&variant.entries.mesh, MAX_BINARY_BYTES)?;
-    let mesh = read_mesh(&mesh_bytes)?;
-    drop(mesh_bytes);
-    let props_bytes = super::shared_props::read_record(reader, &variant.entries.props)?;
-    let mut props = read_props(&props_bytes)?;
-    drop(props_bytes);
-    for batch in &mut props {
+    batches: &[PropMeshBatch],
+) -> Result<std::collections::HashMap<String, Vec<Arc<crate::loader::RawImage>>>, String> {
+    let required: std::collections::HashSet<&str> = batches
+        .iter()
+        .filter(|batch| batch.model.contains("#materials-"))
+        .map(|batch| batch.model.as_str())
+        .collect();
+    let mut textures = std::collections::HashMap::new();
+    if required.is_empty() {
+        return Ok(textures);
+    }
+    let bytes = read_named_entry(reader, manifest, "semantics.json", MAX_SEMANTICS_BYTES)?;
+    let level: LevelDef = serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
+    let root = assets
+        .root()
+        .ok_or_else(|| "prop material variants require the installed asset bundle".to_string())?
+        .to_path_buf();
+    let catalog = crate::loader::PropCatalog::load_from_path(&root.join("catalog.json"))
+        .ok_or_else(|| "prop material variants require the installed catalog".to_string())?;
+    // This secondary lookup needs only override materials. Do not decode all
+    // architecture PNGs again while attaching a few timber/metal sheets.
+    let mut material_level = LevelDef::from_json(
+        r#"{"format_version":3,"id":"prop_materials","name":"Prop materials","spawn":{"x":0,"z":0}}"#,
+    ).map_err(|error| error.to_string())?;
+    material_level.props = level
+        .props
+        .into_iter()
+        .filter(|prop| {
+            !prop.material_overrides.is_empty()
+                && catalog.get(&prop.model).model.is_some_and(|path| {
+                    required.contains(
+                        crate::props::model_variant_identity(&path, &prop.material_overrides)
+                            .as_str(),
+                    )
+                })
+        })
+        .collect();
+    let first_material = material_level
+        .props
+        .iter()
+        .flat_map(|prop| prop.material_overrides.values())
+        .next()
+        .cloned()
+        .ok_or_else(|| "material variant references are empty".to_string())?;
+    material_level.defaults.wall.clone_from(&first_material);
+    material_level.defaults.floor.clone_from(&first_material);
+    material_level.defaults.ceiling = first_material;
+    let materials = crate::materials::resolve_materials(
+        &material_level,
+        catalog.assets(),
+        None,
+        Some(&root),
+        &mut crate::materials::TextureCache::new(),
+    );
+    for prop in &material_level.props {
+        if prop.material_overrides.is_empty() {
+            continue;
+        }
+        let path = catalog
+            .get(&prop.model)
+            .model
+            .ok_or_else(|| format!("unknown prop material variant model `{}`", prop.model))?;
+        let identity = crate::props::model_variant_identity(&path, &prop.material_overrides);
+        if textures.contains_key(&identity) {
+            continue;
+        }
+        let source = assets.resolve(&path)?;
+        let images =
+            crate::render::override_prop_textures(&source, &prop.material_overrides, &materials)?;
+        let _previous = textures.insert(identity, images);
+    }
+    Ok(textures)
+}
+
+fn attach_prop_textures(
+    props: &mut [PropMeshBatch],
+    assets: &mut crate::props::PropAssets,
+    variant_textures: &std::collections::HashMap<String, Vec<Arc<crate::loader::RawImage>>>,
+) {
+    for batch in props {
+        if let Some(textures) = variant_textures.get(&batch.model) {
+            batch.textures.clone_from(textures);
+            continue;
+        }
         match assets.resolve(&batch.model) {
             Ok(asset) => {
                 batch.textures.clone_from(&asset.model.textures);
@@ -428,6 +505,26 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
             }
         }
     }
+}
+
+fn decode_variant<R: std::io::Read + std::io::Seek>(
+    reader: &mut PackageReader<R>,
+    variant: &Variant,
+    quality: LightmapQuality,
+    assets: &mut crate::props::PropAssets,
+    manifest: Option<&Manifest>,
+) -> Result<LoadedVariant, String> {
+    let mesh_bytes = reader.read_blob(&variant.entries.mesh, MAX_BINARY_BYTES)?;
+    let mesh = read_mesh(&mesh_bytes)?;
+    drop(mesh_bytes);
+    let props_bytes = super::shared_props::read_record(reader, &variant.entries.props)?;
+    let mut props = read_props(&props_bytes)?;
+    drop(props_bytes);
+    let variant_textures = manifest.map_or_else(
+        || Ok(std::collections::HashMap::new()),
+        |package_manifest| material_variant_textures(reader, package_manifest, assets, &props),
+    )?;
+    attach_prop_textures(&mut props, assets, &variant_textures);
     let lighting_bytes = reader.read_blob(&variant.entries.lighting, MAX_LIGHTING_BYTES)?;
     let lighting = read_lighting(&lighting_bytes)?;
     drop(lighting_bytes);

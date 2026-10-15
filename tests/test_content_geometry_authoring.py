@@ -33,7 +33,9 @@ HISTORICAL_HOUSE_SIDES = (
     dict(x=2.2, z=-4.1, width=0.3, depth=5.25, height=2.7),
     dict(x=17.5, z=-4.1, width=0.3, depth=5.25, height=2.7),
 )
-UNRELATED_CONTENT_SHA256 = "61c2fa17f8b94436277f92a1b5712bac9130ce8bcc874701062cfde8dec0b6d7"
+# Re-pinned after the five explicit porch-kit corner/leg alignment corrections;
+# the perimeter adoption still cannot alter any other authored record.
+UNRELATED_CONTENT_SHA256 = "b0ed065d36e9437f8f71ece3864abd24d67ed6ce9ffade3e7b426ef50cdea503"
 
 
 def f32(value):

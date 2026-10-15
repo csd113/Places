@@ -2323,6 +2323,7 @@ fn validate_prop_lights(level: &LevelDef) -> Result<(), String> {
 
 /// Placed prop ids, transforms and sizes.
 fn validate_props(level: &LevelDef) -> Result<(), String> {
+    let mut span_slices = 0.0_f32;
     for (i, prop) in level.props.iter().enumerate() {
         if prop.model.trim().is_empty() {
             return Err(format!("Prop {i} must reference a non-empty model id"));
@@ -2347,8 +2348,66 @@ fn validate_props(level: &LevelDef) -> Result<(), String> {
                 "Prop {i} size must contain positive finite numbers"
             ));
         }
+        span_slices += validate_static_prop_options(i, prop)?;
+    }
+    if span_slices > 32_768.0 {
+        return Err("Level span collision complexity exceeds 32768 slices".into());
     }
     Ok(())
+}
+
+/// Static fitting/material controls cannot leak into independently posed routes.
+fn validate_static_prop_options(i: usize, prop: &crate::level::PropDef) -> Result<f32, String> {
+    let mut slices = 0.0_f32;
+    if let Some(span) = prop.span {
+        let dimensions = [span.source_length, span.length];
+        if dimensions
+            .iter()
+            .any(|value| !value.is_finite() || *value <= 0.0)
+            || !span.rise.is_finite()
+            || span.length * prop.scale > crate::level::MAX_PROP_SPAN_LENGTH_M
+            || !(0.1..=4.0).contains(&(span.length / span.source_length))
+            || span.rise.abs() > span.length * crate::level::MAX_RAMP_SLOPE
+        {
+            return Err(format!(
+                "Prop {i} span needs positive finite lengths, a 0.1..4 length ratio, at most 32 m after scale, and a walkable slope"
+            ));
+        }
+        // The source-size contract is explicit because collision is built
+        // before any GLB is loaded and must use the same contact length.
+        if prop
+            .size
+            .is_none_or(|size| (size[0] - span.source_length).abs() > 0.001)
+        {
+            return Err(format!(
+                "Prop {i} span requires size[0] matching source_length"
+            ));
+        }
+        if prop.solid {
+            slices = (span.length * prop.scale / crate::level::PROP_SPAN_COLLISION_STEP_M).ceil();
+        }
+    }
+    if prop.material_overrides.len() > crate::level::MAX_PROP_MATERIALS
+        || prop.material_overrides.iter().any(|(slot, material)| {
+            usize::from(*slot) >= crate::level::MAX_PROP_MATERIALS || material.trim().is_empty()
+        })
+    {
+        return Err(format!(
+            "Prop {i} material overrides need non-empty ids and material slots below {}",
+            crate::level::MAX_PROP_MATERIALS
+        ));
+    }
+    if (prop.span.is_some() || !prop.material_overrides.is_empty())
+        && (prop.physics.is_some()
+            || prop.float.is_some()
+            || !prop.components.is_empty()
+            || !prop.bindings.is_empty())
+    {
+        return Err(format!(
+            "Prop {i} span and material overrides require static scenery without physics, floating motion or entity components/bindings"
+        ));
+    }
+    Ok(slices)
 }
 
 /// Rigid props have one pose owner and never leave immutable collision or light.

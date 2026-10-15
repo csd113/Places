@@ -853,18 +853,11 @@ fn instance_point(local: [f32; 3], prop: &PropDef, base_y: f32) -> Option<[f32; 
     {
         return None;
     }
-    let yaw = prop.rotation_degrees.to_radians();
-    let (sin, cos) = yaw.sin_cos();
-    let scaled = [
-        local[0] * prop.scale,
-        local[1] * prop.scale,
-        local[2] * prop.scale,
-    ];
-    Some([
-        scaled[2].mul_add(sin, scaled[0].mul_add(cos, prop.x)),
-        base_y + prop.y + scaled[1],
-        scaled[2].mul_add(cos, -(scaled[0] * sin)) + prop.z,
-    ])
+    Some(
+        prop.placement_matrix(base_y)
+            .transform_point3(glam::Vec3::from_array(local))
+            .to_array(),
+    )
 }
 
 /// Transforms one model's local boxes by a prop's placement, in the same
@@ -888,9 +881,17 @@ fn push_instance_occluders(
         let Some(centre) = instance_point(local_centre, prop, base_y) else {
             return;
         };
+        let (length_scale, shear) = prop.span.map_or((1.0, 0.0), |span| {
+            (
+                span.length / span.source_length,
+                span.rise / span.source_length,
+            )
+        });
+        let source_half_x = (local_box.max[0] - local_box.min[0]) * 0.5;
         let half = [
-            (local_box.max[0] - local_box.min[0]) * 0.5 * prop.scale,
-            (local_box.max[1] - local_box.min[1]) * 0.5 * prop.scale,
+            source_half_x * length_scale * prop.scale,
+            source_half_x.mul_add(shear.abs(), (local_box.max[1] - local_box.min[1]) * 0.5)
+                * prop.scale,
             (local_box.max[2] - local_box.min[2]) * 0.5 * prop.scale,
         ];
         if let Some(occluder) = OrientedBox::new(centre, half, yaw) {
@@ -1608,6 +1609,8 @@ mod tests {
                 lights: Vec::new(),
                 physics: None,
                 float: None,
+                span: None,
+                material_overrides: std::collections::BTreeMap::new(),
             };
             let base_y = 0.35_f32;
             let transform = glam::Mat4::from_translation(glam::Vec3::new(x, base_y + y, z))

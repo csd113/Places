@@ -63,6 +63,9 @@ class Mesh:
         self.texture_first_materials = False
         self.roughness = 1.0
         self.metallic = 0.0
+        # Rail-only modules use the floor as their placement reference while
+        # leaving intentional clearance below their lowest horizontal stock.
+        self.floor_clearance = 0.0
         self.positions: list[tuple[float, float, float]] = []
         self.colors: list[tuple[int, int, int]] = []
         self.uvs: list[tuple[float, float]] = []
@@ -794,9 +797,12 @@ class Mesh:
         for axis, name in enumerate("xyz"):
             if high[axis] - low[axis] <= 1e-4:
                 raise ValueError(f"mesh has zero extent on the {name} axis")
-        if abs(low[1]) > 0.012:
+        if not math.isfinite(self.floor_clearance) or self.floor_clearance < 0:
+            raise ValueError("floor clearance must be finite and nonnegative")
+        if abs(low[1] - self.floor_clearance) > 0.012:
             raise ValueError(
-                f"mesh base sits at y={low[1]:.3f}; props must rest on y=0 (origin at the floor contact point)"
+                f"mesh base sits at y={low[1]:.3f}; expected floor clearance "
+                f"{self.floor_clearance:.3f} (origin at the floor reference)"
             )
         center_x = (low[0] + high[0]) * 0.5
         center_z = (low[2] + high[2]) * 0.5
@@ -805,7 +811,8 @@ class Mesh:
                 f"mesh is not horizontally centred (centre x={center_x:.3f}, z={center_z:.3f}); "
                 "the origin must be under the object's centre"
             )
-        dimensions = self.dimensions()
+        dimensions = list(self.dimensions())
+        dimensions[1] += self.floor_clearance
         for axis, name in enumerate("xyz"):
             allowed = tolerance if tolerance is not None else max(0.02, 0.06 * expected_size[axis])
             if abs(dimensions[axis] - expected_size[axis]) > allowed:

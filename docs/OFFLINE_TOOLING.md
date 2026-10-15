@@ -119,6 +119,7 @@ The following owners have distinct behavior:
 | Owner | Scope and publication contract |
 | --- | --- |
 | `tools/props/build.py` | Catalog placeables with registered part-module `PROPS` constructors; writes the catalog's model paths. Normal builds skip foreign skinned/animated GLBs. |
+| `tools/levels/railings.py` | Reused by Office, Winter and Lantern Hollow generators. `RailingAuthor.run` takes world `(x,y,z)` baseline points, emits bounded local-X `span` props and one upright post per junction/terminal, samples whole support footprints, and converts world anchors to floor-relative prop Y. It writes no assets or packages and adds no per-frame linking. |
 | Catalog `authoring: {"tool": "blender", "source": "<asset-relative>.blend"}` | Editable Blender-owned meshes. The source and GLB export must exist beneath `assets/`; ordinary and forced primitive builds preserve the export. Re-export through the source's documented Blender command, then run the same catalog/GLB/native checks. |
 | `tools/textures/build.py` | Merges each art module's `ART` registry by logical ID, rejects duplicate declarations, and exports selected manifest sheets. Office, Beach and Aero readers load committed art; some older modules remain offline painters. |
 | `tools/props/build_office_textures.py` | Exact standard-library box-filter derivatives of five opaque 1024² masters to 256² native atlases; `--check` compares bytes without writes. |

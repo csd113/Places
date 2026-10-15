@@ -25,6 +25,7 @@
 mod boundary_tests;
 mod common;
 pub(crate) use common::character::claimed_character_models;
+pub(crate) use common::props::override_material_textures as override_prop_textures;
 mod facade;
 #[cfg(test)]
 mod tests;

@@ -18,6 +18,7 @@ The active connected Arcade showcase includes the commercial restroom.
 | Outdoors reconstruction verification | Section 34 checked against the October 7 Outdoors catalog, fitted PNGs, closed model builders, source placements, native wgpu captures and asset integrity audit. Engine format and lighting model are unchanged. |
 | Checks that must pass before a code or asset change ships | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check` (see [Validation Workflow](#27-validation-workflow) for what each proves) |
 | Aero prop authoring verification | October 10, 2026: opt-in BLEND/finite opacity writer checked against importer and byte-preserving OPAQUE/MASK fixtures; existing runtime rendering and transport remain unchanged. |
+| Linked railing authoring | October 15, 2026: static prop span transforms, continuous slope collision, numeric material-slot overrides and prepared package texture restoration are documented in §16. Geometry revision 13 invalidates prior prepared geometry. |
 | Environment refinement verification | October 10, 2026: neighbor-clipped ramp side geometry revision 9 and reusable `weather_alternate`, `weather_cycle`, `toggle_weather`, `set_weather_strength`, `set_weather_cycle`, `set_prompt` checked against current authoring/runtime sources and focused regression tests. Native acceptance and final gates are recorded in [environment-refinement.md](reports/environment-refinement.md). |
 | Primary benchmark level | `levels/places_demo.json` |
 
@@ -3025,6 +3026,67 @@ an unknown id) and the level keeps working.
 * The model bounding box must match the catalog `size` within
   `max(2 cm, 6 % of the axis)`; the shipped-asset test enforces this, as it does
   base-at-origin (`|min_y| ≤ 0.012`) and centring (≤ 0.02 m).
+
+### Linked static railing and fence modules
+
+Linked runs are authored as ordinary `props[]`: real section models between
+separate upright posts, with one shared post at each section boundary, turn or
+terminal. The offline helper `tools/levels/railings.py` resolves floor and
+ramp contact and emits the final placements; the player performs no linking.
+Preserve the selected kit's floor-reference origin and contact lengths.
+
+`props[].span` optionally fits a centred local-X module between its two ends:
+
+```json
+{ "id": "ramp_rail_1", "model": "outdoor:porch_railing_straight",
+  "x": 4.0, "z": 2.0, "y": 0.0, "rotation_degrees": 0.0,
+  "size": [1.8, 1.05, 0.12], "solid": true,
+  "span": { "source_length": 1.8, "length": 1.6, "rise": 0.4 },
+  "material_overrides": { "0": "home:handrail_wood_01" } }
+```
+
+| Field | Contract |
+| --- | --- |
+| `span.source_length` | Positive model-space contact length along X. Must match authored `size[0]` within 1 mm; `size` retains the source dimensions. |
+| `span.length` | Desired horizontal contact length before `scale`. The length/source ratio is 0.1–4; the scaled length is at most 32 m. |
+| `span.rise` | Optional signed end-height difference, default 0. Its absolute slope is at most 2.0. Negative local X is the start, positive X the finish. |
+| Placement | `x/z` and the floor-relative `y` locate the baseline midpoint. Yaw 0 runs east, 90 north. Uniform `scale` applies after the fit. |
+| Shape | X scales by `length/source_length`; Y adds `local_x * rise/source_length`. Vertical balusters remain upright while rails follow the slope. |
+| Collision | `solid: true` creates continuous quarter-metre-or-shorter barrier slices along that baseline, extending 25 mm below it. At most 32,768 span slices per level. |
+| Static ownership | Spans and material overrides require scenery without physics, floating motion, components or bindings. Use separate upright post props at grounded endpoints. |
+
+`material_overrides` maps numeric **glTF material slots** (`"0"` through `"15"`)
+to opaque catalog material ids on opaque source slots. Only those slots replace
+their albedo image, base tint, normal/sheen, emission and ultraviolet response; omitted slots
+retain their source material. This lets timber change while snow remains white.
+An overridden slot uses its existing fitted GLB UVs and clamped PNG sampling;
+`tile_metres` and world reflection modes do not apply to this model path. The
+catalog tint replaces the slot's imported vertex/base colour factors. Source UVs,
+geometry and other material slots remain intact.
+
+Preparation caches one geometry variant per distinct model/override set and
+batches by that identity and spatial cell; it creates no entity per slat. PNGs
+remain file-backed catalog assets shared by image allocation. Compiled batch
+identities append `#materials-<sha256>` only for overridden variants; package
+loading restores their image lists from the package's validated semantic
+placements and installed catalog without rebuilding geometry or lighting.
+
+The maintained map generators use `tools/levels/railings.py` to assemble these
+props. Instantiate `RailingAuthor(level, catalog_by_id)`, then call
+`run("rail_id", [(x0, world_y0, z0), (x1, world_y1, z1), ...])`. Consecutive
+points define the run and corners. Equal bays stay at or below `spacing`
+(default 1.8 m); all calls through that author share one post at a common
+junction. The helper converts world baseline anchors to floor-relative prop Y,
+samples whole support footprints, buries feet by 6 mm, and ends each rail 8 mm
+inside its support shaft. Supports remain upright. No linking runs per frame.
+
+Use the default porch section/post for baluster railings. For the concept's
+two-rail timber fence, choose `outdoor:fence_two_rail_section` and
+`outdoor:fence_two_rail_post`, `stock_height=.845`, `stock_depth=.065`; their
+Winter `_snow` variants preserve the white snow slot when timber slot `0` is
+overridden. A shared capped post supplies a corner or terminal without doubled
+posts or overlapping rail caps. Existing dedicated porch corner/end models
+remain usable with the measured anchors in §34.7a.
 
 ### Budgets
 
@@ -7129,7 +7191,7 @@ catalog entry; the assembled reference is
 | `outdoor:tree_03` | `[3.2, 6.8, 3.2]` | **evergreen/conifer**: tapered trunk under six staggered whorls of closed needle masses; trunk collider `[0.6, 6.8, 0.6]` |
 | `outdoor:streetlight` | `[0.5, 6.4, 1.2]` | 6 m tapered post, swan-neck arm reaching +Z, tapered four-pane lantern with a pyramidal hood. Retains light offset `[0, 6.05, 0.43]`; set `occludes: false` so its coarse fixture bounds do not block the emitter |
 | `outdoor:porch_railing_straight` | `[1.8, 1.05, 0.12]` | rail runs edge to edge; top rail 0.95–1.05, bottom rail 0.14–0.21, metal balusters |
-| `outdoor:porch_railing_corner` | `[0.3, 1.05, 0.3]` | two rail stubs cross on the module point; pair it with a `porch_post` on the same point |
+| `outdoor:porch_railing_corner` | `[0.3, 1.05, 0.3]` | local X/Z post anchor `[-0.09,-0.09]`, join endpoints `[0.15,-0.09]` and `[-0.09,0.15]`; one `porch_post` on the anchor |
 | `outdoor:porch_railing_end` | `[0.3, 1.05, 0.12]` | closed by a capped 0.12 m newel |
 | `outdoor:porch_post` | `[0.12, 1.05, 0.12]` | support post; flat cap seat at y = 1.05 |
 
@@ -7169,6 +7231,15 @@ no new engine fields exist. Shrubs/ridges opt out of coarse bake occlusion,
 and ridges remain outside the established playable containment. See
 [asset specification §8.10](ASSET_SPECIFICATION.md#810-outdoors-concept-reconstruction)
 and the [Outdoors journal](style-upgrade-20261007/outdoors/README.md).
+
+For linked timber fences, use `outdoor:fence_two_rail_section` plus shared
+`outdoor:fence_two_rail_post` supports. These reuse the original fence stock
+and source PNG: section length 1.78 m (local X ±0.89), rails at Y
+0.345..0.455 and 0.735..0.845; post shaft 0.12 m, cap 0.16 m at Y=1.05.
+The Winter `_snow` versions add supported snow in material slot 1, keeping
+timber in slot 0. Rail-only origins reference the floor beneath the empty
+lower gap; do not refit their occupied bounds to catalog height. Use the
+span/material contract in §16 for variable run lengths and surface overrides.
 
 ### 34.8 Night sky
 
@@ -7348,7 +7419,13 @@ Winter-local; the completed Outdoors bases and files remain unchanged.
 Preserve `outdoor:tree_03` as the canonical evergreen. The two winter GLBs
 retain all base records and add a separate snow mesh; do not tint the tree
 white or refit the base. Preserve original tree/rock/rail collision sizes.
-Use non-solid cap additions on existing architecture and `guardrails[]`.
+Winter fences use `winter:fence_two_rail_section_snow` between shared
+`winter:fence_two_rail_post_snow` supports through `tools/levels/railings.py`.
+These preserve the snowy timber reference's two real rails and capped posts;
+corners and terminals each own one grounded post. `props[].span` follows
+slopes, while separate upright supports remain vertical. Do not overlay these
+with long rectangular `guardrails[]` or duplicate endpoint posts. Snow caps on
+other existing architecture remain non-solid visual additions.
 Prop mounting Y is floor-relative, so subtract the local rendered floor from
 the desired support height, including decks and stair treads. Snow caps sink
 8 mm into supports; icicle root planes sit 15 mm inside undersides. Clear

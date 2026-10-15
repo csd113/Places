@@ -2911,7 +2911,7 @@
       "color": "#8d8577",
       "category": "Structure",
       "solid": false,
-      "description": "Right-angle porch railing corner joining two straight modules around a 0.12 m post; the two rail ends meet at the module grid so a run has no gap."
+      "description": "Right-angle porch corner with floor-reference origin. Local X/Z post anchor [-0.09,-0.09]; join endpoints [0.15,-0.09] and [-0.09,0.15]. Use one 0.12 m porch_post at the anchor; lower rail y=0.14..0.21 and top y=0.95..1.05."
     },
     {
       "id": "outdoor:porch_railing_end",
@@ -4560,6 +4560,34 @@
       "solid": false
     },
     {
+      "id": "winter:fence_two_rail_section_snow",
+      "display_name": "Timber Fence Section with Snow",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/winter/props/fence_two_rail_section_snow.glb",
+      "size": [1.78, 0.92, 0.11],
+      "color": "#9d9890",
+      "category": "Winter",
+      "solid": false,
+      "description": "Reusable 1.78 m timber section copied from the Outdoors fence, with supported snow on both rails. Floor-reference origin; lowest rail at y=0.345. Timber slot 0, snow slot 1. Use separate shared posts and a continuous authored barrier."
+    },
+    {
+      "id": "winter:fence_two_rail_post_snow",
+      "display_name": "Timber Fence Post with Snow",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/winter/props/fence_two_rail_post_snow.glb",
+      "size": [0.2, 1.135, 0.2],
+      "color": "#9d9890",
+      "category": "Winter",
+      "solid": false,
+      "description": "One capped timber newel copied from the Outdoors fence with a supported snow crown. Base y=0, bare cap y=1.05; timber slot 0, snow slot 1. Share one post at each linked endpoint or corner."
+    },
+    {
       "id": "winter:icicle_short",
       "display_name": "Icicle short",
       "asset_class": "environment",
@@ -5374,6 +5402,34 @@
       "color": "#9d9890",
       "category": "Structure",
       "solid": false
+    },
+    {
+      "id": "outdoor:fence_two_rail_section",
+      "display_name": "Timber Fence Section",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/outdoor/props/fence_two_rail_section.glb",
+      "size": [1.78, 0.845, 0.065],
+      "color": "#9d9890",
+      "category": "Structure",
+      "solid": false,
+      "description": "The two original timber rails copied from fence_two_rail, without duplicated newels. Local X endpoints -0.89/+0.89, floor-reference origin and lower stock y=0.345. Timber slot 0; use separate shared posts and a continuous authored barrier."
+    },
+    {
+      "id": "outdoor:fence_two_rail_post",
+      "display_name": "Timber Fence Post",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/outdoor/props/fence_two_rail_post.glb",
+      "size": [0.16, 1.05, 0.16],
+      "color": "#9d9890",
+      "category": "Structure",
+      "solid": false,
+      "description": "One original capped fence newel, copied from fence_two_rail and centred at the origin. Base y=0; 0.12 m shaft, 0.145 m foot and 0.16 m cap at y=1.05. Share one at linked endpoints and corners."
     },
     {
       "id": "outdoor:masonry_pier",

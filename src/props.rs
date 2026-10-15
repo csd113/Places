@@ -32,6 +32,28 @@ pub struct LoadedPropAsset {
     pub model: PropModel,
 }
 
+/// Stable prepared-batch identity. The suffix distinguishes material variants
+/// in transport, package texture restoration and GPU caches; it is never used
+/// as a filesystem path. Source resources retain their normal catalog paths.
+pub(crate) fn model_variant_identity(
+    model_path: &str,
+    overrides: &std::collections::BTreeMap<u16, String>,
+) -> String {
+    if overrides.is_empty() {
+        return model_path.to_string();
+    }
+    let mut bytes = Vec::new();
+    for (slot, id) in overrides {
+        bytes.extend_from_slice(&slot.to_le_bytes());
+        bytes.extend_from_slice(&u64::try_from(id.len()).unwrap_or(u64::MAX).to_le_bytes());
+        bytes.extend_from_slice(id.as_bytes());
+    }
+    format!(
+        "{model_path}#materials-{}",
+        crate::package::hash::sha256_hex(&bytes)
+    )
+}
+
 /// Decoded texture memory held by the cache, in bytes (RGBA, uncompressed).
 #[must_use]
 pub fn texture_bytes(model: &PropModel) -> usize {

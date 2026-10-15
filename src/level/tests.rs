@@ -25,6 +25,117 @@ fn physics_fixture() -> LevelDef {
     .expect("tiny physics contract fixture parses")
 }
 
+/// One 1.6 m ramp and one rail prove slope grounding, upright supports and
+/// continuous low/high collision without loading assets or baking a map.
+#[test]
+fn linked_prop_span_keeps_uprights_and_continuous_ramp_collision() {
+    let level = LevelDef::from_json(
+        r#"{
+        "format_version":3,"id":"span","name":"Span","spawn":{"x":0,"z":0},
+        "rooms":[{"width":2,"depth":2,"height":3}],
+        "ramps":[{"x":0.2,"z":0.8,"width":1.6,"depth":0.4,"rise":0.8}],
+        "props":[{"model":"test:section","x":1,"z":1,"size":[1.8,1.05,0.12],"solid":true,
+          "span":{"source_length":1.8,"length":1.6,"rise":0.8}}]
+    }"#,
+    )
+    .expect("tiny span fixture parses");
+    crate::loader::validate_level(&level).expect("valid linked span");
+    let prop = &level.props[0];
+    let surfaces = LevelSurfaces::new(&level);
+    let matrix = prop.placement_matrix(surfaces.floor_y_at(1.0, 1.0).expect("ramp floor"));
+    let start = matrix.transform_point3(glam::Vec3::new(-0.9, 0.0, 0.0));
+    let finish = matrix.transform_point3(glam::Vec3::new(0.9, 0.0, 0.0));
+    assert!(
+        start.distance(glam::Vec3::new(0.2, 0.0, 1.0)) < 1e-5,
+        "low end grounds: {start:?}"
+    );
+    assert!(
+        finish.distance(glam::Vec3::new(1.8, 0.8, 1.0)) < 1e-5,
+        "high end grounds: {finish:?}"
+    );
+    assert!(
+        matrix
+            .transform_vector3(glam::Vec3::Y)
+            .distance(glam::Vec3::Y)
+            < 1e-6,
+        "span shears rails without pitching supports"
+    );
+    let mut colliders = Vec::new();
+    prop.push_solid_colliders(&surfaces, &mut colliders);
+    assert_eq!(colliders.len(), 7, "quarter-metre slices bound cost");
+    for i in 0..=32_u16 {
+        let fraction = f32::from(i) / 32.0;
+        let x = 1.6_f32.mul_add(fraction, 0.2);
+        let base = 0.8 * fraction;
+        let covers = |y| {
+            colliders.iter().any(|boxed| {
+                x >= boxed.min_x
+                    && x <= boxed.max_x
+                    && 1.0 >= boxed.min_z
+                    && 1.0 <= boxed.max_z
+                    && y >= boxed.min_y
+                    && y <= boxed.max_y
+            })
+        };
+        assert!(
+            covers(base + 0.02) && covers(base + 1.0),
+            "no collision gap at {fraction}"
+        );
+        assert!(
+            !covers(base + 1.25),
+            "no tall rectangular blocker at {fraction}"
+        );
+    }
+    let mut north = prop.clone();
+    north.rotation_degrees = 90.0;
+    let direction = north.placement_matrix(0.0).transform_vector3(glam::Vec3::X);
+    assert!(
+        direction.x.abs() < 1e-6 && direction.z < 0.0,
+        "positive yaw runs north"
+    );
+}
+
+/// Tiny invalid documents pin the public boundary before collision subdivision
+/// or material-variant allocations are allowed.
+#[test]
+fn linked_prop_span_validation_rejects_invalid_or_moving_modules() {
+    let mut level = physics_fixture();
+    let valid: PropDef = serde_json::from_str(
+        r#"{"model":"test:section","size":[1.8,1.05,0.12],
+        "span":{"source_length":1.8,"length":1.8}}"#,
+    )
+    .expect("span parses");
+    level.props.push(valid);
+    for invalid in [
+        serde_json::json!({"source_length":0.0_f64,"length":1.8_f64}),
+        serde_json::json!({"source_length":1.8_f64,"length":7.3_f64}),
+        serde_json::json!({"source_length":1.8_f64,"length":1.8_f64,"rise":4.0_f64}),
+    ] {
+        level.props[0].span = Some(serde_json::from_value(invalid).expect("typed invalid span"));
+        assert!(
+            crate::loader::validate_level(&level).is_err(),
+            "invalid span is refused"
+        );
+    }
+    level.props[0].span = None;
+    let _old_invalid_slot = level.props[0]
+        .material_overrides
+        .insert(16, "test:material".into());
+    assert!(
+        crate::loader::validate_level(&level).is_err(),
+        "material slot is bounded"
+    );
+    level.props[0].material_overrides.clear();
+    let _old_valid_slot = level.props[0]
+        .material_overrides
+        .insert(0, "test:material".into());
+    level.props[0].physics = Some(crate::physics::config::PhysicsDef::default());
+    assert!(
+        crate::loader::validate_level(&level).is_err(),
+        "scenery controls cannot drive rigid props"
+    );
+}
+
 /// Protects legacy placement compatibility and package semantics retention with
 /// four tiny props; collision generation is pure and performs no model loading.
 #[test]
