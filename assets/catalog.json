@@ -8527,10 +8527,10 @@
       "surface": "floor",
       "texture": "arcade:tex_lane_wood_01",
       "tile_metres": 4,
-      "specular": 0.26,
-      "shine": 0.52,
-      "reflection_mode": "probe",
-      "reflection_strength": 0.12
+      "specular": 0.36,
+      "shine": 0.6,
+      "reflection_mode": "planar",
+      "reflection_strength": 0.28
     },
     {
       "id": "arcade:gutter_dark_01",

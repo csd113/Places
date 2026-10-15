@@ -482,22 +482,26 @@ impl Reflections {
 /// The nearest mirror plane whose reflective geometry is on screen.
 ///
 /// At most one plane is reflected per frame: the nearest one whose reflective
-/// geometry survived the frustum test. The distance is measured from `camera`
-/// to the plane and compared in absolute value, so a plane behind the camera
-/// still counts if it is nearer than one in front — exactly what the draw path
-/// has always done.
+/// geometry survived the frustum test. Distance is measured to the geometry's
+/// finite bounds: a distant floor must not displace a nearby wall mirror just
+/// because the floor's infinite plane extends beneath the camera.
 #[must_use]
 pub fn nearest_visible_reflection_plane(
     routing: &ReflectionRouting,
     camera: [f32; 3],
     frustum: &Frustum,
 ) -> Option<usize> {
+    let eye = glam::Vec3::from_array(camera);
     let mut best: Option<(f32, usize)> = None;
     for (index, plane) in routing.planes.iter().enumerate() {
         if !frustum.intersects_aabb(&plane.bounds) {
             continue;
         }
-        let distance = plane.distance(camera).abs();
+        let closest = eye.clamp(
+            glam::Vec3::from_array(plane.bounds.min),
+            glam::Vec3::from_array(plane.bounds.max),
+        );
+        let distance = eye.distance_squared(closest);
         if !distance.is_finite() {
             continue;
         }
@@ -534,6 +538,56 @@ mod tests {
     #![allow(clippy::indexing_slicing, reason = "fixed-index test fixtures")] // fixed-index test fixtures
 
     use super::*;
+
+    /// Two bounds and camera matrices, with no assets or baking: protects the
+    /// single-view budget when reflective lanes and a wall mirror coexist.
+    #[test]
+    fn a_distant_floor_does_not_displace_a_nearby_wall_mirror() {
+        let routing = ReflectionRouting {
+            planes: vec![
+                ReflectionPlane {
+                    normal: [0.0, 1.0, 0.0],
+                    offset: -0.01,
+                    bounds: Aabb::from_point([9.72, 0.01, 1.5]).expanded([17.72, 0.01, 23.0]),
+                },
+                ReflectionPlane {
+                    normal: [0.0, 0.0, -1.0],
+                    offset: 7.8,
+                    bounds: Aabb::from_point([-3.15, 1.134, 7.8]).expanded([-0.65, 1.976, 7.8]),
+                },
+            ],
+            ..ReflectionRouting::default()
+        };
+        let frustum_for = |camera: [f32; 3], direction: glam::Vec3| {
+            let eye = glam::Vec3::from_array(camera);
+            let projection = glam::Mat4::orthographic_rh(-32.0, 32.0, -32.0, 32.0, 0.1, 100.0);
+            let view = glam::Mat4::look_at_rh(eye, eye + direction, glam::Vec3::Y);
+            Frustum::from_view_projection(
+                &(projection * view),
+                crate::spatial::DepthRange::ZeroToOne,
+            )
+        };
+        let bathroom = [-2.7, 1.6, 5.6];
+        let bathroom_frustum = frustum_for(bathroom, glam::Vec3::Z);
+        assert!(
+            routing
+                .planes
+                .iter()
+                .all(|plane| bathroom_frustum.intersects_aabb(&plane.bounds)),
+            "both surfaces must be candidates for the priority regression"
+        );
+        assert_eq!(
+            nearest_visible_reflection_plane(&routing, bathroom, &bathroom_frustum),
+            Some(1),
+            "the nearby mirror retains the reflection view"
+        );
+        let lanes = [12.65, 1.6, 22.2];
+        assert_eq!(
+            nearest_visible_reflection_plane(&routing, lanes, &frustum_for(lanes, -glam::Vec3::Z)),
+            Some(0),
+            "the lanes receive the reflection view when approached"
+        );
+    }
 
     #[test]
     fn the_mirror_matrix_reflects_points_and_fixes_the_plane() {
