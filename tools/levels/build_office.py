@@ -172,11 +172,41 @@ def build_level():
     level['geometry_intent'].append(dict(check='missing-wall', x=24, z=3.5,
         width=12, depth=1, note='Upper bridge edge opens to the ramp shaft; authored guardrails protect the drops.'))
 
-    def prop(model, x, z, identity, y=0, yaw=0, solid=True, **extra):
+    def prop(model, x, z, identity, y=0, yaw=0, solid=True, size=None, **extra):
         piece = dict(id=identity, model=model, x=x, z=z, y=y,
-            rotation_degrees=yaw, size=sizes[model], solid=solid, **extra)
+            rotation_degrees=yaw, size=sizes[model] if size is None else size,
+            solid=solid, **extra)
         level['props'].append(piece)
         return piece
+
+    def vending_power(piece):
+        """Either machine operates one shared power state and sequence owner."""
+        controller = 'top_vending'
+        sequence = controller+'_flicker'
+        piece['switch_group'] = 'break_room_vending'
+        piece['components'] = [
+            dict(component='light', enabled=True, switchable=True, emission_scale=1),
+            dict(component='interactable', reach=2.5, prompt='Cycle vending power')]
+        if piece['id'] == controller:
+            piece['components'].append(dict(component='state', name='power_mode', value='steady'))
+        piece['bindings'] = []
+        for current, following, actions in (
+                ('steady', 'flickering', [dict(action='start_sequence', target=controller, sequence=sequence)]),
+                ('flickering', 'dark', [dict(action='stop_sequence', target=controller),
+                                      dict(action='set_light', target=controller, on=False)]),
+                ('dark', 'steady', [dict(action='set_light', target=controller, on=True)])):
+            piece['bindings'].append(dict(on='interact', cooldown_seconds=.25,
+                when=[dict(check='state', target=controller, name='power_mode', equals=current)],
+                actions=actions+[dict(action='set_state', target=controller, name='power_mode', value=following)]))
+        if piece['id'] == controller:
+            # One running owner prevents either interactable leaving a second
+            # loop alive after the other selects the shared dark state.
+            steps = []
+            for on, seconds in ((True, 1.7), (False, .16), (True, .09),
+                                (False, .42), (True, 2.4), (False, .28)):
+                steps.extend([dict(step='action', action=dict(action='set_light', target=controller, on=on)),
+                              dict(step='wait', seconds=seconds)])
+            level['sequences'].append(dict(id=sequence, looped=True, steps=steps))
 
     # Office kit gives the plan its scale; only two existing CRTs and a few
     # mugs/books add equipment. The sparse reference remains the authority.
@@ -185,11 +215,37 @@ def build_level():
         prop('core:desk', x, z, f'top_desk_{index}', 7.2, yaw)
         prop('core:chair', x, z+(1 if yaw == 0 else -1), f'top_chair_{index}',
              7.2, (yaw+180) % 360)
-    for index, (x, z, yaw) in enumerate(((1.1, 16.6, 0), (3.3, 16.6, 0),
-                                        (6.3, 16.6, 0), (22.8, 12, 270))):
+    for index, (x, z, yaw) in enumerate(((1.1, 16.6, 180), (3.3, 16.6, 180),
+                                        (6.3, 16.6, 180), (22.8, 12, 270))):
         prop('core:cabinet', x, z, f'top_records_{index}', 7.2, yaw)
+    prop('core:office_filing_cabinet_tall', 4.8, 16.6, 'top_tall_records', 7.2, yaw=180,
+         comment='One tall three-drawer unit in the existing records row; through lanes remain empty.')
+    prop('core:office_reception_desk', 5.8, 6.25, 'top_reception', 7.2,
+         comment='Public apron faces the corridor; the staff bay remains open to the north workroom.')
+    prop('core:chair', 5.8, 5.05, 'top_reception_chair', 7.2)
+    prop('core:office_noticeboard', 7.875, 5.4, 'top_reception_notices', 8.75, 270,
+         solid=False, comment='Vertically centered wall mount; rear plane is 5 mm proud of the partition.')
     prop('core:water_cooler', 19.3, 5.9, 'top_water', 7.2)
-    prop('core:vending_machine', 22.5, 5.8, 'top_vending', 7.2)
+    drinks = prop('core:vending_machine', 21.4, .6, 'top_vending', 7.2,
+        display_name='Drinks vending machine',
+        emission_overrides={'4': dict(color=[1, 1, 1], intensity=.5)},
+        lights=[dict(shape='point', offset=[-.1, 1.22, .43],
+                     color=[.66, .79, 1], intensity=.28, range=2.7),
+                dict(shape='point', offset=[-.1, .45, .43],
+                     color=[.66, .79, 1], intensity=.08, range=1.6)],
+        comment='Backed against the break-room wall with clear front access; only the printed fascia emits.')
+    # The source's payment hardware projects to +Z .471 and +X .5055;
+    # centered collision must cover those maxima rather than its raw span.
+    snack = prop('core:office_snack_machine', 22.65, .6, 'top_snack_vending', 7.2,
+        size=[1.011, 1.9, .942],
+        display_name='Snack vending machine',
+        lights=[dict(shape='point', offset=[-.087, 1.71, .2],
+                     color=[1, .7454, .3515], intensity=.28, range=2.7),
+                dict(shape='point', offset=[-.087, .64, .29],
+                     color=[1, .7454, .3515], intensity=.14, range=2.1)],
+        comment='Paired with drinks; sources use the delivered interior and lower-spill anchors, with real glass and shelf depth.')
+    vending_power(drinks)
+    vending_power(snack)
     for index, x in enumerate((3.2, 15)):
         prop('home:crt_tv', x, 3.5 if index == 0 else 2.9, f'top_crt_{index}',
              7.95, yaw=0, solid=False, scale=.55)

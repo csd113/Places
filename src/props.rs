@@ -111,6 +111,12 @@ struct CompletedModelReview {
     texture_edge: u32,
     #[serde(default)]
     clamped_uv_overscan: bool,
+    #[serde(default)]
+    engine_triangle_limit: Option<usize>,
+    #[serde(default)]
+    bounds_min: Option<[f32; 3]>,
+    #[serde(default)]
+    bounds_max: Option<[f32; 3]>,
 }
 
 fn completed_model_review(model_path: &str) -> Option<&'static CompletedModelReview> {
@@ -322,13 +328,34 @@ impl PropAssets {
                 "completed model {model_path} differs from its accepted export"
             ));
         }
-        let parsed = if review.is_some_and(|entry| entry.clamped_uv_overscan) {
-            crate::gltf::parse_glb_with_clamped_overscan(&bytes)
-        } else {
-            parse_glb(&bytes)
-        };
+        let parsed = review
+            .and_then(|entry| entry.engine_triangle_limit)
+            .map_or_else(
+                || {
+                    if review.is_some_and(|entry| entry.clamped_uv_overscan) {
+                        crate::gltf::parse_glb_with_clamped_overscan(&bytes)
+                    } else {
+                        parse_glb(&bytes)
+                    }
+                },
+                |limit| crate::gltf::parse_glb_with_reviewed_triangle_budget(&bytes, limit),
+            );
         let mut model = parsed
             .map_err(|error: GltfError| format!("prop model {model_path} is invalid: {error}"))?;
+        if let Some(accepted) = review
+            && let (Some(expected_min), Some(expected_max)) =
+                (accepted.bounds_min, accepted.bounds_max)
+            && !model.bounds().is_some_and(|(low, high)| {
+                low.iter()
+                    .chain(high.iter())
+                    .zip(expected_min.iter().chain(expected_max.iter()))
+                    .all(|(actual, expected)| (actual - expected).abs() <= 0.000_02)
+            })
+        {
+            return Err(format!(
+                "completed model {model_path} differs from its reviewed bounds"
+            ));
+        }
         for image in &mut model.textures {
             self.intern_texture(image);
         }

@@ -1540,10 +1540,13 @@ fn prepare_static_light_off(
     }
     let mut lighting = build.lighting.clone();
     for fixture in &fixtures {
-        let source = lighting
-            .fixture_light_index(*fixture)
-            .ok_or("Static circuit fixture has no resolved light")?;
-        let _changed = lighting.set_light_enabled(source, false);
+        let sources = lighting.fixture_light_indices(*fixture);
+        if sources.is_empty() {
+            return Err("Static circuit fixture has no resolved light".into());
+        }
+        for source in sources {
+            let _changed = lighting.set_light_enabled(source, false);
+        }
     }
     let mut batches = Vec::new();
     let mesh = rebuild_vertex_lit_level(level, catalog, assets, materials, &lighting, &mut batches);
@@ -1688,6 +1691,11 @@ fn collect_dependencies(
         }
     }
     for light in &level.ceiling_lights {
+        if let Some(model_id) = crate::lighting::fixture_model_id(&light.fixture)
+            && let Some(path) = catalog.get(model_id).model
+        {
+            add(DependencyKind::Model, &path)?;
+        }
         if let Some(path) = catalog.assets().fixture_sheet_path(&light.fixture) {
             add(DependencyKind::Texture, path)?;
         }

@@ -459,10 +459,21 @@ fn parses_the_shipped_chair_asset() {
             * usize::try_from(texture.height).expect("fixture integer fits usize")
             * 4
     );
-    assert_eq!(model.submeshes.len(), 1);
-    assert_eq!(model.submeshes[0].texture, Some(0));
+    assert!(
+        model.submeshes.len() > 1,
+        "retain manufactured material parts"
+    );
+    assert!(model.submeshes.iter().all(|part| part.texture == Some(0)));
+    let mut covered = 0;
+    for part in &model.submeshes {
+        assert_eq!(
+            part.first_index, covered,
+            "primitive ranges stay contiguous"
+        );
+        covered += part.index_count;
+    }
     assert_eq!(
-        model.submeshes[0].index_count,
+        covered,
         u32::try_from(model.indices.len()).expect("index count fits")
     );
 
@@ -817,12 +828,25 @@ fn over_budget_models_still_load() {
 #[test]
 fn over_ceiling_models_fail() {
     let triangles = MAX_PROP_TRIANGLES + 1;
-    let error = parse_glb(&repeated_triangle_glb(triangles)).expect_err("over-ceiling models fail");
+    let bytes = repeated_triangle_glb(triangles);
+    let error = parse_glb(&bytes).expect_err("ordinary over-ceiling models fail");
     assert!(error.0.contains("engine ceiling"), "{}", error.0);
     assert!(
         error.0.contains(&MAX_PROP_TRIANGLES.to_string()),
         "{}",
         error.0
+    );
+    // Reuse the same small boundary fixture: a reviewed import gets only its
+    // explicit bounded budget, while the public parser remains unchanged.
+    assert_eq!(
+        parse_glb_with_reviewed_triangle_budget(&bytes, triangles)
+            .expect("explicit reviewed budget loads")
+            .triangles,
+        triangles
+    );
+    assert!(parse_glb_with_reviewed_triangle_budget(&bytes, MAX_PROP_TRIANGLES).is_err());
+    assert!(
+        parse_glb_with_reviewed_triangle_budget(&bytes, MAX_REVIEWED_PROP_TRIANGLES + 1).is_err()
     );
 }
 

@@ -404,6 +404,22 @@ The stained sheet was seam-repaired with `--band 32 --residual-band 12
 
 ## 6. Light fixture faces
 
+The completed Office `core:fluorescent_panel_01` and Pool
+`core:pool_light_round` / `core:pool_light_wall` fixtures now draw their accepted
+GLB models through ordinary model materials. Their original authoring IDs,
+mounts, circuits and emission controls remain. Only luminous material slot 2
+receives source tint, emission strength and animation; metal and gaskets retain
+ordinary receiver lighting. The PNG fixture sheets below remain the procedural
+fallback contract and continue to serve the other fixture families.
+
+The Office export retains its 1.2 × 0.6 × 0.045 m housing, downward
+1.12 × 0.56 m aperture and twin covers reaching 40 mm below the mount. Pool's
+recessed disc has radius 0.214 m at mount Y−0.017. Its finite source samples stay
+inside that disc. Pool's wall model has two separate 0.354 × 0.048 m luminous
+strips centered at local Y±0.045, with their fronts at local Z=0.110. Two
+half-power sources sit 1 mm in front of those strips; the central gasket emits
+nothing. The Arcade panel keeps its existing procedural diffuser plane.
+
 A fixture's mesh is generated from a fixture profile
 (`src/lighting/tuning.rs::fixture_profile`); its *visible luminous face* is a
 catalog `light` entry whose `model` is a PNG. Fixture sheets are **fitted**:
@@ -956,8 +972,8 @@ bytes. Only two zero-area source triangles are omitted. The 338-triangle variant
 has size `[0.75, 1.4, 0.8]`, opaque alpha, clamp sampling and the same single
 non-emissive oak material. It creates no raster artwork or new UV layout.
 
-The domestic remakes in `tools/props/parts/domestic_remade.py` retain those
-atlas regions and the tableware layouts. Bed and office chair now load their
+The historical domestic remakes in `tools/props/parts/domestic_remade.py` retain those
+atlas regions and the tableware layouts. Their bed and superseded office-chair builders load
 existing embedded artwork from standalone 256² PNG sources beside their GLBs:
 `shared/props/bed.png` (frame/mattress/linen/board) and
 `environments/office/props/chair.png` (shell/pad/metal/dark). These are
@@ -965,25 +981,17 @@ unchanged extracted pixels, not newly painted textures. The switch retains its
 `toggle` clip and node names; its rocker hinge is now at `(0, 0.066, 0.022)`
 metres, with a 0.35-second, 30-degree travel. Its back remains at `z = 0`.
 
-Pool concept remakes load 256² native PNGs beside the GLBs, with 1024²
-`*_master.png` sources preserved by the offline `tools/textures/author_pool.py`
-workflow. Table: tray/trim/leg/brace; chair: seat/frame/leg/slat; ladder:
-tube/tread/grip/boot; curtains: cloth/post/plate/track; rails: post/rail/plate/spare.
-All preserve a fitted 2×2 layout, opaque alpha, base-at-floor origin and +Z front.
-The single guardrail axis is now 0.98 m, matching the approved concept. Curtains
-retain closed 2 mm shells and a 7.5 cm minimum floor clearance.
-
-The added Pool bench uses slat/edge/metal/foot, the grate uses
-metal/recess/edge/tile, and the static service door uses leaf/frame/metal/dark.
-These use the same 1024² master → 256² native → GLB workflow; ordinary builds
-load artwork and never paint it. The basin lane decal is 1024×32 RGBA (32:1),
+The accepted Pool collection supersedes the earlier 256², four-cell procedural
+remakes. Its shared 512² sixteen-cell material sheet and dedicated tile,
+charcoal-slat, foliage and sign sheets retain their delivered fitted UV frames.
+Exact per-model bounds and texture edges are recorded in `completed-models.json`;
+the historical constructors and masters cannot overwrite these accepted exports.
+The unchanged basin lane decal is 1024×32 RGBA (32:1),
 with a transparent margin, and is placed at 32:1 on one flat basin floor.
 
-The remade rubber duck loads `environments/pool/props/rubber_duck.png`,
-an opaque 256² atlas retaining body/head/beak/eye in the existing 2×2 layout.
-The cells are clean yellow, lighter yellow, orange and charcoal material
-swatches; the eye silhouette comes from small closed mesh discs, not alpha.
-The atlas is embedded by `tools/props/parts/duck_remade.py` during export.
+The accepted rubber duck uses the collection's shared opaque fitted material
+sheet. Its geometry, source origin and physical buoyancy remain separate
+contracts; the historical `duck_remade.py` four-cell exporter is superseded.
 
 ### 8.7 Winter static snow kit
 
@@ -2384,3 +2392,33 @@ within the former 0.9999 dot allowance could steal a bowl-edge receiver and
 clip its coverage against the wrong plane, creating dark triangular seams.
 Solver revision 21 corrects the identity without changing model artwork,
 normal transforms, illumination powers, brightness response or atlas density.
+
+### October 15 Pool and Office adoption
+
+The additional 23 Pool, nine Office and one snack-vending exports retain their
+delivered GLB bytes. `assets/completed-models.json` binds each export's hash,
+measured min/max bounds and reviewed texture edge. Mounted fixtures, the
+wall-centered noticeboard and asymmetric fittings retain those measured local
+origins. Their runtime check verifies both hash and bounds; ordinary unreviewed
+assets retain floor-contact and centering requirements.
+
+Thirteen unique embedded PNG sources have equivalent standalone files beside
+their models; the five Office replacements retain the delivered 1024² masters.
+No UV layout, alpha mode, image pixels or dimensional shelf/product geometry is
+re-authored. Complete editable/reference deliveries remain under the ignored
+`import/model-rework/` collection and in their original Library items.
+
+The snack machine retains 16,240 triangles, 13 material groups, one shared 512²
+atlas, five recessed shelves, 50 packets, 25 coils and actual thin BLEND glass.
+Its exact accepted export alone declares `engine_triangle_limit: 16240`; the
+cache checks its SHA before the bounded private importer profile applies.
+Ordinary/public GLB imports still stop at 6,000 triangles. The source material
+groups already consolidate wrapper shaders; metal remains non-emissive.
+The model is 1.9 m tall with bottom-centered cabinet origin; its forward controls
+are intentionally included in the larger authored collision envelope.
+
+Fixed props may author numeric `emission_overrides` while retaining the delivered
+GLB and fitted PNGs. A shared `light` component controls only luminous slots and
+their actual attached sources. Full selects prepared contributions for steady,
+flickering and dark states; Static holds the authored initial state. This adds
+no dynamic rebake. See the map guide §21 for the field and controller contract.

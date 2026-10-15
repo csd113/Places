@@ -645,6 +645,54 @@ class AssetCatalogTests(unittest.TestCase):
             errors, _ = self._validate_level_document(level_with(lights))
             self.assertTrue(any(needle in error for error in errors), f"{label}: {errors}")
 
+        # Slot overrides are numeric source metadata, so exercise malformed
+        # boundaries directly without catalog I/O, model decoding, or map bakes.
+        luminous_prop = {
+            "components": [{"component": "light", "switchable": True}],
+            "emission_overrides": {"4": {"color": [1, .8, .5], "intensity": .5}},
+        }
+        override_cases = (
+            ("emission_overrides", None, "must be an object"),
+            ("emission_overrides", [], "must be an object"),
+            ("emission_overrides", {"16": {"color": [1, 1, 1], "intensity": 1}}, "slots in 0..15"),
+            ("emission_overrides", {str(slot): {} for slot in range(17)}, "at most 16 material slots"),
+            ("emission_overrides", {"-1": {}}, "slots in 0..15"),
+            ("emission_overrides", {"１": {}}, "slots in 0..15"),
+            ("emission_overrides", {"4": False}, "must be an object with color and intensity"),
+            ("emission_overrides", {"4": {"color": [1, True, 0], "intensity": 1}}, "color must be three finite"),
+            ("emission_overrides", {"4": {"color": [1, 0], "intensity": 1}}, "color must be three finite"),
+            ("emission_overrides", {"4": {"color": [1, 1.01, 0], "intensity": 1}}, "color must be three finite"),
+            ("emission_overrides", {"4": {"color": [1, -.01, 0], "intensity": 1}}, "color must be three finite"),
+            ("emission_overrides", {"4": {"color": [1, float("nan"), 0], "intensity": 1}}, "color must be three finite"),
+            ("emission_overrides", {"4": {"color": [1, 1, 1], "intensity": True}}, "intensity must be a finite"),
+            ("emission_overrides", {"4": {"color": [1, 1, 1], "intensity": float("inf")}}, "intensity must be a finite"),
+            ("emission_overrides", {"4": {"color": [1, 1, 1], "intensity": 8.01}}, "intensity must be a finite"),
+            ("components", [], "fixed prop with a light component"),
+            ("float", {}, "fixed prop with a light component"),
+            ("physics", {"motion": "dynamic"}, "fixed prop with a light component"),
+            ("components", [{"component": "light"}, {"component": "animation"}], "fixed prop with a light component"),
+        )
+        for field, value, needle in override_cases:
+            invalid = copy.deepcopy(luminous_prop)
+            invalid[field] = value
+            errors = []
+            validate.validate_prop_emission_overrides(invalid, "prop", errors)
+            self.assertTrue(any(needle in error for error in errors), (field, value, errors))
+        errors = []
+        validate.validate_prop_emission_overrides(luminous_prop, "prop", errors)
+        self.assertEqual(errors, [], errors)
+
+        # The shared circuit requires matching authored states before baking.
+        first_owner = dict(luminous_prop, switch_group="vending")
+        second_owner = copy.deepcopy(first_owner)
+        circuit = {"props": [first_owner, second_owner]}
+        errors = []
+        validate.validate_prop_light_circuits(circuit, "level", errors)
+        self.assertEqual(errors, [], errors)
+        second_owner["components"][0]["enabled"] = False
+        validate.validate_prop_light_circuits(circuit, "level", errors)
+        self.assertTrue(any("members must share enabled" in error for error in errors), errors)
+
         # The engine default shape is inferred from the authored dimensions.
         errors, _ = self._validate_level_document(level_with([
             {"shape": "rect", "half_width": 0.3, "half_depth": 0.05},
@@ -1340,9 +1388,36 @@ class PoolContentTests(unittest.TestCase):
         self.assertTrue(any(offset <= -1.0 for offset in offsets), "no recessed basin")
         self.assertTrue(any(-0.4 < offset < 0 for offset in offsets), "no walkable entry step")
         # Every region is tiled, not left on the Office default.
+        supports = sorted((region for region in regions
+                           if region.get("edge_material") == "core:pool_tile_basin_01"),
+                          key=lambda region: region["z"])
         for region in regions:
             self.assertEqual(region.get("material"), "core:pool_tile_basin_01", region)
-            self.assertEqual(region.get("edge_material"), "core:pool_tile_wall_01", region)
+            if region not in supports:
+                self.assertEqual(region.get("edge_material"), "core:pool_tile_wall_01", region)
+        # One existing JSON parse protects the new model/support Y interface:
+        # six small collision surfaces must stay concealed below real treads.
+        # No model build, full-map preparation or native process is needed.
+        self.assertEqual(len(supports), 6)
+        steps = sorted((prop for prop in level["props"]
+                        if prop["model"] == "pool:pool_entry_steps"), key=lambda prop: prop["z"])
+        self.assertEqual(len(steps), 2)
+        for index, support in enumerate(supports):
+            with self.subTest(tread=index):
+                self.assertAlmostEqual(support["x"], 9.105)
+                self.assertAlmostEqual(support["z"], 5.5 + index / 3, places=6)
+                self.assertAlmostEqual(support["width"], 1.19)
+                self.assertAlmostEqual(support["depth"], 1 / 3, places=6)
+                self.assertAlmostEqual(support["offset_y"], -1.305 + index * .2)
+                module_index = index // 3
+                module = steps[module_index]
+                self.assertAlmostEqual(module["x"], 9.7)
+                self.assertAlmostEqual(module["z"], 6 + module_index)
+                self.assertEqual(module["rotation_degrees"], 180)
+                self.assertFalse(module["solid"], "one bounds box would seal the step approach")
+                base_y = supports[module_index * 3 + 1]["offset_y"] + module["y"]
+                self.assertAlmostEqual(base_y, -1.5 + module_index * .6)
+                self.assertAlmostEqual(support["offset_y"], base_y + (index % 3 + 1) * .2 - .005)
         # The walls put the sign on the deck and the fixtures in the room.
         materials = {decal.get("material") for decal in level.get("decals", [])}
         self.assertIn("core:decal_no_diving_01", materials)

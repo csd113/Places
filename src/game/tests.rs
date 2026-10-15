@@ -3882,6 +3882,8 @@ fn crouched_eye_height_and_occlusion_respect_geometry() {
         float: None,
         span: None,
         material_overrides: std::collections::BTreeMap::new(),
+        emission_overrides: std::collections::BTreeMap::new(),
+        switch_group: None,
     });
     let mut game = game_for(&level);
     game.set_app_state(AppState::Playing);
@@ -5588,7 +5590,7 @@ fn a_switch_toggles_a_switchable_light_fixture() {
     let err = crate::loader::validate_level(&bad_level)
         .expect_err("a non-switchable fixture is not a toggle target");
     assert!(
-        err.contains("switchable ceiling fixture"),
+        err.contains("switchable fixed light"),
         "the error names the requirement: {err}"
     );
     let mut bad_game = game_for(&bad_level);

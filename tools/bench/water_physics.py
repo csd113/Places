@@ -133,6 +133,9 @@ def plan_for(case: str, source: dict) -> list[dict]:
         return p.finish(10_400)
     if case in ("settling", "video"):
         p.action(500, "activate", id=CONTROL)
+        # Sink coverage deliberately releases the basket over the basin;
+        # its authored initial/reset pose remains grounded on the dry deck.
+        setup_body(p, 550, SINK, [11.5, .06, 6.7])
         p.capture(700, "falling")
         p.capture(1600, "water-entry")
         p.capture(6500, "settled")
@@ -163,7 +166,7 @@ def plan_for(case: str, source: dict) -> list[dict]:
         # Four controlled placements establish dry/wet pickup conditions.
         # E and mouse own every acquisition and release.
         for index, (label, xyz, player, yaw, throwing) in enumerate((
-            ("dry-drop", [14, 0.1, 5.5], [14, 1.6, 6.7], 0, False),
+            ("dry-drop", [14.7, 0.1, 5.5], [14.7, 1.6, 6.7], 0, False),
             ("dry-throw", [3, 0.1, 5.4], [3, 1.6, 6.6], 0, True),
             ("wet-drop", [10.6, -0.3, 6.0], [10.6, 0.1, 7.1], 0, False),
             ("wet-throw", [11.8, -0.35, 5.0], [11.8, 0.1, 6.1], 0, True),
@@ -188,6 +191,7 @@ def plan_for(case: str, source: dict) -> list[dict]:
         return p.finish(19_000)
     if case == "quality":
         p.action(500, "activate", id=CONTROL)
+        setup_body(p, 550, SINK, [11.5, .06, 6.7])
         p.capture(5000, "quality-high")
         p.action(5300, "quality", level="medium")
         p.capture(8000, "quality-medium")
@@ -292,6 +296,9 @@ def audit_samples(case: str, samples: dict, events: list[dict], checks: list[dic
     if not {DUCK, SINK}.issubset(initial):
         return
     check(checks, "authored water examples start dormant", all(initial[id]["dormant"] for id in (DUCK, SINK)))
+    check(checks, "dense basket starts grounded and dry on the east deck",
+          native.distance(native.body_position(initial[SINK]), [14, 0, 6.7]) < .002
+          and initial[SINK].get("submerged_fraction", 0) == 0)
     if case == "caustics":
         for name, mode, texture in (("caustics-static", "off", "high"),
                                     ("caustics-static-low-textures", "off", "low"),

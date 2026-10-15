@@ -39,7 +39,7 @@
     {
       "id": "arcade",
       "display_name": "Retro Bowling & Arcade",
-      "description": "Empty operational 1995–2005 cosmic bowling: navy interiors, warm maple lanes, CRT cabinets and masked blacklight-reactive carpet."
+      "description": "Empty operational 1995\u20132005 cosmic bowling: navy interiors, warm maple lanes, CRT cabinets and masked blacklight-reactive carpet."
     }
   ],
   "assets": [
@@ -98,7 +98,11 @@
       ],
       "color": "#6d6a63",
       "category": "Furniture",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:table",
@@ -156,7 +160,11 @@
       ],
       "color": "#3a3d42",
       "category": "Furniture",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:bookshelf",
@@ -193,7 +201,11 @@
       ],
       "color": "#6a5c4a",
       "category": "Furniture",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:bed",
@@ -331,7 +343,11 @@
       ],
       "color": "#4f5a63",
       "category": "Appliances",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:water_cooler",
@@ -348,7 +364,11 @@
       ],
       "color": "#8fa4ae",
       "category": "Appliances",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:pool_table",
@@ -366,7 +386,11 @@
       "color": "#e8e6e0",
       "category": "Furniture",
       "solid": true,
-      "description": "Round white moulded resin patio table with rolled edge and four tapered feet."
+      "description": "Round white moulded resin patio table with rolled edge and four tapered feet.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:pool_chair",
@@ -384,7 +408,11 @@
       "color": "#e8e6e0",
       "category": "Furniture",
       "solid": true,
-      "description": "White moulded resin armchair with an arched vertically slotted back."
+      "description": "White moulded resin armchair with an arched vertically slotted back.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:pool_ladder",
@@ -402,7 +430,11 @@
       "color": "#b9bec2",
       "category": "Utility",
       "solid": true,
-      "description": "Chrome pool ladder: two handrails standing on the basin floor, curving out over the deck edge, with four non-skid treads."
+      "description": "Chrome pool ladder: two handrails standing on the basin floor, curving out over the deck edge, with four non-skid treads.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:pool_curtain_straight",
@@ -420,7 +452,11 @@
       "color": "#dfe4e2",
       "category": "Decorative",
       "solid": false,
-      "description": "Freestanding commercial privacy curtain module: two posts on foot plates, an extruded top track and a gathered pleated cloth panel."
+      "description": "Freestanding commercial privacy curtain module: two posts on foot plates, an extruded top track and a gathered pleated cloth panel.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:pool_curtain_end",
@@ -438,7 +474,11 @@
       "color": "#dfe4e2",
       "category": "Decorative",
       "solid": false,
-      "description": "Half-width end module that closes a curtain run."
+      "description": "Half-width end module that closes a curtain run.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:pool_curtain_corner",
@@ -456,7 +496,11 @@
       "color": "#dfe4e2",
       "category": "Decorative",
       "solid": false,
-      "description": "L-shaped curtain module that turns a run through 90 degrees."
+      "description": "L-shaped curtain module that turns a run through 90 degrees.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:pool_guardrail_straight",
@@ -474,7 +518,11 @@
       "color": "#b9bec2",
       "category": "Utility",
       "solid": true,
-      "description": "Two metre waist-high guardrail section: one silver top rail on three flanged posts."
+      "description": "Two metre waist-high guardrail section: one silver top rail on three flanged posts.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:pool_guardrail_end",
@@ -492,7 +540,11 @@
       "color": "#b9bec2",
       "category": "Utility",
       "solid": true,
-      "description": "Short single-rail guardrail return that terminates a run."
+      "description": "Short single-rail guardrail return that terminates a run.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:pool_guardrail_corner",
@@ -510,7 +562,11 @@
       "color": "#b9bec2",
       "category": "Utility",
       "solid": true,
-      "description": "L-shaped single-rail guardrail module that turns a run through 90 degrees."
+      "description": "L-shaped single-rail guardrail module that turns a run through 90 degrees.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:crate",
@@ -2369,7 +2425,11 @@
       "color": "#f2c422",
       "category": "Decorative",
       "solid": false,
-      "description": "Yellow rubber duck with an orange beak and painted eyes; the beak end faces +Z and a `float` block lets it ride the pool surface."
+      "description": "Yellow rubber duck with an orange beak and painted eyes; the beak end faces +Z and a `float` block lets it ride the pool surface.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:tex_grass_ground_01",
@@ -3775,7 +3835,11 @@
       "color": "#7f8a90",
       "category": "Structure",
       "solid": false,
-      "description": "Genuinely circular hot-tub shell: a tiled basin with a dark cap rail, an outer radius of 1.30 m (a 1.335 m base apron ring, so the bounds measure 2.67 m) and an inner wall of 1.173 m. The bottom sits on the basin floor at y = 0; the rim top is 1.56 m (a 1.50 m deck line). Author a 1.50 m floor-region recess under it and a circular water volume of radius 1.25 m with its surface 1.35 m above the basin floor."
+      "description": "Genuinely circular hot-tub shell: a tiled basin with a dark cap rail, an outer radius of 1.30 m (a 1.335 m base apron ring, so the bounds measure 2.67 m) and an inner wall of 1.173 m. The bottom sits on the basin floor at y = 0; the rim top is 1.56 m (a 1.50 m deck line). Author a 1.50 m floor-region recess under it and a circular water volume of radius 1.25 m with its surface 1.35 m above the basin floor.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:showcase_road_straight",
@@ -4567,7 +4631,11 @@
       "asset_type": "prop",
       "source": "file",
       "model": "environments/winter/props/fence_two_rail_section_snow.glb",
-      "size": [1.78, 0.92, 0.11],
+      "size": [
+        1.78,
+        0.92,
+        0.11
+      ],
       "color": "#9d9890",
       "category": "Winter",
       "solid": false,
@@ -4581,7 +4649,11 @@
       "asset_type": "prop",
       "source": "file",
       "model": "environments/winter/props/fence_two_rail_post_snow.glb",
-      "size": [0.2, 1.135, 0.2],
+      "size": [
+        0.2,
+        1.135,
+        0.2
+      ],
       "color": "#9d9890",
       "category": "Winter",
       "solid": false,
@@ -4809,7 +4881,11 @@
       ],
       "color": "#b9c3c5",
       "category": "Furniture",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "pool:pool_drain",
@@ -4826,7 +4902,11 @@
       ],
       "color": "#b9c3c5",
       "category": "Utility",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "pool:pool_service_door",
@@ -4843,7 +4923,11 @@
       ],
       "color": "#b9c3c5",
       "category": "Structure",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "pool:decal_lane_01",
@@ -5411,7 +5495,11 @@
       "asset_type": "prop",
       "source": "file",
       "model": "environments/outdoor/props/fence_two_rail_section.glb",
-      "size": [1.78, 0.845, 0.065],
+      "size": [
+        1.78,
+        0.845,
+        0.065
+      ],
       "color": "#9d9890",
       "category": "Structure",
       "solid": false,
@@ -5425,7 +5513,11 @@
       "asset_type": "prop",
       "source": "file",
       "model": "environments/outdoor/props/fence_two_rail_post.glb",
-      "size": [0.16, 1.05, 0.16],
+      "size": [
+        0.16,
+        1.05,
+        0.16
+      ],
       "color": "#9d9890",
       "category": "Structure",
       "solid": false,
@@ -8301,7 +8393,7 @@
       "asset_type": "light",
       "source": "file",
       "model": "environments/arcade/textures/lights/fluorescent_panel_01.png",
-      "description": "Existing 1.2×0.6 m recessed family with fitted 2:1 diffuser; real neutral-warm local lighting."
+      "description": "Existing 1.2\u00d70.6 m recessed family with fitted 2:1 diffuser; real neutral-warm local lighting."
     },
     {
       "id": "arcade:blacklight_tube",
@@ -8311,7 +8403,7 @@
       "asset_type": "light",
       "source": "file",
       "model": "environments/arcade/textures/lights/blacklight_tube_01.png",
-      "description": "Operational 1.2×0.15 m narrow batten with fitted 8:1 violet lens and nonemissive dark housing. Visible brightness and ultraviolet excitation are distinct."
+      "description": "Operational 1.2\u00d70.15 m narrow batten with fitted 8:1 violet lens and nonemissive dark housing. Visible brightness and ultraviolet excitation are distinct."
     },
     {
       "id": "arcade:decal_bowling_mural_01",
@@ -9552,6 +9644,314 @@
       "category": "Arcade",
       "solid": true,
       "description": "Three upholstered seats on closed steel supports; floor origin, +Y up and +Z front. Opposite seat colour presets share identical construction.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "pool:pool_basin_tile_module",
+      "display_name": "Pool Basin Tile Module",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/pool/props/pool_basin_tile_module.glb",
+      "size": [
+        0.5,
+        0.019,
+        0.5
+      ],
+      "color": "#b9c3c5",
+      "category": "Structure",
+      "solid": false,
+      "description": "Half-metre fitted basin tile panel; base at local floor plane.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "pool:pool_ceiling_panel_module",
+      "display_name": "Pool Ceiling Panel Module",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/pool/props/pool_ceiling_panel_module.glb",
+      "size": [
+        0.6,
+        0.019,
+        0.6
+      ],
+      "color": "#b9c3c5",
+      "category": "Structure",
+      "solid": false,
+      "description": "Sixty-centimetre ceiling panel; base at its local mounting plane.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "pool:pool_deck_tile_module",
+      "display_name": "Pool Deck Tile Module",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/pool/props/pool_deck_tile_module.glb",
+      "size": [
+        0.5,
+        0.019,
+        0.5
+      ],
+      "color": "#b9c3c5",
+      "category": "Structure",
+      "solid": false,
+      "description": "Half-metre fitted deck tile panel; base at local floor plane.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "pool:pool_entry_steps",
+      "display_name": "Pool Entry Steps",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/pool/props/pool_entry_steps.glb",
+      "size": [
+        1.2,
+        0.6,
+        1.003499
+      ],
+      "color": "#b9c3c5",
+      "category": "Structure",
+      "solid": true,
+      "description": "Three shallow entry treads with fitted tile and metal details; floor-centred origin.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "core:pool_light_round_housing",
+      "display_name": "Pool Round Light Housing",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/pool/props/pool_light_round.glb",
+      "size": [
+        0.5,
+        0.033,
+        0.5
+      ],
+      "color": "#b9c3c5",
+      "category": "Lighting",
+      "solid": false,
+      "description": "Ceiling mounting origin; recessed downward diffuser, with metal and gasket non-emissive.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "core:pool_light_wall_housing",
+      "display_name": "Pool Wall Light Housing",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/pool/props/pool_light_wall.glb",
+      "size": [
+        0.4,
+        0.2,
+        0.113
+      ],
+      "color": "#b9c3c5",
+      "category": "Lighting",
+      "solid": false,
+      "description": "Rear wall mounting origin; two separated luminous strips face +Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "pool:pool_potted_plant",
+      "display_name": "Pool Potted Plant",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/pool/props/pool_potted_plant.glb",
+      "size": [
+        0.588164,
+        0.860127,
+        0.56167
+      ],
+      "color": "#b9c3c5",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Floor-centred planter with asymmetrical pointed foliage; non-emissive.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "pool:pool_safety_sign",
+      "display_name": "Pool Safety Sign",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/pool/props/pool_safety_sign.glb",
+      "size": [
+        0.3,
+        0.4,
+        0.0125
+      ],
+      "color": "#b9c3c5",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Thin, bottom-centred no-diving sign; printed face points +Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "pool:pool_wall_tile_module",
+      "display_name": "Pool Wall Tile Module",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/pool/props/pool_wall_tile_module.glb",
+      "size": [
+        0.5,
+        0.5,
+        0.019
+      ],
+      "color": "#b9c3c5",
+      "category": "Structure",
+      "solid": false,
+      "description": "Half-metre wall tile panel; bottom-centred at its rear wall plane.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "core:office_filing_cabinet_tall",
+      "display_name": "Office Tall Filing Cabinet",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/office/props/office_filing_cabinet_tall.glb",
+      "size": [
+        0.5,
+        1.32,
+        0.5
+      ],
+      "color": "#797f7e",
+      "category": "Furniture",
+      "solid": true,
+      "description": "Narrow three-drawer filing cabinet with a floor-centred origin.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "core:office_fluorescent_panel_housing",
+      "display_name": "Office Fluorescent Panel Housing",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/office/props/office_fluorescent_panel.glb",
+      "size": [
+        1.2,
+        0.045,
+        0.6
+      ],
+      "color": "#797f7e",
+      "category": "Lighting",
+      "solid": false,
+      "description": "Ceiling mounting origin; separate downward diffuser and tube emitters keep metal non-emissive.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "core:office_noticeboard",
+      "display_name": "Office Noticeboard",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/office/props/office_noticeboard.glb",
+      "size": [
+        1.0,
+        0.7,
+        0.0485
+      ],
+      "color": "#797f7e",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Wall-mounted framed cork noticeboard, vertically centred at the rear Z=0 mounting plane.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "core:office_reception_desk",
+      "display_name": "Office Reception Desk",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/office/props/office_reception_desk.glb",
+      "size": [
+        2.4,
+        0.98,
+        0.95
+      ],
+      "color": "#797f7e",
+      "category": "Furniture",
+      "solid": true,
+      "description": "Clipped oak reception counter with an open staff bay; public face points +Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "core:office_snack_machine",
+      "display_name": "Office Snack Vending Machine",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/office/props/office_snack_machine.glb",
+      "size": [
+        1.0075,
+        1.9,
+        0.871
+      ],
+      "color": "#797f7e",
+      "category": "Appliances",
+      "solid": true,
+      "description": "Finished dimensional snack machine: five recessed shelves, fifty packets, twenty-five coils and a collection chute. Bottom-centred, +Z front; separate tube/LCD emission and clear glass.",
       "authoring": {
         "tool": "completed",
         "source": "completed-models.json"

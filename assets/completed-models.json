@@ -1575,6 +1575,601 @@
       0.35074999928474426
     ]
   },
+  "environments/office/props/cabinet.glb": {
+    "sha256": "e59ebdafe232631397af72070f4a8ae13374e05717bd2aae22b1866ea9d055d0",
+    "triangles": 324,
+    "texture_edge": 256,
+    "identities": [
+      "core:cabinet"
+    ],
+    "bounds_min": [
+      -0.44999995827674866,
+      0.0,
+      -0.22499999403953552
+    ],
+    "bounds_max": [
+      0.44999995827674866,
+      0.8500000238418579,
+      0.22499999403953552
+    ]
+  },
+  "environments/office/props/chair.glb": {
+    "sha256": "03e980b7ff0ba8c2ea70cfca3333aae33d0c1cdac9ea1e13114b54ab45085218",
+    "triangles": 772,
+    "texture_edge": 256,
+    "identities": [
+      "core:chair"
+    ],
+    "bounds_min": [
+      -0.25,
+      0.0,
+      -0.2499999850988388
+    ],
+    "bounds_max": [
+      0.25,
+      0.8999999165534973,
+      0.2499999850988388
+    ]
+  },
+  "environments/office/props/desk.glb": {
+    "sha256": "c79949e4c9e572714cbad8341321012ef192929912ef700491407983a39b79c5",
+    "triangles": 640,
+    "texture_edge": 256,
+    "identities": [
+      "core:desk"
+    ],
+    "bounds_min": [
+      -0.800000011920929,
+      0.0,
+      -0.3499999940395355
+    ],
+    "bounds_max": [
+      0.800000011920929,
+      0.75,
+      0.3499999940395355
+    ]
+  },
+  "environments/office/props/office_filing_cabinet_tall.glb": {
+    "sha256": "fce79eb6ad1fa212ae328e8d45d31bb8b98bb08d6d88fda90c1294e53e3ed7f9",
+    "triangles": 428,
+    "texture_edge": 256,
+    "identities": [
+      "core:office_filing_cabinet_tall"
+    ],
+    "bounds_min": [
+      -0.25,
+      0.0,
+      -0.25
+    ],
+    "bounds_max": [
+      0.25,
+      1.3200000524520874,
+      0.25
+    ]
+  },
+  "environments/office/props/office_fluorescent_panel.glb": {
+    "sha256": "97074b003c0e141256547783bd959d7cfcf7dd6e6cf00fdacaac3d9fd9481237",
+    "triangles": 440,
+    "texture_edge": 256,
+    "identities": [
+      "core:office_fluorescent_panel_housing"
+    ],
+    "bounds_min": [
+      -0.6000000238418579,
+      -0.04500000178813934,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      0.6000000238418579,
+      0.0,
+      0.30000001192092896
+    ]
+  },
+  "environments/office/props/office_noticeboard.glb": {
+    "sha256": "7db4d34db372a1ac151c6d5ee75b076ee098bcb6abb7a4c3dd29ffbd5ed8079c",
+    "triangles": 324,
+    "texture_edge": 256,
+    "identities": [
+      "core:office_noticeboard"
+    ],
+    "bounds_min": [
+      -0.5,
+      -0.3500000238418579,
+      -0.0
+    ],
+    "bounds_max": [
+      0.5,
+      0.3500000238418579,
+      0.048499997705221176
+    ]
+  },
+  "environments/office/props/office_reception_desk.glb": {
+    "sha256": "aba1a7685f98c67bf405829a4af220af5c68d90b6ef4a9b21eb417574770274d",
+    "triangles": 256,
+    "texture_edge": 256,
+    "identities": [
+      "core:office_reception_desk"
+    ],
+    "bounds_min": [
+      -1.2000000476837158,
+      0.0,
+      -0.4749999940395355
+    ],
+    "bounds_max": [
+      1.2000000476837158,
+      0.9800000190734863,
+      0.4749999940395355
+    ]
+  },
+  "environments/office/props/office_snack_machine.glb": {
+    "sha256": "524340672a396bbec5f55ba0e1db14b94c24a3c46bd9b706e4f88dc2bdcf5c0d",
+    "triangles": 16240,
+    "texture_edge": 512,
+    "identities": [
+      "core:office_snack_machine"
+    ],
+    "bounds_min": [
+      -0.5019999742507935,
+      0.0,
+      -0.4000000059604645
+    ],
+    "bounds_max": [
+      0.505500003695488,
+      1.9000000357627869,
+      0.47099994453621696
+    ],
+    "engine_triangle_limit": 16240
+  },
+  "environments/office/props/vending_machine.glb": {
+    "sha256": "a18285fbf487f449a9d45ac340f89d69f133e87a3a2c645ec4b1976c2b9063b1",
+    "triangles": 696,
+    "texture_edge": 256,
+    "identities": [
+      "core:vending_machine"
+    ],
+    "bounds_min": [
+      -0.5,
+      0.0,
+      -0.4000000059604645
+    ],
+    "bounds_max": [
+      0.5,
+      1.9000000953674316,
+      0.4000000059604645
+    ]
+  },
+  "environments/office/props/water_cooler.glb": {
+    "sha256": "4f2b6494431f801f6ad335643ff87e5f8d9df01f4bcd03f510f505363e3185a2",
+    "triangles": 772,
+    "texture_edge": 256,
+    "identities": [
+      "core:water_cooler"
+    ],
+    "bounds_min": [
+      -0.17499999701976776,
+      0.0,
+      -0.17499999701976776
+    ],
+    "bounds_max": [
+      0.17499999701976776,
+      1.100000023841858,
+      0.17500001192092896
+    ]
+  },
+  "environments/pool/props/hot_tub.glb": {
+    "sha256": "605736dc82788cf2ec56ce8b3b03fda25a70e4d5261f9e96cc16b3b48547fc3e",
+    "triangles": 1436,
+    "texture_edge": 512,
+    "identities": [
+      "core:hot_tub"
+    ],
+    "bounds_min": [
+      -1.3350000381469727,
+      0.0,
+      -1.3350000381469727
+    ],
+    "bounds_max": [
+      1.3350000381469727,
+      1.559999942779541,
+      1.3350000381469727
+    ]
+  },
+  "environments/pool/props/pool_basin_tile_module.glb": {
+    "sha256": "14848b4ff4c3c92bca17999639b6efe877f41b1d8b5d4ceb9e16300299c09565",
+    "triangles": 68,
+    "texture_edge": 512,
+    "identities": [
+      "pool:pool_basin_tile_module"
+    ],
+    "bounds_min": [
+      -0.25,
+      0.0,
+      -0.25
+    ],
+    "bounds_max": [
+      0.25,
+      0.01899999938905239,
+      0.25
+    ]
+  },
+  "environments/pool/props/pool_bench.glb": {
+    "sha256": "d8541c999ddeab6d2308a452f2b668a16685834989125ba50cf6a637f999c43f",
+    "triangles": 836,
+    "texture_edge": 512,
+    "identities": [
+      "pool:pool_bench"
+    ],
+    "bounds_min": [
+      -0.800000011920929,
+      0.0,
+      -0.18949998915195465
+    ],
+    "bounds_max": [
+      0.800000011920929,
+      0.44999998807907104,
+      0.18950000405311584
+    ]
+  },
+  "environments/pool/props/pool_ceiling_panel_module.glb": {
+    "sha256": "6a1518a9bc6f65dee4f09e3e8b9ef2a4c01bda9dddfb733ab5d1dfc5d0f166df",
+    "triangles": 68,
+    "texture_edge": 512,
+    "identities": [
+      "pool:pool_ceiling_panel_module"
+    ],
+    "bounds_min": [
+      -0.30000001192092896,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      0.30000001192092896,
+      0.01899999938905239,
+      0.30000001192092896
+    ]
+  },
+  "environments/pool/props/pool_chair.glb": {
+    "sha256": "3a755f7b7a3b1fe3e16ddad77ba801e0433bf146b82bbfe43963851c305c4e76",
+    "triangles": 412,
+    "texture_edge": 512,
+    "identities": [
+      "core:pool_chair"
+    ],
+    "bounds_min": [
+      -0.25999999046325684,
+      0.0,
+      -0.2750000059604645
+    ],
+    "bounds_max": [
+      0.25999999046325684,
+      0.8500000238418579,
+      0.2750000059604645
+    ]
+  },
+  "environments/pool/props/pool_curtain_corner.glb": {
+    "sha256": "0f410b9baaed0af8172affdceeee935cb99081c9e80daed7adaed4c6f2b5c2f9",
+    "triangles": 988,
+    "texture_edge": 512,
+    "identities": [
+      "core:pool_curtain_corner"
+    ],
+    "bounds_min": [
+      -0.30000001192092896,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      0.30000004172325134,
+      2.5999999046325684,
+      0.30000004172325134
+    ]
+  },
+  "environments/pool/props/pool_curtain_end.glb": {
+    "sha256": "56541ded22d64e0f6423aeacab4b8474c923bb77cb7c08e5c3b9c1c073c5126c",
+    "triangles": 452,
+    "texture_edge": 512,
+    "identities": [
+      "core:pool_curtain_end"
+    ],
+    "bounds_min": [
+      -0.30000004172325134,
+      0.0,
+      -0.11100000143051147
+    ],
+    "bounds_max": [
+      0.30000001192092896,
+      2.5999999046325684,
+      0.10899999737739563
+    ]
+  },
+  "environments/pool/props/pool_curtain_straight.glb": {
+    "sha256": "bef5d7f4c2fb581b350c784539d529d12ad61cf0b304b322195097998093924b",
+    "triangles": 872,
+    "texture_edge": 512,
+    "identities": [
+      "core:pool_curtain_straight"
+    ],
+    "bounds_min": [
+      -0.6000000238418579,
+      0.0,
+      -0.11100000143051147
+    ],
+    "bounds_max": [
+      0.6000000834465027,
+      2.5999999046325684,
+      0.10899999737739563
+    ]
+  },
+  "environments/pool/props/pool_deck_tile_module.glb": {
+    "sha256": "c39f4b09ebfb251ed4bd9a89624e9138e8a89cf34482326b397fc467df785f6e",
+    "triangles": 68,
+    "texture_edge": 512,
+    "identities": [
+      "pool:pool_deck_tile_module"
+    ],
+    "bounds_min": [
+      -0.25,
+      0.0,
+      -0.25
+    ],
+    "bounds_max": [
+      0.25,
+      0.01899999938905239,
+      0.25
+    ]
+  },
+  "environments/pool/props/pool_drain.glb": {
+    "sha256": "c6528f8c7961c850d195f8a16f81ff9400e9efb145cca4e982138734c3a7c289",
+    "triangles": 940,
+    "texture_edge": 512,
+    "identities": [
+      "pool:pool_drain"
+    ],
+    "bounds_min": [
+      -0.30000001192092896,
+      0.0,
+      -0.07999999821186066
+    ],
+    "bounds_max": [
+      0.30000001192092896,
+      0.014000000432133675,
+      0.07999999821186066
+    ]
+  },
+  "environments/pool/props/pool_entry_steps.glb": {
+    "sha256": "fc01aad4c25daac3383e6c757e77e98db31efad3ab957da4128d9e6a5c9d274e",
+    "triangles": 168,
+    "texture_edge": 512,
+    "identities": [
+      "pool:pool_entry_steps"
+    ],
+    "bounds_min": [
+      -0.6000000238418579,
+      0.0,
+      -0.4999994933605194
+    ],
+    "bounds_max": [
+      0.6000000238418579,
+      0.6000000238418579,
+      0.5034999847412109
+    ]
+  },
+  "environments/pool/props/pool_guardrail_corner.glb": {
+    "sha256": "9da6af411ec952cfd7a0fc00cc2e66f8bf26697c36e17d3302e4694704761ef3",
+    "triangles": 440,
+    "texture_edge": 512,
+    "identities": [
+      "core:pool_guardrail_corner"
+    ],
+    "bounds_min": [
+      -0.29999998211860657,
+      0.0,
+      -0.30000004172325134
+    ],
+    "bounds_max": [
+      0.30000001192092896,
+      1.0499999523162842,
+      0.30000001192092896
+    ]
+  },
+  "environments/pool/props/pool_guardrail_end.glb": {
+    "sha256": "ddfef67f99a9c428b3a72bdbcef7467cee8c357064afff634fda785f1f4062e4",
+    "triangles": 284,
+    "texture_edge": 512,
+    "identities": [
+      "core:pool_guardrail_end"
+    ],
+    "bounds_min": [
+      -0.30000001192092896,
+      0.0,
+      -0.03999999910593033
+    ],
+    "bounds_max": [
+      0.29999998211860657,
+      1.0499999523162842,
+      0.03999999910593033
+    ]
+  },
+  "environments/pool/props/pool_guardrail_straight.glb": {
+    "sha256": "2f644b55de75824d382a7b2b7bf2c236d32c0e658b10f459c467ffe2adfca7df",
+    "triangles": 412,
+    "texture_edge": 512,
+    "identities": [
+      "core:pool_guardrail_straight"
+    ],
+    "bounds_min": [
+      -1.0,
+      0.0,
+      -0.03999999910593033
+    ],
+    "bounds_max": [
+      1.0,
+      1.0499999523162842,
+      0.03999999910593033
+    ]
+  },
+  "environments/pool/props/pool_ladder.glb": {
+    "sha256": "ba7cd7611c8e15044e3c352f99318498b610d7d0644cc2d1a4d5d41ebecc6aea",
+    "triangles": 1208,
+    "texture_edge": 512,
+    "identities": [
+      "core:pool_ladder"
+    ],
+    "bounds_min": [
+      -0.2849999964237213,
+      0.0,
+      -0.21950000524520874
+    ],
+    "bounds_max": [
+      0.2849999964237213,
+      2.194999933242798,
+      0.2280000001192093
+    ]
+  },
+  "environments/pool/props/pool_light_round.glb": {
+    "sha256": "f6e885e03f58f96ad424d7e313a53cec1d0859a1dcd5584ee2bdae6b163828b1",
+    "triangles": 1016,
+    "texture_edge": 512,
+    "identities": [
+      "core:pool_light_round_housing"
+    ],
+    "bounds_min": [
+      -0.25,
+      -0.029999999329447746,
+      -0.25
+    ],
+    "bounds_max": [
+      0.25,
+      0.003000000026077032,
+      0.25
+    ]
+  },
+  "environments/pool/props/pool_light_wall.glb": {
+    "sha256": "d8e4ceaa9233d07d8d21dfc88a275c353528c092b4aa684ea0d5eeb174acd5e0",
+    "triangles": 540,
+    "texture_edge": 512,
+    "identities": [
+      "core:pool_light_wall_housing"
+    ],
+    "bounds_min": [
+      -0.20000000298023224,
+      -0.10000000149011612,
+      -0.0
+    ],
+    "bounds_max": [
+      0.20000000298023224,
+      0.10000000149011612,
+      0.11299999803304672
+    ]
+  },
+  "environments/pool/props/pool_potted_plant.glb": {
+    "sha256": "6f2e0a1091fe6309ff1e84c38bb0f5e4be9eda707b144534c23cc1d5bb67d55f",
+    "triangles": 1032,
+    "texture_edge": 512,
+    "identities": [
+      "pool:pool_potted_plant"
+    ],
+    "bounds_min": [
+      -0.3016292452812195,
+      0.0,
+      -0.32051825523376465
+    ],
+    "bounds_max": [
+      0.2865346670150757,
+      0.860127329826355,
+      0.2411518394947052
+    ]
+  },
+  "environments/pool/props/pool_safety_sign.glb": {
+    "sha256": "65f28c52a0f55887647e07c715f3b6f3226748915d8215e7420a59cdf76a1525",
+    "triangles": 190,
+    "texture_edge": 512,
+    "identities": [
+      "pool:pool_safety_sign"
+    ],
+    "bounds_min": [
+      -0.15000000596046448,
+      0.0,
+      -0.004999999888241291
+    ],
+    "bounds_max": [
+      0.15000000596046448,
+      0.4000000059604645,
+      0.007500000298023224
+    ]
+  },
+  "environments/pool/props/pool_service_door.glb": {
+    "sha256": "0d3d229cd124286b73884e673186081299d9b1c70e9b4e9022c4086ff5f23905",
+    "triangles": 496,
+    "texture_edge": 512,
+    "identities": [
+      "pool:pool_service_door"
+    ],
+    "bounds_min": [
+      -0.5,
+      0.0,
+      -0.07500000298023224
+    ],
+    "bounds_max": [
+      0.5,
+      2.0999999046325684,
+      0.07699999958276749
+    ]
+  },
+  "environments/pool/props/pool_table.glb": {
+    "sha256": "59ce98caa4b92f3745fc109b4600aef46ddefbbc9e8ea0eff69b94cbe0076fe2",
+    "triangles": 540,
+    "texture_edge": 512,
+    "identities": [
+      "core:pool_table"
+    ],
+    "bounds_min": [
+      -0.4000000059604645,
+      0.0,
+      -0.4000000059604645
+    ],
+    "bounds_max": [
+      0.4000000059604645,
+      0.7400000095367432,
+      0.4000000059604645
+    ]
+  },
+  "environments/pool/props/pool_wall_tile_module.glb": {
+    "sha256": "930ca6f267ceaf4df255e81e94209224dd8102aef0123dd6b085c900c3b41024",
+    "triangles": 68,
+    "texture_edge": 512,
+    "identities": [
+      "pool:pool_wall_tile_module"
+    ],
+    "bounds_min": [
+      -0.25,
+      0.0,
+      -0.0
+    ],
+    "bounds_max": [
+      0.25,
+      0.5,
+      0.01899999938905239
+    ]
+  },
+  "environments/pool/props/rubber_duck.glb": {
+    "sha256": "e177070daa5afb46dbf1e9fdf10ea2d9535371e639174610c41861baff40ef63",
+    "triangles": 464,
+    "texture_edge": 512,
+    "identities": [
+      "core:rubber_duck"
+    ],
+    "bounds_min": [
+      -0.04899999871850014,
+      0.0,
+      -0.07249999791383743
+    ],
+    "bounds_max": [
+      0.04899999871850014,
+      0.11999999731779099,
+      0.07249999791383743
+    ]
+  },
   "shared/props/armchair.glb": {
     "sha256": "957fa9cb1f4dad245b63b1f0f872162cfdc5400e31ea71374b549ec84f98606d",
     "triangles": 454,

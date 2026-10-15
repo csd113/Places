@@ -23,9 +23,7 @@
 
 use super::color::LightColor;
 use super::light::{LightFalloff, LightShape, LightSource};
-use super::math::{
-    ceiling_height_factor, effective_power, fixture_half_extents_for, room_baseline, smooth_falloff,
-};
+use super::math::{ceiling_height_factor, effective_power, room_baseline, smooth_falloff};
 use super::tuning::{
     AMBIENT_LEVEL, CLEAR_SAMPLE_MAX_STEPS, CLEAR_SAMPLE_STEP_M, FILL_MAX, FILL_RANGE_MULTIPLIER,
     FILL_STRENGTH, FIXTURE_DROP_M, LOCAL_LIGHT_MAX, LOCAL_LIGHT_STRENGTH, MAX_BRIGHTNESS,
@@ -1038,7 +1036,8 @@ fn baked_lights(
         };
         let source = LightSource {
             shape,
-            position: [light.x, profile.emission_y(panel_y), light.z],
+            position: profile
+                .emission_position([light.x, panel_y, light.z], light.rotation_degrees),
             rotation_degrees: light.rotation_degrees,
             color,
             intensity,
@@ -1068,13 +1067,26 @@ fn baked_lights(
         if let Some(slot) = fixture_lights.get_mut(fixture_index) {
             *slot = Some(lights.len());
         }
-        lights.push(BakedLight {
+        let baked = BakedLight {
             source,
             height_factor,
             room,
             directional: matches!(light.mount, LightMount::Ceiling),
             owner_prop: None,
-        });
+        };
+        if profile.model.is_some() && profile.kind == super::FixtureKind::WallSconce {
+            // The luminous strips are separated by an opaque spine. Two thin
+            // sources keep every transport tap on a real aperture, with the
+            // original fixture's total authored power shared between them.
+            for offset in [-0.045, 0.045] {
+                let mut strip = baked;
+                strip.source.position[1] += offset;
+                strip.source.intensity *= 0.5;
+                lights.push(strip);
+            }
+        } else {
+            lights.push(baked);
+        }
     }
 
     // Lights owned by placed objects. `surfaces` is only absent when the level
@@ -1136,7 +1148,10 @@ fn baked_attached_lights(
                 origin[2] + scaled[2].mul_add(cos, -scaled[0] * sin),
             ];
             let rotation = prop.rotation_degrees + light.rotation_degrees;
-            let source = light.to_source(position, rotation, prop.scale).sanitized();
+            let mut source = light.to_source(position, rotation, prop.scale).sanitized();
+            if let Some(control) = prop.light_control() {
+                source.enabled &= control.enabled;
+            }
             let Some(room) = resolve_light_room(
                 rooms,
                 &room_candidates(rooms, position[0], position[2]),
@@ -1159,7 +1174,11 @@ fn baked_attached_lights(
             let height_factor = ceiling_height_factor(height_m);
             if let Some(info) = rooms.get_mut(room) {
                 info.fixture_count = info.fixture_count.saturating_add(1);
-                if source.enabled {
+                if source.enabled
+                    && !prop
+                        .light_control()
+                        .is_some_and(|control| control.switchable)
+                {
                     let power = effective_power(source.intensity, height_m);
                     info.effective_power.r = power.mul_add(source.color.r, info.effective_power.r);
                     info.effective_power.g = power.mul_add(source.color.g, info.effective_power.g);
@@ -1185,9 +1204,8 @@ fn baked_attached_lights(
 fn room_light_candidates(lights: &[BakedLight], rooms: &[RoomLighting]) -> Vec<Vec<u32>> {
     let mut room_lights: Vec<Vec<u32>> = vec![Vec::new(); rooms.len()];
     for (index, light) in lights.iter().enumerate() {
-        if !light.is_active() {
-            continue;
-        }
+        // Keep inactive authored sources discoverable when a controller turns
+        // them on; per-sample source state still rejects their energy while off.
         let slot = u32::try_from(index).unwrap_or(u32::MAX);
         for (room_index, room) in rooms.iter().enumerate() {
             if (light.room == Some(room_index) || LevelLighting::light_reaches_room(light, room))
@@ -1254,6 +1272,49 @@ fn cells_connected(
         }
     }
     false
+}
+
+/// Remove controllable source energy from immutable room/zone baselines.
+/// This small temporary source copy is used only during preparation.
+fn baseline_sources(
+    level: &LevelDef,
+    lights: &[BakedLight],
+    fixture_lights: &[Option<usize>],
+) -> Vec<BakedLight> {
+    let mut sources = lights.to_vec();
+    for light in &mut sources {
+        if light
+            .owner_prop
+            .and_then(|owner| level.props.get(owner))
+            .and_then(crate::level::PropDef::light_control)
+            .is_some_and(|control| control.switchable)
+        {
+            light.source.enabled = false;
+        }
+    }
+    // Fixture sources precede attached sources, in authored order. Traverse
+    // their disjoint spans once so this also stays linear for large maps.
+    let mut end = sources
+        .iter()
+        .position(|light| light.owner_prop.is_some())
+        .unwrap_or(sources.len());
+    for (fixture, source) in fixture_lights.iter().enumerate().rev() {
+        let Some(start) = *source else {
+            continue;
+        };
+        if level
+            .ceiling_lights
+            .get(fixture)
+            .is_some_and(|authored| authored.switchable)
+            && let Some(span) = sources.get_mut(start..end)
+        {
+            for light in span {
+                light.source.enabled = false;
+            }
+        }
+        end = start;
+    }
+    sources
 }
 
 /// Builds the spatial baseline field of every room that internal walls split
@@ -1789,12 +1850,13 @@ impl LevelLighting {
             )
         };
 
+        let baseline_lights = baseline_sources(level, &lights, &fixture_lights);
         // A room split by internal walls gets one baseline per connected area;
         // an open room stays a single uniform baseline, bit for bit.
         let room_zones: Vec<Option<RoomZones>> = rooms
             .iter()
             .enumerate()
-            .map(|(index, room)| room_baseline_zones(index, room, &lights, &occluders))
+            .map(|(index, room)| room_baseline_zones(index, room, &baseline_lights, &occluders))
             .collect();
 
         for room in &mut rooms {
@@ -1978,6 +2040,41 @@ impl LevelLighting {
     #[must_use]
     pub fn fixture_light_index(&self, fixture_index: usize) -> Option<usize> {
         self.fixture_lights.get(fixture_index).copied().flatten()
+    }
+
+    /// Every source owned by one fixture, including separated luminous strips.
+    /// Fixture sources are contiguous and precede all prop-attached sources;
+    /// the retained primary ordinal therefore preserves older record readers.
+    #[must_use]
+    pub fn fixture_light_indices(&self, fixture_index: usize) -> Vec<usize> {
+        let Some(start) = self.fixture_light_index(fixture_index) else {
+            return Vec::new();
+        };
+        let end = self
+            .fixture_lights
+            .iter()
+            .skip(fixture_index.saturating_add(1))
+            .flatten()
+            .copied()
+            .find(|index| *index > start)
+            .unwrap_or(self.lights.len());
+        (start..end)
+            .take_while(|index| {
+                self.lights
+                    .get(*index)
+                    .is_some_and(|light| light.owner_prop.is_none())
+            })
+            .collect()
+    }
+
+    /// Resolved source identities attached to one fixed placed prop.
+    pub fn prop_light_indices(&self, prop_index: usize) -> impl Iterator<Item = usize> + '_ {
+        self.lights
+            .iter()
+            .enumerate()
+            .filter_map(move |(index, light)| {
+                (light.owner_prop == Some(prop_index)).then_some(index)
+            })
     }
 
     /// Enables or disables one baked light at runtime.
@@ -2404,8 +2501,7 @@ impl LevelLighting {
                     return y;
                 }
                 let profile = fixture_profile(&light.fixture);
-                let (half_w, half_d) =
-                    fixture_half_extents_for(profile.kind, light.rotation_degrees);
+                let (half_w, half_d) = profile.shape().half_extents_rotated(light.rotation_degrees);
                 self.fixture_panel_y(light.x, light.z, half_w, half_d)
             }
         }

@@ -700,6 +700,11 @@ impl EntityWorld {
                     .insert(handle, Collider { size, solid: true });
             }
             self.apply_component_defs(handle, id, &prop.components);
+            if let Some(light) = self.components.lights.get_mut(handle) {
+                light.fixture =
+                    u32::try_from(level.ceiling_lights.len().saturating_add(index)).ok();
+                self.authored_lights.push((handle, light.enabled));
+            }
             if let Some(response) = self.components.light_responses.get_mut(handle) {
                 response.sample_size = Some(size);
             }
@@ -788,6 +793,19 @@ impl EntityWorld {
                 circuits.entry(group).or_default().push(handle);
             }
             self.resolve_bindings_for(handle, &fixture.bindings);
+        }
+        let prop_ids = level.prop_instance_ids();
+        for (index, prop) in level.props.iter().enumerate() {
+            if let Some(group) = prop.switch_group.as_deref()
+                && let Some(handle) = prop_ids.get(index).and_then(|id| self.handle_of(id))
+                && self
+                    .components
+                    .lights
+                    .get(handle)
+                    .is_some_and(|light| light.switchable)
+            {
+                circuits.entry(group).or_default().push(handle);
+            }
         }
         self.light_circuits = circuits.into_values().collect();
     }
@@ -1734,7 +1752,7 @@ impl EntityWorld {
     }
 
     /// Every switch state that changed and has not been applied yet, as
-    /// `(fixture index, enabled)` pairs.
+    /// `(controller index, enabled)` pairs: fixtures first, then placed props.
     pub fn take_light_toggles(&mut self) -> Vec<(usize, bool)> {
         let mut toggles = Vec::new();
         let mut dirty: Vec<(EntityHandle, usize, bool)> = Vec::new();
@@ -5359,7 +5377,9 @@ mod tests {
                 { "id": "lamp_a", "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 4.0,
                   "switchable": true },
                 { "id": "lamp_b", "fixture": "core:fluorescent_panel_01", "x": 6.0, "z": 4.0,
-                  "switchable": true } ]"#,
+                  "switchable": true } ],
+            "props":[{"id":"machine","model":"core:missing","x":2,"z":2,
+                "components":[{"component":"light","enabled":false,"switchable":true}]}]"#,
         );
         let mut world = EntityWorld::from_level(&level);
         let off = ActionDef::SetLight {
@@ -5376,10 +5396,33 @@ mod tests {
             world.take_light_toggles().is_empty(),
             "world.take_light_toggles() must be empty"
         );
-        assert_eq!(world.light_states(), vec![(0, true), (1, false)]);
+        assert_eq!(
+            world.light_states(),
+            vec![(0, true), (1, false), (2, false)]
+        );
+        let prop_report = world.dispatch_actions(
+            &[ActionDef::SetLight {
+                target: Some("machine".into()),
+                on: true,
+            }],
+            None,
+        );
+        assert_eq!(prop_report.lights_toggled, 1);
+        assert_eq!(
+            world.take_light_toggles(),
+            vec![(2, true)],
+            "prop controller follows fixture identities"
+        );
+        world.reset_runtime();
+        assert_eq!(
+            world.light_states(),
+            vec![(0, true), (1, true), (2, false)],
+            "reset restores authored prop state"
+        );
     }
 
-    /// Two fixtures share one physical circuit; another remains independent.
+    /// Two fixtures and two prop owners use separate physical circuits.
+    /// Every member reports its own material/source state, atomically.
     /// Source-only state transitions protect atomic toggles and reset, no bake.
     #[test]
     fn one_circuit_action_updates_all_members_and_preserves_other_lights() {
@@ -5387,7 +5430,12 @@ mod tests {
             r#""ceiling_lights":[
             {"id":"a","fixture":"core:fluorescent_panel_01","x":2,"z":2,"switchable":true,"switch_group":"bathroom"},
             {"id":"b","fixture":"core:fluorescent_panel_01","x":3,"z":2,"switchable":true,"switch_group":"bathroom"},
-            {"id":"c","fixture":"core:fluorescent_panel_01","x":4,"z":2,"switchable":true}]"#,
+            {"id":"c","fixture":"core:fluorescent_panel_01","x":4,"z":2,"switchable":true}],
+            "props":[
+              {"id":"d","model":"core:missing","x":1,"z":1,"switch_group":"vending",
+               "components":[{"component":"light","switchable":true}]},
+              {"id":"e","model":"core:missing","x":2,"z":1,"switch_group":"vending",
+               "components":[{"component":"light","switchable":true}]}]"#,
         );
         let mut world = EntityWorld::from_level(&level);
         for enabled in [false, true, false] {
@@ -5407,14 +5455,44 @@ mod tests {
             );
             assert_eq!(
                 world.light_states(),
-                vec![(0, enabled), (1, enabled), (2, true)],
+                vec![(0, enabled), (1, enabled), (2, true), (3, true), (4, true)],
                 "other circuit is unchanged"
+            );
+        }
+        for (target, enabled) in [("d", false), ("e", true)] {
+            let prop_report = world.dispatch_actions(
+                &[ActionDef::Toggle {
+                    target: Some(target.into()),
+                }],
+                None,
+            );
+            assert_eq!(
+                prop_report.lights_toggled, 1,
+                "either owner controls the shared circuit"
+            );
+            let mut prop_changes = world.take_light_toggles();
+            prop_changes.sort_unstable();
+            assert_eq!(
+                prop_changes,
+                vec![(3, enabled), (4, enabled)],
+                "both distinct material owners reach the renderer"
+            );
+            assert_eq!(
+                world.light_states(),
+                vec![
+                    (0, false),
+                    (1, false),
+                    (2, true),
+                    (3, enabled),
+                    (4, enabled)
+                ],
+                "fixture circuits stay independent of prop circuit"
             );
         }
         world.resolve(&level);
         assert_eq!(
             world.light_states(),
-            vec![(0, true), (1, true), (2, true)],
+            vec![(0, true), (1, true), (2, true), (3, true), (4, true)],
             "reloading restores authored states"
         );
     }

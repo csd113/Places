@@ -178,7 +178,8 @@ pub use tuning::{
     OPENING_BLEND_RADIUS_M, OPENING_BLEND_STRENGTH, OPENING_VERTICAL_FADE_M, PANEL_BODY_DROP_M,
     PANEL_BORDER_DEPTH_M, PANEL_BORDER_WIDTH_M, PANEL_LIP_M, REFERENCE_CEILING_HEIGHT_M,
     REFERENCE_LIGHT_AREA_M2, SKY_AMBIENT_COLOR, WALL_FACE_PROBE_M, WALL_LIGHT_DEFAULT_HEIGHT_M,
-    ZONE_GRID_CELL_M, ambient_color, fixture_profile, fixture_profile_for_kind, model_fingerprint,
+    ZONE_GRID_CELL_M, ambient_color, fixture_model_id, fixture_profile, fixture_profile_for_kind,
+    model_fingerprint,
 };
 pub use visibility::{QuerySite, ShadowSampling, Visibility};
 

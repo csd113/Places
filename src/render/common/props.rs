@@ -57,6 +57,9 @@ pub struct PropSubmeshBatch {
 pub struct PropMeshBatch {
     /// Catalogue model path, e.g. `models/chair.glb`.
     pub model: String,
+    /// Stable light controller: fixture ordinal, then fixture count + prop ordinal.
+    /// Controlled instances own their luminous uniforms while images stay shared.
+    pub light_control: Option<u32>,
     /// False when every instance of this model is claimed by the animated
     /// character path. The retained bind pose then supplies budgets/fallback,
     /// while immutable lighting casters follow the geometry actually drawn.
@@ -97,6 +100,7 @@ pub struct PropMeshBatch {
 /// one call: instance order never leaks into the draw calls.
 struct BatchBuilder {
     model: String,
+    light_control: Option<u32>,
     casts_static_lighting: bool,
     textures: Vec<Arc<crate::loader::RawImage>>,
     primitives: Vec<PrimitiveBuilder>,
@@ -126,6 +130,7 @@ impl BatchBuilder {
     ) -> Self {
         Self {
             model: model_path.to_string(),
+            light_control: None,
             casts_static_lighting: true,
             textures,
             primitives: model
@@ -145,6 +150,57 @@ impl BatchBuilder {
             lighting_sources: lighting_sources(&model.vertices),
             sampled_light: Vec::with_capacity(model.vertices.len()),
         }
+    }
+
+    /// Prepare independent luminous uniforms while retaining shared model images.
+    fn for_prop(
+        asset: &crate::props::LoadedPropAsset,
+        prop: &PropDef,
+        light_control: Option<u32>,
+        casts_static_lighting: bool,
+    ) -> Self {
+        let mut builder = Self::new(
+            &asset.model_path,
+            &asset.model,
+            asset.model.textures.clone(),
+        );
+        builder.casts_static_lighting = casts_static_lighting;
+        builder.light_control = light_control;
+        for (primitive, source) in builder.primitives.iter_mut().zip(&asset.model.submeshes) {
+            if let Some(emission) = prop.emission_overrides.get(&source.material) {
+                primitive.emission.color = emission.color;
+                primitive.emission.intensity = emission.intensity;
+            }
+        }
+        builder
+    }
+
+    /// Append one fixed placement through its resolved lighting route.
+    fn push_resolved_instance(
+        &mut self,
+        transform: &glam::Mat4,
+        asset: &crate::props::LoadedPropAsset,
+        lighting: &LevelLighting,
+        plan: Option<&mut crate::lighting::lightmap::LightmapPlan>,
+        bounds: &crate::spatial::Aabb,
+        options: (bool, Option<[f32; 3]>),
+    ) {
+        let (defer_static_lighting, tint) = options;
+        self.bounds = self.bounds.union(bounds);
+        let first_vertex = self.vertices.len();
+        if !asset.model.is_animatable()
+            && let Some(active_plan) = plan
+        {
+            self.push_lightmapped_instance(transform, asset, active_plan, bounds);
+        } else {
+            self.push_instance(
+                transform,
+                asset,
+                lighting,
+                defer_static_lighting && !asset.model.is_animatable(),
+            );
+        }
+        self.tint_instance(first_vertex, tint);
     }
 
     /// Whether one more instance of `model` fits this batch's 16-bit offsets.
@@ -346,6 +402,7 @@ impl BatchBuilder {
         }
         PropMeshBatch {
             model: self.model,
+            light_control: self.light_control,
             casts_static_lighting: self.casts_static_lighting,
             textures: self.textures,
             submeshes,
@@ -679,21 +736,20 @@ fn resolve_prop_instances_inner<'a>(
     // Variants share decoded input images; each material combination is built
     // once during preparation and receives its own compatible draw ranges.
     let mut variants = PropVariantCache::new();
-    let mut index_by_batch: HashMap<(PropVariantKey, crate::spatial::CellKey), usize> =
+    let mut index_by_batch: HashMap<(PropVariantKey, crate::spatial::CellKey, Option<u32>), usize> =
         HashMap::new();
     let mut models_seen: HashSet<String> = HashSet::new();
     let mut fallbacks: Vec<&'a PropDef> = Vec::new();
     let mut busy_vertices = 0usize;
 
-    for prop in &level.props {
+    for (prop_index, prop) in level.props.iter().enumerate() {
         // Movable props use the dynamic path at their live pose. Neither a
         // static mesh nor a placeholder may remain at the authored position:
         // both would draw twice and leave immutable lighting casters behind.
         if prop.float.is_some() || prop.is_physics_movable() {
             continue;
         }
-        let entry = catalog.get(&prop.model);
-        let Some(model_path) = entry.model.clone() else {
+        let Some(model_path) = catalog.get(&prop.model).model else {
             fallbacks.push(prop);
             continue;
         };
@@ -701,7 +757,9 @@ fn resolve_prop_instances_inner<'a>(
             fallbacks.push(prop);
             continue;
         }
-        let source_asset = match assets.resolve(&model_path) {
+        let variant_key = (model_path.clone(), prop.material_overrides.clone());
+        let asset = match resolve_placed_asset(prop, &variant_key, assets, materials, &mut variants)
+        {
             Ok(asset) => asset,
             Err(error) => {
                 assets.report_failure(&model_path, &error);
@@ -709,16 +767,6 @@ fn resolve_prop_instances_inner<'a>(
                 continue;
             }
         };
-        let variant_key = (model_path.clone(), prop.material_overrides.clone());
-        let asset =
-            match resolve_material_variant(source_asset, &variant_key, materials, &mut variants) {
-                Ok(asset) => asset,
-                Err(error) => {
-                    assets.report_failure(&model_path, &error);
-                    fallbacks.push(prop);
-                    continue;
-                }
-            };
         if !models_seen.contains(&model_path)
             && models_seen.len() >= crate::level::MAX_LEVEL_PROP_MODELS
         {
@@ -743,7 +791,8 @@ fn resolve_prop_instances_inner<'a>(
         // never more than a 16-bit index can address: `PropMeshBatch::indices`
         // are `GL_UNSIGNED_SHORT` offsets into the batch's own vertex list, so a
         // cell holding hundreds of instances has to become several batches.
-        let key = (variant_key, cell);
+        let light_control = prop.light_control_index(level.ceiling_lights.len(), prop_index);
+        let key = (variant_key, cell, light_control);
         let batch_index = match index_by_batch.get(&key).copied() {
             Some(index)
                 if builders
@@ -754,9 +803,12 @@ fn resolve_prop_instances_inner<'a>(
             }
             _ => {
                 let _new_entry = models_seen.insert(model_path.clone());
-                let textures = asset.model.textures.clone();
-                let mut builder = BatchBuilder::new(&asset.model_path, &asset.model, textures);
-                builder.casts_static_lighting = !claimed.contains(&model_path);
+                let builder = BatchBuilder::for_prop(
+                    &asset,
+                    prop,
+                    light_control,
+                    !claimed.contains(&model_path),
+                );
                 if !builder.has_room_for(&asset.model, lightmapped) {
                     fallbacks.push(prop);
                     continue;
@@ -771,24 +823,28 @@ fn resolve_prop_instances_inner<'a>(
             fallbacks.push(prop);
             continue;
         };
-        builder.bounds = builder.bounds.union(&instance_bounds);
-        let first_vertex = builder.vertices.len();
-        if lightmapped && let Some(active_plan) = plan.as_deref_mut() {
-            builder.push_lightmapped_instance(&model, &asset, active_plan, &instance_bounds);
-        } else {
-            builder.push_instance(
-                &model,
-                &asset,
-                lighting,
-                defer_static_lighting && !asset.model.is_animatable(),
-            );
-        }
-        builder.tint_instance(first_vertex, catalog.tint(&prop.model));
+        builder.push_resolved_instance(
+            &model,
+            &asset,
+            lighting,
+            plan.as_deref_mut(),
+            &instance_bounds,
+            (defer_static_lighting, catalog.tint(&prop.model)),
+        );
         busy_vertices =
             busy_vertices.saturating_add(instance_vertex_count(&asset.model, lightmapped));
     }
 
-    let batches = builders.into_iter().map(BatchBuilder::finish).collect();
+    let mut batches: Vec<_> = builders.into_iter().map(BatchBuilder::finish).collect();
+    batches.extend(resolve_fixture_model_instances(
+        level,
+        catalog,
+        assets,
+        lighting,
+        plan,
+        defer_static_lighting,
+        (busy_vertices, models_seen),
+    ));
     (batches, fallbacks)
 }
 
@@ -802,6 +858,28 @@ fn prop_instance_bounds(
         || crate::spatial::Aabb::from_point([prop.x, base_y + prop.y, prop.z]),
         |(min, max)| transform_bounds(&crate::spatial::Aabb { min, max }, transform),
     )
+}
+
+/// Resolve immutable material inputs and validate fitted emission slot references.
+fn resolve_placed_asset(
+    prop: &PropDef,
+    key: &PropVariantKey,
+    assets: &mut crate::props::PropAssets,
+    materials: &crate::materials::MaterialTable,
+    variants: &mut PropVariantCache,
+) -> Result<Arc<crate::props::LoadedPropAsset>, String> {
+    let source = assets.resolve(&key.0)?;
+    let asset = resolve_material_variant(source, key, materials, variants)?;
+    if prop.emission_overrides.keys().any(|slot| {
+        !asset
+            .model
+            .submeshes
+            .iter()
+            .any(|part| part.material == *slot)
+    }) {
+        return Err("emission override names an absent material slot".into());
+    }
+    Ok(asset)
 }
 
 fn resolve_material_variant(
@@ -1130,6 +1208,102 @@ pub fn prop_instance_matrix(prop: &PropDef, base_y: f32) -> glam::Mat4 {
     prop.placement_matrix(base_y)
 }
 
+/// Keeps completed fixture geometry in the shared model/material renderer.
+/// Each instance retains its fixture ordinal so runtime emission follows the
+/// same switch and animation as its prepared illumination contribution.
+fn resolve_fixture_model_instances(
+    level: &LevelDef,
+    catalog: &crate::loader::PropCatalog,
+    assets: &mut crate::props::PropAssets,
+    lighting: &LevelLighting,
+    mut plan: Option<&mut crate::lighting::lightmap::LightmapPlan>,
+    defer_lighting: bool,
+    budget: (usize, std::collections::HashSet<String>),
+) -> Vec<PropMeshBatch> {
+    let mut batches = Vec::new();
+    let (mut busy_vertices, mut models_seen) = budget;
+    for (index, fixture) in level.ceiling_lights.iter().enumerate() {
+        let Some(model_id) = crate::lighting::fixture_model_id(&fixture.fixture) else {
+            continue;
+        };
+        let Some(model_path) = catalog.get(model_id).model else {
+            continue;
+        };
+        if !models_seen.contains(&model_path)
+            && models_seen.len() >= crate::level::MAX_LEVEL_PROP_MODELS
+        {
+            report_fixture_budget(&model_path);
+            continue;
+        }
+        let asset = match assets.resolve(&model_path) {
+            Ok(asset) => asset,
+            Err(error) => {
+                assets.report_failure(&model_path, &error);
+                continue;
+            }
+        };
+        let lightmapped = plan.is_some();
+        let Some(next_vertices) = busy_vertices
+            .checked_add(instance_vertex_count(&asset.model, lightmapped))
+            .filter(|count| *count <= crate::level::MAX_LEVEL_PROP_VERTICES)
+        else {
+            report_fixture_budget(&model_path);
+            continue;
+        };
+        let mut builder =
+            BatchBuilder::new(&model_path, &asset.model, asset.model.textures.clone());
+        if !builder.has_room_for(&asset.model, lightmapped) {
+            continue;
+        }
+        // Ceiling families keep the established quarter-turn interpretation;
+        // wall fixtures use their exact authored yaw, with local +Z in front.
+        let rotation = if fixture.mount == crate::level::LightMount::Wall {
+            fixture.rotation_degrees
+        } else if crate::lighting::fixture_is_turned(fixture.rotation_degrees) {
+            -90.0
+        } else {
+            0.0
+        };
+        let transform = glam::Mat4::from_rotation_translation(
+            glam::Quat::from_rotation_y(rotation.to_radians()),
+            glam::Vec3::new(fixture.x, lighting.fixture_y_for(fixture), fixture.z),
+        );
+        let Some((min, max)) = asset.model.bounds() else {
+            continue;
+        };
+        let bounds = transform_bounds(&crate::spatial::Aabb { min, max }, &transform);
+        builder.bounds = bounds;
+        if let Some(active_plan) = plan.as_deref_mut() {
+            builder.push_lightmapped_instance(&transform, &asset, active_plan, &bounds);
+        } else {
+            builder.push_instance(&transform, &asset, lighting, defer_lighting);
+        }
+        let color = fixture.emitted_color();
+        for (primitive, source) in builder.primitives.iter_mut().zip(&asset.model.submeshes) {
+            primitive.emission = if source.material == 2 {
+                MaterialEmission::new([color.r, color.g, color.b], fixture.emission_intensity())
+            } else {
+                MaterialEmission::NONE
+            };
+        }
+        let mut batch = builder.finish();
+        batch.light_control = u32::try_from(index).ok();
+        batches.push(batch);
+        busy_vertices = next_vertices;
+        let _retained_model = models_seen.insert(model_path);
+    }
+    batches
+}
+
+fn report_fixture_budget(model_path: &str) {
+    crate::logging::warn_once(
+        format!("fixture-model-budget:{model_path}"),
+        format!(
+            "[fixtures] model {model_path} exceeds the remaining level prop budget; drawing its procedural fallback"
+        ),
+    );
+}
+
 #[cfg(test)]
 #[path = "prop_chart_tests.rs"]
 mod prop_chart_tests;
@@ -1278,6 +1452,8 @@ mod material_variant_tests {
 
 #[cfg(test)]
 mod lighting_reuse_tests {
+    use std::sync::Arc;
+
     use super::{
         LevelLighting, LevelSurfaces, append_instance_vertices, lighting_sources,
         resolve_prop_fallbacks, resolve_prop_instances,
@@ -1399,8 +1575,24 @@ mod lighting_reuse_tests {
             &crate::materials::MaterialTable::default(),
         );
         assert!(fallbacks.is_empty());
-        assert_eq!(batches.len(), 1);
-        let batch = batches.first().ok_or("preset batch")?;
+        let preset_model = catalog
+            .get("arcade:party_streamer_purple")
+            .model
+            .ok_or("preset model path")?;
+        let second_model = catalog
+            .get("arcade:party_streamer_orange")
+            .model
+            .ok_or("second preset model path")?;
+        assert_eq!(
+            preset_model, second_model,
+            "colour aliases retain one canonical model"
+        );
+        let mut preset_batches = batches.iter().filter(|batch| batch.model == preset_model);
+        let batch = preset_batches.next().ok_or("preset batch")?;
+        assert!(
+            preset_batches.next().is_none(),
+            "both colour instances stay in one model batch"
+        );
         let asset = assets.resolve(&batch.model)?;
         let count = asset.model.vertices.len();
         assert_eq!(batch.vertices.len(), count.saturating_mul(2));
@@ -1428,7 +1620,11 @@ mod lighting_reuse_tests {
                 assert_eq!(actual.color.get(3), source.color.get(3));
             }
         }
-        assert_eq!(assets.stats().models_loaded, 1);
+        let second_asset = assets.resolve(&second_model)?;
+        assert!(
+            Arc::ptr_eq(&asset, &second_asset),
+            "both presets share one decoded asset independently of fixture loads"
+        );
         Ok(())
     }
 

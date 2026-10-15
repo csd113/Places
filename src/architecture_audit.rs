@@ -79,8 +79,7 @@ pub fn build_geometry_without_illumination(
             }
             crate::level::LightMount::Ceiling => {
                 let profile = crate::lighting::fixture_profile(&light.fixture);
-                let (half_w, half_d) =
-                    crate::lighting::fixture_half_extents_for(profile.kind, light.rotation_degrees);
+                let (half_w, half_d) = profile.shape().half_extents_rotated(light.rotation_degrees);
                 let ceiling = surfaces.room_at(light.x, light.z).map_or_else(
                     || surfaces.ceiling_y_at(light.x, light.z),
                     |room| {

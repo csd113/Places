@@ -1230,14 +1230,14 @@ fn level_with_fixture_families() -> LevelDef {
 #[test]
 fn fixture_families_own_their_footprint_and_mount() {
     // The catalog id selects the fixture family: the office panel keeps its
-    // 1.2 x 0.6 m footprint, the round downlight is a 0.44 m disc, and the
+    // 1.2 x 0.6 m footprint, the round downlight is a 0.5 m body, and the
     // wall luminaire is a thin strip on the wall.
     let panel = fixture_profile("core:fluorescent_panel_01");
     assert_eq!(panel.kind, FixtureKind::FluorescentPanel);
     assert_eq!((panel.half_width, panel.half_depth), (0.6, 0.3));
     let round = fixture_profile("core:pool_light_round");
     assert_eq!(round.kind, FixtureKind::RoundRecessed);
-    assert_eq!((round.half_width, round.half_depth), (0.22, 0.22));
+    assert_eq!((round.half_width, round.half_depth), (0.25, 0.25));
     let wall = fixture_profile("core:pool_light_wall");
     assert_eq!(wall.kind, FixtureKind::WallSconce);
     assert!(wall.half_width > wall.half_depth);
@@ -1255,48 +1255,54 @@ fn fixture_families_own_their_footprint_and_mount() {
 
     let flush = fixture_profile("home:ceiling_light_round");
     assert_eq!(flush.kind, FixtureKind::FlushMount);
-    assert_eq!(
-        (flush.half_width, flush.half_depth),
-        (
-            crate::lighting::FLUSH_MOUNT_RADIUS_M,
-            crate::lighting::FLUSH_MOUNT_RADIUS_M
-        )
+    let flush_extents = (
+        crate::lighting::FLUSH_MOUNT_RADIUS_M,
+        crate::lighting::FLUSH_MOUNT_RADIUS_M,
     );
+    assert_eq!((flush.half_width, flush.half_depth), flush_extents,);
     assert_eq!(
         fixture_half_extents_for(FixtureKind::FlushMount, 90.0),
-        (
-            crate::lighting::FLUSH_MOUNT_RADIUS_M,
-            crate::lighting::FLUSH_MOUNT_RADIUS_M
-        ),
+        flush_extents,
         "a round fixture is rotation-invariant"
     );
 
     let level = level_with_fixture_families();
     let lighting = LevelLighting::bake(&level);
-    assert_eq!(lighting.lights().len(), 4);
+    assert_eq!(lighting.lights().len(), 5);
 
     // A ceiling fixture hangs just below the room ceiling; a wall fixture
     // stays at its authored height.
-    let round_light = lighting.lights()[0];
+    let round_light = lighting.lights()[lighting.fixture_light_index(0).expect("round source")];
     assert!(
-        (round_light.y() - (4.0 - FIXTURE_DROP_M)).abs() < 1e-4,
+        (round_light.y() - round.emission_y(4.0 - FIXTURE_DROP_M)).abs() < 1e-4,
         "{round_light:?}"
     );
-    let wall_light = lighting.lights()[1];
-    assert!((wall_light.y() - 2.2).abs() < 1e-4, "{wall_light:?}");
-    assert!((wall_light.half_w() - 0.20).abs() < 1e-4);
+    let wall_sources = lighting.fixture_light_indices(1);
+    assert_eq!(wall_sources.len(), 2, "separated wall apertures");
+    for (index, offset) in wall_sources.into_iter().zip([-0.045, 0.045]) {
+        let wall_light = lighting.lights()[index];
+        assert!(
+            (wall_light.y() - (2.2 + offset)).abs() < 1e-4,
+            "{wall_light:?}"
+        );
+        assert!((wall_light.half_w() - 0.176).abs() < 1e-4);
+    }
     // The residential flush mount hangs just below the ceiling like the round
     // pool downlight, with its own disc footprint.
-    let flush_light = lighting.lights()[3];
+    let flush_light = lighting.lights()[lighting.fixture_light_index(3).expect("flush source")];
     assert!(
         (flush_light.y() - (4.0 - FIXTURE_DROP_M)).abs() < 1e-4,
         "{flush_light:?}"
     );
     assert!((flush_light.half_w() - crate::lighting::FLUSH_MOUNT_RADIUS_M).abs() < 1e-4);
     // The unknown id uses the panel's emitting aperture, not its opaque body.
-    let unknown = lighting.lights()[2];
+    let unknown = lighting.lights()[lighting.fixture_light_index(2).expect("fallback source")];
     assert!((unknown.half_w() - (0.6 - PANEL_BORDER_WIDTH_M)).abs() < 1e-4);
-    assert!((unknown.y() - panel.emission_y(4.0 - FIXTURE_DROP_M)).abs() < 1e-4);
+    assert!(
+        (unknown.y() - fixture_profile("core:does_not_exist").emission_y(4.0 - FIXTURE_DROP_M))
+            .abs()
+            < 1e-4
+    );
 
     // A hand-edited wall fixture without a height stays finite.
     let json = r#"{
@@ -1311,9 +1317,12 @@ fn fixture_families_own_their_footprint_and_mount() {
     }"#;
     let wall_level = LevelDef::from_json(json).expect("wall fixture parses");
     let wall_lighting = LevelLighting::bake(&wall_level);
-    let y = wall_lighting.lights()[0].y();
-    assert!(y.is_finite());
-    assert!((y - WALL_LIGHT_DEFAULT_HEIGHT_M).abs() < 1e-4, "{y}");
+    let mount = wall_lighting.fixture_y_for(&wall_level.ceiling_lights[0]);
+    assert!(mount.is_finite());
+    assert!(
+        (mount - WALL_LIGHT_DEFAULT_HEIGHT_M).abs() < 1e-4,
+        "{mount}"
+    );
 
     // A room lit only by the cool round fixture must read cool; mixing a
     // warm fixture in stays a blend, which the RGB lighting tests cover.
@@ -1429,7 +1438,7 @@ fn a_window_jamb_does_not_transmit_beside_itself() {
     let level = two_rooms_with_wall(
         r#"[{ "kind": "window", "offset": 1.0, "width": 1.0, "height": 1.0, "sill": 1.0 }]"#,
         r#"{ "fixture": "core:pool_light_wall", "x": 4.0, "z": 0.997,
-             "mount": "wall", "y": 1.5, "brightness": 1.0 }"#,
+             "mount": "wall", "y": 1.5, "rotation_degrees": -90, "brightness": 1.0 }"#,
     );
     let lighting = LevelLighting::bake(&level);
     let ambient = ambient_color();
@@ -1453,7 +1462,7 @@ fn a_window_jamb_does_not_transmit_beside_itself() {
     let below_level = two_rooms_with_wall(
         r#"[{ "kind": "window", "offset": 1.0, "width": 1.0, "height": 1.0, "sill": 1.0 }]"#,
         r#"{ "fixture": "core:pool_light_wall", "x": 4.0, "z": 1.5,
-             "mount": "wall", "y": 0.5, "brightness": 1.0 }"#,
+             "mount": "wall", "y": 0.5, "rotation_degrees": -90, "brightness": 1.0 }"#,
     );
     let below_lighting = LevelLighting::bake(&below_level);
     let below = below_lighting.sample_in_room(1, 5.0, 0.5, 1.5);

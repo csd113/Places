@@ -99,6 +99,28 @@ pub fn build_level_geometry_mesh_with_lightmaps(
     materials: &MaterialTable,
     lightmaps: Option<&mut LightmapPlan>,
 ) -> LevelMesh {
+    build_level_geometry_mesh_with_fixture_models(
+        level,
+        catalog,
+        fallback_props,
+        lighting,
+        materials,
+        lightmaps,
+        &[],
+    )
+}
+
+/// Resolved fixture GLBs replace their procedural fallback only after a model
+/// batch exists. Asset-less tooling and failed model loads keep visible bodies.
+pub(super) fn build_level_geometry_mesh_with_fixture_models(
+    level: &LevelDef,
+    catalog: &crate::loader::PropCatalog,
+    fallback_props: &[&PropDef],
+    lighting: &LevelLighting,
+    materials: &MaterialTable,
+    lightmaps: Option<&mut LightmapPlan>,
+    model_batches: &[super::PropMeshBatch],
+) -> LevelMesh {
     // Collect the merged room list once; geometry and ceiling lookups then
     // borrow it instead of cloning the room vector repeatedly.
     let rooms: Vec<&RoomDef> = level.room_iter().collect();
@@ -152,7 +174,7 @@ pub fn build_level_geometry_mesh_with_lightmaps(
     // lightmap atlas.
     super::architecture::emit_architecture(&context, &mut buckets, &mut scratch);
     emit_glass_panes(&context, &mut buckets, &mut scratch);
-    emit_fixtures(&context, &mut buckets, &mut scratch);
+    emit_fixtures(&context, &mut buckets, &mut scratch, model_batches);
     emit_prop_fallbacks(
         &context,
         catalog,
@@ -1725,10 +1747,20 @@ fn emit_fixtures(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
     scratch: &mut Vec<Vertex>,
+    model_batches: &[super::PropMeshBatch],
 ) {
     let mut housing: Vec<Vertex> = Vec::new();
     for (fixture_index, light) in context.level.ceiling_lights.iter().enumerate() {
         if !light.x.is_finite() || !light.z.is_finite() {
+            continue;
+        }
+        if crate::lighting::fixture_model_id(&light.fixture).is_some()
+            && u32::try_from(fixture_index).is_ok_and(|index| {
+                model_batches
+                    .iter()
+                    .any(|batch| batch.light_control == Some(index))
+            })
+        {
             continue;
         }
         scratch.clear();

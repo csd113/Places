@@ -447,24 +447,44 @@ impl PropModel {
 /// budgets, or vertex data that is non-finite or outside the documented UV
 /// range.
 pub fn parse_glb(bytes: &[u8]) -> Result<PropModel, GltfError> {
-    parse_glb_with_uv_max(bytes, 1.01)
+    parse_glb_with_limits(bytes, 1.01, MAX_PROP_TRIANGLES)
 }
 
 /// Hash-verified delivered cloths retain a small fitted-sheet overscan. The
 /// normal import contract remains strict; all model samplers clamp to the edge.
 pub(crate) fn parse_glb_with_clamped_overscan(bytes: &[u8]) -> Result<PropModel, GltfError> {
-    parse_glb_with_uv_max(bytes, 1.05)
+    parse_glb_with_limits(bytes, 1.05, MAX_PROP_TRIANGLES)
 }
 
-fn parse_glb_with_uv_max(bytes: &[u8], uv_max: f32) -> Result<PropModel, GltfError> {
+/// Maximum reviewed static detail; ordinary imports retain the 6,000 limit.
+pub(crate) const MAX_REVIEWED_PROP_TRIANGLES: usize = 16_240;
+
+/// Used only after the asset cache verifies an explicitly reviewed export hash.
+pub(crate) fn parse_glb_with_reviewed_triangle_budget(
+    bytes: &[u8],
+    triangle_limit: usize,
+) -> Result<PropModel, GltfError> {
+    if !(MAX_PROP_TRIANGLES..=MAX_REVIEWED_PROP_TRIANGLES).contains(&triangle_limit) {
+        return Err(GltfError::new(
+            "reviewed triangle limit is outside its bounded profile",
+        ));
+    }
+    parse_glb_with_limits(bytes, 1.01, triangle_limit)
+}
+
+fn parse_glb_with_limits(
+    bytes: &[u8],
+    uv_max: f32,
+    triangle_limit: usize,
+) -> Result<PropModel, GltfError> {
     let (json, binary) = parse_container(bytes)?;
     let materials = validate_document_root(&json)?;
-    let mut doc = Doc::new(&json, &binary, materials)?;
+    let mut doc = Doc::new(&json, &binary, materials, triangle_limit)?;
     for root in scene_roots(&json)? {
         doc.traverse_node(root, Mat4::IDENTITY, &mut Vec::new())?;
     }
     doc.finish_morphs();
-    let triangles = validate_mesh(&doc.vertices, &doc.indices, uv_max)?;
+    let triangles = validate_mesh(&doc.vertices, &doc.indices, uv_max, triangle_limit)?;
     let animations = parse_animations(&json, &binary)?;
     // Joint and weight arrays are parallel to `vertices`. A rigged document
     // that binds nothing to a node has nothing for the character path to
@@ -748,6 +768,8 @@ struct PrimitiveRequest<'a> {
 struct Doc<'a> {
     json: &'a serde_json::Value,
     binary: &'a [u8],
+    /// The hash-verified profile's bounded ceiling, or the ordinary default.
+    triangle_limit: usize,
     /// Declared material count; a primitive without `material` reports it as
     /// its synthetic default-material slot.
     default_material_index: usize,
@@ -798,6 +820,7 @@ impl<'a> Doc<'a> {
         json: &'a serde_json::Value,
         binary: &'a [u8],
         materials: usize,
+        triangle_limit: usize,
     ) -> Result<Self, GltfError> {
         let default_material_index = materials;
         let cache_len = default_material_index
@@ -816,6 +839,7 @@ impl<'a> Doc<'a> {
         Ok(Self {
             json,
             binary,
+            triangle_limit,
             default_material_index,
             material_cache,
             vertices: Vec::new(),
@@ -1203,10 +1227,11 @@ impl<'a> Doc<'a> {
 
     fn check_triangle_budget(&self) -> Result<(), GltfError> {
         let triangles = self.indices.len() / 3;
-        if triangles > MAX_PROP_TRIANGLES {
+        if triangles > self.triangle_limit {
             return Err(GltfError::new(format!(
                 "prop model assembles {triangles} triangles; \
-                 the engine ceiling is {MAX_PROP_TRIANGLES}"
+                 the engine ceiling is {}",
+                self.triangle_limit
             )));
         }
         Ok(())
@@ -3383,6 +3408,7 @@ fn validate_mesh(
     vertices: &[PropVertex],
     indices: &[u16],
     uv_max: f32,
+    triangle_limit: usize,
 ) -> Result<usize, GltfError> {
     if vertices.is_empty() || indices.is_empty() {
         return Err(GltfError::new(
@@ -3396,9 +3422,9 @@ fn validate_mesh(
         )));
     }
     let triangles = indices.len() / 3;
-    if triangles > MAX_PROP_TRIANGLES {
+    if triangles > triangle_limit {
         return Err(GltfError::new(format!(
-            "prop model has {triangles} triangles; the engine ceiling is {MAX_PROP_TRIANGLES}"
+            "prop model has {triangles} triangles; the engine ceiling is {triangle_limit}"
         )));
     }
     for vertex in vertices {

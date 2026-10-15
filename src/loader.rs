@@ -2110,18 +2110,45 @@ fn validate_walls(level: &LevelDef) -> Result<(), String> {
 }
 
 fn validate_light_circuits(level: &LevelDef) -> Result<(), String> {
-    if level
-        .ceiling_lights
-        .iter()
-        .any(|fixture| fixture.switch_group.is_some())
-        && level
+    let controlled_props = level.props.iter().any(|prop| {
+        prop.light_control()
+            .is_some_and(|control| control.switchable)
+    });
+    if controlled_props
+        || level
+            .ceiling_lights
+            .iter()
+            .any(|fixture| fixture.switch_group.is_some())
+    {
+        let fixture_sources = level
             .ceiling_lights
             .iter()
             .filter(|fixture| fixture.switchable)
-            .count()
-            > crate::lighting::probes::MAX_RUNTIME_PROBE_LIGHTS
-    {
-        return Err("Light circuits support at most eight switched fixture sources".to_string());
+            .fold(0_usize, |count, fixture| {
+                let profile = crate::lighting::fixture_profile(&fixture.fixture);
+                count.saturating_add(
+                    if profile.model.is_some()
+                        && profile.kind == crate::lighting::FixtureKind::WallSconce
+                    {
+                        2
+                    } else {
+                        1
+                    },
+                )
+            });
+        let sources = level
+            .props
+            .iter()
+            .filter(|prop| {
+                prop.light_control()
+                    .is_some_and(|control| control.switchable)
+            })
+            .fold(fixture_sources, |count, prop| {
+                count.saturating_add(prop.lights.iter().filter(|light| light.enabled).count())
+            });
+        if sources > crate::lighting::probes::MAX_RUNTIME_PROBE_LIGHTS {
+            return Err("Light circuits support at most eight switched light sources".to_string());
+        }
     }
     let static_members: Vec<_> = level
         .ceiling_lights
@@ -2161,6 +2188,44 @@ fn validate_light_circuits(level: &LevelDef) -> Result<(), String> {
                 ));
             }
         }
+    }
+    validate_prop_light_circuits(level)?;
+    Ok(())
+}
+
+/// Prop members reuse fixture circuits and retain their fixed Static hold.
+fn validate_prop_light_circuits(level: &LevelDef) -> Result<(), String> {
+    let mut states = level
+        .ceiling_lights
+        .iter()
+        .filter_map(|fixture| {
+            fixture
+                .switch_group
+                .as_deref()
+                .map(|group| (group, (fixture.enabled, fixture.hold_in_static)))
+        })
+        .collect::<std::collections::BTreeMap<_, _>>();
+    for (index, prop) in level.props.iter().enumerate() {
+        let Some(group) = prop.switch_group.as_deref() else {
+            continue;
+        };
+        let Some(control) = prop.light_control().filter(|control| control.switchable) else {
+            return Err(format!(
+                "Prop {index} switch_group requires a switchable light component on a fixed prop"
+            ));
+        };
+        if group.trim().is_empty() || group.len() > 64 {
+            return Err(format!(
+                "Prop {index} switch_group needs a nonempty name of at most 64 bytes"
+            ));
+        }
+        let state = (control.enabled, true);
+        if states.get(group).is_some_and(|other| *other != state) {
+            return Err(format!(
+                "Prop {index} switch_group members must share enabled and hold_in_static states"
+            ));
+        }
+        let _previous = states.insert(group, state);
     }
     Ok(())
 }
@@ -2807,6 +2872,46 @@ fn validate_instance_ids(level: &LevelDef) -> Result<LevelIndex<'_>, String> {
         let mut facts = EntityFacts::of("prop");
         facts.is_prop = true;
         validate_components(&context, &prop.components, &mut facts)?;
+        if prop.light_control().is_some()
+            && (prop.float.is_some()
+                || prop.is_physics_movable()
+                || prop.components.iter().any(|component| {
+                    matches!(
+                        component,
+                        ComponentDef::Animation {
+                            clip: _,
+                            speed: _,
+                            looped: _,
+                            playing: _
+                        } | ComponentDef::Ai(_)
+                            | ComponentDef::Balloon(_)
+                    )
+                }))
+        {
+            return Err(format!(
+                "{context} a light controller requires a fixed prop"
+            ));
+        }
+        if prop.emission_overrides.len() > crate::level::MAX_PROP_MATERIALS
+            || prop.emission_overrides.iter().any(|(slot, emission)| {
+                usize::from(*slot) >= crate::level::MAX_PROP_MATERIALS
+                    || emission
+                        .color
+                        .iter()
+                        .any(|channel| !channel.is_finite() || !(0.0..=1.0).contains(channel))
+                    || !emission.intensity.is_finite()
+                    || !(0.0..=8.0).contains(&emission.intensity)
+            })
+        {
+            return Err(format!(
+                "{context} emission_overrides need valid material slots, linear colours in 0..=1 and intensity in 0..=8"
+            ));
+        }
+        if !prop.emission_overrides.is_empty() && !facts.has_light {
+            return Err(format!(
+                "{context} emission_overrides require a light controller"
+            ));
+        }
         if prop
             .components
             .iter()
@@ -3145,14 +3250,13 @@ fn validate_component_value<'a>(
                      must be a finite number that is not negative"
                 ));
             }
-            if *switchable {
+            if *switchable && !facts.is_prop {
                 return Err(format!(
-                    "{context} `light` component {i} sets switchable on a prop: only a \
-                     ceiling fixture has prepared switchable lightmap layers, so a prop \
-                     light is a static emitter (author `enabled` for its initial state)"
+                    "{context} `light` component {i} switching requires a fixed placed prop"
                 ));
             }
             facts.has_light = true;
+            facts.light_switchable = *switchable;
         }
         ComponentDef::Material { variants, current } => {
             if variants.is_empty() {
@@ -3826,7 +3930,7 @@ fn validate_action(
             target.as_deref(),
             implicit,
             index,
-            "a door, or a switchable ceiling fixture",
+            "a door or a switchable fixed light",
             |facts| facts.is_door || (facts.light_capable() && facts.light_switchable),
         )?,
         ActionDef::Enable { target } | ActionDef::Disable { target } => {
@@ -3837,8 +3941,7 @@ fn validate_action(
             target.as_deref(),
             implicit,
             index,
-            "a switchable light (a ceiling fixture with `switchable: true`); a \
-             non-switchable light is baked once and cannot change",
+            "a switchable light with `switchable: true`; a non-switchable light is baked once and cannot change",
             |facts| facts.light_capable() && facts.light_switchable,
         )?,
         ActionDef::PlayAnimation {

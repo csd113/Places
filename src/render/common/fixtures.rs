@@ -704,19 +704,6 @@ mod tests {
         [normal[0] / length, normal[1] / length, normal[2] / length]
     }
 
-    /// Centre of a vertex run.
-    fn quad_centre(vertices: &[Vertex]) -> [f32; 3] {
-        let count = crate::test_support::exact_f32(vertices.len());
-        let sum = vertices.iter().fold([0.0_f32; 3], |sum, vertex| {
-            [
-                sum[0] + vertex.pos[0],
-                sum[1] + vertex.pos[1],
-                sum[2] + vertex.pos[2],
-            ]
-        });
-        [sum[0] / count, sum[1] / count, sum[2] / count]
-    }
-
     /// The luminous faces of every ceiling family face down; the wall lens
     /// faces its authored yaw. A mis-wound or flipped emitter would light the
     /// back of the room while reading black from the front.
@@ -807,122 +794,122 @@ mod tests {
         assert!(housing.iter().all(|vertex| !is_emission(vertex.color)));
     }
 
-    /// The wall lens is the front face of the luminaire: its centre sits one
-    /// body depth in front of the authored point, on the wall plane. The baked
-    /// emitter that must light the room is the same face, so the two may only
-    /// differ by that body depth (the bake currently emits from the authored
-    /// point; the proposal in `bake_pool_proposal.md` moves it onto the face).
+    /// Tiny delivered models protect aperture alignment, texture/material
+    /// preservation and independent source grouping without baking a full map.
     #[test]
-    fn the_wall_lens_sits_on_the_front_face_at_the_authored_point() {
-        const EMISSION: [f32; 3] = [0.8, 0.8, 0.8];
-        let (x, y, z, yaw) = (10.0_f32, 1.7_f32, 3.0_f32, 90.0_f32);
-        let mut lit = Vec::new();
-        let mut housing = Vec::new();
-        add_wall_fixture(&mut lit, &mut housing, x, y, z, yaw, EMISSION);
-        let centre = quad_centre(&lit);
-        let radians = yaw.to_radians();
-        let forward = [radians.sin(), 0.0, radians.cos()];
-        // The body is 0.11 m deep; the lens is its front face.
-        assert!((centre[0] - forward[0].mul_add(0.11, x)).abs() < 1e-5);
-        assert!((centre[1] - y).abs() < 1e-5);
-        assert!((centre[2] - forward[2].mul_add(0.11, z)).abs() < 1e-5);
-        let normal = quad_normal(&lit);
-        assert!(
-            (normal[0] - forward[0]).abs() < 1e-5
-                && normal[1].abs() < 1e-5
-                && (normal[2] - forward[2]).abs() < 1e-5,
-            "the wall lens faces the authored yaw: {normal:?} vs {forward:?}"
-        );
-
-        // Whatever the bake emits from, it is within one body depth of the
-        // drawn lens: a fixture cannot light the room from inside the wall.
+    fn delivered_fixture_geometry_matches_its_sources_and_controls() {
         let level = fixture_family_level();
-        let lighting = LevelLighting::bake(&level);
-        let wall = lighting
-            .lights()
-            .iter()
-            .find(|light| light.x() == x && light.z() == z)
-            .expect("the wall fixture baked");
-        let offset = (wall.x() - centre[0]).hypot(wall.z() - centre[2]);
-        assert!(
-            offset <= 0.12,
-            "the wall emitter is {offset} m from its drawn lens"
+        let catalog = crate::loader::PropCatalog::load_default();
+        let mut assets = crate::props::PropAssets::load_default();
+        let (mesh, batches, lighting) =
+            crate::render::build_level_geometry_with_assets_and_lighting(
+                &level,
+                &catalog,
+                &mut assets,
+            );
+        assert_eq!(
+            lighting.lights().len(),
+            5,
+            "two wall apertures share one authored fixture"
         );
+        for (index, fixture) in level.ceiling_lights.iter().take(3).enumerate() {
+            let control = u32::try_from(index).expect("tiny fixture ordinal");
+            let batch = batches
+                .iter()
+                .find(|batch| batch.light_control == Some(control))
+                .expect("a delivered fixture has a model batch");
+            assert!(!batch.textures.is_empty(), "retain delivered housing atlas");
+            assert_eq!(
+                batch
+                    .submeshes
+                    .iter()
+                    .filter(|part| part.emission.is_emissive())
+                    .count(),
+                1
+            );
+            let luminous = batch
+                .submeshes
+                .iter()
+                .find(|part| part.emission.is_emissive())
+                .expect("luminous material");
+            let source =
+                lighting.lights()[lighting.fixture_light_index(index).expect("fixture source")];
+            let start = usize::try_from(luminous.first_index).expect("small model");
+            let count = usize::try_from(luminous.index_count).expect("small model");
+            let mut bounds = crate::spatial::Aabb::EMPTY;
+            for vertex in &batch.indices[start..start + count] {
+                bounds.expand(batch.vertices[usize::from(*vertex)].pos);
+            }
+            for source_index in lighting.fixture_light_indices(index) {
+                let emitter = &lighting.lights()[source_index];
+                for (axis, coordinate) in emitter.source.position.iter().enumerate() {
+                    assert!(
+                        *coordinate >= bounds.min[axis] - 0.002
+                            && *coordinate <= bounds.max[axis] + 0.002,
+                        "{} source remains at its actual luminous geometry",
+                        fixture.fixture
+                    );
+                }
+            }
+            if fixture.mount == crate::level::LightMount::Wall {
+                let sources = lighting.fixture_light_indices(index);
+                assert_eq!(sources.len(), 2);
+                let low = lighting.lights()[sources[0]];
+                let high = lighting.lights()[sources[1]];
+                assert!((high.y() - low.y() - 0.09).abs() < 1e-5);
+                assert!((low.y() - fixture.y.expect("authored wall height") + 0.045).abs() < 1e-5);
+                assert!((low.intensity() + high.intensity() - fixture.intensity()).abs() < 1e-5);
+                assert!((source.z() - fixture.z - 0.111).abs() < 1e-5);
+            } else {
+                // The down-facing cover/disc surface is the lower bound of
+                // the retained luminous primitive, not the metal mounting top.
+                assert!((source.y() - bounds.min[1]).abs() < 1e-5);
+            }
+            let face = crate::level::fixture_face_material_index(
+                index,
+                crate::level::fixture_face_uses_private_material(&level, fixture),
+                crate::lighting::fixture_profile(&fixture.fixture).kind,
+            );
+            assert!(
+                !mesh
+                    .ranges
+                    .iter()
+                    .any(|range| range.key.kind == super::super::SurfaceKind::Light
+                        && range.key.material == face),
+                "the procedural duplicate is absent"
+            );
+        }
+        // Arcade keeps its established troffer appearance under its own id.
+        assert!(crate::lighting::fixture_model_id("arcade:fluorescent_panel_01").is_none());
     }
 
-    /// The bake's emitter plane matches the drawn luminous plane per family,
-    /// in the same horizontal footprint and with the same centre: the pool can
-    /// never sit visibly to one side of the fixture that casts it.
+    /// A shared visual family must not move Arcade's source onto Office's
+    /// delivered lower covers. One room and ten generated quads cover this.
     #[test]
-    fn emitter_planes_and_drawn_faces_share_their_centre_and_extents() {
-        let level = fixture_family_level();
+    fn arcade_panel_source_keeps_its_procedural_diffuser_plane() {
+        let level =
+            single_fixture_level(r#"{"fixture":"arcade:fluorescent_panel_01","x":2,"z":3}"#);
         let lighting = LevelLighting::bake(&level);
-        assert_eq!(lighting.lights().len(), 4);
-
-        // Panel: source centre and extent match the smaller recessed diffuser,
-        // while the body retains its full 1.2 x 0.6 m mounting footprint.
-        let panel = &lighting.lights()[0];
-        assert!((panel.half_w() - 0.56).abs() < 1e-5);
-        assert!((panel.half_d() - 0.28).abs() < 1e-5);
         let mut lit = Vec::new();
         let mut housing = Vec::new();
         add_panel_fixture(
             &mut lit,
             &mut housing,
-            2.0 - 0.6,
-            2.0 + 0.6,
-            3.0 - 0.3,
-            3.0 + 0.3,
+            1.4,
+            2.6,
+            2.7,
+            3.3,
             lighting.fixture_y_for(&level.ceiling_lights[0]),
-            [0.8; 3],
+            [1.0; 3],
         );
-        let centre = quad_centre(&lit);
-        assert!((centre[0] - panel.x()).abs() < 1e-5 && (centre[2] - panel.z()).abs() < 1e-5);
+        let source = lighting.lights().first().expect("Arcade fixture source");
         assert!(
-            (panel.y() - centre[1]).abs() < 1e-5,
-            "the panel source sits on its actual diffuser, not inside its housing"
+            lit.iter()
+                .all(|vertex| (vertex.pos[1] - source.y()).abs() < 1e-5)
         );
-        for vertex in &lit {
-            assert!(((vertex.pos[0] - panel.x()).abs() - panel.half_w()).abs() < 1e-5);
-            assert!(((vertex.pos[2] - panel.z()).abs() - panel.half_d()).abs() < 1e-5);
-        }
-
-        // Round downlight: the diffuser is the emitter plane exactly.
-        let round = &lighting.lights()[1];
-        let mut wall_lit = Vec::new();
-        let mut wall_housing = Vec::new();
-        add_round_fixture(
-            &mut wall_lit,
-            &mut wall_housing,
-            round.x(),
-            round.z(),
-            round.y(),
-            round.half_w(),
-            [0.8; 3],
-        );
-        assert_eq!(round.half_w(), round.half_d());
-        let wall_centre = quad_centre(&wall_lit);
-        assert!((wall_centre[1] - round.y()).abs() < 1e-5);
-
-        // Flush mount: the drum hangs below the emitter plane by its body drop.
-        let flush = &lighting.lights()[3];
-        let mut upper_lit = Vec::new();
-        let mut upper_housing = Vec::new();
-        add_flush_mount_fixture(
-            &mut upper_lit,
-            &mut upper_housing,
-            flush.x(),
-            flush.z(),
-            flush.y(),
-            flush.half_w(),
-            [0.8; 3],
-        );
-        let upper_centre = quad_centre(&upper_lit);
-        let drop = flush.y() - upper_centre[1];
-        assert!(
-            (0.05..=0.08).contains(&drop),
-            "the flush-mount diffuser hangs its drum depth below the emitter plane: {drop}"
-        );
+        let office = crate::lighting::fixture_profile("core:fluorescent_panel_01");
+        let arcade = crate::lighting::fixture_profile("arcade:fluorescent_panel_01");
+        assert!((arcade.emission_y(3.0) - office.emission_y(3.0) - 0.007).abs() < 1e-5);
     }
 
     /// One ceiling fixture of a single family in a 12 x 6 x 3 m room.

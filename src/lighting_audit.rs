@@ -44,6 +44,22 @@ pub fn parse(json: &str) -> LevelDef {
     LevelDef::from_json(json).unwrap_or_else(|error| panic!("test level must parse: {error}"))
 }
 
+/// Furniture batching is independent of model-backed light fixture batches.
+pub fn one_model_batch<'a>(
+    batches: &'a [crate::render::PropMeshBatch],
+    model_path: &str,
+) -> &'a crate::render::PropMeshBatch {
+    let mut matching = batches.iter().filter(|batch| batch.model == model_path);
+    let batch = matching
+        .next()
+        .expect("the intended model has real geometry");
+    assert!(
+        matching.next().is_none(),
+        "{model_path} remains one model batch"
+    );
+    batch
+}
+
 /// Shorthand for one ceiling light.
 pub fn light(x: f32, z: f32, intensity: Option<f32>) -> String {
     intensity.map_or_else(
@@ -369,10 +385,9 @@ fn geometry_storage_does_not_over_reserve_wildly() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn draw_calls_do_not_scale_with_fixture_count_and_batching_is_stable() {
-    // One room, one chair: one static batch set plus one prop draw. Raising the
-    // fixture count may grow the fixture vertex batch but must never add a draw
-    // call, split a prop batch or reorder the static batches.
+fn independently_controlled_fixtures_preserve_furniture_batching() {
+    // Each model fixture needs its own emission identity. Adding fixtures must
+    // preserve one furniture model batch and the architecture's batch shape.
     let catalog = shipped_catalog();
     let mut assets = shipped_assets();
     let mut previous_shape = None;
@@ -398,14 +413,37 @@ fn draw_calls_do_not_scale_with_fixture_count_and_batching_is_stable() {
                 .join(","),
         ));
         let (mesh, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
-        assert_eq!(batches.len(), 1, "{count} lights: one prop model, one draw");
+        let chair = one_model_batch(&batches, "environments/office/props/chair.glb");
+        assert!(chair.light_control.is_none());
+        let fixtures: Vec<_> = batches
+            .iter()
+            .filter(|batch| batch.light_control.is_some())
+            .collect();
+        let fixture_model = catalog
+            .get("core:office_fluorescent_panel_housing")
+            .model
+            .expect("fixture model path");
+        let source = assets.resolve(&fixture_model).expect("fixture model loads");
+        assert_eq!(
+            fixtures.len(),
+            count,
+            "one independent emission binding per fixture"
+        );
+        for (index, batch) in fixtures.iter().enumerate() {
+            assert_eq!(
+                batch.light_control,
+                Some(u32::try_from(index).expect("fixture ordinal"))
+            );
+            assert_eq!(batch.model, fixture_model);
+            assert_eq!(batch.indices.len(), source.model.indices.len());
+        }
         let shape = (
             mesh.batches.floor_batch.count > 0_i32,
             mesh.batches.ceiling_batch.count > 0_i32,
             mesh.batches.wall_batch.count > 0_i32,
             mesh.batches.light_batch.count > 0_i32,
             mesh.batches.prop_batch.count > 0_i32,
-            batches.len(),
+            chair.submeshes.len(),
         );
         if let Some(previous) = previous_shape {
             assert_eq!(
@@ -414,14 +452,18 @@ fn draw_calls_do_not_scale_with_fixture_count_and_batching_is_stable() {
             );
         }
         previous_shape = Some(shape);
-        // One panel has a luminous diffuser plus an ordinary metal housing.
-        // Both material ranges must still sum to the original geometry budget.
-        let panel_quads =
-            i32::try_from(crate::lighting::fixture_profile("core:fluorescent_panel_01").quads)
-                .unwrap_or(i32::MAX);
+        // All delivered fixture triangles survive the independently controlled
+        // batches; the former procedural faces are absent from the world mesh.
         assert_eq!(
             mesh.batches.light_batch.count + mesh.batches.wall_batch.count,
-            i32::try_from(count).unwrap_or(i32::MAX) * panel_quads * 6_i32
+            0_i32,
+        );
+        assert_eq!(
+            fixtures
+                .iter()
+                .map(|batch| batch.indices.len())
+                .sum::<usize>(),
+            count * source.model.indices.len()
         );
     }
 }
@@ -456,11 +498,7 @@ fn ten_chairs_in_different_lighting_stay_one_batch() {
         props.join(","),
     ));
     let (_, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
-    assert_eq!(
-        batches.len(),
-        1,
-        "ten chairs inside one cell must stay one model batch"
-    );
+    let chair = one_model_batch(&batches, "environments/office/props/chair.glb");
     let single = {
         let one = parse(&format!(
             r#"{{
@@ -472,12 +510,14 @@ fn ten_chairs_in_different_lighting_stay_one_batch() {
             light(2.0, 2.0, None),
         ));
         let (_, single_batches) = build_level_geometry_with_assets(&one, &catalog, &mut assets);
-        single_batches[0].vertices.len()
+        one_model_batch(&single_batches, "environments/office/props/chair.glb")
+            .vertices
+            .len()
     };
-    assert_eq!(batches[0].vertices.len(), single * 10);
+    assert_eq!(chair.vertices.len(), single * 10);
 
     // Different lighting per instance survives inside the shared batch.
-    let luminance: Vec<f32> = batches[0]
+    let luminance: Vec<f32> = chair
         .vertices
         .chunks(single)
         .map(|instance| {

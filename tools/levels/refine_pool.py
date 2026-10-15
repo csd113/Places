@@ -18,7 +18,7 @@ SHOWCASE_TAG = "[pool-water-demo]"
 
 def polish_showcase(level):
     """Keep the existing depths, artwork and light strengths; finish their use."""
-    for key in ("props", "thresholds", "decals", "water", "ladders"):
+    for key in ("props", "thresholds", "decals", "water", "ladders", "floor_regions"):
         level[key] = [piece for piece in level.get(key, [])
                       if not piece.get("comment", "").startswith(SHOWCASE_TAG)]
     level["spawn"] = dict(x=3.0, z=9.0, yaw_degrees=56.0)
@@ -40,17 +40,19 @@ def polish_showcase(level):
     # Match the existing closed ladder's floor-to-deck rise and east-facing
     # return flanges. A generic solid bounds box would obstruct its climb.
     ladder = next(prop for prop in level["props"] if prop["model"] == "core:pool_ladder")
-    ladder.update(x=12.805, solid=False)
+    ladder.update(x=12.805, size=[.55, 2.2, .45], solid=False)
     # Item-only metal collision follows the open rails and treads. The player
     # uses the climb volume instead of an impassable ladder bounds cuboid.
     parts = []
-    for rail_x in (-.229, .229):
-        for rail_y, rail_z, half_height in ((.9825, -.19, .9525), (1.7175, .19, .2175)):
+    # Measured finished export: 54 mm tubes at X +/-242 mm, with the
+    # returns on local +Z. Keep this item proxy on the drawn straight legs.
+    for rail_x in (-.242, .242):
+        for rail_y, rail_z, half_height in ((1.0115, -.185, .9715), (1.745, .185, .238)):
             parts.append(dict(offset=[rail_x, rail_y, rail_z],
-                              shape=dict(kind="cylinder", half_height=half_height, radius=.024)))
-    for rung_y in (.35, .655, .96, 1.265):
-        parts.append(dict(offset=[0, rung_y, -.18],
-                          shape=dict(kind="cuboid", half_extents=[.2275, .014, .0525])))
+                              shape=dict(kind="cylinder", half_height=half_height, radius=.027)))
+    for rung_y in (.3465, .6765, 1.0065, 1.3365):
+        parts.append(dict(offset=[0, rung_y, -.162],
+                          shape=dict(kind="cuboid", half_extents=[.23, .0165, .0575])))
     ladder["physics"] = dict(motion="fixed", shape=dict(kind="compound", parts=parts))
     # Sizes are model-local, then rotated by the shared collision resolver.
     # These west rail boxes previously stored already-rotated dimensions and
@@ -92,12 +94,12 @@ def polish_showcase(level):
     table.update(id="pool_water_demo_control", display_name="Water physics demo",
                  x=11.3, z=9.1,
                  components=[dict(component="interactable", reach=2.5,
-                                  prompt="Run water demo: duck floats, metal sinks"),
+                                  prompt="Run water demo; carry drum into pool"),
                              dict(component="state", name="running", value=False)],
                  bindings=[])
     for running, action, prompt in (
             (False, "activate_physics_group", "Reset water demo"),
-            (True, "reset_physics_group", "Run water demo: duck floats, metal sinks")):
+            (True, "reset_physics_group", "Run water demo; carry drum into pool")):
         table["bindings"].append(dict(
             on="interact", cooldown_seconds=.25,
             when=[dict(check="state", target="pool_water_demo_control",
@@ -108,10 +110,45 @@ def polish_showcase(level):
     # Keep the existing seating clear of the hot-tub rim and the control aim.
     chairs = [prop for prop in level["props"] if prop["model"] == "core:pool_chair"]
     for chair, x, yaw in zip(chairs, (10.3, 12.3), (90.0, 270.0)):
-        chair.update(x=x, z=9.1, rotation_degrees=yaw, size=[.55, .85, .52])
+        chair.update(x=x, z=9.1, rotation_degrees=yaw, size=[.52, .85, .55])
 
-    # Authored bodies begin dormant, suspended a little above the water. E or
-    # pickup starts physical motion; reset returns exactly to this staging.
+    # Replace the old flat wall sign at the same safety station with the
+    # delivered framed sign. Its rear is 2 mm proud of the real wall face.
+    level["decals"] = [piece for piece in level["decals"] if not (
+        piece.get("material") == "core:decal_no_diving_01"
+        and piece.get("surface") == "wall_south"
+        and piece.get("x") == 7.5 and piece.get("z") == .15)]
+    append("props", "Framed safety sign replaces the flat wall notice at the same station.",
+           id="pool_safety_notice", model="pool:pool_safety_sign", x=7.5, z=.157,
+           y=1.4, size=[.3, .4, .0125], solid=False)
+    append("props", "One planter beside the existing perimeter bench, clear of spawn and deck lanes.",
+           id="pool_perimeter_plant", model="pool:pool_potted_plant", x=.65, z=9.6,
+           size=[.32, .32, .32], solid=True)
+
+    # Two manufactured three-riser modules form a narrow submerged approach
+    # to the existing shallow shelf. The basin, shelf and water definitions
+    # retain their original dimensions/depths. Support sits 5 mm under the
+    # visible tread, inset at the outer sides so its generated skin stays
+    # inside the closed model. Item collision follows the three solid treads;
+    # a single solid bounds box would seal the stair approach for the player.
+    for index in range(6):
+        append("floor_regions", "Hidden player support under the six 20 cm ceramic treads.",
+               x=9.105, z=round(5.5 + index / 3, 6), width=1.19,
+               depth=round(1 / 3, 6), offset_y=round(-1.305 + index * .2, 3),
+               material="core:pool_tile_basin_01", edge_material="core:pool_tile_basin_01")
+    parts = [dict(offset=[0, (index + 1) * .1, (1 - index) / 3],
+                  shape=dict(kind="cuboid", half_extents=[.6, (index + 1) * .1, 1 / 6]))
+             for index in range(3)]
+    for index, z in enumerate((6.0, 7.0)):
+        # Both centres resolve to the middle tread's support. This explicit
+        # floor-relative offset restores their basin baselines (-1.5/-0.9).
+        append("props", "Submerged entry module; local +Z is the low step, yaw 180 rises toward the shelf.",
+               id=f"pool_entry_steps_{index}", model="pool:pool_entry_steps", x=9.7, z=z,
+               y=-.395, rotation_degrees=180, size=[1.2, .6, 1.0035], solid=False,
+               physics=dict(motion="fixed", shape=dict(kind="compound", parts=parts)))
+
+    # Authored bodies begin dormant: duck above water, basket grounded on the
+    # dry east deck. E or pickup starts motion; reset restores these poses.
     # Explicit source displacement scales by scale^3; mass stays total kg.
     common = dict(motion="dynamic", pickup=True, friction=.5, restitution=.02,
                   linear_damping=.1, angular_damping=.2, reset_group="pool_water_demo")
@@ -121,9 +158,9 @@ def polish_showcase(level):
            solid=False, physics=dict(common,
                shape=dict(kind="cuboid", half_extents=[.05, .06, .0725]), mass_kg=1.0,
                water=dict(displaced_volume_m3=.00065, linear_drag=4.0, angular_drag=2.5)))
-    append("props", "Dense perforated metal basket: metal displaces water, its open envelope does not.",
-           id="pool_physics_sink", model="core:washer_drum", x=11.5, z=6.7,
-           y=1.56, size=[.42, .3, .42], solid=False, physics=dict(common,
+    append("props", "Dense perforated basket grounded on dry deck for pickup; only its metal displaces water.",
+           id="pool_physics_sink", model="core:washer_drum", x=14, z=6.7,
+           y=0, size=[.42, .3, .42], solid=False, physics=dict(common,
                shape=dict(kind="cuboid", half_extents=[.21, .15, .21]), mass_kg=6.4,
                water=dict(displaced_volume_m3=.0008, linear_drag=4.0, angular_drag=2.5)))
 

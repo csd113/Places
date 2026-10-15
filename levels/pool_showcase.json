@@ -324,6 +324,66 @@
       "offset_y": -1.5,
       "material": "core:pool_tile_basin_01",
       "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 9.105,
+      "z": 5.5,
+      "width": 1.19,
+      "depth": 0.333333,
+      "offset_y": -1.305,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_basin_01",
+      "comment": "[pool-water-demo] Hidden player support under the six 20 cm ceramic treads."
+    },
+    {
+      "x": 9.105,
+      "z": 5.833333,
+      "width": 1.19,
+      "depth": 0.333333,
+      "offset_y": -1.105,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_basin_01",
+      "comment": "[pool-water-demo] Hidden player support under the six 20 cm ceramic treads."
+    },
+    {
+      "x": 9.105,
+      "z": 6.166667,
+      "width": 1.19,
+      "depth": 0.333333,
+      "offset_y": -0.905,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_basin_01",
+      "comment": "[pool-water-demo] Hidden player support under the six 20 cm ceramic treads."
+    },
+    {
+      "x": 9.105,
+      "z": 6.5,
+      "width": 1.19,
+      "depth": 0.333333,
+      "offset_y": -0.705,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_basin_01",
+      "comment": "[pool-water-demo] Hidden player support under the six 20 cm ceramic treads."
+    },
+    {
+      "x": 9.105,
+      "z": 6.833333,
+      "width": 1.19,
+      "depth": 0.333333,
+      "offset_y": -0.505,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_basin_01",
+      "comment": "[pool-water-demo] Hidden player support under the six 20 cm ceramic treads."
+    },
+    {
+      "x": 9.105,
+      "z": 7.166667,
+      "width": 1.19,
+      "depth": 0.333333,
+      "offset_y": -0.305,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_basin_01",
+      "comment": "[pool-water-demo] Hidden player support under the six 20 cm ceramic treads."
     }
   ],
   "walls": [
@@ -424,15 +484,6 @@
       "rotation_degrees": 0.0,
       "material": "core:decal_no_diving_01",
       "surface": "floor"
-    },
-    {
-      "x": 7.5,
-      "y": 1.6,
-      "z": 0.15,
-      "width": 0.9,
-      "height": 0.9,
-      "material": "core:decal_no_diving_01",
-      "surface": "wall_south"
     },
     {
       "x": 8.5,
@@ -619,9 +670,9 @@
       "z": 5.25,
       "rotation_degrees": 90.0,
       "size": [
-        0.45,
+        0.55,
         2.2,
-        0.55
+        0.45
       ],
       "solid": false,
       "physics": {
@@ -631,109 +682,109 @@
           "parts": [
             {
               "offset": [
-                -0.229,
-                0.9825,
-                -0.19
+                -0.242,
+                1.0115,
+                -0.185
               ],
               "shape": {
                 "kind": "cylinder",
-                "half_height": 0.9525,
-                "radius": 0.024
+                "half_height": 0.9715,
+                "radius": 0.027
               }
             },
             {
               "offset": [
-                -0.229,
-                1.7175,
-                0.19
+                -0.242,
+                1.745,
+                0.185
               ],
               "shape": {
                 "kind": "cylinder",
-                "half_height": 0.2175,
-                "radius": 0.024
+                "half_height": 0.238,
+                "radius": 0.027
               }
             },
             {
               "offset": [
-                0.229,
-                0.9825,
-                -0.19
+                0.242,
+                1.0115,
+                -0.185
               ],
               "shape": {
                 "kind": "cylinder",
-                "half_height": 0.9525,
-                "radius": 0.024
+                "half_height": 0.9715,
+                "radius": 0.027
               }
             },
             {
               "offset": [
-                0.229,
-                1.7175,
-                0.19
+                0.242,
+                1.745,
+                0.185
               ],
               "shape": {
                 "kind": "cylinder",
-                "half_height": 0.2175,
-                "radius": 0.024
+                "half_height": 0.238,
+                "radius": 0.027
               }
             },
             {
               "offset": [
                 0,
-                0.35,
-                -0.18
+                0.3465,
+                -0.162
               ],
               "shape": {
                 "kind": "cuboid",
                 "half_extents": [
-                  0.2275,
-                  0.014,
-                  0.0525
+                  0.23,
+                  0.0165,
+                  0.0575
                 ]
               }
             },
             {
               "offset": [
                 0,
-                0.655,
-                -0.18
+                0.6765,
+                -0.162
               ],
               "shape": {
                 "kind": "cuboid",
                 "half_extents": [
-                  0.2275,
-                  0.014,
-                  0.0525
+                  0.23,
+                  0.0165,
+                  0.0575
                 ]
               }
             },
             {
               "offset": [
                 0,
-                0.96,
-                -0.18
+                1.0065,
+                -0.162
               ],
               "shape": {
                 "kind": "cuboid",
                 "half_extents": [
-                  0.2275,
-                  0.014,
-                  0.0525
+                  0.23,
+                  0.0165,
+                  0.0575
                 ]
               }
             },
             {
               "offset": [
                 0,
-                1.265,
-                -0.18
+                1.3365,
+                -0.162
               ],
               "shape": {
                 "kind": "cuboid",
                 "half_extents": [
-                  0.2275,
-                  0.014,
-                  0.0525
+                  0.23,
+                  0.0165,
+                  0.0575
                 ]
               }
             }
@@ -757,7 +808,7 @@
         {
           "component": "interactable",
           "reach": 2.5,
-          "prompt": "Run water demo: duck floats, metal sinks"
+          "prompt": "Run water demo; carry drum into pool"
         },
         {
           "component": "state",
@@ -816,7 +867,7 @@
             },
             {
               "action": "set_prompt",
-              "prompt": "Run water demo: duck floats, metal sinks"
+              "prompt": "Run water demo; carry drum into pool"
             }
           ]
         }
@@ -827,9 +878,9 @@
       "x": 10.3,
       "z": 9.1,
       "size": [
-        0.55,
+        0.52,
         0.85,
-        0.52
+        0.55
       ],
       "solid": true,
       "rotation_degrees": 90.0
@@ -839,9 +890,9 @@
       "x": 12.3,
       "z": 9.1,
       "size": [
-        0.55,
+        0.52,
         0.85,
-        0.52
+        0.55
       ],
       "solid": true,
       "rotation_degrees": 270.0
@@ -1198,6 +1249,169 @@
       "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint."
     },
     {
+      "id": "pool_safety_notice",
+      "model": "pool:pool_safety_sign",
+      "x": 7.5,
+      "z": 0.157,
+      "y": 1.4,
+      "size": [
+        0.3,
+        0.4,
+        0.0125
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Framed safety sign replaces the flat wall notice at the same station."
+    },
+    {
+      "id": "pool_perimeter_plant",
+      "model": "pool:pool_potted_plant",
+      "x": 0.65,
+      "z": 9.6,
+      "size": [
+        0.32,
+        0.32,
+        0.32
+      ],
+      "solid": true,
+      "comment": "[pool-water-demo] One planter beside the existing perimeter bench, clear of spawn and deck lanes."
+    },
+    {
+      "id": "pool_entry_steps_0",
+      "model": "pool:pool_entry_steps",
+      "x": 9.7,
+      "z": 6.0,
+      "y": -0.395,
+      "rotation_degrees": 180,
+      "size": [
+        1.2,
+        0.6,
+        1.0035
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "fixed",
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0,
+                0.1,
+                0.3333333333333333
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.6,
+                  0.1,
+                  0.16666666666666666
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.2,
+                0.0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.6,
+                  0.2,
+                  0.16666666666666666
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.30000000000000004,
+                -0.3333333333333333
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.6,
+                  0.30000000000000004,
+                  0.16666666666666666
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "comment": "[pool-water-demo] Submerged entry module; local +Z is the low step, yaw 180 rises toward the shelf."
+    },
+    {
+      "id": "pool_entry_steps_1",
+      "model": "pool:pool_entry_steps",
+      "x": 9.7,
+      "z": 7.0,
+      "y": -0.395,
+      "rotation_degrees": 180,
+      "size": [
+        1.2,
+        0.6,
+        1.0035
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "fixed",
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0,
+                0.1,
+                0.3333333333333333
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.6,
+                  0.1,
+                  0.16666666666666666
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.2,
+                0.0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.6,
+                  0.2,
+                  0.16666666666666666
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.30000000000000004,
+                -0.3333333333333333
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.6,
+                  0.30000000000000004,
+                  0.16666666666666666
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "comment": "[pool-water-demo] Submerged entry module; local +Z is the low step, yaw 180 rises toward the shelf."
+    },
+    {
       "id": "pool_physics_duck",
       "model": "core:rubber_duck",
       "x": 10.6,
@@ -1239,9 +1453,9 @@
     {
       "id": "pool_physics_sink",
       "model": "core:washer_drum",
-      "x": 11.5,
+      "x": 14,
       "z": 6.7,
-      "y": 1.56,
+      "y": 0,
       "size": [
         0.42,
         0.3,
@@ -1271,7 +1485,7 @@
           "angular_drag": 2.5
         }
       },
-      "comment": "[pool-water-demo] Dense perforated metal basket: metal displaces water, its open envelope does not."
+      "comment": "[pool-water-demo] Dense perforated basket grounded on dry deck for pickup; only its metal displaces water."
     }
   ],
   "water": [

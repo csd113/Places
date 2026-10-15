@@ -256,6 +256,8 @@ impl FixtureKind {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FixtureProfile {
     pub kind: FixtureKind,
+    /// Optional authored GLB, rendered through the ordinary static model path.
+    pub model: Option<&'static str>,
     /// Half-extent along the fixture's own width axis, in metres.
     pub half_width: f32,
     /// Half-extent along the fixture's own depth axis, in metres.
@@ -280,6 +282,24 @@ impl FixtureProfile {
     /// Source taps must lie on the diffuser rather than inside opaque housing.
     #[must_use]
     pub const fn emission_shape(self) -> LightShape {
+        if self.model.is_some() {
+            return match self.kind {
+                FixtureKind::RoundRecessed => LightShape::Rect {
+                    // Inscribed taps stay within the delivered circular lens.
+                    half_width: 0.151_320_86,
+                    half_depth: 0.151_320_86,
+                },
+                FixtureKind::WallSconce => LightShape::Rect {
+                    half_width: 0.176,
+                    half_depth: 0.0001,
+                },
+                FixtureKind::FluorescentPanel => LightShape::Rect {
+                    half_width: 0.56,
+                    half_depth: 0.28,
+                },
+                FixtureKind::FlushMount | FixtureKind::BlacklightTube => self.shape(),
+            };
+        }
         match self.kind {
             FixtureKind::FluorescentPanel => LightShape::Rect {
                 half_width: self.half_width - PANEL_BORDER_WIDTH_M,
@@ -295,6 +315,15 @@ impl FixtureProfile {
     /// Luminous plane relative to the mounting plane the mesh resolver uses.
     #[must_use]
     pub const fn emission_y(self, mount_y: f32) -> f32 {
+        if self.model.is_some() {
+            return match self.kind {
+                FixtureKind::FluorescentPanel => mount_y - 0.04,
+                FixtureKind::RoundRecessed => mount_y - 0.017,
+                FixtureKind::WallSconce | FixtureKind::FlushMount | FixtureKind::BlacklightTube => {
+                    mount_y
+                }
+            };
+        }
         match self.kind {
             FixtureKind::FluorescentPanel => mount_y - PANEL_BODY_DROP_M + PANEL_LIP_M,
             FixtureKind::RoundRecessed
@@ -302,6 +331,18 @@ impl FixtureProfile {
             | FixtureKind::FlushMount
             | FixtureKind::BlacklightTube => mount_y,
         }
+    }
+
+    /// Source centre in the same mounting frame as the authored model.
+    #[must_use]
+    pub fn emission_position(self, mount: [f32; 3], rotation_degrees: f32) -> [f32; 3] {
+        let [x, y, z] = mount;
+        if self.model.is_some() && self.kind == FixtureKind::WallSconce {
+            // Each strip uses this plane, just clear of the lens front.
+            let (sin, cos) = rotation_degrees.to_radians().sin_cos();
+            return [0.111_f32.mul_add(sin, x), y, 0.111_f32.mul_add(cos, z)];
+        }
+        [x, self.emission_y(y), z]
     }
 }
 
@@ -344,6 +385,7 @@ pub const fn fixture_profile_for_kind(kind: FixtureKind) -> FixtureProfile {
     match kind {
         FixtureKind::FluorescentPanel => FixtureProfile {
             kind,
+            model: None,
             half_width: FIXTURE_HALF_WIDTH_M,
             half_depth: FIXTURE_HALF_DEPTH_M,
             // One luminous diffuser plus four housing side walls, a four-strip
@@ -352,24 +394,28 @@ pub const fn fixture_profile_for_kind(kind: FixtureKind) -> FixtureProfile {
         },
         FixtureKind::BlacklightTube => FixtureProfile {
             kind,
+            model: None,
             half_width: 0.6,
             half_depth: 0.075,
             quads: 7,
         },
         FixtureKind::RoundRecessed => FixtureProfile {
             kind,
+            model: None,
             half_width: 0.22,
             half_depth: 0.22,
             quads: 18,
         },
         FixtureKind::WallSconce => FixtureProfile {
             kind,
+            model: None,
             half_width: 0.20,
             half_depth: 0.09,
             quads: 6,
         },
         FixtureKind::FlushMount => FixtureProfile {
             kind,
+            model: None,
             half_width: FLUSH_MOUNT_RADIUS_M,
             half_depth: FLUSH_MOUNT_RADIUS_M,
             quads: 32,
@@ -392,7 +438,24 @@ pub fn fixture_profile(fixture_id: &str) -> FixtureProfile {
         "arcade:blacklight_tube" => FixtureKind::BlacklightTube,
         _ => FixtureKind::FluorescentPanel,
     };
-    fixture_profile_for_kind(kind)
+    let mut profile = fixture_profile_for_kind(kind);
+    profile.model = fixture_model_id(fixture_id);
+    if profile.model.is_some() && kind == FixtureKind::RoundRecessed {
+        profile.half_width = 0.25;
+        profile.half_depth = 0.25;
+    }
+    profile
+}
+
+/// Completed model housings adopted by existing fixture authoring ids.
+#[must_use]
+pub fn fixture_model_id(fixture_id: &str) -> Option<&'static str> {
+    match fixture_id {
+        "core:fluorescent_panel_01" => Some("core:office_fluorescent_panel_housing"),
+        "core:pool_light_round" => Some("core:pool_light_round_housing"),
+        "core:pool_light_wall" => Some("core:pool_light_wall_housing"),
+        _ => None,
+    }
 }
 
 /// Cell size of the baked lighting grid used to tessellate floors, ceilings and
@@ -539,9 +602,8 @@ pub fn model_fingerprint() -> u64 {
         }
     }
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
-    // Source policy 1: panel emitters use the recessed luminous aperture,
-    // independently of the outer footprint used for mounting clearance.
-    write(&mut hash, 1);
+    // Source policy 2: completed GLBs define the three adopted apertures.
+    write(&mut hash, 2);
     // Baseline policy 2: shared RGB amplitude preserves emitted hue.
     write(&mut hash, 2);
     for value in [

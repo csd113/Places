@@ -287,10 +287,11 @@ player attaches the decoded images from the same catalog model the manifest
 identifies by hash. One copy of model artwork stays on disk.
 
 ```text
-magic "PLMP" | version u16 = 7 | batch_count u32
+magic "PLMP" | version u16 = 8 | batch_count u32
 batch {
   model u32 length + UTF-8
   casts_static_lighting u8 (strict 0 or 1)
+  light_control optional u32 (strict u8 presence, then controller when present)
   bounds_min f32 x 3 | bounds_max f32 x 3
   submesh_count u32
   submeshes { texture optional u16 | alpha_mode u8 (0 opaque, 1 cutout, 2 blend)
@@ -310,6 +311,13 @@ vertex_storage:
   mode 1: pos/color/UV prefix (36 bytes) | lightmap/page tail (5 bytes) | frame u16
   mode 2: the same prefix and tail | frame u32
 ```
+
+Version 8 retains an optional light controller for independently controlled
+fixture models and fixed props. Fixture controllers use their authored ordinal;
+prop controllers use the fixture count plus the prop ordinal. Controlled
+instances retain separate luminous material uniforms while sharing source models,
+PNGs and ordinary material allocations. Versions 3–7 remain readable with no
+controller identity.
 
 Version 6 shares only identical complete 69-byte vertices within their own
 batch, keeping first-occurrence order and remapping every ordered triangle
@@ -465,7 +473,7 @@ the load by name; there is no runtime bake and no repair path.
 
 ### 4.2.1 Exact shared prepared prop data
 
-The compiler factors repeated PLMP3–7 streams losslessly when the dictionary
+The compiler factors repeated PLMP3–8 streams losslessly when the dictionary
 saves both raw bytes and Deflate-6 archive bytes, including a conservative
 manifest allowance. Recipes exceeding the reader working-set budget remain
 literal. Each vertex keeps its exact 36-byte

@@ -2494,7 +2494,7 @@
       "x": 1.1,
       "z": 16.6,
       "y": 7.2,
-      "rotation_degrees": 0,
+      "rotation_degrees": 180,
       "size": [
         0.9,
         0.85,
@@ -2508,7 +2508,7 @@
       "x": 3.3,
       "z": 16.6,
       "y": 7.2,
-      "rotation_degrees": 0,
+      "rotation_degrees": 180,
       "size": [
         0.9,
         0.85,
@@ -2522,7 +2522,7 @@
       "x": 6.3,
       "z": 16.6,
       "y": 7.2,
-      "rotation_degrees": 0,
+      "rotation_degrees": 180,
       "size": [
         0.9,
         0.85,
@@ -2545,6 +2545,65 @@
       "solid": true
     },
     {
+      "id": "top_tall_records",
+      "model": "core:office_filing_cabinet_tall",
+      "x": 4.8,
+      "z": 16.6,
+      "y": 7.2,
+      "rotation_degrees": 180,
+      "size": [
+        0.5,
+        1.32,
+        0.5
+      ],
+      "solid": true,
+      "comment": "One tall three-drawer unit in the existing records row; through lanes remain empty."
+    },
+    {
+      "id": "top_reception",
+      "model": "core:office_reception_desk",
+      "x": 5.8,
+      "z": 6.25,
+      "y": 7.2,
+      "rotation_degrees": 0,
+      "size": [
+        2.4,
+        0.98,
+        0.95
+      ],
+      "solid": true,
+      "comment": "Public apron faces the corridor; the staff bay remains open to the north workroom."
+    },
+    {
+      "id": "top_reception_chair",
+      "model": "core:chair",
+      "x": 5.8,
+      "z": 5.05,
+      "y": 7.2,
+      "rotation_degrees": 0,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true
+    },
+    {
+      "id": "top_reception_notices",
+      "model": "core:office_noticeboard",
+      "x": 7.875,
+      "z": 5.4,
+      "y": 8.75,
+      "rotation_degrees": 270,
+      "size": [
+        1.0,
+        0.7,
+        0.0485
+      ],
+      "solid": false,
+      "comment": "Vertically centered wall mount; rear plane is 5 mm proud of the partition."
+    },
+    {
       "id": "top_water",
       "model": "core:water_cooler",
       "x": 19.3,
@@ -2561,8 +2620,8 @@
     {
       "id": "top_vending",
       "model": "core:vending_machine",
-      "x": 22.5,
-      "z": 5.8,
+      "x": 21.4,
+      "z": 0.6,
       "y": 7.2,
       "rotation_degrees": 0,
       "size": [
@@ -2570,7 +2629,294 @@
         1.9,
         0.8
       ],
-      "solid": true
+      "solid": true,
+      "display_name": "Drinks vending machine",
+      "emission_overrides": {
+        "4": {
+          "color": [
+            1,
+            1,
+            1
+          ],
+          "intensity": 0.5
+        }
+      },
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            -0.1,
+            1.22,
+            0.43
+          ],
+          "color": [
+            0.66,
+            0.79,
+            1
+          ],
+          "intensity": 0.28,
+          "range": 2.7
+        },
+        {
+          "shape": "point",
+          "offset": [
+            -0.1,
+            0.45,
+            0.43
+          ],
+          "color": [
+            0.66,
+            0.79,
+            1
+          ],
+          "intensity": 0.08,
+          "range": 1.6
+        }
+      ],
+      "comment": "Backed against the break-room wall with clear front access; only the printed fascia emits.",
+      "switch_group": "break_room_vending",
+      "components": [
+        {
+          "component": "light",
+          "enabled": true,
+          "switchable": true,
+          "emission_scale": 1
+        },
+        {
+          "component": "interactable",
+          "reach": 2.5,
+          "prompt": "Cycle vending power"
+        },
+        {
+          "component": "state",
+          "name": "power_mode",
+          "value": "steady"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "when": [
+            {
+              "check": "state",
+              "target": "top_vending",
+              "name": "power_mode",
+              "equals": "steady"
+            }
+          ],
+          "actions": [
+            {
+              "action": "start_sequence",
+              "target": "top_vending",
+              "sequence": "top_vending_flicker"
+            },
+            {
+              "action": "set_state",
+              "target": "top_vending",
+              "name": "power_mode",
+              "value": "flickering"
+            }
+          ]
+        },
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "when": [
+            {
+              "check": "state",
+              "target": "top_vending",
+              "name": "power_mode",
+              "equals": "flickering"
+            }
+          ],
+          "actions": [
+            {
+              "action": "stop_sequence",
+              "target": "top_vending"
+            },
+            {
+              "action": "set_light",
+              "target": "top_vending",
+              "on": false
+            },
+            {
+              "action": "set_state",
+              "target": "top_vending",
+              "name": "power_mode",
+              "value": "dark"
+            }
+          ]
+        },
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "when": [
+            {
+              "check": "state",
+              "target": "top_vending",
+              "name": "power_mode",
+              "equals": "dark"
+            }
+          ],
+          "actions": [
+            {
+              "action": "set_light",
+              "target": "top_vending",
+              "on": true
+            },
+            {
+              "action": "set_state",
+              "target": "top_vending",
+              "name": "power_mode",
+              "value": "steady"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "top_snack_vending",
+      "model": "core:office_snack_machine",
+      "x": 22.65,
+      "z": 0.6,
+      "y": 7.2,
+      "rotation_degrees": 0,
+      "size": [
+        1.011,
+        1.9,
+        0.942
+      ],
+      "solid": true,
+      "display_name": "Snack vending machine",
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            -0.087,
+            1.71,
+            0.2
+          ],
+          "color": [
+            1,
+            0.7454,
+            0.3515
+          ],
+          "intensity": 0.28,
+          "range": 2.7
+        },
+        {
+          "shape": "point",
+          "offset": [
+            -0.087,
+            0.64,
+            0.29
+          ],
+          "color": [
+            1,
+            0.7454,
+            0.3515
+          ],
+          "intensity": 0.14,
+          "range": 2.1
+        }
+      ],
+      "comment": "Paired with drinks; sources use the delivered interior and lower-spill anchors, with real glass and shelf depth.",
+      "switch_group": "break_room_vending",
+      "components": [
+        {
+          "component": "light",
+          "enabled": true,
+          "switchable": true,
+          "emission_scale": 1
+        },
+        {
+          "component": "interactable",
+          "reach": 2.5,
+          "prompt": "Cycle vending power"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "when": [
+            {
+              "check": "state",
+              "target": "top_vending",
+              "name": "power_mode",
+              "equals": "steady"
+            }
+          ],
+          "actions": [
+            {
+              "action": "start_sequence",
+              "target": "top_vending",
+              "sequence": "top_vending_flicker"
+            },
+            {
+              "action": "set_state",
+              "target": "top_vending",
+              "name": "power_mode",
+              "value": "flickering"
+            }
+          ]
+        },
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "when": [
+            {
+              "check": "state",
+              "target": "top_vending",
+              "name": "power_mode",
+              "equals": "flickering"
+            }
+          ],
+          "actions": [
+            {
+              "action": "stop_sequence",
+              "target": "top_vending"
+            },
+            {
+              "action": "set_light",
+              "target": "top_vending",
+              "on": false
+            },
+            {
+              "action": "set_state",
+              "target": "top_vending",
+              "name": "power_mode",
+              "value": "dark"
+            }
+          ]
+        },
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "when": [
+            {
+              "check": "state",
+              "target": "top_vending",
+              "name": "power_mode",
+              "equals": "dark"
+            }
+          ],
+          "actions": [
+            {
+              "action": "set_light",
+              "target": "top_vending",
+              "on": true
+            },
+            {
+              "action": "set_state",
+              "target": "top_vending",
+              "name": "power_mode",
+              "value": "steady"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "top_crt_0",
@@ -5620,6 +5966,84 @@
     }
   ],
   "sequences": [
+    {
+      "id": "top_vending_flicker",
+      "looped": true,
+      "steps": [
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "target": "top_vending",
+            "on": true
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 1.7
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "target": "top_vending",
+            "on": false
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 0.16
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "target": "top_vending",
+            "on": true
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 0.09
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "target": "top_vending",
+            "on": false
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 0.42
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "target": "top_vending",
+            "on": true
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 2.4
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "target": "top_vending",
+            "on": false
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 0.28
+        }
+      ]
+    },
     {
       "id": "basement_failing_a_failure",
       "looped": false,

@@ -991,6 +991,7 @@ pub(super) fn dynamic_mesh_visibility_scene(
 ) -> Option<TransportScene> {
     let batch = PropMeshBatch {
         model: mesh.model_path.clone(),
+        light_control: None,
         casts_static_lighting: true,
         // DynamicMesh filters empty source primitives too. Its isolated ray
         // scene can preserve material continuity within each draw submesh
@@ -1052,6 +1053,7 @@ pub(in crate::render) fn character_visibility_scene(
         .collect();
     let batch = PropMeshBatch {
         model: character.asset().model_path.clone(),
+        light_control: None,
         casts_static_lighting: true,
         source_primitives: Vec::new(),
         textures: textures.to_vec(),
@@ -1154,10 +1156,23 @@ pub fn switchable_lights(level: &crate::level::LevelDef, lighting: &LevelLightin
         if !fixture.switchable {
             continue;
         }
-        if let Some(light) = lighting.fixture_light_index(fixture_index)
-            && !out.contains(&light)
+        for light in lighting.fixture_light_indices(fixture_index) {
+            if !out.contains(&light) {
+                out.push(light);
+            }
+        }
+    }
+    for (index, prop) in level.props.iter().enumerate() {
+        if prop
+            .light_control()
+            .is_some_and(|control| control.switchable)
         {
-            out.push(light);
+            out.extend(
+                lighting
+                    .prop_light_indices(index)
+                    .zip(&prop.lights)
+                    .filter_map(|(source, light)| light.enabled.then_some(source)),
+            );
         }
     }
     out
@@ -1171,18 +1186,44 @@ pub fn switchable_groups(level: &LevelDef, lighting: &LevelLighting) -> Vec<(usi
         if !fixture.switchable {
             continue;
         }
-        let Some(light) = lighting.fixture_light_index(fixture_index) else {
+        let sources = lighting.fixture_light_indices(fixture_index);
+        let Some(light) = sources.first().copied() else {
             continue;
         };
         if let Some(name) = fixture.switch_group.as_deref()
             && let Some(group) = named.get(name).and_then(|index| groups.get_mut(*index))
         {
-            group.1.push(light);
+            group.1.extend(sources);
         } else {
             if let Some(name) = fixture.switch_group.as_deref() {
                 let _previous = named.insert(name, groups.len());
             }
-            groups.push((light, vec![light]));
+            groups.push((light, sources));
+        }
+    }
+    for (index, prop) in level.props.iter().enumerate() {
+        if !prop
+            .light_control()
+            .is_some_and(|control| control.switchable)
+        {
+            continue;
+        }
+        let sources: Vec<usize> = lighting
+            .prop_light_indices(index)
+            .zip(&prop.lights)
+            .filter_map(|(source, light)| light.enabled.then_some(source))
+            .collect();
+        if let Some(first) = sources.first().copied() {
+            if let Some(name) = prop.switch_group.as_deref()
+                && let Some(group) = named.get(name).and_then(|ordinal| groups.get_mut(*ordinal))
+            {
+                group.1.extend(sources);
+            } else {
+                if let Some(name) = prop.switch_group.as_deref() {
+                    let _previous = named.insert(name, groups.len());
+                }
+                groups.push((first, sources));
+            }
         }
     }
     groups
@@ -1352,6 +1393,113 @@ mod tests {
     )]
 
     use super::*;
+
+    fn set_prop_light_enabled(level: &mut LevelDef, index: usize, state: bool) {
+        let owner = level.props.get_mut(index).expect("light owner fixture");
+        let enabled = owner
+            .components
+            .iter_mut()
+            .find_map(|component| {
+                if let crate::level::ComponentDef::Light {
+                    enabled,
+                    switchable: _,
+                    emission_scale: _,
+                } = component
+                {
+                    Some(enabled)
+                } else {
+                    None
+                }
+            })
+            .expect("light component fixture");
+        *enabled = state;
+    }
+
+    /// Two prop owners on one circuit occupy one prepared group, keep an
+    /// authored-off state dark, and add no immutable baseline. Four-metre
+    /// room: no GLB decode, lightmap solve, or full map construction.
+    #[test]
+    fn fixed_prop_sources_share_one_prepared_controller_without_baseline_energy() {
+        let level = LevelDef::from_json(
+            r#"{
+            "format_version":3,"id":"owner_lights","name":"Owner lights",
+            "spawn":{"x":1,"z":1},
+            "rooms":[{"x":0,"z":0,"width":4,"depth":4,"height":3}],
+            "walls":[{"x":2.9,"z":0,"width":0.2,"depth":4,"height":3}],
+            "props":[{"id":"machine","model":"core:missing","x":2,"z":2,"switch_group":"vending",
+              "components":[{"component":"light","enabled":false,"switchable":true}],
+              "lights":[{"offset":[0,1,0],"intensity":0.4},
+                        {"offset":[0,0.5,0],"intensity":0.2},
+                        {"enabled":false,"intensity":0.9}]},
+              {"id":"machine_two","model":"core:missing","x":1,"z":1,"switch_group":"vending",
+               "components":[{"component":"light","enabled":false,"switchable":true}],
+               "lights":[{"offset":[0,1,0],"intensity":0.2}]}]
+        }"#,
+        )
+        .expect("tiny owner lighting fixture");
+        let mut initially_on = level.clone();
+        set_prop_light_enabled(&mut initially_on, 0, true);
+        let mismatch = crate::loader::validate_level(&initially_on)
+            .expect_err("one circuit cannot mix initial enabled states");
+        assert!(
+            mismatch.contains("members must share enabled and hold_in_static"),
+            "shared state requirement is explicit: {mismatch}"
+        );
+        set_prop_light_enabled(&mut initially_on, 1, true);
+        crate::loader::validate_level(&initially_on).expect("matching circuit members validate");
+        let on_bake = LevelLighting::bake(&initially_on);
+        assert!(
+            on_bake.is_partitioned(0),
+            "small wall fixture exercises separated baseline zones"
+        );
+        assert_eq!(
+            on_bake.baseline_in_room(0, 2.0, 2.0).r,
+            crate::lighting::AMBIENT_LEVEL,
+            "initially-on switched owner cannot leave energy in a zone baseline"
+        );
+        let mut lighting = LevelLighting::bake(&level);
+        assert!(
+            lighting.lights().iter().all(|light| !light.enabled()),
+            "authored-off owner disables every source"
+        );
+        assert_eq!(switchable_lights(&level, &lighting), vec![0, 1, 3]);
+        assert_eq!(
+            switchable_groups(&level, &lighting),
+            vec![(0, vec![0, 1, 3])]
+        );
+        assert!(
+            lighting
+                .rooms()
+                .iter()
+                .all(|room| room.effective_power == crate::lighting::LightColor::BLACK),
+            "switchable owners add no immutable baseline"
+        );
+        for source in [0, 1, 3] {
+            assert!(lighting.set_light_enabled(source, true), "source turns on");
+        }
+        assert!(
+            !lighting
+                .lights()
+                .get(2)
+                .expect("disabled third source")
+                .enabled(),
+            "explicitly disabled source stays off"
+        );
+        assert!(
+            lighting.sample(2.0, 0.0, 2.0).r > crate::lighting::AMBIENT_LEVEL,
+            "authored-off sources remain discoverable after turn-on"
+        );
+        for source in [0, 1, 3] {
+            assert!(
+                lighting.set_light_enabled(source, false),
+                "source turns off"
+            );
+        }
+        assert_eq!(
+            lighting.sample(2.0, 0.0, 2.0).r,
+            crate::lighting::AMBIENT_LEVEL
+        );
+    }
 
     /// One room and one global source protect the no-field entity fallback.
     /// No model, GPU, atlas or transport solve is needed to verify its lobe.
@@ -2296,6 +2444,7 @@ mod tests {
         // primitive zero, while its retained sidecar still identifies slot one.
         let batch = |source_primitives: Vec<usize>, colour: [f32; 4]| PropMeshBatch {
             model: "source-material-control".to_owned(),
+            light_control: None,
             casts_static_lighting: true,
             source_primitives,
             textures: Vec::new(),
@@ -2398,6 +2547,7 @@ mod tests {
         for mode in [AlphaMode::Opaque, AlphaMode::Cutout, AlphaMode::Blend] {
             let batch = PropMeshBatch {
                 model: "alpha-contract".to_owned(),
+                light_control: None,
                 casts_static_lighting: true,
                 source_primitives: vec![0],
                 textures: Vec::new(),

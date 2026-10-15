@@ -26,6 +26,7 @@ use super::*;
 use crate::game::LocomotionSnapshot;
 use crate::level::{LevelDef, PropDef, WallAxis};
 use crate::lighting::LevelLighting;
+use crate::lighting_audit::one_model_batch;
 use crate::render::common::MeshPacker;
 use crate::render::common::character::PoseCue;
 use crate::render::common::decals::{DECAL_ATLAS_SIZE, generate_decal_atlas};
@@ -1824,6 +1825,8 @@ fn placeholder_prop_boxes_receive_the_environment_lighting() {
             float: None,
             span: None,
             material_overrides: std::collections::BTreeMap::new(),
+            emission_overrides: std::collections::BTreeMap::new(),
+            switch_group: None,
         },
         PropDef {
             id: None,
@@ -1844,6 +1847,8 @@ fn placeholder_prop_boxes_receive_the_environment_lighting() {
             float: None,
             span: None,
             material_overrides: std::collections::BTreeMap::new(),
+            emission_overrides: std::collections::BTreeMap::new(),
+            switch_group: None,
         },
     ];
     let mesh = build_level_geometry(&level);
@@ -1902,6 +1907,8 @@ fn vertically_offset_props_sample_their_true_world_position() {
         float: None,
         span: None,
         material_overrides: std::collections::BTreeMap::new(),
+        emission_overrides: std::collections::BTreeMap::new(),
+        switch_group: None,
     };
     let mut raised = base.clone();
     raised.y = 2.0;
@@ -1974,8 +1981,8 @@ fn real_props_are_lit_per_vertex_and_stay_batched() {
     let (_, batches, lighting) =
         build_level_geometry_with_assets_and_lighting(&level, &catalog, &mut assets);
 
-    assert_eq!(batches.len(), 1, "ten chairs still cost one draw call");
-    let vertices = &batches[0].vertices;
+    let chair = one_model_batch(&batches, "environments/office/props/chair.glb");
+    let vertices = &chair.vertices;
     let min = vertices.iter().map(|v| v.color[0]).fold(f32::MAX, f32::min);
     let max = vertices.iter().map(|v| v.color[0]).fold(f32::MIN, f32::max);
     assert!(
@@ -1989,6 +1996,11 @@ fn real_props_are_lit_per_vertex_and_stay_batched() {
         .resolve("environments/office/props/chair.glb")
         .expect("chair loads");
     let model = &asset.model;
+    assert_eq!(
+        chair.submeshes.len(),
+        model.submeshes.len(),
+        "one material range per source primitive"
+    );
     let flat = model.vertices.iter().any(|vertex| vertex.normal.is_none());
     let per_instance = if flat {
         model.indices.len()
@@ -2419,18 +2431,24 @@ fn real_prop_geometry_replaces_the_placeholder_box() {
         !batches[0].vertices.is_empty(),
         "batches[0].vertices must contain entries"
     );
-    assert_eq!(batches[0].textures.len(), 1, "a single material model");
-    assert_eq!(batches[0].submeshes.len(), 1);
-    assert_eq!(batches[0].submeshes[0].texture, Some(0));
+    let source = assets.resolve(&batches[0].model).expect("chair source");
+    assert_eq!(batches[0].textures.len(), 1, "shared embedded atlas");
+    assert_eq!(batches[0].submeshes.len(), source.model.submeshes.len());
+    assert_eq!(batches[0].indices.len(), source.model.indices.len());
     assert!(batches[0].textures[0].width > 0);
     assert_eq!(batches[0].textures[0].width, batches[0].textures[0].height);
     assert!(batches[0].textures[0].width <= crate::level::MAX_PROP_TEXTURE_SIZE);
-    assert!(batches[0].submeshes[0].index_count > 0);
-    assert!(
-        usize::try_from(batches[0].submeshes[0].first_index).unwrap_or(0)
-            + usize::try_from(batches[0].submeshes[0].index_count).unwrap_or(0)
-            <= batches[0].indices.len()
-    );
+    for (part, authored) in batches[0].submeshes.iter().zip(&source.model.submeshes) {
+        assert_eq!(part.texture, authored.texture);
+        assert_eq!(part.index_count, authored.index_count);
+        assert_eq!(part.response, authored.response);
+        assert_eq!(part.emission, authored.emission);
+        assert!(part.index_count > 0);
+        assert!(
+            usize::try_from(part.first_index).unwrap() + usize::try_from(part.index_count).unwrap()
+                <= batches[0].indices.len()
+        );
+    }
 
     // Placed at (3, 0, -2), resting on the floor: a 0.5 x 0.9 x 0.5 chair.
     let (low, high) = bounds_of(&batches[0].vertices);
@@ -2532,6 +2550,48 @@ fn fixture_level(name: &str) -> crate::level::LevelDef {
         .unwrap_or_else(|error| panic!("{path} must parse: {error}"))
 }
 
+fn static_model_ids(level: &LevelDef) -> impl Iterator<Item = &str> {
+    level.props.iter().map(|prop| prop.model.as_str()).chain(
+        level
+            .ceiling_lights
+            .iter()
+            .filter_map(|fixture| crate::lighting::fixture_model_id(&fixture.fixture)),
+    )
+}
+
+/// Exact asset identities catch both missing geometry and unexpected models;
+/// fixtures additionally retain a unique binding to their authored source.
+fn assert_model_batch_identities(
+    level: &LevelDef,
+    catalog: &crate::loader::PropCatalog,
+    batches: &[PropMeshBatch],
+) {
+    let expected: std::collections::HashSet<_> = static_model_ids(level)
+        .map(|id| catalog.get(id).model.expect("catalog model"))
+        .collect();
+    let actual: std::collections::HashSet<_> =
+        batches.iter().map(|batch| batch.model.clone()).collect();
+    assert_eq!(
+        actual, expected,
+        "every intended prop and fixture model is present"
+    );
+    for (index, fixture) in level.ceiling_lights.iter().enumerate() {
+        let Some(id) = crate::lighting::fixture_model_id(&fixture.fixture) else {
+            continue;
+        };
+        let control = u32::try_from(index).expect("fixture ordinal");
+        let mut matching = batches
+            .iter()
+            .filter(|batch| batch.light_control == Some(control));
+        let batch = matching.next().expect("fixture model batch");
+        assert_eq!(Some(&batch.model), catalog.get(id).model.as_ref());
+        assert!(
+            matching.next().is_none(),
+            "one emission identity per fixture"
+        );
+    }
+}
+
 #[test]
 fn regression_prop_fixtures_render_their_models_with_real_geometry() {
     let catalog = shipped_catalog();
@@ -2558,6 +2618,7 @@ fn regression_prop_fixtures_render_their_models_with_real_geometry() {
         "no placeholder boxes expected in the outdoor kit fixture"
     );
     assert!(!outdoor_batches.is_empty());
+    assert_model_batch_identities(&outdoor_showcase, &catalog, &outdoor_batches);
 
     // The Halloween fixture does too: the three entities (including the
     // blended sheet ghost and the split pumpkin models) resolve to real
@@ -2568,36 +2629,23 @@ fn regression_prop_fixtures_render_their_models_with_real_geometry() {
         halloween_mesh.batches.prop_batch.count, 0_i32,
         "no placeholder boxes expected in the Halloween fixture"
     );
-    let mut halloween_models: Vec<&str> = halloween_batches
-        .iter()
-        .map(|batch| batch.model.as_str())
-        .collect();
-    halloween_models.sort_unstable();
-    halloween_models.dedup();
-    let halloween_placed: std::collections::HashSet<&str> = halloween
-        .props
-        .iter()
-        .map(|prop| prop.model.as_str())
-        .collect();
-    assert_eq!(
-        halloween_models.len(),
-        halloween_placed.len(),
-        "each model the Halloween fixture places appears as real geometry"
-    );
+    assert_model_batch_identities(&halloween, &catalog, &halloween_batches);
 
     // Every prop this level places renders with real geometry, never a
     // placeholder box, and each model appears exactly once.
-    let mut models: Vec<&str> = batches.iter().map(|batch| batch.model.as_str()).collect();
-    models.sort_unstable();
-    models.dedup();
+    assert_model_batch_identities(&level, &catalog, &batches);
     let placed: std::collections::HashSet<&str> =
         level.props.iter().map(|prop| prop.model.as_str()).collect();
+    let fixtures = level
+        .ceiling_lights
+        .iter()
+        .filter(|fixture| crate::lighting::fixture_model_id(&fixture.fixture).is_some())
+        .count();
     assert_eq!(
-        models.len(),
-        placed.len(),
-        "each prop model placed here appears exactly once as real geometry"
+        batches.len(),
+        placed.len() + fixtures,
+        "one batch per furniture model plus each independently controlled fixture"
     );
-    assert_eq!(batches.len(), placed.len());
     assert_eq!(assets.stats().models_failed, 0);
 
     // The intentional clipping is present in the data, not corrected.
@@ -2620,6 +2668,7 @@ fn the_stress_level_batches_repeats_into_one_draw_per_model_and_cell() {
     );
 
     let (_, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
+    assert_model_batch_identities(&level, &catalog, &batches);
     // Every batch now covers one model *inside one spatial cell*, so the
     // frustum can reject a cell's worth of instances. That is still a
     // handful of draws per model, not one per instance.
@@ -2657,9 +2706,11 @@ fn the_stress_level_batches_repeats_into_one_draw_per_model_and_cell() {
     // per model (proving instance reuse).
     let mut expected_vertices = 0usize;
     let mut expected_indices = 0usize;
-    for prop in &level.props {
-        let entry = catalog.get(&prop.model);
-        let path = entry.model.expect("stress props come from the catalogue");
+    for model_id in static_model_ids(&level) {
+        let entry = catalog.get(model_id);
+        let path = entry
+            .model
+            .expect("stress props and fixtures come from the catalogue");
         let model = &assets.resolve(&path).expect("model loads").model;
         expected_vertices += if model.vertices.iter().any(|vertex| vertex.normal.is_none()) {
             model.indices.len()
@@ -4121,15 +4172,15 @@ fn fixture_sheets_are_fitted_once_and_keep_their_aspect() {
         "the lens is 2:1, so its sheet must be too"
     );
 
-    // Round diffuser: planar, inside the sheet, and isotropic - a square sheet
-    // covers the 0.44 m disc, so one texel is the same size on both axes.
+    // Asset-less fallback: its profile radius controls the fitted sheet.
+    // Actual adopted GLB apertures have separate geometry/material coverage.
     let round = sheet(FixtureKind::RoundRecessed);
     let (u0, u1, v0, v1) = uv_bounds(&round);
     assert!(
         u0 >= 0.0 && u1 <= 1.0 && v0 >= 0.0 && v1 <= 1.0,
         "the diffuser samples the sheet once"
     );
-    let radius = 0.22_f32;
+    let radius = crate::lighting::fixture_profile("core:pool_light_round").half_width;
     let (rx0, rx1, rz0, rz1) = xz_bounds(&round);
     let centre_x = f32::midpoint(rx0, rx1);
     let centre_z = f32::midpoint(rz0, rz1);
@@ -4138,7 +4189,7 @@ fn fixture_sheets_are_fitted_once_and_keep_their_aspect() {
         let dx = vertex.pos[0] - centre_x;
         let dz = vertex.pos[2] - centre_z;
         outermost = outermost.max(dx.hypot(dz));
-        // Planar and isotropic: a square sheet covers the 0.44 m disc.
+        // Planar and isotropic in the fallback fixture's own profile frame.
         let expected = [
             (dx / radius).mul_add(0.5, 0.5),
             (dz / radius).mul_add(0.5, 0.5),
@@ -9072,6 +9123,8 @@ fn placeholder_prop_box_faces_point_out_of_the_box() {
         float: None,
         span: None,
         material_overrides: std::collections::BTreeMap::new(),
+        emission_overrides: std::collections::BTreeMap::new(),
+        switch_group: None,
         model: "core:crate".into(),
         x: 2.0,
         y: 0.25,

@@ -17,6 +17,7 @@
 //! batch:
 //!   model       u32 length + UTF-8 bytes
 //!   casts_static_lighting u8 (0 = fully claimed character model, 1 = static caster)
+//!   light_control u8 presence + u32 controller identity when present (v8)
 //!   bounds_min  f32 x 3
 //!   bounds_max  f32 x 3
 //!   submesh_count u32
@@ -69,9 +70,10 @@ use super::{MAX_BINARY_BYTES, MAX_PROP_BATCH_VERTICES, MAX_PROP_BATCHES, MAX_PRO
 /// Version 6 adds lossless per-batch normal/tangent/handedness frame palettes.
 /// Version 7 adds optional ultraviolet pigment response, its texture slot and tint;
 /// versions 3 through 6 keep a zero-response default.
+/// Version 8 adds optional per-instance light controller identity.
 /// Versions 3 and 4 retain the conservative static-caster default, and version 3
 /// also retains the explicit matte material default. Older records are refused.
-pub const PROPS_RECORD_VERSION: u16 = 7;
+pub const PROPS_RECORD_VERSION: u16 = 8;
 
 /// Magic identifying a props record.
 pub const PROPS_MAGIC: [u8; 4] = *b"PLMP";
@@ -215,6 +217,10 @@ pub fn write_props_with_stats(
 fn write_batch_header(writer: &mut Writer, batch: &PropMeshBatch) -> Result<(), String> {
     writer.str(&batch.model)?;
     writer.u8(u8::from(batch.casts_static_lighting));
+    writer.u8(u8::from(batch.light_control.is_some()));
+    if let Some(control) = batch.light_control {
+        writer.u32(control);
+    }
     writer.f32_3(batch.bounds.min);
     writer.f32_3(batch.bounds.max);
     let submeshes = u32::try_from(batch.submeshes.len())
@@ -449,7 +455,7 @@ pub fn read_props(bytes: &[u8]) -> Result<Vec<PropMeshBatch>, String> {
         return Err("props record has the wrong magic".to_string());
     }
     let version = reader.u16()?;
-    if !matches!(version, 3..=6 | PROPS_RECORD_VERSION) {
+    if !matches!(version, 3..=PROPS_RECORD_VERSION) {
         return Err(format!(
             "props record version {version} is not supported (this build reads {PROPS_RECORD_VERSION})"
         ));
@@ -487,6 +493,7 @@ fn read_batch(
     validate_draw_indices(vertex_count, &indices, &header.submeshes)?;
     Ok(PropMeshBatch {
         model: header.model,
+        light_control: header.light_control,
         source_primitives: Vec::new(),
         casts_static_lighting: header.casts_static_lighting,
         textures: Vec::<Arc<crate::loader::RawImage>>::new(),
@@ -499,6 +506,7 @@ fn read_batch(
 
 struct BatchHeader {
     model: String,
+    light_control: Option<u32>,
     casts_static_lighting: bool,
     submeshes: Vec<PropSubmeshBatch>,
     bounds: Aabb,
@@ -515,6 +523,24 @@ fn read_batch_header(reader: &mut Reader<'_>, version: u16) -> Result<BatchHeade
         ));
     }
     let casts_static_lighting = read_static_caster(reader, version)?;
+    let light_control = if version >= 8 {
+        match reader.u8()? {
+            0 => None,
+            1 => {
+                let control = reader.u32()?;
+                if u64::from(control)
+                    >= crate::level::MAX_LEVEL_CEILING_LIGHTS
+                        .saturating_add(crate::level::MAX_LEVEL_PROPS)
+                {
+                    return Err("prop light controller identity exceeds the level bound".into());
+                }
+                Some(control)
+            }
+            _ => return Err("prop light controller presence is invalid".into()),
+        }
+    } else {
+        None
+    };
     let bounds_min = reader.f32_3()?;
     let bounds_max = reader.f32_3()?;
     if !finite3(bounds_min) || !finite3(bounds_max) {
@@ -537,6 +563,7 @@ fn read_batch_header(reader: &mut Reader<'_>, version: u16) -> Result<BatchHeade
     }
     Ok(BatchHeader {
         model,
+        light_control,
         casts_static_lighting,
         submeshes,
         bounds: Aabb {
@@ -973,6 +1000,7 @@ mod interning_tests {
             .map_err(|error| format!("test index count is too large: {error}"))?;
         Ok(PropMeshBatch {
             model: "models/interning.glb".to_string(),
+            light_control: None,
             source_primitives: Vec::new(),
             casts_static_lighting: false,
             textures: Vec::new(),
@@ -1739,7 +1767,8 @@ mod budget_tests {
         writer.u16(PROPS_RECORD_VERSION);
         writer.u32(1);
         writer.str("models/budget.glb")?;
-        writer.u8(1);
+        writer.u8(1); // Static caster.
+        writer.u8(0); // v8 optional light controller is absent.
         writer.f32_3([0.0; 3]);
         writer.f32_3([1.0; 3]);
         writer.u32(0);
@@ -1795,39 +1824,46 @@ mod budget_tests {
     #[test]
     fn logical_budget_equals_the_independent_literal_record_with_uv_headers() -> Result<(), String>
     {
-        let original = interning_tests::batch(vec![Vertex::UNLIT; 4], vec![0, 1, 2])?;
-        let bytes = write_props(std::slice::from_ref(&original))?;
-        let mut reader = Reader::new(&bytes);
-        let _header = reader.bytes(10)?;
-        let mut budget = LogicalPropsBudget::new();
-        let decoded = read_batch(&mut reader, PROPS_RECORD_VERSION, &mut budget)?;
-        let literal_bytes = legacy_tests::literal_record(&decoded, 5)?;
-        let uv_header_bytes = decoded.submeshes.iter().try_fold(0_u64, |total, part| {
-            total
-                .checked_add(if part.response.fluorescence.mask.is_some() {
-                    19
-                } else {
-                    17
-                })
-                .ok_or_else(|| "test UV header size overflowed".to_string())
-        })?;
-        let expected_bytes = u64::try_from(literal_bytes.len())
-            .map_err(|error| format!("test literal size is too large: {error}"))?
-            .checked_add(uv_header_bytes)
-            .ok_or("test literal size overflowed")?;
-        assert!(
-            reader.is_empty(),
-            "the entire one-batch record must be accounted for"
-        );
-        assert_eq!(
-            budget.bytes, expected_bytes,
-            "charge historical literal storage plus each current optional UV header"
-        );
-        assert_eq!(
-            decoded.vertices.len(),
-            1,
-            "the logical charge follows complete-vertex interning, before frame compression"
-        );
+        let mut original = interning_tests::batch(vec![Vertex::UNLIT; 4], vec![0, 1, 2])?;
+        for controller in [None, Some(23)] {
+            original.light_control = controller;
+            let bytes = write_props(std::slice::from_ref(&original))?;
+            let mut reader = Reader::new(&bytes);
+            let _header = reader.bytes(10)?;
+            let mut budget = LogicalPropsBudget::new();
+            let decoded = read_batch(&mut reader, PROPS_RECORD_VERSION, &mut budget)?;
+            let literal_bytes = legacy_tests::literal_record(&decoded, 5)?;
+            let uv_header_bytes = decoded.submeshes.iter().try_fold(0_u64, |total, part| {
+                total
+                    .checked_add(if part.response.fluorescence.mask.is_some() {
+                        19
+                    } else {
+                        17
+                    })
+                    .ok_or_else(|| "test UV header size overflowed".to_string())
+            })?;
+            // v8 presence is one byte; a present stable identity adds four bytes.
+            // Account independently of the codec's header writer.
+            let controller_header_bytes = if controller.is_some() { 5 } else { 1 };
+            let expected_bytes = u64::try_from(literal_bytes.len())
+                .map_err(|error| format!("test literal size is too large: {error}"))?
+                .checked_add(uv_header_bytes)
+                .and_then(|size| size.checked_add(controller_header_bytes))
+                .ok_or("test literal size overflowed")?;
+            assert!(
+                reader.is_empty(),
+                "the entire one-batch record must be accounted for"
+            );
+            assert_eq!(
+                budget.bytes, expected_bytes,
+                "charge literal storage plus independent UV and light controller headers"
+            );
+            assert_eq!(
+                decoded.vertices.len(),
+                1,
+                "the logical charge follows complete-vertex interning, before frame compression"
+            );
+        }
         Ok(())
     }
 }
@@ -1864,6 +1900,11 @@ mod legacy_tests {
                 writer.f32_3(submesh.response.specular);
                 writer.f32(submesh.response.roughness);
             }
+            if version >= 7 {
+                writer.f32(submesh.response.fluorescence.strength);
+                write_optional_slot(&mut writer, submesh.response.fluorescence.mask)?;
+                writer.f32_3(submesh.response.fluorescence.tint);
+            }
             writer.u32(submesh.first_index);
             writer.u32(submesh.index_count);
         }
@@ -1871,6 +1912,9 @@ mod legacy_tests {
             u32::try_from(batch.vertices.len())
                 .map_err(|error| format!("legacy test has too many vertices: {error}"))?,
         );
+        if version >= 6 {
+            writer.u8(VERTEX_MODE_LITERAL);
+        }
         for vertex in &batch.vertices {
             write_vertex(&mut writer, vertex);
         }
@@ -1881,6 +1925,7 @@ mod legacy_tests {
     fn caster_batch(casts_static_lighting: bool) -> PropMeshBatch {
         PropMeshBatch {
             model: "models/caster.glb".to_string(),
+            light_control: None,
             source_primitives: Vec::new(),
             casts_static_lighting,
             textures: Vec::new(),
@@ -1908,7 +1953,8 @@ mod legacy_tests {
     #[test]
     fn static_caster_metadata_round_trips_and_rejects_invalid_markers() -> Result<(), String> {
         for casts_static_lighting in [false, true] {
-            let batch = caster_batch(casts_static_lighting);
+            let mut batch = caster_batch(casts_static_lighting);
+            batch.light_control = Some(23);
             let mut bytes = write_props(std::slice::from_ref(&batch))?;
             let decoded = read_props(&bytes)?;
             assert_eq!(decoded.len(), 1);
@@ -1916,6 +1962,11 @@ mod legacy_tests {
                 .first()
                 .ok_or_else(|| "caster roundtrip omitted its batch".to_string())?;
             assert_eq!(decoded_batch.casts_static_lighting, casts_static_lighting);
+            assert_eq!(
+                decoded_batch.light_control,
+                Some(23),
+                "controller identity survives packaging"
+            );
             assert_eq!(decoded_batch.vertices, batch.vertices);
             assert_eq!(decoded_batch.indices, batch.indices);
             assert_eq!(write_props(&decoded)?, bytes);
@@ -1961,32 +2012,38 @@ mod legacy_tests {
     }
 
     #[test]
-    fn legacy_v5_literal_vertices_and_caster_flags_remain_exact() -> Result<(), String> {
+    fn legacy_literal_vertices_and_caster_flags_remain_exact() -> Result<(), String> {
         for casts_static_lighting in [false, true] {
             let mut batch = caster_batch(casts_static_lighting);
             batch.vertices.extend_from_within(..3);
             batch.indices = vec![3, 4, 5];
-            let bytes = literal_record(&batch, 5)?;
-            let decoded = read_props(&bytes)?;
-            let decoded_batch = decoded
-                .first()
-                .ok_or_else(|| "legacy v5 record omitted its batch".to_string())?;
-            assert_eq!(
-                decoded_batch.casts_static_lighting, casts_static_lighting,
-                "v5 stores its explicit caster flag"
-            );
-            assert_eq!(
-                decoded_batch.vertices, batch.vertices,
-                "legacy decoding retains every literal vertex slot"
-            );
-            assert_eq!(
-                decoded_batch.indices, batch.indices,
-                "legacy decoding retains its original indices"
-            );
-            assert_eq!(
-                decoded_batch.submeshes, batch.submeshes,
-                "v5 material and draw metadata remain exact"
-            );
+            for version in [5, 7] {
+                let bytes = literal_record(&batch, version)?;
+                let decoded = read_props(&bytes)?;
+                let decoded_batch = decoded
+                    .first()
+                    .ok_or_else(|| "legacy record omitted its batch".to_string())?;
+                assert_eq!(
+                    decoded_batch.casts_static_lighting, casts_static_lighting,
+                    "legacy record stores its explicit caster flag"
+                );
+                assert_eq!(
+                    decoded_batch.vertices, batch.vertices,
+                    "legacy decoding retains every literal vertex slot"
+                );
+                assert_eq!(
+                    decoded_batch.indices, batch.indices,
+                    "legacy decoding retains its original indices"
+                );
+                assert_eq!(
+                    decoded_batch.submeshes, batch.submeshes,
+                    "legacy material and draw metadata remain exact"
+                );
+                assert_eq!(
+                    decoded_batch.light_control, None,
+                    "old records have no controller metadata"
+                );
+            }
         }
         Ok(())
     }

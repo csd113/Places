@@ -3517,8 +3517,7 @@ fn test_validate_rejects_action_target_mismatches() {
         "the error names the target: {static_material_error}"
     );
 
-    // A switchable `light` component on a prop is rejected: only a ceiling
-    // fixture has prepared switchable layers.
+    // Fixed prop controls use prepared layers just like fixture controls.
     let switchable_prop_light = binding_level(
         r#""props": [ { "id": "lamp", "model": "core:lamp", "x": 2.0, "z": 2.0,
             "components": [ { "component": "interactable" },
@@ -3526,13 +3525,7 @@ fn test_validate_rejects_action_target_mismatches() {
             "bindings": [ { "on": "interact",
                 "actions": [ { "action": "set_light", "on": true } ] } ] } ]"#,
     );
-    let switchable_prop_light_error =
-        validate_level(&switchable_prop_light).expect_err("a prop light cannot be switchable");
-    assert!(
-        switchable_prop_light_error
-            .contains("only a ceiling fixture has prepared switchable lightmap layers"),
-        "unexpected error: {switchable_prop_light_error}"
-    );
+    validate_level(&switchable_prop_light).expect("fixed prop light supports switching");
 
     // A non-switchable light is not a `set_light` target either.
     let static_light_target = binding_level(
@@ -4884,8 +4877,8 @@ fn the_geometry_revision_is_part_of_both_build_fingerprints() {
 
     // The shipped revision is the one the fix introduced, not a placeholder.
     assert_eq!(
-        revision, 13,
-        "fitted static prop spans and material variants require geometry revision 13"
+        revision, 14,
+        "completed fixture meshes and independent prop light controls require geometry revision 14"
     );
 }
 

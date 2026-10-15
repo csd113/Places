@@ -345,10 +345,9 @@ pub struct Light {
     pub switchable: bool,
     /// Emissive scale for the visible face.
     pub emission_scale: f32,
-    /// Index of the prepared switchable lightmap group this light drives: a
-    /// ceiling fixture's position in the level's `ceiling_lights`. `None` for a
-    /// light with no prepared layers (a prop light or a spawned light), whose
-    /// state is still real but changes only its own emission.
+    /// Stable prepared controller identity: ceiling fixture ordinal, then
+    /// `ceiling_lights.len() + props ordinal` for fixed placed props.
+    /// Spawned lights have no prepared identity and use their dynamic emission.
     pub fixture: Option<u32>,
     /// True when the state changed and the renderer has not applied it yet.
     pub dirty: bool,

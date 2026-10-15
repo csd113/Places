@@ -99,6 +99,17 @@ pub struct WgpuProps {
     materials: Vec<GpuMaterial>,
     textures: Vec<Arc<GpuTexture>>,
     stats: PropGpuStats,
+    emission_controls: Vec<PropEmissionControl>,
+    animation_seconds: f32,
+}
+
+struct PropEmissionControl {
+    controller: u32,
+    material: usize,
+    enabled: bool,
+    scale: f32,
+    animation: Option<crate::render::common::animation::EmissionAnimation>,
+    applied: f32,
 }
 
 /// Accumulates one world's prop resources in draw order across frame budgets.
@@ -112,6 +123,7 @@ type PropMaterialIdentity = (
     Option<usize>,
     crate::materials::MaterialAlpha,
     crate::materials::MaterialResponse,
+    Option<u32>,
 );
 
 pub struct PropUpload {
@@ -235,6 +247,8 @@ impl PropUpload {
                 materials: Vec::new(),
                 textures: Vec::new(),
                 stats: PropGpuStats::default(),
+                emission_controls: Vec::new(),
+                animation_seconds: 0.0,
             },
             identities: Vec::new(),
             skip_models: skip_models.to_vec(),
@@ -268,6 +282,8 @@ impl PropUpload {
             draws,
             materials,
             textures,
+            emission_controls,
+            animation_seconds: _,
         } = &mut self.props;
         let identities = &mut self.identities;
         let level = self.level;
@@ -372,7 +388,18 @@ impl PropUpload {
             // The cutoff is part of the material identity: two primitives that
             // share a sheet and emission but discard at different alpha levels
             // need different uniforms.
-            let identity = (texture, record.color, mask, submesh.alpha, submesh.response);
+            let controller = record
+                .is_emissive()
+                .then_some(batch.light_control)
+                .flatten();
+            let identity = (
+                texture,
+                record.color,
+                mask,
+                submesh.alpha,
+                submesh.response,
+                controller,
+            );
             let material = identities
                 .iter()
                 .position(|existing| *existing == identity)
@@ -396,6 +423,16 @@ impl PropUpload {
                         },
                     );
                     materials.push(gpu);
+                    if let Some(owner) = controller {
+                        emission_controls.push(PropEmissionControl {
+                            controller: owner,
+                            material: materials.len().saturating_sub(1),
+                            enabled: true,
+                            scale: 1.0,
+                            animation: None,
+                            applied: 1.0,
+                        });
+                    }
                     identities.push(identity);
                     materials.len().saturating_sub(1)
                 });
@@ -438,6 +475,56 @@ impl PropUpload {
 }
 
 impl WgpuProps {
+    /// Configure a prepared owner's already-emissive slots without changing artwork.
+    pub fn configure_light_control(
+        &mut self,
+        queue: &wgpu::Queue,
+        controller: u32,
+        enabled: bool,
+        scale: f32,
+        animation: Option<crate::render::common::animation::EmissionAnimation>,
+    ) {
+        for control in &mut self.emission_controls {
+            if control.controller == controller {
+                control.enabled = enabled;
+                control.scale = scale;
+                control.animation = animation;
+            }
+        }
+        self.update_animations(queue, self.animation_seconds);
+    }
+
+    /// Switch only an owner's luminous slots; opaque hardware never gains emission.
+    pub fn set_light_enabled(&mut self, queue: &wgpu::Queue, controller: u32, enabled: bool) {
+        for control in &mut self.emission_controls {
+            if control.controller == controller {
+                control.enabled = enabled;
+            }
+        }
+        self.update_animations(queue, self.animation_seconds);
+    }
+
+    /// Animate existing emission uniforms; unchanged materials incur no writes.
+    pub fn update_animations(&mut self, queue: &wgpu::Queue, seconds: f32) {
+        self.animation_seconds = seconds;
+        for control in &mut self.emission_controls {
+            let scale = if control.enabled {
+                control.scale
+                    * control
+                        .animation
+                        .map_or(1.0, |animation| animation.factor(seconds))
+            } else {
+                0.0
+            };
+            if scale.to_bits() != control.applied.to_bits() {
+                if let Some(material) = self.materials.get(control.material) {
+                    material.write_emission_scale(queue, scale);
+                }
+                control.applied = scale;
+            }
+        }
+    }
+
     /// Uploads every batch of one neutral build, uploading the model sheets it
     /// uses through the shared texture cache.
     ///
@@ -554,6 +641,7 @@ mod tests {
     fn primitive_bounds_exclude_other_materials_and_count_shared_indices() {
         let batch = PropMeshBatch {
             model: String::new(),
+            light_control: None,
             casts_static_lighting: true,
             textures: Vec::new(),
             submeshes: Vec::new(),
@@ -614,6 +702,7 @@ mod tests {
         };
         let mut batch = PropMeshBatch {
             model: String::new(),
+            light_control: None,
             casts_static_lighting: true,
             textures: Vec::new(),
             submeshes: vec![part.clone(), part],

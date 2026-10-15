@@ -29,7 +29,7 @@ use crate::lighting::{
 use crate::render::{build_level_geometry, build_level_geometry_with_assets};
 
 use super::lighting_audit::{
-    assert_vertex_colors_safe, level_json, light, parse, room, square_room_level,
+    assert_vertex_colors_safe, level_json, light, one_model_batch, parse, room, square_room_level,
 };
 use crate::render::SurfaceKind;
 use crate::test_support::{assert_exact, assert_exact_named, scan, scan_below};
@@ -1495,12 +1495,13 @@ fn group_m_n_real_props_are_lit_from_their_transformed_world_position() {
     );
     let bright = |level: &LevelDef, prop_assets: &mut crate::props::PropAssets| {
         let (_, batches) = build_level_geometry_with_assets(level, &catalog, prop_assets);
-        let vertex = batches[0]
+        let chair = one_model_batch(&batches, "environments/office/props/chair.glb");
+        let vertex = chair
             .vertices
             .iter()
             .max_by(|a, b| a.color[0].partial_cmp(&b.color[0]).unwrap())
             .expect("chair vertices");
-        assert_vertex_colors_safe(&batches[0].vertices);
+        assert_vertex_colors_safe(&chair.vertices);
         vertex.color[0]
     };
     let floor_bright = bright(&floor, &mut assets);
@@ -1517,7 +1518,7 @@ fn group_m_n_real_props_are_lit_from_their_transformed_world_position() {
         &light(5.0, 5.0, None),
     );
     let (_, batches) = build_level_geometry_with_assets(&sunk, &catalog, &mut assets);
-    let lowest = batches[0]
+    let lowest = one_model_batch(&batches, "shared/props/crate.glb")
         .vertices
         .iter()
         .map(|v| v.pos[1])
@@ -1534,7 +1535,8 @@ fn group_m_n_real_props_are_lit_from_their_transformed_world_position() {
     );
     let lighting = bake(&far);
     let (_, far_batches) = build_level_geometry_with_assets(&far, &catalog, &mut assets);
-    for vertex in &far_batches[0].vertices {
+    let plant = catalog.get("core:plant").model.expect("plant model");
+    for vertex in &one_model_batch(&far_batches, &plant).vertices {
         assert_vertex_colors_safe(std::slice::from_ref(vertex));
     }
     let baseline = lighting.rooms()[0].baseline.luminance();
@@ -1552,8 +1554,13 @@ fn group_m_n_real_props_are_lit_from_their_transformed_world_position() {
         );
         let (_, placement_batches) =
             build_level_geometry_with_assets(&level, &catalog, &mut assets);
-        assert_eq!(placement_batches.len(), 1, "{label}: one model, one batch");
-        assert_vertex_colors_safe(&placement_batches[0].vertices);
+        let model = catalog.get("spooner-man").model.expect("character model");
+        let batch = one_model_batch(&placement_batches, &model);
+        assert_vertex_colors_safe(&batch.vertices);
+        assert!(
+            !batch.vertices.is_empty(),
+            "{label}: real character geometry"
+        );
     }
 }
 
@@ -1573,10 +1580,11 @@ fn group_n_extreme_prop_offsets_are_lit_without_correction_or_rejection() {
             &light(5.0, 5.0, None),
         );
         let (_, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
-        assert_eq!(batches.len(), 1, "{label}: one batch");
-        assert_vertex_colors_safe(&batches[0].vertices);
+        let crate_model = catalog.get("core:crate").model.expect("crate model");
+        let batch = one_model_batch(&batches, &crate_model);
+        assert_vertex_colors_safe(&batch.vertices);
         // The requested offset is present in the geometry: no auto-correction.
-        let lowest = batches[0]
+        let lowest = batch
             .vertices
             .iter()
             .map(|v| v.pos[1])
@@ -1587,7 +1595,7 @@ fn group_n_extreme_prop_offsets_are_lit_without_correction_or_rejection() {
         );
         // And the light sampled at those true heights stays in range.
         let lighting = bake(&level);
-        for vertex in &batches[0].vertices {
+        for vertex in &batch.vertices {
             let value = lighting.sample_luminance(vertex.pos[0], vertex.pos[1], vertex.pos[2]);
             assert!(value.is_finite() && (AMBIENT_LEVEL..=MAX_BRIGHTNESS).contains(&value));
         }
@@ -1848,6 +1856,8 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
             float: None,
             span: None,
             material_overrides: std::collections::BTreeMap::new(),
+            emission_overrides: std::collections::BTreeMap::new(),
+            switch_group: None,
         }],
         ..empty.clone()
     };

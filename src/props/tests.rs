@@ -97,9 +97,13 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
         let model = &asset.model;
 
         assert!(model.triangles > 0, "{}: model has no triangles", entry.id);
+        let reviewed = completed_model_review(model_path);
+        let triangle_limit = reviewed
+            .and_then(|review| review.engine_triangle_limit)
+            .unwrap_or(MAX_PROP_TRIANGLES);
         assert!(
-            model.triangles <= MAX_PROP_TRIANGLES,
-            "{}: model has {} triangles; the engine hard ceiling is {MAX_PROP_TRIANGLES}",
+            model.triangles <= triangle_limit,
+            "{}: model has {} triangles; the verified import ceiling is {triangle_limit}",
             entry.id,
             model.triangles
         );
@@ -197,6 +201,10 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
 
         // Scale/origin conventions: 1 unit = 1 metre, base at y = 0, centred.
         let (low, high) = model.bounds().expect("model has vertices");
+        // Accepted mounted fixtures and asymmetric fittings retain measured
+        // local origins; PropAssets verifies both the export hash and bounds.
+        let reviewed_origin = reviewed
+            .is_some_and(|review| review.bounds_min.is_some() && review.bounds_max.is_some());
         // Linked sections have a floor-reference origin and an intentional
         // open gap below the lower rail; their supports are separate props.
         let floor_clearance = match entry.id.as_str() {
@@ -235,7 +243,9 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
         // and inside its own height: the level places it at y = 0 and the
         // hover is the asset's own bind pose, so it must neither sink below
         // the origin nor float away from it.
-        if let Some(clearance) = floor_clearance {
+        if reviewed_origin {
+            // Exact bounds were checked while resolving the accepted export.
+        } else if let Some(clearance) = floor_clearance {
             assert!(
                 (low[1] - clearance).abs() <= 0.012,
                 "{}: linked section must preserve its floor-reference clearance {clearance}, got {}",
@@ -261,7 +271,8 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
         let center_x = f32::midpoint(low[0], high[0]);
         let center_z = f32::midpoint(low[2], high[2]);
         assert!(
-            (model.skin.is_some() && completed_model_review(model_path).is_some())
+            reviewed_origin
+                || (model.skin.is_some() && completed_model_review(model_path).is_some())
                 || (center_x.abs() <= 0.02 && center_z.abs() <= 0.02),
             "{}: model is not horizontally centred (x={center_x:.3}, z={center_z:.3})",
             entry.id

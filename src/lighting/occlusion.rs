@@ -1611,6 +1611,8 @@ mod tests {
                 float: None,
                 span: None,
                 material_overrides: std::collections::BTreeMap::new(),
+                emission_overrides: std::collections::BTreeMap::new(),
+                switch_group: None,
             };
             let base_y = 0.35_f32;
             let transform = glam::Mat4::from_translation(glam::Vec3::new(x, base_y + y, z))

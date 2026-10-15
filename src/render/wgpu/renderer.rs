@@ -127,7 +127,7 @@ struct SwitchableLight {
     /// The light it baked into.
     light_index: usize,
     /// The material slot of its luminous face, for the on/off emission write.
-    material_slot: usize,
+    material_slot: Option<usize>,
     /// Static cannot select prepared illumination; opt-in fixtures retain
     /// the state their vertex-lit surfaces were baked with.
     hold_in_static: bool,
@@ -142,6 +142,14 @@ impl SwitchableLight {
             requested
         }
     }
+}
+
+/// One fixed prop's sources share a prepared layer and luminous material state.
+#[derive(Clone, Debug)]
+struct PropLightBinding {
+    controller: usize,
+    sources: Vec<usize>,
+    baked_enabled: bool,
 }
 
 /// The dynamic object handles one door draws.
@@ -655,6 +663,7 @@ pub struct WgpuRenderer {
     /// Every switchable fixture's runtime bindings: the baked light it drives
     /// and the material slot of its luminous face.
     switchable_lights: Vec<SwitchableLight>,
+    prop_light_bindings: Vec<PropLightBinding>,
     /// Share immutable prepared pages with the retained build; light switches
     /// read only the page count and source identities, never mutate texels.
     lightmap_cpu: Option<Arc<crate::lighting::lightmap::LevelLightmaps>>,
@@ -1021,6 +1030,7 @@ impl WgpuRenderer {
             door_sources: Vec::new(),
             door_objects: Vec::new(),
             switchable_lights: Vec::new(),
+            prop_light_bindings: Vec::new(),
             lightmap_cpu: None,
             level_id: None,
             installed_level: None,
@@ -1946,33 +1956,62 @@ impl WgpuRenderer {
     /// on/off write targets.
     fn prepare_switchable_lights(&mut self, level: &crate::level::LevelDef) {
         self.switchable_lights.clear();
+        self.prop_light_bindings.clear();
         let Some(lighting) = self.dynamic_lighting.as_ref() else {
             return;
         };
-        let (Some(world), Some(materials)) = (self.world.as_ref(), self.world_materials.as_ref())
-        else {
-            return;
-        };
-        let mut initial_faces = Vec::new();
+        let animations =
+            Self::resolve_animations(level, &crate::materials::MaterialTable::default());
         for (fixture_index, fixture) in level.ceiling_lights.iter().enumerate() {
             let kind = crate::lighting::fixture_profile(&fixture.fixture).kind;
+            let face_material =
+                crate::level::fixture_face_material_index(fixture_index, true, kind);
+            let animation = usize::try_from(face_material)
+                .ok()
+                .and_then(|slot| animations.fixtures.get(slot))
+                .copied()
+                .flatten();
+            if let Some(props) = self.world_props.as_mut() {
+                props.configure_light_control(
+                    &self.queue,
+                    u32::try_from(fixture_index).unwrap_or(u32::MAX),
+                    if fixture.switchable || kind == crate::lighting::FixtureKind::BlacklightTube {
+                        fixture.enabled
+                    } else {
+                        true
+                    },
+                    1.0,
+                    animation,
+                );
+            }
             if !fixture.switchable && kind != crate::lighting::FixtureKind::BlacklightTube {
                 continue;
             }
             let Some(light_index) = lighting.fixture_light_index(fixture_index) else {
                 continue;
             };
-            let face_material =
-                crate::level::fixture_face_material_index(fixture_index, true, kind);
-            let Some(material_slot) = world
-                .draws()
-                .iter()
-                .position(|draw| draw.kind == SurfaceKind::Light && draw.material == face_material)
-                .and_then(|draw_index| materials.slot_for_draw(draw_index))
-            else {
-                continue;
-            };
-            initial_faces.push((material_slot, fixture.enabled));
+            let material_slot = self
+                .world
+                .as_ref()
+                .zip(self.world_materials.as_ref())
+                .and_then(|(world, materials)| {
+                    world
+                        .draws()
+                        .iter()
+                        .position(|draw| {
+                            draw.kind == SurfaceKind::Light && draw.material == face_material
+                        })
+                        .and_then(|draw| materials.slot_for_draw(draw))
+                });
+            if let Some(slot) = material_slot
+                && let Some(materials) = self.world_materials.as_mut()
+            {
+                let _changed = materials.set_emission_scale(
+                    &self.queue,
+                    slot,
+                    if fixture.enabled { 1.0 } else { 0.0 },
+                );
+            }
             self.switchable_lights.push(SwitchableLight {
                 fixture_index,
                 light_index,
@@ -1981,13 +2020,30 @@ impl WgpuRenderer {
                 baked_enabled: fixture.enabled,
             });
         }
-        if let Some(face_materials) = self.world_materials.as_mut() {
-            for (slot, enabled) in initial_faces {
-                let _initial_face_state = face_materials.set_emission_scale(
+        for (index, prop) in level.props.iter().enumerate() {
+            let Some(control) = prop.light_control() else {
+                continue;
+            };
+            let controller = level.ceiling_lights.len().saturating_add(index);
+            if let Some(props) = self.world_props.as_mut() {
+                props.configure_light_control(
                     &self.queue,
-                    slot,
-                    if enabled { 1.0 } else { 0.0 },
+                    u32::try_from(controller).unwrap_or(u32::MAX),
+                    control.enabled,
+                    control.emission_scale,
+                    None,
                 );
+            }
+            if control.switchable {
+                self.prop_light_bindings.push(PropLightBinding {
+                    controller,
+                    sources: lighting
+                        .prop_light_indices(index)
+                        .zip(&prop.lights)
+                        .filter_map(|(source, light)| light.enabled.then_some(source))
+                        .collect(),
+                    baked_enabled: control.enabled,
+                });
             }
         }
     }
@@ -2001,37 +2057,66 @@ impl WgpuRenderer {
     /// glowing. Both writes are bounded by one material uniform and one
     /// environment uniform, and an empty list costs nothing.
     pub fn apply_light_toggles(&mut self, toggles: &[(usize, bool)]) {
-        if toggles.is_empty() || self.switchable_lights.is_empty() {
+        if toggles.is_empty() {
             return;
         }
         self.select_static_light_state(toggles);
         let mut changed = false;
-        for (fixture_index, enabled) in toggles {
-            let Some(binding) = self
+        for (controller, requested) in toggles {
+            if let Some(binding) = self
                 .switchable_lights
                 .iter()
-                .find(|binding| binding.fixture_index == *fixture_index)
+                .find(|binding| binding.fixture_index == *controller)
                 .copied()
-            else {
-                continue;
-            };
-            let effective_enabled =
-                binding.enabled_for_mode(*enabled, self.lightmaps.is_resident());
-            // 1. The material uniform: the face's emission scale.
-            if let Some(materials) = self.world_materials.as_mut() {
-                let scale = if effective_enabled { 1.0 } else { 0.0 };
-                let _emission_scale_changed =
-                    materials.set_emission_scale(&self.queue, binding.material_slot, scale);
+            {
+                let enabled = binding.enabled_for_mode(*requested, self.lightmaps.is_resident());
+                if let Some(slot) = binding.material_slot
+                    && let Some(materials) = self.world_materials.as_mut()
+                {
+                    let _changed = materials.set_emission_scale(
+                        &self.queue,
+                        slot,
+                        if enabled { 1.0 } else { 0.0 },
+                    );
+                }
+                if let Some(props) = self.world_props.as_mut() {
+                    props.set_light_enabled(
+                        &self.queue,
+                        u32::try_from(*controller).unwrap_or(u32::MAX),
+                        enabled,
+                    );
+                }
+                if let Some(lighting) = self.dynamic_lighting.as_mut() {
+                    for source in lighting.fixture_light_indices(binding.fixture_index) {
+                        changed |= lighting.set_light_enabled(source, enabled);
+                    }
+                }
+            } else if let Some(binding) = self
+                .prop_light_bindings
+                .iter()
+                .find(|binding| binding.controller == *controller)
+            {
+                // Static stores one immutable vertex-lit state. Hold both the
+                // face and live source to that same state; Full selects layers.
+                let enabled = if self.lightmaps.is_resident() {
+                    *requested
+                } else {
+                    binding.baked_enabled
+                };
+                if let Some(props) = self.world_props.as_mut() {
+                    props.set_light_enabled(
+                        &self.queue,
+                        u32::try_from(*controller).unwrap_or(u32::MAX),
+                        enabled,
+                    );
+                }
+                if let Some(lighting) = self.dynamic_lighting.as_mut() {
+                    for source in &binding.sources {
+                        changed |= lighting.set_light_enabled(*source, enabled);
+                    }
+                }
             }
-            // 2. The baked lighting the environment mask is derived from.
-            let Some(lighting) = self.dynamic_lighting.as_mut() else {
-                continue;
-            };
-            changed |= lighting.set_light_enabled(binding.light_index, effective_enabled);
         }
-        // The prepared CPU pages and the GPU layers never change; the static
-        // environment uniform carries the live mask every static world, prop
-        // and capture draw reads.
         if changed {
             if let Some(lighting) = self.dynamic_lighting.as_ref() {
                 self.caustics.refresh_sources(&self.queue, lighting);
@@ -3368,11 +3453,20 @@ impl WgpuRenderer {
                     .lights()
                     .get(binding.light_index)
                     .is_some_and(crate::lighting::BakedLight::is_active);
-                let _updated = materials.set_emission_scale(
-                    &self.queue,
-                    binding.material_slot,
-                    if face_enabled { 1.0 } else { 0.0 },
-                );
+                if let Some(slot) = binding.material_slot {
+                    let _updated = materials.set_emission_scale(
+                        &self.queue,
+                        slot,
+                        if face_enabled { 1.0 } else { 0.0 },
+                    );
+                }
+                if let Some(props) = self.world_props.as_mut() {
+                    props.set_light_enabled(
+                        &self.queue,
+                        u32::try_from(binding.fixture_index).unwrap_or(u32::MAX),
+                        face_enabled,
+                    );
+                }
             }
         }
     }
@@ -4039,6 +4133,9 @@ impl WgpuRenderer {
         // uniform writes, and a still material writes nothing.
         if let Some(materials) = self.world_materials.as_mut() {
             materials.update_animations(&self.queue, self.animation_seconds);
+        }
+        if let Some(props) = self.world_props.as_mut() {
+            props.update_animations(&self.queue, self.animation_seconds);
         }
         let frame = prepare_world_frame(camera, self.drawable_size);
         // The planar target follows the render size; a recreate invalidates the
@@ -6096,7 +6193,7 @@ mod tests {
         let mut binding = SwitchableLight {
             fixture_index: 0,
             light_index: 0,
-            material_slot: 0,
+            material_slot: Some(0),
             hold_in_static: true,
             baked_enabled: true,
         };

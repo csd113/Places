@@ -19,6 +19,7 @@ The active connected Arcade showcase includes the commercial restroom.
 | Checks that must pass before a code or asset change ships | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check` (see [Validation Workflow](#27-validation-workflow) for what each proves) |
 | Aero prop authoring verification | October 10, 2026: opt-in BLEND/finite opacity writer checked against importer and byte-preserving OPAQUE/MASK fixtures; existing runtime rendering and transport remain unchanged. |
 | Linked railing authoring | October 15, 2026: static prop span transforms, continuous slope collision, numeric material-slot overrides and prepared package texture restoration are documented in §16. Geometry revision 13 invalidates prior prepared geometry. |
+| Completed Pool/Office authoring | October 15, 2026: accepted GLB fixtures, measured emitter anchors, fixed-prop light controllers and numeric emission overrides checked against the working renderer/compiler. Geometry revision 14 and PLMP v8 preserve these prepared instances. Native results belong in the integration report. |
 | Environment refinement verification | October 10, 2026: neighbor-clipped ramp side geometry revision 9 and reusable `weather_alternate`, `weather_cycle`, `toggle_weather`, `set_weather_strength`, `set_weather_cycle`, `set_prompt` checked against current authoring/runtime sources and focused regression tests. Native acceptance and final gates are recorded in [environment-refinement.md](reports/environment-refinement.md). |
 | Primary benchmark level | `levels/places_demo.json` |
 
@@ -1615,9 +1616,10 @@ towards the main basin, with the staged duck within the standing camera's view.
 
 The existing resin table at `11.3, 9.1` is `pool_water_demo_control`: its normal
 E interaction alternates running and resetting `pool_water_demo`. The enlarged
-existing rubber duck (`pool_physics_duck`) and dense open metal drum basket
-(`pool_physics_sink`) start dormant just above the main water surface. Their
-explicit dynamic `physics` profiles own flotation and sinking after activation;
+existing rubber duck (`pool_physics_duck`) starts dormant above the main water
+surface; the dense open metal drum basket (`pool_physics_sink`) starts dormant
+and grounded on the dry east deck at `14, 0, 6.7`. Carry the basket into the pool
+to compare sinking with flotation. Their explicit dynamic `physics` profiles own motion after activation;
 neither authors analytic `float`. Reset restores their exact staging and
 dormancy. The source volume override for the perforated basket represents its
 metal displacement rather than its open bounds envelope. Section 19 documents
@@ -3096,11 +3098,11 @@ remain usable with the measured anchors in §34.7a.
 | Triangles — needs justification above | 800 (any exceedance is allowlisted explicitly in `src/props/tests.rs`) |
 | Triangles — shipped art budget (tooling hard max) | **1500** (`tools/props` refuses to build above it) |
 | Triangles — still loads, with an art-budget warning | above 1500, up to 6000 |
-| Triangles — engine hard ceiling | 6000 (`MAX_PROP_TRIANGLES`; above it the model falls back to a box) |
+| Triangles — ordinary engine hard ceiling | 6000 (`MAX_PROP_TRIANGLES`; above it the model falls back to a box). The exact hash-verified snack export has a bounded 16,240-triangle reviewed profile; arbitrary imports cannot select it. |
 | Vertices per model | 65 535 (`MAX_PROP_VERTICES`) |
 | Primitives / materials / images per model | 32 / 16 / 16 |
 | Prop texture | **256×256 ordinary native**, with reviewed party cloth 1024 and wrapping 512; engine ceiling 1024 (`MAX_PROP_TEXTURE_SIZE`), High preserves authored size and Medium/Low reduce to 192/128 |
-| Prop pack decoded memory | 106 MiB (`PROP_TEXTURE_PACK_BUDGET_BYTES`); the current 335-model pack is approximately 104.4 MiB before runtime sharing/downsampling; `tools/assets/audit.py` reports the current inventory |
+| Prop pack decoded memory | 106 MiB (`PROP_TEXTURE_PACK_BUDGET_BYTES`); identical decoded images share allocations. `tools/props/build.py --check` and `tools/assets/audit.py` report the current inventory. |
 | Materials per prop | one per primitive; a multi-material model costs one draw range per material per batch |
 | Distinct models per level | 4096 (`MAX_LEVEL_PROP_MODELS`; fallback boxes beyond it) |
 | Summed baked prop vertices per level | 24 000 000 (`MAX_LEVEL_PROP_VERTICES`; fallback boxes beyond it) |
@@ -3801,6 +3803,22 @@ Five things to know:
 
 ### Current Light Fixture Types
 
+The three existing Office/Pool IDs now use accepted model geometry, with their
+original placement and circuit interfaces. `core:fluorescent_panel_01` draws
+`core:office_fluorescent_panel_housing`; Pool's round/wall IDs draw their matching
+`*_housing` props. Delivered slot 2 is luminous; all metal and gasket slots stay
+non-emissive. Model source images retain fitted UVs and share allocations.
+The older generated meshes and PNG sheets described below remain the fallback
+when a model cannot resolve, and the normal path for the other three IDs.
+
+The Office source sits 40 mm below its mounting plane, clear of the lower twin
+covers, with the existing 1.12 × 0.56 m aperture. The Pool disc source sits
+17 mm below the mount; its bounded rectangular sampling footprint fits wholly
+inside the 0.214 m lens radius. The wall fixture uses two half-power sources at
+local Y±0.045, 1 mm ahead of the Z=0.110 luminous strips. Both sources share
+the fixture's controller and prepared layer; neither originates in the gasket.
+The Arcade fluorescent retains its procedural Y−0.033 source plane.
+
 Generated from `src/lighting/tuning.rs::fixture_profile` and `assets/catalog.json`.
 The fixture's **face PNG is data**; its **mesh family and luminous footprint are
 code**.
@@ -4469,6 +4487,35 @@ non-finite intensity, a non-positive range, a non-finite offset/rotation or an i
 colour is a level error (the loader reports the prop and light index). The prop's own
 **emission is a separate property of its GLB material** — a light authored here is the
 only way a prop illuminates anything, and a glowing material does not imply one.
+
+A fixed prop may carry `{ "component": "light", "enabled": true,
+"switchable": true, "emission_scale": 1.0 }`. This owns all its attached sources
+and its luminous material slots. In Full, `set_light` or `toggle` changes visible
+emission and one shared prepared contribution group together. Existing timers
+and sequences can drive flicker through the same actions. An authored disabled
+controller contributes no permanent room baseline or hidden off-state light.
+Static holds the authored initial illumination and matching visible emission;
+runtime requests are retained for Full rather than pretending to rebake Static.
+
+`props[].switch_group` optionally joins fixed switchable lights into one named
+circuit. Any member toggles all members atomically and they share one prepared
+contribution group; their initial enabled states must match. Names follow the
+fixture circuit contract (nonempty, at most 64 bytes). The current Office pair
+uses `break_room_vending` and one ordinary sequence/state owner, so either
+machine cycles both machines through steady, flickering and dark power states.
+The two basement fixture circuits remain independent. Prepared lighting supports
+four groups and eight switched sources; each group repeats every resident atlas
+page, so complex scenes can reach the byte budget before either count limit.
+Static reflection captures retain their authored images when a light switches.
+
+`props[].emission_overrides` optionally maps numeric glTF material slots to
+`{ "color": [r,g,b], "intensity": n }`. Colours are linear 0–1 and intensity
+is finite 0–8. A fixed `light` component is required; absent or invalid source
+slots are rejected. This replaces only that slot's emission, retaining artwork,
+UVs, alpha and surface response. Unlisted slots keep delivered emission. For
+example the drinks fascia uses slot `"4"`; its opaque cabinet remains ordinary
+metal. Controlled instances share decoded models and PNGs, but retain independent
+luminous uniforms. Movable/animated physics props do not support this contract.
 
 **Tooling note.** `tools/assets/validate.py` currently infers `rect` from authored
 half extents and `line` from `length` when `shape` is omitted. The engine does not:
@@ -5251,7 +5298,7 @@ Components never carry actions — the bindings do that.
 | `interactable` | `prompt?` (default `"Interact"`), `reach?` (default 2.5 m, `0 < reach ≤ 4.0`), `enabled` (`true`), `label?` | The entity is aimable with **E**; a press emits `interact`. `enabled: false` starts it aimed-but-silent until an `enable` action. `label` is the floating text a `toggle_label` may show. |
 | `animation` | `clip` (required, non-blank), `speed` (`1.0`), `looped` (`false`), `playing` (`false`) | The entity owns an animation state: `play_animation`, `toggle_animation` and `animation_complete` need it. `playing` seeds component state; use a `play_animation` action (for example an autostart timer) to cue a named render clip at load. The default rests on the authored pose. |
 | `audio` | `sound` (required), `gain` (`1.0`), `looped` (`false`), `enabled` (`true`), `playing` (`false`) | Typed emitter state: `play_sound`/`stop_sound` set `playing`/`looped`, `enable`/`disable` gate it, and the frame loop reports a requested sound once. **No audio device backend exists in this tree**, so nothing is audible; no shipped map authors one. |
-| `light` | `enabled` (`true`), `switchable` (`false`), `emission_scale` (`1.0`) | A prop's own static light state. **`switchable: true` is rejected on anything but a ceiling fixture**: only a fixture has prepared switchable lightmap layers, and a non-switchable light cannot be a `set_light`/`toggle` target either. |
+| `light` | `enabled` (`true`), `switchable` (`false`), `emission_scale` (`1.0`) | A fixed prop's attached sources and luminous materials share one state. Switchable props with attached lights support `set_light`/`toggle` in Full; Static holds the authored initial state. See §21. A nonswitchable light cannot be an action target. |
 | `material` | `variants` (≥ 1 of `{ name, emission_scale }`), `current?` (default the first) | The entity selects one of several emission profiles at runtime with `change_material`. Only the emission profile can change; surface materials of baked geometry cannot. |
 | `state` | `name` (required), `value` (required: bool, integer, float or string) | A typed state slot a `set_state` may write and a `state` condition may read. Timers and volumes own their states implicitly. |
 | `lifetime` | `seconds` (`> 0`) | The entity removes itself after that many simulation seconds. |

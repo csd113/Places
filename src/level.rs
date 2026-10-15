@@ -1370,9 +1370,9 @@ pub enum ComponentDef {
         enabled: bool,
         /// Whether an action may switch it.
         ///
-        /// Defaults to false: only a ceiling fixture has prepared switchable
-        /// lightmap layers, and validation rejects a switchable `light`
-        /// component on any other record.
+        /// Fixed placed props and fixtures can select prepared contribution
+        /// layers. Controlled props retain their authored state in Static;
+        /// Full follows actions without a runtime rebake.
         #[serde(default)]
         switchable: bool,
         /// Emission scale of the visible face; defaults to `1.0`.
@@ -6001,6 +6001,16 @@ pub struct PropDef {
     /// Original fitted UVs are retained; unmentioned slots remain unchanged.
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub material_overrides: std::collections::BTreeMap<u16, String>,
+    /// Add emission to selected glTF material slots while preserving their
+    /// fitted artwork, alpha and surface response. Requires a fixed prop's
+    /// `light` component; unmentioned slots keep their delivered emission.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub emission_overrides: std::collections::BTreeMap<u16, PropEmissionDef>,
+    /// Optional named circuit shared with other fixed light owners. Members
+    /// switch atomically and share one prepared contribution group; all must
+    /// have matching authored enabled and Static-hold states.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub switch_group: Option<String>,
     /// Optional explicit box extents [width, height, depth] in metres, overriding the catalog entry.
     #[serde(default)]
     pub size: Option<[f32; 3]>,
@@ -6108,7 +6118,55 @@ const fn default_float_period() -> f32 {
     DEFAULT_FLOAT_PERIOD_S
 }
 
+/// Explicit emission for one fitted model material slot.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct PropEmissionDef {
+    /// Linear emissive colour, each channel in 0..=1.
+    pub color: [f32; 3],
+    /// Finite nonnegative strength, at most eight.
+    pub intensity: f32,
+}
+
+/// Shared authored state for a fixed prop's light sources and luminous slots.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PropLightControl {
+    pub enabled: bool,
+    pub switchable: bool,
+    pub emission_scale: f32,
+}
+
 impl PropDef {
+    /// Stable controller identity after the level's fixture controls.
+    pub(crate) fn light_control_index(
+        &self,
+        fixture_count: usize,
+        prop_index: usize,
+    ) -> Option<u32> {
+        self.light_control()
+            .and_then(|_| u32::try_from(fixture_count.checked_add(prop_index)?).ok())
+    }
+
+    /// A fixed prop's optional owner-wide light and emission state.
+    #[must_use]
+    pub fn light_control(&self) -> Option<PropLightControl> {
+        self.components.iter().find_map(|component| {
+            if let ComponentDef::Light {
+                enabled,
+                switchable,
+                emission_scale,
+            } = component
+            {
+                Some(PropLightControl {
+                    enabled: *enabled,
+                    switchable: *switchable,
+                    emission_scale: *emission_scale,
+                })
+            } else {
+                None
+            }
+        })
+    }
+
     /// Shared placement transform for rendering, baked occlusion and tooling.
     #[must_use]
     #[expect(

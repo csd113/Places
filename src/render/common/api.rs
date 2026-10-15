@@ -7,7 +7,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-use super::geometry::build_level_geometry_mesh_with_lightmaps;
+use super::geometry::build_level_geometry_mesh_with_fixture_models;
 use super::props::{
     PropMeshBatch, resolve_prop_fallbacks, resolve_prop_instances,
     resolve_prop_instances_lightmapped,
@@ -389,7 +389,9 @@ pub fn build_level_geometry_timed(
     let props_millis = props_started.elapsed().as_secs_f64() * 1_000.0_f64;
 
     let surfaces_started = std::time::Instant::now();
-    let mesh = build_level_geometry_mesh(level, catalog, &fallbacks, &lighting, materials);
+    let mesh = build_level_geometry_mesh_with_fixture_models(
+        level, catalog, &fallbacks, &lighting, materials, None, &batches,
+    );
     let surfaces_millis = surfaces_started.elapsed().as_secs_f64() * 1_000.0_f64;
 
     (
@@ -739,6 +741,7 @@ pub fn prepare_level_geometry_with_lightmaps(
         &lighting,
         materials,
         plan.as_mut(),
+        &batches,
     );
     let surfaces_millis = elapsed_millis(surfaces_started);
     if let Some(active_plan) = plan.as_mut() {
@@ -850,10 +853,6 @@ pub fn prepare_level_geometry_with_lightmaps(
     // re-bake the lighting (which would change every vertex colour).
     if build.lightmap_failure.is_some() && options.mode == LightmapMode::On {
         let fallback_started = std::time::Instant::now();
-        let fallback_mesh =
-            build_level_geometry_mesh(level, catalog, &fallbacks, &build.lighting, materials);
-        build.timings.surfaces_millis += elapsed_millis(fallback_started);
-        build.mesh = fallback_mesh;
         (build.batches, _) = resolve_prop_instances(
             level,
             catalog,
@@ -862,6 +861,16 @@ pub fn prepare_level_geometry_with_lightmaps(
             &surfaces,
             materials,
         );
+        build.mesh = build_level_geometry_mesh_with_fixture_models(
+            level,
+            catalog,
+            &fallbacks,
+            &build.lighting,
+            materials,
+            None,
+            &build.batches,
+        );
+        build.timings.surfaces_millis += elapsed_millis(fallback_started);
     }
 
     PreparedLightmapBuild { build, fill }
@@ -918,7 +927,9 @@ pub fn rebuild_vertex_lit_level(
     let (legacy, fallbacks) =
         resolve_prop_instances(level, catalog, assets, lighting, &surfaces, materials);
     *batches = legacy;
-    build_level_geometry_mesh(level, catalog, &fallbacks, lighting, materials)
+    build_level_geometry_mesh_with_fixture_models(
+        level, catalog, &fallbacks, lighting, materials, None, batches,
+    )
 }
 
 /// [`prepare_level_geometry_with_lightmaps`] finished inline.
@@ -1006,8 +1017,11 @@ fn build_mesh_for_options(
     lighting: &LevelLighting,
     materials: &MaterialTable,
     plan: Option<&mut LightmapPlan>,
+    batches: &[PropMeshBatch],
 ) -> LevelMesh {
-    build_level_geometry_mesh_with_lightmaps(level, catalog, fallbacks, lighting, materials, plan)
+    build_level_geometry_mesh_with_fixture_models(
+        level, catalog, fallbacks, lighting, materials, plan, batches,
+    )
 }
 
 /// Milliseconds since `started`.

@@ -739,7 +739,8 @@ const WALL_COINCIDENCE_EPS: f32 = 1e-3;
 /// 11 = source-coloured fixture diffusers and non-emissive metal panel housings.
 /// 12 = opaque fluorescent backplates prevent source leakage onto the ceiling.
 /// 13 = fitted static prop spans and independently batched material variants.
-pub const GEOMETRY_REVISION: u32 = 13;
+/// 14 = completed fixture meshes and independently controlled prop emission.
+pub const GEOMETRY_REVISION: u32 = 14;
 
 /// One material run of a coalesced wall group: a rectangle in the group's own
 /// (length, height) space over which the visible material is constant.

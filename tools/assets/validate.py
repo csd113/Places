@@ -3124,11 +3124,84 @@ def validate_entity_routes(level: dict, where: str, errors: List[str], prop_ids:
                     errors.append(f"{where}: {source} ('play') loop must be a boolean")
 
 
+def fixed_prop_light_control(prop: dict) -> dict | None:
+    """The fixed owner's existing Light component, shared by emission and circuits."""
+    components = prop.get("components")
+    typed = [component for component in (components if isinstance(components, list) else [])
+             if isinstance(component, dict) and isinstance(component.get("component"), str)]
+    tags = {component["component"] for component in typed}
+    physics = prop.get("physics")
+    fixed_physics = physics is None or (
+        isinstance(physics, dict) and physics.get("motion", "fixed") == "fixed"
+    )
+    if (prop.get("float") is not None or not fixed_physics
+            or tags.intersection({"animation", "ai", "balloon"})):
+        return None
+    return next((component for component in typed if component["component"] == "light"), None)
+
+
+def validate_prop_light_circuits(level: dict, where: str, errors: List[str]) -> None:
+    """Fixed prop owners share existing named fixture circuits and prepared energy."""
+    states = {}
+    for fixture in level.get("ceiling_lights") or []:
+        group = fixture.get("switch_group")
+        if isinstance(group, str):
+            states[group] = (fixture.get("enabled", True), fixture.get("hold_in_static", False))
+    for index, prop in enumerate(level.get("props") or []):
+        group = prop.get("switch_group")
+        if group is None:
+            continue
+        context = f"{where}: prop {index} switch_group"
+        if not isinstance(group, str) or not group.strip() or len(group.encode("utf-8")) > 64:
+            errors.append(f"{context} needs a nonempty name of at most 64 bytes")
+            continue
+        control = fixed_prop_light_control(prop)
+        if control is None or control.get("switchable", False) is not True:
+            errors.append(f"{context} requires a switchable light component on a fixed prop")
+            continue
+        state = (control.get("enabled", True), True)
+        if group in states and states[group] != state:
+            errors.append(f"{context} members must share enabled and hold_in_static states")
+        states[group] = state
+
+
+def validate_prop_emission_overrides(prop: dict, where: str, errors: List[str]) -> None:
+    """Bound numeric fitted slots without replacing their artwork or response."""
+    if "emission_overrides" not in prop:
+        return
+    overrides = prop["emission_overrides"]
+    if not isinstance(overrides, dict):
+        errors.append(f"{where} emission_overrides must be an object")
+        return
+    if len(overrides) > 16:
+        errors.append(f"{where} emission_overrides supports at most 16 material slots")
+    if overrides and fixed_prop_light_control(prop) is None:
+        errors.append(f"{where} emission_overrides require a fixed prop with a light component")
+    for slot, emission in overrides.items():
+        # Strip redundant zeroes before conversion so even a malformed huge key
+        # receives a named validation error rather than Python's integer limit.
+        digits = (slot.lstrip("0") or "0") if isinstance(slot, str) else ""
+        valid_slot = (isinstance(slot, str) and slot.isascii() and slot.isdigit()
+                      and len(digits) <= 2 and 0 <= int(digits) < 16)
+        if not valid_slot:
+            errors.append(f"{where} emission_overrides needs numeric material slots in 0..15")
+        context = f"{where} emission_overrides slot {slot!r}"
+        if not isinstance(emission, dict):
+            errors.append(f"{context} must be an object with color and intensity")
+            continue
+        if not is_color_triplet(emission.get("color")):
+            errors.append(f"{context} color must be three finite numbers in 0..1")
+        intensity = emission.get("intensity")
+        if not is_finite_number(intensity) or not 0 <= intensity <= MAX_EMISSION_INTENSITY:
+            errors.append(f"{context} intensity must be a finite number in 0..8")
+
+
 def validate_static_prop_options(level: dict, where: str, errors: List[str]) -> None:
     """Mirror bounded offline span fitting and numeric glTF material slots."""
     slices = 0
     for index, prop in enumerate(level.get("props") or []):
         context = f"{where}: prop {index}"
+        validate_prop_emission_overrides(prop, context, errors)
         span = prop.get("span")
         overrides = prop.get("material_overrides") or {}
         if not isinstance(overrides, dict) or len(overrides) > 16 or any(
@@ -3252,6 +3325,7 @@ def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> 
             validate_water_shapes(level, relative, errors)
             validate_floats(level, relative, errors)
             validate_static_prop_options(level, relative, errors)
+            validate_prop_light_circuits(level, relative, errors)
             validate_surface_shine(level, relative, errors)
             validate_architecture(level, relative, errors)
             rooms = list(level.get("rooms") or [])
