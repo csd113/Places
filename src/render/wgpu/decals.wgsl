@@ -50,6 +50,7 @@ struct VsOut {
     @location(0) uv: vec2<f32>,
     @location(1) color: vec4<f32>,
     @location(2) world_position: vec3<f32>,
+    @location(3) world_normal: vec3<f32>,
 };
 
 @vertex
@@ -62,7 +63,20 @@ fn vs_main(vertex: WorldVertex) -> VsOut {
     out.uv = vertex.uv;
     out.color = vertex.color;
     out.world_position = vertex.position;
+    out.world_normal = vertex.normal;
     return out;
+}
+
+fn decal_light(in: VsOut) -> vec3<f32> {
+    let position_dy = dpdy(in.world_position);
+    let position_dx = dpdx(in.world_position);
+    var normal = in.world_normal;
+    if (dot(normal, normal) < 1.0e-10) {
+        normal = cross(position_dy, position_dx);
+    }
+    normal = normal / max(length(normal), 1.0e-6);
+    if (dot(normal, camera.position - in.world_position) < 0.0) { normal = -normal; }
+    return in.color.rgb + dynamic_light_term(normal, in.world_position);
 }
 
 // The IEC 61966-2-1 transfer functions, the same two `world.wgsl` carries.
@@ -85,25 +99,27 @@ fn srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
 // `tex_color * v_color`.
 @fragment
 fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
+    let light = decal_light(in);
     let base = textureSample(decal_texture, decal_sampler, in.uv);
     if (base.a < 0.5) {
         discard;
     }
     let alpha = base.a * in.color.a;
     // Base RGB is already linear; numeric alpha stays unchanged.
-    return vec4<f32>(storm_fog(camera.position, in.world_position, base.rgb * in.color.rgb), alpha);
+    return vec4<f32>(storm_fog(camera.position, in.world_position, base.rgb * light), alpha);
 }
 
 // The same fragment for a raw (non-sRGB) scene or reflection target: the
 // reference's framebuffer convention, written directly.
 @fragment
 fn fs_main_raw(in: VsOut) -> @location(0) vec4<f32> {
+    let light = decal_light(in);
     let base = textureSample(decal_texture, decal_sampler, in.uv);
     if (base.a < 0.5) {
         discard;
     }
     let alpha = base.a * in.color.a;
-    return vec4<f32>(target_color(storm_fog(camera.position, in.world_position, base.rgb * in.color.rgb)), alpha);
+    return vec4<f32>(target_color(storm_fog(camera.position, in.world_position, base.rgb * light)), alpha);
 }
 
 // A soft-edged decal (a path-to-grass feather strip): the same texture
@@ -112,24 +128,26 @@ fn fs_main_raw(in: VsOut) -> @location(0) vec4<f32> {
 // a rectangle of nothing, and degenerate alpha cannot produce NaN blending.
 @fragment
 fn fs_blend(in: VsOut) -> @location(0) vec4<f32> {
+    let light = decal_light(in);
     let base = textureSample(decal_texture, decal_sampler, in.uv);
     let alpha = base.a * in.color.a;
     if (alpha == 0.0) {
         discard;
     }
     // Base RGB is already linear; numeric alpha stays unchanged.
-    return vec4<f32>(storm_fog(camera.position, in.world_position, base.rgb * in.color.rgb), alpha);
+    return vec4<f32>(storm_fog(camera.position, in.world_position, base.rgb * light), alpha);
 }
 
 // The blended fragment for a raw (non-sRGB) scene target.
 @fragment
 fn fs_blend_raw(in: VsOut) -> @location(0) vec4<f32> {
+    let light = decal_light(in);
     let base = textureSample(decal_texture, decal_sampler, in.uv);
     let alpha = base.a * in.color.a;
     if (alpha == 0.0) {
         discard;
     }
-    return vec4<f32>(target_color(storm_fog(camera.position, in.world_position, base.rgb * in.color.rgb)), alpha);
+    return vec4<f32>(target_color(storm_fog(camera.position, in.world_position, base.rgb * light)), alpha);
 }
 
 // Read weather directly from uniform storage. Passing the complete shelter

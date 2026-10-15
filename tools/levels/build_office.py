@@ -233,7 +233,9 @@ def build_level():
                      dict(component='ai', behavior='wanderer', walk_speed=2.244582,
                           run_speed=2.244582, sight_range=0, hearing_range=0,
                           wander_radius=30, idle_seconds=3.2, home_bounds=bounds,
-                          idle_clip='pose_stand', move_clip='run_arms_forward')])
+                          idle_clip='pose_stand', move_clip='run_arms_forward'),
+                     dict(component='light_response', exit_intensity=.005,
+                          release_seconds=.20)])
     # Four small insects remain sparse across the 432 square metre basement;
     # separated start pockets and long refuge holds avoid a busy infestation.
     for index, (x, z) in enumerate(((2.8, 2), (20.8, 15.8), (8.4, 1.8), (14.7, 16.1))):
@@ -270,15 +272,21 @@ def build_level():
         # the unlit maze termini or changing fixture brightness.
         light(f'basement_light_{index}', x, z, 2.8, power, 3.8, (.87, .94, .79))
     # Two independent failures use the real prepared switchable contributions.
-    # Long quiet periods and >=180ms interruptions avoid a strobing animation.
-    for identity, x, z, delay, period, waits in (
-            ('basement_failing_a', 8.5, 9.5, 1.8, 17.3, (.25, .5, 1.1)),
-            ('basement_failing_b', 20.5, 12.5, 7.1, 23.7, (.35, .7, 1.4))):
+    # Unequal long blackouts and brief returns keep these lamps off for >90%
+    # of their independent cycles. Real light switching keeps diffuser and
+    # illumination synchronized; the fixed shaft lamps preserve navigation.
+    for identity, x, z, delay, period, pattern in (
+            ('basement_failing_a', 8.5, 9.5, 1.8, 50.3,
+             ((False, 11.8), (True, .32), (False, 7.4), (True, .7),
+              (False, 16.6), (True, .42), (False, 9.9), (True, 0))),
+            ('basement_failing_b', 20.5, 12.5, 7.1, 62.9,
+             ((False, 17.3), (True, .45), (False, 10.6), (True, 1.1),
+              (False, 8.9), (True, .3), (False, 21.1), (True, 0)))):
         light(identity, x, z, 2.8, .32, 4.2, (.86, .95, .81), switchable=True,
               hold_in_static=True)
         sequence = identity+'_failure'
         steps = []
-        for on, seconds in ((False, waits[0]), (True, waits[1]), (False, waits[2]), (True, 0)):
+        for on, seconds in pattern:
             steps.append(dict(step='action', action=dict(action='set_light', on=on)))
             if seconds:
                 steps.append(dict(step='wait', seconds=seconds))

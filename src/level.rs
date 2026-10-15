@@ -1439,12 +1439,69 @@ pub enum ComponentDef {
     },
     /// The entity runs a shared AI behavior.
     Ai(Box<crate::ai::AiDef>),
+    /// The AI stops and faces the player while a shared dynamic-light sample reaches it.
+    LightResponse(LightResponseDef),
     /// The entity's opacity cycles on a looping authored period.
     Fade(FadeDef),
     /// One attached dynamic light on the entity.
     Glow(GlowDef),
     /// One gently moving balloon with a fixed anchor and a curved string.
     Balloon(BalloonDef),
+}
+
+/// An opt-in response to measured direct illumination from the handheld light.
+///
+/// The renderer supplies incident intensity after cone, distance and geometry
+/// visibility. Threshold hysteresis and a short release hold prevent a soft
+/// beam edge from alternating locomotion every frame.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct LightResponseDef {
+    /// Incident intensity needed to start the response; finite `0 < v <= 8`.
+    #[serde(default = "default_light_response_enter")]
+    pub enter_intensity: f32,
+    /// Intensity which maintains an existing response; `0 < v <= enter`.
+    #[serde(default = "default_light_response_exit")]
+    pub exit_intensity: f32,
+    /// Seconds held after the beam leaves; finite `0 <= v <= 1`.
+    #[serde(default = "default_light_response_release")]
+    pub release_seconds: f32,
+}
+
+const fn default_light_response_enter() -> f32 {
+    0.035
+}
+
+const fn default_light_response_exit() -> f32 {
+    0.005
+}
+
+const fn default_light_response_release() -> f32 {
+    0.20
+}
+
+impl Default for LightResponseDef {
+    fn default() -> Self {
+        Self {
+            enter_intensity: default_light_response_enter(),
+            exit_intensity: default_light_response_exit(),
+            release_seconds: default_light_response_release(),
+        }
+    }
+}
+
+impl LightResponseDef {
+    /// True when thresholds and the bounded release hold are meaningful.
+    #[must_use]
+    pub fn is_valid(self) -> bool {
+        self.enter_intensity.is_finite()
+            && self.exit_intensity.is_finite()
+            && self.release_seconds.is_finite()
+            && self.enter_intensity > 0.0
+            && self.enter_intensity <= 8.0
+            && self.exit_intensity > 0.0
+            && self.exit_intensity <= self.enter_intensity
+            && (0.0..=1.0).contains(&self.release_seconds)
+    }
 }
 
 /// One authored `fade` cycle or proximity fade: a looping opacity animation,
@@ -1812,6 +1869,7 @@ impl ComponentDef {
                 affects_nav: _,
             } => "nav_obstacle",
             Self::Ai(_) => "ai",
+            Self::LightResponse(_) => "light_response",
             Self::Fade(_) => "fade",
             Self::Glow(_) => "glow",
             Self::Balloon(_) => "balloon",

@@ -1027,8 +1027,71 @@ pub(super) fn dynamic_mesh_visibility_scene(
         .with_surface_materials(surfaces.materials)
 }
 
-/// The level material id one surface key resolves to, or `None` when the key
-/// binds no level material (a fixture housing or a prop fallback).
+/// Current posed triangles retain the model's shared material/PNG alpha
+/// contract and the same per-instance coverage multiplier as its draw.
+pub(in crate::render) fn character_visibility_scene(
+    character: &super::character::Character,
+    textures: &[std::sync::Arc<RawImage>],
+) -> Option<TransportScene> {
+    let model = &character.asset().model;
+    let vertices = model
+        .vertices
+        .iter()
+        .enumerate()
+        .map(|(index, vertex)| {
+            let joints = model.joints.get(index).copied().unwrap_or([0; 4]);
+            let weights = model.weights.get(index).copied().unwrap_or([0.0; 4]);
+            super::character::character_vertex(
+                character.albedo().get(index).copied().unwrap_or([1.0; 4]),
+                vertex.uv,
+                character
+                    .animator()
+                    .skin_position(joints, weights, vertex.pos),
+            )
+        })
+        .collect();
+    let batch = PropMeshBatch {
+        model: character.asset().model_path.clone(),
+        casts_static_lighting: true,
+        source_primitives: Vec::new(),
+        textures: textures.to_vec(),
+        submeshes: model
+            .submeshes
+            .iter()
+            .map(|submesh| {
+                let mut alpha = submesh.alpha;
+                // Coverage is scaled at each actual intersection, preserving
+                // MASK thresholds and layered BLEND transmission. OPAQUE
+                // primitives retain their existing solid draw contract.
+                alpha.opacity *= character.opacity();
+                super::props::PropSubmeshBatch {
+                    response: submesh.response,
+                    texture: submesh.texture,
+                    emission: submesh.emission,
+                    alpha,
+                    first_index: submesh.first_index,
+                    index_count: submesh.index_count,
+                }
+            })
+            .collect(),
+        vertices,
+        indices: model.indices.clone(),
+        bounds: character.world_bounds(),
+    };
+    let mut triangles = Vec::new();
+    let mut surfaces = SurfaceAttributes::default();
+    append_prop_triangles(
+        &[batch],
+        &mut triangles,
+        &mut surfaces,
+        &mut TransportSceneStats::default(),
+        &mut Vec::new(),
+    );
+    TransportScene::new(triangles, Vec::new())?
+        .with_surface_alpha(surfaces.alpha)?
+        .with_surface_materials(surfaces.materials)
+}
+
 fn material_id(materials: &MaterialTable, material: u32) -> Option<&str> {
     if material == MATERIAL_NONE {
         return None;

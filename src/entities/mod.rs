@@ -58,9 +58,9 @@ use crate::nav::NavMesh;
 
 use components::{
     Animation, AudioEmitter, Collider, ComponentTables, Fade, Glow,
-    Interactable as InteractableComponent, Lifetime, Light, Material, NavAgent, NavObstacle,
-    ObjectState, Renderable, SequenceCtl, SpawnPoint as SpawnPointComponent, StateValue, Steam,
-    Transform, TriggerVolume, WaterVolumeCtl,
+    Interactable as InteractableComponent, Lifetime, Light, LightResponse, Material, NavAgent,
+    NavObstacle, ObjectState, Renderable, SequenceCtl, SpawnPoint as SpawnPointComponent,
+    StateValue, Steam, Transform, TriggerVolume, WaterVolumeCtl,
 };
 use events::{ConditionView, EventKind, EventQueue, EventRecord};
 use id::{EntityHandle, EntityId, EntityNames, EntityStore};
@@ -101,6 +101,19 @@ pub struct WorldContext<'a> {
     pub floor: &'a WalkableFloor,
     /// The baked navigation mesh, when the installed package carries one.
     pub nav: Option<&'a NavMesh>,
+}
+
+/// A renderer-backed gameplay light observation, exposed for native diagnostics.
+#[derive(Clone, Copy, Debug)]
+pub struct LightResponseObservation<'a> {
+    /// Authored or runtime instance id.
+    pub instance_id: &'a str,
+    /// Current base position.
+    pub position: Vec3,
+    /// Strongest visible body sample in incident-intensity units.
+    pub intensity: f32,
+    /// True while the beam or bounded release grace holds locomotion.
+    pub active: bool,
 }
 
 /// One renderer/audio command produced by the world.
@@ -611,6 +624,11 @@ impl EntityWorld {
         self.sim_time = 0.0;
         self.ai.reset();
         self.ai.release_caught();
+        for (_, response) in self.components.light_responses.iter_mut() {
+            response.active = false;
+            response.release_remaining = 0.0;
+            response.intensity = 0.0;
+        }
         let live: Vec<EntityHandle> = self.live_spawns.clone();
         for handle in live {
             let _ = self.despawn_handle(handle);
@@ -682,6 +700,9 @@ impl EntityWorld {
                     .insert(handle, Collider { size, solid: true });
             }
             self.apply_component_defs(handle, id, &prop.components);
+            if let Some(response) = self.components.light_responses.get_mut(handle) {
+                response.sample_size = Some(size);
+            }
             if let Some(interactable) = self.components.interactables.get_mut(handle)
                 && interactable.label.is_none()
             {
@@ -1185,6 +1206,18 @@ impl EntityWorld {
                 }
                 ComponentDef::Ai(ai_def) => {
                     drop(self.components.ais.insert(handle, ai_def.as_ref().clone()));
+                }
+                ComponentDef::LightResponse(response_def) => {
+                    let _previous_response = self.components.light_responses.insert(
+                        handle,
+                        LightResponse {
+                            def: *response_def,
+                            active: false,
+                            release_remaining: 0.0,
+                            intensity: 0.0,
+                            sample_size: None,
+                        },
+                    );
                 }
                 ComponentDef::NavObstacle { size, affects_nav } => {
                     let obstacle_size = size.unwrap_or_else(|| {
@@ -3571,6 +3604,91 @@ impl EntityWorld {
     }
 
     // ---- tick ----------------------------------------------------------
+
+    /// Samples prepared handheld lighting for the following AI tick.
+    ///
+    /// `sample` returns incident intensity using the renderer's same cone,
+    /// distance falloff and static/live geometry visibility. Its instance id
+    /// lets the shared visibility query exclude the receiving mesh itself;
+    /// walls, floors, doors and other objects must remain occluders. Five
+    /// torso/head anchors make a genuinely visible partial body responsive.
+    /// No geometry or visibility rule is duplicated in the entity runtime.
+    pub fn update_light_observations(
+        &mut self,
+        delta_seconds: f32,
+        player_eye: Vec3,
+        mut sample: impl FnMut(&str, Vec3) -> f32,
+    ) {
+        for (handle, response) in self.components.light_responses.iter_mut() {
+            let Some(instance_id) = self.names.id_of(handle).map(EntityId::as_str) else {
+                continue;
+            };
+            let Some(transform) = self.components.transforms.get(handle) else {
+                continue;
+            };
+            let size = response.sample_size.unwrap_or_else(|| {
+                self.components
+                    .nav_agents
+                    .get(handle)
+                    .map_or(PROP_FALLBACK_SIZE, |body| {
+                        [body.radius * 2.0, body.height, body.radius * 2.0]
+                    })
+            });
+            let yaw = transform.yaw_degrees.to_radians();
+            let side_x = yaw.cos() * (size[0] * 0.32);
+            let side_z = -yaw.sin() * (size[0] * 0.32);
+            let torso = Vec3::new(
+                transform.position.x,
+                size[1].mul_add(0.62, transform.position.y),
+                transform.position.z,
+            );
+            let samples = [
+                torso,
+                Vec3::new(torso.x + side_x, torso.y, torso.z + side_z),
+                Vec3::new(torso.x - side_x, torso.y, torso.z - side_z),
+                Vec3::new(
+                    transform.position.x,
+                    size[1].mul_add(0.88, transform.position.y),
+                    transform.position.z,
+                ),
+                Vec3::new(
+                    transform.position.x,
+                    size[1].mul_add(0.36, transform.position.y),
+                    transform.position.z,
+                ),
+            ];
+            let intensity = samples.into_iter().fold(0.0_f32, |strongest, point| {
+                let measured = sample(instance_id, point);
+                if measured.is_finite() {
+                    strongest.max(measured)
+                } else {
+                    strongest
+                }
+            });
+            response.observe(intensity, delta_seconds);
+            let target = (response.active && player_eye.is_finite()).then_some(player_eye);
+            let _response_changed = self.ai.set_light_response(handle, target);
+        }
+    }
+
+    /// Current direct-light observations for trace and acceptance tooling.
+    pub fn light_response_observations(
+        &self,
+    ) -> impl Iterator<Item = LightResponseObservation<'_>> {
+        self.components
+            .light_responses
+            .iter()
+            .filter_map(|(handle, response)| {
+                let instance_id = self.id_of(handle)?;
+                let transform = self.components.transforms.get(handle)?;
+                Some(LightResponseObservation {
+                    instance_id,
+                    position: transform.position,
+                    intensity: response.intensity,
+                    active: response.active,
+                })
+            })
+    }
 
     /// Advances the whole runtime by one frame.
     pub fn tick(&mut self, ctx: &WorldContext<'_>) -> WorldTick {
@@ -6281,6 +6399,115 @@ mod tests {
         assert!((f32::midpoint(aim.bounds.min[0], aim.bounds.max[0]) - position.x).abs() < 1e-4);
         assert!((f32::midpoint(aim.bounds.min[2], aim.bounds.max[2]) - position.z).abs() < 1e-4);
         assert!((aim.yaw_degrees.to_radians() - yaw).abs() < 1e-5);
+    }
+
+    /// A 4x4 m navigation-only fixture protects one visible body sample,
+    /// hysteresis, clock/path preservation and real movement resumption. It
+    /// performs no lighting bake and needs fewer than twenty fixed ticks.
+    #[test]
+    fn shared_light_observations_hold_look_and_resume_the_same_ai_route() {
+        let level = LevelDef::from_json(
+            r#"{
+                "format_version":3,"id":"light_hold","name":"Light hold",
+                "spawn":{"x":1,"z":1},
+                "rooms":[{"x":0,"z":0,"width":4,"depth":4,"height":3}],
+                "props":[{"id":"actor","model":"core:crate","x":1.5,"z":2,
+                    "size":[0.5,1.6,0.4],"solid":false,"components":[
+                    {"component":"nav_agent","radius":0.2,"height":1.6,"speed_mps":1},
+                    {"component":"ai","behavior":"wanderer","walk_speed":1,
+                     "sight_range":0,"hearing_range":0,"wander_radius":1,
+                     "idle_clip":"stand","move_clip":"walk"},
+                    {"component":"light_response"}]}]
+            }"#,
+        )
+        .expect("the tiny light-response fixture parses");
+        let mut warnings = Vec::new();
+        let (bytes, _) = crate::compiler::bake_navigation(&level, 1, &mut warnings)
+            .expect("only tiny navigation bakes");
+        let mesh = NavMesh::from_record(
+            crate::package::navigation::read_navigation(&bytes).expect("navigation decodes"),
+        )
+        .expect("navigation validates");
+        let mut world = EntityWorld::from_level(&level);
+        let state = crate::ai::AiState::Wander {
+            destination: Vec3::new(2.8, 0.0, 2.0),
+        };
+        assert!(world.ai.force_state("actor", state));
+        let feet = Vec3::new(1.0, 0.0, 1.0);
+        // A planned path begins at the actor's existing feet. The first tick
+        // consumes that reached seed waypoint before subsequent ticks walk.
+        for _ in 0_i32..3_i32 {
+            let _moving_tick = tick_with_nav(&mut world, &level, &mesh, feet, 0.1);
+        }
+        let moving_actor = world.ai().agent("actor").expect("actor exists");
+        assert!(
+            moving_actor.position.x > 1.55,
+            "the normal route actually walks"
+        );
+        let stopped_position = moving_actor.position;
+        let stopped_clock = moving_actor.clock;
+        let path = moving_actor.path.waypoints.clone();
+        let eye = Vec3::new(1.0, 1.6, 1.0);
+        let mut sampled = 0_u32;
+        world.update_light_observations(0.05, eye, |id, point| {
+            assert_eq!(id, "actor", "visibility can exclude the receiving mesh");
+            sampled = sampled.saturating_add(1);
+            if point.y > 1.3 { 0.1 } else { 0.0 }
+        });
+        assert_eq!(sampled, 5, "one visible head sample is sufficient");
+        let _held_tick = tick_with_nav(&mut world, &level, &mesh, feet, 0.05);
+        let held_actor = world.ai().agent("actor").expect("actor exists");
+        assert_eq!(held_actor.position, stopped_position);
+        assert_eq!(
+            held_actor.clock, stopped_clock,
+            "local behavior timers pause"
+        );
+        assert_eq!(
+            held_actor.path.waypoints, path,
+            "the original path is retained"
+        );
+        assert_eq!(held_actor.state, state, "the behavior state remains intact");
+        let direction = eye - stopped_position;
+        let heading = direction.x.atan2(direction.z);
+        let (_, yaw) = framed_transform(&world, "actor");
+        assert!((angle_difference(yaw, heading)).abs() < 0.001);
+        assert!(
+            matches!(held_actor.cue(), PoseCue::Clip { name, once: _, paused: _ } if name == "stand")
+        );
+
+        for intensity in [0.010_f32, 0.0, 0.010, f32::NAN] {
+            world.update_light_observations(0.05, eye, |_, _| intensity);
+            let _edge_tick = tick_with_nav(&mut world, &level, &mesh, feet, 0.05);
+            assert_eq!(
+                world.ai().agent("actor").expect("actor").position,
+                stopped_position
+            );
+        }
+        world.update_light_observations(0.2, eye, |_, _| 0.0);
+        let _resume_tick = tick_with_nav(&mut world, &level, &mesh, feet, 0.1);
+        let resumed_actor = world.ai().agent("actor").expect("actor exists");
+        assert!(resumed_actor.position.x > stopped_position.x + 0.04);
+        assert!(
+            matches!(resumed_actor.cue(), PoseCue::Clip { name, once: _, paused: _ } if name == "walk")
+        );
+
+        world.update_light_observations(0.05, eye, |_, _| 0.1);
+        world.reset_runtime();
+        assert!(
+            !world
+                .light_response_observations()
+                .next()
+                .expect("observation")
+                .active
+        );
+        assert!(
+            world
+                .ai()
+                .agent("actor")
+                .expect("actor")
+                .light_look_target
+                .is_none()
+        );
     }
 
     /// The AI layer stores yaw in degrees, but the entity-frame handoff is

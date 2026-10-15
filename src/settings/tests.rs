@@ -26,9 +26,10 @@ fn test_default_wasd_and_arrow_bindings() {
     assert_eq!(bindings.jump, "SPACE");
     assert_eq!(bindings.crouch, "C");
     assert_eq!(bindings.interact, "E");
+    assert_eq!(bindings.flashlight, "F");
 }
 
-/// The default action map must be exactly WASD + arrows + Space + C + E: every
+/// The default action map must be exactly WASD + arrows + Space + C + E + F: every
 /// key resolves to one action, no key is shared, and no alternative layout is
 /// silently retained as a duplicate binding.
 #[test]
@@ -46,6 +47,7 @@ fn test_default_action_map_is_wasd_and_arrows_only() {
         ("jump", "SPACE"),
         ("crouch", "C"),
         ("interact", "E"),
+        ("flashlight", "F"),
     ];
 
     let mut bound_keys: Vec<&str> = Vec::new();
@@ -97,6 +99,7 @@ fn test_reset_to_defaults_restores_wasd_and_arrows() {
     assert_eq!(bindings.jump, "SPACE");
     assert_eq!(bindings.crouch, "C");
     assert_eq!(bindings.interact, "E");
+    assert_eq!(bindings.flashlight, "F");
 }
 
 #[test]
@@ -134,9 +137,18 @@ fn test_binding_conflict_detection() {
     assert_eq!(bindings.check_conflict("interact", "I"), Some("forward"));
     assert_eq!(bindings.check_conflict("forward", "E"), Some("interact"));
     assert!(bindings.set_key("forward", "E").is_err());
-    assert!(bindings.set_key("interact", "F").is_ok());
-    assert_eq!(bindings.interact, "F");
+    assert!(bindings.set_key("interact", "Q").is_ok());
+    assert_eq!(bindings.interact, "Q");
     assert_eq!(bindings.check_conflict("forward", "E"), None);
+
+    // Flashlight uses the same conflict rules and frees F when rebound.
+    assert_eq!(bindings.check_conflict("flashlight", "I"), Some("forward"));
+    assert_eq!(bindings.check_conflict("interact", "F"), Some("flashlight"));
+    assert!(bindings.set_key("flashlight", "I").is_err());
+    assert!(bindings.set_key("interact", "F").is_err());
+    assert!(bindings.set_key("flashlight", "R").is_ok());
+    assert_eq!(bindings.flashlight, "R");
+    assert_eq!(bindings.check_conflict("interact", "F"), None);
 }
 
 #[test]
@@ -538,6 +550,10 @@ fn test_settings_files_without_newer_fields_receive_defaults() {
         parsed.bindings.interact, "E",
         "a missing interact key defaults to E without invalidating the file"
     );
+    assert_eq!(
+        parsed.bindings.flashlight, "F",
+        "a missing flashlight key defaults to F without invalidating the file"
+    );
     assert_exact(parsed.mouse_sensitivity, DEFAULT_MOUSE_SENSITIVITY);
 }
 
@@ -556,6 +572,7 @@ fn test_new_preferences_persist_round_trip() {
         bindings: KeyBindings {
             jump: "J".to_string(),
             crouch: "X".to_string(),
+            flashlight: "R".to_string(),
             ..KeyBindings::default()
         },
         window_mode: "fullscreen".to_string(),
@@ -574,6 +591,10 @@ fn test_new_preferences_persist_round_trip() {
     assert_eq!(
         loaded.bindings.crouch, "X",
         "the crouch rebind round-trips through the same mechanism"
+    );
+    assert_eq!(
+        loaded.bindings.flashlight, "R",
+        "the flashlight rebind round-trips through the same mechanism"
     );
     assert_eq!(loaded.window_mode(), WindowMode::Fullscreen);
     assert_eq!(loaded.window_size(), (2560, 1440));
@@ -1233,9 +1254,9 @@ fn a_missing_interact_binding_never_overwrites_a_customized_e_binding() {
     // The player can rebind it normally from the Controls screen.
     parsed
         .bindings
-        .set_key("interact", "F")
+        .set_key("interact", "Q")
         .expect("an unused key binds");
-    assert_eq!(parsed.bindings.interact, "F");
+    assert_eq!(parsed.bindings.interact, "Q");
 
     // With the key free, the missing binding defaults to E as documented.
     let mut plain: Settings =
@@ -1252,6 +1273,36 @@ fn without_interact_bindings() -> &'static str {
             "look_up": "UP", "look_down": "DOWN", "look_left": "LEFT", "look_right": "RIGHT"
         }
     }"#
+}
+
+/// A pre-flashlight settings record may already assign F to Interact. This
+/// tiny JSON fixture protects that customization from the new default, then
+/// verifies that the player can bind Flashlight and persist the choice. It
+/// needs no assets, GPU or map preparation.
+#[test]
+fn a_missing_flashlight_binding_preserves_customized_f_and_persists_rebinding() {
+    let customized = r#"{
+        "bindings": {
+            "forward": "W", "backward": "S", "strafe_left": "A", "strafe_right": "D",
+            "look_up": "UP", "look_down": "DOWN", "look_left": "LEFT", "look_right": "RIGHT",
+            "jump": "SPACE", "crouch": "C", "interact": "F"
+        }
+    }"#;
+    let mut parsed: Settings = serde_json::from_str(customized).expect("older settings parse");
+    parsed.sanitize();
+    assert_eq!(parsed.bindings.interact, "F", "customized action keeps F");
+    assert_eq!(parsed.bindings.flashlight, "", "new action stays unbound");
+    assert!(parsed.bindings.set_key("flashlight", "F").is_err());
+    assert!(parsed.bindings.set_key("flashlight", "`").is_err());
+    parsed
+        .bindings
+        .set_key("flashlight", "R")
+        .expect("an unused flashlight key binds");
+    let json = serde_json::to_string(&parsed).expect("settings serialize");
+    let mut loaded: Settings = serde_json::from_str(&json).expect("saved settings parse");
+    loaded.sanitize();
+    assert_eq!(loaded.bindings.flashlight, "R");
+    assert_eq!(loaded.bindings.interact, "F");
 }
 
 // ------------------------------------------- graphics configuration identity

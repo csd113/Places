@@ -5184,6 +5184,7 @@ Components never carry actions — the bindings do that.
 | `nav_agent` | `radius`, `speed_mps`, `height` (`1.8`), `step_height` (`0.4`), `max_slope` (`2.6667`) | The entity's navigable body. Each distinct body becomes one baked agent class; navigation queries select the class that matches it. See §33. |
 | `nav_obstacle` | `size?` (`[w,h,d]`, default the resolved size), `affects_nav` (`true`) | An explicit box the offline navigation bake treats as an obstacle, so a proxy the collision build does not carry can still block navigation. |
 | `ai` | `behavior` (`idler`), `role?`, `reacts_to` (`[]`), speeds, ranges, home bounds, shelters and clip overrides | The entity runs the shared AI behavior (`idler`/`wanderer`/`skittish`/`prey`/`predator`/`follower`). Requires a `nav_agent` body; an entity with a route must not also author `ai`. See §33. |
+| `light_response` | `enter_intensity` (`0.035`), `exit_intensity` (`0.005`), `release_seconds` (`0.20`) | An opt-in AI stops and faces the player when the handheld beam actually reaches its body. Requires `ai`; thresholds must be finite `0 < exit ≤ enter ≤ 8`, release finite `0..=1` seconds. Uses the shared renderer's direct-light cone, falloff and geometry visibility. |
 | `fade` | `period_seconds` (finite, `0 < p ≤ 3600`; default `6.0`, ignored in proximity mode), `phase?` (`0..=1`; omitted = deterministic per-instance), `min_opacity` (`0.0`), `max_opacity` (`1.0`, `≥ min_opacity`), `enabled` (`true`), `near_radius?`/`far_radius?` (finite, `0 < near < far`; both together), `fade_out_seconds?`/`fade_in_seconds?` (finite, `0 < s ≤ 600`; defaults `1.5`/`3.0`, only with the radii) | The entity's opacity cycles on a loop, or — when both radii are authored — fades out as the player approaches and back in as the player retreats. `enabled: false` holds `max_opacity`. A fade-only entity still fades without a route, AI or binding. |
 | `glow` | `enabled?` (`true`), `color?` (`[1.0, 0.86, 0.6]`, each channel `0..=1`), `intensity?` (`0.5`, `0..=8`), `range?` (`3.0` m, `0.05..=64`), `socket?` (animated joint/node name, non-blank), `offset?` (`[0, 0, 0]` entity-local metres, each `|v| ≤ 4`; used only when no socket resolves), `fade?` (`true`: intensity multiplies the fade opacity) | One attached dynamic light; `enable`/`disable` removes/restores its light independently of material emission. With a `socket` it follows the animated joint; without one it sits at the entity-local `offset`. |
 | `balloon` | `color` (`red`; also `royal_blue`, `golden_yellow`, `grass_green`, `deep_purple`, `orange`, `pink`), `scale` (`1`, `0.25..=2`), `string_length` (`1.1`, `0.15..=4` m), `anchor` (`[0,0,0]`, each axis ±8 m), `offset` (`[0,0,0]`, each axis ±2 m), `enabled` (`true`), `sway_amplitude` (`0.025`, `0..=0.15` m), `bob_amplitude` (`0.012`, `0..=0.15` m), `rotation_degrees` (`3`, `0..=12`), `speed_hz` (`0.19`, `0.01..=1`), `phase?`/`shared_phase?` (`0..=1` cycles), `shared_sway` (`0.007`, `0..=0.15` m) | Analytic simulation-time latex motion and twelve curved string segments tied to a fixed placement-local anchor. `enabled: false` holds the resting pose; `enable`/`disable` gates motion. Only the body receives the colour and uniform scale. |
@@ -6755,6 +6756,18 @@ catching or caught, a `play_animation` override owns the pose. Once ordinary
 locomotion resumes, the state-driven gait wins again so a finished one-shot
 cannot pin an agent in a held pose.
 
+An optional `light_response` component temporarily holds the existing AI state,
+path and local timers when renderer-backed handheld illumination reaches one
+of five torso/head anchors. The character selects its ordinary stopped clip
+and faces the player's eye horizontally. Cone-edge hysteresis and the bounded
+release hold prevent frame-by-frame twitching; after illumination ends, the
+original movement and animation resume. The renderer excludes the receiving
+character's own mesh while keeping walls, storey floors, live doors, furniture
+and other current geometry as blockers. This does not use the AI sight range
+or collision proxies to decide whether light reaches a body. Office's basement
+mannequin is the first authored consumer; no model or map name appears in the
+response implementation.
+
 ### 33.5 The home encounter (the worked example)
 
 `levels/places_demo.json` authors the complete encounter with ordinary
@@ -6810,8 +6823,8 @@ template, the group, the tags and the sequence are all ordinary data.
   staircase that validates in the loader bakes and walks; if a future
   collision proxy is added, feed it through `NavBakeInput::walk_proxies` or
   `NavBakeInput::obstacles` rather than a second format.
-* `nav_agent` and `ai` are the only actor components; do not add per-model
-  navigation or animation special cases.
+* `nav_agent`, `ai` and the optional shared `light_response` are the actor
+  components; do not add per-model navigation or animation special cases.
 * The compiler reports a build warning naming any `nav_agent` entity or spawn
   point with no navigable cell, so a stair or passage that silently breaks an
   actor's clearance is visible at build time.

@@ -88,8 +88,13 @@ use crate::render::common::{MeshChunk, MeshPacker};
 use crate::spatial::{Aabb, Frustum};
 
 /// The world shader, from the file next to this module.
-pub const WORLD_SHADER_SRC: &str =
-    concat!(include_str!("storm.wgsl"), "\n", include_str!("world.wgsl"));
+pub const WORLD_SHADER_SRC: &str = concat!(
+    include_str!("storm.wgsl"),
+    "\n",
+    include_str!("attached_lights.wgsl"),
+    "\n",
+    include_str!("world.wgsl")
+);
 
 /// Name of the world vertex entry point.
 pub const WORLD_VERTEX_ENTRY: &str = "vs_main";
@@ -793,6 +798,46 @@ pub struct GpuDynamicLight {
     pub intensity: f32,
 }
 
+/// The one shadowed attached spotlight, packed alongside the existing lights.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
+pub struct GpuFlashlight {
+    pub view_projection: [[f32; 4]; 4],
+    pub position_range: [f32; 4],
+    pub color_strength: [f32; 4],
+    pub direction_inner: [f32; 4],
+    pub outer_enabled: [f32; 4],
+}
+
+impl GpuFlashlight {
+    #[must_use]
+    pub fn new(candidate: Option<crate::render::common::Flashlight>) -> Self {
+        let Some(light) = candidate.filter(|value| value.is_well_formed()) else {
+            return Self::zeroed();
+        };
+        let [red, green, blue] = light.color;
+        Self {
+            view_projection: super::flashlight::flashlight_frame(light)
+                .view_projection
+                .to_cols_array_2d(),
+            position_range: [
+                light.position.x,
+                light.position.y,
+                light.position.z,
+                light.range,
+            ],
+            color_strength: [red, green, blue, light.intensity],
+            direction_inner: [
+                light.direction.x,
+                light.direction.y,
+                light.direction.z,
+                light.inner_cos,
+            ],
+            outer_enabled: [light.outer_cos, 1.0, 0.0, 0.0],
+        }
+    }
+}
+
 /// The group-4 uniform: a live count, three padding words and the fixed
 /// [`MAX_DYNAMIC_LIGHTS`]-entry light array.
 ///
@@ -808,6 +853,7 @@ pub struct DynamicLightsUniform {
     pub padding: [u32; 3],
     /// The frame's attached lights, the live ones first in insertion order.
     pub lights: [GpuDynamicLight; MAX_DYNAMIC_LIGHTS],
+    pub flashlight: GpuFlashlight,
 }
 
 impl DynamicLightsUniform {
@@ -833,6 +879,24 @@ impl DynamicLightsUniform {
 /// Bytes one dynamic-lights uniform occupies.
 pub const DYNAMIC_LIGHTS_UNIFORM_SIZE: u64 = super::buffer_element_bytes::<DynamicLightsUniform>();
 
+fn world_camera_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("places-wgpu-world-camera-layout"),
+        entries: &[wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            // The fragment stage reads `camera.position` for the sheen's
+            // view vector, so the uniform is visible to both stages.
+            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: wgpu::BufferSize::new(CAMERA_UNIFORM_SIZE),
+            },
+            count: None,
+        }],
+    })
+}
+
 /// The group-4 bind group layout: the frame's attached-light uniform.
 ///
 /// Created once per world pipeline rebuild and shared by every pipeline that
@@ -842,16 +906,34 @@ pub const DYNAMIC_LIGHTS_UNIFORM_SIZE: u64 = super::buffer_element_bytes::<Dynam
 pub fn dynamic_lights_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("places-wgpu-world-lights-layout"),
-        entries: &[wgpu::BindGroupLayoutEntry {
-            binding: 0,
-            visibility: wgpu::ShaderStages::FRAGMENT,
-            ty: wgpu::BindingType::Buffer {
-                ty: wgpu::BufferBindingType::Uniform,
-                has_dynamic_offset: false,
-                min_binding_size: wgpu::BufferSize::new(DYNAMIC_LIGHTS_UNIFORM_SIZE),
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: wgpu::BufferSize::new(DYNAMIC_LIGHTS_UNIFORM_SIZE),
+                },
+                count: None,
             },
-            count: None,
-        }],
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Depth,
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    multisampled: false,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 2,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison),
+                count: None,
+            },
+        ],
     })
 }
 
@@ -1843,11 +1925,26 @@ fn build_world_pipeline(
     raw_target: bool,
     variant: WorldPipelineVariant,
 ) -> wgpu::RenderPipeline {
-    let fragment_entry = if raw_target {
+    let shadow = format == DEPTH_FORMAT;
+    let fragment_entry = if shadow {
+        if variant.blend.is_some() {
+            "fs_shadow_blend"
+        } else if variant.fragment_entry.contains("cutout") {
+            "fs_shadow_cutout"
+        } else {
+            "fs_shadow"
+        }
+    } else if raw_target {
         variant.fragment_entry_raw
     } else {
         variant.fragment_entry
     };
+    let color_targets = [Some(wgpu::ColorTargetState {
+        format,
+        blend: variant.blend,
+        write_mask: wgpu::ColorWrites::ALL,
+    })];
+    let targets = if shadow { &[][..] } else { &color_targets[..] };
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some(variant.label),
         layout: Some(layout),
@@ -1872,11 +1969,19 @@ fn build_world_pipeline(
         },
         depth_stencil: Some(wgpu::DepthStencilState {
             format: DEPTH_FORMAT,
-            depth_write_enabled: Some(variant.depth_write),
+            depth_write_enabled: Some(shadow || variant.depth_write),
             // The reference's `glDepthFunc(GL_LEQUAL)`.
             depth_compare: Some(wgpu::CompareFunction::LessEqual),
             stencil: wgpu::StencilState::default(),
-            bias: wgpu::DepthBiasState::default(),
+            bias: if shadow {
+                wgpu::DepthBiasState {
+                    constant: 2,
+                    slope_scale: 2.0,
+                    clamp: 0.0,
+                }
+            } else {
+                wgpu::DepthBiasState::default()
+            },
         }),
         multisample: wgpu::MultisampleState::default(),
         fragment: Some(wgpu::FragmentState {
@@ -1886,11 +1991,7 @@ fn build_world_pipeline(
                 constants: &super::surface::color_target_constants(format),
                 ..Default::default()
             },
-            targets: &[Some(wgpu::ColorTargetState {
-                format,
-                blend: variant.blend,
-                write_mask: wgpu::ColorWrites::ALL,
-            })],
+            targets,
         }),
         multiview_mask: None,
         cache: None,
@@ -1936,6 +2037,11 @@ fn build_entity_pipelines(
     };
     let build =
         |face, variant| build_world_pipeline(device, layout, shader, format, face, raw, variant);
+    if format == DEPTH_FORMAT {
+        let regular = build(front, opaque);
+        let mirrored = build(reflected, opaque);
+        return [regular.clone(), regular, mirrored.clone(), mirrored];
+    }
     [
         build(front, opaque),
         build(front, emission),
@@ -1982,6 +2088,9 @@ pub struct WorldPipeline {
     lights_buffer: wgpu::Buffer,
     /// The group-4 binding over `lights_buffer`.
     lights_bind_group: wgpu::BindGroup,
+    lights_layout: wgpu::BindGroupLayout,
+    lights_sampler: wgpu::Sampler,
+    flashlight_shadow_bound: bool,
     /// The colour target format the pipelines were built for. A changed surface
     /// format (a recreated surface) rebuilds only this resource.
     format: wgpu::TextureFormat,
@@ -2047,21 +2156,7 @@ impl WorldPipeline {
             label: Some("places-wgpu-world-shader"),
             source: wgpu::ShaderSource::Wgsl(shader_source),
         });
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("places-wgpu-world-camera-layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                // The fragment stage reads `camera.position` for the sheen's
-                // view vector, so the uniform is visible to both stages.
-                visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: wgpu::BufferSize::new(CAMERA_UNIFORM_SIZE),
-                },
-                count: None,
-            }],
-        });
+        let bind_group_layout = world_camera_bind_group_layout(device);
         // Group 4 is the frame's attached-light array: created with the
         // pipeline set and shared by every variant, so binding it is one call
         // per pass.
@@ -2084,12 +2179,8 @@ impl WorldPipeline {
             CAMERA_UNIFORM_SIZE,
         );
         // Zero-initialized capture buffers see no attached lights.
-        let (lights_buffer, lights_bind_group) = world_uniform_binding(
-            device,
-            &lights_layout,
-            "places-wgpu-world-lights",
-            DYNAMIC_LIGHTS_UNIFORM_SIZE,
-        );
+        let (lights_buffer, lights_bind_group, lights_sampler) =
+            create_dynamic_lights_binding(device, &lights_layout);
         let [
             opaque_variant,
             cutout_variant,
@@ -2122,26 +2213,87 @@ impl WorldPipeline {
             front_face,
             raw_target,
         );
+        let opaque = build(opaque_variant);
+        let cutout = build(cutout_variant);
+        let translucent = build(translucent_variant);
+        let (emission, emission_cutout, emission_blend) = if format == DEPTH_FORMAT {
+            (opaque.clone(), cutout.clone(), translucent.clone())
+        } else {
+            (
+                build(emission_variant),
+                build(emission_cutout_variant),
+                build(emission_blend_variant),
+            )
+        };
         Self {
             opaque_culled,
             opaque_culled_reflected,
             emission_culled,
             emission_culled_reflected,
-            opaque: build(opaque_variant),
-            cutout: build(cutout_variant),
-            translucent: build(translucent_variant),
-            emission: build(emission_variant),
-            emission_cutout: build(emission_cutout_variant),
-            emission_blend: build(emission_blend_variant),
+            opaque,
+            cutout,
+            translucent,
+            emission,
+            emission_cutout,
+            emission_blend,
             bind_group,
             camera_buffer,
             lights_buffer,
             lights_bind_group,
+            lights_layout,
+            lights_sampler,
+            flashlight_shadow_bound: false,
             format,
             uploaded: None,
             #[cfg(feature = "visual-diagnostics")]
             visual_diagnostic: super::diagnostics::VisualDiagnosticMode::Final,
         }
+    }
+
+    /// The visibility pass uses the ordinary world draw and alpha contracts.
+    #[must_use]
+    pub fn shadow(
+        device: &wgpu::Device,
+        texture_layout: &wgpu::BindGroupLayout,
+        material_layout: &wgpu::BindGroupLayout,
+        environment_layout: &wgpu::BindGroupLayout,
+    ) -> Self {
+        Self::with_state(
+            device,
+            DEPTH_FORMAT,
+            texture_layout,
+            material_layout,
+            environment_layout,
+            wgpu::FrontFace::Ccw,
+            false,
+            true,
+        )
+    }
+
+    /// Bind the shared shadow texture once per pipeline lifetime.
+    pub fn bind_flashlight_shadow(&mut self, device: &wgpu::Device, view: &wgpu::TextureView) {
+        if self.flashlight_shadow_bound {
+            return;
+        }
+        self.lights_bind_group = dynamic_lights_binding(
+            device,
+            &self.lights_layout,
+            &self.lights_buffer,
+            view,
+            &self.lights_sampler,
+        );
+        self.flashlight_shadow_bound = true;
+    }
+
+    pub fn update_flashlight_lights(
+        &self,
+        queue: &wgpu::Queue,
+        lights: &DynamicLightSet,
+        flashlight: Option<crate::render::common::Flashlight>,
+    ) {
+        let mut uniform = DynamicLightsUniform::new(lights);
+        uniform.flashlight = GpuFlashlight::new(flashlight);
+        queue.write_buffer(&self.lights_buffer, 0, bytemuck::bytes_of(&uniform));
     }
 
     /// The colour target format these pipelines' fragment state was built for.
@@ -2229,6 +2381,62 @@ impl WorldPipeline {
     pub fn update_lights(&self, queue: &wgpu::Queue, lights: &DynamicLightSet) {
         write_dynamic_lights(queue, &self.lights_buffer, lights);
     }
+}
+
+pub(super) fn create_dynamic_lights_binding(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+) -> (wgpu::Buffer, wgpu::BindGroup, wgpu::Sampler) {
+    let lights_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("places-wgpu-world-lights"),
+        size: DYNAMIC_LIGHTS_UNIFORM_SIZE,
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    let fallback = super::flashlight::depth_texture(device, 1);
+    let fallback_view = fallback.create_view(&wgpu::TextureViewDescriptor::default());
+    let lights_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+        label: Some("places-flashlight-shadow-sampler"),
+        compare: Some(wgpu::CompareFunction::LessEqual),
+        mag_filter: wgpu::FilterMode::Linear,
+        min_filter: wgpu::FilterMode::Linear,
+        ..Default::default()
+    });
+    let lights_bind_group = dynamic_lights_binding(
+        device,
+        layout,
+        &lights_buffer,
+        &fallback_view,
+        &lights_sampler,
+    );
+    (lights_buffer, lights_bind_group, lights_sampler)
+}
+
+pub(super) fn dynamic_lights_binding(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+    buffer: &wgpu::Buffer,
+    shadow: &wgpu::TextureView,
+    sampler: &wgpu::Sampler,
+) -> wgpu::BindGroup {
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("places-wgpu-world-lights-binding"),
+        layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::TextureView(shadow),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: wgpu::BindingResource::Sampler(sampler),
+            },
+        ],
+    })
 }
 
 /// Writes one light set into a group-4 uniform buffer.
@@ -4350,9 +4558,10 @@ mod tests {
         // the reference called `u_camera_pos`.
         assert!(WORLD_SHADER_SRC.contains("MATERIAL_FLAG_RESPONSE_ENABLED) == 0u"));
         assert!(WORLD_SHADER_SRC.contains("normalize(camera.position - in.world_position)"));
-        // No shadow resource: the reference has none.
-        assert!(!WORLD_SHADER_SRC.contains("texture_depth_2d"));
-        assert!(!WORLD_SHADER_SRC.contains("comparison"));
+        // The attached spotlight's visibility texture does not replace the
+        // prepared irradiance/direction layer contract checked above.
+        assert!(WORLD_SHADER_SRC.contains("var flashlight_depth: texture_depth_2d"));
+        assert!(WORLD_SHADER_SRC.contains("var flashlight_sampler: sampler_comparison"));
         assert!(!WORLD_SHADER_SRC.contains("@group(3) @binding(7)"));
         // The environment declares the pair array and its sampler at the
         // frozen bindings: the page array at 1, the sampler at 3, and no
@@ -4657,15 +4866,18 @@ mod tests {
         assert_eq!(std::mem::align_of::<DynamicLightsUniform>(), 16);
         assert_eq!(
             std::mem::size_of::<DynamicLightsUniform>(),
-            16 + 32 * MAX_DYNAMIC_LIGHTS
+            16 + 32 * MAX_DYNAMIC_LIGHTS + 128
         );
         assert_eq!(
             DYNAMIC_LIGHTS_UNIFORM_SIZE,
-            u64::try_from(16 + 32 * MAX_DYNAMIC_LIGHTS).unwrap()
+            u64::try_from(16 + 32 * MAX_DYNAMIC_LIGHTS + 128).unwrap()
         );
         assert_eq!(std::mem::offset_of!(DynamicLightsUniform, count), 0);
         assert_eq!(std::mem::offset_of!(DynamicLightsUniform, padding), 4);
         assert_eq!(std::mem::offset_of!(DynamicLightsUniform, lights), 16);
+        assert_eq!(std::mem::size_of::<GpuFlashlight>(), 128);
+        assert_eq!(std::mem::offset_of!(DynamicLightsUniform, flashlight), 272);
+        assert_eq!(GpuFlashlight::new(None), GpuFlashlight::zeroed());
 
         // An empty set packs a zero count and zeroed slots.
         let empty = DynamicLightsUniform::new(&DynamicLightSet::new());

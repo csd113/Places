@@ -3180,6 +3180,63 @@ fn balloon_components_reject_invalid_motion_and_moving_anchors() {
     );
 }
 
+/// Protects bounded light-response thresholds and locomotion ownership with
+/// source-only validation. No model load, navigation or illumination bake.
+#[test]
+fn light_response_requires_ai_and_finite_ordered_thresholds() {
+    let level = binding_level(
+        r#""props":[{"id":"actor","model":"core:crate","x":2,"z":2,
+            "components":[{"component":"nav_agent","radius":0.2,"speed_mps":1},
+            {"component":"ai"},{"component":"light_response"}]}]"#,
+    );
+    validate_level(&level).expect("default light response validates");
+    for def in [
+        crate::level::LightResponseDef {
+            enter_intensity: 0.001,
+            ..Default::default()
+        },
+        crate::level::LightResponseDef {
+            exit_intensity: 0.0,
+            ..Default::default()
+        },
+        crate::level::LightResponseDef {
+            enter_intensity: f32::NAN,
+            ..Default::default()
+        },
+        crate::level::LightResponseDef {
+            release_seconds: 1.01,
+            ..Default::default()
+        },
+    ] {
+        let mut invalid = level.clone();
+        let component = invalid
+            .props
+            .first_mut()
+            .expect("fixture prop")
+            .components
+            .last_mut()
+            .expect("response component");
+        *component = ComponentDef::LightResponse(def);
+        assert!(
+            validate_level(&invalid)
+                .expect_err("invalid response is rejected")
+                .contains("light_response")
+        );
+    }
+    let mut unowned = level;
+    unowned
+        .props
+        .first_mut()
+        .expect("fixture prop")
+        .components
+        .retain(|component| !matches!(component, ComponentDef::Ai(_)));
+    assert!(
+        validate_level(&unowned)
+            .expect_err("response needs AI")
+            .contains("without an `ai`")
+    );
+}
+
 /// `fade` and `glow` accept the documented examples and every omitted field
 /// resolves its documented default.
 #[test]

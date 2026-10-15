@@ -193,6 +193,23 @@ impl<T> ComponentTable<T> {
         })
     }
 
+    /// Every live entry, mutably, in slot order.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (EntityHandle, &mut T)> {
+        self.slots
+            .iter_mut()
+            .enumerate()
+            .filter_map(|(index, slot)| {
+                slot.as_mut().and_then(|entry| {
+                    u32::try_from(index).ok().map(|slot_index| {
+                        (
+                            EntityHandle::from_parts(slot_index, entry.generation),
+                            &mut entry.value,
+                        )
+                    })
+                })
+            })
+    }
+
     /// The number of live entries.
     #[must_use]
     pub fn len(&self) -> usize {
@@ -665,6 +682,50 @@ pub struct Glow {
     pub fade_with_opacity: bool,
 }
 
+/// Hysteresis state for an opt-in response to shared direct-light observations.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LightResponse {
+    /// Authored thresholds and release hold.
+    pub def: crate::level::LightResponseDef,
+    /// True while illumination immobilizes this AI body.
+    pub active: bool,
+    /// Remaining release hold, in seconds.
+    pub release_remaining: f32,
+    /// Last measured incident intensity, after visibility.
+    pub intensity: f32,
+    /// Placed body dimensions in metres; spawn bodies use their navigation profile.
+    pub sample_size: Option<[f32; 3]>,
+}
+
+impl LightResponse {
+    /// Applies one measured incident intensity, treating invalid input as dark.
+    pub fn observe(&mut self, intensity: f32, delta_seconds: f32) {
+        let finite_intensity = if intensity.is_finite() {
+            intensity.max(0.0)
+        } else {
+            0.0
+        };
+        self.intensity = finite_intensity;
+        let threshold = if self.active {
+            self.def.exit_intensity
+        } else {
+            self.def.enter_intensity
+        };
+        if finite_intensity >= threshold {
+            self.active = true;
+            self.release_remaining = self.def.release_seconds;
+        } else if self.active {
+            let delta = if delta_seconds.is_finite() {
+                delta_seconds.clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            self.release_remaining = (self.release_remaining - delta).max(0.0);
+            self.active = self.release_remaining > 0.0;
+        }
+    }
+}
+
 /// Every component table of one world.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ComponentTables {
@@ -704,6 +765,8 @@ pub struct ComponentTables {
     pub nav_obstacles: ComponentTable<NavObstacle>,
     /// AI behavior definitions.
     pub ais: ComponentTable<crate::ai::AiDef>,
+    /// Shared light observations which temporarily hold an AI body.
+    pub light_responses: ComponentTable<LightResponse>,
     /// Opacity fade cycles.
     pub fades: ComponentTable<Fade>,
     /// Attached dynamic lights.
@@ -735,6 +798,7 @@ impl ComponentTables {
             nav_agents: ComponentTable::new(),
             nav_obstacles: ComponentTable::new(),
             ais: ComponentTable::new(),
+            light_responses: ComponentTable::new(),
             fades: ComponentTable::new(),
             glows: ComponentTable::new(),
             balloons: ComponentTable::new(),
@@ -761,6 +825,7 @@ impl ComponentTables {
         self.nav_agents.clear();
         self.nav_obstacles.clear();
         self.ais.clear();
+        self.light_responses.clear();
         self.fades.clear();
         self.glows.clear();
         self.balloons.clear();
@@ -788,6 +853,7 @@ impl ComponentTables {
             self.nav_agents.len(),
             self.nav_obstacles.len(),
             self.ais.len(),
+            self.light_responses.len(),
             self.fades.len(),
             self.glows.len(),
             self.balloons.len(),
@@ -822,6 +888,7 @@ impl ComponentTables {
         let _removed_value_8 = self.nav_agents.remove(handle);
         let _removed_value_9 = self.nav_obstacles.remove(handle);
         drop(self.ais.remove(handle));
+        let _removed_light_response = self.light_responses.remove(handle);
         let _removed_value_10 = self.fades.remove(handle);
         drop(self.glows.remove(handle));
         let _removed_balloon = self.balloons.remove(handle);

@@ -64,7 +64,7 @@ Every nonempty physical drawable must fit the requested device's
 Oversized windows stop with a message naming the observed size, device limit and
 smaller-resolution remedy. A zero edge remains a normal minimized state.
 
-Depth: one main depth texture, `Depth32Float` (`render::wgpu::surface::DEPTH_FORMAT`), `RENDER_ATTACHMENT` usage, sized to the configured surface and cleared to `1.0` in the same pass as the colour clear. It is recreated only when the drawable size changes. There are no shadow, lightmap or reflection depth resources.
+Depth: one main depth texture, `Depth32Float` (`render::wgpu::surface::DEPTH_FORMAT`), `RENDER_ATTACHMENT` usage, sized to the configured surface and cleared to `1.0` in the same pass as the colour clear. It is recreated only when the drawable size changes. Probe/planar captures use the same depth format. The handheld spotlight lazily adds one bounded 1024² depth target; lightmaps remain saved irradiance textures.
 
 ### 1.5 Drawable size, resize and minimize
 
@@ -103,7 +103,8 @@ Device loss: `Device::set_device_lost_callback` records the reason on a shared s
 render_scene:
   ensure depth / pipelines / post targets / planar target
   select planar plane (Medium and High only) + nearest probe
-  planar capture (mirror ranges excluded, modes zeroed, capture environment)
+  flashlight visibility pass when ON (current world/props/dynamic/posed character meshes)
+  planar capture (mirror ranges excluded, modes zeroed, capture environment, live beam retained)
   update material reflection modes + environment uniforms + cameras + attached lights
   encode:
     scene pass        -> raw scene target + depth  (static, props, dynamics, characters incl. sorted translucent submeshes, decals, then effects)
@@ -784,13 +785,26 @@ part of its contract:
 * **Emissive pass excluded.** The bloom source is drawn without the dynamic
   term, and the per-instance opacity scales the emissive term instead, so a
   glow cannot double itself in the bloom.
-* **Reflection captures excluded.** The probe bake and the planar capture use
-  the capture pipeline's zeroed light set, so a mirror or probe never bakes a
-  glow in.
+* **Offline reflection captures excluded.** The probe bake uses a zeroed light
+  set. Live planar captures share the current attached lights and flashlight.
 
 At zero attached lights the term is exactly `vec3(0.0)` and the shader's
 unit-light bypass is unchanged, so a frame with no glowing character renders
 bit-identically to the pre-change renderer.
+
+The separate opt-in player spotlight is packed alongside that bounded glow set,
+using the same diffuse material term. Its intensity is 12, range 24 m, inner cone
+half-angle 10.28 degrees and outer half-angle 20.14 degrees, with a smooth angular edge and windowed
+`1/(1+d²)` distance falloff. The camera attachment sits 14 cm right, 18 cm down and
+6 cm forward, aimed toward view centre 6 m away. Shared triangle visibility retracts
+it toward the camera before a nearby wall, door or movable surface.
+
+Gameplay samples the same incident cone/falloff using static and live movable
+triangle visibility plus posed character alpha. Five body anchors drive optional
+`light_response` entities, excluding only their own receiving mesh. Observations
+use completed render preparation; AI consumes them on the next simulation tick.
+Scalar partial transmission in CPU observations remains the existing transport
+contract; raster shadows do not add colored/refraction or partial blend shadows.
 
 ### 7.2 Light sources
 
@@ -929,8 +943,12 @@ material with neither normal map nor sheen, and for the whole scene under Low
 
 ### 7.6 Shadows
 
-There is no rasterized GPU shadow map, comparison sampler, PCF kernel or
-per-light shadow pass. In the **prepared static path** every shadow is a direct
+The handheld flashlight uses one rasterized 1024² visibility map with a comparison
+sampler and four bounded PCF taps. It draws current opaque/cutout world, prop,
+door, movable and posed character geometry through the existing world pipeline.
+Ordinary transparent glass/water transmit the beam; nearly opaque blend coverage
+(at least 0.95) blocks it. This is independent of texture and Static/Full lighting
+settings. In the **prepared static path** every shadow is a direct
 shadow ray (per emitter tap) or a bounce ray
 that fails to reach the cache, both cast offline against the static triangles:
 walls block with every opening kind (door, window, vent) cutting the hole it
@@ -961,7 +979,9 @@ nothing outside the board's own footprint, which the visibility tests pin
 Prepared lighting textures and bind groups are installed with the level rather
 than created per frame. Existing camera, entity, attached-light and projected
 shadow uniforms receive runtime state updates; the camera matrix/eye upload is
-skipped while both remain unchanged. There is no shadow-map target or sampler.
+skipped while both remain unchanged. Flashlight depth resources are created on
+first use and retained for toggles; OFF submits no visibility pass. Its dynamic
+light uniform, cone/falloff and shadow texture are shared by world and decals.
 The prepared lightmap is
 one level-scoped `texture_2d_array` (`Rgba16Float`; two layers per page, plus
 one pair per switchable fixture) uploaded once at install and dropped with the

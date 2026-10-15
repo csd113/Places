@@ -59,9 +59,9 @@ pub const NO_LIGHTMAPS_OVERRIDE_ENV: &str = "PLACES_NO_LIGHTMAPS";
 /// Keys the shell owns and a gameplay action may never bind.
 ///
 /// `ESC` opens the pause menu and cancels a rebind; `-` / keypad `-` toggles
-/// the performance overlay and developer console. Accepting one of these as a gameplay binding would
-/// create a control that can never fire, so the rebind is rejected with a
-/// message instead.
+/// the performance overlay; backtick toggles the developer console. Accepting
+/// one of these as a gameplay binding would create a control that can never
+/// fire, so the rebind is rejected with a message instead.
 pub const RESERVED_KEYS: [&str; 4] = ["ESC", "-", "KP_MINUS", "`"];
 
 /// True when `name` (as produced by [`crate::input::keycode_to_str`]) is
@@ -135,7 +135,8 @@ impl WindowMode {
 /// Player-rebindable gameplay key bindings.
 ///
 /// The defaults are the conventional desktop layout: `W`/`A`/`S`/`D` for
-/// movement, the arrow keys for looking and `SPACE` to jump (and swim up).
+/// movement, the arrow keys for looking, `SPACE` to jump (and swim up), `C` to
+/// crouch, `E` to interact and `F` to toggle the flashlight.
 /// Each action can be rebound in Settings.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct KeyBindings {
@@ -167,6 +168,13 @@ pub struct KeyBindings {
     /// player customized.
     #[serde(default = "default_interact_binding")]
     pub interact: String,
+    /// Toggle the handheld flashlight once per press.
+    ///
+    /// Older saved files receive `F`; if another action already uses that key,
+    /// sanitization preserves it and leaves Flashlight unbound for the player
+    /// to choose a free key in Controls.
+    #[serde(default = "default_flashlight_binding")]
+    pub flashlight: String,
 }
 
 impl Default for KeyBindings {
@@ -183,6 +191,7 @@ impl Default for KeyBindings {
             jump: default_jump_binding(),
             crouch: default_crouch_binding(),
             interact: default_interact_binding(),
+            flashlight: default_flashlight_binding(),
         }
     }
 }
@@ -209,6 +218,12 @@ fn default_interact_binding() -> String {
     "E".to_string()
 }
 
+/// The default flashlight binding: `F` is near the movement keys and is not a
+/// menu navigation key or a reserved shell key.
+fn default_flashlight_binding() -> String {
+    "F".to_string()
+}
+
 impl KeyBindings {
     /// Returns the assigned key for a given action name.
     #[must_use]
@@ -225,6 +240,7 @@ impl KeyBindings {
             "jump" => Some(&self.jump),
             "crouch" => Some(&self.crouch),
             "interact" => Some(&self.interact),
+            "flashlight" => Some(&self.flashlight),
             _ => None,
         }
     }
@@ -246,6 +262,7 @@ impl KeyBindings {
             ("jump", &self.jump),
             ("crouch", &self.crouch),
             ("interact", &self.interact),
+            ("flashlight", &self.flashlight),
         ];
 
         for (action, bound_key) in actions {
@@ -256,8 +273,8 @@ impl KeyBindings {
         None
     }
 
-    /// The eleven bindable actions, in settings-screen order.
-    pub const ACTIONS: [&'static str; 11] = [
+    /// Every bindable action, in settings-screen order.
+    pub const ACTIONS: [&'static str; 12] = [
         "forward",
         "strafe_left",
         "strafe_right",
@@ -269,6 +286,7 @@ impl KeyBindings {
         "jump",
         "crouch",
         "interact",
+        "flashlight",
     ];
 
     /// Rebinds an action to a new key if there is no conflict.
@@ -280,7 +298,7 @@ impl KeyBindings {
     pub fn set_key(&mut self, action: &str, new_key: &str) -> Result<(), String> {
         if is_reserved_key(new_key) {
             return Err(format!(
-                "Key '{}' is reserved for pause/overlay",
+                "Key '{}' is reserved for pause/overlay/console",
                 new_key.trim().to_uppercase()
             ));
         }
@@ -312,6 +330,7 @@ impl KeyBindings {
             "jump" => self.jump = key,
             "crouch" => self.crouch = key,
             "interact" => self.interact = key,
+            "flashlight" => self.flashlight = key,
             _ => return Err(format!("Unknown action: {action}")),
         }
         Ok(())

@@ -12,7 +12,7 @@ commands, history and previews are session-local.
 | `/help` | Lists the typed command registry and controls. |
 | `/clear` | Clears output; command history remains. |
 | `/noclip [on\|off]` | Toggles, or explicitly selects, collision-free flight. Normal movement/look bindings apply; hold Jump to rise and Crouch to descend. |
-| `/give <catalog-id>` | Places a small rigid **visual prop preview** on clear flat ground ahead. No inventory, pickup, collision or physics is claimed. |
+| `/give <catalog-id>` | Places a validated small rigid prop ahead. Eligible gameplay profiles create physical items that can be picked up, dropped or thrown; other eligible models are explicitly reported as visual previews. |
 
 Up/Down recall history and restore an unfinished draft; PageUp/PageDown or the
 mouse wheel scroll wrapped output. Text editing appends and backspaces at the
@@ -42,8 +42,8 @@ The first use of an uncached model still loads/uploads it synchronously.
 
 `src/console/command.rs` owns the closed typed registry/parser. Console state,
 UI, SDL ownership and runtime dispatch have focused modules. `CommandTarget`
-is the small integration point for subsequent gameplay systems; today's live
-target intentionally gives visual props. `src/game/developer.rs` owns flight
+is the small integration point for gameplay systems. The live target uses the
+existing item physics runtime for eligible catalog profiles. `src/game/developer.rs` owns flight
 and placement validation. Console input never executes OS commands, shell
 expressions, scripts or arbitrary file paths.
 
@@ -102,7 +102,9 @@ help overlay. Neither tool bakes maps.
 | --- | --- | --- | --- |
 | ![Setting](../images/reports/developer-console-0.10.0/setting.png) | ![Console](../images/reports/developer-console-0.10.0/console.png) | ![Given prop](../images/reports/developer-console-0.10.0/give.png) | ![Recovered player](../images/reports/developer-console-0.10.0/recovery.png) |
 
-Existing map packages, assets, archived historical JSON, lighting settings and
-performance fixes were preserved. Physics, inventory, audio and flashlight
-systems were not implemented. The prior intermittent gameplay crash remains
+The validation above records the original console implementation. Later staging
+work integrated physical `/give` items and reusable flashlight lighting; see the
+[item physics report](item-physics-0.10.0.md) and
+[flashlight report](flashlight-0.10.0.md) for current behavior. Inventory and audio
+remain outside this console implementation. The prior intermittent gameplay crash remains
 unexplained; this task does not claim to solve it.

@@ -31,6 +31,8 @@ pub enum Control {
     Crouch,
     /// Act on the object the player is looking at (press once, not hold).
     Interact,
+    /// Toggle the handheld flashlight (press once, not hold).
+    Flashlight,
 }
 
 impl Control {
@@ -48,6 +50,7 @@ impl Control {
             Self::Jump => 1 << 8,
             Self::Crouch => 1 << 9,
             Self::Interact => 1 << 10,
+            Self::Flashlight => 1 << 11,
         }
     }
 }
@@ -56,7 +59,7 @@ impl Control {
 ///
 /// The developer move script iterates this table so a scripted release always
 /// covers every control the script names; tests use it to drive each binding.
-pub const ALL_CONTROLS: [Control; 11] = [
+pub const ALL_CONTROLS: [Control; 12] = [
     Control::MoveForward,
     Control::MoveBackward,
     Control::StrafeLeft,
@@ -68,6 +71,7 @@ pub const ALL_CONTROLS: [Control; 11] = [
     Control::Jump,
     Control::Crouch,
     Control::Interact,
+    Control::Flashlight,
 ];
 
 /// One control hold from the `PLACES_MOVE_SCRIPT` developer override.
@@ -102,6 +106,7 @@ pub fn scripted_control(name: &str) -> Option<Control> {
         "jump" => Some(Control::Jump),
         "crouch" => Some(Control::Crouch),
         "interact" => Some(Control::Interact),
+        "flashlight" => Some(Control::Flashlight),
         _ => None,
     }
 }
@@ -158,8 +163,8 @@ pub fn parse_move_script(value: &str) -> (Vec<ScriptedHold>, Vec<String>) {
 /// Raw input state representing gameplay movement, camera looking and the
 /// accumulated relative mouse motion.
 ///
-/// The movement, look, jump, crouch and interact controls are independent bits
-/// rather than separate `bool` fields: they are all set and cleared by the same
+/// The movement, look, jump, crouch, interact and flashlight controls are
+/// independent bits rather than separate `bool` fields: they are all set and cleared by the same
 /// binding lookup. Rising edges survive a release until the next gameplay
 /// frame, so short taps cannot disappear between event polling and simulation.
 /// `quit_requested` stays a named field because the game flips it itself
@@ -202,6 +207,8 @@ impl InputState {
             Some(Control::Crouch)
         } else if name == bindings.interact {
             Some(Control::Interact)
+        } else if name == bindings.flashlight {
+            Some(Control::Flashlight)
         } else {
             None
         }

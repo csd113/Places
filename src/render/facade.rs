@@ -46,6 +46,33 @@ impl Renderer {
         WgpuRenderer::new(window).map(|renderer| Self { renderer })
     }
 
+    /// Sets the renderer-neutral handheld spotlight; invalid values are refused.
+    pub fn set_flashlight(&mut self, light: Option<super::common::Flashlight>) -> bool {
+        self.renderer.set_flashlight(light)
+    }
+
+    /// Shared scene visibility for resolving a handheld origin against nearby geometry.
+    #[must_use]
+    pub fn light_transmittance(
+        &mut self,
+        from: [f32; 3],
+        to: [f32; 3],
+        excluded: Option<super::common::DynamicId>,
+    ) -> f32 {
+        self.renderer.light_transmittance(from, to, excluded)
+    }
+
+    /// The rendered beam's incident light, including real scene occlusion.
+    #[must_use]
+    pub fn flashlight_illumination(
+        &mut self,
+        point: [f32; 3],
+        excluded_instance: Option<&str>,
+    ) -> f32 {
+        self.renderer
+            .flashlight_illumination(point, excluded_instance)
+    }
+
     /// Selects an opt-in development view independently of authored content.
     ///
     /// # Errors

@@ -117,6 +117,8 @@ where the bytes live:
 | `src/door.rs` | Door runtimes: the closed/opening/open/closing phase machine, the `locked` state, current angle and collider pose, the id→index map, and per-level reset/advance |
 | `src/interact.rs` | Interaction targeting (ray/reach/occlusion), the aiming table derived from `interactable` components, door aim bounds and the world-anchored label/prompt emission |
 | `src/ui.rs` | The menu, level select and settings screens |
+| `src/flashlight.rs` | Player power state, camera attachment with shared visibility retraction, and completed-frame light observations |
+| `src/render/wgpu/flashlight.rs`, `attached_lights.wgsl` | Bounded handheld visibility target and shared attached-light shader used by world/decals; existing meshes/pipeline own submission |
 | `src/console/` | Opt-in developer console: typed registry/parser, bounded session state, cached native text UI, SDL focus ownership and runtime command dispatch |
 | `src/game/developer.rs` | Noclip flight, validated walking recovery and conservative rigid-prop placement |
 | `src/physics/` | Rapier rigid-body world, shared metre/second gravity, strict authored profiles, dormant authored poses with explicit/pickup/active-impact activation, fixed-step interpolation, primitive/convex/compound colliders, reusable activation/reset groups collision-aware carrying and bounded supported-pose escape recovery. Pair-based solved-impulse onsets are exposed for future presentation; no sound layer lives here. Player movement remains in `game` |

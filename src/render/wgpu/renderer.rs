@@ -478,6 +478,9 @@ pub struct WgpuRenderer {
     /// resources keep the device alive internally, and the surface (which must
     /// precede the device) already has the ordering constraint that matters.
     world_pipeline: Option<WorldPipeline>,
+    flashlight: Option<crate::render::common::Flashlight>,
+    flashlight_shadow: Option<super::flashlight::FlashlightShadow>,
+    flashlight_characters: std::cell::RefCell<Vec<super::flashlight::CharacterVisibility>>,
     /// The static world mesh uploaded for the loaded level, if any.
     world: Option<WgpuWorldGeometry>,
     /// The loaded level's uploaded prop batches, if any.
@@ -700,6 +703,7 @@ pub struct WgpuRenderer {
     dynamic_field: Option<std::sync::Arc<crate::lighting::probes::ProbeField>>,
     /// Exact prepared triangles and alpha for moving-source visibility; no solve.
     dynamic_transport: Option<std::sync::Arc<crate::lighting::transport::TransportScene>>,
+    visibility_materials: Option<crate::materials::MaterialTable>,
     blacklights: crate::render::common::blacklight::BlacklightSet,
     dynamic_visibility: crate::render::common::dynamic_visibility::DynamicVisibility,
     dynamic_visibility_error: Option<String>,
@@ -938,6 +942,9 @@ impl WgpuRenderer {
             depth_size: DrawableSize::new(0, 0),
             drawable_size,
             world_pipeline: None,
+            flashlight: None,
+            flashlight_shadow: None,
+            flashlight_characters: std::cell::RefCell::new(Vec::new()),
             world: None,
             world_props: None,
             static_light_bank: None,
@@ -1021,6 +1028,7 @@ impl WgpuRenderer {
             dynamic_lighting: None,
             dynamic_field: None,
             dynamic_transport: None,
+            visibility_materials: None,
             blacklights: crate::render::common::blacklight::BlacklightSet::default(),
             dynamic_visibility: crate::render::common::dynamic_visibility::DynamicVisibility::new(),
             dynamic_visibility_error: None,
@@ -1287,6 +1295,190 @@ impl WgpuRenderer {
                 )
             }
         }
+    }
+
+    /// Invalid values are refused without replacing a valid current beam.
+    pub fn set_flashlight(&mut self, light: Option<crate::render::common::Flashlight>) -> bool {
+        if light.is_some_and(|candidate| !candidate.is_well_formed()) {
+            return false;
+        }
+        self.flashlight = light;
+        true
+    }
+
+    /// Static lighting and texture settings do not gate collision visibility.
+    /// Build the existing transport resource on demand where the prepared
+    /// practical-light path did not already install one; there is no solve.
+    fn ensure_flashlight_transport(&mut self) {
+        if self.dynamic_transport.is_some() {
+            return;
+        }
+        let (Some(level), Some(build), Some(materials)) = (
+            self.installed_level.as_ref(),
+            self.retained_build.as_ref(),
+            self.visibility_materials.as_ref(),
+        ) else {
+            return;
+        };
+        self.dynamic_transport = crate::render::common::light_transport::build_transport_scene(
+            level,
+            &build.mesh,
+            &build.batches,
+            materials,
+            &build.lighting,
+            &[],
+        )
+        .map(|(scene, _)| Arc::new(scene));
+    }
+
+    #[must_use]
+    pub fn light_transmittance(
+        &mut self,
+        from: [f32; 3],
+        to: [f32; 3],
+        excluded: Option<DynamicId>,
+    ) -> f32 {
+        if !from.iter().chain(&to).all(|value| value.is_finite()) {
+            return 0.0;
+        }
+        self.ensure_flashlight_transport();
+        let Some(transport) = self.dynamic_transport.as_deref() else {
+            return 0.0;
+        };
+        match self.dynamic_visibility.sync(&self.dynamic) {
+            Ok(_) => self.dynamic_visibility_error = None,
+            Err(error) => {
+                self.dynamic_visibility_error = Some(error);
+                return 0.0;
+            }
+        }
+        transport.transmittance(from, to)
+            * self.dynamic_visibility.transmittance(from, to, excluded)
+    }
+
+    /// Incident beam light using the same falloff/cone as material shading and
+    /// the shared static/movable triangle visibility. Animated blockers use
+    /// their current posed geometry and exclude only the receiver instance.
+    #[must_use]
+    pub fn flashlight_illumination(
+        &mut self,
+        point: [f32; 3],
+        excluded_instance: Option<&str>,
+    ) -> f32 {
+        let Some(light) = self.flashlight else {
+            return 0.0;
+        };
+        let incident = light.illumination(point);
+        if incident <= 0.0 {
+            return 0.0;
+        }
+        let from = light.position.to_array();
+        let throughput = self.light_transmittance(from, point, None);
+        if throughput <= 0.0 {
+            return 0.0;
+        }
+        incident
+            * throughput
+            * super::flashlight::character_transmittance(
+                &self.characters,
+                &self.flashlight_characters,
+                from,
+                point,
+                excluded_instance,
+            )
+    }
+
+    fn prepare_flashlight_shadow(&mut self) {
+        let Some(light) = self.flashlight else {
+            return;
+        };
+        if self.flashlight_shadow.is_none() {
+            self.flashlight_shadow = Some(super::flashlight::FlashlightShadow::new(
+                &self.device,
+                self.textures.layout(),
+                &self.material_layout,
+                &self.environment_layout,
+                light,
+            ));
+        }
+        let Some(shadow) = self.flashlight_shadow.as_mut() else {
+            return;
+        };
+        shadow.frame = super::flashlight::flashlight_frame(light);
+        shadow
+            .pipeline
+            .upload_camera(&self.queue, shadow.frame.view_projection, shadow.frame.eye);
+        for pipeline in [
+            &mut self.world_pipeline,
+            &mut self.scene_pipeline,
+            &mut self.emissive_pipeline,
+            &mut self.capture_pipeline,
+        ]
+        .into_iter()
+        .flatten()
+        {
+            pipeline.bind_flashlight_shadow(&self.device, &shadow.view);
+        }
+        for pipeline in [
+            &mut self.decal_pipeline,
+            &mut self.decal_scene_pipeline,
+            &mut self.decal_reflection_pipeline,
+        ]
+        .into_iter()
+        .flatten()
+        {
+            pipeline.bind_flashlight_shadow(&self.device, &shadow.view);
+        }
+    }
+
+    fn encode_flashlight_shadow(&self, encoder: &mut wgpu::CommandEncoder) {
+        if self.flashlight.is_none() {
+            return;
+        }
+        let (Some(shadow), Some(world), Some(textures), Some(materials), Some(environment)) = (
+            self.flashlight_shadow.as_ref(),
+            self.world.as_ref(),
+            self.world_textures.as_ref(),
+            self.world_materials.as_ref(),
+            self.environment.as_ref(),
+        ) else {
+            return;
+        };
+        let checkpoint = self.gpu_timer.pass_checkpoint();
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("places-flashlight-visibility"),
+            color_attachments: &[],
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &shadow.view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.0),
+                    store: wgpu::StoreOp::Store,
+                }),
+                stencil_ops: None,
+            }),
+            timestamp_writes: self.gpu_timer.pass_writes("flashlight_visibility"),
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+        let totals = shadow.pipeline.encode(
+            &mut pass,
+            super::world::WorldEncodeInputs {
+                geometry: world,
+                textures,
+                materials,
+                environment: environment.bind_group_for_probe(self.active_probe),
+                props: self.world_props.as_ref(),
+                dynamic: self.world_dynamic.as_ref(),
+                characters: self.world_characters.as_ref(),
+                capture_plane: None,
+                filtering: self.filtering,
+                frame: &shadow.frame,
+                cull: true,
+            },
+        );
+        drop(pass);
+        self.gpu_timer
+            .record_pass_draws(checkpoint, totals.draw_calls);
     }
 
     /// The installed catalog's reusable physics profile for a rigid prop.
@@ -2898,6 +3090,8 @@ impl WgpuRenderer {
             self.animation_seconds = 0.0;
         }
         self.blacklights = blacklights;
+        self.flashlight_characters.get_mut().clear();
+        self.visibility_materials = Some(loaded.materials.clone());
         self.dynamic_lighting = Some(build.lighting.clone());
         self.entity_lighting_revision = self.entity_lighting_revision.wrapping_add(1);
         self.dynamic_field.clone_from(&build.probes);
@@ -3862,6 +4056,37 @@ impl WgpuRenderer {
         } else {
             0
         };
+        self.prepare_flashlight_shadow();
+        if self.flashlight.is_some() {
+            let mut encoder = self
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("places-flashlight-visibility-submit"),
+                });
+            self.encode_flashlight_shadow(&mut encoder);
+            let _submission = self.queue.submit([encoder.finish()]);
+        }
+        if let Some(pipeline) = self.capture_pipeline.as_ref() {
+            pipeline.update_flashlight_lights(
+                &self.queue,
+                self.characters.dynamic_lights(),
+                self.flashlight,
+            );
+        }
+        for pipeline in [
+            &self.decal_pipeline,
+            &self.decal_scene_pipeline,
+            &self.decal_reflection_pipeline,
+        ]
+        .into_iter()
+        .flatten()
+        {
+            pipeline.update_flashlight_lights(
+                &self.queue,
+                self.characters.dynamic_lights(),
+                self.flashlight,
+            );
+        }
         let captured = plane_index.is_some_and(|index| self.encode_planar_capture(&frame, index));
         // The main pass samples the frame's real reflection sources (the
         // capture suppressed them for its own submission).
@@ -3923,13 +4148,13 @@ impl WgpuRenderer {
         // keeps its zeroed set, so a mirror or probe never bakes a glow in.
         let lights = self.characters.dynamic_lights();
         if let Some(pipeline) = self.world_pipeline.as_ref() {
-            pipeline.update_lights(&self.queue, lights);
+            pipeline.update_flashlight_lights(&self.queue, lights, self.flashlight);
         }
         if let Some(pipeline) = self.scene_pipeline.as_ref() {
-            pipeline.update_lights(&self.queue, lights);
+            pipeline.update_flashlight_lights(&self.queue, lights, self.flashlight);
         }
         if let Some(pipeline) = self.emissive_pipeline.as_ref() {
-            pipeline.update_lights(&self.queue, lights);
+            pipeline.update_flashlight_lights(&self.queue, lights, self.flashlight);
         }
         if let Some(pipeline) = self.decal_scene_pipeline.as_mut() {
             pipeline.upload_camera_with_storm(
@@ -4712,6 +4937,15 @@ impl WgpuRenderer {
         let Some(pipeline) = self.capture_pipeline.as_mut() else {
             return;
         };
+        pipeline.update_lights(&self.queue, &crate::render::common::DynamicLightSet::new());
+        if let Some(decals) = self.decal_reflection_pipeline.as_ref() {
+            decals.update_flashlight_lights(
+                &self.queue,
+                &crate::render::common::DynamicLightSet::new(),
+                None,
+            );
+        }
+
         let Some(environment) = self.environment.as_ref() else {
             return;
         };

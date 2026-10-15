@@ -212,8 +212,8 @@ pub const fn present_mode_label(mode: wgpu::PresentMode) -> &'static str {
 ///
 /// `Depth32Float` is renderable on Metal, Vulkan and Direct3D 12 and needs no
 /// optional feature. The same constant serves the world's depth testing and
-/// the probe/planar capture depths; there are no shadow maps (the reference
-/// has none) and no separate depth format anywhere.
+/// the probe/planar capture depths and handheld spotlight visibility. There
+/// is no separate depth format anywhere.
 pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
 /// Linear form of the authored background sRGB `(0.08, 0.08, 0.09)`.

@@ -64,7 +64,7 @@ pub use dynamic::{
     DynamicObject, DynamicScene, DynamicSubmesh, DynamicUpdate, MAX_DYNAMIC_MESHES,
     MAX_DYNAMIC_OBJECTS, PROBE_EPSILON_M,
 };
-pub use dynamic_lights::{DynamicLight, DynamicLightSet, MAX_DYNAMIC_LIGHTS};
+pub use dynamic_lights::{DynamicLight, DynamicLightSet, Flashlight, MAX_DYNAMIC_LIGHTS};
 use fixtures::{add_flush_mount_fixture, add_panel_fixture, add_round_fixture, add_wall_fixture};
 use geometry::build_level_geometry_mesh;
 pub use mesh::{

@@ -55,6 +55,8 @@ use crate::spatial::Aabb;
 pub const DECAL_SHADER_SRC: &str = concat!(
     include_str!("storm.wgsl"),
     "\n",
+    include_str!("attached_lights.wgsl"),
+    "\n",
     include_str!("decals.wgsl")
 );
 
@@ -234,6 +236,12 @@ pub struct DecalPipeline {
     sheet_layout: wgpu::BindGroupLayout,
     camera_buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
+    empty_bind_group: wgpu::BindGroup,
+    lights_layout: wgpu::BindGroupLayout,
+    lights_buffer: wgpu::Buffer,
+    lights_bind_group: wgpu::BindGroup,
+    lights_sampler: wgpu::Sampler,
+    flashlight_shadow_bound: bool,
     /// The last uploaded camera state, so a still camera writes nothing.
     uploaded: Option<DecalCamera>,
 }
@@ -385,9 +393,27 @@ impl DecalPipeline {
         });
         let camera_layout = camera_bind_group_layout(device);
         let sheet_layout = sheet_bind_group_layout(device);
+        let lights_layout = super::world::dynamic_lights_bind_group_layout(device);
+        let empty_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("places-decal-unused-world-groups"),
+            entries: &[],
+        });
+        let empty_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("places-decal-unused-world-groups"),
+            layout: &empty_layout,
+            entries: &[],
+        });
+        let (lights_buffer, lights_bind_group, lights_sampler) =
+            super::world::create_dynamic_lights_binding(device, &lights_layout);
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("places-wgpu-decal-pipeline-layout"),
-            bind_group_layouts: &[Some(&camera_layout), Some(&sheet_layout)],
+            bind_group_layouts: &[
+                Some(&camera_layout),
+                Some(&sheet_layout),
+                Some(&empty_layout),
+                Some(&empty_layout),
+                Some(&lights_layout),
+            ],
             immediate_size: 0,
         });
         let camera_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -412,8 +438,39 @@ impl DecalPipeline {
             sheet_layout,
             camera_buffer,
             bind_group,
+            empty_bind_group,
+            lights_layout,
+            lights_buffer,
+            lights_bind_group,
+            lights_sampler,
+            flashlight_shadow_bound: false,
             uploaded: None,
         }
+    }
+
+    pub fn bind_flashlight_shadow(&mut self, device: &wgpu::Device, view: &wgpu::TextureView) {
+        if self.flashlight_shadow_bound {
+            return;
+        }
+        self.lights_bind_group = super::world::dynamic_lights_binding(
+            device,
+            &self.lights_layout,
+            &self.lights_buffer,
+            view,
+            &self.lights_sampler,
+        );
+        self.flashlight_shadow_bound = true;
+    }
+
+    pub fn update_flashlight_lights(
+        &self,
+        queue: &wgpu::Queue,
+        lights: &crate::render::common::DynamicLightSet,
+        flashlight: Option<crate::render::common::Flashlight>,
+    ) {
+        let mut uniform = super::world::DynamicLightsUniform::new(lights);
+        uniform.flashlight = super::world::GpuFlashlight::new(flashlight);
+        queue.write_buffer(&self.lights_buffer, 0, bytemuck::bytes_of(&uniform));
     }
 
     /// The group-1 layout every decal sheet bind group is created against.
@@ -617,6 +674,9 @@ impl WgpuDecals {
             return totals;
         }
         pass.set_bind_group(0, &pipeline.bind_group, &[]);
+        pass.set_bind_group(2, &pipeline.empty_bind_group, &[]);
+        pass.set_bind_group(3, &pipeline.empty_bind_group, &[]);
+        pass.set_bind_group(4, &pipeline.lights_bind_group, &[]);
         // Cut-out ranges first (they write depth), then the blended ranges back
         // to front. The sort only runs when the level actually authors a
         // soft-edged sheet, so an ordinary level keeps its exact packed order.
@@ -1175,7 +1235,7 @@ mod tests {
         // The decoded sheet multiplies a linear vertex factor.
         assert!(
             DECAL_SHADER_SRC
-                .contains("storm_fog(camera.position, in.world_position, base.rgb * in.color.rgb)")
+                .contains("storm_fog(camera.position, in.world_position, base.rgb * light)")
         );
         assert!(DECAL_SHADER_SRC.contains("if (storm_density() == 0.0) { return color; }"));
         assert!((0.0..1.0).contains(&DECAL_ALPHA_CUTOFF));

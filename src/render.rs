@@ -48,6 +48,7 @@ pub(crate) use common::api::{
 };
 pub use common::blacklight::MAX_BLACKLIGHTS;
 pub use common::camera::RenderCamera;
+pub use common::dynamic_lights::Flashlight;
 pub use common::materials::MaterialRenderState;
 pub use common::reflections::routing_from_mesh;
 pub use common::stats::{

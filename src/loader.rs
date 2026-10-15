@@ -2935,6 +2935,15 @@ fn validate_moving_components(context: &str, components: &[ComponentDef]) -> Res
              the physical profile its baked navigation class is selected by"
         ));
     }
+    if !has_ai
+        && components
+            .iter()
+            .any(|component| matches!(component, ComponentDef::LightResponse(_)))
+    {
+        return Err(format!(
+            "{context} authors `light_response` without an `ai` component; the response needs an AI locomotion owner"
+        ));
+    }
     if let Some(radius) = components.iter().find_map(|component| {
         if let ComponentDef::NavAgent {
             radius,
@@ -3169,6 +3178,13 @@ fn validate_component_value<'a>(
             if !def.is_valid() {
                 return Err(format!(
                     "{context} `ai` component {i} has an invalid behavior, speed, range, tag, home_bounds, shelter or clip"
+                ));
+            }
+        }
+        ComponentDef::LightResponse(def) => {
+            if !def.is_valid() {
+                return Err(format!(
+                    "{context} `light_response` component {i} requires finite 0 < exit_intensity <= enter_intensity <= 8 and release_seconds in 0..=1"
                 ));
             }
         }
@@ -5017,7 +5033,8 @@ fn validate_routes(level: &LevelDef) -> Result<(), String> {
                 | ComponentDef::Fade(_)
                 | ComponentDef::Glow(_)
                 | ComponentDef::Balloon(_)
-                | ComponentDef::Ai(_) => None,
+                | ComponentDef::Ai(_)
+                | ComponentDef::LightResponse(_) => None,
             })
             .unwrap_or_else(|| {
                 (

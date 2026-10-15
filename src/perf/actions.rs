@@ -53,6 +53,12 @@ pub enum Action {
     AimItem {
         id: String,
     },
+    /// A native acceptance camera action; it leaves the actor's pose and AI intact.
+    AimEntity {
+        id: String,
+        #[serde(default)]
+        yaw_offset_degrees: f32,
+    },
     /// Direct authored-actor dispatch for explicit acceptance cases such as
     /// resetting a held group member. Normal gameplay continues to use Interact.
     Activate {
@@ -95,6 +101,20 @@ struct Step {
 }
 
 fn validate_pose_action(action: &Action) -> Result<(), String> {
+    if let Action::AimEntity {
+        id,
+        yaw_offset_degrees,
+    } = action
+        && (id.is_empty()
+            || id.len() > 256
+            || !yaw_offset_degrees.is_finite()
+            || yaw_offset_degrees.abs() > 180.0)
+    {
+        return Err(
+            "Native actor aim requires a bounded id and finite yaw offset within 180 degrees"
+                .to_string(),
+        );
+    }
     if let Action::ItemVelocity {
         id,
         linear,
@@ -155,21 +175,24 @@ fn validate_pose_action(action: &Action) -> Result<(), String> {
     Ok(())
 }
 
+fn valid_anchor(anchor: &str) -> bool {
+    anchor == "start"
+        || ["request:", "upload:", "ready:", "failed:"]
+            .iter()
+            .any(|prefix| {
+                anchor
+                    .strip_prefix(prefix)
+                    .is_some_and(|id| !id.is_empty() && id.len() <= 256)
+            })
+}
+
 fn parse(bytes: &[u8]) -> Result<Vec<Step>, String> {
     let steps: Vec<Step> = serde_json::from_slice(bytes).map_err(|error| error.to_string())?;
     if steps.is_empty() || steps.len() > MAX_ACTIONS {
         return Err("Native action script must contain 1..128 actions".to_string());
     }
     for step in &steps {
-        let valid_anchor = step.after == "start"
-            || ["request:", "upload:", "ready:", "failed:"]
-                .iter()
-                .any(|prefix| {
-                    step.after
-                        .strip_prefix(prefix)
-                        .is_some_and(|id| !id.is_empty() && id.len() <= 256)
-                });
-        if !valid_anchor || step.delay_ms > 60_000 {
+        if !valid_anchor(&step.after) || step.delay_ms > 60_000 {
             return Err("Invalid action anchor or delay (maximum 60000 ms)".to_string());
         }
         validate_pose_action(&step.action)?;
@@ -234,6 +257,10 @@ fn parse(bytes: &[u8]) -> Result<Vec<Step>, String> {
             }
             | Action::Fixture { id: _, on: _ }
             | Action::AimItem { id: _ }
+            | Action::AimEntity {
+                id: _,
+                yaw_offset_degrees: _,
+            }
             | Action::Activate { id: _ }
             | Action::Mouse {
                 button: _,
@@ -453,6 +480,21 @@ impl Drop for Actions {
         self.shutdown();
         if let Err(error) = self.join_finished() {
             crate::logging::warn(format!("[actions] shutdown: {error}"));
+        }
+    }
+}
+
+impl crate::FrameLoop<'_> {
+    pub fn set_scripted_console(&mut self, enabled: bool) {
+        self.settings.developer_console = enabled;
+        self.reconcile_console();
+        self.sync_mouse_capture();
+    }
+
+    pub fn resize_scripted_window(&mut self, width: u32, height: u32) {
+        if let Err(error) = self.window.set_size(width, height) {
+            self.fatal_error = Some(error.to_string());
+            self.game.stop();
         }
     }
 }

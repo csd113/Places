@@ -1192,6 +1192,11 @@
           },
           "idle_clip": "pose_stand",
           "move_clip": "run_arms_forward"
+        },
+        {
+          "component": "light_response",
+          "exit_intensity": 0.005,
+          "release_seconds": 0.2
         }
       ]
     },
@@ -3963,7 +3968,7 @@
     },
     {
       "id": "basement_failing_a_repeat",
-      "seconds": 17.3,
+      "seconds": 50.3,
       "repeat": true,
       "bindings": [
         {
@@ -4001,7 +4006,7 @@
     },
     {
       "id": "basement_failing_b_repeat",
-      "seconds": 23.7,
+      "seconds": 62.9,
       "repeat": true,
       "bindings": [
         {
@@ -4031,7 +4036,7 @@
         },
         {
           "step": "wait",
-          "seconds": 0.25
+          "seconds": 11.8
         },
         {
           "step": "action",
@@ -4042,7 +4047,7 @@
         },
         {
           "step": "wait",
-          "seconds": 0.5
+          "seconds": 0.32
         },
         {
           "step": "action",
@@ -4053,7 +4058,51 @@
         },
         {
           "step": "wait",
-          "seconds": 1.1
+          "seconds": 7.4
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "on": true
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 0.7
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "on": false
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 16.6
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "on": true
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 0.42
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "on": false
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 9.9
         },
         {
           "step": "action",
@@ -4077,7 +4126,7 @@
         },
         {
           "step": "wait",
-          "seconds": 0.35
+          "seconds": 17.3
         },
         {
           "step": "action",
@@ -4088,7 +4137,7 @@
         },
         {
           "step": "wait",
-          "seconds": 0.7
+          "seconds": 0.45
         },
         {
           "step": "action",
@@ -4099,7 +4148,51 @@
         },
         {
           "step": "wait",
-          "seconds": 1.4
+          "seconds": 10.6
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "on": true
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 1.1
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "on": false
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 8.9
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "on": true
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 0.3
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "on": false
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 21.1
         },
         {
           "step": "action",

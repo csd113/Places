@@ -61,7 +61,7 @@ impl SettingsPage {
                 }
             }
             Self::Display => 3,
-            Self::Controls => 19,
+            Self::Controls => 20,
         }
     }
 }
@@ -233,6 +233,7 @@ fn ui_signature(
     b.jump.hash(&mut hasher);
     b.crouch.hash(&mut hasher);
     b.interact.hash(&mut hasher);
+    b.flashlight.hash(&mut hasher);
     settings.look_speed_h.to_bits().hash(&mut hasher);
     settings.look_speed_v.to_bits().hash(&mut hasher);
     settings.mouse_sensitivity.to_bits().hash(&mut hasher);
@@ -1570,16 +1571,15 @@ mod tests {
         }
     }
 
-    /// The Controls page gained the Jump binding and the Mouse sensitivity
-    /// preference: exactly two more rows, with the sensitivity stepping by
-    /// 0.02 degrees per pixel and never leaving its documented range.
+    /// Controls show every gameplay binding and the sensitivity preference,
+    /// which steps by 0.02 degrees per pixel within its documented range.
     #[test]
     fn the_controls_page_shows_jump_and_mouse_sensitivity() {
-        assert_eq!(SettingsPage::Controls.item_count(false), 19);
+        assert_eq!(SettingsPage::Controls.item_count(false), 20);
         let display = DisplayStatus::default();
         let mut settings = Settings::default();
         let rows = settings_rows(SettingsPage::Controls, &settings, &display, false);
-        assert_eq!(rows.len(), 19);
+        assert_eq!(rows.len(), 20);
 
         let jump = rows
             .iter()
@@ -1601,6 +1601,13 @@ mod tests {
             .expect("an Interact binding row beside the movement bindings");
         assert_eq!(interact.label, "Interact");
         assert_eq!(interact.value, "E");
+
+        let flashlight = rows
+            .iter()
+            .find(|row| row.kind == SettingsRowKind::Binding("flashlight"))
+            .expect("a Flashlight binding row beside the other gameplay bindings");
+        assert_eq!(flashlight.label, "Flashlight");
+        assert_eq!(flashlight.value, "F");
 
         let sensitivity_index = rows
             .iter()

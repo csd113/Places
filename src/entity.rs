@@ -206,6 +206,7 @@ impl EntityRoutes {
                     | crate::level::ComponentDef::Water { enabled: _ }
                     | crate::level::ComponentDef::NavObstacle { size: _, affects_nav: _ }
                     | crate::level::ComponentDef::Ai(_)
+                    | crate::level::ComponentDef::LightResponse(_)
                     // The render-side components never move the body.
                     | crate::level::ComponentDef::Fade(_)
                     | crate::level::ComponentDef::Glow(_)

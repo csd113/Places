@@ -102,6 +102,7 @@ fn test_default_bindings_map_wasd_and_arrows() {
     assert_key_drives_only(Keycode::Space, Control::Jump, &bindings);
     assert_key_drives_only(Keycode::C, Control::Crouch, &bindings);
     assert_key_drives_only(Keycode::E, Control::Interact, &bindings);
+    assert_key_drives_only(Keycode::F, Control::Flashlight, &bindings);
 }
 
 /// `E` is a gameplay binding, not a menu key: it never navigates a menu and
@@ -424,29 +425,50 @@ fn graphics_pause_tracks_release_but_gates_repress_and_mouse_motion() {
     );
 }
 
-/// A rebound interact key drives only Interact, OS auto-repeat never re-fires
-/// the held bit, and releasing all gameplay inputs (pause, focus loss, level
-/// load) drops a held Interact.
+/// Rebound action keys drive only their action, OS auto-repeat never re-fires
+/// a consumed press, and pause/focus/level-load clearing drops held inputs.
+/// Flashlight shares this deterministic SDL event fixture with Interact; no
+/// renderer or map is needed to protect its once-per-press toggle contract.
 #[test]
-fn interact_rebinding_repeat_suppression_and_release_all() {
-    let mut bindings = KeyBindings::default();
-    bindings
-        .set_key("interact", "F")
-        .expect("F is unused by default");
-    assert_key_drives_only(Keycode::F, Control::Interact, &bindings);
-    // E is no longer bound to anything after the rebind.
-    let mut handler = InputHandler::new();
-    handler.handle_gameplay_event(&key_down(Keycode::E), &bindings);
-    assert_eq!(handler.state().held, 0, "the old key is unbound");
+fn action_rebinding_repeat_suppression_and_release_all() {
+    for (action, old_key, new_key, control) in [
+        ("interact", Keycode::E, Keycode::Q, Control::Interact),
+        ("flashlight", Keycode::F, Keycode::R, Control::Flashlight),
+    ] {
+        let mut bindings = KeyBindings::default();
+        bindings
+            .set_key(action, &keycode_to_str(new_key))
+            .expect("the new key is unused by default");
+        assert_key_drives_only(new_key, control, &bindings);
+        let mut handler = InputHandler::new();
+        handler.handle_gameplay_event(&key_down(old_key), &bindings);
+        assert_eq!(handler.state().held, 0, "the old key is unbound");
 
-    handler.handle_gameplay_event(&key_down(Keycode::F), &bindings);
-    handler.handle_gameplay_event(&key_repeat(Keycode::F), &bindings);
-    assert!(handler.state().is_held(Control::Interact));
-    handler.clear_gameplay_inputs();
-    assert!(
-        !handler.state().is_held(Control::Interact),
-        "pause/focus/level-load release clears a held interact"
-    );
+        handler.handle_gameplay_event(&key_down(new_key), &bindings);
+        assert!(handler.state().was_pressed(control));
+        handler.state_mut().clear_presses();
+        handler.handle_gameplay_event(&key_repeat(new_key), &bindings);
+        assert!(
+            !handler.state().was_pressed(control),
+            "repeat adds no press"
+        );
+        assert!(handler.state().is_held(control));
+        handler.clear_gameplay_inputs();
+        assert!(
+            !handler.state().is_held(control),
+            "focus clearing drops holds"
+        );
+        assert!(
+            !handler.state().was_pressed(control),
+            "focus clearing drops presses"
+        );
+        handler.handle_gameplay_event(&key_up(new_key), &bindings);
+        handler.handle_gameplay_event(&key_down(new_key), &bindings);
+        assert!(
+            handler.state().was_pressed(control),
+            "a new press is retained"
+        );
+    }
 }
 
 #[test]
@@ -456,6 +478,7 @@ fn a_complete_tap_retains_one_press_until_consumed_or_cleared() {
         (Keycode::C, Control::Crouch),
         (Keycode::E, Control::Interact),
         (Keycode::Space, Control::Jump),
+        (Keycode::F, Control::Flashlight),
     ] {
         let mut handler = InputHandler::new();
         handler.handle_gameplay_event(&key_down(key), &bindings);

@@ -14,6 +14,7 @@ pub mod door;
 pub mod entities;
 pub mod entity;
 pub mod environment;
+mod flashlight;
 #[cfg(test)]
 mod fog_void_audit;
 pub mod font;
@@ -769,6 +770,7 @@ struct FrameLoop<'a> {
     perf_overlay: &'a mut PerfOverlay,
     console: console::Console,
     console_runtime: console::runtime::Runtime,
+    flashlight: flashlight::Power,
     items: item_runtime::Items,
     video: Option<perf::video::Recording>,
     ui_cache: &'a mut UiGeometryCache,
@@ -2104,12 +2106,12 @@ impl FrameLoop<'_> {
                 self.scripted_key("Escape", true);
                 self.scripted_key("Escape", false);
             }
-            perf::actions::Action::ConsoleEnabled { enabled } => {
-                self.settings.developer_console = enabled;
-                self.reconcile_console();
-                self.sync_mouse_capture();
-            }
+            perf::actions::Action::ConsoleEnabled { enabled } => self.set_scripted_console(enabled),
             perf::actions::Action::Key { key, pressed } => self.scripted_key(&key, pressed),
+            perf::actions::Action::AimEntity {
+                id,
+                yaw_offset_degrees,
+            } => self.scripted_aim_entity(&id, yaw_offset_degrees),
             perf::actions::Action::Text { text, submit } => {
                 self.scripted_text(text, submit);
             }
@@ -2140,10 +2142,7 @@ impl FrameLoop<'_> {
                 self.items.captures.push_back(name);
             }
             perf::actions::Action::Resize { width, height } => {
-                if let Err(error) = self.window.set_size(width, height) {
-                    self.fatal_error = Some(error.to_string());
-                    self.game.stop();
-                }
+                self.resize_scripted_window(width, height);
             }
             perf::actions::Action::Quality { level } => {
                 if let Some(quality) = quality::QualityLevel::parse(&level)
@@ -3011,7 +3010,17 @@ impl FrameLoop<'_> {
                 })
             })
             .collect();
-        self.trace.record(event, self.load_generation, &serde_json::json!({
+        let light_responses: Vec<_> = self.game.entities().light_response_observations().map(|observation| {
+            serde_json::json!({
+                "instance_id": observation.instance_id,
+                "position": observation.position.to_array(),
+                "yaw": self.game.entity_frames().iter().find(|frame| frame.instance_id == observation.instance_id).and_then(|frame| frame.transform).map(|(_, yaw)| yaw),
+                "intensity": observation.intensity,
+                "active": observation.active,
+                "pose": self.game.entity_frames().iter().find(|frame| frame.instance_id == observation.instance_id).map(|frame| format!("{:?}", frame.cue)),
+            })
+        }).collect();
+        let mut state = serde_json::json!({
             "physics": {"held": self.items.world.held(), "stats": self.items.world.stats(), "bodies": self.items.world.snapshots(), "contacts": self.items.world.contact_pairs(), "contact_impulses": self.items.world.contact_impulses(), "authored": self.items.authored, "lighting": self.item_lighting_snapshots()},
             "current_level_id": self.current_level.as_ref().map(|loaded| loaded.level.id.as_str()),
             "renderer_level_id": renderer_level,
@@ -3041,7 +3050,13 @@ impl FrameLoop<'_> {
             "state": format!("{:?}", self.game.app_state()), "frame": self.game.frame_count(),
             "filtering": self.settings.texture_filtering_preset(), "rss_bytes": perf::process_resident_bytes(),
             "gpu_timing": format!("{:?}", self.renderer.gpu_timing()),
-        }).to_string());
+        });
+        if let Some(fields) = state.as_object_mut() {
+            drop(fields.insert("flashlight_on".to_string(), self.flashlight.is_on().into()));
+            drop(fields.insert("light_responses".to_string(), light_responses.into()));
+        }
+        self.trace
+            .record(event, self.load_generation, &state.to_string());
     }
 
     fn commit_loaded_world(&mut self) {
@@ -3056,6 +3071,7 @@ impl FrameLoop<'_> {
             return;
         };
         if !matches!(intent, LoadIntent::Graphics) {
+            self.flashlight = flashlight::Power::Off;
             self.console_runtime
                 .clear_given_props(self.renderer, &mut self.items.world);
         }
@@ -3495,12 +3511,8 @@ impl FrameLoop<'_> {
 
         let skip_render = self.bench.skip_render();
         if !skip_render {
-            self.renderer.render_scene(render::RenderCamera::new(
-                render_position,
-                render_yaw,
-                render_pitch,
-                self.settings.fov_degrees,
-            ));
+            let camera = self.prepare_flashlight(render_position, render_yaw, render_pitch);
+            self.renderer.render_scene(camera);
         }
         let frame_render_done = Instant::now();
         if self.game.frame_count() == 1 && !skip_render {
@@ -3777,6 +3789,11 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     result
 }
 
+fn native_actions(sdl: &Sdl, window: &Window) -> Result<Option<perf::actions::Actions>, String> {
+    let action_events = sdl.event().map_err(|error| error.to_string())?;
+    perf::actions::Actions::from_env(&action_events, window.id())
+}
+
 fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
     let mut trace = perf::loading::LoadTrace::new();
     trace.record("entry", 0, "");
@@ -3795,8 +3812,7 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
         .event_pump()
         .map_err(|e| format!("Failed to init event pump: {e}"))?;
 
-    let action_events = sdl_context.event().map_err(|error| error.to_string())?;
-    let actions = perf::actions::Actions::from_env(&action_events, window.id())?;
+    let actions = native_actions(&sdl_context, &window)?;
     let mut input_handler = InputHandler::new();
     let mut spawn_pos = Vec3::ZERO;
     let mut spawn_yaw = 0.0;
@@ -3838,6 +3854,7 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
         perf_overlay: &mut perf_overlay,
         console: console::Console::default(),
         console_runtime: console::runtime::Runtime::default(),
+        flashlight: flashlight::Power::Off,
         items: item_runtime::Items::new(),
         video: perf::video::Recording::from_env(),
         ui_cache: &mut ui_cache,

@@ -511,6 +511,9 @@ pub struct AiAgent {
     pub hidden_remaining: f32,
     /// Prevents immediate re-entry while emerging from a shelter.
     pub shelter_cooldown: f32,
+    /// Shared visible-light response temporarily holds locomotion and faces this point.
+    /// The original behavior state, path and timers remain intact.
+    pub light_look_target: Option<Vec3>,
 }
 
 impl AiAgent {
@@ -784,6 +787,7 @@ impl AiWorld {
             shelter_return: None,
             hidden_remaining: 0.0,
             shelter_cooldown: 0.0,
+            light_look_target: None,
         });
     }
 
@@ -836,7 +840,19 @@ impl AiWorld {
             agent.shelter_return = None;
             agent.hidden_remaining = 0.0;
             agent.shelter_cooldown = 0.0;
+            agent.light_look_target = None;
         }
+    }
+
+    /// Applies an opt-in renderer-backed light hold without replacing AI state.
+    pub fn set_light_response(&mut self, handle: EntityHandle, target: Option<Vec3>) -> bool {
+        let Some(agent) = self.agents.iter_mut().find(|agent| agent.handle == handle) else {
+            return false;
+        };
+        let finite_target = target.filter(|position| position.is_finite());
+        let changed = agent.light_look_target != finite_target;
+        agent.light_look_target = finite_target;
+        changed
     }
 
     /// Releases every caught mark (a world reset or encounter restart).
@@ -923,6 +939,28 @@ impl AiWorld {
     pub fn tick(&mut self, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
         let mut noise = 0u64;
         for agent in &mut self.agents {
+            if let Some(target) = agent.light_look_target
+                && !agent.caught
+                && !ctx.scripted.contains(&agent.handle)
+                && !matches!(agent.state, AiState::Catch { target: _ })
+            {
+                let direction = Vec3::new(
+                    target.x - agent.position.x,
+                    target.y - agent.position.y,
+                    target.z - agent.position.z,
+                );
+                if direction.x * direction.x + direction.z * direction.z > 0.0001 {
+                    agent.yaw_degrees = direction.x.atan2(direction.z).to_degrees();
+                }
+                agent.speed_mps = 0.0;
+                out.moved.push((
+                    agent.handle,
+                    agent.position,
+                    agent.yaw_degrees,
+                    agent.spawned,
+                ));
+                continue;
+            }
             agent.clock += ctx.delta;
             agent.path_age += ctx.delta;
             agent.catch_cooldown = (agent.catch_cooldown - ctx.delta).max(0.0);

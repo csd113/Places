@@ -297,6 +297,10 @@ impl FrameLoop<'_> {
             | crate::perf::actions::Action::ConsoleEnabled { enabled: _ }
             | crate::perf::actions::Action::Key { key: _, pressed: _ }
             | crate::perf::actions::Action::Text { text: _, submit: _ }
+            | crate::perf::actions::Action::AimEntity {
+                id: _,
+                yaw_offset_degrees: _,
+            }
             | crate::perf::actions::Action::Capture { name: _ }
             | crate::perf::actions::Action::Resize {
                 width: _,
@@ -435,6 +439,17 @@ impl FrameLoop<'_> {
     }
     pub(super) fn update_player_input(&mut self) {
         self.apply_move_script();
+        if self.window_focused
+            && self.load_intent.is_none()
+            && self.game.app_state() == crate::game::AppState::Playing
+            && self
+                .input_handler
+                .state()
+                .was_pressed(crate::input::Control::Flashlight)
+        {
+            self.flashlight.toggle();
+            self.trace_world("flashlight_toggled");
+        }
         self.game.update_player_movement_constrained(
             self.input_handler.state_mut(),
             self.settings,

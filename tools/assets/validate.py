@@ -140,6 +140,7 @@ COMPONENT_TAGS = (
     "nav_agent",
     "nav_obstacle",
     "ai",
+    "light_response",
     "fade",
     "glow",
     "balloon",
@@ -1751,6 +1752,20 @@ def _validate_components(context: str, components: object, facts: Dict, errors: 
                     for anchor in anchors
                 ):
                     errors.append(f"{entry} hide anchors must remain inside home_bounds")
+        elif tag == "light_response":
+            facts["has_light_response"] = True
+            enter = component.get("enter_intensity", 0.035)
+            leave = component.get("exit_intensity", 0.005)
+            release = component.get("release_seconds", 0.20)
+            if not (
+                is_finite_number(enter) and is_finite_number(leave)
+                and is_finite_number(release)
+                and 0.0 < leave <= enter <= 8.0 and 0.0 <= release <= 1.0
+            ):
+                errors.append(
+                    f"{entry} needs finite 0 < exit_intensity <= enter_intensity <= 8 "
+                    "and release_seconds in 0..=1"
+                )
         elif tag == "nav_obstacle":
             size = component.get("size")
             if size is not None and (
@@ -1914,6 +1929,8 @@ def _validate_ai_body(context: str, facts: Dict, errors: List[str]) -> None:
         errors.append(
             f"{context} authors an `ai` component without a `nav_agent` body"
         )
+    if facts.get("has_light_response") and not facts.get("has_ai"):
+        errors.append(f"{context} authors `light_response` without an `ai` component")
     if facts.get("has_balloon") and (facts.get("has_ai") or facts.get("has_nav_agent")):
         errors.append(f"{context}: balloon cannot share a moving AI/navigation body")
     bounds = facts.get("ai_home_bounds")

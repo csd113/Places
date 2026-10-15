@@ -18,6 +18,64 @@
 
 use glam::Vec3;
 
+/// A handheld spotlight sharing the attached-light material term. The beam is
+/// renderer neutral; gameplay samples the same angular and distance response.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Flashlight {
+    pub position: Vec3,
+    pub direction: Vec3,
+    pub color: [f32; 3],
+    pub intensity: f32,
+    pub range: f32,
+    pub inner_cos: f32,
+    pub outer_cos: f32,
+}
+
+impl Flashlight {
+    #[must_use]
+    pub fn is_well_formed(self) -> bool {
+        self.position.is_finite()
+            && self.direction.is_finite()
+            && (self.direction.length_squared() - 1.0).abs() < 0.001
+            && self
+                .color
+                .iter()
+                .all(|value| value.is_finite() && (0.0..=1.0).contains(value))
+            && self.intensity.is_finite()
+            && (0.0..=MAX_DYNAMIC_LIGHT_INTENSITY).contains(&self.intensity)
+            && self.range.is_finite()
+            && (0.1..=MAX_DYNAMIC_LIGHT_RADIUS).contains(&self.range)
+            && self.inner_cos.is_finite()
+            && self.outer_cos.is_finite()
+            && (0.1..1.0).contains(&self.outer_cos)
+            && self.inner_cos > self.outer_cos
+            && self.inner_cos <= 1.0
+    }
+
+    /// Incident linear light before material cosine and scene visibility.
+    #[must_use]
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Validated spotlight inputs use finite glam floating-point vector arithmetic."
+    )]
+    pub fn illumination(self, point: [f32; 3]) -> f32 {
+        if !self.is_well_formed() || !point.iter().all(|value| value.is_finite()) {
+            return 0.0;
+        }
+        let offset = Vec3::from_array(point) - self.position;
+        let distance = offset.length();
+        if !distance.is_finite() || distance >= self.range || distance <= 0.000_001 {
+            return 0.0;
+        }
+        let angular = ((self.direction.dot(offset / distance) - self.outer_cos)
+            / (self.inner_cos - self.outer_cos))
+            .clamp(0.0, 1.0);
+        let cone = angular * angular * 2.0_f32.mul_add(-angular, 3.0);
+        let window = (1.0 - (distance / self.range).powi(4)).max(0.0);
+        self.intensity * cone * window * window / distance.mul_add(distance, 1.0)
+    }
+}
+
 /// Practical sources re-evaluated for movable receivers. The identities are
 /// chosen once per compiled field, so movement cannot reorder the live set.
 pub const MAX_ENTITY_DIRECT_LIGHTS: usize = crate::lighting::probes::MAX_RUNTIME_PROBE_LIGHTS;
@@ -269,6 +327,68 @@ mod tests {
     )]
 
     use super::*;
+
+    /// Protects the gameplay/render beam contract with six scalar samples; no
+    /// map, assets, GPU or transport solve is needed.
+    #[test]
+    fn flashlight_profile_falls_with_distance_has_a_soft_edge_and_rejects_invalid_input() {
+        let light = Flashlight {
+            position: Vec3::ZERO,
+            direction: -Vec3::Z,
+            color: [1.0; 3],
+            intensity: 20.0,
+            range: 24.0,
+            inner_cos: 12.0_f32.to_radians().cos(),
+            outer_cos: 24.0_f32.to_radians().cos(),
+        };
+        assert!(light.is_well_formed(), "valid unit-direction beam");
+        let point = |angle: f32| (Vec3::new(angle.sin(), 0.0, -angle.cos()) * 5.0).to_array();
+        let centre = light.illumination(point(0.0));
+        let edge = light.illumination(point(18.0_f32.to_radians()));
+        assert!(
+            edge > 0.0 && edge < centre,
+            "the cone edge must fade continuously"
+        );
+        assert!(
+            light.illumination([0.0, 0.0, -2.0]) > centre,
+            "near light must be brighter"
+        );
+        assert!(
+            light.illumination([0.0, 0.0, -12.0]) < centre,
+            "distant light must decay"
+        );
+        assert_eq!(
+            light.illumination(point(25.0_f32.to_radians())),
+            0.0,
+            "outside the cone"
+        );
+        assert_eq!(
+            light.illumination([0.0, 0.0, -24.0]),
+            0.0,
+            "outside the range"
+        );
+        assert_eq!(
+            light.illumination([f32::NAN, 0.0, 0.0]),
+            0.0,
+            "non-finite receiver"
+        );
+        assert!(
+            !Flashlight {
+                direction: Vec3::ZERO,
+                ..light
+            }
+            .is_well_formed(),
+            "unit direction required"
+        );
+        assert!(
+            !Flashlight {
+                outer_cos: light.inner_cos,
+                ..light
+            }
+            .is_well_formed(),
+            "nonzero edge width required"
+        );
+    }
 
     #[test]
     fn practical_selection_is_stable_bounded_and_excludes_switchable_sources() {

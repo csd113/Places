@@ -79,6 +79,7 @@ impl Game {
     ) {
         let delta = super::clamp_sim_delta(self.sim_delta_seconds);
         self.update_look(input, settings, motion, delta);
+        self.update_doors(delta);
         let forward = self.view_direction();
         let right = Vec3::new(self.player_yaw.cos(), 0.0, self.player_yaw.sin());
         let mut direction = Vec3::ZERO;

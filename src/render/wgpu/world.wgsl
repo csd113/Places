@@ -221,66 +221,6 @@ var planar_map: texture_2d<f32>;
 @group(3) @binding(6)
 var reflection_sampler: sampler;
 
-// Group 4 is the frame's attached lights: a small, fixed-capacity array of
-// character glows the renderer resolves from the entity frames each frame.
-// It is the one realtime light term in this shader, and it is deliberately
-// bounded, unshadowed and additive on top of the baked `surface_light`; the
-// emissive pass never reads it, so bloom cannot double the pool.
-struct DynamicLight {
-    // World-space position, in metres.
-    position: vec3<f32>,
-    // The falloff window's radius, in metres, strictly positive.
-    radius: f32,
-    // Linear light colour, each channel `0..=1`.
-    color: vec3<f32>,
-    // Additive intensity.
-    intensity: f32,
-};
-
-struct DynamicLights {
-    // Number of valid entries in `lights`, 0 when nothing is attached.
-    count: u32,
-    // Explicit scalar padding so the array starts at offset 16: three separate
-    // `u32`s, because a `vec3<u32>` would itself align to 16.
-    _pad0: u32,
-    _pad1: u32,
-    _pad2: u32,
-    lights: array<DynamicLight, 8>,
-};
-
-@group(4) @binding(0)
-var<uniform> dynamic_lights: DynamicLights;
-
-// The attached lights' diffuse term at one fragment. Each light contributes a
-// cosine lobe windowed by a quadratic range falloff:
-//
-//     d = length(light.position - world_position)
-//     ndl = max(dot(normal, normalize(light.position - world_position)), 0)
-//     window = clamp(1 - d / light.radius, 0, 1)
-//     sum += color * intensity * ndl * window * window
-//
-// The term is exactly zero when no light is attached, so the baked path (and
-// the shader's unit-light bypass) is unchanged at zero lights. Zero distance
-// is guarded before the normalise; a zero-radius light is refused by the
-// neutral set, so `light.radius` is always positive here.
-fn dynamic_light_term(normal: vec3<f32>, world_position: vec3<f32>) -> vec3<f32> {
-    var sum = vec3<f32>(0.0);
-    let count = min(dynamic_lights.count, 8u);
-    for (var slot = 0u; slot < count; slot = slot + 1u) {
-        let light = dynamic_lights.lights[slot];
-        let to_light = light.position - world_position;
-        let distance = length(to_light);
-        if (distance >= light.radius) {
-            continue;
-        }
-        let direction = to_light / max(distance, 1.0e-6);
-        let ndl = max(dot(normal, direction), 0.0);
-        let window = clamp(1.0 - distance / light.radius, 0.0, 1.0);
-        sum += light.color * light.intensity * ndl * window * window;
-    }
-    return sum;
-}
-
 struct WorldVertex {
     // World-space position, pre-transformed by the CPU builder.
     @location(0) position: vec3<f32>,
@@ -945,4 +885,26 @@ fn linear_to_srgb(color: vec3<f32>) -> vec3<f32> {
 fn target_color(color: vec3<f32>) -> vec3<f32> {
     if (display_target) { return linear_to_srgb(color); }
     return color;
+}
+
+
+// Visibility-only entries use the same vertices, model matrices, texture UVs,
+// material opacity and authored cutout threshold as the ordinary world pass.
+@fragment
+fn fs_shadow(in: VsOut) {
+    if (environment.opacity < 0.5) { discard; }
+}
+
+@fragment
+fn fs_shadow_cutout(in: VsOut) {
+    let alpha = textureSample(base_texture, base_sampler, in.uv).a * in.color.a * material.opacity * environment.opacity;
+    if (alpha < material.alpha_cutoff) { discard; }
+}
+
+@fragment
+fn fs_shadow_blend(in: VsOut) {
+    // Straight transparent glass and water pass the beam. A fully covering
+    // blend primitive still blocks, matching its visible solid coverage.
+    let alpha = textureSample(base_texture, base_sampler, in.uv).a * in.color.a * material.opacity * environment.opacity;
+    if (alpha < 0.95) { discard; }
 }
