@@ -965,11 +965,15 @@ pub fn build_level_geometry_timed_with_lightmaps(
         cache.as_deref_mut(),
     );
     let Some(request) = fill else {
+        if options.mode == LightmapMode::On && build.lightmap_failure.is_none() {
+            super::props::relight_probe_props(&mut build.batches, &build.lighting, None);
+        }
         return build;
     };
     match fill_lightmaps_full(&request) {
         Ok(product) => {
             let crate::render::common::api::LightmapFillProduct { lightmaps, probes } = product;
+            super::props::relight_probe_props(&mut build.batches, &build.lighting, probes.as_ref());
             let shared_lightmaps = Arc::new(lightmaps);
             build.lightmap_millis = shared_lightmaps.stats.bake_millis;
             dump_lightmaps_for_level(level, &shared_lightmaps);

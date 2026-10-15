@@ -8,7 +8,10 @@
     reason = "Regression fixtures compare exact source attributes and bounded coordinate arithmetic; production guards remain enforced"
 )]
 
-use super::{BatchBuilder, Vertex, lightmap_prop_triangles, prop_quad_corners, shared_prop_charts};
+use super::{
+    BatchBuilder, Vertex, dense_large_model, lightmap_prop_triangles, prop_quad_corners,
+    relight_probe_props, shared_prop_charts,
+};
 use crate::lighting::lightmap::{LightmapConfig, LightmapPatch, LightmapPlan, PatchKind};
 
 const fn config() -> LightmapConfig {
@@ -583,4 +586,135 @@ fn invalid_explicit_model_density_fails_closed_without_spending_capacity() {
             "failed explicit density cannot mutate source vertices"
         );
     }
+}
+
+fn dense_probe_fixture() -> Result<
+    (
+        crate::props::LoadedPropAsset,
+        crate::spatial::Aabb,
+        crate::lighting::LevelLighting,
+    ),
+    Box<dyn std::error::Error>,
+> {
+    let mut asset = asset(&triangles(rectangle()), false);
+    asset.model.triangles = crate::level::PROP_TRIANGLE_BUDGET + 1;
+    asset.model.indices = [0, 1, 2].repeat(asset.model.triangles);
+    asset.model.submeshes[0].index_count = u32::try_from(asset.model.indices.len())?;
+    let bounds = crate::spatial::Aabb {
+        min: [0.0; 3],
+        max: [4.0; 3],
+    };
+    let level = crate::level::LevelDef::from_json(
+        r#"{
+        "format_version":3,"id":"dense_probe","name":"Dense probe",
+        "spawn":{"x":1,"z":1},"rooms":[{"x":0,"z":0,"width":4,"depth":4,"height":5}]
+    }"#,
+    )?;
+    let lighting = crate::lighting::LevelLighting::bake(&level);
+    Ok((asset, bounds, lighting))
+}
+
+/// A six-vertex synthetic dense model protects atlas overflow and deferred
+/// albedo/normal preservation without loading or baking a shipped map. Repeated
+/// indices cost less than 10 KiB; a one-probe field makes lighting deterministic.
+#[test]
+fn dense_large_props_keep_geometry_and_receive_probe_light_once()
+-> Result<(), Box<dyn std::error::Error>> {
+    let (asset, bounds, lighting) = dense_probe_fixture()?;
+    assert!(
+        dense_large_model(&asset.model, &bounds),
+        "reviewed dense scenery uses probes"
+    );
+    assert!(
+        !dense_large_model(
+            &asset.model,
+            &crate::spatial::Aabb {
+                min: [0.0; 3],
+                max: [2.0; 3],
+            }
+        ),
+        "a detailed vending machine retains surface receivers"
+    );
+    let mut builder = BatchBuilder::new(&asset.model_path, &asset.model, Vec::new());
+    let mut plan = LightmapPlan::new(config());
+    builder.push_resolved_instance(
+        &glam::Mat4::IDENTITY,
+        &asset,
+        &lighting,
+        Some(&mut plan),
+        &bounds,
+        (false, None),
+    );
+    let mut batches = [builder.finish()];
+    assert_eq!(
+        plan.chart_count(),
+        0,
+        "dense foliage spends no padded face receivers"
+    );
+    assert_eq!(
+        batches[0].indices, asset.model.indices,
+        "all source triangles remain shadow casters"
+    );
+    assert!(
+        batches[0].pending_probe_lighting,
+        "unlit source albedo is explicitly pending"
+    );
+    assert!(
+        crate::package::props::write_props(&batches).is_err(),
+        "an unlit pending batch cannot ship"
+    );
+    for (actual, original) in batches[0].vertices.iter().zip(&asset.model.vertices) {
+        assert_eq!(
+            actual.color, original.color,
+            "transport receives source albedo"
+        );
+        assert_eq!(
+            actual.normal,
+            original.normal.unwrap_or([0.0; 3]),
+            "normals survive deferred preparation"
+        );
+        assert_eq!(actual.uv, original.uv, "fitted UVs stay exact");
+    }
+    let mut field = crate::lighting::probes::ProbeField {
+        min: [-5.0; 3],
+        cell_m: 10.0,
+        dims: [1; 3],
+        probes: vec![crate::lighting::probes::ProbeSample {
+            irradiance: [0.0; 3],
+            direction: [0.0; 3],
+            axis: [0.5; 2],
+            room: 0,
+        }],
+        local_direct: None,
+        switchable_indirect: Vec::new(),
+    };
+    let original = batches[0].vertices.clone();
+    relight_probe_props(&mut batches, &lighting, Some(&field));
+    assert!(
+        !batches[0].pending_probe_lighting,
+        "prepared colours can be packaged"
+    );
+    assert!(
+        batches[0].vertices.iter().all(|v| v.color[..3] == [0.0; 3]),
+        "valid dark probes are never brightened"
+    );
+    assert!(
+        crate::package::props::write_props(&batches).is_ok(),
+        "finished colours use the existing package record"
+    );
+    field.probes[0].irradiance = [0.2, 0.3, 0.4];
+    batches[0].vertices = original;
+    batches[0].pending_probe_lighting = true;
+    relight_probe_props(&mut batches, &lighting, Some(&field));
+    assert!(
+        batches[0].vertices.iter().any(|v| v.color[1] > 0.0),
+        "lit probes illuminate the source albedo"
+    );
+    let once = batches[0].vertices.clone();
+    relight_probe_props(&mut batches, &lighting, Some(&field));
+    assert_eq!(
+        batches[0].vertices, once,
+        "lighting cannot multiply the albedo twice"
+    );
+    Ok(())
 }

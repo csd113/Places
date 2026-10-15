@@ -1074,7 +1074,7 @@ fn baked_lights(
             directional: matches!(light.mount, LightMount::Ceiling),
             owner_prop: None,
         };
-        if profile.model.is_some() && profile.kind == super::FixtureKind::WallSconce {
+        if light.baked_source_count() == 2 {
             // The luminous strips are separated by an opaque spine. Two thin
             // sources keep every transport tap on a real aperture, with the
             // original fixture's total authored power shared between them.
@@ -3316,7 +3316,7 @@ mod compiled_sky_tests {
 const MAX_COMPILED_ROOMS: u64 = 100_000;
 
 /// Largest light count a compiled record may declare.
-const MAX_COMPILED_LIGHTS: u64 = 1_000_000;
+const MAX_COMPILED_LIGHTS: u64 = crate::level::MAX_LEVEL_LIGHT_SOURCES;
 
 /// Largest opening-blend count per room.
 const MAX_COMPILED_BLENDS_PER_ROOM: u64 = 100_000;

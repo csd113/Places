@@ -2673,7 +2673,7 @@
           "range": 1.6
         }
       ],
-      "comment": "Backed against the break-room wall with clear front access; only the printed fascia emits.",
+      "comment": "R2 fascia and credit LCD share the vending power state and exterior spill lights; metal remains non-emissive.",
       "switch_group": "break_room_vending",
       "components": [
         {

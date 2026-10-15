@@ -1271,6 +1271,7 @@ fn build_variant(
                 build.probes = None;
                 build.lightmap_failure = None;
                 lightmap_failure = Some("no charts".to_string());
+                crate::render::relight_probe_props(&mut build.batches, &build.lighting, None);
             }
             crate::render::LightmapFillOutcome::Filled(mut product) => {
                 // Label the prepared moving-object field: a probe in no room or
@@ -1318,6 +1319,11 @@ fn build_variant(
                 build.lightmaps = Some(atlas);
                 build.lightmap_failure = None;
                 lightmap_failure = None;
+                crate::render::relight_probe_props(
+                    &mut build.batches,
+                    &build.lighting,
+                    build.probes.as_deref(),
+                );
                 // A feather decal must read like the prepared surface under it:
                 // rewrite the blended decals' vertex light from the same probe
                 // field moving objects use. Cut-out decals are untouched.

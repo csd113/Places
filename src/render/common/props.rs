@@ -64,6 +64,9 @@ pub struct PropMeshBatch {
     /// character path. The retained bind pose then supplies budgets/fallback,
     /// while immutable lighting casters follow the geometry actually drawn.
     pub casts_static_lighting: bool,
+    /// Preparation-only: source albedo still needs irradiance lighting before
+    /// packaging. Readers restore false because saved colours are already lit.
+    pub(crate) pending_probe_lighting: bool,
     /// Every texture the model uses, indexed by [`PropSubmeshBatch::texture`]
     /// and by [`MaterialEmission::mask`]. Shared with every other batch of the
     /// same model.
@@ -102,6 +105,7 @@ struct BatchBuilder {
     model: String,
     light_control: Option<u32>,
     casts_static_lighting: bool,
+    pending_probe_lighting: bool,
     textures: Vec<Arc<crate::loader::RawImage>>,
     primitives: Vec<PrimitiveBuilder>,
     vertices: Vec<Vertex>,
@@ -132,6 +136,7 @@ impl BatchBuilder {
             model: model_path.to_string(),
             light_control: None,
             casts_static_lighting: true,
+            pending_probe_lighting: false,
             textures,
             primitives: model
                 .submeshes
@@ -186,9 +191,14 @@ impl BatchBuilder {
         options: (bool, Option<[f32; 3]>),
     ) {
         let (defer_static_lighting, tint) = options;
+        let probe_lit = plan.is_some()
+            && !asset.model.is_animatable()
+            && dense_large_model(&asset.model, bounds);
+        self.pending_probe_lighting |= probe_lit;
         self.bounds = self.bounds.union(bounds);
         let first_vertex = self.vertices.len();
         if !asset.model.is_animatable()
+            && !probe_lit
             && let Some(active_plan) = plan
         {
             self.push_lightmapped_instance(transform, asset, active_plan, bounds);
@@ -197,7 +207,7 @@ impl BatchBuilder {
                 transform,
                 asset,
                 lighting,
-                defer_static_lighting && !asset.model.is_animatable(),
+                (defer_static_lighting || probe_lit) && !asset.model.is_animatable(),
             );
         }
         self.tint_instance(first_vertex, tint);
@@ -270,9 +280,9 @@ impl BatchBuilder {
             return;
         }
         if defer_lighting {
-            // Budget/fallback discovery only. These temporary static vertices
-            // are replaced by real surface receivers before a valid build leaves
-            // preparation; failed plans/fills rebuild the lit fallback explicitly.
+            // Preserve albedo until receivers or prepared probes light it.
+            // Normals remain available for probe and flashlight response.
+            let normal_matrix = transform.inverse().transpose();
             self.vertices.reserve(model.vertices.len());
             self.vertices.extend(model.vertices.iter().map(|vertex| {
                 Vertex {
@@ -281,6 +291,12 @@ impl BatchBuilder {
                         .to_array(),
                     color: vertex.color,
                     uv: vertex.uv,
+                    normal: vertex.normal.map_or([0.0; 3], |normal| {
+                        normal_matrix
+                            .transform_vector3(glam::Vec3::from_array(normal))
+                            .normalize_or_zero()
+                            .to_array()
+                    }),
                     ..Vertex::UNLIT
                 }
             }));
@@ -404,6 +420,7 @@ impl BatchBuilder {
             model: self.model,
             light_control: self.light_control,
             casts_static_lighting: self.casts_static_lighting,
+            pending_probe_lighting: self.pending_probe_lighting,
             textures: self.textures,
             submeshes,
             source_primitives,
@@ -774,8 +791,6 @@ fn resolve_prop_instances_inner<'a>(
             continue;
         }
 
-        let lightmapped = plan.is_some() && !asset.model.is_animatable();
-
         // A prop's authored `y` is an offset above the local walkable floor, so
         // a chair in an elevated room or a recessed region lands on the surface
         // it was placed against.
@@ -785,6 +800,9 @@ fn resolve_prop_instances_inner<'a>(
         // happens to be centred in: a chair on a cell boundary must not be
         // culled while a sliver of it is still on screen.
         let instance_bounds = prop_instance_bounds(&asset.model, &model, prop, base_y);
+        let lightmapped = plan.is_some()
+            && !asset.model.is_animatable()
+            && !dense_large_model(&asset.model, &instance_bounds);
         let cell = grid.cell_of(instance_bounds.centre());
 
         // One batch holds every instance of a model inside one spatial cell, but
@@ -846,6 +864,58 @@ fn resolve_prop_instances_inner<'a>(
         (busy_vertices, models_seen),
     ));
     (batches, fallbacks)
+}
+
+/// Reviewed models beyond the ordinary art budget cannot afford one
+/// padded receiver per tiny face. Large dense scenery retains indexed geometry
+/// and source albedo for transport, then receives the prepared irradiance field.
+fn dense_large_model(model: &crate::gltf::PropModel, bounds: &crate::spatial::Aabb) -> bool {
+    model.triangles > crate::level::PROP_TRIANGLE_BUDGET
+        && bounds
+            .max
+            .iter()
+            .zip(bounds.min)
+            .any(|(high, low)| high - low > 3.0)
+}
+
+/// Light the deferred, uncharted static scenery after transport has consumed
+/// its original albedo. Valid dark probes stay dark; missing fields use the
+/// established environment lighting, never an unlit/full-bright colour.
+pub fn relight_probe_props(
+    batches: &mut [PropMeshBatch],
+    lighting: &LevelLighting,
+    field: Option<&crate::lighting::probes::ProbeField>,
+) {
+    for batch in batches
+        .iter_mut()
+        .filter(|batch| batch.pending_probe_lighting)
+    {
+        for vertex in batch
+            .vertices
+            .iter_mut()
+            .filter(|vertex| vertex.lightmap_page == super::LIGHTMAP_NONE)
+        {
+            let position = glam::Vec3::from_array(vertex.pos);
+            let normal = glam::Vec3::from_array(vertex.normal).normalize_or_zero();
+            let sample = normal.mul_add(glam::Vec3::splat(0.025), position);
+            let room = lighting.room_index_at_height(sample.x, sample.y, sample.z);
+            let display = field
+                .and_then(|prepared| prepared.sample(sample.to_array(), room))
+                .map_or_else(
+                    || {
+                        let light = lighting
+                            .sample(position.x, position.y, position.z)
+                            .plus(lighting.global_surface_light(vertex.pos, normal.to_array()));
+                        [light.r, light.g, light.b]
+                    },
+                    |texel| texel.light_at(normal.to_array()),
+                );
+            for (channel, light) in vertex.color.iter_mut().take(3).zip(display) {
+                *channel *= light;
+            }
+        }
+        batch.pending_probe_lighting = false;
+    }
 }
 
 fn prop_instance_bounds(

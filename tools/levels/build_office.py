@@ -233,7 +233,7 @@ def build_level():
                      color=[.66, .79, 1], intensity=.28, range=2.7),
                 dict(shape='point', offset=[-.1, .45, .43],
                      color=[.66, .79, 1], intensity=.08, range=1.6)],
-        comment='Backed against the break-room wall with clear front access; only the printed fascia emits.')
+        comment='R2 fascia and credit LCD share the vending power state and exterior spill lights; metal remains non-emissive.')
     # The source's payment hardware projects to +Z .471 and +X .5055;
     # centered collision must cover those maxima rather than its raw span.
     snack = prop('core:office_snack_machine', 22.65, .6, 'top_snack_vending', 7.2,

@@ -9,14 +9,38 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/props'))
 import glb
 import geometry
-from mesh import PropBuilder
-from parts import string_lights as mesh
-from string_lights import SPANS, BULB_HEIGHT, attachment_height, bulbs, lights, size
+from string_lights import SPANS, TIMBER_LANTERN_SOURCE, attachment_height, lights
+
+
+def material_points(model, slot):
+    return {model.positions[index]
+            for triangle, start in enumerate(range(0, len(model.indices), 3))
+            if model.triangle_materials[triangle] == slot
+            for index in model.indices[start:start+3]}
+
+
+def axis_intersections(model, point, axis):
+    """Intersect the delivered skins to catch housing below an authored source."""
+    projected = [i for i in range(3) if i != axis]
+    hits = []
+    for triangle, start in enumerate(range(0, len(model.indices), 3)):
+        a, b, c = (model.positions[i] for i in model.indices[start:start+3])
+        ux, uy = b[projected[0]]-a[projected[0]], b[projected[1]]-a[projected[1]]
+        vx, vy = c[projected[0]]-a[projected[0]], c[projected[1]]-a[projected[1]]
+        determinant = ux*vy-uy*vx
+        if abs(determinant) < 1e-10:
+            continue
+        px, py = point[0]-a[projected[0]], point[1]-a[projected[1]]
+        u, v = (px*vy-py*vx)/determinant, (ux*py-uy*px)/determinant
+        if u >= -1e-8 and v >= -1e-8 and u+v <= 1+1e-8:
+            hits.append((a[axis]+u*(b[axis]-a[axis])+v*(c[axis]-a[axis]),
+                         model.triangle_materials[triangle]))
+    return sorted(hits)
 
 
 class StringLightTests(unittest.TestCase):
-    def test_closed_modular_meshes_preserve_bulb_size_and_emission_isolation(self):
-        for variant, (length, sag, count) in SPANS.items():
+    def test_delivered_bulbs_have_clear_sources_and_isolated_emission(self):
+        for variant, count in (('short', 5), ('medium', 7), ('long', 11)):
             with self.subTest(variant=variant):
                 path = ROOT / f'assets/environments/winter/props/string_lights_{variant}.glb'
                 model = glb.read_glb(path.read_bytes())
@@ -24,38 +48,78 @@ class StringLightTests(unittest.TestCase):
                 for field in ('degenerate', 'boundary_edges', 'nonmanifold_edges',
                               'inconsistent_edges', 'flipped_triangles', 'contradictory_components'):
                     self.assertEqual(report[field], 0)
-                self.assertLess(model.triangle_count, 800)
                 self.assertAlmostEqual(model.bounds()[0][1], 0)
                 self.assertTrue(all(0 <= v <= 1 for uv in model.uvs for v in uv))
-                glass = next(m for m in model.json['materials'] if m['name'] == 'warm_bulb')
-                cable = next(m for m in model.json['materials'] if m['name'] == 'dark_cable')
-                self.assertEqual(glass['emissiveFactor'], [1, .56, .16])
+                emitting = [i for i, material in enumerate(model.json['materials'])
+                            if any(material.get('emissiveFactor', [0, 0, 0]))]
+                self.assertEqual(len(emitting), 1, 'cable and sockets remain non-emissive')
+                glass = model.json['materials'][emitting[0]]
+                for actual, expected in zip(glass['emissiveFactor'], [1, .56, .16]):
+                    self.assertAlmostEqual(actual, expected)
                 self.assertEqual(glass.get('extensions', {}).get('KHR_materials_emissive_strength', {})
-                                 .get('emissiveStrength', 1), 1)
-                self.assertNotIn('emissiveFactor', cable)
-                self.assertEqual(len(lights(variant)), count)
-                for source, (x, top) in zip(lights(variant), bulbs(variant)):
-                    self.assertAlmostEqual(source['offset'][0], x, places=5)
-                    self.assertAlmostEqual(source['offset'][1], top-BULB_HEIGHT-.02, places=5)
-                    # The downward source ray starts below every matching bulb.
-                    self.assertLess(source['offset'][1], top-BULB_HEIGHT)
-                self.assertAlmostEqual(attachment_height(variant), sag+.22)
-                p = PropBuilder('winter:string_lights_'+variant, variant, size(variant))
-                mesh.build(p, variant)
-                p.mesh.validate(size(variant))
-                self.assertEqual(glb.write_glb(p.mesh, p.tex.png_bytes(), name=p.id.replace(':', '_'),
-                                              nodes=p.nodes, animations=p.clips), path.read_bytes())
+                                 .get('emissiveStrength', 1), 2)
+                # Discover each physical bulb from the delivered glass, independently
+                # of the authoring table. Glass and neck share the same X interval.
+                bulbs = []
+                for point in sorted(material_points(model, emitting[0])):
+                    if not bulbs or point[0]-bulbs[-1][-1][0] > .1:
+                        bulbs.append([])
+                    bulbs[-1].append(point)
+                self.assertEqual(len(bulbs), count)
+                sources = lights(variant)
+                self.assertEqual(len(sources), count)
+                self.assertAlmostEqual(sum(source['intensity'] for source in sources),
+                                       .32*SPANS[variant][2])
+                for source, points in zip(sources, bulbs):
+                    x, y, z = source['offset']
+                    self.assertAlmostEqual(x, (min(p[0] for p in points)+
+                                               max(p[0] for p in points))/2, places=5)
+                    self.assertAlmostEqual(y, min(p[1] for p in points)-.02, places=5)
+                    self.assertEqual(z, 0)
+                    skins = axis_intersections(model, (x, z), 1)
+                    self.assertTrue(skins)
+                    self.assertAlmostEqual(min(hit[0] for hit in skins)-y, .02, places=5)
+
+    def test_lantern_front_spill_clears_glass_and_opaque_base(self):
+        model = glb.read_glb((ROOT / 'assets/environments/winter/props/timber_lantern.glb').read_bytes())
+        slot = model.material_names.index('winter_bulb_emitter')
+        glass = material_points(model, slot)
+        x, y, z = TIMBER_LANTERN_SOURCE
+        self.assertEqual(x, 0)
+        self.assertAlmostEqual(y, (min(p[1] for p in glass)+max(p[1] for p in glass))/2, places=5)
+        front_hits = axis_intersections(model, (x, y), 2)
+        self.assertEqual(front_hits[-1][1], slot)
+        self.assertGreater(z-front_hits[-1][0], .06)
+        base_front = max(hit[0] for hit in axis_intersections(model, (x, 2.32), 2)
+                         if hit[1] != slot)
+        self.assertAlmostEqual(z-base_front, .02, places=5)
+        self.assertTrue(all(hit[0] > y for hit in axis_intersections(model, (x, z), 1)),
+                        'the downward spill clears the opaque base')
+        self.assertFalse(axis_intersections(model, (y, z), 0),
+                         'lateral spill clears the corner cage')
+        level = json.loads((ROOT / 'levels/winter.json').read_text())
+        lanterns = [p for p in level['props'] if p['model'] == 'winter:timber_lantern']
+        self.assertEqual(len(lanterns), 2)
+        for prop in lanterns:
+            self.assertEqual(prop['lights'], [{'shape': 'point', 'offset': list(TIMBER_LANTERN_SOURCE),
+                                              'intensity': 1.5, 'range': 14,
+                                              'color': [1, .81, .55], 'falloff': 'smooth'}])
 
     def test_mounts_are_supported_clear_of_walks_and_light_budget_stays_local(self):
         level = json.loads((ROOT / 'levels/winter.json').read_text())
         spans = [p for p in level['props'] if p['model'].startswith('winter:string_lights_')]
         self.assertEqual(len(spans), 8)
-        self.assertEqual(sum(len(p['lights']) for p in spans), 38)
+        self.assertEqual(sum(len(p['lights']) for p in spans), 60)
         for p in spans:
             self.assertFalse(p.get('solid', False))
             self.assertFalse(p['occludes'])
             self.assertNotIn('scale', p, 'repeat spans instead of stretching bulbs')
-            self.assertLessEqual(len(p['lights']), 8)
+            variant = p['model'].removeprefix('winter:string_lights_')
+            self.assertEqual(len(p['lights']), {'short': 5, 'medium': 7, 'long': 11}[variant])
+            legacy_intensity, radius = (.10, 3) if p['id'].startswith('lodge_rail_') else (.32, 4.5)
+            self.assertAlmostEqual(sum(light['intensity'] for light in p['lights']),
+                                   legacy_intensity*SPANS[variant][2])
+            self.assertTrue(all(light['range'] == radius for light in p['lights']))
             self.assertTrue(all(l['shape'] == 'point' and l['range'] <= 4.5 and
                                 l['intensity'] <= .32 and l['color'][0] > l['color'][2]
                                 for l in p['lights']))

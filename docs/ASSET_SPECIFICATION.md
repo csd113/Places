@@ -995,27 +995,14 @@ contracts; the historical `duck_remade.py` four-cell exporter is superseded.
 
 ### 8.7 Winter static snow kit
 
-The October 8 concept reconstruction preserves the current bare Outdoors
-evergreen/rock/rail records and adds closed supported snow. Evergreen snow
-coats connected upward bough surfaces with sealed rims, rather than scattered
-triangular patches. The imported base and its atlas remain exact. The preceding
-canonical generation remains in the chronological review archives; normal
-builders now use the reconstructed bare kit. No Outdoors file is rewritten.
-
-New Winter architecture uses the existing static prop class: square opaque
-`village_materials_master.png` (1024²) and `village_materials.png` (256²),
-with fitted stone/wood/metal/amber row-major quadrants. Geometry and this new
-layout are authored together. Stone is cropped within one generated masonry
-block; actual model courses own construction joints. Timber and cast metal
-reuse authored material pixels; pane emission is confined to the amber slot.
-Snow caps use the committed white binding, with real thickness and sealed
-undersides. All models have +Z fronts, centred X/Z and base-contact Y=0.
-Ground/wall PNGs remain square, opaque and periodic. `snow_01`, `ice_01`,
-`stone_masonry_01` and `timber_01` retain 1024² source masters; model snow
-and fitted atlas derivatives are Lanczos 256². Stone repeats at 2.4 m and
-four timber boards at 1.2 m. Packed snow remains a matte 5 m repeat.
-The existing ice opacity, traction, response and sky/weather contracts remain.
-See the Winter journal for generated-source provenance and exact derivatives.
+The October 15 Library delivery replaces 39 Winter exports and three Outdoors
+trees with exact completed GLBs. Their shared opaque 512² fitted atlas is
+`environments/winter/props/winter_materials.png`; all 42 embed the same PNG.
+UV layout, normals, material groups, alpha and source pivots remain delivered.
+`completed-models.json` records measured bounds and exact hashes. Historical
+October 8 procedural constructors remain source history and cannot overwrite
+completed models. Ground/wall sheets, ice traction and sky/weather contracts
+remain unchanged.
 
 Winter uses the existing surface/model classes, with no new shader or raster
 contract. `winter:tex_snow_01` is an opaque, seamless 1024² floor sheet at
@@ -1024,37 +1011,36 @@ this source; their world-aligned repeats are 8 m and 5 m respectively. The
 packed material uses a restrained compaction tint. Both are matte and carry
 no normal map, emission or baked directional illumination.
 
-`environments/winter/props/snow_surface.png` is its native 256² fitted
-derivative. Modular drifts, architecture caps and icicles embed that PNG;
-their top UVs are continuous across neighbouring facets. All snow/ice shells
-are closed and outward-wound, with no blend materials.
+The completed snow shells are closed and outward-wound. Evergreen bark,
+foliage and snow use separate opaque, non-emissive material groups. The two
+snow loads retain 3.2 × 6.8 × 3.2 m bounds and narrow trunk colliders; their
+geometry is no longer required to prefix a different bare tree's vertices.
+Exact-hash importer exceptions cover Outdoors trees 01/02 at 10,326/11,916
+triangles and snow trees 01/02 at 7,982/9,958. Ordinary imports retain the
+6,000-triangle ceiling. Snow on rocks and walls changes the visual envelope;
+colliders cover their solid underlying bodies.
 
-`tools/props/parts/winter.py` imports the committed canonical evergreen,
-rocks and railing meshes verbatim: original vertex positions, indices, UVs,
-colours and atlas layout remain unchanged. The current evergreen has opaque
-grouped needle lobes. It adds a separate
-`snow_accumulation` mesh/material. This material samples the existing committed
-white sheet through the supported untextured-material path; the original
-embedded atlas and equivalent outdoor standalone PNG stay intact. No snow
-artwork is painted at build/load time. The exporter accepts
-`material(..., use_texture=False)` for that existing runtime contract.
+Large static models above the ordinary 1,500-triangle art budget use
+prepared irradiance probes instead of a padded atlas receiver for every small
+face. The five delivered tree variants currently meet this policy. Source geometry, normals, UVs and opaque shadow
+casting remain intact. Source albedo stays unlit during transport, then receives
+the solved directional field before packaging. A valid dark probe stays dark;
+missing coverage uses the established environment-lighting fallback. Other
+models keep their physical atlas density and the atlas page budget is unchanged.
 
-The two evergreen loads are 1284 and 1380 triangles, explicitly reviewed above
-800 because each retains all 708 original triangles plus closed supported
-snow. Every other static snow-kit model is below 500 triangles; the separate
-string-light kit uses 344/552/760 triangles for short/medium/long spans.
-Tree dimensions remain
-3.2 × 6.8 × 3.2 m; the level retains the original narrow trunk collider.
-Snow on rocks and rails increases their visual envelope only. Their collision
-sizes must remain those of the canonical bare structures.
+Current rail-only straight/corner snow modules and the two linked fence
+section/post modules retain their newer geometry, original PNGs and stock
+contracts. The delivered integral-post railings are separate completed assets,
+`winter:railing_snow_straight_assembly` and
+`winter:railing_snow_corner_assembly`; do not substitute them into linked runs.
 
 Modular cap origins are their base-contact plane, centred in X/Z. Sink caps
 8–9 mm into their supports to avoid coplanar seams. Icicle origins are the
 lowest tip, with all roots at the catalogue height; mount the root plane
-15 mm into the underside. Prop Y remains floor-relative. See
-`assets/environments/winter/README.md` for the module dimensions and roof pitch.
-`python3 -m unittest tests.test_winter_assets` protects canonical identity,
-supported snow, UVs, winding, sealed topology, budgets and reproducible exports.
+15 mm into the underside. Prop Y remains floor-relative. Catalog sizes and
+completed-model bounds define module dimensions. `tests.test_winter_assets`
+protects sealed topology, UVs, mounting, material roles and retained modular
+stock; generic completed-model checks protect accepted export identity.
 
 Winter frozen-water albedo uses the existing **floor surface sheet** contract:
 `winter:tex_ice_01` at `environments/winter/textures/floors/ice_01.png` is a
@@ -1071,20 +1057,19 @@ Validate with the standard texture budget/seam checks and native pond views.
 
 ### Winter string lights
 
-The three `winter:string_lights_{short,medium,long}` props share the committed
-128² opaque `environments/winter/props/string_lights.png`, copied
-losslessly from the existing home ball-light source. Its unchanged three-cell
-layout is glass, cable, clip (`Texture.auto`), with normalized fitted UVs and
-no tiling. All GLBs embed equivalent pixels. Glass uses a separate amber
-emissive material (strength 1.0); cable and sockets have zero emission.
+The three completed `winter:string_lights_{short,medium,long}` props share the
+opaque 512² `winter_materials.png` atlas. Glass uses the separate amber
+`winter_bulb_emitter` material; cable, sockets and opaque metal have zero emission.
 No billboard halo, alpha blend or generated raster is needed.
 
 Attachment centres span 2.8/4.0/6.6 m along local X, with .15/.28/.40 m sag.
 Their origin is the lowest bulb underside, centered X/Z; +Z is front. The
-9 cm diameter bulbs remain the same size across all three meshes. The map
-builder shares the bulb/attachment coordinates with the mesh authoring tool
-and authors one existing point source 2 cm below each bulb, outside its opaque
-glass. Model emission alone does not illuminate the environment.
+completed spans contain 5/7/11 bulbs. The map builder uses the measured emitter
+table in `tools/props/string_lights.py`, placing one point 2 cm below each bulb's
+minimum Y, outside its opaque glass. It preserves each span's previous total
+authored light power. Model emission alone does not illuminate the environment.
+The timber lantern's front source is `[0, 2.56, .167062]`, clear of the frame;
+only its `winter_bulb_emitter` slot emits.
 
 ### 8.8 Model geometry conventions (for context)
 
@@ -2402,8 +2387,8 @@ wall-centered noticeboard and asymmetric fittings retain those measured local
 origins. Their runtime check verifies both hash and bounds; ordinary unreviewed
 assets retain floor-contact and centering requirements.
 
-Thirteen unique embedded PNG sources have equivalent standalone files beside
-their models; the five Office replacements retain the delivered 1024² masters.
+The embedded PNG sources have equivalent standalone files beside their models;
+the four unchanged Office replacements retain their delivered 1024² masters.
 No UV layout, alpha mode, image pixels or dimensional shelf/product geometry is
 re-authored. Complete editable/reference deliveries remain under the ignored
 `import/model-rework/` collection and in their original Library items.
@@ -2416,6 +2401,16 @@ Ordinary/public GLB imports still stop at 6,000 triangles. The source material
 groups already consolidate wrapper shaders; metal remains non-emissive.
 The model is 1.9 m tall with bottom-centered cabinet origin; its forward controls
 are intentionally included in the larger authored collision envelope.
+
+The revised drinks machine retains the exact R2 export: 2,869 triangles and
+12 opaque material groups in the original 1 × 1.9 × .8 m envelope. Its fitted
+`drinks_fascia.png` is 256 × 512 and `drinks_materials.png` is 256²; both have
+standalone equivalents beside the GLB. Vent, cavity and label surfaces are
+intentionally open, with finite unit normals and valid winding. Fascia slot 4
+`Office_vending_mountain_art` retains its authored override; LCD slot 6
+`DRINKS_07_LCD_EMISSION` retains delivered emission. Both follow the existing
+shared vending circuit, together with its two unchanged exterior spill sources.
+All metal and other material slots remain non-emissive.
 
 Fixed props may author numeric `emission_overrides` while retaining the delivered
 GLB and fitted PNGs. A shared `light` component controls only luminous slots and

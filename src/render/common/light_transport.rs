@@ -993,6 +993,7 @@ pub(super) fn dynamic_mesh_visibility_scene(
         model: mesh.model_path.clone(),
         light_control: None,
         casts_static_lighting: true,
+        pending_probe_lighting: false,
         // DynamicMesh filters empty source primitives too. Its isolated ray
         // scene can preserve material continuity within each draw submesh
         // without pretending the compressed ordinal is an original source ID.
@@ -1055,6 +1056,7 @@ pub(in crate::render) fn character_visibility_scene(
         model: character.asset().model_path.clone(),
         light_control: None,
         casts_static_lighting: true,
+        pending_probe_lighting: false,
         source_primitives: Vec::new(),
         textures: textures.to_vec(),
         submeshes: model
@@ -2446,6 +2448,7 @@ mod tests {
             model: "source-material-control".to_owned(),
             light_control: None,
             casts_static_lighting: true,
+            pending_probe_lighting: false,
             source_primitives,
             textures: Vec::new(),
             submeshes: vec![crate::render::PropSubmeshBatch {
@@ -2549,6 +2552,7 @@ mod tests {
                 model: "alpha-contract".to_owned(),
                 light_control: None,
                 casts_static_lighting: true,
+                pending_probe_lighting: false,
                 source_primitives: vec![0],
                 textures: Vec::new(),
                 submeshes: vec![crate::render::PropSubmeshBatch {

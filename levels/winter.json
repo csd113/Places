@@ -2374,8 +2374,8 @@
           "shape": "point",
           "offset": [
             0,
-            2.6,
-            0.12
+            2.56,
+            0.167062
           ],
           "intensity": 1.5,
           "range": 14,
@@ -2405,8 +2405,8 @@
           "shape": "point",
           "offset": [
             0,
-            2.6,
-            0.12
+            2.56,
+            0.167062
           ],
           "intensity": 1.5,
           "range": 14,
@@ -3329,9 +3329,9 @@
       "rotation_degrees": 90,
       "solid": true,
       "size": [
-        0.5,
+        2.4,
         0.98,
-        2.4
+        0.5
       ]
     },
     {
@@ -3342,9 +3342,9 @@
       "rotation_degrees": 90,
       "solid": true,
       "size": [
-        0.5,
+        2.4,
         0.98,
-        2.4
+        0.5
       ]
     },
     {
@@ -3355,9 +3355,9 @@
       "rotation_degrees": 90,
       "solid": true,
       "size": [
-        0.5,
+        2.4,
         0.98,
-        2.4
+        0.5
       ]
     },
     {
@@ -3368,9 +3368,9 @@
       "rotation_degrees": 90,
       "solid": true,
       "size": [
-        0.5,
+        2.4,
         0.98,
-        2.4
+        0.5
       ]
     },
     {
@@ -3431,9 +3431,9 @@
       "rotation_degrees": 90,
       "solid": true,
       "size": [
-        0.5,
+        2.4,
         0.98,
-        2.4
+        0.5
       ]
     },
     {
@@ -3444,9 +3444,9 @@
       "rotation_degrees": 90,
       "solid": true,
       "size": [
-        0.5,
+        2.4,
         0.98,
-        2.4
+        0.5
       ]
     },
     {
@@ -3457,9 +3457,9 @@
       "rotation_degrees": 90,
       "solid": true,
       "size": [
-        0.5,
+        2.4,
         0.98,
-        2.4
+        0.5
       ]
     },
     {
@@ -3470,9 +3470,9 @@
       "rotation_degrees": 90,
       "solid": true,
       "size": [
-        0.5,
+        2.4,
         0.98,
-        2.4
+        0.5
       ]
     },
     {
@@ -3936,8 +3936,8 @@
     {
       "id": "forest_3_1",
       "model": "winter:tree_snow_02",
-      "x": -16.1538,
-      "z": -24.986,
+      "x": -16.1938,
+      "z": -24.786,
       "rotation_degrees": 4.9638,
       "scale": 0.9277,
       "solid": true,
@@ -5490,11 +5490,11 @@
         {
           "shape": "point",
           "offset": [
-            -0.7,
-            0.0175,
+            -1.323442,
+            0.159063,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.192,
           "range": 4.5,
           "color": [
             1,
@@ -5506,11 +5506,27 @@
         {
           "shape": "point",
           "offset": [
-            0.0,
+            -0.661721,
+            0.024766,
+            0
+          ],
+          "intensity": 0.192,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
             -0.02,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.192,
           "range": 4.5,
           "color": [
             1,
@@ -5522,11 +5538,27 @@
         {
           "shape": "point",
           "offset": [
-            0.7,
-            0.0175,
+            0.661721,
+            0.024766,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.192,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            1.323442,
+            0.159063,
+            0
+          ],
+          "intensity": 0.192,
           "range": 4.5,
           "color": [
             1,
@@ -5548,11 +5580,11 @@
         {
           "shape": "point",
           "offset": [
-            -0.7,
-            0.0175,
+            -1.323442,
+            0.159063,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.192,
           "range": 4.5,
           "color": [
             1,
@@ -5564,11 +5596,27 @@
         {
           "shape": "point",
           "offset": [
-            0.0,
+            -0.661721,
+            0.024766,
+            0
+          ],
+          "intensity": 0.192,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
             -0.02,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.192,
           "range": 4.5,
           "color": [
             1,
@@ -5580,11 +5628,27 @@
         {
           "shape": "point",
           "offset": [
-            0.7,
-            0.0175,
+            0.661721,
+            0.024766,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.192,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            1.323442,
+            0.159063,
+            0
+          ],
+          "intensity": 0.192,
           "range": 4.5,
           "color": [
             1,
@@ -5606,11 +5670,11 @@
         {
           "shape": "point",
           "offset": [
-            -2.475,
-            0.205,
+            -3.22331,
+            0.42178,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.20363636363636364,
           "range": 4.5,
           "color": [
             1,
@@ -5622,11 +5686,11 @@
         {
           "shape": "point",
           "offset": [
-            -1.65,
-            0.08,
+            -2.578648,
+            0.26274,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.20363636363636364,
           "range": 4.5,
           "color": [
             1,
@@ -5638,11 +5702,11 @@
         {
           "shape": "point",
           "offset": [
-            -0.825,
-            0.005,
+            -1.933986,
+            0.139041,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.20363636363636364,
           "range": 4.5,
           "color": [
             1,
@@ -5654,11 +5718,43 @@
         {
           "shape": "point",
           "offset": [
-            0.0,
+            -1.289324,
+            0.050685,
+            0
+          ],
+          "intensity": 0.20363636363636364,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            -0.644662,
+            -0.002329,
+            0
+          ],
+          "intensity": 0.20363636363636364,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
             -0.02,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.20363636363636364,
           "range": 4.5,
           "color": [
             1,
@@ -5670,11 +5766,11 @@
         {
           "shape": "point",
           "offset": [
-            0.825,
-            0.005,
+            0.644662,
+            -0.002329,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.20363636363636364,
           "range": 4.5,
           "color": [
             1,
@@ -5686,11 +5782,11 @@
         {
           "shape": "point",
           "offset": [
-            1.65,
-            0.08,
+            1.289324,
+            0.050685,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.20363636363636364,
           "range": 4.5,
           "color": [
             1,
@@ -5702,11 +5798,43 @@
         {
           "shape": "point",
           "offset": [
-            2.475,
-            0.205,
+            1.933986,
+            0.139041,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.20363636363636364,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            2.578648,
+            0.26274,
+            0
+          ],
+          "intensity": 0.20363636363636364,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            3.22331,
+            0.42178,
+            0
+          ],
+          "intensity": 0.20363636363636364,
           "range": 4.5,
           "color": [
             1,
@@ -5721,18 +5849,18 @@
       "id": "lodge_rail_string_0",
       "model": "winter:string_lights_short",
       "x": -13.53,
-      "z": -7.65,
-      "y": 0.57,
+      "z": -7.58,
+      "y": 1.17,
       "occludes": false,
       "lights": [
         {
           "shape": "point",
           "offset": [
-            -0.7,
-            0.0175,
+            -1.323442,
+            0.159063,
             0
           ],
-          "intensity": 0.1,
+          "intensity": 0.06000000000000001,
           "range": 3.0,
           "color": [
             1,
@@ -5744,11 +5872,27 @@
         {
           "shape": "point",
           "offset": [
-            0.0,
+            -0.661721,
+            0.024766,
+            0
+          ],
+          "intensity": 0.06000000000000001,
+          "range": 3.0,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
             -0.02,
             0
           ],
-          "intensity": 0.1,
+          "intensity": 0.06000000000000001,
           "range": 3.0,
           "color": [
             1,
@@ -5760,11 +5904,27 @@
         {
           "shape": "point",
           "offset": [
-            0.7,
-            0.0175,
+            0.661721,
+            0.024766,
             0
           ],
-          "intensity": 0.1,
+          "intensity": 0.06000000000000001,
+          "range": 3.0,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            1.323442,
+            0.159063,
+            0
+          ],
+          "intensity": 0.06000000000000001,
           "range": 3.0,
           "color": [
             1,
@@ -5779,18 +5939,18 @@
       "id": "lodge_rail_string_1",
       "model": "winter:string_lights_short",
       "x": -9.47,
-      "z": -7.65,
-      "y": 0.57,
+      "z": -7.58,
+      "y": 1.17,
       "occludes": false,
       "lights": [
         {
           "shape": "point",
           "offset": [
-            -0.7,
-            0.0175,
+            -1.323442,
+            0.159063,
             0
           ],
-          "intensity": 0.1,
+          "intensity": 0.06000000000000001,
           "range": 3.0,
           "color": [
             1,
@@ -5802,11 +5962,27 @@
         {
           "shape": "point",
           "offset": [
-            0.0,
+            -0.661721,
+            0.024766,
+            0
+          ],
+          "intensity": 0.06000000000000001,
+          "range": 3.0,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
             -0.02,
             0
           ],
-          "intensity": 0.1,
+          "intensity": 0.06000000000000001,
           "range": 3.0,
           "color": [
             1,
@@ -5818,11 +5994,27 @@
         {
           "shape": "point",
           "offset": [
-            0.7,
-            0.0175,
+            0.661721,
+            0.024766,
             0
           ],
-          "intensity": 0.1,
+          "intensity": 0.06000000000000001,
+          "range": 3.0,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            1.323442,
+            0.159063,
+            0
+          ],
+          "intensity": 0.06000000000000001,
           "range": 3.0,
           "color": [
             1,
@@ -5871,11 +6063,11 @@
         {
           "shape": "point",
           "offset": [
-            -2.475,
-            0.205,
+            -3.22331,
+            0.42178,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.20363636363636364,
           "range": 4.5,
           "color": [
             1,
@@ -5887,11 +6079,11 @@
         {
           "shape": "point",
           "offset": [
-            -1.65,
-            0.08,
+            -2.578648,
+            0.26274,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.20363636363636364,
           "range": 4.5,
           "color": [
             1,
@@ -5903,11 +6095,11 @@
         {
           "shape": "point",
           "offset": [
-            -0.825,
-            0.005,
+            -1.933986,
+            0.139041,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.20363636363636364,
           "range": 4.5,
           "color": [
             1,
@@ -5919,11 +6111,43 @@
         {
           "shape": "point",
           "offset": [
-            0.0,
+            -1.289324,
+            0.050685,
+            0
+          ],
+          "intensity": 0.20363636363636364,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            -0.644662,
+            -0.002329,
+            0
+          ],
+          "intensity": 0.20363636363636364,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
             -0.02,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.20363636363636364,
           "range": 4.5,
           "color": [
             1,
@@ -5935,11 +6159,11 @@
         {
           "shape": "point",
           "offset": [
-            0.825,
-            0.005,
+            0.644662,
+            -0.002329,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.20363636363636364,
           "range": 4.5,
           "color": [
             1,
@@ -5951,11 +6175,11 @@
         {
           "shape": "point",
           "offset": [
-            1.65,
-            0.08,
+            1.289324,
+            0.050685,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.20363636363636364,
           "range": 4.5,
           "color": [
             1,
@@ -5967,11 +6191,43 @@
         {
           "shape": "point",
           "offset": [
-            2.475,
-            0.205,
+            1.933986,
+            0.139041,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.20363636363636364,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            2.578648,
+            0.26274,
+            0
+          ],
+          "intensity": 0.20363636363636364,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            3.22331,
+            0.42178,
+            0
+          ],
+          "intensity": 0.20363636363636364,
           "range": 4.5,
           "color": [
             1,
@@ -6020,11 +6276,11 @@
         {
           "shape": "point",
           "offset": [
-            -2.475,
-            0.205,
+            -3.22331,
+            0.42178,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.20363636363636364,
           "range": 4.5,
           "color": [
             1,
@@ -6036,11 +6292,11 @@
         {
           "shape": "point",
           "offset": [
-            -1.65,
-            0.08,
+            -2.578648,
+            0.26274,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.20363636363636364,
           "range": 4.5,
           "color": [
             1,
@@ -6052,11 +6308,11 @@
         {
           "shape": "point",
           "offset": [
-            -0.825,
-            0.005,
+            -1.933986,
+            0.139041,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.20363636363636364,
           "range": 4.5,
           "color": [
             1,
@@ -6068,11 +6324,43 @@
         {
           "shape": "point",
           "offset": [
-            0.0,
+            -1.289324,
+            0.050685,
+            0
+          ],
+          "intensity": 0.20363636363636364,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            -0.644662,
+            -0.002329,
+            0
+          ],
+          "intensity": 0.20363636363636364,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
             -0.02,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.20363636363636364,
           "range": 4.5,
           "color": [
             1,
@@ -6084,11 +6372,11 @@
         {
           "shape": "point",
           "offset": [
-            0.825,
-            0.005,
+            0.644662,
+            -0.002329,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.20363636363636364,
           "range": 4.5,
           "color": [
             1,
@@ -6100,11 +6388,11 @@
         {
           "shape": "point",
           "offset": [
-            1.65,
-            0.08,
+            1.289324,
+            0.050685,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.20363636363636364,
           "range": 4.5,
           "color": [
             1,
@@ -6116,11 +6404,43 @@
         {
           "shape": "point",
           "offset": [
-            2.475,
-            0.205,
+            1.933986,
+            0.139041,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.20363636363636364,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            2.578648,
+            0.26274,
+            0
+          ],
+          "intensity": 0.20363636363636364,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            3.22331,
+            0.42178,
+            0
+          ],
+          "intensity": 0.20363636363636364,
           "range": 4.5,
           "color": [
             1,
@@ -6169,11 +6489,11 @@
         {
           "shape": "point",
           "offset": [
-            -1.333333,
-            0.104444,
+            -1.923071,
+            0.292095,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.2285714285714286,
           "range": 4.5,
           "color": [
             1,
@@ -6185,11 +6505,11 @@
         {
           "shape": "point",
           "offset": [
-            -0.666667,
-            0.011111,
+            -1.282047,
+            0.118709,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.2285714285714286,
           "range": 4.5,
           "color": [
             1,
@@ -6201,11 +6521,27 @@
         {
           "shape": "point",
           "offset": [
-            0.0,
+            -0.641024,
+            0.014677,
+            0
+          ],
+          "intensity": 0.2285714285714286,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0,
             -0.02,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.2285714285714286,
           "range": 4.5,
           "color": [
             1,
@@ -6217,11 +6553,11 @@
         {
           "shape": "point",
           "offset": [
-            0.666667,
-            0.011111,
+            0.641024,
+            0.014677,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.2285714285714286,
           "range": 4.5,
           "color": [
             1,
@@ -6233,11 +6569,27 @@
         {
           "shape": "point",
           "offset": [
-            1.333333,
-            0.104444,
+            1.282047,
+            0.118709,
             0
           ],
-          "intensity": 0.32,
+          "intensity": 0.2285714285714286,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            1.923071,
+            0.292095,
+            0
+          ],
+          "intensity": 0.2285714285714286,
           "range": 4.5,
           "color": [
             1,
@@ -7111,6 +7463,74 @@
         -11.065,
         3.17,
         10.734999933242799
+      ],
+      "material": "winter:timber_01",
+      "faces": "outward",
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lodge_rail_string_mount_0_-1",
+      "min": [
+        -14.946000000000002,
+        1.5239999999999998,
+        -7.65
+      ],
+      "max": [
+        -14.914000000000001,
+        1.5559999999999998,
+        -7.5680000000000005
+      ],
+      "material": "winter:timber_01",
+      "faces": "outward",
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lodge_rail_string_mount_0_1",
+      "min": [
+        -12.146,
+        1.5239999999999998,
+        -7.65
+      ],
+      "max": [
+        -12.114,
+        1.5559999999999998,
+        -7.5680000000000005
+      ],
+      "material": "winter:timber_01",
+      "faces": "outward",
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lodge_rail_string_mount_1_-1",
+      "min": [
+        -10.886,
+        1.5239999999999998,
+        -7.65
+      ],
+      "max": [
+        -10.854,
+        1.5559999999999998,
+        -7.5680000000000005
+      ],
+      "material": "winter:timber_01",
+      "faces": "outward",
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "lodge_rail_string_mount_1_1",
+      "min": [
+        -8.085999999999999,
+        1.5239999999999998,
+        -7.65
+      ],
+      "max": [
+        -8.053999999999998,
+        1.5559999999999998,
+        -7.5680000000000005
       ],
       "material": "winter:timber_01",
       "faces": "outward",

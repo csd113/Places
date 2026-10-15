@@ -1,11 +1,12 @@
-"""Shared offline geometry/light anchors for the modular winter string kit.
+"""Measured light anchors for the completed modular Winter string kit.
 
-The map author and prop builder use these same metre-space bulb positions.
-Nothing in this module runs in the player or paints texture imagery.
+The retained geometry helpers describe the historical procedural source only;
+completed GLBs are imported artwork and are never regenerated here. Nothing in
+this module runs in the player or paints texture imagery.
 """
 
-# Clear attachment-centre span, sag, bulb count. Each span fits the existing
-# eight-lights-per-prop contract without grouped sources behind opaque walls.
+# Clear attachment-centre span, sag and historical bulb count. Keep the latter
+# as the reference for each placed span's total authored illumination.
 SPANS = {
     'short': (2.8, .15, 3),
     'medium': (4.0, .28, 5),
@@ -14,6 +15,23 @@ SPANS = {
 CABLE_RADIUS = .006
 BULB_HEIGHT = .14
 DROP = .08
+
+# Local (x, y) point sources, measured 2 cm below the completed glass bottoms.
+# A point inside the opaque glass would shadow itself in prepared transport.
+EMITTER_ANCHORS = {
+    'short': ((-1.323442, .159063), (-.661721, .024766), (0, -.02),
+              (.661721, .024766), (1.323442, .159063)),
+    'medium': ((-1.923071, .292095), (-1.282047, .118709), (-.641024, .014677),
+               (0, -.02), (.641024, .014677), (1.282047, .118709),
+               (1.923071, .292095)),
+    'long': ((-3.223310, .421780), (-2.578648, .262740), (-1.933986, .139041),
+             (-1.289324, .050685), (-.644662, -.002329), (0, -.02),
+             (.644662, -.002329), (1.289324, .050685), (1.933986, .139041),
+             (2.578648, .262740), (3.223310, .421780)),
+}
+
+# Centre of the delivered lantern's front aperture, clear of its base frame.
+TIMBER_LANTERN_SOURCE = (0, 2.56, .167062)
 
 
 def cable_height(variant, x):
@@ -39,8 +57,8 @@ def size(variant):
 
 
 def lights(variant, intensity=.32, radius=4.5):
-    # Keep the source 2 cm below the glass. A point inside opaque bulb geometry
-    # would shadow itself in the prepared transport solve.
-    return [{'shape': 'point', 'offset': [round(x, 6), round(top-BULB_HEIGHT-.02, 6), 0],
-             'intensity': intensity, 'range': radius, 'color': [1, .60, .20],
-             'falloff': 'smooth'} for x, top in bulbs(variant)]
+    anchors = EMITTER_ANCHORS[variant]
+    source_intensity = intensity * SPANS[variant][2] / len(anchors)
+    return [{'shape': 'point', 'offset': [x, y, 0],
+             'intensity': source_intensity, 'range': radius, 'color': [1, .60, .20],
+             'falloff': 'smooth'} for x, y in anchors]

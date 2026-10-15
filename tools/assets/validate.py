@@ -44,6 +44,7 @@ import math
 import os
 import re
 import sys
+from itertools import chain
 from typing import Dict, List, Tuple
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -85,6 +86,9 @@ MAX_EMISSION_INTENSITY = 8.0
 MAX_UV_RESPONSE = 2.0
 MAX_ULTRAVIOLET_INTENSITY = 8.0
 MAX_BLACKLIGHT_FIXTURES = 4
+# Offline source budgets; selected-direct and switched runtime budgets stay eight.
+MAX_PROP_LIGHTS = 16
+MAX_LEVEL_LIGHT_SOURCES = 1_000_000
 
 # Map-authored actions: the closed set the engine parses, and the subset it
 # implements. The reserved/unimplemented tags are rejected by name, not
@@ -436,6 +440,43 @@ def is_color_triplet(value: object) -> bool:
         and len(value) == 3
         and all(is_finite_number(channel) and 0.0 <= channel <= 1.0 for channel in value)
     )
+
+
+def validate_light_source_counts(counts, where: str, errors: List[str]) -> None:
+    """Retained sources, including disabled entries, share the PLLT limit."""
+    total = 0
+    for count in counts:
+        total += count
+        if total > MAX_LEVEL_LIGHT_SOURCES:
+            errors.append(f"{where}: {total} local light sources exceed {MAX_LEVEL_LIGHT_SOURCES}, including disabled sources")
+            return
+
+
+def retained_fixture_source_count(fixture: dict) -> int:
+    """The completed Pool wall housing has two retained luminous strips."""
+    return 2 if fixture.get("fixture") == "core:pool_light_wall" else 1
+
+
+def validate_level_light_source_budget(level: dict, where: str, errors: List[str]) -> None:
+    """Mirror actual fixture apertures and fixed attached-source allocation."""
+    fixtures = level.get("ceiling_lights") or []
+    props = level.get("props") or []
+    counts = chain((retained_fixture_source_count(fixture) for fixture in fixtures),
+                   (len(prop["lights"]) for prop in props if isinstance(prop.get("lights"), list)))
+    validate_light_source_counts(counts, where, errors)
+    switched = sum(retained_fixture_source_count(fixture) for fixture in fixtures if fixture.get("switchable") is True)
+    controlled_props = False
+    for index, prop in enumerate(props):
+        lights = prop.get("lights")
+        if isinstance(lights, list) and len(lights) > MAX_PROP_LIGHTS:
+            errors.append(f"{where}: prop {index} declares {len(lights)} attached lights; the limit is {MAX_PROP_LIGHTS}")
+        control = fixed_prop_light_control(prop)
+        if control is not None and control.get("switchable") is True:
+            controlled_props = True
+            if isinstance(lights, list):
+                switched += sum(isinstance(light, dict) and light.get("enabled", True) is True for light in lights)
+    if (controlled_props or any(fixture.get("switch_group") is not None for fixture in fixtures)) and switched > 8:
+        errors.append(f"{where}: light circuits support at most eight switched light sources")
 
 
 def validate_light_source(light: object, where: str) -> Tuple[List[str], List[str]]:
@@ -3315,6 +3356,7 @@ def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> 
                     )
                     errors.extend(light_errors)
                     warnings.extend(light_warnings)
+            validate_level_light_source_budget(level, relative, errors)
             validate_animated_emissions(level, relative, errors)
             validate_interactions(level, relative, errors)
             validate_doors(level, relative, errors)

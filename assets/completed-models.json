@@ -1721,9 +1721,9 @@
     "engine_triangle_limit": 16240
   },
   "environments/office/props/vending_machine.glb": {
-    "sha256": "a18285fbf487f449a9d45ac340f89d69f133e87a3a2c645ec4b1976c2b9063b1",
-    "triangles": 696,
-    "texture_edge": 256,
+    "sha256": "2bec6e5a70c4a637cf9a3c047eccf4d539738bce0953ab61d8cbc6f406181443",
+    "triangles": 2869,
+    "texture_edge": 512,
     "identities": [
       "core:vending_machine"
     ],
@@ -1754,6 +1754,62 @@
       0.17499999701976776,
       1.100000023841858,
       0.17500001192092896
+    ]
+  },
+  "environments/outdoor/props/tree_01.glb": {
+    "sha256": "45b1346e148fcf497726f34dd8c48e95a43153634e377881cc329d83ce26df50",
+    "triangles": 10326,
+    "texture_edge": 512,
+    "identities": [
+      "outdoor:tree_01"
+    ],
+    "bounds_min": [
+      -2.299999952316284,
+      0.0,
+      -2.299999952316284
+    ],
+    "bounds_max": [
+      2.299999952316284,
+      6.400000095367432,
+      2.299999952316284
+    ],
+    "engine_triangle_limit": 10326
+  },
+  "environments/outdoor/props/tree_02.glb": {
+    "sha256": "90f032e61b79deda26afe8fe70aecb6bb3080eb59a5a2e48b7766319db286907",
+    "triangles": 11916,
+    "texture_edge": 512,
+    "identities": [
+      "outdoor:tree_02"
+    ],
+    "bounds_min": [
+      -1.0,
+      0.0,
+      -1.0
+    ],
+    "bounds_max": [
+      1.0,
+      6.199999809265137,
+      1.0
+    ],
+    "engine_triangle_limit": 11916
+  },
+  "environments/outdoor/props/tree_03.glb": {
+    "sha256": "8b7a3fa19d272ddff860a45724cd6fe73b0566834e7f0632cc79a77e0f142a5f",
+    "triangles": 3460,
+    "texture_edge": 512,
+    "identities": [
+      "outdoor:tree_03"
+    ],
+    "bounds_min": [
+      -1.600000023841858,
+      0.0,
+      -1.600000023841858
+    ],
+    "bounds_max": [
+      1.600000023841858,
+      6.800000190734863,
+      1.600000023841858
     ]
   },
   "environments/pool/props/hot_tub.glb": {
@@ -2168,6 +2224,710 @@
       0.04899999871850014,
       0.11999999731779099,
       0.07249999791383743
+    ]
+  },
+  "environments/winter/props/boulder_snow.glb": {
+    "sha256": "5da4037ba8423c4b8fbd916704ed77a1a908dc35caf4de81f1b934ab8f79dcbb",
+    "triangles": 124,
+    "texture_edge": 512,
+    "identities": [
+      "winter:boulder_snow"
+    ],
+    "bounds_min": [
+      -0.699999988079071,
+      0.0,
+      -0.6499999761581421
+    ],
+    "bounds_max": [
+      0.699999988079071,
+      0.9700000286102295,
+      0.6499999761581421
+    ]
+  },
+  "environments/winter/props/door_hood_snow.glb": {
+    "sha256": "05a0ba3ef0db5c12925bdfc434fab2de2e568644771ad098f1b9a288984464e2",
+    "triangles": 422,
+    "texture_edge": 512,
+    "identities": [
+      "winter:door_hood_snow"
+    ],
+    "bounds_min": [
+      -0.9700000286102295,
+      0.0,
+      -0.44999998807907104
+    ],
+    "bounds_max": [
+      0.9700000286102295,
+      0.550000011920929,
+      0.44999998807907104
+    ]
+  },
+  "environments/winter/props/drift_fence.glb": {
+    "sha256": "f2fbd99a02000d9a6bd2e2ceac0f56cc9acba0ef65e893d54d122e0ce88dc1f7",
+    "triangles": 78,
+    "texture_edge": 512,
+    "identities": [
+      "winter:drift_fence"
+    ],
+    "bounds_min": [
+      -0.8999999761581421,
+      0.0,
+      -0.3499999940395355
+    ],
+    "bounds_max": [
+      0.8999999761581421,
+      0.3799999952316284,
+      0.3499999940395355
+    ]
+  },
+  "environments/winter/props/drift_large.glb": {
+    "sha256": "c223759be3ffa70bd8b9b645a0bc651d0dc482fcd90afe2972702132ac522e83",
+    "triangles": 78,
+    "texture_edge": 512,
+    "identities": [
+      "winter:drift_large"
+    ],
+    "bounds_min": [
+      -2.200000047683716,
+      0.0,
+      -1.399999976158142
+    ],
+    "bounds_max": [
+      2.200000047683716,
+      0.8999999761581421,
+      1.399999976158142
+    ]
+  },
+  "environments/winter/props/drift_medium.glb": {
+    "sha256": "53c134f6065a6cf1c720a9c48e30c032d76cd98744bfc405c861d76d79ab40ec",
+    "triangles": 78,
+    "texture_edge": 512,
+    "identities": [
+      "winter:drift_medium"
+    ],
+    "bounds_min": [
+      -1.2000000476837158,
+      0.0,
+      -0.75
+    ],
+    "bounds_max": [
+      1.2000000476837158,
+      0.550000011920929,
+      0.75
+    ]
+  },
+  "environments/winter/props/drift_small.glb": {
+    "sha256": "e53e74c2b49bf879eedada73a4805b47b46c9ddde89ad9a1485f52c7ec568b4c",
+    "triangles": 78,
+    "texture_edge": 512,
+    "identities": [
+      "winter:drift_small"
+    ],
+    "bounds_min": [
+      -0.6000000238418579,
+      0.0,
+      -0.4000000059604645
+    ],
+    "bounds_max": [
+      0.6000000238418579,
+      0.2800000011920929,
+      0.4000000059604645
+    ]
+  },
+  "environments/winter/props/drift_wall.glb": {
+    "sha256": "021bc655357910caf722fddfd13e50d69022ca87ad3d17756ca6f76e34630b22",
+    "triangles": 78,
+    "texture_edge": 512,
+    "identities": [
+      "winter:drift_wall"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.550000011920929
+    ],
+    "bounds_max": [
+      1.5,
+      0.6499999761581421,
+      0.550000011920929
+    ]
+  },
+  "environments/winter/props/entrance_frame.glb": {
+    "sha256": "ce529356ddb34bfcb6f840bcae3cea03d5aa5f6b6f7c15c23a82bb74c8d87d18",
+    "triangles": 440,
+    "texture_edge": 512,
+    "identities": [
+      "winter:entrance_frame"
+    ],
+    "bounds_min": [
+      -0.8700000047683716,
+      0.0,
+      -0.17000000178813934
+    ],
+    "bounds_max": [
+      0.8700000047683716,
+      2.4200000762939453,
+      0.17000000178813934
+    ]
+  },
+  "environments/winter/props/fence_post_snow.glb": {
+    "sha256": "7396d045071f63171f3648784c7de6ac92345fdc0fa695ed0d60923868d3a49a",
+    "triangles": 134,
+    "texture_edge": 512,
+    "identities": [
+      "winter:fence_post_snow"
+    ],
+    "bounds_min": [
+      -0.07999999821186066,
+      0.0,
+      -0.07999999821186066
+    ],
+    "bounds_max": [
+      0.07999999821186066,
+      1.1260000467300415,
+      0.07999999821186066
+    ]
+  },
+  "environments/winter/props/ice_fragment.glb": {
+    "sha256": "709b7063bb5203c2865b0108e248e150d161cce84f45e07391466a4f2b47badb",
+    "triangles": 94,
+    "texture_edge": 512,
+    "identities": [
+      "winter:ice_fragment"
+    ],
+    "bounds_min": [
+      -0.550000011920929,
+      0.0,
+      -0.4000000059604645
+    ],
+    "bounds_max": [
+      0.550000011920929,
+      0.07500000298023224,
+      0.4000000059604645
+    ]
+  },
+  "environments/winter/props/icicle_cluster_mixed.glb": {
+    "sha256": "dba91fa97aa4b42bd22f56d543e8660459e27cea36297e96c980702888f5eba7",
+    "triangles": 252,
+    "texture_edge": 512,
+    "identities": [
+      "winter:icicle_cluster_mixed"
+    ],
+    "bounds_min": [
+      -0.6000000238418579,
+      0.0,
+      -0.06499999761581421
+    ],
+    "bounds_max": [
+      0.6000000238418579,
+      0.6499999761581421,
+      0.06499999761581421
+    ]
+  },
+  "environments/winter/props/icicle_cluster_sparse.glb": {
+    "sha256": "f0cfcf06bf7460e1b8713371b908f6e340cd0dfbb7c56cd141fab71af1bf9c57",
+    "triangles": 108,
+    "texture_edge": 512,
+    "identities": [
+      "winter:icicle_cluster_sparse"
+    ],
+    "bounds_min": [
+      -0.6000000238418579,
+      0.0,
+      -0.05000000074505806
+    ],
+    "bounds_max": [
+      0.6000000238418579,
+      0.36000001430511475,
+      0.05000000074505806
+    ]
+  },
+  "environments/winter/props/icicle_long.glb": {
+    "sha256": "d811fc98c4f4c29aefd46388ec11b28e04a1855b33b36a41631040ad9f1ae85a",
+    "triangles": 36,
+    "texture_edge": 512,
+    "identities": [
+      "winter:icicle_long"
+    ],
+    "bounds_min": [
+      -0.06499999761581421,
+      0.0,
+      -0.06499999761581421
+    ],
+    "bounds_max": [
+      0.06499999761581421,
+      0.6499999761581421,
+      0.06499999761581421
+    ]
+  },
+  "environments/winter/props/icicle_medium.glb": {
+    "sha256": "5f2a4c6ca50172a7e14a7047604e82d891915bb3619f062b31ca8492143dac09",
+    "triangles": 36,
+    "texture_edge": 512,
+    "identities": [
+      "winter:icicle_medium"
+    ],
+    "bounds_min": [
+      -0.05000000074505806,
+      0.0,
+      -0.05000000074505806
+    ],
+    "bounds_max": [
+      0.05000000074505806,
+      0.36000001430511475,
+      0.05000000074505806
+    ]
+  },
+  "environments/winter/props/icicle_short.glb": {
+    "sha256": "2e6c8914473d2abc874578575548b3ff33f14d9a071802d3668a39974347c0d2",
+    "triangles": 36,
+    "texture_edge": 512,
+    "identities": [
+      "winter:icicle_short"
+    ],
+    "bounds_min": [
+      -0.03500000014901161,
+      0.0,
+      -0.03500000014901161
+    ],
+    "bounds_max": [
+      0.03500000014901161,
+      0.18000000715255737,
+      0.03500000014901161
+    ]
+  },
+  "environments/winter/props/masonry_pier_snow.glb": {
+    "sha256": "1c04479eee481e6d823184f905941c98cd9487056afc995302ab61780574461d",
+    "triangles": 330,
+    "texture_edge": 512,
+    "identities": [
+      "winter:masonry_pier_snow"
+    ],
+    "bounds_min": [
+      -0.32499998807907104,
+      0.0,
+      -0.32499998807907104
+    ],
+    "bounds_max": [
+      0.32499998807907104,
+      1.25,
+      0.32499998807907104
+    ]
+  },
+  "environments/winter/props/mound_irregular.glb": {
+    "sha256": "58c12ccaa7fbff909aa269490e60baf666b3ea5ec45d832dd3c5db5b92f3252f",
+    "triangles": 78,
+    "texture_edge": 512,
+    "identities": [
+      "winter:mound_irregular"
+    ],
+    "bounds_min": [
+      -1.0499999523162842,
+      0.0,
+      -0.949999988079071
+    ],
+    "bounds_max": [
+      1.0499999523162842,
+      0.75,
+      0.949999988079071
+    ]
+  },
+  "environments/winter/props/railing_snow_corner_assembly.glb": {
+    "sha256": "d723af24f0683976f0d23bdd7a597e012da8863ee78fe2325d103741e3822fb1",
+    "triangles": 310,
+    "texture_edge": 512,
+    "identities": [
+      "winter:railing_snow_corner_assembly"
+    ],
+    "bounds_min": [
+      -0.15000000596046448,
+      0.0,
+      -0.15000000596046448
+    ],
+    "bounds_max": [
+      0.15000000596046448,
+      1.1239999532699585,
+      0.15000000596046448
+    ]
+  },
+  "environments/winter/props/railing_snow_end.glb": {
+    "sha256": "768331f84bb83680e28b1b7de785650b539bedceceb38d33f4b0b95049f40db9",
+    "triangles": 222,
+    "texture_edge": 512,
+    "identities": [
+      "winter:railing_snow_end"
+    ],
+    "bounds_min": [
+      -0.15000000596046448,
+      0.0,
+      -0.07999999821186066
+    ],
+    "bounds_max": [
+      0.15000000596046448,
+      1.1260000467300415,
+      0.07999999821186066
+    ]
+  },
+  "environments/winter/props/railing_snow_straight_assembly.glb": {
+    "sha256": "115c197fd0856030e486dcaf3d3ffcf7f5e4979121410752ae8c73934846216e",
+    "triangles": 488,
+    "texture_edge": 512,
+    "identities": [
+      "winter:railing_snow_straight_assembly"
+    ],
+    "bounds_min": [
+      -0.8999999761581421,
+      0.0,
+      -0.07999999821186066
+    ],
+    "bounds_max": [
+      0.8999999761581421,
+      1.1160000562667847,
+      0.07999999821186066
+    ]
+  },
+  "environments/winter/props/rock_face_snow.glb": {
+    "sha256": "e72ccb8a57c7d412a50cb946aa5846dd6fd8da7cbd45cc10f5d7807c62338fa4",
+    "triangles": 124,
+    "texture_edge": 512,
+    "identities": [
+      "winter:rock_face_snow"
+    ],
+    "bounds_min": [
+      -2.0,
+      0.0,
+      -1.100000023841858
+    ],
+    "bounds_max": [
+      2.0,
+      5.159999847412109,
+      1.100000023841858
+    ]
+  },
+  "environments/winter/props/snow_awning.glb": {
+    "sha256": "fb1379fc0b49f082d2e1b9ce9ede5f5572bdc6d09b828705323c544620b19c70",
+    "triangles": 66,
+    "texture_edge": 512,
+    "identities": [
+      "winter:snow_awning"
+    ],
+    "bounds_min": [
+      -1.2000000476837158,
+      0.0,
+      -1.2999999523162842
+    ],
+    "bounds_max": [
+      1.2000000476837158,
+      0.18000000715255737,
+      1.2999999523162842
+    ]
+  },
+  "environments/winter/props/snow_door_overhang.glb": {
+    "sha256": "5ea72390072c247d2c2bbdbea9ef173cb476f12b93545413dd929cc8111f6e92",
+    "triangles": 66,
+    "texture_edge": 512,
+    "identities": [
+      "winter:snow_door_overhang"
+    ],
+    "bounds_min": [
+      -0.800000011920929,
+      0.0,
+      -0.2750000059604645
+    ],
+    "bounds_max": [
+      0.800000011920929,
+      0.14000000059604645,
+      0.2750000059604645
+    ]
+  },
+  "environments/winter/props/snow_ledge.glb": {
+    "sha256": "a714c9ff0ade9afb746b517ac14f0356fb631f8f88c351f548a66962c744e1d2",
+    "triangles": 66,
+    "texture_edge": 512,
+    "identities": [
+      "winter:snow_ledge"
+    ],
+    "bounds_min": [
+      -0.6000000238418579,
+      0.0,
+      -0.11999999731779099
+    ],
+    "bounds_max": [
+      0.6000000238418579,
+      0.10000000149011612,
+      0.11999999731779099
+    ]
+  },
+  "environments/winter/props/snow_porch_edge.glb": {
+    "sha256": "0dd9a4fd79abb2d76bcabb7570335d6150902402ca17c95cf3b109e8596a8d14",
+    "triangles": 66,
+    "texture_edge": 512,
+    "identities": [
+      "winter:snow_porch_edge"
+    ],
+    "bounds_min": [
+      -0.8999999761581421,
+      0.0,
+      -0.15000000596046448
+    ],
+    "bounds_max": [
+      0.8999999761581421,
+      0.10000000149011612,
+      0.15000000596046448
+    ]
+  },
+  "environments/winter/props/snow_post_cap.glb": {
+    "sha256": "7fea3ac7f7e6ce39bd46a9eb877343696ec7b0e1b114b4a9dc2a322dc1ee2148",
+    "triangles": 66,
+    "texture_edge": 512,
+    "identities": [
+      "winter:snow_post_cap"
+    ],
+    "bounds_min": [
+      -0.05999999865889549,
+      0.0,
+      -0.05999999865889549
+    ],
+    "bounds_max": [
+      0.05999999865889549,
+      0.08500000089406967,
+      0.05999999865889549
+    ]
+  },
+  "environments/winter/props/snow_rail_top.glb": {
+    "sha256": "5ed89b379db5ae731a3dec7eeab4d676e75114704562b41235d35fcb3e4966f3",
+    "triangles": 66,
+    "texture_edge": 512,
+    "identities": [
+      "winter:snow_rail_top"
+    ],
+    "bounds_min": [
+      -0.6000000238418579,
+      0.0,
+      -0.054999999701976776
+    ],
+    "bounds_max": [
+      0.6000000238418579,
+      0.07500000298023224,
+      0.054999999701976776
+    ]
+  },
+  "environments/winter/props/snow_roof_blanket.glb": {
+    "sha256": "d5b557beb44984d6c415d717460fb2450ef35ccc28818668eab2109a577680c8",
+    "triangles": 108,
+    "texture_edge": 512,
+    "identities": [
+      "winter:snow_roof_blanket"
+    ],
+    "bounds_min": [
+      -3.405709981918335,
+      0.0,
+      -1.1142857074737549
+    ],
+    "bounds_max": [
+      3.405709981918335,
+      1.4251739978790283,
+      1.1142857074737549
+    ]
+  },
+  "environments/winter/props/snow_roof_edge.glb": {
+    "sha256": "22dfe160376fa105e12be21924416b413a5a451a70fcde32d675ded91e692ba5",
+    "triangles": 66,
+    "texture_edge": 512,
+    "identities": [
+      "winter:snow_roof_edge"
+    ],
+    "bounds_min": [
+      -1.2000000476837158,
+      0.0,
+      -0.18000000715255737
+    ],
+    "bounds_max": [
+      1.2000000476837158,
+      0.1599999964237213,
+      0.18000000715255737
+    ]
+  },
+  "environments/winter/props/snow_roof_slope.glb": {
+    "sha256": "86ccdbcd0636aeebcfe8df2621eeb7c9189f3dbab662dd9f51da96515b87f909",
+    "triangles": 66,
+    "texture_edge": 512,
+    "identities": [
+      "winter:snow_roof_slope"
+    ],
+    "bounds_min": [
+      -1.7000000476837158,
+      0.0,
+      -1.0
+    ],
+    "bounds_max": [
+      1.7000000476837158,
+      1.374619960784912,
+      1.0
+    ]
+  },
+  "environments/winter/props/snow_stair_edge.glb": {
+    "sha256": "2e6d674bc93a24d52d465a0896667757b91d2885df718ac249f4ca26cbafe24c",
+    "triangles": 66,
+    "texture_edge": 512,
+    "identities": [
+      "winter:snow_stair_edge"
+    ],
+    "bounds_min": [
+      -0.1899999976158142,
+      0.0,
+      -0.4000000059604645
+    ],
+    "bounds_max": [
+      0.1899999976158142,
+      0.08500000089406967,
+      0.4000000059604645
+    ]
+  },
+  "environments/winter/props/stone_wall_snow.glb": {
+    "sha256": "fd5757241a988edf11c7ae6dcdc549c688932c5c41b862d2365f834a190ad61d",
+    "triangles": 1210,
+    "texture_edge": 512,
+    "identities": [
+      "winter:stone_wall_snow"
+    ],
+    "bounds_min": [
+      -1.2000000476837158,
+      0.0,
+      -0.25
+    ],
+    "bounds_max": [
+      1.2000000476837158,
+      1.100000023841858,
+      0.25
+    ]
+  },
+  "environments/winter/props/string_lights_long.glb": {
+    "sha256": "393e67492e24ccdae389814ee479c8d5e0704db2bfc3b7c8317cb9e28b3258c4",
+    "triangles": 1284,
+    "texture_edge": 512,
+    "identities": [
+      "winter:string_lights_long"
+    ],
+    "bounds_min": [
+      -3.325000047683716,
+      0.0,
+      -0.03897000104188919
+    ],
+    "bounds_max": [
+      3.325000047683716,
+      0.6449999809265137,
+      0.03897000104188919
+    ]
+  },
+  "environments/winter/props/string_lights_medium.glb": {
+    "sha256": "c873c2e45ed918fd5efd9297ad6754066f9882b1fad3eef3129354c090988fed",
+    "triangles": 980,
+    "texture_edge": 512,
+    "identities": [
+      "winter:string_lights_medium"
+    ],
+    "bounds_min": [
+      -2.0250000953674316,
+      0.0,
+      -0.03897000104188919
+    ],
+    "bounds_max": [
+      2.0250000953674316,
+      0.5249999761581421,
+      0.03897000104188919
+    ]
+  },
+  "environments/winter/props/string_lights_short.glb": {
+    "sha256": "846305cd7bda71c8001a583adbc248a19c06157223dfad46c7adb0c8d7312772",
+    "triangles": 828,
+    "texture_edge": 512,
+    "identities": [
+      "winter:string_lights_short"
+    ],
+    "bounds_min": [
+      -1.4249999523162842,
+      0.0,
+      -0.03897000104188919
+    ],
+    "bounds_max": [
+      1.4249999523162842,
+      0.39500001072883606,
+      0.03897000104188919
+    ]
+  },
+  "environments/winter/props/timber_lantern.glb": {
+    "sha256": "e819c4f0ad15f66f72fba0b7048368c4b950d2fee1d20b6210a2506ee859c539",
+    "triangles": 564,
+    "texture_edge": 512,
+    "identities": [
+      "winter:timber_lantern"
+    ],
+    "bounds_min": [
+      -0.32499998807907104,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      0.32499998807907104,
+      3.200000047683716,
+      0.30000001192092896
+    ]
+  },
+  "environments/winter/props/tree_snow_01.glb": {
+    "sha256": "2ff6bb6523796318201d40e47dc66e624e3c24c01e89b44b0e47ae2202f3e200",
+    "triangles": 7982,
+    "texture_edge": 512,
+    "identities": [
+      "winter:tree_snow_01"
+    ],
+    "bounds_min": [
+      -1.600000023841858,
+      0.0,
+      -1.600000023841858
+    ],
+    "bounds_max": [
+      1.600000023841858,
+      6.800000190734863,
+      1.600000023841858
+    ],
+    "engine_triangle_limit": 7982
+  },
+  "environments/winter/props/tree_snow_02.glb": {
+    "sha256": "c8729e9320ac6c007143c0c5fe49b541e01c8a0261d656258db19cbd38c56181",
+    "triangles": 9958,
+    "texture_edge": 512,
+    "identities": [
+      "winter:tree_snow_02"
+    ],
+    "bounds_min": [
+      -1.600000023841858,
+      0.0,
+      -1.600000023841858
+    ],
+    "bounds_max": [
+      1.600000023841858,
+      6.800000190734863,
+      1.600000023841858
+    ],
+    "engine_triangle_limit": 9958
+  },
+  "environments/winter/props/window_frame.glb": {
+    "sha256": "37a818d334b437ac9f809819cb1998afa3e91720dea06e89a11005acadf1d834",
+    "triangles": 716,
+    "texture_edge": 512,
+    "identities": [
+      "winter:window_frame"
+    ],
+    "bounds_min": [
+      -0.6299999952316284,
+      0.0,
+      -0.10499999672174454
+    ],
+    "bounds_max": [
+      0.6299999952316284,
+      1.159999966621399,
+      0.10499999672174454
     ]
   },
   "shared/props/armchair.glb": {

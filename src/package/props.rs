@@ -215,6 +215,9 @@ pub fn write_props_with_stats(
 }
 
 fn write_batch_header(writer: &mut Writer, batch: &PropMeshBatch) -> Result<(), String> {
+    if batch.pending_probe_lighting {
+        return Err("prop batch still needs prepared probe lighting".to_string());
+    }
     writer.str(&batch.model)?;
     writer.u8(u8::from(batch.casts_static_lighting));
     writer.u8(u8::from(batch.light_control.is_some()));
@@ -496,6 +499,7 @@ fn read_batch(
         light_control: header.light_control,
         source_primitives: Vec::new(),
         casts_static_lighting: header.casts_static_lighting,
+        pending_probe_lighting: false,
         textures: Vec::<Arc<crate::loader::RawImage>>::new(),
         submeshes: header.submeshes,
         vertices,
@@ -1003,6 +1007,7 @@ mod interning_tests {
             light_control: None,
             source_primitives: Vec::new(),
             casts_static_lighting: false,
+            pending_probe_lighting: false,
             textures: Vec::new(),
             submeshes: vec![PropSubmeshBatch {
                 texture: Some(2),
@@ -1928,6 +1933,7 @@ mod legacy_tests {
             light_control: None,
             source_primitives: Vec::new(),
             casts_static_lighting,
+            pending_probe_lighting: false,
             textures: Vec::new(),
             submeshes: vec![PropSubmeshBatch {
                 texture: None,

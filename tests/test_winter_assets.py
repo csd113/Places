@@ -1,4 +1,4 @@
-"""Protect canonical geometry, supported snow, sealed normals and icicle mounts."""
+"""Protect modular stock, closed snow shells, material roles and icicle mounts."""
 import json
 import math
 from pathlib import Path
@@ -19,17 +19,16 @@ def load(name, theme='winter'):
 
 def snow_indices(model):
     return [index for face in range(model.triangle_count)
-            if model.material_names[model.triangle_materials[face]] in ('snow', 'ice')
+            if model.material_names[model.triangle_materials[face]].split('.')[0] in ('snow', 'ice')
             for index in model.indices[face*3:face*3+3]]
 
 
 class WinterAssetTests(unittest.TestCase):
-    def test_variants_preserve_the_canonical_geometry_uvs_artwork_and_alpha(self):
-        pairs = [('tree_snow_01', 'tree_03'), ('tree_snow_02', 'tree_03'),
-                 ('boulder_snow', 'showcase_boulder'), ('rock_face_snow', 'showcase_rock_face'),
-                 ('railing_snow_straight', 'porch_railing_straight'),
+    def test_linked_variants_preserve_canonical_geometry_uvs_artwork_and_alpha(self):
+        # The linked stock remains derived from its bare components. Completed
+        # trees, rocks and standalone assemblies are independent authored meshes.
+        pairs = [('railing_snow_straight', 'porch_railing_straight'),
                  ('railing_snow_corner', 'porch_railing_corner'),
-                 ('railing_snow_end', 'porch_railing_end'), ('fence_post_snow', 'fence_post'),
                  ('fence_two_rail_section_snow', 'fence_two_rail_section'),
                  ('fence_two_rail_post_snow', 'fence_two_rail_post')]
         for variant, canonical in pairs:
@@ -46,15 +45,18 @@ class WinterAssetTests(unittest.TestCase):
                 snow_material = next(m for m in snow.json['materials'] if m['name'] == 'snow')
                 self.assertNotIn('baseColorTexture', snow_material['pbrMetallicRoughness'])
 
-    def test_snow_and_icicles_are_closed_outward_and_within_budget(self):
-        for name, size in winter.SIZES.items():
+    def test_snow_and_icicles_are_closed_outward_and_grounded(self):
+        sizes = dict(winter.SIZES)
+        sizes.update((name + '_assembly', winter.SIZES[name])
+                     for name in ('railing_snow_straight', 'railing_snow_corner'))
+        for name, size in sizes.items():
             with self.subTest(asset=name):
                 model = load(name)
                 report = geometry.inspect(model.positions, snow_indices(model))
                 for field in ('degenerate', 'boundary_edges', 'nonmanifold_edges',
                               'inconsistent_edges', 'flipped_triangles', 'contradictory_components'):
                     self.assertEqual(report[field], 0, (name, report))
-                self.assertLessEqual(model.triangle_count, 1500)
+                # Generic shipped-asset validation owns reviewed geometry budgets.
                 self.assertTrue(all(math.isfinite(v) and 0 <= v <= 1 for uv in model.uvs for v in uv))
                 low, high = model.bounds()
                 clearance = (.14 if name in ('railing_snow_straight', 'railing_snow_corner')
@@ -84,21 +86,20 @@ class WinterAssetTests(unittest.TestCase):
             for base in bases:
                 self.assertIn(base, snow_y)
 
-    def test_tree_snow_is_supported_by_opaque_branches_and_varies_in_load(self):
-        base = load('tree_03', 'outdoor')
-        branches = list(winter._triangles(base, 1))
+    def test_tree_snow_keeps_opaque_foliage_and_bark_and_varies_in_load(self):
+        # Independent completed trees no longer contain an Outdoors vertex
+        # prefix. Keep their visible material roles and distinct snow loads,
+        # without the old quadratic probe against an unrelated tree mesh.
         counts = []
         for name in ('tree_snow_01', 'tree_snow_02'):
             model = load(name)
-            indices = snow_indices(model)
-            counts.append(len(indices))
-            for index in set(indices):
-                x, y, z = model.positions[index]
-                support = winter.surface_height(branches, x, z)
-                self.assertIsNotNone(support, (name, x, y, z))
-                self.assertLessEqual(y-support, .17, 'snow cannot float above a branch')
-            # Neither load replaces or recolours any dark-green base vertex.
-            self.assertGreater(len(base.indices), len(indices))
+            self.assertEqual(set(model.material_names), {'snow', 'foliage', 'bark'})
+            for slot, material in enumerate(model.json['materials']):
+                self.assertIn(slot, model.triangle_materials)
+                self.assertEqual(material.get('alphaMode', 'OPAQUE'), 'OPAQUE')
+                self.assertFalse(any(material.get('emissiveFactor', [])))
+                self.assertEqual(material['pbrMetallicRoughness'].get('metallicFactor', 0), 0)
+            counts.append(len(snow_indices(model)))
         self.assertGreater(counts[1], counts[0])
 
     def test_icicle_cluster_roots_share_one_mount_plane_and_do_not_touch(self):
@@ -114,23 +115,23 @@ class WinterAssetTests(unittest.TestCase):
             if 'cluster' in name:
                 self.assertGreater(max(b-a for a, b in zip(xs, xs[1:])), winter.SIZES[name][2]*.3)
 
-    def test_registered_builders_reproduce_the_shipped_kit(self):
-        for name, size in winter.SIZES.items():
-            with self.subTest(asset=name):
-                p = PropBuilder('winter:'+name, name, size)
-                winter.PROPS[p.id](p)
-                p.mesh.validate(size)
-                self.assertEqual(glb.write_glb(p.mesh, p.tex.png_bytes(), name=p.id.replace(':', '_'),
-                                              nodes=p.nodes, animations=p.clips),
-                                 (winter.WINTER / (name+'.glb')).read_bytes())
-        for name, size in winter_village.SIZES.items():
-            with self.subTest(village_asset=name):
-                p = PropBuilder('winter:'+name, name, size)
-                winter_village.PROPS[p.id](p)
-                p.mesh.validate(size)
-                self.assertEqual(glb.write_glb(p.mesh, p.tex.png_bytes(), name=p.id.replace(':', '_'),
-                                              nodes=p.nodes, animations=p.clips),
-                                 (winter_village.ROOT / (name+'.glb')).read_bytes())
+    def test_registered_builders_reproduce_unadopted_modular_stock(self):
+        catalog = json.loads((ROOT / 'assets/catalog.json').read_text())
+        entries = {entry['id']: entry for entry in catalog['assets']}
+        for family in (winter, winter_village):
+            for name, size in family.SIZES.items():
+                identity = 'winter:' + name
+                if entries[identity].get('authoring', {}).get('tool') == 'completed':
+                    # build.py owns accepted-export guards; do not invoke a
+                    # historical constructor for these imported meshes.
+                    continue
+                with self.subTest(asset=name):
+                    p = PropBuilder(identity, name, size)
+                    family.PROPS[identity](p)
+                    p.mesh.validate(size)
+                    self.assertEqual(glb.write_glb(p.mesh, p.tex.png_bytes(), name=p.id.replace(':', '_'),
+                                                  nodes=p.nodes, animations=p.clips),
+                                     (ROOT / 'assets' / entries[identity]['model']).read_bytes())
 
     def test_exposed_snow_classes_preserve_collision_and_sheltered_deck_stays_dry(self):
         level = json.loads((ROOT / 'levels/winter.json').read_text())
@@ -164,7 +165,7 @@ class WinterAssetTests(unittest.TestCase):
                                    'snow under the sealed lodge awning')
         for p in props:
             if p['model'].startswith('winter:') and p.get('solid'):
-                expected = {'winter:stone_wall_snow':[.5,.98,2.4],
+                expected = {'winter:stone_wall_snow':[2.4,.98,.5],
                             'winter:masonry_pier_snow':[.65,1.16,.65],
                             'winter:timber_lantern':[.155,2.6,.155],
                             'winter:fence_two_rail_section_snow':[1.78,.845,.065],
@@ -196,15 +197,19 @@ class WinterAssetTests(unittest.TestCase):
                 for field in ('degenerate','boundary_edges','nonmanifold_edges','inconsistent_edges',
                               'flipped_triangles','contradictory_components'):
                     self.assertEqual(report[field],0,(name,report))
-                self.assertLess(model.triangle_count,800)
+                # Reviewed triangle limits are enforced by the shared prop gate.
                 self.assertTrue(all(math.isfinite(v) and 0 <= v <= 1 for uv in model.uvs for v in uv))
                 low,high=model.bounds()
                 self.assertAlmostEqual(low[1],0,places=5)
                 for axis in range(3):
                     self.assertAlmostEqual(high[axis]-low[axis],size[axis],places=4)
+                emitters = []
                 for material in model.json['materials']:
-                    if material['name']!='lantern_amber':
-                        self.assertNotIn('emissiveFactor',material)
+                    if any(material.get('emissiveFactor', [])):
+                        self.assertEqual(name, 'timber_lantern')
+                        self.assertEqual(material['name'], 'winter_bulb_emitter')
+                        emitters.append(material)
+                self.assertEqual(len(emitters), 1 if name == 'timber_lantern' else 0)
 
 
 if __name__ == '__main__':

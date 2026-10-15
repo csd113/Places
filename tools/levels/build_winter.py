@@ -14,7 +14,7 @@ import random
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'props'))
-from string_lights import SPANS, attachment_height, lights
+from string_lights import SPANS, TIMBER_LANTERN_SOURCE, attachment_height, lights
 from railings import RailingAuthor
 from parts.winter import (ROOF_SCALE, ROOF_SNOW_HIGH_Z, ROOF_SNOW_LIP,
                           roof_support_profile)
@@ -320,7 +320,7 @@ def build_level() -> dict:
     for i, (x, z) in enumerate(((-3.8, -3), (13.8, -21.8))):
         prop('winter:timber_lantern', x, z, f'square_lamp_{i}', solid=True,
              size=[.155, 2.6, .155], occludes=False,
-             lights=[{'shape': 'point', 'offset': [0, 2.60, .12], 'intensity': 1.5,
+             lights=[{'shape': 'point', 'offset': list(TIMBER_LANTERN_SOURCE), 'intensity': 1.5,
                       'range': 14, 'color': [1, .81, .55], 'falloff': 'smooth'}])
     for i, (x, z) in enumerate(((7, -18), (18.8, -10), (5, -5), (-6, -25), (-5, 6))):
         prop('winter:boulder_snow' if i != 3 else 'outdoor:showcase_boulder', x, z, f'boulder_{i}', yaw=i * 47,
@@ -343,7 +343,7 @@ def build_level() -> dict:
     for side in (-1, 1):
         for j, z in enumerate((-14.4, -11.9, -26.5, -29.0)):
             prop('winter:stone_wall_snow', side*2.35, z, f'path_wall_{side}_{j}',
-                 yaw=90, solid=True, size=[.5, .98, 2.4])
+                 yaw=90, solid=True, size=[2.4, .98, .5])
         for j, z in enumerate((-16.2, -10.2)):
             prop('winter:masonry_pier_snow', side*2.35, z, f'path_pier_{side}_{j}',
                  solid=True, size=[.65, 1.16, .65])
@@ -376,6 +376,10 @@ def build_level() -> dict:
             if -15 < px < 3 and 10 < pz < 16: continue
             if 0 < px < 15 and -24 < pz < -18: continue
             if math.hypot(px+3.5, pz+31) < 2 or math.hypot(px+2.8, pz+32.6) < 1.8: continue
+            if (row, col) == (3, 1):
+                # Keep all nine delivered root contacts on the raised bank.
+                px -= .04
+                pz += .20
             snow_model = 'winter:tree_snow_02' if abs(px) > 15 or (row + col) % 4 == 0 else 'winter:tree_snow_01'
             prop(snow_model, px, pz, f'forest_{row}_{col}',
                  yaw=rng.uniform(0, 360), scale=rng.uniform(.72, 1.14),
@@ -532,8 +536,19 @@ def build_level() -> dict:
     # front rails. Keep the gap above the ramp open and the icicle line clear.
     string('long', -11.5, -7.78, 'lodge_porch_string', 3.25)
     for i, rail in enumerate(rail_specs[:2]):
-        string('short', rail['x']+rail['length']/2, rail['z']+.04,
-               f'lodge_rail_string_{i}', rail['y']+rail['height']-.11, .10, 3.0)
+        center_x = rail['x']+rail['length']/2
+        string_z = rail['z']+.11
+        anchor_y = rail['y']+rail['height']-.11
+        # Small timber pegs embed into the terminal shafts and capture the
+        # cable ends; the end bulbs clear the post faces by at least 11 mm.
+        for side in (-1, 1):
+            anchor_x = center_x+side*SPANS['short'][0]/2
+            box(f'lodge_rail_string_mount_{i}_{side}',
+                [anchor_x-.016, anchor_y-.016, rail['z']+.04],
+                [anchor_x+.016, anchor_y+.016, string_z+.012],
+                'winter:timber_01', solid=False)
+        string('short', center_x, string_z,
+               f'lodge_rail_string_{i}', anchor_y, .10, 3.0)
 
     # Ordinary narrow timber posts support the square and one path crossing.
     # Their bases sit outside the packed walking lines and seating footprints.

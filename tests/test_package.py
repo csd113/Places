@@ -645,6 +645,24 @@ class AssetCatalogTests(unittest.TestCase):
             errors, _ = self._validate_level_document(level_with(lights))
             self.assertTrue(any(needle in error for error in errors), f"{label}: {errors}")
 
+        # The larger static source set does not expand the runtime switch set.
+        for count in (11, 16):
+            errors, _ = self._validate_level_document(level_with([{"shape": "point"}] * count))
+            self.assertEqual(errors, [], (count, errors))
+        errors, _ = self._validate_level_document(level_with([{"shape": "point"}] * 17))
+        self.assertTrue(any("limit is 16" in error for error in errors), errors)
+        switched_level = level_with([{"shape": "point"}] * 9)
+        switched_level["props"][0]["components"] = [{"component": "light", "switchable": True}]
+        errors, _ = self._validate_level_document(switched_level)
+        self.assertTrue(any("eight switched light sources" in error for error in errors), errors)
+        errors = []
+        twin_sources = validate.retained_fixture_source_count({"fixture": "core:pool_light_wall", "enabled": False})
+        self.assertEqual(twin_sources, 2, "disabled physical strips retain both source identities")
+        validate.validate_light_source_counts([999_998, twin_sources], "level", errors)
+        self.assertEqual(errors, [], errors)
+        validate.validate_light_source_counts([999_999, twin_sources], "level", errors)
+        self.assertTrue(any("local light sources exceed 1000000" in error for error in errors), errors)
+
         # Slot overrides are numeric source metadata, so exercise malformed
         # boundaries directly without catalog I/O, model decoding, or map bakes.
         luminous_prop = {

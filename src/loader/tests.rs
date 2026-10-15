@@ -41,6 +41,79 @@ fn route_sampling_rejects_counts_that_lose_adjacent_float_indices() {
     );
 }
 
+/// One four-metre source-only bake protects retention and independent runtime
+/// budgets. No model decode, atlas solve or shipped-map preparation is used.
+#[test]
+fn static_attached_sources_keep_their_bound_and_the_compiled_aggregate_limit() {
+    let mut level = LevelDef::from_json(&serde_json::json!({
+        "format_version":3_u16,"id":"static_sources","name":"Static sources",
+        "spawn":{"x":1.0_f32,"z":1.0_f32},
+        "rooms":[{"x":0.0_f32,"z":0.0_f32,"width":4.0_f32,"depth":4.0_f32,"height":3.0_f32}],
+        "ceiling_lights":[{"fixture":"core:pool_light_wall","x":1.0_f32,"z":1.0_f32,"mount":"wall","y":1.5_f32,"enabled":false}],
+        "props":[{"model":"core:missing","x":2.0_f32,"z":2.0_f32,"occludes":false,
+            "lights":vec![serde_json::json!({"shape":"point","offset":[0.0_f32,1.0_f32,0.0_f32],"intensity":0.1_f32});17_usize]}]
+    }).to_string()).expect("tiny attached-source fixture");
+    let too_many = validate_prop_lights(&level)
+        .expect_err("seventeen attached sources exceed the authoring bound");
+    assert!(
+        too_many.contains("limit is 16"),
+        "specific per-prop source bound: {too_many}"
+    );
+    let owner = level.props.first_mut().expect("source owner");
+    assert!(
+        owner.lights.pop().is_some(),
+        "the boundary fixture loses exactly one declared source"
+    );
+    owner
+        .lights
+        .last_mut()
+        .expect("retained disabled source")
+        .enabled = false;
+    validate_level(&level).expect("sixteen static sources validate");
+    assert_eq!(
+        level.ceiling_lights[0].baked_source_count(),
+        2,
+        "disabled twin strips retain both identities"
+    );
+    let lighting = crate::lighting::LevelLighting::bake(&level);
+    assert_eq!(
+        lighting.lights().len(),
+        18,
+        "all sixteen attached and two disabled fixture sources are retained"
+    );
+    assert_eq!(
+        lighting
+            .lights()
+            .iter()
+            .filter(|source| source.is_active())
+            .count(),
+        15
+    );
+    level.props[0].components.push(ComponentDef::Light {
+        enabled: true,
+        switchable: true,
+        emission_scale: 1.0,
+    });
+    let switched = validate_level(&level)
+        .expect_err("static authoring cannot expand the switched-source budget");
+    assert!(
+        switched.contains("eight switched light sources"),
+        "independent switched budget: {switched}"
+    );
+    let limit = usize::try_from(crate::level::MAX_LEVEL_LIGHT_SOURCES)
+        .expect("compiled source limit fits usize");
+    validate_light_source_counts([limit.saturating_sub(2), 2])
+        .expect("the exact aggregate limit is valid");
+    assert!(
+        validate_light_source_counts([limit.saturating_sub(1), 2]).is_err(),
+        "disabled twin apertures must cross the aggregate boundary"
+    );
+    assert!(
+        validate_light_source_counts([usize::MAX, 1]).is_err(),
+        "source count arithmetic cannot wrap around the bound"
+    );
+}
+
 #[test]
 fn test_validate_level_success() {
     let level = LevelDef {
@@ -4875,10 +4948,9 @@ fn the_geometry_revision_is_part_of_both_build_fingerprints() {
         "the stage fingerprint is a pure function of its inputs"
     );
 
-    // The shipped revision is the one the fix introduced, not a placeholder.
-    assert_eq!(
-        revision, 14,
-        "completed fixture meshes and independent prop light controls require geometry revision 14"
+    assert!(
+        revision >= 15,
+        "completed fixture controls and dense-model probe preparation require geometry revision 15 or later"
     );
 }
 

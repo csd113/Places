@@ -2125,16 +2125,7 @@ fn validate_light_circuits(level: &LevelDef) -> Result<(), String> {
             .iter()
             .filter(|fixture| fixture.switchable)
             .fold(0_usize, |count, fixture| {
-                let profile = crate::lighting::fixture_profile(&fixture.fixture);
-                count.saturating_add(
-                    if profile.model.is_some()
-                        && profile.kind == crate::lighting::FixtureKind::WallSconce
-                    {
-                        2
-                    } else {
-                        1
-                    },
-                )
+                count.saturating_add(fixture.baked_source_count())
             });
         let sources = level
             .props
@@ -2329,6 +2320,16 @@ fn validate_ceiling_lights(level: &LevelDef) -> Result<(), String> {
     Ok(())
 }
 
+/// Check the retained source budget without constructing a source array.
+fn validate_light_source_counts(counts: impl IntoIterator<Item = usize>) -> Result<(), String> {
+    counts.into_iter().try_fold(0_u64, |count, next| {
+        let total = count.saturating_add(u64::try_from(next).unwrap_or(u64::MAX));
+        if total > crate::level::MAX_LEVEL_LIGHT_SOURCES {
+            Err(format!("Level declares {total} local light sources; the limit is {} including disabled sources", crate::level::MAX_LEVEL_LIGHT_SOURCES))
+        } else { Ok(total) }
+    }).map(|_| ())
+}
+
 /// Validate the generic light sources a placed object owns.
 ///
 /// These are the engine-level lights of [`crate::lighting::LightSource`]: a
@@ -2336,6 +2337,13 @@ fn validate_ceiling_lights(level: &LevelDef) -> Result<(), String> {
 /// error — unlike an unknown prop model, which degrades to a placeholder box —
 /// because a light is authored data the engine can check completely.
 fn validate_prop_lights(level: &LevelDef) -> Result<(), String> {
+    validate_light_source_counts(
+        level
+            .ceiling_lights
+            .iter()
+            .map(crate::level::LightFixtureDef::baked_source_count)
+            .chain(level.props.iter().map(|prop| prop.lights.len())),
+    )?;
     for (i, prop) in level.props.iter().enumerate() {
         if prop.lights.len() > crate::level::MAX_PROP_LIGHTS {
             return Err(format!(

@@ -61,6 +61,17 @@ class WinterAssemblyTests(unittest.TestCase):
         cls.props = {p['id']: p for p in cls.level['props']}
         cls.blanket = built_model('snow_roof_blanket')
 
+    def test_bank_tree_roots_share_their_center_support_height(self):
+        # Nine contact points from one saved mesh catch the measured bank-edge
+        # float without building or baking any map.
+        prop = self.props['forest_3_1']
+        model = glb.read_glb((ROOT / 'assets/environments/winter/props/tree_snow_02.glb').read_bytes())
+        roots = {point for point in model.positions if abs(point[1]) < 1e-6}
+        self.assertEqual(len(roots), 9)
+        for point in roots:
+            x, y, z = world_point(self.level, prop, point)
+            self.assertAlmostEqual(y, floor_at(self.level, x, z), places=5)
+
     def test_control_aim_boxes_are_explicit_and_do_not_overlap(self):
         authored = json.loads((ROOT / 'levels/winter.json').read_text())
         controls = [p for p in authored['props'] if p['id'] in {
@@ -190,7 +201,7 @@ class WinterAssemblyTests(unittest.TestCase):
         boxes = {b['id']: b for b in self.level['void_walls']}
         spans = [p for p in self.level['props'] if p['model'].startswith('winter:string_lights_')]
         self.assertEqual(len(spans), 8)
-        self.assertEqual(sum(len(p['lights']) for p in spans), 38)
+        self.assertEqual(sum(len(p['lights']) for p in spans), 60)
         for prop in spans:
             variant = prop['model'].removeprefix('winter:string_lights_')
             ends = [world_point(self.level, prop, (side*SPANS[variant][0]/2,
@@ -216,10 +227,17 @@ class WinterAssemblyTests(unittest.TestCase):
             elif prop['id'].startswith('lodge_rail_string_'):
                 prefix = 'lodge_rail_'+prop['id'].split('_')[-1]+'_post_'
                 supports = [p for p in self.level['props'] if p['id'].startswith(prefix)]
-                for endpoint in ends:
+                for side, endpoint in zip((-1, 1), ends):
                     support = min(supports, key=lambda p: math.hypot(p['x']-endpoint[0], p['z']-endpoint[2]))
                     self.assertLess(abs(endpoint[0]-support['x']), .055)
-                    self.assertLess(abs(endpoint[2]-support['z']), .06)
+                    mount = boxes[f'lodge_rail_string_mount_{prop["id"].split("_")[-1]}_{side}']
+                    for axis in range(3):
+                        self.assertLess(mount['min'][axis], endpoint[axis])
+                        self.assertGreater(mount['max'][axis], endpoint[axis])
+                    self.assertLess(mount['min'][2], support['z']+.06)
+                    self.assertGreater(mount['max'][2], support['z']+.06)
+                    # Delivered bulb glass extends 38.97 mm behind the cable.
+                    self.assertGreater(prop['z']-.03897-(support['z']+.06), .01)
                     base = floor_at(self.level, support['x'], support['z'])+support['y']
                     self.assertGreater(endpoint[1], base)
                     self.assertLess(endpoint[1], base+1.05*support['scale'])

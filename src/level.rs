@@ -5735,6 +5735,17 @@ pub enum StaticSwitchMode {
 }
 
 impl LightFixtureDef {
+    /// Actual retained source count, including disabled fixture apertures.
+    #[must_use]
+    pub fn baked_source_count(&self) -> usize {
+        let profile = crate::lighting::fixture_profile(&self.fixture);
+        if profile.model.is_some() && profile.kind == crate::lighting::FixtureKind::WallSconce {
+            2
+        } else {
+            1
+        }
+    }
+
     /// Authored fixture intensity, sanitised for rendering.
     ///
     /// * omitted (or `NaN`) -> `1.0`, the standard fixture;
@@ -5944,8 +5955,13 @@ const fn default_enabled() -> bool {
     true
 }
 
-/// Largest number of attached lights one placed prop may declare.
-pub const MAX_PROP_LIGHTS: usize = 8;
+/// Largest authored source set on one fixed prop. All sources are baked;
+/// the independent selected-direct and switched-source budgets remain eight.
+pub const MAX_PROP_LIGHTS: usize = 16;
+
+/// Existing compiled local-source ceiling, shared by source validation and PLLT.
+/// Disabled sources count because they retain stable compiled identities.
+pub const MAX_LEVEL_LIGHT_SOURCES: u64 = 1_000_000;
 
 /// Fallback prop box extents [width, height, depth] in metres, used whenever
 /// neither the placed prop nor the prop catalog provides explicit sizes.

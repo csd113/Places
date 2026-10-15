@@ -2647,7 +2647,11 @@
       "color": "#5a6b45",
       "category": "Vegetation",
       "solid": false,
-      "description": "Broad deciduous tree with closed tapered branches and eight asymmetric opaque foliage masses. Keep map collision trunk-sized [0.8, 6.4, 0.8]."
+      "description": "Broad deciduous tree with closed tapered branches and eight asymmetric opaque foliage masses. Keep map collision trunk-sized [0.8, 6.4, 0.8].",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:lamp_stand",
@@ -2899,7 +2903,11 @@
       "color": "#647c45",
       "category": "Vegetation",
       "solid": false,
-      "description": "Slender deciduous tree with tapered branching and narrow opaque foliage groups; 2.0 m crown envelope, trunk collider [0.6, 6.2, 0.6]."
+      "description": "Slender deciduous tree with tapered branching and narrow opaque foliage groups; 2.0 m crown envelope, trunk collider [0.6, 6.2, 0.6].",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:tree_03",
@@ -2917,7 +2925,11 @@
       "color": "#3f543f",
       "category": "Vegetation",
       "solid": false,
-      "description": "Ragged evergreen with a tapered trunk and six staggered whorls of closed opaque needle masses. Keep map collision trunk-sized [0.6, 6.8, 0.6]."
+      "description": "Ragged evergreen with a tapered trunk and six staggered whorls of closed opaque needle masses. Keep map collision trunk-sized [0.6, 6.8, 0.6].",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:streetlight",
@@ -4247,7 +4259,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:tree_snow_02",
@@ -4264,7 +4280,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:drift_small",
@@ -4281,7 +4301,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:drift_medium",
@@ -4298,7 +4322,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:drift_large",
@@ -4315,7 +4343,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:drift_wall",
@@ -4332,7 +4364,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:drift_fence",
@@ -4349,7 +4385,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:mound_irregular",
@@ -4366,7 +4406,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:boulder_snow",
@@ -4383,7 +4427,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:rock_face_snow",
@@ -4400,7 +4448,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:snow_door_overhang",
@@ -4417,7 +4469,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:snow_awning",
@@ -4434,7 +4490,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:snow_stair_edge",
@@ -4451,7 +4511,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:snow_ledge",
@@ -4468,7 +4532,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:snow_roof_edge",
@@ -4485,7 +4553,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:snow_porch_edge",
@@ -4502,7 +4574,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:snow_roof_slope",
@@ -4519,7 +4595,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:snow_rail_top",
@@ -4536,7 +4616,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:snow_post_cap",
@@ -4553,7 +4637,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:railing_snow_straight",
@@ -4604,7 +4692,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:fence_post_snow",
@@ -4621,7 +4713,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:fence_two_rail_section_snow",
@@ -4674,7 +4770,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:icicle_medium",
@@ -4691,7 +4791,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:icicle_long",
@@ -4708,7 +4812,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:icicle_cluster_mixed",
@@ -4725,7 +4833,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:icicle_cluster_sparse",
@@ -4742,7 +4854,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:string_lights_short",
@@ -4759,7 +4875,11 @@
       ],
       "color": "#ffc878",
       "category": "Lighting",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:string_lights_medium",
@@ -4776,7 +4896,11 @@
       ],
       "color": "#ffc878",
       "category": "Lighting",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:string_lights_long",
@@ -4793,7 +4917,11 @@
       ],
       "color": "#ffc878",
       "category": "Lighting",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "pool:tex_coping_01",
@@ -5624,7 +5752,11 @@
       ],
       "color": "#afb9ca",
       "category": "Architectural",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:masonry_pier_snow",
@@ -5641,7 +5773,11 @@
       ],
       "color": "#afb9ca",
       "category": "Architectural",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:timber_lantern",
@@ -5658,7 +5794,11 @@
       ],
       "color": "#afb9ca",
       "category": "Architectural",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:entrance_frame",
@@ -5675,7 +5815,11 @@
       ],
       "color": "#afb9ca",
       "category": "Architectural",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:door_hood_snow",
@@ -5692,7 +5836,11 @@
       ],
       "color": "#afb9ca",
       "category": "Architectural",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:window_frame",
@@ -5709,7 +5857,11 @@
       ],
       "color": "#afb9ca",
       "category": "Architectural",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:ice_fragment",
@@ -5726,7 +5878,11 @@
       ],
       "color": "#afb9ca",
       "category": "Landscape",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:tex_stone_masonry_01",
@@ -7260,7 +7416,11 @@
       ],
       "color": "#e6f2fa",
       "category": "Winter Snow Attachments",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:bowling_pin",
@@ -9952,6 +10112,50 @@
       "category": "Appliances",
       "solid": true,
       "description": "Finished dimensional snack machine: five recessed shelves, fifty packets, twenty-five coils and a collection chute. Bottom-centred, +Z front; separate tube/LCD emission and clear glass.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "winter:railing_snow_corner_assembly",
+      "display_name": "Snowy Corner Railing Assembly",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/winter/props/railing_snow_corner_assembly.glb",
+      "size": [
+        0.3,
+        1.125,
+        0.3
+      ],
+      "color": "#9d9890",
+      "category": "Winter",
+      "solid": false,
+      "description": "Complete floor-mounted corner post with short perpendicular rail stubs and a snow crown. Preserve the original rail-only corner identity for linked modules.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "winter:railing_snow_straight_assembly",
+      "display_name": "Snowy Straight Railing Assembly",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/winter/props/railing_snow_straight_assembly.glb",
+      "size": [
+        1.8,
+        1.125,
+        0.16
+      ],
+      "color": "#9d9890",
+      "category": "Winter",
+      "solid": false,
+      "description": "Complete floor-mounted railing with two integral end posts and a low timber sill. Use as one standalone assembly; linked spans use the existing separate section and post kit.",
       "authoring": {
         "tool": "completed",
         "source": "completed-models.json"

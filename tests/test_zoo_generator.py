@@ -216,7 +216,7 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
             ), "the basin must not introduce artificial rims at chart borders")
         strings = [p for p in level["props"] if p["model"].startswith("winter:string_lights_")]
         self.assertEqual(len(strings), 3)
-        self.assertEqual(sum(len(p["lights"]) for p in strings), 15)
+        self.assertEqual(sum(len(p["lights"]) for p in strings), 23)
 
     def test_tall_exhibits_clear_the_ceiling_at_native_scale(self):
         level = self.level_for(self.catalog)
