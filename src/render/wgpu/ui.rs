@@ -331,9 +331,9 @@ impl UiRenderer {
 /// Creates the font atlas texture, fills it from the committed PNG pixels and
 /// returns its view. The bind group built from the view owns the texture.
 ///
-/// `generate_font_atlas` is the one font source the project has: a 128x64 RGBA8
-/// sheet with the reserved white cell and the 8x8 glyphs. It is decoded and
-/// uploaded once, at construction.
+/// `generate_font_atlas` is the one font source the project has: a 256x128 RGBA8
+/// sheet with the reserved white cell, unchanged 8x8 glyphs and hand icon.
+/// It is decoded and uploaded once, at construction.
 fn upload_font_atlas(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::TextureView {
     let font_dimensions = font_atlas_dimensions();
     let font_texture = device.create_texture(&wgpu::TextureDescriptor {
@@ -677,10 +677,10 @@ mod tests {
         assert_eq!(descriptor.address_mode_v, wgpu::AddressMode::ClampToEdge);
         assert_eq!(descriptor.mag_filter, wgpu::FilterMode::Nearest);
         assert_eq!(descriptor.min_filter, wgpu::FilterMode::Nearest);
-        // The atlas is the generated 128x64 sheet, and its pixels are exactly
+        // The atlas is the committed 256x128 sheet, and its pixels are exactly
         // one RGBA8 texel per texel of the declared size.
         let (width, height) = font_atlas_dimensions();
-        assert_eq!((width, height), (128, 64));
+        assert_eq!((width, height), (256, 128));
         assert_eq!(
             generate_font_atlas().len(),
             usize::try_from(width.saturating_mul(height).saturating_mul(4)).unwrap()

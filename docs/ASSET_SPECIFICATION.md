@@ -1531,12 +1531,12 @@ this sheet (§6). The white sheet itself is not an authoring target.
 The fixed internal sheets are ordinary catalogued PNGs. They are embedded
 from their repository files so a broken external asset or an installation
 without an asset directory can still display the UI and diagnostic fallback.
-Their decoded RGBA pixels are pinned by tests against the previous runtime
-images; changing compression is safe, but changing layout or orientation is not.
+Their decoded RGBA pixels are pinned by tests against the reviewed sheets;
+changing compression is safe, but changing layout or orientation is not.
 
 | Image | Catalog id and repository path | Contract |
 |---|---|---|
-| 128×64 HUD font atlas | `core:tex_ui_font_01` → `assets/shared/ui/font_01.png` | Fixed 2:1 RGBA8 sheet, top-down rows; ASCII 32–126 in sixteen 8×8 cells per row. Cell zero stays opaque white for UI quads, glyph ink is white with binary alpha, unused cells remain transparent. No tiling. |
+| 256×128 HUD font/hand atlas | `core:tex_ui_font_01` → `assets/shared/ui/font_01.png` | **2:1** RGBA8 sheet, top-down. Original 128×64 ASCII block retains every 8×8 glyph and white-cell pixel at the upper left. Glyph/white-cell UVs use the new sheet dimensions. ASCII 32–126 retains sixteen cells per glyph row; cell zero stays opaque white. An upright 64×64 hand cell occupies pixels `(0,64)..(64,128)` in the formerly unused lower-left area. Thumb points left; hand interior/exterior are alpha zero with antialiased off-white ink and a thin dark edge. No baked key or badge, no tiling. Other unused cells stay transparent. The catalog's historical 128×64 description names the logical grid; its bytes stay unchanged for package compatibility. |
 | 256×256 validation decal atlas | `core:decal_test_01` → `assets/shared/decals/validation_atlas_01.png` | Fixed square RGBA8 sheet; four 128×128 cells, eight-pixel UV gutters, only slot zero contains the existing frame and text. The PNG retains the atlas's bottom-up row convention, so its text appears vertically inverted in an ordinary image viewer. Preserve that orientation and alpha-zero background; the existing atlas UVs make it upright in game. No tiling. |
 | 64×64 missing-texture checker | `core:tex_missing` → `assets/shared/textures/missing_01.png` | Fixed square opaque RGBA8 sheet; eight-pixel cells alternate `[255, 0, 255, 255]` and `[24, 24, 24, 255]`, starting magenta at the top-left. Preserve its symmetric orientation and checker period. |
 | 2×2 emergency white sheet | `core:tex_white_fallback_01` → `assets/shared/textures/white_fallback_01.png` | Fixed square opaque RGBA8 sheet, every channel 255. Used only if the embedded primary white sheet cannot decode. No tiling or authored UV detail. |
@@ -1547,12 +1547,18 @@ decode accepts only a closed set of embedded repository files; failure is a
 repository build invariant, covered by complete pixel hashes and dimension
 checks. External images continue to use fallible decoding and the checker.
 
-The lower-screen interaction hand is vector UI geometry sampling the font
-atlas's existing opaque white cell. Its rounded white silhouette and thin dark
-outline introduce no generated texture or altered atlas layout. The actual
-bound interaction key uses existing glyph cells in black at the palm centre.
-Visibility follows the precise eligible aim target and disappears throughout
-holding, menus and console use.
+The HUD uploads the committed atlas once and renders the hand as one textured
+quad in the existing UI draw. The 2:1 sheet retains
+every original glyph/white-cell pixel; shared accessors adjust their UVs for the
+new dimensions. The additional decoded/uploaded storage is 96 KiB, independent
+of world texture quality, with no mipmaps or per-frame texture work. The hand cell
+recreates the rounded outline from the user-provided Desktop reference
+(`6901637caf3b8791f7d3546ceee9f8543c136759544ff62b6d35e9bba12467e0`).
+The current bound interaction key is drawn separately in off-white inside the
+transparent palm, with a subtle dark text edge. Long key names fit within that
+same palm without stretching the silhouette. The icon stays low and compact;
+visibility follows the precise eligible aim target and disappears throughout
+holding, menus and console use. No image is generated at runtime.
 
 Computed lighting images are derived from level geometry and light settings:
 

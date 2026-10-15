@@ -14,7 +14,7 @@ pub enum BuiltinImage {
 
 impl BuiltinImage {
     /// Decodes an immutable build resource. Tests pin every dimension and RGBA
-    /// byte against the former atlas or fallback, so a failure identifies a
+    /// byte against the reviewed sheets, so a failure identifies a
     /// broken repository build rather than malformed user content.
     #[expect(
         clippy::expect_used,
@@ -42,13 +42,13 @@ mod tests {
     use super::BuiltinImage;
 
     #[test]
-    fn embedded_sheets_preserve_all_legacy_pixels_and_dimensions() {
+    fn embedded_sheets_preserve_reviewed_pixels_and_dimensions() {
         let cases = [
             (
                 BuiltinImage::FontAtlas,
+                256_u32,
                 128_u32,
-                64_u32,
-                "b91f39927df08bb3b0138bb1341883e4a8fd08db96e45400902cfea4d38c1633",
+                "090bbdf60ce43699b56cea60bb6365643f1e92717b5c1bce4a5e66c440cb0406",
             ),
             (
                 BuiltinImage::DecalAtlas,
@@ -79,7 +79,7 @@ mod tests {
             assert_eq!(
                 format!("{:x}", Sha256::digest(&decoded.rgba)),
                 digest,
-                "every RGBA byte, including transparent RGB and row orientation, matches the legacy image"
+                "every RGBA byte, including transparent RGB and row orientation, matches the reviewed image"
             );
         }
     }

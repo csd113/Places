@@ -4736,7 +4736,7 @@ impl WgpuRenderer {
     /// Builds the UI pipeline for the configured surface format.
     ///
     /// Called before drawing the UI; rebuilds only when the format changed (a
-    /// recreated surface). The font atlas is re-uploaded with it; it is 128x64
+    /// recreated surface). The HUD atlas is re-uploaded with it; it is 256x128
     /// and created once per format.
     fn ensure_ui_pipeline(&mut self, format: wgpu::TextureFormat) {
         if self.ui.as_ref().map(UiRenderer::format) == Some(format) {

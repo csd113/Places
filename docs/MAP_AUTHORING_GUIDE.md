@@ -2696,7 +2696,7 @@ entry.)
 | Missing-texture diagnostic (64×64 magenta/black) | `assets/shared/textures/missing_01.png` (embedded by the engine) | Visible fallback for any broken surface/decal/fixture texture. |
 | Validation decal atlas (256×256; only `core:decal_test_01`) | `assets/shared/decals/validation_atlas_01.png` | Fixed atlas slots, alpha and bottom-up row convention; the existing atlas UV mapping is preserved. |
 | White sheet (1024×1024 opaque white fill, file-backed) | `assets/shared/textures/white_01.png` (loaded by `src/render/wgpu/texture.rs`) | Untextured geometry (round/wall fixture bodies, UI quads); fluorescent housings bind the metal material. |
-| HUD font atlas (128×64) | `assets/shared/ui/font_01.png` | Project-owned bitmap UI font with sixteen 8×8 ASCII cells per row and the reserved white UI cell. |
+| HUD atlas (256×128) | `assets/shared/ui/font_01.png` | Original sixteen-cell rows of 8×8 ASCII glyphs and the reserved white cell stay at the upper left; a transparent interaction-hand cell occupies the lower left. See the fixed layout in the asset specification. |
 | Emergency white sheet (2×2) | `assets/shared/textures/white_fallback_01.png` | Embedded opaque white fallback if the primary embedded white PNG cannot decode. |
 | Lightmap atlas (Full up to fourteen pages per contribution group; lower profiles eight) | `src/lighting/lightmap/`, packaged KTX2 payloads | Incident linear HDR and signed moments computed offline from geometry/material/light inputs. Loaded from the prepared package; the 320 MiB +64 KiB typed bound and unchanged aggregate/shape guards apply. PNG dumps are diagnostics, not artwork. |
 

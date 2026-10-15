@@ -198,20 +198,20 @@ pub const FONT_DATA: [[u8; 8]; FONT_CHARS_COUNT] = [
 ];
 
 /// Atlas width in texels.
-const ATLAS_WIDTH: u32 = 128;
+const ATLAS_WIDTH: u32 = 256;
 /// Atlas height in texels.
-const ATLAS_HEIGHT: u32 = 64;
+const ATLAS_HEIGHT: u32 = 128;
 /// Glyphs packed into one atlas row.
 const GLYPHS_PER_ROW: u8 = 16;
 
 /// Last ASCII code carried by the glyph table (`~`).
 const FONT_LAST_CHAR: u8 = b'~';
 
-/// Loads the committed 128x64 RGBA font atlas, preserving the ASCII cell layout.
+/// Loads the committed 256x128 HUD atlas, preserving the original ASCII cells.
 ///
-/// Cell zero is opaque white for UI boxes; glyph ink and transparent cells
-/// retain the decoded bytes of the original atlas. The historical function
-/// name remains for renderer callers.
+/// Original 8x8 glyph pixels and the white UI cell keep their pixel positions.
+/// Their UVs account for the larger sheet; the hand occupies a spare 64x64 cell.
+/// The historical function name remains for renderer callers.
 #[must_use]
 pub fn generate_font_atlas() -> Vec<u8> {
     crate::materials::BuiltinImage::FontAtlas.decode().rgba
@@ -223,7 +223,7 @@ pub const fn font_atlas_dimensions() -> (u32, u32) {
     (ATLAS_WIDTH, ATLAS_HEIGHT)
 }
 
-/// Returns the UV bounds `[u0, v0, u1, v1]` in the 128x64 font atlas for the given ASCII character.
+/// Returns the UV bounds `[u0, v0, u1, v1]` in the HUD atlas for an ASCII character.
 #[must_use]
 pub fn get_char_uv(ch: char) -> Option<[f32; 4]> {
     let ascii = u8::try_from(ch).ok()?;
@@ -234,10 +234,10 @@ pub fn get_char_uv(ch: char) -> Option<[f32; 4]> {
     let col = f32::from(char_idx % GLYPHS_PER_ROW);
     let row = f32::from(char_idx / GLYPHS_PER_ROW);
 
-    let u0 = (col * 8.0) / 128.0;
-    let v0 = (row * 8.0) / 64.0;
-    let u1 = ((col + 1.0) * 8.0) / 128.0;
-    let v1 = ((row + 1.0) * 8.0) / 64.0;
+    let u0 = (col * 8.0) / 256.0;
+    let v0 = (row * 8.0) / 128.0;
+    let u1 = ((col + 1.0) * 8.0) / 256.0;
+    let v1 = ((row + 1.0) * 8.0) / 128.0;
 
     Some([u0, v0, u1, v1])
 }
@@ -245,7 +245,13 @@ pub fn get_char_uv(ch: char) -> Option<[f32; 4]> {
 /// UV bounds for a solid white pixel in the font atlas (for drawing UI boxes / frames).
 #[must_use]
 pub fn get_white_uv() -> [f32; 4] {
-    [1.0 / 128.0, 1.0 / 64.0, 7.0 / 128.0, 7.0 / 64.0]
+    [1.0 / 256.0, 1.0 / 128.0, 7.0 / 256.0, 7.0 / 128.0]
+}
+
+/// Upright 64x64 interaction outline in the HUD atlas's unused lower-left cell.
+#[must_use]
+pub const fn interaction_hand_uv() -> [f32; 4] {
+    [0.0, 0.5, 0.25, 1.0]
 }
 
 #[cfg(test)]
