@@ -560,8 +560,9 @@ mod tests {
         };
         let frustum_for = |camera: [f32; 3], direction: glam::Vec3| {
             let eye = glam::Vec3::from_array(camera);
-            let projection = glam::Mat4::orthographic_rh(-32.0, 32.0, -32.0, 32.0, 0.1, 100.0);
-            let view = glam::Mat4::look_at_rh(eye, eye + direction, glam::Vec3::Y);
+            let projection =
+                glam::camera::rh::proj::directx::orthographic(-32.0, 32.0, -32.0, 32.0, 0.1, 100.0);
+            let view = glam::camera::rh::view::look_at_mat4(eye, eye + direction, glam::Vec3::Y);
             Frustum::from_view_projection(
                 &(projection * view),
                 crate::engine::spatial::DepthRange::ZeroToOne,

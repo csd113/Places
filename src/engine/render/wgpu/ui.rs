@@ -91,7 +91,7 @@ const UI_BLEND: wgpu::BlendState = wgpu::BlendState {
 /// clip-space correction.
 ///
 /// The reference calls
-/// `glam::Mat4::orthographic_rh(0.0, 480.0, 272.0, 0.0, -1.0, 1.0)`, so UI
+/// `glam::camera::rh::proj::directx::orthographic(0.0, 480.0, 272.0, 0.0, -1.0, 1.0)`, so UI
 /// (0, 0) maps to NDC `(-1, +1)` and UI (480, 272) to `(1, -1)`: the reference
 /// space has a top-left origin and +y points down. WebGPU's NDC is +y up and
 /// its framebuffer Y flip is the viewport transform's job, exactly like
@@ -100,7 +100,7 @@ const UI_BLEND: wgpu::BlendState = wgpu::BlendState {
 ///
 /// The only OpenGL -> wgpu correction the world path applies is
 /// [`clip_correction`], and it only remaps z (`z' = 0.5 z + 0.5`, `w' = w`);
-/// x and y pass through untouched. [`Mat4::orthographic_rh`] is glam's
+/// x and y pass through untouched. [`glam::camera::rh::proj::directx::orthographic`] is glam's
 /// WebGPU/Direct3D depth variant already, so the corrected z lands in `[0, 1]`
 /// (not GL's `[-1, 1]`); the UI pass carries no depth attachment at all, so z
 /// is never read. The correction is applied anyway so the HUD shares the one
@@ -114,7 +114,7 @@ pub fn ui_view_projection() -> Mat4 {
     // `glam` matrix products are per-element `f32` arithmetic with no overflow
     // or panic path.
     clip_correction()
-        * Mat4::orthographic_rh(
+        * glam::camera::rh::proj::directx::orthographic(
             0.0,
             dimension_f32(UI_REFERENCE_WIDTH),
             dimension_f32(UI_REFERENCE_HEIGHT),
@@ -573,7 +573,7 @@ mod tests {
 
     #[test]
     fn the_clip_correction_touches_z_alone() {
-        let reference = Mat4::orthographic_rh(
+        let reference = glam::camera::rh::proj::directx::orthographic(
             0.0,
             dimension_f32(UI_REFERENCE_WIDTH),
             dimension_f32(UI_REFERENCE_HEIGHT),

@@ -20,12 +20,13 @@ fn view_projection(eye: Vec3, look_at: Vec3, fov_degrees: f32) -> Mat4 {
     view_projection_up(eye, look_at, fov_degrees, Vec3::Y)
 }
 
-/// `look_at_rh` needs an `up` that is not parallel to the view direction, so
+/// `look_at_mat4` needs an `up` that is not parallel to the view direction, so
 /// the straight-down/straight-up cases pass an explicit axis.
 fn view_projection_up(eye: Vec3, look_at: Vec3, fov_degrees: f32, up: Vec3) -> Mat4 {
     let aspect = 480.0 / 272.0;
-    let proj = Mat4::perspective_rh(fov_degrees.to_radians(), aspect, 0.1, 100.0);
-    let view = Mat4::look_at_rh(eye, look_at, up);
+    let proj =
+        glam::camera::rh::proj::directx::perspective(fov_degrees.to_radians(), aspect, 0.1, 100.0);
+    let view = glam::camera::rh::view::look_at_mat4(eye, look_at, up);
     proj * view
 }
 

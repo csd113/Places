@@ -27,42 +27,42 @@ parallel-physics = ["rapier3d/parallel"]
 # Safe zero-copy bytes for the small plain-data GPU structs (world vertex,
 # camera uniform). Already a transitive wgpu dependency; the derive feature
 # makes the layout contract explicit without unsafe transmutation.
-bytemuck = { version = "1.25", default-features = false, features = ["derive"] }
+bytemuck = { version = "1.25.2", default-features = false, features = ["derive"] }
 # Compiler-only terminal sizing and cooperative Ctrl-C handling; no UI runtime.
 ctrlc = "3.5.2"
 terminal_size = "0.4.4"
-glam = "0.29"
+glam = "0.34.1"
 # Maintained pure-Rust rigid bodies (native and future WASM); the player keeps
 # its established controller and shares the same metre/second gravity value.
 rapier3d = "0.36.1"
 png = "0.18.1"
 # Blocking adapter/device initialization for the wgpu backend: two futures and
 # no async runtime.
-pollster = "1.0"
+pollster = "1.0.1"
 # SDL3 window/input platform layer. sdl3-sys probes pkg-config by default
 # (Homebrew: `brew install sdl3`); `raw-window-handle` 0.6 is the same version
 # wgpu 30 uses and provides HasWindowHandle/HasDisplayHandle for the window. No
 # other SDL3 features are enabled. The player renders through wgpu; the small
 # compiler GUI uses SDL's 2D renderer. Neither uses SDL's GPU API.
-sdl3 = { version = "0.20", features = ["use-pkg-config", "raw-window-handle"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+sdl3 = { version = "0.20.0", features = ["use-pkg-config", "raw-window-handle"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
 # Package integrity: content-addressed blob names and dependency identities.
 # Pure Rust, no C toolchain and no runtime services; used by both the offline
 # compiler and the player's package reader.
-sha2 = "0.10"
+sha2 = "0.11.1"
 # wgpu renderer: device, surface, world geometry and every later pass. Only
 # the native desktop backend of each target is compiled: Metal on macOS,
 # Vulkan on Linux, Direct3D 12 on Windows. The GLES, WebGPU and WebGL backends
 # stay off; `render::wgpu` never falls back to GL. `wgsl` is the shader
 # language the world, decal, post and UI pipelines use.
 wgpu = { version = "30.0.1", default-features = false, features = ["std", "wgsl"] }
-zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+zip = { version = "9.0.3", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 # One bounded persistent CPU executor for independent runtime preparation.
 # Browser builds retain the identical serial work without native threads.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-rayon = "1.12"
+rayon = "1.12.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 wgpu = { version = "30.0.1", default-features = false, features = ["vulkan", "wgsl"] }
@@ -79,7 +79,7 @@ future_incompatible = { level = "deny", priority = -1 }
 unused_results = "deny"
 unsafe_op_in_unsafe_fn = "deny"
 
-# Rust 1.99 is pinned in rust-toolchain.toml. Keep the policy here so check,
+# Rust 1.99.1 is pinned in rust-toolchain.toml. Keep the policy here so check,
 # Clippy and the desktop verification gate agree without duplicating flags.
 [lints.clippy]
 all = { level = "deny", priority = -1 }

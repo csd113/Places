@@ -269,9 +269,9 @@ pub struct Frustum {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DepthRange {
     /// `z_ndc` in `[-1, 1]`: the classic OpenGL convention
-    /// (`glam::Mat4::perspective_rh_gl`).
+    /// (`glam::camera::rh::proj::opengl::perspective`).
     NegativeOneToOne,
-    /// `z_ndc` in `[0, 1]`: what `glam::Mat4::perspective_rh` produces, and what
+    /// `z_ndc` in `[0, 1]`: what `glam::camera::rh::proj::directx::perspective` produces, and what
     /// this renderer uses.
     ZeroToOne,
 }

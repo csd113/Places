@@ -429,7 +429,7 @@ mod native {
             peak_active,
             peak_contact_pairs,
             immersed_frames,
-            state_sha256: format!("{:x}", hash.finalize()),
+            state_sha256: places::engine::package::hash::digest_hex(&hash.finalize()),
         })
     }
 }

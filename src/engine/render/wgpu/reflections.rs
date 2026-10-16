@@ -9,7 +9,8 @@
 //!   centroid of the reflective geometry that asked for one, from six
 //!   90-degree views of the whole scene. The reference renders
 //!   the six faces in the GL cube order +X/-X/+Y/-Y/+Z/-Z with the GL face-up
-//!   vectors, through `look_at_rh`/`perspective_rh_gl`. A compiled package
+//!   vectors, through [`glam::camera::rh::view::look_at_mat4`] and
+//!   [`glam::camera::rh::proj::opengl::perspective`]. A compiled package
 //!   stores each capture with an offline-prefiltered roughness mip chain
 //!   ([`crate::engine::render::common::probe_filter`]); a developer install that bakes
 //!   its own probes fills level 0 only and the shader keeps its two-tap rough
@@ -96,7 +97,8 @@ pub const CUBE_FACE_UPS: [[f32; 3]; 6] = [
 /// The reference's probe projection: 90 degrees square, near 0.1, far 100,
 /// with the one WebGPU capture correction.
 ///
-/// The reference builds this with `perspective_rh_gl` and renders into a GL FBO,
+/// The reference builds this with [`glam::camera::rh::proj::opengl::perspective`]
+/// and renders into a GL FBO,
 /// whose face image runs bottom-up: a world direction above the face centre
 /// lands in a *higher* `t` row. WebGPU render targets store their first row at
 /// the top, so a face captured with the unmodified projection would sample
@@ -111,7 +113,8 @@ pub const CUBE_FACE_UPS: [[f32; 3]; 6] = [
     reason = "glam matrix products are per-element f32 arithmetic with no integer overflow or panic path"
 )] // glam matrix products are per-element f32 arithmetic with no overflow or panic path
 pub fn probe_projection() -> glam::Mat4 {
-    let projection = glam::Mat4::perspective_rh(std::f32::consts::FRAC_PI_2, 1.0, 0.1, 100.0);
+    let projection =
+        glam::camera::rh::proj::directx::perspective(std::f32::consts::FRAC_PI_2, 1.0, 0.1, 100.0);
     projection * glam::Mat4::from_scale(glam::Vec3::new(1.0, -1.0, 1.0))
 }
 
@@ -131,7 +134,7 @@ pub fn probe_face_view_projection(eye: [f32; 3], face: usize) -> glam::Mat4 {
     let eye_point = glam::Vec3::from_array(eye);
     let dir = glam::Vec3::from_array(*direction);
     let up_vector = glam::Vec3::from_array(*up);
-    let view = glam::Mat4::look_at_rh(eye_point, eye_point + dir, up_vector);
+    let view = glam::camera::rh::view::look_at_mat4(eye_point, eye_point + dir, up_vector);
     probe_projection() * view
 }
 
@@ -787,7 +790,7 @@ mod tests {
             offset: -1.5,
             bounds: crate::engine::spatial::Aabb::EMPTY,
         };
-        let view_projection = glam::Mat4::perspective_rh_gl(1.0, 1.0, 0.1, 100.0);
+        let view_projection = glam::camera::rh::proj::opengl::perspective(1.0, 1.0, 0.1, 100.0);
         let mirrored = planar_view_projection(view_projection, &plane);
         let expected = view_projection * mirror_matrix(plane.normal, plane.offset);
         assert_eq!(mirrored, expected);

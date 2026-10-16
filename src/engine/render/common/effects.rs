@@ -1016,8 +1016,13 @@ mod tests {
         out: &mut Vec<EffectVertex>,
     ) -> super::super::snow::SnowStats {
         let camera = Vec3::new(12.0, 1.6, 3.0);
-        let projection = glam::Mat4::perspective_rh(60_f32.to_radians(), 16.0 / 9.0, 0.1, 100.0)
-            * glam::Mat4::look_at_rh(camera, Vec3::new(12.0, 1.6, 2.0), Vec3::Y);
+        let projection =
+            glam::camera::rh::proj::directx::perspective(
+                60_f32.to_radians(),
+                16.0 / 9.0,
+                0.1,
+                100.0,
+            ) * glam::camera::rh::view::look_at_mat4(camera, Vec3::new(12.0, 1.6, 2.0), Vec3::Y);
         let frustum = crate::engine::spatial::Frustum::from_view_projection(
             &projection,
             crate::engine::spatial::DepthRange::ZeroToOne,

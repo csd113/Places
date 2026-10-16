@@ -1168,7 +1168,12 @@ fn two_cluster_level(props_per_cluster: usize) -> LevelDef {
 fn scene_frustum(eye: glam::Vec3, yaw_degrees: f32, pitch_degrees: f32) -> Frustum {
     let aspect = 480.0 / 272.0;
     let fov = vertical_fov_for_aspect(60.0, aspect);
-    let proj = glam::Mat4::perspective_rh_gl(fov.to_radians(), aspect, SCENE_NEAR_M, SCENE_FAR_M);
+    let proj = glam::camera::rh::proj::opengl::perspective(
+        fov.to_radians(),
+        aspect,
+        SCENE_NEAR_M,
+        SCENE_FAR_M,
+    );
     let pitch = pitch_degrees.to_radians();
     let yaw = yaw_degrees.to_radians();
     let forward = glam::Vec3::new(
@@ -1176,19 +1181,24 @@ fn scene_frustum(eye: glam::Vec3, yaw_degrees: f32, pitch_degrees: f32) -> Frust
         pitch.sin(),
         -yaw.cos() * pitch.cos(),
     );
-    let view = glam::Mat4::look_at_rh(eye, eye + forward, glam::Vec3::Y);
+    let view = glam::camera::rh::view::look_at_mat4(eye, eye + forward, glam::Vec3::Y);
     Frustum::from_view_projection(&(proj * view), DepthRange::NegativeOneToOne)
 }
 
 #[test]
 fn the_scene_projection_uses_the_full_depth_buffer() {
     // A point on the near plane must land on the depth buffer's near edge and
-    // one on the far plane on its far edge. `perspective_rh` (glam's `[0, 1]`
-    // convention) would put them at 0.5 and 1.0, throwing away half the depth
+    // one on the far plane on its far edge. glam's
+    // `camera::rh::proj::directx::perspective` (`[0, 1]` convention) would put
+    // them at 0.5 and 1.0, throwing away half the depth
     // resolution and with it the margin coplanar surfaces need.
     let aspect = 480.0 / 272.0;
-    let proj =
-        glam::Mat4::perspective_rh_gl(60.0f32.to_radians(), aspect, SCENE_NEAR_M, SCENE_FAR_M);
+    let proj = glam::camera::rh::proj::opengl::perspective(
+        60.0f32.to_radians(),
+        aspect,
+        SCENE_NEAR_M,
+        SCENE_FAR_M,
+    );
     let depth_of = |z: f32| {
         let clip = proj * glam::Vec4::new(0.0, 0.0, -z, 1.0);
         clip.z / clip.w

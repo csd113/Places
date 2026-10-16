@@ -1,7 +1,7 @@
 //! The attached spotlight's bounded visibility target. Geometry, posing and
 //! material coverage are submitted by the ordinary world pipeline.
 
-use glam::{Mat4, Vec3};
+use glam::Vec3;
 use std::cell::RefCell;
 
 use crate::engine::render::common::Flashlight;
@@ -172,8 +172,14 @@ pub fn flashlight_frame(light: Flashlight) -> WorldFrame {
     } else {
         Vec3::Y
     };
-    let projection = Mat4::perspective_rh_gl(2.0 * light.outer_cos.acos(), 1.0, 0.015, light.range);
-    let view = Mat4::look_at_rh(light.position, light.position + light.direction, up);
+    let projection = glam::camera::rh::proj::opengl::perspective(
+        2.0 * light.outer_cos.acos(),
+        1.0,
+        0.015,
+        light.range,
+    );
+    let view =
+        glam::camera::rh::view::look_at_mat4(light.position, light.position + light.direction, up);
     let matrix = projection * view;
     WorldFrame {
         view_projection: super::world::clip_correction() * matrix,

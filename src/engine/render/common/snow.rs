@@ -437,8 +437,13 @@ mod tests {
         config.intensity = 0.5;
         let scene = SnowScene::build(&level, &config, 0, 1.0);
         let camera = Vec3::new(0.0, 1.6, 10.0);
-        let projection = Mat4::perspective_rh(60_f32.to_radians(), 16.0 / 9.0, 0.1, 100.0)
-            * Mat4::look_at_rh(camera, Vec3::new(0.0, 1.6, 9.0), Vec3::Y);
+        let projection =
+            glam::camera::rh::proj::directx::perspective(
+                60_f32.to_radians(),
+                16.0 / 9.0,
+                0.1,
+                100.0,
+            ) * glam::camera::rh::view::look_at_mat4(camera, Vec3::new(0.0, 1.6, 9.0), Vec3::Y);
         let frustum = Frustum::from_view_projection(
             &projection,
             crate::engine::spatial::DepthRange::ZeroToOne,
@@ -493,8 +498,13 @@ mod tests {
         scene.shelters.clear();
         scene.storm.count = [0; 4];
         let camera = Vec3::new(0.0, 1.6, 10.0);
-        let matrix = Mat4::perspective_rh(60_f32.to_radians(), 16.0 / 9.0, 0.1, 100.0)
-            * Mat4::look_at_rh(camera, Vec3::new(0.0, 1.6, 9.0), Vec3::Y);
+        let matrix =
+            glam::camera::rh::proj::directx::perspective(
+                60_f32.to_radians(),
+                16.0 / 9.0,
+                0.1,
+                100.0,
+            ) * glam::camera::rh::view::look_at_mat4(camera, Vec3::new(0.0, 1.6, 9.0), Vec3::Y);
         let frustum =
             Frustum::from_view_projection(&matrix, crate::engine::spatial::DepthRange::ZeroToOne);
         let mut vertices = Vec::with_capacity(scene.budget().saturating_mul(4));
@@ -945,8 +955,13 @@ mod tests {
     {
         let scene = scene()?;
         let camera = Vec3::new(0.0, 1.6, 12.0);
-        let projection = Mat4::perspective_rh(60_f32.to_radians(), 16.0 / 9.0, 0.1, 100.0)
-            * Mat4::look_at_rh(camera, camera - Vec3::Z, Vec3::Y);
+        let projection =
+            glam::camera::rh::proj::directx::perspective(
+                60_f32.to_radians(),
+                16.0 / 9.0,
+                0.1,
+                100.0,
+            ) * glam::camera::rh::view::look_at_mat4(camera, camera - Vec3::Z, Vec3::Y);
         let frustum = Frustum::from_view_projection(
             &projection,
             crate::engine::spatial::DepthRange::ZeroToOne,

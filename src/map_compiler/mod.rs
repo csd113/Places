@@ -1991,7 +1991,7 @@ fn compiler_tool_sha256() -> Result<&'static str, String> {
                         .ok_or_else(|| "compiler hash read exceeded its buffer".to_string())?,
                 );
             }
-            Ok(format!("{:x}", hasher.finalize()))
+            Ok(crate::engine::package::hash::digest_hex(&hasher.finalize()))
         })
         .as_ref()
         .map(String::as_str)

@@ -32,8 +32,27 @@ Prop sheets stay beside their GLBs; logical `core:` and theme IDs are unchanged.
 
 ## Build from source
 
-Rust 1.99.0 is pinned in `rust-toolchain.toml`. Install SDL3 and `pkg-config`
-before building. macOS is the verified host: `brew install sdl3 pkg-config`.
+`rust-toolchain.toml` pins exact Rust 1.99.1 with Clippy/rustfmt for reproducible
+CI and release builds. Cargo's `rust-version = "1.99"` declares the minimum
+supported Rust version (MSRV), not the build-toolchain pin.
+
+If your already-installed `stable` toolchain provides Rust 1.99.1, optionally
+select it only for Places, from the repository root, to reuse that installation
+without installing a second fixed-version toolchain:
+
+```sh
+rustup override set stable
+rustc --version
+cargo --version
+```
+
+The local override leaves the repository pin unchanged. Because `stable` can
+advance, check that both `rustc` and `cargo` report 1.99.1, matching the selected
+repository pin, before recording build or performance comparisons. Use
+`rustup override unset` from this directory to return to the committed selection.
+
+Install SDL3 and `pkg-config` before building. macOS is the verified host:
+`brew install sdl3 pkg-config`.
 Linux needs SDL3 development headers, `pkg-config`, the Vulkan loader and a
 native driver. Windows needs SDL3, a C/C++ build toolchain and Direct3D 12.
 The [verification matrix](VERIFICATION.md) records actual platform acceptance.

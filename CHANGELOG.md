@@ -102,6 +102,18 @@ Consolidated documentation and duplicate artwork:
   separate, unverified issue. Two tiny Python fixtures protect identity reuse
   and refusal to overwrite another app.
 
+### Toolchain and dependency prerequisite
+
+- Pin CI/release builds to Rust 1.99.1; retain Cargo's Rust 1.99 MSRV and
+  document an optional local override that reuses an existing matching stable
+  installation.
+- Refresh all fourteen direct dependencies to their latest stable releases and
+  update compatible transitive packages. Migrate glam 0.34.1 camera constructors
+  with the existing handedness/depth conventions, SHA-2 0.11.1 digest formatting
+  through the shared lowercase hex helper, and ZIP 9.0.3 without changing
+  archive options or map/package contracts. Retain native backend feature limits.
+  See the [upgrade report](docs/reports/dependency-upgrade-0.11.0.md) for validation.
+
 ### Architecture reorganization totals
 
 Architecture commit `f762053` changes 361 files: 244 renames, 13 new files,

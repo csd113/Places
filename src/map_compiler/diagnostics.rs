@@ -542,7 +542,7 @@ fn package_hash(path: &Path) -> Result<String, String> {
             .ok_or_else(|| "lighting export hash read exceeds buffer".to_string())?;
         digest.update(bytes);
     }
-    Ok(format!("{:x}", digest.finalize()))
+    Ok(crate::engine::package::hash::digest_hex(&digest.finalize()))
 }
 
 #[cfg(test)]

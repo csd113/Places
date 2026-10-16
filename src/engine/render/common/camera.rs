@@ -54,7 +54,7 @@ impl RenderCamera {
     pub fn view_projection(self, render_size: DrawableSize) -> (glam::Mat4, Frustum) {
         let aspect = render_size.aspect_ratio();
         let effective_fov = super::view::vertical_fov_for_aspect(self.vertical_fov_degrees, aspect);
-        let proj = glam::Mat4::perspective_rh_gl(
+        let proj = glam::camera::rh::proj::opengl::perspective(
             effective_fov.to_radians(),
             aspect,
             super::SCENE_NEAR_M,
@@ -76,7 +76,11 @@ impl RenderCamera {
             clippy::arithmetic_side_effects,
             reason = "`glam`'s vector and matrix operators are per-component `f32` arithmetic with no integer overflow or panic path; clippy cannot see that through the operator impls, so the two operations below carry a documented allow."
         )]
-        let view = glam::Mat4::look_at_rh(self.position, self.position + forward, glam::Vec3::Y);
+        let view = glam::camera::rh::view::look_at_mat4(
+            self.position,
+            self.position + forward,
+            glam::Vec3::Y,
+        );
         #[expect(
             clippy::arithmetic_side_effects,
             reason = "glam matrix multiplication uses floating point components without integer overflow or a panic path."

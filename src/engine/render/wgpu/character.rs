@@ -1240,13 +1240,13 @@ mod tests {
             min: [-0.2915, -0.179, -0.23078],
             max: [0.2915, 1.899, 0.23078],
         };
-        let projection = Mat4::perspective_rh(
+        let projection = glam::camera::rh::proj::directx::perspective(
             60.0_f32.to_radians(),
             1280.0 / 720.0,
             crate::engine::render::common::SCENE_NEAR_M,
             20.0,
         );
-        let view = Mat4::look_at_rh(
+        let view = glam::camera::rh::view::look_at_mat4(
             glam::Vec3::new(0.0, 1.4, 0.4),
             glam::Vec3::new(0.0, 1.4, 1.4),
             glam::Vec3::Y,

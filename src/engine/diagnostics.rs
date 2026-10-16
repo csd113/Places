@@ -179,9 +179,9 @@ fn executable_identity() -> io::Result<String> {
         );
     }
     Ok(format!(
-        "path={} sha256={:x}",
+        "path={} sha256={}",
         path.display(),
-        digest.finalize()
+        crate::engine::package::hash::digest_hex(&digest.finalize())
     ))
 }
 

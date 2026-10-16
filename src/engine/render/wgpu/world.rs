@@ -230,7 +230,7 @@ pub const fn world_vertex_layout() -> wgpu::VertexBufferLayout<'static> {
 
 /// The one clip-space conversion from the Places/OpenGL convention to wgpu.
 ///
-/// Places builds its view-projection with `glam::Mat4::perspective_rh_gl`, so a
+/// Places builds its view-projection with `glam::camera::rh::proj::opengl::perspective`, so a
 /// view-space point maps to OpenGL clip space with `z_ndc` in `[-1, 1]`
 /// (near `-1`, far `+1`). wgpu (like Vulkan, Metal and Direct3D 12) rasterises
 /// `z` in `[0, 1]` (near `0`, far `1`), so this matrix maps

@@ -7,8 +7,19 @@ source/binary/package identities and limitations with the result.
 
 ## Prerequisites and source checks
 
-The repository pins Rust 1.99.0 with Clippy/rustfmt. Native builds need SDL3 3.2+
-and `pkg-config`; macOS uses `brew install sdl3 pkg-config`. Linux needs SDL3
+The repository pins exact Rust 1.99.1 with Clippy/rustfmt in
+`rust-toolchain.toml` for reproducible CI and release builds. Cargo's
+`rust-version = "1.99"` remains the MSRV, not the selected build toolchain.
+The optional [Places-local stable override](DEVELOPMENT.md#build-from-source)
+can reuse an already-installed stable 1.99.1 without a duplicate fixed-version
+installation. Before recording verification or comparisons, run
+`rustc --version` and `cargo --version` and confirm both match the selected
+repository pin; a moving `stable` label alone is insufficient evidence.
+Historical reports retain the toolchain versions actually used in their dated
+campaigns.
+
+Native builds need SDL3 3.2+ and `pkg-config`; macOS uses
+`brew install sdl3 pkg-config`. Linux needs SDL3
 headers, the Vulkan loader and a driver. Windows needs SDL3 and its C/C++ toolchain.
 Python tools require 3.10+; Pillow and NumPy are optional authoring/analysis
 dependencies, as described in [offline tooling](OFFLINE_TOOLING.md). Real-window

@@ -39,8 +39,6 @@ impl BuiltinImage {
 
 #[cfg(test)]
 mod tests {
-    use sha2::{Digest, Sha256};
-
     use super::BuiltinImage;
 
     #[test]
@@ -79,7 +77,7 @@ mod tests {
                 "fixed sheet dimensions retain the existing atlas contract"
             );
             assert_eq!(
-                format!("{:x}", Sha256::digest(&decoded.rgba)),
+                crate::engine::package::hash::sha256_hex(&decoded.rgba),
                 digest,
                 "every RGBA byte, including transparent RGB and row orientation, matches the reviewed image"
             );
