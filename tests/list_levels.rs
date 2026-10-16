@@ -48,9 +48,9 @@ fn remove_stage(path: &Path) {
 /// Include the real catalogue and external assets so discovery exercises the
 /// ordinary package currency guards in the staged distribution layout.
 fn stage_package(repo: &Path, source: &Path, destination: &Path, asset_root: &Path) {
-    let manifest = places::package::world::inspect(source).expect("package manifest");
+    let manifest = places::engine::package::world::inspect(source).expect("package manifest");
     for dependency in &manifest.dependencies {
-        if dependency.kind == places::package::DependencyKind::Embedded {
+        if dependency.kind == places::engine::package::DependencyKind::Embedded {
             continue;
         }
         let installed = repo.join("assets").join(&dependency.path);
@@ -60,7 +60,7 @@ fn stage_package(repo: &Path, source: &Path, destination: &Path, asset_root: &Pa
         let copied = fs::copy(&installed, &staged).expect("stage the declared dependency");
         assert_eq!(copied, dependency.bytes, "{} size", dependency.path);
         assert_eq!(
-            places::package::hash::sha256_file(&staged).expect("staged dependency hash"),
+            places::engine::package::hash::sha256_file(&staged).expect("staged dependency hash"),
             dependency.sha256,
             "{} identity",
             dependency.path
@@ -135,16 +135,18 @@ fn compile_tiny_package(directory: &Path, id: &str, name: &str) -> PathBuf {
     )
     .expect("fixture source");
     let out = source.with_extension("placesmap");
-    let request = places::compiler::BuildRequest {
+    let request = places::map_compiler::BuildRequest {
         source,
         out: out.clone(),
         asset_root: Path::new(env!("CARGO_MANIFEST_DIR")).join("assets"),
-        variants: vec![places::quality::LightmapQuality::Off],
+        variants: vec![places::engine::quality::LightmapQuality::Off],
         workers: 1,
         force: true,
         capture_probes: false,
     };
-    drop(places::compiler::build(&request).expect("isolated package compiles without GPU work"));
+    drop(
+        places::map_compiler::build(&request).expect("isolated package compiles without GPU work"),
+    );
     out
 }
 

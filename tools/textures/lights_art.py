@@ -16,7 +16,7 @@ draws (no world tiling, so nothing here is tileable and nothing wraps):
   two soft tube bands under an off-white acrylic sheet, a restrained falloff
   towards the frame, fine grain and a little dust along the edges. It must read
   as a *surface*, never as baked illumination: the room lighting is the bake's
-  job (see ``src/lighting.rs``).
+  job (see ``src/engine/lighting.rs``).
 * ``core:pool_light_round`` -- 1024x1024, the round diffuser seen face-on: image
   centre is the fixture centre, the inscribed circle is the diffuser's own
   radius (0.22 m), and one source texel is 0.43 mm. Concentric moulding rings, faint

@@ -4,7 +4,8 @@
 The optional shuffle experiment uses stdlib zlib, with a matching unshuffled
 control. It reconstructs and hashes every original atlas byte. It is NOT a
 runtime-loadable format or a production encoder. Output belongs in ignored
-tools/bench/results/, never docs/. Native codec repacks use package-repack.rs.
+tools/bench/results/, never docs/. Native codec repacks use the package-repack tool binary
+(`cargo build --release --bin package-repack`).
 Inputs must first pass native places-compile validation; this diagnostic tool
 does not duplicate all native archive/semantic security checks.
 """

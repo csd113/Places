@@ -33,10 +33,10 @@
 
 use std::collections::BTreeMap;
 
-use crate::level::LevelDef;
-use crate::loader::PropCatalog;
-use crate::materials::MaterialTable;
-use crate::render::{
+use crate::engine::level::LevelDef;
+use crate::engine::loader::PropCatalog;
+use crate::engine::materials::MaterialTable;
+use crate::engine::render::{
     DECAL_POLYGON_OFFSET, DECAL_SURFACE_OFFSET_M, LevelMesh, MaterialIndex, SurfaceKind,
 };
 
@@ -1209,7 +1209,10 @@ fn the_decal_depth_solution_is_sub_visible_and_resolvable_where_it_matters() {
     //    depend on the rasteriser's plane-fit rounding;
     //  * the pass's polygon offset keeps working at long range and grazing
     //    angles, where no sub-millimetre physical offset can be resolved.
-    let (near, far) = (crate::render::SCENE_NEAR_M, crate::render::SCENE_FAR_M);
+    let (near, far) = (
+        crate::engine::render::SCENE_NEAR_M,
+        crate::engine::render::SCENE_FAR_M,
+    );
     // Eye-space size of one step of a 24-bit window depth buffer at distance z:
     //   dz = z^2 * (far - near) / (far * near) * 2^-24
     // (the GL matrix maps `z_ndc` linearly onto the window's [0, 1] depth).

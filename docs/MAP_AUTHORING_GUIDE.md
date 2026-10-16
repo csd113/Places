@@ -13,7 +13,7 @@ The active connected Arcade showcase includes the commercial restroom.
 | Level format version documented | `3` (`format_version` in every level JSON) |
 | Asset catalog format version documented | `2` (`format_version` in `assets/catalog.json`) |
 | Stage 7 integration audit | October 9, 2026: checked colour/HDR, measured Full ten-page/lower eight-page atlas policy, independent quality controls, panes, PLPF v3/solver 16, geometry revision 7 and compiler/runtime dependency identity against the current source. Wall spans evaluate exact endpoints against their own roof owner. Platform execution claims remain dated evidence in [VERIFICATION.md](VERIFICATION.md). |
-| Verification | Sky panorama limits and quality uploads re-verified against `src/assets.rs`, `src/materials/image.rs`, `src/quality.rs` and `src/render/wgpu/sky.rs` (October 2026 working tree). Movement support and rim backing in §10 re-verified against `src/game.rs`, `src/level.rs` and the permanent movement-map tests (October 2026 working tree). Verified against the working tree at version 0.7.0. Section 33 was checked against `src/nav/`, `src/ai/`, `src/package/navigation.rs`, `src/loader.rs`, `src/compiler.rs`, `levels/places_demo.json` and the fixed-step tests `nav::tests`, `ai::tests` and `game::tests::demo_home_encounter_*`. The v3 contract (components, event bindings, trigger volumes, timers, sequences and spawns) was checked against `src/level.rs`, `src/loader.rs`, `src/entities/`, `levels/places_demo.json`, `levels/model_zoo.json`, `levels/*.json` and the generator/converter tools. The `fade`/`glow` components in §29 were checked against `src/level.rs` (`FadeDef`/`GlowDef`), `src/loader.rs` (`validate_component_value`), `src/entities/components.rs` (`Fade`/`Glow`), `src/entity.rs` (`EntityFrame`) and `tools/assets/validate.py`. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/geometry_check.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
+| Verification | Sky panorama limits and quality uploads re-verified against `src/engine/assets.rs`, `src/engine/materials/image.rs`, `src/engine/quality.rs` and `src/engine/render/wgpu/sky.rs` (October 2026 working tree). Movement support and rim backing in §10 re-verified against `src/game/mod.rs`, `src/engine/level.rs` and the permanent movement-map tests (October 2026 working tree). Verified against the working tree at version 0.7.0. Section 33 was checked against `src/engine/nav/`, `src/engine/ai/`, `src/engine/package/navigation.rs`, `src/engine/loader.rs`, `src/map_compiler/mod.rs`, `levels/places_demo.json` and the fixed-step tests `nav::tests`, `ai::tests` and `game::tests::demo_home_encounter_*`. The v3 contract (components, event bindings, trigger volumes, timers, sequences and spawns) was checked against `src/engine/level.rs`, `src/engine/loader.rs`, `src/engine/entities/`, `levels/places_demo.json`, `levels/model_zoo.json`, `levels/*.json` and the generator/converter tools. The `fade`/`glow` components in §29 were checked against `src/engine/level.rs` (`FadeDef`/`GlowDef`), `src/engine/loader.rs` (`validate_component_value`), `src/engine/entities/components.rs` (`Fade`/`Glow`), `src/engine/entity.rs` (`EntityFrame`) and `tools/assets/validate.py`. No commit SHA is pinned: the body was checked line-by-line against `src/engine/level.rs`, `src/engine/loader.rs`, `src/map_compiler/geometry_check.rs`, `src/engine/assets.rs`, `src/engine/materials/`, `src/engine/render/`, `src/engine/lighting/`, `assets/catalog.json`, `levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
 | Ultraviolet material verification | Catalog `uv_response`/numeric-mask fields, GLB extras, four enabled-state source slots, static vertex visibility, moving bounds anchors, independent pigment tint, legacy PLMP readers and operational blacklight fixtures checked against the October 11, 2026 working tree. Native acceptance evidence is recorded in the Retro Bowling implementation report. |
 | Outdoors reconstruction verification | Section 34 checked against the October 7 Outdoors catalog, fitted PNGs, closed model builders, source placements, native wgpu captures and asset integrity audit. Engine format and lighting model are unchanged. |
 | Checks that must pass before a code or asset change ships | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check` (see [Validation Workflow](#27-validation-workflow) for what each proves) |
@@ -61,7 +61,7 @@ A new map does not have to resemble it aesthetically — it is not a mandatory v
 template — but when in doubt about how a feature is authored, the demo (and the
 regression fixtures in `tests/fixtures/levels/`) is the pattern to cross-check against.
 Do not blindly copy mistakes from it either: every pattern here was re-verified against
-`src/level.rs`, the loader/validator, the renderer, the tests, and the catalogs.
+`src/engine/level.rs`, the loader/validator, the renderer, the tests, and the catalogs.
 
 ---
 
@@ -69,23 +69,23 @@ Do not blindly copy mistakes from it either: every pattern here was re-verified 
 
 When any two sources disagree, resolve in this order:
 
-1. **Runtime implementation** — `src/level.rs` (level schema and geometry rules),
-   `src/loader.rs` (validation and package discovery), `src/package/` +
+1. **Runtime implementation** — `src/engine/level.rs` (level schema and geometry rules),
+   `src/engine/loader.rs` (validation and package discovery), `src/engine/package/` +
    `docs/PACKAGE_FORMAT.md` (the compiled world the player loads),
-   `src/compiler.rs` + `src/bin/places-compile.rs` (offline preparation),
-   `src/game.rs` / `src/collision.rs` (movement and collision), `src/door.rs`
-   (door state and collision pose), `src/render/` (meshes, decals, fixtures,
-   props, doors, reflections, post-processing), `src/lighting/` (bake and
-   lightmaps), `src/materials/` + `src/assets.rs` (catalog and materials),
-   `src/quality.rs` + `src/settings.rs` (quality levels).
-2. **Validation and tests** — `src/loader/tests.rs`, `src/level/tests.rs`,
-   `src/render/tests.rs`, `src/materials/tests.rs`, `src/assets/tests.rs`,
-   `src/props/tests.rs`, `src/collision/tests.rs`, `src/game/tests.rs`,
-   `src/lighting/tests.rs`, and the audit modules under `src/` (`surface_audit.rs`,
+   `src/map_compiler/mod.rs` + `src/bin/places-compile.rs` (offline preparation),
+   `src/game/mod.rs` / `src/engine/collision.rs` (movement and collision), `src/engine/door.rs`
+   (door state and collision pose), `src/engine/render/` (meshes, decals, fixtures,
+   props, doors, reflections, post-processing), `src/engine/lighting/` (bake and
+   lightmaps), `src/engine/materials/` + `src/engine/assets.rs` (catalog and materials),
+   `src/engine/quality.rs` + `src/game/settings.rs` (quality levels).
+2. **Validation and tests** — `src/engine/loader/tests.rs`, `src/engine/level/tests.rs`,
+   `src/engine/render/tests.rs`, `src/engine/materials/tests.rs`, `src/engine/assets/tests.rs`,
+   `src/engine/props/tests.rs`, `src/engine/collision/tests.rs`, `src/game/tests.rs`,
+   `src/engine/lighting/tests.rs`, and the audit modules under `src/` (`surface_audit.rs`,
    `lighting_audit*.rs`, `lighting_isolation.rs`,
    `lighting_partition_audit.rs`, `lighting_vertical_audit.rs`). Tests pin the
    accepted contract.
-3. **Asset catalog** — `assets/catalog.json`, plus `assets/README.md`.
+3. **Asset catalog** — `assets/catalog.json`, plus `docs/assets/README.md`.
 4. **Known-good shipped content** — `levels/places_demo.json`,
    `tests/fixtures/levels/*.json`.
 5. **This guide** — update it when 1–4 change.
@@ -96,22 +96,22 @@ Authoritative paths:
 
 | What | Path |
 | --- | --- |
-| Level schema | `src/level.rs` |
-| Loader / validator | `src/loader.rs` |
-| Compiled package format | `docs/PACKAGE_FORMAT.md`, `src/package/` |
-| Offline compiler | `src/compiler.rs`, `src/bin/places-compile.rs` |
-| Collision / walkable floor | `src/collision.rs`, `src/game.rs` |
-| Door state / collision pose | `src/door.rs` |
-| Door geometry | `src/render/common/doors.rs` |
-| Mesh generation | `src/render/common/mod.rs`, `src/render/common/geometry.rs` |
-| Decals | `src/render/common/decals.rs`, `src/render/common/mod.rs` |
-| Fixture geometry | `src/render/common/fixtures.rs`, `src/lighting/tuning.rs` |
-| Prop loading | `src/props.rs`, `src/gltf.rs`, `src/render/common/props.rs` |
-| Lighting bake | `src/lighting/` (bake, visibility, occlusion, lightmap) |
-| Materials / textures | `src/materials/`, `src/assets.rs` |
-| Reflections | `src/render/common/reflections.rs` (routing) and `src/render/wgpu/reflections.rs` (probe cubemaps and the planar target) |
-| Post-processing / fog | `src/render/common/postprocess.rs`, `src/render/common/atmosphere.rs`, `src/render/common/framebuffer.rs` |
-| Quality levels / settings | `src/quality.rs`, `src/settings.rs` |
+| Level schema | `src/engine/level.rs` |
+| Loader / validator | `src/engine/loader.rs` |
+| Compiled package format | `docs/PACKAGE_FORMAT.md`, `src/engine/package/` |
+| Offline compiler | `src/map_compiler/mod.rs`, `src/bin/places-compile.rs` |
+| Collision / walkable floor | `src/engine/collision.rs`, `src/game/mod.rs` |
+| Door state / collision pose | `src/engine/door.rs` |
+| Door geometry | `src/engine/render/common/doors.rs` |
+| Mesh generation | `src/engine/render/common/mod.rs`, `src/engine/render/common/geometry.rs` |
+| Decals | `src/engine/render/common/decals.rs`, `src/engine/render/common/mod.rs` |
+| Fixture geometry | `src/engine/render/common/fixtures.rs`, `src/engine/lighting/tuning.rs` |
+| Prop loading | `src/engine/props.rs`, `src/engine/gltf.rs`, `src/engine/render/common/props.rs` |
+| Lighting bake | `src/engine/lighting/` (bake, visibility, occlusion, lightmap) |
+| Materials / textures | `src/engine/materials/`, `src/engine/assets.rs` |
+| Reflections | `src/engine/render/common/reflections.rs` (routing) and `src/engine/render/wgpu/reflections.rs` (probe cubemaps and the planar target) |
+| Post-processing / fog | `src/engine/render/common/postprocess.rs`, `src/engine/render/common/atmosphere.rs`, `src/engine/render/common/framebuffer.rs` |
+| Quality levels / settings | `src/engine/quality.rs`, `src/game/settings.rs` |
 | Catalog | `assets/catalog.json` |
 | Benchmark level | `levels/places_demo.json` |
 | Regression fixtures | `tests/fixtures/levels/` |
@@ -282,7 +282,7 @@ Consequences to internalise:
 * Decal `surface` values are normals: a floor decal has normal +Y, a ceiling decal −Y,
   `wall_north` −Z, `wall_south` +Z, `wall_west` −X, `wall_east` +X.
 * A prop at `rotation_degrees: 0` faces **+Z**; the model is authored that way
-  (`assets/README.md`, "Prop and entity conventions").
+  (`docs/assets/README.md`, "Prop and entity conventions").
 * A prop's `y` is an offset **above the local walkable floor**, while a wall or
   fixture `y` is a **world** height. The two conventions differ and are not
   interchangeable.
@@ -730,7 +730,7 @@ former 16-bit index boundary) and the maintained dense fixture
 18 routed entities) on the release build. The sparse source was retired
 earlier because the package compiler cannot represent its navigation grid;
 CPU coordinate regressions remain in `src/zoo_audit.rs`; each value is a named
-constant in `src/level.rs`, not an inline literal.
+constant in `src/engine/level.rs`, not an inline literal.
 
 | Limit | Value | Enforced as |
 | --- | --- | --- |
@@ -829,7 +829,7 @@ capacity fixture loads cold in ~45 s at Low-lightmap profile (about 19 s of
 prop expansion and 20 s of lightmap fill) and warm in ~24 s, and the level runs
 at interactive frame rates. The per-frame cost of collision, support, headroom,
 aiming and route movement no longer scales with the wall count: those queries
-go through the collision index (`src/collision_index.rs`), and `zoo_audit`
+go through the collision index (`src/engine/collision_index.rs`), and `zoo_audit`
 pins the indexed result equal to the linear scan over the real fixtures. Notes
 that remain load-time costs: the lightmap fill is linear in chart texels ×
 nearby fixtures, and the prop vertex expansion samples lighting per vertex. See
@@ -2712,10 +2712,10 @@ entry.)
 | --- | --- | --- |
 | Missing-texture diagnostic (64×64 magenta/black) | `assets/shared/textures/missing_01.png` (embedded by the engine) | Visible fallback for any broken surface/decal/fixture texture. |
 | Validation decal atlas (256×256; only `core:decal_test_01`) | `assets/shared/decals/validation_atlas_01.png` | Fixed atlas slots, alpha and bottom-up row convention; the existing atlas UV mapping is preserved. |
-| White sheet (1024×1024 opaque white fill, file-backed) | `assets/shared/textures/white_01.png` (loaded by `src/render/wgpu/texture.rs`) | Untextured geometry (round/wall fixture bodies, UI quads); fluorescent housings bind the metal material. |
+| White sheet (1024×1024 opaque white fill, file-backed) | `assets/shared/textures/white_01.png` (loaded by `src/engine/render/wgpu/texture.rs`) | Untextured geometry (round/wall fixture bodies, UI quads); fluorescent housings bind the metal material. |
 | HUD atlas (256×128) | `assets/shared/ui/font_01.png` | Original sixteen-cell rows of 8×8 ASCII glyphs and the reserved white cell stay at the upper left; a transparent interaction-hand cell occupies the lower left. See the fixed layout in the asset specification. |
 | Emergency white sheet (2×2) | `assets/shared/textures/white_fallback_01.png` | Embedded opaque white fallback if the primary embedded white PNG cannot decode. |
-| Lightmap atlas (Full up to fourteen pages per contribution group; lower profiles eight) | `src/lighting/lightmap/`, packaged KTX2 payloads | Incident linear HDR and signed moments computed offline from geometry/material/light inputs. Loaded from the prepared package; the 320 MiB +64 KiB typed bound and unchanged aggregate/shape guards apply. PNG dumps are diagnostics, not artwork. |
+| Lightmap atlas (Full up to fourteen pages per contribution group; lower profiles eight) | `src/engine/lighting/lightmap/`, packaged KTX2 payloads | Incident linear HDR and signed moments computed offline from geometry/material/light inputs. Loaded from the prepared package; the 320 MiB +64 KiB typed bound and unchanged aggregate/shape guards apply. PNG dumps are diagnostics, not artwork. |
 
 Everything else the renderer draws from an image comes from a PNG under `assets/`.
 Every *surface, fixture, decal and prop texture* is still a real PNG asset under
@@ -2955,7 +2955,7 @@ new asset type is added, add a row here and update the referenced sections.
 | `entity` | A placeable character: a skinned GLB, posed every frame by the character path | `model` = `.glb` | **Yes** — same prop pipeline | levels |
 | `material` | Surface appearance definition | `source: "definition"`, no file; names a `texture` | No | `defaults`, rooms, walls/`faces`, patches, regions, opening `glass` |
 | `texture` | A surface PNG | `model` = `.png` | No | a `material`'s `texture`, `emissive_mask`, `normal_texture` |
-| `light` | A fixture's visible face PNG (the fixture's mesh family is code) | `model` = `.png` | No (levels name it in `ceiling_lights[].fixture`) | level fixture ids; `src/lighting/tuning.rs` fixture table |
+| `light` | A fixture's visible face PNG (the fixture's mesh family is code) | `model` = `.png` | No (levels name it in `ceiling_lights[].fixture`) | level fixture ids; `src/engine/lighting/tuning.rs` fixture table |
 | `decal` | A surface marking sheet | `model` = `.png` (`source: "file"`), including the fixed internal validation atlas | No (levels name it in `decals[].material`) | level decal placement |
 
 `asset_class` is orthogonal to `asset_type` and `theme`. `generated` texture-like
@@ -3095,7 +3095,7 @@ remain usable with the measured anchors in §34.7a.
 | Budget | Value |
 | --- | --- |
 | Triangles — preferred target | 500 |
-| Triangles — needs justification above | 800 (any exceedance is allowlisted explicitly in `src/props/tests.rs`) |
+| Triangles — needs justification above | 800 (any exceedance is allowlisted explicitly in `src/engine/props/tests.rs`) |
 | Triangles — shipped art budget (tooling hard max) | **1500** (`tools/props` refuses to build above it) |
 | Triangles — still loads, with an art-budget warning | above 1500, up to 6000 |
 | Triangles — ordinary engine hard ceiling | 6000 (`MAX_PROP_TRIANGLES`; above it the model falls back to a box). The exact hash-verified snack export has a bounded 16,240-triangle reviewed profile; arbitrary imports cannot select it. |
@@ -3826,7 +3826,7 @@ local Y±0.045, 1 mm ahead of the Z=0.110 luminous strips. Both sources share
 the fixture's controller and prepared layer; neither originates in the gasket.
 The Arcade fluorescent retains its procedural Y−0.033 source plane.
 
-Generated from `src/lighting/tuning.rs::fixture_profile` and `assets/catalog.json`.
+Generated from `src/engine/lighting/tuning.rs::fixture_profile` and `assets/catalog.json`.
 The fixture's **face PNG is data**; its **mesh family and luminous footprint are
 code**.
 
@@ -3873,7 +3873,7 @@ authors `emission: 1.0` so the diffuser reads as a lit lamp in a softly lit
 room).
 
 A fixture family is **visible geometry plus one shape** (see
-`FixtureProfile::shape` in `src/lighting/tuning.rs`): the family decides the emitting
+`FixtureProfile::shape` in `src/engine/lighting/tuning.rs`): the family decides the emitting
 rectangle, and everything else about the light — colour, intensity, range, falloff,
 enabled state — is authored per placement. A prop needs no family at all: it owns
 generic light sources directly (section 21).
@@ -3882,7 +3882,7 @@ generic light sources directly (section 21).
 
 Fixture geometry is code. To add a family, touch each of these:
 
-1. `src/lighting/tuning.rs` — add a `FixtureKind` variant, a stable `index()`
+1. `src/engine/lighting/tuning.rs` — add a `FixtureKind` variant, a stable `index()`
    (append only; it is the sheet/pipeline slot), include it in `FixtureKind::ALL`,
    add its `FixtureProfile` (`half_width`, `half_depth`, `quads`), map its logical id
    in `fixture_profile`, and append the id to `LIGHT_FIXTURE_IDS`.
@@ -3890,23 +3890,23 @@ Fixture geometry is code. To add a family, touch each of these:
    are serialized contracts. New families must use individual fixture face
    slots as the blacklight does; a fifth shared face would collide with
    historical switched faces.
-2. `src/render/common/fixtures.rs` — implement the family's emitter(s): the visible face
+2. `src/engine/render/common/fixtures.rs` — implement the family's emitter(s): the visible face
    (the fitted PNG) into the `lit` batch, and separate non-emissive body
    geometry (a can, a housing, a frame) into `housing`. For an example, the office
    panel emits its diffuser into `lit` and a real troffer housing (side walls,
    bottom frame, opaque backplate) into `housing`; the level emitter binds its ordinary
    metal material and receiver lighting, separately from the luminous face.
-3. `src/render/common/geometry.rs` (`emit_fixtures`) — add the `match` arm that calls the new
+3. `src/engine/render/common/geometry.rs` (`emit_fixtures`) — add the `match` arm that calls the new
    emitter.
 4. Add the PNG under `assets/environments/<theme>/textures/lights/` (POT, opaque,
    match the face aspect).
 5. Add a `light` catalog entry whose `model` is that PNG (no separate `texture`
    entry).
 6. Update the tests that pin the current three families:
-   `src/render/tests.rs` (sheet slots, quad counts, fitted aspect),
-   `src/loader/tests.rs` (per-family sheet resolution),
-   `src/assets/tests.rs` (catalog ↔ `LIGHT_FIXTURE_IDS` consistency),
-   `src/lighting/tests.rs` (footprint/mount cases).
+   `src/engine/render/tests.rs` (sheet slots, quad counts, fitted aspect),
+   `src/engine/loader/tests.rs` (per-family sheet resolution),
+   `src/engine/assets/tests.rs` (catalog ↔ `LIGHT_FIXTURE_IDS` consistency),
+   `src/engine/lighting/tests.rs` (footprint/mount cases).
 7. If the toolkit should generate the art: add a painter to
    `tools/textures/lights_art.py` and run the texture check.
 8. Validate: `python3 tools/textures/build.py --check`,
@@ -3922,7 +3922,7 @@ entries by fixture id.
 
 ## 19. Prop Placement
 
-Exact level syntax (all fields verified against `src/level.rs::PropDef`):
+Exact level syntax (all fields verified against `src/engine/level.rs::PropDef`):
 
 ```jsonc
 {
@@ -5018,7 +5018,7 @@ language; possible engine rejection.
 256×256 is the native prop texture size (32/64/128 legal for lighter props), and
 reviewed party cloth 1024/wrap 512 exceptions preserve print detail. The whole
 pack must decode to at most 106 MiB. Exceedances are allowlisted
-explicitly in `src/props/tests.rs`.
+explicitly in `src/engine/props/tests.rs`.
 
 ### Texture Seams / Incorrect Tiling
 
@@ -5263,8 +5263,8 @@ its events do. One closed action set is dispatched by that single mechanism:
 props, doors, fixtures, volumes, timers, spawn points and spawn templates all
 wire behaviour the same way, and none of it is a scripting engine. This
 section is the field-by-field contract; every name below is verified against
-`src/level.rs` (`ComponentDef`, `EventBindingDef`, `ConditionDef`, `ActionDef`,
-`EventKindName`, `TriggerVolumeDef`) and `src/entities/`
+`src/engine/level.rs` (`ComponentDef`, `EventBindingDef`, `ConditionDef`, `ActionDef`,
+`EventKindName`, `TriggerVolumeDef`) and `src/engine/entities/`
 (`TimerDef`, `SequenceDef`, `Spawn*Def`).
 
 > **Format note.** This is the v3 contract and the only current level format.
@@ -5995,10 +5995,10 @@ interactable component:
 
 A door is a single movable leaf with its own state machine, collision and
 component/binding surface; `effects[]` adds presentation-only ambient emitters.
-Every field below is verified against `src/level.rs` (`DoorDef`, `DoorFrame`,
-`LevelDef::door_frame`, `EffectDef`), `src/loader.rs` (`validate_doors`,
-`validate_effects`, `validate_bindings`), `src/door.rs` and the build in
-`src/render/common/doors.rs`.
+Every field below is verified against `src/engine/level.rs` (`DoorDef`, `DoorFrame`,
+`LevelDef::door_frame`, `EffectDef`), `src/engine/loader.rs` (`validate_doors`,
+`validate_effects`, `validate_bindings`), `src/engine/door.rs` and the build in
+`src/engine/render/common/doors.rs`.
 
 ### Doors
 
@@ -6098,7 +6098,7 @@ Three kinds ship:
 
 ### Frame and leaf builds
 
-Each door draws two models, both built in code in `src/render/common/doors.rs`:
+Each door draws two models, both built in code in `src/engine/render/common/doors.rs`:
 a **frame** that never moves and the **leaf** that swings. The interior/sauna frame is a reveal
 **liner** through the resolved tunnel — its two jambs and its head lap 30 mm
 into the wall on every side and reach 4 mm into the opening as the stop lip the
@@ -6669,7 +6669,7 @@ game and appears in Level Select as **Model Zoo**.
   `pose_sit_chair`), each held as its rest pose by a one-step route and
   replayable through its own `play_animation` binding;
 * a skeleton chair pose seated on a real `core:chair`, placed with the offset
-  documented in `assets/entities/skeleton/README.md`;
+  documented in `docs/assets/ENTITIES.md#skeleton`;
 * a walking rat and a running rat on separate routes at their measured
   reference speeds, and two independently routed Spooner-Man instances (one runs
   the full `walk → sit_down → sit_idle → stand_up` sequence);
@@ -6690,11 +6690,11 @@ game and appears in Level Select as **Model Zoo**.
 ### Generating and checking it
 
 ```sh
-python3 tools/levels/build_model_zoo.py              # write the level
-python3 tools/levels/build_model_zoo.py --check      # fail (exit 1) if stale
-python3 tools/levels/build_model_zoo.py --stats      # coverage + layout summary
-python3 tools/levels/build_model_zoo.py --workers 8  # bound the inspection pool
-PLACES_TOOL_WORKERS=4 python3 tools/levels/build_model_zoo.py
+python3 tools/levels/build_model_zoo.py --out local/model-zoo/model_zoo.json
+python3 tools/levels/build_model_zoo.py --out local/model-zoo/model_zoo.json --check
+python3 tools/levels/build_model_zoo.py --out local/model-zoo/model_zoo.json --stats
+python3 tools/levels/build_model_zoo.py --out local/model-zoo/model_zoo.json --workers 8
+PLACES_TOOL_WORKERS=4 python3 tools/levels/build_model_zoo.py --out local/model-zoo/model_zoo.json
 ```
 
 * **Catalog-driven.** The display list is derived from `assets/catalog.json` and
@@ -6783,7 +6783,7 @@ runtime bake, repair or fallback.
   the Demo's 0.3 m landing steps connect the 0.3 m and 0.4 m walkers and
   refuse the 0.2 m rat, and the 0.2625 m home staircase connects every body
   whose step reaches its riser. A cliff between two flat cells never connects.
-  The shared mover in `src/ai/movement.rs` advances in
+  The shared mover in `src/engine/ai/movement.rs` advances in
   `NAV_MOVE_SUBSTEP_M` (0.10 m) substeps and allows a rise of
   `step_height + max_slope * substep` in one substep. That per-substep budget
   is at least the bake's step rule, so a link the bake writes is walkable
@@ -7574,7 +7574,7 @@ authoring. They are not invitations to change the engine as part of an authoring
     behavior; catalog profiles alone do not move them. The washer-drum
     demonstration is spawned by placing `core:washing_machine`.
 15. **Documentation drift in shipped sources** (recorded here so agents trust the
-    code): `src/level.rs`'s `y` comment says a ceiling fixture's `y` is ignored,
+    code): `src/engine/level.rs`'s `y` comment says a ceiling fixture's `y` is ignored,
     but the bake honours it for storey selection.
 16. **Tooling vs runtime strictness.** The Rust runtime is permissive (unknown
     class/type, missing `model`, invalid `size`, unknown fixture/prop ids degrade);
@@ -8311,9 +8311,9 @@ A new *fixture id* always needs a code mesh family (section
 [Adding a New Light Fixture Type](#adding-a-new-light-fixture-type)):
 
 1. Add the `FixtureKind` variant, index, profile and id mapping in
-   `src/lighting/tuning.rs` (append; never reorder `index()`).
-2. Implement the emitter in `src/render/common/fixtures.rs` and dispatch it in
-   `src/render/common/geometry.rs::emit_fixtures`.
+   `src/engine/lighting/tuning.rs` (append; never reorder `index()`).
+2. Implement the emitter in `src/engine/render/common/fixtures.rs` and dispatch it in
+   `src/engine/render/common/geometry.rs::emit_fixtures`.
 3. Add a POT opaque face PNG under
    `assets/environments/<theme>/textures/lights/`.
 4. Add the `light` catalog entry with `model` = the PNG.

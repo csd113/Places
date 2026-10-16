@@ -32,8 +32,8 @@
     reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 mod tests {
-    use crate::level::LevelDef;
-    use crate::lighting::{
+    use crate::engine::level::LevelDef;
+    use crate::engine::lighting::{
         AMBIENT_LEVEL, LevelLighting, LightColor, MAX_BRIGHTNESS, OPENING_BLEND_STRENGTH,
     };
     use crate::test_support::assert_exact;

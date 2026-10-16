@@ -5,7 +5,10 @@ Use these ownership boundaries, then select the source, package or native workfl
 
 | Directory | Contents |
 | --- | --- |
-| `src/` | Rust player, offline compiler and engine modules |
+| `src/game/` | Places player, application flow, controls, settings and menus |
+| `src/engine/` | Shared world, assets, simulation, prepared records and rendering |
+| `src/map_compiler/` | Offline compilation, compiler CLI/GUI, preparation and package publication |
+| `src/lib.rs`, `src/main.rs`, `src/bin/` | Shared library root and thin executable entry points |
 | `assets/shared/` | Shared surface sheets, fitted decals, static props and UI atlas |
 | `assets/environments/<theme>/` | Environment textures, decals, props and source masters |
 | `assets/entities/<id>/` | Rigged GLBs and standalone texture sheets |
@@ -19,6 +22,8 @@ Use these ownership boundaries, then select the source, package or native workfl
 | `docs/` | Current contracts, architecture and verification; `reports/` holds dated findings |
 | `docs/images/` | Curated original documentation images |
 
+The [architecture guide](ARCHITECTURE.md) defines the engine reuse boundary and
+the application and compiler ownership rules.
 Read [map authoring](MAP_AUTHORING_GUIDE.md) before changing a map and
 [asset contracts](ASSET_SPECIFICATION.md) before changing artwork or models.
 [Environment profiles](assets/ENVIRONMENTS.md) and [entity profiles](assets/ENTITIES.md)

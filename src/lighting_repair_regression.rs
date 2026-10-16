@@ -42,9 +42,9 @@
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
-use crate::level::LevelDef;
-use crate::lighting::lightmap::{LevelLightmaps, LightmapMode, LightmapPatch, PatchKind};
-use crate::render::{
+use crate::engine::level::LevelDef;
+use crate::engine::lighting::lightmap::{LevelLightmaps, LightmapMode, LightmapPatch, PatchKind};
+use crate::engine::render::{
     LevelBuild, LightmapBuildOptions, build_level_geometry_timed_with_lightmaps, logical_materials,
 };
 
@@ -77,14 +77,17 @@ fn fixture_level(name: &str) -> LevelDef {
 /// options, no cache, so every run bakes fresh and deterministically.
 fn lightmap_build(level: &LevelDef) -> LevelBuild {
     let materials = logical_materials(level);
-    let catalog = crate::loader::PropCatalog::builtin();
-    let mut assets = crate::props::PropAssets::default();
+    let catalog = crate::engine::loader::PropCatalog::builtin();
+    let mut assets = crate::engine::props::PropAssets::default();
     build_level_geometry_timed_with_lightmaps(
         level,
         &catalog,
         &mut assets,
         &materials,
-        LightmapBuildOptions::for_level(crate::quality::QualityLevel::High, LightmapMode::On),
+        LightmapBuildOptions::for_level(
+            crate::engine::quality::QualityLevel::High,
+            LightmapMode::On,
+        ),
         None,
     )
 }
@@ -150,7 +153,7 @@ fn rec709(rgb: [f32; 3]) -> f32 {
 
 /// One channel of the renderer's display conversion: pass-through below the
 /// 0.8 knee, C1-continuous shoulder above it (`soft_clip` in
-/// `crate::lighting::transport`). Copied locally so this module measures the
+/// `crate::engine::lighting::transport`). Copied locally so this module measures the
 /// displayed value without depending on solver internals.
 fn soft_clip_channel(value: f32) -> f32 {
     const KNEE: f32 = 0.8;

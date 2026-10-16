@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Sequential isolated lossless campaign; never bake or replace production maps.
 
-Build package-repack first. Originals must be locally trusted. Native validation,
+Build with cargo build --release --bin package-repack first. Originals must be locally trusted. Native validation,
 exact baseline repack, on-disk factoring reconstruction, deterministic native
 codec outputs and original-file preservation are checked. Research ZIPs remain
 unplayable; timing is offline, not a browser/runtime result.
@@ -27,7 +27,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('packages', type=Path, nargs='+')
     parser.add_argument('--out', type=Path, required=True, help='new ignored campaign directory')
-    parser.add_argument('--repack', type=Path, default=ROOT / 'target/release/examples/package-repack')
+    parser.add_argument('--repack', type=Path, default=ROOT / 'target/release/package-repack')
     args = parser.parse_args()
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=False)

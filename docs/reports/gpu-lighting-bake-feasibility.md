@@ -15,11 +15,11 @@ asset, package, solver, quality setting or cache contract.
 
 ## What the compiler actually does
 
-The [compiler](../../src/compiler.rs) validates dependencies and package hashes,
+The [compiler](../../src/map_compiler/mod.rs) validates dependencies and package hashes,
 reuses a valid complete package or prepared lighting when permitted, builds
 collision/navigation inputs, resolves material images, then prepares each variant.
-Full runs [scene preparation](../../src/render/common/light_transport.rs), chart
-planning and [CPU transport](../../src/lighting/transport.rs), assembles atlases,
+Full runs [scene preparation](../../src/engine/render/common/light_transport.rs), chart
+planning and [CPU transport](../../src/engine/lighting/transport.rs), assembles atlases,
 encodes prepared records/PLLC, optionally captures reflections, shares prop records,
 hashes records and publishes a Deflate-6 archive. Static uses the cheaper vertex
 bake; accelerating Full rays cannot remove its geometry/visibility preparation.
@@ -32,7 +32,7 @@ Receiver jobs already use dynamic contiguous batches of 32–2,048, at most 12 s
 CPU workers, ordered outputs and cancellation checks.
 
 Full uses three emitter taps per axis, two bounce orders and 64 deterministic
-hemisphere samples per receiver/order. [Direct integration](../../src/lighting/transport/coverage.rs)
+hemisphere samples per receiver/order. [Direct integration](../../src/engine/lighting/transport/coverage.rs)
 keeps all 4×4 receiver-footprint positions, adding an 8×8 stencil at visibility
 edges: 80 positions there. Bounce hits read previous-order radiance through eight
 cache cells, selecting compatible visible surface representatives and sometimes
@@ -41,7 +41,7 @@ base and single switched layer share geometry/stencils but keep independent
 radiance; other circuit layouts use the general path. Porting only intersections
 would leave cache lookup, accumulation and much ray-dependent control on CPU.
 
-[Filtering](../../src/lighting/transport/filter.rs) is a serial, physical-surface
+[Filtering](../../src/engine/lighting/transport/filter.rs) is a serial, physical-surface
 four-neighbour stencil with chart joins and visibility checks. It filters indirect
 energy, preserving direct shadows, material/normal boundaries and directional
 moments. Recovery fill has its own visibility support. Irradiance probes use

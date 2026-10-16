@@ -32,8 +32,8 @@
     reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 mod tests {
-    use crate::level::LevelDef;
-    use crate::lighting::{AMBIENT_LEVEL, LevelLighting, MAX_BRIGHTNESS};
+    use crate::engine::level::LevelDef;
+    use crate::engine::lighting::{AMBIENT_LEVEL, LevelLighting, MAX_BRIGHTNESS};
 
     /// Parses a level or panics with the parser's own message.
     pub(super) fn parse(json: &str) -> LevelDef {
@@ -80,7 +80,7 @@ mod tests {
     }
 
     /// The level's primary fixture: the first light the bake resolved.
-    pub(super) fn first_light(lighting: &LevelLighting) -> &crate::lighting::BakedLight {
+    pub(super) fn first_light(lighting: &LevelLighting) -> &crate::engine::lighting::BakedLight {
         lighting
             .lights()
             .first()
@@ -162,7 +162,7 @@ mod tests {
         let light = first_light(&lighting);
         assert_eq!(light.room, Some(0));
         let diffuser_y =
-            crate::lighting::fixture_profile("core:fluorescent_panel_01").emission_y(2.99);
+            crate::engine::lighting::fixture_profile("core:fluorescent_panel_01").emission_y(2.99);
         assert!(
             (light.y() - diffuser_y).abs() < 1e-4,
             "diffuser y {}",

@@ -34,6 +34,50 @@ deck at `(14, 0, 6.7)`, retaining pickup, density, dormancy and sinking. All fou
 Office records cabinets face into the room at yaw 180. Native fork traversal
 confirmed the intentionally narrow Outdoors trunk collider should remain.
 
+### Pool and Office foundation
+
+The first adoption batch on 15 October 2026 contained 33 delivered models:
+23 Pool, nine Office and one snack machine, with 19 replacements and 14 new
+catalog entries. Its GLBs matched the completed Library deliveries; the ledger
+then contained 136 accepted exports. Full editable/reference deliveries remained
+in Library and the ignored local import collection. The finished 75-export
+integration above supersedes that batch's pending deck reset, records orientation
+and provisional drinks delivery.
+
+Pool's two manufactured three-riser entry modules use six hidden player supports
+and fitted item colliders following their treads. Basin, shelf, tub and water
+volumes retain their dimensions; the ladder collider follows the delivered rails
+and rungs. Tile/panel modules are catalog assets rather than extra demo displays.
+The planter and safety notice join the existing kit.
+
+Office's reception furniture, noticeboard, tall filing cabinet and snack machine
+retain the layout, navigation, AI and modular ramp rails. Either vending machine's
+E interaction cycles `break_room_vending` through steady, flickering and dark
+states; the two basement fixture failures remain independent. Reusable fields
+are `props[].switch_group`, fixed `light` components and numeric
+`emission_overrides`.
+
+The three fixture families use delivered GLBs and apertures matching the recessed
+round lens, separate wall strips and downward Office diffuser. Metal/gaskets stay
+non-emissive. Geometry revision 14 and PLMP v8 introduced prepared fixture/prop
+controller identities while retaining readers for older prop records.
+
+The snack export retains 16,240 triangles, 13 material groups, five shelves,
+50 dimensional packets, 25 coils and thin BLEND glass. Only its exact accepted
+hash enables the bounded 16,240-triangle importer profile; ordinary GLB imports
+retain their 6,000-triangle ceiling. Thirteen unique embedded PNGs also exist as
+standalone repository assets. Decoded images and ordinary opaque materials share
+resources; only luminous uniforms require controller ownership.
+
+Full switches emissions and prepared illumination together, excluding switched
+and authored-off sources from the permanent baseline. Static retains authored
+illumination and matching emissions, carrying runtime requests into Full.
+Reflections retain their authored capture state rather than rebaking dynamically.
+Cardinal fixtures were verified; arbitrary wall yaw retains the existing
+axis-quantized finite-source limitation. Four independent Office circuits exceeded
+the former four-page budget; sharing the vending circuit allowed six pages at
+the unchanged density/byte limit, without enlarging renderer resource caps.
+
 ## Lighting and package bounds
 
 Geometry revision 15 routes static models above the existing 1,500-triangle art
@@ -100,6 +144,22 @@ These representative views remain below a 16.7 ms GPU frame budget; they are not
 a worst-case or cross-hardware guarantee. **Lantern's denser trees nearly double
 peak memory**, a real remaining cost. Probe-lit trees also have coarser received
 lighting than individual per-face charts.
+
+### Earlier Pool and Office foundation acceptance
+
+The first 33-model batch passed formatting, configured debug/release Clippy,
+all-feature and default workspace tests, 359 Python tests, and catalog, texture,
+completed-model and generator checks. Explicit developer runs covered Pool steps,
+nine Office collision stations, water settling/pickup/swimming, both vending
+interactions, basement failures and flashlight response. Full panel/floor captures
+extinguished together; Static retained authored illumination. Office Full used
+five atlas pages.
+
+Its separate bounded 300-frame Metal trials at a 1920×1080 drawable measured
+median GPU time of 1.19 ms for Pool and 1.17 ms for Office, with peak process RSS
+of 294 MiB and 1,074 MiB respectively. These are single local workload samples
+from the earlier batch, not the final paired Winter/Lantern measurements above
+or a general performance guarantee.
 
 ## Preserved output and changed files
 

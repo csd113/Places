@@ -13,10 +13,10 @@
     reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests and developer measurement output"
 )]
 
-use crate::level::{LevelDef, MAX_LEVEL_PROP_VERTICES, MAX_LEVEL_VERTICES};
-use crate::lighting::LevelLighting;
-use crate::render::SurfaceKind;
-use crate::render::{build_level_geometry, build_level_geometry_with_assets};
+use crate::engine::level::{LevelDef, MAX_LEVEL_PROP_VERTICES, MAX_LEVEL_VERTICES};
+use crate::engine::lighting::LevelLighting;
+use crate::engine::render::SurfaceKind;
+use crate::engine::render::{build_level_geometry, build_level_geometry_with_assets};
 use crate::test_support::assert_exact_named;
 
 // ---------------------------------------------------------------------------
@@ -46,9 +46,9 @@ pub fn parse(json: &str) -> LevelDef {
 
 /// Furniture batching is independent of model-backed light fixture batches.
 pub fn one_model_batch<'a>(
-    batches: &'a [crate::render::PropMeshBatch],
+    batches: &'a [crate::engine::render::PropMeshBatch],
     model_path: &str,
-) -> &'a crate::render::PropMeshBatch {
+) -> &'a crate::engine::render::PropMeshBatch {
     let mut matching = batches.iter().filter(|batch| batch.model == model_path);
     let batch = matching
         .next()
@@ -115,7 +115,7 @@ fn fixture_grid(count: usize) -> (usize, usize) {
 }
 
 /// Every generated vertex colour must be finite and inside the renderer range.
-pub fn assert_vertex_colors_safe(vertices: &[crate::render::Vertex]) {
+pub fn assert_vertex_colors_safe(vertices: &[crate::engine::render::Vertex]) {
     for (index, vertex) in vertices.iter().enumerate() {
         for (channel, value) in vertex.color.iter().enumerate() {
             assert!(
@@ -218,8 +218,8 @@ fn fixture_level(name: &str) -> LevelDef {
     parse(&content)
 }
 
-fn shipped_catalog() -> crate::loader::PropCatalog {
-    let catalog = crate::loader::PropCatalog::load_default();
+fn shipped_catalog() -> crate::engine::loader::PropCatalog {
+    let catalog = crate::engine::loader::PropCatalog::load_default();
     assert!(
         catalog.contains("core:chair"),
         "the shipped prop catalogue must load for the audit"
@@ -227,8 +227,8 @@ fn shipped_catalog() -> crate::loader::PropCatalog {
     catalog
 }
 
-fn shipped_assets() -> crate::props::PropAssets {
-    let assets = crate::props::PropAssets::load_default();
+fn shipped_assets() -> crate::engine::props::PropAssets {
+    let assets = crate::engine::props::PropAssets::load_default();
     assert!(assets.root().is_some(), "the assets/ directory must exist");
     assets
 }
@@ -720,14 +720,14 @@ fn deterministic_fuzz_levels_bake_and_build_within_budget() {
         let level = parse(&json);
         // Validation may reject the odd random level (enormous total area);
         // anything it accepts must bake and build safely.
-        if crate::loader::validate_level(&level).is_err() {
+        if crate::engine::loader::validate_level(&level).is_err() {
             continue;
         }
         let lighting = LevelLighting::bake(&level);
         for info in lighting.rooms() {
             assert!(info.baseline.luminance().is_finite());
             assert!(
-                (crate::lighting::AMBIENT_LEVEL..=crate::lighting::MAX_BRIGHTNESS)
+                (crate::engine::lighting::AMBIENT_LEVEL..=crate::engine::lighting::MAX_BRIGHTNESS)
                     .contains(&info.baseline.luminance())
             );
         }
@@ -751,7 +751,10 @@ fn deterministic_fuzz_levels_bake_and_build_within_budget() {
             faces
                 .iter()
                 .flat_map(|vertex| &vertex.color[..3])
-                .all(|value| (0.0..=crate::materials::MAX_EMISSION_INTENSITY).contains(value))
+                .all(
+                    |value| (0.0..=crate::engine::materials::MAX_EMISSION_INTENSITY)
+                        .contains(value)
+                )
         );
         for batch in &batches {
             assert_vertex_colors_safe(&batch.vertices);
@@ -779,7 +782,7 @@ fn deterministic_fuzz_levels_bake_and_build_within_budget() {
             assert!(value.is_finite(), "case {case}: sample ({x}, {y}, {z})");
             assert!(value.is_valid(), "case {case}: sample ({x}, {y}, {z})");
             assert!(
-                (crate::lighting::AMBIENT_LEVEL..=crate::lighting::MAX_BRIGHTNESS)
+                (crate::engine::lighting::AMBIENT_LEVEL..=crate::engine::lighting::MAX_BRIGHTNESS)
                     .contains(&value.luminance())
             );
         }
@@ -897,7 +900,7 @@ fn regression_raised_walls_do_not_blend_through_their_openings() {
 
 #[test]
 fn regression_invalid_openings_do_not_create_phantom_doorways() {
-    type OpeningMutation = fn(&mut crate::level::WallOpeningDef);
+    type OpeningMutation = fn(&mut crate::engine::level::WallOpeningDef);
     let solid = LevelLighting::bake(&shared_wall_level(0.0, 0.0, 1.0));
     // Programmatic malformations that validation would normally reject: none
     // may blend, so the bake must match a wall with no opening at all.
@@ -940,7 +943,7 @@ fn regression_invalid_openings_do_not_create_phantom_doorways() {
 
 #[test]
 fn regression_fractional_rotations_agree_between_bake_and_panel_geometry() {
-    use crate::lighting::fixture_profile;
+    use crate::engine::lighting::fixture_profile;
     for rotation in [
         0.0_f32, 45.0, 89.6, 90.0, 135.0, 179.0, 179.6, 180.0, 180.4, 270.0, 360.0, -90.0, -0.6,
     ] {
@@ -1041,7 +1044,7 @@ fn regression_wall_reveals_take_light_from_both_rooms() {
         "jamb edges must track the rooms they face: {max_bright} vs {min_dim}"
     );
     assert!(
-        max_bright > crate::lighting::AMBIENT_LEVEL + 0.01,
+        max_bright > crate::engine::lighting::AMBIENT_LEVEL + 0.01,
         "the bright jamb edge must carry room light, got {max_bright}"
     );
     assert_vertex_colors_safe(&walls);
@@ -1060,7 +1063,7 @@ fn regression_wall_reveals_take_light_from_both_rooms() {
     clippy::chunks_exact_to_as_chunks,
     reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
-fn quads(vertices: &[crate::render::Vertex]) -> Vec<([(f32, f32); 4], [[f32; 4]; 4])> {
+fn quads(vertices: &[crate::engine::render::Vertex]) -> Vec<([(f32, f32); 4], [[f32; 4]; 4])> {
     assert_eq!(vertices.len() % 6, 0, "batches must be whole quads");
     vertices
         .chunks_exact(6)

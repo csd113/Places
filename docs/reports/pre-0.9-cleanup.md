@@ -1,6 +1,8 @@
 # Focused engine cleanup before 0.9
 
-October 12, 2026 · `arcade-env` · version remains 0.8.0.
+October 12, 2026 · `arcade-env` · version 0.8.0. This report records the
+dated cleanup, atlas-capacity proof and native comparison; the canonical guides
+define current ownership, budgets and verification commands.
 
 The focused cleanup reduces duplicated maintenance work and restores complete Full
 lighting for the current Model Zoo. Artwork, map sources, controls and gameplay
@@ -140,7 +142,7 @@ For the complete set, SHA-256 of sorted newline-separated `ID SHA256` rows
 Existing art-review console notices are retained; all ten compiler build reports
 had zero warnings. These checks do not claim ten-map native gameplay acceptance.
 
-## Handoff to the separately queued packing pass
+## Atlas-packing baseline
 
 | Map | Full pages / groups | GPU atlas MiB | Reserved texels | Area minimum pages |
 | --- | ---: | ---: | ---: | ---: |
@@ -215,43 +217,11 @@ selective catalogue identity could avoid minutes of preparation for unaffected
 maps during catalogue growth; its correctness proof remains future work.
 Current findings do not justify a renderer rewrite or speculative abstractions.
 
-## Notes for the separately queued tasks
+## Completed follow-through
 
-These requests were recorded for later owners; none extends this cleanup.
-
-- **Fixture tint and asset warnings:** Start with `render/common/fixtures.rs`,
-  `light_transport.rs`, `render/wgpu/material.rs`, `world.wgsl` and emission
-  animation. The current contract makes luminous faces neutral and assigns light
-  colour to baked illumination. Apply the future authored tint/brightness/flicker
-  only to tube/diffuser faces, independently of their housing. Zoo's exact notices
-  concern eight reviewed 1024² birthday cloth sheets and six 512² gift sheets,
-  against the ordinary 256² texture preference in `src/props.rs`; these are
-  art-review notices, not evidence of broken physical bounds. Inspect other exact
-  messages before altering metadata or deduplicating; no warning was suppressed.
-- **Medium textures:** `quality.rs` and `render/wgpu/texture.rs` retain ordinary
-  256² props at High and Medium (Low caps at 128²); 1024² surfaces cap at 512²
-  for Medium and 256² for Low. A future midpoint needs matched three-profile
-  native evidence, preserving High artwork and independent Static/Full lighting.
-- **Blizzard distance:** Weather/fog/sky/emission/transparency were untouched.
-  Start with `render/common/atmosphere.rs`, `render/wgpu/world.wgsl`, sky/effects
-  and dynamic/character environment bindings. All strengths should converge to
-  full distant obscuration, with different onset distance, retaining interiors,
-  nearby lights and controls. No particle-count or map-name workaround was added.
-- **Arcade bathroom:** The connected stalls/toilets, sink/mirror, tiled floor and
-  ceiling vent belong to the separately queued content pass, reusing the old
-  bowling kit with collision and native acceptance.
-- **Compiler progress:** Existing inputs are `[compiler-progress] preparing/
-  capturing`, named `BuildReport.phases` / `[compiler-timing]`, and direct/diffuse
-  solve counts in `transport.rs` and `transport/batch.rs`. Verbose lines currently
-  precede JSON on stdout with `--json`; the measurement wrapper extracted the
-  final object. Preserve machine-readable stdout, quiet runs and trustworthy
-  phase denominators in the future terminal progress display.
-- **Docs and all Python tools:** No script was proven dead here. Consumer checks
-  should retain the vending preview (`tools/props/inspect_arcade_vending.py`,
-  referenced by the asset specification), Winter string audit (replayed by its
-  final report), Metal trace inspector and historical baseline tools pending
-  provenance review. Living frozen-image paths were corrected; dated reports
-  need contextual review. Preserve finalized user audits/images and originals.
-
-The requested order is graphics correctness, Arcade bathroom, packing efficiency,
-terminal progress, then the broader docs/Python audit before 0.9 integration.
+The former work queue is closed by the [graphics/diagnostics repair](graphics-diagnostics-repair.md),
+[Arcade restroom](arcade-restroom.md), [lightmap efficiency](lightmap-efficiency-and-ceiling-halo.md),
+[compiler terminal validation](compiler-pipeline-audit-20261003.md#terminal-progress-follow-up)
+and [0.9.0 acceptance](release-0.9.0.md). Current tool ownership and commands live
+in [Offline Tooling](../OFFLINE_TOOLING.md); those later results do not change
+the dated baseline, capacity arithmetic or remaining investigation limits above.

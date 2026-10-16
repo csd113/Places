@@ -4,7 +4,7 @@
 Pure stdlib (no PIL, no numpy), byte-deterministic and importable by the
 per-theme art modules (``office_art.py``, ``pool_art.py``) and by
 ``build.py`` itself.  The noise helpers are an approximate port of the
-texture functions that used to live in ``src/render.rs``; they wrap at a
+texture functions that used to live in ``src/engine/render.rs``; they wrap at a
 period so every sheet tiles seamlessly.
 """
 

@@ -4,7 +4,7 @@
 The v3 schema replaces the single-purpose ``interaction`` /
 ``area_triggers`` / ``manual_interaction`` authoring surface with typed
 components and event bindings (see ``docs/MAP_AUTHORING_GUIDE.md`` and
-``src/level.rs``). The converter applies the frozen, deterministic rules:
+``src/engine/level.rs``). The converter applies the frozen, deterministic rules:
 
 * ``format_version`` 2 -> 3;
 * a prop's ``interaction: { prompt, reach, actions }`` becomes

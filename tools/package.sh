@@ -9,7 +9,7 @@
 #
 #   <output-root>/Places/
 #       places              the executable (built as `places`)
-#       assets/             catalog, levels, models, textures, decals
+#       assets/             catalog, gameplay profiles, levels, models, textures, decals
 #       levels/             drop-in compiled map packages (.placesmap)
 #       README.md           the project README, for reference
 #       THIRD_PARTY_LICENSES.txt
@@ -175,11 +175,12 @@ mkdir -p "$STAGE/Places" "$STAGE/Places.app/Contents/MacOS" "$STAGE/Places.app/C
 cp "$BIN" "$STAGE/Places/$NAME"
 cp "$REPO/README.md" "$REPO/THIRD_PARTY_LICENSES.txt" "$STAGE/Places/"
 mkdir -p "$STAGE/Places/assets/levels" "$STAGE/Places/levels"
-cp "$REPO/assets/catalog.json" "$STAGE/Places/assets/"
+cp "$REPO/assets/catalog.json" "$REPO/assets/gameplay.json" "$STAGE/Places/assets/"
 # References and master source artwork belong to authoring, not runtime exports.
 for directory in shared environments entities diagnostic; do
     cp -R "$REPO/assets/$directory" "$STAGE/Places/assets/$directory"
 done
+rm -rf "$STAGE/Places/assets/shared/branding"
 find "$STAGE/Places/assets" -type f -name '*_master.png' -delete
 if [ -n "$MAPS" ]; then
     python3 "$REPO/tools/export-maps.py" "$MAPS" "$STAGE/Places" \

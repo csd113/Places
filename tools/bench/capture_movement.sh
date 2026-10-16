@@ -6,7 +6,7 @@
 #
 # Every capture is a genuine frame of the running simulation: the level is the
 # compiled package, the input is applied by `PLACES_MOVE_SCRIPT` (real held
-# controls with real press edges, see src/input.rs), and `PLACES_CAPTURE_TIME`
+# controls with real press edges, see src/game/input.rs), and `PLACES_CAPTURE_TIME`
 # names the ready-world simulation second to write. Both clocks advance on the
 # real (clamped) simulation delta, so a capture shows the same in-world moment
 # whatever the run's frame rate; the per-capture CSV beside each PNG records the

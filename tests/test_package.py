@@ -37,7 +37,7 @@ import convert_v3  # noqa: E402
 
 DECAL_SURFACES = {"floor", "ceiling", "wall_north", "wall_south", "wall_east", "wall_west"}
 
-# Texture dimension policy, mirrored from `src/assets.rs`: `MAX_TEXTURE_DIMENSION`
+# Texture dimension policy, mirrored from `src/engine/assets.rs`: `MAX_TEXTURE_DIMENSION`
 # is the ordinary hard runtime limit, `MAX_SKY_TEXTURE_DIMENSION` the sky-only
 # limit, `PREFERRED_TEXTURE_DIMENSION` the soft warning
 # budget, and `MAX_SURFACE_TEXTURE_BYTES` the per-sheet decoded budget. Python
@@ -145,7 +145,7 @@ class RepositoryTests(unittest.TestCase):
         self.assertIn('repository = "https://github.com/csd113/Places"', cargo)
 
     def test_icon_is_a_small_non_interlaced_png(self):
-        data = (PACKAGE / "icon.png").read_bytes()
+        data = (PACKAGE / "assets/shared/branding/places.png").read_bytes()
         self.assertTrue(data.startswith(b"\x89PNG\r\n\x1a\n"))
         width, height, depth, color, _, _, interlace = struct.unpack(
             ">IIBBBBB", data[16:29]
@@ -1363,7 +1363,7 @@ class PoolContentTests(unittest.TestCase):
         # The current intentional contract: the sign sheet is a square
         # power-of-two sheet authored at the hard 1024x1024 budget, not a
         # 128x128 placeholder. The numbers come from the mirrored policy constants
-        # above (see `src/assets.rs`).
+        # above (see `src/engine/assets.rs`).
         self.assertEqual(width, height, "the sign sheet must be square")
         self.assertTrue(
             width > 0 and (width & (width - 1)) == 0,

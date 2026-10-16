@@ -96,11 +96,40 @@ It runs original, updated serial and 4/8/12-worker CLI workloads in copied trees
 compares deterministic output hashes, and saves command logs and timings. This is a
 bounded representative check, not proof of every possible imported asset.
 
+### Compiler feedback and cancellation
+
+`places-compile build` and `build-collection` report the source, current
+variant/pass and elapsed time on stderr. Receiver passes, irradiance probes and
+reflection-probe encoding report completed work against their actual denominator.
+Preparation, integrity checks, GPU setup/readback and publication remain named
+indeterminate stages. Percentages describe one pass, with no whole-build estimate
+or ETA. Verified package hits and prepared-record reuse are named explicitly.
+
+`--progress auto` redraws one line on a capable stderr terminal and uses plain
+stage lines when redirected, on CI or with `TERM=dumb`. `plain` forces plain
+lines; `off` suppresses progress while retaining errors and opt-in telemetry.
+The uncoloured ASCII display respects `NO_COLOR`, measures terminal width and
+keeps narrow lines bounded. Warnings and compiler telemetry share the stderr
+output lock, keeping `--json` stdout parseable. Worker updates use relaxed atomic
+batches of at most 64 completed receivers, without output or a mutex in ray loops.
+Redraw is capped at 10 Hz; plain work updates are spaced by ten seconds, plus
+stage boundaries and final counts.
+
+Completion and failure clear the live line. Ctrl-C cooperatively cancels even
+with progress disabled, exits 130 and checks stage boundaries, archive entries
+and final publication. It may wait for the current preparation, GPU or compression
+call to return. The display never hides the cursor or changes terminal modes.
+The compiler GUI reads the same pass counters and uses the same safe cancellation
+boundaries. Progress changes no bake arithmetic, ordering, quality, codecs or
+cache rules; a changed compiler executable still changes its stored identity.
+The [pipeline audit's terminal follow-up](reports/compiler-pipeline-audit-20261003.md#terminal-progress-follow-up)
+records the original bounded equivalence and native acceptance.
+
 ## Asset authoring
 
 Read the [asset specification](ASSET_SPECIFICATION.md) before changing imagery or
 model texture contracts, and the [map authoring guide](MAP_AUTHORING_GUIDE.md)
-before changing map assets or placement. The [asset library](../assets/README.md)
+before changing map assets or placement. The [asset library](assets/README.md)
 explains current folders; [environment](assets/ENVIRONMENTS.md) and
 [entity](assets/ENTITIES.md) profiles preserve kit-specific layouts and mounting.
 Concept sheets and prompts in `assets/references/` retain their original bytes;
@@ -119,6 +148,7 @@ The following owners have distinct behavior:
 | Owner | Scope and publication contract |
 | --- | --- |
 | `tools/props/build.py` | Catalog placeables with registered part-module `PROPS` constructors; writes the catalog's model paths. Normal builds skip foreign skinned/animated GLBs. |
+| Catalog `authoring: {"tool": "completed", "source": "completed-models.json"}` | Accepted delivered exports. `build.py` verifies their exact ledger hashes without invoking superseded constructors, including under `--force`. Preserve editable deliveries and review replacements in scratch before accepting a new export. |
 | `tools/levels/railings.py` | Reused by Office, Winter and Lantern Hollow generators. `RailingAuthor.run` takes world `(x,y,z)` baseline points, emits bounded local-X `span` props and one upright post per junction/terminal, samples whole support footprints, and converts world anchors to floor-relative prop Y. It writes no assets or packages and adds no per-frame linking. |
 | Catalog `authoring: {"tool": "blender", "source": "<asset-relative>.blend"}` | Editable Blender-owned meshes. The source and GLB export must exist beneath `assets/`; ordinary and forced primitive builds preserve the export. Re-export through the source's documented Blender command, then run the same catalog/GLB/native checks. |
 | `tools/textures/build.py` | Merges each art module's `ART` registry by logical ID, rejects duplicate declarations, and exports selected manifest sheets. Office, Beach and Aero readers load committed art; some older modules remain offline painters. |
@@ -136,6 +166,7 @@ from a painter's output unless `--force` is given. It does not protect same-size
 art from replacement. The prop guard checks skins/animations and the
 `asset.extras.places_props_toolkit = 1` marker: toolkit-authored animated props
 can rebuild; foreign rigs are skipped. `--force` opts out of that protection.
+Completed exports retain their exact-hash guard under `--force`.
 Use the actual owner rather than a broad forced rebuild.
 
 For a new static prop, add its PNG first, define a constructor in `parts/`, add
@@ -193,6 +224,10 @@ contract before applying it. `normalize_sky_seam.py --repair` changes RGB only
 within narrow longitude-edge strips, preserving alpha, dimensions, colour type,
 ancillary chunks and the interior. It joins U, never the clamped poles.
 
+`validate_domestic_remake.py` checks the seven maintained Home constructors and
+the switch's 31-position hinge sweep. Accepted completed models use their ledger
+and the generic GLB checks rather than old constructor-specific counts.
+
 `repair_geometry.py` defaults to a report and only scans its explicit `NAMES`
 set of reviewed domestic, Office and Pool models. `--apply` opts into its proposed
 repairs after original-hash preflight. It is not a universal capper: open trays,
@@ -235,7 +270,7 @@ from loop closure. Neither substitutes for native playback, collision or lightin
 ## Lighting, probes and quality variants the compiler prepares
 
 `places-compile build` runs the offline transport solver
-(`src/lighting/transport.rs`) for the current `full` variant: direct
+(`src/engine/lighting/transport.rs`) for the current `full` variant: direct
 emitter sampling with soft shadows, one or two visibility-tested diffuse
 bounces, a moment per-texel encoding (an irradiance mean plus the signed
 vector sum of the per-channel first moments), and a prepared
@@ -258,7 +293,7 @@ for current representation, atlas and allocation limits.
 ## Navigation the compiler prepares
 
 `places-compile build` also bakes the navigation mesh
-(`src/nav/bake.rs`) and stores it as one `blobs/<sha>.navigation` record per
+(`src/map_compiler/navigation.rs`) and stores it as one `blobs/<sha>.navigation` record per
 package. The bake rasterises the level's own walkable surfaces (rooms, floor
 regions, ramps, stairs) against the same collision boxes the player collides
 with, producing:
@@ -303,7 +338,7 @@ production map bakes.
 | Generated scenes | Maintained map owners in the [map index](../levels/README.md); `build_fixture_levels.py`, `build_outdoor_fixture.py`, `build_lighting_quality.py`, `build_capacity_fixtures.py` own focused controls |
 | Historical source reconstruction | `build_model_zoo.py`, `build_outdoor_route.py`, `refine_home.py`, `refine_pool.py`; explicit working inputs/outputs, never the frozen archive as output |
 | PNG / GLB authoring | `tools/textures/` saved-art readers and explicit exporters; `tools/props/build.py` dispatches registered `parts/` constructors; `mesh`, `tex`, `glb`, `geometry`, `glyphs` and `refreshed` are shared libraries |
-| Distinct source owners | Office/Winter texture derivatives, Arcade/birthday/restroom/Bepsi artwork and models, Beach animals, original entity constructors and Spoonerman refinement/animation; use the owner table above |
+| Distinct source owners | Office/Winter texture derivatives, Arcade/Bepsi artwork, Beach animals, original entity constructors and Spoonerman animation; accepted delivered models use `completed-models.json` and the `build.py --check` guard |
 | Asset inspection / repair | `audit.py`, `preview.py`, `validate_domestic_remake.py`, `repair_geometry.py`, `resize_embedded_textures.py`, seam tools, entity validators/contact sheets and `inspect_arcade_vending.py`; reports or explicit selected writes, no default map bake |
 | Compiler measurement | `compiler_bench.py`, `compiler_compare.py`, `compiler_incremental.py`, `compare_packages.py`, `capture_compiler.py`; clean, paired and incremental experiments protect different claims |
 | Native acceptance | `native_regression_maps.py`, `capture_art_style_hero.py`, themed camera scripts, movement/weather/traversal controls, `check_quality_regression.py`; serial real-player runs |
@@ -336,9 +371,10 @@ The four winding/cavity/UV-colour seam regressions formerly isolated in
 `tools/props/test_geometry.py` are consolidated into `tests/test_asset_audit.py`
 so normal discovery runs them. They use a triangle, quad or tetrahedron and export
 no asset. Source/master generators, useful baseline controls and specialized
-validators are retained. Superseded primitive constructors are also retained as
-source provenance; current `PROPS` bindings select their refined owners. No
-asset output, catalog binding or generator algorithm changed.
+validators remain supported. The later repository reorganization removed verified
+superseded model writers after completed exports had exact ledger ownership;
+dated reports retain their original inspection and native evidence. Retained
+constructors and accepted exports use the distinct ownership rules above.
 
 Documentation consolidates the eight superseded Winter pass reports into
 [Winter development](reports/winter-final-audit.md). The developer and benchmark

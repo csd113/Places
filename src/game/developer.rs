@@ -1,8 +1,8 @@
 //! Developer movement and validated rigid-prop placement. Ordinary walking
 //! and void recovery retain their own paths.
 use super::{EYE_HEIGHT, Game, PLAYER_HEIGHT, PLAYER_RADIUS, Vec2, Vec3};
-use crate::input::{Control, InputState};
-use crate::settings::Settings;
+use crate::game::input::{Control, InputState};
+use crate::game::settings::Settings;
 
 #[derive(Clone, Copy)]
 pub(super) struct ReturnPose {

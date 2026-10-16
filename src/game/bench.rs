@@ -1,0 +1,971 @@
+//! Debug-only frame telemetry and hardware benchmark harness.
+//!
+//! Everything in this module is inert unless `PLACES_BENCH=1` is set in the
+//! environment, so a normal release build keeps printing nothing and allocates
+//! nothing per frame. Repeatable desktop measurements are written to stdout
+//! and CSV without requiring interaction with the performance overlay.
+//!
+//! Timing is deliberately staged around presentation, because the whole
+//! point of the first phase is to find out whether presentation actually
+//! blocks on the display refresh or returns immediately:
+//!
+//! ```text
+//! t_begin ─ events + game update ─ t_update ─ scene submit ─ t_render
+//!        ─ UI submit ─ t_ui ─ present ─ t_swap ─ (next t_begin)
+//! ```
+//!
+//! * `update_ms` — event pump, menu/gameplay update, movement.
+//! * `render_ms` — `render_scene` + `render_ui`, i.e. the CPU cost of
+//!   submitting the frame (not including presentation).
+//! * `swap_ms` — time spent presenting. On a truly VSync-locked presentation
+//!   this is where the frame waits for the display.
+//! * `frame_ms` — `t_begin` to `t_swap`: the complete frame including the swap.
+//! * `loop_ms` — `t_begin` of this frame to `t_begin` of the next: the real
+//!   presentation cadence, which is what an FPS counter should be derived from.
+//! * `gpu_render_ms` — union of asynchronous hardware timestamp spans across
+//!   actual render passes (including planar, bloom, resolve, UI and surface copy).
+//!   Overlapping stages count once; disjoint gaps are excluded. Stage spans can
+//!   include GPU scheduling stalls and are not active-device utilization. Sample
+//!   and renderer-frame ids identify readback lag; repeated ids are one sample.
+//!
+//! Scripted live cycles drive real settings and the real window from the
+//! environment: `PLACES_BENCH_QUALITY_CYCLE` selects the overall quality
+//! preset (which cascades the Advanced settings), `PLACES_BENCH_GRAPHICS_CYCLE`
+//! changes one Advanced graphics value directly
+//! (`filtering=`, `lightmaps=`, `reflections=`, `bloom=`), and
+//! `PLACES_BENCH_WINDOW_CYCLE` performs real resize/minimize/restore calls.
+//! Every entry goes through the same `Settings` setter or window call a player
+//! action does, so a benchmark run measures the production path.
+
+use std::io::Write;
+use std::path::PathBuf;
+use std::time::Instant;
+
+use crate::engine::quality::{LightmapQuality, ReflectionQuality};
+use crate::engine::render::{GpuTiming, RenderStats};
+
+pub mod lighting_sequence;
+
+/// Environment switch that turns every other `PLACES_BENCH_*` option on.
+const BENCH_ENV: &str = "PLACES_BENCH";
+/// Optional CSV path; one row per recorded frame.
+const BENCH_OUT_ENV: &str = "PLACES_BENCH_OUT";
+/// Number of leading frames to discard before recording (pipeline warm-up).
+const BENCH_WARMUP_ENV: &str = "PLACES_BENCH_WARMUP";
+/// Stop the process after this many recorded frames (bounds a hardware run).
+const BENCH_FRAMES_ENV: &str = "PLACES_BENCH_FRAMES";
+/// A scripted live quality-level switch, for the runtime verification matrix:
+/// `PLACES_BENCH_QUALITY_CYCLE=<frame>:<level>[,<frame>:<level>...]`, e.g.
+/// `3:low,6:high`. Each entry selects the level when `frame_count` reaches its
+/// frame, through the same `Settings::set_quality` path the menu uses, so the
+/// renderer's normal graphics rebuild runs. Debug-only; inert unless the
+/// benchmark is enabled.
+const QUALITY_CYCLE_ENV: &str = "PLACES_BENCH_QUALITY_CYCLE";
+
+/// A scripted live Advanced-graphics change, for exercising the Graphics page's
+/// Advanced settings without a keyboard:
+/// `PLACES_BENCH_GRAPHICS_CYCLE=<frame>:<setting>=<value>[,<frame>:<setting>=<value>...]`.
+///
+/// Settings and values:
+/// * `filtering=low|medium|high`
+/// * `lighting=static|full` (`lightmaps=off|medium|full` remains an adapter)
+/// * `reflections=off|medium|full`
+/// * `bloom=on|off` (`1`/`0`/`true`/`false` are accepted too)
+/// * `low-lighting=on|off` (independent of texture quality/filtering)
+///
+/// For example: `3:filtering=low,6:lightmaps=full,9:reflections=off,12:bloom=off`.
+/// Each entry runs through the same `Settings` setter the menu uses when
+/// `frame_count` reaches its frame; a direct advanced change is an override and
+/// never cascades the overall quality preset. Malformed entries are ignored.
+/// Debug-only; inert unless the benchmark is enabled.
+const GRAPHICS_CYCLE_ENV: &str = "PLACES_BENCH_GRAPHICS_CYCLE";
+
+/// A scripted live window-event sequence, for the lifecycle matrix:
+/// `PLACES_BENCH_WINDOW_CYCLE=<frame>:<action>[,<frame>:<action>...]`, where
+/// the actions are `resize:<width>x<height>`, `minimize` and `restore`, e.g.
+/// `3:resize:800x450,6:minimize,9:restore,12:resize:640x360`. Each entry asks
+/// the real SDL window to perform the action when `frame_count` reaches its
+/// frame, so the platform's own resize/minimize events (and the drawable-size
+/// changes they produce) flow through the normal frame loop — not through a
+/// target-recreation helper call. Debug-only; inert unless the benchmark is
+/// enabled.
+const WINDOW_CYCLE_ENV: &str = "PLACES_BENCH_WINDOW_CYCLE";
+
+/// Freeze the camera at `yaw_degrees[,pitch_degrees]` for a repeatable shot.
+const BENCH_CAMERA_ENV: &str = "PLACES_CAMERA";
+/// Render-eye XYZ independent of the player's ordinary gameplay position.
+const BENCH_CAMERA_POSITION_ENV: &str = "PLACES_BENCH_CAMERA_POSITION";
+/// Explicit simulation step for deterministic diagnostic captures, in seconds.
+const BENCH_FIXED_DELTA_ENV: &str = "PLACES_BENCH_FIXED_DELTA_SECONDS";
+/// `on`/`off` override for the swap interval, used only to characterise `VSync`.
+const BENCH_VSYNC_ENV: &str = "PLACES_VSYNC";
+/// `1` waits for submitted GPU work before the swap, splitting renderer time
+/// from presentation time unambiguously (diagnostic only).
+const BENCH_FINISH_ENV: &str = "PLACES_BENCH_FINISH";
+/// `1` skips scene/UI submission, leaving only the presentation path
+/// (diagnostic only: the window shows a stale frame).
+const BENCH_NORENDER_ENV: &str = "PLACES_BENCH_NORENDER";
+/// `1` skips presentation (diagnostic only: nothing is presented).
+const BENCH_NOSWAP_ENV: &str = "PLACES_BENCH_NOSWAP";
+/// `1` submits every batch, so the same build can measure what culling is worth.
+const BENCH_NOCULL_ENV: &str = "PLACES_BENCH_NOCULL";
+
+/// Per-frame timings, all in milliseconds.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct FrameTimings {
+    pub update_ms: f32,
+    pub render_ms: f32,
+    pub swap_ms: f32,
+    pub frame_ms: f32,
+    pub loop_ms: f32,
+}
+
+/// Diagnostic submission switches parsed from the `PLACES_BENCH*` environment.
+///
+/// Each one changes exactly one renderer decision, so one release build measures
+/// what culling, finishing and skipping are each worth while everything else
+/// (level build, batching, draw order, shaders) is held fixed.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct BenchSwitches(u8);
+
+impl BenchSwitches {
+    /// Wait for submitted GPU work immediately before the swap (diagnostic).
+    pub const FINISH_BEFORE_SWAP: Self = Self(1 << 0);
+    /// Skip scene/UI submission entirely (diagnostic).
+    pub const SKIP_RENDER: Self = Self(1 << 1);
+    /// Skip presentation entirely (diagnostic).
+    pub const SKIP_SWAP: Self = Self(1 << 2);
+    /// Submit every batch regardless of the frustum, to measure culling's worth.
+    pub const NO_CULL: Self = Self(1 << 3);
+
+    /// True when every switch in `other` is set.
+    #[must_use]
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+
+    /// Adds `other` to the set.
+    pub const fn insert(&mut self, other: Self) {
+        self.0 |= other.0;
+    }
+}
+
+/// Hard cap on retained frame records for an unbounded benchmark session.
+///
+/// `PLACES_BENCH_FRAMES` normally ends a run; this only bounds the case where
+/// the harness is left enabled for a whole interactive session. At 60 fps the
+/// cap is a little over half an hour of recording.
+pub const MAX_RECORDED_FRAMES: usize = 120_000;
+
+/// Parsed `PLACES_BENCH*` environment configuration.
+#[derive(Clone, Debug, Default)]
+pub struct BenchConfig {
+    pub enabled: bool,
+    pub out_path: Option<PathBuf>,
+    pub warmup_frames: u64,
+    pub limit_frames: Option<u64>,
+    pub camera: Option<(f32, f32)>,
+    /// Independent render eye; this never moves the gameplay player.
+    pub camera_position: Option<[f32; 3]>,
+    /// Opt-in fixed simulation step, finite and in `(0, 0.1]` seconds.
+    pub fixed_delta_seconds: Option<f32>,
+    pub vsync_override: Option<bool>,
+    /// Diagnostic switches that each change one submission decision.
+    pub switches: BenchSwitches,
+}
+
+impl BenchConfig {
+    /// Reads the `PLACES_BENCH*` environment. Malformed values fall back to the
+    /// documented defaults rather than aborting a hardware run.
+    pub fn from_env() -> Self {
+        let enabled = env_flag(BENCH_ENV);
+        if !enabled {
+            return Self::default();
+        }
+        let out_path = non_empty_var(BENCH_OUT_ENV).map(PathBuf::from);
+        let warmup_frames = non_empty_var(BENCH_WARMUP_ENV)
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or(0);
+        let limit_frames = non_empty_var(BENCH_FRAMES_ENV)
+            .and_then(|value| value.parse::<u64>().ok())
+            .filter(|value| *value > 0);
+        let camera = non_empty_var(BENCH_CAMERA_ENV).and_then(|value| parse_camera(&value));
+        let camera_position = non_empty_var(BENCH_CAMERA_POSITION_ENV)
+            .and_then(|value| parse_camera_position(&value));
+        let fixed_delta_seconds = non_empty_var(BENCH_FIXED_DELTA_ENV)
+            .and_then(|value| parse_fixed_delta_seconds(&value));
+        let vsync_override =
+            non_empty_var(BENCH_VSYNC_ENV).and_then(|value| parse_vsync_override(&value));
+        let mut switches = BenchSwitches::default();
+        for (name, switch) in [
+            (BENCH_FINISH_ENV, BenchSwitches::FINISH_BEFORE_SWAP),
+            (BENCH_NORENDER_ENV, BenchSwitches::SKIP_RENDER),
+            (BENCH_NOSWAP_ENV, BenchSwitches::SKIP_SWAP),
+            (BENCH_NOCULL_ENV, BenchSwitches::NO_CULL),
+        ] {
+            if env_flag(name) {
+                switches.insert(switch);
+            }
+        }
+        Self {
+            enabled,
+            out_path,
+            warmup_frames,
+            limit_frames,
+            camera,
+            camera_position,
+            fixed_delta_seconds,
+            vsync_override,
+            switches,
+        }
+    }
+}
+
+/// Trimmed, non-empty environment value.
+fn non_empty_var(name: &str) -> Option<String> {
+    std::env::var(name)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+/// True when the value is a non-empty, non-`0`/`false`/`off` string.
+fn env_flag(name: &str) -> bool {
+    std::env::var(name).is_ok_and(|value| {
+        let normalized_value = value.trim().to_ascii_lowercase();
+        !matches!(normalized_value.as_str(), "" | "0" | "false" | "no" | "off")
+    })
+}
+
+/// A scripted live window action for the lifecycle matrix.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WindowAction {
+    /// Resize the window to a logical size in points.
+    Resize(u32, u32),
+    /// Minimize the window (the platform's own iconify event).
+    Minimize,
+    /// Restore a minimized window.
+    Restore,
+}
+
+/// Parses one `PLACES_BENCH_WINDOW_CYCLE` action.
+///
+/// Accepts `resize:<width>x<height>` (positive integers), `minimize` and
+/// `restore`, case-insensitively. Anything else is `None` and is ignored by
+/// the runner, like every other malformed benchmark value.
+#[must_use]
+pub fn parse_window_action(value: &str) -> Option<WindowAction> {
+    let trimmed_value = value.trim();
+    if trimmed_value.eq_ignore_ascii_case("minimize") {
+        return Some(WindowAction::Minimize);
+    }
+    if trimmed_value.eq_ignore_ascii_case("restore") {
+        return Some(WindowAction::Restore);
+    }
+    let (width, height) = trimmed_value.strip_prefix("resize:")?.split_once('x')?;
+    let pixel_width = width.trim().parse::<u32>().ok().filter(|edge| *edge > 0)?;
+    let pixel_height = height.trim().parse::<u32>().ok().filter(|edge| *edge > 0)?;
+    Some(WindowAction::Resize(pixel_width, pixel_height))
+}
+
+/// One scripted live graphics-preference change.
+///
+/// The variants mirror the Advanced settings page rows plus Bloom: each is the
+/// player-facing value, never an internal parameter.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GraphicsChange {
+    /// `filtering=<low|medium|high>`: the ordinary world Texture Filtering
+    /// preset (already canonicalized).
+    Filtering(&'static str),
+    /// `lighting=<static|full>`; legacy `lightmaps=medium` selects Full.
+    Lightmaps(LightmapQuality),
+    /// `reflections=<off|medium|full>`.
+    Reflections(ReflectionQuality),
+    /// `bloom=<on|off>`.
+    Bloom(bool),
+    /// Independent Low lighting override, preserving texture quality.
+    LowLighting(bool),
+}
+
+/// Parses one `PLACES_BENCH_GRAPHICS_CYCLE` entry, `[<setting>=<value>]`.
+///
+/// Accepts `filtering=`, `lighting=`, `lightmaps=`, `reflections=` and `bloom=` with the
+/// documented values, case-insensitively. Anything else (an unknown name
+/// included) is `None` and is ignored by the runner, like every other
+/// malformed benchmark value.
+#[must_use]
+pub fn parse_graphics_change(value: &str) -> Option<GraphicsChange> {
+    let (setting, setting_value) = value.split_once('=')?;
+    match setting.trim().to_ascii_lowercase().as_str() {
+        "filtering" => crate::game::settings::TEXTURE_FILTERING_NAMES
+            .iter()
+            .find(|name| name.eq_ignore_ascii_case(setting_value.trim()))
+            .copied()
+            .map(GraphicsChange::Filtering),
+        "lighting" | "lightmaps" => LightmapQuality::parse(setting_value).map(|quality| {
+            GraphicsChange::Lightmaps(match quality {
+                LightmapQuality::Off => LightmapQuality::Off,
+                LightmapQuality::Medium | LightmapQuality::Full => LightmapQuality::Full,
+            })
+        }),
+        "reflections" => ReflectionQuality::parse(setting_value).map(GraphicsChange::Reflections),
+        "bloom" => parse_on_off(setting_value).map(GraphicsChange::Bloom),
+        "low-lighting" => parse_on_off(setting_value).map(GraphicsChange::LowLighting),
+        _ => None,
+    }
+}
+
+/// Parses an explicit on/off value: `on`/`off`/`1`/`0`/`true`/`false`.
+#[must_use]
+pub fn parse_on_off(value: &str) -> Option<bool> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "1" | "on" | "true" | "yes" => Some(true),
+        "0" | "off" | "false" | "no" => Some(false),
+        _ => None,
+    }
+}
+
+/// Parses `yaw_degrees` or `yaw_degrees,pitch_degrees`.
+#[must_use]
+pub fn parse_camera(value: &str) -> Option<(f32, f32)> {
+    let mut parts = value.split(',').map(str::trim);
+    let yaw = parts.next()?.parse::<f32>().ok()?;
+    let pitch = match parts.next() {
+        Some(text) => text.parse::<f32>().ok()?,
+        None => 0.0,
+    };
+    if yaw.is_finite() && pitch.is_finite() {
+        Some((yaw, pitch))
+    } else {
+        None
+    }
+}
+
+/// Parses exactly three finite world coordinates: `x,y,z`.
+#[must_use]
+pub fn parse_camera_position(value: &str) -> Option<[f32; 3]> {
+    let mut parts = value.split(',').map(str::trim);
+    let position = [
+        parts.next()?.parse::<f32>().ok()?,
+        parts.next()?.parse::<f32>().ok()?,
+        parts.next()?.parse::<f32>().ok()?,
+    ];
+    if parts.next().is_none() && position.iter().all(|coordinate| coordinate.is_finite()) {
+        Some(position)
+    } else {
+        None
+    }
+}
+
+/// Parses a finite, positive simulation step no greater than 100 ms.
+#[must_use]
+pub fn parse_fixed_delta_seconds(value: &str) -> Option<f32> {
+    value
+        .trim()
+        .parse::<f32>()
+        .ok()
+        .filter(|delta| delta.is_finite() && *delta > 0.0 && *delta <= 0.1)
+}
+
+/// Parses an explicit swap-interval override: `on`/`off`/`1`/`0`.
+#[must_use]
+pub fn parse_vsync_override(value: &str) -> Option<bool> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "1" | "on" | "true" | "yes" | "vsync" => Some(true),
+        "0" | "off" | "false" | "no" | "immediate" => Some(false),
+        _ => None,
+    }
+}
+
+/// Distribution summary for one timing channel, in milliseconds.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct TimingSummary {
+    pub mean_ms: f32,
+    pub median_ms: f32,
+    pub p95_ms: f32,
+    pub p99_ms: f32,
+    pub min_ms: f32,
+    pub max_ms: f32,
+}
+
+impl TimingSummary {
+    /// Summarises a slice of millisecond samples. Returns all zeros for an
+    /// empty slice and never divides by a zero count.
+    pub fn from_samples(samples: &mut [f32]) -> Self {
+        if samples.is_empty() {
+            return Self::default();
+        }
+        samples.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let sum: f32 = samples.iter().copied().sum();
+        Self {
+            mean_ms: sum / sample_count_f32(samples.len()),
+            median_ms: percentile(samples, 0.50),
+            p95_ms: percentile(samples, 0.95),
+            p99_ms: percentile(samples, 0.99),
+            min_ms: samples.first().copied().unwrap_or_default(),
+            max_ms: samples.last().copied().unwrap_or_default(),
+        }
+    }
+
+    /// Frames per second implied by a millisecond frame time.
+    #[must_use]
+    pub fn fps_from_ms(ms: f32) -> f32 {
+        if ms > 0.0 { 1000.0 / ms } else { 0.0 }
+    }
+}
+
+/// `count` samples as `f32`.
+///
+/// One sample is recorded per frame, so a run long enough to round the count
+/// (2^24 frames is six days at 30 fps) would need a gigabyte of records; the
+/// cast is exact for every run this harness can produce.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "Recorded frame counts are capped at MAX_RECORDED_FRAMES (120000), below f32's exact integer limit."
+)]
+const fn sample_count_f32(count: usize) -> f32 {
+    count as f32
+}
+
+/// Nearest-rank percentile over an already sorted, non-empty slice.
+fn percentile(sorted: &[f32], fraction: f32) -> f32 {
+    let Some(last) = sorted.len().checked_sub(1) else {
+        return 0.0;
+    };
+    let index = (sample_count_f32(last) * fraction).round();
+    // `usize::try_from(f32)` is unstable (`convert_float_to_int`), so the
+    // rounded index narrows with `as`; `min(last)` below keeps it in bounds
+    // and the cast's saturation matches the historical behaviour.
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "`usize::try_from(f32)` is unstable (`convert_float_to_int`), so the rounded index narrows with `as`; `min(last)` below keeps it in bounds and the cast's saturation matches the historical behaviour."
+    )]
+    let sample_index = index as usize;
+    sorted.get(sample_index.min(last)).copied().unwrap_or(0.0)
+}
+
+/// One recorded frame: timings plus the geometry counters submitted with it.
+#[derive(Clone, Copy, Debug, Default)]
+struct FrameRecord {
+    timings: FrameTimings,
+    stats: RenderStats,
+    gpu_timing: GpuTiming,
+}
+
+/// Collects per-frame samples and writes the run summary.
+pub struct Bench {
+    config: BenchConfig,
+    csv: Option<std::fs::File>,
+    warmup_remaining: u64,
+    limit_remaining: Option<u64>,
+    recorded: u64,
+    /// Start instant of the previous loop iteration, advanced by
+    /// [`Bench::begin_frame`] on every frame — including frames whose samples
+    /// are excluded while a world prepares or a settings transition commits.
+    last_begin: Option<Instant>,
+    /// Cadence of the loop iteration that just began: the gap between this
+    /// iteration's start and the previous iteration's start. Zero before the
+    /// first [`Bench::begin_frame`].
+    loop_ms: f32,
+    frames: Vec<FrameRecord>,
+    gpu_timing: GpuTiming,
+    /// Swap interval actually in force, as reported by the presentation mode.
+    reported_swap_interval: Option<i32>,
+    /// Scripted live quality switches, in ascending frame order.
+    quality_cycle: Vec<(u64, crate::engine::quality::QualityLevel)>,
+    /// Scripted live Advanced-graphics changes, in ascending frame order.
+    graphics_cycle: Vec<(u64, GraphicsChange)>,
+    /// Scripted live window actions, in ascending frame order.
+    window_cycle: Vec<(u64, WindowAction)>,
+    lighting_sequence: lighting_sequence::LightingSequence,
+}
+
+impl Bench {
+    /// Builds the harness from the environment. When benchmarking is disabled
+    /// the returned value is a no-op and holds no file handle or buffers.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::from_config(BenchConfig::from_env())
+    }
+
+    fn from_config(config: BenchConfig) -> Self {
+        let mut csv = config
+            .out_path
+            .as_ref()
+            .and_then(|path| match std::fs::File::create(path) {
+                Ok(file) => Some(file),
+                Err(error) => {
+                    crate::engine::logging::warn(format!(
+                        "[bench] could not create {}: {error}",
+                        path.display()
+                    ));
+                    None
+                }
+            });
+        if let Some(file) = csv.as_mut() {
+            // Header row: column order must match `record_frame`.
+            if let Err(error) = writeln!(
+                file,
+                "frame,update_ms,render_ms,swap_ms,frame_ms,loop_ms,total_vertices,visible_vertices,culled_vertices,total_batches,visible_batches,draw_calls,vbo_bytes,index_bytes,texture_binds,material_changes,reflection_passes,visible_indices,gpu_sample_id,gpu_sample_frame,gpu_render_ms,gpu_timing_status"
+            ) {
+                crate::engine::logging::warn(format!(
+                    "[bench] could not write CSV header: {error}"
+                ));
+                csv = None;
+            }
+        }
+        let mut quality_cycle: Vec<(u64, crate::engine::quality::QualityLevel)> =
+            std::env::var(QUALITY_CYCLE_ENV)
+                .ok()
+                .map(|value| {
+                    value
+                        .split(',')
+                        .filter_map(|entry| {
+                            let (frame, level) = entry.split_once(':')?;
+                            Some((
+                                frame.trim().parse::<u64>().ok()?,
+                                crate::engine::quality::QualityLevel::parse(level)?,
+                            ))
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+        quality_cycle.sort_by_key(|(frame, _)| *frame);
+        let mut graphics_cycle: Vec<(u64, GraphicsChange)> = std::env::var(GRAPHICS_CYCLE_ENV)
+            .ok()
+            .map(|value| {
+                value
+                    .split(',')
+                    .filter_map(|entry| {
+                        let (frame, change) = entry.split_once(':')?;
+                        Some((
+                            frame.trim().parse::<u64>().ok()?,
+                            parse_graphics_change(change)?,
+                        ))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        graphics_cycle.sort_by_key(|(frame, _)| *frame);
+        let mut window_cycle: Vec<(u64, WindowAction)> = std::env::var(WINDOW_CYCLE_ENV)
+            .ok()
+            .map(|value| {
+                value
+                    .split(',')
+                    .filter_map(|entry| {
+                        let (frame, action) = entry.split_once(':')?;
+                        Some((
+                            frame.trim().parse::<u64>().ok()?,
+                            parse_window_action(action)?,
+                        ))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        window_cycle.sort_by_key(|(frame, _)| *frame);
+        let lighting_sequence = lighting_sequence::LightingSequence::from_env(config.enabled);
+        Self {
+            warmup_remaining: config.warmup_frames,
+            limit_remaining: config.limit_frames,
+            config,
+            csv,
+            recorded: 0,
+            last_begin: None,
+            loop_ms: 0.0,
+            frames: Vec::new(),
+            gpu_timing: GpuTiming::Pending,
+            reported_swap_interval: None,
+            quality_cycle,
+            graphics_cycle,
+            window_cycle,
+            lighting_sequence,
+        }
+    }
+
+    /// Developer-only model actions due at this ready frame, consumed once.
+    pub fn lighting_actions_at(&mut self, frame: u64) -> Vec<lighting_sequence::LightingAction> {
+        self.lighting_sequence.actions_at(frame)
+    }
+
+    /// A new native capture path due at this ready frame, consumed once.
+    pub fn lighting_capture_at(&mut self, frame: u64) -> Option<PathBuf> {
+        self.lighting_sequence.capture_at(frame)
+    }
+
+    /// The window action a scripted lifecycle selects at `frame`, if any.
+    ///
+    /// Called by the frame loop next to [`Self::quality_cycle_at`], so the
+    /// action reaches the real SDL window and the normal event/drawable path.
+    #[must_use]
+    pub fn window_cycle_at(&self, frame: u64) -> Option<WindowAction> {
+        self.window_cycle
+            .iter()
+            .find(|(at, _)| *at == frame)
+            .map(|(_, action)| *action)
+    }
+
+    /// The level a scripted quality cycle selects at `frame`, if any.
+    ///
+    /// Called by the frame loop before the pending-settings application, so a
+    /// scheduled switch goes through exactly the path a menu change does.
+    #[must_use]
+    pub fn quality_cycle_at(&self, frame: u64) -> Option<crate::engine::quality::QualityLevel> {
+        self.quality_cycle
+            .iter()
+            .find(|(at, _)| *at == frame)
+            .map(|(_, level)| *level)
+    }
+
+    /// The Advanced-graphics change a scripted cycle selects at `frame`, if any.
+    ///
+    /// Called by the frame loop next to [`Self::quality_cycle_at`]; the change
+    /// goes through the same [`crate::game::settings::Settings`] setters a menu row
+    /// uses, so a direct advanced change is an override, never a cascade.
+    #[must_use]
+    pub fn graphics_cycle_at(&self, frame: u64) -> Option<GraphicsChange> {
+        self.graphics_cycle
+            .iter()
+            .find(|(at, _)| *at == frame)
+            .map(|(_, change)| *change)
+    }
+
+    /// True when `PLACES_BENCH=1` was set, i.e. the harness should be driven.
+    #[must_use]
+    pub const fn enabled(&self) -> bool {
+        self.config.enabled
+    }
+
+    /// Camera override (`yaw_degrees`, `pitch_degrees`) for repeatable shots.
+    #[must_use]
+    pub const fn camera_override(&self) -> Option<(f32, f32)> {
+        self.config.camera
+    }
+
+    /// Independent render eye, enabled only for explicit benchmark captures.
+    #[must_use]
+    pub const fn camera_position_override(&self) -> Option<[f32; 3]> {
+        if self.config.enabled {
+            self.config.camera_position
+        } else {
+            None
+        }
+    }
+
+    /// Deterministic simulation step, enabled only for explicit benchmarks.
+    #[must_use]
+    pub const fn fixed_delta_seconds(&self) -> Option<f32> {
+        if self.config.enabled {
+            self.config.fixed_delta_seconds
+        } else {
+            None
+        }
+    }
+
+    /// Changes the diagnostic render eye/orientation without touching gameplay.
+    /// Angles are degrees, matching `PLACES_CAMERA` and authored camera recipes.
+    pub fn set_camera_override(&mut self, position: [f32; 3], yaw: f32, pitch: f32) -> bool {
+        if !self.config.enabled
+            || !position.iter().all(|coordinate| coordinate.is_finite())
+            || !yaw.is_finite()
+            || !pitch.is_finite()
+        {
+            return false;
+        }
+        self.config.camera_position = Some(position);
+        self.config.camera = Some((yaw, pitch));
+        true
+    }
+
+    /// Explicit swap-interval request, when `PLACES_VSYNC` was set.
+    #[must_use]
+    pub const fn vsync_override(&self) -> Option<bool> {
+        self.config.vsync_override
+    }
+
+    /// Whether to sync submitted GPU work before measuring presentation.
+    #[must_use]
+    pub const fn finish_before_swap(&self) -> bool {
+        self.config
+            .switches
+            .contains(BenchSwitches::FINISH_BEFORE_SWAP)
+    }
+
+    /// Whether scene/UI submission should be skipped for this run.
+    #[must_use]
+    pub const fn skip_render(&self) -> bool {
+        self.config.switches.contains(BenchSwitches::SKIP_RENDER)
+    }
+
+    /// Whether presentation should be skipped for this run.
+    #[must_use]
+    pub const fn skip_swap(&self) -> bool {
+        self.config.switches.contains(BenchSwitches::SKIP_SWAP)
+    }
+
+    /// Whether frustum culling should be disabled for this run.
+    #[must_use]
+    pub const fn no_cull(&self) -> bool {
+        self.config.switches.contains(BenchSwitches::NO_CULL)
+    }
+
+    /// Records the swap interval the platform reports after configuration.
+    pub const fn set_reported_swap_interval(&mut self, interval: i32) {
+        self.reported_swap_interval = Some(interval);
+    }
+
+    /// Advances the loop cadence baseline at the top of one frame.
+    ///
+    /// Called for every loop iteration, sampled or not: while a world is
+    /// preparing or a settings transition commits, `record_frame` is skipped,
+    /// and without this the first steady-state sample afterwards would carry
+    /// the whole excluded interval as one cadence value. The stored
+    /// [`Self::loop_ms`] is the adjacent loop cadence, which is the honest
+    /// source for an FPS number. The excluded interval itself is reported
+    /// through the loading trace, not charged to a steady-state sample.
+    pub fn begin_frame(&mut self, begin: Instant) {
+        if !self.config.enabled {
+            return;
+        }
+        self.loop_ms = self.last_begin.map_or(0.0, |previous| {
+            millis(begin.saturating_duration_since(previous))
+        });
+        self.last_begin = Some(begin);
+    }
+
+    /// Records one frame. `begin` must be the instant captured at the top of the
+    /// loop iteration and `swap_done` the instant presentation returned.
+    pub fn record_frame(
+        &mut self,
+        begin: Instant,
+        t_update: Instant,
+        t_render: Instant,
+        t_ui: Instant,
+        t_swap: Instant,
+        stats: RenderStats,
+    ) {
+        if !self.config.enabled {
+            return;
+        }
+        // An unbounded run (`PLACES_BENCH=1` with no `PLACES_BENCH_FRAMES`)
+        // keeps statistics for the whole session; stop retaining records once
+        // the cap is reached so a long-running session cannot grow forever.
+        if self.frames.len() >= MAX_RECORDED_FRAMES {
+            return;
+        }
+        // The gap between adjacent loop starts, captured by `begin_frame`, is
+        // the real presentation cadence: the only honest source for an FPS
+        // number when a swap may or may not block. Excluded loading and
+        // transition frames still advance it, so their time never lands in a
+        // steady-state sample.
+        let loop_ms = self.loop_ms;
+
+        if self.warmup_remaining > 0 {
+            self.warmup_remaining = self.warmup_remaining.saturating_sub(1);
+            return;
+        }
+        if let Some(remaining) = self.limit_remaining.as_mut() {
+            if *remaining == 0 {
+                return;
+            }
+            *remaining = remaining.saturating_sub(1);
+        }
+
+        let frame_ms = millis(t_swap.saturating_duration_since(begin));
+        let timings = FrameTimings {
+            update_ms: millis(t_update.saturating_duration_since(begin)),
+            render_ms: millis(t_ui.saturating_duration_since(t_render))
+                + millis(t_render.saturating_duration_since(t_update)),
+            swap_ms: millis(t_swap.saturating_duration_since(t_ui)),
+            frame_ms,
+            loop_ms: if self.recorded == 0 {
+                frame_ms
+            } else {
+                loop_ms
+            },
+        };
+        self.recorded = self.recorded.saturating_add(1);
+        let (gpu_id, gpu_frame, gpu_ms) = match self.gpu_timing {
+            GpuTiming::Measured(sample) => (
+                sample.id.to_string(),
+                sample.frame.to_string(),
+                format!("{:.3}", sample.milliseconds),
+            ),
+            GpuTiming::Pending | GpuTiming::Unavailable(_) => {
+                (String::new(), String::new(), String::new())
+            }
+        };
+
+        if let Some(file) = self.csv.as_mut()
+            && let Err(error) = writeln!(
+                file,
+                "{},{:.3},{:.3},{:.3},{:.3},{:.3},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+                self.recorded,
+                timings.update_ms,
+                timings.render_ms,
+                timings.swap_ms,
+                timings.frame_ms,
+                timings.loop_ms,
+                stats.total_vertices,
+                stats.visible_vertices,
+                stats.culled_vertices,
+                stats.total_batches,
+                stats.visible_batches,
+                stats.draw_calls,
+                stats.vbo_bytes,
+                stats.index_bytes,
+                stats.texture_binds,
+                stats.material_changes,
+                stats.reflection_passes,
+                stats.visible_indices,
+                gpu_id,
+                gpu_frame,
+                gpu_ms,
+                self.gpu_timing.status(),
+            )
+        {
+            crate::engine::logging::warn(format!("[bench] could not write CSV frame: {error}"));
+            // Stop retrying a failed stream on every benchmark frame.
+            self.csv = None;
+        }
+        self.frames.push(FrameRecord {
+            timings,
+            stats,
+            gpu_timing: self.gpu_timing,
+        });
+    }
+
+    /// Supplies the latest asynchronous hardware sample without associating
+    /// it with the current CPU frame. CSV retains its own measured frame id.
+    pub const fn set_gpu_timing(&mut self, timing: GpuTiming) {
+        self.gpu_timing = timing;
+    }
+
+    /// True once `PLACES_BENCH_FRAMES` frames have been recorded.
+    #[must_use]
+    pub fn is_complete(&self) -> bool {
+        self.config.enabled && self.limit_remaining == Some(0)
+    }
+
+    /// Writes the run summary to stdout as a single `BENCH_SUMMARY {...}` line.
+    /// Called once, when the run ends.
+    // The benchmark harness consumes this machine-readable stdout record.
+    #[expect(
+        clippy::print_stdout,
+        reason = "The benchmark harness consumes this machine-readable stdout record."
+    )]
+    pub fn finish(&mut self) {
+        if !self.config.enabled || self.frames.is_empty() {
+            println!("BENCH_SUMMARY {{\"frames\":0}}");
+            return;
+        }
+        let mut update: Vec<f32> = self.frames.iter().map(|f| f.timings.update_ms).collect();
+        let mut render: Vec<f32> = self.frames.iter().map(|f| f.timings.render_ms).collect();
+        let mut swap: Vec<f32> = self.frames.iter().map(|f| f.timings.swap_ms).collect();
+        let mut frame: Vec<f32> = self.frames.iter().map(|f| f.timings.frame_ms).collect();
+        let mut loop_ms: Vec<f32> = self.frames.iter().map(|f| f.timings.loop_ms).collect();
+        let update_summary = TimingSummary::from_samples(&mut update);
+        let render_summary = TimingSummary::from_samples(&mut render);
+        let swap_summary = TimingSummary::from_samples(&mut swap);
+        let frame_summary = TimingSummary::from_samples(&mut frame);
+        let loop_summary = TimingSummary::from_samples(&mut loop_ms);
+        let mut previous_gpu_id = 0_u64;
+        let mut gpu_ms: Vec<f32> = self
+            .frames
+            .iter()
+            .filter_map(|record| match record.gpu_timing {
+                GpuTiming::Measured(sample) if sample.id != previous_gpu_id => {
+                    previous_gpu_id = sample.id;
+                    Some(sample.milliseconds)
+                }
+                GpuTiming::Measured(_) | GpuTiming::Pending | GpuTiming::Unavailable(_) => None,
+            })
+            .collect();
+        let gpu_samples = gpu_ms.len();
+        let gpu_summary = TimingSummary::from_samples(&mut gpu_ms);
+        let gpu_mean = optional_gpu_milliseconds(gpu_samples, gpu_summary.mean_ms);
+        let gpu_median = optional_gpu_milliseconds(gpu_samples, gpu_summary.median_ms);
+        let gpu_p95 = optional_gpu_milliseconds(gpu_samples, gpu_summary.p95_ms);
+
+        let last = self.frames.last().copied().unwrap_or_default();
+        let level = std::env::var("PLACES_LEVEL").unwrap_or_default();
+        println!(
+            "BENCH_SUMMARY {{\"level\":\"{level}\",\"frames\":{},\"swap_interval\":{},\"update_mean_ms\":{:.3},\"render_mean_ms\":{:.3},\"swap_mean_ms\":{:.3},\"frame_mean_ms\":{:.3},\"loop_mean_ms\":{:.3},\"frame_median_ms\":{:.3},\"loop_median_ms\":{:.3},\"frame_p95_ms\":{:.3},\"frame_p99_ms\":{:.3},\"loop_p95_ms\":{:.3},\"loop_p99_ms\":{:.3},\"frame_min_ms\":{:.3},\"frame_max_ms\":{:.3},\"loop_min_ms\":{:.3},\"loop_max_ms\":{:.3},\"fps_median\":{:.2},\"fps_p95\":{:.2},\"fps_p99\":{:.2},\"fps_1pct_low\":{:.2},\"fps_mean\":{:.2},\"measured_fps_mean\":{:.2},\"worst_fps\":{:.2},\"total_vertices\":{},\"visible_vertices\":{},\"culled_vertices\":{},\"total_batches\":{},\"visible_batches\":{},\"draw_calls\":{},\"vbo_bytes\":{},\"index_bytes\":{},\"texture_binds\":{},\"material_changes\":{},\"reflection_passes\":{},\"visible_indices\":{},\"gpu_timing_status\":\"{}\",\"gpu_samples\":{gpu_samples},\"gpu_render_mean_ms\":{gpu_mean},\"gpu_render_median_ms\":{gpu_median},\"gpu_render_p95_ms\":{gpu_p95}}}",
+            self.frames.len(),
+            self.reported_swap_interval
+                .map_or_else(|| "null".to_string(), |value| value.to_string()),
+            update_summary.mean_ms,
+            render_summary.mean_ms,
+            swap_summary.mean_ms,
+            frame_summary.mean_ms,
+            loop_summary.mean_ms,
+            frame_summary.median_ms,
+            loop_summary.median_ms,
+            frame_summary.p95_ms,
+            frame_summary.p99_ms,
+            loop_summary.p95_ms,
+            loop_summary.p99_ms,
+            frame_summary.min_ms,
+            frame_summary.max_ms,
+            loop_summary.min_ms,
+            loop_summary.max_ms,
+            TimingSummary::fps_from_ms(loop_summary.median_ms),
+            TimingSummary::fps_from_ms(loop_summary.p95_ms),
+            TimingSummary::fps_from_ms(loop_summary.p99_ms),
+            TimingSummary::fps_from_ms(loop_summary.p99_ms),
+            TimingSummary::fps_from_ms(loop_summary.mean_ms),
+            TimingSummary::fps_from_ms(frame_summary.mean_ms),
+            TimingSummary::fps_from_ms(loop_summary.max_ms),
+            last.stats.total_vertices,
+            last.stats.visible_vertices,
+            last.stats.culled_vertices,
+            last.stats.total_batches,
+            last.stats.visible_batches,
+            last.stats.draw_calls,
+            last.stats.vbo_bytes,
+            last.stats.index_bytes,
+            last.stats.texture_binds,
+            last.stats.material_changes,
+            last.stats.reflection_passes,
+            last.stats.visible_indices,
+            last.gpu_timing.status(),
+        );
+        if let Some(file) = self.csv.as_mut()
+            && let Err(error) = file.flush()
+        {
+            crate::engine::logging::warn(format!("[bench] could not flush CSV: {error}"));
+        }
+    }
+}
+
+fn optional_gpu_milliseconds(samples: usize, milliseconds: f32) -> String {
+    if samples == 0 {
+        "null".to_string()
+    } else {
+        format!("{milliseconds:.3}")
+    }
+}
+
+impl Default for Bench {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Milliseconds as `f32`, saturating rather than wrapping on absurd durations.
+fn millis(duration: std::time::Duration) -> f32 {
+    // Frame timings are milliseconds-scale; the cast narrows a diagnostic
+    // value and rounds rather than truncating.
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        reason = "Frame timings are milliseconds-scale; the cast narrows a diagnostic value and rounds rather than truncating."
+    )]
+    let millis = duration.as_secs_f64() as f32 * 1000.0;
+    millis
+}
+
+#[cfg(test)]
+mod tests;

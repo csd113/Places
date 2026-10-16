@@ -145,12 +145,12 @@ def showcase_level() -> Dict:
         prop("core:washing_machine", 7.1, 0.6, rotation=270.0, solid=True),
         # The loose drum sits in front of the machine's door. In the shipped
         # demo the same model is the dynamic demonstrator (see
-        # src/render/common/dynamic.rs); here it is an ordinary static placement, so
+        # src/engine/render/common/dynamic.rs); here it is an ordinary static placement, so
         # the shipping tests cover its geometry, budget and lighting.
         prop("core:washer_drum", 6.57, 0.6, rotation=270.0),
         # --- props: signs, domestic lamp/switch/CRT, table setting ---
         # The showcase places every catalogue placeable exactly once (see
-        # src/render/tests.rs); the demo places the light props and the duck
+        # src/engine/render/tests.rs); the demo places the light props and the duck
         # with their real lighting and float behaviour.
         prop("core:stop_sign", -3.6, 1.4, rotation=20.0, solid=True),
         prop("core:exit_sign", 3.0, 1.5, y=2.43, rotation=180.0),

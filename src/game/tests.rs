@@ -15,9 +15,9 @@
 use std::fmt::Write as _;
 
 use super::*;
-use crate::entities::WorldCommand;
-use crate::entities::components::StateValue;
-use crate::render::SCENE_NEAR_M;
+use crate::engine::entities::WorldCommand;
+use crate::engine::entities::components::StateValue;
+use crate::engine::render::SCENE_NEAR_M;
 use crate::test_support::assert_exact;
 
 mod art_style;
@@ -531,7 +531,7 @@ fn test_controller_climbs_a_maximum_slope_ramp_at_low_frame_rates() {
     // The ramp is exactly at the loader's limit: 4 m of rise over 2 m of run.
     let ramp = level.ramps.first().expect("one ramp");
     let slope = ramp.rise() / ramp.length();
-    assert!((slope - crate::level::MAX_RAMP_SLOPE).abs() < 1e-5);
+    assert!((slope - crate::engine::level::MAX_RAMP_SLOPE).abs() < 1e-5);
     let mut game = game_for(&level);
     set_eye_position(&mut game, Vec3::new(5.6, EYE_HEIGHT, 3.9));
     game.player_floor_y = 0.0;
@@ -1017,7 +1017,7 @@ fn test_walk_surface_stays_between_the_treads_it_connects() {
         let mut previous = f32::NEG_INFINITY;
         for sample in 0..=32_u16 {
             let fraction = f32::from(sample) / 32.0;
-            let (px, pz) = if stair.axis() == crate::level::WallAxis::X {
+            let (px, pz) = if stair.axis() == crate::engine::level::WallAxis::X {
                 ((x1 - x0).mul_add(fraction, x0), f32::midpoint(z0, z1))
             } else {
                 (f32::midpoint(x0, x1), (z1 - z0).mul_add(fraction, z0))
@@ -3524,11 +3524,11 @@ fn weather_switch_level() -> LevelDef {
         "[]",
         "[]",
     );
-    level.weather = Some(crate::weather::WeatherDef::Snow(
-        crate::weather::SnowfallDef::default(),
+    level.weather = Some(crate::engine::weather::WeatherDef::Snow(
+        crate::engine::weather::SnowfallDef::default(),
     ));
-    level.weather_alternate = Some(crate::weather::WeatherDef::Snow(
-        crate::weather::SnowfallDef::blizzard(),
+    level.weather_alternate = Some(crate::engine::weather::WeatherDef::Snow(
+        crate::engine::weather::SnowfallDef::blizzard(),
     ));
     level
 }
@@ -3536,7 +3536,7 @@ fn weather_switch_level() -> LevelDef {
 #[test]
 fn weather_switch_key_edges_prompt_and_reset_use_the_existing_interaction_path() {
     let level = weather_switch_level();
-    crate::loader::validate_level(&level).expect("weather switch authoring is valid");
+    crate::engine::loader::validate_level(&level).expect("weather switch authoring is valid");
     let mut game = game_for(&level);
     game.set_app_state(AppState::Playing);
     game.sim_delta_seconds = 1.0 / 60.0;
@@ -3611,8 +3611,8 @@ fn weather_hold_survives_three_graphics_pauses_without_repress_or_motion() {
     game.sim_delta_seconds = 1.0 / 60.0;
     aim_at(&mut game, 3.4, 5.0, 1.2);
     let settings = Settings::default();
-    let mut handler = crate::input::InputHandler::new();
-    let (script, rejected) = crate::input::parse_move_script("interact@0-10");
+    let mut handler = crate::game::input::InputHandler::new();
+    let (script, rejected) = crate::game::input::parse_move_script("interact@0-10");
     assert!(rejected.is_empty(), "held interaction script is valid");
     handler.state_mut().apply_move_script(&script, 1.0);
     game.update_player_movement(handler.state_mut(), &settings);
@@ -3681,7 +3681,7 @@ fn weather_graphics_pause_observes_key_release_and_focus_clear_without_queued_ac
     game.sim_delta_seconds = 1.0 / 60.0;
     aim_at(&mut game, 3.4, 5.0, 1.2);
     let settings = Settings::default();
-    let mut handler = crate::input::InputHandler::new();
+    let mut handler = crate::game::input::InputHandler::new();
     *handler.state_mut() = InputState::holding(&[Control::Interact]);
     game.update_player_movement(handler.state_mut(), &settings);
     assert!(game.take_interact_press(), "first held edge fires");
@@ -3863,7 +3863,7 @@ fn crouched_eye_height_and_occlusion_respect_geometry() {
         "[]",
         "[]",
     );
-    level.props.push(crate::level::PropDef {
+    level.props.push(crate::engine::level::PropDef {
         id: Some("beam".into()),
         display_name: None,
         model: "core:beam".into(),
@@ -4308,7 +4308,7 @@ fn dispatch_reports_missing_targets_unsupported_actions_and_stops_after_reset() 
     let oversized_report = game.dispatch_actions(&oversized, None);
     assert_eq!(
         oversized_report.actions_run,
-        crate::level::MAX_ACTIONS_PER_SOURCE,
+        crate::engine::level::MAX_ACTIONS_PER_SOURCE,
         "the dispatcher never runs more than the bound"
     );
 }
@@ -4322,7 +4322,7 @@ fn the_pit_carpet_holes_reset_and_the_carpet_is_safe() {
     validate_pit_level(&level);
     // The volume entities carry the hole triggers; each has an `enter_volume`
     // binding whose actions reset the player.
-    let world = crate::entities::EntityWorld::from_level(&level);
+    let world = crate::engine::entities::EntityWorld::from_level(&level);
     let volumes: Vec<(String, [f32; 4])> = world
         .components()
         .volumes
@@ -4420,7 +4420,7 @@ fn the_pit_carpet_holes_reset_and_the_carpet_is_safe() {
 /// The Pit regression fixture must pass the same validation the game
 /// applies, including the new trigger schema.
 fn validate_pit_level(level: &LevelDef) {
-    crate::loader::validate_level(level).expect("The Pit validates");
+    crate::engine::loader::validate_level(level).expect("The Pit validates");
 }
 
 /// An explicit `toggle_label` target may name a prop that has no interaction of
@@ -4874,7 +4874,7 @@ fn the_entity_showcase_runs_two_independent_rat_routes() {
     let content = std::fs::read_to_string("tests/fixtures/levels/entity_showcase.json")
         .expect("the entity showcase fixture is present");
     let level = LevelDef::from_json(&content).expect("the entity showcase parses");
-    crate::loader::validate_level(&level).expect("the entity showcase validates");
+    crate::engine::loader::validate_level(&level).expect("the entity showcase validates");
     let mut game = game_for(&level);
     assert_eq!(
         game.routes().len(),
@@ -4972,7 +4972,7 @@ fn the_halloween_fixture_runs_jumping_pumpkins_fading_ghosts_and_wandering_skele
     let content = std::fs::read_to_string("tests/fixtures/levels/halloween_entities.json")
         .expect("the Halloween fixture is present");
     let level = LevelDef::from_json(&content).expect("the Halloween fixture parses");
-    crate::loader::validate_level(&level).expect("the Halloween fixture validates");
+    crate::engine::loader::validate_level(&level).expect("the Halloween fixture validates");
     let mut game = game_for(&level);
     assert_eq!(
         game.routes().len(),
@@ -5128,7 +5128,8 @@ fn play_animation_can_pose_a_prop_with_no_interaction_of_its_own() {
         }"#,
     )
     .expect("the cue-only target level parses");
-    crate::loader::validate_level(&level).expect("validation accepts the documented target");
+    crate::engine::loader::validate_level(&level)
+        .expect("validation accepts the documented target");
     let mut game = game_for(&level);
     let actor = game.interactables().index_of("actor").expect("the actor");
     assert!(
@@ -5428,7 +5429,7 @@ fn reset_clears_toggle_scrubs_and_playing_animations() {
 
 #[test]
 fn gameplay_consumes_fast_taps_once_without_a_held_frame() {
-    use crate::input::InputHandler;
+    use crate::game::input::InputHandler;
     use sdl3::event::Event;
     use sdl3::keyboard::{Keycode, Mod};
 
@@ -5523,7 +5524,7 @@ fn a_switch_toggles_a_switchable_light_fixture() {
         }"#,
     )
     .expect("the switch level parses");
-    crate::loader::validate_level(&level).expect("the switch level validates");
+    crate::engine::loader::validate_level(&level).expect("the switch level validates");
 
     let mut game = game_for(&level);
     let switch = game
@@ -5587,7 +5588,7 @@ fn a_switch_toggles_a_switchable_light_fixture() {
         ]
     }"#;
     let bad_level = LevelDef::from_json(bad).expect("the bad switch level parses");
-    let err = crate::loader::validate_level(&bad_level)
+    let err = crate::engine::loader::validate_level(&bad_level)
         .expect_err("a non-switchable fixture is not a toggle target");
     assert!(
         err.contains("switchable fixed light"),
@@ -5643,7 +5644,7 @@ fn a_door_blocks_the_player_when_closed_and_passes_when_open() {
         }"#,
     )
     .expect("the door collision level parses");
-    crate::loader::validate_level(&level).expect("the door collision level validates");
+    crate::engine::loader::validate_level(&level).expect("the door collision level validates");
     let mut game = game_for(&level);
     game.set_app_state(AppState::Playing);
 
@@ -5714,7 +5715,7 @@ fn a_manual_door_is_an_interaction_target_and_an_external_one_is_not() {
         }"#,
     )
     .expect("the door interaction level parses");
-    crate::loader::validate_level(&level).expect("the door interaction level validates");
+    crate::engine::loader::validate_level(&level).expect("the door interaction level validates");
     let mut game = game_for(&level);
     let ids: Vec<&str> = game
         .interactables()
@@ -5769,7 +5770,7 @@ fn self_referential_actions_dispatch_once_and_terminate() {
         }"#,
     )
     .expect("the self-action level parses");
-    crate::loader::validate_level(&level).expect("the self-action level validates");
+    crate::engine::loader::validate_level(&level).expect("the self-action level validates");
     let mut game = game_for(&level);
     let switch = game
         .interactables()
@@ -5813,7 +5814,7 @@ fn a_disabled_interactable_is_not_aimable_until_enabled() {
         "[]",
         "[]",
     );
-    crate::loader::validate_level(&level).expect("the disabled level validates");
+    crate::engine::loader::validate_level(&level).expect("the disabled level validates");
     let mut game = game_for(&level);
     let off = game
         .interactables()
@@ -5869,7 +5870,7 @@ fn a_switch_sets_a_switchable_fixture_light_off() {
         }"#,
     )
     .expect("the interaction-light level parses");
-    crate::loader::validate_level(&level).expect("the interaction-light level validates");
+    crate::engine::loader::validate_level(&level).expect("the interaction-light level validates");
 
     let mut game = game_for(&level);
     let switch = game
@@ -5951,14 +5952,14 @@ fn an_object_state_binding_runs_only_when_its_condition_holds() {
         }"#,
     )
     .expect("the state-condition level parses");
-    crate::loader::validate_level(&level).expect("the state-condition level validates");
+    crate::engine::loader::validate_level(&level).expect("the state-condition level validates");
 
     // True branch: the door is enabled, so the conditioned binding runs.
     let mut game = game_for(&level);
     let panel = game.interactables().index_of("panel").expect("panel");
     assert!(
         game.entities()
-            .condition_holds(&crate::level::ConditionDef::Enabled {
+            .condition_holds(&crate::engine::level::ConditionDef::Enabled {
                 target: "gate".into()
             }),
         "the condition starts true"
@@ -5988,7 +5989,7 @@ fn an_object_state_binding_runs_only_when_its_condition_holds() {
     assert!(
         !blocked
             .entities()
-            .condition_holds(&crate::level::ConditionDef::Enabled {
+            .condition_holds(&crate::engine::level::ConditionDef::Enabled {
                 target: "gate".into()
             }),
         "the disabled door fails the condition"
@@ -6039,7 +6040,7 @@ fn a_once_volume_binding_fires_once_and_re_arms_on_reset() {
         }"#,
     )
     .expect("the once-volume level parses");
-    crate::loader::validate_level(&level).expect("the once-volume level validates");
+    crate::engine::loader::validate_level(&level).expect("the once-volume level validates");
 
     let mut game = game_for(&level);
     let lamp = game.interactables().index_of("lamp").expect("lamp");
@@ -6097,7 +6098,7 @@ fn a_one_shot_timer_fires_exactly_once() {
         }"#,
     )
     .expect("the one-shot timer level parses");
-    crate::loader::validate_level(&level).expect("the one-shot timer level validates");
+    crate::engine::loader::validate_level(&level).expect("the one-shot timer level validates");
 
     let mut game = game_for(&level);
     let lamp = game.interactables().index_of("lamp").expect("lamp");
@@ -6163,7 +6164,7 @@ fn a_repeating_timer_fires_again_each_period() {
         }"#,
     )
     .expect("the repeating timer level parses");
-    crate::loader::validate_level(&level).expect("the repeating timer level validates");
+    crate::engine::loader::validate_level(&level).expect("the repeating timer level validates");
 
     let mut game = game_for(&level);
     let lamp = game.interactables().index_of("lamp").expect("lamp");
@@ -6242,7 +6243,7 @@ fn an_interact_starts_a_sequence_that_completes_once() {
         }"#,
     )
     .expect("the sequence level parses");
-    crate::loader::validate_level(&level).expect("the sequence level validates");
+    crate::engine::loader::validate_level(&level).expect("the sequence level validates");
 
     let mut game = game_for(&level);
     let actor = game.interactables().index_of("actor").expect("actor");
@@ -6331,7 +6332,7 @@ fn a_second_sequence_replaces_the_first_on_the_same_entity() {
         }"#,
     )
     .expect("the sequence-replace level parses");
-    crate::loader::validate_level(&level).expect("the sequence-replace level validates");
+    crate::engine::loader::validate_level(&level).expect("the sequence-replace level validates");
 
     let mut game = game_for(&level);
     let started = game.dispatch_actions(
@@ -6421,7 +6422,7 @@ fn despawning_a_sequence_owner_cancels_it_without_completing() {
         }"#,
     )
     .expect("the sequence-despawn level parses");
-    crate::loader::validate_level(&level).expect("the sequence-despawn level validates");
+    crate::engine::loader::validate_level(&level).expect("the sequence-despawn level validates");
 
     let mut game = game_for(&level);
     let lamp = game.interactables().index_of("lamp").expect("lamp");
@@ -6488,7 +6489,7 @@ fn a_spawned_entity_despawns_when_its_lifetime_elapses() {
         }"#,
     )
     .expect("the spawn-lifetime level parses");
-    crate::loader::validate_level(&level).expect("the spawn-lifetime level validates");
+    crate::engine::loader::validate_level(&level).expect("the spawn-lifetime level validates");
 
     let mut game = game_for(&level);
     let report = game.dispatch_actions(
@@ -6571,7 +6572,7 @@ fn an_at_most_one_spawn_group_admits_one_member_and_releases_it() {
         }"#,
     )
     .expect("the spawn-group level parses");
-    crate::loader::validate_level(&level).expect("the spawn-group level validates");
+    crate::engine::loader::validate_level(&level).expect("the spawn-group level validates");
 
     let mut game = game_for(&level);
     let spawn = |subject: &mut Game, name: &str| {
@@ -6679,7 +6680,7 @@ fn a_locked_door_refuses_interaction_until_unlocked_by_a_binding() {
         }"#,
     )
     .expect("the locked-door level parses");
-    crate::loader::validate_level(&level).expect("the locked-door level validates");
+    crate::engine::loader::validate_level(&level).expect("the locked-door level validates");
 
     let mut game = game_for(&level);
     let door_target = game
@@ -6734,7 +6735,7 @@ fn the_demo_sauna_chain_runs_end_to_end() {
     ))
     .expect("the contact control is readable");
     let level = LevelDef::from_json(&source).expect("the contact control parses");
-    crate::loader::validate_level(&level).expect("the contact control validates");
+    crate::engine::loader::validate_level(&level).expect("the contact control validates");
     let mut game = game_for(&level);
     game.set_app_state(AppState::Playing);
     let settings = Settings::default();
@@ -6747,7 +6748,7 @@ fn the_demo_sauna_chain_runs_end_to_end() {
         .expect("the sauna zone exists");
     let (x0, x1, z0, z1) = zone.bounds();
     let (cx, cz) = (f32::midpoint(x0, x1), f32::midpoint(z0, z1));
-    let floor_y = crate::level::LevelSurfaces::new(&level)
+    let floor_y = crate::engine::level::LevelSurfaces::new(&level)
         .floor_y_at(cx, cz)
         .expect("the sauna floor");
     set_eye_position(&mut game, Vec3::new(cx, floor_y + EYE_HEIGHT, cz));
@@ -6771,7 +6772,9 @@ fn the_demo_sauna_chain_runs_end_to_end() {
         .and_then(|state| state.get("phase").cloned());
     assert_eq!(
         phase,
-        Some(crate::entities::components::StateValue::Text("warm".into())),
+        Some(crate::engine::entities::components::StateValue::Text(
+            "warm".into()
+        )),
         "the sequence wrote the door's phase"
     );
     // The sequence's emitted `warm` cue is consumed by the door's own binding,
@@ -6791,9 +6794,9 @@ fn the_demo_sauna_chain_runs_end_to_end() {
 /// Bakes the 10 x 10 m encounter control with the compiler's navigation entry point and
 /// loads it through the package record codec, exactly as a package install
 /// does. Returns the mesh plus the bake warnings.
-fn encounter_navigation(level: &LevelDef) -> (crate::nav::NavMesh, Vec<String>) {
+fn encounter_navigation(level: &LevelDef) -> (crate::engine::nav::NavMesh, Vec<String>) {
     let mut warnings = Vec::new();
-    let (bytes, report) = crate::compiler::bake_navigation(level, 1, &mut warnings)
+    let (bytes, report) = crate::map_compiler::bake_navigation(level, 1, &mut warnings)
         .expect("the bounded encounter navigation bakes");
     assert!(
         warnings.is_empty(),
@@ -6808,13 +6811,13 @@ fn encounter_navigation(level: &LevelDef) -> (crate::nav::NavMesh, Vec<String>) 
         report.cells_x <= 60 && report.cells_z <= 60,
         "the fixture bake stays bounded"
     );
-    let reencoded_bytes = crate::package::navigation::write_navigation(
-        &crate::package::navigation::read_navigation(&bytes).expect("the record decodes"),
+    let reencoded_bytes = crate::engine::package::navigation::write_navigation(
+        &crate::engine::package::navigation::read_navigation(&bytes).expect("the record decodes"),
     )
     .expect("the record re-encodes");
-    let grid =
-        crate::package::navigation::read_navigation(&reencoded_bytes).expect("the record decodes");
-    let mesh = crate::nav::NavMesh::from_record(grid).expect("the mesh validates");
+    let grid = crate::engine::package::navigation::read_navigation(&reencoded_bytes)
+        .expect("the record decodes");
+    let mesh = crate::engine::nav::NavMesh::from_record(grid).expect("the mesh validates");
     (mesh, warnings)
 }
 
@@ -6934,12 +6937,14 @@ fn demo_home_encounter_repeats_end_to_end() {
         let predator = game.entities().ai().agent(cat).expect("cat");
         if matches!(
             prey.state,
-            crate::ai::AiState::Flee {
+            crate::engine::ai::AiState::Flee {
                 threat: _,
                 destination: _
             }
-        ) && matches!(predator.state, crate::ai::AiState::Pursue { target: _ })
-            && prey.path_goal.is_some()
+        ) && matches!(
+            predator.state,
+            crate::engine::ai::AiState::Pursue { target: _ }
+        ) && prey.path_goal.is_some()
             && prey.path.complete
         {
             chase = Some((
@@ -6956,7 +6961,7 @@ fn demo_home_encounter_repeats_end_to_end() {
     assert!(
         matches!(
             rat_state,
-            crate::ai::AiState::Flee {
+            crate::engine::ai::AiState::Flee {
                 threat: _,
                 destination: _
             }
@@ -6964,7 +6969,7 @@ fn demo_home_encounter_repeats_end_to_end() {
         "the rat flees, got {rat_state:?}"
     );
     assert!(
-        matches!(cat_state, crate::ai::AiState::Pursue { target: _ }),
+        matches!(cat_state, crate::engine::ai::AiState::Pursue { target: _ }),
         "the cat pursues, got {cat_state:?}"
     );
     assert!(
@@ -6996,7 +7001,10 @@ fn demo_home_encounter_repeats_end_to_end() {
     );
     let cat_agent = game.entities().ai().agent(cat).expect("cat");
     assert!(
-        matches!(cat_agent.state, crate::ai::AiState::Catch { target: _ }),
+        matches!(
+            cat_agent.state,
+            crate::engine::ai::AiState::Catch { target: _ }
+        ),
         "the catch state owns the presentation, got {:?}",
         cat_agent.state
     );
@@ -7019,7 +7027,7 @@ fn demo_home_encounter_repeats_end_to_end() {
     for _ in 0_i32..(60_i32 * 20_i32) {
         advance_checked(&mut game, 1, &[cat]);
         let state = game.entities().ai().agent(cat).expect("cat").state;
-        if !matches!(state, crate::ai::AiState::Catch { target: _ }) {
+        if !matches!(state, crate::engine::ai::AiState::Catch { target: _ }) {
             released = true;
             break;
         }
@@ -7036,7 +7044,9 @@ fn demo_home_encounter_repeats_end_to_end() {
     for _ in 0_i32..(60_i32 * 90_i32) {
         advance_checked(&mut game, 1, &[cat]);
         let agent = game.entities().ai().agent(cat).expect("cat");
-        if agent.position.distance(home) < 2.0 && matches!(agent.state, crate::ai::AiState::Idle) {
+        if agent.position.distance(home) < 2.0
+            && matches!(agent.state, crate::engine::ai::AiState::Idle)
+        {
             returned = true;
             break;
         }
@@ -7052,12 +7062,14 @@ fn demo_home_encounter_repeats_end_to_end() {
         let predator_state = game.entities().ai().agent(cat).expect("cat").state;
         if matches!(
             repeated_rat_state,
-            crate::ai::AiState::Flee {
+            crate::engine::ai::AiState::Flee {
                 threat: _,
                 destination: _
             }
-        ) && matches!(predator_state, crate::ai::AiState::Pursue { target: _ })
-        {
+        ) && matches!(
+            predator_state,
+            crate::engine::ai::AiState::Pursue { target: _ }
+        ) {
             chased = true;
             break;
         }
@@ -7097,7 +7109,8 @@ fn demo_home_encounter_survives_external_despawn_and_absence() {
     assert!(
         !matches!(
             cat_agent.state,
-            crate::ai::AiState::Pursue { target: _ } | crate::ai::AiState::Catch { target: _ }
+            crate::engine::ai::AiState::Pursue { target: _ }
+                | crate::engine::ai::AiState::Catch { target: _ }
         ),
         "the cat releases a despawned target, got {:?}",
         cat_agent.state
@@ -7122,8 +7135,8 @@ fn demo_home_encounter_survives_external_despawn_and_absence() {
     assert!(world.navigation.is_none(), "from_level never bakes");
     let mut entity_world = world.world;
     let walls = level.collision_aabbs();
-    let index = crate::collision_index::CollisionIndex::build(&walls);
-    let floor = crate::level::WalkableFloor::from_level(&level);
+    let index = crate::engine::collision_index::CollisionIndex::build(&walls);
+    let floor = crate::engine::level::WalkableFloor::from_level(&level);
     let ctx = WorldContext {
         delta_seconds: DELTA,
         feet_from: Vec3::ZERO,
@@ -8706,7 +8719,7 @@ fn every_demo_door_completes_a_full_close_and_a_full_open() {
         assert!(
             matches!(
                 start,
-                crate::door::DoorPhase::Open | crate::door::DoorPhase::Closed
+                crate::engine::door::DoorPhase::Open | crate::engine::door::DoorPhase::Closed
             ),
             "{id} starts at an end: {start:?}"
         );
@@ -8715,7 +8728,7 @@ fn every_demo_door_completes_a_full_close_and_a_full_open() {
         // it, and repeat. Each request moves the leaf off the end it is on, so
         // every call is meaningful.
         // The first request always moves the leaf off the end it starts on.
-        let first_open = matches!(start, crate::door::DoorPhase::Closed);
+        let first_open = matches!(start, crate::engine::door::DoorPhase::Closed);
         for _ in 0_i32..2_i32 {
             for open in [first_open, !first_open] {
                 let expected = if open { "open" } else { "closed" };
@@ -8948,7 +8961,7 @@ fn point_box_distance(point: Vec3, min: [f32; 3], max: [f32; 3]) -> f32 {
 
 /// Distance from `point` to a door leaf's oriented box, in metres; zero when
 /// the point is inside the leaf.
-fn point_leaf_distance(door: &crate::collision::DoorCollider, point: Vec3) -> f32 {
+fn point_leaf_distance(door: &crate::engine::collision::DoorCollider, point: Vec3) -> f32 {
     let dx = point.x - door.hinge_x;
     let dz = point.z - door.hinge_z;
     let u = dx.mul_add(door.dir_x, dz * door.dir_z);
@@ -9375,7 +9388,7 @@ fn a_scripted_interact_press_closes_the_open_hall_door() {
     let report = game.world_mut().dispatch_interaction(Some(switch));
     assert!(report.is_some(), "the switch dispatches");
     let mut input = InputState::default();
-    let (script, rejected) = crate::input::parse_move_script("interact@3.0-3.1");
+    let (script, rejected) = crate::game::input::parse_move_script("interact@3.0-3.1");
     assert!(rejected.is_empty(), "{rejected:?}");
     let mut pressed_frames = 0_i32;
     let mut prompt_at_press: Option<String> = None;
@@ -9577,7 +9590,7 @@ fn demo_sauna_switch_aim_respects_occlusion_and_reach() {
         .get(door_target)
         .expect("the door item");
     assert_eq!(
-        crate::collision::ray_aabb_entry(
+        crate::engine::collision::ray_aabb_entry(
             ray_origin,
             ray_direction,
             door_item.bounds.min,

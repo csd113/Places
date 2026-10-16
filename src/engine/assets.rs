@@ -1,0 +1,2310 @@
+//! Authoritative asset catalog: logical ids, classification and resource paths.
+//!
+//! Levels never store where an asset file lives. They store a logical id
+//! (`core:desk`, `spooner-man`); the catalog in `assets/catalog.json` maps that
+//! id to its
+//!
+//! * **asset class** — `environment`, `entity`, `core` or `diagnostic`;
+//! * **asset type** — `prop`, `material`, `texture`, `light`, `decal`, `entity`;
+//! * **theme** — an organizational environment collection such as `office` or
+//!   `pool`, absent for generic/shared content;
+//! * **source** — a file below the asset root (`assets/`) or a resource the
+//!   renderer generates in code;
+//! * **resource** — the canonical model path relative to the asset root.
+//!
+//! Classification is organizational only. Nothing in the runtime filters
+//! placement by theme or class: an Office fixture may light a Pool level, a
+//! Pool decal may sit in an Office corridor and an entity may stand in any
+//! room. Themes exist for discoverability, documentation and future tools, not
+//! for restriction.
+//!
+//! The catalog is data, not code. Adding a theme is adding a `themes` record;
+//! adding a future class or type is a validated identifier, so an unknown value
+//! never corrupts lookup. Physical files can move between directories without
+//! rewriting a single level, because levels only ever reference the logical id.
+
+use std::collections::HashMap;
+use std::fmt;
+use std::fs;
+use std::path::{Path, PathBuf};
+
+use crate::engine::materials::{
+    MAX_EMISSION_COLOR, MAX_EMISSION_INTENSITY, MAX_NORMAL_STRENGTH, MAX_REFLECTION_STRENGTH,
+    MAX_SPECULAR, ReflectionMode,
+};
+
+/// Environment variable that overrides every other asset-root candidate.
+///
+/// An absolute or relative path to the directory that *contains* `assets/`,
+/// i.e. the package root. Set it to pin a specific installation, to run a
+/// packaged build from an unusual directory, or to test a build against an
+/// asset tree other than the one next to the executable.
+pub const ASSET_ROOT_ENV: &str = "PLACES_ASSET_ROOT";
+
+/// Directory candidates for the shipped asset root, in search order.
+///
+/// These are the working-directory-relative names kept for development: a run
+/// from the repository root and a `cargo run` from a subdirectory both find
+/// `assets/`. A packaged build is located through
+/// [`package_root_candidates`] instead, so it never depends on the working
+/// directory.
+pub const ASSET_ROOT_CANDIDATES: [&str; 3] = ["assets", "./assets", "../assets"];
+
+/// Catalog file name inside the asset root.
+pub const CATALOG_FILE_NAME: &str = "catalog.json";
+
+/// Optional runtime-only physical metadata beside the render asset catalog.
+pub const GAMEPLAY_FILE_NAME: &str = "gameplay.json";
+
+const MAX_GAMEPLAY_JSON_BYTES: usize = 1_048_576;
+
+/// Environment variable that overrides where writable runtime state lives.
+///
+/// The state root is the directory that owns `settings.json`, the drop-in
+/// `levels/` and `import/` directories and the level cache. A relative value is
+/// resolved against the working directory at read time, like
+/// [`ASSET_ROOT_ENV`].
+pub const STATE_ROOT_ENV: &str = "PLACES_STATE_ROOT";
+
+/// The directory that owns every writable runtime file.
+///
+/// Precedence is deliberate and deterministic:
+///
+/// 1. the [`STATE_ROOT_ENV`] override — tests and benchmark runs pin their own
+///    scratch state;
+/// 2. the package root, i.e. the parent of the resolved asset root — a portable
+///    install keeps settings, drop-in levels and its cache next to its payload,
+///    no matter what the working directory is;
+/// 3. the working directory, for the degenerate case where no asset root was
+///    found at all.
+///
+/// Nothing here creates the directory: callers create the subdirectories they
+/// need, so a read-only installation still fails only where it must.
+#[must_use]
+pub fn state_root() -> PathBuf {
+    static RESOLVED: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+    RESOLVED
+        .get_or_init(|| {
+            if let Ok(raw) = std::env::var(STATE_ROOT_ENV) {
+                let trimmed = raw.trim();
+                if !trimmed.is_empty() {
+                    let path = PathBuf::from(trimmed);
+                    return if path.is_absolute() {
+                        path
+                    } else {
+                        std::env::current_dir()
+                            .map(|cwd| cwd.join(&path))
+                            .unwrap_or(path)
+                    };
+                }
+            }
+            if let Some(assets) = resolve_asset_root()
+                && let Some(root) = assets.parent()
+            {
+                return root.to_path_buf();
+            }
+            std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+        })
+        .clone()
+}
+
+/// A runtime path below the [`state_root`].
+///
+/// An absolute `relative` is returned unchanged, so a caller with a specific
+/// file in mind can still pass one.
+#[must_use]
+pub fn state_path(relative: impl AsRef<Path>) -> PathBuf {
+    state_root().join(relative)
+}
+
+/// First line of the missing-asset-root diagnostic.
+///
+/// Deliberately loud and self-describing: a distribution that cannot find its
+/// payload must not look like a successful launch, and the reader needs to know
+/// what was expected before the candidate list that follows.
+pub const NO_ASSET_ROOT_MESSAGE: &str = "\
+[assets] no asset root found: the game could not locate a directory containing \
+`assets/catalog.json`, so every texture, model, decal and level request will \
+fall back to placeholder or diagnostic content.
+
+[assets] searched, in order:";
+
+/// How many parent directories of the executable are searched for a package.
+///
+/// `target/release/places` and `target/debug/deps/<test>` need two and
+/// three. A macOS `Places.app/Contents/MacOS/places` bundle is reached through
+/// its `Resources` directory instead, which is only one level up.
+const EXECUTABLE_ANCESTOR_DEPTH: usize = 3;
+
+/// Where a packaged runtime looks for its `assets/` directory, in order.
+///
+/// A candidate is accepted only when it is a *complete* asset root — the
+/// directory exists and carries a `catalog.json` — so a stray `assets/`
+/// directory above an installation cannot hijack it.
+#[must_use]
+pub fn package_root_candidates() -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    if let Some(override_path) = asset_root_override() {
+        candidates.push(override_path);
+    }
+    if let Ok(executable) = std::env::current_exe()
+        && let Some(directory) = executable.parent()
+    {
+        // macOS application bundle: `Contents/MacOS/<exe>` with the payload in
+        // `Contents/Resources/`. Checked before the ancestor walk because the
+        // bundle's own parent directory is not part of its payload.
+        candidates.push(directory.join("../Resources"));
+        let mut ancestor = Some(directory);
+        for _ in 0..=EXECUTABLE_ANCESTOR_DEPTH {
+            let Some(current) = ancestor else { break };
+            candidates.push(current.to_path_buf());
+            ancestor = current.parent();
+        }
+    }
+    candidates
+}
+
+/// Reads and normalises [`ASSET_ROOT_ENV`].
+///
+/// A relative override is made absolute against the working directory at the
+/// moment it is read, so a later `set_current_dir` cannot silently retarget it.
+fn asset_root_override() -> Option<PathBuf> {
+    let raw = std::env::var(ASSET_ROOT_ENV).ok()?;
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let path = PathBuf::from(trimmed);
+    Some(if path.is_absolute() {
+        path
+    } else {
+        std::env::current_dir()
+            .map(|cwd| cwd.join(&path))
+            .unwrap_or(path)
+    })
+}
+
+/// True when `root` is a complete asset root: a directory with a catalog.
+fn is_complete_asset_root(root: &Path) -> bool {
+    root.is_dir() && root.join(CATALOG_FILE_NAME).is_file()
+}
+
+/// The package directories that hold a complete [`CATALOG_FILE_NAME`] asset
+/// tree, in precedence order.
+///
+/// This is the authoritative lookup for a packaged build: the executable's own
+/// directory, up to three ancestors (including Cargo build/test directories),
+/// and a macOS bundle's `Contents/Resources`.
+#[must_use]
+pub fn resolved_package_roots() -> Vec<PathBuf> {
+    package_root_candidates()
+        .into_iter()
+        .filter(|root| is_complete_asset_root(&root.join("assets")))
+        .collect()
+}
+
+/// The asset root resolved once for this process.
+///
+/// Resolution is deliberately deterministic and cached: the precedence is
+///
+/// 1. the [`ASSET_ROOT_ENV`] override — an explicit override always wins;
+/// 2. the executable's own location — a packaged build resolves its own
+///    payload no matter what the working directory is;
+/// 3. the working directory — `assets`, `./assets`, `../assets`, so
+///    development from the repository root keeps working;
+/// 4. the compile-time crate directory, **development builds only**
+///    (`debug_assertions`), so a release binary can never quietly read the
+///    source tree it was built from.
+///
+/// [`None`] means no asset root was found at all, which
+/// [`AssetCatalog::load_default`] reports with the full candidate list.
+#[must_use]
+pub fn resolve_asset_root() -> Option<PathBuf> {
+    static RESOLVED: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
+    RESOLVED.get_or_init(asset_root_search).clone()
+}
+
+/// Performs the [`resolve_asset_root`] search. Called at most once per process.
+fn asset_root_search() -> Option<PathBuf> {
+    let packaged = resolved_package_roots()
+        .into_iter()
+        .map(|root| root.join("assets"))
+        .find(|assets| assets.is_dir());
+    if packaged.is_some() {
+        return packaged;
+    }
+    let development = ASSET_ROOT_CANDIDATES
+        .iter()
+        .map(PathBuf::from)
+        .find(|candidate| candidate.is_dir());
+    if development.is_some() {
+        return development;
+    }
+    #[cfg(debug_assertions)]
+    {
+        let crate_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets");
+        if crate_root.is_dir() {
+            return Some(crate_root);
+        }
+    }
+    None
+}
+
+/// Every location [`resolve_asset_root`] would consider, in precedence order,
+/// paired with whether it currently holds a usable asset root.
+///
+/// Used by the startup diagnostic so a missing installation says what was
+/// expected and what was actually checked instead of failing opaquely.
+#[must_use]
+pub fn asset_root_search_report() -> Vec<(PathBuf, bool)> {
+    let mut report: Vec<(PathBuf, bool)> = Vec::new();
+    let push = |path: PathBuf, candidate_report: &mut Vec<(PathBuf, bool)>| {
+        if candidate_report.iter().any(|(seen, _)| *seen == path) {
+            return;
+        }
+        let ok = path.is_dir();
+        candidate_report.push((path, ok));
+    };
+    for root in resolved_package_roots() {
+        push(root.join("assets"), &mut report);
+    }
+    for candidate in ASSET_ROOT_CANDIDATES {
+        push(PathBuf::from(candidate), &mut report);
+    }
+    #[cfg(debug_assertions)]
+    push(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets"),
+        &mut report,
+    );
+    report
+}
+
+/// World metres covered by one repeat of a material's texture when the catalog
+/// does not author `tile_metres`.
+///
+/// It matches the historical 2 m authored sheets
+/// (128 px at 64 px/m), so an entry written before tiling was data keeps its
+/// exact appearance.
+pub const DEFAULT_TILE_METRES: f32 = 2.0;
+
+/// Smallest accepted `tile_metres`. Below this a repeat is finer than a
+/// centimetre and a texture reads as noise.
+pub const MIN_TILE_METRES: f32 = 0.05;
+
+/// Largest accepted `tile_metres`. Above this one repeat covers a very large
+/// surface and the material is almost certainly a unit mistake (metres vs
+/// centimetres vs pixels).
+pub const MAX_TILE_METRES: f32 = 64.0;
+
+/// Maximum ordinary PNG edge length the runtime decoder accepts.
+pub const MAX_TEXTURE_DIMENSION: u32 = 1024;
+
+/// Maximum sky PNG edge; its 2:1 panorama spans the entire viewing sphere.
+pub const MAX_SKY_TEXTURE_DIMENSION: u32 = 2048;
+
+/// Soft warning edge for shipped textures.
+///
+/// This is a tooling preference, not a low-end-memory budget: the tiling
+/// surface sheets ship at 1024x1024 on purpose (one sheet covers 2 m of wall
+/// within a 4 MiB decoded footprint), and the renderer samples whatever the
+/// file holds. Tooling warns above this edge so that adding a larger sheet is
+/// a deliberate decision rather than an accident.
+pub const PREFERRED_TEXTURE_DIMENSION: u32 = 256;
+
+/// Largest decoded RGBA8 surface sheet the renderer accepts.
+///
+/// One 1024x1024 sheet is exactly 4 MiB of pixels
+/// (`4 * 1024 * 1024`), so this is the surface class's per-sheet byte budget:
+/// the upgraded Office/Pool artwork sits at it, and nothing may exceed it.
+pub const MAX_SURFACE_TEXTURE_BYTES: usize = 4 * 1024 * 1024;
+
+/// Decoded RGBA8 byte count of a `width` x `height` sheet.
+///
+/// Saturates instead of overflowing, so a malformed dimension can never wrap
+/// into a small byte count that passes a budget check.
+#[must_use]
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    reason = "Const evaluation cannot use TryFrom on Rust 1.99: u32 dimensions and desktop usize limits widen exactly to u64, and the final narrowing is checked against usize::MAX"
+)]
+pub const fn decoded_rgba_bytes(width: u32, height: u32) -> usize {
+    let bytes = (width as u64)
+        .saturating_mul(height as u64)
+        .saturating_mul(4);
+    if bytes > usize::MAX as u64 {
+        usize::MAX
+    } else {
+        bytes as usize
+    }
+}
+
+/// The dimension contract one shipped PNG is held to.
+///
+/// The renderer is the source of truth, so the policy is deliberately
+/// conservative rather than aspirational: it encodes what the runtime actually
+/// requires, and it never special-cases an individual file. A deliberate
+/// exception — the 96x64 diagnostic, a future non-POT `pack:` sheet — is
+/// asserted at the call site that loads it, not hidden here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShippedTextureKind {
+    /// A tiling surface sheet (wall, floor or ceiling).
+    ///
+    /// Surfaces are sampled as square `tile_metres` cells, so the sheet must
+    /// be square: a non-square sheet would stretch. Surfaces are *not*
+    /// power-of-two constrained; the runtime decoder and the renderer accept
+    /// NPOT, and POT is only a portability preference.
+    Surface,
+    /// A fitted fixture face (a light's visible artwork).
+    ///
+    /// Fixture UVs never leave the sheet and the face is drawn with mipmaps,
+    /// so both edges must be powers of two for an exact mip chain.
+    FixtureFace,
+    /// A decal cut-out sheet drawn by the decal pass.
+    ///
+    /// Decals are sampled with mipmaps exactly like a fixture face, so both
+    /// edges must be powers of two.
+    DecalSheet,
+    /// A level's equirectangular night-sky sheet.
+    ///
+    /// The sky is sampled by view direction with a CPU mip chain, so it must be
+    /// exactly 2:1 with power-of-two edges, up to 2048x1024.
+    Sky,
+}
+
+impl ShippedTextureKind {
+    /// True when either edge exceeds the soft [`PREFERRED_TEXTURE_DIMENSION`].
+    ///
+    /// Over-preferred is not an error: the upgraded Office/Pool surfaces are
+    /// intentionally 1024x1024. Tooling warns; the runtime loads.
+    #[must_use]
+    pub const fn is_over_preferred(width: u32, height: u32) -> bool {
+        width > PREFERRED_TEXTURE_DIMENSION || height > PREFERRED_TEXTURE_DIMENSION
+    }
+
+    /// Checks one shipped PNG against this class's contract.
+    ///
+    /// `Ok(())` means the sheet satisfies every hard requirement; every
+    /// violation is accumulated into the error text otherwise. The soft
+    /// [`PREFERRED_TEXTURE_DIMENSION`] budget is never a violation — use
+    /// [`Self::is_over_preferred`] to report it separately.
+    ///
+    /// # Errors
+    ///
+    /// Returns the accumulated violations when a sheet is zero-sized, exceeds
+    /// its class's edge limit, is a non-square [`Self::Surface`], is a
+    /// surface sheet over [`MAX_SURFACE_TEXTURE_BYTES`] decoded, or is a
+    /// non-power-of-two [`Self::FixtureFace`] / [`Self::DecalSheet`].
+    pub fn check_dimensions(self, width: u32, height: u32) -> Result<(), String> {
+        let mut problems: Vec<String> = Vec::new();
+        if width == 0 || height == 0 {
+            problems.push(format!(
+                "dimensions must be non-zero, found {width}x{height}"
+            ));
+        }
+        let max_edge = if self == Self::Sky {
+            MAX_SKY_TEXTURE_DIMENSION
+        } else {
+            MAX_TEXTURE_DIMENSION
+        };
+        if width > max_edge || height > max_edge {
+            problems.push(format!(
+                "found {width}x{height}, over the {max_edge}x{max_edge} hard limit"
+            ));
+        }
+        match self {
+            Self::Surface => {
+                if width != height {
+                    problems.push(format!(
+                        "a surface sheet must be square, found {width}x{height}"
+                    ));
+                }
+                if decoded_rgba_bytes(width, height) > MAX_SURFACE_TEXTURE_BYTES {
+                    problems.push(format!(
+                        "a surface sheet decodes to {} bytes, over the {MAX_SURFACE_TEXTURE_BYTES}-byte budget",
+                        decoded_rgba_bytes(width, height)
+                    ));
+                }
+            }
+            Self::FixtureFace | Self::DecalSheet => {
+                if !width.is_power_of_two() || !height.is_power_of_two() {
+                    problems.push(format!(
+                        "a fitted sheet (fixture face or decal) must be power-of-two on both edges, found {width}x{height}"
+                    ));
+                }
+            }
+            Self::Sky => {
+                if width != height.saturating_mul(2) {
+                    problems.push(format!(
+                        "a sky sheet must be exactly 2:1 (equirectangular), found {width}x{height}"
+                    ));
+                }
+                if !width.is_power_of_two() || !height.is_power_of_two() {
+                    problems.push(format!(
+                        "a sky sheet must be power-of-two on both edges, found {width}x{height}"
+                    ));
+                }
+            }
+        }
+        if problems.is_empty() {
+            Ok(())
+        } else {
+            Err(problems.join("; "))
+        }
+    }
+}
+
+/// Every catalog path the loader will try, in order.
+///
+/// Derived from the same precedence as [`resolve_asset_root`], so the catalog
+/// and the textures it names can never resolve against two different trees.
+#[must_use]
+pub fn catalog_path_candidates() -> Vec<PathBuf> {
+    let roots = resolved_package_roots()
+        .into_iter()
+        .map(|root| root.join("assets"))
+        .chain(ASSET_ROOT_CANDIDATES.iter().map(PathBuf::from));
+    #[cfg(debug_assertions)]
+    let candidate_roots = roots.chain([PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets")]);
+    #[cfg(not(debug_assertions))]
+    let candidate_roots = roots;
+    candidate_roots
+        .map(|root| Path::new(&root).join(CATALOG_FILE_NAME))
+        .collect()
+}
+
+/// True when `id` is a well-formed logical asset id.
+///
+/// Ids are stable names such as `core:chair` or `spooner-man`: non-empty, no
+/// whitespace and no path separators, so a level can never smuggle a filesystem
+/// path in through the id.
+#[must_use]
+pub fn is_valid_asset_id(id: &str) -> bool {
+    !id.is_empty()
+        && !id.starts_with(':')
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, ':' | '-' | '_' | '.'))
+}
+
+/// True when `value` is a well-formed lower-case metadata identifier.
+fn is_valid_slug(value: &str) -> bool {
+    let mut chars = value.chars();
+    match chars.next() {
+        Some(first) if first.is_ascii_lowercase() => {}
+        _ => return false,
+    }
+    chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '-' | '_'))
+}
+
+/// Parses an optional metadata identifier, rejecting malformed values.
+fn parse_optional_slug<T>(
+    raw: Option<&str>,
+    what: &str,
+    namespace: &str,
+    from_str: fn(&str) -> Result<T, String>,
+) -> Result<Option<T>, String> {
+    let Some(trimmed_path) = raw.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(None);
+    };
+    from_str(trimmed_path)
+        .map(Some)
+        .map_err(|error| format!("{namespace}: invalid {what} '{trimmed_path}': {error}"))
+}
+
+/// Broad semantic classification of an asset.
+///
+/// `environment` and `entity` are the two classes the game ships; `core` is the
+/// home for engine-level shared resources and `diagnostic` for development
+/// content. The value is a validated identifier rather than a closed enum so a
+/// future class parses and resolves without an engine change.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct AssetClass(String);
+
+impl AssetClass {
+    /// Content that furnishes an environment: props, materials, lights, decals.
+    pub const ENVIRONMENT: &'static str = "environment";
+    /// A character or creature: Spooner-Man today, player/NPC models later.
+    pub const ENTITY: &'static str = "entity";
+    /// Engine-level shared resources that belong to no environment.
+    pub const CORE: &'static str = "core";
+    /// Development and validation content such as the diagnostic decal sheets.
+    pub const DIAGNOSTIC: &'static str = "diagnostic";
+
+    /// The classes this build knows about, for tooling and documentation.
+    pub const KNOWN: [&'static str; 4] = [
+        Self::ENVIRONMENT,
+        Self::ENTITY,
+        Self::CORE,
+        Self::DIAGNOSTIC,
+    ];
+
+    /// Validates a class identifier. Unknown classes parse: they are reported
+    /// by tooling but never rejected by the runtime.
+    /// # Errors
+    ///
+    /// Returns a message when `raw` is not a lower-case identifier.
+    pub fn parse(raw: &str) -> Result<Self, String> {
+        if is_valid_slug(raw) {
+            Ok(Self(raw.to_string()))
+        } else {
+            Err("expected a lower-case identifier such as `environment`".to_string())
+        }
+    }
+
+    /// The identifier as written in the catalog.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// True when this is one of the classes this build ships.
+    #[must_use]
+    pub fn is_known(&self) -> bool {
+        Self::KNOWN.contains(&self.0.as_str())
+    }
+}
+
+impl fmt::Display for AssetClass {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+/// Organizational environment collection such as `office` or `pool`.
+///
+/// A theme is metadata, never a placement gate: the runtime exposes no query
+/// that filters assets by theme. `None` on an asset means generic/shared
+/// content that belongs to no particular environment.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct AssetTheme(String);
+
+impl AssetTheme {
+    /// Validates a theme identifier.
+    /// # Errors
+    ///
+    /// Returns a message when `raw` is not a lower-case identifier.
+    pub fn parse(raw: &str) -> Result<Self, String> {
+        if is_valid_slug(raw) {
+            Ok(Self(raw.to_string()))
+        } else {
+            Err("expected a lower-case identifier such as `office`".to_string())
+        }
+    }
+
+    /// The identifier as written in the catalog.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for AssetTheme {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+/// What kind of resource an asset is.
+///
+/// Distinct from [`AssetClass`] (which environment or entity world it belongs to)
+/// and from [`AssetTheme`] (which collection organizes it). Like the other
+/// identifiers the value is validated rather than closed.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct AssetType(String);
+
+impl AssetType {
+    /// A placeable model (`model` points at a GLB below the asset root).
+    pub const PROP: &'static str = "prop";
+    /// A surface material sheet.
+    pub const MATERIAL: &'static str = "material";
+    /// A texture resource.
+    pub const TEXTURE: &'static str = "texture";
+    /// A light fixture definition.
+    pub const LIGHT: &'static str = "light";
+    /// A surface marking drawn by the decal pass.
+    pub const DECAL: &'static str = "decal";
+    /// A creature/character asset placed through the model pipeline.
+    pub const ENTITY: &'static str = "entity";
+
+    /// The types this build ships, for tooling and documentation.
+    pub const KNOWN: [&'static str; 6] = [
+        Self::PROP,
+        Self::MATERIAL,
+        Self::TEXTURE,
+        Self::LIGHT,
+        Self::DECAL,
+        Self::ENTITY,
+    ];
+
+    /// Validates a type identifier.
+    /// # Errors
+    ///
+    /// Returns a message when `raw` is not a lower-case identifier.
+    pub fn parse(raw: &str) -> Result<Self, String> {
+        if is_valid_slug(raw) {
+            Ok(Self(raw.to_string()))
+        } else {
+            Err("expected a lower-case identifier such as `prop`".to_string())
+        }
+    }
+
+    /// The identifier as written in the catalog.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for AssetType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+/// Where an asset's resource comes from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AssetSource {
+    /// A physical file below the asset root, named by `model`: a GLB for a
+    /// placeable, a PNG for a surface texture, an external decal sheet or a
+    /// fixture's visible face.
+    File,
+    /// A resource the renderer generates in code (the decal atlas patterns).
+    Generated,
+    /// A resource-less definition composed from other catalog assets: a
+    /// surface material names its base `texture` and carries the static
+    /// properties the renderer needs. It has no file of its own.
+    Definition,
+}
+
+impl AssetSource {
+    /// The identifier as written in the catalog.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::File => "file",
+            Self::Generated => "generated",
+            Self::Definition => "definition",
+        }
+    }
+
+    fn parse(raw: &str) -> Result<Self, String> {
+        match raw {
+            "file" => Ok(Self::File),
+            "generated" => Ok(Self::Generated),
+            "definition" => Ok(Self::Definition),
+            other => Err(format!(
+                "expected `file`, `generated` or `definition`, found `{other}`"
+            )),
+        }
+    }
+}
+
+/// One environment theme declared by the catalog.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AssetThemeDef {
+    pub id: AssetTheme,
+    pub display_name: String,
+    pub description: String,
+}
+
+/// One logical asset.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AssetEntry {
+    /// Physical traction on walkable surfaces using this material.
+    pub ground_surface: crate::engine::materials::GroundSurface,
+    /// Optional rigid-body ground contact coefficient; player locomotion still
+    /// follows `ground_surface`. Omission uses that surface's friction default.
+    pub ground_friction: Option<f32>,
+    /// Stable logical id used by levels (`core:desk`, `spooner-man`).
+    pub id: String,
+    /// Human-readable name for tools and menus.
+    pub display_name: String,
+    pub asset_class: AssetClass,
+    /// Organizational collection; `None` means generic/shared content.
+    pub theme: Option<AssetTheme>,
+    pub asset_type: AssetType,
+    pub source: AssetSource,
+    /// Canonical resource path relative to the asset root, for file assets.
+    pub model: Option<String>,
+    /// Catalogue box size and collision metadata for placeable assets.
+    pub size: Option<[f32; 3]>,
+    pub color: Option<[f32; 3]>,
+    pub category: Option<String>,
+    pub solid: bool,
+    /// Optional reusable developer-spawned rigid item profile. Level placements
+    /// remain static unless they explicitly author their own physics settings.
+    pub physics: Option<crate::engine::physics::config::PhysicsDef>,
+    /// Surface a material applies to (`wall`, `floor`, `ceiling`).
+    pub surface: Option<String>,
+    /// Base texture asset a material draws with (`core:tex_carpet_beige_01`).
+    pub texture: Option<String>,
+    /// Optional trim material this wall surface receives automatically.
+    ///
+    /// When a material author declares one, the loader's level-preparation pass
+    /// generates baseboard runs along every wall face finished with this
+    /// material that reaches a walkable floor (see the map guide's baseboard
+    /// section). `None` means the material gains no automatic trim. Only a
+    /// wall material has a meaningful use for it.
+    pub baseboard: Option<String>,
+    /// World metres covered by one repeat of a material's texture.
+    pub tile_metres: Option<f32>,
+    /// World metres between a sheet's visible panel joints, when the artwork
+    /// paints several panels per repeat.
+    ///
+    /// The loader uses it to snap grid-aligned ceiling fixtures to panel
+    /// centres; an absent value falls back to [`Self::tile_metres`]. Only a
+    /// ceiling material has a meaningful use for it.
+    pub grid_metres: Option<f32>,
+    /// Linear RGB multiplier for a material or static prop colour preset.
+    pub tint: Option<[f32; 3]>,
+    /// Emissive colour a material's surface reads with, if the catalog authors
+    /// one. Emission is additive on top of baked illumination and never lights
+    /// anything else; a material without it stays non-emissive.
+    pub emissive: Option<[f32; 3]>,
+    /// Scalar multiplier for [`Self::emissive`]; authored only together with it.
+    pub emissive_intensity: Option<f32>,
+    /// Logical texture asset id whose texels select where emission applies.
+    pub emissive_mask: Option<String>,
+    /// Pigment response to ultraviolet fixtures, independent of emission.
+    pub uv_response: f32,
+    /// Logical numeric texture selecting responsive pigment at the base UV.
+    pub uv_response_mask: Option<String>,
+    /// Logical texture asset id of the material's normal map, if it authors one.
+    pub normal_texture: Option<String>,
+    /// Multiplier applied to the decoded normal map, `0.0..=2.0`.
+    pub normal_strength: Option<f32>,
+    /// Sheen strength (white) and, optionally, an explicit sheen colour.
+    pub specular: Option<f32>,
+    pub specular_color: Option<[f32; 3]>,
+    /// Author-facing glossiness, `0.0` matte .. `1.0` extremely glossy; the
+    /// engine stores `roughness = 1 - shine`.
+    pub shine: Option<f32>,
+    /// `opaque` (default), `cutout` or `blend`.
+    pub alpha_mode: Option<String>,
+    /// Multiplier applied to a blended material's sampled alpha.
+    pub opacity: Option<f32>,
+    /// Alpha cut-off of a `cutout` material.
+    pub alpha_cutoff: Option<f32>,
+    /// `none` (default), `probe` or `planar`: where a material's reflection
+    /// image comes from. Absent means the surface never reflects.
+    pub reflection_mode: Option<String>,
+    /// `0.0..=1.0` weight of [`Self::reflection_mode`]; authored only with it.
+    pub reflection_strength: Option<f32>,
+    /// Future entity kind (`character`, `npc`, `creature`, ...).
+    pub entity_type: Option<String>,
+    pub description: Option<String>,
+    pub tags: Vec<String>,
+}
+
+impl AssetEntry {
+    /// True when this asset is placed as a model by the prop pipeline.
+    ///
+    /// Environment props and entities are both placeable, which is exactly how
+    /// `spooner-man` keeps working through the ordinary placement format.
+    #[must_use]
+    pub fn is_placeable(&self) -> bool {
+        matches!(
+            self.asset_type.as_str(),
+            AssetType::PROP | AssetType::ENTITY
+        )
+    }
+
+    /// True when this asset is a surface material definition.
+    #[must_use]
+    pub fn is_material(&self) -> bool {
+        self.asset_type.as_str() == AssetType::MATERIAL
+    }
+
+    /// True when this asset is a texture image resource.
+    #[must_use]
+    pub fn is_texture(&self) -> bool {
+        self.asset_type.as_str() == AssetType::TEXTURE
+    }
+
+    /// True when this asset is a light fixture definition.
+    #[must_use]
+    pub fn is_light(&self) -> bool {
+        self.asset_type.as_str() == AssetType::LIGHT
+    }
+}
+
+/// Parsed `assets/catalog.json`.
+#[derive(Debug, Clone, Default)]
+pub struct AssetCatalog {
+    entries: HashMap<String, AssetEntry>,
+    themes: Vec<AssetThemeDef>,
+}
+
+/// A strict runtime-only override; visual catalog fields are never accepted.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GameplayOverride {
+    #[serde(default)]
+    physics: Option<crate::engine::physics::config::PhysicsDef>,
+    #[serde(default)]
+    ground_friction: Option<f32>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GameplayFile {
+    format_version: u32,
+    assets: GameplayEntries,
+}
+
+/// JSON maps normally discard duplicate keys; physical overrides reject them.
+struct GameplayEntries(std::collections::BTreeMap<String, GameplayOverride>);
+
+impl<'de> serde::Deserialize<'de> for GameplayEntries {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct EntriesVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for EntriesVisitor {
+            type Value = GameplayEntries;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("an object of unique catalog ids and physical overrides")
+            }
+
+            fn visit_map<M: serde::de::MapAccess<'de>>(
+                self,
+                mut map: M,
+            ) -> Result<Self::Value, M::Error> {
+                let mut entries = std::collections::BTreeMap::new();
+                while let Some((id, value)) = map.next_entry::<String, GameplayOverride>()? {
+                    match entries.entry(id) {
+                        std::collections::btree_map::Entry::Vacant(entry) => {
+                            let _inserted = entry.insert(value);
+                        }
+                        std::collections::btree_map::Entry::Occupied(entry) => {
+                            return Err(serde::de::Error::custom(format!(
+                                "duplicate gameplay asset id `{}`",
+                                entry.key()
+                            )));
+                        }
+                    }
+                }
+                Ok(GameplayEntries(entries))
+            }
+        }
+
+        deserializer.deserialize_map(EntriesVisitor)
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct CatalogFile {
+    #[serde(default)]
+    themes: Vec<CatalogThemeFile>,
+    #[serde(default)]
+    assets: Vec<CatalogEntryFile>,
+}
+
+#[derive(serde::Deserialize)]
+struct CatalogThemeFile {
+    #[serde(default)]
+    id: String,
+    #[serde(default)]
+    display_name: String,
+    #[serde(default)]
+    description: String,
+}
+
+/// Emission fields of one catalog entry once they have been validated.
+struct ValidatedEmission {
+    color: Option<[f32; 3]>,
+    intensity: Option<f32>,
+    mask: Option<String>,
+}
+
+/// Validates a material's reflection fields, naming the problem when one is
+/// malformed.
+///
+/// A mode is only meaningful with a strength and vice versa, so a strength
+/// without a mode is an authoring error rather than a silent no-op.
+fn validate_reflection(
+    id: &str,
+    entry: &CatalogEntryFile,
+) -> Result<(Option<String>, Option<f32>), String> {
+    let reflection_mode = match entry
+        .reflection_mode
+        .as_deref()
+        .map(str::trim)
+        .filter(|mode| !mode.is_empty())
+    {
+        Some(mode) => Some(
+            ReflectionMode::parse(mode)
+                .ok_or_else(|| {
+                    format!(
+                        "{id}: `reflection_mode` must be one of `none`, `probe` or `planar`, found `{mode}`"
+                    )
+                })?
+                .name()
+                .to_string(),
+        ),
+        None => None,
+    };
+    if entry.reflection_strength.is_some() && reflection_mode.is_none() {
+        return Err(format!(
+            "{id}: `reflection_strength` requires an explicit `reflection_mode`"
+        ));
+    }
+    let reflection_strength = match entry.reflection_strength {
+        Some(value) if !value.is_finite() || !(0.0..=MAX_REFLECTION_STRENGTH).contains(&value) => {
+            return Err(format!(
+                "{id}: reflection_strength must be between 0.0 and {MAX_REFLECTION_STRENGTH:?}, found {value:?}"
+            ));
+        }
+        Some(value) => Some(value),
+        None => None,
+    };
+    Ok((reflection_mode, reflection_strength))
+}
+
+/// Validates one unit-interval number, naming the field when it is out of range.
+fn unit_number(value: Option<f32>, field: &str) -> Result<Option<f32>, String> {
+    match value {
+        Some(number) if !number.is_finite() || !(0.0..=1.0).contains(&number) => Err(format!(
+            "{field} must be between 0.0 and 1.0, found {number:?}"
+        )),
+        Some(number) => Ok(Some(number)),
+        None => Ok(None),
+    }
+}
+
+/// Validates an authored specular colour, defaulting to nothing.
+fn specular_color(id: &str, raw: Option<&[f32]>) -> Result<Option<[f32; 3]>, String> {
+    let Some(channels) = raw else {
+        return Ok(None);
+    };
+    if channels.len() != 3 {
+        return Err(format!(
+            "{id}: specular_color must be exactly three channels, found {} in {channels:?}",
+            channels.len()
+        ));
+    }
+    let mut color = [0.0_f32; 3];
+    for (slot, channel) in color.iter_mut().zip(channels) {
+        if !channel.is_finite() || !(0.0..=MAX_SPECULAR).contains(channel) {
+            return Err(format!(
+                "{id}: specular_color channels must be between 0.0 and {MAX_SPECULAR:?}, found {channels:?}"
+            ));
+        }
+        *slot = *channel;
+    }
+    Ok(Some(color))
+}
+
+/// Validates an authored alpha mode, normalising its spelling.
+fn validated_alpha_mode(id: &str, mode: Option<String>) -> Result<Option<String>, String> {
+    let Some(authored_mode) = mode else {
+        return Ok(None);
+    };
+    if crate::engine::materials::AlphaMode::parse(&authored_mode).is_none() {
+        return Err(format!(
+            "{id}: alpha_mode `{authored_mode}` is not one of `opaque`, `cutout` or `blend`"
+        ));
+    }
+    Ok(Some(authored_mode.to_lowercase()))
+}
+
+/// Surface-response, alpha and reflection fields of one catalog entry, validated.
+struct ValidatedResponse {
+    normal_texture: Option<String>,
+    normal_strength: Option<f32>,
+    specular: Option<f32>,
+    specular_color: Option<[f32; 3]>,
+    shine: Option<f32>,
+    alpha_mode: Option<String>,
+    opacity: Option<f32>,
+    alpha_cutoff: Option<f32>,
+    reflection_mode: Option<String>,
+    reflection_strength: Option<f32>,
+}
+
+#[derive(serde::Deserialize)]
+struct CatalogEntryFile {
+    #[serde(default)]
+    ground_surface: Option<crate::engine::materials::GroundSurface>,
+    #[serde(default)]
+    ground_friction: Option<f32>,
+    #[serde(default)]
+    id: String,
+    #[serde(default)]
+    display_name: String,
+    #[serde(default)]
+    asset_class: Option<String>,
+    #[serde(default)]
+    theme: Option<String>,
+    #[serde(default)]
+    asset_type: Option<String>,
+    #[serde(default)]
+    source: Option<String>,
+    #[serde(default)]
+    model: Option<String>,
+    #[serde(default)]
+    size: Option<[f32; 3]>,
+    #[serde(default)]
+    color: Option<String>,
+    #[serde(default)]
+    category: Option<String>,
+    #[serde(default)]
+    solid: bool,
+    #[serde(default)]
+    physics: Option<crate::engine::physics::config::PhysicsDef>,
+    #[serde(default)]
+    surface: Option<String>,
+    #[serde(default)]
+    texture: Option<String>,
+    /// Optional logical id of the trim material a wall finished with this
+    /// material receives automatically. Validated like the albedo `texture`:
+    /// only a material may declare it and the id must resolve.
+    #[serde(default)]
+    baseboard: Option<String>,
+    #[serde(default)]
+    tile_metres: Option<f32>,
+    /// Optional world-space panel module of the sheet; only a `material` may
+    /// declare it, and it falls back to `tile_metres`.
+    #[serde(default)]
+    grid_metres: Option<f32>,
+    #[serde(default)]
+    tint: Option<[f32; 3]>,
+    /// Raw `emissive` channels; the exact length is validated on conversion so
+    /// a wrong channel count gets a descriptive error, not a serde error.
+    #[serde(default)]
+    emissive: Option<Vec<f32>>,
+    #[serde(default)]
+    emissive_intensity: Option<f32>,
+    #[serde(default)]
+    emissive_mask: Option<String>,
+    #[serde(default)]
+    uv_response: f32,
+    #[serde(default)]
+    uv_response_mask: Option<String>,
+    /// Surface response: an optional normal map with a strength, a sheen
+    /// strength/colour and a glossiness.
+    #[serde(default)]
+    normal_texture: Option<String>,
+    #[serde(default)]
+    normal_strength: Option<f32>,
+    #[serde(default)]
+    specular: Option<f32>,
+    #[serde(default)]
+    specular_color: Option<Vec<f32>>,
+    /// Author-facing glossiness; the shader-facing `roughness` is its inverse.
+    #[serde(default)]
+    shine: Option<f32>,
+
+    /// Alpha: `opaque` | `cutout` | `blend`, plus the opacity multiplier and
+    /// the cut-out threshold.
+    #[serde(default)]
+    alpha_mode: Option<String>,
+    #[serde(default)]
+    opacity: Option<f32>,
+    #[serde(default)]
+    alpha_cutoff: Option<f32>,
+    /// Selective reflections: `none` | `probe` | `planar`, plus the weight of
+    /// the reflected image.
+    #[serde(default)]
+    reflection_mode: Option<String>,
+    #[serde(default)]
+    reflection_strength: Option<f32>,
+    #[serde(default)]
+    entity_type: Option<String>,
+    #[serde(default)]
+    description: Option<String>,
+    #[serde(default)]
+    tags: Vec<String>,
+}
+
+/// Physical profiles apply only to placeable assets in either metadata source.
+fn validate_asset_physics(
+    id: &str,
+    asset_type: &AssetType,
+    profile: Option<&crate::engine::physics::config::PhysicsDef>,
+) -> Result<(), String> {
+    if let Some(physics) = profile {
+        if !matches!(asset_type.as_str(), AssetType::PROP | AssetType::ENTITY) {
+            return Err(format!("{id}: physics requires a prop or entity asset"));
+        }
+        physics
+            .validate()
+            .map_err(|error| format!("{id}: {error}"))?;
+    }
+    Ok(())
+}
+
+/// Ground friction is physical metadata on a material definition only.
+fn validate_ground_friction(
+    id: &str,
+    asset_type: &AssetType,
+    source: AssetSource,
+    coefficient: Option<f32>,
+) -> Result<(), String> {
+    let Some(friction) = coefficient else {
+        return Ok(());
+    };
+    if asset_type.as_str() != AssetType::MATERIAL || source != AssetSource::Definition {
+        return Err(format!(
+            "{id}: ground_friction requires a material definition"
+        ));
+    }
+    if !friction.is_finite() || !(0.0..=2.0).contains(&friction) {
+        return Err(format!(
+            "{id}: ground_friction must be finite and between 0 and 2"
+        ));
+    }
+    Ok(())
+}
+
+impl CatalogEntryFile {
+    /// Converts one catalog entry; every entry declares its class and type.
+    fn convert(&self) -> Result<AssetEntry, String> {
+        let id = self.logical_id()?;
+        let asset_class = self.resolve_class(&id)?;
+        let asset_type = self.resolve_type(&id)?;
+        validate_asset_physics(&id, &asset_type, self.physics.as_ref())?;
+        let theme = parse_optional_slug(self.theme.as_deref(), "theme", &id, AssetTheme::parse)?;
+        let model = self.resolve_model(&id)?;
+        let texture = self.resolve_texture(&id, &asset_type)?;
+        let baseboard = self.resolve_baseboard(&id, &asset_type)?;
+        let tile_metres = self.resolve_tile_metres(&id, &asset_type)?;
+        let grid_metres = self.resolve_grid_metres(&id, &asset_type)?;
+        let tint = self.resolve_tint(&id, &asset_type)?;
+        let source = self.resolve_source(&id, model.as_deref(), texture.as_deref())?;
+        validate_ground_friction(&id, &asset_type, source, self.ground_friction)?;
+        let emission = self.resolve_emissive(&id, &asset_type, source)?;
+        let response = self.resolve_response(&id, &asset_type, source)?;
+        let uv_response_mask = self.resolve_fluorescence(&id, &asset_type, source)?;
+        if self.ground_surface.is_some()
+            && (asset_type.as_str() != AssetType::MATERIAL || source != AssetSource::Definition)
+        {
+            return Err(format!(
+                "{id}: ground_surface requires a material definition"
+            ));
+        }
+        let size = self
+            .size
+            .filter(|size| size.iter().all(|value| value.is_finite() && *value > 0.0));
+        Ok(AssetEntry {
+            ground_surface: self.ground_surface.unwrap_or_default(),
+            ground_friction: self.ground_friction,
+            display_name: self.resolved_display_name(&id),
+            id,
+            asset_class,
+            theme,
+            asset_type,
+            source,
+            model,
+            size,
+            color: self.color.as_deref().and_then(parse_hex_color),
+            category: self
+                .category
+                .as_deref()
+                .map(str::trim)
+                .filter(|category| !category.is_empty())
+                .map(str::to_string),
+            solid: self.solid,
+            physics: self.physics.clone(),
+            surface: self
+                .surface
+                .as_deref()
+                .map(str::trim)
+                .filter(|surface| !surface.is_empty())
+                .map(str::to_string),
+            texture,
+            baseboard,
+            tile_metres,
+            grid_metres,
+            tint,
+            emissive: emission.color,
+            emissive_intensity: emission.intensity,
+            emissive_mask: emission.mask,
+            uv_response: self.uv_response,
+            uv_response_mask,
+            normal_texture: response.normal_texture,
+            normal_strength: response.normal_strength,
+            specular: response.specular,
+            specular_color: response.specular_color,
+            shine: response.shine,
+            alpha_mode: response.alpha_mode,
+            opacity: response.opacity,
+            alpha_cutoff: response.alpha_cutoff,
+            reflection_mode: response.reflection_mode,
+            reflection_strength: response.reflection_strength,
+            entity_type: self
+                .entity_type
+                .as_deref()
+                .map(str::trim)
+                .filter(|entity_type| !entity_type.is_empty())
+                .map(str::to_string),
+            description: self
+                .description
+                .as_deref()
+                .map(str::trim)
+                .filter(|description| !description.is_empty())
+                .map(str::to_string),
+            tags: self.tags.clone(),
+        })
+    }
+
+    /// Trims and validates the logical id.
+    fn logical_id(&self) -> Result<String, String> {
+        let id = self.id.trim().to_string();
+        if id.is_empty() {
+            return Err("asset entry with an empty id".to_string());
+        }
+        if !is_valid_asset_id(&id) {
+            return Err(format!(
+                "asset id `{id}` is malformed; ids are names such as `core:chair` or `spooner-man`"
+            ));
+        }
+        Ok(id)
+    }
+
+    /// The asset class.
+    fn resolve_class(&self, id: &str) -> Result<AssetClass, String> {
+        match self.asset_class.as_deref().map(str::trim) {
+            Some(class) if !class.is_empty() => AssetClass::parse(class),
+            _ => Err(format!("{id}: missing `asset_class`")),
+        }
+    }
+
+    /// The asset type.
+    fn resolve_type(&self, id: &str) -> Result<AssetType, String> {
+        match self.asset_type.as_deref().map(str::trim) {
+            Some(asset_type) if !asset_type.is_empty() => AssetType::parse(asset_type),
+            _ => Err(format!("{id}: missing `asset_type`")),
+        }
+    }
+
+    /// The trimmed model path, rejected when it could escape the asset root.
+    fn resolve_model(&self, id: &str) -> Result<Option<String>, String> {
+        let model = self
+            .model
+            .as_deref()
+            .map(str::trim)
+            .filter(|model| !model.is_empty())
+            .map(str::to_string);
+        if let Some(model_path) = &model
+            && (!is_relative_resource_path(model_path))
+        {
+            return Err(format!(
+                "{id}: model path `{model_path}` must be a relative path below the asset root"
+            ));
+        }
+        Ok(model)
+    }
+
+    /// The trimmed texture id a material draws with.
+    fn resolve_texture(&self, id: &str, asset_type: &AssetType) -> Result<Option<String>, String> {
+        let texture = self
+            .texture
+            .as_deref()
+            .map(str::trim)
+            .filter(|texture| !texture.is_empty())
+            .map(str::to_string);
+        if let Some(texture_path) = &texture {
+            if !is_valid_asset_id(texture_path) {
+                return Err(format!(
+                    "{id}: texture `{texture_path}` is not a well-formed logical asset id"
+                ));
+            }
+            if asset_type.as_str() != AssetType::MATERIAL {
+                return Err(format!(
+                    "{id}: only a `material` asset may declare a `texture`"
+                ));
+            }
+        }
+        if asset_type.as_str() == AssetType::MATERIAL && texture.is_none() {
+            return Err(format!(
+                "{id}: a material must declare the logical `texture` it draws with"
+            ));
+        }
+        Ok(texture)
+    }
+
+    /// The validated `baseboard` trim material a wall material names.
+    ///
+    /// A present-but-blank value is an authoring error rather than a silent
+    /// "no trim": an empty id names nothing, and the author has to see it. The
+    /// value must be a well-formed logical id; the second catalog pass checks
+    /// that it names a declared material.
+    fn resolve_baseboard(
+        &self,
+        id: &str,
+        asset_type: &AssetType,
+    ) -> Result<Option<String>, String> {
+        let Some(raw) = self.baseboard.as_deref() else {
+            return Ok(None);
+        };
+        if asset_type.as_str() != AssetType::MATERIAL {
+            return Err(format!(
+                "{id}: only a `material` asset may declare a `baseboard`"
+            ));
+        }
+        let baseboard = raw.trim();
+        if baseboard.is_empty() {
+            return Err(format!(
+                "{id}: `baseboard` must be a non-empty logical material id"
+            ));
+        }
+        if !is_valid_asset_id(baseboard) {
+            return Err(format!(
+                "{id}: baseboard `{baseboard}` is not a well-formed logical asset id"
+            ));
+        }
+        Ok(Some(baseboard.to_string()))
+    }
+
+    /// The validated `tile_metres` of a material.
+    fn resolve_tile_metres(&self, id: &str, asset_type: &AssetType) -> Result<Option<f32>, String> {
+        let Some(value) = self.tile_metres else {
+            return Ok(None);
+        };
+        if asset_type.as_str() != AssetType::MATERIAL {
+            return Err(format!(
+                "{id}: only a `material` asset may declare `tile_metres`"
+            ));
+        }
+        if !value.is_finite() || !(MIN_TILE_METRES..=MAX_TILE_METRES).contains(&value) {
+            return Err(format!(
+                "{id}: tile_metres must be between {MIN_TILE_METRES} and {MAX_TILE_METRES} metres, found {value}"
+            ));
+        }
+        Ok(Some(value))
+    }
+
+    /// The validated `grid_metres` of a ceiling material's visible panel grid.
+    fn resolve_grid_metres(&self, id: &str, asset_type: &AssetType) -> Result<Option<f32>, String> {
+        let Some(value) = self.grid_metres else {
+            return Ok(None);
+        };
+        if asset_type.as_str() != AssetType::MATERIAL {
+            return Err(format!(
+                "{id}: only a `material` asset may declare `grid_metres`"
+            ));
+        }
+        if !value.is_finite() || !(MIN_TILE_METRES..=MAX_TILE_METRES).contains(&value) {
+            return Err(format!(
+                "{id}: grid_metres must be between {MIN_TILE_METRES} and {MAX_TILE_METRES} metres, found {value}"
+            ));
+        }
+        Ok(Some(value))
+    }
+
+    /// The validated linear tint of a material or static prop preset.
+    fn resolve_tint(&self, id: &str, asset_type: &AssetType) -> Result<Option<[f32; 3]>, String> {
+        let Some(tint) = self.tint else {
+            return Ok(None);
+        };
+        if !matches!(asset_type.as_str(), AssetType::MATERIAL | AssetType::PROP) {
+            return Err(format!(
+                "{id}: only a `material` or `prop` asset may declare a `tint`"
+            ));
+        }
+        if !tint
+            .iter()
+            .all(|channel| channel.is_finite() && (0.0..=1.0).contains(channel))
+        {
+            return Err(format!(
+                "{id}: tint must be three channels between 0.0 and 1.0, found {tint:?}"
+            ));
+        }
+        Ok(Some(tint))
+    }
+
+    /// The validated emission of a material: colour, optional intensity and
+    /// optional mask id.
+    ///
+    /// Emission changes how a surface *reads*, so it is only meaningful on a
+    /// material definition: a prop, texture, light or generated asset may not
+    /// author any of the three fields. An intensity or mask without a colour
+    /// is rejected because there would be nothing for it to shape.
+    fn resolve_emissive(
+        &self,
+        id: &str,
+        asset_type: &AssetType,
+        source: AssetSource,
+    ) -> Result<ValidatedEmission, String> {
+        let mask = self
+            .emissive_mask
+            .as_deref()
+            .map(str::trim)
+            .filter(|mask| !mask.is_empty())
+            .map(str::to_string);
+        if self.emissive.is_none() && self.emissive_intensity.is_none() && mask.is_none() {
+            return Ok(ValidatedEmission {
+                color: None,
+                intensity: None,
+                mask: None,
+            });
+        }
+        if asset_type.as_str() != AssetType::MATERIAL || source != AssetSource::Definition {
+            return Err(format!(
+                "{id}: only a `material` `definition` asset may declare `emissive`, \
+                 `emissive_intensity` or `emissive_mask`"
+            ));
+        }
+        let Some(raw) = self.emissive.as_deref() else {
+            return Err(if self.emissive_intensity.is_some() {
+                format!("{id}: `emissive_intensity` requires an `emissive` colour")
+            } else {
+                format!("{id}: `emissive_mask` requires an `emissive` colour")
+            });
+        };
+        if raw.len() != 3 {
+            return Err(format!(
+                "{id}: emissive must be exactly three channels, found {} in {raw:?}",
+                raw.len()
+            ));
+        }
+        let mut color = [0.0_f32; 3];
+        for (slot, channel) in color.iter_mut().zip(raw) {
+            if !channel.is_finite() || !(0.0..=MAX_EMISSION_COLOR).contains(channel) {
+                return Err(format!(
+                    "{id}: emissive channels must be between 0.0 and {MAX_EMISSION_COLOR:?}, found {raw:?}"
+                ));
+            }
+            *slot = *channel;
+        }
+        if let Some(intensity) = self.emissive_intensity
+            && (!intensity.is_finite() || !(0.0..=MAX_EMISSION_INTENSITY).contains(&intensity))
+        {
+            return Err(format!(
+                "{id}: emissive_intensity must be between 0.0 and {MAX_EMISSION_INTENSITY:?}, found {intensity:?}"
+            ));
+        }
+        if let Some(mask_path) = &mask
+            && !is_valid_asset_id(mask_path)
+        {
+            return Err(format!(
+                "{id}: emissive_mask `{mask_path}` is not a well-formed logical asset id"
+            ));
+        }
+        Ok(ValidatedEmission {
+            color: Some(color),
+            intensity: self.emissive_intensity,
+            mask,
+        })
+    }
+
+    /// Validates the surface-response, alpha and reflection fields.
+    ///
+    /// A material that declares none of them renders as the flat default
+    /// surface: no normal map, no sheen and opaque. Every authored value is
+    /// range-checked here so a malformed entry is a named catalog error rather
+    /// than a silently different surface.
+    fn resolve_response(
+        &self,
+        id: &str,
+        asset_type: &AssetType,
+        source: AssetSource,
+    ) -> Result<ValidatedResponse, String> {
+        let normal_texture = self
+            .normal_texture
+            .as_deref()
+            .map(str::trim)
+            .filter(|texture| !texture.is_empty())
+            .map(str::to_string);
+        let alpha_mode = self
+            .alpha_mode
+            .as_deref()
+            .map(str::trim)
+            .filter(|mode| !mode.is_empty())
+            .map(str::to_string);
+        let untouched = normal_texture.is_none()
+            && self.normal_strength.is_none()
+            && self.specular.is_none()
+            && self.specular_color.is_none()
+            && self.shine.is_none()
+            && alpha_mode.is_none()
+            && self.opacity.is_none()
+            && self.alpha_cutoff.is_none()
+            && self.reflection_mode.is_none()
+            && self.reflection_strength.is_none();
+        if untouched {
+            return Ok(ValidatedResponse {
+                normal_texture: None,
+                normal_strength: None,
+                specular: None,
+                specular_color: None,
+                shine: None,
+                alpha_mode: None,
+                opacity: None,
+                alpha_cutoff: None,
+                reflection_mode: None,
+                reflection_strength: None,
+            });
+        }
+        if asset_type.as_str() != AssetType::MATERIAL || source != AssetSource::Definition {
+            // One exception: a file-backed decal sheet may author its alpha
+            // handling. A decal has no material state of its own (no sheen, no
+            // normal map, no reflection) but its sheet may be a soft-edged
+            // `blend` sheet instead of the reference's hard cut-out, which is
+            // the path-to-grass feather.
+            let decal_alpha_only = asset_type.as_str() == AssetType::DECAL
+                && source == AssetSource::File
+                && normal_texture.is_none()
+                && self.normal_strength.is_none()
+                && self.specular.is_none()
+                && self.specular_color.is_none()
+                && self.shine.is_none()
+                && self.opacity.is_none()
+                && self.alpha_cutoff.is_none()
+                && self.reflection_mode.is_none()
+                && self.reflection_strength.is_none();
+            if !decal_alpha_only {
+                return Err(format!(
+                    "{id}: only a `material` `definition` asset may declare surface-response \
+                     (`normal_texture`, `normal_strength`, `specular`, `specular_color`, `shine`), \
+                     alpha (`alpha_mode`, `opacity`, `alpha_cutoff`) or a \
+                     reflection (`reflection_mode`, `reflection_strength`) field; \
+                     a `decal` `file` asset may declare only `alpha_mode`"
+                ));
+            }
+        }
+        if let Some(texture) = &normal_texture
+            && !is_valid_asset_id(texture)
+        {
+            return Err(format!(
+                "{id}: normal_texture `{texture}` is not a well-formed logical asset id"
+            ));
+        }
+        if self.normal_strength.is_some() && normal_texture.is_none() {
+            return Err(format!(
+                "{id}: `normal_strength` requires a `normal_texture`"
+            ));
+        }
+        if let Some(value) = self.normal_strength
+            && (!value.is_finite() || !(0.0..=MAX_NORMAL_STRENGTH).contains(&value))
+        {
+            return Err(format!(
+                "{id}: normal_strength must be between 0.0 and {MAX_NORMAL_STRENGTH:?}, found {value:?}"
+            ));
+        }
+        let specular_color = specular_color(id, self.specular_color.as_deref())?;
+        let alpha_policy = validated_alpha_mode(id, alpha_mode)?;
+        let (reflection_mode, reflection_strength) = validate_reflection(id, self)?;
+        if (self.opacity.is_some() || self.alpha_cutoff.is_some()) && alpha_policy.is_none() {
+            return Err(format!(
+                "{id}: `opacity` and `alpha_cutoff` require an explicit `alpha_mode`"
+            ));
+        }
+        Ok(ValidatedResponse {
+            normal_texture,
+            normal_strength: self.normal_strength,
+            specular: unit_number(self.specular, "specular")
+                .map_err(|field| format!("{id}: {field}"))?,
+            specular_color,
+            shine: unit_number(self.shine, "shine").map_err(|field| format!("{id}: {field}"))?,
+            alpha_mode: alpha_policy,
+            opacity: unit_number(self.opacity, "opacity")
+                .map_err(|field| format!("{id}: {field}"))?,
+            alpha_cutoff: unit_number(self.alpha_cutoff, "alpha_cutoff")
+                .map_err(|field| format!("{id}: {field}"))?,
+            reflection_mode,
+            reflection_strength,
+        })
+    }
+
+    /// Where the resource comes from, inferred from the declared model/texture
+    /// when no explicit `source` is given.
+    fn resolve_source(
+        &self,
+        id: &str,
+        model: Option<&str>,
+        texture: Option<&str>,
+    ) -> Result<AssetSource, String> {
+        let Some(raw) = self.source.as_deref().map(str::trim) else {
+            return Ok(inferred_source(model, texture));
+        };
+        if raw.is_empty() {
+            return Ok(inferred_source(model, texture));
+        }
+        let source = AssetSource::parse(raw).map_err(|error| format!("{id}: {error}"))?;
+        if source == AssetSource::File && model.is_none() {
+            return Err(format!("{id}: a `file` asset must declare a `model` path"));
+        }
+        if source == AssetSource::Generated && model.is_some() {
+            return Err(format!(
+                "{id}: a `generated` asset must not declare a `model`"
+            ));
+        }
+        if source == AssetSource::Definition {
+            if model.is_some() {
+                return Err(format!(
+                    "{id}: a `definition` asset must not declare a `model`"
+                ));
+            }
+            if texture.is_none() {
+                return Err(format!(
+                    "{id}: a `definition` asset must declare a `texture` to draw with"
+                ));
+            }
+        }
+        if model.is_some() && texture.is_some() {
+            return Err(format!(
+                "{id}: an asset cannot be both a file resource and a texture-backed material"
+            ));
+        }
+        if source == AssetSource::File && texture.is_some() {
+            return Err(format!(
+                "{id}: a `file` asset must not declare a `texture`; use `definition`"
+            ));
+        }
+        Ok(source)
+    }
+
+    fn resolve_fluorescence(
+        &self,
+        id: &str,
+        asset_type: &AssetType,
+        source: AssetSource,
+    ) -> Result<Option<String>, String> {
+        if !self.uv_response.is_finite()
+            || !(0.0..=crate::engine::materials::MAX_UV_RESPONSE).contains(&self.uv_response)
+        {
+            return Err(format!(
+                "{id}: uv_response must be finite and between 0 and {}",
+                crate::engine::materials::MAX_UV_RESPONSE
+            ));
+        }
+        let mask = self
+            .uv_response_mask
+            .as_deref()
+            .map(str::trim)
+            .map(str::to_string);
+        if (self.uv_response > 0.0 || mask.is_some())
+            && (asset_type.as_str() != AssetType::MATERIAL || source != AssetSource::Definition)
+        {
+            return Err(format!("{id}: UV response requires a material definition"));
+        }
+        if let Some(mask_id) = &mask {
+            if self.uv_response <= 0.0 {
+                return Err(format!(
+                    "{id}: uv_response_mask requires positive uv_response"
+                ));
+            }
+            if !is_valid_asset_id(mask_id) {
+                return Err(format!(
+                    "{id}: uv_response_mask is not a well-formed logical asset id"
+                ));
+            }
+        }
+        Ok(mask)
+    }
+
+    /// The human-readable name: `display_name`, else the logical id.
+    fn resolved_display_name(&self, id: &str) -> String {
+        let display = self.display_name.trim();
+        if display.is_empty() {
+            id.to_string()
+        } else {
+            display.to_string()
+        }
+    }
+}
+
+/// The source implied by the declared model/texture.
+const fn inferred_source(model: Option<&str>, texture: Option<&str>) -> AssetSource {
+    if texture.is_some() {
+        AssetSource::Definition
+    } else if model.is_some() {
+        AssetSource::File
+    } else {
+        AssetSource::Generated
+    }
+}
+
+/// True when a catalog resource path is relative and cannot escape the root.
+fn is_relative_resource_path(path: &str) -> bool {
+    !path.starts_with('/')
+        && !path.starts_with('\\')
+        && !path.contains('\\')
+        && !path
+            .split('/')
+            .any(|component| component == ".." || component.is_empty())
+}
+
+/// Checks that a material's emissive mask names a loadable texture asset.
+///
+/// The mask follows exactly the albedo `texture` rule: it must be a declared
+/// catalog texture with a file behind it. A dangling mask would otherwise only
+/// surface as a runtime diagnostic fallback.
+fn check_emissive_mask(entry: &AssetEntry, catalog: &AssetCatalog) -> Result<(), String> {
+    let Some(mask_id) = entry.emissive_mask.as_deref() else {
+        return Ok(());
+    };
+    let Some(mask) = catalog.entries.get(mask_id) else {
+        return Err(format!(
+            "{}: emissive mask `{mask_id}` is not declared in the asset catalog",
+            entry.id
+        ));
+    };
+    if !mask.is_texture() {
+        return Err(format!(
+            "{}: emissive mask `{mask_id}` is a `{}` asset, not a texture",
+            entry.id,
+            mask.asset_type.as_str()
+        ));
+    }
+    if mask.source != AssetSource::File {
+        return Err(format!(
+            "{}: emissive mask `{mask_id}` has no PNG file to load",
+            entry.id
+        ));
+    }
+    Ok(())
+}
+
+/// True when a resource path names a PNG (case-insensitive extension).
+#[must_use]
+pub fn has_png_extension(path: Option<&str>) -> bool {
+    path.is_some_and(|asset_path| {
+        Path::new(asset_path)
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("png"))
+    })
+}
+
+impl AssetCatalog {
+    /// Empty catalog; every lookup falls back.
+    #[must_use]
+    pub fn builtin() -> Self {
+        Self::default()
+    }
+
+    /// Parses a catalog document.
+    ///
+    /// The document's one entry collection is `assets`. Duplicate logical ids
+    /// are rejected: two entries claiming `spooner-man` is a catalog error,
+    /// never last-one-wins.
+    /// # Errors
+    ///
+    /// Returns a message when the document is not valid JSON, when a logical id
+    /// is duplicated or malformed, or when an entry declares a malformed
+    /// class/theme/type/source/resource path.
+    pub fn from_json_str(json: &str) -> Result<Self, String> {
+        let file: CatalogFile =
+            serde_json::from_str(json).map_err(|e| format!("Invalid asset catalog JSON: {e}"))?;
+
+        let mut catalog = Self::default();
+        let mut theme_ids = std::collections::HashSet::new();
+        for theme in file.themes {
+            let id = theme.id.trim();
+            if id.is_empty() {
+                return Err("theme entry with an empty id".to_string());
+            }
+            let theme_id = AssetTheme::parse(id)?;
+            if !theme_ids.insert(theme_id.clone()) {
+                return Err(format!(
+                    "duplicate theme id `{theme_id}` in the asset catalog"
+                ));
+            }
+            let display_name = {
+                let display = theme.display_name.trim();
+                if display.is_empty() {
+                    theme_id.to_string()
+                } else {
+                    display.to_string()
+                }
+            };
+            catalog.themes.push(AssetThemeDef {
+                id: theme_id,
+                display_name,
+                description: theme.description.trim().to_string(),
+            });
+        }
+
+        for entry in &file.assets {
+            let asset_entry = entry.convert()?;
+            if catalog.entries.contains_key(&asset_entry.id) {
+                return Err(format!(
+                    "duplicate asset id `{}` in the asset catalog",
+                    asset_entry.id
+                ));
+            }
+            drop(catalog.entries.insert(asset_entry.id.clone(), asset_entry));
+        }
+
+        // Second pass: every material must reference a texture this catalog
+        // actually declares (its albedo and any emissive mask), every texture
+        // asset must be a PNG, and every file-backed fixture must name the PNG
+        // face it draws. Doing this after all entries exist means a material
+        // may be declared before the texture it draws with, but never with a
+        // dangling reference.
+        check_references(&catalog)?;
+        Ok(catalog)
+    }
+
+    /// Applies runtime-only physical overrides without changing visual entries.
+    /// Catalog parsing itself remains independent of this optional sidecar.
+    ///
+    /// # Errors
+    /// Rejects malformed schema, unknown/duplicate ids, invalid physical values
+    /// or fields on incompatible asset types. Rejection leaves the catalog intact.
+    pub fn apply_gameplay_json(&mut self, json: &str) -> Result<(), String> {
+        if json.len() > MAX_GAMEPLAY_JSON_BYTES {
+            return Err("gameplay metadata exceeds the 1 MiB size limit".into());
+        }
+        let file: GameplayFile = serde_json::from_str(json)
+            .map_err(|error| format!("invalid gameplay metadata JSON: {error}"))?;
+        if file.format_version != 1 {
+            return Err("gameplay metadata format_version must be 1".into());
+        }
+        for (id, definition) in &file.assets.0 {
+            let entry = self
+                .entries
+                .get(id)
+                .ok_or_else(|| format!("gameplay asset `{id}` is not declared in the catalog"))?;
+            if definition.physics.is_none() && definition.ground_friction.is_none() {
+                return Err(format!(
+                    "gameplay asset `{id}` declares no physical override"
+                ));
+            }
+            validate_asset_physics(id, &entry.asset_type, definition.physics.as_ref())?;
+            validate_ground_friction(
+                id,
+                &entry.asset_type,
+                entry.source,
+                definition.ground_friction,
+            )?;
+        }
+        for (id, definition) in file.assets.0 {
+            if let Some(entry) = self.entries.get_mut(&id) {
+                if let Some(physics) = definition.physics {
+                    entry.physics = Some(physics);
+                }
+                if let Some(friction) = definition.ground_friction {
+                    entry.ground_friction = Some(friction);
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Checks every cross-entry reference of a parsed catalog.
+///
+/// Every texture asset names a PNG, every material's albedo (and any emissive
+/// mask) resolves to a declared, file-backed texture, and every material's
+/// `baseboard` names a declared material. Splitting this from
+/// [`AssetCatalog::from_json_str`] keeps the pass readable and lets a test
+/// exercise one reference class at a time.
+fn check_references(catalog: &AssetCatalog) -> Result<(), String> {
+    let entries: Vec<&AssetEntry> = catalog.entries.values().collect();
+    for entry in entries {
+        check_emissive_mask(entry, catalog)?;
+        if let Some(mask) = entry.uv_response_mask.as_deref()
+            && !catalog
+                .entries
+                .get(mask)
+                .is_some_and(|asset| asset.is_texture() && asset.source == AssetSource::File)
+        {
+            return Err(format!(
+                "{}: UV response mask `{mask}` must name a PNG texture asset",
+                entry.id
+            ));
+        }
+        if entry.is_texture() && !has_png_extension(entry.model.as_deref()) {
+            return Err(format!(
+                "{}: a texture asset must name a `.png` file, found `{}`",
+                entry.id,
+                entry.model.as_deref().unwrap_or("(no model)")
+            ));
+        }
+        if entry.is_light()
+            && entry.source == AssetSource::File
+            && !has_png_extension(entry.model.as_deref())
+        {
+            return Err(format!(
+                "{}: a file-backed light fixture must name a `.png` sheet, found `{}`",
+                entry.id,
+                entry.model.as_deref().unwrap_or("(no model)")
+            ));
+        }
+        if let Some(baseboard_id) = entry.baseboard.as_deref() {
+            let Some(baseboard) = catalog.entries.get(baseboard_id) else {
+                return Err(format!(
+                    "{}: baseboard `{baseboard_id}` is not declared in the asset catalog",
+                    entry.id
+                ));
+            };
+            if !baseboard.is_material() {
+                return Err(format!(
+                    "{}: baseboard `{baseboard_id}` is a `{}` asset, not a material",
+                    entry.id,
+                    baseboard.asset_type.as_str()
+                ));
+            }
+        }
+        let Some(texture_id) = entry.texture.as_deref() else {
+            continue;
+        };
+        let Some(texture) = catalog.entries.get(texture_id) else {
+            return Err(format!(
+                "{}: material texture `{texture_id}` is not declared in the asset catalog",
+                entry.id
+            ));
+        };
+        if !texture.is_texture() {
+            return Err(format!(
+                "{}: material texture `{texture_id}` is a `{}` asset, not a texture",
+                entry.id,
+                texture.asset_type.as_str()
+            ));
+        }
+        if texture.source != AssetSource::File {
+            return Err(format!(
+                "{}: material texture `{texture_id}` has no PNG file to load",
+                entry.id
+            ));
+        }
+    }
+    Ok(())
+}
+
+impl AssetCatalog {
+    /// Loads a catalog from `path`, returning `None` when the file is missing
+    /// or invalid. Never panics.
+    #[must_use]
+    pub fn load_from_path(path: &Path) -> Option<Self> {
+        let content = fs::read_to_string(path).ok()?;
+        let parsed = Self::from_json_str(&content).and_then(|mut catalog| {
+            let sidecar = path.with_file_name(GAMEPLAY_FILE_NAME);
+            match read_gameplay_file(&sidecar) {
+                Ok(json) => catalog.apply_gameplay_json(&json)?,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(format!("{}: {error}", sidecar.display())),
+            }
+            Ok(catalog)
+        });
+        match parsed {
+            Ok(catalog) => Some(catalog),
+            Err(error) => {
+                crate::engine::logging::warn_once(
+                    format!("catalog:{}", path.display()),
+                    format!("[assets] {}: {error}", path.display()),
+                );
+                None
+            }
+        }
+    }
+
+    /// Loads the shipped catalog, falling back to an empty catalog with a
+    /// developer-facing message when no catalog can be found.
+    ///
+    /// The missing-asset-root report is printed once per process even though
+    /// the catalog is loaded by several independent callers.
+    #[must_use]
+    pub fn load_default() -> Self {
+        for candidate in catalog_path_candidates() {
+            if let Some(catalog) = Self::load_from_path(&candidate) {
+                return catalog;
+            }
+        }
+        let mut message = String::from(NO_ASSET_ROOT_MESSAGE);
+        for (path, exists) in asset_root_search_report() {
+            let _formatted_n = std::fmt::Write::write_fmt(
+                &mut message,
+                format_args!(
+                    "\n  {} {}",
+                    if exists { "found   " } else { "missing " },
+                    path.display()
+                ),
+            );
+        }
+        let _formatted_text = std::fmt::Write::write_fmt(
+            &mut message,
+            format_args!(
+                "\n  set {ASSET_ROOT_ENV}=<directory containing assets/> to override, \
+                 or run from a directory that contains assets/."
+            ),
+        );
+        crate::engine::logging::warn_once("no-asset-root", message);
+        Self::builtin()
+    }
+
+    /// The entry with this logical id, if the catalog declares it.
+    #[must_use]
+    pub fn get(&self, id: &str) -> Option<&AssetEntry> {
+        self.entries.get(id)
+    }
+
+    /// The entry with this logical id when it is placeable (prop or entity).
+    #[must_use]
+    pub fn placeable(&self, id: &str) -> Option<&AssetEntry> {
+        self.get(id).filter(|entry| entry.is_placeable())
+    }
+
+    /// The entry with this logical id when it is a surface material.
+    #[must_use]
+    pub fn material(&self, id: &str) -> Option<&AssetEntry> {
+        self.get(id).filter(|entry| entry.is_material())
+    }
+
+    /// The logical texture id a material draws with, if it declares one.
+    #[must_use]
+    pub fn material_texture(&self, id: &str) -> Option<&str> {
+        self.material(id)?.texture.as_deref()
+    }
+
+    /// The emissive colour a material authors; `None` when it emits nothing.
+    ///
+    /// Only a material can carry emission, so a prop or texture id is `None`
+    /// here even if an entry somehow declared one: emission can never be read
+    /// off a non-material.
+    #[must_use]
+    pub fn material_emissive(&self, id: &str) -> Option<[f32; 3]> {
+        self.material(id)?.emissive
+    }
+
+    /// The scalar emissive intensity a material authors, if it authors one.
+    ///
+    /// `None` means "use the default for an authored colour"; it is not the
+    /// same as an authored `0.0`, which keeps the material dark.
+    #[must_use]
+    pub fn material_emissive_intensity(&self, id: &str) -> Option<f32> {
+        self.material(id)?.emissive_intensity
+    }
+
+    /// The logical texture id of a material's emissive mask, if it declares one.
+    #[must_use]
+    pub fn material_emissive_mask(&self, id: &str) -> Option<&str> {
+        self.material(id)?.emissive_mask.as_deref()
+    }
+
+    /// The canonical PNG path of a texture asset, relative to the asset root.
+    #[must_use]
+    pub fn texture_path(&self, id: &str) -> Option<&str> {
+        self.get(id)
+            .filter(|entry| entry.is_texture() && entry.source == AssetSource::File)
+            .and_then(|entry| entry.model.as_deref())
+    }
+
+    /// The canonical PNG of a file-backed light fixture's visible face.
+    ///
+    /// A built-in fixture's mesh is generated in code, but what that mesh shows
+    /// is ordinary external artwork: the light entry names its own `.png` sheet
+    /// exactly like a file-backed decal, and the renderer resolves it through
+    /// the same catalog -> PNG -> texture-cache path a surface texture uses.
+    /// `None` for an unknown id, a generated fixture or a non-PNG resource.
+    #[must_use]
+    pub fn fixture_sheet_path(&self, id: &str) -> Option<&str> {
+        self.get(id)
+            .filter(|entry| entry.is_light() && entry.source == AssetSource::File)
+            .and_then(|entry| entry.model.as_deref())
+            .filter(|model| has_png_extension(Some(model)))
+    }
+
+    /// Every material entry, ordered by id.
+    #[must_use]
+    pub fn materials(&self) -> Vec<&AssetEntry> {
+        self.entries()
+            .into_iter()
+            .filter(|entry| entry.is_material())
+            .collect()
+    }
+
+    /// Every texture entry, ordered by id.
+    #[must_use]
+    pub fn textures(&self) -> Vec<&AssetEntry> {
+        self.entries()
+            .into_iter()
+            .filter(|entry| entry.is_texture())
+            .collect()
+    }
+
+    /// True when the catalog declares this logical id.
+    #[must_use]
+    pub fn contains(&self, id: &str) -> bool {
+        self.entries.contains_key(id)
+    }
+
+    /// Number of catalog entries of every class.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    /// True when the catalog has no entries.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    /// Every entry, ordered by id so validation and reports are stable.
+    #[must_use]
+    pub fn entries(&self) -> Vec<&AssetEntry> {
+        let mut entries: Vec<&AssetEntry> = self.entries.values().collect();
+        entries.sort_by(|a, b| a.id.cmp(&b.id));
+        entries
+    }
+
+    /// Every placeable entry (prop or entity), ordered by id.
+    #[must_use]
+    pub fn placeable_entries(&self) -> Vec<&AssetEntry> {
+        self.entries()
+            .into_iter()
+            .filter(|entry| entry.is_placeable())
+            .collect()
+    }
+
+    /// The declared environment themes, in catalog order.
+    #[must_use]
+    pub fn themes(&self) -> &[AssetThemeDef] {
+        &self.themes
+    }
+}
+
+fn read_gameplay_file(path: &Path) -> std::io::Result<String> {
+    use std::io::Read;
+    let file = fs::File::open(path)?;
+    let limit = u64::try_from(MAX_GAMEPLAY_JSON_BYTES)
+        .unwrap_or(u64::MAX)
+        .saturating_add(1);
+    let mut json = String::new();
+    let _bytes = file.take(limit).read_to_string(&mut json)?;
+    Ok(json)
+}
+
+/// Parses a `#rrggbb` catalog colour. The leading `#` is optional.
+#[must_use]
+pub fn parse_hex_color(value: &str) -> Option<[f32; 3]> {
+    let hex = value.trim().trim_start_matches('#');
+    if hex.len() != 6 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
+        return None;
+    }
+    let mut components = [0.0_f32; 3];
+    for (component, pair) in components.iter_mut().zip(hex.as_bytes().as_chunks::<2>().0) {
+        // Every byte was validated as a hex digit above, so both conversions
+        // succeed; `unwrap_or(0)` keeps the historical fallback.
+        let text = std::str::from_utf8(pair).unwrap_or("");
+        *component = f32::from(u8::from_str_radix(text, 16).unwrap_or(0)) / 255.0;
+    }
+    Some(components)
+}
+
+#[cfg(test)]
+mod tests;
+
+#[cfg(test)]
+mod gameplay_tests {
+    use super::AssetCatalog;
+    use crate::engine::physics::config::BodyMotion;
+
+    const CATALOG: &str = r#"{"assets":[
+        {"id":"test:item","asset_class":"core","asset_type":"prop"},
+        {"id":"test:sheet","asset_class":"core","asset_type":"texture","source":"file","model":"test/ground.png"},
+        {"id":"test:floor","asset_class":"core","asset_type":"material","source":"definition","texture":"test:sheet"}]}"#;
+
+    struct TestDirectory(std::path::PathBuf);
+
+    impl Drop for TestDirectory {
+        fn drop(&mut self) {
+            let _removed = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    /// Three in-memory descriptors protect strict, atomic runtime overrides and
+    /// inline compatibility without loading images, compiling or baking a map.
+    #[test]
+    fn gameplay_sidecar_is_strict_atomic_and_preserves_inline_catalog_behavior()
+    -> Result<(), String> {
+        let mut catalog = AssetCatalog::from_json_str(CATALOG)?;
+        let item_before = catalog.get("test:item").cloned().ok_or("missing item")?;
+        let floor_before = catalog.get("test:floor").cloned().ok_or("missing floor")?;
+        for invalid in [
+            r#"{"format_version":2,"assets":{}}"#,
+            r#"{"format_version":1,"texture":"changed","assets":{}}"#,
+            r#"{"format_version":1,"assets":{"test:unknown":{"ground_friction":0.5}}}"#,
+            r#"{"format_version":1,"assets":{"test:item":{"ground_friction":0.5}}}"#,
+            r#"{"format_version":1,"assets":{"test:floor":{"physics":{"motion":"dynamic"}}}}"#,
+            r#"{"format_version":1,"assets":{"test:floor":{"ground_friction":-0.1}}}"#,
+            r#"{"format_version":1,"assets":{"test:item":{"physics":{"mass_kg":0}}}}"#,
+            r#"{"format_version":1,"assets":{"test:item":{"texture":"changed"}}}"#,
+            r#"{"format_version":1,"assets":{"test:item":{}}}"#,
+            r#"{"format_version":1,"assets":{"test:item":{"physics":{}},"test:item":{"physics":{}}}}"#,
+            r#"{"format_version":1,"assets":{"test:floor":{"ground_friction":1},"test:item":{"physics":{"motion":"bad"}}}}"#,
+        ] {
+            assert!(catalog.apply_gameplay_json(invalid).is_err(), "{invalid}");
+            assert_eq!(catalog.get("test:item"), Some(&item_before));
+            assert_eq!(catalog.get("test:floor"), Some(&floor_before));
+        }
+        catalog.apply_gameplay_json(
+            r#"{"format_version":1,"assets":{
+            "test:item":{"physics":{"motion":"dynamic","pickup":true}},
+            "test:floor":{"ground_friction":1.0}}}"#,
+        )?;
+        let item = catalog.get("test:item").ok_or("missing item")?;
+        assert_eq!(
+            item.physics.as_ref().map(|physics| physics.motion),
+            Some(BodyMotion::Dynamic)
+        );
+        let mut expected_item = item_before;
+        expected_item.physics.clone_from(&item.physics);
+        assert_eq!(item, &expected_item, "visual metadata is unchanged");
+        let floor = catalog.get("test:floor").ok_or("missing floor")?;
+        let mut expected_floor = floor_before;
+        expected_floor.ground_friction = Some(1.0);
+        assert_eq!(floor, &expected_floor);
+        assert!(
+            AssetCatalog::from_json_str(CATALOG)?
+                .get("test:item")
+                .is_some_and(|entry| entry.physics.is_none())
+        );
+        let inline = CATALOG.replace(
+            "\"asset_type\":\"prop\"",
+            "\"asset_type\":\"prop\",\"physics\":{\"motion\":\"dynamic\"}",
+        );
+        assert!(
+            AssetCatalog::from_json_str(&inline)?
+                .get("test:item")
+                .is_some_and(|entry| entry.physics.is_some())
+        );
+        Ok(())
+    }
+
+    /// Two sub-kilobyte files prove the disk loader applies its sibling sidecar
+    /// and rejects a bad one. No images, compiler or map bake are required.
+    #[test]
+    fn catalog_disk_loader_applies_only_a_valid_optional_gameplay_sidecar() -> Result<(), String> {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|error| error.to_string())?;
+        let root = std::env::temp_dir().join(format!(
+            "places-gameplay-{}-{}",
+            std::process::id(),
+            stamp.as_nanos()
+        ));
+        std::fs::create_dir(&root).map_err(|error| error.to_string())?;
+        let _cleanup = TestDirectory(root.clone());
+        let path = root.join("catalog.json");
+        std::fs::write(&path, CATALOG).map_err(|error| error.to_string())?;
+        assert!(AssetCatalog::load_from_path(&path).is_some_and(|catalog| {
+            catalog
+                .get("test:item")
+                .is_some_and(|entry| entry.physics.is_none())
+        }));
+        let sidecar = root.join("gameplay.json");
+        std::fs::write(
+            &sidecar,
+            r#"{"format_version":1,"assets":{"test:item":{"physics":{"motion":"dynamic"}}}}"#,
+        )
+        .map_err(|error| error.to_string())?;
+        assert!(AssetCatalog::load_from_path(&path).is_some_and(|catalog| {
+            catalog
+                .get("test:item")
+                .is_some_and(|entry| entry.physics.is_some())
+        }));
+        std::fs::write(
+            &sidecar,
+            r#"{"format_version":1,"assets":{"test:item":{"model":"changed"}}}"#,
+        )
+        .map_err(|error| error.to_string())?;
+        assert!(AssetCatalog::load_from_path(&path).is_none());
+        Ok(())
+    }
+}

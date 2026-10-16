@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.png" alt="Places" width="180">
+  <img src="assets/shared/branding/places.png" alt="Places" width="180">
 </p>
 
 <h1 align="center">Places</h1>

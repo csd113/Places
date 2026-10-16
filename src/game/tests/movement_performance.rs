@@ -76,7 +76,7 @@ fn measure_controller_hot_path() {
         );
     }
     let report = serde_json::to_string_pretty(&results).expect("benchmark report");
-    crate::logging::warn(&report);
+    crate::engine::logging::warn(&report);
     if let Some(path) = std::env::var_os("PLACES_MOVEMENT_BENCH_OUT") {
         std::fs::write(path, report).expect("benchmark evidence destination");
     }

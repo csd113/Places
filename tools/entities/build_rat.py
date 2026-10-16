@@ -1171,7 +1171,7 @@ class SkinEvaluator:
     """Evaluates the written GLB the way the engine's character path does.
 
     LINEAR rotation keys are spherical-interpolated on the shortest arc and
-    translation keys are lerped, exactly like ``src/render/common/character.rs``;
+    translation keys are lerped, exactly like ``src/engine/render/common/character.rs``;
     unkeyed nodes keep their rest local TRS.  Skinning then blends
     ``global_joint(t) * inverse_bind_joint`` per vertex.
     """

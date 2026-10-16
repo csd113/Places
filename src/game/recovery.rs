@@ -4,7 +4,7 @@ use super::{
     EYE_HEIGHT, Game, JUMP_APEX_M, LevelDef, LevelSurfaces, PLAYER_HEIGHT, PLAYER_RADIUS,
     PLAYER_STEP_HEIGHT, Vec2, Vec3, WallAabb, WaterVolumes, clamp_sim_delta,
 };
-use crate::level::WaterShape;
+use crate::engine::level::WaterShape;
 
 /// A full ordinary jump lasts about 0.9 s. Allow it to cross an open edge or
 /// return from a brief unsupported excursion before restoring an escaped body.
@@ -167,14 +167,14 @@ impl Game {
             }
         }
         let Some(destination) = self.recovery_destination() else {
-            crate::logging::warn_once(
+            crate::engine::logging::warn_once(
                 "movement_no_recovery_spawn",
                 "[movement] escaped map has no clear spawn destination; correct the level spawn",
             );
             return false;
         };
         if self.movement_debug {
-            crate::logging::warn(format_args!(
+            crate::engine::logging::warn(format_args!(
                 "[movement] out_of_map_recovery initial={:?} destination={:?}",
                 self.player_position, destination.eye
             ));

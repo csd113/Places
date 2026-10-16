@@ -138,10 +138,13 @@ def main():
                     source = next((baseline/'assets').glob('**/couch.glb'))
                     document, binary = codec.read_glb(str(source))
                     image_view = document['images'][0]['bufferView']
+                    oversized_image = baseline/'assets/shared/branding/places.png'
+                    if not oversized_image.is_file():
+                        oversized_image = baseline/'icon.png'
                     rebuilt = bytearray()
                     for index, view in enumerate(document['bufferViews']):
                         old = view.get('byteOffset', 0)
-                        payload = ((baseline/'icon.png').read_bytes() if index == image_view
+                        payload = (oversized_image.read_bytes() if index == image_view
                                    else binary[old:old+view['byteLength']])
                         rebuilt.extend(b'\0' * (-len(rebuilt) % 4))
                         view['byteOffset'] = len(rebuilt)

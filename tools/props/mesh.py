@@ -22,7 +22,7 @@ from palette import shade
 from tex import Color, Texture
 
 # Per-face shading multipliers, mirroring the game's box-prop shading
-# (src/render.rs `PROP_FACE_SHADES`) so hand-built meshes and fallback boxes
+# (src/engine/render.rs `PROP_FACE_SHADES`) so hand-built meshes and fallback boxes
 # respond to light in the same way: top brightest, bottom darkest.
 FACE_SHADE = {
     "+y": 1.00,

@@ -20,9 +20,9 @@
     reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
-use crate::collision_index::CollisionIndex;
+use crate::engine::collision_index::CollisionIndex;
+use crate::engine::level::LevelDef;
 use crate::game::{CollisionWorld, Game};
-use crate::level::LevelDef;
 
 #[test]
 fn collision_and_routes_work_kilometres_from_the_origin() {
@@ -56,7 +56,7 @@ fn collision_and_routes_work_kilometres_from_the_origin() {
         "routes": [{"id": "far_rat", "loop": true, "steps": [{"step": "move_to", "x": 1_998.0_f64, "z": 2_006.0_f64, "speed": 0.198_5_f64}, {"step": "wait", "seconds": 0.5_f64}, {"step": "move_to", "x": 1_990.0_f64, "z": 2_006.0_f64, "speed": 0.573_1_f64}, {"step": "wait", "seconds": 0.5_f64}]}],
     });
     let level = LevelDef::from_json(&document.to_string()).expect("the coordinate case parses");
-    crate::loader::validate_level(&level).expect("the coordinate case validates");
+    crate::engine::loader::validate_level(&level).expect("the coordinate case validates");
     let world = CollisionWorld::from_level(&level);
     // Every room's floor, collision, water, trigger and route is a satellite
     // at ±2 km; the controller must stand, walk and collide there.
@@ -92,7 +92,7 @@ fn collision_and_routes_work_kilometres_from_the_origin() {
         .expect("the coordinate case routes a rat");
     let mut state = route.new_state();
     let index = CollisionIndex::build(&world.walls);
-    let route_world = crate::entity::RouteWorld {
+    let route_world = crate::engine::entity::RouteWorld {
         walls: &world.walls,
         floor: &world.floor,
         index: &index,
@@ -171,7 +171,7 @@ fn the_2026_raised_caps_accept_content_past_their_former_boundary() {
         props.join(",")
     );
     let level = LevelDef::from_json(&json).expect("a level past the 2026 caps parses");
-    crate::loader::validate_level(&level).expect("a level past the 2026 caps validates");
+    crate::engine::loader::validate_level(&level).expect("a level past the 2026 caps validates");
     let world = CollisionWorld::from_level(&level);
     assert!(world.walls.len() > 20_000);
     let index = CollisionIndex::build(&world.walls);
@@ -179,17 +179,17 @@ fn the_2026_raised_caps_accept_content_past_their_former_boundary() {
     // A 0.3 m wall stub at (0.5, 0.5)..(0.8, 0.8) must resolve support through
     // both the linear and the indexed query.
     assert_eq!(
-        crate::collision::highest_support_top(0.6, 0.6, 3.0, &world.walls),
-        crate::collision::highest_support_top_indexed(&index, 0.6, 0.6, 3.0, &world.walls),
+        crate::engine::collision::highest_support_top(0.6, 0.6, 3.0, &world.walls),
+        crate::engine::collision::highest_support_top_indexed(&index, 0.6, 0.6, 3.0, &world.walls),
     );
     assert!(
-        crate::collision::highest_support_top(0.6, 0.6, 3.0, &world.walls).is_some(),
+        crate::engine::collision::highest_support_top(0.6, 0.6, 3.0, &world.walls).is_some(),
         "the indexed support query must answer in a 20 001-wall world"
     );
     // A game built on it takes its first movement step without panicking.
     let mut game = Game::new(crate::game::spawn_position(&level), 0.0, world);
     game.set_app_state(crate::game::AppState::Playing);
-    let mut input = crate::input::InputState::default();
-    let settings = crate::settings::Settings::default();
+    let mut input = crate::game::input::InputState::default();
+    let settings = crate::game::settings::Settings::default();
     game.update_player_movement(&mut input, &settings);
 }

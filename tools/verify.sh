@@ -7,7 +7,6 @@ cargo build --locked --release
 python3 tools/assets/validate.py
 # The package suite executes the texture CLI --check once.
 python3 tools/props/build.py --check
-python3 tools/props/author_birthday_party.py --check
 python3 tools/assets/audit.py --workers 12 --out target/verification/asset-inventory.json
 # The Halloween entity material contracts and exported clip seams are
 # maintained assets; --check fails on a stale GLB.

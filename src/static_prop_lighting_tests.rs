@@ -16,11 +16,11 @@
 
 use glam::Vec3;
 
-use crate::level::LevelDef;
-use crate::lighting::lightmap::{LevelLightmaps, LightmapMode, LightmapTexel};
-use crate::loader::PropCatalog;
-use crate::quality::QualityLevel;
-use crate::render::{LightmapBuildOptions, PropMeshBatch, Vertex};
+use crate::engine::level::LevelDef;
+use crate::engine::lighting::lightmap::{LevelLightmaps, LightmapMode, LightmapTexel};
+use crate::engine::loader::PropCatalog;
+use crate::engine::quality::QualityLevel;
+use crate::engine::render::{LightmapBuildOptions, PropMeshBatch, Vertex};
 
 const STUMP: &str = "outdoor:showcase_stump_seat";
 const ROCK: &str = "outdoor:showcase_boulder";
@@ -39,19 +39,23 @@ fn scene(model: &str, blocker: &str, brightness: f32) -> LevelDef {
     .expect("synthetic receiver room parses")
 }
 
-fn build(level: &LevelDef, quality: QualityLevel, mode: LightmapMode) -> crate::render::LevelBuild {
-    let root = crate::assets::resolve_asset_root().expect("shipped assets are available");
+fn build(
+    level: &LevelDef,
+    quality: QualityLevel,
+    mode: LightmapMode,
+) -> crate::engine::render::LevelBuild {
+    let root = crate::engine::assets::resolve_asset_root().expect("shipped assets are available");
     let catalog = PropCatalog::load_from_path(&root.join("catalog.json"))
         .expect("the shipped catalog parses");
-    let materials = crate::render::logical_materials(level);
-    let mut assets = crate::props::PropAssets::with_root(root);
+    let materials = crate::engine::render::logical_materials(level);
+    let mut assets = crate::engine::props::PropAssets::with_root(root);
     let mut options = LightmapBuildOptions::for_level(quality, mode);
     // Direct illumination is sufficient to establish shadow receiving and
     // sidedness. Bounce gathers have their own solver tests and would blur
     // these controlled comparisons as well as increase their cost.
     options.solve.bounces = 0;
     options.solve.workers = 2;
-    let result = crate::render::build_level_geometry_timed_with_lightmaps(
+    let result = crate::engine::render::build_level_geometry_timed_with_lightmaps(
         level,
         &catalog,
         &mut assets,
@@ -71,7 +75,10 @@ fn build(level: &LevelDef, quality: QualityLevel, mode: LightmapMode) -> crate::
     result
 }
 
-fn receiver_batch<'a>(build: &'a crate::render::LevelBuild, suffix: &str) -> &'a PropMeshBatch {
+fn receiver_batch<'a>(
+    build: &'a crate::engine::render::LevelBuild,
+    suffix: &str,
+) -> &'a PropMeshBatch {
     build
         .batches
         .iter()
@@ -138,7 +145,7 @@ fn sample(atlas: &LevelLightmaps, vertices: [Vertex; 3]) -> [f32; 3] {
     texel.light_at(normal.to_array())
 }
 
-fn samples(build: &crate::render::LevelBuild, suffix: &str, normal: Vec3) -> Vec<f32> {
+fn samples(build: &crate::engine::render::LevelBuild, suffix: &str, normal: Vec3) -> Vec<f32> {
     let atlas = build
         .lightmaps
         .as_ref()
@@ -183,7 +190,7 @@ fn mean(values: &[f32]) -> f32 {
 fn winter_string_bulbs_bake_warm_prop_illumination_and_respect_opaque_walls() {
     // Three physical emitters on one real GLB isolate warm illumination,
     // opaque-wall blocking and emission independence without a Winter bake.
-    let string: crate::level::PropDef = serde_json::from_str(
+    let string: crate::engine::level::PropDef = serde_json::from_str(
         r#"{"id":"string","model":"winter:string_lights_short",
             "x":1.5,"z":3.0,"y":2.1,"occludes":false,
             "lights":[
@@ -355,8 +362,8 @@ fn model_lightmap_coordinates_normals_and_shading_survive_package_roundtrip() {
         LightmapMode::On,
     );
     let atlas = built.lightmaps.as_ref().unwrap();
-    let encoded = crate::package::props::write_props(&built.batches).unwrap();
-    let decoded = crate::package::props::read_props(&encoded).unwrap();
+    let encoded = crate::engine::package::props::write_props(&built.batches).unwrap();
+    let decoded = crate::engine::package::props::read_props(&encoded).unwrap();
     assert_eq!(built.batches.len(), decoded.len());
     for (before, after) in built.batches.iter().zip(&decoded) {
         assert_eq!(before.model, after.model);
@@ -371,13 +378,13 @@ fn model_lightmap_coordinates_normals_and_shading_survive_package_roundtrip() {
         );
         assert_eq!(before.indices.len(), after.indices.len());
         for (&before_index, &after_index) in before.indices.iter().zip(&after.indices) {
-            let mut before_corner = crate::package::binary::Writer::new();
-            let mut after_corner = crate::package::binary::Writer::new();
-            crate::package::mesh::write_vertex(
+            let mut before_corner = crate::engine::package::binary::Writer::new();
+            let mut after_corner = crate::engine::package::binary::Writer::new();
+            crate::engine::package::mesh::write_vertex(
                 &mut before_corner,
                 &before.vertices[usize::from(before_index)],
             );
-            crate::package::mesh::write_vertex(
+            crate::engine::package::mesh::write_vertex(
                 &mut after_corner,
                 &after.vertices[usize::from(after_index)],
             );
@@ -391,10 +398,10 @@ fn model_lightmap_coordinates_normals_and_shading_survive_package_roundtrip() {
     }
     assert_eq!(
         encoded,
-        crate::package::props::write_props(&decoded).unwrap()
+        crate::engine::package::props::write_props(&decoded).unwrap()
     );
-    let (meta, pixels) = crate::package::lightmaps::write_lightmaps_precise(atlas).unwrap();
-    let decoded_atlas = crate::package::lightmaps::read_lightmaps(&meta, &pixels).unwrap();
+    let (meta, pixels) = crate::engine::package::lightmaps::write_lightmaps_precise(atlas).unwrap();
+    let decoded_atlas = crate::engine::package::lightmaps::read_lightmaps(&meta, &pixels).unwrap();
     assert_eq!(atlas.charts, decoded_atlas.charts);
     // Direct wgpu uploads also use RGBA16F. Compare the actual shader input,
     // not the higher-precision solve: grazing rock faces amplify cancellation.
@@ -411,7 +418,7 @@ fn model_lightmap_coordinates_normals_and_shading_survive_package_roundtrip() {
         assert_eq!(before.texels, after.texels, "every shader texel is exact");
     }
     let (_, roundtrip_pixels) =
-        crate::package::lightmaps::write_lightmaps_precise(&decoded_atlas).unwrap();
+        crate::engine::package::lightmaps::write_lightmaps_precise(&decoded_atlas).unwrap();
     assert_eq!(
         pixels, roundtrip_pixels,
         "half-float upload planes are exact"
@@ -513,15 +520,15 @@ fn legacy_low_and_repeated_medium_high_builds_keep_their_distinct_lighting_contr
 #[test]
 fn animated_sheet_ghosts_keep_probe_lighting_and_do_not_receive_static_atlas_coordinates() {
     let mut level = scene(STUMP, "", 2.0);
-    let ghost: crate::level::PropDef = serde_json::from_value(serde_json::json!({
+    let ghost: crate::engine::level::PropDef = serde_json::from_value(serde_json::json!({
         "id":"animated_ghost", "model":"sheet-ghost-cat", "x":5.5_f64, "z":3.0_f64
     }))
     .unwrap();
     level.props.push(ghost);
-    let root = crate::assets::resolve_asset_root().unwrap();
+    let root = crate::engine::assets::resolve_asset_root().unwrap();
     let catalog = PropCatalog::load_from_path(&root.join("catalog.json")).unwrap();
     let path = catalog.get("sheet-ghost-cat").model.unwrap();
-    let mut assets = crate::props::PropAssets::with_root(root);
+    let mut assets = crate::engine::props::PropAssets::with_root(root);
     let asset = assets.resolve(&path).unwrap();
     assert!(
         asset.model.skin.is_some() && !asset.model.animations.is_empty(),
@@ -537,37 +544,37 @@ fn animated_sheet_ghosts_keep_probe_lighting_and_do_not_receive_static_atlas_coo
     let source = scratch.join("receiver.json");
     let out = scratch.join("receiver.placesmap");
     std::fs::write(&source, serde_json::to_vec(&level).unwrap()).unwrap();
-    let request = crate::compiler::BuildRequest {
+    let request = crate::map_compiler::BuildRequest {
         source,
         out: out.clone(),
         asset_root: assets.root().unwrap().to_path_buf(),
-        variants: vec![crate::quality::LightmapQuality::Medium],
+        variants: vec![crate::engine::quality::LightmapQuality::Medium],
         workers: 2,
         force: true,
         capture_probes: false,
     };
-    let report = crate::compiler::build(&request).unwrap();
+    let report = crate::map_compiler::build(&request).unwrap();
     assert!(
         report.rebuilt && report.warnings.is_empty(),
         "{:?}",
         report.warnings
     );
-    let opened = crate::package::world::open(&out).unwrap();
-    let compiled = crate::package::world::load_variant(
+    let opened = crate::engine::package::world::open(&out).unwrap();
+    let compiled = crate::engine::package::world::load_variant(
         &out,
         &opened.manifest,
-        crate::quality::LightmapQuality::Medium,
+        crate::engine::quality::LightmapQuality::Medium,
         &mut assets,
     )
     .unwrap();
-    let dynamic = crate::render::entity_lighting(
+    let dynamic = crate::engine::render::entity_lighting(
         &compiled.lighting,
         compiled.irradiance.as_deref(),
         [5.5, 1.6, 4.0],
     );
     assert_eq!(
         dynamic.source,
-        crate::render::EntityLightingSource::Prepared
+        crate::engine::render::EntityLightingSource::Prepared
     );
     assert!(
         dynamic.prepared.is_some(),
@@ -684,7 +691,7 @@ fn authored_normal_triangle() -> Vec<u8> {
 
 #[test]
 fn valid_authored_model_normals_survive_nonuniform_node_transforms() {
-    let model = crate::gltf::parse_glb(&authored_normal_triangle()).unwrap();
+    let model = crate::engine::gltf::parse_glb(&authored_normal_triangle()).unwrap();
     let expected = Vec3::new(0.0, 1.0, -0.5).normalize();
     assert_eq!(model.vertices.len(), 3);
     for vertex in &model.vertices {
@@ -698,7 +705,9 @@ fn valid_authored_model_normals_survive_nonuniform_node_transforms() {
 
 #[test]
 fn thousands_of_model_charts_pack_deterministically_without_gutter_overlap_or_extra_page_budgets() {
-    use crate::lighting::lightmap::{ChartAllocator, LightmapConfig, LightmapPatch, PatchKind};
+    use crate::engine::lighting::lightmap::{
+        ChartAllocator, LightmapConfig, LightmapPatch, PatchKind,
+    };
 
     let config = LightmapConfig {
         texels_per_metre: 8.0,
@@ -800,11 +809,11 @@ fn thousands_of_model_charts_pack_deterministically_without_gutter_overlap_or_ex
 }
 
 fn assert_chart_gutters_disjoint(
-    config: &crate::lighting::lightmap::LightmapConfig,
+    config: &crate::engine::lighting::lightmap::LightmapConfig,
     pages: usize,
     charts: &[(
-        crate::lighting::lightmap::LightmapPatch,
-        crate::lighting::lightmap::Chart,
+        crate::engine::lighting::lightmap::LightmapPatch,
+        crate::engine::lighting::lightmap::Chart,
     )],
 ) {
     let edge = usize::try_from(config.page_edge).unwrap();
@@ -835,7 +844,7 @@ fn assert_chart_gutters_disjoint(
 #[test]
 fn adjacent_model_charts_assemble_with_their_own_single_texel_gutters_and_preserve_neighbor_colors()
 {
-    use crate::lighting::lightmap::{
+    use crate::engine::lighting::lightmap::{
         ChartAllocator, LightmapAtlas, LightmapConfig, LightmapPatch, PatchKind,
     };
     let config = LightmapConfig {
@@ -925,11 +934,11 @@ fn adjacent_model_charts_assemble_with_their_own_single_texel_gutters_and_preser
 }
 
 fn assert_assembled_chart_gutter(
-    config: &crate::lighting::lightmap::LightmapConfig,
-    patch: &crate::lighting::lightmap::LightmapPatch,
-    chart: &crate::lighting::lightmap::Chart,
+    config: &crate::engine::lighting::lightmap::LightmapConfig,
+    patch: &crate::engine::lighting::lightmap::LightmapPatch,
+    chart: &crate::engine::lighting::lightmap::Chart,
     data: &[LightmapTexel],
-    page: &crate::lighting::lightmap::LightmapPage,
+    page: &crate::engine::lighting::lightmap::LightmapPage,
     touched: &mut [bool],
 ) {
     let padding = config.padding_for(patch.kind);
@@ -953,11 +962,11 @@ fn assert_assembled_chart_gutter(
 
 fn assert_adjacent_model_reservations(
     charts: &[(
-        crate::lighting::lightmap::LightmapPatch,
-        crate::lighting::lightmap::Chart,
+        crate::engine::lighting::lightmap::LightmapPatch,
+        crate::engine::lighting::lightmap::Chart,
     )],
 ) {
-    use crate::lighting::lightmap::PatchKind;
+    use crate::engine::lighting::lightmap::PatchKind;
     // Require neighboring reservations to touch: a widely separated layout
     // would not detect accidentally dilating Prop charts with two texels.
     let props = charts
@@ -1002,7 +1011,7 @@ fn native_quad_point(corners: [[f32; 3]; 4], u: f32, v: f32) -> [f32; 3] {
 
 #[test]
 fn gable_trapezoid_chart_matches_native_triangle_interpolation_and_inverse() {
-    use crate::lighting::lightmap::{LightmapPatch, PatchKind};
+    use crate::engine::lighting::lightmap::{LightmapPatch, PatchKind};
     // The two actual cottage-1 left-wall loops. Before this correction their
     // bottom p2 receivers were 1.41037m above/below the real wall geometry.
     let real_walls = [
@@ -1046,7 +1055,7 @@ fn gable_trapezoid_chart_matches_native_triangle_interpolation_and_inverse() {
 
 #[test]
 fn folded_architecture_triangles_sample_only_real_geometry_and_preserve_kind() {
-    use crate::lighting::lightmap::{LightmapPatch, PatchKind};
+    use crate::engine::lighting::lightmap::{LightmapPatch, PatchKind};
     for kind in [PatchKind::Wall, PatchKind::Skirt, PatchKind::Prop] {
         let patch = LightmapPatch::from_quad(
             kind,
@@ -1111,8 +1120,8 @@ fn folded_architecture_triangles_sample_only_real_geometry_and_preserve_kind() {
 }
 
 /// A physical occluder and area-independent point source for edge comparisons.
-fn sloping_wall_shadow_scene() -> crate::lighting::transport::TransportScene {
-    use crate::lighting::transport::{
+fn sloping_wall_shadow_scene() -> crate::engine::lighting::transport::TransportScene {
+    use crate::engine::lighting::transport::{
         EmitterShape, TransportEmitter, TransportScene, TransportTriangle,
     };
     // A cabinet-shaped blocker interrupts the middle of the wall's light.
@@ -1141,7 +1150,7 @@ fn sloping_wall_shadow_scene() -> crate::lighting::transport::TransportScene {
             color: [1.0, 0.8, 0.6],
             intensity: 4.0,
             range: 12.0,
-            falloff: crate::lighting::LightFalloff::Smooth,
+            falloff: crate::engine::lighting::LightFalloff::Smooth,
             height_factor: 1.0,
             directional: false,
             switchable: None,
@@ -1152,8 +1161,8 @@ fn sloping_wall_shadow_scene() -> crate::lighting::transport::TransportScene {
 
 #[test]
 fn adjacent_sloping_wall_charts_match_one_continuous_surface_without_erasing_shadows() {
-    use crate::lighting::lightmap::{Chart, LightmapPatch, PatchKind};
-    use crate::lighting::transport::SolveOptions;
+    use crate::engine::lighting::lightmap::{Chart, LightmapPatch, PatchKind};
+    use crate::engine::lighting::transport::SolveOptions;
     let wall = |x0, x1, top0, top1| {
         LightmapPatch::from_quad(
             PatchKind::Wall,
@@ -1251,7 +1260,7 @@ fn adjacent_sloping_wall_charts_match_one_continuous_surface_without_erasing_sha
 
 #[test]
 fn emitted_gable_wall_vertices_bake_at_their_actual_world_positions() {
-    use crate::render::SurfaceKind;
+    use crate::engine::render::SurfaceKind;
     let level = LevelDef::from_json(
         r#"{"format_version":3,"id":"gable_chart_regression","name":"Gable chart regression",
         "spawn":{"x":-27,"z":3},"rooms":[{"x":-31.5,"z":0.8,"width":9,"depth":5.4,"height":2.7,
@@ -1260,9 +1269,9 @@ fn emitted_gable_wall_vertices_bake_at_their_actual_world_positions() {
     )
     .unwrap();
     let catalog = PropCatalog::builtin();
-    let mut assets = crate::props::PropAssets::default();
-    let materials = crate::render::logical_materials(&level);
-    let prepared = crate::render::prepare_level_geometry_with_lightmaps(
+    let mut assets = crate::engine::props::PropAssets::default();
+    let materials = crate::engine::render::logical_materials(&level);
+    let prepared = crate::engine::render::prepare_level_geometry_with_lightmaps(
         &level,
         &catalog,
         &mut assets,
@@ -1331,7 +1340,7 @@ fn emitted_gable_wall_vertices_bake_at_their_actual_world_positions() {
 
 #[test]
 fn strongly_tapered_planar_quads_are_valid_but_real_bowties_and_folded_planes_are_rejected() {
-    use crate::lighting::lightmap::{LightmapPatch, PatchKind, PatchRejection};
+    use crate::engine::lighting::lightmap::{LightmapPatch, PatchKind, PatchRejection};
     // This is the old incorrectly named bow-tie fixture: its winding is valid
     // and both triangles lie on the same plane, despite substantial taper.
     let corners = [

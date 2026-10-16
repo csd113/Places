@@ -14,9 +14,9 @@ it -- without renumbering any other instance.
 Run from the Places repository root:
 
     python3 tools/levels/build_model_zoo.py --out /tmp/zoo.json  # explicit fixture
-    python3 tools/levels/build_model_zoo.py --check         # verify it is current
-    python3 tools/levels/build_model_zoo.py --workers 8     # bounded inspection
-    python3 tools/levels/build_model_zoo.py --no-cache      # ignore the bounds cache
+    python3 tools/levels/build_model_zoo.py --out /tmp/zoo.json --check
+    python3 tools/levels/build_model_zoo.py --out /tmp/zoo.json --workers 8
+    python3 tools/levels/build_model_zoo.py --out /tmp/zoo.json --no-cache
 
 The expensive half is asset inspection: every model is parsed and its animation
 envelope is sampled, which is independent work per asset. ``--workers N`` (or
@@ -1419,7 +1419,7 @@ def build_level(catalog: Dict, inspections: Dict[str, Dict]) -> Dict:
     # A chair for the skeleton's chair pose, placed with the documented fit:
     # the chair is the anchor and the skeleton sits `dz = +0.0025 m` along the
     # chair's own facing, both at the same yaw (see
-    # assets/entities/skeleton/README.md).
+    # docs/assets/ENTITIES.md).
     chair_entry = by_id.get("core:chair")
     chair_sit = placed.get("skeleton:chair-sit")
     if chair_entry is not None and chair_sit is not None:
@@ -1620,7 +1620,7 @@ def serialise(level: Dict) -> str:
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true", help="verify the shipped zoo is current")
+    parser.add_argument("--check", action="store_true", help="verify the selected developer fixture is current")
     parser.add_argument("--workers", default=None, help="inspection worker count")
     parser.add_argument("--no-cache", action="store_true", help="ignore the bounds cache")
     parser.add_argument("--stats", action="store_true", help="print display coverage")

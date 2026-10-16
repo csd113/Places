@@ -23,9 +23,9 @@
     reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
-use crate::level::{FogRegionDef, LevelDef, MAX_FOG_REGIONS};
-use crate::quality::QualityLevel;
-use crate::render::{FogRegion, LevelFog};
+use crate::engine::level::{FogRegionDef, LevelDef, MAX_FOG_REGIONS};
+use crate::engine::quality::QualityLevel;
+use crate::engine::render::{FogRegion, LevelFog};
 
 /// The validation scene source, kept beside the other level fixtures.
 const VALIDATION_SCENE: &str = include_str!(concat!(
@@ -36,7 +36,7 @@ const VALIDATION_SCENE: &str = include_str!(concat!(
 /// Parses and validates the scene exactly as the loader would.
 fn scene() -> LevelDef {
     let level = LevelDef::from_json(VALIDATION_SCENE).expect("the validation scene parses");
-    crate::loader::validate_level(&level).expect("the validation scene validates");
+    crate::engine::loader::validate_level(&level).expect("the validation scene validates");
     level
 }
 
@@ -128,19 +128,19 @@ fn fog_void_validation_scene_round_trips_through_a_package() {
     let source = root.join("fog_void_validation.json");
     std::fs::write(&source, VALIDATION_SCENE).expect("write the source");
     let out = root.join("fog_void_validation.placesmap");
-    let request = crate::compiler::BuildRequest {
+    let request = crate::map_compiler::BuildRequest {
         source,
         out: out.clone(),
         asset_root: std::path::PathBuf::from("assets"),
-        variants: vec![crate::quality::LightmapQuality::Off],
+        variants: vec![crate::engine::quality::LightmapQuality::Off],
         workers: 1,
         force: true,
         capture_probes: false,
     };
-    drop(crate::compiler::build(&request).expect("the validation scene compiles offline"));
+    drop(crate::map_compiler::build(&request).expect("the validation scene compiles offline"));
     assert!(out.exists(), "the package was published");
 
-    let manager = crate::loader::LevelManager::with_paths(
+    let manager = crate::engine::loader::LevelManager::with_paths(
         root.join("assets/levels"),
         root.clone(),
         root.join("import"),

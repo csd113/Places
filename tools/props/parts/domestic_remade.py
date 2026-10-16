@@ -6,16 +6,14 @@ import math
 from pathlib import Path
 
 from geometry import inspect
-from parts.refreshed import load_atlas_from, padded_box, solid_box, solid_cylinder, outward_lathe, orient_outward
+from parts.refreshed import load_atlas_from, padded_box, solid_box, solid_cylinder, outward_lathe
 
 ROOT = Path(__file__).resolve().parents[3] / 'assets'
 WHITE = (255, 255, 255)
 
 
 def atlas(p, names):
-    folder = ('shared/props' if p.id in ('core:bed', 'core:couch') else
-              'environments/office/props' if p.id == 'core:chair' else
-              'environments/home/props')
+    folder = 'environments/home/props'
     return load_atlas_from(p, ROOT / folder / (p.id.split(':')[1] + '.png'), names)
 
 
@@ -109,66 +107,10 @@ def plate(p): china(p)
 def bowl(p): china(p,True)
 
 
-def couch(p):
-    t=atlas(p,('body','seat','back','wood'))
-    # Source wood cell also contains the old throw-pillow swatch; sample its wood half.
-    u,v,s,w=t.uv('wood', inset=1); wood=(u,v,s,(v+w)/2)
-    for x in (-.86,.86):
-        for z in (-.33,.33):
-            solid_cylinder(p,(x,0,z),.043,.15,segments=6,taper=.8,uv=wood,color=WHITE)
-    padded_box(p,(0,.235,0),(1.94,.23,.86),t.uv('body', inset=1),bevel=.025)
-    padded_box(p,(0,.62,-.345),(1.96,.56,.21),t.uv('body', inset=1),bevel=.038)
-    for x in (-.895,.895):
-        # Squared upholstered arms with a sloped leading edge, rather than tube rolls.
-        loft(p,[section(-.41,x,.475,.21,.44),section(.32,x,.455,.21,.40),
-                section(.45,x,.435,.19,.35)],t.uv('body', inset=1))
-    for x in (-.535,0,.535):
-        padded_box(p,(x,.40,.075),(.516,.16,.70),t.uv('seat', inset=1),bevel=.026)
-        padded_box(p,(x,.665,-.183),(.516,.39,.20),t.uv('back', inset=1),bevel=.032,rotation=(-9,0,0))
-    p.add_note('three-seat sofa; tapered feet, sloped upholstered arms, separate seat/back cushions')
 
 
-def bed(p):
-    t=atlas(p,('frame','mattress','linen','board'))
-    for x in (-.62,.62):
-        for z in (-.90,.90):
-            solid_box(p,(x,.09,z),(.09,.18,.09),uv=t.uv('frame', inset=1),color=WHITE)
-    for x in (-.665,.665):
-        padded_box(p,(x,.23,0),(.07,.22,2),t.uv('frame', inset=1),bevel=.008)
-    padded_box(p,(0,.325,-.965),(1.4,.45,.07),t.uv('board', inset=1),bevel=.009)
-    padded_box(p,(0,.225,.965),(1.4,.20,.07),t.uv('board', inset=1),bevel=.009)
-    padded_box(p,(0,.337,0),(1.30,.16,1.89),t.uv('mattress', inset=1),bevel=.023)
-    # Closed top and side folds wrap the mattress shoulders.
-    padded_box(p,(0,.436,.26),(1.27,.035,1.35),t.uv('linen', inset=1),bevel=.009)
-    for x in (-.643,.643):
-        padded_box(p,(x,.389,.26),(.025,.12,1.35),t.uv('linen', inset=1),bevel=.008)
-    padded_box(p,(0,.465,-.35),(1.26,.026,.15),t.uv('linen', inset=1),bevel=.009)
-    for x,angle in ((-.325,-3),(.325,3)):
-        padded_box(p,(x,.467,-.682),(.57,.09,.40),t.uv('mattress', inset=1),bevel=.034,rotation=(0,angle,0))
-    p.add_note('low bed: recessed feet, solid timber rails, bevelled mattress, folded blanket and pillows')
 
 
-def chair(p):
-    t=atlas(p,('shell','pad','metal','dark'))
-    for i in range(5):
-        angle=math.radians(i*72+90)
-        x,z=math.cos(angle)*.205,math.sin(angle)*.205
-        start = len(p.mesh.indices)
-        p.box((x/2,.068,z/2),(.031,.033,.205),uv=t.uv('metal', inset=1),color=WHITE,
-                  rotation=(0,90-math.degrees(angle),0))
-        orient_outward(p.mesh,start,(x/2,.068,z/2))
-        # Horizontal axle casters, not vertical cylinders.
-        solid_cylinder(p,(x-.017,.032,z),.032,.034,segments=8,axis='x',uv=t.uv('dark', inset=1),color=WHITE)
-    solid_cylinder(p,(0,.048,0),.041,.19,segments=8,uv=t.uv('dark', inset=1),color=WHITE)
-    solid_cylinder(p,(0,.22,0),.024,.19,segments=8,uv=t.uv('metal', inset=1),color=WHITE)
-    padded_box(p,(0,.405,.017),(.49,.048,.44),t.uv('shell', inset=1),bevel=.018)
-    # Rising rear edge and waterfall nose make the seat visibly moulded.
-    loft(p,[section(-.202,0,.463,.42,.052),section(-.11,0,.448,.45,.056),
-            section(.16,0,.451,.49,.058),section(.237,0,.430,.41,.041)],t.uv('pad', inset=1))
-    padded_box(p,(0,.593,-.183),(.055,.33,.042),t.uv('metal', inset=1),bevel=.008,rotation=(-8,0,0))
-    padded_box(p,(0,.744,-.199),(.43,.306,.065),t.uv('shell', inset=1),bevel=.022,rotation=(-5,0,0))
-    padded_box(p,(0,.740,-.155),(.389,.264,.055),t.uv('pad', inset=1),bevel=.023,rotation=(-5,0,0))
-    p.add_note('five-star office chair with horizontal casters, shaped waterfall seat and lumbar pad')
 
 
 def switch(p):

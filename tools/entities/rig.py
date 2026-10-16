@@ -3,7 +3,7 @@
 This is the entity sibling of ``tools/props/glb.py``. Props are static,
 single-node GLBs; entities are skinned characters with a real joint hierarchy
 and named animation clips, so they need a writer that emits the glTF 2.0 skin
-and animation structures the Rust loader (``src/gltf.rs``) reads:
+and animation structures the Rust loader (``src/engine/gltf.rs``) reads:
 
 * nodes with TRS locals (joints first, a dedicated mesh node last);
 * one skin: ``joints``, ``skeleton`` and ``inverseBindMatrices``;

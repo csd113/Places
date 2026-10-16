@@ -39,8 +39,8 @@ for 15 or 19 seconds, return along a path, then observe a cooldown. Raised
 cabinet plinths provide real clearance. Unreachable or newly blocked paths
 cannot make an insect disappear. The new reusable model has 480 triangles,
 25 joints and idle/walk/run clips; its opaque texture is a committed PNG.
-See the [cockroach](../../assets/entities/cockroach/README.md) and
-[mannequin](../../assets/entities/mannequin/README.md) maintenance notes.
+See the [cockroach](../assets/ENTITIES.md#cockroach) and
+[mannequin](../assets/ENTITIES.md#concrete-mannequin) maintenance notes.
 
 Generic AI additions provide bounded routes, authored shelters and named
 locomotion clips. The current compiled navigation grid represents one surface

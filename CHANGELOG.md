@@ -1,3 +1,110 @@
+## 0.11.0 — 2026-10-16
+
+Development staging; this version has not been published.
+
+### Source responsibilities
+
+- Separate reusable `src/engine/`, player/application/UI `src/game/`, and the
+  reusable `src/map_compiler/` within the existing crate. Keep executable names,
+  map/package formats, graphics and gameplay behavior, and empty-map startup.
+- Move the former `src/lib.rs` application into `src/game/app/`; the library
+  root now exports the three owners. Keep all binary entry points thin.
+- Move `src/compiler.rs` and its children, compiler CLI and GUI into
+  `src/map_compiler/`; move source preparation out of the loader and offline
+  navigation out of runtime queries. Legacy geometry commands dispatch from
+  the native entry point before game startup.
+- Merge duplicate rotated bounds math into `engine::spatial`; move neutral
+  locomotion inputs to `engine::scene`, key names to `engine::input` and worker
+  feedback to `engine::progress`. Game-owned labels/HUD consume shared queries
+  and counters. Engine code no longer imports gameplay or tool interfaces.
+- Preserve every Rust test for the separately scheduled post-renderer cleanup.
+  `zoo_audit.rs` and `showcase_audit.rs` currently contain small synthetic
+  regressions; live probe/lighting diagnostics remain developer tools.
+
+### Deleted obsolete files
+
+The following are real removals, distinct from the source moves above.
+
+Superseded model constructors and writers; accepted GLBs, PNGs and editable
+masters remain protected by the completed-model ledger:
+
+- `tools/props/parts/appliances.py`
+- `tools/props/parts/furniture.py`
+- `tools/props/parts/decor.py`
+- `tools/props/parts/office_refined.py`
+- `tools/props/parts/retro_arcade.py`
+- `tools/props/parts/pool.py`
+- `tools/props/parts/pool_remade.py`
+- `tools/props/parts/duck_remade.py`
+- `tools/props/author_arcade_restroom.py`
+- `tools/props/author_birthday_party.py`
+- `tools/props/refine_spooner_man.py`
+- `tools/entities/check_spooner_refinement.py`
+
+Obsolete experiments and capture scripts:
+
+- `examples/lightmap-storage.rs`: the compact codec is implemented and tested
+  in `engine::package`; this unused pilot duplicated it.
+- `tools/bench/capture_zoo.sh`: fixed retired-layout coordinates had no active
+  caller or package/backend evidence. Retain the explicit Zoo authoring tool.
+
+Consolidated documentation and duplicate artwork:
+
+- `assets/README.md` → `docs/assets/README.md`: one maintained asset index.
+- `assets/entities/cockroach/README.md` → `docs/assets/ENTITIES.md#cockroach`:
+  preserve rig, texture provenance and rebuild contracts in the entity profile.
+- `assets/entities/mannequin/README.md` →
+  `docs/assets/ENTITIES.md#concrete-mannequin`: retain current clip/maintenance
+  facts and remove obsolete rig counts.
+- `docs/reports/completed-pool-office.md` →
+  `docs/reports/pool-office-winter-model-integration.md`: merge unique acceptance
+  evidence into the final delivery report and remove completed queue advice.
+- `docs/reports/compiler-progress.md` → `docs/OFFLINE_TOOLING.md` and
+  `docs/reports/compiler-pipeline-audit-20261003.md`: separate maintained
+  progress/cancellation contracts from dated equivalence evidence.
+- `docs/reports/integration-provenance-20261007.md` →
+  `docs/style-upgrade-20261007/README.md`: retain provenance and acceptance
+  beside the visual-development record.
+- Root `icon.png` and byte-identical `logo.png` →
+  `assets/shared/branding/places.png`: one unchanged approved source for branding
+  and the README; no image conversion.
+
+### Retained code consolidation and tooling
+
+- `examples/package-repack.rs` → `tools/rust/package_repack/`: retain the used
+  repacker with a thin entry point. Use `cargo build --release --bin package-repack`
+  and `target/release/package-repack`; update the campaign caller.
+- `src/bin/places-physics-bench.rs` → thin entry point plus
+  `src/bin/physics_bench/mod.rs`: retain the independent physics campaign.
+- `tools/props/parts/decor.py` leaf helpers → `parts/tableware.py`: preserve the
+  six live helpers without carrying the discarded constructors.
+- Remove unbound `couch`, `bed`, `chair` constructors from `domestic_remade.py`
+  and duplicate knife/fork/spoon/plate/bowl constructors plus `_box` from
+  `tableware.py`. Remove unused signage imports instead of copying dead helpers.
+- `tools/assets/completed_models.py` shares lazy accepted-export validation,
+  loading once per command/worker while preserving custom-root/error behavior.
+- Share inline/sidecar physics and friction validation in `engine::assets`;
+  remove fourteen texture-budget cases already owned by the embedded ledger.
+- Keep `catalog.json`, `completed-models.json` and `gameplay.json` byte-identical:
+  identity, accepted-export provenance and physical policy remain separate.
+- Fix distribution staging to include `gameplay.json` with byte-exact packaging
+  assertions. Exclude authoring ledgers and non-runtime branding from payloads.
+- Keep all twelve Zoo tooling tests with small static/animated fixtures, replacing
+  full-catalog inspection. Remove one obsolete Python constructor-only test;
+  current export hashes, topology checks and seven maintained Home contracts stay.
+- Update CI, scripts, asset ownership docs and source links; trim the completed
+  pre-0.9 queue while preserving its unique renderer evidence. Retain fifty
+  frozen GLES2 references and their intentional comparison tools.
+
+### Verified change totals
+
+The committed patch changes 361 files: 244 renames, 13 new files,
+84 modified files and 20 real deletions, with 12,902 added and
+18,422 removed text lines (Git rename detection enabled). Moves are not
+counted as deleted files. See the [stage report](docs/reports/repository-reorganization-0.11.0.md).
+Ignored local cleanup separately removed 394 redundant/regenerable files
+(20,001,488 bytes); unique art, editable sources and release evidence remain.
+
 ## 0.10.0 — 2026-10-16
 
 This is a prerelease.

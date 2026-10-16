@@ -37,11 +37,11 @@ from mesh import PropBuilder  # noqa: E402
 
 # The shipped art budgets. These are deliberately tighter than the engine's
 # limits: the builder refuses to ship art over budget even though the runtime
-# accepts more. The engine ceilings live in src/level.rs
+# accepts more. The engine ceilings live in src/engine/level.rs
 # (PROP_TRIANGLE_BUDGET / PROP_TEXTURE_NATIVE_SIZE / MAX_PROP_TEXTURE_SIZE name
 # the same art budgets: 1500 triangles and a 256 px native texture; the engine
 # accepts 6000 triangles and 1024 px textures, downscaled at runtime). Mirrored
-# by the Rust budget suite (src/props/tests.rs).
+# by the Rust budget suite (src/engine/props/tests.rs).
 TRIANGLE_TARGET = 500
 TRIANGLE_REVIEW = 800
 TRIANGLE_ART_MAX = 1500
@@ -66,7 +66,9 @@ PLACEABLE_TYPES = ("prop", "entity")
 
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "assets"))
 from execution import ordered_map, worker_count, atomic_write
+from completed_models import CompletedModels
 
 
 def load_catalog() -> dict:
@@ -113,7 +115,7 @@ def _toolkit_authored(document: dict) -> bool:
     return isinstance(extras, dict) and extras.get("places_props_toolkit") == 1
 
 
-def blender_source(entry: dict) -> Optional[Path]:
+def blender_source(entry: dict, completed=None) -> Optional[Path]:
     """Resolve explicit Blender ownership without replacing its exported GLB.
 
     A catalog authoring record is offline metadata, independent of runtime
@@ -128,7 +130,8 @@ def blender_source(entry: dict) -> Optional[Path]:
         source = Path(ASSET_ROOT) / 'completed-models.json'
         if authoring.get('source') != source.name:
             raise SystemExit(f"{entry['id']}: invalid completed-model source")
-        review = json.loads(source.read_text()).get(entry['model'])
+        completed = completed if completed is not None else CompletedModels(ASSET_ROOT)
+        review = completed.get(entry['model'])
         if not review or hashlib.sha256(Path(model_path(entry)).read_bytes()).hexdigest() != review['sha256']:
             raise SystemExit(f"{entry['id']}: completed model differs from its accepted export")
         return source
@@ -265,7 +268,8 @@ def main(argv: List[str] | None = None) -> int:
     catalog = load_catalog()
     entries = catalog_placeables(catalog)
     registry = parts.collect()
-    maintained = {entry["id"] for entry in entries if blender_source(entry) is not None}
+    completed = CompletedModels(ASSET_ROOT)
+    maintained = {entry["id"] for entry in entries if blender_source(entry, completed) is not None}
 
     if not args.check and not args.report:
         buildable = [
@@ -331,8 +335,7 @@ def main(argv: List[str] | None = None) -> int:
                         f"{TEXTURE_DECODED_MAX}-byte per-texture ceiling"
                     )
                 else:
-                    reviews = json.loads((Path(ASSET_ROOT) / 'completed-models.json').read_text())
-                    native_max = reviews.get(entry['model'], {}).get('texture_edge') or (1024 if entry['id'].startswith('arcade:party_cloth_')
+                    native_max = completed.get(entry['model'], {}).get('texture_edge') or (1024 if entry['id'].startswith('arcade:party_cloth_')
                                   else 512 if entry['id'].startswith('arcade:party_gift_')
                                   else TEXTURE_NATIVE_MAX)
                     if width > native_max or height > native_max:

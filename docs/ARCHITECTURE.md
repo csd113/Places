@@ -1,10 +1,56 @@
 # Architecture
 
-Places is a Rust desktop game built from three cooperating parts: engine data,
-a renderer-neutral preparation layer, and one wgpu renderer, with SDL3 as the
-platform layer underneath. This document is the map: what each layer owns,
-which direction dependencies point, how a frame flows, and the invariants the
-layout protects.
+Places uses one Rust crate with three source owners: reusable `engine`, the
+`game` application, and the `map_compiler` tool. SDL3 supplies the native window
+and input layer; the shared renderer owns the GPU backend. This document records
+dependency direction, scene ownership, frame flow and the rules the source layout
+protects.
+
+### Application and shared-system boundaries
+
+```text
+src/main.rs -> game::run(args) ----------> engine
+       |                                    ^
+       +-> legacy geometry CLI              |
+src/bin/places-compile.rs -> map_compiler ---+
+```
+
+`src/lib.rs` exports these three modules. It contains no player loop. The
+existing `places`, `places-compile` and `places-physics-bench` executable names
+and command contracts remain available. Rust callers now use explicit
+`places::engine::*`, `places::game::*` and `places::map_compiler::*` paths;
+there is no parallel flat compatibility namespace.
+
+| Owner | Responsibilities |
+|---|---|
+| `engine/` | Authored scene schema and validation, asset/material resolution, compiled map records and decoding, rendering, physics, map-driven entity/AI/door runtime, targeting, spatial queries, quality values, native key names, telemetry and worker progress |
+| `game/` | Player movement and lifecycle, control bindings/settings, menus, developer console, world labels and performance HUD; `app/` owns the native frame loop and its loading, item, flashlight, console-input and acceptance-tool adapters |
+| `map_compiler/` | Public build/collection/verify/validate/inspect/export APIs, source preparation, geometry diagnostics, navigation bake, lighting/geometry/probe orchestration, package publication and CLI/GUI front ends |
+
+Production engine code imports neither game policy/UI nor Map Compiler
+orchestration. Shared CPU geometry and illumination kernels remain in the engine
+because they produce the same scene records consumed by its renderer. The Map
+Compiler chooses, schedules and publishes those operations. Its public `progress::Session`
+provides polled snapshots and cancellation; engine workers report through one
+neutral observer without importing terminal formatting or signal handling.
+
+`engine::level::LevelDef` owns the shared authored/semantic scene schema. Only
+`map_compiler::prepare_level` applies authored snapping and automatic trim before
+publication. `engine::package` owns binary layouts, integrity rules and decoded
+prepared records; the runtime loads those records without rebaking.
+`engine::package::collision::CompiledCollision` contains static samplers; the
+game's `CollisionWorld` adds its live entity runtime and recovery policy.
+`engine::scene::LocomotionSnapshot` carries animation inputs from simulation to
+presentation without making the renderer import the player. The engine owns
+shared counters, worker budgets and logging state; game drawing adapters consume
+them without creating duplicate globals.
+
+No editor exists in this stage. Under #18, an editor can own selection, panels,
+undo/redo and its document, use the engine schema/assets/renderer/physics, and
+call the same Map Compiler build/export APIs with progress and cancellation.
+It should not import the game frame loop or introduce a second renderer or bake
+implementation. Renderer resource ownership, synchronization and depth changes
+remain stage 2 (#16).
 
 - The renderer itself — lifecycle, passes, colour space, materials, lighting,
   reflections, quality levels and diagnostics — is documented in
@@ -15,7 +61,7 @@ layout protects.
 ## 1. Layers
 
 ```text
-level / world / gameplay / spatial / materials / lighting / camera
+level / world / scene / spatial / materials / lighting / camera
                          │  (engine data; no GPU types)
                          ▼
               render::common  —  renderer-neutral preparation
@@ -56,39 +102,39 @@ backend module that names it.
 
 | Path | Role | Layer |
 |---|---|---|
-| `src/render.rs` | Module root and public facade surface; no GPU API | preparation |
-| `src/render/facade.rs` | `Renderer`: owns the wgpu renderer and exposes the engine's operations | facade |
-| `src/render/common/mod.rs` | Emitters and level-build helpers (`tiled_uv`, wall/floor emitters, decal quads, `MaterialLookup`) | preparation |
-| `src/render/common/api.rs` | `build_level_geometry*` entry points and lighting/atlas build | preparation |
-| `src/render/common/mesh.rs` | `Vertex`, `LevelMesh`, chunk packing, unit quantisation | preparation (CPU layout) |
-| `src/render/common/geometry.rs`, `architecture.rs`, `fixtures.rs`, `props.rs`, `character.rs`, `water.rs`, `decals.rs`, `dynamic.rs`, `doors.rs`, `effects.rs`, `animation.rs`, `atmosphere.rs` | Geometry emission, prop instancing, skinned-character posing, water surfaces, decals, dynamic objects, code-built door models, the bounded steam plume model, emission animation, fog; the shared decal constants | preparation |
-| `src/render/common/view.rs` | `DrawableSize`, `UiViewport`, FOV and viewport maths, value-only budgets | preparation |
-| `src/render/common/camera.rs` | `RenderCamera` and its view-projection/frustum | preparation |
-| `src/render/common/materials.rs` | `MaterialRenderState`, `BatchPass`, `EmissionRouting`, resolved surface materials | preparation |
-| `src/render/common/reflections.rs` | Routing, planes, mirror maths, plane/probe selection | preparation |
-| `src/render/common/postprocess.rs` | `PostSettings`, `bloom_target_size` | preparation |
-| `src/render/common/framebuffer.rs` | `scene_target_size` | preparation |
-| `src/render/common/stats.rs` | `LevelBuildStats`, `RenderStats` | preparation |
-| `src/render/wgpu/renderer.rs` | `WgpuRenderer`: instance/surface/device/queue, depth target, level upload, frame graph, passes, lifecycle | backend |
-| `src/render/wgpu/readback.rs` | Shared aligned staging, mapping and row compaction for RGBA8 frame and RGBA16F probe captures | backend |
-| `src/render/wgpu/surface.rs` | SDL3 raw-window-handle surface creation, backend policy, format/present/depth/clear policy, recovery table | backend |
-| `src/render/wgpu/world.rs` | World geometry and passes: GPU vertex (lightmap attributes), clip correction, pack/upload, camera uniform, world pipelines, per-draw texture and material selection, translucent ordering, emissive variants | backend |
-| `src/render/wgpu/texture.rs` | Texture system: semantic keys, GPU uploads, CPU mip chains, shared samplers, fallback, renderer-owned cache, clamped fitted-sheet path | backend |
-| `src/render/wgpu/material.rs` | Material system: material uniform/layout, identity cache, normal-map and emission-mask resolution, per-draw material slots, per-frame reflection modes and animation scales | backend |
-| `src/render/wgpu/lightmap.rs` | Lightmap atlas: prepared HDR page pairs as `Rgba16Float` layers (irradiance + direction moment, alphas reserved) with the white fallback | backend |
-| `src/render/wgpu/environment.rs` | Group-3 environment: baked-light switch and scale, fog, atlas pages, probe cubemap(s) and planar image, per-probe bind groups and the capture fallbacks | backend |
-| `src/render/wgpu/reflections.rs` | Reflections: probe cubemaps with offline-prefiltered roughness chains (face convention), planar target, capture maths and the GPU round-trip orientation test | backend |
-| `src/render/common/probe_filter.rs` | Offline cone prefilter for captured cubemaps (level roughness `L / (levels - 1)`) | preparation |
-| `src/render/common/light_transport.rs` | Builds the transport scene from the prepared mesh, props and materials, and lists a level's switchable fixtures | preparation |
-| `src/render/wgpu/props.rs` | Props: neutral prop batches as GPU buffers, clamped model sheets and plain-opaque emission materials | backend |
-| `src/render/wgpu/dynamic.rs` | Dynamics: model-space meshes and per-object environments carrying `u_model` and the baked-light probe | backend |
-| `src/render/wgpu/effects.rs`, `effects.wgsl` | Ambient effects: pre-sized steam billboard buffers, one draw per distinct effect material, straight-alpha blending with depth writes off | backend |
-| `src/render/wgpu/character.rs` | Characters: shared index buffers, one mutable CPU-skinned vertex buffer and environment per character, plain-opaque submesh materials | backend |
-| `src/render/wgpu/decals.rs`, `decals.wgsl` | Decals: generated atlas and external sheets, the depth-biased pass and its cut-out fragment | backend |
-| `src/render/wgpu/postprocess.rs`, `post.wgsl` | Post: raw scene/presented targets, shared-depth emissive pass, two-pass blur, resolve/present copy | backend |
-| `src/render/wgpu/ui.rs`, `ui.wgsl` | HUD: the 480x272 reference UI pass over the presented image | backend |
-| `src/render/wgpu/world.wgsl` | The world shader: position -> clip, base-colour sample by UV, material colour, material normal, alpha, cut-out, lightmap atlas, sheen, reflections, emission, fog, raw/sRGB entry points | backend |
-| `src/render/tests.rs`, `boundary_tests.rs` | In-crate tests; the boundary scans live here | test-only |
+| `src/engine/render.rs` | Module root and public facade surface; no GPU API | preparation |
+| `src/engine/render/facade.rs` | `Renderer`: owns the wgpu renderer and exposes the engine's operations | facade |
+| `src/engine/render/common/mod.rs` | Emitters and level-build helpers (`tiled_uv`, wall/floor emitters, decal quads, `MaterialLookup`) | preparation |
+| `src/engine/render/common/api.rs` | `build_level_geometry*` entry points and lighting/atlas build | preparation |
+| `src/engine/render/common/mesh.rs` | `Vertex`, `LevelMesh`, chunk packing, unit quantisation | preparation (CPU layout) |
+| `src/engine/render/common/geometry.rs`, `architecture.rs`, `fixtures.rs`, `props.rs`, `character.rs`, `water.rs`, `decals.rs`, `dynamic.rs`, `doors.rs`, `effects.rs`, `animation.rs`, `atmosphere.rs` | Geometry emission, prop instancing, skinned-character posing, water surfaces, decals, dynamic objects, code-built door models, the bounded steam plume model, emission animation, fog; the shared decal constants | preparation |
+| `src/engine/render/common/view.rs` | `DrawableSize`, `UiViewport`, FOV and viewport maths, value-only budgets | preparation |
+| `src/engine/render/common/camera.rs` | `RenderCamera` and its view-projection/frustum | preparation |
+| `src/engine/render/common/materials.rs` | `MaterialRenderState`, `BatchPass`, `EmissionRouting`, resolved surface materials | preparation |
+| `src/engine/render/common/reflections.rs` | Routing, planes, mirror maths, plane/probe selection | preparation |
+| `src/engine/render/common/postprocess.rs` | `PostSettings`, `bloom_target_size` | preparation |
+| `src/engine/render/common/framebuffer.rs` | `scene_target_size` | preparation |
+| `src/engine/render/common/stats.rs` | `LevelBuildStats`, `RenderStats` | preparation |
+| `src/engine/render/wgpu/renderer.rs` | `WgpuRenderer`: instance/surface/device/queue, depth target, level upload, frame graph, passes, lifecycle | backend |
+| `src/engine/render/wgpu/readback.rs` | Shared aligned staging, mapping and row compaction for RGBA8 frame and RGBA16F probe captures | backend |
+| `src/engine/render/wgpu/surface.rs` | SDL3 raw-window-handle surface creation, backend policy, format/present/depth/clear policy, recovery table | backend |
+| `src/engine/render/wgpu/world.rs` | World geometry and passes: GPU vertex (lightmap attributes), clip correction, pack/upload, camera uniform, world pipelines, per-draw texture and material selection, translucent ordering, emissive variants | backend |
+| `src/engine/render/wgpu/texture.rs` | Texture system: semantic keys, GPU uploads, CPU mip chains, shared samplers, fallback, renderer-owned cache, clamped fitted-sheet path | backend |
+| `src/engine/render/wgpu/material.rs` | Material system: material uniform/layout, identity cache, normal-map and emission-mask resolution, per-draw material slots, per-frame reflection modes and animation scales | backend |
+| `src/engine/render/wgpu/lightmap.rs` | Lightmap atlas: prepared HDR page pairs as `Rgba16Float` layers (irradiance + direction moment, alphas reserved) with the white fallback | backend |
+| `src/engine/render/wgpu/environment.rs` | Group-3 environment: baked-light switch and scale, fog, atlas pages, probe cubemap(s) and planar image, per-probe bind groups and the capture fallbacks | backend |
+| `src/engine/render/wgpu/reflections.rs` | Reflections: probe cubemaps with offline-prefiltered roughness chains (face convention), planar target, capture maths and the GPU round-trip orientation test | backend |
+| `src/engine/render/common/probe_filter.rs` | Offline cone prefilter for captured cubemaps (level roughness `L / (levels - 1)`) | preparation |
+| `src/engine/render/common/light_transport.rs` | Builds the transport scene from the prepared mesh, props and materials, and lists a level's switchable fixtures | preparation |
+| `src/engine/render/wgpu/props.rs` | Props: neutral prop batches as GPU buffers, clamped model sheets and plain-opaque emission materials | backend |
+| `src/engine/render/wgpu/dynamic.rs` | Dynamics: model-space meshes and per-object environments carrying `u_model` and the baked-light probe | backend |
+| `src/engine/render/wgpu/effects.rs`, `effects.wgsl` | Ambient effects: pre-sized steam billboard buffers, one draw per distinct effect material, straight-alpha blending with depth writes off | backend |
+| `src/engine/render/wgpu/character.rs` | Characters: shared index buffers, one mutable CPU-skinned vertex buffer and environment per character, plain-opaque submesh materials | backend |
+| `src/engine/render/wgpu/decals.rs`, `decals.wgsl` | Decals: generated atlas and external sheets, the depth-biased pass and its cut-out fragment | backend |
+| `src/engine/render/wgpu/postprocess.rs`, `post.wgsl` | Post: raw scene/presented targets, shared-depth emissive pass, two-pass blur, resolve/present copy | backend |
+| `src/engine/render/wgpu/ui.rs`, `ui.wgsl` | HUD: the 480x272 reference UI pass over the presented image | backend |
+| `src/engine/render/wgpu/world.wgsl` | The world shader: position -> clip, base-colour sample by UV, material colour, material normal, alpha, cut-out, lightmap atlas, sheen, reflections, emission, fog, raw/sRGB entry points | backend |
+| `src/engine/render/tests.rs`, `boundary_tests.rs` | In-crate tests; the boundary scans live here | test-only |
 
 ### Engine modules and content
 
@@ -97,32 +143,35 @@ where the bytes live:
 
 | Path | Purpose |
 |---|---|
-| `src/assets.rs` | The catalog: logical ids, classes, themes, resource paths, size policy |
-| `src/level.rs` | The authored level schema (format 3): geometry rules, the walkable floor, water volumes, ladders, doors, effects, trigger volumes, timers, sequences, spawns, components/events and the typed action/condition vocabulary |
-| `src/entities/` | The component-oriented entity runtime: generational identity (`id.rs`), typed component tables (`components.rs`), the bounded event queue and condition evaluation (`events.rs`), simulation-time timers (`timers.rs`), data-driven sequences (`sequences.rs`), spawn templates/points/groups (`spawn.rs`) and the world that owns doors, aiming, routes, lights, volumes, events, sequences and spawns (`mod.rs`) |
-| `src/loader.rs` | Level discovery, validation (every component, binding, action, condition, sequence, timer, spawn and navigation actor record), material resolution |
-| `src/nav/` | Navigation: the offline bake (`bake.rs`, compiler-only) and the runtime mesh (`query.rs`: nearest/path/segment queries over the baked grid, door portals, region statistics). `mod.rs` owns the agent profile and the live door-state trait |
-| `src/ai/` | The shared AI framework: typed `AiDef` behaviors, `AiWorld` (state machine, staggered sight from real collision and hearing from gameplay stimuli, navigation-assisted flee/pursue/catch) and the locomotion/animation bridge (`movement.rs`, `perception.rs`) |
-| `src/loading.rs` | One bounded preparation worker: the level's assets and its compiled variant are read concurrently, with request cancellation and an immutable decoded-variant cache |
-| `src/package/` | The compiled map format: manifest, bounded ZIP access, binary records, KTX2 payloads, the player-side package loader |
-| `src/compiler.rs` | The offline compiler: source validation, static preparation, probe capture, atomic package publication (`places-compile` only) |
-| `src/compiler/storage.rs` | Exact prop factoring and compressed archive sizing; selection preserves the existing record stream | compiler |
-| `src/lighting/` | The vertex-lit CPU bake (partition areas, baselines, fixture pools, box visibility) plus the prepared path: `transport.rs` (BVH, direct sampling, ray-traced bounces), `probes.rs` (the moving-object field), `lightmap/` (planning, HDR pages, content key) - compiler and audits only |
-| `src/materials/` | PNG decode, session texture cache, material and decal resolution |
-| `src/spatial/` | The spatial cell grid the batching and frustum culling share |
-| `src/collision_index.rs` | The uniform X/Z grid over the level's solid boxes, shared by movement, support, headroom, entity routes, interaction targeting, label occlusion and route validation (allocation-free queries, exact linear fallback) |
-| `src/geometry_check.rs` | The read-only map geometry checker CLI (`--check-geometry`) and its fixture suite |
+| `src/engine/assets.rs` | The catalog: logical ids, classes, themes, resource paths, size policy |
+| `src/engine/level.rs` | The authored level schema (format 3): geometry rules, the walkable floor, water volumes, ladders, doors, effects, trigger volumes, timers, sequences, spawns, components/events and the typed action/condition vocabulary |
+| `src/engine/entities/` | The component-oriented entity runtime: generational identity (`id.rs`), typed component tables (`components.rs`), the bounded event queue and condition evaluation (`events.rs`), simulation-time timers (`timers.rs`), data-driven sequences (`sequences.rs`), spawn templates/points/groups (`spawn.rs`) and the world that owns doors, aiming, routes, lights, volumes, events, sequences and spawns (`mod.rs`) |
+| `src/engine/loader.rs` | Level discovery, validation (every component, binding, action, condition, sequence, timer, spawn and navigation actor record), material resolution |
+| `src/engine/nav/` | Navigation: shared movement rules and the runtime mesh (`query.rs`: nearest/path/segment queries over the baked grid, door portals, region statistics). `mod.rs` owns the agent profile and the live door-state trait |
+| `src/engine/ai/` | The shared AI framework: typed `AiDef` behaviors, `AiWorld` (state machine, staggered sight from real collision and hearing from gameplay stimuli, navigation-assisted flee/pursue/catch) and the locomotion/animation bridge (`movement.rs`, `perception.rs`) |
+| `src/game/app/loading.rs` | One bounded preparation worker: the level's assets and its compiled variant are read concurrently, with request cancellation and an immutable decoded-variant cache |
+| `src/engine/package/` | The compiled map format: manifest, bounded ZIP access, binary records, KTX2 payloads, the player-side package loader |
+| `src/map_compiler/mod.rs` | The offline compiler: source validation, static preparation, probe capture, atomic package publication (`places-compile` only) |
+| `src/map_compiler/source.rs`, `navigation.rs` | Authoring preparation and offline navigation derivation |
+| `src/map_compiler/application.rs`, `gui.rs` | Command-line coordination and the retained native Map Compiler GUI |
+| `src/map_compiler/storage.rs` | Exact prop factoring and compressed archive sizing; selection preserves the existing record stream |
+| `src/engine/lighting/` | The vertex-lit CPU bake (partition areas, baselines, fixture pools, box visibility) plus the prepared path: `transport.rs` (BVH, direct sampling, ray-traced bounces), `probes.rs` (the moving-object field), `lightmap/` (planning, HDR pages, content key); the Map Compiler invokes offline solves, runtime uses decoded lighting/query data |
+| `src/engine/materials/` | PNG decode, session texture cache, material and decal resolution |
+| `src/engine/spatial.rs` | The spatial cell grid the batching and frustum culling share |
+| `src/engine/collision_index.rs` | The uniform X/Z grid over the level's solid boxes, shared by movement, support, headroom, entity routes, interaction targeting, label occlusion and route validation (allocation-free queries, exact linear fallback) |
+| `src/map_compiler/geometry_check.rs` | The read-only map geometry checker CLI (`--check-geometry`) and its fixture suite |
 | `src/zoo_audit.rs` | The test-only contracts for the generated Model Zoo and the capacity fixtures |
-| `src/game/`, `src/game.rs` | Player state, movement, stance, ladders, swimming and the world tick; the entity runtime owns the map's objects, events, sequences and spawns |
-| `src/door.rs` | Door runtimes: the closed/opening/open/closing phase machine, the `locked` state, current angle and collider pose, the id→index map, and per-level reset/advance |
-| `src/interact.rs` | Interaction targeting (ray/reach/occlusion), the aiming table derived from `interactable` components, door aim bounds and the world-anchored label/prompt emission |
-| `src/ui.rs` | The menu, level select and settings screens |
-| `src/flashlight.rs` | Player power state, camera attachment with shared visibility retraction, and completed-frame light observations |
-| `src/render/wgpu/flashlight.rs`, `attached_lights.wgsl` | Bounded handheld visibility target and shared attached-light shader used by world/decals; existing meshes/pipeline own submission |
-| `src/console/` | Opt-in developer console: typed registry/parser, bounded session state, cached native text UI, SDL focus ownership and runtime command dispatch |
+| `src/game/`, `src/game/mod.rs` | Player state, movement, stance, ladders, swimming and the world tick; the entity runtime owns the map's objects, events, sequences and spawns |
+| `src/engine/door.rs` | Door runtimes: the closed/opening/open/closing phase machine, the `locked` state, current angle and collider pose, the id→index map, and per-level reset/advance |
+| `src/engine/interact.rs` | Interaction targeting (ray/reach/occlusion), the aiming table derived from `interactable` components, door aim bounds; game-owned labels consume these targeting queries |
+| `src/game/world_labels.rs`, `perf_overlay.rs` | World prompts and cached performance HUD drawing over shared engine data |
+| `src/game/ui.rs` | The menu, level select and settings screens |
+| `src/game/app/flashlight.rs` | Player power state, camera attachment with shared visibility retraction, and completed-frame light observations |
+| `src/engine/render/wgpu/flashlight.rs`, `attached_lights.wgsl` | Bounded handheld visibility target and shared attached-light shader used by world/decals; existing meshes/pipeline own submission |
+| `src/game/console/` | Opt-in developer console: typed registry/parser, bounded session state, cached native text UI, SDL focus ownership and runtime command dispatch |
 | `src/game/developer.rs` | Noclip flight, validated walking recovery and conservative rigid-prop placement |
-| `src/physics/` | Rapier rigid-body world, shared metre/second gravity, strict authored profiles, dormant authored poses with explicit/pickup/active-impact activation, fixed-step interpolation, primitive/convex/compound colliders, reusable activation/reset groups collision-aware carrying and bounded supported-pose escape recovery. Pair-based solved-impulse onsets are exposed for future presentation; no sound layer lives here. Player movement remains in `game` |
-| `src/item_runtime.rs` | Small native-loop adapter owning the visited world's physical items; installs authored props dormant, publishes poses to cached renderer objects and routes activation/reset/pickup/drop. Graphics rebuilds retain dormant/active/held state; world replacement restores authored starting state |
+| `src/engine/physics/` | Rapier rigid-body world, shared metre/second gravity, strict authored profiles, dormant authored poses with explicit/pickup/active-impact activation, fixed-step interpolation, primitive/convex/compound colliders, reusable activation/reset groups collision-aware carrying and bounded supported-pose escape recovery. Pair-based solved-impulse onsets are exposed for future presentation; no sound layer lives here. Player movement remains in `game` |
+| `src/game/app/item_runtime.rs` | Small native-loop adapter owning the visited world's physical items; installs authored props dormant, publishes poses to cached renderer objects and routes activation/reset/pickup/drop. Graphics rebuilds retain dormant/active/held state; world replacement restores authored starting state |
 | `assets/catalog.json` | The authoritative registry mapping every logical id to a file, material or generated resource |
 | `assets/gameplay.json` | Strict optional catalog-id-keyed runtime physics/ground-friction overrides. Contains no visual overrides and leaves prepared render-package catalog provenance intact |
 | `assets/environments/**`, `assets/shared/**`, `assets/entities/**` | Shipped surfaces, decals, fixture faces, props and entity models (PNG/GLB) |
@@ -133,20 +182,20 @@ where the bytes live:
 | `cache/` | Tooling cache: the Model Zoo generator stores model bounds and clip inspection results here; the player never creates it |
 | `tools/` | Deterministic asset, texture, prop and level generators and validators, including `tools/levels/build_model_zoo.py` (the catalog-driven zoo generator) and `tools/levels/build_capacity_fixtures.py` |
 
-The bake lives in `src/lighting/`; the renderer never computes light. The
+The bake lives in `src/engine/lighting/`; the renderer never computes light. The
 renderer-neutral build in `render::common` converts the engine's `LoadedLevel`
 into CPU geometry, draw state and camera data; the backend converts that into
 GPU resources at upload time.
 
 ## 3. Ownership rules and the renderer-neutral boundary
 
-The rules are enforced by `src/render/boundary_tests.rs`, which scans the
+The rules are enforced by `src/engine/render/boundary_tests.rs`, which scans the
 repository sources:
 
 1. **Only `render::wgpu` and the facade name the wgpu API.** `wgpu::` may
-   appear in `src/render/wgpu/**`, `src/render/facade.rs`, `src/render.rs` and
+   appear in `src/engine/render/wgpu/**`, `src/engine/render/facade.rs`, `src/engine/render.rs` and
    the in-crate test suite; nowhere else.
-2. **The engine bootstrap makes no platform GPU calls.** `main` builds a plain
+2. **The engine bootstrap makes no platform GPU calls.** the game application builds a plain
    window and hands it to the facade; it never calls a GL or Metal window API
    itself.
 3. **Nothing outside `render` imports the backend.** Engine modules use
@@ -170,7 +219,7 @@ None of these contains a GPU handle; none is constructed by the backend.
 ### Entity identity, components, events and sequences
 
 Every authored object is one entity with a stable authored id. The runtime half
-lives in `src/entities/`:
+lives in `src/engine/entities/`:
 
 - **Identity is per placed instance, never per model.** `LevelDef` resolves
   each prop's `id` (authored, else deterministic `<model-short>_<n>`), and
@@ -187,7 +236,7 @@ lives in `src/entities/`:
   `interactable`, `animation`, `audio`, `light`, `material`, `state`,
   `lifetime`, `steam`, `water`, `nav_agent`, `nav_obstacle` or `ai` components
   plus its `transform`, `renderable` and `collider` where they apply. Storage is one
-  sparse table per component kind (`src/entities/components.rs`), iterated by
+  sparse table per component kind (`src/engine/entities/components.rs`), iterated by
   kind and never scanned per frame in full; a static prop's geometry, collider
   and bake stay compiled into the prepared world, and only runtime entities
   (doors, floating props, spawned instances, routed characters) own live
@@ -218,25 +267,25 @@ lives in `src/entities/`:
   fixture; every other light is static, and validation rejects a switchable
   light anywhere but a fixture. There is no per-switch shader branch and no
   runtime rebake.
-- **Sequences** (`src/entities/sequences.rs`) are authored resources: ordered
+- **Sequences** (`src/engine/entities/sequences.rs`) are authored resources: ordered
   `action`, `wait`, `move`, `face`, `wait_animation`, `emit`, `set_state` and
   `stop` steps that share the ordinary action pipeline. A sequence runs on one
   entity (the controller); starting a second replaces the first, despawning
   the owner or the map cancels it, `wait_animation` is bounded by its timeout,
   and completion emits `sequence_complete` exactly once. Movement respects the
   same collision world as the player and the authored entity routes.
-- **Spawns** (`src/entities/spawn.rs`) are typed prefabs: a template names a
+- **Spawns** (`src/engine/entities/spawn.rs`) are typed prefabs: a template names a
   model, a scale, an optional lifetime and the components and bindings the
   instance is born with; a point says where it appears; a group with
   `at_most_one_active` is the reusable encounter rule. Adding a member while
   one lives is refused with a diagnostic, despawn (lifetime, action or reset)
   releases the group, and a spawn becomes visible on the frame it is requested
   because the frame loop drains the spawn commands before it draws.
-- **Doors** (`src/door.rs`) keep the phase machine, the obstruction policy and
+- **Doors** (`src/engine/door.rs`) keep the phase machine, the obstruction policy and
   the collider derived from the live angle; a door's `locked` state is on the
   runtime, `open`/`close`/`toggle`/`lock`/`unlock` drive it, and
   `EntityWorld::door_blockers()` publishes the id, passability and collider.
-  `src/render/common/doors.rs` builds the visuals as two models: the static
+  `src/engine/render/common/doors.rs` builds the visuals as two models: the static
   frame (a reveal liner through the wall tunnel the leaf is installed in, its
   stop lip, a casing on each end face and the hinge furniture) and the moving
   leaf (a panelled or sauna glass build), each submesh sampling its own material
@@ -244,7 +293,7 @@ lives in `src/entities/`:
   Navigation reads the same state through door **portals** in the baked mesh, so
   a closed door blocks a route and opening it invalidates cached paths without
   ever rebaking the mesh.
-- **Navigation and AI** (`src/nav/`, `src/ai/`) are one shared system. The
+- **Navigation and AI** (`src/engine/nav/`, `src/engine/ai/`) are one shared system. The
   compiler bakes one cell mesh per map: a class per distinct `nav_agent` body
   (clearance, headroom, step and slope evaluated at bake time), connected region
   labels, and a portal per door leaf. `EntityWorld` owns the `AiWorld`; on each
@@ -266,17 +315,17 @@ lives in `src/entities/`:
   stopped, every light restored to its authored state, every state bag
   restored to its authored values, and every volume baseline from the new
   position.
-- **Presentation** is `interact::append_world_labels(vertices, game, camera,
+- **Presentation** is `game::world_labels::append_world_labels(vertices, game, camera,
   drawable)`: world anchors projected into the 480x272 reference space and
   drawn with the existing `ui::draw_text`/`render_ui` pipeline. Labels respect
   occlusion through `collision::ray_aabb_entry`; there is no second text
   renderer.
 
-`src/settings.rs` owns the persisted player configuration and the runtime
+`src/game/settings.rs` owns the persisted player configuration and the runtime
 settings model. Texture Quality (Low / Medium / High) sets image/scene budgets
 and the matching filtering preference. Lighting independently selects Static or
 Full; reflections, Bloom and VSync retain independent preferences. Static
-suppresses reflection resources while preserving the preference for Full. `main` reads the
+suppresses reflection resources while preserving the preference for Full. the game application reads the
 effective values (session-only `PLACES_*` startup overrides folded in) and
 hands them to the renderer; see [RENDERER.md](RENDERER.md) §12 for the mapping
 and §13 for the startup switches.
@@ -374,7 +423,7 @@ installed asset bundle, decodes the requested quality variant's records
 captures), builds collision and character playback state, and hands the frame
 loop a world to install. It never emits geometry, bakes light, plans charts,
 fills an atlas, captures a probe or derives static collision: that is the
-offline compiler's work (`src/compiler.rs`, the `places-compile` binary).
+offline compiler's work (`src/map_compiler/mod.rs`, the `places-compile` binary).
 
 Requests carry generations; superseded work is cancelled cooperatively and
 cannot commit. The event loop polls completion without joining the worker and
@@ -519,7 +568,7 @@ a plain `video.window(...)` and no renderer-specific window setup exists.
   alive. Lost surfaces are recreated from that same retained window.
 - The two `unsafe` operations needed by the raw-window-handle surface path
   (handle extraction and `create_surface_unsafe`) are confined to one
-  `unsafe fn` in `src/render/wgpu/surface.rs`, with a written `SAFETY`
+  `unsafe fn` in `src/engine/render/wgpu/surface.rs`, with a written `SAFETY`
   argument. There are no transmutes, no faked `'static` in the type system (the
   surface type is `Surface<'static>` by the raw-handle API's contract, upheld
   by the drop order above), no leaked window and no reliance on undocumented

@@ -14,10 +14,10 @@ from mesh import PropBuilder
 
 BuildFn = Callable[[PropBuilder], None]
 
-MODULES = ("furniture", "appliances", "utility", "decor", "pool", "home",
+MODULES = ("utility", "home",
            "signage", "tableware", "outdoor_ground", "outdoor_props",
            "outdoor_kit", "outdoor_remade", "showcase", "winter", "winter_village", "string_lights",
-           "beach_nature", "beach_structures", "frutiger_aero", "retro_arcade", "ceiling_diffuser")
+           "beach_nature", "beach_structures", "frutiger_aero", "ceiling_diffuser")
 
 
 def collect() -> Dict[str, BuildFn]:
@@ -29,8 +29,7 @@ def collect() -> Dict[str, BuildFn]:
         except ImportError as error:  # pragma: no cover - developer feedback
             raise ImportError(
                 f"prop part module parts/{module_name}.py is missing ({error}); "
-                "the pack expects the furniture, appliances, utility, decor, pool, "
-                "home, signage, tableware, outdoor_ground and outdoor_props modules"
+                f"registered modules: {', '.join(MODULES)}"
             ) from error
         props = getattr(module, "PROPS", {})
         for prop_id, build in props.items():

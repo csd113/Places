@@ -33,7 +33,7 @@ pub(super) fn export_fixture(source: &str, feet: Vec3, walls: &[WallAabb]) {
     ));
     let identity = serde_json::to_vec(&serde_json::json!([definition, feet.to_array()]))
         .expect("fixture identity");
-    let suffix: String = crate::package::hash::sha256_hex(&identity)
+    let suffix: String = crate::engine::package::hash::sha256_hex(&identity)
         .chars()
         .take(12)
         .collect();
@@ -456,7 +456,7 @@ fn ledge_departure_and_fall_distance_are_equivalent_across_frame_rates() {
             "{label}: gravity {velocity}"
         );
     }
-    crate::logging::warn(format_args!("fall matrix {results:?}"));
+    crate::engine::logging::warn(format_args!("fall matrix {results:?}"));
 }
 
 #[test]
@@ -571,7 +571,7 @@ fn repeated_jump_cycles_preserve_apex_and_land_at_every_frame_pattern() {
         );
         results.push((label, highest));
     }
-    crate::logging::warn(format_args!("jump matrix {results:?}"));
+    crate::engine::logging::warn(format_args!("jump matrix {results:?}"));
 }
 
 #[test]
@@ -708,7 +708,7 @@ fn pressing_a_stair_side_then_jumping_keeps_the_whole_body_outside() {
     stair.z = 1.0;
     stair.width = 1.0;
     stair.depth = 1.2;
-    crate::loader::validate_level(&short).expect("short flight remains legal");
+    crate::engine::loader::validate_level(&short).expect("short flight remains legal");
     for (label, pattern) in FRAME_PATTERNS {
         let mut game = game_for(&short);
         play_at(&mut game, 5.5, 0.0, 0.5, 180.0, 0.0);

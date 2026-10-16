@@ -1,20 +1,20 @@
 # Movement diagnostics
 
-`tests/fixtures/levels/movement_test.json` is the authoring source; compile it with
-`places-compile build tests/fixtures/levels/movement_test.json`. The adjacent
-`movement_test.placesmap` is the playable QA map, available in Level Select and
-through `PLACES_LEVEL=movement_test`.
+`tests/fixtures/levels/movement_test.json` is the authoring source. Compile it to
+the explicit developer package location shown below; the capture harness installs
+that package into its isolated state. The full campaign also uses the Pit fixture.
+These controls remain outside the playable lineup and default source checks.
 
 ## Inspection findings
 
-The controller in `src/game.rs` owns stance, feet, eye easing, grounding and
+The controller in `src/game/mod.rs` owns stance, feet, eye easing, grounding and
 water/ladder state. Horizontal movement is normalized and collision-swept in
 segments no longer than 0.15 m. Vertical motion uses 1/120 s integration with
 9.8 m/s² gravity and a roughly 1 m jump apex. The body is a 0.30 m radius,
 1.8 m standing / 0.9 m crouched cylinder; eyes ease between 1.6 and 0.8 m above
 the feet. Grounded stairs follow a pitch line; airborne landings use real
-treads. Floors, ramps, regions and water membership come from `src/level.rs`;
-static boxes and oriented live door leaves resolve in `src/collision.rs`.
+treads. Floors, ramps, regions and water membership come from `src/engine/level.rs`;
+static boxes and oriented live door leaves resolve in `src/engine/collision.rs`.
 
 The initial reproduced defects were: the walking query refused the
 last floor's unsupported edge; destination steps used the old floor's head
@@ -78,12 +78,22 @@ reload the level through the pause menu or restart the capture at a station.
 
 ## Repeatable runtime campaign
 
-After a release build and map compilation:
+After a release build, compile the two controls explicitly:
 
 ```sh
+mkdir -p target/verification/maps
+./target/release/places-compile build tests/fixtures/levels/movement_test.json \
+  --out target/verification/maps/tests__fixtures__levels__movement_test.placesmap \
+  --asset-root assets --workers 8
+./target/release/places-compile build tests/fixtures/levels/level0_pit.json \
+  --out target/verification/maps/tests__fixtures__levels__level0_pit.placesmap \
+  --asset-root assets --workers 8
 python3 tools/bench/capture_movement_test.py
 python3 tools/bench/capture_movement_test.py --quality low
 ```
+
+Use `--movement-package PATH` and `--pit-package PATH` for packages built elsewhere.
+Selecting `--case text` only requires packages used by the selected cases.
 
 The standard-library harness drives the existing real held-control capture
 path through 81 cases. `--case text` selects case names containing that text.
@@ -211,10 +221,10 @@ are deliberate negative-test fixtures.
   `assets/levels/movement_test.placesmap`.
 - Recompiled collision packages: `assets/levels/places_demo.placesmap`,
   `assets/levels/model_zoo.placesmap`, `assets/levels/lantern_hollow.placesmap`.
-- Movement/collision/compiler: `src/game.rs`, `src/collision.rs`,
-  `src/level.rs`, `src/compiler.rs`.
+- Movement/collision/compiler: `src/game/mod.rs`, `src/engine/collision.rs`,
+  `src/engine/level.rs`, `src/map_compiler/mod.rs`.
 - Rust regressions/discovery: `src/game/tests.rs`,
-  `src/game/tests/movement_diagnostics.rs`, `src/loader/tests.rs`.
+  `src/game/tests/movement_diagnostics.rs`, `src/engine/loader/tests.rs`.
 - Validation/capture: `tools/assets/validate.py`, `tests/test_package.py`,
   `tools/verify.sh`, `tools/bench/capture_movement_test.py`.
 - Documentation: `docs/MOVEMENT_DIAGNOSTICS.md`, `docs/MAP_AUTHORING_GUIDE.md`,

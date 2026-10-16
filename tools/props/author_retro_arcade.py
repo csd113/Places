@@ -262,7 +262,7 @@ def vending():
 
     This offline operation intentionally rebuilds its GLB alongside the atlas;
     no concept-board pixels become runtime textures. Preserve the retained
-    illustration and the exact pixel rectangles declared in retro_arcade.py.
+    illustration and the fitted pixel rectangles from the original Arcade art contract.
     """
     a=Art('vending_machine')
     with Image.open(ROOT/'illustrations/vending_bepsi_front.png') as source:

@@ -148,19 +148,19 @@ fn architecture_decorations_do_not_add_collision_and_prior_surface_controls_surv
 fn audit_compiled_architecture_routes() -> Result<(), String> {
     let path = std::env::var("PLACES_HERO_ROUTE_PACKAGE").map_err(|error| error.to_string())?;
     let output = std::env::var("PLACES_HERO_ROUTE_OUT").map_err(|error| error.to_string())?;
-    let opened = crate::package::world::open(std::path::Path::new(&path))?;
-    let mut assets = crate::props::PropAssets::load_default();
-    let variant = crate::package::world::load_variant(
+    let opened = crate::engine::package::world::open(std::path::Path::new(&path))?;
+    let mut assets = crate::engine::props::PropAssets::load_default();
+    let variant = crate::engine::package::world::load_variant(
         std::path::Path::new(&path),
         &opened.manifest,
-        crate::quality::LightmapQuality::Full,
+        crate::engine::quality::LightmapQuality::Full,
         &mut assets,
     )?;
-    let mesh = crate::nav::NavMesh::from_record(variant.navigation)?;
+    let mesh = crate::engine::nav::NavMesh::from_record(variant.navigation)?;
     let class = mesh
-        .class_index(&crate::nav::reference_class())
+        .class_index(&crate::engine::nav::reference_class())
         .ok_or("architecture fixture lacks player nav class")?;
-    let mut scratch = crate::nav::NavScratch::new();
+    let mut scratch = crate::engine::nav::NavScratch::new();
     for (start, goal) in [
         (Vec3::new(5.0, 0.0, 4.2), Vec3::new(9.1, 0.0, 7.2)),
         (Vec3::new(9.1, 0.0, 7.2), Vec3::new(5.0, 0.0, 4.2)),
@@ -168,17 +168,17 @@ fn audit_compiled_architecture_routes() -> Result<(), String> {
         assert!(
             matches!(
                 mesh.path(
-                    &crate::nav::PathQuery {
+                    &crate::engine::nav::PathQuery {
                         class,
                         start,
                         goal,
                         can_open_doors: true,
                         max_expansions: 65_536,
-                        doors: &crate::nav::NoDoors
+                        doors: &crate::engine::nav::NoDoors
                     },
                     &mut scratch
                 ),
-                crate::nav::PathResult::Path(_)
+                crate::engine::nav::PathResult::Path(_)
             ),
             "compiled architecture navigation must cross the passage both ways"
         );

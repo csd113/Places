@@ -54,7 +54,7 @@ import frutiger_aero_art  # noqa: E402
 import arcade_art  # noqa: E402
 
 # Budgets for the current PNG loader.  256x256 is preferred; 1024x1024
-# is the hard ceiling (see the README and assets/README.md).
+# is the hard ceiling (see docs/ASSET_SPECIFICATION.md).
 PREFERRED_DIMENSION = 256
 HARD_DIMENSION = 1024
 

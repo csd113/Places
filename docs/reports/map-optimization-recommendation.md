@@ -84,8 +84,8 @@ stores decoded, transformed and prepared prop geometry for each placement and
 quality, not another original GLB file. GLBs contain their own embedded model
 images; surface, fixture and sky PNGs are separately verified dependencies.
 Externalizing raw models again is not a new solution. See
-[prop serialization](../../src/package/props.rs) and
-[dependency collection](../../src/compiler.rs).
+[prop serialization](../../src/engine/package/props.rs) and
+[dependency collection](../../src/map_compiler/mod.rs).
 
 Each lightmap texel has two RGBA16F planes: RGB irradiance and a signed directional
 moment, with reserved alpha. A 1,024-square page pair costs **16 MiB per lighting
@@ -101,7 +101,7 @@ Receiver seams and Low-quality baked vertex colors prevent simply reusing every
 vertex as-is. PLMP6 already shares exact vertices and normal/tangent palettes
 inside a batch. Further sharing should separate reusable mesh data from transforms,
 lightmap coordinates and placement lighting. See
-[preparation](../../src/render/common/props.rs).
+[preparation](../../src/engine/render/common/props.rs).
 
 Atlas occupancy is not an easy archive saving: Full Home is 75.4% unallocated;
 Demo 19.8%; Hollow 11.9%; Zoo 7.8%. Empty pixels compress cheaply. Hollow also
@@ -199,9 +199,9 @@ copies its pixel payload, expands half-floats into f32 CPU texels, then converts
 them back to half-floats for upload. CPU atlas texels alone take twice the GPU
 atlas bytes. Repeated batches also clone decoded prop image pixels; GPU texture
 uploads already share identities. Removing these copies could improve memory
-without changing artwork. See [loading](../../src/loading.rs),
-[package decode](../../src/package/world.rs), [lightmap decode](../../src/package/lightmaps.rs)
-and [upload](../../src/render/wgpu/lightmap.rs).
+without changing artwork. See [loading](../../src/game/app/loading.rs),
+[package decode](../../src/engine/package/world.rs), [lightmap decode](../../src/engine/package/lightmaps.rs)
+and [upload](../../src/engine/render/wgpu/lightmap.rs).
 
 Known allocations are components, not a total GPU peak: ordinary textures,
 characters, reflections, render targets, mipmaps and old/pending worlds add more.
@@ -329,7 +329,7 @@ scratch=tools/bench/results/map-delivery-reproduction
 mkdir -p "$scratch"
 python3 tools/bench/map_storage.py --self-test
 python3 tools/bench/map_delivery.py --out "$scratch/delivery.json"
-RUSTC_WRAPPER= cargo build --release --example package-repack
+RUSTC_WRAPPER= cargo build --release --bin package-repack
 python3 tools/bench/map_delivery_campaign.py \
   assets/levels/home_showcase.placesmap assets/levels/places_demo.placesmap \
   assets/levels/model_zoo.placesmap assets/levels/lantern_hollow.placesmap \

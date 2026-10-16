@@ -1,6 +1,6 @@
 [package]
 name = "places"
-version = "0.10.0"
+version = "0.11.0"
 edition = "2024"
 rust-version = "1.99"
 description = "Places: a slow first-person exploration experience"
@@ -10,6 +10,11 @@ publish = false
 # Optional authored maps and generated packages are external content, never
 # required inputs to the engine/compiler crate or its source distribution.
 exclude = ["levels/**", "assets/levels/**"]
+
+# Explicit developer tool; retained from the former Cargo example.
+[[bin]]
+name = "package-repack"
+path = "tools/rust/package_repack/main.rs"
 
 [features]
 # Development-only native diagnostic views; the normal build retains the exact

@@ -9,14 +9,16 @@ before changing a model or its fitted PNG.
 ```sh
 python3 tools/props/build.py --check
 python3 tools/props/build.py --report
-python3 tools/props/build.py --only core:table
+python3 tools/props/build.py --only home:fork
 python3 tools/props/preview.py --only core:table --out target/prop-previews
 ```
 
 `--check` reads shipped containers and texture budgets; export and Rust checks
 cover additional geometry/UV/origin contracts. `build.py` protects existing
-hand-authored skins and clips unless explicitly forced. Inspect approved
-hand-finished geometry in scratch before replacing it. Software previews show
+hand-authored skins and clips unless explicitly forced. Catalog entries owned
+by `completed-models.json` remain protected even under `--force`; their accepted
+export hashes are checked without invoking an obsolete constructor. Inspect
+approved hand-finished geometry in scratch before replacing it. Software previews show
 bind-pose artwork and alpha; use native captures for lighting acceptance.
 Writer APIs, source-loading helpers, repair scope and worker controls are
 maintained in Offline Tooling rather than duplicated here.

@@ -13,7 +13,6 @@ import audit
 import geometry
 import glb
 from mesh import PropBuilder
-from parts.pool import build_hot_tub, HOT_TUB_OUTER_R, HOT_TUB_WALL_R
 import preview
 from repair_geometry import compact, orient, remove_pool_table_cap, should_close
 
@@ -34,42 +33,6 @@ class AssetAuditTests(unittest.TestCase):
         self.assertFalse(should_close("pool_table", model.positions))
         self.assertTrue(should_close("pool_table", [(x, .7, z) for x, _, z in model.positions]))
 
-    def test_hot_tub_faces_the_basin_and_exterior_and_keeps_square_tiles(self):
-        p = PropBuilder("core:hot_tub", "Hot Tub", (2.6, 1.56, 2.6))
-        build_hot_tub(p)
-        topology = geometry.inspect(p.mesh.positions, p.mesh.indices)
-        self.assertEqual(topology["inconsistent_edges"], 0)
-        self.assertEqual(topology["degenerate"], 0)
-        wall_count = 0
-        u0, v0, u1, v1 = p.tex.uv("tile", inset=1)
-        for offset in range(0, len(p.mesh.indices), 3):
-            ids = p.mesh.indices[offset:offset+3]
-            a, b, c = [p.mesh.positions[i] for i in ids]
-            normal = geometry._cross(geometry._sub(b, a), geometry._sub(c, a))
-            if abs(normal[1]) > 1e-8:
-                self.assertGreater(normal[1], 0, "both horizontal rim surfaces face up")
-                continue
-            wall_count += 1
-            radius = math.hypot(a[0], a[2])
-            outward = normal[0]*a[0]+normal[2]*a[2]
-            if abs(radius-HOT_TUB_WALL_R) < 1e-5:
-                self.assertLess(outward, 0, "basin normal faces the water")
-            else:
-                self.assertAlmostEqual(radius, HOT_TUB_OUTER_R)
-                self.assertGreater(outward, 0, "outer wall normal faces the room")
-            uvs = [p.mesh.uvs[i] for i in ids]
-            du = max(u for u, _ in uvs)-min(u for u, _ in uvs)
-            dv = max(v for _, v in uvs)-min(v for _, v in uvs)
-            # The fitted atlas region paints eight cells on each axis. Its
-            # rectangle is not square in pixels; compare metres per painted
-            # cell, not metres per pixel.
-            points = [a, b, c]
-            horizontal = max(math.hypot(x[0]-y[0], x[2]-y[2]) for x in points for y in points)
-            vertical = max(v[1] for v in points)-min(v[1] for v in points)
-            ratio = (horizontal / (du/(u1-u0)*8)) / (vertical / (dv/(v1-v0)*8))
-            self.assertGreater(ratio, 0.9)
-            self.assertLess(ratio, 1.2)
-        self.assertGreater(wall_count, 0)
 
     def test_reader_retains_all_texture_slots_and_triangle_materials(self):
         # The immutable three-image export is a deliberate reader fixture;

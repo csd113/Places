@@ -18,6 +18,7 @@ library. Paths are relative to `assets/entities/`:
 | --- | --- | --- | --- |
 | `spooner-man` | `spooner-man/model/spooner-man.glb` | 0.159043 × 0.348864 × 0.622915 | 5688 / 26 / 6 |
 | `mannequin` | `mannequin/model/mannequin.glb` | 0.578539 × 1.723035 × 0.316965 | 1124 / 17 / 2 |
+| `entity:cockroach` | `cockroach/model/cockroach.glb` | 0.087414 × 0.018563 × 0.132125 | 480 / 25 / 1 |
 | `rat` | `rat/model/rat.glb` | 0.112014 × 0.129887 × 0.472315 | 1718 / 25 / 1 |
 | `skeleton` | `skeleton/model/skeleton.glb` | 0.414955 × 1.722652 × 0.298664 | 4650 / 24 / 1 |
 | `carved-pumpkin` | `carved-pumpkin/model/carved-pumpkin.glb` | 0.579556 × 0.631126 × 0.521600 | 2384 / 4 / 4 |
@@ -32,17 +33,16 @@ The six completed rigs were adopted from the verified v36 delivery on
 2026-10-14. Exact export hashes, measured bounds and image budgets are in
 `assets/completed-models.json`; the table uses conservative root-centred X/Z
 catalog envelopes. Their original root pivots are retained. Spooner-Man and
-mannequin use512², pumpkin-skeleton512×256, and rat/skeleton/carved-pumpkin256²
-images, each with one shared embedded sheet. Unchanged ghost and Beach entries
-retain their previous contracts. Unique final source PNGs remain beneath each
-model's `textures/` directory. Final Blender/GIMP masters remain in Downloads.
+mannequin use 512² embedded sheets, pumpkin-skeleton 512×256, and
+rat/skeleton/carved-pumpkin 256². Unchanged ghost, cockroach and Beach entries
+retain their previous contracts. Older standalone PNGs remain as retained
+source artwork; they do not authorize replacing a completed export's embedded
+sheet. Keep the supplied Blender/GIMP delivery masters separately.
 
-The construction recipes below are retained as pre-v36 history where they
-refer to original builders, old atlases or old rest transforms. They cannot
-recreate the six adopted rigs and must not overwrite them. Current runtime
-playback uses each delivered rig's own hierarchy/inverse binds and named clips;
-clip declaration order is immaterial. Model ownership is guarded by the catalog
-completed-source record and `tools/props/build.py --check`.
+Current playback uses each delivered rig's own hierarchy, inverse binds and
+named clips; clip declaration order is immaterial. Completed-source records and
+`tools/props/build.py --check` guard those exports. Historical constructor
+recipes below are identified explicitly and must be reviewed in scratch.
 
 `asset.extras.places_entity_clips` v2 records clip kind, duration, loop flag and
 `reference_speed_mps`. Ground routes advance the placement and scale playback
@@ -59,26 +59,12 @@ offset above the resolved floor, not an absolute world elevation.
 
 ## Spooner-Man
 
-The current export contains26 joints, six material primitives and one512² sheet.
-Rest proportions and skinning were reconstructed. Seven named clip durations,
-loop/kind semantics remain; measured walk/run references are0.156/0.466m/s.
-The body-only refiner below describes the previous export, not the current source.
-
-
-A hand-authored Blender tuxedo cat with the `cat_rig` skin. The single
-[canonical model](../../assets/entities/spooner-man/model/spooner-man.glb) is
-shared by every instance. Preserve its mesh, three surface sheets, hierarchy,
-inverse bind matrices and bind pose when baking motion.
-
-The body now uses authored rounded sections while its 454-triangle head,
-three PNGs, rig and seven clips retain their original data. The measured
-bind width is 0.18361 m; catalog/collision metadata above remains unchanged
-within the existing bounds tolerance. Reproduce the body with
-`tools/props/refine_spooner_man.py`, which starts from the immutable original
-export under `tools/props/sources/`; verify it with
-`tools/entities/check_spooner_refinement.py`. The
-[body refinement report](../reports/spoonerman-body-refinement.md) records the
-three passes, native comparisons and the user-accepted remaining concept differences.
+The [current tuxedo-cat export](../../assets/entities/spooner-man/model/spooner-man.glb)
+contains 26 joints, six material primitives and one 512² embedded sheet. Its
+rest proportions and skinning come from the completed delivery. Preserve that
+mesh, artwork, hierarchy, inverse binds and bind pose when reviewing motion.
+Seven named clip durations and loop/kind semantics remain; measured walk/run
+references are 0.156/0.466 m/s.
 
 | Clip | Duration | Playback | Kind / reference speed |
 | --- | --- | --- | --- |
@@ -90,41 +76,28 @@ three passes, native comparisons and the user-accepted remaining concept differe
 | `stand_up` | 1.5 s | once | stand_up |
 | `pounce` | 1.4 s | once | pounce |
 
-The walk uses hind-left, front-left, hind-right, front-right sequence and 68%
-stance duty; the run uses 36%. Two-link leg IK preserves bone lengths and paw
-orientation. Sit transitions share endpoints with the seated hold. The pounce
-starts and finishes in the idle stance and contains a vertical pelvis arc;
-level movement and attack behavior require separate authoring. A route cue is
+These clips keep horizontal root motion in place. Pounce starts and finishes
+in the idle stance and contains a vertical pelvis arc; level movement and
+attack behavior require separate authoring. A route cue is
 `{"step":"play","clip":"pounce","seconds":1.4,"loop":false}`.
 
-The documented skin repair uses a deterministic nearest-segment two-bone
-blend, sigma 0.02 m, excluding the central root; the pre-refinement export's
-repaired leg weight share was 42.3%. `animate_spooner_man.py --repair-skin` explicitly rebinds
-`JOINTS_0`/`WEIGHTS_0`; the normal baker repairs only degenerate bindings.
-Positions, UVs, images, hierarchy and inverse binds remain preserved. See the
-[motion report](../reports/spoonerman-cat-motion.md) for preservation hashes,
-previews and the historical 60 Hz export sweep. The static prop builder's
-foreign-rig guard protects this model; it is not a replacement source.
+The [body refinement](../reports/spoonerman-body-refinement.md) and
+[motion](../reports/spoonerman-cat-motion.md) reports retain the earlier
+three-sheet export, gait/skin-repair method, preservation hashes and accepted
+concept differences. Those exports predate the completed model. The retained
+`tools/props/animate_spooner_man.py` describes that earlier baker; it cannot
+reconstruct the adopted six-primitive mesh and must not replace the current
+clips or skin from its historical defaults.
 
 ## Concrete mannequin
 
-The current export uses17 joints, including `hand.L`/`hand.R` rather than the
-former underscored names, two primitives and one512² sheet. Named pose/locomotion
-clips remain. Native pose tests measure raised hands near1.896m and forward
-reach near0.621m. Constant Blender scale tracks conservatively select two-sided
-character rendering; the current posed bounds, rather than old bind padding,
-determine visibility. The23-joint constructor below is historical.
-
-
-A concrete artist's lay figure with a 23-joint hierarchy: root/pelvis, two
-spine joints/chest/neck/head, paired shoulder/upperarm/forearm/hand chains,
-and paired thigh/shin/foot/toe chains. Feet meet local y=0. Each foot is a
-tapered heel-to-toe mesh with a raised instep.
-
-`textures/concrete_grey_01.png` is one fitted region. Proportional body-part
-subrectangles keep grain scale consistent; near-neutral vertex colours
-preserve the sheet as albedo. The original in-repository constructor paints
-mottle, grain, aggregate, pale flecks, damp streaks and form seams.
+The current concrete artist's lay figure has 17 joints, including
+`hand.L`/`hand.R`, two material primitives and one 512² embedded sheet. Its
+root-centred X/Z envelope, triangle count and accepted identity are recorded
+above and in `assets/completed-models.json`. Native pose checks measured
+raised hands near 1.896 m and forward reach near 0.621 m. Constant Blender
+scale tracks select two-sided character rendering; current posed bounds
+determine visibility.
 
 | Clip | Duration | Playback | Kind / reference speed |
 | --- | --- | --- | --- |
@@ -133,10 +106,12 @@ mottle, grain, aggregate, pale flecks, damp streaks and form seams.
 | `pose_arms_forward` | 0 | hold | pose |
 | `walk` | 1.1 s | loop | walk / 1.0 m/s |
 | `run` | 0.68 s | loop | run / 2.244582043 m/s |
+| `run_arms_forward` | 0.68 s | loop | run / 2.244582043 m/s |
 
-The arms-up recipe raises shoulders 155° from hanging with 15° elbow bend,
-reaching about 2.105 m. The forward pose reaches z=+0.675 m. Each hold keys
-all 23 joints at t=0; named actions crossfade between poses. For example:
+`run_arms_forward` keeps the running legs/pelvis and the arms-forward hold;
+`pose_stand` supplies the arms-down idle. All six clips loop. Choose AI
+`move_clip` and `idle_clip` explicitly, or crossfade named holds through
+`play_animation`:
 
 ```json
 {"id":"pose_dummy","model":"mannequin","x":4,"z":3,"solid":false,
@@ -147,11 +122,103 @@ all 23 joints at t=0; named actions crossfade between poses. For example:
 ```
 
 The [entity showcase fixture](../../tests/fixtures/levels/entity_showcase.json)
-cycles poses. `build_mannequin.py` is the original standard-library mesh and
-three-pose constructor; it does not reproduce the committed model's later
-walk/run clips or all geometry refinements. Preserve the current GLB when
-reviewing a fresh constructor export in scratch. The model and concrete art
-were created in this repository without third-party model or texture sources.
+cycles poses. Inspect the adopted model without exporting:
+
+```sh
+python3 tools/entities/build_mannequin.py --check-run-arms-forward
+python3 tools/entities/validate_entities.py \
+  --glb assets/entities/mannequin/model/mannequin.glb \
+  --workers 1 --samples-per-second 120
+```
+
+For the completed model, the first command verifies its accepted SHA identity;
+it does not regenerate clips. The retained constructor and historical
+`--add-run-arms-forward` adapter belong to the older 23-joint model. That
+adapter reuses existing animation accessors and preserves the BIN chunk,
+geometry, skin, UVs, materials, PNGs and existing clips; `--source`/`--out`
+support separate scratch files. The default completed GLB is protected from
+replacement. A historical constructor comparison must use a scratch output
+such as `--out /tmp/mannequin-constructor.glb`. The original concrete artwork
+and model were authored in this repository without third-party asset sources.
+
+## Cockroach
+
+`entity:cockroach` is a tiny Office creature with six articulated legs, paired
+wing covers, a pronotum shield, two articulated antennae and short rear cerci.
+The flattened brown silhouette is built from 39 closed, outward-wound solids.
+
+### Cockroach runtime contract
+
+- Model: `cockroach/model/cockroach.glb`, one skinned mesh, primitive, skin and material.
+- Geometry: 480 triangles, 1,440 vertices, 25 joints; one rigid joint influence
+  per vertex. No morphs, scaling channels or external resources.
+- Coordinate frame: metres, +Y up, +Z front, horizontally centred bounding box,
+  lowest bind vertex at `y = 0`.
+- Bind size: `[0.0874143732, 0.0185625857, 0.1321252692]` metres including antennae,
+  tarsi and rear cerci. The body itself is approximately 0.088 m long.
+- Opaque nonmetal material with roughness `0.48` for a restrained cuticle sheen.
+  Geometry and per-part vertex pigment carry the detail; environmental lighting
+  supplies its light and shadow response, with no emission or painted lighting.
+  glTF `COLOR_0` is linear. The material's linear `baseColorFactor`
+  `[0.2231106261, 0.1249638443, 0.0856918012, 1]` anchors the existing palette to
+  the intended dark-brown `#462412` shell under unit white light. The source
+  sheet's nearly white centre introduces less than one display-byte difference.
+  The single embedded PNG is exactly the committed `cockroach/textures/white_01.png`.
+- Sheet: 32×32, square, opaque, non-tiling, clamped; every UV samples its centre.
+  It has no fitted atlas regions. Texture memory is 4,096 decoded RGBA bytes.
+
+| Clip | Loop duration | Reference ground speed | Motion |
+| --- | --- | --- | --- |
+| `idle` | 1.80 s | none | subtle body settling and independent antenna sweeps |
+| `walk` | 0.44 s | 0.0454545455 m/s | alternating tripods, 12 mm stride, 2 mm foot lift |
+| `run` | 0.22 s | 0.1212121212 m/s | alternating tripods, 16 mm stride, 3 mm foot lift |
+
+The planted phase lasts 60% of each cycle; the opposite tripod is half a cycle
+behind. The two-link leg solver places each ankle, and a third joint holds each
+tarsus level. Reference speed is stride divided by planted duration. Clips use
+LINEAR keys and include identical first and final poses. The root never moves;
+world navigation and gait-rate scaling belong to the ordinary entity runtime.
+
+### Cockroach rebuild and inspect
+
+```sh
+python3 tools/props/build_cockroach.py
+python3 tools/props/build_cockroach.py --check
+```
+
+The normal build reads the committed PNG without modifying it. The pure-Python
+check reads the written GLB with both repository model inspectors, verifies
+positions, skin indices and weights, per-part pigment, linear material factor,
+nonmetal shell response, UVs, PNG identity, opaque white pixels,
+closed topology, floor alignment, length and triangle budget. It samples 33
+poses per clip to detect floor penetration, stretching and endpoint mismatch.
+It does not bake a map or run the player.
+No Rust test or CI work depends on this authoring command.
+
+Native appearance and navigation remain part of the integrating level's
+explicit visual validation.
+
+### Cockroach sheet provenance
+
+The new native sheet is a uniform resize of the existing committed shared white
+sheet. It adds no texture artwork and retains opaque 252–255 RGB pixels. This
+keeps the entity within the model texture class in [asset specification](../ASSET_SPECIFICATION.md)
+§8 and the shared white contract in §12.2, without embedding the 4 MiB full-size
+surface sheet. The original file was left unchanged.
+
+```sh
+sips -z 32 32 assets/shared/textures/white_01.png \
+  --out assets/entities/cockroach/textures/white_01.png
+```
+
+Source PNG SHA-256:
+`b8ece440e5c8cb37b58d8246bf4eb8e3bd6747d2103193cc96f208634bd1222f`
+
+Native PNG SHA-256:
+`68cecb89a6a560f93cdfe880754e98ad3a68feaeddfec44656c6e70f0fa4ec6f`
+
+GLB SHA-256:
+`2844f044a131e1639096613460cf8d303a196a96c2dcd6a87d890d5a8fff3940`
 
 ## Rat
 
@@ -188,10 +255,9 @@ native lighting context are in the
 
 ## Skeleton
 
-The delivered24-joint rig retains named holds. Its chair pelvis is approximately
-0.4976905m, supporting actual bones at a0.45m seat; the former0.45m pelvis recipe
-below is historical. Native contact acceptance must use the adopted silhouette.
-
+The delivered 24-joint rig retains named holds. Its chair pelvis is approximately
+0.4976905 m, supporting actual bones at a 0.45 m seat. The constructor pose
+recipe below is historical; native contact acceptance uses the adopted silhouette.
 
 A 24-joint human rig: root/pelvis/spine_01/spine_02/chest/neck/head/jaw,
 paired shoulder/upperarm/forearm/hand chains, and thigh/shin/foot/toe chains.
@@ -203,7 +269,7 @@ Weights stay within each anatomical chain. Skull, jaw, pelvis, sternum,
 vertebrae, clavicles, hands and feet are explicitly pinned; the source builder
 rejects weights reaching a joint outside that part's chain.
 
-| Single-key pose | Placement geometry |
+| Historical constructor pose | Placement geometry |
 | --- | --- |
 | `pose_stand` | pelvis 0.920 m; soles y=0 |
 | `pose_sit_floor` | pelvis 0.060 m; hips 135°, knees 93.5°; soles flat |
@@ -250,8 +316,8 @@ records subsequent repairs.
 ### Carved candle pumpkin
 
 The floor-contact origin sits under the shell. Its four joints are root,
-body, stem and flame. Two opaque primitives contain 1456 shell triangles and
-42 flame triangles; the flame has emissive factor `[1.0,0.4,0.045]`.
+body, stem and flame. The completed model has four material primitives and
+2,384 triangles; preserve its current material bindings and flame socket.
 
 | Clip | Duration | Playback | Kind / reference speed |
 | --- | --- | --- | --- |
@@ -287,8 +353,8 @@ author distinct phases when several instances should fade at different times.
 The 94-joint skin comprises the 24-joint human hierarchy plus 70 rigid
 `piece_*` joints; the 95th node is the mesh. `piece_pumpkin_head`, a child of
 `head`, owns the pumpkin triangles. Partitioning those triangles into a
-second opaque primitive retains the original attributes, triangle set and
-skin. The head's emissive factor is `[0.6,0.24,0.07]`.
+separate material group preserves the head's animation binding. The completed
+model has five primitives; preserve that accepted grouping and skin. The head's emissive factor is `[0.6,0.24,0.07]`.
 
 | Clip | Duration | Playback | Kind / reference speed |
 | --- | --- | --- | --- |

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Focused geometry/source/rig audit for the ten domestic remakes (no Rust)."""
+"""Geometry/source/rig audit for the seven toolkit-owned Home objects (no Rust)."""
 import json
 import math
 from pathlib import Path
@@ -13,7 +13,6 @@ from parts.domestic_remade import switch
 from mesh import PropBuilder
 
 IDS = {'home:'+n for n in ('knife','fork','spoon','plate','bowl','wall_switch','crt_tv')}
-IDS |= {'core:'+n for n in ('couch','bed','chair')}
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -61,11 +60,11 @@ def main():
             audit['toggle_sweep_samples']=31
             audit['rocker_min_z']=minimum_z
         results.append(audit)
-    assert len(results)==10
+    assert len(results)==len(IDS)
     out=ROOT/'target/verification/domestic-model-remake/geometry-validation.json'
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(results,indent=2)+'\n')
-    print('PASS: ten closed meshes, finite positions/UVs, outward winding, source textures, switch toggle sweep')
+    print('PASS: seven Home meshes, finite positions/UVs, outward winding, source textures, switch toggle sweep')
 
 
 if __name__ == '__main__':

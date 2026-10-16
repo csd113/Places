@@ -74,7 +74,7 @@ fn two_level_stoop_walks_down_to_the_ground() {
         }"#,
     )
     .expect("the stoop fixture parses");
-    crate::loader::validate_level(&level).expect("the stoop fixture validates");
+    crate::engine::loader::validate_level(&level).expect("the stoop fixture validates");
     let mut game = at(&level, 3.0, 4.0);
     walk_to(&mut game, 3.0, 2.5);
     assert!((game.feet_y - 0.2304).abs() < 1e-3);
@@ -103,7 +103,7 @@ fn shallow_pond_keeps_crouched_posture_and_a_stepped_exit() {
         }"#,
     )
     .expect("the pond fixture parses");
-    crate::loader::validate_level(&level).expect("the pond fixture validates");
+    crate::engine::loader::validate_level(&level).expect("the pond fixture validates");
     let mut game = at(&level, 2.0, 3.0);
     advance(&mut game, &[Control::Crouch], 1);
     advance(&mut game, &[], 90);

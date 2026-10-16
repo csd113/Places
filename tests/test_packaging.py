@@ -47,7 +47,15 @@ class PackageDestinationGuardTests(unittest.TestCase):
                 (source / name).write_text('fixture')
             for name in ('shared', 'environments', 'entities', 'diagnostic', 'levels'):
                 (source / 'assets' / name).mkdir(parents=True)
-            (source / 'assets/catalog.json').write_text('{}')
+            runtime_metadata = {
+                'catalog.json': b'{"assets": []}\n',
+                'gameplay.json': b'{"physics": {"fixture:crate": {"mass": 2}}}\n',
+            }
+            for name, data in runtime_metadata.items():
+                (source / 'assets' / name).write_bytes(data)
+            (source / 'assets/completed-models.json').write_text('{"authoring": "only"}')
+            (source / 'assets/shared/branding').mkdir()
+            (source / 'assets/shared/branding/places.png').write_bytes(b'source artwork')
             # Even an existing optional package is excluded unless requested.
             (source / 'assets/levels/unselected.placesmap').write_bytes(b'not a map')
             player = source / 'target/release/places'
@@ -64,7 +72,10 @@ class PackageDestinationGuardTests(unittest.TestCase):
             self.assertFalse((source / 'levels').exists())
             self.assertFalse((source / 'target/release/places-compile').exists())
             for payload in (output / 'Places', output / 'Places.app/Contents/Resources'):
-                self.assertTrue((payload / 'assets/catalog.json').is_file())
+                for name, data in runtime_metadata.items():
+                    self.assertEqual((payload / 'assets' / name).read_bytes(), data)
+                self.assertFalse((payload / 'assets/completed-models.json').exists())
+                self.assertFalse((payload / 'assets/shared/branding').exists())
                 self.assertTrue((payload / 'levels').is_dir())
                 self.assertEqual(list(payload.rglob('*.placesmap')), [])
 

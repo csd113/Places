@@ -29,6 +29,9 @@ from build_rat import _slerp
 import validate as asset_validation
 from tex import decode_png
 from execution import atomic_write, ordered_map, worker_count
+from completed_models import CompletedModels
+
+_MODEL_REVIEWS = None
 
 
 def digest(data):
@@ -189,12 +192,13 @@ def inspect_rigid_frames(document, binary, animation, duration):
     return count+1
 
 
-def inspect_model(path):
+def inspect_model(path, completed=None):
     data = path.read_bytes()
     accepted = {}
     try:
         relative = path.resolve().relative_to(ROOT / 'assets').as_posix()
-        review = json.loads((ROOT / 'assets/completed-models.json').read_text()).get(relative, {})
+        completed = completed if completed is not None else CompletedModels(ROOT / 'assets')
+        review = completed.get(relative, {})
         if digest(data) == review.get('sha256'):
             accepted = review
     except ValueError:
@@ -335,9 +339,14 @@ def inspect_png(path):
         return {"errors": [str(error)]}
 
 
+def _initialize_model_reviews(asset_root):
+    global _MODEL_REVIEWS
+    _MODEL_REVIEWS = CompletedModels(asset_root)
+
+
 def model_job(path):
     try:
-        return inspect_model(path)
+        return inspect_model(path, _MODEL_REVIEWS)
     except (ValueError, KeyError, IndexError, TypeError, struct.error) as error:
         return {"errors": [str(error)]}
 
@@ -378,7 +387,9 @@ def inventory(root=ROOT, workers=None):
     textures = []
     textures_by_path = {}
     by_path = {"assets/"+e["model"]: e for e in entries.values() if "model" in e}
-    png_paths = sorted((root / "assets").rglob("*.png"))
+    branding = root / "assets/shared/branding/places.png"
+    png_paths = sorted(path for path in (root / "assets").rglob("*.png")
+                       if path != branding)
     for path, record in zip(png_paths, ordered_map(inspect_png, png_paths, workers)):
         name = path.relative_to(root).as_posix()
         entry = by_path.get(name, {})
@@ -391,7 +402,9 @@ def inventory(root=ROOT, workers=None):
         textures_by_path[name] = record
     models = []
     model_paths = sorted((root / "assets").rglob("*.glb"))
-    for path, record in zip(model_paths, ordered_map(model_job, model_paths, workers)):
+    for path, record in zip(model_paths, ordered_map(
+            model_job, model_paths, workers, initializer=_initialize_model_reviews,
+            initargs=(ROOT / 'assets',))):
         name = path.relative_to(root).as_posix()
         entry = by_path.get(name, {})
         if "images" in record:
@@ -430,8 +443,7 @@ def inventory(root=ROOT, workers=None):
     other_files = [{"file": path.relative_to(root).as_posix(), "format": path.suffix,
                     "bytes": path.stat().st_size} for path in sorted((root / "assets").rglob("*"))
                    if path.is_file() and path.suffix not in (".glb", ".png")]
-    icon = root / "icon.png"
-    non_runtime = [{"file": "icon.png", **inspect_png(icon)}] if icon.is_file() else []
+    non_runtime = [{"file": branding.relative_to(root).as_posix(), **inspect_png(branding)}] if branding.is_file() else []
     return {"models": models, "textures": textures, "materials": material_records, "maps": maps,
             "other_asset_files": other_files, "non_runtime_images": non_runtime,
             "duplicate_model_files": duplicates(models, "sha256"),

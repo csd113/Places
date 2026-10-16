@@ -21,7 +21,6 @@ from pathlib import Path
 import palette
 from glyphs import fill_polygon, stamp_text, text_width
 from mesh import PropBuilder
-from parts.furniture import _solid, _tint
 from parts.refreshed import solid_box, solid_cylinder, load_atlas_from, padded_box
 
 # Triangle aims (the pack budget in ``build.py`` is the enforced one).

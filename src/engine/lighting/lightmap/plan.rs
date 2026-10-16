@@ -1,0 +1,437 @@
+//! The per-level lightmap plan built while the static mesh is emitted.
+//!
+//! The mesh emitter stamps every lightmapped quad as it writes its six vertices:
+//!
+//! ```text
+//! add_quad(scratch, p0, p1, p2, p3)          // the historical emit call
+//!     LIGHTMAPS: LightmapPatch::from_quad(p0, p1, p2, p3)   (u = p0->p1, v = p0->p3)
+//!                ChartAllocator::allocate(patch) -> Chart
+//!                Vertex::lightmap = Chart::uv_at(0,0), (1,0), (1,1), (0,1)
+//!                Vertex::lightmap_page = chart.page
+//! ```
+//!
+//! **Orientation is frozen here:** a quad's own winding defines its texture frame
+//! — `u` runs `p0 -> p1` and `v` runs `p0 -> p3`, in the exact order the quad's
+//! six vertices were passed to [`crate::engine::render::Vertex`]'s emit path. The fill
+//! pass reads exactly the same frame through [`LightmapPatch::point_at`]. Nothing
+//! may rotate, mirror or rescale a patch relative to its quad; a floor whose
+//! quad winds `(x0,z0) -> (x1,z0) -> ...` therefore gets a texel grid aligned
+//! with the world, not a rotated one.
+//!
+//! Chart allocation is inline (one forward pass, best-short-side fit across the
+//! open pages, pages in emission order) rather than deferred, because the
+//! vertices need their final UVs as they are written and a deferred pass would
+//! have to find them again after spatial bucketing and index sharing.
+//! Determinism comes from the emitter's fixed order plus the allocator's
+//! placement order: the same level always produces the same charts and the
+//! same pages.
+
+use super::{
+    Chart, ChartAllocator, LightmapConfig, LightmapFailure, LightmapPage, LightmapPatch, PatchKind,
+    PatchRejection, corners_coincident,
+};
+use crate::engine::render::{LIGHTMAP_NONE, Vertex};
+
+fn prop_quad_corner(corners: &[[f32; 3]; 4], position: [f32; 3]) -> Option<usize> {
+    corners.iter().position(|point| {
+        point.iter().zip(position).all(|(left, right)| {
+            left.to_bits() == right.to_bits()
+                || (left.to_bits().trailing_zeros() >= 31 && right.to_bits().trailing_zeros() >= 31)
+        })
+    })
+}
+
+/// The two native triangle kinds allow cyclic winding, never a different
+/// diagonal, reversed triangle or duplicate half of the illumination domain.
+fn prop_quad_triangle(corners: &[[f32; 3]; 4], triangle: &[Vertex; 3]) -> Option<bool> {
+    let [Some(a), Some(b), Some(c)] = triangle.map(|vertex| prop_quad_corner(corners, vertex.pos))
+    else {
+        return None;
+    };
+    match [a, b, c] {
+        [0, 1, 2] | [1, 2, 0] | [2, 0, 1] => Some(false),
+        [0, 2, 3] | [2, 3, 0] | [3, 0, 2] => Some(true),
+        _ => None,
+    }
+}
+
+/// Whether a level build bakes and draws real lightmaps.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum LightmapMode {
+    /// The historical path: baked light is folded into every vertex colour.
+    #[default]
+    Off,
+    /// Bake a lightmap atlas and draw surfaces with the vertex-lit colours kept
+    /// as the tint/face-shade term.
+    On,
+}
+
+/// What one successful lightmap bake produced, in numbers.
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct LightmapStats {
+    /// Charts baked (one per lightmapped quad).
+    pub charts: usize,
+    /// Atlas pages resident.
+    pub pages: usize,
+    /// Chart data texels the fill pass wrote.
+    pub texels: usize,
+    /// Page texels uploaded, including gutters and unused page space.
+    pub page_texels: usize,
+    /// Wall-clock cost of filling and packing the atlas, in milliseconds.
+    pub bake_millis: f64,
+    /// True when these lightmaps came from the on-disk cache rather than a bake.
+    pub cache_hit: bool,
+}
+
+/// Everything a drawn level needs to sample its baked light.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LevelLightmaps {
+    /// One HDR page per atlas page, in page order.
+    pub pages: Vec<LightmapPage>,
+    /// Every chart, paired with the patch it covers, in plan order.
+    pub charts: Vec<(LightmapPatch, Chart)>,
+    /// What the bake cost and produced.
+    pub stats: LightmapStats,
+    /// Deterministic content key of the inputs this atlas was baked from.
+    pub cache_key: String,
+    /// Gutter width around each chart's data rectangle, in atlas texels.
+    ///
+    /// Kept for diagnostics and the developer dump; the packaged page format
+    /// itself does not store its padding.
+    pub padding: u32,
+    /// Prepared illumination contribution layers for switchable fixtures.
+    ///
+    /// Each entry carries one switchable light's own solve in the same chart
+    /// layout as [`Self::pages`]. The base pages exclude every switchable
+    /// light; the shader adds exactly the layers of the lights that are on, so
+    /// a runtime switch changes real illumination without a runtime bake. The
+    /// order is the light-index order the compiler recorded.
+    pub switchable: Vec<SwitchableLightmaps>,
+}
+
+/// One switchable light's prepared illumination contribution.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SwitchableLightmaps {
+    /// Index into [`crate::engine::lighting::LevelLighting::lights`].
+    pub light_index: usize,
+    /// The light's own contribution, one page per base page.
+    pub pages: Vec<LightmapPage>,
+}
+
+impl LevelLightmaps {
+    /// Number of charts in the plan.
+    #[must_use]
+    pub const fn chart_count(&self) -> usize {
+        self.charts.len()
+    }
+
+    /// The layer index where `page`'s irradiance plane lives in the uploaded
+    /// array texture, for base illumination or switchable contribution
+    /// `switchable`.
+    ///
+    /// Base pages occupy `2 * page` (irradiance) and `2 * page + 1`
+    /// (direction); each switchable contribution follows after all base
+    /// layers in the same pair layout. The shader computes the same offsets
+    /// from the uniform page and switchable counts.
+    #[must_use]
+    pub fn irradiance_layer(&self, switchable: Option<usize>, page: usize) -> usize {
+        let group = switchable.map_or(0, |index| index.saturating_add(1));
+        group
+            .saturating_mul(self.pages.len().saturating_mul(2))
+            .saturating_add(page.saturating_mul(2))
+    }
+
+    /// Total array-layer count the uploaded texture needs.
+    #[must_use]
+    pub const fn layer_count(&self) -> usize {
+        self.pages
+            .len()
+            .saturating_mul(2)
+            .saturating_mul(self.switchable.len().saturating_add(1))
+    }
+}
+
+/// The charts and pages accumulated while one level's geometry is emitted.
+///
+/// A plan is only valid while [`Self::failed`] is false. A failure is sticky and
+/// named: the caller must not bake or upload the plan, and rebuilds the level
+/// with [`LightmapMode::Off`] instead.
+#[derive(Debug)]
+pub struct LightmapPlan {
+    config: LightmapConfig,
+    allocator: ChartAllocator,
+    charts: Vec<(LightmapPatch, Chart)>,
+    /// Physical sampling density, independent of rounded chart dimensions.
+    sample_densities: Vec<f32>,
+    failure: Option<LightmapFailure>,
+    /// Invisible sliver quads left vertex-lit (see [`Self::slivers_skipped`]).
+    slivers_skipped: usize,
+}
+
+impl LightmapPlan {
+    /// An empty plan for one level build.
+    #[must_use]
+    pub const fn new(config: LightmapConfig) -> Self {
+        Self {
+            allocator: ChartAllocator::new(config),
+            config,
+            charts: Vec::new(),
+            sample_densities: Vec::new(),
+            failure: if config.max_pages == 0 {
+                Some(LightmapFailure::InvalidConfig)
+            } else {
+                None
+            },
+            slivers_skipped: 0,
+        }
+    }
+
+    /// Number of invisible sliver quads this plan left vertex-lit.
+    ///
+    /// A sliver is thinner than a lightmap texel can resolve and has no visible
+    /// area, so skipping it is unobservable; the count is reported so a level
+    /// author can still find the geometry that produced it.
+    #[must_use]
+    pub const fn slivers_skipped(&self) -> usize {
+        self.slivers_skipped
+    }
+
+    /// Longest world span a merged quad may cover at this density.
+    ///
+    /// Emitters cap their merges with this so every stamped patch fits a page
+    /// without post-hoc subdivision. It is identical for `Full` and `Low`.
+    #[must_use]
+    pub const fn max_chart_span_m(&self) -> f32 {
+        self.config.max_chart_span_m()
+    }
+
+    /// True when a quad could not be charted; the plan must not be baked.
+    #[must_use]
+    pub const fn failed(&self) -> bool {
+        self.failure.is_some()
+    }
+
+    /// Why the plan failed, if it did.
+    #[must_use]
+    pub const fn failure(&self) -> Option<LightmapFailure> {
+        self.failure
+    }
+
+    /// Every chart placed so far, with its patch, in emission order.
+    #[must_use]
+    pub fn charts(&self) -> &[(LightmapPatch, Chart)] {
+        &self.charts
+    }
+
+    /// Physical densities aligned with [`Self::charts`]. This bake-only
+    /// metadata fixes receiver footprints in world metres; rounded endpoint
+    /// counts and triangle-local atlas axes never redefine their shape.
+    #[must_use]
+    pub fn sample_densities(&self) -> &[f32] {
+        &self.sample_densities
+    }
+
+    /// Number of charts placed so far.
+    #[must_use]
+    pub const fn chart_count(&self) -> usize {
+        self.charts.len()
+    }
+
+    /// Number of pages the allocator has opened so far.
+    #[must_use]
+    pub const fn page_count(&self) -> usize {
+        self.allocator.page_count()
+    }
+
+    /// Stamps one just-emitted quad: builds its patch, allocates a chart and
+    /// writes the chart's atlas UVs into the quad's six vertices.
+    ///
+    /// `vertices` is the emitter's scratch run and `first` is the index of the
+    /// quad's first vertex (`vertices.len()` before the emit call). `corners`
+    /// are the quad's four corners in its own winding, in the same order they
+    /// were passed to the emit call: `u = p0 -> p1`, `v = p0 -> p3`. The six
+    /// vertices repeat `p0, p1, p2, p0, p2, p3`; the corner index for each is
+    /// `[0, 1, 2, 0, 2, 3]`.
+    ///
+    /// Returns `true` when the quad was charted. A degenerate quad or a full
+    /// page budget records a named failure and leaves the vertices vertex-lit;
+    /// the caller then discards the whole build.
+    pub fn stamp_emitted(
+        &mut self,
+        vertices: &mut [Vertex],
+        first: usize,
+        kind: PatchKind,
+        corners: [[f32; 3]; 4],
+        room: Option<usize>,
+    ) -> bool {
+        let Some(patch) = LightmapPatch::from_quad(kind, corners, room) else {
+            if LightmapPatch::rejection(&corners) == Some(PatchRejection::Sliver) {
+                // An invisible sliver: leave these six vertices vertex-lit and
+                // keep every other chart in the level. A level whose content
+                // produces one sub-millimetre trim sliver must not lose its
+                // whole lightmap, which is what treating this as a build
+                // failure used to do.
+                self.slivers_skipped = self.slivers_skipped.saturating_add(1);
+            } else {
+                // A visible malformed quad: fail over to the exact vertex-lit
+                // mesh rather than drawing one unlit surface.
+                self.fail(LightmapFailure::DegenerateQuad);
+            }
+            return false;
+        };
+        let Some(chart) = self.allocator.allocate(&patch) else {
+            // `allocate` only fails on the page budget (see `ChartAllocator`).
+            self.fail(LightmapFailure::PageOverflow);
+            return false;
+        };
+        let edge = self.config.page_edge;
+        // A folded-triangle quad repeats its last corner: the third corner is
+        // the triangle's second edge (`v = 1`) and carries no `u`, so its chart
+        // coordinate must not be the quad's `(1, 1)`.
+        let folded = corners_coincident(corners[2], corners[3]);
+        let uvs = if folded {
+            [
+                chart.uv_at(edge, 0.0, 0.0),
+                chart.uv_at(edge, 1.0, 0.0),
+                chart.uv_at(edge, 0.0, 1.0),
+                chart.uv_at(edge, 0.0, 1.0),
+            ]
+        } else {
+            [
+                chart.uv_at(edge, 0.0, 0.0),
+                chart.uv_at(edge, 1.0, 0.0),
+                chart.uv_at(edge, 1.0, 1.0),
+                chart.uv_at(edge, 0.0, 1.0),
+            ]
+        };
+        let page = u8::try_from(chart.page).unwrap_or(LIGHTMAP_NONE);
+        for (offset, corner) in [0usize, 1, 2, 0, 2, 3].into_iter().enumerate() {
+            let Some(vertex) = vertices.get_mut(first.saturating_add(offset)) else {
+                self.fail(LightmapFailure::Layout);
+                return false;
+            };
+            vertex.lightmap = uvs.get(corner).copied().unwrap_or([0, 0]);
+            vertex.lightmap_page = page;
+        }
+        self.charts.push((patch, chart));
+        self.sample_densities.push(self.config.texels_per_metre);
+        true
+    }
+
+    /// Stamps one real model triangle. The three vertices are chart-local,
+    /// preserving independent UVs and authored normals at every hard edge.
+    pub fn stamp_prop_triangle(&mut self, vertices: &mut [Vertex; 3], density: f32) -> bool {
+        let [a, b, c] = vertices.map(|vertex| vertex.pos);
+        let Some(patch) = LightmapPatch::from_quad(PatchKind::Prop, [a, b, c, c], None) else {
+            self.slivers_skipped = self.slivers_skipped.saturating_add(1);
+            return false;
+        };
+        let Some(surface_density) = self.config.bounded_surface_density(patch.kind, density) else {
+            self.fail(LightmapFailure::InvalidConfig);
+            return false;
+        };
+        let Some(chart) = self.allocator.allocate_at_density(&patch, surface_density) else {
+            self.fail(LightmapFailure::PageOverflow);
+            return false;
+        };
+        let edge = self.config.page_edge;
+        for (vertex, (u, v)) in vertices
+            .iter_mut()
+            .zip([(0.0, 0.0), (1.0, 0.0), (0.0, 1.0)])
+        {
+            vertex.lightmap = chart.uv_at(edge, u, v);
+            vertex.lightmap_page = u8::try_from(chart.page).unwrap_or(LIGHTMAP_NONE);
+        }
+        self.charts.push((patch, chart));
+        self.sample_densities.push(surface_density);
+        true
+    }
+
+    /// Shares one native quad chart across two original model triangles.
+    /// Only atlas coordinates change. The caller retains all six independent
+    /// source corners and the common source diagonal at corners zero and two.
+    pub fn stamp_prop_quad(
+        &mut self,
+        first: &mut [Vertex; 3],
+        second: &mut [Vertex; 3],
+        corners: [[f32; 3]; 4],
+        density: f32,
+    ) -> bool {
+        let Some(patch) = LightmapPatch::from_quad(PatchKind::Prop, corners, None) else {
+            return false;
+        };
+        if patch.is_triangular() {
+            return false;
+        }
+        let (Some(first_half), Some(second_half)) = (
+            prop_quad_triangle(&corners, first),
+            prop_quad_triangle(&corners, second),
+        ) else {
+            return false;
+        };
+        if first_half == second_half {
+            return false;
+        }
+        let Some(surface_density) = self.config.bounded_surface_density(patch.kind, density) else {
+            self.fail(LightmapFailure::InvalidConfig);
+            return false;
+        };
+        let Some(chart) = self.allocator.allocate_at_density(&patch, surface_density) else {
+            self.fail(LightmapFailure::PageOverflow);
+            return false;
+        };
+        let edge = self.config.page_edge;
+        let local = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)];
+        for vertex in first.iter_mut().chain(second.iter_mut()) {
+            let Some(corner) = prop_quad_corner(&corners, vertex.pos) else {
+                self.fail(LightmapFailure::Layout);
+                return false;
+            };
+            let Some(&(u, v)) = local.get(corner) else {
+                self.fail(LightmapFailure::Layout);
+                return false;
+            };
+            vertex.lightmap = chart.uv_at(edge, u, v);
+            vertex.lightmap_page = u8::try_from(chart.page).unwrap_or(LIGHTMAP_NONE);
+        }
+        self.charts.push((patch, chart));
+        self.sample_densities.push(surface_density);
+        true
+    }
+
+    /// Small opaque model faces resolve the measured fine frame/rail shadows
+    /// at twice architecture's density. Large opaque pieces retain one eighth
+    /// of architecture's density, and cutout cards retain one sample per metre.
+    #[must_use]
+    pub fn prop_texels_per_metre(&self, large: bool, cutout: bool) -> f32 {
+        if cutout {
+            1.0
+        } else {
+            self.config.texels_per_metre * if large { 0.125 } else { 2.0 }
+        }
+    }
+
+    /// Records the first build failure, with the capacity numbers, so a level
+    /// that loses its atlas is never silent.
+    ///
+    /// The named reason is printed once per process per failure kind: the whole
+    /// level then rebuilds with the historical vertex-lit mesh. `charts placed`
+    /// and `pages used of max_pages` make a genuine budget shortfall
+    /// distinguishable from a layout bug.
+    fn fail(&mut self, failure: LightmapFailure) {
+        if self.failure.is_none() {
+            crate::engine::logging::warn_once(
+                format!("lightmap-plan-failure:{}", failure.name()),
+                format!(
+                    "[lightmaps] atlas plan failed ({}): {} chart(s) placed on {} of {} page(s); \
+                     rebuilding the level with vertex lighting",
+                    failure.name(),
+                    self.charts.len(),
+                    self.allocator.page_count(),
+                    self.config.max_pages,
+                ),
+            );
+        }
+        let _configured_get_or_insert = self.failure.get_or_insert(failure);
+    }
+}

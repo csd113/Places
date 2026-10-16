@@ -172,21 +172,21 @@ retains its existing constants without screenshot-specific exposure changes.
 ### 4.1 Data flow
 
 ```text
-LevelDef (src/level.rs)
-        |  LoadedLevel { level, materials, ... }             (src/loader.rs)
+LevelDef (src/engine/level.rs)
+        |  LoadedLevel { level, materials, ... }             (src/engine/loader.rs)
         v
-loading::Loader worker                                    (src/loading.rs)
+loading::Loader worker                                    (src/game/app/loading.rs)
         |  resolve assets, prepare geometry/lighting, restore or fill atlas
         |  reuse matching immutable build from bounded worker cache
         v
 PreparedWorld { build: Arc<LevelBuild>, collision, characters, ... }
         |  nonblocking completion poll, reject superseded generations
         v
-Renderer::install_prepared / advance_prepared_install      (src/render/facade.rs)
+Renderer::install_prepared / advance_prepared_install      (src/engine/render/facade.rs)
         |  staged GPU work on the main thread
         v
-LevelMesh { ranges: Vec<LevelMeshRange>, ... }              (src/render/common/mesh.rs)
-        |  range classification + MeshPacker                (src/render/wgpu/world.rs)
+LevelMesh { ranges: Vec<LevelMeshRange>, ... }              (src/engine/render/common/mesh.rs)
+        |  range classification + MeshPacker                (src/engine/render/wgpu/world.rs)
         v
 pack_world_ranges(mesh, materials) -> (MeshPacker, Vec<WorldDraw>)
         |  each WorldDraw keeps its range's material key
@@ -282,14 +282,14 @@ The per-level upload logs `[wgpu] world upload: N vertices, M indices, K draws i
 level material id / pack material
         |  (engine)
         v
-LoadedLevel.materials : MaterialTable          src/materials/resolve.rs
+LoadedLevel.materials : MaterialTable          src/engine/materials/resolve.rs
         |  ResolvedTexture { key, origin, class, image: Arc<RawImage> }
         v
-WorldTextures::resolve                         src/render/wgpu/world.rs
+WorldTextures::resolve                         src/engine/render/wgpu/world.rs
         |  resolve_base_texture(draw, MaterialRenderState, MaterialTable)
         v
-TextureCache::get_or_upload                    src/render/wgpu/texture.rs
-        |  fit_image(image, level, class)       src/quality.rs
+TextureCache::get_or_upload                    src/engine/render/wgpu/texture.rs
+        |  fit_image(image, level, class)       src/engine/quality.rs
         |  mip chain: halve_image() per level
         v
 GpuTexture { texture, view, 3x bind groups, meta }
@@ -302,7 +302,7 @@ The decode is `crate::materials::decode_png`, which normalizes any PNG colour ty
 
 ### 5.2 Identity, cache and lifetime
 
-`TextureKey` (`src/render/wgpu/texture.rs`) is: the source identity plus a content revision (`#png-v1-<hash>` for encoded PNGs, `#rgba-v1-<hash>` for decoded model images), a semantic (`BaseColorDisplay` or `DataLinear`), a quality class (`Surface`, `FixtureFace`, `DecalSheet`, `Prop`, `EmissionMask`) and a quality level (`Low`/`Medium`/`High`). The semantic keeps a base-colour entry from colliding with a later normal-map use of the same source; class and level capture every input the GPU realization depends on (the quality budget and the fitted dimensions). Nothing in the key is a material instance, draw index or pointer: two surfaces that reference the same texture share one entry, one upload and one set of filtering bind groups.
+`TextureKey` (`src/engine/render/wgpu/texture.rs`) is: the source identity plus a content revision (`#png-v1-<hash>` for encoded PNGs, `#rgba-v1-<hash>` for decoded model images), a semantic (`BaseColorDisplay` or `DataLinear`), a quality class (`Surface`, `FixtureFace`, `DecalSheet`, `Prop`, `EmissionMask`) and a quality level (`Low`/`Medium`/`High`). The semantic keeps a base-colour entry from colliding with a later normal-map use of the same source; class and level capture every input the GPU realization depends on (the quality budget and the fitted dimensions). Nothing in the key is a material instance, draw index or pointer: two surfaces that reference the same texture share one entry, one upload and one set of filtering bind groups.
 
 `TextureCache` is owned by `WgpuRenderer` and holds the bind group layout, the nine shared samplers, two maps and the fallback:
 
@@ -369,7 +369,7 @@ Places bakes tiling into the vertex UV (`tiled_uv` divides world coordinates by 
 
 ### 5.4 Fallback, bind groups and diagnostics
 
-The fallback is the committed `assets/shared/textures/white_01.png`. The wgpu module embeds its own copy of the bytes (a backend may not import its sibling) and `src/render/tests.rs` pins the two to identical pixels. It is decoded with the normal decoder, uploaded as an `Rgba8UnormSrgb` texture with exactly one mip level, and bound with the clamped nearest sampler. If the primary image cannot decode, `BuiltinImage::EmergencyWhite` decodes the separate committed emergency PNG. It is a dedicated resource, not a cache entry, used for an architectural draw whose material key is `MATERIAL_NONE`, a material index outside the resolved table, and the fixture luminous faces, material-less housings and prop-fallback boxes that reach the world pass.
+The fallback is the committed `assets/shared/textures/white_01.png`. The wgpu module embeds its own copy of the bytes (a backend may not import its sibling) and `src/engine/render/tests.rs` pins the two to identical pixels. It is decoded with the normal decoder, uploaded as an `Rgba8UnormSrgb` texture with exactly one mip level, and bound with the clamped nearest sampler. If the primary image cannot decode, `BuiltinImage::EmergencyWhite` decodes the separate committed emergency PNG. It is a dedicated resource, not a cache entry, used for an architectural draw whose material key is `MATERIAL_NONE`, a material index outside the resolved table, and the fixture luminous faces, material-less housings and prop-fallback boxes that reach the world pass.
 
 A material whose *authored* texture is missing or fails to decode is a different case: the engine's resolver degrades the whole material to the 64x64 magenta/black diagnostic texture (`core:tex_missing`) and logs the error. The cache uploads that diagnostic like any other texture, and the load-time line reports those draws in its `missing` count so a broken asset is visible, not silent. The white fallback and the magenta diagnostic stay distinct.
 
@@ -540,7 +540,7 @@ The cut-out pass is a separate fragment entry point (`fs_cutout`) and pipeline, 
 ### 7.1 Prepared static lighting and bounded entity response
 
 Static fixture illumination is solved **offline** by `places-compile` (the
-transport solver in `src/lighting/transport.rs`) and packaged. The player
+transport solver in `src/engine/lighting/transport.rs`) and packaged. The player
 decodes and samples it without a runtime bake. Movable receivers additionally
 evaluate at most eight selected practical sources at their fragment position
 and normal; their prepared residual removes those sources' baked direct term
@@ -583,7 +583,7 @@ static navigation.
 
 ### 7.1.1 What the compiler solves
 
-`src/lighting/transport.rs` builds a deterministic BVH over the prepared
+`src/engine/lighting/transport.rs` builds a deterministic BVH over the prepared
 triangles (walls, floors, ceilings, architecture, prop fallback boxes; decals
 and fixture housings are excluded, so a fixture cannot shadow itself), resolves
 the level's `LightSource`s as point/rect/line emitters, and then:
@@ -730,7 +730,7 @@ behavior; `hold_in_static` remains useful for controls without prepared states.
 
 An entity may attach a glow to an animated socket (the carved pumpkin's candle
 flame, the sheet ghost's cyan core). The character path resolves each frame's
-glow cues into a `DynamicLightSet` (`src/render/common/dynamic_lights.rs`):
+glow cues into a `DynamicLightSet` (`src/engine/render/common/dynamic_lights.rs`):
 bounded at `MAX_DYNAMIC_LIGHTS` (8), keyed (`"glow:<instance id>"`),
 insertion-ordered and deterministic. It refuses a non-finite or out-of-range
 value rather than clamping it (position finite, colour channels `0..=1`,
@@ -999,7 +999,7 @@ Reflections are opt-in per material and weighted by the sheen the material alrea
 
 **Probes.** Captured **offline** by `places-compile` with the same scene body
 the player installs (static, props, dynamics, decals) and **prefiltered offline
-into a roughness mip chain** by `src/render/common/probe_filter.rs`: level 0 is
+into a roughness mip chain** by `src/engine/render/common/probe_filter.rs`: level 0 is
 the linear HDR capture, level `L` is a cone average whose roughness is
 `L / (levels - 1)` (48-texel faces carry 6 levels, 64-texel faces 7). The
 package carries the whole chain; the player uploads it and the shader selects
@@ -1028,15 +1028,15 @@ graphics change or per frame.
 
 **Dynamic objects.** One model-space buffer is shared per registered model, with one group-3 environment per object carrying its transform, current centre sample and spatial incident/residual support plus selected finite direct lights. Centre samples refresh each frame; transform, source, field or movable-caster changes invalidate the cached spatial payload, and unchanged uniforms produce no GPU write. Imported GLB meshes retain their surface normals and material alpha contract. Opaque and cutout primitives use the shared body passes; blended submeshes join the shared back-to-front order across world, prop, dynamic and character transparency, with depth writes off. Current rigid-object transforms participate in bounded model-local visibility queries for entity lighting. Static atlases remain baked during motion. The existing guards admit at most 64 objects and 16 distinct registered meshes; reuse of an already registered mesh does not consume another mesh slot. The engine's washer-drum demonstration is spawned by `set_dynamic_demo` for levels that ship one.
 
-**Doors.** A level's `doors[]` frame and leaf are built in code (`src/render/common/doors.rs`) as ordinary `PropModel`s on the dynamic path and synced from `door::Doors` every frame: the leaf's transform and its `DoorCollider` are derived from the same runtime angle. The frame is the reveal the leaf is installed in — a liner through the resolved wall tunnel with a 4 mm stop lip, a casing on both end faces and the hinge knuckles and plates — and the leaf is a stile-and-rail panel door with two 12 mm recesses per face (the interior kind) or cedar stiles and rails around a clear glass panel (the sauna kind). Each submesh samples its own material slot (leaf, frame, handle, sauna glass), so a per-door `material`, `frame_material` or `handle_material` override changes exactly the surface it names; the sauna glass joins the same sorted translucent order as other dynamic blends. A door's textures resolve through the level's `MaterialTable` from its authored material ids or its kind defaults. The door builder retains per-face shaded vertex colour and `normal: None`, preserving the recess, casing and reveal appearance. Imported GLB dynamic meshes retain their own normals; the door builder's convention is not a restriction of the generic dynamic path.
+**Doors.** A level's `doors[]` frame and leaf are built in code (`src/engine/render/common/doors.rs`) as ordinary `PropModel`s on the dynamic path and synced from `door::Doors` every frame: the leaf's transform and its `DoorCollider` are derived from the same runtime angle. The frame is the reveal the leaf is installed in — a liner through the resolved wall tunnel with a 4 mm stop lip, a casing on both end faces and the hinge knuckles and plates — and the leaf is a stile-and-rail panel door with two 12 mm recesses per face (the interior kind) or cedar stiles and rails around a clear glass panel (the sauna kind). Each submesh samples its own material slot (leaf, frame, handle, sauna glass), so a per-door `material`, `frame_material` or `handle_material` override changes exactly the surface it names; the sauna glass joins the same sorted translucent order as other dynamic blends. A door's textures resolve through the level's `MaterialTable` from its authored material ids or its kind defaults. The door builder retains per-face shaded vertex colour and `normal: None`, preserving the recess, casing and reveal appearance. Imported GLB dynamic meshes retain their own normals; the door builder's convention is not a restriction of the generic dynamic path.
 
-**Effects (steam).** An `effects[]` entry contributes no collision, no occlusion and no bake term; it is a bounded plume of blended billboards. The neutral `EffectScene` (`src/render/common/effects.rs`) resolves one scene per level from the level's `MaterialTable` (the same material resolution a door uses) and evaluates every particle's position, size and alpha as a **pure function of the animation clock** — the scene stores no particle state, so two frames at the same clock produce byte-identical vertices and the motion cannot accumulate at any frame rate. Particles are bounded inside their emitter's own volume (`x`/`z` within half the footprint plus `drift`, `y` between the base and base + `height`).
+**Effects (steam).** An `effects[]` entry contributes no collision, no occlusion and no bake term; it is a bounded plume of blended billboards. The neutral `EffectScene` (`src/engine/render/common/effects.rs`) resolves one scene per level from the level's `MaterialTable` (the same material resolution a door uses) and evaluates every particle's position, size and alpha as a **pure function of the animation clock** — the scene stores no particle state, so two frames at the same clock produce byte-identical vertices and the motion cannot accumulate at any frame rate. Particles are bounded inside their emitter's own volume (`x`/`z` within half the footprint plus `drift`, `y` between the base and base + `height`).
 
-The backend (`src/render/wgpu/effects.rs`) allocates **one vertex/index buffer pair sized once to the level's actual authored steam and snow budgets**, including disabled steam emitters. Steam remains bounded by 64 emitters × 128 particles = 8192 billboards; optional `weather` adds at most 2048 snow billboards, for a combined ceiling of 40960 vertices and 61440 indices. Snow uses deterministic seeds and the shared clock: quality selects a seed prefix, while shelter and visibility reject or attenuate individual flakes. The backend writes only the used vertex range per frame and draws material ranges in deterministic order. The pass is straight-alpha (`SrcAlpha`/`OneMinusSrcAlpha`) with `LessEqual` depth testing and **depth writes off**, no culling; it runs after the decals over the finished world body, depth-testing against it and not ordered against the world's own translucent draws. Billboards are **not** sorted back to front, are **not** captured into the reflection probes or the planar mirror, and never contribute to baked light. A level with neither effects nor weather costs nothing; the load-time line reports emitters, particles, draws and sheets.
+The backend (`src/engine/render/wgpu/effects.rs`) allocates **one vertex/index buffer pair sized once to the level's actual authored steam and snow budgets**, including disabled steam emitters. Steam remains bounded by 64 emitters × 128 particles = 8192 billboards; optional `weather` adds at most 2048 snow billboards, for a combined ceiling of 40960 vertices and 61440 indices. Snow uses deterministic seeds and the shared clock: quality selects a seed prefix, while shelter and visibility reject or attenuate individual flakes. The backend writes only the used vertex range per frame and draws material ranges in deterministic order. The pass is straight-alpha (`SrcAlpha`/`OneMinusSrcAlpha`) with `LessEqual` depth testing and **depth writes off**, no culling; it runs after the decals over the finished world body, depth-testing against it and not ordered against the world's own translucent draws. Billboards are **not** sorted back to front, are **not** captured into the reflection probes or the planar mirror, and never contribute to baked light. A level with neither effects nor weather costs nothing; the load-time line reports emitters, particles, draws and sheets.
 
-**Water surfaces.** A level's `water[]` volumes contribute a rectangular quad or a circular 48-segment triangle fan at `surface_y` into the ordinary static mesh's floor family (`src/render/common/water.rs`). The water material's blend contract puts the surface in the sorted translucent pass with depth writes off and no culling, so its underside is visible below the waterline. The vertex alpha carries the volume's authored `opacity`. Successful Medium/Full builds stamp ordinary HDR floor charts and retain material tint in vertex colour; Off and atlas-fallback builds use per-vertex light sampling. Nothing else is emitted: the basin floor and walls are the level's own room and floor-region geometry.
+**Water surfaces.** A level's `water[]` volumes contribute a rectangular quad or a circular 48-segment triangle fan at `surface_y` into the ordinary static mesh's floor family (`src/engine/render/common/water.rs`). The water material's blend contract puts the surface in the sorted translucent pass with depth writes off and no culling, so its underside is visible below the waterline. The vertex alpha carries the volume's authored `opacity`. Successful Medium/Full builds stamp ordinary HDR floor charts and retain material tint in vertex colour; Off and atlas-fallback builds use per-vertex light sampling. Nothing else is emitted: the basin floor and walls are the level's own room and floor-region geometry.
 
-**Characters.** A placed prop whose model carries a glTF skin is claimed by the character path instead of the static prop draw (`src/render/common/character.rs`). A fully claimed model's retained prop batch has `casts_static_lighting: false`, excluding its bind pose from immutable lighting casters; partial or over-budget groups keep their visible static fallback and caster flag. Collision and model/vertex budget charges remain unchanged. The neutral animator keeps one blend weight per locomotion state — the current state approaches one exponentially with a 0.18 s time constant, walking advances a gait phase per metre travelled and swimming at a fixed 1.1 Hz — and produces one model-space skinning delta per joint. The backend (`src/render/wgpu/character.rs`) re-skins a character's vertices on the CPU into its own `VERTEX | COPY_DST` buffer **only on the frames its pose revision changes**, draws one indexed draw per primitive with frustum culling, and carries the placement through a per-character group-3 environment. A rig with clips plays the clip its name maps to (`idle`, `walk`/`run`, `jump`/`air`, `swim`) and crossfades over the same time constant; a rig with no clips uses the procedural gait (classified leg pairs, tail chain and body chain). Spatial incident/residual support lighting and selected finite direct evaluation follow [Stage 4 contracts](art-style/stage4/contracts.md); transform, field, source and rigid movable-caster changes invalidate the spatial payload while static atlases remain baked. Lighting anchors and conservative culling bounds still derive from the model's bind-pose bounds rather than tight bounds of each animated pose.
+**Characters.** A placed prop whose model carries a glTF skin is claimed by the character path instead of the static prop draw (`src/engine/render/common/character.rs`). A fully claimed model's retained prop batch has `casts_static_lighting: false`, excluding its bind pose from immutable lighting casters; partial or over-budget groups keep their visible static fallback and caster flag. Collision and model/vertex budget charges remain unchanged. The neutral animator keeps one blend weight per locomotion state — the current state approaches one exponentially with a 0.18 s time constant, walking advances a gait phase per metre travelled and swimming at a fixed 1.1 Hz — and produces one model-space skinning delta per joint. The backend (`src/engine/render/wgpu/character.rs`) re-skins a character's vertices on the CPU into its own `VERTEX | COPY_DST` buffer **only on the frames its pose revision changes**, draws one indexed draw per primitive with frustum culling, and carries the placement through a per-character group-3 environment. A rig with clips plays the clip its name maps to (`idle`, `walk`/`run`, `jump`/`air`, `swim`) and crossfades over the same time constant; a rig with no clips uses the procedural gait (classified leg pairs, tail chain and body chain). Spatial incident/residual support lighting and selected finite direct evaluation follow [Stage 4 contracts](art-style/stage4/contracts.md); transform, field, source and rigid movable-caster changes invalidate the spatial payload while static atlases remain baked. Lighting anchors and conservative culling bounds still derive from the model's bind-pose bounds rather than tight bounds of each animated pose.
 
 A character's per-instance opacity (the level's fade component; `1.0` without one) travels in its group-3 environment, where the shader multiplies it into fragment coverage (including transparent emission blending) — a faded ghost covers and blooms proportionally less. `WgpuCharacters::sync` compares the complete environment, including transform, opacity and refreshed lighting, and writes only when that payload changed; a still, settled character with unchanged lighting writes nothing. A submesh whose glTF material is `alphaMode: "BLEND"` (the sheet ghost) draws in the shared back-to-front order across world/prop/dynamic/character transparency, with the translucent pipeline (blend, depth writes off) and the scene index as the deterministic tie-break; a `MASK` submesh uses the same cutout pipeline as static and movable content, and translucent character submeshes are included in the emissive pass so their bloom fades with them.
 
@@ -1075,13 +1075,13 @@ Decals are small local surface markings (signs, floor arrows, warning marks) pla
 - `DECAL_SURFACE_OFFSET_M` displaces every decal 0.2 mm along its surface normal. That is a real geometric separation, sub-pixel at any practical viewing distance, so the base texture cannot win a pixel in the near and mid field no matter how the rasteriser fits its plane equations.
 - `DECAL_POLYGON_OFFSET` adds a slope-scaled depth bias in the decal pass, so the far field and grazing angles stay in front of the parent surface after the physical offset is below the depth buffer's resolution.
 
-Both constants are defined once in `src/render/common/decals.rs` and applied in one place, `render::add_decal_quad`, so a decal authored later inherits the fix automatically.
+Both constants are defined once in `src/engine/render/common/decals.rs` and applied in one place, `render::add_decal_quad`, so a decal authored later inherits the fix automatically.
 
 ## 11. Fog, post-processing and HUD
 
 **Fog** is a scalar mix in the world shader: a squared-exponential distance term with a height term, applied after emission and before the display conversion. The height contribution is capped at 12 m. Fog state (`color`, `density`, `reference_y`, `height_gain`) comes from the neutral level/atmosphere data and travels in the group-3 environment uniform.
 
-On top of the global term a level may author up to 16 **regional fog volumes** (`fog_regions`, `src/render/common/atmosphere.rs`). The group-3 uniform carries a count word and a fixed `array<FogRegion, 16>` (64 bytes per entry: box minimum + horizontal falloff, box maximum + fade-to-zero height, mix colour + density, ground-layer base); the fragment loop is bounded by the count and evaluates each region from the **fragment's** world position, never from camera membership. A region contributes `density * horizontal_edge * vertical_layer`; the greatest contribution wins (ties keep the lowest authoring index), the global density is added to the winner and the winner's colour is mixed towards. Densities never sum. The count is a uniform value, so the quality preset (Low 2 / Medium 8 / High 16) changes only the uploaded prefix — switching presets recovers the dropped regions with no rebuild. A level with no regions packs a zero count and a zeroed array: the global path is bit-identical to the historical one.
+On top of the global term a level may author up to 16 **regional fog volumes** (`fog_regions`, `src/engine/render/common/atmosphere.rs`). The group-3 uniform carries a count word and a fixed `array<FogRegion, 16>` (64 bytes per entry: box minimum + horizontal falloff, box maximum + fade-to-zero height, mix colour + density, ground-layer base); the fragment loop is bounded by the count and evaluates each region from the **fragment's** world position, never from camera membership. A region contributes `density * horizontal_edge * vertical_layer`; the greatest contribution wins (ties keep the lowest authoring index), the global density is added to the winner and the winner's colour is mixed towards. Densities never sum. The count is a uniform value, so the quality preset (Low 2 / Medium 8 / High 16) changes only the uploaded prefix — switching presets recovers the dropped regions with no rebuild. A level with no regions packs a zero count and a zeroed array: the global path is bit-identical to the historical one.
 
 **Bloom and resolve.** Linear HDR scene/emission/blur targets remain `Rgba16Float`.
 A quarter-size two-pass five-tap blur extracts emission above a soft 0.5 HDR knee

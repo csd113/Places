@@ -32,8 +32,8 @@
     reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
-use crate::level::LevelDef;
-use crate::lighting::{AMBIENT_LEVEL, LevelLighting, LightColor};
+use crate::engine::level::LevelDef;
+use crate::engine::lighting::{AMBIENT_LEVEL, LevelLighting, LightColor};
 
 /// Room indices in `tests/fixtures/levels/lighting_isolation.json`, in file order.
 mod cell {
@@ -97,7 +97,7 @@ fn an_opaque_wall_blocks_a_white_fixture_pool() {
     let face_room = lighting.face_room(6.4, 3.0, -1.0, 0.0);
     let face = lighting.sample_face(
         face_room,
-        6.4 - crate::lighting::WALL_FACE_PROBE_M,
+        6.4 - crate::engine::lighting::WALL_FACE_PROBE_M,
         1.5,
         3.0,
     );
@@ -130,10 +130,12 @@ fn an_opaque_wall_blocks_colour_not_only_brightness() {
     let horizontal = ((19.4 - light.x()).abs() - light.half_w()).max(0.0);
     let vertical = 1.5 - light.y();
     let distance = horizontal.hypot(vertical);
-    let unoccluded = crate::lighting::LOCAL_LIGHT_STRENGTH
+    let unoccluded = crate::engine::lighting::LOCAL_LIGHT_STRENGTH
         * light.intensity()
         * light.height_factor
-        * crate::lighting::smooth_falloff(distance / crate::lighting::LOCAL_LIGHT_RADIUS_M);
+        * crate::engine::lighting::smooth_falloff(
+            distance / crate::engine::lighting::LOCAL_LIGHT_RADIUS_M,
+        );
     assert!(
         unoccluded > 0.1,
         "the blocked pool must be large enough for the test to mean something: {unoccluded}"
@@ -292,7 +294,7 @@ fn a_lit_corner_has_no_artificial_collapse() {
                 north_room,
                 x,
                 1.5,
-                0.15 + crate::lighting::WALL_FACE_PROBE_M,
+                0.15 + crate::engine::lighting::WALL_FACE_PROBE_M,
             )
             .luminance();
         assert!(sample.is_finite(), "corner sample at x = {x} is not finite");
@@ -311,13 +313,13 @@ fn a_lit_corner_has_no_artificial_collapse() {
             north_room,
             0.2,
             1.5,
-            0.15 + crate::lighting::WALL_FACE_PROBE_M,
+            0.15 + crate::engine::lighting::WALL_FACE_PROBE_M,
         )
         .luminance();
     let west_at_corner = lighting
         .sample_face(
             west_room,
-            0.15 + crate::lighting::WALL_FACE_PROBE_M,
+            0.15 + crate::engine::lighting::WALL_FACE_PROBE_M,
             1.5,
             0.2,
         )
@@ -391,8 +393,8 @@ fn emitted_wall_faces_are_lit_by_the_room_they_open_into() {
     // coloured wedge in the corner — and it is asserted on emitted vertices so
     // a regression in the geometry emitter cannot slip past the bake tests.
     let (level, _) = isolation();
-    let mesh = crate::render::build_level_geometry(&level);
-    let walls = mesh.triangles_for(crate::render::SurfaceKind::Wall);
+    let mesh = crate::engine::render::build_level_geometry(&level);
+    let walls = mesh.triangles_for(crate::engine::render::SurfaceKind::Wall);
     assert!(!walls.is_empty(), "the diagnostic level must emit walls");
 
     // The red and blue cells share the divider at x = 57.2..57.6. Every wall
@@ -440,9 +442,9 @@ fn emitted_wall_faces_are_lit_by_the_room_they_open_into() {
             .unwrap_or_else(|error| panic!("{diag_path} must be readable: {error}")),
     )
     .unwrap_or_else(|error| panic!("{diag_path} must parse: {error}"));
-    let diag_mesh = crate::render::build_level_geometry(&diagnostic);
+    let diag_mesh = crate::engine::render::build_level_geometry(&diagnostic);
     let diag_walls: Vec<_> = diag_mesh
-        .triangles_for(crate::render::SurfaceKind::Wall)
+        .triangles_for(crate::engine::render::SurfaceKind::Wall)
         .into_iter()
         .filter(|vertex| {
             let [x, _y, z] = vertex.pos;
@@ -483,10 +485,10 @@ fn emitted_wall_faces_are_lit_by_the_room_they_open_into() {
 #[test]
 fn isolation_geometry_bakes_safe_vertices() {
     let (level, _) = isolation();
-    let mesh = crate::render::build_level_geometry(&level);
+    let mesh = crate::engine::render::build_level_geometry(&level);
     crate::lighting_audit::assert_vertex_colors_safe(&mesh.all_vertices());
     assert!(
-        mesh.index_count_for_family(crate::render::SurfaceKind::Wall) > 0,
+        mesh.index_count_for_family(crate::engine::render::SurfaceKind::Wall) > 0,
         "the diagnostic level must emit walls"
     );
 }

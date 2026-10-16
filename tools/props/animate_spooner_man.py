@@ -18,7 +18,7 @@ clips so the engine's character path can play real poses:
 
 
 The clips are authored from the rest skeleton with the same axis convention
-the engine uses at runtime (``src/render/common/character.rs``): a rotation of
+the engine uses at runtime (``src/engine/render/common/character.rs``): a rotation of
 ``angle`` degrees about the model-space X (lateral) or Y (up) axis, expressed
 in the joint's parent frame, then composed with the joint's rest rotation.
 Translations are authored in model space and converted into the parent frame.
@@ -27,7 +27,7 @@ checked against the actual skinned mesh; pounce includes a vertical pelvis
 arc, with no horizontal root travel.
 
 Structural rules the writer guarantees, so the engine's GLB reader
-(``src/gltf.rs``) accepts the result:
+(``src/engine/gltf.rs``) accepts the result:
 
 * every existing ``bufferView`` keeps its byte offset and length; new views
   are appended after the recorded base length, and the BIN chunk grows;
@@ -70,7 +70,7 @@ CHUNK_BIN = 0x004E_4942
 # support-phase paw velocity matches this reference (68% stance duty).
 WALK_REFERENCE_SPEED = 0.20
 
-# Engine limits this tool must respect (src/level.rs).
+# Engine limits this tool must respect (src/engine/level.rs).
 MAX_ANIMATIONS = 64
 MAX_CHANNELS = 4096
 

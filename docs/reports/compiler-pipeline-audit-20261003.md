@@ -422,3 +422,29 @@ Running the preserved launcher without a map argument lists its fixtures. Use
 `tools/bench/compiler_bench.py` and the canonical verification guide for new measurements;
 retain the exact source/asset inputs and distinguish canonical runtime manifest
 identity from the hash of the full ZIP archive.
+
+## Terminal progress follow-up
+
+The later pre-0.9 terminal-progress campaign in October 2026 is separate from
+the October 3 benchmark measurements above. Its maintained output and cancellation
+contract is in [Offline Tooling](../OFFLINE_TOOLING.md#compiler-feedback-and-cancellation).
+The existing compiler/transport timing phases were retained; reflection capture
+used the GPU while light transport remained on CPU workers.
+
+Formatting/diff checks, strict debug and release Clippy, workspace tests
+(2,253 library, two compiler CLI and seven integration) and all-feature tests
+(2,259 library, two CLI and seven integration) passed, retaining 18 existing
+ignores. Sixty-five focused Python package/benchmark checks passed. Tiny
+deterministic tests protected terminal width/count policy, concurrent counters,
+warning redraw and cancellation immediately before publication; no full-map
+test was added.
+
+Real pseudo-terminal/plain captures used the existing 4×4 packing control and
+8×6 material-routing fixture. Progress enabled/disabled produced identical
+control archives. JSON with verbose logs, 120→60-column resize, warnings,
+current/prepared reuse, collection failures and actual terminal Ctrl-C passed.
+Native Metal capture verified Full/Medium reflection stages and probe counts.
+Evidence remained in `local/compiler-progress/` outside the build directory.
+Production maps were not baked; active source/package and unrelated audit hashes
+were preserved. Linux/Windows native acceptance and broad performance measurement
+were not run in that campaign.

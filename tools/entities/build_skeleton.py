@@ -8,7 +8,7 @@ material, one embedded 256x256 PNG) plus the source texture PNG it embeds:
     bone_01.png             the embedded source artwork (aged ivory bone)
     skeleton_preview.png    software-rasterised pose sheet (a review aid only)
 
-Conventions, from ``assets/README.md`` and ``docs/MAP_AUTHORING_GUIDE.md``:
+Conventions, from ``docs/ASSET_SPECIFICATION.md`` and ``docs/MAP_AUTHORING_GUIDE.md``:
 
 * 1 unit = 1 metre, +Y up, **+Z is the front** (the skull faces +Z at yaw 0);
 * the origin is the floor-contact point: the lowest sole vertex is ``y = 0``

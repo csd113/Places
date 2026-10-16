@@ -11,7 +11,7 @@ joints and three single-pose HOLD clips:
     pose_arms_up        both arms raised overhead, slight elbow bend
     pose_arms_forward   both arms extended horizontally forward
 
-Conventions match ``assets/README.md``: 1 unit = 1 metre, +Y up, +Z front, the
+Conventions match ``docs/ASSET_SPECIFICATION.md``: 1 unit = 1 metre, +Y up, +Z front, the
 origin is the floor-contact point horizontally centred under the bounding box,
 and the texture is one embedded PNG painted with ``tools/props/tex.py``.
 

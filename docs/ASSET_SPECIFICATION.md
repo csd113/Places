@@ -89,7 +89,7 @@ introducing it.
 
 3. **PNG is the only raster format the runtime accepts.** The decoder
    signature-checks every texture and rejects anything that is not a PNG
-   (`src/materials/image.rs::decode_png`). There is no JPEG, WebP, TGA, BMP,
+   (`src/engine/materials/image.rs::decode_png`). There is no JPEG, WebP, TGA, BMP,
    EXR or KTX path.
 
 4. **Aspect ratio and source resolution are separate concepts.**
@@ -181,7 +181,7 @@ A PNG is claimed by one catalog entry; models may embed shared identical sheets.
 See [environment profiles](assets/ENVIRONMENTS.md) and
 [entity profiles](assets/ENTITIES.md) for kit-specific placement, rig and
 provenance details. Documentation captures live under `docs/images/` or
-`docs/screenshots/`; `icon.png` remains the application icon.
+`docs/screenshots/`; `assets/shared/branding/places.png` remains the application icon.
 
 ---
 
@@ -214,7 +214,7 @@ currently nothing enforces a minimum for any class.
 | Ultraviolet response mask | Arcade cosmic carpet | **same UV frame as its albedo** | 256×256 native; retained 1024×1024 master for Arcade | none enforced | numeric RGB; alpha ignored | follows the albedo | identical orientation, repeat and motif placement to albedo | black means no reaction, white full reaction; independent of emission |
 | Blacklight batten face | `arcade:blacklight_tube` | **8:1** | 1024×128 master, 256×32 native | none enforced | opaque | no | full fitted sheet, horizontal u along the tube | 1.12×0.14 m lens inside a 1.2×0.15 m dark housing; face switches with the fixture |
 | Diagnostic texture | `diagnostic_alt_01.png` | deliberately varied (96×64) | n/a | n/a | deliberately varied | n/a | not used by any shipped level | test artwork only |
-| Application icon | `icon.png` | 1:1 | ≤512 | — | RGBA | no | n/a | non-interlaced; asserted by `tests/test_package.py` |
+| Application icon | `assets/shared/branding/places.png` | 1:1 | ≤512 | — | opaque RGB original; RGBA for new sources | no | n/a | non-interlaced; asserted by `tests/test_package.py` |
 | Documentation capture | `docs/screenshots/01-office.png` | 30:17 (960×544) | 960×544 | — | frame image | no | n/a | docs only |
 
 **Do not read this table as "all textures are 1024×1024."** It is not a size
@@ -227,7 +227,7 @@ production assets use. The hard ceiling is the only repository-wide number.
 
 Surface textures are the tiling sheets used by wall, floor and ceiling
 materials. They share one UV convention: `tiled_uv(a, b, tile_metres)` returns
-`[a / tile_metres, b / tile_metres]` (`src/render.rs::tiled_uv`), where `a`
+`[a / tile_metres, b / tile_metres]` (`src/engine/render.rs::tiled_uv`), where `a`
 and `b` are world-space metres along the surface, and the same period applies
 to both axes. A material's `tile_metres` is authored in the catalog, validated
 to `0.05..=64.0`, and defaults to `2.0`
@@ -421,7 +421,7 @@ half-power sources sit 1 mm in front of those strips; the central gasket emits
 nothing. The Arcade panel keeps its existing procedural diffuser plane.
 
 A fixture's mesh is generated from a fixture profile
-(`src/lighting/tuning.rs::fixture_profile`); its *visible luminous face* is a
+(`src/engine/lighting/tuning.rs::fixture_profile`); its *visible luminous face* is a
 catalog `light` entry whose `model` is a PNG. Fixture sheets are **fitted**:
 the whole sheet is mapped once across the face, the UVs never leave `[0, 1]`,
 and the renderer uploads them `CLAMP_TO_EDGE` with mipmaps. Nothing about a
@@ -457,7 +457,7 @@ structure from
 Fixture faces are **opaque by construction**: the face draws in the opaque
 pass and its alpha channel is ignored. A shipped fixture sheet is additionally
 required to be fully opaque by
-`src/loader/tests.rs::test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog`,
+`src/engine/loader/tests.rs::test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog`,
 so RGB artwork and an RGBA file whose alpha is everywhere 255 are equivalent
 in practice.
 
@@ -474,7 +474,7 @@ Shipped asset: `core:fluorescent_panel_01` →
 | Orientation | `v = 0` is the image's top row; the twin tubes run across the panel *width*, i.e. horizontally in the image |
 | Current asset | 1024×512 (≈1.09 mm per texel both ways) |
 | Preferred source resolution | 1024×512 |
-| Higher resolutions | allowed while 2:1 and POT both hold: 128×64 → 256×128 → 512×256 → 1024×512 are the same layout. `src/loader/tests.rs::test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog` pins each family's aspect, POT edges, hard limit and full opacity, so a resolution change within that contract needs no test edit. |
+| Higher resolutions | allowed while 2:1 and POT both hold: 128×64 → 256×128 → 512×256 → 1024×512 are the same layout. `src/engine/loader/tests.rs::test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog` pins each family's aspect, POT edges, hard limit and full opacity, so a resolution change within that contract needs no test edit. |
 | Hard maximum | 1024 per edge, so 1024×512 is the largest valid 2:1 sheet |
 | Transparency | none: no transparent padding, no cut-out, no alpha use |
 | Emissive information | embedded in the artwork's brightness only; the glow is added by the renderer, and the base texture always multiplies the emission term |
@@ -494,10 +494,10 @@ along −X; the artwork is rotated without mirroring. Both orientations show
 1.09 mm per texel in each direction at 1024×512. The finite light source uses
 that same luminous aperture and diffuser plane; the metal body remains opaque.
 
-The visible lens face is 0.4 × 0.2 m (`src/render/common/fixtures.rs`, pinned by
+The visible lens face is 0.4 × 0.2 m (`src/engine/render/common/fixtures.rs`, pinned by
 test). The map guide's separate "0.4 × 0.18 m" figure for the wall luminaire
 describes the *bake's light rectangle* (`half_width: 0.20`,
-`half_depth: 0.09` in `src/lighting/tuning.rs::fixture_profile_for_kind`), not
+`half_depth: 0.09` in `src/engine/lighting/tuning.rs::fixture_profile_for_kind`), not
 the lens artwork; both figures are current and describe different things.
 
 ### 6.2 Round recessed downlight (pool ceiling light)
@@ -573,7 +573,7 @@ therefore one of the three face contracts:
 | Flush mount | `home:ceiling_light_round` | 1:1 | residential ceiling lamp: a drum with a glowing diffuser disc |
 
 Adding a further fixture family is a code change (a new `FixtureKind`, profile
-and geometry in `src/lighting/tuning.rs` and `src/render/common/fixtures.rs`) plus an
+and geometry in `src/engine/lighting/tuning.rs` and `src/engine/render/common/fixtures.rs`) plus an
 asset. Do not add a fixture PNG without adding the family and its face
 contract.
 
@@ -638,8 +638,8 @@ If in doubt, author square artwork and place it square.
 ### 7.1 Steam effect sheets
 
 An **effect sheet** is the artwork of a level's `effects[]` billboards: the
-ambient steam plumes (`src/render/common/effects.rs`,
-`src/render/wgpu/effects.rs`). It is neither a world surface nor a decal: the
+ambient steam plumes (`src/engine/render/common/effects.rs`,
+`src/engine/render/wgpu/effects.rs`). It is neither a world surface nor a decal: the
 level authors an emitter volume, the renderer generates camera-facing quads,
 and the sheet is sampled once per particle.
 
@@ -677,7 +677,7 @@ billboards in storm weather; only the quad geometry stretches, while PNG
 aspect, UV orientation, straight alpha and transparent borders remain intact.
 The corresponding blend material is `core:snowflake_01`. The PNG is artwork
 from the built-in imagegen tool, downsampled with alpha preserved; the game
-never synthesizes it. See `src/render/common/snow.rs` for geometry and fades.
+never synthesizes it. See `src/engine/render/common/snow.rs` for geometry and fades.
 
 ### 7.1b Caustic intensity mask
 
@@ -779,7 +779,7 @@ respect. They are not tiles: they are fitted to a model's own UV map.
 ### 8.1 Format and location
 
 * Models are self-contained binary glTF 2.0 files (`.glb`), read by
-  `src/gltf.rs`. The supported subset is deliberately narrow: triangles only,
+  `src/engine/gltf.rs`. The supported subset is deliberately narrow: triangles only,
   `POSITION`, `TEXCOORD_0` and optional `COLOR_0`, 16/32-bit indices, optional
   skins (`JOINTS_0`/`WEIGHTS_0`, one skin per model) and optional LINEAR/STEP
   animation clips, no morph targets. A skinned model's static prop batch draws
@@ -933,8 +933,8 @@ normal runtime texture         256x 256 native
   never rebuilt from the placeable-prop builders.
   The October14 complete rebuild supersedes its earlier body-only refinement.
   `completed-models.json` guards the adopted export; final editable masters remain
-  in Downloads. `refine_spooner_man.py` retains the historical immutable-source
-  recipe and refuses to overwrite the adopted rig. The earlier
+  in Downloads. The superseded body-only refiner and its duplicate checker were
+  retired; the original source GLB and accepted export remain preserved. The earlier
   [refinement report](reports/spoonerman-body-refinement.md) remains dated evidence;
   original head/PNG/rest-transform preservation does not describe the new export.
 
@@ -963,21 +963,20 @@ with articulated tripod scurry. This is an ordinary fitted model sheet,
 with clamp sampling, opaque alpha, no emission and no tiling.
 These source files are embedded during export; runtime reads the GLBs.
 
-`core:table_sideways` is the existing repaired `shared/props/table.glb` rotated
-offline by +90 degrees around Z, then centred and grounded on its long edge.
+`core:table_sideways` is the accepted oak table resting on its long edge.
 Its tabletop normal faces -X and its legs extend toward +X; ordinary level yaw
-still controls placement. `tools/props/parts/furniture.py` preserves every
-visible source triangle, vertex pigment, UV and the embedded 256² `table.png`
-bytes. Only two zero-area source triangles are omitted. The 338-triangle variant
-has size `[0.75, 1.4, 0.8]`, opaque alpha, clamp sampling and the same single
-non-emissive oak material. It creates no raster artwork or new UV layout.
+still controls placement. The completed export has 428 triangles and size
+`[0.75, 1.4, 0.8]`, with its original opaque 256² fitted artwork, clamp sampling
+and non-emissive material. The completed-model ledger owns its exact hash and
+measured bounds after the obsolete constructor was retired. It creates no raster
+artwork or new UV layout.
 
-The historical domestic remakes in `tools/props/parts/domestic_remade.py` retain those
-atlas regions and the tableware layouts. Their bed and superseded office-chair builders load
-existing embedded artwork from standalone 256² PNG sources beside their GLBs:
+The retained Home builders in `tools/props/parts/domestic_remade.py` preserve
+existing atlas regions and tableware layouts. The completed bed and office-chair
+exports retain their standalone 256² PNG sources beside their GLBs:
 `shared/props/bed.png` (frame/mattress/linen/board) and
-`environments/office/props/chair.png` (shell/pad/metal/dark). These are
-unchanged extracted pixels, not newly painted textures. The switch retains its
+`environments/office/props/chair.png` (shell/pad/metal/dark). Their superseded
+constructors were removed; the source artwork remains. The switch retains its
 `toggle` clip and node names; its rocker hinge is now at `(0, 0.066, 0.022)`
 metres, with a 0.35-second, 30-degree travel. Its back remains at `z = 0`.
 
@@ -1367,8 +1366,9 @@ Python builder remains authoritative and no Blender/map bake enters default test
 The reusable restroom fittings use the existing opaque fitted model class,
 with +Y up, +Z front, metre scale, centred X/Z and base-contact Y=0. Editable
 Blender source, GLBs and measured metadata live in `environments/arcade/restroom/`.
-`tools/props/author_arcade_restroom.py` is an explicit offline Blender authorer;
-normal builds preserve its exported models through catalog `authoring` ownership.
+The completed exports and editable Blender source are the maintained assets;
+the superseded one-off authorer was removed. Normal builds preserve the exports
+through catalog `authoring` ownership and validate their accepted hashes.
 
 All fittings embed the unchanged opaque 32-square `party_palette.png` from
 `environments/arcade/party/models/`. UVs sample the centres of its existing
@@ -1563,10 +1563,11 @@ the current compiler builds maps against the installed asset bundle; see
 
 ### 12.1 Application icon and documentation screenshots
 
-* `icon.png`: PNG, square, RGBA, non-interlaced, ≤512 px; asserted by
-  `tests/test_package.py`. `logo.png` is the user's approved byte-identical
-  copy for the promotional README; keep its original square composition,
-  orientation and alpha. It is documentation artwork, not a runtime texture.
+* `assets/shared/branding/places.png` is the single approved icon and README
+  image, formerly duplicated as root `icon.png` and `logo.png`. Keep its original
+  square composition, orientation and opaque RGB bytes unchanged. New icon
+  sources use RGBA, square, non-interlaced PNG at ≤512 px. The existing icon
+  contract is checked by `tests/test_package.py`; it is non-runtime artwork.
 * `docs/screenshots/*.png`: 960×544 documentation captures. Not runtime
   assets; no contract beyond being still frames.
 * `docs/images/item-physics-0.10.0/*.png`: unchanged native gameplay
@@ -1647,8 +1648,8 @@ Computed lighting images are derived from level geometry and light settings:
 
 | Image | Producer | Purpose |
 |---|---|---|
-| Lightmap atlas pages | `src/lighting/lightmap/` + offline compiler | Incident linear HDR and signed moment pairs, prepared into compact PLLC1 blobs (legacy/exact KTX2 remains readable), expanding to the same linear half-float GPU planes. Full plans up to fourteen pages per contribution group; lower profiles retain eight. The player uploads the exact produced layers, subject to the measured 320 MiB +64 KiB typed record bound and unchanged switch-group/aggregate/shape guards. PNG dumps are diagnostics, not authored assets. |
-| Reflection probe cubemaps | `src/render/common/reflections.rs` (routing) and `src/render/wgpu/reflections.rs` (offline capture) | Packaged HDR probe captures and roughness mip chains, uploaded at level load; the player does not recapture them. |
+| Lightmap atlas pages | `src/engine/lighting/lightmap/` + offline compiler | Incident linear HDR and signed moment pairs, prepared into compact PLLC1 blobs (legacy/exact KTX2 remains readable), expanding to the same linear half-float GPU planes. Full plans up to fourteen pages per contribution group; lower profiles retain eight. The player uploads the exact produced layers, subject to the measured 320 MiB +64 KiB typed record bound and unchanged switch-group/aggregate/shape guards. PNG dumps are diagnostics, not authored assets. |
+| Reflection probe cubemaps | `src/engine/render/common/reflections.rs` (routing) and `src/engine/render/wgpu/reflections.rs` (offline capture) | Packaged HDR probe captures and roughness mip chains, uploaded at level load; the player does not recapture them. |
 
 Diagnostic textures under `assets/diagnostic/textures/` are real PNGs but are
 engine test artwork: the 96×64 sheet deliberately proves arbitrary NPOT
@@ -2128,10 +2129,10 @@ real-window/GPU checks; see [VERIFICATION.md](VERIFICATION.md).
 | Prop GLB: UVs 0..1, triangle/vertex/texture budgets, scale/origin, PNG ≤1024 | Rust `props::tests`; runtime parser | `cargo test` | yes |
 | Prop art budgets (triangles, ordinary 256 / reviewed cloth 1024 and wrap 512, 106 MiB decoded pack budget) | Rust `props::tests::shipped_prop_assets_match_the_catalogue_and_budgets` and its policy tests | `cargo test` | yes |
 | Prop GLB decoded texture memory (per-texture and pack total) | `tools/props/build.py --check` | `python3 tools/props/build.py --check` | yes (exit 1) |
-| Model textures: embedded PNG only, ≤1024, UV bounds | `src/gltf.rs` parser (runtime) + `cargo test` | game run / `cargo test` | fallback box / test failure |
+| Model textures: embedded PNG only, ≤1024, UV bounds | `src/engine/gltf.rs` parser (runtime) + `cargo test` | game run / `cargo test` | fallback box / test failure |
 
 The strengthened Rust test added with this specification
-(`src/assets/tests.rs::every_shipped_sheet_satisfies_its_texture_kind_contract`)
+(`src/engine/assets/tests.rs::every_shipped_sheet_satisfies_its_texture_kind_contract`)
 walks every file-backed `texture`, `decal` and `light` entry in the catalog,
 decodes its PNG and checks the dimensions against
 `ShippedTextureKind::Surface` / `DecalSheet` / `FixtureFace`. Diagnostic
@@ -2186,9 +2187,9 @@ without checking the implementation.
 5. **Emissive-on-props has no authoring recipe.** The loader supports
    `emissiveTexture`, but the prop toolkit cannot emit one and no shipped
    model uses it. A prop mask must share the base map's UV frame.
-6. **The icon is not copied by `tools/package.sh`.** `tests/test_package.py`
-   asserts `icon.png`, but the packaging script does not include it in the
-   payload. Whether the icon is consumed by an external step is unknown.
+6. **Platform icon integration remains separate.** The approved non-runtime
+   source lives below `assets/shared/branding/` and is excluded from runtime
+   payloads; bundle metadata does not configure a native platform icon resource.
 7. **Diagnostic sheets are not used by any level.** Their documented
    "asserted at the call site" claim refers to tests only.
 8. **Interlaced PNGs are untested and rejected by the tiling tool.**
@@ -2226,7 +2227,7 @@ without checking the implementation.
 16. **Fixture painters and source images have different sizes.** The shipped
     fluorescent panel is 1024×512; its painter remains 256×128. Consult the
     catalog and this specification when replacing artwork.
-17. **Pack material parsing is dormant.** `src/materials/pack.rs` still parses a
+17. **Pack material parsing is dormant.** `src/engine/materials/pack.rs` still parses a
     pack `materials.json`, but the loader and compiler pass no pack, so no
     `pack:` id resolves from any level source.
 

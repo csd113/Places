@@ -78,7 +78,7 @@ captures are 1280x720 on Apple M2 Pro.
 Native High and Low fixture/demo comparisons used one fixed renderer, camera
 and settings. Original/refined sources, matching packages/assets and the saved
 player are independent reproduction inputs. The current combined package result
-is recorded in the [October 7 integration](integration-provenance-20261007.md).
+is recorded in the [October 7 integration](../style-upgrade-20261007/README.md#preceding-integration-provenance).
 
 The largest differences are the quieter vertical wallpaper print, convincing
 metal/wood desk construction, visible cabinet drawer reveals and label plates,

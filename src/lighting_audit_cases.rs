@@ -19,19 +19,19 @@
     reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
-use crate::level::{
+use crate::engine::level::{
     LevelDef, LightFixtureDef, MAX_LEVEL_FLOOR_AREA_M2, PropDef, RoomDef, SpawnDef,
 };
-use crate::lighting::{
+use crate::engine::lighting::{
     AMBIENT_LEVEL, FILL_MAX, FILL_RANGE_MULTIPLIER, LOCAL_LIGHT_MAX, LOCAL_LIGHT_RADIUS_M,
     LevelLighting, MAX_BRIGHTNESS, MAX_LIGHT_INTENSITY, REFERENCE_CEILING_HEIGHT_M, ambient_color,
 };
-use crate::render::{build_level_geometry, build_level_geometry_with_assets};
+use crate::engine::render::{build_level_geometry, build_level_geometry_with_assets};
 
 use super::lighting_audit::{
     assert_vertex_colors_safe, level_json, light, one_model_batch, parse, room, square_room_level,
 };
-use crate::render::SurfaceKind;
+use crate::engine::render::SurfaceKind;
 use crate::test_support::{assert_exact, assert_exact_named, scan, scan_below};
 
 fn bake(level: &LevelDef) -> LevelLighting {
@@ -41,18 +41,18 @@ fn bake(level: &LevelDef) -> LevelLighting {
 /// Parses a level about to be validated.
 ///
 /// The shared `lighting_audit::level_json` helper still writes the historical
-/// `format_version: 2` header; [`crate::loader::validate_level`] accepts only
+/// `format_version: 2` header; [`crate::engine::loader::validate_level`] accepts only
 /// the current version, so this parses the JSON and stamps
-/// [`crate::level::LEVEL_FORMAT_VERSION`] before returning it. The header is the
+/// [`crate::engine::level::LEVEL_FORMAT_VERSION`] before returning it. The header is the
 /// only difference: parsing (and therefore every authored field) is unchanged.
 fn parse_current(json: &str) -> LevelDef {
     let mut level = parse(json);
-    level.format_version = crate::level::LEVEL_FORMAT_VERSION;
+    level.format_version = crate::engine::level::LEVEL_FORMAT_VERSION;
     level
 }
 
 /// Per-channel effective power of one baked fixture.
-fn fixture_power(light: &crate::lighting::BakedLight) -> [f32; 3] {
+fn fixture_power(light: &crate::engine::lighting::BakedLight) -> [f32; 3] {
     let power = light.intensity() * light.height_factor;
     light.color().to_array().map(|channel| channel * power)
 }
@@ -79,13 +79,13 @@ fn assert_power_eq(actual: [f32; 3], expected: [f32; 3], context: &str) {
 }
 
 /// Builds geometry, asserting every generated vertex is safe.
-fn build_checked(level: &LevelDef) -> crate::render::LevelMesh {
+fn build_checked(level: &LevelDef) -> crate::engine::render::LevelMesh {
     let mesh = build_level_geometry(level);
     assert_vertex_colors_safe(&mesh.all_vertices());
     mesh
 }
 
-fn color_range(mesh: &crate::render::LevelMesh) -> (f32, f32) {
+fn color_range(mesh: &crate::engine::render::LevelMesh) -> (f32, f32) {
     let mut min = f32::MAX;
     let mut max = f32::MIN;
     for vertex in &mesh.all_vertices() {
@@ -152,7 +152,7 @@ fn group_a_room_area_extremes_stay_inside_the_budget() {
         &room(0.0, 0.0, 1000.0, 1000.0, 3.5),
         &light(500.0, 500.0, None),
     ));
-    assert!(crate::loader::validate_level(&level).is_ok());
+    assert!(crate::engine::loader::validate_level(&level).is_ok());
     let lighting = bake(&level);
     assert!(lighting.rooms()[0].baseline.luminance() >= AMBIENT_LEVEL);
     assert!(lighting.sample_luminance(500.0, 0.0, 500.0).is_finite());
@@ -167,7 +167,8 @@ fn group_a_room_area_extremes_stay_inside_the_budget() {
         .collect();
     let over = parse_current(&level_json(&rooms.join(","), &light(500.0, 500.0, None)));
     assert!(over.estimate_geometry().floor_area_m2 > MAX_LEVEL_FLOOR_AREA_M2);
-    let error = crate::loader::validate_level(&over).expect_err("over-budget level must reject");
+    let error =
+        crate::engine::loader::validate_level(&over).expect_err("over-budget level must reject");
     assert!(error.contains("floor area"), "unexpected error: {error}");
 }
 
@@ -236,10 +237,10 @@ fn group_b_a_zero_intensity_fixture_behaves_like_no_fixture() {
     let mesh = build_checked(&coloured_off);
     // Only the luminous sheet face carries the fixture's emission; the
     // untextured housing around it stays a fixed grey.
-    let panel = mesh.triangles_for_key(crate::render::SurfaceKey::new(
+    let panel = mesh.triangles_for_key(crate::engine::render::SurfaceKey::new(
         SurfaceKind::Light,
-        crate::render::MaterialIndex::try_from(
-            crate::lighting::FixtureKind::FluorescentPanel.index(),
+        crate::engine::render::MaterialIndex::try_from(
+            crate::engine::lighting::FixtureKind::FluorescentPanel.index(),
         )
         .expect("four families fit u16"),
     ));
@@ -290,9 +291,10 @@ fn group_c_dense_fixture_grids_saturate_without_overflow_or_geometry_explosion()
         // light count, while their total retains the fixture profile budget.
         // Flat floor cells still merge below the cell-grid bound.
         let mesh = build_checked(&level);
-        let panel_quads =
-            i32::try_from(crate::lighting::fixture_profile("core:fluorescent_panel_01").quads)
-                .unwrap_or(i32::MAX);
+        let panel_quads = i32::try_from(
+            crate::engine::lighting::fixture_profile("core:fluorescent_panel_01").quads,
+        )
+        .unwrap_or(i32::MAX);
         assert_eq!(
             mesh.batches.light_batch.count + mesh.batches.wall_batch.count,
             i32::try_from(count).unwrap_or(i32::MAX) * panel_quads * 6_i32
@@ -324,7 +326,7 @@ fn group_c_dense_fixture_grids_saturate_without_overflow_or_geometry_explosion()
 
 #[test]
 fn group_d_intensity_boundaries_are_sanitized_deterministically() {
-    use crate::lighting::sanitize_intensity;
+    use crate::engine::lighting::sanitize_intensity;
     assert_exact(sanitize_intensity(0.0), 0.0);
     assert_exact(sanitize_intensity(1e-9), 1e-9);
     assert_exact(sanitize_intensity(0.5), 0.5);
@@ -419,7 +421,8 @@ fn group_d_loader_rejects_invalid_intensities() {
             assert_exact(level.ceiling_lights[0].intensity(), 1.0);
             continue;
         }
-        let error = crate::loader::validate_level(&level).expect_err("negative must reject");
+        let error =
+            crate::engine::loader::validate_level(&level).expect_err("negative must reject");
         assert!(
             error.contains("negative") || error.contains("finite"),
             "unexpected error: {error}"
@@ -446,7 +449,7 @@ fn group_d_loader_rejects_invalid_intensities() {
 
 #[test]
 fn group_e_ceiling_height_correction_is_monotonic_bounded_and_safe() {
-    use crate::lighting::ceiling_height_factor;
+    use crate::engine::lighting::ceiling_height_factor;
     // Reference height is neutral; lower ceilings help, taller ones reduce
     // gently, and the correction is always finite and positive.
     assert!((ceiling_height_factor(REFERENCE_CEILING_HEIGHT_M) - 1.0).abs() < 1e-6);
@@ -480,7 +483,7 @@ fn group_e_taller_rooms_stay_dim_but_valid_and_lower_rooms_stay_bounded() {
             &format!("{},{}", light(5.3, 5.3, None), light(10.7, 10.7, None)),
         ));
         assert!(
-            crate::loader::validate_level(&level).is_ok(),
+            crate::engine::loader::validate_level(&level).is_ok(),
             "height {height} must be a valid level"
         );
         let lighting = bake(&level);
@@ -500,7 +503,7 @@ fn group_e_taller_rooms_stay_dim_but_valid_and_lower_rooms_stay_bounded() {
         assert!(mounting_y < height && mounting_y > height - 0.02);
         assert!(
             (fixture_y
-                - crate::lighting::fixture_profile("core:fluorescent_panel_01")
+                - crate::engine::lighting::fixture_profile("core:fluorescent_panel_01")
                     .emission_y(mounting_y))
             .abs()
                 < 1e-6
@@ -513,17 +516,17 @@ fn group_e_taller_rooms_stay_dim_but_valid_and_lower_rooms_stay_bounded() {
         &room(0.0, 0.0, 16.0, 16.0, 50.1),
         &light(8.0, 8.0, None),
     ));
-    assert!(crate::loader::validate_level(&too_tall).is_err());
+    assert!(crate::engine::loader::validate_level(&too_tall).is_err());
     let zero = parse_current(&level_json(
         &room(0.0, 0.0, 16.0, 16.0, 0.0),
         &light(8.0, 8.0, None),
     ));
-    assert!(crate::loader::validate_level(&zero).is_err());
+    assert!(crate::engine::loader::validate_level(&zero).is_err());
     let negative = parse_current(&level_json(
         &room(0.0, 0.0, 16.0, 16.0, -1.0),
         &light(8.0, 8.0, None),
     ));
-    assert!(crate::loader::validate_level(&negative).is_err());
+    assert!(crate::engine::loader::validate_level(&negative).is_err());
 
     // Programmatic extremes (bypassing validation) still bake safely.
     let mut extreme = parse(&level_json(
@@ -704,7 +707,8 @@ fn group_g_smallest_containing_room_wins_for_every_lookup() {
     // And they hang from the small room's lower ceiling.
     assert!(
         (lighting.lights()[0].y()
-            - crate::lighting::fixture_profile("core:fluorescent_panel_01").emission_y(2.59))
+            - crate::engine::lighting::fixture_profile("core:fluorescent_panel_01")
+                .emission_y(2.59))
         .abs()
             < 1e-6
     );
@@ -1471,8 +1475,8 @@ fn prop_level(props_json: &str, lights_json: &str) -> LevelDef {
 
 #[test]
 fn group_m_n_real_props_are_lit_from_their_transformed_world_position() {
-    let catalog = crate::loader::PropCatalog::load_default();
-    let mut assets = crate::props::PropAssets::load_default();
+    let catalog = crate::engine::loader::PropCatalog::load_default();
+    let mut assets = crate::engine::props::PropAssets::load_default();
     assert!(assets.root().is_some(), "the assets/ directory must exist");
 
     // Under a ceiling fixture the direct pool is directional and therefore
@@ -1493,7 +1497,7 @@ fn group_m_n_real_props_are_lit_from_their_transformed_world_position() {
         r#"{ "model": "core:chair", "x": 9.0, "z": 5.0 }"#,
         &light(5.0, 5.0, None),
     );
-    let bright = |level: &LevelDef, prop_assets: &mut crate::props::PropAssets| {
+    let bright = |level: &LevelDef, prop_assets: &mut crate::engine::props::PropAssets| {
         let (_, batches) = build_level_geometry_with_assets(level, &catalog, prop_assets);
         let chair = one_model_batch(&batches, "environments/office/props/chair.glb");
         let vertex = chair
@@ -1566,8 +1570,8 @@ fn group_m_n_real_props_are_lit_from_their_transformed_world_position() {
 
 #[test]
 fn group_n_extreme_prop_offsets_are_lit_without_correction_or_rejection() {
-    let catalog = crate::loader::PropCatalog::load_default();
-    let mut assets = crate::props::PropAssets::load_default();
+    let catalog = crate::engine::loader::PropCatalog::load_default();
+    let mut assets = crate::engine::props::PropAssets::load_default();
     for (label, y) in [
         ("deeply negative", -1.5_f32),
         ("zero", 0.0),
@@ -1676,7 +1680,7 @@ fn empty_level() -> LevelDef {
         doors: Vec::new(),
         effects: Vec::new(),
         routes: Vec::new(),
-        format_version: crate::level::LEVEL_FORMAT_VERSION,
+        format_version: crate::engine::level::LEVEL_FORMAT_VERSION,
         id: "empty".into(),
         name: "Empty".into(),
         author: String::new(),
@@ -1686,7 +1690,7 @@ fn empty_level() -> LevelDef {
             z: 0.0,
             yaw_degrees: 0.0,
         },
-        defaults: crate::level::LevelDefaults::default(),
+        defaults: crate::engine::level::LevelDefaults::default(),
         walls: Vec::new(),
         floor_patches: Vec::new(),
         floor_regions: Vec::new(),
@@ -1743,7 +1747,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     // Zero-area rooms (only constructible programmatically).
     let mut zero_room = empty.clone();
     zero_room.rooms.push(RoomDef {
-        ceiling: crate::level::CeilingProfileDef::Flat,
+        ceiling: crate::engine::level::CeilingProfileDef::Flat,
         floor_y: 0.0,
         x: 5.0,
         z: 5.0,
@@ -1760,7 +1764,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     zero_room.ceiling_lights.push(LightFixtureDef {
         hold_in_static: false,
         switch_group: None,
-        static_switch: crate::level::StaticSwitchMode::Disabled,
+        static_switch: crate::engine::level::StaticSwitchMode::Disabled,
         ultraviolet: 0.0,
         switchable: false,
         id: None,
@@ -1808,7 +1812,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     assert_eq!(first, second);
     // Huge coordinates: finite geometry, no NaN.
     duplicate.rooms[0] = RoomDef {
-        ceiling: crate::level::CeilingProfileDef::Flat,
+        ceiling: crate::engine::level::CeilingProfileDef::Flat,
         floor_y: 0.0,
         x: 1.0e30,
         z: -1.0e30,
@@ -1879,7 +1883,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     lights_only.ceiling_lights.push(LightFixtureDef {
         hold_in_static: false,
         switch_group: None,
-        static_switch: crate::level::StaticSwitchMode::Disabled,
+        static_switch: crate::engine::level::StaticSwitchMode::Disabled,
         ultraviolet: 0.0,
         switchable: false,
         id: None,
@@ -1913,7 +1917,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     broken.ceiling_lights.push(LightFixtureDef {
         hold_in_static: false,
         switch_group: None,
-        static_switch: crate::level::StaticSwitchMode::Disabled,
+        static_switch: crate::engine::level::StaticSwitchMode::Disabled,
         ultraviolet: 0.0,
         switchable: false,
         id: None,
@@ -1966,7 +1970,7 @@ fn group_q_coloured_fixtures_tint_floor_and_wall_geometry() {
     // geometry response, not just the fixture panel, carries the colour.
     let mut level = coloured_room_json("[0.0, 0.15, 1.0]", 12.0, 3.0);
     // A wall to prove the tint reaches vertical surfaces too.
-    level.walls.push(crate::level::WallDef {
+    level.walls.push(crate::engine::level::WallDef {
         x: 2.0,
         y: 0.0,
         z: 6.0,

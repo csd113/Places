@@ -62,7 +62,7 @@ LEVEL_DIRS = (
 # material-index boundary with more than 65 536 distinct ids cannot use the
 # catalog at all. The fixture's real contracts are pinned by src/zoo_audit.rs,
 # and every other check in this validator still applies to it. Mirror of the
-# same carve-out in src/assets/tests.rs.
+# same carve-out in src/engine/assets/tests.rs.
 GENERATED_CAPACITY_FIXTURES = ("capacity_beyond_former_limits.json",)
 
 # Architectural classification: adding a class is deliberate (it changes what
@@ -80,7 +80,7 @@ LIGHT_FALLOFFS = ("smooth", "linear", "constant")
 # An authored prop-light intensity above this still loads: the engine clamps it.
 MAX_LIGHT_INTENSITY = 8.0
 # Emissive materials: colour channels are 0..1 and the intensity is clamped by
-# the engine (mirrors src/materials/emission.rs).
+# the engine (mirrors src/engine/materials/emission.rs).
 MAX_EMISSION_INTENSITY = 8.0
 # Distinct ultraviolet illumination and fluorescence response, matching Rust.
 MAX_UV_RESPONSE = 2.0
@@ -130,7 +130,7 @@ IMPLEMENTED_ACTIONS = tuple(
 )
 
 # Typed components, event kinds and condition checks the runtime defines
-# (src/level.rs).
+# (src/engine/level.rs).
 COMPONENT_TAGS = (
     "interactable",
     "animation",
@@ -183,17 +183,17 @@ SEQUENCE_STEP_TAGS = (
     "stop",
 )
 
-# Mirrors src/level.rs: a float's motion is bounded and must be contained by
+# Mirrors src/engine/level.rs: a float's motion is bounded and must be contained by
 # the water volume it rides.
 MAX_LEVEL_FLOAT_PROPS = 32
 MAX_FLOAT_HEEL_DEGREES = 45.0
-# Mirrors the v3 schema's counted resources (src/level.rs and
-# src/entities/{sequences,spawn}.rs); reach mirrors src/interact.rs.
+# Mirrors the v3 schema's counted resources (src/engine/level.rs and
+# src/engine/entities/{sequences,spawn}.rs); reach mirrors src/interact.rs.
 MAX_ACTIONS_PER_SOURCE = 8
 MAX_BINDINGS_PER_ENTITY = 16
 MAX_AREA_TRIGGERS = 1000
 MAX_INTERACTION_REACH_M = 4.0
-# Mirrors src/level.rs: fade period and glow intensity/range/offset bounds.
+# Mirrors src/engine/level.rs: fade period and glow intensity/range/offset bounds.
 MAX_FADE_PERIOD_SECONDS = 3600.0
 MAX_FADE_SECONDS = 600.0
 DEFAULT_FADE_PERIOD_SECONDS = 6.0
@@ -201,7 +201,7 @@ MAX_GLOW_INTENSITY = 8.0
 MIN_GLOW_RANGE_M = 0.05
 MAX_GLOW_RANGE_M = 64.0
 MAX_GLOW_OFFSET_M = 4.0
-# Mirrors src/level.rs: the water volume budget and the circle shape code.
+# Mirrors src/engine/level.rs: the water volume budget and the circle shape code.
 MAX_LEVEL_WATER_VOLUMES = 8000
 WATER_SHAPES = ("rect", "circle")
 MAX_ENTITY_ROUTES = 256
@@ -212,7 +212,7 @@ MAX_SEQUENCE_ANIMATION_TIMEOUT_S = 120.0
 MAX_LEVEL_SPAWN_TEMPLATES = 64
 MAX_LEVEL_SPAWN_POINTS = 256
 MAX_LEVEL_SPAWN_GROUPS = 64
-# Mirrors src/level.rs: two dynamic objects per door against the renderer's
+# Mirrors src/engine/level.rs: two dynamic objects per door against the renderer's
 # MAX_DYNAMIC_OBJECTS budget, leaving room for floats and demonstration objects.
 MAX_LEVEL_DOORS = 24
 DEFAULT_STEAM_MATERIAL = "core:steam_01"

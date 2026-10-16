@@ -69,7 +69,7 @@ in the October 7 integration note. No checks were skipped or assertions weakened
 The full workspace command has **not** passed yet. Binary and documentation
 integration tests after the failing library stage remain unverified in this run.
 
-The subsequent [October 7 integration](integration-provenance-20261007.md)
+The subsequent [October 7 integration](../style-upgrade-20261007/README.md#preceding-integration-provenance)
 records the combined package refresh and successful final gate. The initial
 asset-only run above retains its actual stale-package failures; it is not
 relabeled as a complete workspace pass.

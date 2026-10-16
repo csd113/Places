@@ -1,7 +1,7 @@
 //! Ice traction, transitions and support regressions through the real controller.
 use super::*;
-use crate::assets::AssetCatalog;
-use crate::materials::{GroundSurface, MaterialTable};
+use crate::engine::assets::AssetCatalog;
+use crate::engine::materials::{GroundSurface, MaterialTable};
 
 pub(super) fn materials(level: &LevelDef) -> MaterialTable {
     let catalog = AssetCatalog::from_json_str(include_str!("../../../assets/catalog.json"))

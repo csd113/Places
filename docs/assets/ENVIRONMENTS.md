@@ -7,21 +7,25 @@ raster/UV contracts. [Map authoring](../MAP_AUTHORING_GUIDE.md) defines placemen
 and support, and [Offline Tooling](../OFFLINE_TOOLING.md#asset-authoring)
 defines exports and checks. Paths below are repository-relative unless stated.
 
-| Kit | Prop entries | Physical root | Maintained map / authoring owner |
-| --- | ---: | --- | --- |
-| Shared | 19 | `assets/shared/` | Catalog-driven Model Zoo |
-| Office | 5 | `assets/environments/office/` | Places Demo / `office_refined.py` |
-| Pool | 14 | `assets/environments/pool/` | Places Demo / `pool_remade.py`, `pool.py`, `duck_remade.py` |
-| Home | 32 | `assets/environments/home/` | Places Demo / `home_remade.py`, `domestic_remade.py`, `tableware.py` |
-| Outdoor | 89 | `assets/environments/outdoor/` | Demo, Lantern Hollow / Outdoor part modules |
-| Winter | 39 | `assets/environments/winter/` | Winter / `winter.py`, `winter_village.py`, `string_lights.py` |
-| Beach | 29 | `assets/environments/beach/` | Beach Demo / `beach_nature.py`, `beach_structures.py`, `beach_coast.py` |
-| Frutiger Aero | 24 | `assets/environments/frutiger_aero/` | Aero Demo / `frutiger_aero.py` |
-| Retro Arcade | 35 | `assets/environments/arcade/` | Cosmic Lanes & Arcade / `retro_arcade.py`, `build_retro_arcade.py` |
+| Kit | Physical root | Maintained scene |
+| --- | --- | --- |
+| Shared | `assets/shared/` | Catalog-driven Model Zoo |
+| Office | `assets/environments/office/` | Places Demo |
+| Pool | `assets/environments/pool/` | Places Demo |
+| Home | `assets/environments/home/` | Places Demo |
+| Outdoor | `assets/environments/outdoor/` | Demo, Lantern Hollow |
+| Winter | `assets/environments/winter/` | Winter |
+| Beach | `assets/environments/beach/` | Beach Demo |
+| Frutiger Aero | `assets/environments/frutiger_aero/` | Aero Demo |
+| Retro Arcade | `assets/environments/arcade/` | Cosmic Lanes & Arcade |
 
-Counts describe the October 11, 2026 catalog. All part modules above live in
-`tools/props/parts/`. Any kit can be used in any map. Native PNGs, larger masters
-and intentional family duplicates remain beside their GLBs in `props/`.
+Any kit can be used in any map. The catalog's `authoring` records select the
+export owner: completed models are pinned by `assets/completed-models.json`,
+and Blender-owned entries name their editable `.blend` source. Retained native
+PNGs, larger masters and intentional family duplicates stay beside the GLBs.
+The fitted-sheet descriptions below retain original authoring layouts;
+completed exports can embed later approved sheets. Check the pinned export
+before using historical artwork or a remaining constructor to rebuild it.
 
 ## Shared props and engine images
 
@@ -72,10 +76,10 @@ warm-brown colour. The fixture loads its committed opaque 1024×512, 2:1 face.
 | `core:water_cooler` | tap recess, paired controls, drip tray and continuous eight-sided ribbed bottle |
 | `core:vending_machine` | recessed mountain/DRINKS fascia, controls, coin bezel and delivery lip |
 
-Each prop retains its fitted layout, opaque 1024-square master and derived
-256-square native source. `build_office_textures.py` derives those natives;
-`office_refined.py` preserves the approved chair's existing geometry when
-embedding art. The other four models use closed authored primitives.
+The retained Office sheets keep their fitted layouts, opaque 1024-square
+masters and 256-square derivatives. `tools/props/build_office_textures.py`
+derives those PNGs. The five current GLBs are completed exports; their
+catalog/source identities protect the approved geometry and embedded artwork.
 
 One-time seam repairs remain documented in the source history: stained paper
 32/12-pixel bands, radius 12, offset 16; damp carpet 80/12 bands, radius 32,
@@ -98,8 +102,9 @@ over 1 m. Metal trim uses the existing brushed normal at strength 0.18.
 The round fixture is opaque 1024-square; the wall lens is opaque 1024×512.
 The NO DIVING cutout and existing water artwork keep their contracts.
 
-Prop atlases use fitted 2×2 cells, with 1024-square masters and 256-square
-Lanczos natives. Table cells are tray/trim/leg/brace; chair seat/frame/leg/slat;
+The retained pre-delivery prop atlases use fitted 2×2 cells, with 1024-square
+masters and 256-square Lanczos natives. Current completed Pool GLBs use their
+pinned embedded artwork; these older sheets describe source provenance. Table cells are tray/trim/leg/brace; chair seat/frame/leg/slat;
 ladder tube/tread/grip/boot; curtains cloth/post/plate/track; rails
 post/rail/plate/spare; bench slat/edge/metal/foot; grate metal/recess/edge/tile;
 service leaf/frame/metal/dark. The duck keeps body/head/beak/eye swatches;
@@ -344,3 +349,14 @@ explicit offline artwork operation. The kit uses existing transparency,
 lighting, water and scalar sheen; its imagery introduces no creature rig.
 [Program report](../reports/two-environment-implementation-plan.md) and
 [refinement](../reports/environment-refinement.md) preserve coverage and native review.
+
+## Retro Arcade
+
+The [arcade concept boards and master specification](../../assets/references/neon_bowling_arcade/)
+retain the art direction for Cosmic Lanes & Arcade. Current prop identities
+are completed exports in the catalog; the retained party, restroom and vending
+Blender sources remain the editable owners where catalogued. Earlier cabinet
+PNG inputs and [generation prompts](../../assets/environments/arcade/props/illustrations/CABINET_ARTWORK_PROMPTS.md)
+remain beside their source artwork. Those prompt records document the earlier
+illustration pass and do not replace the current completed-model identities.
+See specification §8.13–8.16 for the party, vending and restroom contracts.

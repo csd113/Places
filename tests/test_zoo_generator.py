@@ -10,8 +10,9 @@ they never touch the shipped catalog, the shipped zoo or the real assets:
 * serial and parallel inspection paths agree for explicit developer fixtures;
   the retired historical Zoo is never regenerated.
 
-The worker paths are exercised with one worker (the serial reference) and with
-two, over the same real catalog, comparing the resulting bytes.
+The worker paths inspect two tiny temporary GLBs with one worker (the serial
+reference) and two spawned workers. Layout tests use a small explicit catalog,
+so neither path depends on the size or animation cost of the shipped library.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 PACKAGE = Path(__file__).resolve().parent.parent
 GENERATOR = PACKAGE / "tools" / "levels" / "build_model_zoo.py"
@@ -31,7 +33,39 @@ GENERATOR = PACKAGE / "tools" / "levels" / "build_model_zoo.py"
 # an importable module path on this platform, so the test uses the same import
 # the tool does when run as a script.
 sys.path.insert(0, str(GENERATOR.parent))
+sys.path.insert(0, str(PACKAGE / "tools/entities"))
 import build_model_zoo as zoo  # noqa: E402
+import glb  # noqa: E402
+import rig  # noqa: E402
+from mesh import Mesh  # noqa: E402
+
+
+def fixture_catalog(model: Path) -> dict:
+    """Only the display classes needed by these layout regressions."""
+    sizes = {
+        "core:crate": [.4, .4, .4],
+        "core:plant": [.5, 1, .5],
+        "core:pool_ladder": [.7, 1.6, .6],
+        "core:exit_sign": [.5, .3, .1],
+        "home:ball_light": [.4, .8, .4],
+        "mannequin": [.5, 1.8, .5],
+        "outdoor:streetlight": [.6, 7, .6],
+        "outdoor:tree_01": [2, 6, 2],
+        "outdoor:tree_02": [2, 5, 2],
+        "outdoor:tree_03": [2, 6.5, 2],
+        "beach:fish": [.4, .2, .1],
+        "beach:cove_foam": [20, .1, 2],
+        "beach:town_terrace_base": [6, .5, 6],
+        "frutiger_aero:column": [.5, 3, .5],
+        "frutiger_aero:portal_spandrel": [4, 2, .3],
+        "winter:snow_roof_blanket": [4, .3, 3],
+        **{"winter:string_lights_" + variant: [length, .7, .1]
+           for variant, length in (("short", 2.8), ("medium", 4), ("long", 6.6))},
+    }
+    return {"assets": [dict(id=identity, display_name=identity,
+                            asset_type="entity" if identity == "mannequin" else "prop",
+                            model=str(model), size=size)
+                       for identity, size in sizes.items()]}
 
 
 def synthetic_inspection(asset_id: str, model: str) -> dict:
@@ -63,8 +97,41 @@ def hall_extents(level: dict) -> tuple[float, float]:
 
 
 class ZooGeneratorFixtureTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        # Twenty-four triangles total exercise the actual GLB reader and spawn
+        # boundary. Reusing a committed PNG avoids inventing fixture artwork.
+        cls.scratch = tempfile.TemporaryDirectory()
+        cls.addClassCleanup(cls.scratch.cleanup)
+        cls.models = []
+        texture = (PACKAGE / "assets/shared/textures/white_01.png").read_bytes()
+        for index, size in enumerate(((.5, .9, .5), (.25, .4, .75))):
+            mesh = Mesh()
+            mesh.box((0, size[1] / 2, 0), size, uv=(0, 0, 1, 1))
+            path = Path(cls.scratch.name) / f"box-{index}.glb"
+            if index == 0:
+                path.write_bytes(glb.write_glb(mesh, texture))
+            else:
+                skeleton = rig.Rig()
+                skeleton.add("root")
+                clip = rig.Clip("bounce", loop=True, duration=.2,
+                                reference_speed_mps=.1)
+                for time, height in ((0, 0), (.1, .2), (.2, 0)):
+                    clip.joint_translation(skeleton, "root", time, (0, height, 0))
+                # The writer's returned receipt is repository-relative; the
+                # fixture owns this separate temporary asset root instead.
+                with mock.patch.object(rig, "REPO_ROOT", Path(cls.scratch.name)):
+                    rig.write_model(path, rig.SkinnedMesh(mesh), skeleton, [clip],
+                                    texture, name="fixture_bounce")
+            cls.models.append(path)
+
     def setUp(self) -> None:
-        self.catalog = zoo.load_catalog()
+        self.catalog = fixture_catalog(self.models[0])
+        # place_water reads the catalog for its optional ladder companion.
+        # Keep that nested read on the same isolated fixture as build_level.
+        self.catalog_reader = mock.patch.object(zoo, "load_catalog", return_value=self.catalog)
+        self.catalog_reader.start()
+        self.addCleanup(self.catalog_reader.stop)
 
     def level_for(self, catalog: dict) -> dict:
         return zoo.build_level(catalog, inspections_for(catalog))
@@ -83,7 +150,7 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
         extra = copy.deepcopy(template)
         extra["id"] = "fixture:new_prop"
         extra["display_name"] = "Fixture New Prop"
-        extra["model"] = "shared/props/crate.glb"
+        extra["model"] = str(self.models[0])
         extra["size"] = [0.4, 0.4, 0.4]
         grown["assets"].append(extra)
 
@@ -162,7 +229,7 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
             extra = copy.deepcopy(template)
             extra["id"] = f"fixture:bulk_{index:02d}"
             extra["display_name"] = f"Fixture Bulk {index}"
-            extra["model"] = "shared/props/crate.glb"
+            extra["model"] = str(self.models[0])
             grown["assets"].append(extra)
 
         grown_level = self.level_for(grown)
@@ -253,7 +320,7 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
                 self.assertIn(identity, ids)
         # No real asset was removed: the model still exists on disk.
         removed = next(entry for entry in self.catalog["assets"] if entry["id"] == removed_id)
-        self.assertTrue((PACKAGE / "assets" / removed["model"]).is_file())
+        self.assertTrue(Path(removed["model"]).is_file())
 
     def test_the_catalog_id_is_the_only_input_that_decides_identity(self):
         # Reordering the catalogue's own array (a file edit that changes nothing
@@ -265,7 +332,8 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
         self.assertEqual(self.display_ids(level), self.display_ids(base))
 
     def test_serial_and_parallel_inspection_agree(self):
-        entries = zoo.placeables(self.catalog)
+        entries = [dict(id=f"fixture:box_{index}", model=str(path))
+                   for index, path in enumerate(self.models)]
         original = zoo.CACHE_PATH
         try:
             with tempfile.TemporaryDirectory() as directory:
@@ -278,6 +346,14 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
         self.assertEqual(sorted(serial), sorted(parallel))
         for asset_id in serial:
             self.assertEqual(serial[asset_id], parallel[asset_id], asset_id)
+        self.assertFalse(serial["fixture:box_0"]["skinned"])
+        animated = serial["fixture:box_1"]
+        self.assertTrue(animated["skinned"])
+        self.assertEqual(animated["clips"], [{"name": "bounce", "loop": True,
+                                              "reference_speed_mps": .1}])
+        self.assertEqual(animated["envelope_clip"], "bounce")
+        self.assertAlmostEqual(animated["envelope"][1][1],
+                               animated["rest_bounds"][1][1] + .2)
 
     def test_worker_reduction_and_requested_counts(self):
         workers, note = zoo.parse_worker_count("99")

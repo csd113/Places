@@ -40,10 +40,11 @@ fn run(game: &mut Game, controls: &[Control], seconds: f32, pattern: &[f32]) -> 
 #[test]
 fn movement_map_is_valid_and_rejects_over_limit_slopes() {
     let mut level = level();
-    crate::loader::validate_level(&level).expect("all QA stations are valid geometry");
+    crate::engine::loader::validate_level(&level).expect("all QA stations are valid geometry");
     let ramp = level.ramps.last_mut().expect("the map has ramps");
-    ramp.rise = ramp.length() * (crate::level::MAX_RAMP_SLOPE + 0.01);
-    let error = crate::loader::validate_level(&level).expect_err("an over-limit slope is rejected");
+    ramp.rise = ramp.length() * (crate::engine::level::MAX_RAMP_SLOPE + 0.01);
+    let error =
+        crate::engine::loader::validate_level(&level).expect_err("an over-limit slope is rejected");
     assert!(error.contains("too steep"), "{error}");
 }
 

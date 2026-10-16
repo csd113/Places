@@ -122,7 +122,7 @@ pub fn compile_test_package(
     directory: &std::path::Path,
     source_name: &str,
     source_json: &str,
-    variants: &[crate::quality::LightmapQuality],
+    variants: &[crate::engine::quality::LightmapQuality],
 ) -> Result<std::path::PathBuf, String> {
     std::fs::create_dir_all(directory)
         .map_err(|error| format!("fixture directory {}: {error}", directory.display()))?;
@@ -130,7 +130,7 @@ pub fn compile_test_package(
     std::fs::write(&source, source_json)
         .map_err(|error| format!("fixture source {}: {error}", source.display()))?;
     let out = source.with_extension("placesmap");
-    let request = crate::compiler::BuildRequest {
+    let request = crate::map_compiler::BuildRequest {
         source,
         out: out.clone(),
         asset_root: std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets"),
@@ -139,7 +139,7 @@ pub fn compile_test_package(
         force: true,
         capture_probes: false,
     };
-    let _build_report = crate::compiler::build(&request)?;
+    let _build_report = crate::map_compiler::build(&request)?;
     Ok(out)
 }
 
@@ -341,8 +341,8 @@ pub fn two_material_glb(first: TestGlbMaterial, second: TestGlbMaterial) -> Vec<
     for material in [first, second] {
         let base: [u8; 4] = material.base;
         let pixels: Vec<u8> = base.iter().copied().cycle().take(2 * 2 * 4).collect();
-        let image = crate::materials::RawImage::new(2, 2, pixels);
-        let png = crate::materials::encode_png(&image).unwrap_or_default();
+        let image = crate::engine::materials::RawImage::new(2, 2, pixels);
+        let png = crate::engine::materials::encode_png(&image).unwrap_or_default();
         let view = add_view(&mut binary, &png, None);
         images.push(format!(r#"{{"bufferView":{view},"mimeType":"image/png"}}"#));
         textures.push(format!(

@@ -58,7 +58,7 @@ fn repeated_cpu_samples_do_not_accumulate_host_port_references() {
     // unit tests that also sample CPU usage or initialize native GPU devices.
     let port = HostPort::new();
     let before = port.references();
-    let mut sampler = places::perf::CpuSampler::new();
+    let mut sampler = places::engine::perf::CpuSampler::new();
     for _ in 0..64_u32 {
         let _utilization = sampler.sample();
     }
