@@ -353,6 +353,7 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_timers(level)?;
     validate_spawns(level, &index)?;
     validate_bindings(level, &index)?;
+    validate_audio_references(level)?;
     validate_sequences(level, &index)?;
     validate_zero_delay_cycles(level, &index)?;
     validate_routes(level)?;
@@ -2521,7 +2522,7 @@ fn validate_static_prop_options(
 }
 
 /// Rigid props have one pose owner and never leave immutable collision or light.
-fn validate_prop_physics(level: &LevelDef) -> Result<(), String> {
+pub(super) fn validate_prop_physics(level: &LevelDef) -> Result<(), String> {
     let fixed_count = level
         .props
         .iter()
@@ -2597,10 +2598,23 @@ fn validate_prop_physics(level: &LevelDef) -> Result<(), String> {
                 "{context} movable physics cannot declare float or attached lights"
             ));
         }
-        if !prop.components.is_empty() || !prop.bindings.is_empty() {
+        if prop.components.iter().any(|component| {
+            !matches!(
+                component,
+                ComponentDef::Audio {
+                    sound: _,
+                    gain: _,
+                    looped: _,
+                    enabled: _,
+                    playing: _,
+                    time_domain: _
+                }
+            )
+        }) || !prop.bindings.is_empty()
+        {
             return Err(format!(
-                "{context} movable physics currently supports passive rigid props and pickup; \
-                 components and bindings are unsupported"
+                "{context} movable physics supports audio components only; \
+                 other components and item-owned bindings are unsupported"
             ));
         }
     }
@@ -3276,14 +3290,20 @@ fn validate_component_value<'a>(
         }
         ComponentDef::Audio {
             sound,
-            gain: _,
+            gain,
             looped: _,
             enabled: _,
             playing: _,
+            time_domain: _,
         } => {
             if sound.trim().is_empty() {
                 return Err(format!(
                     "{context} `audio` component {i} sound must not be blank"
+                ));
+            }
+            if !gain.is_finite() || !(0.0..=1.0).contains(gain) {
+                return Err(format!(
+                    "{context} `audio` component {i} gain must be finite and within 0..=1"
                 ));
             }
             facts.has_audio = true;
@@ -5224,6 +5244,7 @@ fn validate_routes(level: &LevelDef) -> Result<(), String> {
                     looped: _,
                     enabled: _,
                     playing: _,
+                    time_domain: _,
                 }
                 | ComponentDef::Light {
                     enabled: _,
@@ -5461,6 +5482,130 @@ fn route_path_is_clear(
     Ok(())
 }
 
+/// Resolves every authored sound request before compilation or package admission.
+fn validate_audio_references(level: &LevelDef) -> Result<(), String> {
+    let components = level
+        .props
+        .iter()
+        .flat_map(|prop| &prop.components)
+        .chain(level.doors.iter().flat_map(|door| &door.components))
+        .chain(
+            level
+                .spawn_templates
+                .iter()
+                .flat_map(|template| &template.components),
+        );
+    let mut sounds: Vec<&str> = components
+        .filter_map(|component| {
+            if let ComponentDef::Audio {
+                sound,
+                gain: _,
+                looped: _,
+                enabled: _,
+                playing: _,
+                time_domain: _,
+            } = component
+            {
+                Some(sound.as_str())
+            } else {
+                None
+            }
+        })
+        .collect();
+    let binding_groups = level.all_bindings();
+    let binding_actions = binding_groups
+        .iter()
+        .flat_map(|bindings| bindings.iter())
+        .flat_map(|binding| &binding.actions);
+    let sequence_actions = level
+        .sequences
+        .iter()
+        .flat_map(|sequence| &sequence.steps)
+        .filter_map(|step| {
+            if let SequenceStepDef::Action { action } = step {
+                Some(action)
+            } else {
+                None
+            }
+        });
+    sounds.extend(
+        binding_actions
+            .chain(sequence_actions)
+            .filter_map(|action| {
+                if let ActionDef::PlaySound {
+                    sound: Some(sound),
+                    target: _,
+                    looped: _,
+                } = action
+                {
+                    Some(sound.as_str())
+                } else {
+                    None
+                }
+            }),
+    );
+    if sounds.is_empty() {
+        return Ok(());
+    }
+    let root = crate::engine::assets::resolve_asset_root().ok_or_else(|| {
+        "Authored audio requires an installed assets/audio/catalog.json".to_string()
+    })?;
+    let catalog = crate::engine::audio::AudioCatalog::load(&root)?;
+    for sound in sounds {
+        if !catalog.contains(sound) {
+            return Err(format!(
+                "Unknown authored audio cue `{sound}` in assets/audio/catalog.json"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_volume_filter(
+    context: &str,
+    level: &LevelDef,
+    filter: &crate::engine::level::TriggerFilterDef,
+) -> Result<(), String> {
+    let crate::engine::level::TriggerFilterDef::Item {
+        asset,
+        instance,
+        held: _,
+    } = filter
+    else {
+        return Ok(());
+    };
+    if let Some(asset_id) = asset
+        && (!crate::engine::assets::is_valid_asset_id(asset_id)
+            || !PropCatalog::load_default().contains(asset_id))
+    {
+        return Err(format!(
+            "{context} filter names unknown item asset `{asset_id}`"
+        ));
+    }
+    if let Some(instance_id) = instance {
+        let ids = level.prop_instance_ids();
+        let prop = ids
+            .iter()
+            .position(|id| id == instance_id)
+            .and_then(|index| level.props.get(index))
+            .filter(|prop| prop.is_physics_movable())
+            .ok_or_else(|| {
+                format!(
+                    "{context} filter instance `{instance_id}` must name a movable physical prop"
+                )
+            })?;
+        if asset
+            .as_deref()
+            .is_some_and(|required| required != prop.model)
+        {
+            return Err(format!(
+                "{context} filter asset and instance selectors refer to different item types"
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// Authored trigger volumes: count, geometry, vertical bounds and room
 /// containment.
 ///
@@ -5488,6 +5633,7 @@ fn validate_volumes(level: &LevelDef) -> Result<(), String> {
     }
     for (i, volume) in level.volumes.iter().enumerate() {
         let context = format!("Trigger volume {i} (`{}`)", volume_id(i, volume));
+        validate_volume_filter(&context, level, &volume.filter)?;
         if !volume.x.is_finite()
             || !volume.z.is_finite()
             || !volume.width.is_finite()

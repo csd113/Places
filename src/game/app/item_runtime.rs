@@ -43,6 +43,7 @@ const fn interaction_hand_visible(target: Option<InteractionTarget>, held: Optio
 pub struct Items {
     pub world: crate::engine::physics::ItemWorld,
     pub authored: Vec<(u64, String, String)>,
+    trigger_bodies: Vec<crate::engine::physics::ItemTriggerBody>,
     pub input: crate::game::app::item_input::CarryInput,
     pub target: Option<InteractionTarget>,
     pub captures: std::collections::VecDeque<String>,
@@ -64,6 +65,7 @@ impl Items {
         Self {
             world: crate::engine::physics::ItemWorld::default(),
             authored: Vec::new(),
+            trigger_bodies: Vec::with_capacity(crate::engine::physics::MAX_BODIES),
             input: crate::game::app::item_input::CarryInput::default(),
             target: None,
             captures: std::collections::VecDeque::new(),
@@ -246,7 +248,9 @@ impl FrameLoop<'_> {
                     .iter()
                     .position(|item| item.id == *id && item.enabled);
                 if let Some(actor_index) = index {
-                    let _report = self.game.dispatch_interaction_at(Some(actor_index));
+                    if let Some(report) = self.game.dispatch_interaction_at(Some(actor_index)) {
+                        self.interaction_audio_feedback(actor_index, &report);
+                    }
                 } else {
                     self.fatal_error = Some(format!("Native actor activation refused for `{id}`"));
                     self.game.stop();
@@ -497,6 +501,9 @@ impl FrameLoop<'_> {
         self.apply_world_commands();
         self.apply_bench_lighting_actions();
         self.update_physical_items();
+        self.update_item_triggers(false);
+        self.reconcile_gameplay_reset();
+        self.apply_world_commands();
     }
 
     fn physical_player_context(&self) -> PlayerContext {
@@ -601,6 +608,23 @@ impl FrameLoop<'_> {
                 prop_instance_ids.get(index).cloned().unwrap_or_default(),
                 prop.model.clone(),
             ));
+        }
+    }
+
+    pub(super) fn update_item_triggers(&mut self, seed: bool) {
+        self.items.trigger_bodies.clear();
+        self.items
+            .world
+            .for_each_trigger_body(|body| self.items.trigger_bodies.push(body));
+        let actors = trigger_items(
+            &self.items.trigger_bodies,
+            &self.items.authored,
+            &self.console_runtime,
+        );
+        if seed {
+            self.game.seed_volume_occupants_iter(actors);
+        } else {
+            self.game.update_volume_occupants_iter(actors);
         }
     }
 
@@ -722,6 +746,9 @@ impl FrameLoop<'_> {
                 .world
                 .pickup(key, eye, view, self.game.player_yaw);
             self.items.release_blocked = false;
+            if picked {
+                self.play_item_sound(key);
+            }
             self.trace_world(if picked {
                 "item_picked_up"
             } else {
@@ -731,4 +758,29 @@ impl FrameLoop<'_> {
         }
         false
     }
+}
+
+fn trigger_items<'a>(
+    bodies: &'a [crate::engine::physics::ItemTriggerBody],
+    authored: &'a [(u64, String, String)],
+    session: &'a crate::game::gameplay_runtime::Runtime,
+) -> impl Iterator<Item = crate::engine::entities::TriggerItem<'a>> + Clone {
+    bodies.iter().filter_map(move |body| {
+        let (instance, asset) = authored
+            .iter()
+            .find_map(|(key, instance, asset)| {
+                (*key == body.key).then_some((instance.as_str(), asset.as_str()))
+            })
+            .or_else(|| session.given_identity(body.key))?;
+        Some(crate::engine::entities::TriggerItem {
+            key: body.key,
+            instance,
+            asset,
+            from: body.previous,
+            to: body.current,
+            path: Some(body.path()),
+            half_extents: body.half_extents,
+            held: body.held,
+        })
+    })
 }

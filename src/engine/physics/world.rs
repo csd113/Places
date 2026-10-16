@@ -26,8 +26,10 @@ use super::collision::{
 use super::config::{BodyMotion, PhysicsDef, validate_reset_group};
 use super::contacts::ContactOnsets;
 use super::hold::HeldItem;
+use super::impacts::{ImpactBudget, ImpactEvent, ImpactMotion, SurfaceMaterial};
 use super::recovery::{RecoverySpace, RecoveryState, RecoveryTracker};
-use super::surfaces::{FloorContactHooks, FloorSurfaces};
+use super::surfaces::{FloorContactHooks, FloorSurfaces, SurfaceMaterials};
+use super::trigger_path::{ItemTriggerBody, TriggerPath};
 use super::water::{WaterBody, WaterWork};
 use super::{FIXED_STEP, GRAVITY, MAX_BODIES};
 
@@ -204,15 +206,6 @@ impl Default for PhysicsStats {
     }
 }
 
-/// Contact onset seam for a later sound layer. The queue holds at most 32 events.
-#[derive(Debug, Clone, Copy)]
-pub struct ImpactEvent {
-    pub key: u64,
-    pub other_key: Option<u64>,
-    pub position: Vec3,
-    pub impulse: f32,
-}
-
 /// Positive solved item-pair impulse, maximized across this frame's substeps.
 /// Speculative geometry with zero solver impulse is excluded.
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -262,6 +255,9 @@ pub(super) struct BodyEntry {
     pub reset_group: Option<Box<str>>,
     pub previous: ItemPose,
     pub current: ItemPose,
+    trigger_path: TriggerPath,
+    impact_motion: ImpactMotion,
+    impact_cooldown: f32,
     pub recovery: RecoveryTracker,
     pub water: Option<WaterBody>,
 }
@@ -293,6 +289,7 @@ pub(super) struct Runtime {
     pub last_player: Option<PlayerContext>,
     static_count: usize,
     impacts: VecDeque<ImpactEvent>,
+    impact_budget: ImpactBudget,
     contact_onsets: ContactOnsets,
     frame_contacts: Vec<[u64; 2]>,
     frame_contact_impulses: Vec<ContactImpulse>,
@@ -314,6 +311,7 @@ pub struct ItemWorld {
     walls: Vec<WallAabb>,
     floor: WalkableFloor,
     surfaces: FloorSurfaces,
+    surface_materials: SurfaceMaterials,
     ceiling: WalkableCeiling,
     water: WaterVolumes,
     fixed_props: Vec<FixedPropShape>,
@@ -334,6 +332,7 @@ impl Default for ItemWorld {
             walls: Vec::new(),
             floor: WalkableFloor::default(),
             surfaces: FloorSurfaces::default(),
+            surface_materials: SurfaceMaterials::default(),
             ceiling: WalkableCeiling::default(),
             water: WaterVolumes::default(),
             fixed_props: Vec::new(),
@@ -425,6 +424,7 @@ impl ItemWorld {
             },
             floor: WalkableFloor::from_level(level),
             surfaces: FloorSurfaces::default(),
+            surface_materials: SurfaceMaterials::from_level(level),
             ceiling: WalkableCeiling::from_level(level),
             water: WaterVolumes::from_level(level),
             fixed_props: Vec::new(),
@@ -528,6 +528,7 @@ impl ItemWorld {
                 last_player: None,
                 static_count,
                 impacts: VecDeque::with_capacity(MAX_IMPACTS),
+                impact_budget: ImpactBudget::default(),
                 contact_onsets: ContactOnsets::default(),
                 frame_contacts: Vec::with_capacity(MAX_CONTACT_PAIRS),
                 frame_contact_impulses: Vec::with_capacity(MAX_CONTACT_PAIRS),
@@ -641,6 +642,9 @@ impl ItemWorld {
                 reset_group: def.reset_group.as_deref().map(Into::into),
                 previous: initial,
                 current: initial,
+                trigger_path: TriggerPath::new(initial, center),
+                impact_motion: ImpactMotion::default(),
+                impact_cooldown: 0.0,
                 recovery: RecoveryTracker::new(initial),
                 water,
             },
@@ -1088,7 +1092,12 @@ impl ItemWorld {
             let carry_delta = control_interval / f32::from(planned_steps);
             for _ in 0..planned_steps {
                 runtime.advance_held(player, carry_delta, false);
-                runtime.advance_world(&self.recovery_space, &self.water, &mut self.stats);
+                runtime.advance_world(
+                    &self.recovery_space,
+                    &self.water,
+                    &self.surface_materials,
+                    &mut self.stats,
+                );
                 self.simulation.fixed_steps = self.simulation.fixed_steps.saturating_add(1);
             }
             self.accumulator = remaining;
@@ -1119,7 +1128,12 @@ impl ItemWorld {
             runtime.begin_frame(&mut self.stats);
             #[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
             runtime.configure_solver_pool(FIXED_STEP);
-            runtime.advance_world(&self.recovery_space, &self.water, &mut self.stats);
+            runtime.advance_world(
+                &self.recovery_space,
+                &self.water,
+                &self.surface_materials,
+                &mut self.stats,
+            );
             runtime.populate_counts(&mut self.stats);
             self.stats.step_millis = started.elapsed().as_secs_f64() * 1_000.0_f64;
         }
@@ -1183,6 +1197,36 @@ impl ItemWorld {
             );
             visit(key, interpolated);
         }
+    }
+
+    /// Visits at most 128 live movable collision bounds in stable key order.
+    /// Paths retain every fixed substep and the latest carried position, so
+    /// trigger checks see turns and reversals between rendered frames.
+    pub fn for_each_trigger_body(&self, mut visit: impl FnMut(ItemTriggerBody)) {
+        let Some(runtime) = self.runtime.as_ref() else {
+            return;
+        };
+        for (&key, entry) in &runtime.entries {
+            if !entry.motion.is_movable() || entry.recovery.suspended {
+                continue;
+            }
+            visit(entry.trigger_path.snapshot(
+                key,
+                entry.current,
+                entry.center,
+                &entry.shape,
+                entry.radius,
+                runtime.held.as_ref().is_some_and(|held| held.key == key),
+            ));
+        }
+    }
+
+    /// Exact authored floor identity at a supported position. Room/storey,
+    /// ramp, stair, region and patch precedence matches the floor sampler.
+    /// Water and prop-top support are owned by their separate world systems.
+    #[must_use]
+    pub fn floor_material_at(&self, position: Vec3) -> Option<&str> {
+        self.surface_materials.at(position)
     }
 
     /// Current physical shape center for targeting and developer inspection.
@@ -1263,7 +1307,16 @@ impl ItemWorld {
         self.stats
     }
 
-    /// Drains the bounded contact-onset seam for a later presentation layer.
+    /// Drains the bounded contact-onset seam, preserving its allocated storage.
+    pub fn drain_impacts(&mut self, mut visit: impl FnMut(ImpactEvent)) {
+        if let Some(runtime) = self.runtime.as_mut() {
+            for impact in runtime.impacts.drain(..) {
+                visit(impact);
+            }
+        }
+    }
+
+    /// Allocating diagnostic convenience; runtime consumers use `drain_impacts`.
     #[must_use]
     pub fn take_impacts(&mut self) -> Vec<ImpactEvent> {
         self.runtime
@@ -1307,6 +1360,9 @@ impl Runtime {
     fn begin_frame(&mut self, stats: &mut PhysicsStats) {
         self.frame_contacts.clear();
         self.frame_contact_impulses.clear();
+        for entry in self.entries.values_mut() {
+            entry.trigger_path = TriggerPath::new(entry.current, entry.center);
+        }
         stats.body_count = self.entries.len();
         stats.static_colliders = self.static_count;
         self.populate_counts(stats);
@@ -1316,6 +1372,7 @@ impl Runtime {
         &mut self,
         recovery_space: &RecoverySpace,
         water: &WaterVolumes,
+        surface_materials: &SurfaceMaterials,
         stats: &mut PhysicsStats,
     ) {
         stats.recovered_bodies = stats
@@ -1326,12 +1383,16 @@ impl Runtime {
         }
         self.apply_water(water);
         self.activate_impacts();
+        self.prepare_impact_step();
         self.world.step_with_events(&self.floor_contacts, &());
         self.update_poses();
         stats.recovered_bodies = stats
             .recovered_bodies
             .saturating_add(self.recover_escaped(recovery_space, FIXED_STEP));
-        self.collect_impacts();
+        self.collect_impacts(surface_materials);
+        for entry in self.entries.values_mut() {
+            entry.trigger_path.record(entry.current, entry.center);
+        }
         stats.substeps = stats.substeps.saturating_add(1);
     }
 
@@ -1365,8 +1426,10 @@ impl Runtime {
     }
 
     pub(super) fn clear_item_contacts(&mut self, key: u64) {
-        if let Some(entry) = self.entries.get(&key) {
+        if let Some(entry) = self.entries.get_mut(&key) {
             self.contact_onsets.remove_collider(entry.collider);
+            entry.trigger_path = TriggerPath::new(entry.current, entry.center);
+            entry.impact_cooldown = 0.0;
         }
         self.frame_contacts.retain(|pair| !pair.contains(&key));
         self.frame_contact_impulses
@@ -1480,9 +1543,48 @@ impl Runtime {
         }
         entry.previous = entry.authored_pose;
         entry.current = entry.authored_pose;
+        entry.trigger_path = TriggerPath::new(entry.authored_pose, entry.center);
+        entry.impact_motion = ImpactMotion::default();
+        entry.impact_cooldown = 0.0;
     }
 
-    fn impact_position(&self, contact: &ContactPair) -> Option<Vec3> {
+    fn prepare_impact_step(&mut self) {
+        self.impact_budget.advance();
+        for entry in self.entries.values_mut() {
+            entry.impact_cooldown = (entry.impact_cooldown - FIXED_STEP).max(0.0);
+            entry.impact_motion =
+                self.world
+                    .bodies
+                    .get(entry.body)
+                    .map_or_else(ImpactMotion::default, |body| ImpactMotion {
+                        linear: point(body.linvel()),
+                        angular: point(body.angvel()),
+                        center: point(body.center_of_mass()),
+                    });
+        }
+    }
+
+    fn incoming_velocity(&self, collider: ColliderHandle, position: Vec3) -> Vec3 {
+        if let Some(entry) = self
+            .key_for_collider(collider)
+            .and_then(|key| self.entries.get(&key))
+        {
+            return entry.impact_motion.at(position);
+        }
+        if collider == self.player_collider {
+            return self.player_velocity;
+        }
+        self.world
+            .colliders
+            .get(collider)
+            .and_then(rapier3d::prelude::Collider::parent)
+            .and_then(|body| self.world.bodies.get(body))
+            .map_or(Vec3::ZERO, |body| {
+                point(body.velocity_at_point(vector(position)))
+            })
+    }
+
+    fn impact_contact(&self, contact: &ContactPair) -> Option<(Vec3, f32)> {
         let first = self.world.colliders.get(contact.collider1)?;
         let second = self.world.colliders.get(contact.collider2)?;
         contact
@@ -1494,15 +1596,23 @@ impl Runtime {
                 manifold.points.iter().map(move |contact_point| {
                     let first_point = first_pose.transform_point(contact_point.local_p1);
                     let second_point = second_pose.transform_point(contact_point.local_p2);
+                    let position = point(first_point.midpoint(second_point));
+                    let relative = subtract(
+                        self.incoming_velocity(contact.collider1, position),
+                        self.incoming_velocity(contact.collider2, position),
+                    );
                     (
                         contact_point.data.impulse,
-                        point(first_point.midpoint(second_point)),
+                        position,
+                        relative.dot(point(manifold.data.normal)).max(0.0),
                     )
                 })
             })
-            .filter(|(impulse, position)| impulse.is_finite() && position.is_finite())
+            .filter(|(impulse, position, speed)| {
+                impulse.is_finite() && *impulse > 0.0 && position.is_finite() && speed.is_finite()
+            })
             .max_by(|left, right| left.0.total_cmp(&right.0))
-            .map(|(_, position)| position)
+            .map(|(_, position, speed)| (position, speed))
     }
 
     pub(super) fn refresh_queries(&mut self) {
@@ -1635,7 +1745,7 @@ impl Runtime {
         }
     }
 
-    fn collect_impacts(&mut self) {
+    fn collect_impacts(&mut self, surface_materials: &SurfaceMaterials) {
         self.contact_onsets.begin_step();
         // Split borrows retain zero-allocation traversal of the solver graph.
         for contact in self.world.contact_pairs() {
@@ -1668,27 +1778,45 @@ impl Runtime {
                     }
                 }
             }
-            let active_key = [first, second].into_iter().flatten().find(|key| {
-                self.entries
-                    .get(key)
-                    .is_some_and(|entry| entry.motion == BodyMotion::Dynamic && !entry.dormant)
-                    && self.held.as_ref().is_none_or(|held| held.key != *key)
-            });
-            let Some(key) = active_key else {
-                continue;
-            };
             if !self
                 .contact_onsets
                 .observe(contact.collider1, contact.collider2, impulse)
             {
                 continue;
             }
-            let contact_position = self
-                .impact_position(contact)
-                .or_else(|| self.entries.get(&key).map(|entry| entry.current.position));
-            let Some(position) = contact_position else {
+            let Some((position, speed)) = self.impact_contact(contact) else {
                 continue;
             };
+            let active_key = [first, second]
+                .into_iter()
+                .flatten()
+                .filter_map(|key| {
+                    let entry = self.entries.get(&key)?;
+                    (entry.motion == BodyMotion::Dynamic
+                        && !entry.dormant
+                        && !entry.recovery.suspended
+                        && self.held.as_ref().is_none_or(|held| held.key != key))
+                    .then_some((key, entry.impact_motion.at(position).length_squared()))
+                })
+                .max_by(|left, right| left.1.total_cmp(&right.1))
+                .map(|(key, _)| key);
+            let Some(key) = active_key else {
+                continue;
+            };
+            let cooldown = [first, second]
+                .into_iter()
+                .flatten()
+                .filter_map(|item_key| self.entries.get(&item_key))
+                .map(|entry| entry.impact_cooldown)
+                .fold(0.0_f32, f32::max);
+            let Some(strength) = self.impact_budget.take(speed, impulse, cooldown) else {
+                continue;
+            };
+            for item_key in [first, second].into_iter().flatten() {
+                if let Some(entry) = self.entries.get_mut(&item_key) {
+                    entry.impact_cooldown = ImpactBudget::item_cooldown();
+                }
+            }
             if self.impacts.len() == MAX_IMPACTS {
                 let _oldest = self.impacts.pop_front();
             }
@@ -1697,6 +1825,11 @@ impl Runtime {
                 other_key: if first == Some(key) { second } else { first },
                 position,
                 impulse,
+                speed,
+                strength,
+                surface: surface_materials
+                    .at(position)
+                    .map_or(SurfaceMaterial::Hard, SurfaceMaterial::from_material_id),
             });
         }
         self.contact_onsets.finish_step();

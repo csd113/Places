@@ -14,19 +14,21 @@ pub use pointer::MenuPointer;
 
 /// Which Settings screen is open.
 ///
-/// The root is a table of contents; the three sections group the actual
+/// The root is a table of contents; the sections group the actual
 /// options. Both entry points (the main menu's Settings and the pause menu's
 /// Settings) share this screen, so the page is state, not a separate
 /// `AppState`.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub enum SettingsPage {
-    /// Graphics / Display / Controls, Restore Defaults and Back.
+    /// Graphics / Display / Audio / Controls, Restore Defaults and Back.
     #[default]
     Root,
     /// Rendering and visual-quality options.
     Graphics,
     /// Window mode and resolution.
     Display,
+    /// Volume levels and mute.
+    Audio,
     /// Bindings and control preferences.
     Controls,
 }
@@ -39,6 +41,7 @@ impl SettingsPage {
             Self::Root => "SETTINGS",
             Self::Graphics => "GRAPHICS",
             Self::Display => "DISPLAY",
+            Self::Audio => "AUDIO",
             Self::Controls => "CONTROLS",
         }
     }
@@ -52,7 +55,7 @@ impl SettingsPage {
     #[must_use]
     pub const fn item_count(self, advanced_expanded: bool) -> usize {
         match self {
-            Self::Root => 5,
+            Self::Root => 6,
             Self::Graphics => {
                 if advanced_expanded {
                     8
@@ -61,6 +64,7 @@ impl SettingsPage {
                 }
             }
             Self::Display => 3,
+            Self::Audio => 5,
             Self::Controls => 20,
         }
     }
@@ -109,6 +113,10 @@ pub enum SettingsValue {
     Filtering,
     WindowMode,
     Resolution,
+    MasterVolume,
+    EffectsVolume,
+    AmbientVolume,
+    Mute,
     LookSpeedH,
     LookSpeedV,
     InvertLook,
@@ -237,6 +245,10 @@ fn ui_signature(
     settings.look_speed_h.to_bits().hash(&mut hasher);
     settings.look_speed_v.to_bits().hash(&mut hasher);
     settings.mouse_sensitivity.to_bits().hash(&mut hasher);
+    settings.master_volume.to_bits().hash(&mut hasher);
+    settings.effects_volume.to_bits().hash(&mut hasher);
+    settings.ambient_volume.to_bits().hash(&mut hasher);
+    settings.muted.hash(&mut hasher);
     settings.walk_speed.to_bits().hash(&mut hasher);
     settings.fov_degrees.to_bits().hash(&mut hasher);
     settings.invert_look.hash(&mut hasher);
@@ -489,10 +501,11 @@ fn row_y(index: usize, line_h: f32, start_y: f32) -> f32 {
     f32::from(u16::try_from(index).unwrap_or(u16::MAX)).mul_add(line_h, start_y)
 }
 
-/// The three section entries the Settings root offers, in menu order.
-pub const SETTINGS_SECTIONS: [SettingsPage; 3] = [
+/// The section entries the Settings root offers, in menu order.
+pub const SETTINGS_SECTIONS: [SettingsPage; 4] = [
     SettingsPage::Graphics,
     SettingsPage::Display,
+    SettingsPage::Audio,
     SettingsPage::Controls,
 ];
 
@@ -504,6 +517,7 @@ impl SettingsPage {
             Self::Root => "Settings",
             Self::Graphics => "Graphics",
             Self::Display => "Display",
+            Self::Audio => "Audio",
             Self::Controls => "Controls",
         }
     }
@@ -581,6 +595,7 @@ pub fn settings_rows(
         SettingsPage::Root => root_rows(),
         SettingsPage::Graphics => graphics_rows(settings, advanced_expanded),
         SettingsPage::Display => display_rows(settings, display),
+        SettingsPage::Audio => audio_rows(settings),
         SettingsPage::Controls => controls_rows(settings),
     }
 }
@@ -694,6 +709,43 @@ fn display_rows(settings: &Settings, display: &DisplayStatus) -> Vec<SettingsRow
         "Resolution",
         selector(&resolution_label(settings, *display)),
         SettingsRowKind::Value(SettingsValue::Resolution),
+    );
+    push_row(&mut rows, "Back", String::new(), SettingsRowKind::Back);
+    rows
+}
+
+/// Audio: independent volume levels and a mute switch that preserves them.
+fn audio_rows(settings: &Settings) -> Vec<SettingsRow> {
+    let mut rows = Vec::with_capacity(SettingsPage::Audio.item_count(false));
+    for (label, volume, value) in [
+        (
+            "Master Volume",
+            settings.master_volume,
+            SettingsValue::MasterVolume,
+        ),
+        (
+            "Effects Volume",
+            settings.effects_volume,
+            SettingsValue::EffectsVolume,
+        ),
+        (
+            "Ambience Volume",
+            settings.ambient_volume,
+            SettingsValue::AmbientVolume,
+        ),
+    ] {
+        push_row(
+            &mut rows,
+            label,
+            selector(&format!("{:.0}%", volume * 100.0)),
+            SettingsRowKind::Value(value),
+        );
+    }
+    push_row(
+        &mut rows,
+        "Mute",
+        selector(on_off(settings.muted)),
+        SettingsRowKind::Value(SettingsValue::Mute),
     );
     push_row(&mut rows, "Back", String::new(), SettingsRowKind::Back);
     rows
@@ -881,24 +933,23 @@ fn adjust_value(
             let mode = settings.step_window_mode(direction);
             ui_state.set_status(format!("Window mode: {}", mode.label()), false);
         }
-        SettingsValue::Resolution => {
-            if display.mode == WindowMode::Fullscreen {
-                ui_state.set_status("Resolution follows the display in fullscreen mode", false);
-            } else {
-                let choices = display.resolution_choices(settings.window_size());
-                if let Some(next) = step_resolution(&choices, settings.window_size(), direction)
-                    && settings.set_window_size(next.0, next.1)
-                {
-                    ui_state.set_status(
-                        format!(
-                            "Resolution: {}",
-                            crate::game::display::format_resolution(next)
-                        ),
-                        false,
-                    );
-                }
-            }
+        SettingsValue::Resolution => adjust_resolution(ui_state, settings, display, direction),
+        SettingsValue::MasterVolume => {
+            let next = step_volume(settings.master_volume, direction);
+            let _changed = settings.set_master_volume(next);
+            ui_state.set_status(format!("Master volume: {:.0}%", next * 100.0), false);
         }
+        SettingsValue::EffectsVolume => {
+            let next = step_volume(settings.effects_volume, direction);
+            let _changed = settings.set_effects_volume(next);
+            ui_state.set_status(format!("Effects volume: {:.0}%", next * 100.0), false);
+        }
+        SettingsValue::AmbientVolume => {
+            let next = step_volume(settings.ambient_volume, direction);
+            let _changed = settings.set_ambient_volume(next);
+            ui_state.set_status(format!("Ambience volume: {:.0}%", next * 100.0), false);
+        }
+        SettingsValue::Mute => adjust_mute(ui_state, settings),
         SettingsValue::LookSpeedH => {
             step_range(&mut settings.look_speed_h, direction, 15.0, 45.0, 180.0);
             ui_state.set_status("Horizontal look speed updated", false);
@@ -950,6 +1001,12 @@ fn adjust_lightmaps(ui_state: &mut UiState, settings: &mut Settings, direction: 
 /// Mouse sensitivity step per left/right input, in degrees per pixel.
 const MOUSE_SENSITIVITY_STEP: f32 = 0.02;
 
+/// Changes volume by five percentage points without wrapping to the other end.
+fn step_volume(volume: f32, direction: i32) -> f32 {
+    let step = if direction < 0_i32 { -0.05 } else { 0.05 };
+    (volume + step).clamp(0.0, 1.0)
+}
+
 /// Moves a scalar value one step and wraps it around `min`..=`max`.
 fn step_range(value: &mut f32, direction: i32, step: f32, min: f32, max: f32) {
     *value += if direction < 0_i32 { -step } else { step };
@@ -958,4 +1015,40 @@ fn step_range(value: &mut f32, direction: i32, step: f32, min: f32, max: f32) {
     } else if *value < min {
         *value = max;
     }
+}
+
+fn adjust_resolution(
+    ui_state: &mut UiState,
+    settings: &mut Settings,
+    display: &DisplayStatus,
+    direction: i32,
+) {
+    if display.mode == WindowMode::Fullscreen {
+        ui_state.set_status("Resolution follows the display in fullscreen mode", false);
+    } else {
+        let choices = display.resolution_choices(settings.window_size());
+        if let Some(next) = step_resolution(&choices, settings.window_size(), direction)
+            && settings.set_window_size(next.0, next.1)
+        {
+            ui_state.set_status(
+                format!(
+                    "Resolution: {}",
+                    crate::game::display::format_resolution(next)
+                ),
+                false,
+            );
+        }
+    }
+}
+
+fn adjust_mute(ui_state: &mut UiState, settings: &mut Settings) {
+    let _changed = settings.set_muted(!settings.muted);
+    ui_state.set_status(
+        if settings.muted {
+            "Audio muted"
+        } else {
+            "Audio unmuted"
+        },
+        false,
+    );
 }

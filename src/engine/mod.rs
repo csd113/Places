@@ -5,6 +5,7 @@
 
 pub mod ai;
 pub mod assets;
+pub mod audio;
 pub mod canonical_json;
 pub mod collision;
 pub mod collision_index;

@@ -557,6 +557,8 @@ pub struct Game {
     /// How many times this run has returned the player to the spawn.
     reset_count: u64,
     world_reset_count: u64,
+    /// Player sweep awaiting the once-per-frame combined physical trigger update.
+    trigger_sweep: Option<(Vec3, Vec3)>,
     /// Vertical simulation time not yet consumed by a fixed
     /// [`VERTICAL_SUBSTEP`].
     vertical_accumulator: f32,
@@ -693,6 +695,7 @@ impl Game {
             spawn_yaw: spawn_yaw.rem_euclid(TWO_PI),
             reset_count: 0,
             world_reset_count: 0,
+            trigger_sweep: None,
             vertical_accumulator: 0.0,
             ceiling_contact_this_frame: false,
             movement_debug: std::env::var("PLACES_MOVEMENT_DEBUG").is_ok_and(|value| value == "1"),
@@ -828,6 +831,7 @@ impl Game {
     /// until released. Label visibility is preserved: it is a view toggle, not
     /// movement state.
     pub fn reset_to_spawn(&mut self) {
+        self.trigger_sweep = None;
         self.clear_run_state(self.spawn_position, self.spawn_yaw, true);
         self.world.reset_runtime();
         self.world.seed_volumes(Vec3::new(
@@ -865,6 +869,7 @@ impl Game {
     /// release, so a fresh press works immediately. A level load passes
     /// `false` because the frame loop has already released gameplay inputs.
     fn clear_run_state(&mut self, spawn_pos: Vec3, spawn_yaw: f32, suppress_held: bool) {
+        self.trigger_sweep = None;
         self.noclip = None;
         self.player_floor_y = spawn_pos.y - EYE_HEIGHT;
         self.player_position = spawn_pos;
@@ -906,6 +911,7 @@ impl Game {
     /// in becomes the new baseline, so the change itself is never reported as
     /// a swept entry.
     fn reseed_trigger_inside(&mut self) {
+        self.trigger_sweep = None;
         let feet = Vec3::new(
             self.player_position.x,
             self.feet_y(),
@@ -943,7 +949,7 @@ impl Game {
             floor: &self.floor,
             nav: self.navigation.as_ref(),
         };
-        self.world.update_volumes(ctx.feet_from, ctx.feet);
+        self.trigger_sweep = Some((ctx.feet_from, ctx.feet));
         let tick = self.world.tick(&ctx);
         self.last_tick = tick;
         if tick.player_reset {
@@ -959,6 +965,47 @@ impl Game {
         };
         self.world
             .update_entities(delta, &routes, Some(self.player_position));
+    }
+
+    /// Samples triggers once after the native item step, then dispatches their actions.
+    /// The frame loop must call this after each Playing movement update. A skipped
+    /// update consumes no sweep, so paused frames never replay an earlier crossing.
+    pub fn update_volume_occupants(&mut self, items: &[crate::engine::entities::TriggerItem<'_>]) {
+        self.update_volume_occupants_iter(items.iter().copied());
+    }
+
+    /// Iterator variant for the native loop's persistent physics snapshot buffer.
+    pub fn update_volume_occupants_iter<'a>(
+        &mut self,
+        items: impl Iterator<Item = crate::engine::entities::TriggerItem<'a>> + Clone,
+    ) {
+        let Some((from, to)) = self.trigger_sweep.take() else {
+            return;
+        };
+        self.world.update_volume_occupants_iter(from, to, items);
+        let report = self.world.dispatch_queued_events();
+        if report.player_reset {
+            self.reset_to_spawn();
+        }
+    }
+
+    /// Baselines physical trigger occupancy after loading/resetting item bodies.
+    pub fn seed_volume_occupants(&mut self, items: &[crate::engine::entities::TriggerItem<'_>]) {
+        self.seed_volume_occupants_iter(items.iter().copied());
+    }
+
+    /// Iterator variant for initial physical item occupancy.
+    pub fn seed_volume_occupants_iter<'a>(
+        &mut self,
+        items: impl Iterator<Item = crate::engine::entities::TriggerItem<'a>> + Clone,
+    ) {
+        self.trigger_sweep = None;
+        let feet = Vec3::new(
+            self.player_position.x,
+            self.feet_y(),
+            self.player_position.z,
+        );
+        self.world.seed_volume_occupants_iter(feet, items);
     }
 
     /// World simulation time is independent of the player's movement clock.

@@ -5,6 +5,7 @@ set -eu
 # an older release binary is already present.
 cargo build --locked --release
 python3 tools/assets/validate.py
+python3 tools/audio/build.py --check
 # The package suite executes the texture CLI --check once.
 python3 tools/props/build.py --check
 python3 tools/assets/audit.py --workers 12 --out target/verification/asset-inventory.json

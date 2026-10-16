@@ -71,8 +71,10 @@ class AeroDemoTests(unittest.TestCase):
         for prop in self.level['props']:
             if prop['model'].split(':')[-1] in hollow:
                 self.assertFalse(prop['solid'], prop['id'])
+                # Audio capabilities do not make hollow visuals collidable.
+                self.assertFalse(any(c.get('component') == 'collider'
+                                     for c in prop.get('components', [])), prop['id'])
         self.assertFalse(self.level.get('animated_emissions'))
-        self.assertFalse(any(p.get('components') for p in self.level['props']))
 
 
 if __name__ == '__main__':

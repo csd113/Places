@@ -21,6 +21,7 @@ The active connected Arcade showcase includes the commercial restroom.
 | Linked railing authoring | October 15, 2026: static prop span transforms, continuous slope collision, numeric material-slot overrides and prepared package texture restoration are documented in §16. Geometry revision 13 invalidates prior prepared geometry. |
 | Completed Pool/Office authoring | October 15, 2026: accepted GLB fixtures, measured emitter anchors, fixed-prop light controllers and numeric emission overrides checked against the working renderer/compiler. Geometry revision 14 and PLMP v8 preserve these prepared instances. Native results belong in the integration report. |
 | Environment refinement verification | October 10, 2026: neighbor-clipped ramp side geometry revision 9 and reusable `weather_alternate`, `weather_cycle`, `toggle_weather`, `set_weather_strength`, `set_weather_cycle`, `set_prompt` checked against current authoring/runtime sources and focused regression tests. Native acceptance and final gates are recorded in [environment-refinement.md](reports/environment-refinement.md). |
+| Trigger/audio authoring verification | October 16, 2026: additive `filter`/`occupancy` volume schema, bounded swept item occupancy, shared binding rearm behavior, cue reference validation and audio emitter lifecycle checked against `src/engine/level.rs`, `src/engine/loader.rs`, `src/engine/entities/volumes.rs` and `src/engine/entities/mod.rs`; targeted CPU regressions live in `src/engine/tests/trigger_occupants.rs`. Native playback evidence is recorded separately. |
 | Primary benchmark level | `levels/places_demo.json` |
 
 > This revision describes the **current** engine: the Low/Medium/High quality
@@ -152,7 +153,7 @@ Authoritative paths:
 | Timers, sequences, spawn templates/points/groups (including at-most-one-active) | Implemented (see [§29](#29-entities-components-bindings-volumes-timers-sequences-and-spawns)) |
 | Baked navigation (`nav_agent` bodies, per-class clearance, stairs/slopes, door portals), runtime path queries and the shared AI framework (`ai`: idle/wander/follow/flee/investigate/pursue/catch, sight and hearing, catch -> sequence) | Implemented (see [§33](#33-navigation-and-ai)); the player loads the compiler's bake and never builds one. |
 | Animation actions (`play_animation`, `toggle_animation`) | Implemented per instance; the target must carry an `animation` component. |
-| Audio actions (`play_sound`, `stop_sound`) | Implemented as a typed emitter state on an entity with an `audio` component; no audio device backend exists in this tree, so a playback request is reported once instead of playing. No shipped map authors one. |
+| Audio actions (`play_sound`, `stop_sound`) | Implemented through the shared entity dispatcher and preloaded native audio backend; cue ids resolve through `assets/audio/catalog.json`. |
 | Water refraction, realtime shadow maps and runtime static transport solves | Not implemented; straight alpha/depth transmission and bounded entity direct lights are implemented |
 | Animated entities: a placed skinned GLB follows the player's locomotion state (idle/walking/airborne/swimming); a rig with authored clips plays them, a no-clip rig uses the built-in procedural gait | Implemented (see [§16](#16-props-and-models)) |
 | Screen-space reflections; per-frame raytraced reflections; cubemap probes with realtime updates | Not implemented (static probes and one planar plane exist) |
@@ -4186,10 +4187,13 @@ solver sleep after activation. Graphics/quality rebuilds retain the same item
 world, including dormant/active/held state and current poses; they do not recreate
 or activate bodies. Replacing/reloading a world restores authored starting state.
 
-The initial authored movable scope is **passive rigid props with optional
-pickup**. They must not declare `float`, `lights`, components, event bindings or
-an entity route: those systems have separate pose or lifecycle ownership. Use
-fixed placements for existing interactable/animated/navigation/light behavior.
+The authored movable scope is **rigid props with optional pickup and audio**.
+An `audio` component is allowed: external trigger, timer or other entity bindings
+can target that item's emitter with `play_sound`, `stop_sound`, `enable` and
+`disable`; playback follows its physical body center. Movable props must not
+carry other components, their own event bindings, `float`, attached `lights` or
+an entity route, which have separate pose or lifecycle ownership. Use fixed
+placements for interactable/animated/navigation/light behavior.
 Movable rigid items and `/give` previews also reject skinned, morph and rigid
 animated GLBs, including clips-only models such as `home:wall_switch`, with an
 explicit model-support error. These models require an entity template; they
@@ -5304,7 +5308,7 @@ Components never carry actions — the bindings do that.
 | --- | --- | --- |
 | `interactable` | `prompt?` (default `"Interact"`), `reach?` (default 2.5 m, `0 < reach ≤ 4.0`), `enabled` (`true`), `label?` | The entity is aimable with **E**; a press emits `interact`. `enabled: false` starts it aimed-but-silent until an `enable` action. `label` is the floating text a `toggle_label` may show. |
 | `animation` | `clip` (required, non-blank), `speed` (`1.0`), `looped` (`false`), `playing` (`false`) | The entity owns an animation state: `play_animation`, `toggle_animation` and `animation_complete` need it. `playing` seeds component state; use a `play_animation` action (for example an autostart timer) to cue a named render clip at load. The default rests on the authored pose. |
-| `audio` | `sound` (required), `gain` (`1.0`), `looped` (`false`), `enabled` (`true`), `playing` (`false`) | Typed emitter state: `play_sound`/`stop_sound` set `playing`/`looped`, `enable`/`disable` gate it, and the frame loop reports a requested sound once. **No audio device backend exists in this tree**, so nothing is audible; no shipped map authors one. |
+| `audio` | `sound` (required catalog cue id), `gain` (`1.0`, finite `0..=1`), `looped` (`false`), `enabled` (`true`), `playing` (`false`), `time_domain` (`world`; or `real`) | `playing: true` starts an enabled emitter at load. `play_sound`/`stop_sound` control playback; disabling stops its voice while retaining desired playback, and enabling resumes that state. Reset restores authored emitter state. Native playback uses the cue's spatial/distance metadata and the entity's current anchor. |
 | `light` | `enabled` (`true`), `switchable` (`false`), `emission_scale` (`1.0`) | A fixed prop's attached sources and luminous materials share one state. Switchable props with attached lights support `set_light`/`toggle` in Full; Static holds the authored initial state. See §21. A nonswitchable light cannot be an action target. |
 | `material` | `variants` (≥ 1 of `{ name, emission_scale }`), `current?` (default the first) | The entity selects one of several emission profiles at runtime with `change_material`. Only the emission profile can change; surface materials of baked geometry cannot. |
 | `state` | `name` (required), `value` (required: bool, integer, float or string) | A typed state slot a `set_state` may write and a `state` condition may read. Timers and volumes own their states implicitly. |
@@ -5541,7 +5545,7 @@ whose target cannot do the thing is a named load error.
 | `enable` / `disable` | `target?` | any entity | aiming, emission, animation and audio capability on/off (a disabled interactable emits no `interact`) |
 | `play_animation` | `target?`, `clip?` (non-blank when present), `loop?` | an entity with an `animation` component | play a clip; a one-shot holds its last pose, `loop: true` repeats |
 | `toggle_animation` | `target?`, `clip?` | an entity with an `animation` component | scrub the clip toward the opposite end of its timeline (a lever flip); a second press mid-move reverses |
-| `play_sound` / `stop_sound` | `target?`, `sound?`, `loop?` | an entity with an `audio` component | sets the emitter's `playing`/`looped` state and emits a playback command; this build has no audio device backend, so the command is reported once and nothing plays |
+| `play_sound` / `stop_sound` | `target?`, `sound?`, `loop?` | an entity with an `audio` component | starts/stops the emitter through the native audio backend; omitted `sound` uses its current cue, `loop` defaults false, and disabled emitters retain desired state until enabled |
 | `change_material` | `target?`, `variant` (required) | a runtime instance of a spawn template with a `material` component (a baked static prop is rejected: its material is prepared geometry) | select a declared emission variant |
 | `move_object` | `target?`, `x`, `z` (required finite), `y?`, `speed?` | a runtime instance of a spawn template (a baked static prop or a door is rejected: drive a door with `open`/`close`/`toggle`) | move a runtime entity collision-respecting |
 | `steam` component + `enable`/`disable` | `target?` | an entity with a `steam` component | turns the authored emitter's billboards on or off through the renderer (a disabled emitter's level effect stays, it just stops drawing) |
@@ -5605,9 +5609,10 @@ frame, so E and the floating name track a character that walks away.
 ### Trigger volumes
 
 A volume is an axis-aligned box: a rectangular `(x, z)` footprint plus a
-vertical `bottom_y..top_y` band. The controller tests the player's feet
-against it every frame and emits `enter_volume` / `exit_volume` on the edges;
-the volume's own bindings decide what those events do.
+vertical `bottom_y..top_y` band. After movement and physics, the shared entity
+runtime tests eligible occupants and emits `enter_volume` / `exit_volume` on
+the edges; the volume's own bindings decide what those events do. There is no
+separate sound-trigger dispatcher.
 
 ```jsonc
 {
@@ -5616,6 +5621,8 @@ the volume's own bindings decide what those events do.
   "width": 1.6, "depth": 1.6,      // REQUIRED, > 0
   "bottom_y": -3.2,                // optional; default the walkable floor under the centre
   "top_y": -0.05,                  // optional; default bottom_y + 2.0
+  "filter": { "kind": "player" }, // optional; preserves player-only maps
+  "occupancy": "per_actor",       // optional; or aggregate
   "bindings": [
     { "on": "enter_volume", "once": false,
       "cooldown_seconds": 0.5,     // carried by the binding, not the volume
@@ -5626,18 +5633,41 @@ the volume's own bindings decide what those events do.
 
 Semantics:
 
-* **Enter, not overlap.** The volume fires on the first frame the player's
-  feet are inside the band, or when the frame's swept feet segment crosses it,
-  so a fast fall through a thin band still counts. Standing inside never
-  re-fires; leaving re-arms.
+* **Enter, not overlap.** Player feet and physical item bounds use swept
+  segments. A complete fast crossing emits entry then exit in the same frame;
+  standing inside never re-fires. Items use conservative world AABB extents,
+  with a rotation-safe envelope when orientation changes, rather than a point
+  at their base. Up to 14 bounded solver-path points preserve intermediate
+  bounce crossings even when both frame endpoints remain outside.
+* `filter` is a strict object: `{ "kind": "player" }` (default),
+  `{ "kind": "any" }` (player and all physical items), or
+  `{ "kind": "item", "asset": "core:rubber_duck", "instance": "duck_1", "held": true }`.
+  Each item selector is optional, and every supplied selector must match.
+  `held: false` accepts only unheld items; omitted accepts both. Asset ids must
+  exist in the placeable catalog; instance ids must name a movable authored
+  physical prop, and a supplied asset must agree with that instance. Invalid
+  selectors are errors and never broaden eligibility. Dormant items count;
+  fixed and temporarily suspended bodies do not. At most 128 physical items
+  are sampled, matching the engine body cap.
+* `occupancy: "per_actor"` (default) emits each eligible actor's edges.
+  `"aggregate"` emits only the first entry and final exit. Swept intervals
+  overlap correctly during occupancy handoffs, so one departure cannot stop
+  ambience while another eligible occupant remains inside. Event `key` is
+  `"player"` or the item's exact stable instance id; item events retain their
+  entity handle when one exists.
 * `cooldown_seconds` on the `enter_volume` binding bounds a re-entry; `once`
   makes that binding fire at most once per run (a `reset_to_start` re-arms it).
 * `reset_to_start` returns the player to the authored spawn and facing, clears
   velocity, stance, ladder and water state, and re-seeds every trigger from
   the new position, so a teleport never activates the volumes between the old
   and new positions and a spawn inside a volume never loops.
-* At most one volume batch starts per frame; if the frame crosses more than
-  one volume, the later entries are deferred to following frames.
+* All detected edges enter the existing bounded event queue in authored
+  volume order. Within one volume they follow crossing time, with entries
+  before simultaneous exits. Existing event/chain budgets still apply.
+  Accepted budget tails are deferred;
+  a full queue accepts or refuses each volume's complete edge batch. Refused
+  final exits retain their previous membership and retry, preventing lost
+  cleanup actions from leaving persistent loops.
 * The footprint must overlap a room; the resolved `top_y` must be above
   `bottom_y`. Both are named load errors.
 
@@ -7617,7 +7647,13 @@ authoring. They are not invitations to change the engine as part of an authoring
 19. **Reflections are per-material and limited.** One planar plane per frame, at most
     two probes per level, probes are static (no realtime update), and a planar material
     reused on non-planar geometry is skipped with a warning.
-20. **Audio has no device backend.** There is no audio subsystem in this tree: the `audio` component and `play_sound`/`stop_sound` are implemented as typed emitter state that the frame loop reports once, but nothing is audible, and `play_audio` no longer exists as a tag. `play_animation` and `toggle_animation` dispatch real per-instance animation through the entity runtime, and their target must carry an `animation` component.
+20. **Audio uses preloaded cues.** `audio` components and `play_sound` actions
+    reference exact cue ids from `assets/audio/catalog.json`; raw playback paths
+    and the old `play_audio` tag are unsupported. `time_domain: "world"` follows
+    world simulation speed/pause; `"real"` retains normal speed at zero world
+    time. Menus, console, loading and focus loss pause both domains. The native
+    backend applies spatial panning and distance attenuation; browser builds
+    remain silent. Animation actions still require an `animation` component.
 21. **An interactable's aimable bound uses the same size contract as collision.**
     It is the level `size` (or `[0.6, 0.9, 0.6]`), scaled — never the catalog size.
     A small prop with no authored `size` is aimable as a standard box, so a map that

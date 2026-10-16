@@ -44,6 +44,7 @@ import os
 import re
 import sys
 from itertools import chain
+from functools import cache
 from typing import Dict, List, Tuple
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -89,9 +90,8 @@ MAX_PROP_LIGHTS = 16
 MAX_LEVEL_LIGHT_SOURCES = 1_000_000
 
 # Map-authored actions: the closed set the engine parses, and the subset it
-# implements. The reserved/unimplemented tags are rejected by name, not
-# silently ignored. Audio (`play_sound`/`stop_sound`) has no subsystem yet, so
-# it is parsed but unimplemented; there is no `play_audio` tag at all.
+# implements. Unknown tags are rejected by name; audio uses the same bounded
+# entity dispatcher as every other action. There is no `play_audio` tag.
 ACTION_TAGS = (
     "open",
     "close",
@@ -123,9 +123,7 @@ ACTION_TAGS = (
     "reset_physics_group",
     "activate_physics_group",
 )
-IMPLEMENTED_ACTIONS = tuple(
-    tag for tag in ACTION_TAGS if tag not in ("play_sound", "stop_sound")
-)
+IMPLEMENTED_ACTIONS = ACTION_TAGS
 
 # Typed components, event kinds and condition checks the runtime defines
 # (src/engine/level.rs).
@@ -1602,6 +1600,25 @@ def _entity_facts(kind: str) -> Dict:
     }
 
 
+@cache
+def _audio_cue_ids() -> frozenset:
+    """Load metadata only, using this script's repository root rather than cwd."""
+    try:
+        with open(os.path.join(ASSET_ROOT, "audio", "catalog.json"), encoding="utf-8") as source:
+            return frozenset(cue["id"] for cue in json.load(source).get("cues", []) if isinstance(cue, dict) and isinstance(cue.get("id"), str))
+    except (OSError, ValueError, TypeError):
+        return frozenset()
+
+
+@cache
+def _placeable_ids() -> frozenset:
+    try:
+        with open(CATALOG_PATH, encoding="utf-8") as source:
+            return frozenset(entry["id"] for entry in json.load(source).get("assets", []) if isinstance(entry, dict) and entry.get("asset_type") in ("prop", "entity") and isinstance(entry.get("id"), str))
+    except (OSError, ValueError, TypeError):
+        return frozenset()
+
+
 def _validate_components(context: str, components: object, facts: Dict, errors: List[str]) -> None:
     """Validates one record's typed components and fills the facts actions read.
 
@@ -1649,6 +1666,16 @@ def _validate_components(context: str, components: object, facts: Dict, errors: 
             sound = component.get("sound")
             if not isinstance(sound, str) or not sound.strip():
                 errors.append(f"{entry} needs a non-blank sound id")
+            elif sound not in _audio_cue_ids():
+                errors.append(f"{entry} names unknown audio cue '{sound}'")
+            gain = component.get("gain", 1.0)
+            if not is_finite_number(gain) or not 0.0 <= gain <= 1.0:
+                errors.append(f"{entry} gain must be finite and within 0..1")
+            if component.get("time_domain", "world") not in ("world", "real"):
+                errors.append(f"{entry} time_domain must be world or real")
+            for field in ("enabled", "playing", "looped"):
+                if field in component and not isinstance(component[field], bool):
+                    errors.append(f"{entry} {field} must be a boolean")
         elif tag == "light":
             facts["has_light"] = True
             if "enabled" in component and not isinstance(component["enabled"], bool):
@@ -2319,6 +2346,14 @@ def _validate_actions(
             clip = action.get("clip")
             if clip is not None and (not isinstance(clip, str) or not clip.strip()):
                 errors.append(f"{entry} ('{tag}') clip must not be blank when specified")
+        elif tag in ("play_sound", "stop_sound"):
+            require("a target with an `audio` component", lambda facts: facts["has_audio"])
+            if tag == "play_sound":
+                sound = action.get("sound")
+                if sound is not None and (not isinstance(sound, str) or sound not in _audio_cue_ids()):
+                    errors.append(f"{entry} names unknown audio cue '{sound}'")
+                if "loop" in action and not isinstance(action["loop"], bool):
+                    errors.append(f"{entry} loop must be a boolean")
         elif tag == "change_material":
             require("a target with a `material` component", lambda facts: facts["has_material"])
             variant = action.get("variant")
@@ -2505,6 +2540,31 @@ def _validate_volumes(level: dict, where: str, errors: List[str]) -> None:
         if not isinstance(volume, dict):
             errors.append(f"{where}: trigger volume {index} must be an object")
             continue
+        context = f"{where}: trigger volume {index}"
+        trigger_filter = volume.get("filter", {"kind": "player"})
+        if not isinstance(trigger_filter, dict) or trigger_filter.get("kind") not in ("player", "item", "any"):
+            errors.append(f"{context} filter must have kind player, item or any")
+        else:
+            kind = trigger_filter["kind"]
+            allowed = {"kind", "asset", "instance", "held"} if kind == "item" else {"kind"}
+            if set(trigger_filter) - allowed:
+                errors.append(f"{context} filter has fields unsupported for {kind}")
+            if kind == "item":
+                asset = trigger_filter.get("asset")
+                instance = trigger_filter.get("instance")
+                if asset is not None and (not isinstance(asset, str) or asset not in _placeable_ids()):
+                    errors.append(f"{context} filter names unknown item asset '{asset}'")
+                if "held" in trigger_filter and trigger_filter["held"] is not None and not isinstance(trigger_filter["held"], bool):
+                    errors.append(f"{context} filter held must be boolean")
+                if instance is not None:
+                    ids = _resolve_prop_ids(level)
+                    prop = next((prop for prop_id, prop in zip(ids, level.get("props") or []) if prop_id == instance and isinstance(prop, dict)), None)
+                    if prop is None or not isinstance(prop.get("physics"), dict) or prop["physics"].get("motion") not in ("dynamic", "kinematic"):
+                        errors.append(f"{context} filter instance '{instance}' must name a movable physical prop")
+                    elif asset is not None and asset != prop.get("model"):
+                        errors.append(f"{context} filter asset and instance selectors refer to different item types")
+        if volume.get("occupancy", "per_actor") not in ("per_actor", "aggregate"):
+            errors.append(f"{context} occupancy must be per_actor or aggregate")
         width = volume.get("width")
         depth = volume.get("depth")
         if not is_finite_number(width) or not is_finite_number(depth) or width <= 0.0 or depth <= 0.0:
@@ -2738,14 +2798,19 @@ def validate_interactions(level: dict, where: str, errors: List[str]) -> None:
     ``validate_sequences``, ``validate_spawns``): well-formed unique ids,
     known component and event kinds, 1..8 typed actions per binding with
     resolvable capability-fit targets, real trigger volumes, well-formed
-    timers, sequences and spawn definitions. ``play_sound``/``stop_sound`` are
-    parsed but unimplemented and are rejected by name; ``play_audio`` and
-    unknown tags are rejected.
+    timers, sequences and spawn definitions. ``play_sound``/``stop_sound``
+    require an audio emitter and known catalog cue; ``play_audio`` and unknown
+    tags are rejected.
     """
     index = _index_level_entities(level, where, errors)
     for position, prop in enumerate(level.get("props") or []):
         if isinstance(prop, dict) and prop.get("physics") is not None:
             errors.extend(validate_physics_profile(prop["physics"], f"{where} prop {position}", prop.get("scale", 1.0)))
+            physics = prop["physics"]
+            if isinstance(physics, dict) and physics.get("motion") in ("dynamic", "kinematic"):
+                components = prop.get("components") or []
+                if (isinstance(components, list) and any(not isinstance(component, dict) or component.get("component") != "audio" for component in components)) or prop.get("bindings"):
+                    errors.append(f"{where} prop {position}: movable physics supports audio components only; other components and item-owned bindings are unsupported")
 
     for position, prop in enumerate(level.get("props") or []):
         if not isinstance(prop, dict):

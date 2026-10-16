@@ -1,6 +1,7 @@
 //! Native game application: startup, window, loading, input and frame coordination.
 
 mod actions;
+mod audio_runtime;
 mod console_input;
 mod flashlight;
 mod item_input;
@@ -718,6 +719,7 @@ struct FrameLoop<'a> {
     console_runtime: console::runtime::Runtime,
     flashlight: flashlight::Power,
     items: item_runtime::Items,
+    audio: audio_runtime::Audio,
     video: Option<video::Recording>,
     ui_cache: &'a mut UiGeometryCache,
     ui_scratch: &'a mut Vec<Vertex>,
@@ -824,6 +826,13 @@ impl FrameLoop<'_> {
         while self.game.is_running() {
             self.frame();
         }
+        self.audio.system.clear_world();
+        self.trace.record(
+            "audio_shutdown",
+            self.load_generation,
+            &serde_json::to_string(&self.audio.system.stats()).unwrap_or_default(),
+        );
+        self.audio.finish();
         self.loader.shutdown();
         if let Some(actions) = &mut self.actions {
             actions.shutdown();
@@ -981,6 +990,7 @@ impl FrameLoop<'_> {
         {
             self.game.set_benchmark_simulation_delta(delta);
         }
+        self.update_audio_mix();
         let _clock_updated = self
             .game
             .set_world_time_scale(self.items.world.simulation_state().time_scale);
@@ -1015,6 +1025,7 @@ impl FrameLoop<'_> {
         // spawned object) once per frame: transform only, never a geometry or
         // lightmap rebuild.
         self.update_world_presentation();
+        self.update_game_audio();
         self.write_nav_debug(false);
         let frame_update_done = Instant::now();
 
@@ -1031,6 +1042,9 @@ impl FrameLoop<'_> {
         if held != self.items.world.held() {
             self.items.input.invalidate();
             self.items.target = None;
+        }
+        if self.reconcile_audio_reset() {
+            self.update_item_triggers(true);
         }
     }
 
@@ -1141,6 +1155,7 @@ impl FrameLoop<'_> {
                 continue;
             };
             if let Some(report) = self.game.world_mut().dispatch_interaction(Some(index)) {
+                self.interaction_audio_feedback(index, &report);
                 crate::engine::logging::info(format_args!(
                     "PLACES_INTERACT: `{id}` ran {} action(s), spawned {}, unsupported {}",
                     report.actions_run, report.spawned, report.unsupported
@@ -1164,6 +1179,7 @@ impl FrameLoop<'_> {
         let Some(report) = self.game.dispatch_interaction_at(Some(index)) else {
             return;
         };
+        self.interaction_audio_feedback(index, &report);
         if report.player_reset {
             crate::engine::logging::info(
                 "[interact] reset_to_start: returned to the authored spawn",
@@ -1318,18 +1334,14 @@ impl FrameLoop<'_> {
                     sound,
                     gain,
                     looped,
+                    time_domain,
                 } => {
-                    crate::engine::logging::warn_once(
-                        "audio-unavailable",
-                        format!(
-                            "[audio] `{sound}` requested (entity {entity}, gain {gain}, \
-                             looped {looped}); this build has no audio device backend, so \
-                             nothing plays"
-                        ),
-                    );
+                    self.play_authored_sound(entity, &sound, gain, looped, time_domain);
                 }
                 crate::engine::entities::WorldCommand::StopSound { entity } => {
-                    let _ = entity;
+                    self.audio
+                        .system
+                        .stop_source(crate::engine::audio::SourceId(entity));
                 }
                 crate::engine::entities::WorldCommand::SetEffectEnabled { index, enabled } => {
                     let effect_index = usize::try_from(index).unwrap_or(usize::MAX);
@@ -1373,6 +1385,9 @@ impl FrameLoop<'_> {
         {
             self.ui_state
                 .set_status(format!("Could not change the window: {error}"), true);
+        }
+        if apply.audio {
+            self.update_audio_mix();
         }
         if apply.vsync {
             let interval = self
@@ -2149,17 +2164,7 @@ impl FrameLoop<'_> {
                     self.settings.request_graphics_reapply();
                 }
             }
-            actions::Action::Focus { focused } => {
-                return self.handle_event(&Event::Window {
-                    timestamp: 0,
-                    window_id: self.window.id(),
-                    win_event: if focused {
-                        WindowEvent::FocusGained
-                    } else {
-                        WindowEvent::FocusLost
-                    },
-                });
-            }
+            actions::Action::Focus { focused } => return self.scripted_focus(focused),
             actions::Action::Quit {} => {
                 if !self.items.captures.is_empty() {
                     self.items.quit_after_captures = true;
@@ -2170,6 +2175,22 @@ impl FrameLoop<'_> {
         }
         self.trace_world("action_result");
         self.game.is_running()
+    }
+
+    fn scripted_focus(&mut self, focused: bool) -> bool {
+        if focused {
+            let raised = self.window.raise();
+            self.trace.record("native_window_raise", self.load_generation, &serde_json::json!({"requested":raised,"observed_focus":self.window.has_input_focus()}).to_string());
+        }
+        self.handle_event(&Event::Window {
+            timestamp: 0,
+            window_id: self.window.id(),
+            win_event: if focused {
+                WindowEvent::FocusGained
+            } else {
+                WindowEvent::FocusLost
+            },
+        })
     }
 
     fn trace_scripted_action(&mut self, received: &actions::Received) {
@@ -3036,6 +3057,16 @@ impl FrameLoop<'_> {
             "gpu_timing": format!("{:?}", self.renderer.gpu_timing()),
         });
         if let Some(fields) = state.as_object_mut() {
+            drop(fields.insert(
+                "window_native_focus".into(),
+                self.window.has_input_focus().into(),
+            ));
+            drop(fields.insert(
+                "audio_voices".into(),
+                serde_json::json!(self.audio.system.voice_snapshot()),
+            ));
+            drop(fields.insert("audio".into(), serde_json::json!(self.audio.system.stats())));
+            drop(fields.insert("audio_settings".into(), serde_json::json!({"master":self.settings.master_volume,"effects":self.settings.effects_volume,"ambience":self.settings.ambient_volume,"muted":self.settings.muted})));
             drop(fields.insert("console_session".into(), self.console_runtime.snapshot()));
             let fixed_instances = self.current_level.as_ref().map(|loaded| {
                 let ids=loaded.level.prop_instance_ids();
@@ -3076,6 +3107,7 @@ impl FrameLoop<'_> {
             return;
         };
         if !matches!(intent, LoadIntent::Graphics) {
+            self.audio.clear_world();
             self.flashlight = flashlight::Power::Off;
             self.console_runtime
                 .clear_given_props(self.renderer, &mut self.items.world);
@@ -3093,6 +3125,7 @@ impl FrameLoop<'_> {
             self.game
                 .reset_level(*self.spawn_pos, *self.spawn_yaw, collision);
             self.install_physical_items(&loaded.level, &loaded.materials);
+            self.update_item_triggers(true);
             if matches!(intent, LoadIntent::Play) {
                 self.game.set_app_state(AppState::Playing);
             }
@@ -3803,9 +3836,15 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     result
 }
 
-fn native_actions(sdl: &Sdl, window: &Window) -> Result<Option<actions::Actions>, String> {
+fn native_inputs(
+    sdl: &Sdl,
+    window: &Window,
+) -> Result<(EventPump, Option<actions::Actions>), String> {
+    let pump = sdl
+        .event_pump()
+        .map_err(|error| format!("Failed to init event pump: {error}"))?;
     let action_events = sdl.event().map_err(|error| error.to_string())?;
-    actions::Actions::from_env(&action_events, window.id())
+    actions::Actions::from_env(&action_events, window.id()).map(|actions| (pump, actions))
 }
 
 fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
@@ -3822,11 +3861,7 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
     configure_vsync(&mut renderer, &mut bench, &settings);
     trace.record("window_ready", 0, "");
 
-    let mut event_pump = sdl_context
-        .event_pump()
-        .map_err(|e| format!("Failed to init event pump: {e}"))?;
-
-    let actions = native_actions(&sdl_context, &window)?;
+    let (mut event_pump, actions) = native_inputs(&sdl_context, &window)?;
     let mut input_handler = InputHandler::new();
     let mut spawn_pos = Vec3::ZERO;
     let mut spawn_yaw = 0.0;
@@ -3870,6 +3905,7 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
         console_runtime: console::runtime::Runtime::default(),
         flashlight: flashlight::Power::Off,
         items: item_runtime::Items::new(),
+        audio: audio_runtime::Audio::new(&sdl_context),
         video: video::Recording::from_env(),
         ui_cache: &mut ui_cache,
         ui_scratch: &mut ui_scratch,

@@ -814,6 +814,15 @@
           "component": "state",
           "name": "running",
           "value": false
+        },
+        {
+          "component": "audio",
+          "sound": "ambience_water",
+          "gain": 0.65,
+          "looped": true,
+          "enabled": true,
+          "playing": true,
+          "time_domain": "world"
         }
       ],
       "bindings": [
@@ -1618,6 +1627,42 @@
       "top_y": 0.0,
       "facing_degrees": 90.0,
       "comment": "[pool-water-demo] Climb towards the east deck through the real ladder rails."
+    }
+  ],
+  "volumes": [
+    {
+      "id": "audio_pool_hall",
+      "x": 0,
+      "z": 0,
+      "width": 16,
+      "depth": 11,
+      "bottom_y": -1.6,
+      "top_y": 4.5,
+      "filter": {
+        "kind": "player"
+      },
+      "occupancy": "aggregate",
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "actions": [
+            {
+              "action": "play_sound",
+              "target": "pool_water_demo_control",
+              "loop": true
+            }
+          ]
+        },
+        {
+          "on": "exit_volume",
+          "actions": [
+            {
+              "action": "stop_sound",
+              "target": "pool_water_demo_control"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

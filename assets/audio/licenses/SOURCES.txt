@@ -1,0 +1,37 @@
+Places sound sources — all selected recordings CC0-1.0
+License: https://creativecommons.org/publicdomain/zero/1.0/
+Verified primary source pages: 2026-10-16
+Exact per-file mappings and hashes: ../provenance.json
+
+Impact Sounds 1.0 — Kenney
+https://kenney.nl/assets/impact-sounds
+
+Interface Sounds 1.0 — Kenney
+https://kenney.nl/assets/interface-sounds
+
+RPG Audio 1.0 — Kenney
+https://kenney.nl/assets/rpg-audio
+
+100 CC0 SFX #2 — rubberduck
+https://opengameart.org/content/100-cc0-sfx-2
+
+202 More Sound Effects — OwlishMedia
+https://opengameart.org/content/202-more-sound-effects
+
+Different steps on wood, stone, leaves, gravel and mud — TinyWorlds
+https://opengameart.org/content/different-steps-on-wood-stone-leaves-gravel-and-mud
+The author identifies edited pdsounds.org recordings in the source page comments; the submitted pack is expressly CC0.
+
+Water Splash and sand footsteps — Peludo
+https://opengameart.org/content/water-splash-and-sand-footsteps
+Author requests an itch.io reference: https://rnan.itch.io/ (linked from the author's OpenGameArt profile).
+
+Airvent Loop — Longor
+https://opengameart.org/content/airvent-loop
+
+Ambient Bird Sounds — isaiah658
+https://opengameart.org/content/ambient-bird-sounds
+
+rubber duck -CsG-.wav — csaszi
+https://freesound.org/people/csaszi/sounds/350917/
+Source is the publicly offered HQ MP3 preview, not the login-only original WAV. The original sound page explicitly declares Creative Commons 0.

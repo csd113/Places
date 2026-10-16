@@ -3,8 +3,12 @@
 use glam::Vec3;
 use rapier3d::prelude::{ContactModificationContext, PhysicsHooks};
 
-use crate::engine::level::{LevelDef, RampSurface, StairSurface};
+use crate::engine::level::{LevelDef, ROOM_EDGE_EPS_M, RampSurface, StairSurface};
 use crate::engine::materials::MaterialTable;
+
+/// Allows the solver's contact skin while rejecting another storey's floor
+/// or a player supported by a prop distinctly above the authored floor.
+const MATERIAL_SUPPORT_TOLERANCE: f32 = 0.02;
 
 #[derive(Debug, Clone, Copy)]
 struct Rect {
@@ -249,5 +253,145 @@ impl FloorSurfaces {
                 .filter_map(|patch| Some((bounds.intersection(patch.bounds)?, patch.friction?)))
                 .collect(),
         }
+    }
+}
+
+struct MaterialRoom {
+    bounds: Rect,
+    floor_y: f32,
+    material: Box<str>,
+}
+
+struct MaterialArea {
+    bounds: Rect,
+    offset: f32,
+    material: Option<Box<str>>,
+}
+
+/// Authored material identities retained independently of optional friction
+/// tables. These descriptors never bake or modify collision geometry.
+#[derive(Default)]
+pub(super) struct SurfaceMaterials {
+    rooms: Vec<MaterialRoom>,
+    regions: Vec<MaterialArea>,
+    patches: Vec<MaterialArea>,
+    ramps: Vec<(RampSurface, Box<str>)>,
+    stairs: Vec<(StairSurface, Box<str>)>,
+}
+
+impl SurfaceMaterials {
+    pub fn from_level(level: &LevelDef) -> Self {
+        let default = level.defaults.floor.as_str();
+        Self {
+            rooms: level
+                .room_iter()
+                .map(|room| MaterialRoom {
+                    bounds: Rect::new(room.bounds()),
+                    floor_y: room.floor_y,
+                    material: room.material.as_deref().unwrap_or(default).into(),
+                })
+                .collect(),
+            regions: level
+                .floor_regions
+                .iter()
+                .map(|region| MaterialArea {
+                    bounds: Rect::new(region.bounds()),
+                    offset: region.offset(),
+                    material: region.material.as_deref().map(Into::into),
+                })
+                .collect(),
+            patches: level
+                .floor_patches
+                .iter()
+                .map(|patch| MaterialArea {
+                    bounds: Rect::new(patch.bounds()),
+                    offset: 0.0,
+                    material: Some(patch.material.as_str().into()),
+                })
+                .collect(),
+            ramps: level
+                .ramps
+                .iter()
+                .map(|ramp| {
+                    (
+                        ramp.surface(),
+                        ramp.material.as_deref().unwrap_or(default).into(),
+                    )
+                })
+                .collect(),
+            stairs: level
+                .stairs
+                .iter()
+                .map(|stair| {
+                    (
+                        stair.surface(),
+                        stair.material.as_deref().unwrap_or(default).into(),
+                    )
+                })
+                .collect(),
+        }
+    }
+
+    pub fn at(&self, position: Vec3) -> Option<&str> {
+        if !position.is_finite() {
+            return None;
+        }
+        self.rooms.iter().find_map(|room| {
+            let bounds = room.bounds;
+            if position.x < bounds.x0 - ROOM_EDGE_EPS_M
+                || position.x > bounds.x1 + ROOM_EDGE_EPS_M
+                || position.z < bounds.z0 - ROOM_EDGE_EPS_M
+                || position.z > bounds.z1 + ROOM_EDGE_EPS_M
+            {
+                return None;
+            }
+            let x = position.x.clamp(bounds.x0, bounds.x1);
+            let z = position.z.clamp(bounds.z0, bounds.z1);
+            let (height, pitch_height, material) = self.in_room(room, x, z);
+            ((position.y - height).abs() <= MATERIAL_SUPPORT_TOLERANCE
+                || (position.y - pitch_height).abs() <= MATERIAL_SUPPORT_TOLERANCE)
+                .then_some(material)
+        })
+    }
+
+    fn in_room<'a>(&'a self, room: &'a MaterialRoom, x: f32, z: f32) -> (f32, f32, &'a str) {
+        if let Some((ramp, material)) = self
+            .ramps
+            .iter()
+            .rev()
+            .find(|(ramp, _)| ramp.contains(x, z))
+        {
+            let height = room.floor_y + ramp.offset_at(x, z);
+            return (height, height, material);
+        }
+        if let Some((stair, material)) = self
+            .stairs
+            .iter()
+            .rev()
+            .find(|(stair, _)| stair.contains(x, z))
+        {
+            return (
+                room.floor_y + stair.offset_at(x, z),
+                room.floor_y + stair.pitch_offset_at(x, z),
+                material,
+            );
+        }
+        let matched_region = self
+            .regions
+            .iter()
+            .rev()
+            .find(|region| region.bounds.contains(x, z));
+        let material = matched_region
+            .and_then(|region| region.material.as_deref())
+            .or_else(|| {
+                self.patches
+                    .iter()
+                    .rev()
+                    .find(|patch| patch.bounds.contains(x, z))
+                    .and_then(|patch| patch.material.as_deref())
+            })
+            .unwrap_or(&room.material);
+        let height = room.floor_y + matched_region.map_or(0.0, |region| region.offset);
+        (height, height, material)
     }
 }

@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 
 from railings import RailingAuthor
+from soundscapes import apply_soundscape
 
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / 'levels/office_demo.json'
@@ -420,7 +421,7 @@ def build_level():
                 clipped.append(dict(b, x=round(b['x']+dx*lo, 4),
                     z=round(b['z']+dz*lo, 4), length=round(hi-lo, 4)))
     level['baseboards'] = clipped
-    return level
+    return apply_soundscape(level)
 
 
 def main():

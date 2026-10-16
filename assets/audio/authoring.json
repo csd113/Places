@@ -1,0 +1,474 @@
+{
+  "format_version": 1,
+  "sample_rate": 44100,
+  "sample_bits": 16,
+  "channels": 1,
+  "sources": [
+    {
+      "id": "kenney_impact",
+      "title": "Impact Sounds 1.0",
+      "author": "Kenney",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "page_url": "https://kenney.nl/assets/impact-sounds",
+      "download_url": "https://kenney.nl/media/pages/assets/impact-sounds/87b4ddecda-1677589768/kenney_impact-sounds.zip",
+      "cache_file": "kenney_impact-sounds.zip",
+      "sha256": "029d734af1582474edf3a694d1b0cebc97c1c152f2f39fa34d4c2bafc5de77f8",
+      "verified_date": "2026-10-16",
+      "archive": "zip"
+    },
+    {
+      "id": "kenney_interface",
+      "title": "Interface Sounds 1.0",
+      "author": "Kenney",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "page_url": "https://kenney.nl/assets/interface-sounds",
+      "download_url": "https://kenney.nl/media/pages/assets/interface-sounds/fa43c1dd4d-1677589452/kenney_interface-sounds.zip",
+      "cache_file": "kenney_interface-sounds.zip",
+      "sha256": "f2193d072726d6758a5f7871b2dcc54dcce0d5c35c6f0a62f92549b327c81232",
+      "verified_date": "2026-10-16",
+      "archive": "zip"
+    },
+    {
+      "id": "kenney_rpg",
+      "title": "RPG Audio 1.0",
+      "author": "Kenney",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "page_url": "https://kenney.nl/assets/rpg-audio",
+      "download_url": "https://kenney.nl/media/pages/assets/rpg-audio/8e99002d76-1677590336/kenney_rpg-audio.zip",
+      "cache_file": "kenney_rpg-audio.zip",
+      "sha256": "6dbeaf8544da958d8f2adcb4a4a4b76c1ade34a05f8ab9edccd327da7375f38b",
+      "verified_date": "2026-10-16",
+      "archive": "zip"
+    },
+    {
+      "id": "rubberduck_sfx2",
+      "title": "100 CC0 SFX #2",
+      "author": "rubberduck",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "page_url": "https://opengameart.org/content/100-cc0-sfx-2",
+      "download_url": "https://opengameart.org/sites/default/files/sfx_100_v2.zip",
+      "cache_file": "rubberduck_sfx_v2.zip",
+      "sha256": "0fc61b4494e2e893c0c015ced4877b3f689c7d84a48cb61daecd7ddb52db797b",
+      "verified_date": "2026-10-16",
+      "archive": "zip"
+    },
+    {
+      "id": "owlish_more",
+      "title": "202 More Sound Effects",
+      "author": "OwlishMedia",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "page_url": "https://opengameart.org/content/202-more-sound-effects",
+      "download_url": "https://opengameart.org/sites/default/files/MoreSounds.zip",
+      "cache_file": "owlish_more.zip",
+      "sha256": "9428c1437137d9ea06ba94e13da12488d4c57990a1c32d83db9e7707e69fb3af",
+      "verified_date": "2026-10-16",
+      "archive": "zip"
+    },
+    {
+      "id": "tinyworlds_steps",
+      "title": "Different steps on wood, stone, leaves, gravel and mud",
+      "author": "TinyWorlds",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "page_url": "https://opengameart.org/content/different-steps-on-wood-stone-leaves-gravel-and-mud",
+      "download_url": "https://opengameart.org/sites/default/files/%5Bkdd%5DDifferentSteps_0.zip",
+      "cache_file": "different_steps.zip",
+      "sha256": "987d072b7deaa65177e005ddd8185f2351be7c9a76cd7575dea560549c39b33b",
+      "verified_date": "2026-10-16",
+      "archive": "zip",
+      "notice": "The author identifies edited pdsounds.org recordings in the source page comments; the submitted pack is expressly CC0."
+    },
+    {
+      "id": "peludo_sand",
+      "title": "Water Splash and sand footsteps",
+      "author": "Peludo",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "page_url": "https://opengameart.org/content/water-splash-and-sand-footsteps",
+      "download_url": "https://opengameart.org/sites/default/files/sand_footsteps_0.mp3",
+      "cache_file": "sand_footsteps.mp3",
+      "sha256": "f61ed2653df85f23485a4a4ecc57dfdd6f4bf77301fa7cc67fdd1c993a9979d6",
+      "verified_date": "2026-10-16",
+      "notice": "Author requests an itch.io reference: https://rnan.itch.io/ (linked from the author's OpenGameArt profile)."
+    },
+    {
+      "id": "longor_airvent",
+      "title": "Airvent Loop",
+      "author": "Longor",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "page_url": "https://opengameart.org/content/airvent-loop",
+      "download_url": "https://opengameart.org/sites/default/files/airvent-large-loop.wav",
+      "cache_file": "airvent-large-loop.wav",
+      "sha256": "30ba114cfae2b1bd7dcdc46557d5c4a8fd4c132cda584f918a15d6e0706491de",
+      "verified_date": "2026-10-16"
+    },
+    {
+      "id": "isaiah_birds",
+      "title": "Ambient Bird Sounds",
+      "author": "isaiah658",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "page_url": "https://opengameart.org/content/ambient-bird-sounds",
+      "download_url": "https://opengameart.org/sites/default/files/birds-isaiah658_0.ogg",
+      "cache_file": "birds-isaiah658.ogg",
+      "sha256": "359e4e3f9da9d75aac64cede511c7e3ef8b461f9d9f8c230f8f80e44c4b3e35f",
+      "verified_date": "2026-10-16"
+    },
+    {
+      "id": "csaszi_duck",
+      "title": "rubber duck -CsG-.wav",
+      "author": "csaszi",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "page_url": "https://freesound.org/people/csaszi/sounds/350917/",
+      "download_url": "https://cdn.freesound.org/previews/350/350917_1147184-hq.mp3",
+      "cache_file": "350917_1147184-hq.mp3",
+      "sha256": "4323d2dada03b3bef76c07c5cbab69cd59f16b57bcd5d7e98bfe5156da4599f5",
+      "verified_date": "2026-10-16",
+      "notice": "Source is the publicly offered HQ MP3 preview, not the login-only original WAV. The original sound page explicitly declares Creative Commons 0."
+    }
+  ],
+  "clips": [
+    {
+      "file": "footstep_hard/01.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/footstep_concrete_000.ogg"
+    },
+    {
+      "file": "footstep_hard/02.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/footstep_concrete_001.ogg"
+    },
+    {
+      "file": "footstep_hard/03.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/footstep_concrete_002.ogg"
+    },
+    {
+      "file": "footstep_hard/04.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/footstep_concrete_003.ogg"
+    },
+    {
+      "file": "footstep_wood/01.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/footstep_wood_000.ogg"
+    },
+    {
+      "file": "footstep_wood/02.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/footstep_wood_001.ogg"
+    },
+    {
+      "file": "footstep_wood/03.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/footstep_wood_002.ogg"
+    },
+    {
+      "file": "footstep_wood/04.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/footstep_wood_003.ogg"
+    },
+    {
+      "file": "footstep_carpet/01.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/footstep_carpet_000.ogg"
+    },
+    {
+      "file": "footstep_carpet/02.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/footstep_carpet_001.ogg"
+    },
+    {
+      "file": "footstep_carpet/03.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/footstep_carpet_002.ogg"
+    },
+    {
+      "file": "footstep_carpet/04.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/footstep_carpet_003.ogg"
+    },
+    {
+      "file": "footstep_grass/01.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/footstep_grass_000.ogg"
+    },
+    {
+      "file": "footstep_grass/02.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/footstep_grass_001.ogg"
+    },
+    {
+      "file": "footstep_grass/03.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/footstep_grass_002.ogg"
+    },
+    {
+      "file": "footstep_grass/04.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/footstep_grass_003.ogg"
+    },
+    {
+      "file": "footstep_snow/01.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/footstep_snow_000.ogg"
+    },
+    {
+      "file": "footstep_snow/02.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/footstep_snow_001.ogg"
+    },
+    {
+      "file": "footstep_snow/03.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/footstep_snow_002.ogg"
+    },
+    {
+      "file": "footstep_snow/04.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/footstep_snow_003.ogg"
+    },
+    {
+      "file": "footstep_gravel/01.wav",
+      "source": "tinyworlds_steps",
+      "source_file": "gravel.ogg"
+    },
+    {
+      "file": "footstep_sand/01.wav",
+      "source": "peludo_sand",
+      "source_file": "sand_footsteps.mp3",
+      "start_seconds": 0.16,
+      "end_seconds": 0.7
+    },
+    {
+      "file": "footstep_sand/02.wav",
+      "source": "peludo_sand",
+      "source_file": "sand_footsteps.mp3",
+      "start_seconds": 2.0,
+      "end_seconds": 2.54
+    },
+    {
+      "file": "footstep_sand/03.wav",
+      "source": "peludo_sand",
+      "source_file": "sand_footsteps.mp3",
+      "start_seconds": 3.2,
+      "end_seconds": 3.76
+    },
+    {
+      "file": "footstep_sand/04.wav",
+      "source": "peludo_sand",
+      "source_file": "sand_footsteps.mp3",
+      "start_seconds": 3.82,
+      "end_seconds": 4.36
+    },
+    {
+      "file": "footstep_water/01.wav",
+      "source": "rubberduck_sfx2",
+      "source_file": "sfx100v2_footstep_wet_01.ogg"
+    },
+    {
+      "file": "footstep_water/02.wav",
+      "source": "rubberduck_sfx2",
+      "source_file": "sfx100v2_footstep_wet_02.ogg"
+    },
+    {
+      "file": "footstep_water/03.wav",
+      "source": "rubberduck_sfx2",
+      "source_file": "sfx100v2_footstep_wet_03.ogg"
+    },
+    {
+      "file": "impact_hard/01.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/impactGeneric_light_000.ogg"
+    },
+    {
+      "file": "impact_hard/02.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/impactGeneric_light_001.ogg"
+    },
+    {
+      "file": "impact_hard/03.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/impactGeneric_light_002.ogg"
+    },
+    {
+      "file": "impact_wood/01.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/impactWood_light_000.ogg"
+    },
+    {
+      "file": "impact_wood/02.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/impactWood_light_001.ogg"
+    },
+    {
+      "file": "impact_wood/03.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/impactWood_light_002.ogg"
+    },
+    {
+      "file": "impact_metal/01.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/impactMetal_light_000.ogg"
+    },
+    {
+      "file": "impact_metal/02.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/impactMetal_light_001.ogg"
+    },
+    {
+      "file": "impact_metal/03.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/impactMetal_light_002.ogg"
+    },
+    {
+      "file": "impact_glass/01.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/impactGlass_light_000.ogg"
+    },
+    {
+      "file": "impact_glass/02.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/impactGlass_light_001.ogg"
+    },
+    {
+      "file": "impact_glass/03.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/impactGlass_light_002.ogg"
+    },
+    {
+      "file": "impact_soft/01.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/impactSoft_medium_000.ogg"
+    },
+    {
+      "file": "impact_soft/02.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/impactSoft_medium_001.ogg"
+    },
+    {
+      "file": "impact_soft/03.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/impactSoft_medium_002.ogg"
+    },
+    {
+      "file": "switch_click/01.wav",
+      "source": "kenney_interface",
+      "source_file": "Audio/switch_001.ogg"
+    },
+    {
+      "file": "switch_click/02.wav",
+      "source": "kenney_interface",
+      "source_file": "Audio/switch_002.ogg"
+    },
+    {
+      "file": "switch_click/03.wav",
+      "source": "kenney_interface",
+      "source_file": "Audio/switch_003.ogg"
+    },
+    {
+      "file": "door_open/01.wav",
+      "source": "kenney_rpg",
+      "source_file": "Audio/doorOpen_1.ogg"
+    },
+    {
+      "file": "door_open/02.wav",
+      "source": "kenney_rpg",
+      "source_file": "Audio/doorOpen_2.ogg"
+    },
+    {
+      "file": "door_close/01.wav",
+      "source": "kenney_rpg",
+      "source_file": "Audio/doorClose_1.ogg"
+    },
+    {
+      "file": "door_close/02.wav",
+      "source": "kenney_rpg",
+      "source_file": "Audio/doorClose_2.ogg"
+    },
+    {
+      "file": "prop_plastic/01.wav",
+      "source": "owlish_more",
+      "source_file": "Plastic/Plastic_05.wav"
+    },
+    {
+      "file": "prop_plastic/02.wav",
+      "source": "owlish_more",
+      "source_file": "Plastic/Plastic_07.wav"
+    },
+    {
+      "file": "prop_plastic/03.wav",
+      "source": "owlish_more",
+      "source_file": "Plastic/Plastic_08.wav"
+    },
+    {
+      "file": "prop_ceramic/01.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/impactPlate_light_000.ogg"
+    },
+    {
+      "file": "prop_ceramic/02.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/impactPlate_light_001.ogg"
+    },
+    {
+      "file": "prop_ceramic/03.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/impactPlate_light_002.ogg"
+    },
+    {
+      "file": "prop_bell/01.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/impactBell_heavy_002.ogg"
+    },
+    {
+      "file": "prop_bell/02.wav",
+      "source": "kenney_impact",
+      "source_file": "Audio/impactBell_heavy_003.ogg"
+    },
+    {
+      "file": "prop_duck/01.wav",
+      "source": "csaszi_duck",
+      "source_file": "350917_1147184-hq.mp3",
+      "start_seconds": 0.07,
+      "end_seconds": 0.72
+    },
+    {
+      "file": "prop_duck/02.wav",
+      "source": "csaszi_duck",
+      "source_file": "350917_1147184-hq.mp3",
+      "start_seconds": 1.56,
+      "end_seconds": 2.1
+    },
+    {
+      "file": "ambience_hvac/01.wav",
+      "source": "longor_airvent",
+      "source_file": "airvent-large-loop.wav",
+      "crossfade_seconds": 0.25,
+      "peak": 16000
+    },
+    {
+      "file": "ambience_outdoors/01.wav",
+      "source": "isaiah_birds",
+      "source_file": "birds-isaiah658.ogg",
+      "start_seconds": 2,
+      "end_seconds": 29,
+      "crossfade_seconds": 1.0,
+      "peak": 16000
+    },
+    {
+      "file": "ambience_water/01.wav",
+      "source": "rubberduck_sfx2",
+      "source_file": "sfx100v2_loop_water_01.ogg",
+      "crossfade_seconds": 0.2,
+      "peak": 16000
+    }
+  ]
+}

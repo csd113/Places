@@ -16,6 +16,7 @@ Paths below are repository-relative.
 | `assets/entities/<id>/model/` | Skinned character and creature GLBs |
 | `assets/entities/<id>/textures/` | Standalone entity PNGs and retained masters |
 | `assets/diagnostic/` | Renderer test artwork, including intentional NPOT/alpha probes |
+| [`assets/audio/`](../../assets/audio) | File-backed WAV cue library, authoring recipes, licenses and exact source provenance; see [Audio assets](AUDIO.md) |
 | `assets/references/<theme-or-entities>/` | Original concept sheets and historical authoring prompts |
 | `assets/levels/*.placesmap` | Ignored playable compiler outputs |
 | [`levels/`](../../levels) | Maintained map JSON sources and their ownership guide |
@@ -70,6 +71,7 @@ provenance; the catalog and completed-export identities select current assets.
 
 ```sh
 python3 tools/assets/validate.py
+python3 tools/audio/build.py --check
 python3 tools/textures/build.py --check
 python3 tools/props/build.py --check
 python3 tools/assets/audit.py --workers 8 --out target/asset-audit/inventory.json

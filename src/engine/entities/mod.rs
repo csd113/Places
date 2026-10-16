@@ -32,13 +32,14 @@ pub mod id;
 pub mod sequences;
 pub mod spawn;
 pub mod timers;
+pub mod volumes;
+
+pub use volumes::TriggerItem;
 
 use glam::Vec3;
 
 use crate::engine::ai::{AiDef, AiOutcome, AiStimulus, AiTarget, AiTickContext, AiWorld};
-use crate::engine::collision::{
-    DoorCollider, WallAabb, resolve_player_collision_for_body_indexed, segment_overlaps_aabb,
-};
+use crate::engine::collision::{DoorCollider, WallAabb, resolve_player_collision_for_body_indexed};
 use crate::engine::collision_index::CollisionIndex;
 use crate::engine::door::{DoorPhase, Doors};
 use crate::engine::entity::{
@@ -70,8 +71,7 @@ use sequences::{MAX_ACTIVE_SEQUENCES, SequenceRuntime, SequenceStepDef, Sequence
 use spawn::{SpawnGroups, SpawnPointDef, SpawnTemplateDef};
 use timers::Timers;
 
-/// Largest number of event waves one tick may process before the queue is
-/// treated as a runaway chain.
+/// Largest event-chain depth accepted, preserved across deferred tick tails.
 pub const MAX_CHAIN_DEPTH: u32 = 16;
 
 /// Largest number of events one tick may process across every wave.
@@ -184,6 +184,8 @@ pub enum WorldCommand {
         gain: f32,
         /// Loop until stopped.
         looped: bool,
+        /// Whether playback follows simulation time or real time.
+        time_domain: crate::engine::audio::TimeDomain,
     },
     /// Stop a sound.
     StopSound {
@@ -296,6 +298,8 @@ pub struct WorldTick {
     pub events_dropped: usize,
     /// Actions executed this tick.
     pub actions_run: usize,
+    /// Light controllers changed by bindings this tick, for action feedback.
+    pub lights_toggled: usize,
     /// Sequences that completed this tick.
     pub sequences_completed: usize,
     /// Entities spawned this tick.
@@ -378,6 +382,11 @@ pub struct EntityWorld {
     authored_states: Vec<(EntityHandle, ObjectState)>,
     /// Authored interaction prompts, restored with the other map controls.
     authored_prompts: Vec<(EntityHandle, String)>,
+    /// Authored emitter state, restored on reset.
+    authored_audio: Vec<(EntityHandle, AudioEmitter)>,
+    /// Reused bounded trigger work buffers; stationary occupancy allocates no strings.
+    trigger_sweeps: Vec<volumes::Sweep>,
+    trigger_edges: Vec<volumes::Edge>,
     water: WaterVolumes,
     ladders: Ladders,
     floor: WalkableFloor,
@@ -457,6 +466,9 @@ impl EntityWorld {
             light_circuits: Vec::new(),
             authored_states: Vec::new(),
             authored_prompts: Vec::new(),
+            authored_audio: Vec::new(),
+            trigger_sweeps: Vec::new(),
+            trigger_edges: Vec::new(),
             water: WaterVolumes::new(),
             ladders: Ladders::new(),
             floor: WalkableFloor::default(),
@@ -518,6 +530,7 @@ impl EntityWorld {
         self.authored_lights.clear();
         self.authored_states.clear();
         self.authored_prompts.clear();
+        self.authored_audio.clear();
         self.ai.clear();
         self.stimuli.clear();
         self.sim_time = 0.0;
@@ -561,6 +574,21 @@ impl EntityWorld {
         self.rebuild_interactables(level);
         self.rebuild_door_colliders();
         self.rebuild_entity_frames();
+        self.authored_audio = self
+            .components
+            .audio
+            .iter()
+            .map(|(handle, emitter)| (handle, emitter.clone()))
+            .collect();
+        let starts: Vec<EntityHandle> = self
+            .components
+            .audio
+            .iter()
+            .map(|(handle, _)| handle)
+            .collect();
+        for handle in starts {
+            self.queue_audio_start(handle);
+        }
     }
 
     /// Re-seeds every runtime to its authored start state without replacing the
@@ -621,6 +649,28 @@ impl EntityWorld {
             if let Some(slot) = self.route_states.get_mut(index) {
                 *slot = state;
             }
+        }
+        let audio: Vec<EntityHandle> = self
+            .components
+            .audio
+            .iter()
+            .map(|(handle, _)| handle)
+            .collect();
+        for handle in audio {
+            self.queue_audio_stop(handle);
+        }
+        for (handle, authored) in &self.authored_audio {
+            if let Some(emitter) = self.components.audio.get_mut(*handle) {
+                emitter.clone_from(authored);
+            }
+        }
+        let starts: Vec<EntityHandle> = self
+            .authored_audio
+            .iter()
+            .map(|(handle, _)| *handle)
+            .collect();
+        for handle in starts {
+            self.queue_audio_start(handle);
         }
         self.doors.reset();
         self.timers.reset();
@@ -852,6 +902,9 @@ impl EntityWorld {
                     bottom_y,
                     top_y,
                     inside: false,
+                    filter: def.filter.clone(),
+                    occupancy: def.occupancy,
+                    occupants: Vec::new(),
                 },
             );
             self.resolve_bindings_for(handle, &def.bindings);
@@ -1125,6 +1178,7 @@ impl EntityWorld {
                     looped,
                     enabled,
                     playing,
+                    time_domain,
                 } => {
                     drop(self.components.audio.insert(
                         handle,
@@ -1138,6 +1192,7 @@ impl EntityWorld {
                             looped: *looped,
                             enabled: *enabled,
                             playing: *playing,
+                            time_domain: *time_domain,
                         },
                     ));
                 }
@@ -2078,7 +2133,7 @@ impl EntityWorld {
                     }
                     return;
                 }
-                if self.toggle_light_by_id(&id) {
+                if self.toggle_light_by_id(&id, depth.saturating_add(1)) {
                     report.actions_run = report.actions_run.saturating_add(1);
                     report.lights_toggled = report.lights_toggled.saturating_add(1);
                     return;
@@ -2094,7 +2149,7 @@ impl EntityWorld {
                     report.missing_targets = report.missing_targets.saturating_add(1);
                     return;
                 };
-                match self.set_light_by_id(&id, *on) {
+                match self.set_light_by_id(&id, *on, depth.saturating_add(1)) {
                     LightOutcome::Changed => {
                         report.actions_run = report.actions_run.saturating_add(1);
                         report.lights_toggled = report.lights_toggled.saturating_add(1);
@@ -2120,7 +2175,7 @@ impl EntityWorld {
                     report.missing_targets = report.missing_targets.saturating_add(1);
                     return;
                 };
-                if self.set_enabled_by_id(&id, enable) {
+                if self.set_enabled_by_id(&id, enable, depth.saturating_add(1)) {
                     report.actions_run = report.actions_run.saturating_add(1);
                 } else {
                     report.unsupported = report.unsupported.saturating_add(1);
@@ -2147,7 +2202,7 @@ impl EntityWorld {
                             .unwrap_or(EntityHandle::from_parts(0, 0)),
                         "locked",
                         actor,
-                        depth,
+                        depth.saturating_add(1),
                     );
                 } else {
                     report.unsupported = report.unsupported.saturating_add(1);
@@ -2484,17 +2539,9 @@ impl EntityWorld {
                 if let Some(entry) = self.components.audio.get_mut(handle) {
                     entry.playing = true;
                     entry.looped = *looped;
+                    entry.sound = sound_name;
                 }
-                let Some(key) = self.dynamic_key(handle).or_else(|| self.stable_key(handle)) else {
-                    report.unsupported = report.unsupported.saturating_add(1);
-                    return;
-                };
-                self.commands.push(WorldCommand::PlaySound {
-                    entity: key,
-                    sound: sound_name,
-                    gain: emitter.gain,
-                    looped: *looped,
-                });
+                self.queue_audio_start(handle);
                 report.actions_run = report.actions_run.saturating_add(1);
                 report.sounds = report.sounds.saturating_add(1);
             }
@@ -2552,7 +2599,7 @@ impl EntityWorld {
         true
     }
 
-    fn toggle_light_by_id(&mut self, id: &str) -> bool {
+    fn toggle_light_by_id(&mut self, id: &str, depth: u8) -> bool {
         let Some(handle) = self.handle_of(id) else {
             return false;
         };
@@ -2562,10 +2609,10 @@ impl EntityWorld {
         if !light.switchable {
             return false;
         }
-        self.set_light(handle, !light.enabled)
+        self.set_light(handle, !light.enabled, depth)
     }
 
-    fn set_light_by_id(&mut self, id: &str, on: bool) -> LightOutcome {
+    fn set_light_by_id(&mut self, id: &str, on: bool, depth: u8) -> LightOutcome {
         let Some(handle) = self.handle_of(id) else {
             return LightOutcome::NotALight;
         };
@@ -2574,7 +2621,7 @@ impl EntityWorld {
             Some(_) => return LightOutcome::NotSwitchable,
             None => return LightOutcome::NotALight,
         }
-        if self.set_light(handle, on) {
+        if self.set_light(handle, on, depth) {
             LightOutcome::Changed
         } else {
             LightOutcome::Unchanged
@@ -2582,7 +2629,7 @@ impl EntityWorld {
     }
 
     /// Sets one light component, marking it dirty on a real change.
-    fn set_light(&mut self, handle: EntityHandle, on: bool) -> bool {
+    fn set_light(&mut self, handle: EntityHandle, on: bool, depth: u8) -> bool {
         let members = self
             .light_circuits
             .iter()
@@ -2591,12 +2638,12 @@ impl EntityWorld {
             .unwrap_or_else(|| vec![handle]);
         let mut changed = false;
         for member in members {
-            changed |= self.set_single_light(member, on);
+            changed |= self.set_single_light(member, on, depth);
         }
         changed
     }
 
-    fn set_single_light(&mut self, handle: EntityHandle, on: bool) -> bool {
+    fn set_single_light(&mut self, handle: EntityHandle, on: bool, depth: u8) -> bool {
         let Some(light) = self.components.lights.get(handle).copied() else {
             return false;
         };
@@ -2626,11 +2673,11 @@ impl EntityWorld {
                 ),
             );
         }
-        let _event_queued = self.emit_state(&id, "light", StateValue::Bool(on), None, 1);
+        let _event_queued = self.emit_state(&id, "light", StateValue::Bool(on), None, depth);
         true
     }
 
-    fn set_enabled_by_id(&mut self, id: &str, enable: bool) -> bool {
+    fn set_enabled_by_id(&mut self, id: &str, enable: bool, depth: u8) -> bool {
         let Some(handle) = self.handle_of(id) else {
             return false;
         };
@@ -2644,12 +2691,19 @@ impl EntityWorld {
                 entry.enabled = enable;
                 before != enable
             });
-        changed |= self.components.audio.get_mut(handle).is_some_and(|entry| {
+        let audio_changed = self.components.audio.get_mut(handle).is_some_and(|entry| {
             let before = entry.enabled;
             entry.enabled = enable;
-            entry.playing = enable && entry.playing;
             before != enable
         });
+        if audio_changed {
+            if enable {
+                self.queue_audio_start(handle);
+            } else {
+                self.queue_audio_stop(handle);
+            }
+        }
+        changed |= audio_changed;
         changed |= self
             .components
             .balloons
@@ -2710,14 +2764,15 @@ impl EntityWorld {
             .lights
             .get(handle)
             .is_some_and(|light| light.switchable && light.enabled != enable)
-            && self.set_light(handle, enable)
+            && self.set_light(handle, enable, depth)
         {
             changed = true;
         }
         if changed {
             self.rebuild_interactables_from_tables();
             self.rebuild_entity_frames();
-            let _event_queued = self.emit_state(id, "enabled", StateValue::Bool(enable), None, 0);
+            let _event_queued =
+                self.emit_state(id, "enabled", StateValue::Bool(enable), None, depth);
         }
         changed
     }
@@ -3220,51 +3275,33 @@ impl EntityWorld {
     // ---- events --------------------------------------------------------
 
     fn pump_events(&mut self, tick: &mut WorldTick) {
-        let mut depth = 0u32;
-        while !self.events.is_empty() {
-            if depth >= MAX_CHAIN_DEPTH {
-                let dropped = self.events.len();
-                tick.events_dropped = tick.events_dropped.saturating_add(dropped);
-                warn_once(
-                    "event-chain-depth",
-                    format!(
-                        "[entities] event chain reached the depth limit ({MAX_CHAIN_DEPTH}); \
-                         {dropped} event(s) dropped this tick"
-                    ),
-                );
-                self.events.clear();
-                break;
-            }
+        while !self.events.is_empty() && tick.events_processed < MAX_EVENTS_PER_TICK {
             let wave = self.events.len();
-            let mut processed = 0usize;
             for _ in 0..wave {
                 if tick.events_processed >= MAX_EVENTS_PER_TICK {
-                    let dropped = self.events.len();
-                    tick.events_dropped = tick.events_dropped.saturating_add(dropped);
-                    warn_once(
-                        "event-budget",
-                        format!(
-                            "[entities] event budget ({MAX_EVENTS_PER_TICK}/tick) exhausted; \
-                             {dropped} event(s) dropped this tick"
-                        ),
-                    );
-                    self.events.clear();
+                    // Keep the bounded tail for the next pump. In particular an
+                    // already accepted exit must not lose its cleanup action.
                     break;
                 }
                 let Some(event) = self.events.pop() else {
                     break;
                 };
                 tick.events_processed = tick.events_processed.saturating_add(1);
-                processed = processed.saturating_add(1);
                 if event.generation != self.generation || !self.store.contains(event.subject) {
+                    continue;
+                }
+                if u32::from(event.depth) >= MAX_CHAIN_DEPTH {
+                    tick.events_dropped = tick.events_dropped.saturating_add(1);
+                    warn_once(
+                        "event-chain-depth",
+                        format!(
+                            "[entities] event chain reached the depth limit ({MAX_CHAIN_DEPTH}); offending occurrence dropped"
+                        ),
+                    );
                     continue;
                 }
                 self.run_bindings(&event, tick, event.depth);
             }
-            if processed == 0 {
-                break;
-            }
-            depth = depth.saturating_add(1);
         }
         self.compact_bindings();
     }
@@ -3315,6 +3352,7 @@ impl EntityWorld {
                 }
             }
             tick.actions_run = tick.actions_run.saturating_add(report.actions_run);
+            tick.lights_toggled = tick.lights_toggled.saturating_add(report.lights_toggled);
             tick.spawned = tick.spawned.saturating_add(report.spawned);
             tick.despawned = tick.despawned.saturating_add(report.despawned);
             tick.missing_targets = tick.missing_targets.saturating_add(report.missing_targets);
@@ -3499,6 +3537,7 @@ impl EntityWorld {
         self.next_dynamic_key = self.next_dynamic_key.saturating_add(1);
         self.dynamic_keys.push((handle, key));
         self.live_spawns.push(handle);
+        self.queue_audio_start(handle);
         if let Some(index) = group_index {
             let _ = self.spawn_groups.occupy(index, handle);
         }
@@ -3593,6 +3632,8 @@ impl EntityWorld {
             .retain(|(candidate, _)| *candidate != handle);
         self.authored_prompts
             .retain(|(candidate, _)| *candidate != handle);
+        self.authored_audio
+            .retain(|(candidate, _)| *candidate != handle);
         for circuit in &mut self.light_circuits {
             circuit.retain(|candidate| *candidate != handle);
         }
@@ -3644,6 +3685,60 @@ impl EntityWorld {
                 | u64::from(handle.generation())
                 | (1_u64 << 63_i32)
         })
+    }
+
+    /// Current world anchor for an audio source key, including routed emitters.
+    #[must_use]
+    pub fn audio_source_position(&self, key: u64) -> Option<Vec3> {
+        let handle = self.components.audio.iter().find_map(|(handle, _)| {
+            (self.dynamic_key(handle).or_else(|| self.stable_key(handle)) == Some(key))
+                .then_some(handle)
+        })?;
+        self.components
+            .transforms
+            .get(handle)
+            .map(|transform| transform.position)
+    }
+
+    /// Exact instance identity plus authored/routed anchor for a live audio source.
+    /// The native loop substitutes a live physical body center when one exists.
+    #[must_use]
+    pub fn audio_source_anchor(&self, key: u64) -> Option<(&str, Vec3)> {
+        let handle = self.components.audio.iter().find_map(|(handle, _)| {
+            (self.dynamic_key(handle).or_else(|| self.stable_key(handle)) == Some(key))
+                .then_some(handle)
+        })?;
+        Some((
+            self.id_of(handle)?,
+            self.components.transforms.get(handle)?.position,
+        ))
+    }
+
+    fn queue_audio_start(&mut self, handle: EntityHandle) {
+        let Some(emitter) = self
+            .components
+            .audio
+            .get(handle)
+            .filter(|emitter| emitter.enabled && emitter.playing)
+        else {
+            return;
+        };
+        let Some(key) = self.dynamic_key(handle).or_else(|| self.stable_key(handle)) else {
+            return;
+        };
+        self.commands.push(WorldCommand::PlaySound {
+            entity: key,
+            sound: emitter.sound.clone(),
+            gain: emitter.gain,
+            looped: emitter.looped,
+            time_domain: emitter.time_domain,
+        });
+    }
+
+    fn queue_audio_stop(&mut self, handle: EntityHandle) {
+        if let Some(key) = self.dynamic_key(handle).or_else(|| self.stable_key(handle)) {
+            self.commands.push(WorldCommand::StopSound { entity: key });
+        }
     }
 
     // ---- tick ----------------------------------------------------------
@@ -3948,74 +4043,6 @@ impl EntityWorld {
                  producers' work was dropped and reported"
             ),
         );
-    }
-
-    /// Re-baselines every trigger volume's occupancy from `feet` without
-    /// emitting an enter or exit event.
-    ///
-    /// A level load and a teleport use this so the volume the player lands in
-    /// is simply the baseline, never a fabricated crossing.
-    pub fn seed_volumes(&mut self, feet: Vec3) {
-        let updates: Vec<(EntityHandle, bool)> = self
-            .components
-            .volumes
-            .iter()
-            .map(|(handle, volume)| (handle, volume.contains(feet.x, feet.z, feet.y)))
-            .collect();
-        for (handle, inside) in updates {
-            if let Some(volume) = self.components.volumes.get_mut(handle) {
-                volume.inside = inside;
-            }
-        }
-    }
-
-    /// Alias of [`Self::seed_volumes`] for the stance-animation path, where
-    /// the feet move without locomotion.
-    pub fn reseed_volumes(&mut self, feet: Vec3) {
-        self.seed_volumes(feet);
-    }
-
-    /// Updates every trigger volume against the player's swept feet segment.
-    pub fn update_volumes(&mut self, from: Vec3, to: Vec3) {
-        if self.components.volumes.is_empty() {
-            return;
-        }
-        let mut edges: Vec<(EntityHandle, bool, bool)> = Vec::new();
-        for (handle, volume) in self.components.volumes.iter() {
-            // The point decides occupancy; the swept segment only catches an
-            // entry that happened between two frames (a fast fall through a
-            // thin band). Leaving uses the point, so a segment that merely
-            // grazes the volume on the way out is not a re-entry.
-            let point_inside = volume.contains(to.x, to.z, to.y);
-            let swept = segment_overlaps_aabb(
-                from,
-                to,
-                [volume.bounds[0], volume.bottom_y, volume.bounds[2]],
-                [volume.bounds[1], volume.top_y, volume.bounds[3]],
-            );
-            let entered = !volume.inside && (point_inside || swept);
-            let exited = volume.inside && !point_inside;
-            if entered || exited {
-                edges.push((handle, point_inside, entered));
-            }
-        }
-        for (handle, point_inside, entered) in edges {
-            if let Some(entry) = self.components.volumes.get_mut(handle) {
-                // Occupancy tracks the point; a swept entry that ends outside
-                // the band still counts as one entry edge.
-                entry.inside = point_inside;
-            }
-            let _event_queued = self.emit(
-                if entered {
-                    EventKind::EnterVolume
-                } else {
-                    EventKind::ExitVolume
-                },
-                handle,
-                "",
-                None,
-            );
-        }
     }
 
     /// Advances every moving door and republishes its collider and aim bound.

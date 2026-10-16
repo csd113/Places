@@ -166,6 +166,7 @@ impl crate::game::app::FrameLoop<'_> {
         let Some(recording) = self.video.as_mut() else {
             return;
         };
+        let audio_output_frames = self.audio.system.stats().output_frames;
         let result = recording.capture(|| self.renderer.capture_default_framebuffer());
         // Only this explicit recorder paces ready frames to 60 Hz. The native
         // action clock and fixed 1/60 simulation then match the 30 fps stream
@@ -177,7 +178,7 @@ impl crate::game::app::FrameLoop<'_> {
         }
         match result {
             Ok(Some(frame)) => {
-                self.trace.record("native_video_frame", self.load_generation, &serde_json::json!({"captured":frame.captured,"source_ready_frame":frame.source_frame}).to_string());
+                self.trace.record("native_video_frame", self.load_generation, &serde_json::json!({"captured":frame.captured,"source_ready_frame":frame.source_frame,"audio_output_frames":audio_output_frames}).to_string());
                 if frame.finished {
                     self.video = None;
                 }

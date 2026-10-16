@@ -10,6 +10,7 @@ import argparse
 import json
 import math
 from pathlib import Path
+from soundscapes import apply_soundscape
 
 ROOT = Path(__file__).resolve().parents[2]
 TAG = "[pool-concept]"
@@ -194,6 +195,7 @@ def main():
     level=json.loads(args.source.read_text())
     if level.get("id") == "pool_showcase":
         polish_showcase(level)
+        apply_soundscape(level)
         path.write_text(json.dumps(level, indent=2) + "\n")
         print(f"Refined Pool Showcase water, physical demo and dry construction details in {path}")
         return

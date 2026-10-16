@@ -2,6 +2,17 @@
 
 Development staging; this version has not been published.
 
+### Sound engine and environment audio
+
+- Add bounded Kira/SDL3 desktop playback, spatial emitters, material footsteps,
+  switches, actual door transitions, selected props and rate-limited impacts (#12).
+- Extend shared triggers with exact player/item/held filters, continuous substep
+  crossings, aggregate occupancy and cleanup-safe event backpressure.
+- Include 24 licensed cues, 63 WAV files, source hashes/import recipes and quiet
+  Office, Pool, Home and Aero examples; add persisted Audio volume/mute controls.
+- [Architecture, acceptance and limits](docs/reports/sound-0.11.0.md);
+  [sound provenance and authoring](docs/assets/AUDIO.md).
+
 ### Developer console and reusable gameplay actions
 
 - Add curated movable pickup spawning/listing, safe respawn/position reporting,

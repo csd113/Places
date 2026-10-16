@@ -176,6 +176,8 @@ cp "$BIN" "$STAGE/Places/$NAME"
 cp "$REPO/README.md" "$REPO/THIRD_PARTY_LICENSES.txt" "$STAGE/Places/"
 mkdir -p "$STAGE/Places/assets/levels" "$STAGE/Places/levels"
 cp "$REPO/assets/catalog.json" "$REPO/assets/gameplay.json" "$STAGE/Places/assets/"
+# Sound licenses and exact provenance accompany the compact runtime library.
+cp -R "$REPO/assets/audio" "$STAGE/Places/assets/audio"
 # References and master source artwork belong to authoring, not runtime exports.
 for directory in shared environments entities diagnostic; do
     cp -R "$REPO/assets/$directory" "$STAGE/Places/assets/$directory"

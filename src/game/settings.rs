@@ -395,6 +395,10 @@ pub struct StartupOverrides {
 /// and performs the minimum work each subsystem needs. A flag is set only by a
 /// real value change, so re-selecting the current value is inert.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "These flags track independent subsystem updates, not mutually exclusive states."
+)]
 pub struct SettingsApply {
     /// The requested graphics configuration changed (quality, filtering,
     /// lightmaps, reflections or bloom): apply the whole graphics transaction
@@ -404,6 +408,8 @@ pub struct SettingsApply {
     pub vsync: bool,
     /// The window mode or resolution must be applied.
     pub window: bool,
+    /// The volume levels or mute preference must reach the audio mixer.
+    pub audio: bool,
 }
 
 impl SettingsApply {
@@ -412,16 +418,17 @@ impl SettingsApply {
         graphics: true,
         vsync: true,
         window: true,
+        audio: true,
     };
 
     /// True when any subsystem has to be updated.
     #[must_use]
     pub const fn any(self) -> bool {
-        self.graphics || self.vsync || self.window
+        self.graphics || self.vsync || self.window || self.audio
     }
 }
 
-/// User game preferences and display settings.
+/// User game preferences, display and audio settings.
 ///
 /// This is the authoritative runtime state: the menu renders these values, the
 /// simulation and renderer read effective values through the `*_enabled`
@@ -454,6 +461,18 @@ pub struct Settings {
     /// without a delta-time factor; `0.12` is the fresh-install default.
     #[serde(default = "default_mouse_sensitivity")]
     pub mouse_sensitivity: f32,
+    /// Overall audio level, from silent (`0.0`) to full volume (`1.0`).
+    #[serde(default = "default_audio_volume")]
+    pub master_volume: f32,
+    /// Interaction and movement sound level before the master volume.
+    #[serde(default = "default_audio_volume")]
+    pub effects_volume: f32,
+    /// Environmental sound level before the master volume.
+    #[serde(default = "default_audio_volume")]
+    pub ambient_volume: f32,
+    /// Silence all audio while preserving the selected volume levels.
+    #[serde(default)]
+    pub muted: bool,
     #[serde(default = "default_vsync")]
     pub vsync: bool,
     /// Texture Filtering preference: `"low"`, `"medium"` or `"high"`.
@@ -549,6 +568,27 @@ pub const DEFAULT_MOUSE_SENSITIVITY: f32 = 0.12;
 const fn default_mouse_sensitivity() -> f32 {
     DEFAULT_MOUSE_SENSITIVITY
 }
+const fn default_audio_volume() -> f32 {
+    1.0
+}
+
+/// Normalizes persisted and selected audio levels before they reach playback.
+const fn sanitized_audio_volume(volume: f32) -> f32 {
+    if volume.is_finite() {
+        volume.clamp(0.0, 1.0)
+    } else {
+        default_audio_volume()
+    }
+}
+
+/// Stores a finite audio level and reports a genuine value change.
+const fn set_audio_volume(current: &mut f32, volume: f32) -> bool {
+    let normalized = sanitized_audio_volume(volume);
+    let changed = current.to_bits() != normalized.to_bits();
+    *current = normalized;
+    changed
+}
+
 const fn default_vsync() -> bool {
     true
 }
@@ -588,6 +628,10 @@ impl Default for Settings {
             invert_look: default_invert_look(),
             developer_console: false,
             mouse_sensitivity: default_mouse_sensitivity(),
+            master_volume: default_audio_volume(),
+            effects_volume: default_audio_volume(),
+            ambient_volume: default_audio_volume(),
+            muted: false,
             vsync: default_vsync(),
             texture_filtering: "high".to_string(),
             quality: default_quality(),
@@ -785,6 +829,9 @@ impl Settings {
         } else {
             DEFAULT_MOUSE_SENSITIVITY
         };
+        self.master_volume = sanitized_audio_volume(self.master_volume);
+        self.effects_volume = sanitized_audio_volume(self.effects_volume);
+        self.ambient_volume = sanitized_audio_volume(self.ambient_volume);
         // An unknown level falls back to the default rather than picking a
         // tier the player did not ask for.
         let quality = QualityLevel::parse(&self.quality).unwrap_or_default();
@@ -1181,6 +1228,37 @@ impl Settings {
     /// A scalar the simulation reads every frame, so no apply flag is needed.
     pub const fn set_invert_look(&mut self, invert: bool) {
         self.invert_look = invert;
+    }
+
+    /// Selects the overall audio level and requests a mixer update if changed.
+    ///
+    /// Finite values clamp to `0.0`..=`1.0`; non-finite values use the default.
+    pub const fn set_master_volume(&mut self, volume: f32) -> bool {
+        let changed = set_audio_volume(&mut self.master_volume, volume);
+        self.pending.audio |= changed;
+        changed
+    }
+
+    /// Selects the effects level, using the same range as the master volume.
+    pub const fn set_effects_volume(&mut self, volume: f32) -> bool {
+        let changed = set_audio_volume(&mut self.effects_volume, volume);
+        self.pending.audio |= changed;
+        changed
+    }
+
+    /// Selects the ambience level, using the same range as the master volume.
+    pub const fn set_ambient_volume(&mut self, volume: f32) -> bool {
+        let changed = set_audio_volume(&mut self.ambient_volume, volume);
+        self.pending.audio |= changed;
+        changed
+    }
+
+    /// Silences or restores playback while retaining every selected volume.
+    pub const fn set_muted(&mut self, muted: bool) -> bool {
+        let changed = self.muted != muted;
+        self.muted = muted;
+        self.pending.audio |= changed;
+        changed
     }
 
     /// Restores every preference to its documented default.

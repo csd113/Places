@@ -16,6 +16,7 @@ const MAX_SESSION_KEYS: u64 = 256;
 
 struct SessionProp {
     key: u64,
+    instance: String,
     model: String,
     character: Option<String>,
     physical: bool,
@@ -211,6 +212,7 @@ impl Runtime {
         })?;
         self.given.push(SessionProp {
             key,
+            instance: format!("session_{key}"),
             model: item.id.to_string(),
             character,
             physical: true,
@@ -405,6 +407,7 @@ impl Runtime {
                 })?;
                 self.given.push(SessionProp {
                     key,
+                    instance: format!("session_{key}"),
                     model: placement.model.clone(),
                     character,
                     physical: self.placement_physics,
@@ -509,6 +512,22 @@ impl Runtime {
     #[must_use]
     pub const fn trigger_labels_visible(&self) -> bool {
         self.trigger_labels
+    }
+
+    /// Exact session identity and model, allocated once when the prop is created.
+    #[must_use]
+    pub fn given_identity(&self, key: u64) -> Option<(&str, &str)> {
+        self.given.iter().find_map(|prop| {
+            (prop.key == key).then_some((prop.instance.as_str(), prop.model.as_str()))
+        })
+    }
+
+    /// Model identity of one bounded session prop, shared by triggers and sound.
+    #[must_use]
+    pub fn given_model(&self, key: u64) -> Option<&str> {
+        self.given
+            .iter()
+            .find_map(|prop| (prop.key == key).then_some(prop.model.as_str()))
     }
 
     #[must_use]

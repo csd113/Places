@@ -1,0 +1,588 @@
+{
+  "format_version": 3,
+  "defaults": {
+    "wall": "home:wall_paint_offwhite_01",
+    "floor": "home:hardwood_oak_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "ceiling_lights": [
+    {
+      "id": "fixture_light",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 0.0,
+      "z": 0.0,
+      "y": 3.19,
+      "align": "none",
+      "brightness": 1.2,
+      "range": 6.0,
+      "color": [
+        1.0,
+        0.96,
+        0.9
+      ],
+      "switchable": true,
+      "switch_group": "fixture_main",
+      "static_switch": "prepared"
+    },
+    {
+      "id": "dim_light",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 6.0,
+      "z": 0.0,
+      "y": 3.19,
+      "align": "none",
+      "brightness": 0.8,
+      "range": 3.0,
+      "color": [
+        0.8,
+        0.85,
+        1.0
+      ]
+    }
+  ],
+  "id": "sound_native",
+  "name": "Native Sound Fixture",
+  "author": "Places",
+  "comment": "Explicit opt-in audio acceptance only; no CI or Rust test bakes this map.",
+  "spawn": {
+    "x": 0.0,
+    "z": 1.6,
+    "yaw_degrees": 0.0
+  },
+  "rooms": [
+    {
+      "x": -3.0,
+      "z": -3.0,
+      "width": 6.0,
+      "depth": 6.0,
+      "height": 3.2
+    },
+    {
+      "x": 3.0,
+      "z": -3.0,
+      "width": 6.0,
+      "depth": 6.0,
+      "height": 3.2
+    }
+  ],
+  "walls": [
+    {
+      "x": -3.2,
+      "z": -3.2,
+      "width": 6.4,
+      "depth": 0.2,
+      "height": 3.2
+    },
+    {
+      "x": -3.2,
+      "z": 3.0,
+      "width": 6.4,
+      "depth": 0.2,
+      "height": 3.2
+    },
+    {
+      "x": -3.2,
+      "z": -3.0,
+      "width": 0.2,
+      "depth": 6.0,
+      "height": 3.2
+    },
+    {
+      "x": 3.0,
+      "z": -3.0,
+      "width": 0.2,
+      "depth": 6.0,
+      "height": 3.2,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 2.4,
+          "width": 1.2,
+          "height": 2.4
+        }
+      ]
+    },
+    {
+      "x": 3.2,
+      "z": -3.2,
+      "width": 6.0,
+      "depth": 0.2,
+      "height": 3.2
+    },
+    {
+      "x": 3.2,
+      "z": 3.0,
+      "width": 6.0,
+      "depth": 0.2,
+      "height": 3.2
+    },
+    {
+      "x": 9.0,
+      "z": -3.0,
+      "width": 0.2,
+      "depth": 6.0,
+      "height": 3.2
+    }
+  ],
+  "doors": [
+    {
+      "id": "fixture_door",
+      "x": 3.2,
+      "z": 0.6,
+      "width": 1.2,
+      "height": 2.4,
+      "thickness": 0.045,
+      "initial_state": "closed",
+      "open_direction": "right",
+      "swing_degrees": 90.0,
+      "kind": "interior",
+      "material": "home:door_white_01",
+      "frame_material": "home:baseboard_white_01",
+      "handle_material": "core:metal_brass_01",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Open fixture door",
+          "reach": 1.8
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 90.0
+    }
+  ],
+  "props": [
+    {
+      "id": "fixture_activate",
+      "model": "home:wall_switch",
+      "x": -2.95,
+      "y": 1.2,
+      "z": 0.8,
+      "rotation_degrees": 90.0,
+      "size": [
+        0.18,
+        0.18,
+        0.1
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Play world-time water loop",
+          "reach": 1.8
+        },
+        {
+          "component": "audio",
+          "sound": "water_emitter",
+          "gain": 0.6,
+          "looped": true,
+          "enabled": true,
+          "playing": false,
+          "time_domain": "world"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_sound",
+              "target": "fixture_activate",
+              "loop": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fixture_reset",
+      "model": "home:wall_switch",
+      "x": -2.95,
+      "y": 1.2,
+      "z": 0.0,
+      "rotation_degrees": 90.0,
+      "size": [
+        0.18,
+        0.18,
+        0.1
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Stop both test loops",
+          "reach": 1.8
+        },
+        {
+          "component": "audio",
+          "sound": "ambience_hvac",
+          "gain": 0.6,
+          "looped": true,
+          "enabled": true,
+          "playing": false,
+          "time_domain": "real"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "stop_sound",
+              "target": "fixture_activate"
+            },
+            {
+              "action": "stop_sound",
+              "target": "fixture_reset"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fixture_switch",
+      "model": "home:wall_switch",
+      "x": -2.95,
+      "y": 1.2,
+      "z": -1.8,
+      "rotation_degrees": 90.0,
+      "size": [
+        0.18,
+        0.18,
+        0.1
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Ring bell and toggle light",
+          "reach": 1.8
+        },
+        {
+          "component": "animation",
+          "clip": "toggle",
+          "looped": false,
+          "playing": false
+        },
+        {
+          "component": "audio",
+          "sound": "prop_bell",
+          "gain": 0.7,
+          "looped": false,
+          "enabled": true,
+          "playing": false,
+          "time_domain": "world"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_animation",
+              "clip": "toggle"
+            },
+            {
+              "action": "toggle",
+              "target": "fixture_light"
+            },
+            {
+              "action": "play_sound"
+            }
+          ],
+          "cooldown_seconds": 0.6
+        }
+      ]
+    },
+    {
+      "id": "fixture_table",
+      "model": "home:dining_table",
+      "x": 0.0,
+      "z": -0.65,
+      "size": [
+        1.4,
+        0.75,
+        0.8
+      ],
+      "solid": true
+    },
+    {
+      "id": "native_duck",
+      "model": "core:rubber_duck",
+      "display_name": "native_duck",
+      "x": 0.0,
+      "y": 0.75,
+      "z": -0.65,
+      "scale": 2.0,
+      "size": [
+        0.1,
+        0.12,
+        0.145
+      ],
+      "solid": false,
+      "occludes": false,
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "sound_fixture",
+        "mass_kg": 0.15,
+        "friction": 0.5,
+        "restitution": 0.05,
+        "linear_damping": 0.1,
+        "angular_damping": 0.2,
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.05,
+            0.06,
+            0.0725
+          ]
+        }
+      },
+      "components": [
+        {
+          "component": "audio",
+          "sound": "prop_duck",
+          "gain": 0.8,
+          "looped": false,
+          "enabled": true,
+          "playing": false,
+          "time_domain": "world"
+        }
+      ]
+    },
+    {
+      "id": "other_duck",
+      "model": "core:rubber_duck",
+      "display_name": "other_duck",
+      "x": 0.4,
+      "y": 0.75,
+      "z": -0.65,
+      "scale": 2.0,
+      "size": [
+        0.1,
+        0.12,
+        0.145
+      ],
+      "solid": false,
+      "occludes": false,
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "sound_fixture",
+        "mass_kg": 0.15,
+        "friction": 0.5,
+        "restitution": 0.05,
+        "linear_damping": 0.1,
+        "angular_damping": 0.2,
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.05,
+            0.06,
+            0.0725
+          ]
+        }
+      },
+      "components": [
+        {
+          "component": "audio",
+          "sound": "prop_duck",
+          "gain": 0.8,
+          "looped": false,
+          "enabled": true,
+          "playing": false,
+          "time_domain": "world"
+        }
+      ]
+    },
+    {
+      "model": "home:mug",
+      "x": -0.4,
+      "y": 0.75,
+      "z": -0.65,
+      "solid": false,
+      "id": "native_mug",
+      "size": [
+        0.117,
+        0.09,
+        0.078
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Tap mug",
+          "reach": 1.8
+        },
+        {
+          "component": "audio",
+          "sound": "prop_ceramic",
+          "gain": 0.75,
+          "looped": false,
+          "enabled": true,
+          "playing": false,
+          "time_domain": "world"
+        }
+      ],
+      "bindings": [
+        {
+          "id": "audio_tap_mug",
+          "on": "interact",
+          "cooldown_seconds": 0.45,
+          "actions": [
+            {
+              "action": "play_sound"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "floor_patches": [
+    {
+      "x": 3.3,
+      "z": -2.7,
+      "width": 1.5,
+      "depth": 5.4,
+      "material": "core:carpet_beige_01"
+    },
+    {
+      "x": 4.8,
+      "z": -2.7,
+      "width": 2.0,
+      "depth": 5.4,
+      "material": "core:pool_tile_deck_01"
+    },
+    {
+      "x": 6.8,
+      "z": -2.7,
+      "width": 2.0,
+      "depth": 5.4,
+      "material": "outdoor:dirt_gravel_01"
+    }
+  ],
+  "volumes": [
+    {
+      "id": "audio_aggregate_region",
+      "x": 4.0,
+      "z": -0.5,
+      "width": 4.0,
+      "depth": 3.0,
+      "bottom_y": 0.0,
+      "top_y": 2.5,
+      "filter": {
+        "kind": "any"
+      },
+      "occupancy": "aggregate",
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "actions": [
+            {
+              "action": "play_sound",
+              "target": "fixture_reset",
+              "loop": true
+            }
+          ]
+        },
+        {
+          "on": "exit_volume",
+          "actions": [
+            {
+              "action": "stop_sound",
+              "target": "fixture_reset"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "audio_exact_held_duck",
+      "x": -1.0,
+      "z": 0.1,
+      "width": 2.0,
+      "depth": 1.0,
+      "bottom_y": 0.0,
+      "top_y": 2.5,
+      "filter": {
+        "kind": "item",
+        "asset": "core:rubber_duck",
+        "instance": "native_duck",
+        "held": true
+      },
+      "occupancy": "per_actor",
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "cooldown_seconds": 0.8,
+          "actions": [
+            {
+              "action": "play_sound",
+              "target": "native_duck"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "audio_duck_type_unheld",
+      "x": 5.0,
+      "z": -2.7,
+      "width": 3.5,
+      "depth": 1.0,
+      "bottom_y": 0.0,
+      "top_y": 2.5,
+      "filter": {
+        "kind": "item",
+        "asset": "core:rubber_duck",
+        "held": false
+      },
+      "occupancy": "per_actor",
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "cooldown_seconds": 0.6,
+          "actions": [
+            {
+              "action": "play_sound",
+              "target": "fixture_switch"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "audio_thin_once",
+      "x": 3.4,
+      "z": -0.6,
+      "width": 0.03,
+      "depth": 1.2,
+      "bottom_y": 0.0,
+      "top_y": 2.5,
+      "filter": {
+        "kind": "player"
+      },
+      "occupancy": "per_actor",
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "once": true,
+          "actions": [
+            {
+              "action": "play_sound",
+              "target": "fixture_switch"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

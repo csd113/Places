@@ -45,7 +45,7 @@ class PackageDestinationGuardTests(unittest.TestCase):
             (source / 'Cargo.toml').write_text('[package]\nversion = "0.9.0"\n')
             for name in ('README.md', 'THIRD_PARTY_LICENSES.txt'):
                 (source / name).write_text('fixture')
-            for name in ('shared', 'environments', 'entities', 'diagnostic', 'levels'):
+            for name in ('shared', 'environments', 'entities', 'diagnostic', 'levels', 'audio'):
                 (source / 'assets' / name).mkdir(parents=True)
             runtime_metadata = {
                 'catalog.json': b'{"assets": []}\n',
@@ -53,6 +53,12 @@ class PackageDestinationGuardTests(unittest.TestCase):
             }
             for name, data in runtime_metadata.items():
                 (source / 'assets' / name).write_bytes(data)
+            # Protect newly required sound payload/credit custody in the existing
+            # tiny export fixture; no device, decoder or map bake is involved.
+            audio_payload = {'catalog.json': b'{"format_version":1,"cues":[]}\n',
+                             'fixture.wav': b'RIFF fixture bytes', 'credits.txt': b'CC0 source credit'}
+            for name, data in audio_payload.items():
+                (source / 'assets/audio' / name).write_bytes(data)
             (source / 'assets/completed-models.json').write_text('{"authoring": "only"}')
             (source / 'assets/shared/branding').mkdir()
             (source / 'assets/shared/branding/places.png').write_bytes(b'source artwork')
@@ -74,6 +80,8 @@ class PackageDestinationGuardTests(unittest.TestCase):
             for payload in (output / 'Places', output / 'Places.app/Contents/Resources'):
                 for name, data in runtime_metadata.items():
                     self.assertEqual((payload / 'assets' / name).read_bytes(), data)
+                for name, data in audio_payload.items():
+                    self.assertEqual((payload / 'assets/audio' / name).read_bytes(), data)
                 self.assertFalse((payload / 'assets/completed-models.json').exists())
                 self.assertFalse((payload / 'assets/shared/branding').exists())
                 self.assertTrue((payload / 'levels').is_dir())

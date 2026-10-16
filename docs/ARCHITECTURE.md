@@ -168,7 +168,7 @@ where the bytes live:
 | `src/engine/render/wgpu/flashlight.rs`, `attached_lights.wgsl` | Bounded handheld visibility target and shared attached-light shader used by world/decals; existing meshes/pipeline own submission |
 | `src/game/console/` | Opt-in developer console: typed registry/parser, bounded session state, cached native text UI, SDL focus ownership and runtime command dispatch |
 | `src/game/developer.rs` | Noclip flight, validated walking recovery and conservative rigid-prop placement |
-| `src/engine/physics/` | Rapier rigid-body world, shared metre/second gravity, strict authored profiles, dormant authored poses with explicit/pickup/active-impact activation, fixed-step interpolation, primitive/convex/compound colliders, reusable activation/reset groups collision-aware carrying and bounded supported-pose escape recovery. Pair-based solved-impulse onsets are exposed for future presentation; no sound layer lives here. Player movement remains in `game` |
+| `src/engine/physics/` | Rapier rigid-body world, shared metre/second gravity, strict authored profiles, dormant authored poses with explicit/pickup/active-impact activation, fixed-step interpolation, primitive/convex/compound colliders, reusable activation/reset groups collision-aware carrying and bounded supported-pose escape recovery. Bounded impact onsets and swept item paths feed gameplay presentation; playback remains in `engine::audio`. Player movement remains in `game` |
 | `src/game/app/item_runtime.rs` | Small native-loop adapter owning the visited world's physical items; installs authored props dormant, publishes poses to cached renderer objects and routes activation/reset/pickup/drop. Graphics rebuilds retain dormant/active/held state; world replacement restores authored starting state |
 | `assets/catalog.json` | The authoritative registry mapping every logical id to a file, material or generated resource |
 | `assets/gameplay.json` | Strict optional catalog-id-keyed runtime physics/ground-friction overrides. Contains no visual overrides and leaves prepared render-package catalog provenance intact |
@@ -657,8 +657,18 @@ Rapier: measured parallel-mode overhead exceeds its total benefit at current
 scene sizes. Water work and renderer preparation select parallel execution
 automatically in the normal build, without player settings.
 
-Future audio is not implemented or tied to a library here. These joined CPU
-batches are not suitable for a real-time audio callback: that callback must not
-wait on this pool, allocate its jobs or take its locks. Later audio integration
-must account for its own real-time CPU needs when choosing the shared gameplay
-budget. No browser runtime or audio scheduler is introduced by this pass.
+`engine::audio` owns Kira 0.12.5's mixer and an SDL3 playback stream. It preloads
+validated WAVs before play and bounds sample memory, voices and deferred loop
+starts. Its callback does not submit jobs to the gameplay pool, decode files,
+log or wait on game locks. SDL manages its output-device thread and buffering;
+there is no competing preparation pool or Tokio runtime. Browser builds retain
+a silent API. `game::app::audio_runtime` selects gameplay cues, listener and clock
+policy; authored components/actions stay in the reusable entity runtime.
+
+The listener follows player ears in first and third person. Menus, console and
+loading pause all playback. World-domain sounds follow world time; real-domain
+player actions/footsteps and authored ventilation retain normal speed while
+world time is stopped. Physics pause affects physical impacts without freezing
+other world audio. Shared trigger occupancy includes bounded physical substep
+paths and exact actor filters. See [audio assets](assets/AUDIO.md) and
+[the sound-stage report](reports/sound-0.11.0.md) for authoring and evidence.

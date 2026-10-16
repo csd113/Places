@@ -2691,6 +2691,15 @@
           "component": "state",
           "name": "power_mode",
           "value": "steady"
+        },
+        {
+          "component": "audio",
+          "sound": "ambience_hvac",
+          "gain": 0.7,
+          "looped": true,
+          "enabled": true,
+          "playing": true,
+          "time_domain": "real"
         }
       ],
       "bindings": [
@@ -2960,7 +2969,35 @@
         0.09,
         0.078
       ],
-      "solid": false
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Tap mug",
+          "reach": 1.8
+        },
+        {
+          "component": "audio",
+          "sound": "prop_ceramic",
+          "gain": 0.75,
+          "looped": false,
+          "enabled": true,
+          "playing": false,
+          "time_domain": "world"
+        }
+      ],
+      "bindings": [
+        {
+          "id": "audio_tap_mug",
+          "on": "interact",
+          "cooldown_seconds": 0.45,
+          "actions": [
+            {
+              "action": "play_sound"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "top_books",
@@ -6233,6 +6270,42 @@
       "width": 12,
       "depth": 1,
       "note": "Upper bridge edge opens to the ramp shaft; authored guardrails protect the drops."
+    }
+  ],
+  "volumes": [
+    {
+      "id": "audio_office_upper",
+      "x": -4,
+      "z": 0,
+      "width": 40,
+      "depth": 18,
+      "bottom_y": 7.0,
+      "top_y": 10.2,
+      "filter": {
+        "kind": "player"
+      },
+      "occupancy": "aggregate",
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "actions": [
+            {
+              "action": "play_sound",
+              "target": "top_vending",
+              "loop": true
+            }
+          ]
+        },
+        {
+          "on": "exit_volume",
+          "actions": [
+            {
+              "action": "stop_sound",
+              "target": "top_vending"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

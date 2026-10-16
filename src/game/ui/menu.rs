@@ -253,7 +253,7 @@ fn settings_layout(
         16.0
     };
     let spacing = if ui.settings_page == SettingsPage::Root {
-        29.0
+        26.0
     } else {
         17.0
     };
@@ -497,7 +497,7 @@ fn description(
     match state {
         AppState::MainMenu => match ui.main_menu_idx {
             0 => "Choose a place to explore at your own pace.",
-            1 => "Graphics, display and controls.",
+            1 => "Graphics, display, audio and controls.",
             _ => "Close Places.",
         },
         AppState::Paused => match ui.pause_menu_idx {
@@ -515,11 +515,14 @@ fn description(
                 Some(SettingsRowKind::Open(SettingsPage::Display)) => {
                     "Window mode and window size."
                 }
+                Some(SettingsRowKind::Open(SettingsPage::Audio)) => {
+                    "Volume levels for effects and ambience."
+                }
                 Some(SettingsRowKind::Open(SettingsPage::Controls)) => {
                     "Key bindings, mouse look and movement."
                 }
                 Some(SettingsRowKind::RestoreDefaults) => {
-                    "Restore all graphics, display and control preferences."
+                    "Restore all preferences, including audio and controls."
                 }
                 Some(SettingsRowKind::Binding(_)) => {
                     "Select a binding, then press a key. Esc cancels."
@@ -546,6 +549,12 @@ fn description(
                         "Fullscreen uses your display's size."
                     }
                     SettingsValue::Resolution => "Window size. The game adapts to display scaling.",
+                    SettingsValue::MasterVolume => {
+                        "Overall sound level. Mute keeps your volume choices."
+                    }
+                    SettingsValue::EffectsVolume => "Movement and interaction sounds.",
+                    SettingsValue::AmbientVolume => "Environmental sounds around you.",
+                    SettingsValue::Mute => "Silence all sound; keep your volume choices.",
                     SettingsValue::MouseSensitivity => {
                         "How far the camera turns with mouse movement."
                     }
@@ -591,6 +600,7 @@ pub(super) fn geometry(
                 SettingsPage::Root => "Preferences are saved as you change them.",
                 SettingsPage::Graphics => "Settings / Graphics",
                 SettingsPage::Display => "Settings / Display",
+                SettingsPage::Audio => "Settings / Audio",
                 SettingsPage::Controls => {
                     if ui.settings_idx < 11 {
                         "Key bindings"

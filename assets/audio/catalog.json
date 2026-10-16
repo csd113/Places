@@ -1,0 +1,309 @@
+{
+  "format_version": 1,
+  "cues": [
+    {
+      "id": "footstep_hard",
+      "files": [
+        "footstep_hard/01.wav",
+        "footstep_hard/02.wav",
+        "footstep_hard/03.wav",
+        "footstep_hard/04.wav"
+      ],
+      "gain": 0.32,
+      "looping": false,
+      "spatial": false,
+      "min_distance": 1.0,
+      "max_distance": 24.0
+    },
+    {
+      "id": "footstep_wood",
+      "files": [
+        "footstep_wood/01.wav",
+        "footstep_wood/02.wav",
+        "footstep_wood/03.wav",
+        "footstep_wood/04.wav"
+      ],
+      "gain": 0.3,
+      "looping": false,
+      "spatial": false,
+      "min_distance": 1.0,
+      "max_distance": 24.0
+    },
+    {
+      "id": "footstep_carpet",
+      "files": [
+        "footstep_carpet/01.wav",
+        "footstep_carpet/02.wav",
+        "footstep_carpet/03.wav",
+        "footstep_carpet/04.wav"
+      ],
+      "gain": 0.3,
+      "looping": false,
+      "spatial": false,
+      "min_distance": 1.0,
+      "max_distance": 24.0
+    },
+    {
+      "id": "footstep_grass",
+      "files": [
+        "footstep_grass/01.wav",
+        "footstep_grass/02.wav",
+        "footstep_grass/03.wav",
+        "footstep_grass/04.wav"
+      ],
+      "gain": 0.33,
+      "looping": false,
+      "spatial": false,
+      "min_distance": 1.0,
+      "max_distance": 24.0
+    },
+    {
+      "id": "footstep_snow",
+      "files": [
+        "footstep_snow/01.wav",
+        "footstep_snow/02.wav",
+        "footstep_snow/03.wav",
+        "footstep_snow/04.wav"
+      ],
+      "gain": 0.32,
+      "looping": false,
+      "spatial": false,
+      "min_distance": 1.0,
+      "max_distance": 24.0
+    },
+    {
+      "id": "footstep_gravel",
+      "files": [
+        "footstep_gravel/01.wav"
+      ],
+      "gain": 0.3,
+      "looping": false,
+      "spatial": false,
+      "min_distance": 1.0,
+      "max_distance": 24.0
+    },
+    {
+      "id": "footstep_sand",
+      "files": [
+        "footstep_sand/01.wav",
+        "footstep_sand/02.wav",
+        "footstep_sand/03.wav",
+        "footstep_sand/04.wav"
+      ],
+      "gain": 0.3,
+      "looping": false,
+      "spatial": false,
+      "min_distance": 1.0,
+      "max_distance": 24.0
+    },
+    {
+      "id": "footstep_water",
+      "files": [
+        "footstep_water/01.wav",
+        "footstep_water/02.wav",
+        "footstep_water/03.wav"
+      ],
+      "gain": 0.31,
+      "looping": false,
+      "spatial": false,
+      "min_distance": 1.0,
+      "max_distance": 24.0
+    },
+    {
+      "id": "impact_hard",
+      "files": [
+        "impact_hard/01.wav",
+        "impact_hard/02.wav",
+        "impact_hard/03.wav"
+      ],
+      "gain": 0.4,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1.0,
+      "max_distance": 24.0
+    },
+    {
+      "id": "impact_wood",
+      "files": [
+        "impact_wood/01.wav",
+        "impact_wood/02.wav",
+        "impact_wood/03.wav"
+      ],
+      "gain": 0.38,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1.0,
+      "max_distance": 24.0
+    },
+    {
+      "id": "impact_metal",
+      "files": [
+        "impact_metal/01.wav",
+        "impact_metal/02.wav",
+        "impact_metal/03.wav"
+      ],
+      "gain": 0.34,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1.0,
+      "max_distance": 24.0
+    },
+    {
+      "id": "impact_glass",
+      "files": [
+        "impact_glass/01.wav",
+        "impact_glass/02.wav",
+        "impact_glass/03.wav"
+      ],
+      "gain": 0.31,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1.0,
+      "max_distance": 24.0
+    },
+    {
+      "id": "impact_soft",
+      "files": [
+        "impact_soft/01.wav",
+        "impact_soft/02.wav",
+        "impact_soft/03.wav"
+      ],
+      "gain": 0.36,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1.0,
+      "max_distance": 24.0
+    },
+    {
+      "id": "switch_click",
+      "files": [
+        "switch_click/01.wav",
+        "switch_click/02.wav",
+        "switch_click/03.wav"
+      ],
+      "gain": 0.34,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1.0,
+      "max_distance": 24.0
+    },
+    {
+      "id": "door_open",
+      "files": [
+        "door_open/01.wav",
+        "door_open/02.wav"
+      ],
+      "gain": 0.37,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1.0,
+      "max_distance": 24.0
+    },
+    {
+      "id": "door_close",
+      "files": [
+        "door_close/01.wav",
+        "door_close/02.wav"
+      ],
+      "gain": 0.35,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1.0,
+      "max_distance": 24.0
+    },
+    {
+      "id": "prop_plastic",
+      "files": [
+        "prop_plastic/01.wav",
+        "prop_plastic/02.wav",
+        "prop_plastic/03.wav"
+      ],
+      "gain": 0.32,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1.0,
+      "max_distance": 24.0
+    },
+    {
+      "id": "prop_ceramic",
+      "files": [
+        "prop_ceramic/01.wav",
+        "prop_ceramic/02.wav",
+        "prop_ceramic/03.wav"
+      ],
+      "gain": 0.28,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1.0,
+      "max_distance": 24.0
+    },
+    {
+      "id": "prop_bell",
+      "files": [
+        "prop_bell/01.wav",
+        "prop_bell/02.wav"
+      ],
+      "gain": 0.32,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1.0,
+      "max_distance": 24.0
+    },
+    {
+      "id": "prop_duck",
+      "files": [
+        "prop_duck/01.wav",
+        "prop_duck/02.wav"
+      ],
+      "gain": 0.38,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1.0,
+      "max_distance": 24.0
+    },
+    {
+      "id": "ambience_hvac",
+      "files": [
+        "ambience_hvac/01.wav"
+      ],
+      "gain": 0.18,
+      "looping": true,
+      "spatial": false,
+      "min_distance": 1.0,
+      "max_distance": 24.0
+    },
+    {
+      "id": "ambience_outdoors",
+      "files": [
+        "ambience_outdoors/01.wav"
+      ],
+      "gain": 0.22,
+      "looping": true,
+      "spatial": false,
+      "min_distance": 1.0,
+      "max_distance": 24.0
+    },
+    {
+      "id": "ambience_water",
+      "files": [
+        "ambience_water/01.wav"
+      ],
+      "gain": 0.18,
+      "looping": true,
+      "spatial": false,
+      "min_distance": 1.0,
+      "max_distance": 24.0
+    },
+    {
+      "id": "water_emitter",
+      "files": [
+        "ambience_water/01.wav"
+      ],
+      "gain": 0.18,
+      "looping": true,
+      "spatial": true,
+      "min_distance": 1.0,
+      "max_distance": 24.0
+    }
+  ]
+}

@@ -10039,7 +10039,18 @@
         1.1
       ],
       "solid": false,
-      "occludes": false
+      "occludes": false,
+      "components": [
+        {
+          "component": "audio",
+          "sound": "ambience_outdoors",
+          "gain": 0.65,
+          "looped": true,
+          "enabled": true,
+          "playing": false,
+          "time_domain": "world"
+        }
+      ]
     },
     {
       "id": "terrace_bench_solid_0",
@@ -11273,6 +11284,42 @@
       "faces": "outward",
       "solid": false,
       "occludes": false
+    }
+  ],
+  "volumes": [
+    {
+      "id": "audio_aero_garden",
+      "x": 0,
+      "z": 12,
+      "width": 32,
+      "depth": 8,
+      "bottom_y": -0.1,
+      "top_y": 3.0,
+      "filter": {
+        "kind": "player"
+      },
+      "occupancy": "aggregate",
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "actions": [
+            {
+              "action": "play_sound",
+              "target": "terrace_bench",
+              "loop": true
+            }
+          ]
+        },
+        {
+          "on": "exit_volume",
+          "actions": [
+            {
+              "action": "stop_sound",
+              "target": "terrace_bench"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

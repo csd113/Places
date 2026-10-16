@@ -1,0 +1,142 @@
+Places 0.11.0 audio dependency notices
+Collected 2026-10-16 from the Cargo.lock source archives; upstream license texts
+retain exact wording with normalized line endings and trailing whitespace
+in the audio section of THIRD_PARTY_LICENSES.txt, shipped
+at the distribution root (or the macOS app Contents/Resources directory).
+This file is also shipped under assets/audio/licenses/.
+
+MPL-2.0 source-code availability notice
+=====================================
+The native audio implementation includes Symphonia 0.6.1 (symphonia,
+symphonia-codec-pcm, symphonia-core, symphonia-format-riff, symphonia-metadata)
+and triple_buffer 9.0.0. Their covered source is available under the Mozilla
+Public License, version 2.0. Recipients may obtain that source free of charge
+from the exact versioned source archive URLs below. The listed SHA-256 values
+are the Cargo.lock archive checksums, so the distributed build's dependency
+source can be identified exactly. Places has not modified files in these crates.
+The archives retain their original copyright, author and MPL notices. The full
+MPL-2.0 text is included in THIRD_PARTY_LICENSES.txt. No Places executable terms
+restrict recipients' rights to this covered source under MPL-2.0.
+
+License reference: https://www.mozilla.org/MPL/2.0/
+Distribution explanation: https://www.mozilla.org/en-US/MPL/2.0/FAQ/#using-and-distributing-software-under-the-license
+
+Audio dependency inventory and exact source archives
+===================================================
+
+atomic-arena 0.1.2
+SPDX: MIT OR Apache-2.0
+Upstream: https://github.com/tesselode/atomic-arena
+Source: https://static.crates.io/crates/atomic-arena/atomic-arena-0.1.2.crate
+Source SHA-256: 73e8ed45f88ed32e6827a96b62d8fd4086d72defc754c5c6bd08470c1aaf648e
+License text IDs: 791f033ea5803e8d, e4901cf18520c6bf
+
+extended 0.1.0
+SPDX: MIT
+Upstream: https://github.com/depp/extended-rs
+Source: https://static.crates.io/crates/extended/extended-0.1.0.crate
+Source SHA-256: af9673d8203fcb076b19dfd17e38b3d4ae9f44959416ea532ce72415a6020365
+License text IDs: 25a0874d15e7c834
+
+kira 0.12.5
+SPDX: MIT OR Apache-2.0
+Upstream: https://github.com/tesselode/kira
+Source: https://static.crates.io/crates/kira/kira-0.12.5.crate
+Source SHA-256: aae7115ef1161313b8f71f49487702a662ab333bd2a47bf69af410b69112a519
+License text IDs: 85bb5389360900e5, 1d075e895672c131
+
+lazy_static 1.5.1
+SPDX: MIT OR Apache-2.0
+Upstream: https://github.com/rust-lang-nursery/lazy-static.rs
+Source: https://static.crates.io/crates/lazy_static/lazy_static-1.5.1.crate
+Source SHA-256: 20870f649af7073d53e38067b2a84312175d56ea15217e1b15bc83506ec50afb
+License text IDs: a60eea8175145316, 23f18e03dc49df91
+
+mint 0.5.9
+SPDX: MIT
+Upstream: https://github.com/kvark/mint
+Source: https://static.crates.io/crates/mint/mint-0.5.9.crate
+Source SHA-256: e53debba6bda7a793e5f99b8dacf19e626084f525f7829104ba9898f367d85ff
+License text IDs: 5ac8b41fe6bbad7f
+
+pastey 0.2.3
+SPDX: MIT OR Apache-2.0
+Upstream: https://github.com/as1100k/pastey
+Source: https://static.crates.io/crates/pastey/pastey-0.2.3.crate
+Source SHA-256: 2ee67f1008b1ba2321834326597b8e186293b049a023cdef258527550b9935b4
+License text IDs: 62c7a1e35f564068, 23f18e03dc49df91
+
+regex-lite 0.1.9
+SPDX: MIT OR Apache-2.0
+Upstream: https://github.com/rust-lang/regex
+Source: https://static.crates.io/crates/regex-lite/regex-lite-0.1.9.crate
+Source SHA-256: cab834c73d247e67f4fae452806d17d3c7501756d98c8808d7c9c7aa7d18f973
+License text IDs: a60eea8175145316, 6485b8ed310d3f03
+
+rtrb 0.4.0
+SPDX: MIT OR Apache-2.0
+Upstream: https://github.com/mgeier/rtrb
+Source: https://static.crates.io/crates/rtrb/rtrb-0.4.0.crate
+Source SHA-256: 9278fb35b3e730abe136e9b395b5b81b96d06b9f5478a50f0c8430a2237b22de
+License text IDs: a60eea8175145316, 23f18e03dc49df91
+
+send_wrapper 0.6.0
+SPDX: MIT/Apache-2.0
+Upstream: https://github.com/thk1/send_wrapper
+Source: https://static.crates.io/crates/send_wrapper/send_wrapper-0.6.0.crate
+Source SHA-256: cd0b0ec5f1c1ca621c432a25813d8d60c88abe6d3e08a3eb9cf37d97a0fe3d73
+License text IDs: a60eea8175145316, 23f18e03dc49df91
+
+symphonia 0.6.1
+SPDX: MPL-2.0
+Upstream: https://github.com/pdeljanov/Symphonia
+Source: https://static.crates.io/crates/symphonia/symphonia-0.6.1.crate
+Source SHA-256: a7edef6a96b696d4e0cab5ee9ebb7ca155ed95f30a6b45bbb8b97d2727f02424
+License text IDs: c76f740d1521b9be
+
+symphonia-codec-pcm 0.6.1
+SPDX: MPL-2.0
+Upstream: https://github.com/pdeljanov/Symphonia
+Source: https://static.crates.io/crates/symphonia-codec-pcm/symphonia-codec-pcm-0.6.1.crate
+Source SHA-256: e04ba75686acbe43542fdd374571195f0530c0b7785ca25cc6840e9c6c4b6eea
+License text IDs: c76f740d1521b9be
+
+symphonia-core 0.6.1
+SPDX: MPL-2.0
+Upstream: https://github.com/pdeljanov/Symphonia
+Source: https://static.crates.io/crates/symphonia-core/symphonia-core-0.6.1.crate
+Source SHA-256: 01c412864d599d4750d0c3d684d7e093ec05e5309681ef5252cc1096a437f6e0
+License text IDs: c76f740d1521b9be
+
+symphonia-format-riff 0.6.1
+SPDX: MPL-2.0
+Upstream: https://github.com/pdeljanov/Symphonia
+Source: https://static.crates.io/crates/symphonia-format-riff/symphonia-format-riff-0.6.1.crate
+Source SHA-256: 1ff70929083a8c1a5f6cd7c904b6071c7914ad04739b510c2f7239dfc9b7dabe
+License text IDs: c76f740d1521b9be
+
+symphonia-metadata 0.6.1
+SPDX: MPL-2.0
+Upstream: https://github.com/pdeljanov/Symphonia
+Source: https://static.crates.io/crates/symphonia-metadata/symphonia-metadata-0.6.1.crate
+Source SHA-256: 83713a97705d77bdef7cdbc0768fd6e5a54e4cd7e48d60a806ae85639e2c87c6
+License text IDs: c76f740d1521b9be
+
+triple_buffer 9.0.0
+SPDX: MPL-2.0
+Upstream: https://github.com/HadrienG2/triple-buffer
+Source: https://static.crates.io/crates/triple_buffer/triple_buffer-9.0.0.crate
+Source SHA-256: e875ab7068a75b74f419da453927e05527c36f0001b3c7aad3ce443640683487
+License text IDs: 4b89d4518bd135ab
+
+Kira's crates.io archive omits its workspace-root license files. Its MIT and
+Apache-2.0 texts were retrieved from the archive's .cargo_vcs_info.json commit:
+https://github.com/tesselode/kira/tree/74b3ef0fd8bd15f90e3b469208ee741f04374a62
+https://raw.githubusercontent.com/tesselode/kira/74b3ef0fd8bd15f90e3b469208ee741f04374a62/LICENSE-MIT
+https://raw.githubusercontent.com/tesselode/kira/74b3ef0fd8bd15f90e3b469208ee741f04374a62/LICENSE-APACHE
+
+Existing dependency cross-check
+===============================
+downcast-rs 2.0.2 (MIT OR Apache-2.0) was already present before the audio change.
+Its exact version's LICENSE-MIT and LICENSE-APACHE texts already appear in
+THIRD_PARTY_LICENSES.txt. Audio adds no new downcast-rs source or license terms.

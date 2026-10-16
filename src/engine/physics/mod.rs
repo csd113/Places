@@ -5,8 +5,10 @@ mod collision;
 pub mod config;
 mod contacts;
 mod hold;
+mod impacts;
 mod recovery;
 mod surfaces;
+mod trigger_path;
 mod water;
 mod world;
 
@@ -14,10 +16,12 @@ pub use activation::ActivationReport;
 pub use config::{
     BodyMotion, CompoundPart, PhysicsDef, PrimitiveShapeDef, ShapeDef, WaterPhysicsDef,
 };
+pub use impacts::{ImpactEvent, SurfaceMaterial};
 pub use recovery::{EscapeReason, RecoveryEvent, RecoveryOutcome};
+pub use trigger_path::ItemTriggerBody;
 pub use world::{
-    BodySnapshot, BodyState, ContactImpulse, ImpactEvent, ItemPose, ItemWorld, PhysicsStats,
-    PlayerContext, ResetReport, SimulationState,
+    BodySnapshot, BodyState, ContactImpulse, ItemPose, ItemWorld, PhysicsStats, PlayerContext,
+    ResetReport, SimulationState,
 };
 
 /// Metres per second squared, shared by player and rigid-body gravity.

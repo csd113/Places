@@ -585,7 +585,41 @@
       "x": 2.4,
       "z": 1.9,
       "y": 0.46,
-      "solid": false
+      "solid": false,
+      "id": "home_audio_mug",
+      "size": [
+        0.117,
+        0.09,
+        0.078
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Tap mug",
+          "reach": 1.8
+        },
+        {
+          "component": "audio",
+          "sound": "prop_ceramic",
+          "gain": 0.75,
+          "looped": false,
+          "enabled": true,
+          "playing": false,
+          "time_domain": "world"
+        }
+      ],
+      "bindings": [
+        {
+          "id": "audio_tap_mug",
+          "on": "interact",
+          "cooldown_seconds": 0.45,
+          "actions": [
+            {
+              "action": "play_sound"
+            }
+          ]
+        }
+      ]
     },
     {
       "model": "home:book_stack",

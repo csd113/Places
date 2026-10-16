@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from soundscapes import apply_soundscape
 import math
 import sys
 from pathlib import Path
@@ -233,7 +234,7 @@ def build_level():
         if half_depth > 0:
             blocker('fountain_floor_'+str(index), 6+(ax+bx)/2, 6,
                     bx-ax, .095, 2*half_depth, base=0)
-    return level
+    return apply_soundscape(level)
 
 
 def main():

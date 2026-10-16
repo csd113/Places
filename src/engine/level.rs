@@ -1207,9 +1207,9 @@ impl ConditionDef {
 pub enum EventKindName {
     /// The player interacted with the entity.
     Interact,
-    /// The player's feet entered the entity's trigger volume.
+    /// An eligible occupant entered the entity's trigger volume.
     EnterVolume,
-    /// The player's feet left the entity's trigger volume.
+    /// An eligible occupant left the entity's trigger volume.
     ExitVolume,
     /// A timer on the entity elapsed.
     Timer,
@@ -1363,6 +1363,9 @@ pub enum ComponentDef {
         /// Start playing immediately.
         #[serde(default)]
         playing: bool,
+        /// World follows simulation time; real continues at the original pitch.
+        #[serde(default)]
+        time_domain: crate::engine::audio::TimeDomain,
     },
     /// The entity is a light.
     Light {
@@ -1750,13 +1753,46 @@ const fn default_audio_gain() -> f32 {
     1.0
 }
 
+/// Which occupants can activate an authored trigger.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum TriggerFilterDef {
+    /// Only the player's feet, preserving the original level contract.
+    #[default]
+    Player,
+    /// Physical items matching every supplied selector.
+    Item {
+        /// Exact catalog asset id; omitted accepts any item asset.
+        #[serde(default)]
+        asset: Option<String>,
+        /// Exact stable placed instance id; omitted accepts any instance.
+        #[serde(default)]
+        instance: Option<String>,
+        /// Restrict to held or unheld items; omitted accepts either.
+        #[serde(default)]
+        held: Option<bool>,
+    },
+    /// The player and all physical items, including held items.
+    Any,
+}
+
+/// How a volume combines its eligible occupants.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TriggerOccupancyDef {
+    /// Each eligible actor produces its own entry and exit events.
+    #[default]
+    PerActor,
+    /// Emit on the first entry and final exit across all eligible actors.
+    Aggregate,
+}
+
 /// One authored trigger volume.
 ///
 /// The volume is an axis-aligned box: a rectangular `(x, z)` footprint and a
-/// vertical `bottom_y..top_y` band. The controller tests the player's feet
-/// against it every frame and emits `enter_volume` / `exit_volume` events on
-/// the edges; the volume's own bindings decide what those events do. Leaving
-/// the volume re-arms it.
+/// vertical `bottom_y..top_y` band. The shared entity runtime samples eligible
+/// player/item sweeps after movement and emits `enter_volume` / `exit_volume`
+/// on occupancy edges. Bindings own action, one-shot and cooldown policy.
 ///
 /// ```json
 /// { "id": "pit_hole_1", "x": 9.6, "z": -26.2, "width": 1.6, "depth": 1.6,
@@ -1784,6 +1820,12 @@ pub struct TriggerVolumeDef {
     /// `bottom_y + DEFAULT_TRIGGER_HEIGHT_M`.
     #[serde(default)]
     pub top_y: Option<f32>,
+    /// Eligible occupants; omitted preserves player-only behavior.
+    #[serde(default)]
+    pub filter: TriggerFilterDef,
+    /// Per-actor events, or first-enter/last-exit aggregate events.
+    #[serde(default)]
+    pub occupancy: TriggerOccupancyDef,
     /// What the volume's occupancy edges do.
     #[serde(default)]
     pub bindings: Vec<EventBindingDef>,
@@ -1844,6 +1886,7 @@ impl ComponentDef {
                 looped: _,
                 enabled: _,
                 playing: _,
+                time_domain: _,
             } => "audio",
             Self::Light {
                 enabled: _,

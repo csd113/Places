@@ -17,7 +17,7 @@
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
 
-use crate::engine::level::ProximityFade;
+use crate::engine::level::{ProximityFade, TriggerFilterDef, TriggerOccupancyDef};
 
 use super::id::EntityHandle;
 
@@ -334,6 +334,8 @@ pub struct AudioEmitter {
     pub enabled: bool,
     /// True once a `play_sound` action asked for playback.
     pub playing: bool,
+    /// Whether playback follows simulation time or real time.
+    pub time_domain: crate::engine::audio::TimeDomain,
 }
 
 /// One switchable light.
@@ -418,7 +420,7 @@ impl ObjectState {
 }
 
 /// A trigger volume and its occupancy edge state.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TriggerVolume {
     /// Footprint bounds `(x0, x1, z0, z1)`, normalised.
     pub bounds: [f32; 4],
@@ -426,8 +428,14 @@ pub struct TriggerVolume {
     pub bottom_y: f32,
     /// Highest world Y of the volume.
     pub top_y: f32,
-    /// True while the player's feet were inside at the last update.
+    /// True while at least one eligible occupant was inside at the last update.
     pub inside: bool,
+    /// Authored occupant selectors.
+    pub filter: TriggerFilterDef,
+    /// How eligible occupants combine into events.
+    pub occupancy: TriggerOccupancyDef,
+    /// Eligible actors inside at the last update, bounded by the item limit.
+    pub(crate) occupants: Vec<super::volumes::VolumeOccupant>,
 }
 
 impl TriggerVolume {

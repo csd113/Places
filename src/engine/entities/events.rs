@@ -26,9 +26,9 @@ use crate::engine::level::{ConditionDef, EventKindName};
 pub enum EventKind {
     /// The player interacted with the subject.
     Interact,
-    /// The player's feet entered the subject volume.
+    /// An eligible occupant entered the subject volume.
     EnterVolume,
-    /// The player's feet left the subject volume.
+    /// An eligible occupant left the subject volume.
     ExitVolume,
     /// A timer on the subject elapsed.
     Timer,
@@ -122,9 +122,9 @@ pub struct EventRecord {
     /// (the interaction key, a volume edge, a timer), parent + 1 from an
     /// action or sequence step that ran inside another event's dispatch.
     ///
-    /// The dispatcher's per-tick wave counter is what enforces
-    /// [`crate::engine::entities::MAX_CHAIN_DEPTH`]; this field records the depth the
-    /// producing action ran at, so a diagnostic can name how deep a chain got.
+    /// The dispatcher enforces [`crate::engine::entities::MAX_CHAIN_DEPTH`]
+    /// against this value, including when a bounded budget defers the record
+    /// to another tick, so delayed chains cannot restart their depth count.
     pub depth: u8,
 }
 
@@ -185,6 +185,17 @@ impl EventQueue {
     /// Removes and returns the oldest record.
     pub fn pop(&mut self) -> Option<EventRecord> {
         self.records.pop_front()
+    }
+
+    /// Space available for an atomic producer batch.
+    #[must_use]
+    pub fn remaining_capacity(&self) -> usize {
+        Self::MAX_QUEUED_EVENTS.saturating_sub(self.records.len())
+    }
+
+    /// Records an atomically refused batch without inserting a partial prefix.
+    pub(super) const fn refuse_batch(&mut self, count: usize) {
+        self.dropped = self.dropped.saturating_add(count);
     }
 
     /// The oldest record without removing it.

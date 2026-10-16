@@ -179,7 +179,9 @@ impl EntityWorld {
             .collect()
     }
 
-    pub(super) fn dispatch_queued_events(&mut self) -> DispatchReport {
+    /// Dispatches already queued events without advancing world time. A bounded
+    /// budget tail remains queued for a following pump, including final exits.
+    pub fn dispatch_queued_events(&mut self) -> DispatchReport {
         let mut tick = WorldTick::default();
         self.pump_events(&mut tick);
         self.report_queue_refusals(&mut tick);
@@ -190,6 +192,7 @@ impl EntityWorld {
         }
         DispatchReport {
             actions_run: tick.actions_run,
+            lights_toggled: tick.lights_toggled,
             player_reset: tick.player_reset,
             spawned: tick.spawned,
             despawned: tick.despawned,
