@@ -70,6 +70,94 @@ pub fn append_world_labels_with_hint(
     }
 }
 
+/// Developer-only trigger IDs, already bounded by the live trigger query.
+pub fn append_trigger_labels(
+    vertices: &mut Vec<Vertex>,
+    labels: &[crate::engine::entities::developer::TriggerLabel],
+    camera: &RenderCamera,
+    drawable: DrawableSize,
+) {
+    const EDGE: f32 = 2.0;
+    const SIDE_PADDING: f32 = 3.0;
+    const PLATE_HEIGHT: f32 = 13.0;
+    const GAP: f32 = 2.0;
+
+    let viewport = drawable.ui_viewport();
+    if viewport.width <= 0_i32 || viewport.height <= 0_i32 {
+        return;
+    }
+    let (projection, _) = camera.view_projection(drawable);
+    let screen_width = pixel_f32(UI_REFERENCE_WIDTH);
+    let screen_height = pixel_f32(UI_REFERENCE_HEIGHT);
+    let max_text_width = (-2.0_f32).mul_add(EDGE + SIDE_PADDING, screen_width);
+    let mut occupied: Vec<(f32, f32, f32, f32)> =
+        Vec::with_capacity(crate::engine::entities::developer::MAX_TRIGGER_LABELS);
+    for label in labels
+        .iter()
+        .take(crate::engine::entities::developer::MAX_TRIGGER_LABELS)
+    {
+        // Show only addressable command IDs; this also bounds glyph work and
+        // keeps the font's u16 width measurement exact for every shown label.
+        if !crate::game::console::command::is_valid_command_id(&label.id) {
+            continue;
+        }
+        let Some((x, y)) = project_to_reference(projection, drawable, label.position) else {
+            continue;
+        };
+        let text = format!("trigger: {}", label.id);
+        let natural_width = crate::game::ui::text_width(&text, LABEL_TEXT_SCALE);
+        // Keep the exact ID, fitting unusually long names without truncation.
+        let scale = LABEL_TEXT_SCALE * (max_text_width / natural_width).min(1.0);
+        let width = crate::game::ui::text_width(&text, scale).min(max_text_width);
+        let plate_width = 2.0_f32.mul_add(SIDE_PADDING, width);
+        let left =
+            (width.mul_add(-0.5, x) - SIDE_PADDING).clamp(EDGE, screen_width - EDGE - plate_width);
+        let right = left + plate_width;
+        let preferred_top = (y - 5.0).clamp(EDGE, screen_height - EDGE - PLATE_HEIGHT);
+        let mut best: Option<(f32, f32)> = None;
+        // Eighteen rows fit the viewport; at most sixteen labels compete.
+        // Horizontal separation permits unrelated labels to share a row.
+        for row in 0_u16..18 {
+            let candidate_top = f32::from(row).mul_add(PLATE_HEIGHT + GAP, EDGE);
+            if candidate_top + PLATE_HEIGHT > screen_height - EDGE {
+                break;
+            }
+            let bottom = candidate_top + PLATE_HEIGHT;
+            let overlaps = occupied.iter().any(|(x0, y0, x1, y1)| {
+                left < *x1 + GAP
+                    && right + GAP > *x0
+                    && candidate_top < *y1 + GAP
+                    && bottom + GAP > *y0
+            });
+            let distance = (candidate_top - preferred_top).abs();
+            if !overlaps && best.is_none_or(|(nearest, _)| distance < nearest) {
+                best = Some((distance, candidate_top));
+            }
+        }
+        let Some((_, top)) = best else {
+            continue;
+        };
+        let bottom = top + PLATE_HEIGHT;
+        occupied.push((left, top, right, bottom));
+        crate::game::ui::add_rect_rgba(
+            vertices,
+            left,
+            top,
+            right,
+            bottom,
+            [0.05, 0.05, 0.06, 0.62],
+        );
+        crate::game::ui::draw_text(
+            vertices,
+            &text,
+            left + SIDE_PADDING,
+            top + 2.0,
+            scale,
+            [0.96, 0.94, 0.78],
+        );
+    }
+}
+
 /// Projected reference-space position of a world point, or `None` when it is
 /// behind the camera or outside the UI viewport.
 #[must_use]

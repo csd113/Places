@@ -32,6 +32,16 @@ pub struct Renderer {
     renderer: WgpuRenderer,
 }
 
+/// Decoded catalog-model metadata shared by visual representations and props.
+///
+/// Bounds are in the model's authored metre scale and include its bind pose.
+/// Eligibility for a particular gameplay action belongs to that action.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RuntimeModelInfo {
+    pub bounds: ([f32; 3], [f32; 3]),
+    pub animated: bool,
+}
+
 impl Renderer {
     /// Builds the renderer for `window`.
     ///
@@ -336,6 +346,15 @@ impl Renderer {
         self.renderer.rigid_runtime_model_bounds(id)
     }
 
+    /// Decodes a placeable catalog model without excluding rigged characters.
+    ///
+    /// # Errors
+    /// Rejects unknown/non-placeable IDs, missing models, unposeable rigs and
+    /// non-positive/non-finite bounds or extents above 100 metres.
+    pub fn runtime_model_info(&mut self, id: &str) -> Result<RuntimeModelInfo, String> {
+        self.renderer.runtime_model_info(id)
+    }
+
     /// Spawns one runtime entity's model as a dynamic object.
     ///
     /// `key` is the engine's stable runtime token; spawning a live key replaces
@@ -572,6 +591,57 @@ impl Renderer {
     ) -> bool {
         self.renderer
             .set_runtime_character_transform(instance_id, position, yaw_degrees)
+    }
+
+    /// Sets a runtime character's full rigid pose while keeping its own rig.
+    /// Invalid positions and zero/non-finite rotations are refused.
+    pub fn set_runtime_character_pose(
+        &mut self,
+        instance_id: &str,
+        position: [f32; 3],
+        orientation: [f32; 4],
+    ) -> bool {
+        self.renderer
+            .set_runtime_character_pose(instance_id, position, orientation)
+    }
+
+    /// Drives a runtime character through the shared locomotion animator.
+    /// Explicit entity frames still take priority over this retained snapshot.
+    pub fn set_runtime_character_locomotion(
+        &mut self,
+        instance_id: &str,
+        locomotion: LocomotionSnapshot,
+    ) -> bool {
+        self.renderer
+            .set_runtime_character_locomotion(instance_id, locomotion)
+    }
+
+    /// Uses unscaled time for one runtime actor's next animation pass.
+    /// Non-finite or negative deltas are refused; the override is consumed once.
+    pub fn set_runtime_character_frame_delta(
+        &mut self,
+        instance_id: &str,
+        delta_seconds: f32,
+    ) -> bool {
+        self.renderer
+            .set_runtime_character_frame_delta(instance_id, delta_seconds)
+    }
+
+    /// Retains an attached glow for a runtime visual, following its full pose.
+    /// Invalid cues or a full light budget leave the previous glow untouched.
+    /// `None` immediately removes the retained light.
+    pub fn set_runtime_character_glow(
+        &mut self,
+        instance_id: &str,
+        glow: Option<crate::engine::entity::GlowCue>,
+    ) -> bool {
+        self.renderer.set_runtime_character_glow(instance_id, glow)
+    }
+
+    /// Hides/restores a retained character, its occlusion and attached glow.
+    pub fn set_runtime_character_visible(&mut self, instance_id: &str, visible: bool) -> bool {
+        self.renderer
+            .set_runtime_character_visible(instance_id, visible)
     }
 
     /// The number of live animated characters in the current level.

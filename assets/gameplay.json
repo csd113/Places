@@ -2215,6 +2215,1164 @@
         "friction": 0.6,
         "restitution": 0.02
       }
+    },
+    "arcade:cat_plush": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.0962,
+            0.18,
+            0.078804
+          ]
+        },
+        "mass_kg": 0.12,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "arcade:litter_bottle_fallen": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.048,
+            0.048,
+            0.14
+          ]
+        },
+        "mass_kg": 0.35,
+        "friction": 0.5,
+        "restitution": 0.12,
+        "linear_damping": 0.05,
+        "angular_damping": 0.15,
+        "pickup": true
+      }
+    },
+    "arcade:litter_can": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cylinder",
+          "radius": 0.033,
+          "half_height": 0.06
+        },
+        "mass_kg": 0.018,
+        "friction": 0.5,
+        "restitution": 0.15,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true,
+        "water": {
+          "displaced_volume_m3": 2e-05,
+          "linear_drag": 3.0,
+          "angular_drag": 2.0
+        }
+      }
+    },
+    "arcade:litter_paper": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.105,
+            0.00495,
+            0.074
+          ]
+        },
+        "mass_kg": 0.008,
+        "friction": 0.55,
+        "restitution": 0.02,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true,
+        "water": {
+          "displaced_volume_m3": 8e-06,
+          "linear_drag": 3.0,
+          "angular_drag": 2.0
+        }
+      }
+    },
+    "arcade:litter_wrapper": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.06,
+            0.0051,
+            0.0425
+          ]
+        },
+        "mass_kg": 0.004,
+        "friction": 0.55,
+        "restitution": 0.02,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true,
+        "water": {
+          "displaced_volume_m3": 4e-06,
+          "linear_drag": 3.0,
+          "angular_drag": 2.0
+        }
+      }
+    },
+    "arcade:party_balloon_weight": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cylinder",
+          "radius": 0.035,
+          "half_height": 0.02721
+        },
+        "mass_kg": 0.15,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "arcade:party_cake_lit": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0.0,
+                0.0035,
+                0.0
+              ],
+              "shape": {
+                "kind": "cylinder",
+                "radius": 0.18,
+                "half_height": 0.0035
+              }
+            },
+            {
+              "offset": [
+                0.0,
+                0.0695,
+                0.0
+              ],
+              "shape": {
+                "kind": "cylinder",
+                "radius": 0.155,
+                "half_height": 0.0625
+              }
+            }
+          ]
+        },
+        "mass_kg": 1.4,
+        "friction": 0.65,
+        "restitution": 0.02,
+        "linear_damping": 0.05,
+        "angular_damping": 0.25,
+        "pickup": true
+      }
+    },
+    "arcade:party_cake_unlit": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0.0,
+                0.0035,
+                0.0
+              ],
+              "shape": {
+                "kind": "cylinder",
+                "radius": 0.18,
+                "half_height": 0.0035
+              }
+            },
+            {
+              "offset": [
+                0.0,
+                0.0695,
+                0.0
+              ],
+              "shape": {
+                "kind": "cylinder",
+                "radius": 0.155,
+                "half_height": 0.0625
+              }
+            }
+          ]
+        },
+        "mass_kg": 1.4,
+        "friction": 0.65,
+        "restitution": 0.02,
+        "linear_damping": 0.05,
+        "angular_damping": 0.25,
+        "pickup": true
+      }
+    },
+    "arcade:party_gift_arcade": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0.0,
+                0.15,
+                0.0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.15,
+                  0.15,
+                  0.15
+                ]
+              }
+            }
+          ]
+        },
+        "mass_kg": 0.7,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "arcade:party_gift_confetti": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0.0,
+                0.15,
+                0.0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.15,
+                  0.15,
+                  0.15
+                ]
+              }
+            }
+          ]
+        },
+        "mass_kg": 0.7,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "arcade:party_gift_green": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0.0,
+                0.15,
+                0.0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.15,
+                  0.15,
+                  0.15
+                ]
+              }
+            }
+          ]
+        },
+        "mass_kg": 0.7,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "arcade:party_gift_red": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0.0,
+                0.15,
+                0.0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.15,
+                  0.15,
+                  0.15
+                ]
+              }
+            }
+          ]
+        },
+        "mass_kg": 0.7,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "arcade:party_gift_stars": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0.0,
+                0.15,
+                0.0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.15,
+                  0.15,
+                  0.15
+                ]
+              }
+            }
+          ]
+        },
+        "mass_kg": 0.7,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "arcade:party_gift_stripes": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0.0,
+                0.15,
+                0.0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.15,
+                  0.15,
+                  0.15
+                ]
+              }
+            }
+          ]
+        },
+        "mass_kg": 0.7,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "arcade:party_hat_confetti": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "convex_hull",
+          "points": [
+            [
+              0.075,
+              -0.11,
+              0.0
+            ],
+            [
+              0.053033,
+              -0.11,
+              0.053033
+            ],
+            [
+              0.0,
+              -0.11,
+              0.075
+            ],
+            [
+              -0.053033,
+              -0.11,
+              0.053033
+            ],
+            [
+              -0.075,
+              -0.11,
+              0.0
+            ],
+            [
+              -0.053033,
+              -0.11,
+              -0.053033
+            ],
+            [
+              -0.0,
+              -0.11,
+              -0.075
+            ],
+            [
+              0.053033,
+              -0.11,
+              -0.053033
+            ],
+            [
+              0.0,
+              0.11,
+              0.0
+            ]
+          ]
+        },
+        "mass_kg": 0.025,
+        "friction": 0.5,
+        "restitution": 0.03,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true,
+        "water": {
+          "displaced_volume_m3": 4e-05,
+          "linear_drag": 3.0,
+          "angular_drag": 2.0
+        }
+      }
+    },
+    "arcade:party_hat_dots": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "convex_hull",
+          "points": [
+            [
+              0.075,
+              -0.11,
+              0.0
+            ],
+            [
+              0.053033,
+              -0.11,
+              0.053033
+            ],
+            [
+              0.0,
+              -0.11,
+              0.075
+            ],
+            [
+              -0.053033,
+              -0.11,
+              0.053033
+            ],
+            [
+              -0.075,
+              -0.11,
+              0.0
+            ],
+            [
+              -0.053033,
+              -0.11,
+              -0.053033
+            ],
+            [
+              -0.0,
+              -0.11,
+              -0.075
+            ],
+            [
+              0.053033,
+              -0.11,
+              -0.053033
+            ],
+            [
+              0.0,
+              0.11,
+              0.0
+            ]
+          ]
+        },
+        "mass_kg": 0.025,
+        "friction": 0.5,
+        "restitution": 0.03,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true,
+        "water": {
+          "displaced_volume_m3": 4e-05,
+          "linear_drag": 3.0,
+          "angular_drag": 2.0
+        }
+      }
+    },
+    "arcade:party_hat_shapes": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "convex_hull",
+          "points": [
+            [
+              0.075,
+              -0.11,
+              0.0
+            ],
+            [
+              0.053033,
+              -0.11,
+              0.053033
+            ],
+            [
+              0.0,
+              -0.11,
+              0.075
+            ],
+            [
+              -0.053033,
+              -0.11,
+              0.053033
+            ],
+            [
+              -0.075,
+              -0.11,
+              0.0
+            ],
+            [
+              -0.053033,
+              -0.11,
+              -0.053033
+            ],
+            [
+              -0.0,
+              -0.11,
+              -0.075
+            ],
+            [
+              0.053033,
+              -0.11,
+              -0.053033
+            ],
+            [
+              0.0,
+              0.11,
+              0.0
+            ]
+          ]
+        },
+        "mass_kg": 0.025,
+        "friction": 0.5,
+        "restitution": 0.03,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true,
+        "water": {
+          "displaced_volume_m3": 4e-05,
+          "linear_drag": 3.0,
+          "angular_drag": 2.0
+        }
+      }
+    },
+    "arcade:party_hat_stars": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "convex_hull",
+          "points": [
+            [
+              0.075,
+              -0.11,
+              0.0
+            ],
+            [
+              0.053033,
+              -0.11,
+              0.053033
+            ],
+            [
+              0.0,
+              -0.11,
+              0.075
+            ],
+            [
+              -0.053033,
+              -0.11,
+              0.053033
+            ],
+            [
+              -0.075,
+              -0.11,
+              0.0
+            ],
+            [
+              -0.053033,
+              -0.11,
+              -0.053033
+            ],
+            [
+              -0.0,
+              -0.11,
+              -0.075
+            ],
+            [
+              0.053033,
+              -0.11,
+              -0.053033
+            ],
+            [
+              0.0,
+              0.11,
+              0.0
+            ]
+          ]
+        },
+        "mass_kg": 0.025,
+        "friction": 0.5,
+        "restitution": 0.03,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true,
+        "water": {
+          "displaced_volume_m3": 4e-05,
+          "linear_drag": 3.0,
+          "angular_drag": 2.0
+        }
+      }
+    },
+    "arcade:party_hat_stripes": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "convex_hull",
+          "points": [
+            [
+              0.075,
+              -0.11,
+              0.0
+            ],
+            [
+              0.053033,
+              -0.11,
+              0.053033
+            ],
+            [
+              0.0,
+              -0.11,
+              0.075
+            ],
+            [
+              -0.053033,
+              -0.11,
+              0.053033
+            ],
+            [
+              -0.075,
+              -0.11,
+              0.0
+            ],
+            [
+              -0.053033,
+              -0.11,
+              -0.053033
+            ],
+            [
+              -0.0,
+              -0.11,
+              -0.075
+            ],
+            [
+              0.053033,
+              -0.11,
+              -0.053033
+            ],
+            [
+              0.0,
+              0.11,
+              0.0
+            ]
+          ]
+        },
+        "mass_kg": 0.025,
+        "friction": 0.5,
+        "restitution": 0.03,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true,
+        "water": {
+          "displaced_volume_m3": 4e-05,
+          "linear_drag": 3.0,
+          "angular_drag": 2.0
+        }
+      }
+    },
+    "arcade:party_plate_balloons": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cylinder",
+          "radius": 0.11,
+          "half_height": 0.008
+        },
+        "mass_kg": 0.025,
+        "friction": 0.55,
+        "restitution": 0.03,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true,
+        "water": {
+          "displaced_volume_m3": 3e-05,
+          "linear_drag": 3.0,
+          "angular_drag": 2.0
+        }
+      }
+    },
+    "arcade:party_plate_border": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cylinder",
+          "radius": 0.11,
+          "half_height": 0.008
+        },
+        "mass_kg": 0.025,
+        "friction": 0.55,
+        "restitution": 0.03,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true,
+        "water": {
+          "displaced_volume_m3": 3e-05,
+          "linear_drag": 3.0,
+          "angular_drag": 2.0
+        }
+      }
+    },
+    "arcade:party_plate_confetti": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cylinder",
+          "radius": 0.11,
+          "half_height": 0.008
+        },
+        "mass_kg": 0.025,
+        "friction": 0.55,
+        "restitution": 0.03,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true,
+        "water": {
+          "displaced_volume_m3": 3e-05,
+          "linear_drag": 3.0,
+          "angular_drag": 2.0
+        }
+      }
+    },
+    "arcade:party_plate_stars": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cylinder",
+          "radius": 0.11,
+          "half_height": 0.008
+        },
+        "mass_kg": 0.025,
+        "friction": 0.55,
+        "restitution": 0.03,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true,
+        "water": {
+          "displaced_volume_m3": 3e-05,
+          "linear_drag": 3.0,
+          "angular_drag": 2.0
+        }
+      }
+    },
+    "beach:crate": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.41,
+            0.41,
+            0.41
+          ]
+        },
+        "mass_kg": 12.0,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "core:cardboard_box": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.25,
+            0.25,
+            0.25
+          ]
+        },
+        "mass_kg": 1.5,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "core:crate": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.3,
+            0.3,
+            0.3
+          ]
+        },
+        "mass_kg": 8.0,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "core:plant": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.206212,
+            0.4925,
+            0.209183
+          ]
+        },
+        "mass_kg": 4.0,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "core:tv": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.55,
+            0.35,
+            0.05
+          ]
+        },
+        "mass_kg": 12.0,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "home:book_stack": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.125,
+            0.0275,
+            0.09
+          ]
+        },
+        "mass_kg": 1.1,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "home:bowl": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cylinder",
+          "radius": 0.075,
+          "half_height": 0.0325
+        },
+        "mass_kg": 0.25,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "home:crt_tv": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.275,
+            0.24,
+            0.23
+          ]
+        },
+        "mass_kg": 9.0,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "home:cushion": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.165,
+            0.16,
+            0.0575
+          ]
+        },
+        "mass_kg": 0.25,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "home:fork": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.013,
+            0.006,
+            0.098
+          ]
+        },
+        "mass_kg": 0.045,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "home:kettle": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.11125,
+            0.1005,
+            0.081
+          ]
+        },
+        "mass_kg": 0.9,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "home:knife": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.0105,
+            0.008,
+            0.1075
+          ]
+        },
+        "mass_kg": 0.065,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "home:landscape_frame": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.225,
+            0.25,
+            0.015
+          ]
+        },
+        "mass_kg": 0.6,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "home:mug": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.0585,
+            0.045,
+            0.039
+          ]
+        },
+        "mass_kg": 0.32,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "home:plant_table": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.065,
+            0.140242,
+            0.065
+          ]
+        },
+        "mass_kg": 0.45,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "home:plate": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cylinder",
+          "radius": 0.11,
+          "half_height": 0.011
+        },
+        "mass_kg": 0.35,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "home:spoon": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.018,
+            0.01,
+            0.0925
+          ]
+        },
+        "mass_kg": 0.05,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "home:toaster": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.126,
+            0.0805,
+            0.084
+          ]
+        },
+        "mass_kg": 1.2,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
+    },
+    "pool:pool_potted_plant": {
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.294082,
+            0.430064,
+            0.280835
+          ]
+        },
+        "mass_kg": 8.0,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true
+      }
     }
   }
 }

@@ -221,6 +221,25 @@ pub struct ContactImpulse {
     pub impulse: f32,
 }
 
+/// Explicit world-clock controls. Player and carry controls use real frame time.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+pub struct SimulationState {
+    pub paused: bool,
+    pub time_scale: f32,
+    /// Completed solver intervals, including explicit single steps.
+    pub fixed_steps: u64,
+}
+
+impl Default for SimulationState {
+    fn default() -> Self {
+        Self {
+            paused: false,
+            time_scale: 1.0,
+            fixed_steps: 0,
+        }
+    }
+}
+
 /// Result of an atomic reset of existing group members; no bodies are spawned.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct ResetReport {
@@ -303,6 +322,7 @@ pub struct ItemWorld {
     pending_player: Option<PlayerContext>,
     pending_doors: Vec<DoorCollider>,
     accumulator: f32,
+    simulation: SimulationState,
     pub(super) stats: PhysicsStats,
     #[cfg(not(target_arch = "wasm32"))]
     worker_pool: Option<Arc<rayon::ThreadPool>>,
@@ -322,6 +342,7 @@ impl Default for ItemWorld {
             pending_player: None,
             pending_doors: Vec::new(),
             accumulator: 0.0,
+            simulation: SimulationState::default(),
             stats: PhysicsStats::default(),
             #[cfg(not(target_arch = "wasm32"))]
             worker_pool: None,
@@ -338,6 +359,57 @@ fn serialize_quaternion<S: Serializer>(value: &Quat, serializer: S) -> Result<S:
 }
 
 impl ItemWorld {
+    #[must_use]
+    pub const fn simulation_state(&self) -> SimulationState {
+        self.simulation
+    }
+
+    /// Converts a real frame interval for systems sharing the world clock.
+    #[must_use]
+    pub fn scaled_delta(&self, delta: f32) -> f32 {
+        if self.simulation.paused || !delta.is_finite() || delta <= 0.0 {
+            0.0
+        } else {
+            delta * self.simulation.time_scale
+        }
+    }
+
+    /// Stops world time immediately and publishes the latest solved poses.
+    pub fn pause(&mut self) {
+        self.simulation.paused = true;
+        self.accumulator = 0.0;
+        self.publish_current_poses();
+    }
+
+    /// Continues world time at the retained scale, without catching up a pause.
+    pub const fn resume(&mut self) {
+        self.simulation.paused = false;
+    }
+
+    /// Sets a finite world-time multiplier independently of explicit pause.
+    ///
+    /// # Errors
+    /// Rejects nonfinite values and values outside `0..=4` without mutation.
+    pub fn set_time_scale(&mut self, scale: f32) -> Result<(), String> {
+        if !scale.is_finite() || !(0.0..=4.0).contains(&scale) {
+            return Err("world time scale must be finite and between 0 and 4".into());
+        }
+        self.simulation.time_scale = scale;
+        if scale <= 0.0 {
+            self.accumulator = 0.0;
+            self.publish_current_poses();
+        }
+        Ok(())
+    }
+
+    fn publish_current_poses(&mut self) {
+        if let Some(runtime) = self.runtime.as_mut() {
+            for entry in runtime.entries.values_mut() {
+                entry.previous = entry.current;
+            }
+        }
+    }
+
     /// Retains the existing collision descriptors; no static mesh is baked.
     #[must_use]
     pub fn from_level(level: &LevelDef, walls: &[WallAabb]) -> Self {
@@ -361,6 +433,7 @@ impl ItemWorld {
             pending_player: None,
             pending_doors: Vec::new(),
             accumulator: 0.0,
+            simulation: SimulationState::default(),
             stats: PhysicsStats::default(),
             #[cfg(not(target_arch = "wasm32"))]
             worker_pool: None,
@@ -679,6 +752,97 @@ impl ItemWorld {
         Ok(())
     }
 
+    /// Places a dormant movable body at the player, checking its full shape
+    /// against scenery, doors and other items. Only the player is excluded.
+    ///
+    /// # Errors
+    /// Rejects fixed profiles, ordinary spawn failures and penetrating poses.
+    /// A rejected candidate is removed without leaving occupied body capacity.
+    pub fn spawn_dormant_if_clear(
+        &mut self,
+        key: u64,
+        def: &PhysicsDef,
+        bounds: (Vec3, Vec3),
+        position: Vec3,
+        yaw: f32,
+        scale: f32,
+    ) -> Result<(), String> {
+        if !def.motion.is_movable() {
+            return Err("dormant placement requires a movable physics profile".into());
+        }
+        self.spawn_authored(key, def, bounds, position, yaw, scale)?;
+        let blocked = self.runtime.as_ref().is_none_or(|runtime| {
+            let Some(entry) = runtime.entries.get(&key) else {
+                return true;
+            };
+            let Some(body) = runtime.world.bodies.get(entry.body) else {
+                return true;
+            };
+            let filter = query_filter()
+                .exclude_collider(entry.collider)
+                .exclude_rigid_body(runtime.player);
+            runtime
+                .world
+                .intersect_shape(*body.position(), entry.shape.as_ref(), filter)
+                .any(|(_, collider)| {
+                    // Contact within the solver's millimetre-scale floor
+                    // tolerance is allowed; actual overlap remains blocked.
+                    !shape_contact(
+                        body.position(),
+                        entry.shape.as_ref(),
+                        collider.position(),
+                        collider.shape(),
+                        0.0,
+                    )
+                    .is_ok_and(|contact| {
+                        let tolerance = if collider.parent().is_none() {
+                            0.002
+                        } else {
+                            1.0e-5
+                        };
+                        contact.is_none_or(|point| point.dist >= -tolerance)
+                    })
+                })
+        });
+        if blocked {
+            let _removed = self.remove(key);
+            return Err("dormant placement is blocked by another body or world geometry".into());
+        }
+        Ok(())
+    }
+
+    /// Whether this key owns a live item body, including dormant or held items.
+    #[must_use]
+    pub fn contains_body(&self, key: u64) -> bool {
+        self.body_motion(key).is_some()
+    }
+
+    /// Configured motion, independent of temporary held or dormant solver type.
+    #[must_use]
+    pub fn body_motion(&self, key: u64) -> Option<BodyMotion> {
+        let runtime = self.runtime.as_ref()?;
+        let entry = runtime.entries.get(&key)?;
+        let _body = runtime.world.bodies.get(entry.body)?;
+        Some(entry.motion)
+    }
+
+    /// Existing movable-body keys in stable order; fixed scenery is excluded.
+    #[must_use]
+    pub fn removable_keys(&self) -> Vec<u64> {
+        self.runtime.as_ref().map_or_else(Vec::new, |runtime| {
+            runtime
+                .entries
+                .iter()
+                .filter_map(|(&key, entry)| entry.motion.is_movable().then_some(key))
+                .collect()
+        })
+    }
+
+    /// Console removal boundary: immutable fixed profiles cannot be removed.
+    pub fn remove_movable(&mut self, key: u64) -> bool {
+        self.body_motion(key).is_some_and(BodyMotion::is_movable) && self.remove(key)
+    }
+
     /// Removes one body, including a held body, without leaving solver handles.
     pub fn remove(&mut self, key: u64) -> bool {
         let Some(runtime) = self.runtime.as_mut() else {
@@ -872,29 +1036,23 @@ impl ItemWorld {
         true
     }
 
-    /// Mirrors a controller/door frame and advances at most twelve 120 Hz steps.
-    /// Invalid or negative frame intervals perform no work.
+    /// Mirrors unscaled controller time and advances bounded scaled world time.
+    /// Invalid or negative frame intervals perform no work. Carrying continues
+    /// through an explicit pause or zero scale, using swept geometry alone.
     pub fn step(&mut self, delta: f32, player: PlayerContext, doors: &[DoorCollider]) {
         self.stats = PhysicsStats::default();
+        let world_delta = self.scaled_delta(delta);
         let Some(runtime) = self.runtime.as_mut() else {
             return;
         };
-        runtime.frame_contacts.clear();
-        runtime.frame_contact_impulses.clear();
-        self.stats.body_count = runtime.entries.len();
-        self.stats.static_colliders = runtime.static_count;
-        runtime.populate_counts(&mut self.stats);
-        if runtime.entries.is_empty() {
-            return;
-        }
+        runtime.begin_frame(&mut self.stats);
         if !delta.is_finite() || delta <= 0.0 || !player.valid() {
             return;
         }
-        #[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
-        runtime.configure_solver_pool(delta);
         let started = Instant::now();
-        let interval = delta.min(MAX_FRAME_SECONDS);
-        self.stats.clamped_seconds = delta - interval;
+        let interval = world_delta.min(MAX_FRAME_SECONDS);
+        let control_interval = delta.min(MAX_FRAME_SECONDS);
+        self.stats.clamped_seconds = world_delta - interval;
         runtime.player_velocity = runtime
             .previous_player
             .map_or(Vec3::ZERO, |previous| {
@@ -904,7 +1062,7 @@ impl ItemWorld {
         runtime.previous_player = Some(player.feet);
         runtime.last_player = Some(player);
         runtime.update_player(player);
-        runtime.update_doors(doors, false);
+        runtime.update_doors(doors, interval <= 0.0);
         if !runtime
             .entries
             .values()
@@ -913,32 +1071,61 @@ impl ItemWorld {
             self.stats.step_millis = started.elapsed().as_secs_f64() * 1_000.0_f64;
             return;
         }
-        // Preserve the prior fractional step. The clamped interval plus the
-        // twelve-step limit already bounds work without silently losing it.
+        #[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
+        runtime.configure_solver_pool(interval);
         self.accumulator += interval;
-        while self.accumulator + 1.0e-7 >= FIXED_STEP && self.stats.substeps < MAX_SUBSTEPS {
-            self.stats.recovered_bodies = self
-                .stats
-                .recovered_bodies
-                .saturating_add(runtime.recover_escaped(&self.recovery_space, 0.0));
-            for entry in runtime.entries.values_mut() {
-                entry.previous = entry.current;
+        let mut remaining = self.accumulator;
+        let mut planned_steps = 0_u16;
+        while remaining + 1.0e-7 >= FIXED_STEP && usize::from(planned_steps) < MAX_SUBSTEPS {
+            remaining = (remaining - FIXED_STEP).max(0.0);
+            planned_steps = planned_steps.saturating_add(1);
+        }
+        if planned_steps == 0 {
+            runtime.advance_held(player, control_interval, true);
+        } else {
+            // Hand motion follows real time at every scale. Rapier still owns
+            // ordinary pushes; frames without a solver tick sweep frozen items.
+            let carry_delta = control_interval / f32::from(planned_steps);
+            for _ in 0..planned_steps {
+                runtime.advance_held(player, carry_delta, false);
+                runtime.advance_world(&self.recovery_space, &self.water, &mut self.stats);
+                self.simulation.fixed_steps = self.simulation.fixed_steps.saturating_add(1);
             }
-            runtime.advance_held(player);
-            runtime.apply_water(&self.water);
-            runtime.activate_impacts();
-            runtime.world.step_with_events(&runtime.floor_contacts, &());
-            runtime.update_poses();
-            self.stats.recovered_bodies = self
-                .stats
-                .recovered_bodies
-                .saturating_add(runtime.recover_escaped(&self.recovery_space, FIXED_STEP));
-            runtime.collect_impacts();
-            self.accumulator = (self.accumulator - FIXED_STEP).max(0.0);
-            self.stats.substeps = self.stats.substeps.saturating_add(1);
+            self.accumulator = remaining;
         }
         runtime.populate_counts(&mut self.stats);
         self.stats.step_millis = started.elapsed().as_secs_f64() * 1_000.0_f64;
+    }
+
+    /// Immediately advances exactly one fixed world interval, then stays paused.
+    /// Explicit steps ignore time scale and discard old fractional solver time.
+    /// Player/carry control receives no synthetic movement from a world step.
+    ///
+    /// # Errors
+    /// Rejects an invalid controller context without changing simulation state.
+    pub fn step_once(
+        &mut self,
+        player: PlayerContext,
+        doors: &[DoorCollider],
+    ) -> Result<(), String> {
+        if !player.valid() {
+            return Err("single step requires a finite, valid player context".into());
+        }
+        self.pause();
+        self.sync_context(player, doors);
+        self.stats = PhysicsStats::default();
+        if let Some(runtime) = self.runtime.as_mut() {
+            let started = Instant::now();
+            runtime.begin_frame(&mut self.stats);
+            #[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
+            runtime.configure_solver_pool(FIXED_STEP);
+            runtime.advance_world(&self.recovery_space, &self.water, &mut self.stats);
+            runtime.populate_counts(&mut self.stats);
+            self.stats.step_millis = started.elapsed().as_secs_f64() * 1_000.0_f64;
+        }
+        self.simulation.fixed_steps = self.simulation.fixed_steps.saturating_add(1);
+        self.publish_current_poses();
+        Ok(())
     }
 
     /// Publishes live door/player poses for an interaction query without
@@ -1106,7 +1293,7 @@ impl ItemWorld {
 }
 
 impl PlayerContext {
-    fn valid(self) -> bool {
+    pub(super) fn valid(self) -> bool {
         self.eye.is_finite()
             && self.feet.is_finite()
             && self.view.is_finite()
@@ -1117,6 +1304,37 @@ impl PlayerContext {
 }
 
 impl Runtime {
+    fn begin_frame(&mut self, stats: &mut PhysicsStats) {
+        self.frame_contacts.clear();
+        self.frame_contact_impulses.clear();
+        stats.body_count = self.entries.len();
+        stats.static_colliders = self.static_count;
+        self.populate_counts(stats);
+    }
+
+    fn advance_world(
+        &mut self,
+        recovery_space: &RecoverySpace,
+        water: &WaterVolumes,
+        stats: &mut PhysicsStats,
+    ) {
+        stats.recovered_bodies = stats
+            .recovered_bodies
+            .saturating_add(self.recover_escaped(recovery_space, 0.0));
+        for entry in self.entries.values_mut() {
+            entry.previous = entry.current;
+        }
+        self.apply_water(water);
+        self.activate_impacts();
+        self.world.step_with_events(&self.floor_contacts, &());
+        self.update_poses();
+        stats.recovered_bodies = stats
+            .recovered_bodies
+            .saturating_add(self.recover_escaped(recovery_space, FIXED_STEP));
+        self.collect_impacts();
+        stats.substeps = stats.substeps.saturating_add(1);
+    }
+
     #[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
     fn configure_solver_pool(&mut self, delta: f32) {
         if self.worker_pool.is_some() {

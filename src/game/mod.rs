@@ -4,8 +4,13 @@ mod app;
 pub mod bench;
 pub mod console;
 pub mod display;
+pub mod gameplay_actions;
+pub mod gameplay_runtime;
 pub mod input;
 pub mod perf_overlay;
+pub mod pickup_catalog;
+pub mod representation;
+mod representation_camera;
 pub mod settings;
 pub mod ui;
 pub mod world_labels;
@@ -440,6 +445,7 @@ pub struct Game {
     delta_seconds: f32,
     /// Clamped delta used for gameplay simulation (see [`MAX_SIM_DELTA`]).
     sim_delta_seconds: f32,
+    world_time_scale: f32,
     frame_count: u64,
     /// World Y of the rendered eye: exactly `feet_y + eye_offset_current`.
     ///
@@ -550,6 +556,7 @@ pub struct Game {
     spawn_yaw: f32,
     /// How many times this run has returned the player to the spawn.
     reset_count: u64,
+    world_reset_count: u64,
     /// Vertical simulation time not yet consumed by a fixed
     /// [`VERTICAL_SUBSTEP`].
     vertical_accumulator: f32,
@@ -650,6 +657,7 @@ impl Game {
             last_frame_time: Instant::now(),
             delta_seconds: 0.0,
             sim_delta_seconds: 0.0,
+            world_time_scale: 1.0,
             frame_count: 0,
             player_floor_y: spawn_pos.y - EYE_HEIGHT,
             player_position: spawn_pos,
@@ -684,6 +692,7 @@ impl Game {
             spawn_position: spawn_pos,
             spawn_yaw: spawn_yaw.rem_euclid(TWO_PI),
             reset_count: 0,
+            world_reset_count: 0,
             vertical_accumulator: 0.0,
             ceiling_contact_this_frame: false,
             movement_debug: std::env::var("PLACES_MOVEMENT_DEBUG").is_ok_and(|value| value == "1"),
@@ -801,6 +810,7 @@ impl Game {
         self.spawn_position = spawn_pos;
         self.spawn_yaw = spawn_yaw.rem_euclid(TWO_PI);
         self.reset_count = 0;
+        self.world_reset_count = 0;
         self.clear_run_state(spawn_pos, self.spawn_yaw, false);
         self.remember_recovery_spawn();
         self.world
@@ -826,12 +836,19 @@ impl Game {
             self.player_position.z,
         ));
         self.reset_count = self.reset_count.saturating_add(1);
+        self.world_reset_count = self.world_reset_count.saturating_add(1);
     }
 
     /// How many times this run has returned the player to the spawn.
     #[must_use]
     pub const fn reset_count(&self) -> u64 {
         self.reset_count
+    }
+
+    /// Full authored runtime resets, distinct from player-only respawn/recovery.
+    #[must_use]
+    pub const fn world_reset_count(&self) -> u64 {
+        self.world_reset_count
     }
 
     /// The authored spawn this run resets to.
@@ -909,7 +926,7 @@ impl Game {
 
     /// Advances the entity runtime by one frame and applies its outcome.
     fn update_world(&mut self, feet_from: Vec3) {
-        let delta = self.sim_delta_seconds;
+        let delta = self.world_delta_seconds();
         let feet = Vec3::new(
             self.player_position.x,
             self.feet_y(),
@@ -942,6 +959,31 @@ impl Game {
         };
         self.world
             .update_entities(delta, &routes, Some(self.player_position));
+    }
+
+    /// World simulation time is independent of the player's movement clock.
+    /// # Errors
+    /// Rejects nonfinite and out-of-range values without changing the clock.
+    pub fn set_world_time_scale(&mut self, value: f32) -> Result<(), String> {
+        if !value.is_finite() || !(0.0..=4.0).contains(&value) {
+            return Err("World time scale must be finite and from 0 through 4.".into());
+        }
+        self.world_time_scale = value;
+        Ok(())
+    }
+
+    #[must_use]
+    pub fn scale_world_delta(&self, delta: f32) -> f32 {
+        if delta.is_finite() && delta > 0.0 {
+            (delta * self.world_time_scale).min(MAX_SIM_DELTA)
+        } else {
+            0.0
+        }
+    }
+
+    #[must_use]
+    pub fn world_delta_seconds(&self) -> f32 {
+        self.scale_world_delta(self.sim_delta_seconds)
     }
 
     /// The tick report of the last [`Game::update_world`], for diagnostics.
@@ -1149,6 +1191,18 @@ impl Game {
         settings: &Settings,
         constrain: impl FnOnce(&Self) -> Vec3,
     ) {
+        self.update_player_movement_with_constraints(input, settings, constrain, |_| true);
+    }
+
+    /// Extends movement collision with a live-body stance clearance check.
+    /// A blocked standing expansion retains crouch before physical sweeping.
+    pub fn update_player_movement_with_constraints(
+        &mut self,
+        input: &mut InputState,
+        settings: &Settings,
+        constrain: impl FnOnce(&Self) -> Vec3,
+        stance_clear: impl FnOnce(&Self) -> bool,
+    ) {
         self.ceiling_contact_this_frame = false;
         // A press is consumed exactly once and never survives a non-Playing
         // frame: the interaction latch is re-derived below, and the frame loop
@@ -1190,21 +1244,40 @@ impl Game {
             return;
         }
 
+        let previous_stance = self.stance;
+        let previous_eye_offset = self.eye_offset_current;
         let trigger_origin = self.update_playing_frame(&frame_input, settings, motion);
+        if previous_stance == Stance::Crouched
+            && self.stance == Stance::Standing
+            && !stance_clear(self)
+        {
+            self.stance = Stance::Crouched;
+            self.eye_offset_current = previous_eye_offset;
+            self.sync_eye();
+        }
         let constrained = constrain(self);
-        let planar_difference = Vec2::new(
+        let correction = Vec3::new(
             constrained.x - self.player_position.x,
+            constrained.y - self.player_position.y,
             constrained.z - self.player_position.z,
         );
         if constrained.is_finite()
-            && planar_difference.length_squared() > 0.0
+            && correction.length_squared() > 0.0
             && self.body_fits_with_height(
-                Vec3::new(constrained.x, self.feet_y, constrained.z),
+                Vec3::new(constrained.x, self.feet_y + correction.y, constrained.z),
                 self.body_height(),
             )
         {
-            self.player_position.x = constrained.x;
-            self.player_position.z = constrained.z;
+            self.player_position = constrained;
+            self.feet_y += correction.y;
+            if correction.y.abs() > 1.0e-5 {
+                self.vertical_velocity = 0.0;
+                self.vertical_accumulator = 0.0;
+                self.grounded = correction.y > 0.0;
+                if self.grounded {
+                    self.player_floor_y = self.feet_y;
+                }
+            }
         }
         if self.recover_out_of_map() {
             return;
@@ -1869,7 +1942,8 @@ impl Game {
     }
 
     /// Advances every moving door by one frame and republishes its collider.
-    fn update_doors(&mut self, delta: f32) {
+    fn update_doors(&mut self, unscaled_delta: f32) {
+        let delta = self.scale_world_delta(unscaled_delta);
         let feet = Vec3::new(
             self.player_position.x,
             self.feet_y(),
@@ -3465,3 +3539,6 @@ fn push_disc_out(position: Vec2, radius: f32, wall: &WallAabb) -> Option<Vec2> {
         Some(Vec2::new(position.x, wall.max_z + radius))
     }
 }
+
+#[cfg(test)]
+mod tests;

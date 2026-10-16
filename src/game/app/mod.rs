@@ -981,9 +981,13 @@ impl FrameLoop<'_> {
         {
             self.game.set_benchmark_simulation_delta(delta);
         }
+        let _clock_updated = self
+            .game
+            .set_world_time_scale(self.items.world.simulation_state().time_scale);
         if !self.console.is_open() {
             self.update_player_input();
         }
+        self.reconcile_gameplay_reset();
         self.log_player_state();
         // One press is one interaction: consume the edge the movement update
         // latched, resolve the object under the crosshair and run its
@@ -991,6 +995,7 @@ impl FrameLoop<'_> {
         // gates relative mouse mode.
         self.dispatch_player_interactions();
         self.dispatch_dev_interactions();
+        self.reconcile_gameplay_reset();
         // Door leaves follow the gameplay state: the drawn slab and the
         // physical collider read the same angle, so a door can never stop the
         // player where it is not drawn.
@@ -1009,7 +1014,42 @@ impl FrameLoop<'_> {
         // Advance the dynamic objects (the demonstration drum and any other
         // spawned object) once per frame: transform only, never a geometry or
         // lightmap rebuild.
-        let visual_delta = self.visual_delta_seconds();
+        self.update_world_presentation();
+        self.write_nav_debug(false);
+        let frame_update_done = Instant::now();
+
+        self.render_and_present(frame_begin, frame_update_done);
+    }
+
+    fn reconcile_gameplay_reset(&mut self) {
+        let held = self.items.world.held();
+        self.console_runtime.reconcile_player_reset(
+            self.game,
+            self.renderer,
+            &mut self.items.world,
+        );
+        if held != self.items.world.held() {
+            self.items.input.invalidate();
+            self.items.target = None;
+        }
+    }
+
+    fn update_world_presentation(&mut self) {
+        let player_visual_delta = self.visual_delta_seconds();
+        let visual_delta = self.game.scale_world_delta(player_visual_delta);
+        let _representation_synced = self.console_runtime.representation.sync(
+            self.renderer,
+            Vec3::new(
+                self.game.player_position.x,
+                self.game.feet_y(),
+                self.game.player_position.z,
+            ),
+            self.game.player_yaw,
+            self.game.locomotion_snapshot(),
+            player_visual_delta,
+        );
+        self.console_runtime
+            .sync_visuals(self.renderer, &self.items.world);
         let _update_stats = self.renderer.update_dynamic(visual_delta);
         self.advance_weather();
         // Animated characters follow the player's locomotion state unless a
@@ -1028,10 +1068,6 @@ impl FrameLoop<'_> {
                 .entities_mut()
                 .notify_animation_complete(instance_id, "");
         }
-        self.write_nav_debug(false);
-        let frame_update_done = Instant::now();
-
-        self.render_and_present(frame_begin, frame_update_done);
     }
 
     /// Advances weather controls only while the loaded world is playing.
@@ -1040,7 +1076,7 @@ impl FrameLoop<'_> {
             && self.load_intent.is_none()
             && self.game.app_state() == AppState::Playing
         {
-            self.game.sim_delta_seconds()
+            self.game.world_delta_seconds()
         } else {
             0.0
         };
@@ -3000,6 +3036,27 @@ impl FrameLoop<'_> {
             "gpu_timing": format!("{:?}", self.renderer.gpu_timing()),
         });
         if let Some(fields) = state.as_object_mut() {
+            drop(fields.insert("console_session".into(), self.console_runtime.snapshot()));
+            let fixed_instances = self.current_level.as_ref().map(|loaded| {
+                let ids=loaded.level.prop_instance_ids();
+                loaded.level.props.iter().zip(ids).filter(|(prop,_)| !prop.is_physics_movable()).map(|(prop,id)| serde_json::json!({"id":id,"model":prop.model,"entity_live":self.game.entities().handle_of(&id).is_some()})).collect::<Vec<_>>()
+            }).unwrap_or_default();
+            drop(fields.insert("fixed_instances".into(), fixed_instances.into()));
+            drop(fields.insert(
+                "physics_clock".into(),
+                serde_json::json!(self.items.world.simulation_state()),
+            ));
+            drop(fields.insert("representation".into(), serde_json::json!({"model":self.console_runtime.representation.selected_id(), "third_person":self.console_runtime.representation.is_active()})));
+            drop(fields.insert(
+                "trigger_labels".into(),
+                serde_json::json!(
+                        self.console_runtime
+                            .visible_trigger_labels(self.game, self.renderer)
+                            .iter()
+                            .map(|label| label.id.as_str())
+                            .collect::<Vec<_>>()
+                    ),
+            ));
             drop(fields.insert("flashlight_on".to_string(), self.flashlight.is_on().into()));
             drop(fields.insert("light_responses".to_string(), light_responses.into()));
         }
@@ -3241,6 +3298,21 @@ impl FrameLoop<'_> {
                 if item_hint {
                     ui::append_interaction_hint(self.ui_scratch, &self.settings.bindings.interact);
                 }
+                if self.console_runtime.trigger_labels_visible() {
+                    world_labels::append_trigger_labels(
+                        self.ui_scratch,
+                        &self
+                            .console_runtime
+                            .visible_trigger_labels(self.game, self.renderer),
+                        &render::RenderCamera::new(
+                            cam_pos,
+                            cam_yaw,
+                            cam_pitch,
+                            self.settings.fov_degrees,
+                        ),
+                        drawable,
+                    );
+                }
             }
             if self.perf_overlay.is_visible() {
                 self.ui_scratch
@@ -3413,6 +3485,58 @@ impl FrameLoop<'_> {
     }
 
     /// Draws the frame, handles the one-shot capture, presents and records it.
+    fn frame_camera(&self) -> render::RenderCamera {
+        let representation_camera = self.console_runtime.representation.camera(
+            Vec3::new(
+                self.game.player_position.x,
+                self.game.feet_y(),
+                self.game.player_position.z,
+            ),
+            self.game.player_yaw,
+            self.game.player_pitch,
+            self.settings.fov_degrees,
+            |start, end, radius| {
+                let static_end = self.game.camera_sweep(start, end, radius);
+                self.items
+                    .world
+                    .camera_sweep(start, static_end, radius)
+                    .unwrap_or(static_end)
+            },
+        );
+        let (cam_pos, cam_yaw, cam_pitch) = match self.game.app_state() {
+            AppState::Playing | AppState::Paused | AppState::PauseSettings => representation_camera
+                .map_or(
+                    (
+                        self.game.player_position,
+                        self.game.player_yaw,
+                        self.game.player_pitch,
+                    ),
+                    |camera| (camera.position, camera.yaw, camera.pitch),
+                ),
+            AppState::MainMenu | AppState::LevelSelect | AppState::Settings => {
+                // Static menu background camera
+                (*self.spawn_pos, *self.spawn_yaw, 0.0)
+            }
+        };
+        // `PLACES_CAMERA=yaw[,pitch]` pins the camera so a hardware benchmark
+        // measures the same view twice; it never changes gameplay.
+        let (render_yaw, render_pitch) = match self.bench.camera_override() {
+            Some((yaw, pitch)) => (yaw.to_radians(), pitch.to_radians()),
+            None => (cam_yaw, cam_pitch),
+        };
+        let render_position = self
+            .bench
+            .camera_position_override()
+            .map_or(cam_pos, Vec3::from_array);
+
+        render::RenderCamera::new(
+            render_position,
+            render_yaw,
+            render_pitch,
+            self.settings.fov_degrees,
+        )
+    }
+
     fn render_and_present(&mut self, frame_begin: Instant, frame_update_done: Instant) {
         // Use the physical drawable size (SDL3's window size in pixels), not
         // the logical window size, so HiDPI (Retina) backing scale and monitor
@@ -3432,27 +3556,10 @@ impl FrameLoop<'_> {
         let _drawable_size_changed = self.renderer.set_drawable_size(drawable);
 
         // Render scene
-        let (cam_pos, cam_yaw, cam_pitch) = match self.game.app_state() {
-            AppState::Playing | AppState::Paused | AppState::PauseSettings => (
-                self.game.player_position,
-                self.game.player_yaw,
-                self.game.player_pitch,
-            ),
-            AppState::MainMenu | AppState::LevelSelect | AppState::Settings => {
-                // Static menu background camera
-                (*self.spawn_pos, *self.spawn_yaw, 0.0)
-            }
-        };
-        // `PLACES_CAMERA=yaw[,pitch]` pins the camera so a hardware benchmark
-        // measures the same view twice; it never changes gameplay.
-        let (render_yaw, render_pitch) = match self.bench.camera_override() {
-            Some((yaw, pitch)) => (yaw.to_radians(), pitch.to_radians()),
-            None => (cam_yaw, cam_pitch),
-        };
-        let render_position = self
-            .bench
-            .camera_position_override()
-            .map_or(cam_pos, Vec3::from_array);
+        let frame_camera = self.frame_camera();
+        let render_position = frame_camera.position;
+        let render_yaw = frame_camera.yaw;
+        let render_pitch = frame_camera.pitch;
 
         let skip_render = self.bench.skip_render();
         if !skip_render {

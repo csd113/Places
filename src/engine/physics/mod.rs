@@ -17,7 +17,7 @@ pub use config::{
 pub use recovery::{EscapeReason, RecoveryEvent, RecoveryOutcome};
 pub use world::{
     BodySnapshot, BodyState, ContactImpulse, ImpactEvent, ItemPose, ItemWorld, PhysicsStats,
-    PlayerContext, ResetReport,
+    PlayerContext, ResetReport, SimulationState,
 };
 
 /// Metres per second squared, shared by player and rigid-body gravity.

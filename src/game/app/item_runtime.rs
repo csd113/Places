@@ -14,6 +14,7 @@ const AUTHORED_ITEM_KEY_BASE: u64 = 1_u64 << 63;
 #[derive(Clone, Copy)]
 pub enum InteractionTarget {
     Item { key: u64, distance: f32 },
+    Activate { key: u64, distance: f32 },
     World { index: usize, distance: f32 },
     Drop { key: u64 },
 }
@@ -26,6 +27,9 @@ const fn interaction_hand_visible(target: Option<InteractionTarget>, held: Optio
             target,
             Some(
                 InteractionTarget::Item {
+                    key: _,
+                    distance: _
+                } | InteractionTarget::Activate {
                     key: _,
                     distance: _
                 } | InteractionTarget::World {
@@ -198,6 +202,8 @@ impl FrameLoop<'_> {
         {
             if self.items.world.nearest_pickup(eye, view) == Some(key) {
                 self.items.target = Some(InteractionTarget::Item { key, distance });
+            } else if self.items.world.nearest_activation(eye, view) == Some(key) {
+                self.items.target = Some(InteractionTarget::Activate { key, distance });
             }
             return;
         }
@@ -209,6 +215,9 @@ impl FrameLoop<'_> {
         match self.items.target {
             Some(InteractionTarget::Item { key, distance }) => {
                 serde_json::json!({"kind":"item","key":key,"distance":distance})
+            }
+            Some(InteractionTarget::Activate { key, distance }) => {
+                serde_json::json!({"kind":"activate_physics","key":key,"distance":distance})
             }
             Some(InteractionTarget::World { index, distance }) => {
                 serde_json::json!({"kind":"world","id":self.game.interactables().items().get(index).map(|item|item.id.as_str()),"distance":distance})
@@ -462,10 +471,11 @@ impl FrameLoop<'_> {
             self.flashlight.toggle();
             self.trace_world("flashlight_toggled");
         }
-        self.game.update_player_movement_constrained(
+        self.game.update_player_movement_with_constraints(
             self.input_handler.state_mut(),
             self.settings,
             |game| self.items.constrain_player_eye(game),
+            |game| self.items.world.player_pose_clear(player_context(game)),
         );
     }
 
@@ -541,6 +551,7 @@ impl FrameLoop<'_> {
                 return;
             }
         }
+        let prop_instance_ids = level.prop_instance_ids();
         for (index, prop) in level.props.iter().enumerate() {
             let Some(def) = prop.physics.as_ref().filter(|def| def.motion.is_movable()) else {
                 continue;
@@ -587,7 +598,7 @@ impl FrameLoop<'_> {
             }
             self.items.authored.push((
                 key,
-                prop.id.clone().unwrap_or_else(|| format!("prop-{index}")),
+                prop_instance_ids.get(index).cloned().unwrap_or_default(),
                 prop.model.clone(),
             ));
         }
@@ -628,6 +639,8 @@ impl FrameLoop<'_> {
             }
             if recovery.outcome == crate::engine::physics::RecoveryOutcome::Suspended {
                 let _hidden = self.renderer.set_runtime_model_visible(recovery.key, false);
+                self.console_runtime
+                    .hide_suspended_visual(recovery.key, self.renderer);
             }
             crate::engine::logging::event(format!(
                 "[physics] item {} recovery: {:?} ({:?})",
@@ -689,6 +702,15 @@ impl FrameLoop<'_> {
                 "item_drop_blocked"
             } else {
                 "item_dropped"
+            });
+            return true;
+        }
+        if let Some(InteractionTarget::Activate { key, distance: _ }) = self.items.target {
+            let activated = self.items.world.activate(key);
+            self.trace_world(if activated {
+                "item_activated"
+            } else {
+                "item_activation_blocked"
             });
             return true;
         }

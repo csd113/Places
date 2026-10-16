@@ -113,7 +113,7 @@ impl crate::game::app::FrameLoop<'_> {
             && !self.console.is_open()
             && self.load_intent.is_none()
         {
-            let delta = self.game.sim_delta_seconds();
+            let delta = self.game.world_delta_seconds();
             self.game
                 .entities_mut()
                 .update_light_observations(delta, eye, |id, point| {

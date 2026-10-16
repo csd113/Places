@@ -164,7 +164,8 @@ PLACES_SKIP_SMOKE=1 python3 -m unittest discover -s tests -p 'test_*.py'
 python3 tools/assets/validate.py
 ```
 
-The 0.11.0 cleanup removed all project-owned Rust automated tests. Future tests
+The 0.11.0 cleanup removed the previous broad Rust test suite. Seven focused
+console/physics regressions now run with `cargo test --workspace`. New tests
 must meet the essential regression-value, ownership/discovery and proportional
 cost requirements in `AGENTS.md`; ordinary CI never bakes full maps. Runtime
 validation, security checks and explicit native diagnostics remain active.
@@ -213,6 +214,11 @@ a previous campaign does not establish present currency. The
 
 Enable **Settings → Controls → Developer Console**, then press backtick during
 play. See [console use and implementation](reports/developer-console-0.10.0.md)
-for commands, safe noclip recovery and the current visual-prop limit of `/give`.
+for historical context. The [0.11.0 console stage](reports/developer-console-0.11.0.md)
+defines current commands, curated pickup eligibility, world clocks and `/become`.
 The opt-in `tools/bench/developer_console.py` acceptance tool reuses installed
 packages and exercises the normal SDL event path; it does not bake maps.
+`tools/bench/console_stage.py` exercises the current controls, independent
+clocks, representative models and all 58 pickups in four catalog chunks. Supply
+an explicitly compiled `tests/fixtures/native/developer-console.level.json`
+package with `--map`; `--plan-only` inspects actions without launching the game.

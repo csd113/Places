@@ -162,6 +162,7 @@ struct CharacterGpu {
     pending_environment: EnvironmentUniform,
     uv_reactive: bool,
     uv_receiver: BlacklightReceiverCache,
+    visible: bool,
 }
 
 /// What one character upload or frame did, as plain counters.
@@ -411,6 +412,7 @@ impl WgpuCharacters {
                     .iter()
                     .any(|submesh| submesh.response.fluorescence.strength > 0.0),
                 uv_receiver: BlacklightReceiverCache::default(),
+                visible: character.is_visible(),
             });
         }
         value.finish_stats();
@@ -690,6 +692,7 @@ impl WgpuCharacters {
             let Some(character) = gpu.key.resolve(scene) else {
                 return;
             };
+            gpu.visible = character.is_visible();
             let pose_changed = character.animator().revision() != gpu.uploaded_revision;
             if pose_changed {
                 gpu.pose_bounds = Self::fill_vertices(character, &mut gpu.posed_vertices);
@@ -751,6 +754,7 @@ impl WgpuCharacters {
             let Some(character) = gpu.key.resolve(scene) else {
                 continue;
             };
+            gpu.visible = character.is_visible();
             let transform_changed = character.transform() != gpu.uploaded_transform;
             let pose_changed = character.animator().revision() != gpu.uploaded_revision;
             if pose_changed {
@@ -816,6 +820,9 @@ impl WgpuCharacters {
         submesh: usize,
     ) -> Option<(&wgpu::Buffer, &wgpu::Buffer, u32, u32)> {
         let entry = self.characters.get(character)?;
+        if !entry.visible {
+            return None;
+        }
         let mesh = self.meshes.get(entry.mesh)?;
         let mesh_part = mesh.submeshes.get(submesh)?;
         Some((

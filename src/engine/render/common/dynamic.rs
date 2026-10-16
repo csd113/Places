@@ -71,8 +71,10 @@ use crate::engine::spatial::Aabb;
 /// remains batched. The limit is enforced on spawn; pose updates reuse geometry.
 pub const MAX_DYNAMIC_OBJECTS: usize = 256;
 
-/// Most distinct dynamic meshes one scene holds, each getting its own vertex
-/// buffer. Matches the static prop path's practical model budget.
+/// Most distinct dynamic meshes one scene holds, each with a vertex buffer.
+///
+/// Unused asset cache entries may be replaced at this bound. Live objects and
+/// explicitly registered model indices retain their own slots.
 pub const MAX_DYNAMIC_MESHES: usize = 16;
 
 /// Historical movement threshold, retained for API compatibility. Runtime
@@ -896,6 +898,9 @@ pub struct DynamicScene {
     objects: Vec<DynamicObject>,
     meshes: Vec<Arc<DynamicMesh>>,
     mesh_index_by_path: HashMap<String, usize>,
+    /// Explicit registration returns a stable index that a caller may retain.
+    /// Asset-cache eviction must never recycle one of these reserved slots.
+    registered_meshes: Vec<usize>,
     /// Bumped on every structural change (spawn, despawn, clear, mesh
     /// registration). The renderer compares it to decide when to re-upload.
     revision: u64,
@@ -991,6 +996,7 @@ impl DynamicScene {
         self.objects.clear();
         self.meshes.clear();
         self.mesh_index_by_path.clear();
+        self.registered_meshes.clear();
         self.water = WaterVolumes::new();
         self.bump();
     }
@@ -1133,16 +1139,35 @@ impl DynamicScene {
         if let Some(index) = self.mesh_index_by_path.get(&asset.model_path).copied() {
             return Some(index);
         }
-        if self.meshes.len() >= MAX_DYNAMIC_MESHES {
-            return None;
-        }
         let mesh = Arc::new(DynamicMesh::from_asset(asset)?);
-        let _previous_value = self
-            .mesh_index_by_path
-            .insert(mesh.model_path.clone(), self.meshes.len());
-        self.meshes.push(mesh);
+        self.insert_mesh(mesh, false)
+    }
+
+    /// Reuses only an unreferenced asset-cache slot when the table is full.
+    /// Object mesh indices and explicit registration handles remain stable.
+    fn insert_mesh(&mut self, mesh: Arc<DynamicMesh>, registered: bool) -> Option<usize> {
+        let index = if self.meshes.len() < MAX_DYNAMIC_MESHES {
+            self.meshes.len()
+        } else {
+            self.meshes.iter().enumerate().find_map(|(slot, _)| {
+                (!self.registered_meshes.contains(&slot)
+                    && !self.objects.iter().any(|object| object.mesh_index == slot))
+                .then_some(slot)
+            })?
+        };
+        let path = mesh.model_path.clone();
+        if let Some(previous) = self.meshes.get_mut(index) {
+            let _old_index = self.mesh_index_by_path.remove(&previous.model_path);
+            *previous = mesh;
+        } else {
+            self.meshes.push(mesh);
+        }
+        let _previous_value = self.mesh_index_by_path.insert(path, index);
+        if registered {
+            self.registered_meshes.push(index);
+        }
         self.bump();
-        self.meshes.len().checked_sub(1)
+        Some(index)
     }
 
     /// Registers a code-built model under `key`, returning its mesh index.
@@ -1159,10 +1184,10 @@ impl DynamicScene {
         alphas: &[MaterialAlpha],
     ) -> Option<usize> {
         if let Some(index) = self.mesh_index_by_path.get(key).copied() {
+            if !self.registered_meshes.contains(&index) {
+                self.registered_meshes.push(index);
+            }
             return Some(index);
-        }
-        if self.meshes.len() >= MAX_DYNAMIC_MESHES {
-            return None;
         }
         let mesh = Arc::new(DynamicMesh::from_model(
             key.to_string(),
@@ -1170,12 +1195,7 @@ impl DynamicScene {
             textures,
             alphas,
         )?);
-        let _previous_value = self
-            .mesh_index_by_path
-            .insert(mesh.model_path.clone(), self.meshes.len());
-        self.meshes.push(mesh);
-        self.bump();
-        self.meshes.len().checked_sub(1)
+        self.insert_mesh(mesh, true)
     }
 
     /// Spawns one object that draws an already-registered mesh.

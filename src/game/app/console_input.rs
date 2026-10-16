@@ -54,8 +54,20 @@ impl FrameLoop<'_> {
     }
 
     pub(crate) fn reconcile_console(&mut self) {
-        if !self.settings.developer_console {
-            if let Err(error) = self.game.set_noclip(false) {
+        if self
+            .console_runtime
+            .console_disabled_transition(self.settings.developer_console)
+        {
+            let exit = self.console_runtime.apply_action(
+                &crate::game::gameplay_actions::GameplayAction::Noclip(Some(false)),
+                &mut crate::game::gameplay_runtime::GameplayContext {
+                    game: self.game,
+                    renderer: self.renderer,
+                    physics: &mut self.items.world,
+                    authored: &mut self.items.authored,
+                },
+            );
+            if let Err(error) = exit {
                 // Do not strand a body inside geometry when a malformed map
                 // lacks a safe return destination. Let the player move clear.
                 self.settings.developer_console = true;
@@ -66,7 +78,10 @@ impl FrameLoop<'_> {
                 self.close_console();
             }
         }
-        if self.game.app_state() != AppState::Playing || self.load_intent.is_some() {
+        if !self.settings.developer_console
+            || self.game.app_state() != AppState::Playing
+            || self.load_intent.is_some()
+        {
             self.close_console();
         }
     }
@@ -97,10 +112,18 @@ impl FrameLoop<'_> {
             self.console_runtime.execute(
                 command,
                 &mut self.console,
-                self.game,
-                self.renderer,
-                &mut self.items.world,
+                &mut crate::game::console::runtime::GameplayContext {
+                    game: self.game,
+                    renderer: self.renderer,
+                    physics: &mut self.items.world,
+                    authored: &mut self.items.authored,
+                },
             );
+            self.items.input.invalidate();
+            self.items.target = None;
+            let _clock_updated = self
+                .game
+                .set_world_time_scale(self.items.world.simulation_state().time_scale);
             self.trace_world("console_command");
         }
         true

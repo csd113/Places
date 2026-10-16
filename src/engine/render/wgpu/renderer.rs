@@ -1556,6 +1556,48 @@ impl WgpuRenderer {
         Ok(bounds)
     }
 
+    /// Shared decoded bounds and pose capability for catalog-based visuals.
+    pub fn runtime_model_info(
+        &mut self,
+        id: &str,
+    ) -> Result<crate::engine::render::RuntimeModelInfo, String> {
+        let entry = self
+            .prop_catalog
+            .assets()
+            .get(id)
+            .ok_or_else(|| format!("Unknown catalog ID `{id}`."))?;
+        if !entry.is_placeable() {
+            return Err(format!("`{id}` is not a placeable model."));
+        }
+        let path = entry
+            .model
+            .as_deref()
+            .ok_or_else(|| format!("`{id}` has no runtime model."))?;
+        let asset = self.prop_assets.resolve(path)?;
+        let bounds = asset
+            .model
+            .bounds()
+            .ok_or_else(|| "Model has no usable bounds.".to_string())?;
+        let [x0, y0, z0] = bounds.0;
+        let [x1, y1, z1] = bounds.1;
+        let extent = glam::Vec3::new(x1 - x0, y1 - y0, z1 - z0);
+        if !glam::Vec3::from(bounds.0).is_finite()
+            || !glam::Vec3::from(bounds.1).is_finite()
+            || !extent.is_finite()
+            || extent.min_element() <= 0.0
+            || extent.max_element() > 100.0
+        {
+            return Err(
+                "Models need positive finite bounds no larger than 100 m per axis.".to_string(),
+            );
+        }
+        let animated = asset.model.is_animatable();
+        if animated && crate::engine::render::CharacterAnimator::new(&asset.model).is_none() {
+            return Err(format!("`{id}` has no poseable rig."));
+        }
+        Ok(crate::engine::render::RuntimeModelInfo { bounds, animated })
+    }
+
     /// Spawns one runtime entity's model as a dynamic object.
     ///
     /// `key` is the engine's stable runtime token: spawning with a live key
@@ -2459,6 +2501,56 @@ impl WgpuRenderer {
             glam::Vec3::from(position),
             yaw_degrees,
         )
+    }
+
+    /// Applies a physics/world orientation independently of the animated rig.
+    pub fn set_runtime_character_pose(
+        &mut self,
+        instance_id: &str,
+        position: [f32; 3],
+        orientation: [f32; 4],
+    ) -> bool {
+        self.characters.set_runtime_character_pose(
+            instance_id,
+            glam::Vec3::from(position),
+            glam::Quat::from_array(orientation),
+        )
+    }
+
+    /// Retains the simulation snapshot used by one runtime character's rig.
+    pub fn set_runtime_character_locomotion(
+        &mut self,
+        instance_id: &str,
+        locomotion: LocomotionSnapshot,
+    ) -> bool {
+        self.characters
+            .set_runtime_character_locomotion(instance_id, locomotion)
+    }
+
+    /// Supplies one actor's next pose delta independently of scaled world time.
+    pub fn set_runtime_character_frame_delta(
+        &mut self,
+        instance_id: &str,
+        delta_seconds: f32,
+    ) -> bool {
+        self.characters
+            .set_runtime_character_frame_delta(instance_id, delta_seconds)
+    }
+
+    /// Adds or removes a runtime actor's retained socket/offset illumination.
+    pub fn set_runtime_character_glow(
+        &mut self,
+        instance_id: &str,
+        glow: Option<crate::engine::entity::GlowCue>,
+    ) -> bool {
+        self.characters
+            .set_runtime_character_glow(instance_id, glow)
+    }
+
+    /// Retains a suspended runtime actor while hiding its complete visual.
+    pub fn set_runtime_character_visible(&mut self, instance_id: &str, visible: bool) -> bool {
+        self.characters
+            .set_runtime_character_visible(instance_id, visible)
     }
 
     /// The number of live characters in the current level.

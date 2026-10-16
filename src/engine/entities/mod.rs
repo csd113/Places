@@ -26,6 +26,7 @@
 
 pub mod balloon;
 pub mod components;
+pub mod developer;
 pub mod events;
 pub mod id;
 pub mod sequences;
@@ -354,6 +355,8 @@ pub struct EntityWorld {
     weather_endpoints: WeatherEndpoints,
     /// Authored physical reset groups addressable by the generic action.
     physics_reset_groups: Vec<String>,
+    /// Movable authored props whose render/body lifetime the native loop owns.
+    authored_physics: Vec<EntityHandle>,
     moves: Vec<MoveGoal>,
     /// Entities spawned at runtime and still alive, in spawn order.
     live_spawns: Vec<EntityHandle>,
@@ -442,6 +445,7 @@ impl EntityWorld {
             weather_cycle_available: false,
             weather_endpoints: WeatherEndpoints::Absent,
             physics_reset_groups: Vec::new(),
+            authored_physics: Vec::new(),
             moves: Vec::new(),
             live_spawns: Vec::new(),
             dynamic_keys: Vec::new(),
@@ -504,6 +508,7 @@ impl EntityWorld {
         };
         self.moves.clear();
         self.physics_reset_groups = level.physics_reset_groups().map(str::to_string).collect();
+        self.authored_physics.clear();
         self.live_spawns.clear();
         self.dynamic_keys.clear();
         self.next_dynamic_key = 1;
@@ -675,6 +680,9 @@ impl EntityWorld {
             };
             let handle = self.store.insert();
             let _ = self.names.insert(EntityId::new(id), handle);
+            if prop.is_physics_movable() {
+                self.authored_physics.push(handle);
+            }
             let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0) + prop.y;
             let size = prop.resolved_size(PROP_FALLBACK_SIZE);
             let _previous_value = self.components.transforms.insert(
@@ -1868,25 +1876,7 @@ impl EntityWorld {
             .map_or(Vec3::ZERO, |transform| transform.position);
         self.note_stimulus(position, 8.0, "interact", Some(handle));
         let _event_queued = self.emit(EventKind::Interact, handle, "", Some(handle));
-        let mut tick = WorldTick::default();
-        self.pump_events(&mut tick);
-        self.report_queue_refusals(&mut tick);
-        if tick.frames_dirty {
-            self.sync_transformed_interactables();
-            self.sync_routed_interactables();
-            self.rebuild_entity_frames();
-        }
-        Some(DispatchReport {
-            actions_run: tick.actions_run,
-            player_reset: tick.player_reset,
-            spawned: tick.spawned,
-            despawned: tick.despawned,
-            missing_targets: tick.missing_targets,
-            unsupported: tick.unsupported,
-            labels_shown: tick.labels_shown,
-            labels_hidden: tick.labels_hidden,
-            ..DispatchReport::default()
-        })
+        Some(self.dispatch_queued_events())
     }
 
     /// Runs one ordered batch of actions programmatically.
@@ -3575,17 +3565,45 @@ impl EntityWorld {
         if let Some(key) = self.dynamic_key(handle) {
             self.commands.push(WorldCommand::DespawnDynamic {
                 entity: key,
-                instance_id: id.clone().unwrap_or_default(),
+                instance_id: id.unwrap_or_default(),
             });
+        }
+        self.remove_entity_handle(handle)
+    }
+
+    /// Releases component ownership after the caller handles render lifetime.
+    /// Binding slots stay stable until the current event wave has finished.
+    fn remove_entity_handle(&mut self, handle: EntityHandle) -> bool {
+        let id = self.id_of(handle).map(str::to_string);
+        if self.components.audio.contains(handle)
+            && let Some(key) = self.dynamic_key(handle).or_else(|| self.stable_key(handle))
+        {
+            self.commands.push(WorldCommand::StopSound { entity: key });
         }
         self.sequence_runs.retain(|run| run.owner != handle);
         self.moves.retain(|goal| goal.entity != handle);
         self.dynamic_keys
             .retain(|(candidate, _)| *candidate != handle);
         self.live_spawns.retain(|candidate| *candidate != handle);
+        self.authored_physics
+            .retain(|candidate| *candidate != handle);
+        self.authored_lights
+            .retain(|(candidate, _)| *candidate != handle);
+        self.authored_states
+            .retain(|(candidate, _)| *candidate != handle);
+        self.authored_prompts
+            .retain(|(candidate, _)| *candidate != handle);
+        for circuit in &mut self.light_circuits {
+            circuit.retain(|candidate| *candidate != handle);
+        }
+        self.light_circuits.retain(|circuit| !circuit.is_empty());
+        self.stimuli
+            .retain(|stimulus| stimulus.source != Some(handle));
         let _release_status = self.spawn_groups.release(handle);
         let _removed_value = self.ai.remove(handle);
         if let Some(removed_id) = id {
+            self.animation_overrides
+                .retain(|(candidate, _)| candidate != &removed_id);
             let _removed_value_2 = self.names.remove(&removed_id);
         }
         self.components.remove_all(handle);

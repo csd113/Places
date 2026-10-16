@@ -15,6 +15,9 @@ use super::{FIXED_STEP, MAX_BODIES};
 /// Minimum predicted inward contact speed that counts as a physical activation.
 pub const ACTIVATION_SPEED: f32 = 0.15;
 const CONTACT_MARGIN: f32 = 0.006;
+/// Harmless solver-scale contact is allowed; a player wrapped by an authored
+/// or become body must leave its solid volume before that body can activate.
+const MAX_PLAYER_PENETRATION: f32 = 0.002;
 
 /// Number of previously dormant members activated by an explicit group action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -104,6 +107,21 @@ impl Runtime {
             return false;
         };
         if entry.dormant {
+            if let Some(player) = self.world.colliders.get(self.player_collider)
+                && player.is_enabled()
+                && !contact(
+                    body.position(),
+                    entry.shape.as_ref(),
+                    player.position(),
+                    player.shape(),
+                    0.0,
+                )
+                .is_ok_and(|geometry| {
+                    geometry.is_none_or(|surface| surface.dist >= -MAX_PLAYER_PENETRATION)
+                })
+            {
+                return false;
+            }
             let motion = match entry.motion {
                 BodyMotion::Dynamic => RigidBodyType::Dynamic,
                 BodyMotion::Kinematic => RigidBodyType::KinematicPositionBased,

@@ -151,7 +151,19 @@ impl Game {
         );
         let has_support = self.support_at(feet.x, feet.z, feet.y).is_some()
             || self.water.sample(feet.x, feet.z, feet.y).is_some();
-        (has_support && self.body_fits_with_height(feet, PLAYER_HEIGHT)).then_some(destination)
+        (destination.eye.is_finite()
+            && destination.yaw.is_finite()
+            && has_support
+            && self.body_fits_with_height(feet, PLAYER_HEIGHT))
+        .then_some(destination)
+    }
+
+    /// Player-only recovery shared by explicit respawn and genuine void
+    /// recovery. Reseeding prevents a cross-map trigger sweep.
+    pub(super) fn restore_recovery_destination(&mut self, destination: RecoveryDestination) {
+        self.clear_run_state(destination.eye, destination.yaw, true);
+        self.reseed_trigger_inside();
+        self.reset_count = self.reset_count.saturating_add(1);
     }
 
     pub(super) fn recover_out_of_map(&mut self) -> bool {
@@ -179,11 +191,7 @@ impl Game {
                 self.player_position, destination.eye
             ));
         }
-        // Reset only the player: doors, switches and AI retain their state.
-        // Reseeding volume membership prevents a cross-map trigger sweep.
-        self.clear_run_state(destination.eye, destination.yaw, true);
-        self.reseed_trigger_inside();
-        self.reset_count = self.reset_count.saturating_add(1);
+        self.restore_recovery_destination(destination);
         true
     }
 }

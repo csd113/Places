@@ -9,7 +9,7 @@ use rapier3d::prelude::{
 
 use crate::engine::collision::PLAYER_RADIUS;
 
-use super::collision::{add, point, pose, query_filter, scaled, subtract, vector};
+use super::collision::{add, point, pose, quaternion, query_filter, scaled, subtract, vector};
 use super::world::{ItemWorld, PlayerContext, Runtime};
 use super::{FIXED_STEP, HOLD_DISTANCE, PICKUP_REACH};
 
@@ -17,18 +17,13 @@ const HOLD_SPEED: f32 = 4.0;
 const SWEEP_MARGIN: f32 = 0.006;
 const CAMERA_RADIUS: f32 = 0.10;
 
-fn carry_filter(collider: ColliderHandle) -> QueryFilter<'static> {
-    let mut filter = query_filter().exclude_collider(collider);
-    // Controlled carrying pushes active rigid items through Rapier contacts.
-    // Fixed scenery, dormant bodies, doors and the player remain sweep obstacles.
-    filter.flags |= QueryFilterFlags::EXCLUDE_DYNAMIC;
-    filter
-}
-
 pub(super) struct HeldItem {
     pub key: u64,
     relative_rotation: Quat,
     route: Option<CarryRoute>,
+    control_delta: f32,
+    block_dynamic: bool,
+    angular_velocity: Vec3,
 }
 
 #[derive(Clone, Copy)]
@@ -105,56 +100,64 @@ fn carry_waypoint(
 }
 
 impl ItemWorld {
-    /// Sweeps ordinary planar controller movement against the actual held
-    /// shape. Vertical controller output stays unchanged. Existing overlap
-    /// from a developer teleport is left for geometric carry recovery.
+    /// Checks the prescribed player capsule against live item bodies only.
+    /// Static level geometry remains the owning controller's responsibility.
     #[must_use]
-    pub fn constrain_player_eye(&self, player: PlayerContext) -> Vec3 {
-        let Some(runtime) = self.runtime.as_ref() else {
-            return player.eye;
-        };
-        let Some(previous) = runtime.last_player else {
-            return player.eye;
-        };
-        let Some(held) = runtime.held.as_ref() else {
-            return player.eye;
-        };
-        let Some(entry) = runtime.entries.get(&held.key) else {
-            return player.eye;
-        };
-        if !player.active
-            || !previous.active
-            || !player.eye.is_finite()
-            || !player.feet.is_finite()
-            || !player.height.is_finite()
-            || player.height <= PLAYER_RADIUS * 2.0
-        {
-            return player.eye;
+    pub fn player_pose_clear(&self, player: PlayerContext) -> bool {
+        if !player.valid() {
+            return false;
         }
-        let center_y = player.height.mul_add(0.5, player.feet.y);
-        let start = pose(
-            Vec3::new(previous.feet.x, center_y, previous.feet.z),
-            Quat::IDENTITY,
-        );
-        let motion = Vec3::new(
-            player.feet.x - previous.feet.x,
-            0.0,
-            player.feet.z - previous.feet.z,
-        );
+        let Some(runtime) = self.runtime.as_ref() else {
+            return true;
+        };
         let capsule =
             SharedShape::capsule_y(player.height.mul_add(0.5, -PLAYER_RADIUS), PLAYER_RADIUS);
-        let only_held = |handle, collider: &rapier3d::prelude::Collider| {
-            handle == entry.collider && collider.is_enabled()
+        let center = Vec3::new(
+            player.feet.x,
+            player.height.mul_add(0.5, player.feet.y),
+            player.feet.z,
+        );
+        let only_items = |handle, collider: &rapier3d::prelude::Collider| {
+            collider.is_enabled() && runtime.key_for_collider(handle).is_some()
         };
-        let filter = query_filter().predicate(&only_held);
+        runtime
+            .world
+            .intersect_shape(
+                pose(center, Quat::IDENTITY),
+                capsule.as_ref(),
+                query_filter().predicate(&only_items),
+            )
+            .next()
+            .is_none()
+    }
+
+    /// Sweeps a camera sphere against physical items and installed scenery.
+    /// Invalid vectors or a radius outside `0 < radius <= 0.5` are rejected.
+    #[must_use]
+    pub fn camera_sweep(&self, start: Vec3, destination: Vec3, radius: f32) -> Option<Vec3> {
+        if !start.is_finite()
+            || !destination.is_finite()
+            || !radius.is_finite()
+            || radius <= 0.0
+            || radius > 0.5
+        {
+            return None;
+        }
+        let Some(runtime) = self.runtime.as_ref() else {
+            return Some(destination);
+        };
+        let camera = Ball::new(radius);
+        let start_pose = pose(start, Quat::IDENTITY);
+        let filter = query_filter().exclude_rigid_body(runtime.player);
         if runtime
             .world
-            .intersect_shape(start, capsule.as_ref(), filter)
+            .intersect_shape(start_pose, &camera, filter)
             .next()
             .is_some()
         {
-            return player.eye;
+            return Some(start);
         }
+        let motion = subtract(destination, start);
         let options = ShapeCastOptions {
             max_time_of_impact: 1.0,
             target_distance: SWEEP_MARGIN,
@@ -163,12 +166,63 @@ impl ItemWorld {
         };
         let travel = runtime
             .world
+            .cast_shape(&start_pose, vector(motion), &camera, options, filter)
+            .map_or(1.0, |(_, hit)| hit.time_of_impact.clamp(0.0, 1.0));
+        Some(add(start, scaled(motion, travel)))
+    }
+
+    /// Sweeps all controller movement axes against held and dormant items.
+    /// A stopped world also blocks on active items; live dynamics retain their
+    /// ordinary solver-driven pushing behavior.
+    #[must_use]
+    pub fn constrain_player_eye(&self, player: PlayerContext) -> Vec3 {
+        let Some(runtime) = self.runtime.as_ref() else {
+            return player.eye;
+        };
+        let Some(previous) = runtime.last_player else {
+            return player.eye;
+        };
+        let clock = self.simulation_state();
+        let frozen = clock.paused || clock.time_scale <= 0.0;
+        let held_key = runtime.held.as_ref().map(|held| held.key);
+        if !player.active || !previous.active || !player.valid() || !previous.valid() {
+            return player.eye;
+        }
+        let start_feet = previous.feet;
+        let start = pose(
+            add(start_feet, Vec3::new(0.0, player.height * 0.5, 0.0)),
+            Quat::IDENTITY,
+        );
+        let motion = subtract(player.feet, start_feet);
+        let capsule =
+            SharedShape::capsule_y(player.height.mul_add(0.5, -PLAYER_RADIUS), PLAYER_RADIUS);
+        let blocking_items = |handle, collider: &rapier3d::prelude::Collider| {
+            collider.is_enabled()
+                && runtime.key_for_collider(handle).is_some_and(|key| {
+                    runtime.entries.get(&key).is_some_and(|entry| {
+                        entry.collider == handle
+                            && (frozen || entry.dormant || held_key == Some(key))
+                    })
+                })
+        };
+        let filter = query_filter().predicate(&blocking_items);
+        let options = ShapeCastOptions {
+            max_time_of_impact: 1.0,
+            target_distance: SWEEP_MARGIN,
+            // A become copy can start around its player. Allow separating
+            // motion while still refusing incoming motion through that body.
+            stop_at_penetration: false,
+            ..ShapeCastOptions::default()
+        };
+        let travel = runtime
+            .world
             .cast_shape(&start, vector(motion), capsule.as_ref(), options, filter)
             .map_or(1.0, |(_, hit)| hit.time_of_impact.clamp(0.0, 1.0));
+        let resolved_feet = add(start_feet, scaled(motion, travel));
         Vec3::new(
-            motion.x.mul_add(travel, previous.feet.x),
-            player.eye.y,
-            motion.z.mul_add(travel, previous.feet.z),
+            resolved_feet.x,
+            resolved_feet.y + player.eye.y - player.feet.y,
+            resolved_feet.z,
         )
     }
 
@@ -227,6 +281,28 @@ impl ItemWorld {
         (entry.pickup && entry.motion == super::BodyMotion::Dynamic && fits_reach).then_some(key)
     }
 
+    /// An unobstructed dormant movable body that can be activated by Interact.
+    /// Large character copies may be too wide to carry; they still expose the
+    /// same bounded activation action without pretending to be pickup items.
+    #[must_use]
+    pub fn nearest_activation(&self, eye: Vec3, direction: Vec3) -> Option<u64> {
+        if !eye.is_finite() || !direction.is_finite() {
+            return None;
+        }
+        let runtime = self.runtime.as_ref()?;
+        let unit = direction.try_normalize()?;
+        let ray = Ray::new(vector(eye), vector(unit));
+        let (hit, _distance) = runtime.world.cast_ray(
+            &ray,
+            PICKUP_REACH,
+            true,
+            query_filter().exclude_collider(runtime.player_collider),
+        )?;
+        let key = runtime.key_for_collider(hit)?;
+        let entry = runtime.entries.get(&key)?;
+        (entry.dormant && entry.motion.is_movable()).then_some(key)
+    }
+
     #[must_use]
     pub fn held(&self) -> Option<u64> {
         self.runtime.as_ref()?.held.as_ref().map(|held| held.key)
@@ -262,6 +338,9 @@ impl ItemWorld {
             key,
             relative_rotation,
             route: None,
+            control_delta: FIXED_STEP,
+            block_dynamic: false,
+            angular_velocity: Vec3::ZERO,
         });
         true
     }
@@ -277,6 +356,7 @@ impl ItemWorld {
             return false;
         };
         let key = held.key;
+        let angular_velocity = held.angular_velocity;
         runtime.refresh_queries();
         let Some(entry) = runtime.entries.get_mut(&key) else {
             return false;
@@ -307,10 +387,53 @@ impl ItemWorld {
         released_body.set_linvel(vector(runtime.player_velocity.clamp_length_max(2.0)), true);
         // Only actual continuously swept hand rotation is transferred. A
         // camera snap cannot create an unbounded synthetic release impulse.
-        released_body.set_angvel(released_body.angvel().clamp_length_max(3.0), true);
+        released_body.set_angvel(vector(angular_velocity.clamp_length_max(3.0)), true);
         released_body.set_next_kinematic_position(candidate);
         entry.previous = entry.current;
         runtime.held = None;
+        true
+    }
+
+    /// Safe release for lifecycle commands. An empty hand already succeeds;
+    /// an obstructed held pose returns false without changing ownership.
+    pub fn release_held(&mut self) -> bool {
+        self.held().is_none() || self.drop()
+    }
+
+    /// Detaches an item after an authoritative player reset without moving it
+    /// toward the new player. Its last valid swept pose is retained and its
+    /// motion is cleared; the world clock still determines when gravity resumes.
+    /// Unlike an ordinary drop, this does not validate against the new player.
+    pub fn release_held_for_reset(&mut self) -> bool {
+        let Some(runtime) = self.runtime.as_mut() else {
+            return true;
+        };
+        let Some(key) = runtime.held.as_ref().map(|held| held.key) else {
+            return true;
+        };
+        let Some(entry) = runtime.entries.get(&key) else {
+            return false;
+        };
+        let Some(body) = runtime.world.bodies.get_mut(entry.body) else {
+            return false;
+        };
+        let retained = *body.position();
+        if !point(retained.translation).is_finite() || !quaternion(retained.rotation).is_finite() {
+            return false;
+        }
+        body.set_body_type(RigidBodyType::Dynamic, true);
+        body.set_linvel(Vector::ZERO, true);
+        body.set_angvel(Vector::ZERO, true);
+        body.reset_forces(true);
+        body.reset_torques(true);
+        body.set_next_kinematic_position(retained);
+        runtime.held = None;
+        runtime.clear_item_contacts(key);
+        runtime.update_poses();
+        if let Some(released_entry) = runtime.entries.get_mut(&key) {
+            released_entry.previous = released_entry.current;
+        }
+        runtime.populate_counts(&mut self.stats);
         true
     }
 
@@ -357,7 +480,28 @@ impl ItemWorld {
 }
 
 impl Runtime {
-    pub(super) fn advance_held(&mut self, player: PlayerContext) {
+    fn carry_filter(&self, collider: ColliderHandle) -> QueryFilter<'static> {
+        let mut filter = query_filter().exclude_collider(collider);
+        // Solver ticks push active items normally. Between ticks those same
+        // bodies are immobile obstacles to independently controlled carrying.
+        if self.held.as_ref().is_some_and(|held| !held.block_dynamic) {
+            filter.flags |= QueryFilterFlags::EXCLUDE_DYNAMIC;
+        }
+        filter
+    }
+
+    fn carry_delta(&self) -> f32 {
+        self.held
+            .as_ref()
+            .map_or(FIXED_STEP, |held| held.control_delta)
+    }
+
+    pub(super) fn advance_held(&mut self, player: PlayerContext, delta: f32, immediate: bool) {
+        if let Some(held) = self.held.as_mut() {
+            held.control_delta = delta;
+            held.block_dynamic = immediate;
+            held.angular_velocity = Vec3::ZERO;
+        }
         let Some(held) = self.held.as_ref() else {
             return;
         };
@@ -394,6 +538,8 @@ impl Runtime {
                     held_body.set_position(recovered, false);
                     held_body.set_next_kinematic_position(recovered);
                 }
+                self.update_poses();
+                self.refresh_queries();
                 return;
             }
         }
@@ -408,9 +554,27 @@ impl Runtime {
         let body_handle = entry.body;
         if let Some(current_held) = self.held.as_mut() {
             current_held.route = route;
+            let raw_delta =
+                quaternion(target.rotation).mul_quat(quaternion(start.rotation).inverse());
+            let rotation_delta = if raw_delta.w < 0.0 {
+                Quat::from_xyzw(-raw_delta.x, -raw_delta.y, -raw_delta.z, -raw_delta.w)
+            } else {
+                raw_delta
+            };
+            current_held.angular_velocity = scaled(rotation_delta.to_scaled_axis(), 1.0 / delta);
         }
         if let Some(held_body) = self.world.bodies.get_mut(body_handle) {
+            if immediate {
+                held_body.set_position(target, false);
+                // Position-based kinematics ignore velocity setters. Clear
+                // their stale solver velocity before a paused release/resume.
+                held_body.sleep();
+            }
             held_body.set_next_kinematic_position(target);
+        }
+        if immediate {
+            self.update_poses();
+            self.refresh_queries();
         }
     }
 
@@ -582,7 +746,7 @@ impl Runtime {
                 .intersect_shape(
                     candidate,
                     entry.shape.as_ref(),
-                    carry_filter(entry.collider),
+                    self.carry_filter(entry.collider),
                 )
                 .next()
                 .is_none()
@@ -597,7 +761,9 @@ impl Runtime {
     ) -> Vec3 {
         let from_eye = Pose::from_parts(vector(eye), start.rotation);
         let movement = subtract(ideal, eye);
-        let filter = carry_filter(entry.collider).exclude_rigid_body(self.player);
+        let filter = self
+            .carry_filter(entry.collider)
+            .exclude_rigid_body(self.player);
         let options = ShapeCastOptions {
             max_time_of_impact: 1.0,
             target_distance: SWEEP_MARGIN,
@@ -629,8 +795,8 @@ impl Runtime {
         eye: Vec3,
     ) -> Option<Pose> {
         let motion_delta = subtract(desired_center, point(start.translation))
-            .clamp_length_max(HOLD_SPEED * FIXED_STEP);
-        let filter = carry_filter(entry.collider);
+            .clamp_length_max(HOLD_SPEED * self.carry_delta());
+        let filter = self.carry_filter(entry.collider);
         let options = ShapeCastOptions {
             max_time_of_impact: 1.0,
             target_distance: SWEEP_MARGIN,
@@ -664,7 +830,7 @@ impl Runtime {
         };
         let angular_delta = rotation_delta
             .to_scaled_axis()
-            .clamp_length_max(8.0 * FIXED_STEP);
+            .clamp_length_max(8.0 * self.carry_delta());
         let rotation_motion =
             NonlinearRigidMotion::new(moved, Vector::ZERO, Vector::ZERO, vector(angular_delta));
         let rotational_travel = self

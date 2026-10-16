@@ -2,6 +2,19 @@
 
 Development staging; this version has not been published.
 
+### Developer console and reusable gameplay actions
+
+- Add curated movable pickup spawning/listing, safe respawn/position reporting,
+  held-only and matching-physics removal, bounded world time and exact stepping,
+  trigger activation/visible IDs and command-specific help (#22).
+- Preserve unscaled player/carry control and collisions while world time stops;
+  fix clear airborne noclip exit and safe held detachment on player reset.
+- Add model representation, third-person camera and session-local visual or
+  dormant-physics copies through `/become`, including cups and Spooner-Man.
+  Keep typed gameplay requests independent of text commands and player identity.
+- [Stage contract and verification](docs/reports/developer-console-0.11.0.md);
+  [complete pickup audit](docs/reports/console-pickup-audit-0.11.0.md).
+
 ### Flashlight close-up correction
 
 - Keep the flashlight at camera-relative eye height while retaining its lateral

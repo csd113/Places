@@ -34,3 +34,6 @@ pub mod runtime_work;
 pub mod scene;
 pub mod spatial;
 pub mod weather;
+
+#[cfg(test)]
+mod tests;

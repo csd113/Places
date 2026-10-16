@@ -25,6 +25,8 @@ are separate developer controls. Places Demo and Model Zoo remain frozen JSON in
 Historical reports describe the version they measured. They do not establish
 current package currency, test counts or platform performance.
 
+- [0.11.0 developer console](reports/developer-console-0.11.0.md): reusable typed
+  actions, curated pickups, simulation controls and model representation.
 - [0.10.0 prerelease summary](reports/release-0.10.0.md): integrated gameplay,
   delivered models, compiler GUI, final checks and compatibility limits.
 - [0.9.0 release summary](reports/release-0.9.0.md): final supported-package,

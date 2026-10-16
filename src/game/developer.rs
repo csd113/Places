@@ -1,6 +1,8 @@
 //! Developer movement and validated rigid-prop placement. Ordinary walking
 //! and void recovery retain their own paths.
 use super::{EYE_HEIGHT, Game, PLAYER_HEIGHT, PLAYER_RADIUS, Vec2, Vec3};
+use crate::engine::entities::DispatchReport;
+use crate::engine::entities::developer::TriggerLabel;
 use crate::game::input::{Control, InputState};
 use crate::game::settings::Settings;
 
@@ -17,11 +19,23 @@ impl Game {
         self.noclip.is_some()
     }
 
-    /// Switch modes with validated standing-body recovery, preserving world
-    /// entities. A malformed world without any safe destination refuses exit.
+    /// Switch modes with standing-body clearance, preserving a clear airborne
+    /// eye pose so ordinary gravity and void recovery resume from that point.
     /// # Errors
     /// Returns a clear error if no safe walking destination exists.
     pub fn set_noclip(&mut self, enabled: bool) -> Result<&'static str, String> {
+        self.set_noclip_with_clearance(enabled, |_| true)
+    }
+
+    /// Adds live-body clearance to the same current/entry/spawn policy.
+    ///
+    /// # Errors
+    /// Refuses exit without changing mode or pose when every candidate is blocked.
+    pub fn set_noclip_with_clearance(
+        &mut self,
+        enabled: bool,
+        clear_eye: impl Fn(Vec3) -> bool,
+    ) -> Result<&'static str, String> {
         if enabled == self.noclip_enabled() {
             return Ok(if enabled { "Noclip ON." } else { "Noclip OFF." });
         }
@@ -47,15 +61,19 @@ impl Game {
             yaw: self.player_yaw,
             pitch: self.player_pitch,
         };
-        let current_feet = Vec3::new(current.eye.x, self.feet_y, current.eye.z);
-        let keep_current = self.safe_walking_feet(current_feet);
+        let current_feet = Vec3::new(current.eye.x, current.eye.y - EYE_HEIGHT, current.eye.z);
+        let keep_current = self.clear_standing_feet(current_feet) && clear_eye(current.eye);
         let destination = if keep_current {
-            Some(ReturnPose { eye: Vec3::new(current_feet.x, current_feet.y + EYE_HEIGHT, current_feet.z), ..current })
+            Some(current)
         } else {
-            self.noclip.filter(|pose| self.safe_walking_feet(Vec3::new(pose.eye.x, pose.eye.y - EYE_HEIGHT, pose.eye.z)))
-                .or_else(|| self.recovery_destination().map(|spawn| ReturnPose { eye: spawn.eye, yaw: spawn.yaw, pitch: 0.0 }))
+            self.noclip.filter(|pose| {
+                let feet = Vec3::new(pose.eye.x, pose.eye.y - EYE_HEIGHT, pose.eye.z);
+                self.clear_standing_feet(feet) && self.playable_feet(feet) && clear_eye(pose.eye)
+            })
+                .or_else(|| self.recovery_destination().filter(|spawn| clear_eye(spawn.eye)).map(|spawn| ReturnPose { eye: spawn.eye, yaw: spawn.yaw, pitch: 0.0 }))
         }.ok_or_else(|| "Cannot exit noclip: no clear return pose or validated spawn. Move into a clear room and retry.".to_string())?;
         self.clear_run_state(destination.eye, destination.yaw, true);
+        self.player_yaw = destination.yaw;
         self.player_pitch = destination.pitch;
         self.reseed_trigger_inside();
         Ok(if keep_current {
@@ -65,10 +83,82 @@ impl Game {
         })
     }
 
-    fn safe_walking_feet(&self, feet: Vec3) -> bool {
-        feet.is_finite()
-            && self.body_fits_with_height(feet, PLAYER_HEIGHT)
-            && self.playable_feet(feet)
+    fn clear_standing_feet(&self, feet: Vec3) -> bool {
+        feet.is_finite() && self.body_fits_with_height(feet, PLAYER_HEIGHT)
+    }
+
+    /// Validates the respawn destination before the native loop releases a
+    /// held object or clears input state.
+    /// # Errors
+    /// Returns an error when the resolved spawn has no support or is blocked.
+    pub fn developer_can_respawn(&self) -> Result<(), String> {
+        self.developer_respawn_eye().map(|_| ())
+    }
+
+    /// Selected validated spawn eye, for the native loop's additional live
+    /// rigid-body clearance query before releasing a held item or teleporting.
+    /// # Errors
+    /// Returns an error when the resolved spawn has no support or is blocked.
+    pub fn developer_respawn_eye(&self) -> Result<Vec3, String> {
+        self.recovery_destination()
+            .map(|spawn| spawn.eye)
+            .ok_or_else(|| {
+                "Cannot respawn: the validated spawn is blocked or unavailable.".to_string()
+            })
+    }
+
+    /// Restores only the player at the validated spawn. Doors, AI, timers and
+    /// trigger binding state retain their current session state.
+    /// # Errors
+    /// Returns an error without moving the player when the spawn is unsafe.
+    pub fn developer_respawn(&mut self) -> Result<&'static str, String> {
+        let destination = self.recovery_destination().ok_or_else(|| {
+            "Cannot respawn: the validated spawn is blocked or unavailable.".to_string()
+        })?;
+        self.restore_recovery_destination(destination);
+        Ok("Respawned at the validated spawn.")
+    }
+
+    /// Current camera, physical feet and facing in metres and degrees.
+    #[must_use]
+    pub fn developer_position_report(&self) -> String {
+        let eye = self.player_position;
+        let direction = self.view_direction();
+        format!(
+            "Eye ({:.3}, {:.3}, {:.3}); feet Y {:.3}; yaw {:.2} deg; pitch {:.2} deg; facing ({:.3}, {:.3}, {:.3}).",
+            eye.x,
+            eye.y,
+            eye.z,
+            self.feet_y,
+            self.player_yaw.to_degrees().rem_euclid(360.0),
+            self.player_pitch.to_degrees(),
+            direction.x,
+            direction.y,
+            direction.z,
+        )
+    }
+
+    /// Fires a volume's ordinary entry event through its authored bindings.
+    /// # Errors
+    /// Refuses non-trigger ids and bindings blocked by their normal rules.
+    pub fn developer_trigger(&mut self, id: &str) -> Result<DispatchReport, String> {
+        let report = self.world.developer_trigger(id)?;
+        if report.player_reset {
+            self.reset_to_spawn();
+        }
+        Ok(report)
+    }
+
+    /// Nearby volume ids in the player's view cone with the ordinary indexed
+    /// static-wall and live-door visibility check.
+    #[must_use]
+    pub fn developer_trigger_labels(&self) -> Vec<TriggerLabel> {
+        self.world.developer_trigger_labels(
+            self.player_position,
+            self.view_direction(),
+            &self.collision_index,
+            &self.walls,
+        )
     }
 
     pub(super) fn update_noclip(

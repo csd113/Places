@@ -1577,6 +1577,9 @@ the current compiler builds maps against the installed asset bundle; see
 * `docs/images/flashlight-0.11.0/*.png`: unchanged 1512×838 native gameplay
   captures. Retain full frame, orientation and colour; diagnostic evidence only,
   outside the runtime catalog.
+* `docs/images/developer-console-0.11.0/*.png`: unchanged 3024×1898 native
+  gameplay captures. Retain full frame, orientation and colour; diagnostic
+  evidence only, outside the runtime catalog.
 * `docs/videos/places-0.9.0.mp4`: non-runtime promotional gameplay footage,
   16:9, native source at least 960×540 with 960×540 delivery at 30 fps,
   H.264/YUV420P with fast-start

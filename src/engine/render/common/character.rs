@@ -59,6 +59,7 @@ use super::mesh::LIGHTMAP_NONE;
 use super::props::{prop_instance_matrix, transform_bounds};
 use super::{DynamicLight, DynamicLightSet};
 use crate::engine::entities::balloon::{BalloonPose, STRING_NODE_NAMES};
+use crate::engine::entity::GlowCue;
 use crate::engine::gltf::{AnimationInterpolation, PropAnimation, PropNode, PropSkin};
 use crate::engine::level::LevelSurfaces;
 use crate::engine::lighting::LevelLighting;
@@ -1038,6 +1039,15 @@ pub struct Character {
     /// Per-instance opacity multiplier applied by the environment uniform,
     /// clamped to `0..=1`; `1.0` for a character with no fade component.
     opacity: f32,
+    /// Optional simulation-driven playback for runtime visual representations.
+    /// Ordinary runtime actors still hold their pose without an entity frame.
+    runtime_locomotion: Option<LocomotionSnapshot>,
+    /// A player visual can advance with unscaled time for the next pose pass.
+    runtime_frame_delta: Option<f32>,
+    /// Attached illumination owned by a runtime visual, independent of frames.
+    runtime_glow: Option<GlowCue>,
+    /// Suspended runtime props retain resources without drawing or lighting.
+    runtime_visible: bool,
 }
 
 impl Character {
@@ -1054,7 +1064,17 @@ impl Character {
     /// nor blooms.
     #[must_use]
     pub const fn opacity(&self) -> f32 {
-        self.opacity
+        if self.runtime_visible {
+            self.opacity
+        } else {
+            0.0
+        }
+    }
+
+    /// Explicit visibility, independent of a model's material alpha behavior.
+    #[must_use]
+    pub const fn is_visible(&self) -> bool {
+        self.runtime_visible
     }
 
     /// Sets the character's opacity, clamped to `0..=1`.
@@ -1080,6 +1100,9 @@ impl Character {
     /// Culling padding is excluded; animation silhouette remains approximate.
     #[must_use]
     pub fn contact_bounds(&self) -> Aabb {
+        if !self.runtime_visible {
+            return Aabb::EMPTY;
+        }
         if self.balloon_color.is_some() {
             return transform_bounds(&self.lighting_local_bounds, &self.transform);
         }
@@ -1111,7 +1134,11 @@ impl Character {
     /// recomputes the conservative world bounds, so culling follows the
     /// character. The mesh vertices are model-space and are unaffected.
     pub fn set_pose(&mut self, position: Vec3, yaw: f32) {
-        let rotation = Quat::from_rotation_y(yaw);
+        self.set_oriented_pose(position, Quat::from_rotation_y(yaw));
+    }
+
+    /// Composes the world pose independently of the local animated skeleton.
+    fn set_oriented_pose(&mut self, position: Vec3, rotation: Quat) {
         self.transform =
             Mat4::from_scale_rotation_translation(Vec3::splat(self.scale), rotation, position);
         self.world_bounds = character_bounds(&self.asset, &self.transform);
@@ -1414,6 +1441,10 @@ impl CharacterScene {
                 instance_id,
                 scale: prop.scale,
                 opacity: 1.0,
+                runtime_locomotion: None,
+                runtime_frame_delta: None,
+                runtime_glow: None,
+                runtime_visible: true,
             });
         }
         let claimed_models = plan.models;
@@ -1531,6 +1562,10 @@ impl CharacterScene {
             instance_id: Some(trimmed_id.to_string()),
             scale,
             opacity: 1.0,
+            runtime_locomotion: None,
+            runtime_frame_delta: None,
+            runtime_glow: None,
+            runtime_visible: true,
         };
         match replaced {
             Some(index) => {
@@ -1554,6 +1589,9 @@ impl CharacterScene {
             return false;
         };
         drop(self.runtime.remove(index));
+        let _removed_light = self
+            .dynamic_lights
+            .remove(&format!("{GLOW_KEY_PREFIX}{instance_id}"));
         self.runtime_generation = self.runtime_generation.wrapping_add(1);
         true
     }
@@ -1576,6 +1614,102 @@ impl CharacterScene {
             return false;
         };
         character.set_pose(position, yaw_degrees.to_radians());
+        true
+    }
+
+    /// Sets a runtime actor's complete world pose, retaining its local rig.
+    /// Rotations are normalized after rejecting zero/non-finite inputs.
+    pub fn set_runtime_character_pose(
+        &mut self,
+        instance_id: &str,
+        position: Vec3,
+        orientation: Quat,
+    ) -> bool {
+        if !position.is_finite()
+            || !orientation.is_finite()
+            || orientation.length_squared() <= f32::EPSILON
+            || !orientation.length_squared().is_finite()
+        {
+            return false;
+        }
+        let Some(character) = self.runtime_character_mut(instance_id) else {
+            return false;
+        };
+        character.set_oriented_pose(position, orientation.normalize());
+        true
+    }
+
+    /// Supplies the retained movement state for a runtime actor's own rig.
+    pub fn set_runtime_character_locomotion(
+        &mut self,
+        instance_id: &str,
+        locomotion: LocomotionSnapshot,
+    ) -> bool {
+        let Some(character) = self.runtime_character_mut(instance_id) else {
+            return false;
+        };
+        character.runtime_locomotion = Some(locomotion);
+        true
+    }
+
+    /// Overrides time for the next animation pass, then returns to world time.
+    pub fn set_runtime_character_frame_delta(
+        &mut self,
+        instance_id: &str,
+        delta_seconds: f32,
+    ) -> bool {
+        if !delta_seconds.is_finite() || delta_seconds < 0.0 {
+            return false;
+        }
+        let Some(character) = self.runtime_character_mut(instance_id) else {
+            return false;
+        };
+        character.runtime_frame_delta = Some(delta_seconds);
+        true
+    }
+
+    /// Retains a runtime visual's attached glow, reserving its bounded slot.
+    /// Invalid cues or a full light budget leave the previous glow unchanged.
+    pub fn set_runtime_character_glow(&mut self, instance_id: &str, glow: Option<GlowCue>) -> bool {
+        let Some(character) = self.runtime_character(instance_id) else {
+            return false;
+        };
+        let key = format!("{GLOW_KEY_PREFIX}{instance_id}");
+        if let Some(cue) = glow.as_ref() {
+            if !runtime_glow_is_valid(cue) {
+                return false;
+            }
+            let Some(light) = attached_character_light(character, key.clone(), cue) else {
+                return false;
+            };
+            if light.intensity > 0.0 {
+                if !self.dynamic_lights.insert(light) {
+                    return false;
+                }
+            } else {
+                let _removed_light = self.dynamic_lights.remove(&key);
+            }
+        } else {
+            let _removed_light = self.dynamic_lights.remove(&key);
+        }
+        let Some(live_character) = self.runtime_character_mut(instance_id) else {
+            return false;
+        };
+        live_character.runtime_glow = glow;
+        true
+    }
+
+    /// Hides a retained runtime actor and its attached light without respawning.
+    pub fn set_runtime_character_visible(&mut self, instance_id: &str, visible: bool) -> bool {
+        let Some(character) = self.runtime_character_mut(instance_id) else {
+            return false;
+        };
+        character.runtime_visible = visible;
+        if !visible {
+            let _removed_light = self
+                .dynamic_lights
+                .remove(&format!("{GLOW_KEY_PREFIX}{instance_id}"));
+        }
         true
     }
 
@@ -1769,9 +1903,8 @@ impl CharacterScene {
     /// world position of the glow's socket — `character.transform() *
     /// animator.node_global(socket)` in model space — or, when no socket is
     /// authored or the node does not resolve, the placement applied to the
-    /// entity-local offset. A frame with no glow, a missing frame and an
-    /// intensity that reached zero all remove the key, so a despawned or
-    /// invisible glow cannot leave a stale light in the uniform.
+    /// entity-local offset. Runtime visuals may retain a cue without a frame.
+    /// An absent cue or zero effective intensity removes the key.
     fn update_dynamic_lights(&mut self, frames: &[EntityFrame]) {
         for character in self.characters.iter().chain(self.runtime.iter()) {
             let Some(instance_id) = character.instance_id() else {
@@ -1780,7 +1913,8 @@ impl CharacterScene {
             let glow = frames
                 .iter()
                 .find(|frame| frame.instance_id == instance_id)
-                .and_then(|frame| frame.glow.as_ref());
+                .and_then(|frame| frame.glow.as_ref())
+                .or(character.runtime_glow.as_ref());
             // Ordinary balloons carry no glow. Do not allocate a light key
             // for a character that has never had an attached light.
             if glow.is_none()
@@ -1800,40 +1934,14 @@ impl CharacterScene {
                 let _removed_value = self.dynamic_lights.remove(&key);
                 continue;
             };
-            let fade = if glow_cue.fade_with_opacity {
-                character.opacity
-            } else {
-                1.0
-            };
-            let intensity = glow_cue.intensity * fade;
-            let position = glow_cue
-                .socket
-                .as_deref()
-                .and_then(|socket| character.animator.node_global(socket))
-                .map_or_else(
-                    || {
-                        character
-                            .transform
-                            .transform_point3(Vec3::from(glow_cue.offset))
-                    },
-                    |node| {
-                        character
-                            .transform
-                            .mul_mat4(&node)
-                            .transform_point3(Vec3::ZERO)
-                    },
-                );
-            if !intensity.is_finite() || intensity <= 0.0 || !position.is_finite() {
+            let Some(light) = attached_character_light(character, key.clone(), glow_cue) else {
                 let _removed_value_2 = self.dynamic_lights.remove(&key);
                 continue;
-            }
-            let light = DynamicLight {
-                key: key.clone(),
-                position,
-                color: glow_cue.color,
-                intensity,
-                radius: glow_cue.range,
             };
+            if light.intensity <= 0.0 {
+                let _removed_light = self.dynamic_lights.remove(&key);
+                continue;
+            }
             if !self.dynamic_lights.insert(light) {
                 // The bounded set refused the value (a malformed cue or a full
                 // budget): never keep a stale light for the refused key.
@@ -1862,6 +1970,10 @@ impl CharacterScene {
         frames: &[EntityFrame],
         follow_locomotion: bool,
     ) -> bool {
+        let animation_delta = character
+            .runtime_frame_delta
+            .take()
+            .unwrap_or(delta_seconds);
         let frame = character
             .instance_id
             .as_deref()
@@ -1881,14 +1993,80 @@ impl CharacterScene {
                 }
                 character
                     .animator
-                    .update_cued(delta_seconds, &entity_frame.cue)
+                    .update_cued(animation_delta, &entity_frame.cue)
+            }
+            None if character.runtime_locomotion.is_some() => {
+                if character.animator.is_rigid() {
+                    character
+                        .animator
+                        .update_cued(animation_delta, &PoseCue::Idle)
+                } else {
+                    character.animator.update(
+                        animation_delta,
+                        character.runtime_locomotion.unwrap_or_default(),
+                    )
+                }
             }
             // A rigid prop has no locomotion state to drive: until an action
             // cues it, it holds the bind pose it was spawned in.
             None if !follow_locomotion || character.animator.is_rigid() => false,
-            None => character.animator.update(delta_seconds, snapshot),
+            None => character.animator.update(animation_delta, snapshot),
         }
     }
+}
+
+/// Apply the same local socket/offset contract to frame and retained cues.
+fn attached_character_light(
+    character: &Character,
+    key: String,
+    cue: &GlowCue,
+) -> Option<DynamicLight> {
+    let fade = if !character.runtime_visible {
+        0.0
+    } else if cue.fade_with_opacity {
+        character.opacity
+    } else {
+        1.0
+    };
+    let position = cue
+        .socket
+        .as_deref()
+        .and_then(|socket| character.animator.node_global(socket))
+        .map_or_else(
+            || character.transform.transform_point3(Vec3::from(cue.offset)),
+            |node| {
+                character
+                    .transform
+                    .mul_mat4(&node)
+                    .transform_point3(Vec3::ZERO)
+            },
+        );
+    let light = DynamicLight {
+        key,
+        position,
+        color: cue.color,
+        intensity: cue.intensity * fade,
+        radius: cue.range,
+    };
+    light.is_well_formed().then_some(light)
+}
+
+fn runtime_glow_is_valid(cue: &GlowCue) -> bool {
+    cue.color
+        .iter()
+        .all(|value| value.is_finite() && (0.0..=1.0).contains(value))
+        && cue.intensity.is_finite()
+        && (0.0..=crate::engine::level::MAX_GLOW_INTENSITY).contains(&cue.intensity)
+        && cue.range.is_finite()
+        && (crate::engine::level::MIN_GLOW_RANGE_M..=crate::engine::level::MAX_GLOW_RANGE_M)
+            .contains(&cue.range)
+        && cue.offset.iter().all(|value| {
+            value.is_finite() && value.abs() <= crate::engine::level::MAX_GLOW_OFFSET_M
+        })
+        && cue
+            .socket
+            .as_ref()
+            .is_none_or(|socket| !socket.trim().is_empty())
 }
 
 /// True when a placement matrix already matches a live pose within a
