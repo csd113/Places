@@ -1582,7 +1582,8 @@ the current compiler builds maps against the installed asset bundle; see
   evidence only, outside the runtime catalog.
 * `docs/images/sound-0.11.0/*.png`: unchanged native full-frame captures at the
   recorded drawable size. `docs/videos/sound-0.11.0-*.mp4` retains 1280×720 native
-  frames in order and actual playback-output PCM, encoded H.264/AAC. Variable
+  frames in order and actual playback-output PCM, encoded H.264/YUV420P with
+  limited-range BT.709 metadata and AAC. Variable
   presentation times follow the captured audio clock; no microphone input or
   replacement soundtrack. Both are diagnostic evidence outside the runtime catalog.
 * `docs/videos/places-0.9.0.mp4`: non-runtime promotional gameplay footage,
