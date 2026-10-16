@@ -13,6 +13,7 @@ The current workflow uses the following tools:
 
 | tool | what it does |
 | --- | --- |
+| `native_app.py` | launches Places through one stable macOS validation bundle, with separate per-run configuration/results and no automatic rebuild or retry |
 | `compiler_bench.py` | measures complete clean offline builds, phase timings, CPU, peak RAM and deterministic package hashes |
 | `compiler_compare.py` | alternates baseline and optimized clean builds within each repeated map pair, comparing all physical output records |
 | `compiler_incremental.py` | measures preserved source edits and verifies incremental packages equal independent clean builds |
@@ -38,6 +39,26 @@ The current workflow uses the following tools:
 | `visual_check.py` | decodes two capture sets and reports per-shot pixel differences |
 | `lightmap_report.py` | runs the bake/lighting shot list and writes a `report.json` |
 | `check_holes.py` | counts near-black pixels in captures, to catch holes in a level shell |
+
+## Stable macOS validation app
+
+Use `native_app.py` when a native run needs foreground app selection. It keeps
+`local/native-validation/Places Validation.app`, bundle ID
+`io.github.csd113.places.validation`, and executable `places-validation` stable.
+Identical binaries reuse the existing bundle bytes. An optional `--env-json`
+file supplies `PLACES_*` string values; state and logs go into `--out`.
+
+```sh
+python3 tools/bench/native_app.py --binary target/release/places \
+    --out local/validation/run-1 --env-json local/validation/office-env.json
+```
+
+Close the app before another run. The launcher holds a session lock, checks for
+a still-running validation app, and waits without automatically retrying an
+approval delay. It does not sign apps or change permissions. A changed binary
+may still require normal approval. Stable bundle identity alone does not prove
+that saved approvals persist or that an approval-routing problem is fixed.
+This app is for Places game builds; the separate Map Compiler GUI is unchanged.
 
 ## Offline map compiler
 

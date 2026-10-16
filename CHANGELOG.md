@@ -95,10 +95,16 @@ Consolidated documentation and duplicate artwork:
 - Update CI, scripts, asset ownership docs and source links; trim the completed
   pre-0.9 queue while preserving its unique renderer evidence. Retain fifty
   frozen GLES2 references and their intentional comparison tools.
+- Add `tools/bench/native_app.py`: one stable macOS Places validation bundle
+  keeps per-run configuration/results outside the app. Two real launches reused
+  the same Computer Use identity, and the second needed no new app approval.
+  Keep normal permissions/signing intact; approval-routing failures remain a
+  separate, unverified issue. Two tiny Python fixtures protect identity reuse
+  and refusal to overwrite another app.
 
-### Verified change totals
+### Architecture reorganization totals
 
-The committed patch changes 361 files: 244 renames, 13 new files,
+Architecture commit `f762053` changes 361 files: 244 renames, 13 new files,
 84 modified files and 20 real deletions, with 12,902 added and
 18,422 removed text lines (Git rename detection enabled). Moves are not
 counted as deleted files. See the [stage report](docs/reports/repository-reorganization-0.11.0.md).
