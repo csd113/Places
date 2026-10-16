@@ -44,6 +44,44 @@ struct State {
     stopped: AtomicBool,
     mode: Mode,
     terminal: bool,
+    observed: bool,
+}
+
+/// A point-in-time view of the current compiler pass, without terminal formatting.
+pub struct Snapshot {
+    /// Current lighting quality, or empty during shared preparation/publication.
+    pub variant: String,
+    /// The operation currently running.
+    pub stage: String,
+    /// Time since this source started compiling.
+    pub elapsed: Duration,
+    /// Completed work and its real denominator; absent for uncounted operations.
+    pub work: Option<WorkCount>,
+}
+
+/// Completed work in one pass, never an estimate of whole-build progress.
+pub struct WorkCount {
+    /// Finished items, clamped to the pass total.
+    pub completed: usize,
+    /// Number of items in this pass.
+    pub total: usize,
+    /// Human-readable item name.
+    pub unit: &'static str,
+}
+
+impl Current {
+    fn snapshot(&self) -> Snapshot {
+        Snapshot {
+            variant: self.variant.clone(),
+            stage: self.stage.clone(),
+            elapsed: self.started.elapsed(),
+            work: self.work.as_ref().map(|counter| WorkCount {
+                completed: counter.done.load(Ordering::Relaxed).min(counter.total),
+                total: counter.total,
+                unit: counter.unit,
+            }),
+        }
+    }
 }
 
 /// A CLI-owned session. Dropping it clears the line and joins its display job.
@@ -61,6 +99,18 @@ impl Session {
     /// Returns an error if another session exists, signal handling cannot be
     /// installed, or the display thread cannot be started.
     pub fn start(mode: Mode) -> Result<Self, String> {
+        Self::start_inner(mode, false)
+    }
+
+    /// Starts a session polled by a GUI, with no terminal display thread.
+    ///
+    /// # Errors
+    /// Has the same session/signal-handler requirements as [`Self::start`].
+    pub fn start_observed() -> Result<Self, String> {
+        Self::start_inner(Mode::Off, true)
+    }
+
+    fn start_inner(mode: Mode, observed: bool) -> Result<Self, String> {
         let mut active = ACTIVE.lock().map_err(|error| error.to_string())?;
         if active.is_some() {
             return Err("a compiler progress session is already active".into());
@@ -74,6 +124,7 @@ impl Session {
             cancelled,
             stopped: AtomicBool::new(false),
             mode,
+            observed,
             terminal: use_terminal(
                 mode,
                 io::stderr().is_terminal(),
@@ -107,6 +158,27 @@ impl Session {
     #[must_use]
     pub fn interrupted(&self) -> bool {
         self.state.cancelled.load(Ordering::Relaxed)
+    }
+
+    /// Reads actual counters without touching compiler workers.
+    #[must_use]
+    pub fn snapshot(&self) -> Option<Snapshot> {
+        self.state
+            .current
+            .lock()
+            .ok()?
+            .as_ref()
+            .map(Current::snapshot)
+    }
+
+    /// Requests cooperative cancellation at the compiler's safe boundaries.
+    pub fn cancel(&self) {
+        self.state.cancelled.store(true, Ordering::Relaxed);
+    }
+
+    /// Clears a prior cancellation. Call only after joining the previous build.
+    pub fn reset_cancellation(&self) {
+        self.state.cancelled.store(false, Ordering::Relaxed);
     }
 }
 
@@ -265,7 +337,7 @@ impl Work {
         let Some(state) = active() else {
             return Self(None);
         };
-        if state.mode == Mode::Off {
+        if state.mode == Mode::Off && !state.observed {
             return Self(None);
         }
         let label = state.current.lock().ok().and_then(|current| {
@@ -448,6 +520,10 @@ mod tests {
         };
         let indeterminate = frame(&build, usize::MAX, false);
         assert!(
+            build.snapshot().work.is_none(),
+            "GUI preparation must remain uncounted"
+        );
+        assert!(
             !indeterminate.contains('%'),
             "unknown work must have no percentage"
         );
@@ -460,6 +536,15 @@ mod tests {
             total: 100,
             unit: "receivers",
         }));
+        assert!(
+            build
+                .snapshot()
+                .work
+                .is_some_and(|work| work.completed == 25
+                    && work.total == 100
+                    && work.unit == "receivers"),
+            "GUI counts must read the same worker counter as terminal progress"
+        );
         assert!(
             frame(&build, 79, false).contains("25/100 receivers (25%)"),
             "counts describe the current pass"

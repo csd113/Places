@@ -1,6 +1,6 @@
 [package]
 name = "places"
-version = "0.9.0"
+version = "0.10.0"
 edition = "2024"
 rust-version = "1.99"
 description = "Places: a slow first-person exploration experience"
@@ -37,8 +37,8 @@ pollster = "1.0"
 # SDL3 window/input platform layer. sdl3-sys probes pkg-config by default
 # (Homebrew: `brew install sdl3`); `raw-window-handle` 0.6 is the same version
 # wgpu 30 uses and provides HasWindowHandle/HasDisplayHandle for the window. No
-# other SDL3 features are enabled: the renderer is wgpu, never SDL's GPU or
-# renderer APIs.
+# other SDL3 features are enabled. The player renders through wgpu; the small
+# compiler GUI uses SDL's 2D renderer. Neither uses SDL's GPU API.
 sdl3 = { version = "0.20", features = ["use-pkg-config", "raw-window-handle"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

@@ -67,6 +67,26 @@ After changing just one source, use an explicit output path:
 python3 tools/levels/compile.py --check
 ```
 
+For a small native compiler window, run:
+
+```sh
+cargo run --release --bin places-compile -- gui
+# Or preselect a source and output:
+./target/release/places-compile gui levels/winter.json \
+  --out assets/levels/winter.placesmap --asset-root assets --workers 8
+```
+
+Choose an unbaked `.json` map, optionally choose **Save as**, then click
+**Bake lighting**. The default output is the source's sibling `.placesmap`.
+Each click explicitly rebuilds both Static and Full lighting, including reflection
+probes. The window stays responsive and shows the current pass's actual completed
+items, total and percentage. Stages without a known count show a named working
+state; there is no estimated whole-bake percentage. **Cancel** (or Escape) stops
+at the next safe compiler boundary. Closing during a bake waits for cancellation
+before exiting. Tab and Enter/Space also operate the buttons. The GUI uses the
+existing SDL3 dependency and committed font atlas; no Python or extra GUI package
+is required.
+
 Run a generator's `--check` before editing its owned output. For generated maps,
 edit the generator and regenerate the JSON; the [map index](../levels/README.md)
 lists each owner. [Offline tooling](OFFLINE_TOOLING.md) documents the asset pipeline.

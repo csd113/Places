@@ -21,10 +21,15 @@ use compiler::progress::{Mode, Session};
 use places::compiler::{self, BuildRequest};
 use places::quality::LightmapQuality;
 
+#[path = "compile_gui/mod.rs"]
+mod gui;
+
 const USAGE: &str = "\
 places-compile: build and inspect Places map packages (.placesmap)
 
 USAGE:
+  places-compile gui [source.json] [--out <package>] [--asset-root <dir>]
+                       [--workers N]
   places-compile build <source.json> [--out <package>] [--variants static,full]
                        [--asset-root <dir>] [--workers N] [--force] [--json]
                        [--progress auto|plain|off]
@@ -274,6 +279,36 @@ fn run(args: &[String]) -> Result<(), CliError> {
     }
     let options = parse_options(&option_args)?;
     match command {
+        "gui" => {
+            if positional.len() > 1
+                || option_args.iter().any(|arg| {
+                    matches!(
+                        arg.as_str(),
+                        "--json"
+                            | "--progress"
+                            | "--force"
+                            | "--variants"
+                            | "--package"
+                            | "--require-current"
+                    )
+                })
+            {
+                return Err(CliError::Usage(
+                    "gui accepts one source and only --out, --asset-root and --workers".into(),
+                ));
+            }
+            let asset_root = compiler::resolve_asset_root(options.asset_root.as_deref())?;
+            pin_asset_root(&asset_root);
+            gui::run(
+                positional
+                    .first()
+                    .map(|source| PathBuf::from(source.as_str())),
+                option_value(&option_args, "--out").map(PathBuf::from),
+                asset_root,
+                options.workers,
+            )?;
+            Ok(())
+        }
         "build" => {
             let source = positional
                 .first()

@@ -1,3 +1,24 @@
+## 0.10.0 — 2026-10-16
+
+This is a prerelease.
+
+- Add reusable item physics, carrying, throwing, bowling resets and volume-aware
+  water behavior, plus an outline interaction hand and an opt-in developer console.
+- Add an occluded handheld flashlight, synchronized Office fixture response,
+  source-lit Pool caustics, linked railings and restrained bowling-lane reflections.
+- Integrate the completed Arcade, Shared, entity, Pool, Office, Winter and Outdoors
+  model deliveries, retaining file-backed textures and measured placement contracts.
+- Reduce redundant lighting work and atlas uploads, improve runtime preparation
+  scheduling and preserve bounded reflection and lighting resource budgets.
+- Add a native `places-compile gui` for choosing a JSON source, baking Static/Full
+  lighting, viewing actual per-pass counters and cancelling safely.
+- Keep maps optional: source builds, ordinary tests, CI and default player exports
+  support an empty installation. Compiled maps remain external local content.
+
+See the [0.10.0 release summary](docs/reports/release-0.10.0.md) for validation,
+package compatibility and remaining limits. This is a source prerelease; native
+acceptance is on macOS/Metal.
+
 ## 0.9.0 — 2026-10-13
 
 Places continues as a game for walking and experiencing places. Custom game
