@@ -112,9 +112,9 @@ that row is diagnostic context rather than an accepted performance comparison:
 The historical near-20-FPS case was not reproduced on this prerequisite build.
 The earlier [doorway](performance-0.10.0.md) and
 [multicore](multicore-0.10.0.md) reports already document shader fixes included
-in this baseline; those gains are not attributed to this work. Current GPU
-elapsed medians were 8.107 ms close-door and 4.830 ms cabinets. Door CPU update
-mean was 1.012 ms; the separate cabinet diagnostic measured character skin/upload
+in this baseline; those gains are not attributed to this work. Preserved
+prerequisite-baseline GPU elapsed medians were 8.107 ms close-door and 4.830 ms
+cabinets. Its door CPU update mean was 1.012 ms; the separate cabinet diagnostic measured character skin/upload
 spans about 0.65–0.87 ms. Metal pass spans overlap and cannot be added as
 independent costs. Sampled close-door/cabinet process RSS peaks were 929/963 MiB.
 Earlier two lateral receipts predate corrected launcher RSS sampling; their
