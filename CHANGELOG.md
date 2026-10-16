@@ -21,6 +21,9 @@ Development staging; this version has not been published.
   plans. Repair confirmed Office reception wood/trim overlap by clipping hidden
   coverage, retaining the materials, texture payloads, dimensions and collision.
   Keep ambiguous layering and unsupported posed geometry for review.
+- Validate native Metal captures, moving/held props and repeated map/settings
+  transitions. Record mixed matched FPS results and bounded resource/RSS
+  observations in [the renderer report](docs/reports/renderer-0.11.0.md).
 - Preserve the existing Rust tests. New regressions use tiny CPU fixtures in
   their owning subsystem test folders; full-map baking remains explicit tooling.
 

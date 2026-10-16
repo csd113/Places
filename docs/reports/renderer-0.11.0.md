@@ -1,10 +1,10 @@
 # Renderer foundations — 0.11.0 staging
 
-Implementation and independent source review are complete. Default-build native
-captures, timings, no-map menu and a traced pickup/throw have completed. The
-separate diagnostics build now awaits another macOS Documents-folder approval
-for the same stable Places Validation app before resource-stress acceptance.
-Issue #16 remains open pending that acceptance and a repeated baseline control.
+The targeted implementation, independent source review and native acceptance
+campaign are complete on Apple M2 Pro/Metal. This report records mixed throughput
+results, bounded resource observations, the structural Office repair and explicit
+limits. Final staging CI is checked at the exact pushed SHA before issue #16 is
+closed; completion evidence is linked from that issue.
 
 ## Implemented corrections
 
@@ -65,6 +65,17 @@ GLB instances. Unresolved material override alpha is `UNKNOWN_OVERRIDE`.
 Architecture/prop contacts, fixtures, doors and live poses are outside this
 static-instance report. No per-frame pair scan or editor UI was added.
 
+Depth review verified the native `Depth32Float` target, 0.1–100 m scene clip
+range, the shared OpenGL projection/frustum convention and its single wgpu
+`[-1,1]`→`[0,1]` depth correction. Ideal float-bin spacing is about 0.2 μm at the
+0.575 m desk close-up, 0.6 μm at 1 m and 60 μm at 10 m; these analytic values
+exclude hardware interpolation error. The diagnosed two opaque materials occupy
+the same plane, with no intended depth separation. More depth precision would
+not establish their intended ownership. Existing explicit decal layering/bias
+remains separate from opaque model repairs; no global bias or clip-plane change
+was added. Authored layered ribbons, paper backs and mounting contacts remain
+review findings, not automatic deletion targets.
+
 The Office `top_reception` desk had 18 confirmed same-facing wood/paint perimeter
 triangle overlaps. The explicit reviewed recipe retains the existing opaque
 paint band and clips only covered wood at its top plane. It moves no surface.
@@ -74,7 +85,14 @@ embedded PNG payloads and other primitives remain exact. The repaired SHA-256 is
 The targeted overlaps fall from 18 to zero even at a 1e-8 m² report threshold.
 Five tiny foot/internal same-facing contacts remain review findings. Original
 bytes and the hash-bound inspectable plan are preserved outside `target`.
-A single fresh Office package build is used for candidate validation.
+A single fresh Office package build is used for candidate validation. Its
+validated bytes are installed into the ignored `assets/levels/office_demo.placesmap`
+for normal local play and pass `verify --require-current`. The exact original
+compiled package was not retained: the baseline levels directory was a symlink
+to live packages when the replacement was installed. The original authored desk
+GLB, before captures, original package hash and byte-comparison receipts remain
+preserved. The owned baseline overlay is now isolated and omits Office rather
+than presenting replacement bytes as the original; unchanged maps remain linked.
 
 Current Arcade/Office model audit: 87 static assets completed, five pose-dependent
 assets excluded. Most complete at two million visits; the Office snack machine
@@ -87,38 +105,80 @@ exclusions. Its partial results do not establish a clean map. All 34 existing
 base-placement duplicate warnings are intentional balloon bouquets with distinct
 rig offsets, sizes, colours and phases; no placement was removed.
 
-## Native baseline and performance status
+## Native performance comparison
 
 Hardware: Apple M2 Pro/Metal, Retina 2×, High textures/filtering, Full lightmaps
-and reflections, bloom on, FOV 60. VSync is off, actual presentation switches to
-Immediate, and BENCH_SUMMARY records swap_interval 0. The game has no additional
-FPS cap. Each timing sample discards 120 ready frames and measures 600 at a
-fixed 1/60 simulation step; timings use real wall time. No owned build/bake ran
-during these baseline timing samples. Captures/CPU traces are separate evidence.
+and reflections, bloom on, FOV 60. Both executables use the prerequisite Rust
+1.99.1/dependency baseline. The before executable is from `e29adae`; the after
+executable contains the reviewed `5d9983e` implementation. Actual presentation
+switches to Immediate, settings say VSync off, and each BENCH_SUMMARY records
+swap_interval 0. No engine FPS cap is active.
 
-Average FPS is measured frame count divided by total loop time. Candidate rows
-combine three 600-frame runs. These are observed samples; a repeated baseline
-control remains necessary before attributing the large lateral change. The
-cabinet baseline enabled CPU/GPU trace flags while candidate timing did not;
-that row is diagnostic context rather than an accepted performance comparison:
+Each side has three separate runs per view, 120 ready-frame warm-up and 600
+measured frames at a fixed 1/60 simulation step. FPS uses real wall time:
+`total measured frames / sum(loop_ms) × 1000`. The table pools 1,800 frames per
+side/view. All twelve paired runs match settings, camera, physical drawable,
+package hash, movement script, fixed step and per-frame draw calls, visible
+indices and reflection-pass counts; all report 720 ready presentations and zero
+missed-ready frames. CPU/GPU diagnostic trace flags are absent on both sides.
+No owned build/bake ran during timing. Separate 3,600-frame preconditioning runs
+completed on each executable; permission waits and their lost-wrapper recovery
+are excluded from comparisons. Every comparison still performs its own identical
+120-frame warm-up. Thermal checks before/after report no recorded thermal or
+performance warning; no CPU power status is available. These are sequential
+batches, not interleaved trials or temperature-controlled measurements.
 
-| View / drawable | Baseline average FPS | Candidate average FPS | Change |
+| View / drawable | Before average FPS | After average FPS | Change |
 | --- | ---: | ---: | ---: |
-| Bathroom lateral, 1512×838 | 119.63 | Not repeated | Unavailable |
-| Bathroom lateral, 3024×1676 | 119.59 | 217.66 | +82.01% observed |
-| Close closed door, 3024×1898 fullscreen | 129.36 | 129.93 | +0.45% observed |
-| Arcade cabinets, 3024×1898 fullscreen | 226.70 (instrumented) | 227.80 | +0.49% observed, non-equivalent trace flags |
+| Bathroom lateral, 1512×838 | 378.63 | 470.95 | +24.38% |
+| Bathroom lateral, 3024×1676 | 217.68 | 216.94 | -0.34% |
+| Close closed door, 3024×1898 fullscreen | 130.43 | 128.44 | -1.53% |
+| Arcade cabinets, 3024×1898 fullscreen | 227.55 | 227.73 | +0.08% |
 
-The historical near-20-FPS case was not reproduced on this prerequisite build.
-The earlier [doorway](performance-0.10.0.md) and
-[multicore](multicore-0.10.0.md) reports already document shader fixes included
-in this baseline; those gains are not attributed to this work. Preserved
-prerequisite-baseline GPU elapsed medians were 8.107 ms close-door and 4.830 ms
-cabinets. Its door CPU update mean was 1.012 ms; the separate cabinet diagnostic measured character skin/upload
-spans about 0.65–0.87 ms. Metal pass spans overlap and cannot be added as
-independent costs. Sampled close-door/cabinet process RSS peaks were 929/963 MiB.
-Earlier two lateral receipts predate corrected launcher RSS sampling; their
-wrapper RSS values are explicitly excluded.
+The small-resolution lateral result is an observed 24.38% throughput increase;
+its per-run before/after ranges are 371.59–390.24 and 463.04–480.21 FPS. The
+larger lateral and cabinet views are close in throughput. The close-door view is
+**1.53% slower**, consistently across its three runs; this is reported as a small
+tradeoff, not erased as “no regression.” There is no evidence of a shader speedup.
+A useful maintenance guardrail from this hardware baseline is to investigate
+losses greater than 5% of average FPS under these same conditions; it is explicit
+developer tooling, not a full-map CI requirement. This campaign's maximum
+measured decrease is below that guardrail.
+
+| View | Update mean ms, before→after | Render mean ms, before→after | GPU elapsed ms (median of run medians), before→after |
+| --- | ---: | ---: | ---: |
+| Bathroom lateral, 1512×838 | 0.902→0.872 | 1.576→1.086 | 1.891→1.885 |
+| Bathroom lateral, 3024×1676 | 1.017→1.026 | 3.412→3.417 | 5.018→5.023 |
+| Close closed door, 3024×1898 fullscreen | 1.233→1.265 | 6.233→6.299 | 8.091→8.099 |
+| Arcade cabinets, 3024×1898 fullscreen | 1.120→1.118 | 3.082→3.093 | 4.807→4.806 |
+
+Render time includes encoding, submission and waiting, rather than pure CPU
+execution. GPU elapsed is the union of pass-stage spans, including scheduling
+stalls; overlapping pass spans must not be added as independent active costs.
+The low-resolution improvement with nearly unchanged GPU elapsed is consistent
+with reduced CPU-side submission work. Source changes demonstrably remove
+repeated classification, sorting, scanning, UV-anchor construction and resource
+recreation; this sequential experiment does not isolate each contribution.
+Close-door GPU elapsed remains about 8.1 ms at 233 base scene draws versus
+about 4.8 ms at 98 cabinet-view draws. This comparison combines geometry and
+fragment work; it does not isolate their costs. Changing the lateral drawable
+from 3024×1676 to 1512×838 reduces GPU
+elapsed from about 5.0 to 1.9 ms. Lighting/material work and covered pixels remain
+relevant, and no effect or scene content was reduced to improve the result.
+
+The historical near-20-FPS case was not reproduced. Earlier
+[doorway](performance-0.10.0.md) and [multicore](multicore-0.10.0.md) reports already
+document fragment-visibility/lighting fixes included in this baseline; their
+gains are not attributed to this stage. The early 119.59→217.66 FPS / +82%
+lateral comparison is **superseded**: repeated before samples also reach 217.68
+FPS. Earlier instrumented cabinet timing and incorrect wrapper-RSS receipts are
+retained as diagnostic history and excluded from the accepted table.
+
+Per-run detailed distributions, sampled app RSS, load state, binary/package
+hashes and native presentation identity remain in receipts. The largest sampled
+single-view RSS peak was 1,428.3 MiB before and 1,053.4 MiB after; sampling and
+transient allocations vary, so these maxima are not a claimed memory saving.
+Longer map-transition memory evidence is separate below.
 
 Genuine matched door, Bowling Alley and Pool basin captures are PNG-byte and
 pixel identical to baseline at 1512×838, with matching package/settings, camera,
@@ -130,23 +190,56 @@ alone does not prove temporal flicker removal. Office package validation and
 current-source verification passed; collision, navigation and semantics are
 byte-identical to the original package.
 
-The Pool control activates two bodies. A nearby pickup/throw trace contains 1,822
-physics frames, 254 held frames and a subsequent moving released duck; all pose
-and render-pose components are finite and no recovery occurred. The player falls
-into the basin in this acceptance camera, obscuring the held duck, so those
-images alone do not establish visual pose correctness. The separate wide view
-shows the moving duck, transparent water, caustics and basin. The empty-asset
-native launch renders the expected no-map menu and exits normally.
+The Pool control activates two bodies. The initial nearby trace contains 1,822
+physics frames, 254 held frames, finite pose/render-pose components and no
+recovery, but its camera obscured the duck. A corrected dry-deck run removed
+`PLACES_CAMERA` (which deliberately pins render angles despite scripted aim).
+Its genuine free/held/thrown/moving images clearly show the duck on the deck,
+close to the player while held, then farther away after throwing, with model
+lighting and material faces intact. The 1,601-frame trace has 296 held frames,
+finite transforms and zero recovery. Group reset leaves two dormant bodies;
+reactivation resumes them. This is reset/reactivation evidence, not body-removal
+proof. Map transitions separately replace the Pool world and its resources.
+Transparent water, caustics, opaque rails/deck and the moving duck were inspected.
+The empty-asset native launch renders the expected no-map menu and exits normally.
 
-The initial default-build Documents prompt cleared naturally. All default native
-runs reused the same approved executable bytes. The separately compiled
-`visual-diagnostics` build has now reached a new
-`kTCCServiceSystemPolicyDocumentsFolder` `AUTHREQ_PROMPTING` request before window
-creation. Its single stress launch remains pending; it has not been retried.
-No permission was reset, app identity spoofed, security access broadened or denial
-bypassed. GPU census and repeated baseline controls are not yet complete.
+## Native resource and transition acceptance
 
-## Verification and remaining work
+The diagnostic executable completed 40,000 measured frames and exited normally.
+Window creation through shutdown took 261.24 seconds; its 777.54-second launcher
+elapsed time includes a 516.05-second Documents approval wait and is not a
+performance measurement. Scripted transitions cover Arcade quality low/high,
+lighting/static-to-full changes, Arcade↔Pool twice, explicit same-ID Arcade
+reload, Office, return to Arcade, and 1280×720→1512×838 drawable changes.
+The lighting action labelled `static` selects the implementation's lower-lighting
+mode, disabling lightmaps/reflections, before `full` restores them. Both real SDL
+minimize/restore calls were issued at configured frames with no warning, and
+rendering continued. The harness does not emit an observed OS minimized-state
+receipt, so that state is not independently proven. Resize/drawable transitions
+and fresh in-engine captures are recorded. True physical device loss remains
+policy-tested rather than induced.
+
+There are 974 sampled resource records and no fatal state. At the final 185 frame
+samples (frames 30,000–41,040), textures remain 142, bind groups 1,311, render
+pipelines 56, samplers 22 and the persistent cache 116 entries. Buffers vary
+677–682 and texture views 158–160 during settling. Transition
+observed peaks of 8,587 buffers and 179 textures return to those settled ranges;
+pending upload/staging state clears. Counts do not show accumulating map resources
+in this campaign. Sampled actual-app RSS peaks at 2,487.7 MiB during transitions
+then returns to 893.2–897.1 MiB in the final minute (median 894.5 MiB, last
+895.2 MiB). That bounded observation is not proof of zero long-term growth.
+Metal allocation bytes remain unavailable/null, sampled peaks are not exact
+high-water marks, and partial texture/atlas/post budgets cannot be summed.
+
+The existing default, diagnostics, baseline and final-candidate launches continued
+after their Documents prompts resolved. When executor reconnections lost a
+wrapper, completed preconditioning output was retained, native process exit was
+checked, and only unstarted timing commands were resumed. The stable
+`io.github.csd113.places.validation` identity was used throughout. No permission
+was reset, identity spoofed, access broadened, denial bypassed or pending launch
+duplicated. No native or build job remains after acceptance.
+
+## Verification and limits
 
 | Gate | Result |
 | --- | --- |
@@ -161,8 +254,9 @@ bypassed. GPU census and repeated baseline controls are not yet complete.
 | Existing explicit native headless GPU resource controls | Both passed (quality toggles and entity map reloads); no production map bake |
 | Release tools + diagnostics build | Passed; binaries preserved outside target |
 | Independent complete source/asset/test review | No unresolved source findings |
-| Default candidate native captures, timing, no-map menu | Completed; attribution control still pending |
-| Diagnostics native transition/resource memory | Pending new build Documents approval |
+| Default candidate captures, no-map menu, matched timing | All 24 comparison runs exited 0 and matched per-frame geometry |
+| Diagnostics native transition/resource memory | 40,000 measured frames, 261.24 native seconds, exit 0; bounded settled census/RSS observed |
+| Visible moving/held/thrown prop and reset/reactivation | Genuine captures and finite pose trace inspected independently |
 
 All existing Rust tests remain. Four new owning-subsystem CPU tests cover UV
 cache invalidation, retry policy, replacement capabilities and bounded geometric
@@ -172,14 +266,16 @@ alpha/material/UV distinctions, transforms, conservative candidates, budgets,
 morph declarations, chunk safety and affine clipping. Existing default tests were
 not expanded into full-map or performance campaigns.
 
-Pending acceptance includes repeated baseline timing controls, clearer held-prop
-visual proof, repeated map/settings/resize/minimize transitions, settled GPU
-resource/RSS observations and an extended native session. True device
-loss is policy-tested, not physically induced. Linux/Windows physical-GPU native
-execution is unverified. Ambiguous overlaps and posed geometry require review;
+Physical device loss was not induced, OS minimized-state receipt is unavailable,
+and memory observations cover this bounded campaign. Linux/Windows physical-GPU
+native execution is unverified. Ambiguous overlaps and posed geometry require review;
 the broader editor workflow stays in 0.12.0. Audio, test removal, a water rewrite
 and the dedicated flashlight close-up investigation (#23) are outside this stage.
-No flashlight shader/shadow behavior was changed.
+No flashlight shader/shadow behavior was changed. Its retained 1024² depth map,
+four PCF taps and material alpha coverage were audited; projected bounds shadows
+still have an eight-subject budget and an approximate silhouette. These are
+relevant context for the queued close-up fake-shadow investigation (#23), not
+claims that investigation is complete.
 
 Evidence, original/repaired desk plans, audit receipts, command logs, captures,
 source hashes and runnable binaries are under `local/renderer-0.11.0/`, outside
