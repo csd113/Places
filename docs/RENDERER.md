@@ -813,8 +813,11 @@ bit-identically to the pre-change renderer.
 The separate opt-in player spotlight is packed alongside that bounded glow set,
 using the same diffuse material term. Its intensity is 12, range 24 m, inner cone
 half-angle 10.28 degrees and outer half-angle 20.14 degrees, with a smooth angular edge and windowed
-`1/(1+d²)` distance falloff. The camera attachment sits 14 cm right, 18 cm down and
-6 cm forward, aimed toward view centre 6 m away. Shared triangle visibility retracts
+`1/(1+d²)` distance falloff. The camera attachment sits 14 cm right and 6 cm
+forward, with no camera-relative vertical drop, aimed toward view centre 6 m away.
+The lateral offset retains visible cast shadows. Keeping the source at view height
+prevents close props from projecting an apparently floating box above their tops
+when looking up, especially while crouching. Shared triangle visibility retracts
 it toward the camera before a nearby wall, door or movable surface.
 
 Gameplay samples the same incident cone/falloff using static and live movable

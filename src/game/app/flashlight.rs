@@ -24,7 +24,7 @@ impl Power {
     }
 }
 
-/// A restrained hand/chest attachment, aimed at view centre six metres away.
+/// A near-eye attachment, aimed at view centre six metres away.
 /// The visibility callback keeps the source on the camera side of nearby
 /// geometry, including live doors and movable furniture.
 #[expect(
@@ -43,15 +43,17 @@ fn attached_light(
         -yaw.cos() * pitch.cos(),
     );
     let right = Vec3::new(yaw.cos(), 0.0, yaw.sin());
-    let up = right.cross(forward);
-    let offset = right * 0.14 - up * 0.18 + forward * 0.06;
+    // Keep a lateral baseline for cast shadows, but no camera-relative drop:
+    // a low source projects close props above their visible tops onto distant
+    // receivers, making the silhouette look like a floating box when looking up.
+    let offset = right * 0.14 + forward * 0.06;
     let candidate = eye + offset;
     let position = if visibility(eye, candidate) >= 0.99 {
         candidate
     } else {
         let mut clear = 0.0_f32;
         let mut blocked = 1.0_f32;
-        // Eight bounded queries resolve this 24 cm offset below a millimetre.
+        // Eight bounded queries resolve this 16 cm offset below a millimetre.
         for _ in 0_u8..8 {
             let fraction = clear.midpoint(blocked);
             if visibility(eye, eye + offset * fraction) >= 0.99 {

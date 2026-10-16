@@ -2,6 +2,16 @@
 
 Development staging; this version has not been published.
 
+### Flashlight close-up correction
+
+- Keep the flashlight at camera-relative eye height while retaining its lateral
+  offset and real cast shadows. This removes the apparent floating shadow box
+  above close props when crouching and looking up, confirmed on Office's
+  freestanding cabinet and Arcade's dark bathroom stall partitions (#23).
+- Preserve beam shape, colour, intensity, range, geometry occlusion, source
+  retraction, F/rebinding, mannequin response and moving/held-object lighting.
+  [Native evidence and investigation](docs/reports/flashlight-0.11.0.md).
+
 ### Rust automated-test retirement
 
 - Remove all 2,377 project-owned Rust test functions, including ignored/native
