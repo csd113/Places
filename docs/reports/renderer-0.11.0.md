@@ -1,9 +1,10 @@
 # Renderer foundations — 0.11.0 staging
 
-Implementation and independent source review are complete. Native candidate
-acceptance is pending a macOS Documents-folder approval for the stable Places
-Validation app. Issue #16 remains open; no candidate performance improvement or
-native visual/resource acceptance is claimed while that launch is blocked.
+Implementation and independent source review are complete. Default-build native
+captures, timings, no-map menu and a traced pickup/throw have completed. The
+separate diagnostics build now awaits another macOS Documents-folder approval
+for the same stable Places Validation app before resource-stress acceptance.
+Issue #16 remains open pending that acceptance and a repeated baseline control.
 
 ## Implemented corrections
 
@@ -95,15 +96,18 @@ FPS cap. Each timing sample discards 120 ready frames and measures 600 at a
 fixed 1/60 simulation step; timings use real wall time. No owned build/bake ran
 during these baseline timing samples. Captures/CPU traces are separate evidence.
 
-Average FPS is measured frame count divided by total loop time. These bounded
-baseline samples are not a before/after performance claim:
+Average FPS is measured frame count divided by total loop time. Candidate rows
+combine three 600-frame runs. These are observed samples; a repeated baseline
+control remains necessary before attributing the large lateral change. The
+cabinet baseline enabled CPU/GPU trace flags while candidate timing did not;
+that row is diagnostic context rather than an accepted performance comparison:
 
 | View / drawable | Baseline average FPS | Candidate average FPS | Change |
 | --- | ---: | ---: | ---: |
-| Bathroom lateral, 1512×838 | 119.63 | Pending | Unavailable |
-| Bathroom lateral, 3024×1676 | 119.59 | Pending | Unavailable |
-| Close closed door, 3024×1898 fullscreen | 129.36 | Pending | Unavailable |
-| Arcade cabinets, 3024×1898 fullscreen | 226.70 | Pending | Unavailable |
+| Bathroom lateral, 1512×838 | 119.63 | Not repeated | Unavailable |
+| Bathroom lateral, 3024×1676 | 119.59 | 217.66 | +82.01% observed |
+| Close closed door, 3024×1898 fullscreen | 129.36 | 129.93 | +0.45% observed |
+| Arcade cabinets, 3024×1898 fullscreen | 226.70 (instrumented) | 227.80 | +0.49% observed, non-equivalent trace flags |
 
 The historical near-20-FPS case was not reproduced on this prerequisite build.
 The earlier [doorway](performance-0.10.0.md) and
@@ -116,15 +120,31 @@ independent costs. Sampled close-door/cabinet process RSS peaks were 929/963 MiB
 Earlier two lateral receipts predate corrected launcher RSS sampling; their
 wrapper RSS values are explicitly excluded.
 
-Genuine baseline in-engine captures of the door, Pool basin/water, Bowling Alley
-and Office desk were inspected. Static images identify the target geometry but
-do not establish temporal shimmer removal or moving-object correctness. The
-candidate has produced no frame, capture or GPU identity yet: macOS TCC reports
-`AUTHREQ_PROMPTING` for `kTCCServiceSystemPolicyDocumentsFolder` after the new
-binary failed the prior code requirement. A one-second sample confirms its main
-thread is blocked in file open before window creation. This is a pending host
-permission, not a renderer performance measurement or denial. No permission was
-reset, app identity spoofed, security access broadened or denial bypassed.
+Genuine matched door, Bowling Alley and Pool basin captures are PNG-byte and
+pixel identical to baseline at 1512×838, with matching package/settings, camera,
+draw counts and triangles. The fresh Office close-up has a continuous counter
+edge and no visible holes or material discontinuities. Its 8,930 changed pixels
+(0.705%) differ by at most two RGB levels; visible triangles increase by six as
+expected. Structural overlap removal is established offline; a static capture
+alone does not prove temporal flicker removal. Office package validation and
+current-source verification passed; collision, navigation and semantics are
+byte-identical to the original package.
+
+The Pool control activates two bodies. A nearby pickup/throw trace contains 1,822
+physics frames, 254 held frames and a subsequent moving released duck; all pose
+and render-pose components are finite and no recovery occurred. The player falls
+into the basin in this acceptance camera, obscuring the held duck, so those
+images alone do not establish visual pose correctness. The separate wide view
+shows the moving duck, transparent water, caustics and basin. The empty-asset
+native launch renders the expected no-map menu and exits normally.
+
+The initial default-build Documents prompt cleared naturally. All default native
+runs reused the same approved executable bytes. The separately compiled
+`visual-diagnostics` build has now reached a new
+`kTCCServiceSystemPolicyDocumentsFolder` `AUTHREQ_PROMPTING` request before window
+creation. Its single stress launch remains pending; it has not been retried.
+No permission was reset, app identity spoofed, security access broadened or denial
+bypassed. GPU census and repeated baseline controls are not yet complete.
 
 ## Verification and remaining work
 
@@ -141,7 +161,8 @@ reset, app identity spoofed, security access broadened or denial bypassed.
 | Existing explicit native headless GPU resource controls | Both passed (quality toggles and entity map reloads); no production map bake |
 | Release tools + diagnostics build | Passed; binaries preserved outside target |
 | Independent complete source/asset/test review | No unresolved source findings |
-| Candidate native visuals/performance/transition memory | Pending host Documents approval |
+| Default candidate native captures, timing, no-map menu | Completed; attribution control still pending |
+| Diagnostics native transition/resource memory | Pending new build Documents approval |
 
 All existing Rust tests remain. Four new owning-subsystem CPU tests cover UV
 cache invalidation, retry policy, replacement capabilities and bounded geometric
@@ -151,10 +172,9 @@ alpha/material/UV distinctions, transforms, conservative candidates, budgets,
 morph declarations, chunk safety and affine clipping. Existing default tests were
 not expanded into full-map or performance campaigns.
 
-Pending candidate acceptance includes matched visual comparisons, average FPS
-before/after and percentage changes, moving/held/spawn/remove physics transforms,
-lighting/shadows/transparency, repeated map/settings/resize/minimize transitions,
-settled resource/RSS observations and an extended native session. True device
+Pending acceptance includes repeated baseline timing controls, clearer held-prop
+visual proof, repeated map/settings/resize/minimize transitions, settled GPU
+resource/RSS observations and an extended native session. True device
 loss is policy-tested, not physically induced. Linux/Windows physical-GPU native
 execution is unverified. Ambiguous overlaps and posed geometry require review;
 the broader editor workflow stays in 0.12.0. Audio, test removal, a water rewrite
