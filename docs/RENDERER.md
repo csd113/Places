@@ -602,8 +602,8 @@ static navigation.
 ### 7.1.1 What the compiler solves
 
 `src/engine/lighting/transport.rs` builds a deterministic BVH over the prepared
-triangles (walls, floors, ceilings, architecture, prop fallback boxes; decals
-and fixture housings are excluded, so a fixture cannot shadow itself), resolves
+triangles (walls, floors, ceilings, architecture, prop fallback boxes and opaque
+fixture housings; decals and fitted luminous fixture endpoint sheets are excluded), resolves
 the level's `LightSource`s as point/rect/line emitters, and then:
 
 1. **Direct**: each light is sampled on its authored shape with a per-axis tap
@@ -974,8 +974,9 @@ shadow ray (per emitter tap) or a bounce ray
 that fails to reach the cache, both cast offline against the static triangles:
 walls block with every opening kind (door, window, vent) cutting the hole it
 really cuts; floors and ceilings are real surfaces, so light cannot cross a
-storey; a static prop's triangles occlude; fixture housings deliberately do
-not, so an emitter never shadows itself. Fully claimed movable entities are absent from the static transport scene,
+storey; static props and ordinary fixture housings occlude. Analytic sources
+match their luminous apertures, and fitted luminous endpoint sheets are excluded.
+Fully claimed movable entities are absent from the static transport scene,
 so they leave no fixed bind-pose silhouette. Runtime entity receivers use
 finite-source CPU visibility against admitted movable geometry; opaque movable
 subjects also receive bounded projected floor shadows. These are bounds-based

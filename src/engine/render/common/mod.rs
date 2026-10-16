@@ -742,7 +742,8 @@ const WALL_COINCIDENCE_EPS: f32 = 1e-3;
 /// 13 = fitted static prop spans and independently batched material variants.
 /// 14 = completed fixture meshes and independently controlled prop emission.
 /// 15 = prepared probe lighting for reviewed large models above the 1,500-triangle art budget.
-pub const GEOMETRY_REVISION: u32 = 15;
+/// 16 = closed procedural fixture backs, opaque receiver housings and aligned lamp sources.
+pub const GEOMETRY_REVISION: u32 = 16;
 
 /// One material run of a coalesced wall group: a rectangle in the group's own
 /// (length, height) space over which the visible material is constant.

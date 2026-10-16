@@ -27,6 +27,8 @@ current package currency, test counts or platform performance.
 
 - [0.11.0 developer console](reports/developer-console-0.11.0.md): reusable typed
   actions, curated pickups, simulation controls and model representation.
+- [0.11.0 fixture audit](reports/fixture-leaks-0.11.0.md): Office closure evidence,
+  procedural housing corrections and restricted Home lamp emission.
 - [0.10.0 prerelease summary](reports/release-0.10.0.md): integrated gameplay,
   delivered models, compiler GUI, final checks and compatibility limits.
 - [0.9.0 release summary](reports/release-0.9.0.md): final supported-package,

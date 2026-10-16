@@ -454,6 +454,15 @@ flush mount in particular draws its whole visible face, rim line and centre
 structure from
 `environments/home/textures/lights/ceiling_light_round_01.png`.
 
+Procedural bodies receive ordinary baked lighting and cast opaque Full transport
+shadows. Their mounting backs are closed, including the round and wall model
+fallbacks; luminous fitted sheets alone are omitted from analytic-source
+occlusion. The blacklight source uses its 1.12 × 0.14 m lens at mount Y−0.046.
+Home's source sits on its diffuser at mount Y−0.070, with a square inscribed in
+the 0.148 m aperture. These source positions and the visible geometry share
+constants. Static retains its coarse visibility model, without fixture
+self-occlusion. No body emits or inherits the placed source tint.
+
 Fixture faces are **opaque by construction**: the face draws in the opaque
 pass and its alpha channel is ignored. A shipped fixture sheet is additionally
 required to be fully opaque by this asset contract,
@@ -557,6 +566,10 @@ sheet's inscribed circle, and the drum, its bottom rim and the centre boss are
 untextured body geometry. Do not draw the drum in the sheet, and do not replace
 the sheet with a flat colour: a code-tinted face would violate the texture-first
 rule every fixture family follows.
+
+The ten-sided drum has an opaque mounting back. Its 0.16 m body radius and
+0.012 m rim leave a 0.148 m luminous outer radius; the fitted UV frame still
+uses the original 0.16 m radius, preserving the existing artwork exactly.
 
 ### 6.5 Ceiling lights and wall lights, summarised
 
@@ -912,6 +925,15 @@ normal runtime texture         256x 256 native
   *illumination* is authored separately in the level (`props[].lights`),
   because a material never lights a room; disabling the level light leaves the
   glowing face unchanged and removes the pool.
+* `home:floor_lamp` uses ordinary `lamp_body` on its base/stem and the unchanged
+  emissive `linen_shade` only on the shade. `home:cabinet_strip` uses ordinary
+  `strip_housing` and emissive `warm_diffuser`. Their source builder registers
+  the body material before emitting any geometry; registering the first
+  luminous material afterwards would otherwise reassign existing slot-zero
+  body triangles. Fitted PNGs and luminous material values are unchanged. The
+  strip housing underside has a real aperture at the unchanged lens perimeter;
+  four trapezoids preserve the original affine UVs around it, eliminating the
+  former exposed coplanar housing/lens faces without a depth offset.
 * A model may declare animation clips without a skin (`home:wall_switch`): it
   parses as a rigid animated prop, every primitive is bound to its owning node
   with weight one, and the character path poses it. See

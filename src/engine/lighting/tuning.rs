@@ -305,10 +305,16 @@ impl FixtureProfile {
                 half_width: self.half_width - PANEL_BORDER_WIDTH_M,
                 half_depth: self.half_depth - PANEL_BORDER_DEPTH_M,
             },
-            FixtureKind::RoundRecessed
-            | FixtureKind::WallSconce
-            | FixtureKind::FlushMount
-            | FixtureKind::BlacklightTube => self.shape(),
+            FixtureKind::FlushMount => LightShape::Rect {
+                // Inscribed in the actual 0.148 m diffuser, clear of its rim.
+                half_width: 0.104_651_8,
+                half_depth: 0.104_651_8,
+            },
+            FixtureKind::BlacklightTube => LightShape::Rect {
+                half_width: 0.56,
+                half_depth: 0.07,
+            },
+            FixtureKind::RoundRecessed | FixtureKind::WallSconce => self.shape(),
         }
     }
 
@@ -318,7 +324,7 @@ impl FixtureProfile {
         if self.model.is_some() {
             return match self.kind {
                 FixtureKind::FluorescentPanel => mount_y - 0.04,
-                FixtureKind::RoundRecessed => mount_y - 0.017,
+                FixtureKind::RoundRecessed => mount_y - ROUND_LENS_DROP_M,
                 FixtureKind::WallSconce | FixtureKind::FlushMount | FixtureKind::BlacklightTube => {
                     mount_y
                 }
@@ -326,10 +332,10 @@ impl FixtureProfile {
         }
         match self.kind {
             FixtureKind::FluorescentPanel => mount_y - PANEL_BODY_DROP_M + PANEL_LIP_M,
-            FixtureKind::RoundRecessed
-            | FixtureKind::WallSconce
-            | FixtureKind::FlushMount
-            | FixtureKind::BlacklightTube => mount_y,
+            FixtureKind::FlushMount => mount_y - FLUSH_MOUNT_BODY_DROP_M,
+            FixtureKind::BlacklightTube => mount_y - BLACKLIGHT_LENS_DROP_M,
+            FixtureKind::RoundRecessed => mount_y - ROUND_LENS_DROP_M,
+            FixtureKind::WallSconce => mount_y,
         }
     }
 
@@ -359,10 +365,16 @@ pub const PANEL_BORDER_DEPTH_M: f32 = 0.02;
 
 /// Outer radius of the residential flush-mount fixture's diffuser, in metres.
 ///
-/// The fixture's luminous footprint is the bounding square of that disc, exactly
-/// like the round pool downlight: the bake's local pool is a rectangle model, and
-/// a 32 cm lamp's square footprint is within a few centimetres of its disc.
+/// The body footprint is separate from the inscribed luminous aperture.
 pub const FLUSH_MOUNT_RADIUS_M: f32 = 0.16;
+/// Drum depth shared by the visible Home diffuser and its light-source plane.
+pub const FLUSH_MOUNT_BODY_DROP_M: f32 = 0.07;
+/// Opaque rim inset around the Home diffuser.
+pub const FLUSH_MOUNT_DIFFUSER_INSET_M: f32 = 0.012;
+/// Distance from the batten's mount to its fitted luminous lens.
+pub const BLACKLIGHT_LENS_DROP_M: f32 = 0.046;
+/// Pool diffuser depth, also retained by its procedural model fallback.
+pub const ROUND_LENS_DROP_M: f32 = 0.017;
 
 /// Every fixture id with a built-in appearance, in catalog order.
 ///
@@ -404,7 +416,7 @@ pub const fn fixture_profile_for_kind(kind: FixtureKind) -> FixtureProfile {
             model: None,
             half_width: 0.22,
             half_depth: 0.22,
-            quads: 18,
+            quads: 34,
         },
         FixtureKind::WallSconce => FixtureProfile {
             kind,
@@ -418,7 +430,7 @@ pub const fn fixture_profile_for_kind(kind: FixtureKind) -> FixtureProfile {
             model: None,
             half_width: FLUSH_MOUNT_RADIUS_M,
             half_depth: FLUSH_MOUNT_RADIUS_M,
-            quads: 32,
+            quads: 35,
         },
     }
 }

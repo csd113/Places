@@ -214,6 +214,7 @@ def rug(p):
 
 def floor_lamp(p):
     t = atlas(p)
+    p.begin_material(p.material("lamp_body"))
     solid_cylinder(p, (0, 0, 0), .16, .037, segments=12, uv=t.uv("dark"), color=WHITE)
     solid_cylinder(p, (0, .033, 0), .015, 1.155, segments=8, uv=t.uv("secondary"), color=WHITE)
     p.begin_material(p.material("linen_shade", emissive=(1, .82, .48), strength=.32))
@@ -261,7 +262,33 @@ def outlet(p):
 
 def cabinet_strip(p):
     t = atlas(p)
-    box(p, (0, .013, 0), (.55, .026, .07), t.uv("detail", inset=2))
+    p.begin_material(p.material("strip_housing"))
+    housing_uv = t.uv("detail", inset=2)
+    box(p, (0, .013, 0), (.55, .026, .07), housing_uv)
+    # Open the housing underside around the unchanged diffuser. Keep the other
+    # box faces and the underside's original colour and affine texture mapping.
+    underside = [offset for offset in range(0, len(p.mesh.indices), 3)
+                 if all(p.mesh.positions[index][1] == 0
+                        for index in p.mesh.indices[offset:offset + 3])]
+    underside_color = p.mesh.colors[p.mesh.indices[underside[0]]]
+    for offset in reversed(underside):
+        del p.mesh.indices[offset:offset + 3]
+        del p.mesh._triangle_materials[offset // 3]
+    outer = [(-.275, 0, -.035), (.275, 0, -.035),
+             (.275, 0, .035), (-.275, 0, .035)]
+    aperture = [(-.255, 0, -.022), (.255, 0, -.022),
+                (.255, 0, .032), (-.255, 0, .032)]
+    u0, v0, u1, v1 = housing_uv
+
+    def underside_uv(point):
+        return (u0 + (point[0] / .55 + .5) * (u1 - u0),
+                v0 + (point[2] / .07 + .5) * (v1 - v0))
+
+    for side in range(4):
+        nxt = (side + 1) % 4
+        corners = (outer[side], outer[nxt], aperture[nxt], aperture[side])
+        p.mesh.quad(*corners, uv=[underside_uv(point) for point in corners],
+                    color=underside_color)
     p.begin_material(p.material("warm_diffuser", emissive=(1, .83, .52), strength=.7))
     box(p, (0, .003, .005), (.51, .006, .054), t.uv("secondary", inset=2))
 

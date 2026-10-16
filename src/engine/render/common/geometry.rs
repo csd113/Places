@@ -85,12 +85,12 @@ pub fn build_level_geometry_mesh(
 
 /// [`build_level_geometry_mesh`] with a lightmap plan the emitters stamp.
 ///
-/// With `lightmaps: None` the result is the historical vertex-lit mesh, byte
-/// for byte. With a plan every static floor, ceiling, wall and skirt quad is
+/// With `lightmaps: None` lighting is baked into vertex colours. With a plan
+/// every static floor, ceiling, wall and skirt quad is
 /// stamped with a chart and its vertex colour is reduced to material tint and
 /// directional face shade; the plan records one patch per quad for the fill
-/// pass. Fluorescent metal housings use the same charts; luminous fixture
-/// faces, other fixture bodies, prop placeholder boxes and decals stay vertex-lit.
+/// pass. All ordinary fixture housings use the same charts; luminous fixture
+/// faces, prop placeholder boxes and decals remain separate.
 pub fn build_level_geometry_mesh_with_lightmaps(
     level: &LevelDef,
     catalog: &crate::engine::loader::PropCatalog,
@@ -1852,9 +1852,40 @@ fn emit_fixtures(
         if profile.kind == crate::engine::lighting::FixtureKind::FluorescentPanel {
             emit_panel_housing(context, buckets, &mut housing);
         } else {
-            buckets.add_quads(SurfaceKey::bare(SurfaceKind::Light), &housing);
+            emit_bare_fixture_housing(context, buckets, &mut housing);
         }
     }
+}
+
+/// Keep each bare body's authored shade while receiving ordinary lighting.
+/// Only the separately textured luminous faces carry vertex emission.
+fn emit_bare_fixture_housing(
+    context: &EmitContext<'_, '_>,
+    buckets: &mut SpatialBuckets<SurfaceKey>,
+    housing: &mut [Vertex],
+) {
+    for quad in housing.as_chunks_mut::<6>().0 {
+        let [corner_a, corner_b, corner_c, _, _, corner_d] = *quad;
+        let points = [corner_a.pos, corner_b.pos, corner_c.pos, corner_d.pos];
+        let [r, g, b, _] = corner_a.color;
+        let albedo = [r, g, b];
+        let colors = if context.vertex_colors_are_material_only() {
+            [albedo; 4]
+        } else {
+            lit_corners(albedo, points, context.lighting)
+        };
+        let [ca, cb, cc, cd] = colors;
+        for (vertex, color) in quad.iter_mut().zip([ca, cb, cc, ca, cc, cd]) {
+            vertex.color = [color[0], color[1], color[2], 1.0];
+        }
+        let room = context.lighting.room_index_at_height(
+            f32::midpoint(corner_a.pos[0], corner_c.pos[0]),
+            f32::midpoint(corner_a.pos[1], corner_c.pos[1]),
+            f32::midpoint(corner_a.pos[2], corner_c.pos[2]),
+        );
+        stamp_lightmap_quad(context.lightmap, quad, 0, PatchKind::Wall, points, room);
+    }
+    buckets.add_quads(SurfaceKey::bare(SurfaceKind::Light), housing);
 }
 
 /// Routes existing troffer body geometry through the ordinary metal material,

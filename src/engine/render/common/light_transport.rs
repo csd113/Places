@@ -777,8 +777,8 @@ fn sky_radiance(level: &LevelDef) -> [f32; 3] {
 
 /// Appends every architecture range's triangles to the transport scene.
 ///
-/// Decals and fixture geometry are skipped; walls, floors, ceilings,
-/// architecture and prop fallbacks occlude. Water transmits into its attenuating
+/// Decals and luminous fixture faces are skipped; opaque fixture housings,
+/// walls, floors, ceilings, architecture and prop fallbacks occlude. Water transmits into its attenuating
 /// body; other surfaces retain the renderer's alpha coverage at each ray hit.
 fn append_architecture_triangles(
     mesh: &LevelMesh,
@@ -790,12 +790,13 @@ fn append_architecture_triangles(
     owners: &mut Vec<crate::engine::lighting::transport::diagnostics::CasterRange>,
 ) {
     for range in &mesh.ranges {
-        // Decals are a visual overlay, and fixture geometry is the analytic
-        // emitters' own housing: keeping it would let a fixture shadow itself
-        // (its authored luminous face sits between the room and the emitter
-        // point), which the historical occluder classification never did.
-        // Walls, floors, ceilings, architecture and prop fallbacks occlude.
-        if matches!(range.key.kind, SurfaceKind::Decal | SurfaceKind::Light) {
+        // Fitted luminous faces are endpoint surfaces of analytic sources.
+        // Their ordinary bare housings must still block light: excluding the
+        // whole Light family made even a closed blacklight body transparent.
+        let fixture_housing = range.key.kind == SurfaceKind::Light && !range.key.has_material();
+        if range.key.kind == SurfaceKind::Decal
+            || (range.key.kind == SurfaceKind::Light && !fixture_housing)
+        {
             continue;
         }
         let first = triangles.len();
@@ -813,7 +814,14 @@ fn append_architecture_triangles(
             ) else {
                 continue;
             };
-            let albedo = material;
+            // Bare fixture vertices carry their authored body albedo in this
+            // deferred-lighting mesh, including the blacklight's dark paint.
+            let albedo = if fixture_housing {
+                let [red, green, blue, _] = va.color;
+                [red, green, blue]
+            } else {
+                material
+            };
             match TransportTriangle::new(va.pos, vb.pos, vc.pos, albedo) {
                 Some(triangle) => {
                     let corners = [va.pos, vb.pos, vc.pos];

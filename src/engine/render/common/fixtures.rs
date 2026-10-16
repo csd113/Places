@@ -37,7 +37,8 @@
 
 use super::{Vertex, add_quad_flat};
 pub use crate::engine::lighting::{
-    PANEL_BODY_DROP_M, PANEL_BORDER_DEPTH_M, PANEL_BORDER_WIDTH_M, PANEL_LIP_M,
+    BLACKLIGHT_LENS_DROP_M, FLUSH_MOUNT_BODY_DROP_M, FLUSH_MOUNT_DIFFUSER_INSET_M,
+    PANEL_BODY_DROP_M, PANEL_BORDER_DEPTH_M, PANEL_BORDER_WIDTH_M, PANEL_LIP_M, ROUND_LENS_DROP_M,
 };
 
 /// Texture rectangle of a whole fitted fixture sheet.
@@ -139,10 +140,10 @@ pub fn add_blacklight_fixture(
     ]);
     add_quad_flat(
         lit,
-        point(-0.56, -0.046, -0.07),
-        point(0.56, -0.046, -0.07),
-        point(0.56, -0.046, 0.07),
-        point(-0.56, -0.046, 0.07),
+        point(-0.56, -BLACKLIGHT_LENS_DROP_M, -0.07),
+        point(0.56, -BLACKLIGHT_LENS_DROP_M, -0.07),
+        point(0.56, -BLACKLIGHT_LENS_DROP_M, 0.07),
+        point(-0.56, -BLACKLIGHT_LENS_DROP_M, 0.07),
         emission,
         SHEET_UV[0],
         SHEET_UV[1],
@@ -354,6 +355,31 @@ pub fn add_can_quad(
     );
 }
 
+/// Close a ten-sided can at its mounting plane with four nondegenerate quads.
+/// The fan follows the existing can vertices, preserving its exact silhouette.
+fn add_round_backplate(housing: &mut Vec<Vertex>, center: [f32; 3], radius: f32, color: [f32; 3]) {
+    let [cx, y, cz] = center;
+    let point = |segment: u8| {
+        let angle = f32::from(segment) / 10.0 * std::f32::consts::TAU;
+        let (sin, cos) = angle.sin_cos();
+        [radius.mul_add(cos, cx), y, radius.mul_add(sin, cz)]
+    };
+    for segment in (1_u8..9).step_by(2) {
+        add_quad_flat(
+            housing,
+            point(0),
+            point(segment.saturating_add(2)),
+            point(segment.saturating_add(1)),
+            point(segment),
+            color,
+            SHEET_UV[0],
+            SHEET_UV[1],
+            SHEET_UV[2],
+            SHEET_UV[3],
+        );
+    }
+}
+
 /// Emits a round recessed ceiling downlight: the emissive diffuser ring into
 /// `lit`, and the flat bezel ring plus shallow can into `housing`, all facing
 /// down into the room.
@@ -377,6 +403,7 @@ pub fn add_round_fixture(
     const BEZEL_COLOR: [f32; 3] = [0.40, 0.40, 0.40];
     /// Depth of the visible can below the ceiling plane, in metres.
     const CAN_DEPTH: f32 = 0.03;
+    let diffuser_y = y - ROUND_LENS_DROP_M;
     let inner = radius * 0.12;
     let bezel_outer = radius + 0.03;
     // Planar UVs: the sheet's inscribed circle is the diffuser's outer edge, so
@@ -399,7 +426,7 @@ pub fn add_round_fixture(
             lit,
             cx,
             cz,
-            y,
+            diffuser_y,
             inner,
             radius,
             cos0,
@@ -418,7 +445,7 @@ pub fn add_round_fixture(
             housing,
             cx,
             cz,
-            y,
+            diffuser_y,
             radius,
             bezel_outer,
             cos0,
@@ -442,6 +469,7 @@ pub fn add_round_fixture(
             BEZEL_COLOR,
         );
     }
+    add_round_backplate(housing, [cx, y, cz], bezel_outer, BEZEL_COLOR);
 }
 
 /// Emits the residential flush-mount ceiling lamp: a shallow white drum with a
@@ -464,10 +492,6 @@ pub fn add_flush_mount_fixture(
     emission: [f32; 3],
 ) {
     const SEGMENTS: usize = 10;
-    /// How far the drum hangs below the ceiling plane, in metres.
-    const BODY_DROP: f32 = 0.07;
-    /// How far the diffuser sits inset behind the drum's outer edge, in metres.
-    const DIFFUSER_INSET: f32 = 0.012;
     /// Painted white body, drawn through the shared untextured white sheet.
     const BODY_COLOR: [f32; 3] = [0.86, 0.86, 0.84];
     /// The body's shadowed bottom rim, a touch brighter than the wall it caps.
@@ -476,8 +500,8 @@ pub fn add_flush_mount_fixture(
     const CENTRE_HOLE: f32 = 0.08;
     /// How far the centre boss sits behind the diffuser plane, in metres.
     const BOSS_INSET: f32 = 0.004;
-    let y_bottom = y - BODY_DROP;
-    let diffuser_outer = (radius - DIFFUSER_INSET).max(radius * 0.5);
+    let y_bottom = y - FLUSH_MOUNT_BODY_DROP_M;
+    let diffuser_outer = (radius - FLUSH_MOUNT_DIFFUSER_INSET_M).max(radius * 0.5);
     let inner = radius * CENTRE_HOLE;
     // Planar UVs: the sheet's inscribed circle is the fixture's outer radius, so
     // one texel covers the same distance along both in-plane axes.
@@ -537,15 +561,16 @@ pub fn add_flush_mount_fixture(
             ],
         );
     }
+    add_round_backplate(housing, [cx, y, cz], radius, BODY_COLOR);
     // The centre boss: a small untextured plate just behind the diffuser's
     // centre hole, so the hole never shows the room through the fitting.
     let boss = radius * 0.13;
     add_quad_flat(
         housing,
-        [cx - boss, y_bottom - BOSS_INSET, cz - boss],
-        [cx + boss, y_bottom - BOSS_INSET, cz - boss],
-        [cx + boss, y_bottom - BOSS_INSET, cz + boss],
-        [cx - boss, y_bottom - BOSS_INSET, cz + boss],
+        [cx - boss, y_bottom + BOSS_INSET, cz - boss],
+        [cx + boss, y_bottom + BOSS_INSET, cz - boss],
+        [cx + boss, y_bottom + BOSS_INSET, cz + boss],
+        [cx - boss, y_bottom + BOSS_INSET, cz + boss],
         BODY_COLOR,
         SHEET_UV[0],
         SHEET_UV[1],
@@ -640,6 +665,20 @@ pub fn add_wall_fixture(
         point(-HALF_WIDTH, -HALF_HEIGHT, DEPTH),
         point(-HALF_WIDTH, HALF_HEIGHT, DEPTH),
         point(-HALF_WIDTH, HALF_HEIGHT, 0.0),
+        BEZEL_COLOR,
+        uv[0],
+        uv[1],
+        uv[2],
+        uv[3],
+    );
+    // The mounting back is ordinary metal, including when a model falls back
+    // to this procedural shell. Keep the front sheet as the only luminous face.
+    add_quad_flat(
+        housing,
+        point(-HALF_WIDTH, -HALF_HEIGHT, 0.0),
+        point(-HALF_WIDTH, HALF_HEIGHT, 0.0),
+        point(HALF_WIDTH, HALF_HEIGHT, 0.0),
+        point(HALF_WIDTH, -HALF_HEIGHT, 0.0),
         BEZEL_COLOR,
         uv[0],
         uv[1],

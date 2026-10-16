@@ -4364,6 +4364,17 @@ Stacked-storey selection (ceiling fixtures only):
 { "fixture": "core:fluorescent_panel_01", "x": 5.0, "z": 5.0, "y": 6.2 }
 ```
 
+Procedural fixture housings are closed at their mounting backs and receive
+ordinary baked illumination. Full includes their opaque triangles as transport
+casters; only fitted luminous sheets are excluded at their analytic-source
+endpoints. Home's source plane is 70 mm below its mounting Y, inside the actual
+0.148 m diffuser aperture; the blacklight source matches its 46 mm lens drop
+and 1.12 × 0.14 m aperture. These offsets do not change authored powers or colours.
+Static keeps its coarse visibility behavior without fixture self-occlusion.
+The delivered Office/Pool fixture models retain their existing geometry,
+material roles and source anchors. Geometry revision 16 invalidates prepared
+geometry and lighting from the earlier procedural contracts.
+
 Active items use a scale-aware Rapier contact skin of at most 2 mm, with CCD
 allowing two collisions per 120 Hz interval. The renderer uses the body's real
 transform; it never adds a visual floor offset. Authored dormant poses stay exact.

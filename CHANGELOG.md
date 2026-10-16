@@ -2,6 +2,16 @@
 
 Development staging; this version has not been published.
 
+### Fixture housing and emission audit
+
+- Verify Office's two wall sconces have sealed metal backs, correct normals and
+  non-emissive housings; preserve their delivered models and intended light spread.
+- Close remaining procedural mounting backs, include ordinary housings in Full
+  occlusion/receiver lighting, and align Home/blacklight sources with their lenses.
+- Restrict Home floor-lamp and cabinet-strip emission to their intended surfaces;
+  open the strip's housing around its unchanged diffuser to remove coincident faces.
+- [Audit scope, native evidence and limits](docs/reports/fixture-leaks-0.11.0.md).
+
 ### Sound engine and environment audio
 
 - Add bounded Kira/SDL3 desktop playback, spatial emitters, material footsteps,
