@@ -110,6 +110,27 @@ fn cpu_trace_finish(stage: &str, started: Option<std::time::Instant>) {
     }
 }
 
+/// Fixed scalar storage for explicit native resource-lifetime diagnostics.
+/// Peaks describe sampled observations, including staged old/new worlds; they
+/// do not claim to measure an unsampled driver allocation high-water mark.
+#[cfg(feature = "visual-diagnostics")]
+struct GpuResourceTrace {
+    frame: u64,
+    peak: [isize; 16],
+}
+
+#[cfg(feature = "visual-diagnostics")]
+impl GpuResourceTrace {
+    fn requested() -> Option<Self> {
+        std::env::var("PLACES_GPU_RESOURCE_TRACE")
+            .is_ok_and(|value| value.trim() == "1")
+            .then_some(Self {
+                frame: 0,
+                peak: [0; 16],
+            })
+    }
+}
+
 /// Where one installed door stands: its hinge and closed-leaf yaw.
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct DoorPlacement {
@@ -448,9 +469,8 @@ struct LevelEmissionAnimations {
 ///
 /// It owns the device/surface lifecycle and the world material passes.
 /// Field order is drop order: the surface (and its swapchain resources) drops
-/// before the device and the instance. The SDL window is never owned here; see
-/// [`surface::create`] for the lifetime invariant that keeps the raw handles
-/// valid.
+/// before the device and the instance. A retained SDL window clone drops last,
+/// keeping the raw handles valid through surface destruction and recovery.
 ///
 /// The flags below are independent pieces of renderer state — whether the
 /// surface needs reconfiguring, the player's `VSync` preference, whether the
@@ -633,6 +653,8 @@ pub struct WgpuRenderer {
     render_stats: RenderStats,
     /// Persistent asynchronous render-pass timestamp queries/readback slots.
     gpu_timer: GpuTimer,
+    #[cfg(feature = "visual-diagnostics")]
+    gpu_resource_trace: Option<GpuResourceTrace>,
     /// The surface must be (re)configured before the next acquisition.
     needs_configure: bool,
     /// The player's `VSync` preference, which selects the presentation mode.
@@ -1018,6 +1040,8 @@ impl WgpuRenderer {
             level_stats: LevelBuildStats::default(),
             render_stats: RenderStats::default(),
             gpu_timer,
+            #[cfg(feature = "visual-diagnostics")]
+            gpu_resource_trace: GpuResourceTrace::requested(),
             needs_configure: !drawable_size.is_empty(),
             vsync: true,
             pending_frame: None,
@@ -1182,6 +1206,9 @@ impl WgpuRenderer {
     /// Returns the interval the presentation mode corresponds to (`1` for the
     /// synchronized FIFO path, `0` for immediate).
     pub fn set_swap_interval(&mut self, want_vsync: bool) -> i32 {
+        if self.check_device_lost() {
+            return i32::from(self.config.present_mode != wgpu::PresentMode::Immediate);
+        }
         self.vsync = want_vsync;
         let Some(capabilities) = self.capabilities.as_ref() else {
             // A headless (compiler) renderer has no presentation mode.
@@ -1214,16 +1241,22 @@ impl WgpuRenderer {
         }
         self.drawable_size = size;
         self.needs_configure = true;
+        self.invalidate_frame();
         if let Err(error) = validate_drawable(size, self.device.limits().max_texture_dimension_2d) {
-            self.pending_frame = None;
             self.mark_fatal(error);
         }
-        if size.is_empty() {
-            // The window holds no drawable while minimized: drop any acquired
-            // frame and wait for a real size.
-            self.pending_frame = None;
-        }
+        #[cfg(feature = "visual-diagnostics")]
+        self.trace_gpu_resources("drawable-changed");
         true
+    }
+
+    /// A frame and its HUD can only be replayed against the resources and size
+    /// they were rendered with. Retiring them also releases a held swapchain
+    /// image before a resize, install or fatal-device shutdown.
+    fn invalidate_frame(&mut self) {
+        self.pending_frame = None;
+        self.last_frame = None;
+        self.last_ui.clear();
     }
 
     /// The current dynamic scene (empty until `set_dynamic_demo` spawns
@@ -1240,6 +1273,9 @@ impl WgpuRenderer {
     /// matrix and light scale into its environment uniform. A still scene
     /// writes nothing.
     pub fn update_dynamic(&mut self, delta_seconds: f32) -> DynamicUpdate {
+        if self.check_device_lost() {
+            return DynamicUpdate::default();
+        }
         if delta_seconds.is_finite() && delta_seconds > 0.0 {
             self.animation_seconds += delta_seconds;
         }
@@ -1771,8 +1807,8 @@ impl WgpuRenderer {
     /// whichever emission each of the object's primitives resolves (its own,
     /// or the object-wide override set through the neutral scene), so `0.0`
     /// switches the object's emission off and `1.0` restores it. The GPU
-    /// materials are rebuilt, which is a variant-change cost, not a frame
-    /// cost. Returns whether the key held a live object and the scale was
+    /// materials receive only a changed emission-scale uniform. Returns
+    /// whether the key held a live object and the scale was
     /// accepted; a non-finite or negative scale is refused.
     pub fn set_runtime_emission(&mut self, key: u64, scale: f32) -> bool {
         if self.check_device_lost() {
@@ -1794,7 +1830,9 @@ impl WgpuRenderer {
         if !self.dynamic.set_emission_scale(id, scale) {
             return false;
         }
-        self.upload_dynamic();
+        if let Some(dynamic) = self.world_dynamic.as_mut() {
+            let _updated = dynamic.set_object_emission_scale(&self.queue, id, scale);
+        }
         true
     }
 
@@ -2067,7 +2105,7 @@ impl WgpuRenderer {
     /// glowing. Both writes are bounded by one material uniform and one
     /// environment uniform, and an empty list costs nothing.
     pub fn apply_light_toggles(&mut self, toggles: &[(usize, bool)]) {
-        if toggles.is_empty() {
+        if toggles.is_empty() || self.check_device_lost() {
             return;
         }
         self.select_static_light_state(toggles);
@@ -2261,6 +2299,10 @@ impl WgpuRenderer {
     ///
     /// Called after the static level exists, once per dynamic spawn.
     fn upload_dynamic(&mut self) {
+        if self.check_device_lost() {
+            self.world_dynamic = None;
+            return;
+        }
         if self.dynamic.is_empty() {
             self.world_dynamic = None;
             return;
@@ -2315,6 +2357,9 @@ impl WgpuRenderer {
         locomotion: LocomotionSnapshot,
         frames: &[EntityFrame],
     ) -> crate::engine::render::CharacterUpdate {
+        if self.check_device_lost() {
+            return crate::engine::render::CharacterUpdate::default();
+        }
         let animation_started = cpu_trace_start(self.animation_seconds);
         let update = self.characters.update(delta_seconds, locomotion, frames);
         cpu_trace_finish("character_animation", animation_started);
@@ -2567,6 +2612,8 @@ impl WgpuRenderer {
         self.graphics_requested.bloom = self.bloom_requested;
         self.quality = self.graphics_applied.quality;
         self.lighting_quality = self.graphics_applied.lighting_quality;
+        #[cfg(feature = "visual-diagnostics")]
+        self.trace_gpu_resources("install-aborted");
     }
 
     /// Applies a Reflections setting to the GPU targets and the frame gates.
@@ -2658,6 +2705,9 @@ impl WgpuRenderer {
         characters: CharacterScene,
         preserve_playback: bool,
     ) {
+        if self.check_device_lost() {
+            return;
+        }
         let mut textures = self.textures.clone();
         if self.graphics_requested.quality == self.installed_quality {
             textures.begin_level();
@@ -2703,10 +2753,14 @@ impl WgpuRenderer {
             probes: crate::engine::package::world::ProbeCaptures::default(),
             precompiled_probes: false,
         });
+        #[cfg(feature = "visual-diagnostics")]
+        self.trace_gpu_resources("install-started");
     }
 
     pub fn cancel_prepared_install(&mut self) {
         self.prepared_install = None;
+        #[cfg(feature = "visual-diagnostics")]
+        self.trace_gpu_resources("install-cancelled");
     }
 
     /// Installs a world whose reflection probes were captured by the compiler.
@@ -2732,6 +2786,9 @@ impl WgpuRenderer {
 
     /// Advances one upload family, or a bounded batch of prop buffers.
     pub fn advance_prepared_install(&mut self) -> bool {
+        if self.check_device_lost() {
+            return false;
+        }
         let Some(mut pending) = self.prepared_install.take() else {
             return false;
         };
@@ -2823,6 +2880,8 @@ impl WgpuRenderer {
             }
         }
         self.prepared_install = Some(pending);
+        #[cfg(feature = "visual-diagnostics")]
+        self.trace_gpu_resources("install-upload");
         false
     }
 
@@ -2909,12 +2968,6 @@ impl WgpuRenderer {
             characters.inherit_playback_from(&mut self.characters);
         }
         let animation_seconds = self.animation_seconds;
-        // A graphics transaction keeps the visited weather selection. A real
-        // reload of the same level id starts from its freshly authored default.
-        if !inherit_playback && self.level_id.as_deref() == Some(loaded.level.id.as_str()) {
-            self.effects = EffectScene::build(&loaded.level, &loaded.materials);
-            self.animation_seconds = 0.0;
-        }
         self.prop_catalog = loaded.catalog.as_ref().clone();
         self.prop_assets = assets;
         self.textures = textures;
@@ -2936,6 +2989,7 @@ impl WgpuRenderer {
             build,
             graphics.lightmaps,
             graphics.reflections,
+            inherit_playback,
             true,
             std::time::Instant::now(),
             Some((characters, uploaded)),
@@ -2947,6 +3001,8 @@ impl WgpuRenderer {
         self.retained_build = Some(installed_build);
         self.installed_lightmaps = graphics.lightmaps;
         self.graphics_applied = graphics;
+        #[cfg(feature = "visual-diagnostics")]
+        self.trace_gpu_resources("install-committed");
         true
     }
 
@@ -2964,11 +3020,13 @@ impl WgpuRenderer {
         mut build: Arc<LevelBuild>,
         lightmaps_quality: LightmapQuality,
         reflections_quality: ReflectionQuality,
+        preserve_level_state: bool,
         upload_atlas: bool,
         started: std::time::Instant,
         prepared: Option<(CharacterScene, UploadedLevel)>,
         precompiled_probes: Option<crate::engine::package::world::ProbeCaptures>,
     ) -> Arc<LevelBuild> {
+        self.invalidate_frame();
         let (characters, uploaded) = prepared.map_or((None, None), |(characters, uploaded)| {
             (Some(characters), Some(uploaded))
         });
@@ -2991,7 +3049,10 @@ impl WgpuRenderer {
                 Some(uploaded_level.props),
             )
         });
-        let level_changed = self.level_id.as_deref() != Some(loaded.level.id.as_str());
+        // Only a graphics transaction inherits mutable level state. Explicit
+        // reloads can replace content while retaining the same authored id.
+        let level_changed =
+            !preserve_level_state || self.level_id.as_deref() != Some(loaded.level.id.as_str());
         let quality_changed = self.quality != self.installed_quality;
         if quality_changed && !preuploaded {
             self.textures.release_profile_textures();
@@ -3211,11 +3272,10 @@ impl WgpuRenderer {
             })
         });
         // The GPU side of the previous level's dynamic scene dies with it. The
-        // neutral scene is level content too: a quality rebuild of the same
-        // level keeps its objects, but a
-        // different level must not inherit them, so a level change clears the
-        // neutral scene and it is re-uploaded against the new resources.
-        if self.level_id.as_deref() != Some(loaded.level.id.as_str()) {
+        // neutral scene is level content too: a graphics rebuild keeps its
+        // objects, while a reload starts from the newly installed definition,
+        // including when its id matches the previous version.
+        if level_changed {
             self.dynamic.clear_all();
             self.dynamic_visibility =
                 crate::engine::render::common::dynamic_visibility::DynamicVisibility::new();
@@ -4052,6 +4112,8 @@ impl WgpuRenderer {
     /// replaces them, so drawing remains valid after cache release.
     pub fn release_profile_textures(&mut self) {
         self.textures.release_profile_textures();
+        #[cfg(feature = "visual-diagnostics")]
+        self.trace_gpu_resources("texture-cache-released");
     }
 
     /// The last level upload's counters.
@@ -4134,6 +4196,11 @@ impl WgpuRenderer {
             return;
         }
         self.poll_device();
+        if self.fatal.is_some() {
+            return;
+        }
+        #[cfg(feature = "visual-diagnostics")]
+        self.trace_gpu_resource_frame();
         self.gpu_timer.begin_frame(&self.queue);
         // Animated emissions are level data; advancing them is a handful of
         // uniform writes, and a still material writes nothing.
@@ -4356,6 +4423,7 @@ impl WgpuRenderer {
         };
         post.upload_settings(&self.queue, settings);
         let stats = post.ensure(&self.device, self.quality, self.drawable_size);
+        let ready = post.is_ready();
         if stats.created {
             logging::info(format!(
                 "[wgpu] post targets: scene {}x{}, bloom {}x{}, presented {}x{}",
@@ -4366,8 +4434,10 @@ impl WgpuRenderer {
                 stats.presented.width,
                 stats.presented.height,
             ));
+            #[cfg(feature = "visual-diagnostics")]
+            self.trace_gpu_resources("post-targets-resized");
         }
-        post.is_ready()
+        ready
     }
 
     fn presentation_settings(&self) -> PostSettings {
@@ -5044,7 +5114,7 @@ impl WgpuRenderer {
         reason = "one cohesive bake: six face submissions per probe in one loop"
     )] // one cohesive bake: six face submissions per probe in one loop
     fn bake_reflection_probes(&mut self) {
-        if self.reflection_targets.probes().is_empty() {
+        if self.reflection_targets.probes().is_empty() || self.check_device_lost() {
             return;
         }
         self.ensure_world_pipeline();
@@ -5706,6 +5776,8 @@ impl WgpuRenderer {
             view_formats: &[],
         });
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        #[cfg(feature = "visual-diagnostics")]
+        self.trace_gpu_resources("capture-started");
         // The presented target already carries the frame *and* the HUD (the
         // post path blends the UI into it before encoding it to the surface),
         // so the post-path capture is its raw copy: display-space bytes
@@ -5765,7 +5837,12 @@ impl WgpuRenderer {
                 self.last_ui = ui_vertices;
             }
         }
-        read_back_rgba(&self.device, &self.queue, &texture, width, height, format)
+        let captured = read_back_rgba(&self.device, &self.queue, &texture, width, height, format);
+        drop(view);
+        drop(texture);
+        #[cfg(feature = "visual-diagnostics")]
+        self.trace_gpu_resources("capture-finished");
+        captured
     }
 
     /// Submits the capture's scene and then receipts the exact encoded totals.
@@ -5789,6 +5866,9 @@ impl WgpuRenderer {
     /// The offline compiler calls this after installing a world at Full to
     /// produce the Medium captures from the same prepared scene.
     pub fn reprepare_reflection_probes(&mut self, quality: ReflectionQuality) {
+        if self.check_device_lost() {
+            return;
+        }
         self.apply_reflection_targets(quality);
         self.bake_reflection_probes();
     }
@@ -5801,6 +5881,9 @@ impl WgpuRenderer {
     pub fn read_back_probe_faces(
         &self,
     ) -> Result<Vec<super::reflections::ProbeFaceReadback>, String> {
+        if self.fatal.is_some() || self.device_lost.lock().is_ok_and(|slot| slot.is_some()) {
+            return Err("the GPU device is unavailable for probe read-back".to_string());
+        }
         let mut probes = Vec::with_capacity(self.reflection_targets.probes().len());
         for probe in self.reflection_targets.probes() {
             let face_size = probe.face_size;
@@ -5898,6 +5981,11 @@ impl WgpuRenderer {
     /// At most one recovery attempt is made per call: a status that survives
     /// its own recovery skips the frame rather than looping.
     fn acquire_frame(&mut self) -> Acquired {
+        self.acquire_frame_attempt(false)
+    }
+
+    /// A second attempt preserves loss/fatal handling without another retry.
+    fn acquire_frame_attempt(&mut self, reconfigured: bool) -> Acquired {
         let Some(surface) = self.surface.as_ref() else {
             // Headless (compiler) renderer: no frame is ever acquired.
             return Acquired::Skip;
@@ -5905,17 +5993,30 @@ impl WgpuRenderer {
         match surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(texture)
             | wgpu::CurrentSurfaceTexture::Suboptimal(texture) => Acquired::Frame(texture),
-            wgpu::CurrentSurfaceTexture::Timeout => self.recover(SurfaceStatus::Timeout),
-            wgpu::CurrentSurfaceTexture::Occluded => self.recover(SurfaceStatus::Occluded),
-            wgpu::CurrentSurfaceTexture::Outdated => self.recover(SurfaceStatus::Outdated),
-            wgpu::CurrentSurfaceTexture::Lost => self.recover(SurfaceStatus::Lost),
-            wgpu::CurrentSurfaceTexture::Validation => self.recover(SurfaceStatus::Validation),
+            wgpu::CurrentSurfaceTexture::Timeout => {
+                self.recover(SurfaceStatus::Timeout, reconfigured)
+            }
+            wgpu::CurrentSurfaceTexture::Occluded => {
+                self.recover(SurfaceStatus::Occluded, reconfigured)
+            }
+            wgpu::CurrentSurfaceTexture::Outdated => {
+                self.recover(SurfaceStatus::Outdated, reconfigured)
+            }
+            wgpu::CurrentSurfaceTexture::Lost => self.recover(SurfaceStatus::Lost, reconfigured),
+            wgpu::CurrentSurfaceTexture::Validation => {
+                self.recover(SurfaceStatus::Validation, reconfigured)
+            }
         }
     }
 
     /// Applies the surface recovery policy for one non-success status.
-    fn recover(&mut self, status: SurfaceStatus) -> Acquired {
-        match status.recovery() {
+    fn recover(&mut self, status: SurfaceStatus, reconfigured: bool) -> Acquired {
+        let recovery = if reconfigured {
+            status.recovery_after_reconfigure()
+        } else {
+            status.recovery()
+        };
+        match recovery {
             SurfaceRecovery::Reconfigure => self.retry_after_reconfigure(),
             SurfaceRecovery::Recreate => {
                 logging::warn_once(
@@ -5938,6 +6039,11 @@ impl WgpuRenderer {
                         "wgpu-surface-timeout",
                         "[wgpu] surface acquisition timed out; skipping frames until it recovers",
                     );
+                } else if status == SurfaceStatus::Outdated {
+                    logging::warn_once(
+                        "wgpu-surface-outdated-retry",
+                        "[wgpu] the surface did not recover after reconfiguring; skipping the frame",
+                    );
                 }
                 Acquired::Skip
             }
@@ -5952,23 +6058,10 @@ impl WgpuRenderer {
         );
         self.needs_configure = true;
         self.ensure_ready();
-        let Some(surface) = self.surface.as_ref() else {
-            return Acquired::Skip;
-        };
-        match surface.get_current_texture() {
-            wgpu::CurrentSurfaceTexture::Success(texture)
-            | wgpu::CurrentSurfaceTexture::Suboptimal(texture) => Acquired::Frame(texture),
-            wgpu::CurrentSurfaceTexture::Timeout
-            | wgpu::CurrentSurfaceTexture::Occluded
-            | wgpu::CurrentSurfaceTexture::Outdated
-            | wgpu::CurrentSurfaceTexture::Lost
-            | wgpu::CurrentSurfaceTexture::Validation => {
-                logging::warn_once(
-                    "wgpu-surface-outdated-retry",
-                    "[wgpu] the surface did not recover after reconfiguring; skipping the frame",
-                );
-                Acquired::Skip
-            }
+        if self.fatal.is_some() || self.needs_configure || self.drawable_size.is_empty() {
+            Acquired::Skip
+        } else {
+            self.acquire_frame_attempt(true)
         }
     }
 
@@ -5988,12 +6081,13 @@ impl WgpuRenderer {
         match unsafe { surface::create(&self.instance, window) } {
             Ok(recreated) => {
                 let capabilities = recreated.get_capabilities(&self.adapter);
-                if !capabilities.formats.contains(&self.config.format)
-                    && let Some(format) = surface::select_surface_format(&capabilities)
+                if let Err(error) =
+                    surface::refresh_configuration(&mut self.config, &capabilities, self.vsync)
                 {
-                    self.config.format = format;
+                    self.mark_fatal(error);
+                    return;
                 }
-                self.config.present_mode = surface::select_present_mode(&capabilities, self.vsync);
+                self.invalidate_frame();
                 self.capabilities = Some(capabilities);
                 self.surface = Some(recreated);
                 self.needs_configure = true;
@@ -6002,6 +6096,8 @@ impl WgpuRenderer {
                     "[wgpu] surface recreated for the SDL window ({}x{})",
                     self.drawable_size.width, self.drawable_size.height
                 ));
+                #[cfg(feature = "visual-diagnostics")]
+                self.trace_gpu_resources("surface-recreated");
             }
             Err(error) => {
                 self.mark_fatal(format!("wgpu could not recreate the lost surface: {error}"));
@@ -6014,7 +6110,107 @@ impl WgpuRenderer {
         if let Err(error) = self.device.poll(wgpu::PollType::Poll) {
             logging::warn_once("wgpu-poll", format!("[wgpu] device poll failed: {error}"));
         }
-        self.gpu_timer.collect_ready(&self.device, &self.queue);
+        if !self.check_device_lost() {
+            self.gpu_timer.collect_ready(&self.device, &self.queue);
+        }
+    }
+
+    /// Explicit stress diagnostics sample once a second at 60 fps; normal
+    /// builds compile out the field, branch and all counter work.
+    #[cfg(feature = "visual-diagnostics")]
+    fn trace_gpu_resource_frame(&mut self) {
+        let Some(trace) = self.gpu_resource_trace.as_mut() else {
+            return;
+        };
+        trace.frame = trace.frame.saturating_add(1);
+        if trace.frame == 1 || trace.frame.is_multiple_of(60) {
+            self.trace_gpu_resources("frame");
+        }
+    }
+
+    /// HAL counters include resources kept alive by submitted work and bind
+    /// groups. Logging is limited to opt-in lifecycle and periodic samples.
+    #[cfg(feature = "visual-diagnostics")]
+    fn trace_gpu_resources(&mut self, event: &str) {
+        let Some(trace) = self.gpu_resource_trace.as_mut() else {
+            return;
+        };
+        let counters = self.device.get_internal_counters().hal;
+        let current = [
+            counters.buffers.read(),
+            counters.textures.read(),
+            counters.texture_views.read(),
+            counters.bind_groups.read(),
+            counters.bind_group_layouts.read(),
+            counters.render_pipelines.read(),
+            counters.compute_pipelines.read(),
+            counters.pipeline_layouts.read(),
+            counters.samplers.read(),
+            counters.command_encoders.read(),
+            counters.shader_modules.read(),
+            counters.query_sets.read(),
+            counters.fences.read(),
+            counters.memory_allocations.read(),
+            counters.buffer_memory.read(),
+            counters.texture_memory.read(),
+        ];
+        for (peak, live) in trace.peak.iter_mut().zip(current) {
+            *peak = (*peak).max(live);
+        }
+        let frame = trace.frame;
+        let peak = trace.peak;
+        let names = [
+            "buffers",
+            "textures",
+            "texture_views",
+            "bind_groups",
+            "bind_group_layouts",
+            "render_pipelines",
+            "compute_pipelines",
+            "pipeline_layouts",
+            "samplers",
+            "command_encoders",
+            "shader_modules",
+            "query_sets",
+            "fences",
+            "memory_allocations",
+            "buffer_bytes",
+            "texture_bytes",
+        ];
+        let describe = |values: [isize; 16]| {
+            serde_json::Value::Object(
+                names
+                    .into_iter()
+                    .zip(values)
+                    .map(|(name, value)| {
+                        let supported_memory = self.adapter_info.backend != wgpu::Backend::Metal;
+                        let encoded_value = if !supported_memory
+                            && matches!(
+                                name,
+                                "buffer_bytes" | "texture_bytes" | "memory_allocations"
+                            ) {
+                            serde_json::Value::Null
+                        } else {
+                            serde_json::json!(value)
+                        };
+                        (name.to_string(), encoded_value)
+                    })
+                    .collect(),
+            )
+        };
+        let receipt = serde_json::json!({
+            "event": event, "frame": frame, "level": self.level_id,
+            "backend": surface::native_backend_label(),
+            "live": describe(current), "observed_peak": describe(peak),
+            "memory_scope": "HAL-reported bytes where supported; Metal HAL memory counters unavailable. Texel budgets below exclude driver overhead and are partial, not summed allocations; active/pending caches may share sheets.",
+            "texture_cache": self.textures.diagnostic_retention(),
+            "pending_texture_cache": self.prepared_install.as_ref().map(|pending| pending.textures.diagnostic_retention()),
+            "post_attachment_texel_bytes": self.post.as_ref().map_or(0, PostProcess::diagnostic_attachment_bytes),
+            "atlas_texel_bytes": self.lightmaps.stats().resident_bytes,
+            "drawable": [self.drawable_size.width, self.drawable_size.height],
+            "staging": self.prepared_install.is_some(), "fatal": self.fatal,
+        });
+        logging::info(format!("[gpu-resources] {receipt}"));
     }
 
     /// Reports and records a device loss, once.
@@ -6036,8 +6232,12 @@ impl WgpuRenderer {
     /// Records the first fatal error and reports it exactly once.
     fn mark_fatal(&mut self, message: String) {
         if self.fatal.is_none() {
+            self.invalidate_frame();
+            self.prepared_install = None;
             logging::warn(format!("[wgpu] fatal device error: {message}"));
             self.fatal = Some(message);
+            #[cfg(feature = "visual-diagnostics")]
+            self.trace_gpu_resources("fatal");
         }
     }
 }

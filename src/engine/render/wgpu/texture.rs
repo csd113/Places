@@ -1010,6 +1010,23 @@ impl TextureCache {
         self.level.clear();
     }
 
+    /// Cache-owned references only: active/pending draws can retain additional
+    /// sheets, and a cloned cache can share the same underlying allocations.
+    #[cfg(feature = "visual-diagnostics")]
+    pub fn diagnostic_retention(&self) -> serde_json::Value {
+        let bytes = |entries: &HashMap<TextureKey, Arc<GpuTexture>>| {
+            entries.values().fold(0_u64, |total, image| {
+                total.saturating_add(image.meta().resident_bytes)
+            })
+        };
+        serde_json::json!({
+            "persistent_entries": self.persistent.len(),
+            "persistent_texel_bytes": bytes(&self.persistent),
+            "level_entries": self.level.len(),
+            "level_texel_bytes": bytes(&self.level),
+        })
+    }
+
     /// Returns the cached GPU texture for one resolved texture, uploading it
     /// (fit, mip chain, view, bind groups) when it is not cached yet.
     ///

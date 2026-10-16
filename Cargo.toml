@@ -19,7 +19,7 @@ path = "tools/rust/package_repack/main.rs"
 [features]
 # Development-only native diagnostic views; the normal build retains the exact
 # production WGSL and does not carry the selector or diagnostic shader branch.
-visual-diagnostics = []
+visual-diagnostics = ["wgpu/counters"]
 # Opt-in physics solver experiment; production policy follows measured workloads.
 parallel-physics = ["rapier3d/parallel"]
 

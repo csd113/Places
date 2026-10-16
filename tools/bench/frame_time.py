@@ -60,6 +60,7 @@ def main() -> None:
     parser.add_argument("--level", default="retro_arcade_demo")
     parser.add_argument("--spawn", default="-1.6,1.6,2.8,90", help="X,Y,Z,yaw; use --spawn= for negative X")
     parser.add_argument("--camera", default="90,0", help="yaw,pitch in degrees")
+    parser.add_argument("--eye", default="", help="fixed render-eye X,Y,Z independent of player physics")
     parser.add_argument("--size", default="1280x720", help="logical window size; actual drawable is recorded")
     parser.add_argument("--expected-drawable", help="reject a native run unless its drawable matches WIDTHxHEIGHT")
     parser.add_argument("--fullscreen", action="store_true")
@@ -115,7 +116,11 @@ def main() -> None:
         quality="high", texture_filtering="high", lightmaps=args.lightmaps, reflections="full",
         bloom=True, use_low_quality_lighting=False, fov_degrees=60, developer_console=args.console_open,
     )
-    (out / "settings.json").write_text(json.dumps(settings, indent=2) + "\n")
+    # The stable macOS launcher creates the isolated state directory itself.
+    settings_path = out / "settings-input.json"
+    settings_path.write_text(json.dumps(settings, indent=2) + "\n")
+    if sys.platform != "darwin":
+        (out / "settings.json").write_text(json.dumps(settings, indent=2) + "\n")
     env = {key: value for key, value in os.environ.items()
            if not key.startswith("PLACES_") and key != "SDL_VIDEODRIVER"}
     env.update(
@@ -127,6 +132,7 @@ def main() -> None:
     )
     optional = {
         "PLACES_RUNTIME_WORKERS": str(args.runtime_workers) if args.runtime_workers else "",
+        "PLACES_BENCH_CAMERA_POSITION": args.eye,
         "PLACES_ENTITY_LIGHT_TRACE": args.entity_light_trace,
         "PLACES_BENCH_CPU_TRACE": "1" if args.cpu_trace else "",
         "PLACES_MOVE_SCRIPT": lateral_script() if args.motion else args.move_script,
@@ -159,8 +165,21 @@ def main() -> None:
     started = time.monotonic()
     load_before = os.getloadavg()
     binary_sha256, package_sha256 = digest(binary), digest(package)
+    command = [str(binary)]
+    native_out = out / "native"
+    if sys.platform == "darwin":
+        env_path = out / "environment.json"
+        env_path.write_text(json.dumps({key: value for key, value in env.items()
+                                       if key.startswith("PLACES_")}, indent=2) + "\n")
+        command = [sys.executable, str(ROOT / "tools/bench/native_app.py"),
+                   "--binary", str(binary), "--out", str(native_out),
+                   "--env-json", str(env_path), "--settings-json", str(settings_path)]
     try:
-        result = subprocess.run([str(binary)], cwd=ROOT, env=env, capture_output=True, text=True, timeout=240)
+        # LaunchServices owns the macOS app independently of this wrapper.
+        # Keep the stable launcher's no-timeout contract: approval delays must
+        # not orphan a running app or trigger another launch automatically.
+        result = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True,
+                                timeout=None if sys.platform == "darwin" else 240)
     except subprocess.TimeoutExpired as error:
         def timeout_text(value: str | bytes | None) -> str:
             return value.decode(errors="replace") if isinstance(value, bytes) else value or ""
@@ -168,6 +187,11 @@ def main() -> None:
         (out / "native.log").write_text(timeout_text(error.stdout) + timeout_text(error.stderr))
         raise RuntimeError(f"native run timed out after 240 seconds; see {out / 'native.log'}") from error
     log = result.stdout + result.stderr
+    if sys.platform == "darwin":
+        for name in ("stdout.log", "stderr.log"):
+            path = native_out / name
+            if path.exists():
+                log += path.read_text()
     (out / "native.log").write_text(log)
     if (digest(binary), digest(package)) != (binary_sha256, package_sha256):
         raise RuntimeError(f"binary/package changed during native run; see {out / 'native.log'}")
@@ -227,8 +251,8 @@ def main() -> None:
         native_identity=[line for line in log.splitlines()
                          if line.startswith(("[renderer]", "[window]", "[settings]", "[wgpu] GPU timing", "[wgpu] present mode"))],
         metrics=metrics, gpu_elapsed_ms=None if capture else statistics_for(list(gpu.values())),
-        peak_native_rss_bytes=int(resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss)
-            * (1 if sys.platform == "darwin" else 1024),
+        peak_native_rss_bytes=(json.loads((native_out / "launch.json").read_text())["peak_native_rss_bytes"]
+            if sys.platform == "darwin" else int(resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss) * 1024),
         base_scene_draws=statistics_for([int(row["draw_calls"]) for row in rows]),
         base_scene_triangles=statistics_for([int(row["visible_indices"]) // 3 for row in rows]),
         reflection_passes=sorted({int(row["reflection_passes"]) for row in rows}),

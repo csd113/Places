@@ -47,6 +47,13 @@ Use `native_app.py` when a native run needs foreground app selection. It keeps
 `io.github.csd113.places.validation`, and executable `places-validation` stable.
 Identical binaries reuse the existing bundle bytes. An optional `--env-json`
 file supplies `PLACES_*` string values; state and logs go into `--out`.
+`--settings-json` supplies the isolated run's initial settings before launch.
+The launcher samples RSS for the actual stable app executable once per second;
+`launch.json` records the observations and sampled peak. This excludes wrapper
+memory and is not an exact process high-water mark or total GPU memory measure.
+`frame_time.py` uses this launcher on macOS and checks actual presentation mode,
+drawable and successful scene submissions in its receipts. Its `--eye X,Y,Z`
+option fixes a diagnostic render eye independently of player physics.
 
 ```sh
 python3 tools/bench/native_app.py --binary target/release/places \

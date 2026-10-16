@@ -1103,13 +1103,13 @@ impl DynamicScene {
             return 0;
         }
         let animation_seconds = if seconds.is_finite() { seconds } else { 0.0 };
-        let water = self.water.clone();
+        let water = &self.water;
         let mut moved = 0usize;
         for object in &mut self.objects {
             let Some(float) = object.float else {
                 continue;
             };
-            let translation = float.translation_at(animation_seconds, &water);
+            let translation = float.translation_at(animation_seconds, water);
             let heel = float.heel_at(animation_seconds);
             let changed = (object.translation.x - translation.x).abs() > f32::EPSILON
                 || (object.translation.y - translation.y).abs() > f32::EPSILON

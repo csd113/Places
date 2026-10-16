@@ -6649,6 +6649,38 @@ This remains a support heuristic: one supported face centre is sufficient, and
 conservative roof-following boxes need no invented horizontal cap. It does not
 prove full face coverage or watertight collision.
 
+For static GLB interiors and transformed prop placements, use the separate
+offline triangle audit. It reports stable node/mesh/primitive/triangle and
+instance references, material/alpha information, coplanar, near-coplanar and
+opposite-facing coverage. It refuses posed geometry and never treats a work
+budget limit as a clean result:
+
+```sh
+python3 tools/props/repair_geometry.py --audit-model MODEL.glb --report model-overlaps.json
+./target/release/places --check-geometry --level levels/office_demo.json \
+  --prop-instances office-instances.json --quiet
+python3 tools/props/repair_geometry.py --audit-instances office-instances.json \
+  --report instance-overlaps.json
+```
+
+The default pair-work limit is 2,000,000; `--max-candidates` can explicitly
+increase a model/instance audit's bounded offline budget. Architecture checks
+emit `geometry-check-incomplete` if their limit is exhausted. Instance export
+uses the engine's floor/height, yaw, scale, span and shear transforms. Movable,
+floating, skinned, animated and morph-dependent geometry requires pose review.
+Material overrides whose alpha is not resolved are marked `UNKNOWN_OVERRIDE`.
+
+Generic repair plans permit only exact equally oriented opaque duplicate faces
+with identical complete vertex records/material in the same source primitive.
+`--apply-overlap-plan REPORT.json` rechecks source hashes and the complete plan,
+preserves image/material records, and verifies an empty second duplicate plan.
+Near planes, different materials, cross-instance overlaps and intentional layers
+remain review findings. The Office reception desk's explicit reviewed clipping
+recipe is separate from this generic duplicate rule. See the
+[0.11.0 renderer report](reports/renderer-0.11.0.md) for diagnosed content,
+preserved originals, native evidence and limitations. These are developer tools;
+no global per-frame pair scan or editor workflow is introduced.
+
 ---
 
 ## 32. The Model Zoo and the capacity fixtures

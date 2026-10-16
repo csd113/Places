@@ -11,6 +11,69 @@ use super::dynamic::{DynamicId, DynamicMesh, DynamicScene};
 use crate::engine::lighting::transport::TransportScene;
 use crate::engine::spatial::Aabb;
 
+/// Exact dependencies of a movable ultraviolet receiver. Source geometry is
+/// retained by value because a source set can be replaced in place. Switches
+/// change excitation in the environment, independently of ray visibility.
+#[derive(PartialEq)]
+struct BlacklightReceiverKey {
+    sources: [super::light_transport::EntityDirectLight; super::blacklight::MAX_BLACKLIGHTS],
+    scene: usize,
+    dynamic: usize,
+    dynamic_revision: u64,
+    model: [[u32; 4]; 4],
+    bounds: [[u32; 3]; 2],
+    receiver: Option<DynamicId>,
+}
+
+/// Reuses the eight anchor visibility samples while the receiver, sources and
+/// movable occluders are unchanged. This avoids tracing rays merely to discover
+/// that the GPU environment is identical to the preceding frame.
+pub struct BlacklightReceiverCache {
+    key: Option<BlacklightReceiverKey>,
+    value: super::blacklight::BlacklightReceiver,
+}
+
+impl Default for BlacklightReceiverCache {
+    fn default() -> Self {
+        Self {
+            key: None,
+            value: super::blacklight::BlacklightReceiver::ZERO,
+        }
+    }
+}
+
+impl BlacklightReceiverCache {
+    pub fn sample(
+        &mut self,
+        visibility: Option<super::blacklight::BlacklightVisibility<'_>>,
+        bounds: Aabb,
+        model: Mat4,
+        receiver: Option<DynamicId>,
+    ) -> super::blacklight::BlacklightReceiver {
+        let Some(context) = visibility else {
+            self.key = None;
+            self.value = super::blacklight::BlacklightReceiver::ZERO;
+            return self.value;
+        };
+        let key = BlacklightReceiverKey {
+            sources: context.sources.descriptors(None),
+            scene: std::ptr::from_ref(context.scene).addr(),
+            dynamic: context
+                .dynamic
+                .map_or(0, |value| std::ptr::from_ref(value).addr()),
+            dynamic_revision: context.dynamic.map_or(0, DynamicVisibility::revision),
+            model: matrix_bits(model),
+            bounds: [bounds.min.map(f32::to_bits), bounds.max.map(f32::to_bits)],
+            receiver,
+        };
+        if self.key.as_ref() != Some(&key) {
+            self.value = context.receiver(bounds, model, receiver);
+            self.key = Some(key);
+        }
+        self.value
+    }
+}
+
 struct CachedMesh {
     mesh: Arc<DynamicMesh>,
     scene: Arc<TransportScene>,
@@ -215,6 +278,10 @@ fn segment_bounds_overlap(from: [f32; 3], to: [f32; 3], bounds: Aabb) -> bool {
 }
 
 #[cfg(test)]
+#[path = "dynamic_visibility/tests/receiver_cache.rs"]
+mod receiver_cache_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::engine::gltf::{PropModel, PropSubmesh, PropVertex};
@@ -309,7 +376,7 @@ mod tests {
         .map_err(|error| error.to_string())
     }
 
-    fn panel(alpha: MaterialAlpha) -> Arc<crate::engine::props::LoadedPropAsset> {
+    pub(super) fn panel(alpha: MaterialAlpha) -> Arc<crate::engine::props::LoadedPropAsset> {
         Arc::new(crate::engine::props::LoadedPropAsset {
             model_path: "movable-panel".to_string(),
             model: PropModel {

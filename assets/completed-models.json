@@ -1684,8 +1684,8 @@
     ]
   },
   "environments/office/props/office_reception_desk.glb": {
-    "sha256": "aba1a7685f98c67bf405829a4af220af5c68d90b6ef4a9b21eb417574770274d",
-    "triangles": 256,
+    "sha256": "f8a4f4198dcebabfb25519d96acdbcf8a6d352096381e7e85c032b5ffe6351cc",
+    "triangles": 262,
     "texture_edge": 256,
     "identities": [
       "core:office_reception_desk"

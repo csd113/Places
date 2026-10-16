@@ -106,6 +106,7 @@ def main() -> int:
     parser.add_argument("--binary", type=Path, default=ROOT / "target/release/places")
     parser.add_argument("--out", type=Path, required=True, help="new run directory, separate from the app")
     parser.add_argument("--env-json", type=Path, help="object containing PLACES_* string values")
+    parser.add_argument("--settings-json", type=Path, help="initial settings for this isolated run")
     args = parser.parse_args()
     if sys.platform != "darwin":
         parser.error("this foreground validation launcher requires macOS")
@@ -119,6 +120,9 @@ def main() -> int:
     environment = json.loads(args.env_json.read_text()) if args.env_json else {}
     if not isinstance(environment, dict):
         parser.error("--env-json must contain an object")
+    settings = json.loads(args.settings_json.read_text()) if args.settings_json else None
+    if settings is not None and not isinstance(settings, dict):
+        parser.error("--settings-json must contain an object")
     environment.setdefault("PLACES_ASSET_ROOT", str(ROOT))
     environment["PLACES_STATE_ROOT"] = str(out)
     with exclusive_run(directory):
@@ -126,6 +130,8 @@ def main() -> int:
         # Validate configuration before touching the bundle or creating results.
         launch_command({"bundle_path": "unused"}, out, environment)
         out.mkdir(parents=True, exist_ok=False)
+        if settings is not None:
+            (out / "settings.json").write_text(json.dumps(settings, indent=2) + "\n")
         identity = prepare_app(binary, directory)
         record = {**identity, "source_binary": str(binary), "environment": environment}
         (out / "identity.json").write_text(json.dumps(record, indent=2) + "\n")
@@ -133,11 +139,25 @@ def main() -> int:
         clean_env = {key: value for key, value in os.environ.items() if not key.startswith("PLACES_")}
         started = time.monotonic()
         # No automatic retry/timeout: an approval delay must not spawn a duplicate.
-        result = subprocess.run(launch_command(identity, out, environment), env=clean_env, check=False)
+        child = subprocess.Popen(launch_command(identity, out, environment), env=clean_env)
+        rss_samples = []
+        while child.poll() is None:
+            rows = subprocess.check_output(["ps", "-axo", "rss=,comm="], text=True).splitlines()
+            for row in rows:
+                parts = row.strip().split(None, 1)
+                if len(parts) == 2 and parts[1] == identity["executable"]:
+                    rss_samples.append({"seconds": time.monotonic() - started,
+                                        "rss_bytes": int(parts[0]) * 1024})
+            try:
+                child.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                pass
         (out / "launch.json").write_text(json.dumps({
-            "returncode": result.returncode, "seconds": time.monotonic() - started,
+            "returncode": child.returncode, "seconds": time.monotonic() - started,
+            "native_rss_samples": rss_samples,
+            "peak_native_rss_bytes": max((row["rss_bytes"] for row in rss_samples), default=None),
         }, indent=2) + "\n")
-        return result.returncode
+        return child.returncode
 
 
 if __name__ == "__main__":

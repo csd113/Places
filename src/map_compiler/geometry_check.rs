@@ -66,8 +66,10 @@ pub const CHECK_FORMAT: &str = "places-geometry-check";
 /// Report schema version; bumped when a field changes meaning.
 pub const CHECK_VERSION: u32 = 1;
 
-/// Tolerance within which two planes are "the same plane", in metres.
-const PLANE_EPS_M: f32 = 1.0e-3;
+/// Inclusive plane verification margin retained by the architecture checker.
+const OVERLAP_PLANE_EPS_M: f32 = 1.5e-3;
+/// Dominant-axis projection can amplify coordinate separation by sqrt(3).
+const OVERLAP_BOUNDS_EPS_M: f32 = OVERLAP_PLANE_EPS_M * 1.732_050_8;
 /// Minimum real overlap area before two coplanar surfaces are reported at all.
 const OVERLAP_AREA_EPS_M2: f32 = 1.0e-4;
 /// Coplanar overlaps up to this area are reported as `coplanar-sliver`
@@ -878,6 +880,8 @@ pub struct CliOptions {
     pub markers: Option<PathBuf>,
     /// Write a marker OBJ (a small cross per finding) here.
     pub markers_obj: Option<PathBuf>,
+    /// Export engine-resolved static prop placements for the offline GLB audit.
+    pub prop_instances: Option<PathBuf>,
     /// Treat warnings as a failing status.
     pub strict: bool,
     /// Print warnings in the human report too.
@@ -891,6 +895,7 @@ impl Default for CliOptions {
             json: None,
             markers: None,
             markers_obj: None,
+            prop_instances: None,
             strict: false,
             verbose: true,
         }
@@ -943,6 +948,13 @@ pub fn options_from_args(args: &[String]) -> Result<Option<CliOptions>, String> 
                 ));
             }
             "--strict" => options.strict = true,
+            "--prop-instances" => {
+                index = index.saturating_add(1);
+                options.prop_instances =
+                    Some(PathBuf::from(args.get(index).cloned().ok_or_else(
+                        || "--prop-instances needs a path".to_string(),
+                    )?));
+            }
             "--quiet" => options.verbose = false,
             other if other.starts_with("--") => {
                 return Err(format!("unknown checker argument `{other}`"));
@@ -1071,8 +1083,52 @@ pub fn run(options: &CliOptions) -> Result<i32, String> {
     }
     let catalog = crate::engine::assets::AssetCatalog::load_default();
     crate::map_compiler::prepare_level(&mut level, &catalog, None);
+    if let Some(output) = &options.prop_instances {
+        write_prop_instance_manifest(&level, &text, output)?;
+    }
     let report = check_level(&level, &path.display().to_string(), validated);
     finish(&report, options)
+}
+
+/// Export only engine-resolved fixed placements; no GLB loading or map bake.
+fn write_prop_instance_manifest(
+    level: &LevelDef,
+    source: &str,
+    output: &std::path::Path,
+) -> Result<(), String> {
+    let surfaces = LevelSurfaces::new(level);
+    let catalog = crate::engine::loader::PropCatalog::load_default();
+    let root = crate::engine::props::resolve_prop_root().unwrap_or_else(|| PathBuf::from("assets"));
+    let mut instances = Vec::new();
+    let mut excluded = Vec::new();
+    for (index, prop) in level.props.iter().enumerate() {
+        let owner = format!(
+            "props/{index}/{}",
+            prop.id.as_deref().unwrap_or(&prop.model)
+        );
+        if prop.float.is_some() || prop.is_physics_movable() {
+            excluded
+                .push(serde_json::json!({"owner": owner, "reason": "live movable/floating pose"}));
+            continue;
+        }
+        let Some(model) = catalog.get(&prop.model).model else {
+            excluded.push(serde_json::json!({"owner": owner, "reason": "no static GLB model"}));
+            continue;
+        };
+        let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0);
+        instances.push(serde_json::json!({
+            "owner": owner,
+            "model": root.join(model),
+            "matrix": prop.placement_matrix(base_y).to_cols_array(),
+            "material_overrides": prop.material_overrides,
+        }));
+    }
+    let document = serde_json::json!({"format": "places-prop-instances", "version": 1_u32,
+        "level": level.id, "source_sha256": sha256_hex(source.as_bytes()),
+        "instances": instances, "excluded": excluded});
+    let payload = serde_json::to_vec_pretty(&document).map_err(|error| error.to_string())?;
+    std::fs::write(output, payload)
+        .map_err(|error| format!("cannot write {}: {error}", output.display()))
 }
 
 /// Prints and writes one report, returning the exit status.
@@ -1568,129 +1624,173 @@ impl Checker<'_> {
 // Duplicate and coplanar surfaces
 // ---------------------------------------------------------------------------
 
-impl Checker<'_> {
-    /// Confirmed duplicated coplanar surfaces: two triangles on one plane
-    /// whose projected areas overlap by more than a threshold.
-    #[expect(
-        clippy::too_many_lines,
-        reason = "one coplanar-overlap pass over the bucket map"
-    )] // one coplanar-overlap pass over the bucket map
-    fn check_duplicate_surfaces(&mut self, triangles: &[Tri]) {
-        // Canonical plane key: a sign-canonical normal and plane distance,
-        // quantised to 1 mm so exactly-coincident planes bucket together.
-        let mut planes: BTreeMap<[i32; 4], Vec<usize>> = BTreeMap::new();
-        for (index, triangle) in triangles.iter().enumerate() {
-            if triangle.area <= 1.0e-9 {
+/// Conservative spatial pairs, independent of plane bins and world origin.
+///
+/// Sorted X intervals stop at the first disjoint later span. Every visited
+/// pair consumes the work budget before normal, Y/Z or polygon rejection;
+/// neither coincident sheets nor unrelated active spans permit unbounded work.
+fn coplanar_candidates(triangles: &[Tri], limit: usize) -> (Vec<(usize, usize)>, bool) {
+    let mut ordered: Vec<_> = triangles
+        .iter()
+        .enumerate()
+        .filter(|(_, triangle)| triangle.area > 1.0e-9)
+        .map(|(index, triangle)| {
+            let bounds = std::array::from_fn::<_, 3, _>(|axis| {
+                triangle.points.iter().fold(
+                    (f32::INFINITY, f32::NEG_INFINITY),
+                    |(low, high), point| {
+                        let value = point.get(axis).copied().unwrap_or(0.0);
+                        (low.min(value), high.max(value))
+                    },
+                )
+            });
+            (index, bounds)
+        })
+        .collect();
+    ordered.sort_by(|first, second| {
+        first.1[0]
+            .0
+            .total_cmp(&second.1[0].0)
+            .then(first.0.cmp(&second.0))
+    });
+    let mut pairs = Vec::new();
+    let mut work = 0usize;
+    for (slot, (first, first_bounds)) in ordered.iter().enumerate() {
+        for (second, second_bounds) in ordered.iter().skip(slot.saturating_add(1)) {
+            if second_bounds[0].0 > first_bounds[0].1 + OVERLAP_BOUNDS_EPS_M {
+                break;
+            }
+            if work >= limit {
+                return (pairs, false);
+            }
+            work = work.saturating_add(1);
+            if first_bounds
+                .iter()
+                .zip(second_bounds)
+                .skip(1)
+                .any(|(a, b)| a.0 > b.1 + OVERLAP_BOUNDS_EPS_M || b.0 > a.1 + OVERLAP_BOUNDS_EPS_M)
+            {
                 continue;
             }
-            let mut normal = triangle.normal;
-            let mut distance = dot3(normal, triangle.points[0]);
-            let flip = normal[0] < 0.0
-                || (normal[0] == 0.0 && normal[1] < 0.0)
-                || (normal[0] == 0.0 && normal[1] == 0.0 && normal[2] < 0.0);
-            if flip {
-                normal = [-normal[0], -normal[1], -normal[2]];
-                distance = -distance;
-            }
-            let key = [
-                quantize(normal[0]),
-                quantize(normal[1]),
-                quantize(normal[2]),
-                quantize(distance),
-            ];
-            planes.entry(key).or_default().push(index);
+            pairs.push(((*first).min(*second), (*first).max(*second)));
         }
-        // Each triangle belongs to exactly one bucket and slot pairs occur
-        // once. Recording all visited pairs would retain quadratic memory.
-        for bucket in planes.values() {
-            for (slot, first) in bucket.iter().enumerate() {
-                for second in bucket.iter().skip(slot.saturating_add(1)) {
-                    let (Some(a), Some(b)) = (triangles.get(*first), triangles.get(*second)) else {
-                        continue;
-                    };
-                    // Two planes can quantise together while lying up to 1.5 mm
-                    // apart; require a real coplanarity before flagging.
-                    let separation = dot3(a.normal, sub3(b.centroid, a.points[0])).abs();
-                    if separation > PLANE_EPS_M * 1.5 {
-                        continue;
-                    }
-                    let area = triangle_overlap_area(a, b);
-                    if area <= OVERLAP_AREA_EPS_M2 {
-                        continue;
-                    }
-                    if area <= SLIVER_AREA_EPS_M2 {
-                        self.push(
-                            "coplanar-sliver",
-                            Severity::Warning,
-                            format!("{:?} m{}", a.key.kind, a.key.material),
-                            format!(
-                                "a {area:.5} m² coplanar overlap sliver at a joint \
+    }
+    pairs.sort_unstable();
+    (pairs, true)
+}
+
+impl Checker<'_> {
+    fn incomplete_overlap_audit(&mut self) {
+        self.push(
+            "geometry-check-incomplete",
+            Severity::Error,
+            "coplanar candidate budget",
+            "coplanar candidate budget exhausted; this audit is incomplete",
+            [0.0; 3],
+        );
+    }
+
+    /// Confirmed duplicated coplanar surfaces: two triangles on one plane
+    /// whose projected areas overlap by more than a threshold.
+    fn check_duplicate_surfaces(&mut self, triangles: &[Tri]) {
+        let (pairs, complete) = coplanar_candidates(triangles, 2_000_000);
+        if !complete {
+            self.incomplete_overlap_audit();
+        }
+        for (first, second) in pairs {
+            let (Some(a), Some(b)) = (triangles.get(first), triangles.get(second)) else {
+                continue;
+            };
+            // The conservative spatial pass admits tilted and nearby faces;
+            // require actual parallel planes before measuring overlap.
+            if dot3(a.normal, b.normal).abs() < 0.999_999 {
+                continue;
+            }
+            let separation = b
+                .points
+                .iter()
+                .map(|point| dot3(a.normal, sub3(*point, a.points[0])).abs())
+                .fold(0.0_f32, f32::max);
+            if separation > OVERLAP_PLANE_EPS_M {
+                continue;
+            }
+            let area = triangle_overlap_area(a, b);
+            if area <= OVERLAP_AREA_EPS_M2 {
+                continue;
+            }
+            if area <= SLIVER_AREA_EPS_M2 {
+                self.push(
+                    "coplanar-sliver",
+                    Severity::Warning,
+                    format!("{:?} m{}", a.key.kind, a.key.material),
+                    format!(
+                        "a {area:.5} m² coplanar overlap sliver at a joint \
                                  (a at {:.2},{:.2},{:.2}; b at {:.2},{:.2},{:.2})",
-                                a.centroid[0],
-                                a.centroid[1],
-                                a.centroid[2],
-                                b.centroid[0],
-                                b.centroid[1],
-                                b.centroid[2]
-                            ),
-                            a.centroid,
-                        );
-                        continue;
-                    }
-                    let same_family_horizontal = a.key.kind == b.key.kind
-                        && matches!(a.key.kind, SurfaceKind::Floor | SurfaceKind::Ceiling);
-                    if same_family_horizontal {
-                        // Overlapping rooms emit both floors/ceilings by design
-                        // (documented), so this is a heuristic: unless an
-                        // author annotates the area, it is reported so a
-                        // genuinely doubled slab is still visible in the
-                        // report.
-                        self.push(
-                            "overlap-emission",
-                            Severity::Warning,
-                            format!("{:?} m{}", a.key.kind, a.key.material),
-                            format!(
-                                "two {:?} surfaces share a plane and overlap by {area:.4} m² \
+                        a.centroid[0],
+                        a.centroid[1],
+                        a.centroid[2],
+                        b.centroid[0],
+                        b.centroid[1],
+                        b.centroid[2]
+                    ),
+                    a.centroid,
+                );
+                continue;
+            }
+            let same_family_horizontal = a.key.kind == b.key.kind
+                && matches!(a.key.kind, SurfaceKind::Floor | SurfaceKind::Ceiling);
+            if same_family_horizontal {
+                // Overlapping rooms emit both floors/ceilings by design
+                // (documented), so this is a heuristic: unless an
+                // author annotates the area, it is reported so a
+                // genuinely doubled slab is still visible in the
+                // report.
+                self.push(
+                    "overlap-emission",
+                    Severity::Warning,
+                    format!("{:?} m{}", a.key.kind, a.key.material),
+                    format!(
+                        "two {:?} surfaces share a plane and overlap by {area:.4} m² \
                                  (a at {:.2},{:.2},{:.2}; b at {:.2},{:.2},{:.2}); \
                                  overlapping rooms emit both, a doubled slab is a defect",
-                                a.key.kind,
-                                a.centroid[0],
-                                a.centroid[1],
-                                a.centroid[2],
-                                b.centroid[0],
-                                b.centroid[1],
-                                b.centroid[2]
-                            ),
-                            a.centroid,
-                        );
-                        continue;
-                    }
-                    if dot3(a.normal, b.normal) < -0.5 {
-                        // The same plane covered twice with opposite facings is
-                        // a reversed face *or* a legitimate back-to-back pair
-                        // (two stacked walls' caps at one junction); without
-                        // solid semantics the checker cannot tell them apart,
-                        // so this stays a heuristic warning.
-                        self.push(
-                            "reversed-face",
-                            Severity::Warning,
-                            format!("{:?} m{}", a.key.kind, a.key.material),
-                            format!(
-                                "two coplanar faces overlap by {area:.4} m² with opposite normals \
+                        a.key.kind,
+                        a.centroid[0],
+                        a.centroid[1],
+                        a.centroid[2],
+                        b.centroid[0],
+                        b.centroid[1],
+                        b.centroid[2]
+                    ),
+                    a.centroid,
+                );
+                continue;
+            }
+            if dot3(a.normal, b.normal) < -0.5 {
+                // The same plane covered twice with opposite facings is
+                // a reversed face *or* a legitimate back-to-back pair
+                // (two stacked walls' caps at one junction); without
+                // solid semantics the checker cannot tell them apart,
+                // so this stays a heuristic warning.
+                self.push(
+                    "reversed-face",
+                    Severity::Warning,
+                    format!("{:?} m{}", a.key.kind, a.key.material),
+                    format!(
+                        "two coplanar faces overlap by {area:.4} m² with opposite normals \
                                  (a m{} at {:.2},{:.2},{:.2}; b m{} at {:.2},{:.2},{:.2})",
-                                a.key.material,
-                                a.centroid[0],
-                                a.centroid[1],
-                                a.centroid[2],
-                                b.key.material,
-                                b.centroid[0],
-                                b.centroid[1],
-                                b.centroid[2]
-                            ),
-                            a.centroid,
-                        );
-                    } else {
-                        self.push(
+                        a.key.material,
+                        a.centroid[0],
+                        a.centroid[1],
+                        a.centroid[2],
+                        b.key.material,
+                        b.centroid[0],
+                        b.centroid[1],
+                        b.centroid[2]
+                    ),
+                    a.centroid,
+                );
+            } else {
+                self.push(
                             "duplicate-surface",
                             Severity::Error,
                             format!("{:?} m{}", a.key.kind, a.key.material),
@@ -1700,8 +1800,6 @@ impl Checker<'_> {
                             ),
                             a.centroid,
                         );
-                    }
-                }
             }
         }
     }
@@ -4708,6 +4806,10 @@ pub fn dispatch_cli(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "tests/geometry_overlap.rs"]
+mod geometry_overlap_tests;
 
 #[cfg(test)]
 mod tests {

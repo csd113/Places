@@ -25,7 +25,8 @@ use super::texture::{CacheOutcome, GpuTexture, TextureCache};
 use super::world::{EnvironmentUniform, WORLD_VERTEX_STRIDE, WorldVertex};
 use crate::engine::materials::{MaterialEmission, TextureOrigin};
 use crate::engine::quality::{QualityLevel, TextureClass};
-use crate::engine::render::common::dynamic::{DynamicMesh, DynamicScene};
+use crate::engine::render::common::dynamic::{DynamicId, DynamicMesh, DynamicScene};
+use crate::engine::render::common::dynamic_visibility::BlacklightReceiverCache;
 use crate::engine::render::common::materials::BatchPass;
 use crate::engine::spatial::Aabb;
 
@@ -64,6 +65,7 @@ struct DynamicSubmeshGpu {
 
 /// One live object's GPU state.
 struct DynamicObjectGpu {
+    id: DynamicId,
     visible: bool,
     culling_reflected: Option<bool>,
     /// Slot into [`WgpuDynamic::meshes`].
@@ -76,7 +78,10 @@ struct DynamicObjectGpu {
     materials: Vec<usize>,
     /// True per submesh after the object's emission override is applied.
     emissive: Vec<bool>,
+    emission: Option<MaterialEmission>,
+    emission_scale: f32,
     uv_reactive: bool,
+    uv_receiver: BlacklightReceiverCache,
 }
 
 /// What one dynamic upload or frame did, as plain counters.
@@ -263,11 +268,12 @@ impl WgpuDynamic {
             let mut materials = Vec::with_capacity(mesh.submeshes.len());
             let mut emissive = Vec::with_capacity(mesh.submeshes.len());
             for submesh in &mesh.submeshes {
-                let emission = object.emission_for(submesh.emission);
+                let emission = object.emission().unwrap_or(submesh.emission);
                 let mask_texture = submesh
                     .mask
                     .and_then(|index| mesh.textures.get(index).cloned());
-                let record = EmissionRecord::material(emission, mask_texture.is_some());
+                let record = EmissionRecord::material(emission, mask_texture.is_some())
+                    .with_scale(object.emission_scale());
                 let mask = mask_texture.unwrap_or_else(|| ctx.cache.fallback());
                 let uv_mask = submesh
                     .response
@@ -295,9 +301,10 @@ impl WgpuDynamic {
                     },
                 ));
                 materials.push(value.materials.len().saturating_sub(1));
-                emissive.push(record.is_emissive());
+                emissive.push(object.emission_for(submesh.emission).is_emissive());
             }
             value.objects.push(DynamicObjectGpu {
+                id: object.id(),
                 visible: object.visible(),
                 culling_reflected: super::world::culling_reflected(object.transform()),
                 mesh: mesh_index,
@@ -305,14 +312,59 @@ impl WgpuDynamic {
                 world_bounds: object.world_bounds(),
                 materials,
                 emissive,
+                emission: object.emission(),
+                emission_scale: object.emission_scale(),
                 uv_reactive: mesh
                     .submeshes
                     .iter()
                     .any(|submesh| submesh.response.fluorescence.strength > 0.0),
+                uv_receiver: BlacklightReceiverCache::default(),
             });
         }
         value.finish_stats(scene);
         value
+    }
+
+    /// Updates a material variant without recreating model buffers, textures or
+    /// bindings. Stable identity prevents a removed scene slot addressing a new
+    /// object. The neutral scene remains the source for future level uploads.
+    pub fn set_object_emission_scale(
+        &mut self,
+        queue: &wgpu::Queue,
+        id: DynamicId,
+        scale: f32,
+    ) -> bool {
+        if !scale.is_finite() || scale < 0.0 {
+            return false;
+        }
+        let Some(object) = self.objects.iter_mut().find(|object| object.id == id) else {
+            return false;
+        };
+        if object.emission_scale.to_bits() == scale.to_bits() {
+            return true;
+        }
+        let Some(mesh) = self.meshes.get(object.mesh) else {
+            return false;
+        };
+        for ((slot, emissive), submesh) in object
+            .materials
+            .iter()
+            .zip(&mut object.emissive)
+            .zip(&mesh.submeshes)
+        {
+            let Some(material) = self.materials.get(*slot) else {
+                continue;
+            };
+            material.write_emission_scale(queue, scale);
+            let emission = object.emission.unwrap_or(submesh.emission);
+            *emissive = MaterialEmission {
+                intensity: emission.intensity * scale,
+                ..emission
+            }
+            .is_emissive();
+        }
+        object.emission_scale = scale;
+        true
     }
 
     /// Uploads one model's buffers.
@@ -407,19 +459,23 @@ impl WgpuDynamic {
             if !object.visible {
                 continue;
             }
-            let uniform = environment
-                .with_model(live.transform())
+            let transform = live.transform();
+            let mut uniform = environment
+                .with_model(transform)
                 .with_entity_lighting(live.entity_lighting())
-                .with_spatial_lighting(live.spatial_lighting())
-                .with_uv_receiver(
-                    visibility.filter(|_| object.uv_reactive),
-                    live.mesh().bounds,
-                    live.transform(),
-                    Some(live.id()),
-                );
+                .with_spatial_lighting(live.spatial_lighting());
+            uniform.uv_receiver = object.uv_receiver.sample(
+                visibility.filter(|_| object.uv_reactive),
+                live.mesh().bounds,
+                transform,
+                Some(live.id()),
+            );
             let _update_stats = object.environment.update(queue, &uniform);
-            object.world_bounds = live.world_bounds();
-            object.culling_reflected = super::world::culling_reflected(live.transform());
+            object.world_bounds = crate::engine::render::common::props::transform_bounds(
+                &live.mesh().bounds,
+                &transform,
+            );
+            object.culling_reflected = super::world::culling_reflected(transform);
         }
         self.stats.draws = scene.draw_count();
         self.stats.vertices = scene.vertex_count();

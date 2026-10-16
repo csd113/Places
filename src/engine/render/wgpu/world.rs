@@ -564,21 +564,6 @@ impl EnvironmentUniform {
     }
 
     #[must_use]
-    pub fn with_uv_receiver(
-        mut self,
-        visibility: Option<crate::engine::render::common::blacklight::BlacklightVisibility<'_>>,
-        bounds: Aabb,
-        model: Mat4,
-        receiver: Option<crate::engine::render::common::dynamic::DynamicId>,
-    ) -> Self {
-        self.uv_receiver = visibility.map_or(
-            crate::engine::render::common::blacklight::BlacklightReceiver::ZERO,
-            |context| context.receiver(bounds, model, receiver),
-        );
-        self
-    }
-
-    #[must_use]
     pub const fn new(
         light_scale: [f32; 3],
         lightmap_enabled: bool,
@@ -1306,7 +1291,40 @@ fn append_world_draws(
 pub struct WgpuWorldGeometry {
     chunks: Vec<WorldChunk>,
     draws: Vec<WorldDraw>,
+    pass_indices: WorldPassIndices,
     stats: WorldGeometryStats,
+}
+
+/// Immutable classification shared by scene, emission and visibility draws.
+/// Keep packed order within each class; only translucent submission sorts it.
+#[derive(Default)]
+struct WorldPassIndices {
+    opaque: Vec<u32>,
+    cutout: Vec<u32>,
+    translucent: Vec<u32>,
+}
+
+impl WorldPassIndices {
+    fn new(draws: &[WorldDraw]) -> Self {
+        let mut indices = Self::default();
+        for (index, draw) in draws.iter().enumerate() {
+            let draw_index = u32::try_from(index).unwrap_or(u32::MAX);
+            match draw.pass {
+                BatchPass::Opaque => indices.opaque.push(draw_index),
+                BatchPass::Cutout => indices.cutout.push(draw_index),
+                BatchPass::Translucent => indices.translucent.push(draw_index),
+            }
+        }
+        indices
+    }
+
+    fn for_pass(&self, pass: BatchPass) -> &[u32] {
+        match pass {
+            BatchPass::Opaque => &self.opaque,
+            BatchPass::Cutout => &self.cutout,
+            BatchPass::Translucent => &self.translucent,
+        }
+    }
 }
 
 impl WgpuWorldGeometry {
@@ -1359,9 +1377,11 @@ impl WgpuWorldGeometry {
                 .saturating_mul(usize::try_from(WORLD_VERTEX_STRIDE).unwrap_or(usize::MAX)),
             index_bytes: uploaded_indices.saturating_mul(std::mem::size_of::<u16>()),
         };
+        let pass_indices = WorldPassIndices::new(&draws);
         Self {
             chunks,
             draws,
+            pass_indices,
             stats,
         }
     }
@@ -1748,6 +1768,7 @@ impl WorldDrawTotals {
 /// This is the one per-frame CPU ordering the world pass performs; the shipped
 /// level has a handful of translucent ranges, so the cost is a few comparisons.
 #[must_use]
+#[cfg(test)]
 pub fn translucent_order(draws: &[WorldDraw], eye: glam::Vec3) -> Vec<u32> {
     let mut order: Vec<u32> = draws
         .iter()
@@ -1785,6 +1806,7 @@ pub fn translucent_order(draws: &[WorldDraw], eye: glam::Vec3) -> Vec<u32> {
 /// in scene order. Pure, so the ordering contract is unit-testable without a
 /// device.
 #[must_use]
+#[cfg(test)]
 pub fn translucent_character_order(entries: &[(usize, glam::Vec3)], eye: glam::Vec3) -> Vec<usize> {
     let mut order: Vec<(usize, f32)> = entries
         .iter()
@@ -2537,28 +2559,13 @@ impl WorldPipeline {
         pass: &mut wgpu::RenderPass<'a>,
         inputs: WorldEncodeInputs<'a>,
     ) -> WorldDrawTotals {
-        let geometry = inputs.geometry;
-        let indices_of = |wanted: BatchPass| -> Vec<u32> {
-            geometry
-                .draws
-                .iter()
-                .enumerate()
-                .filter(|(_, draw)| draw.pass == wanted)
-                .map(|(index, _)| u32::try_from(index).unwrap_or(u32::MAX))
-                .collect()
-        };
-        let opaque = indices_of(BatchPass::Opaque);
-        let cutout = indices_of(BatchPass::Cutout);
         let mut totals = WorldDrawTotals::default();
-        for (indices, pass_kind) in [
-            (opaque.as_slice(), BatchPass::Opaque),
-            (cutout.as_slice(), BatchPass::Cutout),
-        ] {
+        for pass_kind in [BatchPass::Opaque, BatchPass::Cutout] {
             let class = self.encode_class(
                 pass,
                 inputs,
                 &inputs.frame.frustum,
-                indices,
+                inputs.geometry.pass_indices.for_pass(pass_kind),
                 pass_kind,
                 false,
             );
@@ -2667,12 +2674,19 @@ impl WorldPipeline {
 
     fn transparent_items(inputs: WorldEncodeInputs<'_>) -> Vec<(TransparentItem, [f32; 3])> {
         let mut items = Vec::new();
-        for index in translucent_order(&inputs.geometry.draws, inputs.frame.eye) {
-            if let Some(draw) = usize::try_from(index)
+        // The shared stable sort already orders every family. Collect each in
+        // packed/scene order so ties stay unchanged without sorting subsets.
+        for index in inputs
+            .geometry
+            .pass_indices
+            .for_pass(BatchPass::Translucent)
+        {
+            if let Some(draw) = usize::try_from(*index)
                 .ok()
                 .and_then(|slot| inputs.geometry.draws.get(slot))
+                .filter(|draw| draw.index_count > 0)
             {
-                items.push((TransparentItem::World(index), draw.bounds.centre()));
+                items.push((TransparentItem::World(*index), draw.bounds.centre()));
             }
         }
         if let Some(props) = inputs.props {
@@ -2696,15 +2710,9 @@ impl WorldPipeline {
             }
         }
         if let Some(characters) = inputs.characters {
-            let entries: Vec<_> = (0..characters.character_count())
+            for index in (0..characters.character_count())
                 .filter(|index| characters.has_submesh_pass(*index, BatchPass::Translucent))
-                .filter_map(|index| {
-                    characters
-                        .world_bounds(index)
-                        .map(|bounds| (index, glam::Vec3::from_array(bounds.centre())))
-                })
-                .collect();
-            for index in translucent_character_order(&entries, inputs.frame.eye) {
+            {
                 if let Some(bounds) = characters.world_bounds(index) {
                     items.push((TransparentItem::Character(index), bounds.centre()));
                 }
@@ -2761,9 +2769,11 @@ impl WorldPipeline {
         }
         pass.set_bind_group(0, &self.bind_group, &[]);
         pass.set_bind_group(4, &self.lights_bind_group, &[]);
-        for object in (0..dynamic.object_count())
-            .filter(|object| selected.is_none_or(|index| index == *object))
-        {
+        let object_range = selected.map_or_else(
+            || 0..dynamic.object_count(),
+            |index| index..index.saturating_add(1).min(dynamic.object_count()),
+        );
+        for object in object_range {
             let Some(bounds) = dynamic.world_bounds(object) else {
                 continue;
             };
@@ -2982,28 +2992,13 @@ impl WorldPipeline {
         pass: &mut wgpu::RenderPass<'a>,
         inputs: WorldEncodeInputs<'a>,
     ) -> WorldDrawTotals {
-        let geometry = inputs.geometry;
-        let indices_of = |wanted: BatchPass| -> Vec<u32> {
-            geometry
-                .draws
-                .iter()
-                .enumerate()
-                .filter(|(_, draw)| draw.pass == wanted)
-                .map(|(index, _)| u32::try_from(index).unwrap_or(u32::MAX))
-                .collect()
-        };
-        let opaque = indices_of(BatchPass::Opaque);
-        let cutout = indices_of(BatchPass::Cutout);
         let mut totals = WorldDrawTotals::default();
-        for (indices, pass_kind) in [
-            (opaque.as_slice(), BatchPass::Opaque),
-            (cutout.as_slice(), BatchPass::Cutout),
-        ] {
+        for pass_kind in [BatchPass::Opaque, BatchPass::Cutout] {
             let class = self.encode_class(
                 pass,
                 inputs,
                 &inputs.frame.frustum,
-                indices,
+                inputs.geometry.pass_indices.for_pass(pass_kind),
                 pass_kind,
                 true,
             );
@@ -3049,14 +3044,15 @@ impl WorldPipeline {
         let mut bound_chunk: Option<usize> = None;
         let mut bound_texture: Option<usize> = None;
         let mut bound_material: Option<usize> = None;
-        for draw in props
-            .draws()
+        let draws = props.draws();
+        let draw_range = selected.map_or(0..draws.len(), |index| {
+            index..index.saturating_add(1).min(draws.len())
+        });
+        for draw in draws
+            .get(draw_range)
+            .unwrap_or_default()
             .iter()
-            .enumerate()
-            .filter(|(index, draw)| {
-                draw.pass == wanted && selected.is_none_or(|chosen| chosen == *index)
-            })
-            .map(|(_, draw)| draw)
+            .filter(|draw| draw.pass == wanted)
         {
             if draw.index_count == 0 {
                 continue;

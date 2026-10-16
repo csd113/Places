@@ -2,6 +2,28 @@
 
 Development staging; this version has not been published.
 
+### Renderer foundations
+
+- Retire captured frame/HUD and acquired surface state when its drawable or
+  world changes. Preserve actionable surface loss/validation errors after a
+  bounded retry, refresh replacement surface capabilities, and stop GPU updates
+  after device loss. Explicit same-ID map reloads replace mutable scene state;
+  graphics transitions retain playback deliberately.
+- Update runtime emission through existing material uniforms; cache unchanged
+  ultraviolet receiver visibility with exact transform/source/occluder
+  dependencies. Reuse dynamic transforms and borrow float-volume data.
+- Classify immutable world passes once at upload, sort shared transparency once,
+  and visit only the selected translucent prop or dynamic draw.
+- Add opt-in native GPU resource counts with sampled peaks and explicit Metal
+  allocation-byte limitations. Native benchmark launches use the stable Places
+  Validation identity and record the actual player's sampled RSS.
+- Add bounded offline model/instance overlap diagnostics and hash-checked repair
+  plans. Repair confirmed Office reception wood/trim overlap by clipping hidden
+  coverage, retaining the materials, texture payloads, dimensions and collision.
+  Keep ambiguous layering and unsupported posed geometry for review.
+- Preserve the existing Rust tests. New regressions use tiny CPU fixtures in
+  their owning subsystem test folders; full-map baking remains explicit tooling.
+
 ### Source responsibilities
 
 - Separate reusable `src/engine/`, player/application/UI `src/game/`, and the

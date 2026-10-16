@@ -89,11 +89,19 @@ Surface acquisition (`Surface::get_current_texture`) is mapped as follows:
 | `Success`, `Suboptimal` | draw into the acquired texture |
 | `Timeout` | skip the frame, one warning per process |
 | `Occluded` | skip the frame silently |
-| `Outdated` | reconfigure once, retry once (then skip) |
+| `Outdated` | reconfigure once, retry once; a second Outdated skips, while Lost/Validation retain their recovery/fatal action |
 | `Lost` | recreate the surface from the SDL window on the next present, reconfigure, resume |
 | `Validation` | fatal: report and stop |
 
 At most one recovery attempt is made per frame; there is no retry loop. Reconfiguring drops any acquired-but-unpresented frame first, because wgpu forbids configuring a surface while one of its textures is alive.
+
+Drawable/world replacement also invalidates the saved capture frame and HUD
+replay. A capture can only replay a frame produced with the installed resources
+and current drawable. Surface recreation rechecks supported colour, alpha and
+presentation modes before configuration. The renderer retains an SDL window
+clone until after its surface is destroyed. Explicit same-ID reloads replace
+authored presentation, doors, runtime models, effects, weather and visibility;
+only a graphics transition with playback inheritance retains that mutable state.
 
 Device loss: `Device::set_device_lost_callback` records the reason on a shared slot; the frame loop checks it before issuing work, reports the first fatal error once (`[wgpu] fatal device error: ...`), skips all later GPU work, and stops through the normal shutdown path with a non-zero exit. Validation errors are not suppressed or captured globally: wgpu's default handler still makes them visible during development.
 
@@ -324,6 +332,16 @@ prop parsing retains the current request's model dependency set.
 `WorldTextures::resolve` prepares distinct misses in parallel (quality fit and
 CPU mip chains), then creates and writes GPU textures serially on the caller's
 thread. Matching content, semantic, class and quality reuse resident entries.
+
+The immutable world pass index lists are classified once at upload. Transparent
+world, prop, dynamic and character entries join one stable global sort, with
+their original family/packed order retained for equal distances. Selecting a
+translucent object visits that object directly. Runtime emission-scale changes
+write its existing material uniforms without recreating geometry or bindings.
+UV-reactive dynamic/character receiver caches retain the eight visibility
+anchors only while source descriptors, immutable transport identity, movable
+occluder revision, receiver identity, model and local bounds match. GPU cache
+owners are replaced with the world, preventing reuse across map installation.
 
 
 Colour uploads use `Rgba8UnormSrgb`; numeric normal maps/masks use
@@ -1226,6 +1244,16 @@ only an active quality change cascades it. An unknown value falls back to High.
 - Switching is live: `WgpuRenderer::set_texture_filtering` only records the option and each draw binds the matching bind group. No texture is re-uploaded and the environment binding is not rebuilt, because the lightmap sampler no longer follows the setting.
 
 ## 13. Diagnostics and benchmark hooks
+
+`--features visual-diagnostics` enables wgpu resource counters. With
+`PLACES_GPU_RESOURCE_TRACE=1`, bounded scalar storage records live HAL resource
+counts and sampled peaks at installation/capture/resize events and every sixty
+render frames. Default builds compile this census out. Compare settled counts
+after submitted GPU work retires; old and staged worlds can coexist during a
+transition. Metal does not supply HAL allocation-byte counters, so those fields
+are null. Texture-cache, atlas and post-target texel budgets are partial and may
+share allocations; they must not be summed as total VRAM. The native launcher's
+sampled process RSS provides a separate memory observation.
 
 With `PLACES_VERBOSE=1` one startup line names the resolved chain:
 

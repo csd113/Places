@@ -35,6 +35,7 @@ use crate::engine::quality::{QualityLevel, TextureClass};
 use crate::engine::render::common::character::{
     Character, CharacterAnimator, CharacterScene, character_vertex,
 };
+use crate::engine::render::common::dynamic_visibility::BlacklightReceiverCache;
 use crate::engine::render::common::materials::BatchPass;
 use crate::engine::spatial::Aabb;
 
@@ -161,6 +162,8 @@ struct CharacterGpu {
     posed_vertices: Vec<WorldVertex>,
     /// The frame's CPU-prepared environment; queue writes follow the join.
     pending_environment: EnvironmentUniform,
+    uv_reactive: bool,
+    uv_receiver: BlacklightReceiverCache,
 }
 
 /// What one character upload or frame did, as plain counters.
@@ -403,6 +406,13 @@ impl WgpuCharacters {
                 world_bounds: posed_world_bounds(&pose_bounds, &character.transform()),
                 posed_vertices,
                 pending_environment,
+                uv_reactive: character
+                    .asset()
+                    .model
+                    .submeshes
+                    .iter()
+                    .any(|submesh| submesh.response.fluorescence.strength > 0.0),
+                uv_receiver: BlacklightReceiverCache::default(),
             });
         }
         value.finish_stats();
@@ -690,20 +700,13 @@ impl WgpuCharacters {
                 .with_model(character.transform())
                 .with_entity_lighting(Some(character.entity_lighting()))
                 .with_spatial_lighting(character.spatial_lighting())
-                .with_uv_receiver(
-                    visibility.filter(|_| {
-                        character
-                            .asset()
-                            .model
-                            .submeshes
-                            .iter()
-                            .any(|submesh| submesh.response.fluorescence.strength > 0.0)
-                    }),
-                    gpu.pose_bounds,
-                    character.transform(),
-                    None,
-                )
                 .with_opacity(character.opacity());
+            gpu.pending_environment.uv_receiver = gpu.uv_receiver.sample(
+                visibility.filter(|_| gpu.uv_reactive),
+                gpu.pose_bounds,
+                character.transform(),
+                None,
+            );
             if character.transform() != gpu.uploaded_transform || pose_changed {
                 gpu.world_bounds = posed_world_bounds(&gpu.pose_bounds, &character.transform());
             }
@@ -758,27 +761,18 @@ impl WgpuCharacters {
                 gpu.uploaded_revision = character.animator().revision();
                 uploaded = uploaded.saturating_add(1);
             }
-            let _update_stats = gpu.environment.update(
-                queue,
-                &environment
-                    .with_model(character.transform())
-                    .with_entity_lighting(Some(character.entity_lighting()))
-                    .with_spatial_lighting(character.spatial_lighting())
-                    .with_uv_receiver(
-                        visibility.filter(|_| {
-                            character
-                                .asset()
-                                .model
-                                .submeshes
-                                .iter()
-                                .any(|submesh| submesh.response.fluorescence.strength > 0.0)
-                        }),
-                        gpu.pose_bounds,
-                        character.transform(),
-                        None,
-                    )
-                    .with_opacity(character.opacity()),
+            let mut uniform = environment
+                .with_model(character.transform())
+                .with_entity_lighting(Some(character.entity_lighting()))
+                .with_spatial_lighting(character.spatial_lighting())
+                .with_opacity(character.opacity());
+            uniform.uv_receiver = gpu.uv_receiver.sample(
+                visibility.filter(|_| gpu.uv_reactive),
+                gpu.pose_bounds,
+                character.transform(),
+                None,
             );
+            let _update_stats = gpu.environment.update(queue, &uniform);
             gpu.uploaded_transform = character.transform();
             if transform_changed || pose_changed {
                 gpu.world_bounds = posed_world_bounds(&gpu.pose_bounds, &gpu.uploaded_transform);

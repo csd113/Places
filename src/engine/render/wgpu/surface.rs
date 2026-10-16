@@ -80,10 +80,10 @@ pub const fn native_backend_label() -> &'static str {
 /// # Safety
 ///
 /// The returned `Surface` holds copies of the SDL3 window's raw OS handles and
-/// must not outlive that window. `main` upholds this invariant by construction:
-/// the renderer is a local declared after the window, so it is dropped before
-/// the window on every path (including error returns), and no frame is rendered
-/// after the window is destroyed.
+/// must not outlive that window. The renderer retains a clone of the exact SDL
+/// window that supplied the handles in its final field, so the surface and any
+/// pending frame drop before that shared window context. Surface recovery uses
+/// the retained window and preserves the same ordering.
 ///
 /// # Errors
 ///
@@ -195,6 +195,32 @@ pub fn select_alpha_mode(capabilities: &wgpu::SurfaceCapabilities) -> wgpu::Comp
     }
 }
 
+/// Refreshes every capability-dependent setting after recreating a surface.
+///
+/// A supported format is retained so cached pipelines stay usable. The new
+/// surface may expose different presentation or alpha modes even when its
+/// colour format is unchanged.
+///
+/// # Errors
+///
+/// Returns an error when the new surface has no compatible colour format.
+pub fn refresh_configuration(
+    config: &mut wgpu::SurfaceConfiguration,
+    capabilities: &wgpu::SurfaceCapabilities,
+    vsync: bool,
+) -> Result<(), String> {
+    let format = if capabilities.formats.contains(&config.format) {
+        config.format
+    } else {
+        select_surface_format(capabilities)
+            .ok_or_else(|| "the recreated surface has no compatible colour format".to_string())?
+    };
+    config.format = format;
+    config.present_mode = select_present_mode(capabilities, vsync);
+    config.alpha_mode = select_alpha_mode(capabilities);
+    Ok(())
+}
+
 /// A short presentation-mode name for diagnostics.
 #[must_use]
 pub const fn present_mode_label(mode: wgpu::PresentMode) -> &'static str {
@@ -278,6 +304,17 @@ impl SurfaceStatus {
             Self::Outdated => SurfaceRecovery::Reconfigure,
             Self::Lost => SurfaceRecovery::Recreate,
             Self::Validation => SurfaceRecovery::Fatal,
+        }
+    }
+
+    /// A retry must not reconfigure again, but loss and validation still need
+    /// their ordinary recovery. Flattening all retry failures to `Skip` can
+    /// leave a lost surface resident or conceal a fatal validation result.
+    #[must_use]
+    pub const fn recovery_after_reconfigure(self) -> SurfaceRecovery {
+        match self {
+            Self::Outdated => SurfaceRecovery::Skip,
+            Self::Timeout | Self::Occluded | Self::Lost | Self::Validation => self.recovery(),
         }
     }
 }
@@ -470,3 +507,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "tests/surface_lifecycle.rs"]
+mod lifecycle_tests;

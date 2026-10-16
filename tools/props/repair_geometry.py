@@ -12,11 +12,12 @@ import math
 from pathlib import Path
 import struct
 import sys
+from dataclasses import replace
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from execution import ordered_map, worker_count, atomic_write
 
 import glb
-from geometry import boundary_loops, inspect, _cross, _sub, _dot
+from geometry import boundary_loops, inspect, _cross, _sub, _dot, glb_triangles, overlap_report, clip_attribute_triangle, transformed_triangles
 
 ROOT = Path(__file__).resolve().parents[2]
 NAMES = set('armchair bed bookshelf cardboard_box couch crate fridge lamp plant rug sink stove table tv washer_drum washing_machine cabinet_base cabinet_wall cabinet chair desk vending_machine water_cooler pool_chair pool_curtain_corner pool_curtain_end pool_curtain_straight pool_guardrail_corner pool_guardrail_end pool_guardrail_straight pool_ladder pool_table'.split())
@@ -24,6 +25,116 @@ NAMES = set('armchair bed bookshelf cardboard_box couch crate fridge lamp plant 
 # independent textured face planes must never be filled by a generic hole pass.
 CLOSE_ALL = {'bed', 'water_cooler', 'pool_chair', 'pool_table', 'pool_ladder',
              'pool_curtain_corner', 'pool_curtain_end', 'pool_curtain_straight', 'vending_machine'}
+
+RECEPTION_ORIGINAL_SHA256 = "aba1a7685f98c67bf405829a4af220af5c68d90b6ef4a9b21eb417574770274d"
+
+
+def canonical_repair_document(raw):
+    """Reject layouts our JSON/BIN-only writer cannot preserve exactly.
+
+    Read-only GLB inspection accepts unknown chunks. A repair must not silently
+    drop one, mistake its header for vertex bytes, or consume trailing data.
+    These mutators support exactly one JSON chunk followed by one BIN chunk.
+    """
+    if len(raw) < 28:
+        raise ValueError("noncanonical GLB repair container: missing JSON/BIN chunks")
+    magic, version, total = struct.unpack_from("<III", raw)
+    if magic != glb.GLB_MAGIC or version != 2 or total != len(raw):
+        raise ValueError("noncanonical GLB repair container: invalid header or trailing bytes")
+    json_length, json_kind = struct.unpack_from("<II", raw, 12)
+    bin_header = 20 + json_length
+    if json_kind != glb.CHUNK_JSON or json_length % 4 or bin_header + 8 > total:
+        raise ValueError("noncanonical GLB repair container: expected aligned JSON first")
+    bin_length, bin_kind = struct.unpack_from("<II", raw, bin_header)
+    if bin_kind != glb.CHUNK_BIN or bin_length % 4 or bin_header + 8 + bin_length != total:
+        raise ValueError("noncanonical GLB repair container: expected one BIN and no unknown chunks")
+    return json.loads(raw[20:bin_header]), bytearray(raw[bin_header + 8:total])
+
+
+def reception_repair_plan(path):
+    """The reviewed material precedence, addressed to one delivered export."""
+    path = Path(path).resolve()
+    raw = path.read_bytes()
+    if hashlib.sha256(raw).hexdigest() != RECEPTION_ORIGINAL_SHA256:
+        raise ValueError("reception desk differs from the reviewed original export")
+    return {"format": "places-reviewed-model-clip", "version": 1,
+            "source": str(path), "sha256": RECEPTION_ORIGINAL_SHA256,
+            "material_precedence": {"keep": {"primitive": 3, "material": "Office_paint_edge"},
+                                    "clip": {"primitive": 0, "material": "Office_wood"}},
+            "edits": [{"mesh": 0, "primitive": 0, "triangles": list(range(8, 20)),
+                       "axis": 1, "minimum": 0.9480000138282776,
+                       "reason": "Remove wood only where the existing opaque paint edge owns the perimeter side; retain its original top and affine UVs."}]}
+
+
+def repair_reception_desk(raw, plan):
+    """Clip the reviewed wood side band under the existing 9 mm paint edging.
+
+    No surface is moved. Trim geometry, all original attribute buffer bytes,
+    other primitives, texture bytes, material dictionaries and bounds survive.
+    """
+    if hashlib.sha256(raw).hexdigest() != RECEPTION_ORIGINAL_SHA256:
+        raise ValueError("reception source sha256 changed; refusing stale plan")
+    if (plan.get("format") != "places-reviewed-model-clip" or plan.get("version") != 1
+            or plan.get("sha256") != RECEPTION_ORIGINAL_SHA256
+            or plan.get("material_precedence") != {"keep": {"primitive": 3, "material": "Office_paint_edge"}, "clip": {"primitive": 0, "material": "Office_wood"}}
+            or len(plan.get("edits", [])) != 1):
+        raise ValueError("unrecognized reviewed reception plan")
+    edit = plan["edits"][0]
+    if any(edit.get(key) != value for key, value in {"mesh": 0, "primitive": 0, "triangles": list(range(8, 20)), "axis": 1, "minimum": 0.9480000138282776}.items()):
+        raise ValueError("reviewed reception clipping plane or source faces changed")
+    document, blob = canonical_repair_document(raw)
+    primitive = document["meshes"][0]["primitives"][0]
+    if document["materials"][primitive["material"]]["name"] != "Office_wood" or document["materials"][3]["name"] != "Office_paint_edge":
+        raise ValueError("reviewed material slots changed")
+    attributes = {name: list(glb._read_accessor(document, blob, accessor)) for name, accessor in primitive["attributes"].items()}
+    if set(attributes) != {"POSITION", "NORMAL", "TEXCOORD_0"}:
+        raise ValueError("unreviewed reception vertex attributes")
+    indices = [int(row[0]) for row in glb._read_accessor(document, blob, primitive["indices"])]
+    retained = []
+    for start in range(0, len(indices), 3):
+        corners = indices[start:start + 3]
+        if start // 3 not in edit["triangles"]:
+            retained.extend(corners)
+            continue
+        records = [tuple(sorted((name, tuple(values[i])) for name, values in attributes.items())) for i in corners]
+        for triangle in clip_attribute_triangle(records, axis=edit["axis"], minimum=edit["minimum"]):
+            for vertex in triangle:
+                retained.append(len(attributes["POSITION"]))
+                for name, value in vertex:
+                    attributes[name].append(value)
+    def append_accessor(rows, *, component, kind, fmt, target):
+        while len(blob) % 4:
+            blob.append(0)
+        start = len(blob)
+        for row in rows:
+            blob.extend(struct.pack("<" + fmt, *row))
+        view = len(document["bufferViews"])
+        document["bufferViews"].append({"buffer": 0, "byteOffset": start, "byteLength": len(blob) - start, "target": target})
+        accessor = {"bufferView": view, "componentType": component, "count": len(rows), "type": kind}
+        if kind == "VEC3":
+            accessor["min"] = [min(row[i] for row in rows) for i in range(3)]
+            accessor["max"] = [max(row[i] for row in rows) for i in range(3)]
+        index = len(document["accessors"])
+        document["accessors"].append(accessor)
+        return index
+    for name, values in attributes.items():
+        count = len(values[0])
+        primitive["attributes"][name] = append_accessor(values, component=5126, kind=f"VEC{count}", fmt=f"{count}f", target=34962)
+    primitive["indices"] = append_accessor([(i,) for i in retained], component=5125, kind="SCALAR", fmt="I", target=34963)
+    document["buffers"][0]["byteLength"] = len(blob)
+    payload = json.dumps(document, separators=(",", ":")).encode()
+    payload += b" " * (-len(payload) % 4)
+    blob.extend(b"\0" * (-len(blob) % 4))
+    output = (struct.pack("<III", glb.GLB_MAGIC, 2, 28 + len(payload) + len(blob))
+              + struct.pack("<II", len(payload), glb.CHUNK_JSON) + payload
+              + struct.pack("<II", len(blob), glb.CHUNK_BIN) + blob)
+    before, after = glb.read_glb(raw), glb.read_glb(output)
+    if before.bounds() != after.bounds() or before.texture_pngs != after.texture_pngs or before.json["materials"] != after.json["materials"]:
+        raise ValueError("reviewed reception contract changed")
+    post = overlap_report(glb_triangles(output, source="reception"), min_area_m2=1e-8)
+    if not post["complete"] or any(row["kind"] == "coplanar-overlap" and set(row["materials"]) == {"reception/materials/0", "reception/materials/3"} for row in post["findings"]):
+        raise ValueError("reviewed wood/paint side overlap remains")
+    return output
 
 
 def cloth_triangle(name, positions, tri):
@@ -248,8 +359,8 @@ def encode(document, blob, positions, uvs, colors, indices):
 
 
 def process(path, apply, *, proposed=False):
-    raw=path.read_bytes();n=struct.unpack_from('<I',raw,12)[0]
-    document=json.loads(raw[20:20+n]);blob=bytearray(raw[28+n:])
+    raw=path.read_bytes()
+    document,blob=canonical_repair_document(raw)
     if document.get('skins') or document.get('animations') or len(document['meshes'])!=1 or len(document['meshes'][0]['primitives'])!=1:
         raise ValueError(f'{path}: requires manual review of rig or multiple meshes')
     if any(any(key in node for key in ('matrix','translation','rotation','scale')) for node in document['nodes']):
@@ -321,11 +432,187 @@ def _process_job(path):
     return process(path, False, proposed=True)
 
 
+def overlap_audit(path, *, max_candidates=2_000_000):
+    """A reproducible read-only report and hash-bound conservative edit plan."""
+    path = Path(path).resolve()
+    source = str(path)
+    raw = path.read_bytes()
+    return {"source": source, "sha256": hashlib.sha256(raw).hexdigest(),
+            **overlap_report(glb_triangles(raw, source=source), max_candidates=max_candidates)}
+
+
+def instance_overlap_audit(path, *, max_candidates=2_000_000):
+    """Audit distinct fixed placements exported by the engine, not guessed JSON.
+
+    The matrix includes the engine's floor reference, uniform scale, yaw and
+    span/shear. Animated/morph assets and live movable poses are explicitly
+    listed outside this static scope. Per-slot map materials retain identity.
+    Cross-instance findings are review only: a structural intersection never
+    authorizes deleting an entire placement or one of its source model faces.
+    """
+    document = json.loads(Path(path).read_text())
+    if document.get("format") != "places-prop-instances" or document.get("version") != 1:
+        raise ValueError("expected an engine-exported places-prop-instances manifest")
+    cache = {}
+    triangles = []
+    excluded = list(document.get("excluded", []))
+    models = {}
+    for instance in document["instances"]:
+        model = str(Path(instance["model"]).resolve())
+        if model not in cache:
+            raw = Path(model).read_bytes()
+            models[model] = hashlib.sha256(raw).hexdigest()
+            try:
+                cache[model] = glb_triangles(raw, source=model)
+            except ValueError as error:
+                cache[model] = str(error)
+        if isinstance(cache[model], str):
+            excluded.append({"owner": instance["owner"], "reason": cache[model]})
+            continue
+        placed = transformed_triangles(cache[model], instance["matrix"], owner=instance["owner"])
+        overrides = instance.get("material_overrides", {})
+        triangles.extend(replace(triangle, material=f"catalog:{overrides[triangle.material.rsplit('/', 1)[1]]}", alpha_mode="UNKNOWN_OVERRIDE")
+                         if triangle.material.rsplit('/', 1)[1] in overrides else triangle for triangle in placed)
+    report = overlap_report(triangles, max_candidates=max_candidates, cross_instances=True)
+    # Source faces cannot be deleted to resolve a placement-to-placement clash.
+    report["repair_plan"] = []
+    for finding in report["findings"]:
+        finding["auto_repairable"] = False
+    return {"format": "places-instance-overlap", "version": 1,
+            "level": document["level"], "source_sha256": document["source_sha256"],
+            "scope": "distinct fixed static GLB instances; no architecture or live poses",
+            "models": models, "excluded": excluded, **report}
+
+
+def remove_duplicate_triangles(raw, plan, *, source):
+    """Change only index accessors for a freshly re-verified duplicate plan.
+
+    Material definitions, image buffers and every existing vertex accessor stay
+    byte-identical. Appending independent index accessors also preserves other
+    primitives that happened to share the old accessor.
+    """
+    document, blob = canonical_repair_document(raw)
+    report = overlap_report(glb_triangles(raw, source=source))
+    if not report["complete"] or report["repair_plan"] != plan:
+        raise ValueError("duplicate repair plan does not match the current complete audit")
+    if not plan:
+        return raw
+    removals = {}
+    for edit in plan:
+        suffix = edit["reference"].removeprefix(source + "/nodes/")
+        fields = suffix.split("/")
+        if len(fields) != 7 or fields[1::2] != ["meshes", "primitives", "triangles"]:
+            raise ValueError("invalid source triangle address")
+        mesh, primitive, triangle = (int(fields[i]) for i in (2, 4, 6))
+        removals.setdefault((mesh, primitive), set()).add(triangle)
+    for (mesh, slot), removed in sorted(removals.items()):
+        primitive = document["meshes"][mesh]["primitives"][slot]
+        indices = [int(row[0]) for row in glb._read_accessor(document, blob, primitive["indices"])] if "indices" in primitive else list(range(document["accessors"][primitive["attributes"]["POSITION"]]["count"]))
+        retained = [index for start in range(0, len(indices), 3) if start // 3 not in removed
+                    for index in indices[start:start + 3]]
+        while len(blob) % 4:
+            blob.append(0)
+        start = len(blob)
+        for index in retained:
+            blob.extend(struct.pack("<I", index))
+        view = len(document["bufferViews"])
+        document["bufferViews"].append({"buffer": 0, "byteOffset": start,
+                                      "byteLength": len(blob) - start, "target": 34963})
+        primitive["indices"] = len(document["accessors"])
+        document["accessors"].append({"bufferView": view, "componentType": 5125,
+                                      "count": len(retained), "type": "SCALAR"})
+    document["buffers"][0]["byteLength"] = len(blob)
+    payload = json.dumps(document, separators=(",", ":")).encode()
+    payload += b" " * (-len(payload) % 4)
+    blob.extend(b"\0" * (-len(blob) % 4))
+    result = (struct.pack("<III", glb.GLB_MAGIC, 2, 28 + len(payload) + len(blob))
+              + struct.pack("<II", len(payload), glb.CHUNK_JSON) + payload
+              + struct.pack("<II", len(blob), glb.CHUNK_BIN) + blob)
+    before, after = glb.read_glb(raw), glb.read_glb(result)
+    if before.texture_pngs != after.texture_pngs or before.json.get("materials") != after.json.get("materials"):
+        raise ValueError("duplicate repair changed material or texture identity")
+    post = overlap_report(glb_triangles(result, source=source))
+    if not post["complete"] or post["repair_plan"]:
+        raise ValueError("duplicate repair did not produce an empty second plan")
+    return result
+
+
+def apply_overlap_plan(document):
+    """Verify every source and proposed payload before publishing any model."""
+    if document.get("format") != "places-model-overlap" or document.get("version") != 1:
+        raise ValueError("unsupported model overlap report")
+    proposals = []
+    for row in document["models"]:
+        path = Path(row["source"]).resolve()
+        raw = path.read_bytes()
+        if hashlib.sha256(raw).hexdigest() != row["sha256"]:
+            raise ValueError(f"{path}: source sha256 changed; refusing stale plan")
+        if not row.get("complete"):
+            raise ValueError(f"{path}: incomplete overlap audit")
+        payload = remove_duplicate_triangles(raw, row["repair_plan"], source=str(path))
+        proposals.append((path, raw, payload))
+    for path, raw, _ in proposals:
+        if path.read_bytes() != raw:
+            raise ValueError(f"{path}: changed during verification; no repairs published")
+    for path, raw, payload in proposals:
+        if payload != raw:
+            atomic_write(path, payload)
+    return sum(raw != payload for _, raw, payload in proposals)
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--apply',action='store_true');parser.add_argument('--report',type=Path)
     parser.add_argument("--workers",type=int,help="CPU workers for model audits")
+    parser.add_argument("--audit-model", type=Path, nargs="+", help="read-only coplanar/near-coplanar audit; does not run legacy named repairs")
+    parser.add_argument("--audit-instances", type=Path, help="read-only cross-instance audit of an engine --prop-instances manifest")
+    parser.add_argument("--apply-overlap-plan", type=Path, help="apply only freshly verified exact duplicates from a hash-bound audit report")
+    parser.add_argument("--max-candidates", type=int, default=2_000_000, help="hard pair-work budget per overlap audit")
+    parser.add_argument("--plan-reception-desk", type=Path, help="plan the reviewed wood/paint edge clipping repair for the original export")
+    parser.add_argument("--apply-reception-plan", type=Path, help="apply a reviewed reception plan after hash and contract verification")
     args=parser.parse_args()
+    if args.audit_instances:
+        if args.apply or args.audit_model or args.apply_overlap_plan or args.plan_reception_desk or args.apply_reception_plan:
+            parser.error("select one repair/audit operation")
+        report = instance_overlap_audit(args.audit_instances, max_candidates=args.max_candidates)
+        if args.report:
+            args.report.parent.mkdir(parents=True, exist_ok=True)
+            args.report.write_text(json.dumps(report, indent=2) + "\n")
+        print(report["level"], "complete" if report["complete"] else "INCOMPLETE", report["totals"], f"{len(report['excluded'])} excluded live/animated placements")
+        return
+    if args.plan_reception_desk or args.apply_reception_plan:
+        if args.apply or args.audit_model or args.apply_overlap_plan or (args.plan_reception_desk and args.apply_reception_plan):
+            parser.error("select one repair/audit operation")
+        if args.plan_reception_desk:
+            plan = reception_repair_plan(args.plan_reception_desk)
+            if args.report:
+                args.report.parent.mkdir(parents=True, exist_ok=True)
+                args.report.write_text(json.dumps(plan, indent=2) + "\n")
+            print(json.dumps(plan, indent=2))
+        else:
+            plan = json.loads(args.apply_reception_plan.read_text())
+            path = Path(plan["source"])
+            raw = path.read_bytes()
+            payload = repair_reception_desk(raw, plan)
+            if path.read_bytes() != raw:
+                raise ValueError("reception source changed during verification")
+            atomic_write(path, payload)
+            print(f"clipped reviewed wood/paint overlap: {path} sha256 {hashlib.sha256(payload).hexdigest()}")
+        return
+    if args.audit_model or args.apply_overlap_plan:
+        if args.apply or (args.audit_model and args.apply_overlap_plan):
+            parser.error("overlap audits/plans and legacy --apply are separate operations")
+        if args.apply_overlap_plan:
+            print(f"repaired {apply_overlap_plan(json.loads(args.apply_overlap_plan.read_text()))} model(s)")
+        else:
+            report = {"format": "places-model-overlap", "version": 1,
+                      "models": [overlap_audit(path, max_candidates=args.max_candidates) for path in args.audit_model]}
+            if args.report:
+                args.report.parent.mkdir(parents=True, exist_ok=True)
+                args.report.write_text(json.dumps(report, indent=2) + "\n")
+            for row in report["models"]:
+                print(row["source"], "complete" if row["complete"] else "INCOMPLETE", row["totals"], f"{len(row['repair_plan'])} safe deletion(s)")
+        return
     try: worker_count(args.workers)
     except ValueError as error: parser.error(str(error))
     paths=[p for p in sorted((ROOT/'assets').rglob('*.glb')) if p.stem in NAMES]

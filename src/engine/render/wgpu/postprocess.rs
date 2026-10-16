@@ -827,6 +827,24 @@ impl PostProcess {
         self.targets.as_ref().map(|targets| targets.scene_size)
     }
 
+    /// Uncompressed attachment texels, excluding driver alignment/metadata.
+    /// This remains useful on Metal, whose HAL byte counters are unavailable.
+    #[cfg(feature = "visual-diagnostics")]
+    pub fn diagnostic_attachment_bytes(&self) -> u64 {
+        self.targets.as_ref().map_or(0, |targets| {
+            let bytes = |size: DrawableSize, bytes_per_pixel: u64| {
+                u64::from(size.width)
+                    .saturating_mul(u64::from(size.height))
+                    .saturating_mul(bytes_per_pixel)
+            };
+            // Scene/emission RGBA16F + Depth32F; two RGBA16F blur images;
+            // one raw RGBA8 presented image. All have one mip and one layer.
+            bytes(targets.scene_size, 20)
+                .saturating_add(bytes(bloom_target_size(targets.scene_size), 16))
+                .saturating_add(bytes(targets.presented_size, 4))
+        })
+    }
+
     /// True when the scene target exists at the size the last [`Self::ensure`]
     /// computed (the expected size), and therefore when the scene and
     /// emissive passes can run.
