@@ -75,7 +75,8 @@ pub const MATERIAL_FLAG_MASK: u32 = MATERIAL_FLAG_NORMAL_ENABLED
 /// offset 72  uv_response            f32
 /// offset 76  uv_mask_enabled        f32
 /// offset 80  uv_tint                vec4<f32>
-/// ------------------------------------------------------ 96 bytes, align 16
+/// offset 96  albedo_tint            vec4<f32>
+/// ----------------------------------------------------- 112 bytes, align 16
 /// ```
 ///
 /// `#[repr(C, align(16))]` plus `Pod` make the byte view explicit; the unit

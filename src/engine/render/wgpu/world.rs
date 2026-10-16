@@ -137,10 +137,10 @@ pub const WORLD_ATTRIB_UV_VISIBILITY: u32 = 8;
 /// tangent and bitangent sign), world-space tiling UV, the material/vertex-lit
 /// colour, and the lightmap atlas address.
 ///
-/// The colour is uploaded as `Unorm8x4` through [`quantize_unit`], the same
-/// quantisation the reference's packed layout applied. In the atlas build it is the material factor
+/// The colour is uploaded as `Float32x4`, preserving its linear RGB factor and
+/// straight alpha. In the atlas build it is the material factor
 /// (`tint × directional face shade`) with no baked light; in the vertex-lit
-/// build it also carries the bake.
+/// build it also carries HDR bake values without byte quantisation or clipping.
 ///
 /// The lightmap pair matches the reference's *exact* attribute types in both of
 /// its vertex layouts: `lightmap_uv` is the vertex's two 16-bit fixed-point
@@ -510,7 +510,7 @@ pub struct EnvironmentUniform {
     /// Per-instance opacity multiplier, `0..=1`. `1.0` for the static world and
     /// for every draw without a fade; a character instance installs its
     /// clamped fade opacity here, which the shader multiplies into the fragment
-    /// alpha and the emissive term.
+    /// alpha. Straight-alpha scene and bloom blending apply that coverage once.
     pub opacity: f32,
     /// Explicit tail padding so the 16-byte alignment is part of the struct
     /// (WGSL pads a uniform struct to its alignment the same way) and the
@@ -745,11 +745,8 @@ impl EnvironmentUniform {
     #[must_use]
     pub fn with_model(mut self, model: Mat4) -> Self {
         self.model = model.to_cols_array_2d();
-        let inverse = if model.determinant().abs() > 1.0e-12 {
-            model.inverse().transpose()
-        } else {
-            Mat4::IDENTITY
-        };
+        let inverse = crate::engine::render::common::normal::inverse_transpose(model)
+            .unwrap_or(Mat4::IDENTITY);
         let columns = inverse.to_cols_array_2d();
         let [x, y, z, _translation] = columns;
         self.normal_model = [x, y, z];
@@ -788,7 +785,7 @@ pub struct GpuDynamicLight {
     pub position: [f32; 3],
     /// The falloff window's radius, in metres, strictly positive.
     pub radius: f32,
-    /// Display-space colour, each channel `0..=1`.
+    /// Linear colour factor, each channel `0..=1`.
     pub color: [f32; 3],
     /// Additive intensity.
     pub intensity: f32,
@@ -3215,6 +3212,10 @@ impl WorldPipeline {
 }
 
 #[cfg(test)]
+#[path = "tests/world_transforms.rs"]
+mod transform_tests;
+
+#[cfg(test)]
 mod tests {
     // Test code: unwrap/indexing/float comparisons and panics are idiomatic here.
     #![allow(
@@ -4254,22 +4255,21 @@ mod tests {
 
     #[test]
     fn the_world_shader_uses_shared_material_response_math() {
-        // Every input and target is raw display space (the reference's own
-        // framebuffer convention), so the only transfer function is the one
-        // conversion at the sRGB surface.
+        // Base-colour sampling decodes authored sRGB. Material and lighting
+        // terms then accumulate in linear HDR; display targets encode once.
         assert!(WORLD_SHADER_SRC.contains("fn target_color("));
         assert!(WORLD_SHADER_SRC.contains("fn srgb_to_linear("));
-        // The fragment assembles the reference's
-        // `lit + sheen + reflection + emission`, then fog, in display space and
-        // converts once, after every display-space term.
+        // The fragment assembles `lit + sheen + reflection + emission`, then
+        // fog, before presentation applies exposure and display encoding.
         assert!(WORLD_SHADER_SRC.contains("fn lit_linear("));
         assert!(
             WORLD_SHADER_SRC.contains("return vec4<f32>(shaded.color, shaded.alpha);"),
             "the sRGB surface receives linear RGB"
         );
         assert!(
-            WORLD_SHADER_SRC.contains("return vec4<f32>(shaded.color, shaded.alpha);"),
-            "linear HDR targets retain the assembled radiance"
+            WORLD_SHADER_SRC
+                .contains("return vec4<f32>(target_color(shaded.color), shaded.alpha);"),
+            "raw targets use their explicit display-encoding gate"
         );
         assert!(
             WORLD_SHADER_SRC.contains("lit + sheen + reflection + emission"),
@@ -4472,12 +4472,11 @@ mod tests {
 
     #[test]
     fn the_world_shader_assembles_linear_light_and_only_encodes_raw_display_targets() {
-        // The base texture is raw display space (no sRGB decode), so the
-        // fragment is assembled in the reference's framebuffer space and the
-        // sRGB surface converts exactly once, at the output.
+        // The base texture format decodes authored sRGB while sampling. The
+        // fragment therefore receives linear RGB without a second decode.
         assert!(
             WORLD_SHADER_SRC.contains("let base_linear = base.rgb;"),
-            "authored texels must be sampled as display values"
+            "base sampling must already return linear RGB"
         );
         assert!(
             WORLD_SHADER_SRC.contains("fn target_color("),
@@ -4529,7 +4528,7 @@ mod tests {
     /// The CPU mirror of the reference's sheen term, for the tests below.
     ///
     /// `specular` and `light` are per-channel; the returned value is the
-    /// display-space sheen the shader adds to the lit term.
+    /// linear sheen the shader adds to the lit term.
     fn sheen(
         specular: [f32; 3],
         roughness: f32,
@@ -4584,9 +4583,8 @@ mod tests {
         // moment, never on encoded coordinates.
         assert!(!WORLD_SHADER_SRC.contains("decode_octahedral"));
         assert!(!WORLD_SHADER_SRC.contains("2.0 * max(0.0, dot(normal, axis)) - 1.0"));
-        // The multiply happens in display space, where the reference did it,
-        // and the sheen is scaled by the same factor, so a dark room darkens
-        // the sheen.
+        // Albedo and sheen use the same linear irradiance, so a dark room
+        // darkens both terms without an intermediate display curve.
         assert!(
             WORLD_SHADER_SRC
                 .contains("base_linear * vertex_color * light * (1.0 - emission_vertex)")
@@ -5591,11 +5589,11 @@ mod tests {
     fn the_sheen_uses_the_prepared_material_normal() {
         // The sheen must consume the same normal the normal-map decode
         // produced, exactly like the reference reads its `normal` variable in
-        // both blocks. The shader calls `material_normal` inside
-        // `surface_sheen`, and the CPU check below proves a perturbed normal
+        // both blocks. The shader prepares one shared normal frame, and the
+        // CPU check below proves a perturbed material normal
         // changes the lobe in the direction the formula says.
         assert!(
-            WORLD_SHADER_SRC.contains("let normal = material_normal(in, front_facing);"),
+            WORLD_SHADER_SRC.contains("let normal = normals.material;"),
             "the sheen must consume the prepared material normal"
         );
 

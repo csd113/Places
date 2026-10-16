@@ -815,6 +815,14 @@ impl WgpuRenderer {
                 surface::native_backend_label()
             )
         })?;
+        // Explicit native shader acceptance probe. It uses this window's Metal
+        // device and never allocates or waits in a normal game/benchmark run.
+        #[cfg(feature = "visual-diagnostics")]
+        if std::env::var("PLACES_BENCH").is_ok_and(|value| value == "1")
+            && std::env::var("PLACES_BENCH_PRESENT_PROBE").is_ok_and(|value| value == "1")
+        {
+            super::postprocess::run_present_probe(&device, &queue)?;
+        }
         let device_lost = Self::watch_device_loss(&device);
         let (width, height) = window.size_in_pixels();
         validate_drawable(

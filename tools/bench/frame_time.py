@@ -15,10 +15,8 @@ import math
 import os
 from pathlib import Path
 import re
-import resource
 import statistics
 import subprocess
-import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -80,6 +78,7 @@ def main() -> None:
     parser.add_argument("--no-caustics", action="store_true", help="same-build disabled-effect control")
     parser.add_argument("--no-gpu-timing", action="store_true", help="same-build instrumentation control")
     parser.add_argument("--runtime-workers", type=int, choices=range(1, 9), help="bounded CPU pool; 1 runs inline")
+    parser.add_argument("--low-lighting", action="store_true", help="independent Low lighting mode; preserve texture quality")
     parser.add_argument("--lightmaps", choices=("static", "full"), default="full", help="matched lighting control")
     parser.add_argument("--entity-light-trace", default="", help="capture-only entity lighting payload witness")
     parser.add_argument("--cpu-trace", action="store_true", help="three steady frames of CPU stage spans; diagnostic")
@@ -114,13 +113,12 @@ def main() -> None:
         window_width=width, window_height=height,
         window_mode="fullscreen" if args.fullscreen else "windowed", vsync=args.vsync,
         quality="high", texture_filtering="high", lightmaps=args.lightmaps, reflections="full",
-        bloom=True, use_low_quality_lighting=False, fov_degrees=60, developer_console=args.console_open,
+        bloom=True, use_low_quality_lighting=args.low_lighting, fov_degrees=60, developer_console=args.console_open,
     )
-    # The stable macOS launcher creates the isolated state directory itself.
+    # A direct native child uses the same isolated state on every platform.
     settings_path = out / "settings-input.json"
     settings_path.write_text(json.dumps(settings, indent=2) + "\n")
-    if sys.platform != "darwin":
-        (out / "settings.json").write_text(json.dumps(settings, indent=2) + "\n")
+    (out / "settings.json").write_text(json.dumps(settings, indent=2) + "\n")
     env = {key: value for key, value in os.environ.items()
            if not key.startswith("PLACES_") and key != "SDL_VIDEODRIVER"}
     env.update(
@@ -167,36 +165,44 @@ def main() -> None:
     binary_sha256, package_sha256 = digest(binary), digest(package)
     command = [str(binary)]
     native_out = out / "native"
-    if sys.platform == "darwin":
-        env_path = out / "environment.json"
-        env_path.write_text(json.dumps({key: value for key, value in env.items()
-                                       if key.startswith("PLACES_")}, indent=2) + "\n")
-        command = [sys.executable, str(ROOT / "tools/bench/native_app.py"),
-                   "--binary", str(binary), "--out", str(native_out),
-                   "--env-json", str(env_path), "--settings-json", str(settings_path)]
-    try:
-        # LaunchServices owns the macOS app independently of this wrapper.
-        # Keep the stable launcher's no-timeout contract: approval delays must
-        # not orphan a running app or trigger another launch automatically.
-        result = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True,
-                                timeout=None if sys.platform == "darwin" else 240)
-    except subprocess.TimeoutExpired as error:
-        def timeout_text(value: str | bytes | None) -> str:
-            return value.decode(errors="replace") if isinstance(value, bytes) else value or ""
-
-        (out / "native.log").write_text(timeout_text(error.stdout) + timeout_text(error.stderr))
-        raise RuntimeError(f"native run timed out after 240 seconds; see {out / 'native.log'}") from error
-    log = result.stdout + result.stderr
-    if sys.platform == "darwin":
-        for name in ("stdout.log", "stderr.log"):
-            path = native_out / name
-            if path.exists():
-                log += path.read_text()
+    native_out.mkdir()
+    (out / "environment.json").write_text(json.dumps(
+        {key: value for key, value in env.items() if key.startswith("PLACES_")}, indent=2) + "\n")
+    # Execute the actual player, never a .app/LaunchServices wrapper. Do not retry
+    # or time out a native permission wait: another launch would orphan the first.
+    rss_samples = []
+    rss_error = None
+    with (native_out / "stdout.log").open("w") as stdout, (native_out / "stderr.log").open("w") as stderr:
+        child = subprocess.Popen(command, cwd=ROOT, env=env, stdout=stdout, stderr=stderr)
+        (native_out / "identity.json").write_text(json.dumps(dict(
+            launch_method="direct", source_binary=str(binary), binary_sha256=binary_sha256,
+            pid=child.pid, cwd=str(ROOT)), indent=2) + "\n")
+        while child.poll() is None:
+            try:
+                sample = subprocess.run(["ps", "-o", "rss=", "-p", str(child.pid)],
+                                        capture_output=True, text=True, check=False)
+                if sample.returncode == 0 and sample.stdout.strip().isdigit():
+                    rss_samples.append(dict(seconds=time.monotonic() - started,
+                                            rss_bytes=int(sample.stdout.strip()) * 1024))
+                elif sample.stderr.strip():
+                    rss_error = sample.stderr.strip()
+            except OSError as error:
+                # Unavailable diagnostics must never abandon a live player.
+                rss_error = str(error)
+            try:
+                child.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                pass
+    (native_out / "launch.json").write_text(json.dumps(dict(
+        returncode=child.returncode, seconds=time.monotonic() - started,
+        native_rss_samples=rss_samples, rss_sampling_error=rss_error,
+        peak_native_rss_bytes=max((row["rss_bytes"] for row in rss_samples), default=None)), indent=2) + "\n")
+    log = "".join((native_out / name).read_text() for name in ("stdout.log", "stderr.log"))
     (out / "native.log").write_text(log)
     if (digest(binary), digest(package)) != (binary_sha256, package_sha256):
         raise RuntimeError(f"binary/package changed during native run; see {out / 'native.log'}")
-    if result.returncode or f"[loading] committed {args.level}" not in log:
-        raise RuntimeError(f"native run failed ({result.returncode}); see {out / 'native.log'}")
+    if child.returncode or f"[loading] committed {args.level}" not in log:
+        raise RuntimeError(f"native run failed ({child.returncode}); see {out / 'native.log'}")
     if any(message in log.lower() for message in ("validation error", "panicked", "fatal device", "catalog hash mismatch")):
         raise RuntimeError(f"native validation failed; see {out / 'native.log'}")
     if (re.search(r"\[props\] \d+ models cached \([1-9]\d* failed\)", log)
@@ -251,8 +257,7 @@ def main() -> None:
         native_identity=[line for line in log.splitlines()
                          if line.startswith(("[renderer]", "[window]", "[settings]", "[wgpu] GPU timing", "[wgpu] present mode"))],
         metrics=metrics, gpu_elapsed_ms=None if capture else statistics_for(list(gpu.values())),
-        peak_native_rss_bytes=(json.loads((native_out / "launch.json").read_text())["peak_native_rss_bytes"]
-            if sys.platform == "darwin" else int(resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss) * 1024),
+        peak_native_rss_bytes=json.loads((native_out / "launch.json").read_text())["peak_native_rss_bytes"],
         base_scene_draws=statistics_for([int(row["draw_calls"]) for row in rows]),
         base_scene_triangles=statistics_for([int(row["visible_indices"]) // 3 for row in rows]),
         reflection_passes=sorted({int(row["reflection_passes"]) for row in rows}),

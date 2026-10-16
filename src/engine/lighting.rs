@@ -1,25 +1,26 @@
 //! Static baked interior lighting.
 //!
-//! There is no dynamic lighting loop. The static bake runs
-//! once per level load, producing one [`LightColor`] per sampled point that the
-//! geometry builder bakes into ordinary vertex colours, one channel at a time:
+//! This module prepares the static source field and visibility queries. Offline
+//! map compilation solves transport, lightmap atlases and entity-lighting data
+//! into playable packages; the player loads those prepared results. The legacy
+//! vertex-lit builder also samples this field into ordinary vertex colours.
 //!
 //! ```text
-//! load level
-//!     -> collect rooms                               (self::bake)
-//!     -> resolve generic light sources: fixtures      (self::light, self::bake)
-//!        and prop-attached lights, into one list
-//!     -> room area, light density, height factor      (self::math)
-//!     -> partition areas + baseline field            (self::bake)
-//!     -> room baseline + local fixture pools         (self::bake)
-//!     -> walls, floor interfaces, ceiling bodies     (self::visibility)
-//!     -> bounded doorway blending                    (self::bake)
-//!     -> bake into world geometry + prop instances   (crate::engine::render)
-//!     -> upload the same static batches as before    (crate::engine::render)
+//! authored level
+//!     -> resolve fixture and prop-attached sources    (self::light, self::bake)
+//!     -> partition rooms and prepare baseline field  (self::bake)
+//!     -> static occluders and doorway visibility     (self::visibility)
+//!     -> offline transport / atlas / entity solve    (render::common)
+//!     -> compiled package                           (map_compiler)
+//!     -> player upload and material evaluation       (render::wgpu)
 //! ```
 //!
-//! Static world surfaces sample baked lightmap atlases; vertex colours provide
-//! the fallback. Moving objects sample the static lighting field at their position.
+//! At runtime, static surfaces reconstruct prepared HDR lightmap pairs; vertex
+//! colours provide the fallback. Moving objects sample prepared irradiance and
+//! refresh bounded source visibility for their current transforms. Shaders add
+//! bounded attached lights
+//! and the live shadowed flashlight separately. Those realtime terms do not
+//! replace this static field or require a production-map bake at level load.
 //!
 //! Lighting model
 //! --------------

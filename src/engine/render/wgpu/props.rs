@@ -1,26 +1,23 @@
 //! Props: the neutral per-model batches as wgpu buffers and materials.
 //!
 //! The renderer-neutral build (`render::common::props`) has already resolved
-//! every placed prop into world-space, per-vertex-lit geometry, one batch per
-//! `(model, spatial cell)` with one submesh per glTF primitive. This module
-//! uploads exactly that:
+//! every placed prop into world-space geometry with prepared lightmap
+//! coordinates or vertex lighting, one batch per `(model, spatial cell)` with
+//! one submesh per glTF primitive. This module uploads exactly that:
 //!
 //! * one 16-bit-indexable vertex/index buffer pair per batch;
 //! * one clamped GPU sheet per model texture, cached through the texture cache
 //!   under the bounded `Catalog` retention policy;
-//! * one plain-opaque GPU material per distinct `(sheet, emission)` submesh,
-//!   because a prop's emission is per primitive and the model parser reads no
-//!   normal map, alpha mode or reflection contract;
+//! * GPU materials carrying each primitive's alpha, emission and scalar
+//!   surface/fluorescence response;
 //! * one draw per submesh, culled by its indexed primitive bounds for opaque
 //!   and cutout; blended draws retain batch bounds and sorting centres.
 //!
-//! Props are opaque by construction (`common::materials::batch_pass_for` maps
-//! `PropFallback` and every non-architectural family to the opaque pass), and
-//! their light is already in the vertex colour, so the frame path draws them
-//! with the ordinary pipeline between the static opaque pass and the cut-out
-//! pass. GPU resources are prepared at installation: the
-//! buffers, textures and materials are level resources; only the draws' light
-//! scale and reflection gates change, and both are the materials' business.
+//! Each primitive's authored alpha mode selects the opaque, cut-out or sorted
+//! translucent pass through `BatchPass::of`. The shared world shader consumes
+//! the prepared lighting and material response. Buffers, textures and materials
+//! are prepared at installation; light controls and emission animations update
+//! existing material uniforms.
 
 use std::sync::Arc;
 
@@ -112,20 +109,51 @@ struct PropEmissionControl {
     applied: f32,
 }
 
+/// Resolved resource slots and uniform values shared by one prop material.
+#[derive(Debug, PartialEq)]
+struct PropMaterialIdentity {
+    texture: usize,
+    emission: EmissionRecord,
+    emission_mask: Option<usize>,
+    fluorescence_mask: Option<usize>,
+    alpha: crate::engine::materials::MaterialAlpha,
+    response: crate::engine::materials::MaterialResponse,
+    controller: Option<u32>,
+}
+
+impl PropMaterialIdentity {
+    fn new(
+        submesh: &crate::engine::render::common::props::PropSubmeshBatch,
+        texture_base: usize,
+        texture_count: usize,
+        light_control: Option<u32>,
+    ) -> Self {
+        let mask_slot = |slot: Option<u32>| {
+            slot.and_then(|index| usize::try_from(index).ok())
+                .filter(|index| *index < texture_count)
+                .and_then(|index| texture_base.checked_add(index))
+        };
+        let emission_mask = mask_slot(submesh.emission.mask);
+        let emission = EmissionRecord::material(submesh.emission, emission_mask.is_some());
+        Self {
+            texture: prop_texture_slot(submesh.texture, texture_base, texture_count, 0),
+            emission,
+            emission_mask,
+            // Local model mask indices are not identities across batches. Even
+            // an untextured primitive must keep its own resolved mask binding.
+            fluorescence_mask: mask_slot(submesh.response.fluorescence.mask),
+            alpha: submesh.alpha,
+            response: submesh.response,
+            controller: emission.is_emissive().then_some(light_control).flatten(),
+        }
+    }
+}
+
 /// Accumulates one world's prop resources in draw order across frame budgets.
 ///
 /// The caller owns the batch cursor and retains this builder until every batch
 /// has been visited. Material identities persist across calls, so splitting the
 /// upload cannot change deduplication, ordering, or accounting.
-type PropMaterialIdentity = (
-    usize,
-    [f32; 3],
-    Option<usize>,
-    crate::engine::materials::MaterialAlpha,
-    crate::engine::materials::MaterialResponse,
-    Option<u32>,
-);
-
 pub struct PropUpload {
     props: WgpuProps,
     identities: Vec<PropMaterialIdentity>,
@@ -357,16 +385,13 @@ impl PropUpload {
             if submesh.index_count == 0 {
                 continue;
             }
-            let texture = prop_texture_slot(submesh.texture, texture_base, batch.textures.len(), 0);
-            let mask = submesh
-                .emission
-                .mask
-                .and_then(|index| {
-                    usize::try_from(index)
-                        .ok()
-                        .and_then(|local_slot| local_slot.checked_add(texture_base))
-                })
-                .filter(|index| *index < textures.len());
+            let identity = PropMaterialIdentity::new(
+                submesh,
+                texture_base,
+                batch.textures.len(),
+                batch.light_control,
+            );
+            let texture = identity.texture;
             let uv_mask = if let Some(image) =
                 submesh.response.fluorescence.mask.and_then(|index| {
                     batch
@@ -384,27 +409,17 @@ impl PropUpload {
             } else {
                 cache.fallback()
             };
-            let record = EmissionRecord::material(submesh.emission, mask.is_some());
+            let record = identity.emission;
             // The cutoff is part of the material identity: two primitives that
             // share a sheet and emission but discard at different alpha levels
             // need different uniforms.
-            let controller = record
-                .is_emissive()
-                .then_some(batch.light_control)
-                .flatten();
-            let identity = (
-                texture,
-                record.color,
-                mask,
-                submesh.alpha,
-                submesh.response,
-                controller,
-            );
+            let controller = identity.controller;
             let material = identities
                 .iter()
                 .position(|existing| *existing == identity)
                 .unwrap_or_else(|| {
-                    let mask_texture = mask
+                    let mask_texture = identity
+                        .emission_mask
                         .and_then(|index| textures.get(index).cloned())
                         .unwrap_or_else(|| cache.fallback());
                     let gpu = GpuMaterial::model_with_fluorescence(
@@ -626,6 +641,10 @@ impl WgpuProps {
         self.chunks.get(slot)
     }
 }
+
+#[cfg(test)]
+#[path = "tests/props.rs"]
+mod material_identity_tests;
 
 #[cfg(test)]
 mod tests {

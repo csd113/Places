@@ -24,10 +24,11 @@
 //! * fog inside the world shader, and the 480x272 renderer-owned HUD
 //!   ([`ui`]).
 //!
-//! Colour space: every offscreen target is raw `Rgba8Unorm` and the shaders
-//! write display-space values directly for blending, filtering and sampling;
-//! only the sRGB surface is
-//! converted, once, at the final copy. See `docs/RENDERER.md`.
+//! Colour space: scene, emission, bloom and reflection targets hold linear HDR
+//! in `Rgba16Float`. Resolve encodes the final display values into the
+//! `Rgba8Unorm` presented target, where the HUD blends. The final surface copy
+//! preserves those display values on either sRGB or raw surfaces. See
+//! `docs/RENDERER.md`.
 //!
 //! Module list:
 //!

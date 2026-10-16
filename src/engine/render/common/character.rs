@@ -2553,12 +2553,10 @@ impl CharacterAnimator {
         if total <= 0.0 {
             return normal;
         }
-        if blended.determinant().abs() <= 1.0e-12 {
+        let Some(inverse) = super::normal::inverse_transpose(blended) else {
             return [0.0; 3];
-        }
-        blended
-            .inverse()
-            .transpose()
+        };
+        inverse
             .transform_vector3(Vec3::from_array(normal))
             .normalize_or_zero()
             .to_array()
@@ -3198,6 +3196,10 @@ pub const fn character_vertex(albedo: [f32; 4], uv: [f32; 2], position: [f32; 3]
         ..Vertex::UNLIT
     }
 }
+
+#[cfg(test)]
+#[path = "tests/character_normals.rs"]
+mod normal_tests;
 
 #[cfg(test)]
 mod tests {

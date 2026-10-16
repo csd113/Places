@@ -54,7 +54,7 @@ struct Material {
     emission_vertex: f32,
     // Animated emission multiplier, 1.0 without an animation.
     emission_scale: f32,
-    // Independent UV response and linear pigment tint; 96 bytes, align 16.
+    // Independent UV response, linear pigment and albedo tints; 112 bytes, align 16.
     uv_response: f32,
     uv_mask_enabled: f32,
     uv_tint: vec4<f32>,
@@ -108,8 +108,8 @@ struct Environment {
     model: mat4x4<f32>,
     // Per-instance opacity multiplier (offset 192). `1.0` for the static world
     // and for every draw without a fade; a character instance installs its
-    // clamped fade opacity, which multiplies the fragment alpha and the
-    // emissive term (so a faded ghost neither covers nor blooms).
+    // clamped fade opacity, which multiplies fragment alpha. Scene and bloom
+    // blending apply that straight coverage once.
     opacity: f32,
     // The three pad words that keep `fog_region_count` at offset 208, exactly
     // where `EnvironmentUniform::tail_padding` sits. Never read.
@@ -228,9 +228,9 @@ struct WorldVertex {
     @location(1) normal: vec3<f32>,
     // World tiling UV, already scaled by the material's tiling period.
     @location(2) uv: vec2<f32>,
-    // RGBA shade, quantised to bytes exactly like the reference upload. In the
-    // atlas build this is the material factor (`tint x directional face shade`)
-    // with no baked light; in the vertex-lit build it also carries the bake.
+    // Float32 linear RGB factor and straight alpha. In the atlas build this is
+    // the material factor (`tint x directional face shade`) with no baked light;
+    // in the vertex-lit build it also carries HDR bake values without clipping.
     @location(3) color: vec4<f32>,
     // Lightmap atlas UV, in `[0, 1]`, from the vertex's 16-bit fixed point.
     @location(6) lightmap_uv: vec2<f32>,
@@ -541,11 +541,16 @@ fn unit_direction_or_zero(direction: vec3<f32>) -> vec3<f32> {
     return scaled * inverseSqrt(max(dot(scaled, scaled), 1.0));
 }
 
-// The world-space material normal: the geometric normal, flipped for a
-// back-facing fragment exactly like the reference's `gl_FrontFacing`, then
-// perturbed by the tangent-space normal map when the material binds one.
-fn material_normal(in: VsOut, front_facing: bool) -> vec3<f32> {
-    // Entity imports have no normal channel. Derive the diffuse normal from
+struct SurfaceNormals {
+    material: vec3<f32>,
+    geometric: vec3<f32>,
+};
+
+// Prepare the normal frame once. Material shading orients the visible side
+// and applies the normal map; caustic receiver selection keeps the original
+// geometric orientation and its independent front-facing gate.
+fn surface_normals(in: VsOut, front_facing: bool) -> SurfaceNormals {
+    // Models may omit authored normals. Derive their diffuse normal from
     // actual posed world geometry, oriented toward the visible side.
     // Derivatives remain outside conditional control flow. Scale each vector
     // before crossing so a valid tiny/large surface cannot underflow/overflow.
@@ -553,10 +558,13 @@ fn material_normal(in: VsOut, front_facing: bool) -> vec3<f32> {
     let position_dy = dpdy(in.world_position);
     let authored_normal = unit_direction_or_zero(in.world_normal);
     let has_authored_normal = any(in.world_normal != vec3<f32>(0.0));
+    var geometric = authored_normal;
+    if (!has_authored_normal) {
+        geometric = unit_direction_or_zero(cross(rescale_direction(position_dy), rescale_direction(position_dx)));
+    }
     var normal = select(vec3<f32>(0.0, 1.0, 0.0), authored_normal, has_authored_normal);
     if (!front_facing) { normal = -normal; }
     if (!has_authored_normal) {
-        let geometric = unit_direction_or_zero(cross(rescale_direction(position_dy), rescale_direction(position_dx)));
         if (any(geometric != vec3<f32>(0.0))) {
             normal = geometric;
             if (dot(normal, camera.position - in.world_position) < 0.0) { normal = -normal; }
@@ -575,12 +583,15 @@ fn material_normal(in: VsOut, front_facing: bool) -> vec3<f32> {
         let bitangent = cross(normal, tangent) * in.handedness;
         normal = normalize(tangent * scaled.x + bitangent * scaled.y + normal * scaled.z);
     }
-    return normal;
+    var out: SurfaceNormals;
+    out.material = normal;
+    out.geometric = geometric;
+    return out;
 }
 
 // The reference's view-dependent sheen, in linear light.
 fn surface_sheen(in: VsOut, normal: vec3<f32>, view: vec3<f32>, light: vec3<f32>) -> vec3<f32> {
-    if ((material.flags & MATERIAL_FLAG_RESPONSE_ENABLED) == 0u) {
+    if ((material.flags & MATERIAL_FLAG_RESPONSE_ENABLED) == 0u || all(material.specular == vec3<f32>(0.0))) {
         return vec3<f32>(0.0);
     }
     let facing = clamp(abs(dot(normal, view)), 0.0, 1.0);
@@ -598,7 +609,7 @@ fn surface_sheen(in: VsOut, normal: vec3<f32>, view: vec3<f32>, light: vec3<f32>
 // Reflection targets store unexposed linear HDR radiance; sampling never
 // re-applies tone mapping, exposure or display conversion.
 fn surface_reflection(in: VsOut, normal: vec3<f32>, view: vec3<f32>) -> vec3<f32> {
-    if (material.reflection_mode == 0u) {
+    if (material.reflection_mode == 0u || all(material.reflection_strength == vec3<f32>(0.0))) {
         return vec3<f32>(0.0);
     }
     let facing = clamp(abs(dot(normal, view)), 0.0, 1.0);
@@ -788,16 +799,14 @@ fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
     if (cutout && alpha < material.alpha_cutoff) {
         discard;
     }
-    let normal = material_normal(in, front_facing);
+    let normals = surface_normals(in, front_facing);
+    let normal = normals.material;
     // The baked light term plus the frame's attached lights. The dynamic term
     // is additive and never modifies `surface_light`, so every lightmap and
     // baked-occlusion result survives; with no attached lights it is exactly
     // zero. No baked energy is clipped before material evaluation.
     let beam = flashlight_term(normal, in.world_position);
-    let authored = unit_direction_or_zero(in.world_normal);
-    let derived = unit_direction_or_zero(cross(rescale_direction(dpdy(in.world_position)), rescale_direction(dpdx(in.world_position))));
-    let geometric = select(derived, authored, any(in.world_normal != vec3<f32>(0.0)));
-    let receiver_normal = select(vec3<f32>(0.0), geometric, front_facing);
+    let receiver_normal = select(vec3<f32>(0.0), normals.geometric, front_facing);
     let selected = caustic_volume(in.world_position, receiver_normal);
     let modulation = caustic_modulation(in, selected, dpdx(in.world_position.xz * 0.45), dpdy(in.world_position.xz * 0.45), any(beam > vec3<f32>(0.0)));
     let baked = surface_light(in, normal) * movable_contact_visibility(in, normal);
@@ -856,8 +865,8 @@ fn emissive_only(in: VsOut, cutout: bool) -> vec4<f32> {
     if (cutout && alpha < material.alpha_cutoff) {
         discard;
     }
-    // The per-instance opacity scales the emission so a faded ghost does not
-    // keep its full bloom; the attached-light term is deliberately absent here.
+    // The returned alpha includes instance opacity; straight-alpha blending
+    // scales bloom once. The attached-light term is deliberately absent here.
     let transmission = (1.0 - atmosphere(in.world_position).a) * storm_transmission(camera.position, in.world_position);
     return vec4<f32>(surface_emission(in, base.rgb) * transmission, alpha);
 }

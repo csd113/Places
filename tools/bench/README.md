@@ -13,7 +13,7 @@ The current workflow uses the following tools:
 
 | tool | what it does |
 | --- | --- |
-| `native_app.py` | launches Places through one stable macOS validation bundle, with separate per-run configuration/results and no automatic rebuild or retry |
+| `native_app.py` | historical macOS bundle launcher; prohibited for current staging validation |
 | `compiler_bench.py` | measures complete clean offline builds, phase timings, CPU, peak RAM and deterministic package hashes |
 | `compiler_compare.py` | alternates baseline and optimized clean builds within each repeated map pair, comparing all physical output records |
 | `compiler_incremental.py` | measures preserved source edits and verifies incremental packages equal independent clean builds |
@@ -40,32 +40,34 @@ The current workflow uses the following tools:
 | `lightmap_report.py` | runs the bake/lighting shot list and writes a `report.json` |
 | `check_holes.py` | counts near-black pixels in captures, to catch holes in a level shell |
 
-## Stable macOS validation app
+## Direct native validation
 
-Use `native_app.py` when a native run needs foreground app selection. It keeps
-`local/native-validation/Places Validation.app`, bundle ID
-`io.github.csd113.places.validation`, and executable `places-validation` stable.
-Identical binaries reuse the existing bundle bytes. An optional `--env-json`
-file supplies `PLACES_*` string values; state and logs go into `--out`.
-`--settings-json` supplies the isolated run's initial settings before launch.
-The launcher samples RSS for the actual stable app executable once per second;
-`launch.json` records the observations and sampled peak. This excludes wrapper
-memory and is not an exact process high-water mark or total GPU memory measure.
-`frame_time.py` uses this launcher on macOS and checks actual presentation mode,
-drawable and successful scene submissions in its receipts. Its `--eye X,Y,Z`
-option fixes a diagnostic render eye independently of player physics.
+Run Places executables directly on `0.11.0-staging`; do not package or launch a
+`.app` or use `open`. `frame_time.py` executes the selected player with repository
+working directory, explicit `PLACES_ASSET_ROOT` and isolated state/settings. Its
+receipts record the actual child PID, binary/package hashes, presentation mode,
+drawable, successful scene submissions and sampled child RSS. `--eye X,Y,Z`
+fixes a diagnostic render eye independently of player physics.
 
 ```sh
-python3 tools/bench/native_app.py --binary target/release/places \
-    --out local/validation/run-1 --env-json local/validation/office-env.json
+python3 tools/bench/frame_time.py --binary target/release/places \
+    --out local/validation/run-1 --frames 600 --warmup 120
 ```
 
-Close the app before another run. The launcher holds a session lock, checks for
-a still-running validation app, and waits without automatically retrying an
-approval delay. It does not sign apps or change permissions. A changed binary
-may still require normal approval. Stable bundle identity alone does not prove
-that saved approvals persist or that an approval-routing problem is fixed.
-This app is for Places game builds; the separate Map Compiler GUI is unchanged.
+Native permission waits have no automatic timeout or retry. Verify the existing
+process and output before resuming an interrupted runner. RSS is sampled once
+per second and is not an exact high-water mark or total GPU memory. A denied
+RSS query records unavailable sampling without abandoning the live child.
+No launcher changes permissions, TCC settings or identities. `native_app.py`
+and earlier bundle artifacts remain historical tooling/evidence and must not be
+used for this staging campaign.
+
+An explicit `visual-diagnostics` player build can validate the four raw/sRGB
+presentation formats on its existing native device. Directly launch that player
+with both `PLACES_BENCH=1` and `PLACES_BENCH_PRESENT_PROBE=1`, explicit asset/state
+roots and isolated settings. `[present-probe]` logs the former and selected
+production copy's byte results. This opt-in one-texel control runs before normal
+rendering; it is outside routine GPU tests and adds no work to a default build.
 
 ## Offline map compiler
 

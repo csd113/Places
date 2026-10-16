@@ -2,6 +2,22 @@
 
 Development staging; this version has not been published.
 
+### Shader correctness and maintenance
+
+- Preserve normal orientation for small valid model and animated joint scales;
+  share inverse-transpose handling with lighting diagnostics.
+- Include the resolved fluorescence mask in static-prop material identities so
+  untextured models cannot reuse another model's mask.
+- Preserve encoded display colours on non-sRGB surface fallback; validate actual
+  raw and sRGB GPU copies through an explicit diagnostic-only player probe.
+- Reuse geometric/material normal preparation and skip exact-zero sheen and
+  reflection work. Correct stale shader/host colour, layout and lighting contracts.
+- Use direct executable benchmark launches with child PID/RSS receipts. Verify
+  pixel-identical matched native views, moving/held/thrown props and installed
+  lighting transitions. Interleaved average FPS remains near 120 on both sides;
+  no measurable throughput gain is claimed. See [the shader report](docs/reports/shader-0.11.0.md)
+  for pacing, transient presentation and platform limits. Existing tests remain.
+
 ### Renderer foundations
 
 - Retire captured frame/HUD and acquired surface state when its drawable or
@@ -15,8 +31,9 @@ Development staging; this version has not been published.
 - Classify immutable world passes once at upload, sort shared transparency once,
   and visit only the selected translucent prop or dynamic draw.
 - Add opt-in native GPU resource counts with sampled peaks and explicit Metal
-  allocation-byte limitations. Native benchmark launches use the stable Places
-  Validation identity and record the actual player's sampled RSS.
+  allocation-byte limitations. Renderer-stage benchmark launches used the stable Places
+  Validation identity and recorded the actual player's sampled RSS; the later
+  shader stage uses direct executable launches.
 - Add bounded offline model/instance overlap diagnostics and hash-checked repair
   plans. Repair confirmed Office reception wood/trim overlap by clipping hidden
   coverage, retaining the materials, texture payloads, dimensions and collision.

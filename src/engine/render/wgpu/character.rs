@@ -60,11 +60,10 @@ struct CharacterMeshGpu {
 
 /// The pass one source submesh's alpha contract maps to for a character.
 ///
-/// A `MASK` (cut-out) material keeps the character path's historical opaque
-/// treatment; a `BLEND` material (a glTF `alphaMode: "BLEND"`, exported for the
-/// sheet ghost) draws in the sorted translucent character pass. A zero-opacity
-/// blend is invisible and draws in neither. Pure, so the classification is
-/// unit-testable without a device.
+/// A `MASK` material draws in the cut-out pass; a `BLEND` material (a glTF
+/// `alphaMode: "BLEND"`, exported for the sheet ghost) draws in the sorted
+/// translucent character pass. A zero-opacity blend is invisible and draws in
+/// neither. Pure, so the classification is unit-testable without a device.
 #[must_use]
 const fn character_submesh_pass(alpha: crate::engine::materials::MaterialAlpha) -> BatchPass {
     BatchPass::of(alpha)
@@ -111,9 +110,8 @@ struct CharacterSubmeshGpu {
     index_count: u32,
     /// The pass the primitive's glTF material draws in.
     ///
-    /// A `MASK` (cut-out) material keeps the character path's historical
-    /// opaque treatment; a `BLEND` material (the sheet ghost's exported
-    /// `alphaMode`) selects the sorted translucent character pass.
+    /// A `MASK` material selects the cut-out pass; a `BLEND` material (the
+    /// sheet ghost's exported `alphaMode`) selects the sorted translucent pass.
     pass: BatchPass,
     /// The primitive explicitly asks to render both sides.
     double_sided: bool,

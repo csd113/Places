@@ -38,6 +38,20 @@ use crate::engine::render::common::framebuffer::scene_target_size;
 use crate::engine::render::common::postprocess::{PostSettings, bloom_target_size};
 use crate::engine::render::common::view::{DrawableSize, dimension_f32};
 
+#[cfg(feature = "visual-diagnostics")]
+#[path = "postprocess_probe.rs"]
+mod probe;
+
+/// Explicit native developer control; the renderer gates the call on both
+/// benchmark and presentation-probe switches before using its existing device.
+///
+/// # Errors
+/// Returns a validation, readback or byte-comparison failure with its format.
+#[cfg(feature = "visual-diagnostics")]
+pub(super) fn run_present_probe(device: &wgpu::Device, queue: &wgpu::Queue) -> Result<(), String> {
+    probe::run(device, queue)
+}
+
 /// The post shader, from the file next to this module.
 pub const POST_SHADER_SRC: &str = include_str!("post.wgsl");
 
@@ -49,11 +63,21 @@ pub const POST_VERTEX_ENTRY: &str = "vs_main";
 pub const POST_RESOLVE_RAW_FRAGMENT_ENTRY: &str = "fs_resolve_raw";
 /// Name of the plain presentation-copy fragment entry point.
 pub const POST_PRESENT_FRAGMENT_ENTRY: &str = "fs_present";
-/// The raw-target present copy: the scene copied straight into the presented
-/// image with no transfer function.
+/// The raw-target present copy: encoded display values copied with no transfer
+/// function, for raw surfaces and screenshot targets.
 pub const POST_PRESENT_RAW_FRAGMENT_ENTRY: &str = "fs_present_raw";
 /// Name of the bloom blur fragment entry point.
 pub const POST_BLUR_FRAGMENT_ENTRY: &str = "fs_blur";
+
+/// Preserve display values on a raw surface; only an sRGB surface needs the
+/// decode that cancels its hardware encode.
+fn surface_present_fragment_entry(format: wgpu::TextureFormat) -> &'static str {
+    if surface_format_is_srgb(format) {
+        POST_PRESENT_FRAGMENT_ENTRY
+    } else {
+        POST_PRESENT_RAW_FRAGMENT_ENTRY
+    }
+}
 
 /// Vertex attribute location of the quad's `(x, y)` pair.
 pub const POST_ATTRIB_CORNER: u32 = 0;
@@ -286,8 +310,8 @@ impl PostLayouts {
 ///
 /// The blur always writes [`BLOOM_FORMAT`]. The resolve pipeline is raw (it
 /// writes the display-space presented image), while the present copy comes in
-/// two forms: the *raw* form writes the presented image again, and the
-/// *surface* form decodes display values before the hardware encode.
+/// two forms: the *raw* form preserves encoded display values, while the sRGB
+/// *surface* form decodes them before the hardware encode.
 struct PostPipelines {
     resolve_raw: wgpu::RenderPipeline,
     present_raw: wgpu::RenderPipeline,
@@ -297,8 +321,9 @@ struct PostPipelines {
 }
 
 impl PostPipelines {
-    /// Builds every post pipeline for `surface_format`, which the resolve and
-    /// present copy write to. The blur always writes [`BLOOM_FORMAT`].
+    /// Builds the final present copy for `surface_format`; intermediate
+    /// presentation passes write [`PRESENTED_FORMAT`] and blur writes
+    /// [`BLOOM_FORMAT`].
     fn new(
         device: &wgpu::Device,
         surface_format: wgpu::TextureFormat,
@@ -338,7 +363,7 @@ impl PostPipelines {
                 "places-wgpu-present",
                 &shader,
                 &layouts.present,
-                POST_PRESENT_FRAGMENT_ENTRY,
+                surface_present_fragment_entry(surface_format),
                 surface_format,
             ),
             blur: build_pass_pipeline(
@@ -768,8 +793,9 @@ impl PostProcess {
         self.targets.as_ref().map(|targets| &targets.presented_view)
     }
 
-    /// Copies the presented image to an sRGB target (the surface or a capture
-    /// texture), applying the single display-to-linear encode.
+    /// Copies the presented image to the configured surface format. An sRGB
+    /// target decodes before its hardware encode; a raw target preserves the
+    /// encoded display values directly.
     pub fn encode_present_to(
         &self,
         encoder: &mut wgpu::CommandEncoder,
@@ -1521,3 +1547,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "tests/postprocess.rs"]
+mod presentation_tests;

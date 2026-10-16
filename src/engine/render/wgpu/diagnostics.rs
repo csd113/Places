@@ -194,7 +194,7 @@ impl VisualDiagnosticMode {
 }
 
 /// The exact insertion point is checked by tests; production WGSL is untouched.
-const SHADE_HOOK: &str = "    let normal = material_normal(in, front_facing);";
+const SHADE_HOOK: &str = "    let normal = normals.material;";
 const DIAGNOSTIC_HOOK: &str = "
     let visual_mode = u32(camera._padding);
     if (visual_mode != 0u) {

@@ -729,11 +729,7 @@ impl DynamicObject {
     #[must_use]
     pub fn diagnostic_lighting_snapshot(&self) -> serde_json::Value {
         let model = self.transform();
-        let normal_model = if model.determinant().abs() > 1.0e-12 {
-            model.inverse().transpose()
-        } else {
-            Mat4::IDENTITY
-        };
+        let normal_model = super::normal::inverse_transpose(model).unwrap_or(Mat4::IDENTITY);
         let [normal_x, normal_y, normal_z, _translation] = normal_model.to_cols_array_2d();
         let bounds = self.world_bounds();
         let sampled_model = self.spatial_key.map_or(

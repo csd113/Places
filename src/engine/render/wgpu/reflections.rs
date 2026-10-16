@@ -402,7 +402,7 @@ impl ProbeCube {
 
 /// One probe's captured faces, as the offline compiler packages them.
 ///
-/// RGBA8, one `edge * edge * 4` buffer per face in the renderer's cube face
+/// Linear RGBA16F, one `edge * edge * 8` buffer per face in the renderer's cube face
 /// order; [`Self::packaged_mips`] turns the capture into the roughness chain
 /// the compiler writes into one KTX2 cube and the player uploads back verbatim.
 #[derive(Clone, Debug)]
@@ -411,7 +411,7 @@ pub struct ProbeFaceReadback {
     pub position: [f32; 3],
     /// Base face edge in texels.
     pub face_size: u32,
-    /// Six RGBA8 base faces in cube face order.
+    /// Six linear RGBA16F base faces in cube face order.
     pub faces: [Vec<u8>; 6],
 }
 
