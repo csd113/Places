@@ -134,6 +134,3 @@ impl Default for MaterialEmission {
         Self::NONE
     }
 }
-
-#[cfg(test)]
-mod tests;

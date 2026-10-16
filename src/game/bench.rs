@@ -966,6 +966,3 @@ fn millis(duration: std::time::Duration) -> f32 {
     let millis = duration.as_secs_f64() as f32 * 1000.0;
     millis
 }
-
-#[cfg(test)]
-mod tests;

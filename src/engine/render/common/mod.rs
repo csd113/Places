@@ -1033,28 +1033,6 @@ fn find_root(parent: &mut [usize], index: usize) -> usize {
     root
 }
 
-/// Resolves coincident collinear walls into single emission units.
-///
-/// The authored levels paint part of a wall with water damage by
-/// placing a second wall in exactly the same plane with a stained material.
-/// That is a material overlay represented as duplicate geometry, and depending
-/// on submission order the two identical surfaces fight for the same depth
-/// value. Here such walls are grouped, the group's solid profile is unioned
-/// (an opaque coincident face covers a hole in the other surface, which is
-/// what the renderer already showed) and the group is emitted once with a
-/// material run per span. Walls that merely overlap without sharing a plane
-/// are untouched; collision keeps using the authored walls.
-/// The coincidence-resolved emission units alone, for tests and audits that do
-/// not need the cross-section coverage set.
-#[cfg(test)]
-pub(in crate::engine::render) fn wall_units<'a>(
-    level: &'a LevelDef,
-    surfaces: &LevelSurfaces<'_>,
-    materials: &MaterialLookup<'_>,
-) -> Vec<WallUnit<'a>> {
-    wall_layout(level, surfaces, materials).units
-}
-
 /// One authored wall's solid patch, in world length coordinates, for the
 /// group union.
 #[derive(Clone, Copy, Debug)]
@@ -3015,38 +2993,4 @@ fn flush_wall_run(
     }
     buckets.add_quads(key, scratch.get(*cursor..).unwrap_or_default());
     *cursor = scratch.len();
-}
-
-#[cfg(test)]
-mod wall_coverage_tests {
-    use super::{WallAxis, WallCoverage, cross_section_covered};
-
-    fn doorway() -> WallCoverage {
-        WallCoverage {
-            index: 0,
-            owner: 0,
-            axis: WallAxis::X,
-            length: (0.0, 4.0),
-            thickness: (0.0, 0.3),
-            solids: vec![
-                (0.0, 1.0, 0.0, 3.0),
-                (1.0, 3.0, 2.1, 3.0),
-                (3.0, 4.0, 0.0, 3.0),
-            ],
-        }
-    }
-
-    #[test]
-    fn perpendicular_doorway_keeps_the_open_aperture_out_of_coverage() {
-        let wall = doorway();
-        let expected = wall.solids.clone();
-        let covered = cross_section_covered(&[wall], WallAxis::Z, 0.15, &[]);
-        assert_eq!(covered, expected);
-    }
-
-    #[test]
-    fn parallel_doorway_covers_only_the_header_at_the_opening() {
-        let covered = cross_section_covered(&[doorway()], WallAxis::X, 2.0, &[]);
-        assert_eq!(covered, vec![(0.0, 0.3, 2.1, 3.0)]);
-    }
 }

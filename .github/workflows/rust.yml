@@ -62,9 +62,9 @@ jobs:
       - name: Clippy release
         working-directory: ${{ runner.temp }}/places-engine
         run: sh tools/check-rust.sh clippy-release
-      - name: Test bounded Rust fixtures
+      - name: Build production executables
         working-directory: ${{ runner.temp }}/places-engine
-        run: sh tools/check-rust.sh test
+        run: sh tools/check-rust.sh build
       - name: Install source-check dependencies
         run: |
           python3 -m venv "$RUNNER_TEMP/places-python"

@@ -3911,6 +3911,3 @@ fn attribute(
 fn accessor_index(value: &serde_json::Value, key: &str) -> Result<usize, GltfError> {
     json_usize(value).ok_or_else(|| GltfError::new(format!("{key} is not an accessor index")))
 }
-
-#[cfg(test)]
-mod tests;

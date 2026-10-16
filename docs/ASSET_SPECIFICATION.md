@@ -456,8 +456,7 @@ structure from
 
 Fixture faces are **opaque by construction**: the face draws in the opaque
 pass and its alpha channel is ignored. A shipped fixture sheet is additionally
-required to be fully opaque by
-`src/engine/loader/tests.rs::test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog`,
+required to be fully opaque by this asset contract,
 so RGB artwork and an RGBA file whose alpha is everywhere 255 are equivalent
 in practice.
 
@@ -474,7 +473,7 @@ Shipped asset: `core:fluorescent_panel_01` →
 | Orientation | `v = 0` is the image's top row; the twin tubes run across the panel *width*, i.e. horizontally in the image |
 | Current asset | 1024×512 (≈1.09 mm per texel both ways) |
 | Preferred source resolution | 1024×512 |
-| Higher resolutions | allowed while 2:1 and POT both hold: 128×64 → 256×128 → 512×256 → 1024×512 are the same layout. `src/engine/loader/tests.rs::test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog` pins each family's aspect, POT edges, hard limit and full opacity, so a resolution change within that contract needs no test edit. |
+| Higher resolutions | allowed while 2:1 and POT both hold: 128×64 → 256×128 → 512×256 → 1024×512 are the same layout. Preserve each family's mandatory aspect, POT edges, hard limit and full opacity during resolution changes. |
 | Hard maximum | 1024 per edge, so 1024×512 is the largest valid 2:1 sheet |
 | Transparency | none: no transparent padding, no cut-out, no alpha use |
 | Emissive information | embedded in the artwork's brightness only; the glow is added by the renderer, and the base texture always multiplies the emission term |
@@ -1697,11 +1696,8 @@ p95(wrap)  <= 2.20 × p95(interior)  + 3.0
 ```
 
 Wrapped edge is measured exhaustively; the interior reference is sampled every
-4th line and every 8th position. Alpha is never measured. The Rust render test
-`test_shipped_surface_textures_tile` independently checks the three-tap
-smoothed profile for ten named office/pool surfaces (RGB channels only, no
-luminance); the Python tool checks both profiles for all nineteen catalog
-environment sheets. A sheet is expected to pass whichever gates cover it.
+4th line and every 8th position. Alpha is never measured. The Python tool
+checks both profiles for all nineteen catalog environment sheets.
 
 Repository gates that run the seam tool automatically:
 
@@ -1709,7 +1705,6 @@ Repository gates that run the seam tool automatically:
   environment-class texture in the catalog (the six office sheets, four pool
   sheets, three glass sheets, linoleum, metal, plastic, grille and the two
   normal maps).
-* `cargo test` runs the Rust tile test over ten named surfaces.
 
 `tools/textures/build.py --check` does **not** measure tileability; it only
 checks existence, PNG structure and dimensions.
@@ -2109,7 +2104,7 @@ specification before introducing the new asset.**
 The following checks are available locally. `.github/workflows/rust.yml` also
 runs `tools/check-rust.sh` on macOS for pushes, pull requests and manual runs:
 format, locked check, strict debug/release all-feature Clippy and all-feature
-workspace tests. The full desktop script adds Python asset/package checks and
+production builds. The 0.11.0 cleanup removed all Rust automated tests. The full desktop script adds Python asset/package checks and
 real-window/GPU checks; see [VERIFICATION.md](VERIFICATION.md).
 
 | Rule | Enforced by | Command | Fails? |
@@ -2118,45 +2113,26 @@ real-window/GPU checks; see [VERIFICATION.md](VERIFICATION.md).
 | PNG exists, real PNG, non-zero, ≤1024 (sky: 2:1 POT, ≤2048×1024) | `tools/textures/build.py --check` | `python3 tools/textures/build.py --check` | yes (exit 1) |
 | Over-preferred (>256) warning; non-POT warning | `tools/textures/build.py --check` | same | no (warnings only) |
 | Environment surface seams | `tools/textures/seam_repair.py --check` via `tests/test_package.py` | `python3 -m unittest tests.test_package` | yes |
-| Ten named surfaces' seams (independent metric) | Rust test `test_shipped_surface_textures_tile` | `cargo test` | yes |
-| Six office sheets: square, opaque, ≤1024 | Rust test `test_shipped_texture_assets_are_opaque_and_within_budget` | `cargo test` | yes |
-| **Every catalogued file-backed texture/decal/light sheet satisfies its class dimension contract (square surfaces, POT fitted sheets, hard limit)** | Rust test `every_shipped_sheet_satisfies_its_texture_kind_contract` (see below); props/entities are covered by the props tests and the GLB parser, not this test | `cargo test` | yes |
-| Shared white sheet: committed PNG, legal square POT size within the hard limit, opaque near-white, and what the renderer actually loads | Rust tests `assets::tests::the_shared_white_sheet_is_a_committed_opaque_white_png`, `render::wgpu::texture::tests::the_fallback_is_the_committed_white_sheet` and `the_embedded_fallback_is_the_committed_asset` | `cargo test` | yes |
-| Fixture sheets: family aspect, POT edges, hard limit and full opacity | Rust test `loader::tests::test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog` | `cargo test` | yes |
 | Fixture faces: POT, unique sheet, ≤1024 | `tests/test_package.py` | `python3 -m unittest tests.test_package` | yes |
 | NO DIVING sign: 1024², RGBA, transparent pixel | `tests/test_package.py` | same | yes |
 | Prop GLB: container parses, one mesh, `TEXCOORD_0` present | `tools/props/build.py --check` | `python3 tools/props/build.py --check` | yes (exit 1) for a missing or unparseable model; budgets, UV range and scale/origin are not evaluated here |
-| Prop GLB: UVs 0..1, triangle/vertex/texture budgets, scale/origin, PNG ≤1024 | Rust `props::tests`; runtime parser | `cargo test` | yes |
-| Prop art budgets (triangles, ordinary 256 / reviewed cloth 1024 and wrap 512, 106 MiB decoded pack budget) | Rust `props::tests::shipped_prop_assets_match_the_catalogue_and_budgets` and its policy tests | `cargo test` | yes |
 | Prop GLB decoded texture memory (per-texture and pack total) | `tools/props/build.py --check` | `python3 tools/props/build.py --check` | yes (exit 1) |
-| Model textures: embedded PNG only, ≤1024, UV bounds | `src/engine/gltf.rs` parser (runtime) + `cargo test` | game run / `cargo test` | fallback box / test failure |
+| Model textures: embedded PNG only, ≤1024, UV bounds | `src/engine/gltf.rs` parser (runtime) | compiler / game run | parser error / fallback box |
 
-The strengthened Rust test added with this specification
-(`src/engine/assets/tests.rs::every_shipped_sheet_satisfies_its_texture_kind_contract`)
-walks every file-backed `texture`, `decal` and `light` entry in the catalog,
-decodes its PNG and checks the dimensions against
-`ShippedTextureKind::Surface` / `DecalSheet` / `FixtureFace`. Diagnostic
-entries are skipped because the 96×64 sheet is a deliberate NPOT probe, and a
-texture used only as an emissive mask is skipped because the engine imposes no
-shape on a mask. Its failure messages name the asset, the path and the
-violated rule, for example:
-
-```
-core:tex_pool_tile_wall_01: `environments/pool/textures/walls/pool_tile_wall_01.png`:
-a surface sheet must be square, found 1024x2048
-```
+The Rust-only shipped-sheet, fallback identity, fixture orientation and prop art
+budget assertions were removed with the Rust suite. Their asset contracts remain
+mandatory; retained tooling covers the checks listed above, and production
+parsers still enforce runtime format/security limits. A green build alone does
+not establish compliance with an artwork contract.
 
 Known enforcement gaps (checked here, not automated):
 
 * no minimum source resolution for any class;
-* pool surface squareness and opacity (squareness is covered by the
-  surface-squareness test; opacity is not asserted for pool sheets, though they
-  are opaque in fact);
-* decal non-POT is only a tooling warning for the small sheets (the Rust
-  test makes it a test failure for shipped decals);
+* pool surface squareness and opacity beyond retained tooling coverage;
+* decal non-POT is only a tooling warning for the small sheets;
 * `tile_metres` is not compared against the painted repeat period;
 * surface and decal orientation, and the "pale albedo" convention, are not
-  machine-checked (fixture orientation is pinned by render tests);
+  machine-checked;
 * no dead-asset detection (unreferenced files, unused catalog entries);
 * the `--preferred` warning does not fail a build;
 * CI covers the shared Rust gate; a green CI run does not replace local asset
@@ -2251,18 +2227,9 @@ python3 -m unittest tests.test_package            # full asset/environments/leve
 Rust:
 
 ```sh
-cargo fmt --all -- --check
+cargo fmt --all --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings
-cargo test --workspace
-```
-
-Focused asset tests:
-
-```sh
-cargo test --workspace assets::tests
-cargo test --workspace materials::tests
-cargo test --workspace render::tests::test_shipped
-cargo test --workspace props::tests::shipped_prop_assets
+cargo build --locked --release --workspace --all-features
 ```
 
 Regeneration paths (only when intentionally changing artwork):

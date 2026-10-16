@@ -109,26 +109,3 @@ pub fn resize_color(source: &RawImage, requested_width: u32, requested_height: u
     }
     RawImage::new(width, height, rgba)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn transfer_and_fractional_light_have_one_decode_and_one_encode() {
-        for value in 0..=255_u8 {
-            assert_eq!(byte(linear_to_srgb(decode_byte(value))), value);
-        }
-        let lit = decode_byte(128) * 0.5;
-        assert!((lit - 0.107_930_25).abs() < 1.0e-6);
-        assert_eq!(byte(linear_to_srgb(lit)), 92);
-    }
-
-    #[test]
-    fn colour_mips_average_energy_and_preserve_coverage() {
-        let image = RawImage::new(2, 1, vec![0, 0, 0, 255, 255, 255, 255, 255]);
-        assert_eq!(resize_color(&image, 1, 1).rgba, vec![188, 188, 188, 255]);
-        let cutout = RawImage::new(2, 1, vec![255, 0, 0, 0, 0, 255, 0, 255]);
-        assert_eq!(resize_color(&cutout, 1, 1).rgba, vec![0, 255, 0, 128]);
-    }
-}

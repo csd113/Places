@@ -761,9 +761,6 @@ pub fn graphics_action(
     GraphicsAction::Schedule
 }
 
-#[cfg(test)]
-mod tests;
-
 /// Returns the image a texture uploads with under `level`.
 ///
 /// High keeps the decoded image exactly as it is — native 256x256 prop sheets

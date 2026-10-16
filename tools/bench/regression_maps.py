@@ -27,9 +27,9 @@ PROGRESSIVE_SOURCES = (
 )
 SPECIAL = {
     "tests/fixtures/levels/invalid/geometry_invalid.json": (
-        "loader-negative", "Degenerate curves must be rejected; geometry_check::tests retains curved-invalid controls."),
+        "loader-negative", "Degenerate curves must be rejected by production source validation."),
     "tests/fixtures/levels/capacity_beyond_former_limits.json": (
-        "cpu-boundary-witness", "Positive loader/count/u32-material-index witness with synthetic cap:* IDs; not catalogue-authored playable content. See tools/levels/build_capacity_fixtures.py and src/zoo_audit.rs."),
+        "cpu-boundary-witness", "Positive loader/count/u32-material-index witness with synthetic cap:* IDs; not catalogue-authored playable content. See tools/levels/build_capacity_fixtures.py."),
     "tests/fixtures/levels/geometry_broken.json": (
         "playable-geometry-negative", "Loader-valid planted defects; build/decode/native remain covered and checker defects must remain named."),
     "tests/fixtures/levels/repair/wall_step_x.json": (

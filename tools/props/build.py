@@ -40,8 +40,7 @@ from mesh import PropBuilder  # noqa: E402
 # accepts more. The engine ceilings live in src/engine/level.rs
 # (PROP_TRIANGLE_BUDGET / PROP_TEXTURE_NATIVE_SIZE / MAX_PROP_TEXTURE_SIZE name
 # the same art budgets: 1500 triangles and a 256 px native texture; the engine
-# accepts 6000 triangles and 1024 px textures, downscaled at runtime). Mirrored
-# by the Rust budget suite (src/engine/props/tests.rs).
+# accepts 6000 triangles and 1024 px textures, downscaled at runtime).
 TRIANGLE_TARGET = 500
 TRIANGLE_REVIEW = 800
 TRIANGLE_ART_MAX = 1500

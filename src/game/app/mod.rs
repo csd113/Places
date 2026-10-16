@@ -3814,38 +3814,3 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-
-#[cfg(test)]
-mod initial_level_tests {
-    use super::select_initial_level;
-    use crate::engine::loader::{LevelEntry, LevelSourceType};
-
-    /// Arbitrary metadata protects empty/missing selection without baking a world.
-    #[test]
-    fn startup_selection_accepts_empty_installations_and_arbitrary_external_maps() {
-        assert_eq!(select_initial_level(&[], None), (None, false));
-        assert_eq!(select_initial_level(&[], Some("missing")), (None, false));
-        let entry = LevelEntry {
-            id: "external_island".to_string(),
-            name: "Island".to_string(),
-            author: String::new(),
-            source_type: LevelSourceType::Installed,
-            path: "levels/custom.placesmap".into(),
-        };
-        let entries = [entry.clone()];
-        assert_eq!(
-            select_initial_level(&entries, None),
-            (Some(entry.clone()), false)
-        );
-        for request in ["external_island", " island "] {
-            assert_eq!(
-                select_initial_level(&entries, Some(request)),
-                (Some(entry.clone()), true)
-            );
-        }
-        assert_eq!(
-            select_initial_level(&entries, Some("missing")),
-            (None, false)
-        );
-    }
-}

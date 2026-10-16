@@ -3465,10 +3465,3 @@ fn push_disc_out(position: Vec2, radius: f32, wall: &WallAabb) -> Option<Vec2> {
         Some(Vec2::new(position.x, wall.max_z + radius))
     }
 }
-
-#[cfg(test)]
-mod tests;
-
-#[cfg(test)]
-#[path = "../showcase_audit.rs"]
-mod showcase_audit;

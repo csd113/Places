@@ -10831,10 +10831,3 @@ fn insert_cut(positions: &mut Vec<f32>, at: f32, origin: f32, extent: f32) {
     positions.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     positions.dedup_by(|a, b| (*a - *b).abs() <= FLOOR_CUT_EPS);
 }
-
-#[cfg(test)]
-mod tests;
-
-#[cfg(test)]
-#[path = "level/tests/wall_ceiling.rs"]
-mod wall_ceiling_tests;

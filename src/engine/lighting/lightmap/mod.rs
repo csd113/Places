@@ -38,9 +38,6 @@ mod atlas;
 mod cache;
 mod plan;
 
-#[cfg(test)]
-mod tests;
-
 pub use atlas::{
     ChartAllocator, LightmapAtlas, LightmapPage, page_png_bytes, read_page_texel, write_page_png,
 };

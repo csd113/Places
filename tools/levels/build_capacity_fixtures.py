@@ -7,8 +7,8 @@ character and lighting budgets. `capacity_beyond_former_limits.json` is the
 loader count cap it carries, with more than 65 536 distinct material ids so the
 former 16-bit material index would have collapsed, and without reaching the new
 `MAX_LEVEL_MATERIALS` budget. The former sparse playable fixture was retired
-because its navigation grid cannot be compiled; far-coordinate CPU regressions
-remain in src/zoo_audit.rs.
+because its navigation grid cannot be compiled. The former Rust far-coordinate
+regression was removed in 0.11.0; capacity acceptance uses explicit campaigns.
 
 Run from the repository root:
     python3 tools/levels/build_capacity_fixtures.py

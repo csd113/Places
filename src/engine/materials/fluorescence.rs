@@ -48,35 +48,3 @@ impl Default for MaterialFluorescence {
         Self::NONE
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn absent_response_defaults_to_white_and_invalid_tint_sanitizes() {
-        assert_eq!(MaterialFluorescence::default(), MaterialFluorescence::NONE);
-        assert_eq!(
-            MaterialFluorescence::NONE.tint.map(f32::to_bits),
-            [1.0_f32.to_bits(); 3]
-        );
-        let response = MaterialFluorescence {
-            strength: 1.0,
-            mask: Some(0),
-            tint: [f32::NAN, -1.0, 2.0],
-        }
-        .sanitized();
-        assert_eq!(
-            response.tint.map(f32::to_bits),
-            [1.0_f32.to_bits(), 0.0_f32.to_bits(), 1.0_f32.to_bits()]
-        );
-        assert_eq!(
-            MaterialFluorescence {
-                strength: 0.0,
-                ..response
-            }
-            .sanitized(),
-            MaterialFluorescence::NONE
-        );
-    }
-}

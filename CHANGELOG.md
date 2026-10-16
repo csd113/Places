@@ -2,6 +2,154 @@
 
 Development staging; this version has not been published.
 
+### Rust automated-test retirement
+
+- Remove all 2,377 project-owned Rust test functions, including ignored/native
+  controls, the renderer/shader additions, three integration targets, test-only
+  audit modules and helpers. There are no executable Rust doctest examples left;
+  useful JSON/text examples remain non-executing.
+- Preserve production parsing, package integrity/security bounds, validation,
+  assertions, compiler functionality and developer diagnostics. In particular,
+  `engine::lighting::transport::probe_audit` remains unchanged. Mixed files needed
+  no production extraction. Keep Python checks and shared native/map fixtures.
+- Remove the test-only profile and obsolete Rust test invocations. The shared
+  Rust/CI gate now builds production executables after check and both Clippy modes.
+- Track the updated `AGENTS.md` policy: future tests require essential concrete
+  regression value, proportional cost, owning engine/game/editor/map_compiler
+  test folders with real Rust discovery, and no full-map baking in ordinary CI.
+  Document uncapped FPS evidence and refresh-rate plateaus as inconclusive.
+
+This stage performs **zero moves and zero merges**. The following are genuine
+file deletions, separate from the earlier architecture moves:
+
+| Removed file group | Files | Deleted lines |
+| --- | ---: | ---: |
+| Root Rust audit/support modules | 13 | 12,663 |
+| Engine Rust test files | 47 | 52,203 |
+| Game Rust test files | 15 | 15,290 |
+| Map Compiler Rust test files | 3 | 748 |
+| Rust integration targets | 3 | 482 |
+| Rust-only JSON fixtures | 10 | 4,856 |
+| **Deleted files total** | **91** | **86,242** |
+
+Inline test/helper removal edits 134 surviving Rust files:
+34,903 removed lines and 8 added comment/platform-guard lines.
+Across Rust sources, 116,289 lines are removed (116,281 net).
+Tooling/policy/documentation edits are additional and are not counted as deleted
+source files. Full per-file accounting and acceptance are in
+[the removal report](docs/reports/rust-test-removal-0.11.0.md).
+
+Removed files:
+
+Root Rust audit/support modules:
+
+- `src/architecture_audit.rs` (3,244 lines)
+- `src/fog_void_audit.rs` (208 lines)
+- `src/lighting_audit.rs` (1,242 lines)
+- `src/lighting_audit_cases.rs` (2,102 lines)
+- `src/lighting_isolation.rs` (494 lines)
+- `src/lighting_partition_audit.rs` (624 lines)
+- `src/lighting_repair_regression.rs` (784 lines)
+- `src/lighting_vertical_audit.rs` (577 lines)
+- `src/showcase_audit.rs` (118 lines)
+- `src/static_prop_lighting_tests.rs` (1,382 lines)
+- `src/surface_audit.rs` (1,260 lines)
+- `src/test_support.rs` (433 lines)
+- `src/zoo_audit.rs` (195 lines)
+
+Engine Rust test files:
+
+- `src/engine/ai/tests.rs` (1,376 lines)
+- `src/engine/assets/tests.rs` (1,016 lines)
+- `src/engine/collision/tests.rs` (883 lines)
+- `src/engine/font/tests.rs` (64 lines)
+- `src/engine/gltf/tests.rs` (2,563 lines)
+- `src/engine/level/tests.rs` (3,461 lines)
+- `src/engine/level/tests/wall_ceiling.rs` (656 lines)
+- `src/engine/lighting/directional/tests.rs` (123 lines)
+- `src/engine/lighting/light/tests.rs` (681 lines)
+- `src/engine/lighting/lightmap/tests.rs` (2,143 lines)
+- `src/engine/lighting/tests.rs` (2,718 lines)
+- `src/engine/lighting/transport/tests.rs` (1,805 lines)
+- `src/engine/lighting/transport/tests/continuity.rs` (572 lines)
+- `src/engine/lighting/transport/tests/fill.rs` (269 lines)
+- `src/engine/lighting/transport/tests/model_lighting.rs` (392 lines)
+- `src/engine/lighting/transport/tests/performance.rs` (880 lines)
+- `src/engine/lighting/transport/tests/probes.rs` (805 lines)
+- `src/engine/lighting/transport/tests/quality.rs` (1,264 lines)
+- `src/engine/loader/tests.rs` (5,914 lines)
+- `src/engine/materials/emission/tests.rs` (47 lines)
+- `src/engine/materials/image/tests.rs` (274 lines)
+- `src/engine/materials/response/tests.rs` (134 lines)
+- `src/engine/materials/tests.rs` (1,676 lines)
+- `src/engine/nav/tests.rs` (1,210 lines)
+- `src/engine/package/tests.rs` (1,718 lines)
+- `src/engine/package/world/dependency_tests.rs` (396 lines)
+- `src/engine/package/world/irradiance_tests.rs` (159 lines)
+- `src/engine/perf/tests.rs` (170 lines)
+- `src/engine/physics/floor_tests.rs` (133 lines)
+- `src/engine/physics/hull_tests.rs` (296 lines)
+- `src/engine/physics/recovery_tests.rs` (500 lines)
+- `src/engine/physics/tests.rs` (1,885 lines)
+- `src/engine/physics/water_tests.rs` (478 lines)
+- `src/engine/props/tests.rs` (662 lines)
+- `src/engine/quality/tests.rs` (817 lines)
+- `src/engine/render/boundary_tests.rs` (261 lines)
+- `src/engine/render/common/dynamic_visibility/tests/receiver_cache.rs` (83 lines)
+- `src/engine/render/common/prop_chart_tests.rs` (723 lines)
+- `src/engine/render/common/tests/character_normals.rs` (62 lines)
+- `src/engine/render/tests.rs` (10,325 lines)
+- `src/engine/render/wgpu/entity_lighting_tests.rs` (1,517 lines)
+- `src/engine/render/wgpu/low_lighting_tests.rs` (315 lines)
+- `src/engine/render/wgpu/tests/postprocess.rs` (27 lines)
+- `src/engine/render/wgpu/tests/props.rs` (46 lines)
+- `src/engine/render/wgpu/tests/surface_lifecycle.rs` (60 lines)
+- `src/engine/render/wgpu/tests/world_transforms.rs` (57 lines)
+- `src/engine/spatial/tests.rs` (587 lines)
+
+Game Rust test files:
+
+- `src/game/app/loading/cache_tests.rs` (404 lines)
+- `src/game/bench/tests.rs` (311 lines)
+- `src/game/console/tests.rs` (209 lines)
+- `src/game/input/tests.rs` (593 lines)
+- `src/game/settings/low_lighting_tests.rs` (156 lines)
+- `src/game/settings/tests.rs` (1,429 lines)
+- `src/game/tests.rs` (10,004 lines)
+- `src/game/tests/art_style.rs` (200 lines)
+- `src/game/tests/ice.rs` (260 lines)
+- `src/game/tests/movement_diagnostics.rs` (383 lines)
+- `src/game/tests/movement_performance.rs` (83 lines)
+- `src/game/tests/movement_regression.rs` (726 lines)
+- `src/game/tests/recovery.rs` (149 lines)
+- `src/game/tests/water_posture.rs` (253 lines)
+- `src/game/tests/winter.rs` (130 lines)
+
+Map Compiler Rust test files:
+
+- `src/map_compiler/tests/geometry_overlap.rs` (53 lines)
+- `src/map_compiler/tests/material_transport.rs` (43 lines)
+- `src/map_compiler/tests/performance.rs` (652 lines)
+
+Rust integration targets:
+
+- `tests/command_line.rs` (48 lines)
+- `tests/list_levels.rs` (364 lines)
+- `tests/macos_cpu_port.rs` (70 lines)
+
+Rust-only JSON fixtures:
+
+- `tests/fixtures/unit/architecture_contacts.json` (232 lines)
+- `tests/fixtures/unit/controller_contacts.json` (3,319 lines)
+- `tests/fixtures/unit/encounter_lifecycle.json` (267 lines)
+- `tests/fixtures/unit/map_independent_preparation.json` (23 lines)
+- `tests/fixtures/unit/navigation_stairs.json` (259 lines)
+- `tests/fixtures/unit/navigation_steps.json` (560 lines)
+- `tests/fixtures/unit/renderer_material_contract.json` (29 lines)
+- `tests/fixtures/unit/renderer_weather_contract.json` (24 lines)
+- `tests/fixtures/unit/shore_contacts.json` (67 lines)
+- `tests/fixtures/unit/winter_contacts.json` (76 lines)
+
 ### Shader correctness and maintenance
 
 - Preserve normal orientation for small valid model and animated joint scales;
@@ -16,7 +164,8 @@ Development staging; this version has not been published.
   pixel-identical matched native views, moving/held/thrown props and installed
   lighting transitions. Interleaved average FPS remains near 120 on both sides;
   no measurable throughput gain is claimed. See [the shader report](docs/reports/shader-0.11.0.md)
-  for pacing, transient presentation and platform limits. Existing tests remain.
+  for pacing, transient presentation and platform limits. Tests were preserved
+  for that stage and retired in the later cleanup above.
 
 ### Renderer foundations
 
@@ -41,8 +190,8 @@ Development staging; this version has not been published.
 - Validate native Metal captures, moving/held props and repeated map/settings
   transitions. Record mixed matched FPS results and bounded resource/RSS
   observations in [the renderer report](docs/reports/renderer-0.11.0.md).
-- Preserve the existing Rust tests. New regressions use tiny CPU fixtures in
-  their owning subsystem test folders; full-map baking remains explicit tooling.
+- Preserve existing Rust tests during the renderer stage; the later cleanup
+  above retires them, including its tiny CPU regressions.
 
 ### Source responsibilities
 
@@ -59,9 +208,8 @@ Development staging; this version has not been published.
   locomotion inputs to `engine::scene`, key names to `engine::input` and worker
   feedback to `engine::progress`. Game-owned labels/HUD consume shared queries
   and counters. Engine code no longer imports gameplay or tool interfaces.
-- Preserve every Rust test for the separately scheduled post-renderer cleanup.
-  `zoo_audit.rs` and `showcase_audit.rs` currently contain small synthetic
-  regressions; live probe/lighting diagnostics remain developer tools.
+- Preserve Rust tests during source reorganization for the later retirement
+  above; live probe/lighting diagnostics remain developer tools.
 
 ### Deleted obsolete files
 

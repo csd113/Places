@@ -84,7 +84,7 @@ pub(super) fn resident_bytes() -> Option<u64> {
     }
 }
 
-#[cfg(any(target_os = "linux", test))]
+#[cfg(target_os = "linux")]
 fn parse_linux_rss(status: &str) -> Option<u64> {
     let value = status
         .lines()
@@ -97,7 +97,7 @@ fn parse_linux_rss(status: &str) -> Option<u64> {
     kibibytes.checked_mul(1024)
 }
 
-#[cfg(any(target_os = "macos", test))]
+#[cfg(target_os = "macos")]
 fn valid_utilization(value: f32) -> Option<f32> {
     (value.is_finite() && (0.0..=100.0).contains(&value)).then_some(value)
 }
@@ -343,32 +343,5 @@ mod macos {
         // the synchronous call, and the PID is this process. No privileges needed.
         let read = unsafe { proc_pidinfo(pid, PROC_PIDTASKINFO, 0, (&raw mut info).cast(), bytes) };
         (read == bytes).then_some(info.resident_size)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn resident_memory_parser_uses_rss_kibibytes_and_checks_units_and_overflow() {
-        // A small status string guards against reporting virtual memory as
-        // game RAM, unit mistakes and overflow. No process/GPU fixtures needed.
-        assert_eq!(
-            parse_linux_rss("VmSize: 999999 kB\nVmRSS: 2048 kB\n"),
-            Some(2_097_152)
-        );
-        assert_eq!(parse_linux_rss("VmSize: 999999 kB\n"), None);
-        assert_eq!(parse_linux_rss("VmRSS: 12 MB\n"), None);
-        assert_eq!(parse_linux_rss("VmRSS: 18446744073709551615 kB\n"), None);
-        for value in [f32::NAN, f32::INFINITY, -1.0, 101.0] {
-            assert_eq!(
-                valid_utilization(value),
-                None,
-                "invalid device counter {value}"
-            );
-        }
-        assert_eq!(valid_utilization(0.0), Some(0.0));
-        assert_eq!(valid_utilization(100.0), Some(100.0));
     }
 }

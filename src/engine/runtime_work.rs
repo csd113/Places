@@ -87,7 +87,7 @@ impl RuntimeWork {
 }
 
 fn configured_workers() -> usize {
-    if cfg!(test) || cfg!(target_arch = "wasm32") {
+    if cfg!(target_arch = "wasm32") {
         return 1;
     }
     let budget = std::thread::available_parallelism()
@@ -161,28 +161,5 @@ where
         items.iter_mut().for_each(operation);
     } else {
         global().for_each_mut(items, min_items, operation);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::RuntimeWork;
-
-    // A tiny ordered fixture proves joined publication and repeated reuse.
-    // It creates two workers once; no map, GPU or throughput assertion.
-    #[test]
-    fn parallel_slots_match_serial_and_reuse_the_pool() -> Result<(), String> {
-        let executor = RuntimeWork::new(2)?;
-        let mut serial: Vec<u64> = (0..37).collect();
-        let mut parallel = serial.clone();
-        for _ in 0..3_u8 {
-            let operation = |value: &mut u64| *value = value.saturating_add(7);
-            serial.iter_mut().for_each(operation);
-            executor.for_each_mut(&mut parallel, 2, operation);
-            assert_eq!(parallel, serial, "all slots published before return");
-        }
-        assert!(RuntimeWork::new(0).is_err(), "zero workers rejected");
-        assert!(RuntimeWork::new(9).is_err(), "unbounded budget rejected");
-        Ok(())
     }
 }

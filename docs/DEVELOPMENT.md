@@ -159,19 +159,18 @@ campaigns. Diagnostic packages do not belong in the curated export directory.
 ```sh
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings
-cargo test --workspace
+cargo build --locked --release --workspace --all-features
 PLACES_SKIP_SMOKE=1 python3 -m unittest discover -s tests -p 'test_*.py'
 python3 tools/assets/validate.py
 ```
 
-Rust tests use bounded deterministic fixtures and require no existing `.placesmap`
-files. They do not compile or bake full shipped maps. Test additions must justify
-unique behavior coverage and runtime/resource cost; prefer the smallest fixture
-that reproduces a concrete regression. The test profile preserves debug assertions
-and overflow checks.
+The 0.11.0 cleanup removed all project-owned Rust automated tests. Future tests
+must meet the essential regression-value, ownership/discovery and proportional
+cost requirements in `AGENTS.md`; ordinary CI never bakes full maps. Runtime
+validation, security checks and explicit native diagnostics remain active.
 
 Automatic GitHub checks run source contracts and separate, timed Rust format,
-check, debug/release Clippy and fixture-test stages. They do not compile shipped
+check, debug/release Clippy and production-build stages. They do not compile shipped
 maps, capture their reflection probes or run native game campaigns. Run those
 explicitly on the desktop:
 `python3 tools/levels/compile.py --map retro_arcade_demo --workers 8` compiles and

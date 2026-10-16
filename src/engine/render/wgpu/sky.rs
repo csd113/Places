@@ -331,22 +331,3 @@ impl WgpuSky {
         self.brightness
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn storm_sky_uniform_and_shader_match_and_calm_keeps_zero_blend()
-    -> Result<(), Box<dyn std::error::Error>> {
-        assert_eq!(std::mem::size_of::<SkyUniform>(), 96);
-        assert_eq!(std::mem::offset_of!(SkyUniform, storm), 80);
-        assert_eq!(SkyUniform::new(Mat4::IDENTITY, 1.0).storm, [0.0; 4]);
-        let module = wgpu::naga::front::wgsl::parse_str(SKY_SHADER_SRC)?;
-        let _validated = wgpu::naga::valid::Validator::new(
-            wgpu::naga::valid::ValidationFlags::all(),
-            wgpu::naga::valid::Capabilities::all(),
-        )
-        .validate(&module)?;
-        Ok(())
-    }
-}

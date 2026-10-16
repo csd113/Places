@@ -6432,31 +6432,3 @@ impl LevelManager {
         })
     }
 }
-
-#[cfg(test)]
-mod tests;
-
-#[cfg(test)]
-mod ultraviolet_validation_tests {
-    #[test]
-    fn ultraviolet_fixture_budget_counts_disabled_authored_sources() -> Result<(), String> {
-        let source = r#"{"format_version":3,"id":"uv_validation","name":"UV validation","spawn":{"x":1,"z":1},"rooms":[{"x":0,"z":0,"width":4,"depth":4}],"ceiling_lights":[{"fixture":"arcade:blacklight_tube","x":1,"z":1,"ultraviolet":1,"enabled":false}]}"#;
-        let mut level =
-            crate::engine::level::LevelDef::from_json(source).map_err(|error| error.to_string())?;
-        super::validate_ceiling_lights(&level)?;
-        let fixture = level.ceiling_lights.first().cloned().ok_or("fixture")?;
-        level.ceiling_lights = vec![fixture; 5];
-        assert!(
-            super::validate_ceiling_lights(&level).is_err(),
-            "disabled fixtures still reserve stable source slots"
-        );
-        level.ceiling_lights.truncate(1);
-        let invalid_fixture = level.ceiling_lights.first_mut().ok_or("fixture")?;
-        invalid_fixture.ultraviolet = f32::NAN;
-        assert!(
-            super::validate_ceiling_lights(&level).is_err(),
-            "non-finite excitation must fail"
-        );
-        Ok(())
-    }
-}

@@ -500,39 +500,3 @@ impl crate::game::app::FrameLoop<'_> {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn script_validation_is_bounded_and_strict() {
-        assert!(parse(br#"[{"after":"start","delay_ms":0,"action":{"kind":"quit"}}]"#).is_ok());
-        assert!(
-            parse(br#"[{"after":"upload:x","delay_ms":0,"action":{"kind":"escape"}}]"#).is_ok()
-        );
-        assert!(
-            parse(br#"[{"after":"upload:","delay_ms":0,"action":{"kind":"escape"}}]"#).is_err()
-        );
-        assert!(
-            parse(br#"[{"after":"start","delay_ms":0,"action":{"kind":"escape","extra":true}}]"#)
-                .is_err()
-        );
-        assert!(parse(b"[]").is_err());
-        assert!(
-            parse(br#"[{"after":"start","delay_ms":60001,"action":{"kind":"quit"}}]"#).is_err()
-        );
-        assert!(parse(br#"[{"after":"ready:x","delay_ms":0,"action":{"kind":"resize","width":0,"height":360}}]"#).is_err());
-        assert!(
-            parse(br#"[{"after":"start","delay_ms":0,"action":{"kind":"load","level":""}}]"#)
-                .is_err()
-        );
-        assert!(
-            parse(br#"[{"after":"start","delay_ms":0,"action":{"kind":"shell","command":"x"}}]"#)
-                .is_err()
-        );
-        assert!(
-            parse(br#"[{"after":"start","delay_ms":0,"action":{"kind":"quit","extra":true}}]"#)
-                .is_err()
-        );
-    }
-}

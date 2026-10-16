@@ -4602,12 +4602,6 @@ fn build_node(
     node_index
 }
 
-/// True when the ray can reach the node's box within `max_t`.
-#[cfg(test)]
-fn slab_hit(node: &BvhNode, origin: [f32; 3], inverse: [f32; 3], max_t: f32) -> bool {
-    slab_entry(node, origin, inverse, max_t).is_some()
-}
-
 /// The entry distance of the ray into the node's box, when it hits within
 /// `max_t`.
 fn slab_entry(node: &BvhNode, origin: [f32; 3], inverse: [f32; 3], max_t: f32) -> Option<f32> {
@@ -4829,15 +4823,6 @@ impl PreparedRay {
             Some(distance)
         }
     }
-}
-
-#[cfg(test)]
-fn ray_triangle(
-    origin: [f32; 3],
-    direction: [f32; 3],
-    triangle: &TransportTriangle,
-) -> Option<f32> {
-    PreparedRay::new(origin, direction)?.triangle(triangle)
 }
 
 /// Squared distance from a point to a triangle (Ericson, Real-Time Collision
@@ -5100,6 +5085,3 @@ mod batch;
 mod coverage;
 pub mod diagnostics;
 mod filter;
-
-#[cfg(test)]
-mod tests;

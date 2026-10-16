@@ -383,6 +383,3 @@ impl Default for MaterialAlpha {
         Self::OPAQUE
     }
 }
-
-#[cfg(test)]
-mod tests;

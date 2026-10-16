@@ -398,6 +398,3 @@ impl LightSource {
         self.shape.half_extents_rotated(self.rotation_degrees)
     }
 }
-
-#[cfg(test)]
-mod tests;

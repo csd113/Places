@@ -149,8 +149,8 @@ def showcase_level() -> Dict:
         # the shipping tests cover its geometry, budget and lighting.
         prop("core:washer_drum", 6.57, 0.6, rotation=270.0),
         # --- props: signs, domestic lamp/switch/CRT, table setting ---
-        # The showcase places every catalogue placeable exactly once (see
-        # src/engine/render/tests.rs); the demo places the light props and the duck
+        # Inspect the showcase catalogue coverage explicitly; the demo places
+        # the light props and the duck
         # with their real lighting and float behaviour.
         prop("core:stop_sign", -3.6, 1.4, rotation=20.0, solid=True),
         prop("core:exit_sign", 3.0, 1.5, y=2.43, rotation=180.0),

@@ -16,7 +16,7 @@ The active connected Arcade showcase includes the commercial restroom.
 | Verification | Sky panorama limits and quality uploads re-verified against `src/engine/assets.rs`, `src/engine/materials/image.rs`, `src/engine/quality.rs` and `src/engine/render/wgpu/sky.rs` (October 2026 working tree). Movement support and rim backing in §10 re-verified against `src/game/mod.rs`, `src/engine/level.rs` and the permanent movement-map tests (October 2026 working tree). Verified against the working tree at version 0.7.0. Section 33 was checked against `src/engine/nav/`, `src/engine/ai/`, `src/engine/package/navigation.rs`, `src/engine/loader.rs`, `src/map_compiler/mod.rs`, `levels/places_demo.json` and the fixed-step tests `nav::tests`, `ai::tests` and `game::tests::demo_home_encounter_*`. The v3 contract (components, event bindings, trigger volumes, timers, sequences and spawns) was checked against `src/engine/level.rs`, `src/engine/loader.rs`, `src/engine/entities/`, `levels/places_demo.json`, `levels/model_zoo.json`, `levels/*.json` and the generator/converter tools. The `fade`/`glow` components in §29 were checked against `src/engine/level.rs` (`FadeDef`/`GlowDef`), `src/engine/loader.rs` (`validate_component_value`), `src/engine/entities/components.rs` (`Fade`/`Glow`), `src/engine/entity.rs` (`EntityFrame`) and `tools/assets/validate.py`. No commit SHA is pinned: the body was checked line-by-line against `src/engine/level.rs`, `src/engine/loader.rs`, `src/map_compiler/geometry_check.rs`, `src/engine/assets.rs`, `src/engine/materials/`, `src/engine/render/`, `src/engine/lighting/`, `assets/catalog.json`, `levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
 | Ultraviolet material verification | Catalog `uv_response`/numeric-mask fields, GLB extras, four enabled-state source slots, static vertex visibility, moving bounds anchors, independent pigment tint, legacy PLMP readers and operational blacklight fixtures checked against the October 11, 2026 working tree. Native acceptance evidence is recorded in the Retro Bowling implementation report. |
 | Outdoors reconstruction verification | Section 34 checked against the October 7 Outdoors catalog, fitted PNGs, closed model builders, source placements, native wgpu captures and asset integrity audit. Engine format and lighting model are unchanged. |
-| Checks that must pass before a code or asset change ships | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check` (see [Validation Workflow](#27-validation-workflow) for what each proves) |
+| Checks that must pass before a code or asset change ships | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo build --locked --release --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check` (see [Validation Workflow](#27-validation-workflow) for what each proves) |
 | Aero prop authoring verification | October 10, 2026: opt-in BLEND/finite opacity writer checked against importer and byte-preserving OPAQUE/MASK fixtures; existing runtime rendering and transport remain unchanged. |
 | Linked railing authoring | October 15, 2026: static prop span transforms, continuous slope collision, numeric material-slot overrides and prepared package texture restoration are documented in §16. Geometry revision 13 invalidates prior prepared geometry. |
 | Completed Pool/Office authoring | October 15, 2026: accepted GLB fixtures, measured emitter anchors, fixed-prop light controllers and numeric emission overrides checked against the working renderer/compiler. Geometry revision 14 and PLMP v8 preserve these prepared instances. Native results belong in the integration report. |
@@ -61,7 +61,7 @@ A new map does not have to resemble it aesthetically — it is not a mandatory v
 template — but when in doubt about how a feature is authored, the demo (and the
 regression fixtures in `tests/fixtures/levels/`) is the pattern to cross-check against.
 Do not blindly copy mistakes from it either: every pattern here was re-verified against
-`src/engine/level.rs`, the loader/validator, the renderer, the tests, and the catalogs.
+`src/engine/level.rs`, the loader/validator, the renderer, retained Python tools, and the catalogs.
 
 ---
 
@@ -78,13 +78,10 @@ When any two sources disagree, resolve in this order:
    props, doors, reflections, post-processing), `src/engine/lighting/` (bake and
    lightmaps), `src/engine/materials/` + `src/engine/assets.rs` (catalog and materials),
    `src/engine/quality.rs` + `src/game/settings.rs` (quality levels).
-2. **Validation and tests** — `src/engine/loader/tests.rs`, `src/engine/level/tests.rs`,
-   `src/engine/render/tests.rs`, `src/engine/materials/tests.rs`, `src/engine/assets/tests.rs`,
-   `src/engine/props/tests.rs`, `src/engine/collision/tests.rs`, `src/game/tests.rs`,
-   `src/engine/lighting/tests.rs`, and the audit modules under `src/` (`surface_audit.rs`,
-   `lighting_audit*.rs`, `lighting_isolation.rs`,
-   `lighting_partition_audit.rs`, `lighting_vertical_audit.rs`). Tests pin the
-   accepted contract.
+2. **Validation and diagnostics** — runtime source validation in
+   `src/engine/loader.rs`, package validation in `src/engine/package/`,
+   `src/map_compiler/geometry_check.rs`, Python asset/source contracts and
+   explicit native diagnostics. The 0.11.0 cleanup removed the Rust test suite.
 3. **Asset catalog** — `assets/catalog.json`, plus `docs/assets/README.md`.
 4. **Known-good shipped content** — `levels/places_demo.json`,
    `tests/fixtures/levels/*.json`.
@@ -220,7 +217,7 @@ steps 14–17.
     (or `cargo run --release --bin places-compile -- build <source>.json`). The
     compiler validates the source, prepares the static world and publishes the
     `.placesmap` beside it. A failed build leaves any previous package untouched.
-    Then `cargo test --workspace --all-features`, and boot with
+    Then build the player and boot with
     `PLACES_LEVEL=<id> cargo run`. A package that fails to open is reported as
     `[levels] skipping …` at discovery, so read the console even when the level is
     meant to appear in the menu.
@@ -729,7 +726,7 @@ former 16-bit index boundary) and the maintained dense fixture
 (`tests/fixtures/levels/capacity_dense.json`, 5 000+ placements, 100+ fixtures,
 18 routed entities) on the release build. The sparse source was retired
 earlier because the package compiler cannot represent its navigation grid;
-CPU coordinate regressions remain in `src/zoo_audit.rs`; each value is a named
+The explicit capacity campaign retains these measured boundaries; each value is a named
 constant in `src/engine/level.rs`, not an inline literal.
 
 | Limit | Value | Enforced as |
@@ -829,8 +826,8 @@ capacity fixture loads cold in ~45 s at Low-lightmap profile (about 19 s of
 prop expansion and 20 s of lightmap fill) and warm in ~24 s, and the level runs
 at interactive frame rates. The per-frame cost of collision, support, headroom,
 aiming and route movement no longer scales with the wall count: those queries
-go through the collision index (`src/engine/collision_index.rs`), and `zoo_audit`
-pins the indexed result equal to the linear scan over the real fixtures. Notes
+go through the collision index (`src/engine/collision_index.rs`). The former
+Rust parity tests were removed in 0.11.0; runtime query fallbacks remain. Notes
 that remain load-time costs: the lightmap fill is linear in chart texels ×
 nearby fixtures, and the prop vertex expansion samples lighting per vertex. See
 `docs/reports/feature-expansion-summary.md` for the historical measurements.
@@ -1096,7 +1093,7 @@ licence to duplicate:
 * A coalesced group emits one **pane per authored opening**, so two coincident walls
   with the same `glass` opening each draw their own pane. Author each physical wall
   once.
-* The surface audit (`cargo test surface_audit`) checks Places Demo and fixed cases.
+* Use the production geometry checker and explicit native inspection for surface acceptance.
   The geometry checker's `duplicate-surface`, `coplanar-sliver` and
   `prop-layer-coplanar` checks cover emitted architecture and prop dressing;
   still inspect junctions manually and keep one physical wall per surface.
@@ -3026,7 +3023,7 @@ an unknown id) and the level keeps working.
 * **+Z is the front.** Fridge doors, TV screens, vending panels and couch seats face
   `+Z` at `rotation_degrees = 0`.
 * The model bounding box must match the catalog `size` within
-  `max(2 cm, 6 % of the axis)`; the shipped-asset test enforces this, as it does
+  `max(2 cm, 6 % of the axis)`; review this contract explicitly, along with
   base-at-origin (`|min_y| ≤ 0.012`) and centring (≤ 0.02 m).
 
 ### Linked static railing and fence modules
@@ -3095,7 +3092,7 @@ remain usable with the measured anchors in §34.7a.
 | Budget | Value |
 | --- | --- |
 | Triangles — preferred target | 500 |
-| Triangles — needs justification above | 800 (any exceedance is allowlisted explicitly in `src/engine/props/tests.rs`) |
+| Triangles — needs justification above | 800 (any exceedance needs explicit art-budget review) |
 | Triangles — shipped art budget (tooling hard max) | **1500** (`tools/props` refuses to build above it) |
 | Triangles — still loads, with an art-budget warning | above 1500, up to 6000 |
 | Triangles — ordinary engine hard ceiling | 6000 (`MAX_PROP_TRIANGLES`; above it the model falls back to a box). The exact hash-verified snack export has a bounded 16,240-triangle reviewed profile; arbitrary imports cannot select it. |
@@ -3153,12 +3150,12 @@ and it counts against the level's animated-character budget
    ```sh
    python3 tools/props/build.py --check
    python3 tools/assets/validate.py
-   cargo test --workspace --all-features
+   cargo build --locked --release --workspace --all-features
    ```
 
 A hand-authored GLB is accepted by the runtime if it satisfies the profile above, but
-the default `cargo test` run enforces the origin/scale/budget conventions for every
-catalogued placeable. Do not modify `spooner-man` while authoring a map; it is a
+origin/scale/art-budget conventions still require separate review of every
+catalogued placeable; the former Rust asset tests were removed in 0.11.0. Do not modify `spooner-man` while authoring a map; it is a
 shipped entity.
 
 ---
@@ -3902,17 +3899,16 @@ Fixture geometry is code. To add a family, touch each of these:
    match the face aspect).
 5. Add a `light` catalog entry whose `model` is that PNG (no separate `texture`
    entry).
-6. Update the tests that pin the current three families:
-   `src/engine/render/tests.rs` (sheet slots, quad counts, fitted aspect),
-   `src/engine/loader/tests.rs` (per-family sheet resolution),
-   `src/engine/assets/tests.rs` (catalog ↔ `LIGHT_FIXTURE_IDS` consistency),
-   `src/engine/lighting/tests.rs` (footprint/mount cases).
+6. Review sheet slots, quad counts, fitted aspect, per-family resolution,
+   catalog ↔ `LIGHT_FIXTURE_IDS` consistency and footprint/mount behavior using
+   the owning production code and direct native inspection. Former Rust fixture
+   tests were removed in 0.11.0.
 7. If the toolkit should generate the art: add a painter to
    `tools/textures/lights_art.py` and run the texture check.
 8. Validate: `python3 tools/textures/build.py --check`,
    `python3 tools/assets/validate.py`,
    `cargo clippy --workspace --all-targets --all-features -- -D warnings`,
-   `cargo test --workspace --all-features`.
+   `cargo build --locked --release --workspace --all-features`.
 
 Restyling the panel family means adding a catalog fixture entry with its own PNG,
 exactly like the shipped families; fixture faces resolve from catalog `light`
@@ -5004,9 +5000,8 @@ clips, >4096 animation channels, CUBICSPLINE samplers, a texture edge >1024, or 
 malformed skin (a joint slot outside the skin, a non-finite or non-positive weight
 sum, or an inverse-bind count that does not match the joint list).
 
-**Prevention:** build props with `tools/props/`, preview them, and run
-`cargo test --workspace --all-features` so the shipped-asset checks enforce the
-conventions. (Multiple meshes, multiple primitives and multiple materials are
+**Prevention:** build props with `tools/props/`, run its read-only `--check`,
+review art budgets separately and preview them through the production parser. (Multiple meshes, multiple primitives and multiple materials are
 supported — the old single-mesh restriction is gone.)
 
 ### Excessive Model Budget
@@ -5017,8 +5012,8 @@ language; possible engine rejection.
 **Prevention:** 500 triangles preferred, 800 justified, 1500 shipped art budget;
 256×256 is the native prop texture size (32/64/128 legal for lighter props), and
 reviewed party cloth 1024/wrap 512 exceptions preserve print detail. The whole
-pack must decode to at most 106 MiB. Exceedances are allowlisted
-explicitly in `src/engine/props/tests.rs`.
+pack must decode to at most 106 MiB. Exceedances require explicit art-budget
+review; former Rust allowlist tests were removed in 0.11.0.
 
 ### Texture Seams / Incorrect Tiling
 
@@ -5064,7 +5059,7 @@ none of them is optional for a change that ships content.
 | Command | What it validates | Required for map authoring? |
 | --- | --- | --- |
 | `python3 tools/assets/validate.py` | Catalog parse; classes/types/sources; unique ids; every file-backed resource exists exactly once; material texture/mask/normal references; shipped/drop-in/fixture levels reference declared ids; entity instance ids; components; event bindings, conditions and actions; trigger volumes, timers, sequences and spawn definitions; prop-light and fixture-pool shapes/fields; animated-emission schema; warns when a wall touches no room | **Yes** |
-| `cargo test --workspace --all-features` | The whole Rust suite: level/loader/render/material/collision/lighting tests plus the audits (surface, lighting, isolation, parity, partition, vertical, leak) | **Yes** |
+| `cargo build --locked --release --workspace --all-features` | Production binaries and all features compile; does not validate art budgets or native rendering | **Yes** |
 | `cargo fmt --all --check` | Rust formatting | **Yes** when code changed |
 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | Strict lints (`AGENTS.md` policy) | **Yes** when code changed |
 | `python3 tools/textures/build.py --check` | Texture/decal/fixture PNGs exist, parse, ≤1024 (sky ≤2048×1024, 2:1 POT); warns >256 / non-POT | Yes when art changed |
@@ -5084,7 +5079,7 @@ none of them is optional for a change that ships content.
 
 Do not treat a clean `--check` as style approval: `tools/props/build.py --check`
 enforces texture memory and container validity, while the triangle/scale/origin
-art budgets live in `cargo test`. Conversely, `validate.py` is stricter than the
+art budgets require separate review after the 0.11.0 Rust test removal. Conversely, `validate.py` is stricter than the
 runtime about catalog classes/types/sources and is the tool that catches a
 dangling level reference.
 
@@ -5241,7 +5236,7 @@ the error in full.
 - [ ] `python3 tools/assets/validate.py` exits 0.
 - [ ] `python3 tools/textures/build.py --check` exits 0 (new art in particular).
 - [ ] `python3 tools/props/build.py --check` exits 0 (new props in particular).
-- [ ] `cargo test --workspace --all-features` passes.
+- [ ] `cargo build --locked --release --workspace --all-features` passes.
 - [ ] The level boots with `PLACES_LEVEL=<id>` with no validation error.
 - [ ] `--check-geometry` reports no confirmed defects; a confirmed
       `wall-joint-step` is repaired with `--repair-geometry` plus
@@ -6770,9 +6765,8 @@ the raised limits are measured against:
 | `capacity_beyond_former_limits` | The 2026 pass's high-count source: 20 001 walls, 20 001 props, 2 025 rooms, 2 001 floor regions / patches / water volumes, and 81 582 distinct material ids (past the former 16-bit index boundary). It compiles offline to a 45.4 MiB package and is loaded through the package reader; see the Level limits section. |
 
 The generated fixtures support `--check`; the dense fixture must also pass
-`places --check-geometry` with no errors, and `src/zoo_audit.rs` pins its
-contracts while retaining an in-memory large-coordinate regression for the
-retired sparse source. The beyond-former-limits source is a capacity fixture,
+`places --check-geometry` with no errors. Explicit compiler/native campaigns
+exercise its capacity contracts. The beyond-former-limits source is a capacity fixture,
 not a design-reviewed map: its rooms intentionally open onto the grid, so it is
 compiled and loaded through the package path rather than audited for leaks.
 
@@ -7613,8 +7607,8 @@ authoring. They are not invitations to change the engine as part of an authoring
     `tools/assets/validate.py` is strict and fails. Pass the tool, not the runtime
     fallback.
 17. **`props/build.py --check` enforces container validity and decoded texture
-    memory but not the triangle/scale/origin art budgets**; those live in
-    `cargo test`. Do not treat a clean `--check` as complete budget approval.
+    memory but not the triangle/scale/origin art budgets**; those need separate
+    review after the 0.11.0 Rust test removal. Do not treat a clean `--check` as complete budget approval.
 18. **Water is a volume, lighting is baked.** "Flooded" needs a `water[]` volume
     over real recessed geometry (a volume over a flat floor reads as a puddle, not
     a pool); "mood lighting" must be expressed with existing materials, geometry and
@@ -8043,7 +8037,7 @@ A tube that reads bright but casts a restrained local pool (the demo's far corri
 
 1. Author the level JSON as described in this guide, then validate it with the
    loader tests (`python3 -m unittest tests.test_package`) and
-   `cargo test --workspace --all-features`.
+   `cargo build --locked --release --workspace --all-features`.
 2. Compile it:
    `./target/release/places-compile build my_level.json`
    The compiler runs the static preparation (lighting bake, geometry, lightmap
@@ -8215,7 +8209,7 @@ A lit sign face:
 3. Build it with the toolkit.
 4. Preview it and inspect the PNG.
 5. Validate: `python3 tools/props/build.py --check`,
-   `python3 tools/assets/validate.py`, `cargo test --workspace --all-features`.
+   `python3 tools/assets/validate.py`, `cargo build --locked --release --workspace --all-features`.
 6. Place it by logical id from a level. Do not modify `spooner-man`.
 
 ```json
@@ -8355,7 +8349,7 @@ A new *fixture id* always needs a code mesh family (section
 7. Validate: `python3 tools/textures/build.py --check`,
    `python3 tools/assets/validate.py`,
    `cargo clippy --workspace --all-targets --all-features -- -D warnings`,
-   `cargo test --workspace --all-features`.
+   `cargo build --locked --release --workspace --all-features`.
 8. Place it: `{ "fixture": "<id>", "x": …, "z": … }`
    (plus `mount: "wall"`, `y` for a wall family).
 

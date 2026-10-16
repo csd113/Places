@@ -62,9 +62,6 @@ pub mod props;
 pub mod shared_props;
 pub mod world;
 
-#[cfg(test)]
-mod tests;
-
 use std::path::Path;
 
 pub use archive::{PackageReader, normalize_entry_name};

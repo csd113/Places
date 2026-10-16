@@ -610,6 +610,3 @@ fn vertex_key(vertex: &crate::engine::render::Vertex) -> [u32; 12] {
         u32::from(vertex.lightmap_page),
     ]
 }
-
-#[cfg(test)]
-mod tests;

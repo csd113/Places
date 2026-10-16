@@ -21,28 +21,13 @@
 //! `docs/ARCHITECTURE.md` for the ownership rules and dependency direction
 //! this split enforces.
 
-#[cfg(test)]
-mod boundary_tests;
 mod common;
 pub(crate) use common::character::claimed_character_models;
 pub(crate) use common::props::override_material_textures as override_prop_textures;
 pub(crate) use common::props::relight_probe_props;
 mod facade;
-#[cfg(test)]
-mod tests;
 mod wgpu;
 
-#[cfg(test)]
-pub(crate) use common::geometry::build_level_geometry_mesh;
-
-#[cfg(test)]
-pub(crate) use common::light_transport::{
-    EntityLightingSource, build_transport_scene, entity_lighting, entity_spatial_lighting,
-    switchable_lights,
-};
-
-#[cfg(test)]
-pub(in crate::engine::render) use common::WallUnit;
 pub(crate) use common::api::{
     LightmapFillOutcome, dump_lightmaps_for_level, fill_lightmaps_cancellable,
     lightmap_content_key, prepare_level_geometry_with_lightmaps, rebuild_vertex_lit_level,
@@ -60,8 +45,6 @@ pub use common::view::{
     DrawableSize, UI_REFERENCE_HEIGHT, UI_REFERENCE_WIDTH, UiViewport, reference_aspect_ratio,
     vertical_fov_for_aspect,
 };
-#[cfg(test)]
-pub(in crate::engine::render) use common::wall_units;
 pub use common::{
     AnimationEffect, BLEND_TIME_CONSTANT_S, BatchRange, BuildTimings, CHARACTER_BOUNDS_EXPANSION,
     CHARACTER_BOUNDS_MARGIN_M, Character, CharacterAnimator, CharacterScene, CharacterUpdate,
@@ -82,8 +65,6 @@ pub use common::{
     decal_sheet_index, decal_uv_rect, decal_uv_rect_full, dequantize_unit, logical_materials,
     relight_blend_decals, spatial_cell_grid, tiled_uv,
 };
-#[cfg(test)]
-pub(crate) use common::{MaterialLookup, SCENE_FAR_M, SCENE_NEAR_M, WallMaterialRun};
 pub use facade::Renderer;
 pub use wgpu::reflections::{PROBE_FACE_SIZE_FULL, PROBE_FACE_SIZE_MEDIUM, ProbeFaceReadback};
 

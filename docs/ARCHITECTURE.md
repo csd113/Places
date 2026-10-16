@@ -134,7 +134,6 @@ backend module that names it.
 | `src/engine/render/wgpu/postprocess.rs`, `post.wgsl` | Post: raw scene/presented targets, shared-depth emissive pass, two-pass blur, resolve/present copy | backend |
 | `src/engine/render/wgpu/ui.rs`, `ui.wgsl` | HUD: the 480x272 reference UI pass over the presented image | backend |
 | `src/engine/render/wgpu/world.wgsl` | The world shader: position -> clip, base-colour sample by UV, material colour, material normal, alpha, cut-out, lightmap atlas, sheen, reflections, emission, fog, raw/sRGB entry points | backend |
-| `src/engine/render/tests.rs`, `boundary_tests.rs` | In-crate tests; the boundary scans live here | test-only |
 
 ### Engine modules and content
 
@@ -159,8 +158,7 @@ where the bytes live:
 | `src/engine/materials/` | PNG decode, session texture cache, material and decal resolution |
 | `src/engine/spatial.rs` | The spatial cell grid the batching and frustum culling share |
 | `src/engine/collision_index.rs` | The uniform X/Z grid over the level's solid boxes, shared by movement, support, headroom, entity routes, interaction targeting, label occlusion and route validation (allocation-free queries, exact linear fallback) |
-| `src/map_compiler/geometry_check.rs` | The read-only map geometry checker CLI (`--check-geometry`) and its fixture suite |
-| `src/zoo_audit.rs` | The test-only contracts for the generated Model Zoo and the capacity fixtures |
+| `src/map_compiler/geometry_check.rs` | The read-only map geometry checker CLI (`--check-geometry`) and repair planner |
 | `src/game/`, `src/game/mod.rs` | Player state, movement, stance, ladders, swimming and the world tick; the entity runtime owns the map's objects, events, sequences and spawns |
 | `src/engine/door.rs` | Door runtimes: the closed/opening/open/closing phase machine, the `locked` state, current angle and collider pose, the id→index map, and per-level reset/advance |
 | `src/engine/interact.rs` | Interaction targeting (ray/reach/occlusion), the aiming table derived from `interactable` components, door aim bounds; game-owned labels consume these targeting queries |
@@ -189,12 +187,11 @@ GPU resources at upload time.
 
 ## 3. Ownership rules and the renderer-neutral boundary
 
-The rules are enforced by `src/engine/render/boundary_tests.rs`, which scans the
-repository sources:
+These ownership rules guide production code review. The former Rust source-scan
+tests were removed in 0.11.0:
 
 1. **Only `render::wgpu` and the facade name the wgpu API.** `wgpu::` may
-   appear in `src/engine/render/wgpu/**`, `src/engine/render/facade.rs`, `src/engine/render.rs` and
-   the in-crate test suite; nowhere else.
+   appear in `src/engine/render/wgpu/**`, `src/engine/render/facade.rs`, `src/engine/render.rs`; nowhere else.
 2. **The engine bootstrap makes no platform GPU calls.** the game application builds a plain
    window and hands it to the facade; it never calls a GL or Metal window API
    itself.

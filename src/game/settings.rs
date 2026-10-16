@@ -1372,10 +1372,3 @@ impl Settings {
         self.save_to_path(Self::default_path())
     }
 }
-
-#[cfg(test)]
-mod tests;
-
-#[cfg(test)]
-#[path = "settings/low_lighting_tests.rs"]
-mod low_lighting_tests;

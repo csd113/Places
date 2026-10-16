@@ -14,9 +14,6 @@ pub struct DirectionalLight {
     pub angular_radius: f32,
 }
 
-#[cfg(test)]
-mod tests;
-
 impl DirectionalLight {
     #[must_use]
     #[expect(

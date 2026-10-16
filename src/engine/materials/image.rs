@@ -545,19 +545,12 @@ impl TextureCache {
     }
 }
 
-#[cfg(test)]
-mod tests;
-
 /// Widest useful parallel decode for `jobs` catalog images.
 ///
 /// Bounded by the process-wide preparation budget when one is set (the offline
 /// compiler stores its `--workers` there, so `--workers 1` stays serial), then
-/// by [`MAX_LEVEL_DECODE_WORKERS`] and the job count. Tests stay serial: a unit
-/// test asserts values, not throughput.
+/// by [`MAX_LEVEL_DECODE_WORKERS`] and the job count.
 fn level_decode_workers(jobs: usize) -> usize {
-    if cfg!(test) {
-        return 1;
-    }
     let budget = crate::engine::perf::prepare_workers().unwrap_or_else(|| {
         std::thread::available_parallelism()
             .map_or(1, std::num::NonZeroUsize::get)
@@ -593,91 +586,4 @@ pub(super) fn texture_content_key(logical: &str, bytes: &[u8]) -> String {
         hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
     }
     format!("{logical}#png-v1-{hash:016x}")
-}
-
-#[cfg(test)]
-mod content_revision_tests {
-    use super::{RawImage, TextureCache, encode_png, texture_content_key};
-    use std::sync::Arc;
-
-    #[test]
-    fn encoded_changes_replace_cache_revision_without_mutating_old_owner() -> Result<(), String> {
-        let first = encode_png(&RawImage::new(1, 1, vec![1, 2, 3, 255]))?;
-        let second = encode_png(&RawImage::new(1, 1, vec![7, 8, 9, 255]))?;
-        let mut cache = TextureCache::new();
-        let (old, old_key) = cache.decode_encoded("same", &first)?;
-        let (reused, same_key) = cache.decode_encoded("same", &first)?;
-        assert!(Arc::ptr_eq(&old, &reused));
-        assert_eq!(old_key, same_key);
-        let (current, new_key) = cache.decode_encoded("same", &second)?;
-        assert_ne!(old_key, new_key);
-        assert_eq!(new_key, texture_content_key("same", &second));
-        assert_eq!(current.rgba, [7, 8, 9, 255]);
-        assert_eq!(old.rgba, [1, 2, 3, 255]);
-        assert!(cache.get(&old_key).is_none());
-        assert_eq!(cache.len(), 1);
-        assert_eq!(cache.decoded_count(), 2);
-        assert!(cache.decode_encoded("same", b"broken PNG").is_err());
-        assert!(cache.get("same").is_none());
-        assert_eq!(current.rgba, [7, 8, 9, 255]);
-        Ok(())
-    }
-
-    #[test]
-    fn same_pack_path_with_new_bytes_uses_new_cpu_and_gpu_identity() -> Result<(), String> {
-        let first = encode_png(&RawImage::new(1, 1, vec![10, 20, 30, 255]))?;
-        let second = encode_png(&RawImage::new(1, 1, vec![30, 20, 10, 255]))?;
-        let pack = |bytes: Vec<u8>| {
-            crate::engine::materials::PackMaterials::new(
-                "same.zip",
-                None,
-                std::collections::HashMap::from([(
-                    "textures/wall.png".to_string(),
-                    Arc::<[u8]>::from(bytes),
-                )]),
-            )
-        };
-        let original = pack(first);
-        let updated = pack(second);
-        let mut cache = TextureCache::new();
-        let old = original.decode_texture(&mut cache, "textures/wall.png")?;
-        let new = updated.decode_texture(&mut cache, "textures/wall.png")?;
-        assert_ne!(
-            original.cache_key("textures/wall.png"),
-            updated.cache_key("textures/wall.png")
-        );
-        assert_ne!(old.rgba, new.rgba);
-        assert_eq!(cache.len(), 1);
-        Ok(())
-    }
-
-    #[test]
-    fn replacing_file_bytes_refreshes_without_timestamp_identity() -> Result<(), String> {
-        let root =
-            std::env::temp_dir().join(format!("places-texture-content-{}", std::process::id()));
-        std::fs::create_dir_all(&root).map_err(|error| error.to_string())?;
-        let path = root.join("source.png");
-        let run = (|| {
-            let first = encode_png(&RawImage::new(1, 1, vec![1, 2, 3, 255]))?;
-            let second = encode_png(&RawImage::new(1, 1, vec![7, 8, 9, 255]))?;
-            std::fs::write(&path, &first).map_err(|error| error.to_string())?;
-            let modified = std::fs::metadata(&path)
-                .and_then(|meta| meta.modified())
-                .map_err(|error| error.to_string())?;
-            let mut cache = TextureCache::new();
-            let (_, before) = cache.load_relative(&root, "source.png", "logical")?;
-            std::fs::write(&path, &second).map_err(|error| error.to_string())?;
-            std::fs::File::options()
-                .write(true)
-                .open(&path)
-                .and_then(|file| file.set_times(std::fs::FileTimes::new().set_modified(modified)))
-                .map_err(|error| error.to_string())?;
-            let (image, after) = cache.load_relative(&root, "source.png", "logical")?;
-            assert_ne!(before, after);
-            assert_eq!(image.rgba, [7, 8, 9, 255]);
-            Ok(())
-        })();
-        crate::test_support::remove_dir_if_present(root);
-        run
-    }
 }

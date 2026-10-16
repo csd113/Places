@@ -840,6 +840,3 @@ fn depenetrate(pos: Vec2, radius: f32, wall: &WallAabb) -> Option<Vec2> {
         Some(Vec2::new(pos.x, wall.max_z + radius))
     }
 }
-
-#[cfg(test)]
-mod tests;

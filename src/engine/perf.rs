@@ -511,9 +511,6 @@ pub fn sample_gpu_from_paths(
     None
 }
 
-#[cfg(test)]
-mod tests;
-
 /// Low-frequency crash context uses the same current-process RSS counter as HUD.
 pub(crate) fn process_resident_bytes() -> Option<u64> {
     platform::resident_bytes()

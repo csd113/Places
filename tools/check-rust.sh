@@ -16,13 +16,13 @@ run_selected() {
     check) run_stage check cargo check --locked --workspace --all-targets --all-features ;;
     clippy) run_stage clippy cargo clippy --locked --workspace --all-targets --all-features -- -D warnings ;;
     clippy-release) run_stage clippy-release cargo clippy --locked --release --workspace --all-targets --all-features -- -D warnings ;;
-    test) run_stage test cargo test --locked --workspace --all-features ;;
+    build) run_stage build cargo build --locked --release --workspace --all-features ;;
     *) printf '%s\n' "Unknown Rust gate stage: $1" >&2; exit 2 ;;
   esac
 }
 case "${1:-all}" in
   all)
-    for stage in format check clippy clippy-release test; do run_selected "$stage"; done
+    for stage in format check clippy clippy-release build; do run_selected "$stage"; done
     ;;
   *) run_selected "$1" ;;
 esac

@@ -644,20 +644,3 @@ impl WgpuDynamic {
         })
     }
 }
-
-#[cfg(test)]
-mod tests {
-    #![allow(
-        clippy::float_cmp,
-        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
-    )]
-
-    use super::*;
-
-    #[test]
-    fn an_empty_scene_reports_nothing() {
-        let dynamic = WgpuDynamic::default();
-        assert_eq!(dynamic.object_count(), 0);
-        assert_eq!(dynamic.stats().draws, 0);
-    }
-}

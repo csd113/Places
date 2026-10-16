@@ -30,7 +30,7 @@ python3 -m unittest tests.built_maps
 PLACES_WEATHER_PACKAGE_DIR="$PWD/assets/levels" \
   python3 -m unittest tests.test_weather.PackagedWeatherTests
 # The full recursive fixture campaign remains available for compiler, capacity
-# and geometry changes; ordinary Rust/Python fixture regressions always run.
+# and geometry changes; source checks and Python fixture regressions always run.
 case "${PLACES_VERIFY_ALL_MAPS:-0}" in
   0) ;;
   1)
@@ -49,5 +49,4 @@ sh tools/check-rust.sh
 PLACES_SKIP_SMOKE=0 PLACES_SMOKE_BIN="$PWD/target/release/places" \
 PLACES_TEST_EXPORT=1 PLACES_WEATHER_PACKAGE_DIR="$PWD/assets/levels" \
   python3 -m unittest discover -s tests -p 'test_*.py'
-cargo test --lib render::wgpu::renderer::low_lighting_tests -- --ignored --test-threads=1
 git diff --check

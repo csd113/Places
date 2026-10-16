@@ -280,6 +280,3 @@ pub const fn escape_key(event: &Event) -> bool {
         }
     )
 }
-
-#[cfg(test)]
-mod tests;

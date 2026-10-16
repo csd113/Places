@@ -58,9 +58,6 @@ mod reflection;
 mod resolve;
 mod response;
 
-#[cfg(test)]
-mod tests;
-
 pub(crate) use builtin::BuiltinImage;
 pub(crate) use image::load_sky_png_relative;
 

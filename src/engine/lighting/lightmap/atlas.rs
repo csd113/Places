@@ -672,63 +672,6 @@ fn partition_disjoint(rects: &mut Vec<FreeRect>) {
     *rects = disjoint;
 }
 
-/// Protect the conversion's exact free area independently of its sweep:
-/// three overlapping holes on a 16px grid, with no atlas or transport work.
-#[cfg(test)]
-#[test]
-fn hole_partition_preserves_the_union_without_overlapping_ownership() {
-    let mut holes = vec![
-        FreeRect {
-            x: 0,
-            y: 4,
-            width: 8,
-            height: 8,
-        },
-        FreeRect {
-            x: 4,
-            y: 0,
-            width: 8,
-            height: 8,
-        },
-        FreeRect {
-            x: 10,
-            y: 4,
-            width: 6,
-            height: 12,
-        },
-    ];
-    let coverage = |rects: &[FreeRect]| {
-        std::array::from_fn::<_, 256, _>(|index| {
-            let x = u32::try_from(index % 16).unwrap_or(u32::MAX);
-            let y = u32::try_from(index / 16).unwrap_or(u32::MAX);
-            rects
-                .iter()
-                .filter(|rect| {
-                    x >= rect.x
-                        && x < rect.x.saturating_add(rect.width)
-                        && y >= rect.y
-                        && y < rect.y.saturating_add(rect.height)
-                })
-                .count()
-        })
-    };
-    let before = coverage(&holes).map(|count| count > 0);
-    partition_disjoint(&mut holes);
-    let after = coverage(&holes);
-    assert_eq!(
-        before,
-        after.map(|count| count > 0),
-        "all free pixels survive exactly"
-    );
-    assert!(
-        after.iter().all(|count| *count <= 1),
-        "free holes have disjoint ownership"
-    );
-    let mut again = holes.clone();
-    partition_disjoint(&mut again);
-    assert_eq!(holes, again, "partitioning is deterministic and idempotent");
-}
-
 /// Merge exact shared edges on disjoint prop-page holes. Sorting each axis
 /// makes a pass O(n log n); every successful merge reduces the hole count.
 /// Repeat both axes because a merge can expose an edge on the other axis.

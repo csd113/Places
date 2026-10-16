@@ -32,8 +32,7 @@ Run it from the repository root::
 
 It exits non-zero on the first class of problem and prints every failure, so it
 can gate packaging and continuous checks. ``tests/test_package.py`` imports
-``validate_catalog`` and re-runs the same checks under ``cargo test``-adjacent
-tooling.
+``validate_catalog`` and re-runs the same checks as Python source contracts.
 """
 
 from __future__ import annotations
@@ -60,9 +59,8 @@ LEVEL_DIRS = (
 # The catalog-id cross-check exists to catch a typo in authored content; a
 # machine-generated fixture whose purpose is to cross the former 16-bit
 # material-index boundary with more than 65 536 distinct ids cannot use the
-# catalog at all. The fixture's real contracts are pinned by src/zoo_audit.rs,
-# and every other check in this validator still applies to it. Mirror of the
-# same carve-out in src/engine/assets/tests.rs.
+# catalog at all. Its generator and explicit compiler/native campaigns own
+# the boundary witness; every other validator check still applies to it.
 GENERATED_CAPACITY_FIXTURES = ("capacity_beyond_former_limits.json",)
 
 # Architectural classification: adding a class is deliberate (it changes what

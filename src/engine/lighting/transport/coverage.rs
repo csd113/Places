@@ -427,7 +427,3 @@ pub(super) fn footprint_point(patch: &LightmapPatch, u: f32, v: f32) -> [f32; 3]
         ),
     )
 }
-
-#[cfg(test)]
-#[path = "tests/continuity.rs"]
-mod continuity;

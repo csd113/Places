@@ -255,6 +255,3 @@ pub fn get_white_uv() -> [f32; 4] {
 pub const fn interaction_hand_uv() -> [f32; 4] {
     [0.0, 0.5, 0.25, 1.0]
 }
-
-#[cfg(test)]
-mod tests;

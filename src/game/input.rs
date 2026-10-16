@@ -294,17 +294,6 @@ impl InputState {
         self.mouse_dy = 0.0;
         motion
     }
-
-    /// State with every listed control held, for tests that drive the player
-    /// without an SDL event queue.
-    #[cfg(test)]
-    pub(crate) fn holding(controls: &[Control]) -> Self {
-        let mut state = Self::default();
-        for control in controls {
-            state.held |= control.bit();
-        }
-        state
-    }
 }
 
 /// Adds one finite mouse delta to an accumulated axis, refusing any sum that
@@ -500,6 +489,3 @@ impl InputHandler {
         None
     }
 }
-
-#[cfg(test)]
-mod tests;

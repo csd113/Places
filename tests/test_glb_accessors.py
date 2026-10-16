@@ -7,9 +7,9 @@ declared view does not make a crossing accessor valid.
 
 The Rust reader (``src/engine/gltf.rs::accessor_data``) and the toolkit reader
 (``tools/props/glb.py::_read_accessor``) apply the same checks. This module
-covers the fixtures both readers share. ``glb.py`` supports SCALAR/VEC2/VEC3/
-VEC4 float and integer accessors only, so the MAT4 (inverse bind matrices)
-fixture lives in ``src/engine/gltf/tests.rs``.
+covers the toolkit fixtures. ``glb.py`` supports SCALAR/VEC2/VEC3/VEC4 float
+and integer accessors only; MAT4 inverse-bind handling remains in the production
+Rust reader, whose former Rust fixtures were removed in 0.11.0.
 """
 import struct
 import sys

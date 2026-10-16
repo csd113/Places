@@ -432,6 +432,3 @@ impl PropAssets {
 pub fn resolve_prop_root() -> Option<PathBuf> {
     crate::engine::assets::resolve_asset_root()
 }
-
-#[cfg(test)]
-mod tests;

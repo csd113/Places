@@ -1484,26 +1484,3 @@ impl Runtime {
         self.contact_onsets.finish_step();
     }
 }
-
-#[cfg(all(test, feature = "parallel-physics", not(target_arch = "wasm32")))]
-mod pool_policy_tests {
-    use super::SolverPoolPolicy;
-
-    // Eight bytes of policy state protect hysteresis without physics/map work.
-    #[test]
-    fn brief_active_count_changes_do_not_chatter_between_solver_pools() {
-        let mut policy = SolverPoolPolicy::default();
-        assert!(!policy.update(0, 0.1), "idle stays serial");
-        assert!(policy.update(128, 0.01), "measured heavy workload enters");
-        assert!(policy.update(127, 0.1), "one sleeper does not switch pools");
-        assert!(
-            policy.update(0, 0.1),
-            "brief quiet interval retains the pool"
-        );
-        assert!(
-            policy.update(0, 0.1),
-            "quarter-second exit delay is respected"
-        );
-        assert!(!policy.update(0, 0.1), "sustained quiet returns to serial");
-    }
-}

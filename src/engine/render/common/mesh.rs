@@ -123,35 +123,6 @@ impl Vertex {
     }
 }
 
-/// Maps a unit-interval float to a normalised byte, rounding to nearest.
-///
-/// The input is clamped rather than wrapped: a value outside [0, 1] (a malformed
-/// level, an over-bright hand-authored shade) must stay at the closest legal
-/// value instead of flipping to the opposite end of the range.
-///
-/// Legacy byte fixture codec; the production GPU vertex now retains float RGB.
-#[must_use]
-#[cfg(test)]
-pub const fn quantize_unit(value: f32) -> u8 {
-    if value.is_nan() {
-        // An undefined shade must not become a bright one.
-        return 0;
-    }
-    // `clamp` handles the infinities by saturation, which is what "clamp" means.
-    let clamped = value.clamp(0.0, 1.0);
-    // `clamped` is in [0, 1], so `clamped * 255 + 0.5` is in [0.5, 255.5]: the
-    // truncating cast only drops the fraction and can never leave the byte
-    // range, and the value is non-negative.
-    #[expect(
-        clippy::as_conversions,
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        reason = "`clamped` is in [0, 1], so `clamped * 255 + 0.5` is in [0.5, 255.5]: the truncating cast only drops the fraction and can never leave the byte range, and the value is non-negative."
-    )]
-    let byte = clamped.mul_add(255.0, 0.5) as u8;
-    byte
-}
-
 /// The exact value a normalised byte decodes to, for tests and audits.
 #[must_use]
 pub fn dequantize_unit(byte: u8) -> f32 {
@@ -1031,17 +1002,5 @@ impl MeshPacker {
             }
         }
         placements
-    }
-
-    /// Total distinct vertices across every chunk.
-    #[cfg(test)]
-    pub fn vertex_total(&self) -> usize {
-        self.chunks.iter().map(|chunk| chunk.vertices.len()).sum()
-    }
-
-    /// Total indices across every chunk.
-    #[cfg(test)]
-    pub fn index_total(&self) -> usize {
-        self.chunks.iter().map(|chunk| chunk.indices.len()).sum()
     }
 }

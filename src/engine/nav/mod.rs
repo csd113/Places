@@ -15,9 +15,6 @@
 
 pub mod query;
 
-#[cfg(test)]
-mod tests;
-
 pub use query::{NavBounds, NavMesh, NavPoint, NavScratch, Path, PathQuery, PathResult};
 
 use crate::engine::door::{DoorPhase, Doors};

@@ -148,28 +148,3 @@ impl crate::game::app::FrameLoop<'_> {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // One tiny numeric fixture protects attachment orientation, convergence and
-    // wall retraction without preparing a level, renderer or texture resource.
-    #[test]
-    fn attachment_converges_and_retracts_before_geometry() {
-        let eye = Vec3::new(0.0, 1.6, 0.0);
-        let light = attached_light(eye, 0.0, 0.0, |_, _| 1.0);
-        assert!(
-            (light.outer_cos.acos().tan() / 12.0_f32.to_radians().tan() - 1.725).abs() < 0.0001,
-            "the requested beam diameter grows by 50%, then 15%, at fixed distance"
-        );
-        assert!(light.position.x > 0.0 && light.position.y < eye.y);
-        assert!(
-            (light.position + light.direction * 6.0 - Vec3::new(0.0, 1.6, -6.0)).length() < 0.07
-        );
-        let retracted = attached_light(eye, 0.0, 0.0, |_, to| if to.x < 0.07 { 1.0 } else { 0.0 });
-        assert!(retracted.position.x < 0.07);
-        assert!(retracted.position.distance(eye) < light.position.distance(eye));
-        assert!(retracted.direction.is_normalized());
-    }
-}

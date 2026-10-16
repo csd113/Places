@@ -28,23 +28,25 @@ checks require an available graphical session and the native backend.
 ```sh
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings
-cargo test --workspace
+cargo build --locked --release --workspace --all-features
 PLACES_SKIP_SMOKE=1 python3 -m unittest discover -s tests -p 'test_*.py'
 python3 tools/assets/validate.py
 ```
 
 `sh tools/check-rust.sh` runs the complete locked Rust gate: format, all-target /
-all-feature check, strict debug and release Clippy, then all-feature workspace
-tests. `Cargo.toml` and `clippy.toml` are authoritative for lint policy. Fix causes
+all-feature check, strict debug and release Clippy, then all-feature production
+builds. `Cargo.toml` and `clippy.toml` are authoritative for lint policy. Fix causes
 rather than suppressing warnings.
 
 [GitHub CI](../.github/workflows/rust.yml) performs those stages in a temporary
 engine copy with optional map directories omitted, then runs maintained asset /
 generator checks and source Python tests. It rejects tracked compiled packages.
-Neither ordinary Rust tests nor CI bake production maps or capture reflection
-probes. Rust coverage uses bounded fixtures for format/security, numerical
-boundaries, collision, navigation, lighting and regression behavior. New tests
-must justify unique behavior coverage and cost; full-map campaigns stay explicit.
+Ordinary CI does not bake production maps or capture reflection probes. All
+project-owned Rust automated tests were removed in the 0.11.0 cleanup; retained
+Python contracts, production validation and developer diagnostics remain active.
+Future Rust tests require essential concrete regression value and proportional
+cost, live under the owning engine/game/editor/map_compiler tests folder, and
+must be wired into Rust discovery as described in `AGENTS.md`.
 
 ## Full desktop gate
 
@@ -54,8 +56,7 @@ sh tools/verify.sh
 
 This opt-in gate builds fresh release tools, validates assets/generators, compiles
 and verifies the eight-source `levels/lineup.txt`, checks packaged weather, runs
-the Rust gate, enables export/native Python suites and runs the required ignored
-Low-lighting GPU resource tests. The script is the exact command/order reference;
+the Rust production gate and enables export/native Python suites. The script is the exact command/order reference;
 this guide does not duplicate its evolving command list. It stops on failure.
 `PLACES_VERIFY_WORKERS` selects the offline worker budget (default eight).
 
@@ -201,16 +202,9 @@ Allocation aborts, SIGKILL and failures before logging initializes may leave
 only the last context and OS evidence. Read-only or full disks can prevent even
 that evidence; a log write failure disables further disk writes for the session.
 
-The explicit small GPU control for drawable-limit failures is:
-
-```sh
-cargo test --lib native_oversized_drawable_is_reported_before_gpu_allocation \
-  -- --ignored --test-threads=1
-```
-
-It creates only a 64×64 renderer, captures the old invalid allocation in a
-validation scope, then verifies the runtime guard avoids that allocation and
-reports the fatal remedy. It needs native GPU access and bakes no map.
+Drawable-size guards and actionable fatal errors remain in the production
+renderer. The former ignored Rust GPU controls were removed with the Rust suite;
+use direct native player diagnostics for scoped renderer acceptance.
 
 Texture checks distinguish preferred-size/manifest advisories from hard format,
 alpha, aspect and budget failures. Accepted source art may have advisories; report
@@ -218,10 +212,8 @@ actual output rather than relying on an old fixed warning count. Package tests
 intentionally exercise bad catalogs and print expected failure diagnostics after
 a successful unittest summary. Inspect exit status and the named negative fixture.
 
-Ignored Rust diagnostics are explicit GPU, trace or measurement workflows; they
-are not automatic CI obligations. The desktop script names the GPU resource
-checks it requires. Preserve meaningful boundary tests without turning normal
-test runs into full-map/performance campaigns.
+Native diagnostics are explicit developer workflows, outside ordinary CI.
+Use the smallest direct executable campaign covering the changed behavior.
 
 Recorded native campaigns on the development host use M2 Pro/Metal. Historical
 Linux container runs used software Vulkan; Windows cross-builds were not native
@@ -231,3 +223,12 @@ execution. Those results are limited to their dated reports, including
 [Office repairs](reports/office-defect-repair.md). They do not establish current
 Linux/Windows physical GPU acceptance. A source CI pass establishes its source
 checks, not every installed package's currency or manual keyboard/mouse feel.
+
+## FPS comparison requirements
+
+Disable V-sync and every engine/tool frame limiter for all FPS comparisons.
+Record the actual presentation mode and physical drawable size for each side,
+and verify that display pacing does not cap the result. Requested Immediate mode
+alone is insufficient: a run plateauing at refresh rate is inconclusive for
+throughput gains and must be labeled accordingly. Report the observed pacing
+limit; do not turn GPU stage timings or a requested setting into an FPS gain.

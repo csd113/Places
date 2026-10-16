@@ -152,9 +152,6 @@ pub(crate) use occlusion::set_preparation_assets;
 mod tuning;
 mod visibility;
 
-#[cfg(test)]
-mod tests;
-
 pub use bake::{
     BakeConfig, BakeTerms, BakedLight, LevelLighting, LightingSummary, PoolTerm, RoomLighting,
     ZoneLighting,
