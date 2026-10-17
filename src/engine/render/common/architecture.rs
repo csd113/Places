@@ -485,8 +485,6 @@ fn emit_ramp(
     scratch: &mut Vec<Vertex>,
     ramp: &RampDef,
 ) {
-    let (x0, x1, z0, z1) = ramp.bounds();
-    let (cx, cz) = (f32::midpoint(x0, x1), f32::midpoint(z0, z1));
     if !ramp.width.is_finite()
         || !ramp.depth.is_finite()
         || ramp.width <= 0.0
@@ -496,11 +494,13 @@ fn emit_ramp(
     {
         return;
     }
-    let Some(room_floor) = context.surfaces.room_floor_y_at(cx, cz) else {
+    let Some((room_index, room)) = context.surfaces.ramp_room(ramp) else {
         return;
     };
-    let Some(room_index) = context.surfaces.room_index_at(cx, cz) else {
-        return;
+    let room_floor = if room.floor_y.is_finite() {
+        room.floor_y
+    } else {
+        0.0
     };
     let key = floor_key(context, ramp.floor_ref());
     let tile = context.materials.tile_metres(key);
@@ -659,11 +659,11 @@ fn ramp_side_knots(level: &LevelDef, side: RampSide) -> Vec<f32> {
     knots
 }
 
-/// The exact neighboring profile and whether it is the unchanged room floor,
-/// which also supplies the historical backing plane for a recessed ramp.
+/// The exact neighboring profile and whether its own architecture emits a
+/// side. Plain floors and regions delegate their ramp boundary to this slope.
 struct RampSideNeighbor {
     heights: (f32, f32),
-    underlying_room: Option<usize>,
+    owns_side: bool,
 }
 
 /// Resolve ownership inside an interval, then evaluate both boundary endpoints
@@ -675,12 +675,11 @@ fn ramp_side_neighbor_heights(
     span: (f32, f32),
 ) -> Option<RampSideNeighbor> {
     let midpoint = f32::midpoint(span.0, span.1);
-    let (room_index, room) = context
+    let room = context
         .surfaces
         .rooms()
         .iter()
-        .enumerate()
-        .find(|(_, room)| side.covered_at(room.bounds(), midpoint))?;
+        .find(|room| side.covered_at(room.bounds(), midpoint))?;
     let floor = if room.floor_y.is_finite() {
         room.floor_y
     } else {
@@ -700,32 +699,32 @@ fn ramp_side_neighbor_heights(
                 floor + ramp.offset_at(first[0], first[2]),
                 floor + ramp.offset_at(last[0], last[2]),
             ),
-            underlying_room: None,
+            owns_side: true,
         });
     }
     let middle = side.point(midpoint, 0.0);
-    let offset = context
+    let neighboring_stair = context
         .level
         .stairs
         .iter()
         .rev()
-        .find(|stair| side.covered_at(stair.bounds(), midpoint))
-        .map_or_else(
-            || {
-                context
-                    .level
-                    .floor_regions
-                    .iter()
-                    .rev()
-                    .find(|region| side.covered_at(region.bounds(), midpoint))
-                    .map(crate::engine::level::FloorRegionDef::offset)
-            },
-            |stair| Some(stair.offset_at(middle[0], middle[2])),
-        );
+        .find(|stair| side.covered_at(stair.bounds(), midpoint));
+    let offset = neighboring_stair.map_or_else(
+        || {
+            context
+                .level
+                .floor_regions
+                .iter()
+                .rev()
+                .find(|region| side.covered_at(region.bounds(), midpoint))
+                .map(crate::engine::level::FloorRegionDef::offset)
+        },
+        |stair| Some(stair.offset_at(middle[0], middle[2])),
+    );
     let height = floor + offset.unwrap_or(0.0);
     Some(RampSideNeighbor {
         heights: (height, height),
-        underlying_room: offset.is_none().then_some(room_index),
+        owns_side: neighboring_stair.is_some(),
     })
 }
 
@@ -776,12 +775,6 @@ fn emit_ramp_sides(
     edge_tile: f32,
 ) {
     let (x0, x1, z0, z1) = ramp.bounds();
-    let Some(own_room) = context
-        .surfaces
-        .room_index_at(f32::midpoint(x0, x1), f32::midpoint(z0, z1))
-    else {
-        return;
-    };
     let axis = ramp.axis();
     let (across_low, across_high) = match axis {
         WallAxis::X => (z0, z1),
@@ -801,25 +794,17 @@ fn emit_ramp_sides(
         };
         for endpoints in ramp_side_knots(context.level, side).windows(2) {
             let &[start, end] = endpoints else { continue };
-            // An unmodified room floor backs the solid wedge of a standalone
-            // recessed ramp at its lowest endpoint. Authored neighbors retain
-            // their exact profiles, including when they stand above this ramp.
-            // With no room outside the side, the original exterior closure
-            // bottoms at the ramp's low endpoint, independently of room floor.
-            let bottom = ramp_side_neighbor_heights(context, side, (start, end)).map_or_else(
-                || {
-                    let backing = room_floor + ramp.low_offset();
-                    (backing, backing)
-                },
-                |neighbor| {
-                    if neighbor.underlying_room == Some(own_room) {
-                        let backing = neighbor.heights.0.min(room_floor + ramp.low_offset());
-                        (backing, backing)
-                    } else {
-                        neighbor.heights
-                    }
-                },
-            );
+            // Exterior sides retain their low-end backing. A real neighbor
+            // supplies its actual surface; a higher deck needs an inward face
+            // above this recessed slope, rather than a buried wedge below it.
+            let (bottom, close_recess) = ramp_side_neighbor_heights(context, side, (start, end))
+                .map_or_else(
+                    || {
+                        let backing = room_floor + ramp.low_offset();
+                        ((backing, backing), false)
+                    },
+                    |neighbor| (neighbor.heights, !neighbor.owns_side),
+                );
             let first = side.point(start, 0.0);
             let last = side.point(end, 0.0);
             let profile = RampSideSpan {
@@ -833,6 +818,27 @@ fn emit_ramp_sides(
             if let Some(exposed) = profile.exposed() {
                 emit_ramp_side_span(
                     context, buckets, scratch, side, exposed, edge_key, edge_tile,
+                );
+            }
+            if close_recess
+                && let Some(exposed) = (RampSideSpan {
+                    span: profile.span,
+                    top: profile.bottom,
+                    bottom: profile.top,
+                })
+                .exposed()
+            {
+                emit_ramp_side_span(
+                    context,
+                    buckets,
+                    scratch,
+                    RampSide {
+                        sign: -side.sign,
+                        ..side
+                    },
+                    exposed,
+                    edge_key,
+                    edge_tile,
                 );
             }
         }
@@ -923,7 +929,8 @@ fn emit_ramp_ends(
         if (adjacent - end_y).abs() <= FLUSH_EPS_M {
             continue;
         }
-        let sign = if end > 0.5 { 1.0 } else { -1.0 };
+        let outward = if end > 0.5 { 1.0 } else { -1.0 };
+        let sign = if end_y < adjacent { -outward } else { outward };
         let expected = match axis {
             WallAxis::X => [sign, 0.0, 0.0],
             WallAxis::Z => [0.0, 0.0, sign],

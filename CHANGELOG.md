@@ -1,5 +1,14 @@
 ## 0.12.0 — in progress
 
+- Add contextual geometry tools for signed ramps, recessed/raised regions,
+  upper floors and snapped rectangular floor/ceiling openings, retaining raw
+  data and one-step undo. Fix below-floor ramps being covered by their carrier
+  floor; geometry revision 2 invalidates prior prepared geometry.
+- Add bounded, locatable safety review for sampled drops/jump escapes, collision,
+  coplanar architecture/model triangles and material/depth risks. Preview and
+  individually remove only identical simple walls; retain artistic intersections,
+  unknown metadata and intentional decals. See [stage 4 evidence](docs/reports/editor-0.12.0-task4.md).
+
 - Add the separate native `places-editor` application: shared-renderer 3D
   viewport, picking/selection, transforms, snapping, built-in prop/material
   selection, per-level undo/redo, project create/open and protected atomic saves.
@@ -31,7 +40,7 @@
   source headers and authoring tools were migrated together.
 - Add three compact project-contract regressions and one tiny binary-contract
   regression without a shipped-map bake.
-  Custom importers, Luau execution, advanced editor tools and polished multi-level export
+  Custom importers, Luau execution, rich gameplay tools and polished multi-level export
   remain later work. See [the source contract and stage handoff](docs/PROJECT_FORMAT.md).
 
 ## 0.11.0 — 2026-10-17

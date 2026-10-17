@@ -2,12 +2,16 @@ use serde_json::{Map, Value};
 
 use crate::engine::level::{LevelDef, LevelSurfaces};
 
+use super::geometry;
+
 /// Supported editor collections. Other source collections remain untouched.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ObjectKind {
     Room,
     Wall,
     Prop,
+    Ramp,
+    FloorRegion,
 }
 
 /// A selection addresses an array entry in the current document revision.
@@ -17,6 +21,8 @@ pub enum ObjectId {
     Room(usize),
     Wall(usize),
     Prop(usize),
+    Ramp(usize),
+    FloorRegion(usize),
 }
 
 impl ObjectId {
@@ -25,12 +31,17 @@ impl ObjectId {
             Self::Room(index) => ("rooms", index),
             Self::Wall(index) => ("walls", index),
             Self::Prop(index) => ("props", index),
+            Self::Ramp(index) => ("ramps", index),
+            Self::FloorRegion(index) => ("floor_regions", index),
         }
     }
 }
 
 /// Scalar authoring transform. Room/wall positions are minimum corners; a
 /// prop's position is its floor-relative base and size is uniform scale.
+///
+/// Ramp/region Y is room-relative offset; ramp size Y is signed rise.
+/// A region has no independent thickness, so its size Y is a fixed 1.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Transform {
     pub position: [f32; 3],
@@ -65,9 +76,23 @@ pub(super) fn enumerate(level: &LevelDef) -> Vec<ObjectInfo> {
             prop.id.as_ref().unwrap_or(&prop.model).clone(),
         )
     });
+    let ramps = level.ramps.iter().enumerate().map(|(index, _)| {
+        (
+            ObjectId::Ramp(index),
+            format!("Ramp {}", index.saturating_add(1)),
+        )
+    });
+    let regions = level.floor_regions.iter().enumerate().map(|(index, _)| {
+        (
+            ObjectId::FloorRegion(index),
+            format!("Region {}", index.saturating_add(1)),
+        )
+    });
     rooms
         .chain(walls)
         .chain(props)
+        .chain(ramps)
+        .chain(regions)
         .filter_map(|(id, label)| {
             transform(level, id).ok().map(|transform| ObjectInfo {
                 id,
@@ -102,6 +127,16 @@ pub(super) fn transform(level: &LevelDef, id: ObjectId) -> Result<Transform, Str
             size: [prop.scale; 3],
             yaw_degrees: prop.rotation_degrees,
         }),
+        ObjectId::Ramp(index) => level.ramps.get(index).map(|ramp| Transform {
+            position: [ramp.x, ramp.offset_y, ramp.z],
+            size: [ramp.width, ramp.rise, ramp.depth],
+            yaw_degrees: 0.0_f32,
+        }),
+        ObjectId::FloorRegion(index) => level.floor_regions.get(index).map(|region| Transform {
+            position: [region.x, region.offset_y, region.z],
+            size: [region.width, 1.0_f32, region.depth],
+            yaw_degrees: 0.0_f32,
+        }),
     }
     .ok_or_else(|| "The selected object no longer exists".into())
 }
@@ -118,9 +153,11 @@ pub(super) fn set_transform(
         .chain(&proposed.size)
         .all(|value| value.is_finite())
         || !proposed.yaw_degrees.is_finite()
-        || proposed.size.iter().any(|value| *value <= 0.0_f32)
+        || proposed.size.iter().enumerate().any(|(axis, value)| {
+            *value <= 0.0_f32 && !(matches!(id, ObjectId::Ramp(_)) && axis == 1)
+        })
     {
-        return Err("Transform requires finite positions and positive finite sizes".into());
+        return Err("Transform requires finite coordinates and positive sizes; only ramp rise may be negative".into());
     }
     let current = transform(level, id)?;
     let object = object_mut(raw, id)?;
@@ -171,6 +208,9 @@ pub(super) fn set_transform(
                 set_number(object, "height", height);
             }
         }
+        ObjectId::Ramp(_) | ObjectId::FloorRegion(_) => {
+            geometry::set_transform(object, id, proposed)?;
+        }
     }
     Ok(())
 }
@@ -193,7 +233,7 @@ fn require_simple_rotation(object: &Map<String, Value>, id: ObjectId) -> Result<
                 Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => false,
             })
         }),
-        ObjectId::Prop(_) => false,
+        ObjectId::Prop(_) | ObjectId::Ramp(_) | ObjectId::FloorRegion(_) => false,
     };
     if complex {
         return Err(
@@ -231,6 +271,14 @@ pub(super) fn add(
                 serde_json::json!({"id":unique_prop_id(raw)?, "model":asset.unwrap_or("core:chair"), "x":x, "y":y, "z":z, "solid":true}),
             )
         }
+        ObjectKind::Ramp => (
+            "ramps",
+            serde_json::json!({"x":x, "offset_y":y, "z":z, "width":3.0_f32, "depth":1.0_f32, "rise":0.5_f32}),
+        ),
+        ObjectKind::FloorRegion => (
+            "floor_regions",
+            serde_json::json!({"x":x, "offset_y":y, "z":z, "width":2.0_f32, "depth":2.0_f32}),
+        ),
     };
     if kind != ObjectKind::Prop
         && let Some(material) = asset
@@ -249,6 +297,8 @@ pub(super) fn add(
         ObjectKind::Room => ObjectId::Room(index),
         ObjectKind::Wall => ObjectId::Wall(index),
         ObjectKind::Prop => ObjectId::Prop(index),
+        ObjectKind::Ramp => ObjectId::Ramp(index),
+        ObjectKind::FloorRegion => ObjectId::FloorRegion(index),
     })
 }
 
@@ -280,10 +330,10 @@ pub(super) fn duplicate(
     set_position(
         &mut object,
         [x + 0.5_f32, y, z + 0.5_f32],
-        if matches!(id, ObjectId::Room(_)) {
-            "floor_y"
-        } else {
-            "y"
+        match id {
+            ObjectId::Room(_) => "floor_y",
+            ObjectId::Ramp(_) | ObjectId::FloorRegion(_) => "offset_y",
+            ObjectId::Wall(_) | ObjectId::Prop(_) => "y",
         },
     );
     if matches!(id, ObjectId::Prop(_)) {
@@ -297,6 +347,8 @@ pub(super) fn duplicate(
         ObjectId::Room(_) => ObjectId::Room(index),
         ObjectId::Wall(_) => ObjectId::Wall(index),
         ObjectId::Prop(_) => ObjectId::Prop(index),
+        ObjectId::Ramp(_) => ObjectId::Ramp(index),
+        ObjectId::FloorRegion(_) => ObjectId::FloorRegion(index),
     })
 }
 
@@ -384,18 +436,22 @@ pub(super) fn set_prop_collision(
     Ok(())
 }
 
-fn set_position(object: &mut Map<String, Value>, position: [f32; 3], vertical_key: &str) {
+pub(super) fn set_position(
+    object: &mut Map<String, Value>,
+    position: [f32; 3],
+    vertical_key: &str,
+) {
     let [x, y, z] = position;
     set_number(object, "x", x);
     set_number(object, vertical_key, y);
     set_number(object, "z", z);
 }
 
-fn set_number(object: &mut Map<String, Value>, key: &str, value: f32) {
+pub(super) fn set_number(object: &mut Map<String, Value>, key: &str, value: f32) {
     drop(object.insert(key.into(), Value::from(value)));
 }
 
-fn object_mut(raw: &mut Value, id: ObjectId) -> Result<&mut Map<String, Value>, String> {
+pub(super) fn object_mut(raw: &mut Value, id: ObjectId) -> Result<&mut Map<String, Value>, String> {
     let (collection, index) = id.collection();
     array_mut(raw, collection)?
         .get_mut(index)
@@ -403,7 +459,10 @@ fn object_mut(raw: &mut Value, id: ObjectId) -> Result<&mut Map<String, Value>, 
         .ok_or_else(|| "The selected object no longer exists".into())
 }
 
-fn array_mut<'a>(raw: &'a mut Value, collection: &str) -> Result<&'a mut Vec<Value>, String> {
+pub(super) fn array_mut<'a>(
+    raw: &'a mut Value,
+    collection: &str,
+) -> Result<&'a mut Vec<Value>, String> {
     let root = raw.as_object_mut().ok_or("Scene must be a JSON object")?;
     root.entry(collection)
         .or_insert_with(|| Value::Array(Vec::new()))

@@ -151,6 +151,9 @@ fn prepare(
 ) -> Result<PreparedPreview, String> {
     let root = crate::engine::assets::resolve_asset_root()
         .ok_or_else(|| "Cannot locate built-in assets for the scene preview".to_string())?;
+    // Preview the same derived trim and aligned fixtures as compilation while
+    // keeping the authoritative document untouched.
+    crate::map_compiler::prepare_level(&mut level, catalog.assets(), None);
     // Atmosphere is presentation policy rather than editable geometry. Keep the
     // inspection view clear without writing any of these changes to the file.
     level.environment = None;

@@ -7825,10 +7825,10 @@ impl LevelDef {
         boxes
     }
 
-    /// Upper bound on the extra floor-grid cut lines the floor patches and
-    /// floor regions overlapping `room` add, as an `(x, z)` count pair.
+    /// Upper bound on the extra floor-grid cut lines the floor patches,
+    /// regions and ramps overlapping `room` add, as an `(x, z)` count pair.
     ///
-    /// Every patch/region edge inside the room becomes a cut line, so the
+    /// Every patch/region/ramp edge inside the room becomes a cut line, so the
     /// floor's cell count grows by at most two per axis per intersecting
     /// element. Including them keeps [`Self::estimate_geometry`] an upper bound
     /// on what the builder emits.
@@ -7840,7 +7840,8 @@ impl LevelDef {
             .floor_patches
             .iter()
             .map(FloorPatchDef::bounds)
-            .chain(self.floor_regions.iter().map(FloorRegionDef::bounds));
+            .chain(self.floor_regions.iter().map(FloorRegionDef::bounds))
+            .chain(self.ramps.iter().map(RampDef::bounds));
         for (ex0, ex1, ez0, ez1) in edges {
             if ex1 <= x0 || ex0 >= x1 || ez1 <= z0 || ez0 >= z1 {
                 continue;
@@ -8658,6 +8659,22 @@ impl<'a> LevelSurfaces<'a> {
         self.ramps.iter().rev().find(|ramp| ramp.contains(x, z))
     }
 
+    /// Render owner of a ramp. Prefer its centre; a loader-valid partial
+    /// overlap whose centre is outside every room uses the first overlapping
+    /// carrier. Validation ensures overlapping carriers share one floor plane.
+    #[must_use]
+    pub fn ramp_room(&self, ramp: &RampDef) -> Option<(usize, &'a RoomDef)> {
+        let (x0, x1, z0, z1) = ramp.bounds();
+        let centre = (f32::midpoint(x0, x1), f32::midpoint(z0, z1));
+        let owner = self.room_index_at(centre.0, centre.1).or_else(|| {
+            self.rooms.iter().position(|room| {
+                let (rx0, rx1, rz0, rz1) = room.bounds();
+                rx0 < x1 && rx1 > x0 && rz0 < z1 && rz1 > z0
+            })
+        })?;
+        self.rooms.get(owner).copied().map(|room| (owner, room))
+    }
+
     /// The last (highest-precedence) staircase covering `(x, z)`.
     #[must_use]
     pub fn stair_at(&self, x: f32, z: f32) -> Option<&'a StairDef> {
@@ -8990,6 +9007,14 @@ impl<'a> LevelSurfaces<'a> {
             edges_x.push(x1);
             edges_z.push(z0);
             edges_z.push(z1);
+        }
+        // A ramp owns its entire walking footprint. Its boundary must be a
+        // floor-cell edge so the flat carrier can be omitted there, including
+        // when a descending slope lies below the room's original floor.
+        for ramp in self.ramps_for_room(room) {
+            let (x0, x1, z0, z1) = ramp.bounds();
+            edges_x.extend([x0, x1]);
+            edges_z.extend([z0, z1]);
         }
         for patch in self.patches_for_room(room) {
             edges_x.push(patch.x);

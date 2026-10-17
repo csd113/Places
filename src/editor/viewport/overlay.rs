@@ -55,6 +55,32 @@ impl Guides {
     }
 
     pub fn selection(&mut self, bounds: Aabb) {
+        self.box_lines(bounds, [1.0, 0.74, 0.2, 1.0]);
+        let centre = Vec3::from_array(bounds.centre());
+        for (axis, color) in [
+            (Vec3::X, [1.0, 0.25, 0.2, 1.0]),
+            (Vec3::Y, [0.35, 1.0, 0.35, 1.0]),
+            (Vec3::Z, [0.3, 0.55, 1.0, 1.0]),
+        ] {
+            self.axis(centre, axis, color);
+        }
+    }
+
+    pub fn diagnostic(&mut self, bounds: Aabb, surfaces: &[[[f32; 3]; 3]]) {
+        self.box_lines(bounds, [1.0, 0.25, 0.3, 1.0]);
+        for triangle in surfaces {
+            for (first, second) in triangle.iter().zip(triangle.iter().cycle().skip(1)).take(3) {
+                self.line(
+                    Vec3::from_array(*first),
+                    Vec3::from_array(*second),
+                    [1.0, 0.3, 0.45, 1.0],
+                    1.2,
+                );
+            }
+        }
+    }
+
+    fn box_lines(&mut self, bounds: Aabb, color: [f32; 4]) {
         let [x0, y0, z0] = bounds.min;
         let [x1, y1, z1] = bounds.max;
         let bottom = [
@@ -75,19 +101,11 @@ impl Guides {
                 .zip(ring.into_iter().cycle().skip(1))
                 .take(4)
             {
-                self.line(start, end, [1.0, 0.74, 0.2, 1.0], 0.65);
+                self.line(start, end, color, 0.65);
             }
         }
         for (start, end) in bottom.into_iter().zip(top) {
-            self.line(start, end, [1.0, 0.74, 0.2, 1.0], 0.65);
-        }
-        let centre = Vec3::from_array(bounds.centre());
-        for (axis, color) in [
-            (Vec3::X, [1.0, 0.25, 0.2, 1.0]),
-            (Vec3::Y, [0.35, 1.0, 0.35, 1.0]),
-            (Vec3::Z, [0.3, 0.55, 1.0, 1.0]),
-        ] {
-            self.axis(centre, axis, color);
+            self.line(start, end, color, 0.65);
         }
     }
 

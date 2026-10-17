@@ -2,6 +2,7 @@
 //! validated view, never the serialization source: future/unsupported fields
 //! therefore survive ordinary edits and saves.
 
+mod geometry;
 mod history;
 mod objects;
 mod persistence;

@@ -1,4 +1,4 @@
-# Basic editor (0.12.0 task3)
+# Editor geometry and safety (0.12.0 task4)
 
 Run `places-editor` beside `places-compile` and `places`, with the external
 `assets/` payload described in [INSTALLATION.md](INSTALLATION.md). No map bake is
@@ -39,8 +39,8 @@ quarter-turn rotation swaps dimensions about the centre and displays zero yaw
 afterwards. Unsafe rotations of profiled/per-face/opening data are refused.
 Prop Y is floor-relative; all scale fields change uniform scale. Prop library
 chooses the next built-in model; Material assigns a floor/wall material. Scroll
-the scene list independently. The shared renderer cuts away ceilings and uses
-neutral preview light; Play shows authored ceilings, lighting and dynamic behavior.
+the scene list independently. The shared renderer applies compiler trim/fixture preparation, cuts away ceilings
+and uses neutral preview light; Play shows authored ceilings, lighting and dynamic behavior.
 
 Save validates the raw authoritative scene and uses an owned sibling temporary
 plus atomic rename. Unknown fields remain intact; the manifest remains byte-for-byte.
@@ -79,8 +79,55 @@ during normal editing; the task3 evidence retains the scripts used. It permits
 repeatable checks of unbundled direct executables when desktop automation cannot
 address their windows.
 
-Advanced geometry, custom importers, rich light/gameplay/trigger/fog/door tools,
-diagnostics/auto-fixes, Luau, project bundles, menu scenes and final distribution
-signoff remain later work. Other scene collections are preserved; controls edit
-floors, walls and passive built-in props. Native Windows/Linux acceptance remains
-outstanding.
+`+ Geometry` groups floor/ceiling, wall, ramp and recess creation; `+ Prop` keeps
+model placement direct. Detailed controls follow the selection. Ramp Offset is
+relative to the carrier room floor; Rise is signed toward the footprint's longer
+axis, shown by UP +/-X/Z. Width/Depth choose the run axis (ties select X). Turn
+uses quarter turns and preserves the two endpoint heights; square quarter turns
+are refused because the format cannot express their changed axis. Recess Offset
+is signed; negative lowers the basin and positive raises a platform. A region
+has no independent thickness. Water remains an independent preserved collection.
+
+Select a floor, then `Shape >` to choose a snapped world-space rectangular
+opening or add an upper floor. A cut replaces the selected room with up to four
+strips and removes **both its floor and its ceiling** inside the rectangle.
+It preserves materials, tile frames and unknown record data in each strip.
+Other storeys remain; a through shaft requires explicit cuts on each storey.
+The upper-floor tool copies the footprint one room height above, retaining the
+lower ceiling. Gable splits, occupied upper space, and ambiguous global walking
+modifiers are refused. Connect storeys through a separate shaft/landings; ramps
+and regions affect every overlapping room footprint and ramps cannot span
+different room floor planes. These operations are one undo step each.
+
+`Safety >` runs a bounded background review of the current revision. Findings
+separate void/drop and player-collision risks, geometry overlap, duplicate or
+coplanar sheets, and material/depth uncertainty. The editor reuses the production
+prepared-geometry checker, samples room/ramp edges at the player's crouched jump
+apex, checks deep-basin exits, and compares actual transformed static GLB
+triangles with architecture and other models. Colored bounds localize risks;
+measured triangle pairs are outlined when available. `View in viewport` closes
+the details; reopening Safety retains the reviewed finding. Model collision
+warnings and envelope layering estimates are labeled estimates, not triangle
+proofs. Intentional artistic intersections remain unchanged; decals use their
+separate depth-biased pass and are excluded from model coplanarity comparisons.
+
+Only identical simple raw wall records receive a removal candidate. Metadata,
+openings, per-face data and props disqualify automatic deletion. `Preview fix`
+renders the candidate without editing source/history and leaves the scene open
+to camera navigation. `Back to finding`, Close or Esc restores the source view.
+`Apply` is available after preview, applies one correction and creates one undo
+step. Any intervening source edit invalidates the candidate; validation failure
+leaves the source and history untouched. No bulk correction or automatic filling,
+prop movement, intersection repair or artistic reinterpretation is performed.
+
+The checks are not an exhaustive no-clip, watertightness, reachability or rendered
+z-fighting proof. Edge sampling can miss narrow routes; motion, alpha pixels,
+water, ladders and every camera/depth situation are not simulated. Oversized
+scenes, missing models and exhausted budgets produce explicit incomplete-review
+findings. Play-test jumps, shafts and pools. Source and manifest formats remain
+unchanged; geometry revision 2 requires recompiling prior prepared output after
+the descending-ramp surface correction. See [stage 4 evidence and limits](reports/editor-0.12.0-task4.md).
+
+Custom importers, rich light/gameplay/trigger/fog/door tools, Luau, project bundles,
+menu scenes and final distribution signoff remain later work. Other source
+collections are preserved. Native Windows/Linux acceptance remains outstanding.

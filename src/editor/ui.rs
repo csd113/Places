@@ -6,6 +6,16 @@ use crate::engine::render::Vertex;
 use super::App;
 use super::document::{ObjectId, ObjectKind};
 
+mod geometry;
+mod inspector;
+mod library;
+mod safety;
+
+pub(super) use geometry::{geometry_popup, shape_popup};
+use inspector::inspector;
+pub(super) use library::draw_library as library_popup;
+pub(super) use safety::safety_popup;
+
 pub(super) const INK: [f32; 4] = [0.88, 0.92, 0.95, 1.0];
 const MUTED: [f32; 4] = [0.53, 0.62, 0.69, 1.0];
 const ACCENT: [f32; 4] = [0.37, 0.86, 0.71, 1.0];
@@ -24,6 +34,16 @@ pub(super) enum Action {
     Cancel,
     Stop,
     Add(ObjectKind),
+    Geometry,
+    Shape,
+    CutOpening,
+    UpperFloor,
+    Safety,
+    Finding(bool),
+    PreviewFix,
+    CancelFix,
+    ApplyFix,
+    InspectFinding,
     Select(ObjectId),
     Duplicate,
     Delete,
@@ -235,10 +255,34 @@ fn toolbar(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
             Action::Play,
             idle && app.document.is_some(),
         ),
-        (254.0, 37.0, "Cancel", Action::Cancel, app.compile.is_some()),
-        (294.0, 47.0, "Stop Play", Action::Stop, app.play.is_some()),
+        (
+            294.0,
+            47.0,
+            if app.safety_job.is_some() {
+                "Checking"
+            } else {
+                "Safety >"
+            },
+            Action::Safety,
+            app.document.is_some(),
+        ),
     ] {
         button(vertices, hits, [x, 14.0, w, 11.0], label, action, enabled);
+    }
+    if app.compile.is_some() || app.play.is_some() {
+        let playing = app.play.is_some();
+        button(
+            vertices,
+            hits,
+            [254.0, 14.0, 37.0, 11.0],
+            if playing { "Stop Play" } else { "Cancel" },
+            if playing {
+                Action::Stop
+            } else {
+                Action::Cancel
+            },
+            true,
+        );
     }
 }
 
@@ -287,17 +331,16 @@ fn scene(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         Action::Level,
         app.document.is_some(),
     );
-    for (x, w, label, kind) in [
-        (5.0, 32.0, "+ Floor", ObjectKind::Room),
-        (40.0, 30.0, "+ Wall", ObjectKind::Wall),
-        (73.0, 34.0, "+ Prop", ObjectKind::Prop),
+    for (x, w, label, action) in [
+        (5.0, 65.0, "+ Geometry", Action::Geometry),
+        (73.0, 34.0, "+ Prop", Action::Add(ObjectKind::Prop)),
     ] {
         button(
             vertices,
             hits,
             [x, 52.0, w, 11.0],
             label,
-            Action::Add(kind),
+            action,
             app.document.is_some(),
         );
     }
@@ -333,59 +376,6 @@ fn scene(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         MUTED,
         29,
     );
-}
-
-fn inspector(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
-    text(vertices, "TRANSFORM", 5.0, 131.0, ACCENT, 25);
-    if let Some(transform) = app
-        .selected
-        .and_then(|id| app.document.as_ref()?.transform(id).ok())
-    {
-        let [pos_x, pos_y, pos_z] = transform.position;
-        let [width, height, depth] = transform.size;
-        let prop = matches!(app.selected, Some(ObjectId::Prop(_)));
-        for (index, (label, value)) in [
-            ("X", pos_x),
-            ("Y", pos_y),
-            ("Z", pos_z),
-            (if prop { "Scale" } else { "Width" }, width),
-            (if prop { "Scale" } else { "Height" }, height),
-            (if prop { "Scale" } else { "Depth" }, depth),
-            ("Yaw", transform.yaw_degrees),
-        ]
-        .into_iter()
-        .enumerate()
-        {
-            let top = f32::from(u16::try_from(index).unwrap_or(0)).mul_add(10.0, 141.0);
-            text(vertices, label, 5.0, top + 3.0, MUTED, 8);
-            button(
-                vertices,
-                hits,
-                [33.0, top, 52.0, 9.0],
-                &format!("{value:.3}"),
-                Action::Field(index),
-                true,
-            );
-            button(
-                vertices,
-                hits,
-                [87.0, top, 9.0, 9.0],
-                "-",
-                Action::Nudge(index, false),
-                true,
-            );
-            button(
-                vertices,
-                hits,
-                [98.0, top, 9.0, 9.0],
-                "+",
-                Action::Nudge(index, true),
-                true,
-            );
-        }
-    } else {
-        text(vertices, "Select an object", 5.0, 145.0, MUTED, 27);
-    }
 }
 
 fn footer(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
@@ -427,7 +417,8 @@ fn footer(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         [58.0, 228.0, 49.0, 10.0],
         "Material",
         Action::Materials,
-        app.selected.is_some(),
+        app.selected
+            .is_some_and(|id| !matches!(id, ObjectId::Prop(_))),
     );
     text(vertices, &app.status, 5.0, 247.0, INK, 133);
     text(

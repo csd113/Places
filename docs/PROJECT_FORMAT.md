@@ -127,7 +127,7 @@ old files must be recompiled, never guessed or migrated at runtime.
 | Compiled lighting / irradiance field | 4 / 4 | 1 each | Runtime light-source and probe-field records |
 | Lightmap metadata / reflection positions | 4 / 3 | 1 each | Atlas chart and HDR cube metadata |
 | Navigation / shared-prop recipe / compact atlas | 1 each | 1, fresh signatures | Bounded prepared binary layouts |
-| Lightmap cache / solver / geometry | 15 / 21 / 16 | 1 each | Offline rebuild identity, not extra source schemas |
+| Lightmap cache / solver / geometry | 15 / 21 / 16 | 1 / 1 / 2 | Offline rebuild identity, not extra source schemas |
 | Compiler build inputs / checker / repair plan | 1 each | 1 | Provenance and developer diagnostic protocols |
 | Compiler asset-input / lighting-stage key | 2 / 3 | 1 each | Compiler cache protocols, with structural changes owned by solver/geometry revisions |
 
@@ -202,3 +202,12 @@ directly from `/tmp` with explicit repository assets and isolated state. This
 is a native format/load smoke, not clean-install, platform or performance
 acceptance. Existing real-map packages were preserved and reported that they
 require recompilation; the full lineup was not baked.
+
+
+Stage 4 retains the exact manifest and raw level contracts. Ramps and regions use
+existing arrays; openings are explicit room strips rather than a new portal
+schema. Upper floors are ordinary elevated rooms. Geometry revision 2 corrects
+carrier floors and skirts around descending ramps and invalidates prepared
+geometry, without changing source or package record layouts. The editor's safety
+candidates are memory-only raw snapshots until explicitly applied and saved.
+See [geometry authoring, safety and limitations](EDITOR.md).

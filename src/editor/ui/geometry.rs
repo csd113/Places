@@ -1,0 +1,142 @@
+//! Creation choices and contextual floor operations stay out of the viewport.
+
+use super::{ACCENT, Action, Hit, INK, MUTED, button, text};
+use crate::editor::App;
+use crate::editor::document::{ObjectId, ObjectKind};
+use crate::engine::render::Vertex;
+
+pub(in crate::editor) fn geometry_popup(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
+    text(v, "ADD GEOMETRY", 140.0, 74.0, ACCENT, 40);
+    for (x, y, label, kind) in [
+        (140.0, 88.0, "Floor + ceiling", ObjectKind::Room),
+        (264.0, 88.0, "Wall", ObjectKind::Wall),
+        (140.0, 109.0, "Ramp", ObjectKind::Ramp),
+        (264.0, 109.0, "Recess / basin", ObjectKind::FloorRegion),
+    ] {
+        button(v, hits, [x, y, 116.0, 16.0], label, Action::Add(kind), true);
+    }
+    text(
+        v,
+        "Basins are dry surfaces. Water is a separate feature.",
+        140.0,
+        133.0,
+        MUTED,
+        68,
+    );
+    text(
+        v,
+        "Select a floor for these connected-space tools:",
+        140.0,
+        146.0,
+        INK,
+        68,
+    );
+    let floor = matches!(app.selected, Some(ObjectId::Room(_)));
+    button(
+        v,
+        hits,
+        [140.0, 157.0, 240.0, 15.0],
+        "Floor shape tools >",
+        Action::Shape,
+        floor,
+    );
+    text(
+        v,
+        "Openings and upper floors use the selected footprint.",
+        140.0,
+        180.0,
+        MUTED,
+        68,
+    );
+    button(
+        v,
+        hits,
+        [330.0, 190.0, 50.0, 12.0],
+        "Close",
+        Action::ClosePopup,
+        true,
+    );
+}
+
+pub(in crate::editor) fn shape_popup(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
+    text(v, "FLOOR SHAPE", 140.0, 74.0, ACCENT, 45);
+    text(
+        v,
+        "OPENING RECTANGLE / world metres",
+        140.0,
+        86.0,
+        MUTED,
+        68,
+    );
+    let Some([x, z, width, depth]) = app.opening_rect else {
+        text(
+            v,
+            "Select a floor to edit its shape.",
+            140.0,
+            101.0,
+            INK,
+            68,
+        );
+        button(
+            v,
+            hits,
+            [330.0, 190.0, 50.0, 12.0],
+            "Close",
+            Action::ClosePopup,
+            true,
+        );
+        return;
+    };
+    for (left, top, label, field, value) in [
+        (140.0, 97.0, "X", 7, x),
+        (264.0, 97.0, "Z", 8, z),
+        (140.0, 110.0, "Width", 9, width),
+        (264.0, 110.0, "Depth", 10, depth),
+    ] {
+        text(v, label, left, top + 3.0, MUTED, 7);
+        button(
+            v,
+            hits,
+            [left + 26.0, top, 90.0, 10.0],
+            &format!("{value:.3}"),
+            Action::Field(field),
+            true,
+        );
+    }
+    text(
+        v,
+        "Cut removes floor+ceiling; four strips remain.",
+        140.0,
+        125.0,
+        INK,
+        68,
+    );
+    button(
+        v,
+        hits,
+        [140.0, 136.0, 240.0, 15.0],
+        "Cut opening / one undo step",
+        Action::CutOpening,
+        true,
+    );
+    button(
+        v,
+        hits,
+        [140.0, 165.0, 116.0, 15.0],
+        "Add upper floor",
+        Action::UpperFloor,
+        true,
+    );
+    text(v, "Copies +room height.", 264.0, 167.0, INK, 33);
+    text(v, "Lower ceiling stays.", 264.0, 176.0, MUTED, 33);
+    text(v, "Cut both storeys", 140.0, 191.0, MUTED, 50);
+    text(v, "for a through shaft.", 140.0, 200.0, MUTED, 50);
+    button(
+        v,
+        hits,
+        [330.0, 190.0, 50.0, 12.0],
+        "Close",
+        Action::ClosePopup,
+        true,
+    );
+}

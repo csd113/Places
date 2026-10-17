@@ -3,8 +3,11 @@
 
 mod actions;
 pub mod document;
+mod geometry_actions;
 mod input;
 pub mod process;
+mod safety;
+mod safety_actions;
 mod ui;
 mod verification;
 mod viewport;
@@ -66,6 +69,10 @@ struct App {
     object_scroll: usize,
     prop: String,
     popup: Option<Popup>,
+    safety_report: Option<safety::SafetyReport>,
+    safety_job: Option<Receiver<(serde_json::Value, safety::SafetyReport)>>,
+    safety_index: usize,
+    opening_rect: Option<[f32; 4]>,
     dialog_open: bool,
     dialog_sender: Sender<DialogResult>,
     dialog_receiver: Receiver<DialogResult>,
@@ -78,6 +85,10 @@ impl App {
         self.viewport.rebuild(document.level());
         self.viewport.frame_next_preview();
         self.document = Some(document);
+        self.safety_report = None;
+        self.safety_index = 0;
+        self.opening_rect = None;
+        self.viewport.highlight(None, &[]);
         self.selected = None;
         self.viewport.select(None);
         self.object_scroll = 0;
@@ -86,6 +97,10 @@ impl App {
     }
 
     fn changed(&mut self) {
+        self.safety_report = None;
+        self.safety_index = 0;
+        self.opening_rect = None;
+        self.viewport.highlight(None, &[]);
         if let Some(document) = &self.document {
             self.viewport.rebuild(document.level());
         }
@@ -106,7 +121,7 @@ impl App {
         let document = self.document.as_mut().ok_or("Open a project first")?;
         document.validate_assets(&self.catalog)?;
         document.save_all()?;
-        self.status = format!("Saved {}", document.root().display());
+        self.status = format!("Saved {}", document.manifest().name);
         Ok(())
     }
 
@@ -148,6 +163,29 @@ impl App {
             let result = self.viewport.capture(&path);
             self.report(result);
         }
+    }
+
+    fn update_window(&self, window: &mut sdl3::video::Window, video: &sdl3::VideoSubsystem) {
+        let wants_text = matches!(self.popup, Some(Popup::Number { field: _, value: _ }));
+        let text_input = video.text_input();
+        if text_input.is_active(window) != wants_text {
+            if wants_text {
+                text_input.start(window);
+            } else {
+                text_input.stop(window);
+            }
+        }
+        let title = self.document.as_ref().map_or_else(
+            || "Places - Editor".into(),
+            |d| {
+                format!(
+                    "{}{} - Places Editor",
+                    d.project().manifest().name,
+                    if d.is_dirty() { " *" } else { "" }
+                )
+            },
+        );
+        let _title = window.set_title(&title);
     }
 
     fn dialogs(&mut self) {
@@ -286,6 +324,10 @@ fn application(options: Options) -> Result<(), String> {
         object_scroll: 0,
         prop: "core:chair".into(),
         popup: None,
+        safety_report: None,
+        safety_job: None,
+        safety_index: 0,
+        opening_rect: None,
         dialog_open: false,
         dialog_sender,
         dialog_receiver,
@@ -298,39 +340,30 @@ fn application(options: Options) -> Result<(), String> {
         for event in events.poll_iter() {
             app.event(&event, &window, &hits);
         }
-        if app.popup.is_some() || app.dialog_open {
+        if (app.popup.is_some()
+            && !matches!(
+                app.popup,
+                Some(Popup::Safety {
+                    index: _,
+                    preview: true
+                })
+            ))
+            || app.dialog_open
+        {
             app.viewport.cancel_navigation();
         }
         app.dialogs();
         app.poll_jobs();
+        app.poll_safety();
         if let Some(error) = app.viewport.status() {
             app.status = format!("Viewport: {error}");
         }
-        let wants_text = matches!(app.popup, Some(Popup::Number { field: _, value: _ }));
-        let text_input = video.text_input();
-        if text_input.is_active(&window) != wants_text {
-            if wants_text {
-                text_input.start(&window);
-            } else {
-                text_input.stop(&window);
-            }
-        }
-        let title = app.document.as_ref().map_or_else(
-            || "Places - Editor".into(),
-            |d| {
-                format!(
-                    "{}{} - Places Editor",
-                    d.project().manifest().name,
-                    if d.is_dirty() { " *" } else { "" }
-                )
-            },
-        );
-        let _title = window.set_title(&title);
+        app.update_window(&mut window, &video);
         let (vertices, _hits) = ui::build(&app);
         let _presented = app.viewport.draw(&window, &vertices);
         app.capture_frame();
         if let Some(driver) = &mut verification {
-            driver.advance(&mut app, &window)?;
+            driver.advance(&mut app, &mut window)?;
         }
         std::thread::sleep(Duration::from_millis(16));
     }

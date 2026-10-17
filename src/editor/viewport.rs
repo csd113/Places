@@ -36,6 +36,8 @@ pub(super) struct Viewport {
     camera: Camera,
     objects: Vec<PickObject>,
     selected: Option<ObjectId>,
+    highlight_bounds: Option<Aabb>,
+    highlight_surfaces: Vec<[[f32; 3]; 3]>,
     size: DrawableSize,
     window_size: (u32, u32),
     drag: Drag,
@@ -62,6 +64,8 @@ impl Viewport {
             camera: Camera::default(),
             objects: Vec::new(),
             selected: None,
+            highlight_bounds: None,
+            highlight_surfaces: Vec::new(),
             size: DrawableSize::new(width, height),
             window_size: window.size(),
             drag: Drag::Idle,
@@ -77,6 +81,15 @@ impl Viewport {
         self.worker.request(level);
     }
 
+    pub fn highlight(&mut self, bounds: Option<Aabb>, surfaces: &[[[f32; 3]; 3]]) {
+        self.highlight_bounds = bounds;
+        self.highlight_surfaces = surfaces.to_vec();
+    }
+
+    pub fn frame_bounds(&mut self, bounds: Aabb) {
+        self.camera.frame(bounds);
+    }
+
     pub const fn select(&mut self, selected: Option<ObjectId>) {
         self.selected = selected;
     }
@@ -87,6 +100,10 @@ impl Viewport {
 
     pub const fn target(&self) -> [f32; 3] {
         self.camera.target.to_array()
+    }
+
+    pub const fn object_count(&self) -> usize {
+        self.objects.len()
     }
 
     pub fn status(&self) -> Option<&str> {
@@ -195,6 +212,9 @@ impl Viewport {
         }
         if let Some(bounds) = self.selected_bounds() {
             guides.selection(bounds);
+        }
+        if let Some(bounds) = self.highlight_bounds {
+            guides.diagnostic(bounds, &self.highlight_surfaces);
         }
         let mut vertices = guides.finish();
         vertices.extend_from_slice(ui);

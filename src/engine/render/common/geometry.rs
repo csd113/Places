@@ -23,6 +23,10 @@ use crate::engine::level::{MaterialRef, RoomDef, WallDef, WallSlice};
 use crate::engine::lighting::lightmap::{LightmapPlan, PatchKind};
 use crate::engine::spatial::SpatialBuckets;
 
+#[cfg(test)]
+#[path = "../../tests/ramp_mesh.rs"]
+mod ramp_mesh_tests;
+
 /// Directional shade multiplier applied to the top of a wall face.
 pub const WALL_TOP_GRADIENT: f32 = 1.05;
 /// Directional shade multiplier applied to the bottom of a wall face.
@@ -1375,7 +1379,7 @@ fn floor_coverage_at(
         }
         // Without regions the room floor is its whole footprint; with them the
         // grid is cut at their edges and each cell resolves its own height.
-        if surfaces.regions_for_room(room).is_empty() {
+        if surfaces.regions_for_room(room).is_empty() && surfaces.ramps_for_room(room).is_empty() {
             if (room.floor_y - y).abs() <= FLOOR_CAP_EPS {
                 rects.push((rx0.max(ax0), rx1.min(ax1), rz0.max(az0), rz1.min(az1)));
             }
@@ -1396,6 +1400,12 @@ fn floor_coverage_at(
                     continue;
                 };
                 let rect = (x0.max(ax0), x1.min(ax1), z0.max(az0), z1.min(az1));
+                if surfaces
+                    .ramp_at(f32::midpoint(x0, x1), f32::midpoint(z0, z1))
+                    .is_some()
+                {
+                    continue;
+                }
                 if rect.0 < rect.1 && rect.2 < rect.3 {
                     rects.push(rect);
                 }

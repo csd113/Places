@@ -1741,6 +1741,16 @@ fn append_floor_interfaces(
             let &[x0, x1] = x_span else {
                 continue;
             };
+            // The emitted ramp replaces this carrier cell. Retaining a
+            // horizontal interface here would shadow a recessed slope through
+            // an invisible deck. Full transport uses the actual slope mesh;
+            // this source-visibility structure has no analytic sloped plane.
+            if surfaces
+                .ramp_at(f32::midpoint(x0, x1), f32::midpoint(z0, z1))
+                .is_some()
+            {
+                continue;
+            }
             let y = grid.y_at(room, ix, iz);
             if let Some(plane) = Plane::new(x0, x1, z0, z1, y) {
                 horizontals.push(Horizontal::Floor(plane));

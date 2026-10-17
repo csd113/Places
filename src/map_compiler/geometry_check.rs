@@ -61,6 +61,10 @@ use crate::engine::level::{
 use crate::engine::materials::MaterialTable;
 use crate::engine::render::{LevelMesh, SurfaceKey, SurfaceKind, Vertex};
 
+#[cfg(test)]
+#[path = "tests/geometry_surfaces.rs"]
+mod surface_tests;
+
 /// Stable format id written into the machine-readable report.
 pub const CHECK_FORMAT: &str = "places-geometry-check";
 /// Report schema version; bumped when a field changes meaning.
@@ -700,6 +704,10 @@ pub struct Finding {
     pub message: String,
     /// Anchor position for the finding, world `(x, y, z)`.
     pub position: [f32; 3],
+    /// Optional measured surface triangles for editor highlights. Empty for
+    /// non-surface diagnostics; additive in checker protocol version 1.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub surfaces: Vec<[[f32; 3]; 3]>,
 }
 
 /// One reproducible marker anchor, for a viewer or an overlay.
@@ -1073,6 +1081,7 @@ pub fn run(options: &CliOptions) -> Result<i32, String> {
                 id: level.id.clone(),
                 message: format!("loader validation rejected the level: {error}"),
                 position: [0.0, 0.0, 0.0],
+                surfaces: Vec::new(),
             }],
             suppressed: BTreeMap::new(),
         };
@@ -1543,6 +1552,7 @@ impl<'a> Checker<'a> {
                         "more than {MAX_FINDINGS_PER_CHECK} `{check}` findings; the summary counts them all"
                     ),
                     position,
+                    surfaces: Vec::new(),
                 });
             }
             return;
@@ -1553,7 +1563,33 @@ impl<'a> Checker<'a> {
             id: id.into(),
             message: message.into(),
             position,
+            surfaces: Vec::new(),
         });
+    }
+
+    /// Carries the two measured patches only when this call actually emitted
+    /// a finding. Suppressed warnings and cap summaries never borrow a prior
+    /// finding's surface highlights.
+    fn push_surfaces(
+        &mut self,
+        check: &'static str,
+        severity: Severity,
+        id: impl Into<String>,
+        message: impl Into<String>,
+        triangles: [&Tri; 2],
+    ) {
+        let [first, second] = triangles;
+        let previous = self.findings.len();
+        self.push(check, severity, id, message, first.centroid);
+        if self.findings.len() > previous
+            && self
+                .counts
+                .get(check)
+                .is_some_and(|count| *count <= MAX_FINDINGS_PER_CHECK)
+            && let Some(finding) = self.findings.last_mut()
+        {
+            finding.surfaces = vec![first.points, second.points];
+        }
     }
 }
 
@@ -1719,7 +1755,7 @@ impl Checker<'_> {
                 continue;
             }
             if area <= SLIVER_AREA_EPS_M2 {
-                self.push(
+                self.push_surfaces(
                     "coplanar-sliver",
                     Severity::Warning,
                     format!("{:?} m{}", a.key.kind, a.key.material),
@@ -1733,7 +1769,7 @@ impl Checker<'_> {
                         b.centroid[1],
                         b.centroid[2]
                     ),
-                    a.centroid,
+                    [a, b],
                 );
                 continue;
             }
@@ -1745,7 +1781,7 @@ impl Checker<'_> {
                 // author annotates the area, it is reported so a
                 // genuinely doubled slab is still visible in the
                 // report.
-                self.push(
+                self.push_surfaces(
                     "overlap-emission",
                     Severity::Warning,
                     format!("{:?} m{}", a.key.kind, a.key.material),
@@ -1761,7 +1797,7 @@ impl Checker<'_> {
                         b.centroid[1],
                         b.centroid[2]
                     ),
-                    a.centroid,
+                    [a, b],
                 );
                 continue;
             }
@@ -1771,7 +1807,7 @@ impl Checker<'_> {
                 // (two stacked walls' caps at one junction); without
                 // solid semantics the checker cannot tell them apart,
                 // so this stays a heuristic warning.
-                self.push(
+                self.push_surfaces(
                     "reversed-face",
                     Severity::Warning,
                     format!("{:?} m{}", a.key.kind, a.key.material),
@@ -1787,10 +1823,10 @@ impl Checker<'_> {
                         b.centroid[1],
                         b.centroid[2]
                     ),
-                    a.centroid,
+                    [a, b],
                 );
             } else {
-                self.push(
+                self.push_surfaces(
                             "duplicate-surface",
                             Severity::Error,
                             format!("{:?} m{}", a.key.kind, a.key.material),
@@ -1798,7 +1834,7 @@ impl Checker<'_> {
                                 "coplanar surfaces overlap by {area:.4} m²: a m{} {:?} n{:?} b m{} {:?} n{:?}",
                                 a.key.material, a.points, a.normal, b.key.material, b.points, b.normal
                             ),
-                            a.centroid,
+                            [a, b],
                         );
             }
         }

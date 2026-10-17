@@ -19,6 +19,7 @@ The active connected Arcade showcase includes the commercial restroom.
 | Checks that must pass before a code or asset change ships | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo build --locked --release --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check` (see [Validation Workflow](#27-validation-workflow) for what each proves) |
 | Aero prop authoring verification | October 10, 2026: opt-in BLEND/finite opacity writer checked against importer and byte-preserving OPAQUE/MASK fixtures; existing runtime rendering and transport remain unchanged. |
 | Linked railing authoring | October 15, 2026: static prop span transforms, continuous slope collision, numeric material-slot overrides and prepared package texture restoration are documented in §16. Geometry revision 13 invalidates prior prepared geometry. |
+| Editor ramp geometry correction | October 17, 2026: after the 0.12.0 source reset, geometry revision **2** cuts room carrier floors at ramp footprints and defers adjoining region skirts to the real ramp profile. Recessed slopes no longer sit behind the original flat deck or a flush basin landing skirt. Existing packages require recompilation. |
 | Completed Pool/Office authoring | October 15, 2026: accepted GLB fixtures, measured emitter anchors, fixed-prop light controllers and numeric emission overrides checked against the working renderer/compiler. Geometry revision 14 and PLMP v8 preserve these prepared instances. Native results belong in the integration report. |
 | Environment refinement verification | October 10, 2026: neighbor-clipped ramp side geometry revision 9 and reusable `weather_alternate`, `weather_cycle`, `toggle_weather`, `set_weather_strength`, `set_weather_cycle`, `set_prompt` checked against current authoring/runtime sources and focused regression tests. Native acceptance and final gates are recorded in [environment-refinement.md](reports/environment-refinement.md). |
 | Trigger/audio authoring verification | October 16, 2026: additive `filter`/`occupancy` volume schema, bounded swept item occupancy, shared binding rearm behavior, cue reference validation and audio emitter lifecycle checked against `src/engine/level.rs`, `src/engine/loader.rs`, `src/engine/entities/volumes.rs` and `src/engine/entities/mod.rs`; targeted CPU regressions live in `src/engine/tests/trigger_occupants.rs`. Native playback evidence is recorded separately. |
@@ -1766,6 +1767,20 @@ How the two behave:
   emit no buried side. A staircase's sides close each step down to
   the floor line beside it, so a flight or slope is never an open wedge. The side
   is backed by the terrain perimeter sweep as well as the walkable height rule.
+* **A ramp replaces its carrier floor.** The room grid is cut at the ramp's
+  footprint and emits no flat floor inside it, whether the slope rises above or
+  descends below `floor_y`. At a region boundary the ramp owns the actual side
+  or end transition, so a flush basin landing has no wall from the old deck
+  plane down to the basin. Recess sides face inward toward the lower slope;
+  raised sides face outward toward the lower neighboring floor.
+  A dry pool exit can therefore use a negative-rise ramp lane beside a negative
+  floor region, with the ramp's far-end `offset_y + rise` equal to the basin's
+  `offset_y`. Their footprints must meet edge-to-edge and remain on one room
+  floor plane. An exit still needs headroom and safe lateral boundaries.
+  Full transport uses the actual emitted slope mesh. The separate source-light
+  visibility structure has no analytic ramp-slope occluder; it omits the removed
+  flat carrier instead of retaining an invisible shadow lid. Direct-source
+  shadowing through a slope remains a limitation to inspect in Play.
 * **The space under a ramp or flight is not walkable.** The walkable floor at a
   point over the footprint is the piece's own height, so the volume beneath it
   is solid to the player by construction.
@@ -1786,6 +1801,13 @@ How the two behave:
   over-steep ramp, an unclimbable riser, a too-shallow tread, a piece that
   overlaps no room, a piece that rises through the ceiling, or a piece crossing
   rooms with different floors are named errors.
+
+
+Editor stage 4 also reports ramps whose sampled corners leave all room footprints.
+A partial ramp uses its centre carrier, or the first overlapping carrier if the
+centre is outside every room; rendered portions outside carriers still have no
+player walking support. Extend the carrier explicitly rather than relying on
+visible geometry alone. This does not add off-room walking support.
 
 ### Half walls, columns, archways, guardrails, thresholds and baseboards
 

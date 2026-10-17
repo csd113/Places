@@ -59,7 +59,13 @@ impl App {
                     keymod: _,
                     which: _,
                     raw: _,
-                } => self.popup = None,
+                } => {
+                    self.popup = if *field >= 7 {
+                        Some(Popup::Shape)
+                    } else {
+                        None
+                    }
+                }
                 Event::KeyDown {
                     keycode: Some(Keycode::A),
                     keymod,
@@ -77,7 +83,11 @@ impl App {
                     Ok(number) => {
                         let applied = self.apply_field(edited_field, number);
                         if applied.is_ok() {
-                            self.popup = None;
+                            self.popup = if edited_field >= 7 {
+                                Some(Popup::Shape)
+                            } else {
+                                None
+                            };
                         }
                         self.report(applied);
                     }
@@ -91,6 +101,25 @@ impl App {
         }
 
         false
+    }
+
+    fn click(&mut self, window: &Window, hits: &[Hit], window_point: [f32; 2]) {
+        let physical = window.size_in_pixels();
+        if let Some(point) =
+            DrawableSize::new(physical.0, physical.1).window_to_ui(window.size(), window_point)
+        {
+            if let Some(hit) = hits.iter().find(|hit| hit.contains(point)) {
+                let result = self.activate(hit.action, window);
+                self.report(result);
+            } else if self.popup.is_none()
+                && point[0] >= 112.0
+                && point[1] >= 38.0
+                && point[1] < 242.0
+            {
+                self.selected = self.viewport.pick(point);
+                self.viewport.select(self.selected);
+            }
+        }
     }
 
     #[expect(
@@ -123,22 +152,7 @@ impl App {
                 which: _,
                 clicks: _,
             } => {
-                let physical = window.size_in_pixels();
-                if let Some(point) =
-                    DrawableSize::new(physical.0, physical.1).window_to_ui(window.size(), [*x, *y])
-                {
-                    if let Some(hit) = hits.iter().find(|hit| hit.contains(point)) {
-                        let result = self.activate(hit.action, window);
-                        self.report(result);
-                    } else if self.popup.is_none()
-                        && point[0] >= 112.0
-                        && point[1] >= 38.0
-                        && point[1] < 242.0
-                    {
-                        self.selected = self.viewport.pick(point);
-                        self.viewport.select(self.selected);
-                    }
-                }
+                self.click(window, hits, [*x, *y]);
             }
             Event::MouseWheel {
                 y,
@@ -190,8 +204,16 @@ impl App {
                 keymod: _,
                 which: _,
                 raw: _,
-            } => self.popup = None,
-            _ if self.popup.is_none() => {
+            } => self.close_popup(),
+            _ if self.popup.is_none()
+                || matches!(
+                    self.popup,
+                    Some(Popup::Safety {
+                        index: _,
+                        preview: true
+                    })
+                ) =>
+            {
                 let _handled = self.viewport.handle_event(event);
             }
             _ => {}

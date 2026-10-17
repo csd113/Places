@@ -8,6 +8,14 @@ use crate::engine::loader::PropCatalog;
 use crate::engine::props::PropAssets;
 use crate::engine::spatial::Aabb;
 
+#[path = "terrain_picking.rs"]
+mod terrain;
+use terrain::terrain_objects;
+
+#[cfg(test)]
+#[path = "../tests/terrain_picking.rs"]
+mod tests;
+
 pub(super) struct PickObject {
     pub id: ObjectId,
     pub bounds: Aabb,
@@ -44,19 +52,7 @@ pub(super) fn objects(
     catalog: &PropCatalog,
     assets: &mut PropAssets,
 ) -> Vec<PickObject> {
-    let mut result = Vec::new();
-    for (index, room) in level.rooms.iter().enumerate() {
-        let (x0, x1, z0, z1) = room.bounds();
-        let bounds = Aabb {
-            min: [x0, room.floor_y, z0],
-            max: [x1, room.eave_y(), z1],
-        };
-        let boxes = vec![Aabb {
-            min: [x0, room.floor_y - 0.02, z0],
-            max: [x1, room.floor_y + 0.02, z1],
-        }];
-        result.push(PickObject::boxed(ObjectId::Room(index), bounds, boxes));
-    }
+    let mut result = terrain_objects(level);
     let surfaces = LevelSurfaces::new(level);
     for (index, wall) in level.walls.iter().enumerate() {
         let (x, z) = wall.min_corner();

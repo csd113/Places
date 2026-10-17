@@ -729,7 +729,7 @@ fn merge_light_runs(
 const WALL_COINCIDENCE_EPS: f32 = 1e-3;
 
 /// Current pre-release geometry revision; superseded layouts require recompilation.
-pub const GEOMETRY_REVISION: u32 = 1;
+pub const GEOMETRY_REVISION: u32 = 2;
 
 /// One material run of a coalesced wall group: a rectangle in the group's own
 /// (length, height) space over which the visible material is constant.
@@ -2612,7 +2612,7 @@ fn floor_surfaces(
 ) -> (Vec<FloorSurface>, Vec<u32>) {
     let (cells_x, cells_z) = (grid.cells_x(), grid.cells_z());
     let mut surfaces: Vec<FloorSurface> = Vec::new();
-    let mut labels = vec![0u32; cells_x.saturating_mul(cells_z)];
+    let mut labels = vec![u32::MAX; cells_x.saturating_mul(cells_z)];
     for iz in 0..cells_z {
         let (Some(&z0), Some(&z1)) = (grid.zs.get(iz), grid.zs.get(iz.saturating_add(1))) else {
             continue;
@@ -2624,6 +2624,12 @@ fn floor_surfaces(
                 continue;
             };
             let x = f32::midpoint(x0, x1);
+            // Architecture emits the ramp's actual slope. Keeping this
+            // carrier would cover a recessed ramp with an invisible deck and
+            // would retain a buried second floor under an ascending one.
+            if surfaces_at.ramp_at(x, z).is_some() {
+                continue;
+            }
             // Material precedence: the region's own material, then the latest
             // floor patch, then the room's floor material. Each carrier's own
             // shine override travels with it.
@@ -2819,6 +2825,22 @@ fn emit_skirt_face(
     }
 }
 
+/// Whether a ramp replaces the flat carrier in this exact floor cell.
+fn cell_has_ramp(level: &LevelDef, grid: &RoomFloorGrid, ix: usize, iz: usize) -> bool {
+    let (Some(&x0), Some(&x1), Some(&z0), Some(&z1)) = (
+        grid.xs.get(ix),
+        grid.xs.get(ix.saturating_add(1)),
+        grid.zs.get(iz),
+        grid.zs.get(iz.saturating_add(1)),
+    ) else {
+        return false;
+    };
+    level
+        .ramps
+        .iter()
+        .any(|ramp| ramp.contains(f32::midpoint(x0, x1), f32::midpoint(z0, z1)))
+}
+
 /// The floor region owning cell `(ix, iz)`, if any: the latest authored region
 /// whose bounds contain the cell centre.
 fn region_at_cell<'a>(
@@ -2879,6 +2901,7 @@ fn emit_floor_skirts(
     };
 
     let region_owner = |ix: usize, iz: usize| region_at_cell(level, room, grid, ix, iz);
+    let ramp_owner = |ix: usize, iz: usize| cell_has_ramp(level, grid, ix, iz);
 
     // The region owning a cell is the one whose material describes the faces
     // that cell's height difference creates.
@@ -2903,14 +2926,22 @@ fn emit_floor_skirts(
 
     for iz in 0..cells_z {
         for ix in 0..cells_x {
+            // Ramp sides/ends close against the actual neighboring profile.
+            // A region's unmodified carrier skirt would otherwise seal a
+            // flush recessed landing from the old room plane downwards.
+            if ramp_owner(ix, iz) {
+                continue;
+            }
             let y = grid.y_at(room, ix, iz);
             let next_x = ix.saturating_add(1);
             // Transition to the next cell along X, or to the room's own floor
             // plane when this is the room's last column.
-            let right = if next_x < cells_x {
+            let right = if next_x < cells_x && !ramp_owner(next_x, iz) {
                 Some(grid.y_at(room, next_x, iz))
-            } else {
+            } else if next_x == cells_x {
                 Some(room.floor_y)
+            } else {
+                None
             };
             if let Some(other) = right
                 && (other - y).abs() > HEIGHT_MERGE_EPS
@@ -2943,10 +2974,12 @@ fn emit_floor_skirts(
             }
 
             let next_z = iz.saturating_add(1);
-            let back = if next_z < cells_z {
+            let back = if next_z < cells_z && !ramp_owner(ix, next_z) {
                 Some(grid.y_at(room, ix, next_z))
-            } else {
+            } else if next_z == cells_z {
                 Some(room.floor_y)
+            } else {
+                None
             };
             if let Some(other) = back
                 && (other - y).abs() > HEIGHT_MERGE_EPS

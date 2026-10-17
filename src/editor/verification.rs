@@ -68,6 +68,10 @@ enum Action {
         name: String,
     },
     WaitIdle,
+    Resize {
+        width: u16,
+        height: u16,
+    },
     Close,
 }
 
@@ -108,7 +112,7 @@ impl Verification {
 
     /// Call after polling jobs and successfully drawing the frame. Failures
     /// first cancel/reap owned tools through the ordinary application job loop.
-    pub(super) fn advance(&mut self, app: &mut App, window: &Window) -> Result<(), String> {
+    pub(super) fn advance(&mut self, app: &mut App, window: &mut Window) -> Result<(), String> {
         if self.failure.is_some() {
             if let Some(job) = &mut app.compile {
                 job.cancel();
@@ -150,7 +154,7 @@ impl Verification {
         Ok(())
     }
 
-    fn apply(&self, app: &mut App, window: &Window) -> Result<(), String> {
+    fn apply(&self, app: &mut App, window: &mut Window) -> Result<(), String> {
         let step = self
             .script
             .actions
@@ -218,6 +222,9 @@ impl Verification {
                     .capture(&self.script.output.join(format!("{name}.png")))?;
             }
             Action::Checkpoint { name } => self.checkpoint(app, window, name)?,
+            Action::Resize { width, height } => window
+                .set_size(u32::from(*width), u32::from(*height))
+                .map_err(|error| error.to_string())?,
             Action::WaitIdle => {
                 if let Some(error) = app.viewport.status() {
                     return Err(error.into());
@@ -235,7 +242,14 @@ impl Verification {
             "selected": app.selected.map(|selected| format!("{selected:?}")),
             "status": app.status, "compile": app.compile.is_some(), "play": app.play.is_some(),
             "preparing": app.viewport.is_preparing(), "window": window.size(),
+            "viewport_objects": app.viewport.object_count(),
             "drawable": window.size_in_pixels(), "camera_target": app.viewport.target(),
+            "safety": app.safety_report.as_ref().map(|report| report.findings.iter().map(|finding| serde_json::json!({
+                "check":finding.check,"title":finding.title,"category":finding.category.label(),
+                "severity":finding.severity.label(),"risk":finding.risk,"position":finding.position,"bounds":{"min":finding.bounds.min,"max":finding.bounds.max},
+                "objects":finding.objects.iter().map(|object|format!("{object:?}")).collect::<Vec<_>>(),
+                "surface_count":finding.surfaces.len(),"fix":finding.fix.as_ref().map(|fix|&fix.title)
+            })).collect::<Vec<_>>()),
         });
         let bytes = serde_json::to_vec_pretty(&value).map_err(|error| error.to_string())?;
         let path = self.script.output.join(format!("{name}.json"));
@@ -251,7 +265,10 @@ impl Verification {
 }
 
 const fn busy(app: &App) -> bool {
-    app.compile.is_some() || app.play.is_some() || app.viewport.is_preparing()
+    app.compile.is_some()
+        || app.play.is_some()
+        || app.viewport.is_preparing()
+        || app.safety_job.is_some()
 }
 
 fn validate(action: &Action) -> Result<(), String> {
@@ -281,6 +298,9 @@ fn validate(action: &Action) -> Result<(), String> {
                     .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
         }
         Action::WaitIdle | Action::Close => true,
+        Action::Resize { width, height } => {
+            (960..=2560).contains(width) && (544..=1600).contains(height)
+        }
     };
     valid
         .then_some(())

@@ -23,14 +23,27 @@ pub(super) enum Popup {
     Unsaved(Pending),
     Number { field: usize, value: String },
     Library { materials: bool, page: usize },
+    Geometry,
+    Shape,
+    Safety { index: usize, preview: bool },
 }
 
 impl Popup {
     pub fn draw(&self, app: &App, v: &mut Vec<crate::engine::render::Vertex>, hits: &mut Vec<Hit>) {
         hits.clear();
+        if let Self::Safety { index, preview } = self {
+            ui::safety_popup(app, v, hits, *index, *preview);
+            return;
+        }
         ui::rect(v, [0.0, 0.0, 480.0, 272.0], [0.0, 0.0, 0.0, 0.6]);
         ui::rect(v, [130.0, 65.0, 260.0, 146.0], [0.075, 0.11, 0.14, 1.0]);
         match self {
+            Self::Geometry => ui::geometry_popup(app, v, hits),
+            Self::Shape => ui::shape_popup(app, v, hits),
+            Self::Safety {
+                index: _,
+                preview: _,
+            } => {}
             Self::Unsaved(_) => {
                 ui::text(
                     v,
@@ -56,10 +69,10 @@ impl Popup {
                     ui::popup_button(v, hits, [x, 130.0, 70.0, 15.0], label, action);
                 }
             }
-            Self::Number { value, field: _ } => {
+            Self::Number { value, field } => {
                 ui::text(
                     v,
-                    "Numeric value / Enter apply / Esc cancel",
+                    &format!("{} / Enter apply / Esc cancel", app.field_label(*field)),
                     140.0,
                     80.0,
                     ui::INK,
@@ -68,58 +81,7 @@ impl Popup {
                 ui::text(v, value, 140.0, 104.0, [0.4, 0.9, 0.72, 1.0], 60);
                 draw_numeric_hint(v);
             }
-            Self::Library { materials, page } => {
-                ui::text(
-                    v,
-                    if *materials {
-                        "BUILT-IN MATERIALS / apply to selection"
-                    } else {
-                        "BUILT-IN PROPS / select then + Prop"
-                    },
-                    140.0,
-                    73.0,
-                    ui::INK,
-                    65,
-                );
-                for (index, label) in app
-                    .library(*materials)
-                    .into_iter()
-                    .enumerate()
-                    .skip(page.saturating_mul(10))
-                    .take(10)
-                {
-                    let offset = index % 10;
-                    let y = f32::from(u16::try_from(offset).unwrap_or(0)).mul_add(10.0, 85.0);
-                    ui::popup_button(
-                        v,
-                        hits,
-                        [140.0, y, 240.0, 9.0],
-                        &label,
-                        Action::ChooseAsset(index),
-                    );
-                }
-                ui::popup_button(
-                    v,
-                    hits,
-                    [140.0, 190.0, 50.0, 12.0],
-                    "< Prev",
-                    Action::Page(false),
-                );
-                ui::popup_button(
-                    v,
-                    hits,
-                    [196.0, 190.0, 50.0, 12.0],
-                    "Next >",
-                    Action::Page(true),
-                );
-                ui::popup_button(
-                    v,
-                    hits,
-                    [330.0, 190.0, 50.0, 12.0],
-                    "Close",
-                    Action::ClosePopup,
-                );
-            }
+            Self::Library { materials, page } => ui::library_popup(app, v, hits, *materials, *page),
         }
     }
 }
@@ -148,10 +110,7 @@ impl App {
         self.object_scroll = 0;
         self.changed();
         self.viewport.frame_all();
-        self.status = format!(
-            "Created {}. Add walls and props; click values to edit.",
-            path.display()
-        );
+        self.status = format!("Created {name}. Add geometry or props; click values to edit.");
         Ok(())
     }
 
@@ -213,37 +172,33 @@ impl App {
     }
 
     pub(super) fn activate(&mut self, action: Action, window: &Window) -> Result<(), String> {
+        if self.geometry_action(action)? || self.safety_action(action)? {
+            return Ok(());
+        }
         match action {
+            Action::Geometry
+            | Action::Shape
+            | Action::CutOpening
+            | Action::UpperFloor
+            | Action::Safety
+            | Action::Finding(_)
+            | Action::PreviewFix
+            | Action::ApplyFix
+            | Action::InspectFinding
+            | Action::CancelFix => {}
             Action::New => self.request(Pending::New, window),
             Action::Open => self.request(Pending::Open, window),
             Action::Save => self.save()?,
             Action::Capture => self.request_capture(),
-            Action::Undo | Action::Redo => {
-                if let Some(document) = &mut self.document {
-                    let _changed = if action == Action::Undo {
-                        document.undo()
-                    } else {
-                        document.redo()
-                    };
-                    self.selected = None;
-                    self.changed();
-                }
-            }
+            Action::Undo | Action::Redo => self.history_action(action == Action::Redo),
             Action::Add(kind) => self.add_object(kind)?,
             Action::Select(id) => {
                 self.selected = Some(id);
                 self.viewport.select(Some(id));
+                self.viewport.highlight(None, &[]);
             }
             Action::Delete | Action::Duplicate => {
-                let id = self.selected.ok_or("Select an object first")?;
-                let doc = self.document.as_mut().ok_or("Open a project first")?;
-                if action == Action::Delete {
-                    doc.delete(id)?;
-                    self.selected = None;
-                } else {
-                    self.selected = Some(doc.duplicate(id)?);
-                }
-                self.changed();
+                self.selection_action(action == Action::Duplicate)?;
             }
             Action::Focus => {
                 if self.selected.is_some() {
@@ -284,7 +239,7 @@ impl App {
             }
             Action::ChooseAsset(index) => self.choose_asset(index)?,
             Action::Page(forward) => self.page_library(forward),
-            Action::ClosePopup | Action::ConfirmCancel => self.popup = None,
+            Action::ClosePopup | Action::ConfirmCancel => self.close_popup(),
             Action::ConfirmSave | Action::ConfirmDiscard => {
                 if let Some(Popup::Unsaved(pending)) = self.popup {
                     if action == Action::ConfirmSave {
@@ -309,6 +264,36 @@ impl App {
                 }
             }
         }
+        Ok(())
+    }
+
+    fn history_action(&mut self, redo: bool) {
+        let reviewing = self.safety_report.is_some();
+        if let Some(document) = &mut self.document {
+            let _changed = if redo {
+                document.redo()
+            } else {
+                document.undo()
+            };
+            self.selected = None;
+            self.changed();
+            if reviewing {
+                let result = self.start_safety();
+                self.report(result);
+            }
+        }
+    }
+
+    fn selection_action(&mut self, duplicate: bool) -> Result<(), String> {
+        let id = self.selected.ok_or("Select an object first")?;
+        let document = self.document.as_mut().ok_or("Open a project first")?;
+        self.selected = if duplicate {
+            Some(document.duplicate(id)?)
+        } else {
+            document.delete(id)?;
+            None
+        };
+        self.changed();
         Ok(())
     }
 
@@ -338,16 +323,17 @@ impl App {
 
     fn add_object(&mut self, kind: ObjectKind) -> Result<(), String> {
         let mut target = self.viewport.target();
-        target[1] = if kind == ObjectKind::Prop {
-            0.0
-        } else {
-            self.document
+        target[1] = match kind {
+            ObjectKind::Prop | ObjectKind::Ramp => 0.0,
+            ObjectKind::FloorRegion => -1.25,
+            ObjectKind::Room | ObjectKind::Wall => self
+                .document
                 .as_ref()
                 .and_then(|doc| {
                     crate::engine::level::LevelSurfaces::new(doc.level())
                         .floor_y_at(target[0], target[2])
                 })
-                .unwrap_or(0.0)
+                .unwrap_or(0.0),
         };
         let position = target.map(|v| {
             if self.view.snap {
@@ -367,7 +353,15 @@ impl App {
             },
             &self.catalog,
         )?);
-        self.status = format!("Added {kind:?}. Click numeric fields or use +/- to transform.");
+        let label = match kind {
+            ObjectKind::Room => "floor",
+            ObjectKind::Wall => "wall",
+            ObjectKind::Prop => "prop",
+            ObjectKind::Ramp => "ramp",
+            ObjectKind::FloorRegion => "recess / basin",
+        };
+        self.status = format!("Added {label}. Click values or use +/- to transform.");
+        self.popup = None;
         self.changed();
 
         Ok(())
@@ -454,7 +448,38 @@ impl App {
         Ok(())
     }
 
+    const fn field_label(&self, field: usize) -> &'static str {
+        match field {
+            7 => "Opening X (m)",
+            8 => "Opening Z (m)",
+            9 => "Opening width (m)",
+            10 => "Opening depth (m)",
+            1 if matches!(
+                self.selected,
+                Some(
+                    super::document::ObjectId::Ramp(_) | super::document::ObjectId::FloorRegion(_)
+                )
+            ) =>
+            {
+                "Offset from room floor (m)"
+            }
+            4 if matches!(self.selected, Some(super::document::ObjectId::Ramp(_))) => {
+                "Signed ramp rise (m)"
+            }
+            6 => "Yaw / turn (degrees)",
+            _ => "Transform value",
+        }
+    }
+
     pub(super) fn field(&self, field: usize) -> Result<f32, String> {
+        if field >= 7 {
+            return self
+                .opening_rect
+                .as_ref()
+                .and_then(|rect| rect.get(field.saturating_sub(7)))
+                .copied()
+                .ok_or_else(|| "Open floor shape tools first".into());
+        }
         let transform = self
             .document
             .as_ref()
@@ -475,6 +500,22 @@ impl App {
         }
         if self.view.snap && field < 6 {
             value = (value / self.step).round() * self.step;
+        }
+        if field >= 7 {
+            let snapped = if self.view.snap {
+                (value / self.step).round() * self.step
+            } else {
+                value
+            };
+            if field >= 9 && snapped <= 0.0 {
+                return Err("Opening width and depth must be positive".into());
+            }
+            *self
+                .opening_rect
+                .as_mut()
+                .and_then(|rect| rect.get_mut(field.saturating_sub(7)))
+                .ok_or("Open floor shape tools first")? = snapped;
+            return Ok(());
         }
         let id = self.selected.ok_or("Select an object")?;
         let doc = self.document.as_mut().ok_or("Open a project first")?;
