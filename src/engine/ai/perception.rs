@@ -144,7 +144,7 @@ fn sight_target(agent: &AiAgent, ctx: &AiTickContext<'_>) -> Option<Perceived> {
             }
         }
         let gaze = target.position + Vec3::new(0.0, (target.height * 0.5).max(0.05), 0.0);
-        if !sight_clear(ctx.index, ctx.walls, ctx.doors, eye, gaze) {
+        if !sight_clear_with_leaves(ctx.index, ctx.walls, ctx.leaves, eye, gaze) {
             continue;
         }
         let contact = Perceived {
@@ -219,42 +219,8 @@ pub fn sight_clear(
     from: Vec3,
     to: Vec3,
 ) -> bool {
-    if !from.is_finite() || !to.is_finite() {
-        return false;
-    }
-    #[expect(
-        clippy::arithmetic_side_effects,
-        reason = "glam vector addition, subtraction and scaling intentionally use ordinary f32 arithmetic; no integer sizing or indexing is performed here."
-    )]
-    let delta = to - from;
-    let distance = delta.length();
-    if distance <= 1.0e-4 {
-        return true;
-    }
-    let Some(direction) = delta.try_normalize() else {
-        return true;
-    };
-    let mut nearest = distance;
-    index.for_each_ray(from, direction, distance, walls, |wall| {
-        if let Some(entry) = ray_aabb_entry(
-            from,
-            direction,
-            [wall.min_x, wall.min_y, wall.min_z],
-            [wall.max_x, wall.max_y, wall.max_z],
-        ) && entry < nearest
-        {
-            nearest = entry;
-        }
-    });
     let colliders = doors.colliders();
-    for collider in &colliders {
-        if let Some(entry) = collider.ray_entry(from, direction, distance)
-            && entry < nearest
-        {
-            nearest = entry;
-        }
-    }
-    nearest >= distance - 1.0e-4
+    sight_clear_with_leaves(index, walls, &colliders, from, to)
 }
 
 /// [`sight_clear`] against a caller-provided leaf list, for hot loops that

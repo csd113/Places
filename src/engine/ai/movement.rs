@@ -130,6 +130,13 @@ impl AgentMove {
         if !waypoint.is_finite() || !self.position.is_finite() {
             return MoveStep::Blocked;
         }
+        if !delta.is_finite() || delta <= 0.0 {
+            return MoveStep::Moved {
+                position: self.position,
+                yaw_degrees: self.yaw_degrees,
+                speed_mps: 0.0,
+            };
+        }
         let step_delta = delta.clamp(0.0, MAX_MOVE_STEP_S);
         let flat = Vec3::new(
             waypoint.x - self.position.x,
@@ -147,7 +154,7 @@ impl AgentMove {
         self.yaw_degrees = turn_toward(
             self.yaw_degrees.to_radians(),
             target_yaw.to_radians(),
-            ENTITY_TURN_RATE_DEGREES_PER_SECOND.to_radians() * step_delta.max(1.0e-4),
+            ENTITY_TURN_RATE_DEGREES_PER_SECOND.to_radians() * step_delta,
         )
         .to_degrees();
         let travel = (self.speed_mps * step_delta).min(distance);

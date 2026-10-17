@@ -210,6 +210,10 @@ fn character_claim_plan(
 /// within 1% after ~4.6 time constants. The same constant crossfades clips.
 pub const BLEND_TIME_CONSTANT_S: f32 = 0.18;
 
+/// Seven time constants leave less than 0.1% of the source pose. Snap the
+/// remaining tail once so held poses eventually stop requesting skinning.
+const CUE_BLEND_SETTLE_SECONDS: f32 = 1.26;
+
 /// Wall-clock seconds a scrub cue takes to travel the full length of its clip.
 ///
 /// A scrub cue eases the clip time toward its authored target at a constant
@@ -2193,12 +2197,11 @@ pub struct CharacterAnimator {
     /// Explicit clip playback (entity routes) overriding the locomotion
     /// states while a cue is set.
     cue: Option<CueState>,
-    /// The clip, time and one-shot flag the active cue crossfaded from.
-    cue_previous: Option<(usize, f32, bool)>,
-    /// True while the first cue crossfades from the pre-cue pose buffers.
-    cue_from_pose: bool,
-    /// Seconds since the active cue started its crossfade.
-    cue_fade: f32,
+    /// Seconds into a cue's crossfade from the displayed pose retained in
+    /// `clip_b` and `morph_b`; `None` once the pose has settled.
+    cue_fade: Option<f32>,
+    /// An explicit restart still needs sampling when no frame time elapsed.
+    cue_needs_sample: bool,
     /// True once a one-shot cue reached its last key; consumed by the caller.
     cue_finished: bool,
     /// The speed the walk clip is authored for, in metres per second.
@@ -2312,6 +2315,48 @@ struct CueState {
     scrub: Option<f32>,
 }
 
+impl CueState {
+    /// Advances playback or a scrub target, reporting a newly reached end.
+    fn advance(&mut self, step: f32, rate: f32, duration: f32) -> bool {
+        if let Some(target) = self.scrub {
+            // Retargeting a scrub reverses from the current clip time without
+            // restarting. The pose's own keys retain their authored easing.
+            let speed = if duration > 0.0 {
+                duration / SCRUB_TRAVERSE_SECONDS
+            } else {
+                0.0
+            };
+            let travel = step * speed;
+            self.time = if self.time < target {
+                (self.time + travel).min(target)
+            } else if self.time > target {
+                (self.time - travel).max(target)
+            } else {
+                target
+            };
+            let arrived = (self.time - target).abs() <= f32::EPSILON;
+            let newly_finished = arrived && !self.finished;
+            // A retargeted scrub reports its next arrival independently.
+            self.finished = arrived;
+            return newly_finished;
+        }
+        if !self.paused && step > 0.0 {
+            self.time = f32::mul_add(step, rate, self.time);
+            if self.once && self.time >= duration {
+                self.time = duration;
+                if !self.finished {
+                    self.finished = true;
+                    return true;
+                }
+            } else if !self.once && duration > 0.0 {
+                // A looping cue's clock stays bounded over long sessions.
+                self.time = self.time.rem_euclid(duration);
+            }
+        }
+        false
+    }
+}
+
 /// The clip-time a scrub cue eases toward, or `None` for a playing cue.
 fn scrub_target_for(cue: &PoseCue, duration: f32) -> Option<f32> {
     match cue {
@@ -2422,9 +2467,8 @@ impl CharacterAnimator {
             clips,
             named,
             cue: None,
-            cue_previous: None,
-            cue_from_pose: false,
-            cue_fade: 1.0,
+            cue_fade: None,
+            cue_needs_sample: false,
             cue_finished: false,
             walk_reference_speed: WALK_REFERENCE_SPEED_MPS,
             clip_reference_speeds,
@@ -2451,6 +2495,11 @@ impl CharacterAnimator {
     /// the same total time produces the same pose at any frame rate.
     // f32 pose arithmetic: finite inputs
     pub fn update(&mut self, delta_seconds: f32, snapshot: LocomotionSnapshot) -> bool {
+        // Locomotion owns the pose again. The next explicit cue must blend
+        // from that displayed pose rather than resume an abandoned cue.
+        self.cue = None;
+        self.cue_fade = None;
+        self.cue_finished = false;
         let step = if delta_seconds.is_finite() {
             delta_seconds.max(0.0)
         } else {
@@ -2755,10 +2804,9 @@ impl CharacterAnimator {
     /// The clip index whose lower-cased name matches `name`, if any.
     #[must_use]
     pub fn clip_index(&self, name: &str) -> Option<usize> {
-        let lowercase_name = name.to_ascii_lowercase();
         self.named
             .iter()
-            .find(|(candidate, _)| candidate == &lowercase_name)
+            .find(|(candidate, _)| candidate.eq_ignore_ascii_case(name))
             .map(|(_, index)| *index)
     }
 
@@ -2784,9 +2832,9 @@ impl CharacterAnimator {
 
     /// Advances an explicit pose cue and returns whether the pose changed.
     ///
-    /// A cue change crossfades from the previous clip's current time over the
-    /// same time constant the locomotion states use, so a transition starts
-    /// from the current pose. One-shot clips hold their last key and report
+    /// A cue change crossfades from the displayed pose over the same time
+    /// constant the locomotion states use, including interrupted transitions.
+    /// One-shot clips hold their last key and report
     /// completion through [`Self::take_cue_finished`].
     // bounded pose arithmetic
     pub fn update_cued(&mut self, delta_seconds: f32, cue: &PoseCue) -> bool {
@@ -2823,12 +2871,10 @@ impl CharacterAnimator {
             .is_none_or(|state| state.clip != clip || state.once != once);
         if changed {
             // A crossfade always starts from what is currently on screen: the
-            // previous cue's pose, or the pre-cue pose for the first cue.
-            self.cue_previous = self
-                .cue
-                .as_ref()
-                .map(|state| (state.clip, state.time, state.once));
-            self.cue_from_pose = self.cue.is_none();
+            // displayed blend, or the pre-cue pose for the first cue. Retain
+            // it once: replacing it every frame would change the fade curve.
+            self.clip_b.copy_from_slice(&self.pose);
+            self.morph_b.copy_from_slice(&self.morphs);
             self.cue = Some(CueState {
                 clip,
                 time: 0.0,
@@ -2837,7 +2883,7 @@ impl CharacterAnimator {
                 finished: false,
                 scrub: scrub_target,
             });
-            self.cue_fade = 0.0;
+            self.cue_fade = Some(0.0);
             self.cue_finished = false;
         } else if let Some(state) = self.cue.as_mut() {
             state.paused = paused;
@@ -2846,50 +2892,22 @@ impl CharacterAnimator {
         let Some(state) = self.cue.as_mut() else {
             return false;
         };
-        if let Some(target) = scrub_target {
-            // Ease toward the target at a constant clip-time rate. A new
-            // target mid-travel simply reverses the direction from wherever
-            // the pose currently is: no restart at an endpoint, no snap.
-            let speed = if duration > 0.0 {
-                duration / SCRUB_TRAVERSE_SECONDS
-            } else {
-                0.0
-            };
-            let travel = step * speed;
-            let next = if state.time < target {
-                (state.time + travel).min(target)
-            } else if state.time > target {
-                (state.time - travel).max(target)
-            } else {
-                target
-            };
-            state.time = next;
-            if (state.time - target).abs() <= f32::EPSILON {
-                if !state.finished {
-                    state.finished = true;
-                    self.cue_finished = true;
-                }
-            } else {
-                // A scrub in flight is not finished, so a lever retargeted
-                // after an earlier arrival reports the new arrival too.
-                state.finished = false;
-            }
-        } else if !state.paused && step > 0.0 {
-            state.time = f32::mul_add(step, rate, state.time);
-            if state.once && state.time >= duration {
-                state.time = duration;
-                if !state.finished {
-                    state.finished = true;
-                    self.cue_finished = true;
-                }
-            } else if !state.once && duration > 0.0 {
-                // A looping cue's clock stays bounded over long sessions.
-                state.time = state.time.rem_euclid(duration);
-            }
+        let previous_time = state.time;
+        self.cue_finished |= state.advance(step, rate, duration);
+        let previous_fade = self.cue_fade.map(f32::to_bits);
+        if let Some(elapsed) = self.cue_fade.as_mut() {
+            *elapsed = (*elapsed + step).min(CUE_BLEND_SETTLE_SECONDS);
         }
-        if self.cue_previous.is_some() {
-            self.cue_fade = (self.cue_fade + step).max(0.0);
+        if !changed
+            && !self.cue_needs_sample
+            && state.time.to_bits() == previous_time.to_bits()
+            && self.cue_fade.map(f32::to_bits) == previous_fade
+        {
+            // Paused cues, completed one-shots and settled scrubs keep their
+            // existing pose and revision, avoiding redundant skinning work.
+            return false;
         }
+        self.cue_needs_sample = false;
         if !self.sample_active_cue() {
             return false;
         }
@@ -2905,6 +2923,7 @@ impl CharacterAnimator {
             state.time = 0.0;
             state.finished = false;
             self.cue_finished = false;
+            self.cue_needs_sample = true;
         }
     }
 
@@ -3036,26 +3055,15 @@ impl CharacterAnimator {
         let clip = state.clip;
         let time = state.time;
         let once = state.once;
-        let fade = 1.0 - (-self.cue_fade / BLEND_TIME_CONSTANT_S).exp();
-        if fade >= 0.999 {
-            self.cue_previous = None;
-        }
-        let previous = self
-            .cue_previous
-            .and_then(|(index, previous_time, was_once)| {
-                clips
-                    .clips
-                    .get(index)
-                    .map(|source_clip| (source_clip, previous_time, was_once))
+        let fade = self
+            .cue_fade
+            .filter(|elapsed| *elapsed < CUE_BLEND_SETTLE_SECONDS)
+            .map_or(1.0, |elapsed| {
+                1.0 - (-elapsed / BLEND_TIME_CONSTANT_S).exp()
             });
         let Some(active) = clips.clips.get(clip) else {
             return false;
         };
-        if self.cue_from_pose && fade < 0.999 {
-            // Freeze the pre-cue pose as the crossfade source.
-            self.clip_b.copy_from_slice(&self.pose);
-            self.morph_b.copy_from_slice(&self.morphs);
-        }
         active.sample(
             &self.rig,
             &MorphRig {
@@ -3069,21 +3077,7 @@ impl CharacterAnimator {
                 morphs: &mut self.morph_a,
             },
         );
-        if let Some((source_clip, previous_time, was_once)) = previous {
-            source_clip.sample(
-                &self.rig,
-                &MorphRig {
-                    defaults: &self.morph_defaults,
-                    ranges: &self.morph_ranges,
-                },
-                previous_time,
-                // A held one-shot must keep its last key; a looping clip wraps.
-                !was_once,
-                &mut SampleTargets {
-                    pose: &mut self.clip_b,
-                    morphs: &mut self.morph_b,
-                },
-            );
+        if fade < 1.0 {
             for (node, (previous_pose, active_pose)) in self
                 .pose
                 .iter_mut()
@@ -3104,8 +3098,8 @@ impl CharacterAnimator {
             }
             self.morphs.copy_from_slice(&self.morph_a);
         }
-        if fade >= 0.999 {
-            self.cue_from_pose = false;
+        if fade >= 1.0 {
+            self.cue_fade = None;
         }
         true
     }

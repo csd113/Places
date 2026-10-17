@@ -620,6 +620,8 @@ impl AiTickContext<'_> {
 /// What one AI tick produced; the world applies it.
 #[derive(Debug, Default)]
 pub struct AiOutcome {
+    /// A locomotion speed changed and the renderer must refresh its pose cue.
+    pub cues_changed: bool,
     /// Transform updates: `(handle, position, yaw degrees, spawned)`.
     pub moved: Vec<(EntityHandle, Vec3, f32, bool)>,
     /// Typed events: `(kind, subject, key, actor)`.
@@ -776,7 +778,7 @@ impl AiWorld {
             catch_cooldown: 0.0,
             caught: false,
             clock: 0.0,
-            last_perception_at: f32::NEG_INFINITY,
+            last_perception_at: perception_baseline(phase),
             last_noise_at: f32::NEG_INFINITY,
             contact: None,
             interest: None,
@@ -833,7 +835,7 @@ impl AiWorld {
             agent.contact = None;
             agent.interest = None;
             agent.clock = 0.0;
-            agent.last_perception_at = f32::NEG_INFINITY;
+            agent.last_perception_at = perception_baseline(agent.perception_phase);
             agent.last_noise_at = f32::NEG_INFINITY;
             agent.path_door_version = 0;
             agent.shelter_return = None;
@@ -841,6 +843,38 @@ impl AiWorld {
             agent.shelter_cooldown = 0.0;
             agent.light_look_target = None;
         }
+    }
+
+    /// Shares a successful sequence pose with AI perception and renderer frames.
+    /// Moving the feet invalidates a route from the old position; a pure turn
+    /// preserves it. Authored home, behavior and temporary light holds survive.
+    pub(crate) fn apply_sequence_transform(
+        &mut self,
+        handle: EntityHandle,
+        position: Vec3,
+        yaw_degrees: f32,
+    ) -> bool {
+        if !position.is_finite() || !yaw_degrees.is_finite() {
+            return false;
+        }
+        let Some(agent) = self.agents.iter_mut().find(|agent| agent.handle == handle) else {
+            return false;
+        };
+        let moved = agent.position != position;
+        let changed = moved || agent.yaw_degrees != yaw_degrees;
+        agent.position = position;
+        agent.yaw_degrees = yaw_degrees;
+        if moved {
+            agent.path.clear();
+            agent.path_goal = None;
+            agent.path_age = 0.0;
+            agent.path_failed_at = None;
+            agent.path_done_goal = None;
+            agent.current_waypoint = 0;
+            agent.stuck_seconds = 0.0;
+            agent.speed_mps = 0.0;
+        }
+        changed
     }
 
     /// Applies an opt-in renderer-backed light hold without replacing AI state.
@@ -936,13 +970,19 @@ impl AiWorld {
 
     /// Advances every agent once.
     pub fn tick(&mut self, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
+        if !ctx.delta.is_finite() || ctx.delta <= 0.0 {
+            out.catches_total = self.catches_total;
+            return;
+        }
         let mut noise = 0u64;
         for agent in &mut self.agents {
+            let previous_speed = agent.speed_mps;
             if let Some(target) = agent.light_look_target
                 && !agent.caught
                 && !ctx.scripted.contains(&agent.handle)
                 && !matches!(agent.state, AiState::Catch { target: _ })
             {
+                let previous_yaw = agent.yaw_degrees;
                 let direction = Vec3::new(
                     target.x - agent.position.x,
                     target.y - agent.position.y,
@@ -952,12 +992,15 @@ impl AiWorld {
                     agent.yaw_degrees = direction.x.atan2(direction.z).to_degrees();
                 }
                 agent.speed_mps = 0.0;
-                out.moved.push((
-                    agent.handle,
-                    agent.position,
-                    agent.yaw_degrees,
-                    agent.spawned,
-                ));
+                out.cues_changed |= agent.speed_mps != previous_speed;
+                if agent.yaw_degrees != previous_yaw {
+                    out.moved.push((
+                        agent.handle,
+                        agent.position,
+                        agent.yaw_degrees,
+                        agent.spawned,
+                    ));
+                }
                 continue;
             }
             agent.clock += ctx.delta;
@@ -971,6 +1014,7 @@ impl AiWorld {
             }
             if agent.caught {
                 agent.speed_mps = 0.0;
+                out.cues_changed |= agent.speed_mps != previous_speed;
                 continue;
             }
             let scripted = ctx.scripted.contains(&agent.handle);
@@ -979,13 +1023,20 @@ impl AiWorld {
                     set_state(agent, AiState::Scripted, out);
                 }
                 agent.speed_mps = 0.0;
+                out.cues_changed |= agent.speed_mps != previous_speed;
                 agent.path.clear();
                 agent.path_goal = None;
                 continue;
             }
-            perceive(agent, ctx);
+            if matches!(agent.state, AiState::Scripted) {
+                set_state(agent, AiState::Idle, out);
+            }
+            if !matches!(agent.state, AiState::Hidden) {
+                perceive(agent, ctx);
+            }
             decide(agent, ctx, out);
             advance(agent, ctx, out);
+            out.cues_changed |= agent.speed_mps != previous_speed;
             noise = noise.saturating_add(release_noise(agent, out));
         }
         self.stimuli_released = self.stimuli_released.saturating_add(noise);
@@ -1009,6 +1060,12 @@ impl AiWorld {
     }
 }
 
+/// Keeps the first perception checks spread over eight stable time slots.
+fn perception_baseline(phase: u32) -> f32 {
+    let slot = u8::try_from(phase % 8).unwrap_or(0);
+    PERCEPTION_INTERVAL_S * (f32::from(slot) / 8.0 - 1.0)
+}
+
 /// Updates one agent's perception on its staggered interval.
 fn perceive(agent: &mut AiAgent, ctx: &AiTickContext<'_>) {
     let interval = PERCEPTION_INTERVAL_S.max(0.02);
@@ -1018,7 +1075,9 @@ fn perceive(agent: &mut AiAgent, ctx: &AiTickContext<'_>) {
         }
         return;
     }
-    agent.last_perception_at = agent.clock;
+    // Advance on the original phase rather than drifting toward frame times.
+    let elapsed = agent.clock - agent.last_perception_at;
+    agent.last_perception_at += (elapsed / interval).floor() * interval;
     agent.contact = perception::perceive(agent, ctx);
     if let Some(contact) = agent.contact.as_ref()
         && contact.heard_only
@@ -1156,6 +1215,14 @@ fn decide_prey(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome
         }
         return;
     };
+    if matches!(agent.state, AiState::Flee { threat: Some(previous), destination: _ } if previous == threat_handle)
+        && agent.path_door_version == ctx.door_version
+        && agent
+            .path_failed_at
+            .is_some_and(|failed| agent.clock - failed < PATH_RETRY_S)
+    {
+        return;
+    }
     let stale = match agent.state {
         AiState::Flee {
             destination,
@@ -1171,7 +1238,10 @@ fn decide_prey(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome
                         .is_none_or(|reached| reached.distance(agent.position) < 0.35));
             let threatened =
                 threat_position.distance(agent.position) < agent.def.catch_radius * 3.0;
-            threat_changed || destination_lost || done || threatened
+            threat_changed
+                || destination_lost
+                || done
+                || (threatened && agent.path_age >= REPLAN_INTERVAL_S)
         }
         AiState::Idle
         | AiState::Wander { destination: _ }
@@ -1211,7 +1281,10 @@ fn decide_prey(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome
             out,
         );
         agent.path.clear();
-        agent.path_goal = None;
+        agent.path_goal = Some(agent.position);
+        agent.path_done_goal = Some(agent.position);
+        agent.path_failed_at = Some(agent.clock);
+        agent.path_door_version = ctx.door_version;
         agent.interest = None;
     }
 }
@@ -1780,7 +1853,7 @@ fn can_catch(agent: &AiAgent, target: &AiTarget, ctx: &AiTickContext<'_>) -> boo
     // No catch through a wall or a floor: the predator must see its target.
     let from = agent.position + Vec3::new(0.0, (agent.profile.height * 0.5).max(0.1), 0.0);
     let to = target.position + Vec3::new(0.0, (target.height * 0.5).max(0.1), 0.0);
-    perception::sight_clear(ctx.index, ctx.walls, ctx.doors, from, to)
+    perception::sight_clear_with_leaves(ctx.index, ctx.walls, ctx.leaves, from, to)
 }
 
 /// Picks a flee destination from navigable candidates around the threat.
@@ -1834,6 +1907,11 @@ fn choose_flee_destination(
             ) else {
                 continue;
             };
+            if point.position.distance(agent.position)
+                <= movement::arrival_radius(agent.profile.radius)
+            {
+                continue;
+            }
             let Some(region) = nav.grid().region_of(class, point.cell) else {
                 continue;
             };
@@ -1893,6 +1971,8 @@ fn choose_flee_destination(
         out.path_queries = out.path_queries.saturating_add(1);
         if result.is_ok() {
             agent.path_age = 0.0;
+            agent.path_failed_at = None;
+            agent.path_done_goal = None;
             agent.path_door_version = ctx.door_version;
             agent.path_goal = Some(destination);
             agent.current_waypoint = 0;
@@ -1992,16 +2072,16 @@ fn request_route_doors(agent: &AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOut
     if agent.path.door_requests.is_empty() {
         return;
     }
-    for door in agent.path.door_requests.clone() {
-        if ctx.doors.door_open(&door) || ctx.doors.is_locked(&door).unwrap_or(false) {
+    for door in &agent.path.door_requests {
+        if ctx.doors.door_open(door) || ctx.doors.is_locked(door).unwrap_or(false) {
             continue;
         }
         if !out
             .door_requests
             .iter()
-            .any(|(requested, _)| requested == &door)
+            .any(|(requested, _)| requested == door)
         {
-            out.door_requests.push((door, agent.handle));
+            out.door_requests.push((door.clone(), agent.handle));
         }
     }
 }

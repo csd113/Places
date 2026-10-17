@@ -313,6 +313,9 @@ impl EntityRoute {
     /// [`ENTITY_MAX_STEP_S`] so a frame hitch never skips the route across a
     /// wall or a floor edge.
     pub fn advance(&self, state: &mut RouteState, delta_seconds: f32, world: &RouteWorld<'_>) {
+        if state.finished {
+            return;
+        }
         let delta = if delta_seconds.is_finite() {
             delta_seconds.clamp(0.0, ENTITY_MAX_STEP_S)
         } else {
@@ -400,6 +403,12 @@ impl EntityRoute {
                 state.position = Vec3::new(resolved.x, floor_y, resolved.y);
                 state.cue = PoseCue::Walk { speed_mps: *speed };
                 state.blocked = false;
+                if travel >= distance {
+                    // Publish the arriving step's pose in this update. Waiting
+                    // for another positive delta leaves a finished route
+                    // walking in place when the world is paused at arrival.
+                    self.enter_step(state, state.step + 1);
+                }
             }
             RouteStepDef::Face { yaw_degrees } => {
                 let target = yaw_degrees.to_radians();
@@ -487,9 +496,13 @@ impl EntityRoute {
 
     /// Marks the active step blocked and reports the reason once.
     fn block(&self, state: &mut RouteState, reason: &str) {
+        let was_blocked = state.blocked;
         state.blocked = true;
         // A stalled route stands still rather than walking in place.
         state.cue = PoseCue::Idle;
+        if was_blocked {
+            return;
+        }
         logging::warn_once(
             format!("entity-route-blocked:{}", self.instance_id),
             format!(

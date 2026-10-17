@@ -3087,6 +3087,7 @@ impl FrameLoop<'_> {
             "walls": self.game.walls().len(), "interactables": self.game.interactables().len(),
             "routes": self.game.routes().len(), "triggers": self.game.volume_count(),
             "characters": self.renderer.character_count(), "dynamic_objects": self.renderer.dynamic_scene().len(),
+            "entity_simulation": self.entity_simulation_snapshot(),
             "player_position": position, "quality": self.settings.quality_level().name(),
             "player_body": {"feet_y": self.game.feet_y(), "body_height": self.game.body_height(),
                 "eye_height": position[1] - self.game.feet_y(), "grounded": self.game.grounded,
@@ -3154,6 +3155,25 @@ impl FrameLoop<'_> {
         }
         self.trace
             .record(event, self.load_generation, &state.to_string());
+    }
+
+    /// Snapshot existing entity state only for explicit developer trace events.
+    fn entity_simulation_snapshot(&self) -> serde_json::Value {
+        serde_json::json!({
+            "time": self.game.entities().sim_time(),
+            "sequences": self.game.entities().active_sequences(),
+            "agents": self.game.entities().ai().agents().iter().map(|agent| {
+                serde_json::json!({
+                    "id": agent.instance_id, "state": agent.state.name(),
+                    "position": agent.position.to_array(), "yaw_degrees": agent.yaw_degrees,
+                    "speed_mps": agent.speed_mps, "clock": agent.clock,
+                    "path_age": agent.path_age, "waypoint": agent.current_waypoint,
+                    "hidden_remaining": agent.hidden_remaining,
+                    "opacity": agent.opacity(), "pose": format!("{:?}", agent.cue()),
+                    "light_held": agent.light_look_target.is_some(),
+                })
+            }).collect::<Vec<_>>(),
+        })
     }
 
     fn commit_loaded_world(&mut self) {

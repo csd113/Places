@@ -1,6 +1,9 @@
 mod authored_physics_removal;
 mod caustics_metadata;
+mod entity_routes;
+mod entity_sequences;
 mod level_import;
+mod navigation_ai;
 mod package_loading;
 mod physics_clock;
 mod trigger_occupants;

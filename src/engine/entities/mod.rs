@@ -29,6 +29,7 @@ pub mod components;
 pub mod developer;
 pub mod events;
 pub mod id;
+mod sequence_runtime;
 pub mod sequences;
 pub mod spawn;
 pub mod timers;
@@ -43,9 +44,8 @@ use crate::engine::collision::{DoorCollider, WallAabb, resolve_player_collision_
 use crate::engine::collision_index::CollisionIndex;
 use crate::engine::door::{DoorPhase, Doors};
 use crate::engine::entity::{
-    ENTITY_FACE_EPS_RAD, ENTITY_MAX_STEP_S, ENTITY_MIN_RADIUS_M, ENTITY_STEP_HEIGHT_M,
-    ENTITY_TURN_RATE_DEGREES_PER_SECOND, EntityFrame, EntityRoute, EntityRoutes, GlowCue, PoseCue,
-    RouteState, RouteWorld, angle_difference, turn_toward,
+    ENTITY_MIN_RADIUS_M, EntityFrame, EntityRoute, EntityRoutes, GlowCue, PoseCue, RouteState,
+    RouteWorld,
 };
 use crate::engine::interact::{
     DEFAULT_INTERACTION_REACH_M, Interactable, InteractableSync, Interactables,
@@ -62,12 +62,12 @@ use crate::engine::spatial::rotated_half_extents;
 use components::{
     Animation, AudioEmitter, Collider, ComponentTables, Fade, Glow,
     Interactable as InteractableComponent, Lifetime, Light, LightResponse, Material, NavAgent,
-    NavObstacle, ObjectState, Renderable, SequenceCtl, SpawnPoint as SpawnPointComponent,
-    StateValue, Steam, Transform, TriggerVolume, WaterVolumeCtl,
+    NavObstacle, ObjectState, Renderable, SpawnPoint as SpawnPointComponent, StateValue, Steam,
+    Transform, TriggerVolume, WaterVolumeCtl,
 };
 use events::{ConditionView, EventKind, EventQueue, EventRecord};
 use id::{EntityHandle, EntityId, EntityNames, EntityStore};
-use sequences::{MAX_ACTIVE_SEQUENCES, SequenceRuntime, SequenceStepDef, Sequences};
+use sequences::{SequenceRuntime, SequenceStepDef, Sequences};
 use spawn::{SpawnGroups, SpawnPointDef, SpawnTemplateDef};
 use timers::Timers;
 
@@ -344,6 +344,8 @@ pub struct EntityWorld {
     timers: Timers,
     sequences: Sequences,
     sequence_runs: Vec<SequenceRuntime>,
+    /// Monotonic identity separates a replacement from its in-flight predecessor.
+    next_sequence_revision: u64,
     spawn_groups: SpawnGroups,
     templates: Vec<SpawnTemplateDef>,
     spawn_points: Vec<SpawnPointDef>,
@@ -441,6 +443,7 @@ impl EntityWorld {
             timers: Timers::new(),
             sequences: Sequences::new(),
             sequence_runs: Vec::new(),
+            next_sequence_revision: 1,
             spawn_groups: SpawnGroups::new(),
             templates: Vec::new(),
             spawn_points: Vec::new(),
@@ -2829,313 +2832,6 @@ impl EntityWorld {
         }
     }
 
-    // ---- sequences -----------------------------------------------------
-
-    fn start_sequence(&mut self, id: &str, sequence: &str) -> bool {
-        let Some(handle) = self.handle_of(id) else {
-            return false;
-        };
-        let Some(def) = self.sequences.get(sequence).cloned() else {
-            return false;
-        };
-        if self.sequence_runs.len() >= MAX_ACTIVE_SEQUENCES
-            && !self.sequence_runs.iter().any(|run| run.owner == handle)
-        {
-            warn_once(
-                "sequence-budget",
-                format!(
-                    "[entities] sequence `{sequence}` refused: {MAX_ACTIVE_SEQUENCES} sequences \
-                     are already running"
-                ),
-            );
-            return false;
-        }
-        self.sequence_runs.retain(|run| run.owner != handle);
-        self.sequence_runs.push(SequenceRuntime::new(&def, handle));
-        if let Some(control) = self.components.sequences.get_mut(handle) {
-            control.sequence = def.id;
-            control.running = true;
-        } else {
-            drop(self.components.sequences.insert(
-                handle,
-                SequenceCtl {
-                    sequence: def.id,
-                    running: true,
-                },
-            ));
-        }
-        true
-    }
-
-    fn stop_sequence(&mut self, id: &str) -> bool {
-        let Some(handle) = self.handle_of(id) else {
-            return false;
-        };
-        let mut stopped = false;
-        for run in &mut self.sequence_runs {
-            if run.owner == handle && !run.finished && !run.stopped {
-                run.stop();
-                stopped = true;
-            }
-        }
-        if let Some(control) = self.components.sequences.get_mut(handle) {
-            control.running = false;
-        }
-        stopped
-    }
-
-    /// Advances every running sequence by as many steps as it can complete.
-    #[expect(clippy::too_many_lines, reason = "one cohesive step machine")] // one cohesive step machine
-    fn tick_sequences(&mut self, ctx: &WorldContext<'_>, tick: &mut WorldTick) {
-        if self.sequence_runs.is_empty() {
-            return;
-        }
-        let runs = std::mem::take(&mut self.sequence_runs);
-        let mut keep: Vec<SequenceRuntime> = Vec::with_capacity(runs.len());
-        for mut run in runs {
-            let Some(def) = self.sequences.get(&run.sequence).cloned() else {
-                continue;
-            };
-            if run.finished || run.stopped || !self.store.contains(run.owner) {
-                continue;
-            }
-            run.step_time += ctx.delta_seconds;
-            let mut steps = 0usize;
-            loop {
-                steps = steps.saturating_add(1);
-                let Some(step) = run.current(&def).cloned() else {
-                    run.finished = true;
-                    break;
-                };
-                match step {
-                    SequenceStepDef::Action { action } => {
-                        if run.step_ran {
-                            break;
-                        }
-                        run.step_ran = true;
-                        let mut report = DispatchReport::default();
-                        self.run_action(&action, Some(run.owner), &mut report, 1);
-                        tick.actions_run = tick.actions_run.saturating_add(report.actions_run);
-                        tick.missing_targets =
-                            tick.missing_targets.saturating_add(report.missing_targets);
-                        tick.unsupported = tick.unsupported.saturating_add(report.unsupported);
-                        let _advance_status = run.advance(&def);
-                    }
-                    SequenceStepDef::Wait { seconds } => {
-                        if run.step_time >= seconds {
-                            let _advance_status_2 = run.advance(&def);
-                        } else {
-                            break;
-                        }
-                    }
-                    SequenceStepDef::Move { x, y, z, speed } => {
-                        let target = Vec3::new(x, y.unwrap_or(f32::NAN), z);
-                        if self.sequence_move_step(&mut run, target, speed, ctx) {
-                            let _advance_status_3 = run.advance(&def);
-                        } else {
-                            break;
-                        }
-                    }
-                    SequenceStepDef::Face { yaw_degrees } => {
-                        if self.sequence_face_step(&run, yaw_degrees, ctx.delta_seconds) {
-                            let _advance_status_4 = run.advance(&def);
-                        } else {
-                            break;
-                        }
-                    }
-                    SequenceStepDef::WaitAnimation { clip, timeout } => {
-                        let complete = run.animation_complete
-                            || (timeout > 0.0 && run.step_time >= timeout)
-                            || clip.as_deref().is_some_and(|clip_name| {
-                                self.components
-                                    .animations
-                                    .get(run.owner)
-                                    .is_some_and(|animation| {
-                                        !animation.playing
-                                            && animation.clip == clip_name
-                                            && animation.progress >= 1.0
-                                    })
-                            });
-                        if complete {
-                            let _advance_status_5 = run.advance(&def);
-                        } else {
-                            break;
-                        }
-                    }
-                    SequenceStepDef::Emit { on, key } => {
-                        if run.step_ran {
-                            break;
-                        }
-                        run.step_ran = true;
-                        let _event_queued = self.emit_depth(
-                            EventKind::parse(on),
-                            run.owner,
-                            key.as_deref().unwrap_or_default(),
-                            Some(run.owner),
-                            1,
-                        );
-                        let _advance_status_6 = run.advance(&def);
-                    }
-                    SequenceStepDef::SetState { name, value } => {
-                        if run.step_ran {
-                            break;
-                        }
-                        run.step_ran = true;
-                        if let Some(id) = self.id_of(run.owner).map(str::to_string) {
-                            let _event_queued_2 =
-                                self.emit_state(&id, &name, value, Some(run.owner), 1);
-                        }
-                        let _advance_status_7 = run.advance(&def);
-                    }
-                    SequenceStepDef::Stop => {
-                        // The docs: "ends the sequence here, as if it
-                        // completed" - so the completion path below must run:
-                        // it clears the controller's `running` (which the
-                        // `sequence_idle` condition reads) and emits
-                        // `sequence_complete`. `stop()` remains the explicit
-                        // cancellation path for `stop_sequence`/despawn.
-                        run.finished = true;
-                        break;
-                    }
-                }
-                if steps >= 64 || run.finished || run.stopped {
-                    break;
-                }
-            }
-            if run.finished && !run.stopped {
-                if let Some(control) = self.components.sequences.get_mut(run.owner) {
-                    control.running = false;
-                }
-                let _event_queued_3 = self.emit_depth(
-                    EventKind::SequenceComplete,
-                    run.owner,
-                    "",
-                    Some(run.owner),
-                    1,
-                );
-                tick.sequences_completed = tick.sequences_completed.saturating_add(1);
-            } else if !run.stopped {
-                keep.push(run);
-            }
-        }
-        self.sequence_runs = keep;
-    }
-
-    /// One `move` step of a running sequence. Returns true when it moved on.
-    #[expect(
-        clippy::arithmetic_side_effects,
-        reason = "bounded flat movement arithmetic"
-    )] // bounded flat movement arithmetic
-    fn sequence_move_step(
-        &mut self,
-        run: &mut SequenceRuntime,
-        target: Vec3,
-        speed: f32,
-        ctx: &WorldContext<'_>,
-    ) -> bool {
-        if !target.x.is_finite() || !target.z.is_finite() || !speed.is_finite() || speed <= 0.0 {
-            return true;
-        }
-        let Some(transform) = self.components.transforms.get(run.owner).copied() else {
-            return true;
-        };
-        let here = transform.position;
-        let flat = glam::Vec2::new(target.x - here.x, target.z - here.z);
-        let distance = flat.length();
-        if !distance.is_finite() {
-            return true;
-        }
-        if distance <= sequences::SEQUENCE_ARRIVE_EPS_M {
-            return true;
-        }
-        let direction = flat / distance;
-        let travel = (speed * ctx.delta_seconds).min(distance);
-        let candidate = glam::Vec2::new(here.x, here.z) + direction * travel;
-        let (radius, height) = self.body_of(run.owner);
-        let resolved = resolve_player_collision_for_body_indexed(
-            ctx.index, candidate, radius, here.y, height, ctx.walls,
-        );
-        if (resolved - candidate).length() > crate::engine::entity::ENTITY_BLOCK_EPS_M {
-            warn_once(
-                "sequence-move-blocked",
-                format!(
-                    "[entities] sequence `{}` is blocked by a wall",
-                    run.sequence
-                ),
-            );
-            run.stop();
-            return true;
-        }
-        let Some(floor_y) = ctx.floor.walk_height_at(resolved.x, resolved.y) else {
-            warn_once(
-                "sequence-move-void",
-                format!(
-                    "[entities] sequence `{}` leaves every walkable floor",
-                    run.sequence
-                ),
-            );
-            run.stop();
-            return true;
-        };
-        if (floor_y - here.y).abs() > ENTITY_STEP_HEIGHT_M + crate::engine::collision::STEP_EPS {
-            warn_once(
-                "sequence-move-step",
-                format!(
-                    "[entities] sequence `{}` cannot climb the step on its path",
-                    run.sequence
-                ),
-            );
-            run.stop();
-            return true;
-        }
-        let next = Vec3::new(resolved.x, floor_y, resolved.y);
-        if let Some(entry) = self.components.transforms.get_mut(run.owner) {
-            entry.position = next;
-        }
-        if let Some(key) = self.dynamic_key(run.owner) {
-            self.commands.push(WorldCommand::SetDynamicTransform {
-                entity: key,
-                position: next,
-                yaw_degrees: transform.yaw_degrees,
-            });
-        }
-        false
-    }
-
-    /// One `face` step. Returns true when the entity reached the yaw.
-    ///
-    /// The turn is delta-scaled, exactly like a route's `face` step, so the
-    /// authored degrees-per-second rate holds at any frame rate.
-    fn sequence_face_step(
-        &mut self,
-        run: &SequenceRuntime,
-        yaw_degrees: f32,
-        delta_seconds: f32,
-    ) -> bool {
-        if !yaw_degrees.is_finite() {
-            return true;
-        }
-        let Some(transform) = self.components.transforms.get(run.owner).copied() else {
-            return true;
-        };
-        let target = yaw_degrees.to_radians();
-        let current = transform.yaw_degrees.to_radians();
-        if angle_difference(current, target).abs() <= ENTITY_FACE_EPS_RAD {
-            return true;
-        }
-        let delta = if delta_seconds.is_finite() {
-            delta_seconds.clamp(0.0, ENTITY_MAX_STEP_S)
-        } else {
-            0.0
-        };
-        let step = ENTITY_TURN_RATE_DEGREES_PER_SECOND.to_radians() * delta;
-        let next = turn_toward(current, target, step);
-        if let Some(entry) = self.components.transforms.get_mut(run.owner) {
-            entry.yaw_degrees = next.to_degrees();
-        }
-        false
-    }
-
     /// The authored water-volume index of a water entity, when it has one.
     fn water_volume_index(&self, handle: EntityHandle) -> Option<u32> {
         let _configured_get = self.components.water.get(handle)?;
@@ -3832,23 +3528,29 @@ impl EntityWorld {
     pub fn tick(&mut self, ctx: &WorldContext<'_>) -> WorldTick {
         let mut tick = WorldTick::default();
         self.spawns_this_tick = 0;
-        self.sim_time += ctx.delta_seconds;
-        self.tick_bindings(ctx.delta_seconds);
-        self.tick_timers(ctx.delta_seconds, &mut tick);
-        self.tick_sequences(ctx, &mut tick);
-        self.tick_ai(ctx, &mut tick);
-        self.tick_moves(ctx, &mut tick);
-        self.tick_lifetimes(ctx.delta_seconds, &mut tick);
+        if ctx.delta_seconds.is_finite() && ctx.delta_seconds > 0.0 {
+            self.sim_time += ctx.delta_seconds;
+            self.tick_bindings(ctx.delta_seconds);
+            self.tick_timers(ctx.delta_seconds, &mut tick);
+            self.tick_sequences(ctx, &mut tick);
+            if tick.player_reset {
+                return tick;
+            }
+            self.tick_ai(ctx, &mut tick);
+            self.tick_moves(ctx, &mut tick);
+            self.tick_lifetimes(ctx.delta_seconds, &mut tick);
+        }
+        // Player interactions may still enqueue actions while world time is
+        // stopped. Dispatch those without advancing any simulation controller.
         self.pump_events(&mut tick);
         self.report_queue_refusals(&mut tick);
         if tick.frames_dirty {
             self.sync_transformed_interactables();
             self.sync_routed_interactables();
         }
-        if tick.frames_dirty || self.any_enabled_fade() {
-            // A binding or sequence cued an animation this tick, or an enabled
-            // fade changed the opacity: the renderer handoff is rebuilt even
-            // when the level authors no routes.
+        if tick.frames_dirty {
+            // Routes and fades publish after this tick in update_entities;
+            // only action/AI changes require an earlier handoff here.
             self.rebuild_entity_frames();
         } else {
             self.refresh_balloon_frames();
@@ -3906,7 +3608,7 @@ impl EntityWorld {
         };
         let mut outcome = AiOutcome::default();
         self.ai.tick(&ai_ctx, &mut outcome);
-        tick.frames_dirty |= outcome.transitions > 0;
+        tick.frames_dirty |= outcome.transitions > 0 || outcome.cues_changed;
         for (handle, position, yaw_degrees, spawned) in outcome.moved {
             if let Some(transform) = self.components.transforms.get_mut(handle) {
                 transform.position = position;
@@ -4147,9 +3849,9 @@ impl EntityWorld {
     /// the player is known.
     #[expect(clippy::arithmetic_side_effects, reason = "bounded pose comparisons")] // bounded pose comparisons
     pub fn update_entities(&mut self, delta: f32, world: &RouteWorld<'_>, player: Option<Vec3>) {
-        if self.routes.is_empty() && !self.any_enabled_fade() {
-            // Without a route or an enabled fade this stays the historical
-            // cheap early return.
+        if !self.route_states.iter().any(|state| !state.finished) && !self.any_enabled_fade() {
+            // Completed routes retain their last handoff; no frame strings or
+            // pose overrides need rebuilding until a reset or action changes them.
             return;
         }
         if !self.routes.is_empty() {

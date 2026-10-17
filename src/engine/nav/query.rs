@@ -394,9 +394,9 @@ impl NavMesh {
 
     /// One Chebyshev-ring search over the grid around `(origin_cx, origin_cz)`.
     ///
-    /// Ring order makes the first hit the nearest by horizontal distance; ties
-    /// inside a ring resolve to the lowest cell index, so a query is
-    /// deterministic.
+    /// Rings bound the search, but candidates are compared across rings: a
+    /// diagonal cell in one ring can be farther than an axial cell in the
+    /// next. Equal distances resolve to the lowest cell index.
     #[expect(clippy::too_many_arguments, reason = "one cohesive ring search")] // one cohesive ring search
     fn scan_ring(
         &self,
@@ -429,8 +429,8 @@ impl NavMesh {
             .max(bounds.1)
             .max(bounds.2.abs())
             .max(bounds.3);
+        let mut best: Option<(f32, NavPoint)> = None;
         for ring in 0_i32..=max_ring.min(grid_radius) {
-            let mut best: Option<(f32, NavPoint)> = None;
             for (dx, dz) in ring_offsets(ring, bounds) {
                 let Some(nx) = origin_cx.checked_add(dx) else {
                     continue;
@@ -469,7 +469,10 @@ impl NavMesh {
                 {
                     continue;
                 }
-                if best.is_none_or(|(best_distance, _)| distance < best_distance) {
+                if best.is_none_or(|(best_distance, best_point)| {
+                    distance < best_distance
+                        || (distance == best_distance && index < best_point.cell)
+                }) {
                     best = Some((
                         distance,
                         NavPoint {
@@ -479,11 +482,21 @@ impl NavMesh {
                     ));
                 }
             }
-            if let Some((_, point)) = best {
+            // Every cell outside this ring is at least `ring * cell_m`
+            // away on one axis, regardless of the query's cell offset.
+            #[expect(
+                clippy::cast_precision_loss,
+                clippy::as_conversions,
+                reason = "Loaded grids contain at most 2^21 cells, so every visited nonnegative ring index converts exactly to f32."
+            )]
+            let outside_distance = ring as f32 * self.grid.cell_m;
+            if let Some((distance, point)) = best
+                && (ring == 0_i32 || distance < outside_distance)
+            {
                 return Some(point);
             }
         }
-        None
+        best.map(|(_, point)| point)
     }
 
     /// True when the straight corridor from an off-mesh query point to a
@@ -514,13 +527,8 @@ impl NavMesh {
         let cell_m = self.grid.cell_m;
         let distance = (to.x - from.x).hypot(to.z - from.z);
         let steps = (distance / (cell_m * 0.5)).ceil().clamp(1.0, 4096.0) as u32;
-        let sample_distance = if steps == 0 {
-            distance
-        } else {
-            distance / steps as f32
-        };
         let mut entered = false;
-        let mut previous: Option<f32> = None;
+        let mut previous: Option<usize> = None;
         for step in 1..=steps {
             let t = step as f32 / steps as f32;
             let x = (to.x - from.x).mul_add(t, from.x);
@@ -542,16 +550,20 @@ impl NavMesh {
             } else if !walkable {
                 return false;
             }
-            let Some(y) = self.grid.surface(index) else {
-                continue;
-            };
-            if let Some(previous_y) = previous {
-                let allowed = profile.step_height + profile.max_slope * sample_distance + STEP_EPS;
-                if (y - previous_y).abs() > allowed {
-                    return false;
-                }
+            if let Some(previous_cell) = previous
+                && !self.segment_transition_clear(
+                    class,
+                    previous_cell,
+                    index,
+                    &profile,
+                    doors,
+                    can_open_doors,
+                    None,
+                )
+            {
+                return false;
             }
-            previous = Some(y);
+            previous = Some(index);
         }
         true
     }
@@ -814,12 +826,13 @@ impl NavMesh {
                     continue;
                 };
                 let point = clamp_to_surface(&self.grid, cell, query.goal);
-                if self.segment_clear(
+                if self.segment_clear_bounded(
                     query.class,
                     anchor,
                     point,
                     query.doors,
                     query.can_open_doors,
+                    bounds,
                 ) && self.segment_in_bounds(anchor, point, bounds)
                 {
                     next = candidate;
@@ -840,12 +853,13 @@ impl NavMesh {
             index = next.saturating_add(1);
         }
         if reached {
-            let goal_point = if self.segment_clear(
+            let goal_point = if self.segment_clear_bounded(
                 query.class,
                 anchor,
                 query.goal,
                 query.doors,
                 query.can_open_doors,
+                bounds,
             ) && self.segment_in_bounds(anchor, query.goal, bounds)
             {
                 query.goal
@@ -901,13 +915,6 @@ impl NavMesh {
     /// True when a straight walked segment stays on walkable cells for the
     /// class, without a rise a step or a slope cannot explain.
     #[must_use]
-    #[expect(
-        clippy::cast_possible_truncation,
-        clippy::cast_precision_loss,
-        clippy::cast_sign_loss,
-        clippy::as_conversions,
-        reason = "The float sample count is clamped to 1..=4096 before saturation/truncation; all visited sample indices and counts have exact f32 representations."
-    )]
     pub fn segment_clear(
         &self,
         class: usize,
@@ -915,6 +922,25 @@ impl NavMesh {
         to: Vec3,
         doors: &dyn NavDoorState,
         can_open_doors: bool,
+    ) -> bool {
+        self.segment_clear_bounded(class, from, to, doors, can_open_doors, None)
+    }
+
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        clippy::cast_sign_loss,
+        clippy::as_conversions,
+        reason = "The float sample count is clamped to 1..=4096 before saturation/truncation; all visited sample indices and counts have exact f32 representations."
+    )]
+    fn segment_clear_bounded(
+        &self,
+        class: usize,
+        from: Vec3,
+        to: Vec3,
+        doors: &dyn NavDoorState,
+        can_open_doors: bool,
+        bounds: Option<NavBounds>,
     ) -> bool {
         let Some(profile) = self.grid.classes.get(class).copied() else {
             return false;
@@ -925,13 +951,8 @@ impl NavMesh {
         let cell_m = self.grid.cell_m;
         let distance = (to.x - from.x).hypot(to.z - from.z);
         let step_count = (distance / (cell_m * 0.5)).ceil().clamp(1.0, 4096.0) as u32;
-        let mut previous: Option<f32> = None;
-        let sample_distance = if step_count == 0 {
-            distance
-        } else {
-            distance / step_count as f32
-        };
-        for step in 1..=step_count {
+        let mut previous: Option<usize> = None;
+        for step in 0..=step_count {
             let t = step as f32 / step_count as f32;
             let x = (to.x - from.x).mul_add(t, from.x);
             let z = (to.z - from.z).mul_add(t, from.z);
@@ -947,16 +968,20 @@ impl NavMesh {
             {
                 return false;
             }
-            let Some(y) = self.grid.surface(index) else {
+            if let Some(previous_cell) = previous
+                && !self.segment_transition_clear(
+                    class,
+                    previous_cell,
+                    index,
+                    &profile,
+                    doors,
+                    can_open_doors,
+                    bounds,
+                )
+            {
                 return false;
-            };
-            if let Some(previous_y) = previous {
-                let allowed = profile.step_height + profile.max_slope * sample_distance + STEP_EPS;
-                if (y - previous_y).abs() > allowed {
-                    return false;
-                }
             }
-            previous = Some(y);
+            previous = Some(index);
         }
         true
     }
@@ -1041,7 +1066,7 @@ impl NavMesh {
         Some(self.portal_state(next, x, z, profile, query.doors, query.can_open_doors))
     }
 
-    /// True when a diagonal step's two orthogonal neighbours are walkable.
+    /// True when a diagonal step's orthogonal neighbours are currently passable.
     fn corner_open(
         &self,
         query: &PathQuery<'_>,
@@ -1057,8 +1082,74 @@ impl NavMesh {
         let (Some(a), Some(b)) = (self.grid.index_of(ax, cz), self.grid.index_of(cx, bz)) else {
             return false;
         };
-        self.grid.is_walkable(query.class, a)
-            && self.grid.is_walkable(query.class, b)
+        let Some(profile) = self.grid.classes.get(query.class) else {
+            return false;
+        };
+        self.cell_region(query.class, a, profile, query.doors, query.can_open_doors)
+            .is_some()
+            && self
+                .cell_region(query.class, b, profile, query.doors, query.can_open_doors)
+                .is_some()
+            && self.cell_in_bounds(a, bounds)
+            && self.cell_in_bounds(b, bounds)
+    }
+
+    /// Checks the same step and diagonal topology used by A* for a shortcut.
+    fn segment_transition_clear(
+        &self,
+        class: usize,
+        from: usize,
+        to: usize,
+        profile: &NavClass,
+        doors: &dyn NavDoorState,
+        can_open_doors: bool,
+        bounds: Option<NavBounds>,
+    ) -> bool {
+        if from == to {
+            return true;
+        }
+        let (Some(from_x), Some(from_z), Some(to_x), Some(to_z)) = (
+            cell_column(&self.grid, from),
+            cell_row(&self.grid, from),
+            cell_column(&self.grid, to),
+            cell_row(&self.grid, to),
+        ) else {
+            return false;
+        };
+        if from_x.abs_diff(to_x) > 1 || from_z.abs_diff(to_z) > 1 {
+            return false;
+        }
+        let (Some(from_y), Some(to_y), Some(from_flags), Some(to_flags)) = (
+            self.grid.surface(from),
+            self.grid.surface(to),
+            self.grid.cell_flags.get(from).copied(),
+            self.grid.cell_flags.get(to).copied(),
+        ) else {
+            return false;
+        };
+        let diagonal = from_x != to_x && from_z != to_z;
+        let distance = if diagonal {
+            self.grid.cell_m * std::f32::consts::SQRT_2
+        } else {
+            self.grid.cell_m
+        };
+        if !neighbour_rule(from_y, to_y, distance, from_flags, to_flags, profile) {
+            return false;
+        }
+        if !diagonal {
+            return true;
+        }
+        let (Some(a), Some(b)) = (
+            self.grid.index_of(to_x, from_z),
+            self.grid.index_of(from_x, to_z),
+        ) else {
+            return false;
+        };
+        self.cell_region(class, a, profile, doors, can_open_doors)
+            .is_some()
+            && self
+                .cell_region(class, b, profile, doors, can_open_doors)
+                .is_some()
             && self.cell_in_bounds(a, bounds)
             && self.cell_in_bounds(b, bounds)
     }

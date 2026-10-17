@@ -1,4 +1,16 @@
-## 0.11.0 — 2026-10-16
+## 0.11.0 — 2026-10-17
+
+### Entity updates and navigation correctness
+
+- Keep sequence starts, replacement, cancellation, completion keys and reset
+  reports consistent; extract their scheduler and share sequence transforms with AI.
+- Freeze entity simulation at zero world time, resume released scripted agents,
+  and preserve live door corners, step limits and nearest-point navigation.
+- Blend animation changes from the displayed pose, finish route endpoints in the
+  arriving update, and retain paused/completed poses without repeated skinning.
+- Bound failed escape retries, stagger perception, reuse live door colliders and
+  avoid duplicate fade/frame work. Preserve Office mannequin and roach behavior.
+  [Findings, focused regressions and native evidence](docs/reports/entity-navigation-0.11.0.md).
 
 ### Settings and input correctness
 

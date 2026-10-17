@@ -188,6 +188,8 @@ impl SequenceStepDef {
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct SequenceRuntime {
+    /// Identity assigned by the owning world; replacements receive a fresh value.
+    pub(super) revision: u64,
     /// Id of the running sequence.
     pub sequence: String,
     /// The entity the sequence runs on.
@@ -214,6 +216,7 @@ impl SequenceRuntime {
     #[must_use]
     pub fn new(def: &SequenceDef, owner: EntityHandle) -> Self {
         Self {
+            revision: 0,
             sequence: def.id.clone(),
             owner,
             step: 0,

@@ -14,6 +14,7 @@ The current workflow uses the following tools:
 | tool | what it does |
 | --- | --- |
 | `native_app.py` | historical macOS bundle launcher; prohibited for current staging validation |
+| `entity_navigation.py` | direct-binary Office mannequin/roach, stopped-clock, pause and Office/Home reload acceptance; uses existing packages and retains screenshots/snapshots |
 | `compiler_bench.py` | measures complete clean offline builds, phase timings, CPU, peak RAM and deterministic package hashes |
 | `compiler_compare.py` | alternates baseline and optimized clean builds within each repeated map pair, comparing all physical output records |
 | `compiler_incremental.py` | measures preserved source edits and verifies incremental packages equal independent clean builds |
