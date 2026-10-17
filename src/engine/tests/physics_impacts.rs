@@ -14,7 +14,7 @@ use crate::engine::physics::{
 fn level() -> Result<LevelDef, String> {
     LevelDef::from_json(
         r#"{
-            "format_version": 3, "id": "impact_fixture", "name": "Impact fixture",
+            "schema": "places-level", "format_version": 1, "id": "impact_fixture", "name": "Impact fixture",
             "spawn": {"x": 0.0, "z": 0.0},
             "rooms": [{"x": -5.0, "z": -5.0, "width": 10.0, "depth": 10.0,
                        "height": 5.0, "material": "home:hardwood_oak_01"}],

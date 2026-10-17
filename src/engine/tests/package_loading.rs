@@ -86,6 +86,7 @@ fn manifest_declarations_must_match_the_archive_before_decoding() -> Result<(), 
 fn minimal_manifest() -> Result<Manifest, String> {
     let blob = hash::blob_name(&[], ".mesh");
     serde_json::from_value(serde_json::json!({
+        "schema": "places-map",
         "package_format": 1,
         "id": "package_snapshot",
         "name": "Original snapshot",
@@ -131,4 +132,65 @@ fn variant_error(bytes: &[u8], manifest: &Manifest) -> Result<String, String> {
     )
     .err()
     .ok_or_else(|| "malformed package was accepted".to_string())
+}
+
+// Essential reset regression: one probe exercises the new presence/group framing,
+// including zero selected sources, and rejects the historical signature collision.
+// All records stay below 160 bytes; no assets, map baking or GPU work is involved.
+#[test]
+fn reset_probe_field_roundtrips_optional_planes_and_rejects_superseded_headers()
+-> Result<(), String> {
+    use crate::engine::lighting::lightmap::LightmapTexel;
+    use crate::engine::lighting::probes::{
+        ProbeDirectField, ProbeField, ProbeSample, ProbeSwitchableField,
+    };
+
+    let zero = LightmapTexel {
+        irradiance: [0.0; 3],
+        direction: [0.0; 3],
+        axis: [0.5; 2],
+    };
+    let mut field = ProbeField {
+        min: [0.0; 3],
+        cell_m: 1.0,
+        dims: [1; 3],
+        probes: vec![ProbeSample {
+            irradiance: [1.0; 3],
+            direction: [0.0; 3],
+            axis: [0.5; 2],
+            room: 0,
+        }],
+        local_direct: None,
+        switchable_indirect: Vec::new(),
+    };
+    for state in 0_u8..3 {
+        if state == 1 {
+            field.local_direct = Some(ProbeDirectField {
+                light_indices: Vec::new(),
+                probes: vec![zero],
+            });
+        } else if state == 2 {
+            field.switchable_indirect.push(ProbeSwitchableField {
+                light_index: 0,
+                probes: vec![zero],
+            });
+        }
+        let encoded = field.write()?;
+        assert_eq!(ProbeField::read(&encoded)?, field);
+        let mut old = encoded.clone();
+        old.get_mut(..4)
+            .ok_or("missing probe signature")?
+            .copy_from_slice(b"PLPF");
+        assert!(ProbeField::read(&old).is_err());
+        let mut unsupported = encoded.clone();
+        unsupported
+            .get_mut(4..6)
+            .ok_or("missing probe version")?
+            .copy_from_slice(&2_u16.to_le_bytes());
+        assert!(ProbeField::read(&unsupported).is_err());
+        let mut truncated = encoded;
+        let _removed = truncated.pop();
+        assert!(ProbeField::read(&truncated).is_err());
+    }
+    Ok(())
 }

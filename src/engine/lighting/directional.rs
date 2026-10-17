@@ -91,14 +91,14 @@ impl DirectionalLight {
         writer.bool(self.caustics);
     }
 
-    pub(crate) fn read_compiled(reader: &mut Reader<'_>, version: u16) -> Result<Self, String> {
+    pub(crate) fn read_compiled(reader: &mut Reader<'_>) -> Result<Self, String> {
         let light = Self {
             incoming: reader.f32_3()?,
             color: reader.f32_3()?,
             intensity: reader.f32()?,
             cast_shadows: reader.bool()?,
             angular_radius: reader.f32()?,
-            caustics: version >= 4 && reader.bool()?,
+            caustics: reader.bool()?,
         };
         if !light.is_valid() {
             return Err("invalid compiled directional illuminator".to_string());

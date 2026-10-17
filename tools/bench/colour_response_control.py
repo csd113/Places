@@ -45,7 +45,7 @@ def source(name: str, colour: list[float]) -> dict:
     for wall in walls:
         wall.setdefault("height", 2.8)
     return dict(
-        format_version=3, id="colour_response_" + name,
+        schema="places-level", format_version=1, id="colour_response_" + name,
         name="Colour response control: " + name,
         spawn=dict(x=1.5, z=2.75, yaw_degrees=0),
         defaults=dict(wall=neutral, floor=neutral, ceiling=neutral),

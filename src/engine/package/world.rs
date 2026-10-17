@@ -131,12 +131,8 @@ pub struct ProbePositions {
     pub points: Vec<[f32; 3]>,
 }
 
-/// Version of the probe positions record.
-///
-/// Version 2 added the prefiltered mip chain; there is no reader for an older
-/// record: a version-1 package is superseded and must be rebuilt. Version 3
-/// stores linear HDR cubes; version 2 RGBA8 display cubes decode at load.
-pub const PROBE_POSITIONS_VERSION: u16 = 3;
+/// Current pre-release probe positions version; superseded layouts require recompilation.
+pub const PROBE_POSITIONS_VERSION: u16 = 1;
 
 /// Opens a package and reads its manifest and semantics.
 ///
@@ -448,7 +444,7 @@ fn material_variant_textures<R: std::io::Read + std::io::Seek>(
     // This secondary lookup needs only override materials. Do not decode all
     // architecture PNGs again while attaching a few timber/metal sheets.
     let mut material_level = LevelDef::from_json(
-        r#"{"format_version":3,"id":"prop_materials","name":"Prop materials","spawn":{"x":0,"z":0}}"#,
+        r#"{"schema":"places-level","format_version":1,"id":"prop_materials","name":"Prop materials","spawn":{"x":0,"z":0}}"#,
     ).map_err(|error| error.to_string())?;
     material_level.props = level
         .props
@@ -698,13 +694,12 @@ fn read_probes<R: std::io::Read + std::io::Seek>(
 
 /// Validates one positions record against the manifest payload it belongs to.
 ///
-/// HDR v3 and legacy display v2 mip chains are supported. Version 1 lacks
-/// a prepared chain and is superseded. Legacy display texels decode at load.
+/// Only the current prepared HDR mip-chain schema is accepted.
 fn validate_positions_record(
     positions: &ProbePositions,
     payload: &ProbePayload,
 ) -> Result<(), String> {
-    if positions.record_version != PROBE_POSITIONS_VERSION && positions.record_version != 2 {
+    if positions.record_version != PROBE_POSITIONS_VERSION {
         return Err(format!(
             "probe positions record version {} is not supported",
             positions.record_version
@@ -727,38 +722,9 @@ fn validate_positions_record(
     Ok(())
 }
 
-/// Legacy RGBA8 probes stored display RGB. Decode once into the current
-/// binary16 working representation; new compiler output is always HDR.
+/// Decode the current linear binary16 reflection representation.
 pub(crate) fn read_probe_image(bytes: &[u8]) -> Result<Ktx2Rgba16f, String> {
-    if let Ok(image) = ktx2::read_rgba16f(bytes) {
-        return Ok(image);
-    }
-    let image = ktx2::read_rgba8(bytes)?;
-    let levels = image
-        .levels
-        .iter()
-        .map(|level| {
-            let mut output = Vec::with_capacity(level.len().saturating_mul(2));
-            for pixel in level.as_chunks::<4>().0 {
-                let [red, green, blue, alpha] = *pixel;
-                for channel in [
-                    crate::engine::materials::color::decode_byte(red),
-                    crate::engine::materials::color::decode_byte(green),
-                    crate::engine::materials::color::decode_byte(blue),
-                    f32::from(alpha) / 255.0,
-                ] {
-                    output.extend_from_slice(&ktx2::f32_to_f16_bits(channel).to_le_bytes());
-                }
-            }
-            output
-        })
-        .collect();
-    Ok(Ktx2Rgba16f {
-        edge: image.edge,
-        layers: image.layers,
-        faces: image.faces,
-        levels,
-    })
+    ktx2::read_rgba16f(bytes)
 }
 
 /// Splits a decoded cube KTX2 into its full mip chain of six face buffers.

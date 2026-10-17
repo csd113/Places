@@ -220,7 +220,7 @@ mod native {
         let floor_y = if scenario.wet() { "-2" } else { "0" };
         let definition = format!(
             r#"{{
-            "format_version":3,"id":"physics_workers","name":"physics workers",
+            "schema":"places-level","format_version":1,"id":"physics_workers","name":"physics workers",
             "spawn":{{"x":0,"z":0}},
             "defaults":{{"floor":"bench:wood","ceiling":"core:ceiling_tile","wall":"core:wallpaper"}},
             "rooms":[{{"x":-4,"z":-4,"width":10,"depth":10,"height":6,

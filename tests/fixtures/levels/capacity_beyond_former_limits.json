@@ -1,5 +1,6 @@
 {
-  "format_version": 3,
+  "schema": "places-level",
+  "format_version": 1,
   "id": "capacity_beyond_former_limits",
   "name": "Capacity: Beyond Former Limits (dev)",
   "author": "Places Team",

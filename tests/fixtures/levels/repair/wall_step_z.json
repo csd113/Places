@@ -1,5 +1,6 @@
 {
-  "format_version": 3,
+  "schema": "places-level",
+  "format_version": 1,
   "id": "repair_wall_step_z",
   "name": "Repair Wall Step Z",
   "author": "Places Team",

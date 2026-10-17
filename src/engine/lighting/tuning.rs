@@ -614,10 +614,7 @@ pub fn model_fingerprint() -> u64 {
         }
     }
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
-    // Source policy 2: completed GLBs define the three adopted apertures.
-    write(&mut hash, 2);
-    // Baseline policy 2: shared RGB amplitude preserves emitted hue.
-    write(&mut hash, 2);
+    // Structural equation changes are tracked by transport::SOLVER_REVISION.
     for value in [
         AMBIENT_LEVEL,
         MAX_BRIGHTNESS,

@@ -35,22 +35,10 @@
 use crate::engine::lighting::lightmap::LightmapTexel;
 
 /// Magic of the compiled probe-field record.
-pub const PROBE_FIELD_MAGIC: [u8; 4] = *b"PLPF";
+pub const PROBE_FIELD_MAGIC: [u8; 4] = *b"PPF1";
 
-/// Version of the compiled probe-field record.
-///
-/// * `1` — the dominant-axis encoding (a per-channel amplitude plus an
-///   octahedral axis).
-/// * `2` — the linear moment representation: `direction` is the vector sum of
-///   the per-channel first moments and the axis pair is reserved. A version-1
-///   field is rejected.
-/// * `3` — optional separately accumulated local direct coefficients and
-///   stable compiled light indices. A zero-source field retains an aligned
-///   zero sidecar and the spatial runtime contract. Version 2 remains a
-///   combined-only field.
-/// * `4` — independently switched indirect coefficients from each prepared
-///   atlas group. Versions 2 and 3 remain readable with no switched bounce.
-pub const PROBE_FIELD_RECORD_VERSION: u16 = 4;
+/// Current pre-release probe field record version; superseded layouts require recompilation.
+pub const PROBE_FIELD_RECORD_VERSION: u16 = 1;
 
 /// Maximum globally stable local sources evaluated live for prepared entities.
 pub const MAX_RUNTIME_PROBE_LIGHTS: usize = 8;
@@ -72,7 +60,7 @@ pub const MAX_PROBE_FIELD_BYTES: u64 = 256 * 1024 * 1024;
 
 /// Largest supported linear channel, matching the static RGBA16F atlas range.
 ///
-/// This is a rejection bound, not a clamp or display brightness limit. PLPF
+/// This is a rejection bound, not a clamp or display brightness limit. PPF1
 /// retains accepted f32 coefficients without quantizing them to half floats.
 pub const MAX_PROBE_IRRADIANCE: f32 = 65_504.0;
 
@@ -149,10 +137,10 @@ pub struct ProbeField {
     pub dims: [u32; 3],
     /// Probes, `x` fastest then `y` then `z`.
     pub probes: Vec<ProbeSample>,
-    /// Absent only in legacy combined-only fields. Never includes switchable
+    /// Absent in combined-only fields. Never includes switchable
     /// lights; a newly solved field with no selected sources stores zeroes.
     pub local_direct: Option<ProbeDirectField>,
-    /// Prepared switched bounce. Empty in legacy v2/v3 records.
+    /// Prepared switched bounce. Empty when there are no switchable sources.
     pub switchable_indirect: Vec<ProbeSwitchableField>,
 }
 
@@ -788,15 +776,13 @@ impl ProbeField {
                     .saturating_add(count.saturating_mul(24))
                     .saturating_add(4)
             }))
-            .saturating_add(if self.switchable_indirect.is_empty() {
-                0
-            } else {
-                4_usize.saturating_add(
-                    self.switchable_indirect
-                        .len()
-                        .saturating_mul(4_usize.saturating_add(count.saturating_mul(24))),
-                )
-            });
+            .saturating_add(1)
+            .saturating_add(4)
+            .saturating_add(
+                self.switchable_indirect
+                    .len()
+                    .saturating_mul(4_usize.saturating_add(count.saturating_mul(24))),
+            );
         if u64::try_from(bytes).unwrap_or(u64::MAX) > MAX_PROBE_FIELD_BYTES {
             return Err(format!(
                 "probe field is {bytes} bytes (limit {MAX_PROBE_FIELD_BYTES})"
@@ -804,14 +790,7 @@ impl ProbeField {
         }
         let mut out = Vec::with_capacity(bytes);
         out.extend_from_slice(&PROBE_FIELD_MAGIC);
-        let version = if !self.switchable_indirect.is_empty() {
-            PROBE_FIELD_RECORD_VERSION
-        } else if self.local_direct.is_some() {
-            3_u16
-        } else {
-            2_u16
-        };
-        out.extend_from_slice(&version.to_le_bytes());
+        out.extend_from_slice(&PROBE_FIELD_RECORD_VERSION.to_le_bytes());
         for value in self.min {
             out.extend_from_slice(&value.to_le_bytes());
         }
@@ -836,6 +815,7 @@ impl ProbeField {
             }
             out.extend_from_slice(&probe.room.to_le_bytes());
         }
+        out.push(u8::from(self.local_direct.is_some()));
         if let Some(direct) = &self.local_direct {
             let light_count = u32::try_from(direct.light_indices.len())
                 .map_err(|error| format!("runtime direct light count is too large: {error}"))?;
@@ -849,7 +829,7 @@ impl ProbeField {
                 }
             }
         }
-        if version >= 4 {
+        {
             let groups = u32::try_from(self.switchable_indirect.len())
                 .map_err(|error| format!("switchable probe group count is too large: {error}"))?;
             out.extend_from_slice(&groups.to_le_bytes());
@@ -883,10 +863,10 @@ impl ProbeField {
         }
         let mut cursor = Cursor::new(bytes);
         if cursor.take(4)? != &PROBE_FIELD_MAGIC[..] {
-            return Err("probe field is not a PLPF record".to_string());
+            return Err("probe field has an unsupported signature; recompile this map".to_string());
         }
         let version = cursor.u16()?;
-        if version != 2 && version != 3 && version != PROBE_FIELD_RECORD_VERSION {
+        if version != PROBE_FIELD_RECORD_VERSION {
             return Err(format!(
                 "probe field version {version} is not supported (this build reads {PROBE_FIELD_RECORD_VERSION})"
             ));
@@ -919,9 +899,7 @@ impl ProbeField {
         let payload_bytes = count
             .checked_mul(36)
             .ok_or_else(|| "probe field size overflows".to_string())?;
-        if cursor.remaining() < payload_bytes
-            || (version == 2 && cursor.remaining() != payload_bytes)
-        {
+        if cursor.remaining() < payload_bytes {
             return Err("probe field length does not match its probe count".to_string());
         }
         let mut probes = Vec::with_capacity(count);
@@ -939,9 +917,11 @@ impl ProbeField {
             probe.validate()?;
             probes.push(probe);
         }
-        let local_direct = if version == 2 {
-            None
-        } else {
+        let has_local_direct = cursor.take(1)?[0];
+        if has_local_direct > 1 {
+            return Err("probe field direct presence is invalid".to_string());
+        }
+        let local_direct = if has_local_direct == 1 {
             let light_count = usize::try_from(cursor.u32()?)
                 .map_err(|error| format!("runtime direct light count is too large: {error}"))?;
             if light_count > MAX_RUNTIME_PROBE_LIGHTS {
@@ -963,9 +943,11 @@ impl ProbeField {
                 light_indices,
                 probes: direct_probes,
             })
+        } else {
+            None
         };
         let mut switchable_indirect = Vec::new();
-        if version >= 4 {
+        {
             let groups = usize::try_from(cursor.u32()?)
                 .map_err(|error| format!("switchable probe group count is too large: {error}"))?;
             if groups > MAX_SWITCHABLE_PROBE_GROUPS {

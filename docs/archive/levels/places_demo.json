@@ -1,5 +1,6 @@
 {
-  "format_version": 3,
+  "schema": "places-level",
+  "format_version": 1,
   "id": "places_demo",
   "name": "Places Demo",
   "author": "Places",

@@ -7,7 +7,7 @@ from tools.bench.probe_lighting_report import atlas_samples, read_field, reconst
 
 class ProbeReportTests(unittest.TestCase):
     def record(self):
-        return b"PLPF" + struct.pack("<H4f4I8fi",2,-10,5,20,1.5,1,1,1,1,8,0.125,0.001,-2,1,0,0.5,0.5,3)
+        return b"PPF1" + struct.pack("<H4f4I8fi",1,-10,5,20,1.5,1,1,1,1,8,0.125,0.001,-2,1,0,0.5,0.5,3) + bytes(5)
 
     def test_world_positions_linear_hdr_and_signed_moments(self):
         field = read_field(self.record())
@@ -26,12 +26,11 @@ class ProbeReportTests(unittest.TestCase):
 
     def split_record(self):
         data = bytearray(self.record())
-        struct.pack_into("<H", data, 4, 3)
-        return bytes(data) + struct.pack("<3I6f", 2, 3, 17, 4, 0.0625, 0.0005, -1, 0.5, 0)
+        return bytes(data[:-5]) + bytes([1]) + struct.pack("<3I6fI", 2, 3, 17, 4, 0.0625, 0.0005, -1, 0.5, 0, 0)
 
-    def test_version_three_source_identity_and_direct_residual_are_preserved(self):
+    def test_current_schema_source_identity_and_direct_residual_are_preserved(self):
         field = read_field(self.split_record())
-        self.assertEqual(field["record_version"], 3)
+        self.assertEqual(field["record_version"], 1)
         self.assertEqual(field["selected_light_indices"], (3, 17))
         probe = field["probes"][0]
         self.assertEqual(probe["selected_direct"][:2], (4, 0.0625))
@@ -42,22 +41,21 @@ class ProbeReportTests(unittest.TestCase):
         self.assertEqual(legacy["selected_light_indices"], ())
         self.assertNotIn("selected_direct", legacy["probes"][0])
 
-    def test_version_three_invalid_source_ids_and_direct_data_are_rejected(self):
+    def test_current_schema_invalid_source_ids_and_direct_data_are_rejected(self):
         with self.assertRaises(ValueError): read_field(self.split_record()[:-1])
-        for offset, value, fmt in [(82, 3, "I"), (86, float("nan"), "f"), (86, 9, "f")]:
+        for offset, value, fmt in [(83, 3, "I"), (87, float("nan"), "f"), (87, 9, "f")]:
             data = bytearray(self.split_record())
             struct.pack_into("<" + fmt, data, offset, value)
             with self.assertRaises(ValueError): read_field(data)
 
     def zero_source_record(self):
         data = bytearray(self.record())
-        struct.pack_into("<H", data, 4, 3)
-        return bytes(data) + struct.pack("<I6f", 0, 0, 0, 0, 0, 0, 0)
+        return bytes(data[:-5]) + bytes([1]) + struct.pack("<I6fI", 0, 0, 0, 0, 0, 0, 0, 0)
 
-    def test_zero_source_version_three_preserves_spatial_sidecar(self):
+    def test_zero_source_current_schema_preserves_spatial_sidecar(self):
         field = read_field(self.zero_source_record())
         probe = field["probes"][0]
-        self.assertEqual(field["record_version"], 3)
+        self.assertEqual(field["record_version"], 1)
         self.assertEqual(field["selected_light_indices"], ())
         self.assertEqual(probe["selected_direct"], (0, 0, 0))
         self.assertEqual(probe["selected_direct_moment"], (0, 0, 0))
@@ -65,12 +63,12 @@ class ProbeReportTests(unittest.TestCase):
         self.assertEqual(probe["nonlocal_moment"], probe["moment"])
         self.assertNotIn("selected_direct", read_field(self.record())["probes"][0])
 
-    def test_zero_source_version_three_requires_aligned_zero_coefficients(self):
+    def test_zero_source_current_schema_requires_aligned_zero_coefficients(self):
         for data in (self.zero_source_record()[:-1], self.zero_source_record()[:-24]):
             with self.assertRaises(ValueError): read_field(data)
         for channel in range(6):
             data = bytearray(self.zero_source_record())
-            struct.pack_into("<f", data, 38 + 36 + 4 + channel * 4, 0.01)
+            struct.pack_into("<f", data, 38 + 36 + 1 + 4 + channel * 4, 0.01)
             with self.assertRaises(ValueError): read_field(data)
 
     def test_single_direction_neutral_diffuse_is_exact(self):
@@ -81,7 +79,7 @@ class ProbeReportTests(unittest.TestCase):
         image = b"\xabKTX 20\xbb\r\n\x1a\n" + struct.pack("<9I",97,2,1,1,0,2,1,1,0)
         image += bytes(80-len(image)) + struct.pack("<3Q",104,16,16)
         image += struct.pack("<8e",0.25,0.125,0,0,0,0.375,0,0)
-        meta = {"record_version":3,"page_edge":1,"page_count":1,"charts":[{
+        meta = {"record_version":1,"page_edge":1,"page_count":1,"charts":[{
             "patch":{"origin":[-4,5,10],"u_axis":[0,0,2],"v_axis":[2,0,0],"room":3,"kind":"Floor"},
             "chart":{"page":0,"x":0,"y":0,"width":1,"height":1}}]}
         sample = atlas_samples(meta,image)[0]
@@ -94,7 +92,7 @@ class ProbeReportTests(unittest.TestCase):
         image += bytes(80-len(image)) + struct.pack("<3Q",104,400,400)
         image = bytearray(image + bytes(400))
         struct.pack_into("<4e",image,104+(3*5+3)*8,8,0.125,0.001,0)
-        meta = {"record_version":3,"page_edge":5,"page_count":1,"charts":[{
+        meta = {"record_version":1,"page_edge":5,"page_count":1,"charts":[{
             "patch":{"origin":[0,0,0],"u_axis":[0,0,4],"v_axis":[4,0,0],"room":3,"kind":"floor"},
             "chart":{"page":0,"x":0,"y":0,"width":5,"height":5}}]}
         samples = atlas_samples(meta,image,[{"position":[3,1,3],"room":3}])

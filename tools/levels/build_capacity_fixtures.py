@@ -65,7 +65,7 @@ def load_placeables() -> List[Dict]:
 
 
 def animation_component(actions: List[Dict]) -> Optional[Dict]:
-    """The `animation` component the v3 loader requires for an animation action."""
+    """The `animation` component the revision 1 loader requires for an animation action."""
     for action in actions:
         tag = action.get("action")
         if tag not in ("play_animation", "toggle_animation"):
@@ -82,8 +82,8 @@ def animation_component(actions: List[Dict]) -> Optional[Dict]:
     return None
 
 
-def interaction_v3(interaction: Dict) -> Tuple[List[Dict], List[Dict]]:
-    """The format-v3 components/bindings for one interaction block."""
+def interaction_components(interaction: Dict) -> Tuple[List[Dict], List[Dict]]:
+    """The revision 1 components/bindings for one interaction block."""
     component: Dict = {"component": "interactable"}
     prompt = interaction.get("prompt")
     if prompt is not None:
@@ -382,7 +382,7 @@ def build_dense(rng: Rng, placeables: List[Dict]) -> Dict:
         x = x0 + 9.0 + (index // len(corridors)) * 11.0
         z = corridor
         prop_id = f"dense_actor_{index}"
-        components, bindings = interaction_v3(
+        components, bindings = interaction_components(
             {
                 "prompt": "Animate",
                 "actions": [
@@ -432,7 +432,7 @@ def build_dense(rng: Rng, placeables: List[Dict]) -> Dict:
         )
 
     return {
-        "format_version": 3,
+        "schema": "places-level", "format_version": 1,
         "id": "capacity_dense",
         "name": "Capacity: Dense Content (dev)",
         "author": "Places Team",
@@ -902,7 +902,7 @@ def build_beyond_former_limits(rng: Rng, placeables: List[Dict]) -> Dict:
         )
 
     return {
-        "format_version": 3,
+        "schema": "places-level", "format_version": 1,
         "id": "capacity_beyond_former_limits",
         "name": "Capacity: Beyond Former Limits (dev)",
         "author": "Places Team",

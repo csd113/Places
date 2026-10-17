@@ -1,5 +1,6 @@
 {
-  "format_version": 3,
+  "schema": "places-level",
+  "format_version": 1,
   "id": "office_asset_review",
   "name": "Office Asset Review",
   "author": "Places",

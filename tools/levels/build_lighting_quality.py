@@ -17,7 +17,7 @@ VIEWS = ROOT / "tools/bench/lighting_quality_views.json"
 
 def author() -> tuple[dict, list[dict]]:
     level = {
-        "format_version": 3, "id": "lighting_quality", "name": "Lighting Quality Controls",
+        "schema": "places-level", "format_version": 1, "id": "lighting_quality", "name": "Lighting Quality Controls",
         "author": "Places", "spawn": {"x": 4, "z": 4, "yaw_degrees": 0},
         "defaults": {"wall": "home:wall_paint_offwhite_01",
                      "floor": "home:ceiling_white_01", "ceiling": "home:ceiling_white_01"},

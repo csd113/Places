@@ -727,27 +727,8 @@ fn merge_light_runs(
 /// also the same wall here.
 const WALL_COINCIDENCE_EPS: f32 = 1e-3;
 
-/// Bumped whenever the emitted static geometry changes for an unchanged
-/// source.
-///
-/// It is folded into both compiler fingerprints so a stale mesh and the
-/// lightmaps baked against it are rebuilt instead of reused. 1 =
-/// pre-cap-coincidence, 2 = coplanar cap ownership by the earliest authored
-/// wall; 3 = endpoint-centred atlas UVs and reflected static-model winding;
-/// 4 = linear colour interpretation and flat fallback model attributes;
-/// 5 = inclusive receiver endpoints and consistent boundary-roof ownership;
-/// 6 = incident-HDR water floor charts and folded circular fan quads;
-/// 7 = exact wall-span endpoint maxima from the span's own roof;
-/// 8 = native shared static-model charts and finer bounded physical sampling.
-/// 9 = neighbor-clipped ramp sides, including partial footprints and crossings.
-/// 10 = continuous parent-wall UV phase and prepared Static light circuits.
-/// 11 = source-coloured fixture diffusers and non-emissive metal panel housings.
-/// 12 = opaque fluorescent backplates prevent source leakage onto the ceiling.
-/// 13 = fitted static prop spans and independently batched material variants.
-/// 14 = completed fixture meshes and independently controlled prop emission.
-/// 15 = prepared probe lighting for reviewed large models above the 1,500-triangle art budget.
-/// 16 = closed procedural fixture backs, opaque receiver housings and aligned lamp sources.
-pub const GEOMETRY_REVISION: u32 = 16;
+/// Current pre-release geometry revision; superseded layouts require recompilation.
+pub const GEOMETRY_REVISION: u32 = 1;
 
 /// One material run of a coalesced wall group: a rectangle in the group's own
 /// (length, height) space over which the visible material is constant.

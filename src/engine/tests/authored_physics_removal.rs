@@ -58,7 +58,7 @@ fn authored_physics_deletion_resolves_ids_and_survives_pending_events_and_reset(
 -> Result<(), String> {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 3,
+            "schema": "places-level", "format_version": 1,
             "id": "authored_physics_removal",
             "name": "Authored physics removal fixture",
             "spawn": { "x": 0.0, "z": 0.0 },

@@ -7,7 +7,7 @@
 //! of model artwork on disk and makes the package's dependency list exact.
 //!
 //! ```text
-//! magic         4 bytes  "PLMP"
+//! magic         4 bytes  "PMP1"
 //! version       u16      [`PROPS_RECORD_VERSION`]
 //! batch_count   u32
 //! batches       batch_count x batch
@@ -17,7 +17,7 @@
 //! batch:
 //!   model       u32 length + UTF-8 bytes
 //!   casts_static_lighting u8 (0 = fully claimed character model, 1 = static caster)
-//!   light_control u8 presence + u32 controller identity when present (v8)
+//!   light_control u8 presence + u32 controller identity when present
 //!   bounds_min  f32 x 3
 //!   bounds_max  f32 x 3
 //!   submesh_count u32
@@ -42,7 +42,7 @@
 //!   emission_mask u8 (0 = none, 1 = Some) + u16 slot when present
 //!   specular     f32 x 3 (linear)
 //!   roughness    f32
-//!   uv_response  f32 (v7; older records default to zero)
+//!   uv_response  f32
 //!   uv_mask      u8 (0 = none, 1 = Some) + u16 slot when present
 //!   uv_tint      f32 x 3 (linear authored tint, independent of baked light)
 //!   first_index  u32
@@ -62,37 +62,21 @@ use super::binary::{Reader, Writer, finite3};
 use super::mesh::{read_vertex, write_vertex};
 use super::{MAX_BINARY_BYTES, MAX_PROP_BATCH_VERTICES, MAX_PROP_BATCHES, MAX_PROP_SUBMESHES};
 
-/// Version of the props record layout.
-///
-/// Version 2 added the per-submesh alpha contract (glTF `MASK` foliage draws
-/// through the cutout pass); version 3 adds the blended mode (a model
-/// authoring `alphaMode: "BLEND"`); version 4 adds scalar material response;
-/// version 5 preserves whether a model's retained bind pose is a static caster.
-/// Version 6 adds lossless per-batch normal/tangent/handedness frame palettes.
-/// Version 7 adds optional ultraviolet pigment response, its texture slot and tint;
-/// versions 3 through 6 keep a zero-response default.
-/// Version 8 adds optional per-instance light controller identity.
-/// Version 9 appends neutral caustics albedo to literal and palette vertices.
-/// Older versions retain a white fallback because their baked colour cannot
-/// recover the original material/vertex factor.
-/// Versions 3 and 4 retain the conservative static-caster default, and version 3
-/// also retains the explicit matte material default. Older records are refused.
-pub const PROPS_RECORD_VERSION: u16 = 9;
+/// Current pre-release props record version; superseded layouts require recompilation.
+pub const PROPS_RECORD_VERSION: u16 = 1;
 
 /// Magic identifying a props record.
-pub const PROPS_MAGIC: [u8; 4] = *b"PLMP";
+pub const PROPS_MAGIC: [u8; 4] = *b"PMP1";
 
 /// Largest accepted model path length in a prop batch.
 const MAX_MODEL_PATH: u64 = 1024;
 
 /// Width of the neutral vertex written by the existing mesh codec.
-const LEGACY_SERIALIZED_VERTEX_BYTES: usize = 69;
 const SERIALIZED_VERTEX_BYTES: usize = 81;
 
 const VERTEX_PREFIX_BYTES: usize = 36;
 const FRAME_BYTES: usize = 28;
 const FRAME_END: usize = 64;
-const LEGACY_VERTEX_LITERAL_BYTES: usize = 41;
 const VERTEX_LITERAL_BYTES: usize = 53;
 const VERTEX_MODE_LITERAL: u8 = 0;
 
@@ -103,20 +87,12 @@ struct LogicalPropsBudget {
     bytes: u64,
 }
 
-const fn serialized_vertex_bytes(version: u16) -> usize {
-    if version >= 9 {
-        SERIALIZED_VERTEX_BYTES
-    } else {
-        LEGACY_SERIALIZED_VERTEX_BYTES
-    }
+const fn serialized_vertex_bytes() -> usize {
+    SERIALIZED_VERTEX_BYTES
 }
 
-const fn vertex_literal_bytes(version: u16) -> usize {
-    if version >= 9 {
-        VERTEX_LITERAL_BYTES
-    } else {
-        LEGACY_VERTEX_LITERAL_BYTES
-    }
+const fn vertex_literal_bytes() -> usize {
+    VERTEX_LITERAL_BYTES
 }
 
 impl LogicalPropsBudget {
@@ -480,7 +456,7 @@ pub fn read_props(bytes: &[u8]) -> Result<Vec<PropMeshBatch>, String> {
         return Err("props record has the wrong magic".to_string());
     }
     let version = reader.u16()?;
-    if !matches!(version, 3..=PROPS_RECORD_VERSION) {
+    if version != PROPS_RECORD_VERSION {
         return Err(format!(
             "props record version {version} is not supported (this build reads {PROPS_RECORD_VERSION})"
         ));
@@ -496,7 +472,7 @@ pub fn read_props(bytes: &[u8]) -> Result<Vec<PropMeshBatch>, String> {
     let mut budget = LogicalPropsBudget::new();
     let mut batches = Vec::with_capacity(count);
     for _ in 0..count {
-        batches.push(read_batch(&mut reader, version, &mut budget)?);
+        batches.push(read_batch(&mut reader, &mut budget)?);
     }
     if !reader.is_empty() {
         return Err(format!(
@@ -509,19 +485,18 @@ pub fn read_props(bytes: &[u8]) -> Result<Vec<PropMeshBatch>, String> {
 
 fn read_batch(
     reader: &mut Reader<'_>,
-    version: u16,
     budget: &mut LogicalPropsBudget,
 ) -> Result<PropMeshBatch, String> {
     let header_start = reader.remaining();
-    let header = read_batch_header(reader, version)?;
+    let header = read_batch_header(reader)?;
     let vertex_count = read_vertex_count(reader)?;
     budget.add_slots(header_start.saturating_sub(reader.remaining()), 1, 0)?;
     budget.add_slots(
         vertex_count,
-        u64::try_from(serialized_vertex_bytes(version)).unwrap_or(u64::MAX),
+        u64::try_from(serialized_vertex_bytes()).unwrap_or(u64::MAX),
         0,
     )?;
-    let vertices = read_vertex_storage(reader, version, vertex_count)?;
+    let vertices = read_vertex_storage(reader, vertex_count)?;
     let indices = read_prop_indices(reader, budget)?;
     validate_draw_indices(vertex_count, &indices, &header.submeshes)?;
     Ok(PropMeshBatch {
@@ -546,7 +521,7 @@ struct BatchHeader {
     bounds: Aabb,
 }
 
-fn read_batch_header(reader: &mut Reader<'_>, version: u16) -> Result<BatchHeader, String> {
+fn read_batch_header(reader: &mut Reader<'_>) -> Result<BatchHeader, String> {
     let model = reader.str(MAX_MODEL_PATH)?;
     if model.is_empty() {
         return Err("prop batch has an empty model path".to_string());
@@ -556,8 +531,8 @@ fn read_batch_header(reader: &mut Reader<'_>, version: u16) -> Result<BatchHeade
             "prop model path '{model}' is not a safe relative path"
         ));
     }
-    let casts_static_lighting = read_static_caster(reader, version)?;
-    let light_control = if version >= 8 {
+    let casts_static_lighting = read_static_caster(reader)?;
+    let light_control = {
         match reader.u8()? {
             0 => None,
             1 => {
@@ -572,8 +547,6 @@ fn read_batch_header(reader: &mut Reader<'_>, version: u16) -> Result<BatchHeade
             }
             _ => return Err("prop light controller presence is invalid".into()),
         }
-    } else {
-        None
     };
     let bounds_min = reader.f32_3()?;
     let bounds_max = reader.f32_3()?;
@@ -593,7 +566,7 @@ fn read_batch_header(reader: &mut Reader<'_>, version: u16) -> Result<BatchHeade
     )?;
     let mut submeshes = Vec::with_capacity(submesh_count);
     for _ in 0..submesh_count {
-        submeshes.push(read_submesh(reader, version)?);
+        submeshes.push(read_submesh(reader)?);
     }
     Ok(BatchHeader {
         model,
@@ -618,7 +591,7 @@ fn read_vertex_count(reader: &mut Reader<'_>) -> Result<usize, String> {
         .map_err(|error| format!("prop batch vertex count is too large: {error}"))
 }
 
-/// One validated serialized vertex run; offsets refer to the original PLMP bytes.
+/// One validated serialized vertex run; offsets refer to the original PMP1 bytes.
 pub(crate) struct VertexRegion {
     pub start: usize,
     pub end: usize,
@@ -633,7 +606,7 @@ pub(crate) fn vertex_regions(bytes: &[u8]) -> Result<Vec<VertexRegion>, String> 
         return Err("props record has the wrong magic".to_string());
     }
     let version = reader.u16()?;
-    if !(3..=PROPS_RECORD_VERSION).contains(&version) {
+    if version != PROPS_RECORD_VERSION {
         return Err(format!("props record version {version} is not supported"));
     }
     let count = reader.count(
@@ -644,15 +617,15 @@ pub(crate) fn vertex_regions(bytes: &[u8]) -> Result<Vec<VertexRegion>, String> 
     let mut budget = LogicalPropsBudget::new();
     for _ in 0..count {
         let header_start = reader.remaining();
-        let header = read_batch_header(&mut reader, version)?;
+        let header = read_batch_header(&mut reader)?;
         let vertices = read_vertex_count(&mut reader)?;
         budget.add_slots(header_start.saturating_sub(reader.remaining()), 1, 0)?;
         budget.add_slots(
             vertices,
-            u64::try_from(serialized_vertex_bytes(version)).unwrap_or(u64::MAX),
+            u64::try_from(serialized_vertex_bytes()).unwrap_or(u64::MAX),
             0,
         )?;
-        let stride = validate_vertex_run(&mut reader, version, vertices)?;
+        let stride = validate_vertex_run(&mut reader, vertices)?;
         let end = bytes.len().saturating_sub(reader.remaining());
         let run_bytes = checked_storage_size(vertices, stride, 0)?;
         regions.push(VertexRegion {
@@ -668,17 +641,13 @@ pub(crate) fn vertex_regions(bytes: &[u8]) -> Result<Vec<VertexRegion>, String> 
     Ok(regions)
 }
 
-fn validate_vertex_run(
-    reader: &mut Reader<'_>,
-    version: u16,
-    vertices: usize,
-) -> Result<usize, String> {
-    let mode = if version >= 6 { reader.u8()? } else { 0 };
+fn validate_vertex_run(reader: &mut Reader<'_>, vertices: usize) -> Result<usize, String> {
+    let mode = reader.u8()?;
     if mode == 0 {
-        let stride = serialized_vertex_bytes(version);
+        let stride = serialized_vertex_bytes();
         let length = checked_storage_size(vertices, stride, 0)?;
         for key in reader.bytes(length)?.chunks_exact(stride) {
-            let _vertex = read_vertex(&mut Reader::new(key), version >= 9)?;
+            let _vertex = read_vertex(&mut Reader::new(key))?;
         }
         return Ok(stride);
     }
@@ -695,7 +664,7 @@ fn validate_vertex_run(
         return Err("prop batch has an invalid frame palette count".to_string());
     }
     let frame_bytes = checked_storage_size(frames, FRAME_BYTES, 0)?;
-    let literal_bytes = vertex_literal_bytes(version);
+    let literal_bytes = vertex_literal_bytes();
     let stride = literal_bytes.saturating_add(width.bytes());
     let required = checked_storage_size(vertices, stride, frame_bytes)?;
     if required > reader.remaining() {
@@ -710,7 +679,7 @@ fn validate_vertex_run(
         let frame = palette
             .get(width.read(reader)?)
             .ok_or_else(|| "prop vertex has a frame index outside its palette".to_string())?;
-        let _vertex = read_palette_vertex(literal, frame, version)?;
+        let _vertex = read_palette_vertex(literal, frame)?;
     }
     Ok(stride)
 }
@@ -787,16 +756,12 @@ fn read_prop_indices(
 
 fn read_vertex_storage(
     reader: &mut Reader<'_>,
-    version: u16,
     vertex_count: usize,
 ) -> Result<Vec<Vertex>, String> {
-    if version < 6 {
-        return read_literal_vertices(reader, vertex_count, version);
-    }
     match reader.u8()? {
-        VERTEX_MODE_LITERAL => read_literal_vertices(reader, vertex_count, version),
-        1 => read_palette_vertices(reader, vertex_count, FrameIndexWidth::U16, version),
-        2 => read_palette_vertices(reader, vertex_count, FrameIndexWidth::U32, version),
+        VERTEX_MODE_LITERAL => read_literal_vertices(reader, vertex_count),
+        1 => read_palette_vertices(reader, vertex_count, FrameIndexWidth::U16),
+        2 => read_palette_vertices(reader, vertex_count, FrameIndexWidth::U32),
         other => Err(format!("prop batch has unknown vertex mode {other}")),
     }
 }
@@ -804,14 +769,13 @@ fn read_vertex_storage(
 fn read_literal_vertices(
     reader: &mut Reader<'_>,
     vertex_count: usize,
-    version: u16,
 ) -> Result<Vec<Vertex>, String> {
-    let stride = serialized_vertex_bytes(version);
+    let stride = serialized_vertex_bytes();
     let byte_count = checked_storage_size(vertex_count, stride, 0)?;
     let bytes = reader.bytes(byte_count)?;
     let mut vertices = Vec::with_capacity(vertex_count.min(4096));
     for key in bytes.chunks_exact(stride) {
-        vertices.push(read_vertex(&mut Reader::new(key), version >= 9)?);
+        vertices.push(read_vertex(&mut Reader::new(key))?);
     }
     Ok(vertices)
 }
@@ -820,7 +784,6 @@ fn read_palette_vertices(
     reader: &mut Reader<'_>,
     vertex_count: usize,
     width: FrameIndexWidth,
-    version: u16,
 ) -> Result<Vec<Vertex>, String> {
     let frame_count = reader.count(MAX_PROP_BATCH_VERTICES, "prop frame count")?;
     if frame_count == 0 || frame_count > vertex_count {
@@ -836,7 +799,7 @@ fn read_palette_vertices(
     let frame_bytes = checked_storage_size(frame_count, FRAME_BYTES, 0)?;
     let required_bytes = checked_storage_size(
         vertex_count,
-        vertex_literal_bytes(version).saturating_add(width.bytes()),
+        vertex_literal_bytes().saturating_add(width.bytes()),
         frame_bytes,
     )?;
     if required_bytes > reader.remaining() {
@@ -850,12 +813,12 @@ fn read_palette_vertices(
     }
     let mut vertices = Vec::with_capacity(vertex_count.min(4096));
     for _ in 0..vertex_count {
-        let literal = reader.bytes(vertex_literal_bytes(version))?;
+        let literal = reader.bytes(vertex_literal_bytes())?;
         let frame_index = width.read(reader)?;
         let frame = frames
             .get(frame_index)
             .ok_or_else(|| "prop vertex has a frame index outside its palette".to_string())?;
-        vertices.push(read_palette_vertex(literal, frame, version)?);
+        vertices.push(read_palette_vertex(literal, frame)?);
     }
     Ok(vertices)
 }
@@ -871,11 +834,7 @@ fn validate_frame(frame: &[u8; FRAME_BYTES]) -> Result<(), String> {
     Ok(())
 }
 
-fn read_palette_vertex(
-    literal: &[u8],
-    frame: &[u8; FRAME_BYTES],
-    version: u16,
-) -> Result<Vertex, String> {
+fn read_palette_vertex(literal: &[u8], frame: &[u8; FRAME_BYTES]) -> Result<Vertex, String> {
     // Reconstruct the neutral record on the stack and retain the mesh codec's
     // complete finite-field validation without a per-vertex allocation.
     let mut neutral = [0_u8; SERIALIZED_VERTEX_BYTES];
@@ -892,20 +851,17 @@ fn read_palette_vertex(
         .ok_or_else(|| "prop neutral vertex omitted its frame".to_string())?
         .copy_from_slice(frame);
     neutral
-        .get_mut(FRAME_END..serialized_vertex_bytes(version))
+        .get_mut(FRAME_END..serialized_vertex_bytes())
         .ok_or_else(|| "prop neutral vertex omitted its lightmap tail".to_string())?
         .copy_from_slice(
             literal
                 .get(VERTEX_PREFIX_BYTES..)
                 .ok_or_else(|| "prop vertex literal omitted its lightmap tail".to_string())?,
         );
-    read_vertex(&mut Reader::new(&neutral), version >= 9)
+    read_vertex(&mut Reader::new(&neutral))
 }
 
-fn read_static_caster(reader: &mut Reader<'_>, version: u16) -> Result<bool, String> {
-    if version < 5 {
-        return Ok(true);
-    }
+fn read_static_caster(reader: &mut Reader<'_>) -> Result<bool, String> {
     match reader.u8()? {
         0 => Ok(false),
         1 => Ok(true),
@@ -915,7 +871,7 @@ fn read_static_caster(reader: &mut Reader<'_>, version: u16) -> Result<bool, Str
     }
 }
 
-fn read_submesh(reader: &mut Reader<'_>, version: u16) -> Result<PropSubmeshBatch, String> {
+fn read_submesh(reader: &mut Reader<'_>) -> Result<PropSubmeshBatch, String> {
     let texture = read_optional_slot(reader)?
         .map(u16::try_from)
         .transpose()
@@ -938,11 +894,7 @@ fn read_submesh(reader: &mut Reader<'_>, version: u16) -> Result<PropSubmeshBatc
     if !finite3(color) || !intensity.is_finite() || !alpha_cutoff.is_finite() {
         return Err("prop submesh has a non-finite emission or alpha".to_string());
     }
-    let (specular, roughness) = if version >= 4 {
-        (reader.f32_3()?, reader.f32()?)
-    } else {
-        ([0.0; 3], 1.0)
-    };
+    let (specular, roughness) = (reader.f32_3()?, reader.f32()?);
     if !finite3(specular)
         || !roughness.is_finite()
         || specular.iter().any(|v| !(0.0..=1.0).contains(v))
@@ -950,7 +902,7 @@ fn read_submesh(reader: &mut Reader<'_>, version: u16) -> Result<PropSubmeshBatc
     {
         return Err("prop submesh has invalid scalar response".to_string());
     }
-    let fluorescence = if version >= 7 {
+    let fluorescence = {
         let strength = reader.f32()?;
         let uv_mask = read_optional_slot(reader)?;
         let tint = reader.f32_3()?;
@@ -967,8 +919,6 @@ fn read_submesh(reader: &mut Reader<'_>, version: u16) -> Result<PropSubmeshBatc
             mask: uv_mask,
             tint,
         }
-    } else {
-        crate::engine::materials::MaterialFluorescence::NONE
     };
     Ok(PropSubmeshBatch {
         response: crate::engine::materials::MaterialResponse {

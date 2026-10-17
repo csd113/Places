@@ -1,6 +1,6 @@
 """Reusable Beach authoring pieces, not a composed demonstration level.
 
-These return existing v3 arrays. A map owner chooses placement, curved-strip
+These return current revision 1 arrays. A map owner chooses placement, curved-strip
 layout and containment. Decorative terrain GLBs never supply walking support.
 """
 from __future__ import annotations

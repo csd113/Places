@@ -1,5 +1,6 @@
 {
-  "format_version": 3,
+  "schema": "places-level",
+  "format_version": 1,
   "id": "body_contact_native",
   "name": "Body contact native control",
   "spawn": { "x": 4, "z": 2.2, "yaw_degrees": 180 },

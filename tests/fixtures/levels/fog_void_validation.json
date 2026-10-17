@@ -1,5 +1,6 @@
 {
-  "format_version": 3,
+  "schema": "places-level",
+  "format_version": 1,
   "id": "fog_void_validation",
   "name": "Fog and Void Validation",
   "author": "Places Team",

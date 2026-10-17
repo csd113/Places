@@ -221,8 +221,8 @@ def self_test():
                 pass
             else:
                 raise AssertionError("invalid payload accepted")
-    for mode, stride in enumerate((69, 43, 45)):
-        prefix = b'PLMP\x06\x00' + struct.pack('<II', 1, 4) + b'test' + bytes(25)
+    for mode, stride in enumerate((81, 55, 57)):
+        prefix = b'PMP1\x01\x00' + struct.pack('<II', 1, 4) + b'test' + bytes(26)
         prefix += struct.pack('<II', 0, 2) + bytes([mode])
         if mode:
             prefix += struct.pack('<I', 1) + bytes(28)
@@ -242,9 +242,9 @@ def self_test():
 
 
 def prop_regions(data):
-    """Locate PLMP6 vertex spans, without decoding or re-encoding a float."""
-    if data[:6] != b'PLMP\x06\x00':
-        raise ValueError('prop experiment requires PLMP6')
+    """Locate PMP1 revision 1 vertex spans, without decoding or re-encoding a float."""
+    if data[:6] != b'PMP1\x01\x00':
+        raise ValueError('prop experiment requires PMP1 revision 1')
     cursor = 6
 
     def take(length):
@@ -272,7 +272,13 @@ def prop_regions(data):
     regions = []
     for _ in range(batches):
         take(u32())  # UTF-8 model name
-        take(25)    # caster flag and two XYZ bounds
+        take(1)     # caster flag
+        control = data[take(1)]
+        if control not in (0, 1):
+            raise ValueError("invalid light controller option")
+        if control:
+            take(4)
+        take(24)    # two XYZ bounds
         submeshes = u32()
         if submeshes > 4096:
             raise ValueError('prop submesh bound')
@@ -280,7 +286,9 @@ def prop_regions(data):
             option()
             take(21)  # alpha mode/cutoff and emission
             option()
-            take(24)  # specular, roughness, index range
+            take(20)  # specular, roughness, UV response strength
+            option()  # UV response texture
+            take(20)  # UV response tint and index range
         vertices = u32()
         if vertices > 1 << 24:
             raise ValueError('prop vertex bound')
@@ -292,7 +300,7 @@ def prop_regions(data):
             if frames > vertices:
                 raise ValueError('prop frame bound')
             take(frames * 28)
-        stride = (69, 43, 45)[mode]
+        stride = (81, 55, 57)[mode]
         start = take(vertices * stride)
         regions.append((start, cursor, stride))
         take(u32() * 2)

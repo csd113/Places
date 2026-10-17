@@ -269,7 +269,7 @@ pub fn export_lighting(
             "missing_metadata_reason": "this package format stores fingerprints and prepared semantics, not original source bytes, solver revision/settings or a resolved material table; exporter settings must not be attributed to the package",
             "intermediate_stages": { "direct": null, "indirect": null, "filtered": null, "fill": null, "shadow": null },
             "intermediate_stages_reason": "package stores final combined coefficients and switchable groups only; no intermediate decomposition can be recovered",
-            "geometry_contract": "mesh/collision records are copied prepared runtime geometry; props.record is the exact runtime PLMP record reconstructed from verified shared recipes when present; transport triangle ownership and exact caster rays require a live diagnostic bake",
+            "geometry_contract": "mesh/collision records are copied prepared runtime geometry; props.record is the exact runtime PMP1 record reconstructed from verified shared recipes when present; transport triangle ownership and exact caster rays require a live diagnostic bake",
             "completion": "export.json is written only after every requested export succeeds"
         }),
     )?;
@@ -316,9 +316,9 @@ fn export_variant(
         (&variant.entries.collision, "collision.record"),
     ] {
         let stored = read_named(reader, manifest, name)?;
-        let bytes = if output == "props.record" && stored.starts_with(b"PLPS") {
+        let bytes = if output == "props.record" && stored.starts_with(b"PPS1") {
             // Shared prop recipes must use the same bounded, hash-checked
-            // reconstruction as the player before the ordinary PLMP decoder.
+            // reconstruction as the player before the ordinary PMP1 decoder.
             crate::engine::package::shared_props::read_record(reader, name)?
         } else {
             stored

@@ -13,7 +13,7 @@ use crate::engine::materials::encode_png;
 fn material_budget_stops_before_later_decodes_and_charges_shared_images_once() -> Result<(), String>
 {
     let mut level = LevelDef::from_json(
-        r#"{"format_version":3,"id":"material_budget","name":"Budget","spawn":{"x":0,"z":0},
+        r#"{"schema": "places-level", "format_version":1,"id":"material_budget","name":"Budget","spawn":{"x":0,"z":0},
         "defaults":{"wall":"pack:a","floor":"pack:b","ceiling":"pack:c"}}"#,
     )
     .map_err(|error| error.to_string())?;

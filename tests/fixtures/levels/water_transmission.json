@@ -1,5 +1,6 @@
 {
-  "format_version": 3,
+  "schema": "places-level",
+  "format_version": 1,
   "id": "water_transmission",
   "name": "Water Transmission",
   "author": "Places lighting repair",

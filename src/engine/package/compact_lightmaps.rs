@@ -8,7 +8,7 @@
 
 use super::ktx2::{f16_bits_to_f32, f32_to_f16_bits};
 
-const MAGIC: [u8; 4] = *b"PLLC";
+const MAGIC: [u8; 4] = *b"PLC1";
 /// Compact payload revision; independent of the solved-light representation.
 pub const VERSION: u16 = 1;
 const TILE_EDGE: u32 = 16;

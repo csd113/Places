@@ -192,7 +192,7 @@ fn stopped_and_completed_cues_hold_revision_until_the_pose_changes() -> Result<(
 #[test]
 fn arriving_route_finishes_in_the_same_update_and_holds_while_paused() -> Result<(), String> {
     let level = LevelDef::from_json(
-        r#"{"format_version":3,"id":"route_endpoint","name":"Route endpoint",
+        r#"{"schema": "places-level", "format_version":1,"id":"route_endpoint","name":"Route endpoint",
         "spawn":{"x":0.0,"z":0.0},
         "rooms":[{"x":-1.0,"z":-1.0,"width":2.0,"depth":2.0}]}"#,
     )

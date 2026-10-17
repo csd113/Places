@@ -34,7 +34,7 @@ def serialise(level: dict) -> str:
 def build_level() -> dict:
     catalog = {a['id']: a for a in json.loads((ROOT / 'assets/catalog.json').read_text())['assets']}
     level = {
-        'format_version': 3, 'id': 'winter', 'name': 'Winter', 'author': 'Places',
+        "schema": "places-level", 'format_version': 1, 'id': 'winter', 'name': 'Winter', 'author': 'Places',
         'spawn': {'x': 0, 'z': 12, 'yaw_degrees': -30},
         'defaults': {'wall': 'winter:stone_masonry_01', 'floor': 'winter:snow_01',
                      'ceiling': 'home:ceiling_white_01'},

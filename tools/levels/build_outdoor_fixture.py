@@ -422,7 +422,7 @@ def level() -> Dict:
     ]
 
     return {
-        "format_version": 3,
+        "schema": "places-level", "format_version": 1,
         "id": "outdoor_kit_showcase",
         "name": "Outdoor Kit Showcase (dev)",
         "author": "Places Team",

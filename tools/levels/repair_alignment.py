@@ -2,7 +2,7 @@
 """Apply a `places --repair-geometry` plan to a level source, deterministically.
 
 The Rust planner only reads sources; this script is the map-side applier for
-its plans (the same convention as ``tools/levels/convert_v3.py``: order
+its plans (the authoring convention: order
 preserving JSON, two-space indent, the source's trailing-newline state).
 
 Both modes verify the plan against the current bytes before doing anything:

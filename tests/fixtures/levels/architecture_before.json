@@ -1,5 +1,6 @@
 {
-  "format_version": 3,
+  "schema": "places-level",
+  "format_version": 1,
   "id": "architecture_before",
   "name": "Architecture Before fixture",
   "author": "Places",

@@ -40,6 +40,7 @@ pub mod gui;
 pub mod navigation;
 mod probes;
 pub mod progress;
+pub mod project;
 pub mod source;
 mod storage;
 
@@ -86,8 +87,11 @@ pub const MAX_WORKERS: usize = 12;
 /// One map build request.
 #[derive(Clone, Debug)]
 pub struct BuildRequest {
-    /// Authoring source (`*.json`).
+    /// Standalone authoring JSON, project directory or `places.project.json`.
     pub source: PathBuf,
+    /// Exact project level ID; omitted selects the manifest's entry level.
+    /// Standalone JSON sources require `None`.
+    pub project_level: Option<String>,
     /// Output package path.
     pub out: PathBuf,
     /// Asset root holding `catalog.json` and the asset tree.
@@ -289,15 +293,13 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     crate::engine::render::set_fill_workers(workers);
     let mut warnings = Vec::new();
 
-    let source_bytes = read_source(&request.source)?;
-    let source_text = std::str::from_utf8(&source_bytes)
-        .map_err(|error| format!("level source is not valid UTF-8: {error}"))?;
-    let mut level = LevelDef::from_json(source_text)
-        .map_err(|error| format!("level source is not valid: {error}"))?;
-    crate::engine::loader::validate_level(&level)?;
+    let snapshot = project::read_source(&request.source, request.project_level.as_deref())?;
+    let source_bytes = snapshot.identity;
+    let mut level = snapshot.level;
     let catalog_path = request.asset_root.join("catalog.json");
     let (catalog, catalog_hash) = load_catalog_identity(&catalog_path)?;
     crate::map_compiler::prepare_level(&mut level, catalog.assets(), None);
+    crate::engine::project::validate_level_assets(&level, catalog.assets())?;
     let source_hash = sha256_hex(&source_bytes);
     let mut assets = crate::engine::props::PropAssets::with_root(request.asset_root.clone());
 
@@ -622,6 +624,7 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         required.push("light-circuits-v1".to_string());
     }
     let manifest = Manifest {
+        schema: crate::engine::package::PACKAGE_SCHEMA.to_string(),
         package_format: FORMAT_VERSION,
         id: level.id.clone(),
         name: level.name.clone(),
@@ -706,6 +709,7 @@ pub fn build_collection(
         progress::check_cancelled()?;
         let request = BuildRequest {
             source: source.clone(),
+            project_level: None,
             out: package_path_for(&source),
             asset_root: asset_root.to_path_buf(),
             variants: variants.to_vec(),
@@ -785,17 +789,28 @@ pub fn inspect(path: &Path) -> Result<Manifest, String> {
 /// Returns an error when the source cannot be read or validated, or the package
 /// cannot be opened.
 pub fn verify(source: &Path, package: &Path, asset_root: &Path) -> Result<VerifyReport, String> {
-    let source_bytes = read_source(source)?;
-    let source_text = std::str::from_utf8(&source_bytes)
-        .map_err(|error| format!("level source is not valid UTF-8: {error}"))?;
-    let mut level = LevelDef::from_json(source_text)
-        .map_err(|error| format!("level source is not valid: {error}"))?;
-    crate::engine::loader::validate_level(&level)?;
+    verify_selected(source, None, package, asset_root)
+}
+
+/// Verifies an explicitly selected project level, or a standalone source.
+///
+/// # Errors
+/// Returns source/project, asset or package validation errors.
+pub fn verify_selected(
+    source: &Path,
+    selected: Option<&str>,
+    package: &Path,
+    asset_root: &Path,
+) -> Result<VerifyReport, String> {
+    let snapshot = project::read_source(source, selected)?;
+    let source_bytes = snapshot.identity;
+    let mut level = snapshot.level;
     let manifest = inspect(package)?;
     let catalog_path = asset_root.join("catalog.json");
     let mut warnings = Vec::new();
     let (catalog, catalog_hash) = load_catalog_identity(&catalog_path)?;
     crate::map_compiler::prepare_level(&mut level, catalog.assets(), None);
+    crate::engine::project::validate_level_assets(&level, catalog.assets())?;
     let dependencies = collect_dependencies(&level, &catalog, asset_root, &mut warnings)?;
     let variants: Vec<LightmapQuality> = manifest
         .variants
@@ -1962,9 +1977,8 @@ fn load_catalog_identity(
 /// Versioned catalogue identity surrounds both complete and reusable stage
 /// keys. No map record or package schema changes; old keys miss safely once.
 fn fingerprint_with_catalog(input: &str, catalog_hash: &str) -> String {
-    // Version 2 finalizes canonical ray-boundary eligibility. Invalidate private
-    // experimental packages too, even when their asset and solver keys match.
-    sha256_hex(format!("asset_inputs_v2\ninput {input}\ncatalog {catalog_hash}\n").as_bytes())
+    // Input-key revision 1 belongs to the current pre-release schema.
+    sha256_hex(format!("asset_inputs_v1\ninput {input}\ncatalog {catalog_hash}\n").as_bytes())
 }
 
 /// Hash the installed tool once, independent of checkout paths or source access.
@@ -2063,7 +2077,11 @@ pub(crate) fn lighting_fingerprint_with_revision(
     let mut canonical = String::with_capacity(1024);
     canonical.push_str(COMPILER_NAME);
     canonical.push('\n');
-    let _formatted_format_format = writeln!(canonical, "format {FORMAT_VERSION}");
+    let _formatted_format_format = writeln!(
+        canonical,
+        "schema {} format {FORMAT_VERSION}",
+        crate::engine::package::PACKAGE_SCHEMA
+    );
     let _formatted_level_format = writeln!(
         canonical,
         "level_format {}",
@@ -2072,7 +2090,7 @@ pub(crate) fn lighting_fingerprint_with_revision(
     // Explicit stage-key version: older packages miss once, then reuse safely.
     let _formatted_stage_lighting = writeln!(
         canonical,
-        "stage lighting v3 navigation_display_metadata_presentation_excluded"
+        "stage lighting v1 navigation_display_metadata_presentation_excluded"
     );
     // This reusable stage also stores collision boxes, including region rims.
     let _formatted_rim_backing = writeln!(
@@ -2214,7 +2232,7 @@ fn reuse_prepared_lighting(
                 .map(|state| state.props.as_str()),
         ) {
             let prop_record = reader.read_blob(props, crate::engine::package::MAX_BINARY_BYTES)?;
-            if prop_record.starts_with(b"PLPS") {
+            if prop_record.starts_with(b"PPS1") {
                 let recipe = crate::engine::package::shared_props::read_recipe(&prop_record)?;
                 for segment in recipe.segments() {
                     shared_names.push(segment.blob_name());
@@ -2316,7 +2334,11 @@ pub(crate) fn fingerprint_with_revision(
     let mut canonical = String::with_capacity(1024);
     canonical.push_str(COMPILER_NAME);
     canonical.push('\n');
-    let _formatted_format_format = writeln!(canonical, "format {FORMAT_VERSION}");
+    let _formatted_format_format = writeln!(
+        canonical,
+        "schema {} format {FORMAT_VERSION}",
+        crate::engine::package::PACKAGE_SCHEMA
+    );
     // The semantics record is the authored level itself; a schema revision
     // changes what a package means even when nothing else moved, so the level
     // format version is part of the build identity.
@@ -2534,18 +2556,4 @@ fn verify_declared_entries(path: &Path, manifest: &Manifest) -> Result<(), Strin
         drop(read_declared_entry(&mut reader, entry)?);
     }
     Ok(())
-}
-
-fn read_source(path: &Path) -> Result<Vec<u8>, String> {
-    let metadata = std::fs::metadata(path)
-        .map_err(|error| format!("could not read {}: {error}", path.display()))?;
-    if metadata.len() > crate::engine::level::MAX_LEVEL_JSON_BYTES {
-        return Err(format!(
-            "{} is {} bytes (limit {})",
-            path.display(),
-            metadata.len(),
-            crate::engine::level::MAX_LEVEL_JSON_BYTES
-        ));
-    }
-    std::fs::read(path).map_err(|error| format!("could not read {}: {error}", path.display()))
 }

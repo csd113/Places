@@ -63,7 +63,7 @@ def control_source(name: str) -> tuple[dict, dict]:
     level = "caustics_" + name
     room = dict(x=0, z=0, width=4, depth=4, floor_y=-1, height=4,
                 material="core:pool_tile_basin_01", ceiling_material="core:pool_ceiling_01")
-    source = dict(format_version=3, id=level, name="Caustics control: " + name,
+    source = dict(schema="places-level", format_version=1, id=level, name="Caustics control: " + name,
                   author="Places explicit native diagnostics",
                   spawn=dict(x=0.2, z=3.8, yaw_degrees=45),
                   defaults=dict(wall="core:pool_tile_wall_01", floor="core:pool_tile_basin_01",

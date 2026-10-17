@@ -277,14 +277,14 @@ vector sum of the per-channel first moments), and a prepared
 irradiance field for moving objects (solved from the non-switchable emitters;
 a switchable fixture's contribution is prepared only as its extra atlas layer
 pair). The result is packaged as linear
-HDR KTX2 lightmaps (`R16G16B16A16_SFLOAT`, two layers per page plus one pair
-per switchable fixture), a `PLPF` irradiance-field record and prefiltered
+compact `PLC1` lightmaps (expanded to `R16G16B16A16_SFLOAT`, two layers per page plus one pair
+per switchable fixture), a `PPF1` irradiance-field record and prefiltered
 reflection cubemap mip chains. The `off` variant ships the historical
 vertex-lit mesh and no atlas.
 
 Current packages contain Static (`off`) and Full lighting. Full prepares two
-bounces with three emitter taps per axis at 16 texels/m; legacy Medium records
-remain readable. Texture quality and filtering are independent of selected
+bounces with three emitter taps per axis at 16 texels/m. Current-schema Medium
+variants remain available to developer APIs. Texture quality and filtering are independent of selected
 lighting. `--workers N` selects the shared CPU budget, with
 `PLACES_TOOL_WORKERS` as fallback and a maximum of 12. One worker is the serial
 reference. See [verification](VERIFICATION.md) and the [package format](PACKAGE_FORMAT.md)
@@ -334,7 +334,7 @@ production map bakes.
 | --- | --- |
 | Fast source acceptance | `tools/assets/validate.py`, texture/prop `build.py --check`, maintained map generators `--check`, Python test discovery; exact automatic checks are in `.github/workflows/rust.yml` |
 | Map publication | `tools/levels/compile.py`, `tools/build-maps.sh`; explicit eight-source allowlist, generated packages under ignored `assets/levels/` |
-| Format conversion / wall repair | `convert_v3.py` retains tested v2 conversion; `repair_alignment.py` checks source hashes/old values and only applies with post-validation and rollback |
+| Source contract / wall repair | [Project format](PROJECT_FORMAT.md) defines revision 1; the obsolete pre-release converter is retired. `repair_alignment.py` checks source hashes/old values and only applies with post-validation and rollback |
 | Generated scenes | Maintained map owners in the [map index](../levels/README.md); `build_fixture_levels.py`, `build_outdoor_fixture.py`, `build_lighting_quality.py`, `build_capacity_fixtures.py` own focused controls |
 | Historical source reconstruction | `build_model_zoo.py`, `build_outdoor_route.py`, `refine_home.py`, `refine_pool.py`; explicit working inputs/outputs, never the frozen archive as output |
 | PNG / GLB authoring | `tools/textures/` saved-art readers and explicit exporters; `tools/props/build.py` dispatches registered `parts/` constructors; `mesh`, `tex`, `glb`, `geometry`, `glyphs` and `refreshed` are shared libraries |

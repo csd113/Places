@@ -3289,21 +3289,21 @@ impl LevelLighting {
             return Err("lighting record has the wrong magic".to_string());
         }
         let version = reader.u16()?;
-        if !matches!(version, 2 | 3 | COMPILED_VERSION) {
+        if version != COMPILED_VERSION {
             return Err(format!(
                 "lighting record version {version} is not supported (this build reads {COMPILED_VERSION})"
             ));
         }
         let rooms = read_rooms(reader)?;
-        let lights = read_lights(reader, rooms.len(), version)?;
+        let lights = read_lights(reader, rooms.len())?;
         let count = usize::from(reader.u8()?);
         if count > crate::engine::level::MAX_GLOBAL_ILLUMINATORS {
             return Err("too many compiled directional illuminators".to_string());
         }
         let global_lights = (0..count)
-            .map(|_| super::directional::DirectionalLight::read_compiled(reader, version))
+            .map(|_| super::directional::DirectionalLight::read_compiled(reader))
             .collect::<Result<Vec<_>, _>>()?;
-        let sky_radiance = if version >= 3 {
+        let sky_radiance = {
             let sky = read_color(reader, "sky radiance")?;
             if !sky.is_valid() {
                 return Err(
@@ -3311,8 +3311,6 @@ impl LevelLighting {
                 );
             }
             sky.to_array()
-        } else {
-            [0.0; 3]
         };
         let blends = read_blends(reader, Some(&rooms), None)?;
         let room_zones = read_room_zones(reader, &rooms)?;
@@ -3350,10 +3348,10 @@ impl LevelLighting {
 }
 
 /// Magic identifying a compiled lighting record.
-const COMPILED_MAGIC: [u8; 4] = *b"PLLT";
+const COMPILED_MAGIC: [u8; 4] = *b"PLT1";
 
 /// Version of the compiled lighting record layout.
-pub(super) const COMPILED_VERSION: u16 = 4;
+pub(super) const COMPILED_VERSION: u16 = 1;
 
 /// Largest room count a compiled record may declare.
 const MAX_COMPILED_ROOMS: u64 = 100_000;
@@ -3538,11 +3536,7 @@ fn write_lights(writer: &mut Writer, lights: &[BakedLight]) -> Result<(), String
     Ok(())
 }
 
-fn read_lights(
-    reader: &mut Reader<'_>,
-    room_count: usize,
-    version: u16,
-) -> Result<Vec<BakedLight>, String> {
+fn read_lights(reader: &mut Reader<'_>, room_count: usize) -> Result<Vec<BakedLight>, String> {
     let count = reader.count(MAX_COMPILED_LIGHTS, "light count")?;
     let mut lights = Vec::with_capacity(count.min(16384));
     for _ in 0..count {
@@ -3572,7 +3566,7 @@ fn read_lights(
             other => return Err(format!("unknown light falloff {other}")),
         };
         let enabled = reader.bool()?;
-        let caustics = version >= 4 && reader.bool()?;
+        let caustics = reader.bool()?;
         let height_factor = read_finite(reader, "light height factor")?;
         let room = read_optional_u32(reader)?;
         if let Some(room_id) = room

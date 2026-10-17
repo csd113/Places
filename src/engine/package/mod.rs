@@ -76,6 +76,9 @@ pub use manifest::{
 /// contract change the current player cannot interpret at all.
 pub const FORMAT_VERSION: u32 = 1;
 
+/// Mandatory schema identity rejecting packages predating the revision reset.
+pub const PACKAGE_SCHEMA: &str = "places-map";
+
 /// Largest accepted `manifest.json`, in bytes.
 pub const MAX_MANIFEST_BYTES: u64 = 2 * 1024 * 1024;
 

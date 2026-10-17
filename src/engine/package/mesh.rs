@@ -3,7 +3,7 @@
 //! Layout (little-endian, byte-aligned, no implicit padding):
 //!
 //! ```text
-//! magic         4 bytes  "PLMW"
+//! magic         4 bytes  "PMW1"
 //! version       u16      [`MESH_RECORD_VERSION`]
 //! range_count   u32
 //! batches       6 x i32  floor, ceiling, wall, light, prop, decal (indices)
@@ -45,19 +45,11 @@ use crate::engine::spatial::Aabb;
 use super::binary::{Reader, Writer, finite3, finite4};
 use super::{MAX_MESH_INDICES, MAX_MESH_MATERIALS, MAX_MESH_RANGES, MAX_MESH_VERTICES};
 
-/// Version of the mesh record layout.
-///
-/// Version 2 widened a range's `material` field from `u16` to `u32`, because
-/// the in-memory [`crate::engine::render::MaterialIndex`] is 32 bits and a level may
-/// declare more materials than a `u16` names. A version-1 record cannot be
-/// read by this build: its material field would be reinterpreted as the first
-/// half of a 32-bit index, so the reader rejects it by name instead.
-/// Version 3 appends the neutral caustics material factor to every vertex.
-/// Version 2 remains readable with an explicit white fallback for that factor.
-pub const MESH_RECORD_VERSION: u16 = 3;
+/// Current pre-release mesh record version; superseded layouts require recompilation.
+pub const MESH_RECORD_VERSION: u16 = 1;
 
 /// Magic identifying a mesh record.
-pub const MESH_MAGIC: [u8; 4] = *b"PLMW";
+pub const MESH_MAGIC: [u8; 4] = *b"PMW1";
 
 /// Bytes one state byte carries for an optional shine.
 const SHINE_NONE: u8 = 0;
@@ -108,7 +100,7 @@ pub fn read_mesh(bytes: &[u8]) -> Result<LevelMesh, String> {
         return Err("mesh record has the wrong magic".to_string());
     }
     let version = reader.u16()?;
-    if !matches!(version, 2 | MESH_RECORD_VERSION) {
+    if version != MESH_RECORD_VERSION {
         return Err(format!(
             "mesh record version {version} is not supported (this build reads {MESH_RECORD_VERSION})"
         ));
@@ -133,7 +125,7 @@ pub fn read_mesh(bytes: &[u8]) -> Result<LevelMesh, String> {
     }
     // Every range needs one vertex plus its fixed headers. Prove that these
     // bytes exist before an untrusted count reserves a large range vector.
-    let vertex_width = if version >= 3 { 81_usize } else { 69 };
+    let vertex_width = 81_usize;
     reader.require_items(
         range_count,
         vertex_width.saturating_add(38),
@@ -147,7 +139,6 @@ pub fn read_mesh(bytes: &[u8]) -> Result<LevelMesh, String> {
             &mut reader,
             declared_vertices.saturating_sub(vertices),
             declared_indices.saturating_sub(indices),
-            version,
         )?;
         vertices = vertices.saturating_add(u64::try_from(range.vertices.len()).unwrap_or(u64::MAX));
         indices = indices.saturating_add(u64::try_from(range.indices.len()).unwrap_or(u64::MAX));
@@ -233,7 +224,6 @@ fn read_range(
     reader: &mut Reader<'_>,
     declared_vertices: u64,
     declared_indices: u64,
-    version: u16,
 ) -> Result<LevelMeshRange, String> {
     let kind_code = reader.u8()?;
     let kind = surface_kind_from_code(kind_code)?;
@@ -276,11 +266,11 @@ fn read_range(
     }
     let range_vertex_count = usize::try_from(vertex_count)
         .map_err(|error| format!("mesh range vertex count is too large: {error}"))?;
-    let vertex_width = if version >= 3 { 81_usize } else { 69 };
+    let vertex_width = 81_usize;
     reader.require_items(range_vertex_count, vertex_width, "mesh range vertex count")?;
     let mut vertices = Vec::with_capacity(range_vertex_count);
     for _ in 0..range_vertex_count {
-        vertices.push(read_vertex(reader, version >= 3)?);
+        vertices.push(read_vertex(reader)?);
     }
     let indices = reader.u16s(declared_indices)?;
     let vertex_count_u64 = u64::try_from(range_vertex_count).unwrap_or(u64::MAX);
@@ -321,12 +311,8 @@ pub(crate) fn write_vertex(writer: &mut Writer, vertex: &Vertex) {
     writer.f32_3(vertex.caustics_albedo);
 }
 
-/// Reads a current vertex or the legacy 69-byte layout with a white neutral
-/// factor. Legacy baked colour cannot recover the original material factor.
-pub(crate) fn read_vertex(
-    reader: &mut Reader<'_>,
-    has_caustics_albedo: bool,
-) -> Result<Vertex, String> {
+/// Reads one current 81-byte vertex.
+pub(crate) fn read_vertex(reader: &mut Reader<'_>) -> Result<Vertex, String> {
     let pos = reader.f32_3()?;
     let color = reader.f32_4()?;
     let uv = [reader.f32()?, reader.f32()?];
@@ -335,11 +321,7 @@ pub(crate) fn read_vertex(
     let handedness = reader.f32()?;
     let lightmap = [reader.u16()?, reader.u16()?];
     let lightmap_page = reader.u8()?;
-    let caustics_albedo = if has_caustics_albedo {
-        reader.f32_3()?
-    } else {
-        [1.0; 3]
-    };
+    let caustics_albedo = reader.f32_3()?;
     if !finite3(pos) || !finite4(color) || !finite3(normal) || !finite3(tangent) {
         return Err("vertex has a non-finite component".to_string());
     }

@@ -49,7 +49,7 @@ SCRATCH = os.environ.get("PLACES_REPAIR_TEST_ROOT")
 # and rooms [5, 6] are reindexed here; no ignored evidence file is needed at run
 # time. Reverse the same eight accepted scalar edits to seed the known defect.
 HISTORICAL_DEMO_REPAIRED = {
-    "format_version": 3,
+    "schema": "places-level", "format_version": 1,
     "id": "repair_historical_home_south",
     "name": "Historical Home South Repair Control",
     "author": "Places Team",

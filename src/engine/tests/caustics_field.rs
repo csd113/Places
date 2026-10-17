@@ -38,7 +38,7 @@ fn field_from_level(level: &LevelDef) -> ReceiverField {
 #[test]
 fn mixed_direct_sources_recompose_dark_activation_dim_colour_and_off() -> Result<(), String> {
     let mut field = field(
-        r#"{"format_version":3,"id":"caustics_field","name":"Caustics field",
+        r#"{"schema": "places-level", "format_version":1,"id":"caustics_field","name":"Caustics field",
         "spawn":{"x":0,"z":0},"rooms":[{"x":-2,"z":-2,"width":4,"depth":4,"floor_y":-1,"height":4}],
         "water":[{"x":-0.8,"z":-0.8,"width":1.6,"depth":1.6,"surface_y":0,"bottom_y":-1}],
         "ceiling_lights":[
@@ -169,7 +169,7 @@ fn check_turn_off_and_validation(field: &mut ReceiverField, factors: usize) {
 #[test]
 fn dark_sun_retains_visible_basis_while_moon_stays_excluded() -> Result<(), String> {
     let mut level = LevelDef::from_json(
-        r#"{"format_version":3,"id":"caustics_sun","name":"Caustics sun",
+        r#"{"schema": "places-level", "format_version":1,"id":"caustics_sun","name":"Caustics sun",
         "spawn":{"x":0,"z":0},
         "water":[{"shape":"circle","x":-0.5,"z":-0.5,"radius":0.5,"surface_y":0,"bottom_y":-1}],
         "global_illuminators":[
@@ -230,7 +230,7 @@ fn dark_sun_retains_visible_basis_while_moon_stays_excluded() -> Result<(), Stri
 #[test]
 fn wall_fixture_intensity_preserves_shared_aperture_power() -> Result<(), String> {
     let mut field = field(
-        r#"{"format_version":3,"id":"caustics_wall","name":"Caustics wall",
+        r#"{"schema": "places-level", "format_version":1,"id":"caustics_wall","name":"Caustics wall",
         "spawn":{"x":0,"z":0},"rooms":[{"x":-2,"z":-2,"width":4,"depth":4,"floor_y":-1,"height":4}],
         "water":[{"x":-0.8,"z":-0.8,"width":1.6,"depth":1.6,"surface_y":0,"bottom_y":-1}],
         "ceiling_lights":[{"id":"wall","fixture":"core:pool_light_wall","mount":"wall","x":0,"z":0,"y":2,"brightness":1}]}"#,
@@ -284,7 +284,7 @@ fn wall_fixture_intensity_preserves_shared_aperture_power() -> Result<(), String
 /// One 2 cm blocker and fewer than 3000 bounded records add no assets or transport solve.
 #[test]
 fn thin_sun_blocker_zeros_entire_cell_between_visible_point_samples() -> Result<(), String> {
-    let level = LevelDef::from_json(r#"{"format_version":3,"id":"caustics_thin","name":"Caustics thin",
+    let level = LevelDef::from_json(r#"{"schema": "places-level", "format_version":1,"id":"caustics_thin","name":"Caustics thin",
         "spawn":{"x":0,"z":0},
         "rooms":[{"x":-2,"z":-2,"width":4,"depth":4,"floor_y":-1,"height":4,"ceiling":{"kind":"open"}}],
         "walls":[{"x":0.17,"z":-0.7,"width":0.02,"depth":1.4,"y":0.5,"height":0.05}],
@@ -339,7 +339,7 @@ fn thin_sun_blocker_zeros_entire_cell_between_visible_point_samples() -> Result<
 /// it adds no assets and fewer than 1200 bounded cell records.
 #[test]
 fn circular_receiver_queries_above_submerged_static_floor_plate() -> Result<(), String> {
-    let level = LevelDef::from_json(r#"{"format_version":3,"id":"caustics_bottom","name":"Caustics bottom",
+    let level = LevelDef::from_json(r#"{"schema": "places-level", "format_version":1,"id":"caustics_bottom","name":"Caustics bottom",
         "spawn":{"x":0,"z":0},
         "rooms":[{"x":-2,"z":-2,"width":4,"depth":4,"floor_y":-1,"height":4,"ceiling":{"kind":"open"}}],
         "walls":[{"x":-0.5,"z":-0.5,"width":1,"depth":1,"y":-1,"height":0.13}],
@@ -377,7 +377,7 @@ fn circular_receiver_queries_above_submerged_static_floor_plate() -> Result<(), 
 #[test]
 fn narrow_step_treads_keep_clear_cells_beside_a_blocked_riser() -> Result<(), String> {
     let field = field(
-        r#"{"format_version":3,"id":"caustics_steps","name":"Caustics steps",
+        r#"{"schema": "places-level", "format_version":1,"id":"caustics_steps","name":"Caustics steps",
         "spawn":{"x":0,"z":0},
         "rooms":[{"x":-2,"z":-2,"width":4,"depth":4,"floor_y":-1,"height":4,"ceiling":{"kind":"open"}}],
         "walls":[
@@ -438,7 +438,7 @@ fn narrow_step_treads_keep_clear_cells_beside_a_blocked_riser() -> Result<(), St
 fn moving_receiver_below_static_platform_carries_rejection_floor() -> Result<(), String> {
     use crate::engine::render::common::dynamic_visibility::DynamicVisibility;
     use crate::engine::spatial::Aabb;
-    let level = LevelDef::from_json(r#"{"format_version":3,"id":"caustics_buried","name":"Caustics buried",
+    let level = LevelDef::from_json(r#"{"schema": "places-level", "format_version":1,"id":"caustics_buried","name":"Caustics buried",
         "spawn":{"x":0,"z":0},
         "rooms":[{"x":-2,"z":-2,"width":4,"depth":4,"floor_y":-1,"height":4,"ceiling":{"kind":"open"}}],
         "walls":[{"x":-0.5,"z":-0.5,"width":1,"depth":1,"y":-0.4,"height":0.1}],

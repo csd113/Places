@@ -169,7 +169,7 @@ def build_level():
     adopted = json.loads((ROOT / "assets/environments/arcade/adopted_placement.json").read_text())
     sizes = {e["id"]: e["size"] for e in catalog["assets"]
              if e.get("asset_type") in {"prop", "entity"}}
-    level = dict(format_version=3, id="retro_arcade_demo", name="Cosmic Lanes & Arcade",
+    level = dict(schema="places-level", format_version=1, id="retro_arcade_demo", name="Cosmic Lanes & Arcade",
                  author="Places", spawn=dict(x=6.8, z=28.0, yaw_degrees=25),
                  defaults=dict(wall=WALL, floor=CARPET, ceiling=CEILING),
                  environment=dict(fog=dict(color=[.025, .035, .09], density=0,

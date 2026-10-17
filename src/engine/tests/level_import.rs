@@ -59,7 +59,7 @@ impl Drop for ImportFixture {
 
 fn write_fixture(path: &Path, id: &str) -> Result<Vec<u8>, String> {
     let semantics = serde_json::to_vec(&serde_json::json!({
-        "format_version": 3_u32,
+        "schema": "places-level", "format_version": 1_u32,
         "id": id,
         "name": id,
         "spawn": {"x": 0_u32, "z": 0_u32}
@@ -89,6 +89,7 @@ fn write_fixture(path: &Path, id: &str) -> Result<Vec<u8>, String> {
         })
         .collect();
     let manifest = Manifest {
+        schema: crate::engine::package::PACKAGE_SCHEMA.to_string(),
         package_format: FORMAT_VERSION,
         id: id.to_owned(),
         name: id.to_owned(),

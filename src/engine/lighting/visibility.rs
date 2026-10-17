@@ -1411,10 +1411,8 @@ impl Occluders {
     #[must_use]
     pub(super) fn fingerprint(&self) -> u64 {
         let mut hash = 0xcbf2_9ce4_8422_2325_u64;
-        // v2: the set is the same, but the bake now exempts a prop-attached
-        // light from its own prop's boxes. The version seed keeps an atlas
-        // cached under the old query semantics from being reused.
-        hash_bytes(&mut hash, b"occluders-v2");
+        // Structural query semantics are tracked by transport::SOLVER_REVISION.
+        hash_bytes(&mut hash, b"occluders");
         hash_u64(
             &mut hash,
             u64::try_from(self.walls.len()).unwrap_or(u64::MAX),

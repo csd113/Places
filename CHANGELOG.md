@@ -1,3 +1,18 @@
+## 0.12.0 — in progress
+
+- Add a shared project-folder manifest with stable map IDs, entry-level
+  selection, confined source/script/thumbnail references and reserved custom
+  asset folders. Built-in assets keep their existing catalog identities.
+- Let Map Compiler build/verify a selected project level and plan/build ordinary
+  packages for all declared levels. Single JSON builds remain supported.
+- Reset the pre-release map, lighting and compiler revisions to 1 with explicit
+  schema/signature checks. Old compiled maps require recompilation; tracked
+  source headers and authoring tools were migrated together.
+- Add three compact project-contract regressions and one tiny binary-contract
+  regression without a shipped-map bake.
+  Custom importers, Luau execution, editor UI and polished multi-level export
+  remain later work. See [the source contract and stage handoff](docs/PROJECT_FORMAT.md).
+
 ## 0.11.0 — 2026-10-17
 
 Source prerelease of the completed renderer, shader, flashlight, console, sound,

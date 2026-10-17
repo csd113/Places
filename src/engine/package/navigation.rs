@@ -18,7 +18,7 @@
 //! Layout (little-endian, byte-aligned, no implicit padding):
 //!
 //! ```text
-//! magic           4 bytes  "PLNV"
+//! magic           4 bytes  "PNV1"
 //! version         u16      [`NAVIGATION_RECORD_VERSION`]
 //! cell_m          f32
 //! origin_x, origin_z   f32 x 2
@@ -55,7 +55,7 @@ use super::{MAX_NAV_CELLS, MAX_NAV_CLASSES, MAX_NAV_PORTALS, MAX_NAVIGATION_BYTE
 pub const NAVIGATION_RECORD_VERSION: u16 = 1;
 
 /// Magic identifying a compiled navigation record.
-pub const NAVIGATION_MAGIC: [u8; 4] = *b"PLNV";
+pub const NAVIGATION_MAGIC: [u8; 4] = *b"PNV1";
 
 /// Largest accepted door id length in one portal, in bytes.
 pub(crate) const MAX_NAV_DOOR_ID_BYTES: u64 = 256;

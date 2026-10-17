@@ -524,11 +524,11 @@ def instance_id(entry: Dict, role: str) -> str:
 
 
 def animation_component(actions: Sequence[Dict]) -> Optional[Dict]:
-    """The `animation` component the v3 loader requires for an animation action.
+    """The `animation` component the revision 1 loader requires for an animation action.
 
     The generator's interaction blocks carry the clip on the action, so the
     first animation action's clip is hoisted into the component (at rest,
-    `playing: false`) exactly as `tools/levels/convert_v3.py` does.
+    `playing: false`) in the current authored component schema.
     """
     for action in actions:
         tag = action.get("action")
@@ -546,11 +546,11 @@ def animation_component(actions: Sequence[Dict]) -> Optional[Dict]:
     return None
 
 
-def interaction_v3(interaction: Dict) -> Tuple[List[Dict], List[Dict]]:
-    """The format-v3 components/bindings for one interaction block.
+def interaction_components(interaction: Dict) -> Tuple[List[Dict], List[Dict]]:
+    """The revision 1 components/bindings for one interaction block.
 
     The generator's callers keep authoring the compact interaction form; this
-    translates it to the typed components and event bindings a v3 level
+    translates it to the typed components and event bindings a revision 1 level
     carries, in the same field order the one-off converter emits.
     """
     component: Dict = {"component": "interactable"}
@@ -924,7 +924,7 @@ class Layout:
                 "actions": [{"action": "toggle_label"}],
             }
         if interaction is not False:
-            components, bindings = interaction_v3(interaction)
+            components, bindings = interaction_components(interaction)
             # A routed actor carries its navigation body with it: the same
             # component the AI and the offline bake select an agent class by,
             # so a scripted route and an AI agree on the actor's footprint.
@@ -1558,7 +1558,7 @@ def build_level(catalog: Dict, inspections: Dict[str, Dict]) -> Dict:
     intent += layout.geometry_intent
 
     return {
-        "format_version": 3,
+        "schema": "places-level", "format_version": 1,
         "id": "model_zoo",
         "name": "Model Zoo",
         "author": "Places",

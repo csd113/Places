@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only PLPF v2/v3 / atlas audit, using neutral (unit-albedo) illumination.
+"""Read-only PPF1 revision 1 / atlas audit, using neutral (unit-albedo) illumination.
 
 Usage: probe_lighting_report.py PACKAGE --locations locations.json [--variant full]
 Locations: [{"name": "pool", "position": [x,y,z], "room": 3}, ...].
@@ -23,19 +23,19 @@ def luminance(rgb):
 
 
 def read_field(data):
-    if len(data) < 38 or data[:4] != b"PLPF":
-        raise ValueError("expected PLPF v2/v3")
+    if len(data) < 38 or data[:4] != b"PPF1":
+        raise ValueError("expected PPF1 revision 1; recompile superseded maps")
     version = struct.unpack_from("<H", data, 4)[0]
-    if version not in (2, 3):
-        raise ValueError("expected PLPF v2/v3")
+    if version != 1:
+        raise ValueError("expected PPF1 revision 1; recompile superseded maps")
     x, y, z, cell, nx, ny, nz, count = struct.unpack_from("<4f4I", data, 6)
     if not all(math.isfinite(value) for value in (x, y, z, cell)) or cell <= 0:
         raise ValueError("invalid probe lattice")
     if any(value < 1 or value > 64 for value in (nx, ny, nz)) or count != nx * ny * nz:
         raise ValueError("invalid probe count")
     base_end = 38 + 36 * count
-    if len(data) < base_end or (version == 2 and len(data) != base_end):
-        raise ValueError("invalid PLPF length")
+    if len(data) < base_end + 5:
+        raise ValueError("invalid PPF1 length")
     probes = []
     for index, values in enumerate(struct.iter_unpack("<8fi", data[38:base_end])):
         if not all(math.isfinite(value) for value in values[:8]) or min(values[:3]) < 0 or max(values[:3]) > 65504:
@@ -52,18 +52,22 @@ def read_field(data):
         probes.append({"index": index, "position": position, "irradiance": values[:3],
                        "moment": values[3:6], "room": values[8]})
     selected = ()
-    if version == 3:
-        if len(data) < base_end + 4:
-            raise ValueError("missing PLPF selected direct extension")
-        light_count, = struct.unpack_from("<I", data, base_end)
-        direct_start = base_end + 4 + light_count * 4
+    presence = data[base_end]
+    if presence not in (0, 1):
+        raise ValueError("invalid selected direct presence")
+    cursor = base_end + 1
+    if presence:
+        if len(data) < cursor + 4:
+            raise ValueError("missing PPF1 selected direct extension")
+        light_count, = struct.unpack_from("<I", data, cursor)
+        direct_start = cursor + 4 + light_count * 4
         expected_end = direct_start + count * 24
-        if light_count > 8 or len(data) != expected_end:
-            raise ValueError("invalid PLPF selected direct length")
-        selected = struct.unpack_from(f"<{light_count}I", data, base_end + 4)
+        if light_count > 8 or len(data) < expected_end + 4:
+            raise ValueError("invalid PPF1 selected direct length")
+        selected = struct.unpack_from(f"<{light_count}I", data, cursor + 4)
         if any(a >= b for a, b in zip(selected, selected[1:])):
-            raise ValueError("invalid PLPF selected source order")
-        for probe, direct in zip(probes, struct.iter_unpack("<6f", data[direct_start:])):
+            raise ValueError("invalid PPF1 selected source order")
+        for probe, direct in zip(probes, struct.iter_unpack("<6f", data[direct_start:expected_end])):
             means, moment = direct[:3], direct[3:]
             if not all(math.isfinite(value) for value in direct) or min(means) < 0 or max(means) > 65504:
                 raise ValueError("invalid selected direct energy")
@@ -80,8 +84,28 @@ def read_field(data):
             probe["selected_direct_moment"] = moment
             probe["nonlocal_irradiance"] = tuple(max(0, value) for value in residual)
             probe["nonlocal_moment"] = remaining_moment
+        cursor = expected_end
+    if len(data) < cursor + 4:
+        raise ValueError("missing switchable groups")
+    groups, = struct.unpack_from("<I", data, cursor)
+    cursor += 4
+    if groups > 4 or len(data) != cursor + groups * (4 + count * 24):
+        raise ValueError("invalid switchable group length")
+    switchable = []
+    for _ in range(groups):
+        light_index, = struct.unpack_from("<I", data, cursor)
+        cursor += 4
+        if any(plane["light_index"] == light_index for plane in switchable):
+            raise ValueError("duplicate switchable source")
+        coefficients = list(struct.iter_unpack("<6f", data[cursor:cursor + count * 24]))
+        if any(not all(math.isfinite(value) for value in plane) or min(plane[:3]) < 0
+               or max(plane[:3]) > 65504 or math.sqrt(sum(value*value for value in plane[3:])) > sum(plane[:3]) * (1 + 32 * 2**-23)
+               for plane in coefficients):
+            raise ValueError("invalid switchable probe coefficients")
+        switchable.append({"light_index": light_index, "coefficients": coefficients})
+        cursor += count * 24
     return {"origin": (x, y, z), "cell_m": cell, "dims": (nx, ny, nz), "probes": probes,
-            "record_version": version, "selected_light_indices": selected}
+            "record_version": version, "selected_light_indices": selected, "switchable_indirect": switchable}
 
 
 def reconstruct(irradiance, moment, normal):
@@ -94,8 +118,8 @@ def reconstruct(irradiance, moment, normal):
 
 
 def atlas_samples(meta, image, locations=()):
-    if meta["record_version"] != 3 or image[:12] != b"\xabKTX 20\xbb\r\n\x1a\n":
-        raise ValueError("expected moment atlas v3 / KTX2")
+    if meta["record_version"] != 1 or image[:12] != b"\xabKTX 20\xbb\r\n\x1a\n":
+        raise ValueError("expected revision 1 moment atlas / exact KTX2 storage")
     fmt, size, edge, height, depth, layers, faces, levels, compression = struct.unpack_from("<9I", image, 12)
     if (fmt, size, height, depth, faces, levels, compression) != (97, 2, edge, 0, 1, 1, 0):
         raise ValueError("expected uncompressed RGBA16F atlas")

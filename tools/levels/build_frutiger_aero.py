@@ -24,7 +24,7 @@ AQUA = 'frutiger_aero:aqua_tile_01'
 
 
 def build_level():
-    level = dict(format_version=3, id='frutiger_aero_demo', name='Frutiger Aero', author='Places',
+    level = dict(schema="places-level", format_version=1, id='frutiger_aero_demo', name='Frutiger Aero', author='Places',
                  spawn=dict(x=2.5, z=10.1, yaw_degrees=38),
                  defaults=dict(wall=WHITE, floor=FLOOR, ceiling=WHITE),
                  sky=dict(texture='frutiger_aero:tex_sky_day_01', brightness=1,

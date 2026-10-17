@@ -1,5 +1,6 @@
 {
-  "format_version": 3,
+  "schema": "places-level",
+  "format_version": 1,
   "defaults": {
     "wall": "home:wall_paint_offwhite_01",
     "floor": "home:hardwood_oak_01",

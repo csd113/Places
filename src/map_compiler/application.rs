@@ -29,21 +29,25 @@ places-compile: build and inspect Places map packages (.placesmap)
 USAGE:
   places-compile gui [source.json] [--out <package>] [--asset-root <dir>]
                        [--workers N]
-  places-compile build <source.json> [--out <package>] [--variants static,full]
+  places-compile build <source.json|project> [--level <id>] [--out <package>] [--variants static,full]
                        [--asset-root <dir>] [--workers N] [--force] [--json]
                        [--progress auto|plain|off]
   places-compile build-collection <dir> [--variants static,full]
                        [--asset-root <dir>] [--workers N] [--force] [--json]
                        [--progress auto|plain|off]
+  places-compile build-project <project> --out <existing-directory>
+                       [--asset-root <dir>] [--variants static,full] [--workers N]
+                       [--force] [--json] [--progress auto|plain|off]
   places-compile validate <package> [--json]
   places-compile inspect <package> [--json]
   places-compile export-lighting <package> --out <new-directory>
                        [--variants static,full] [--json]
-  places-compile verify <source.json> --package <package> [--asset-root <dir>] [--json]
+  places-compile verify <source.json|project> [--level <id>] --package <package> [--asset-root <dir>] [--json]
                        [--require-current]
   places-compile --help | --version
 
 OPTIONS:
+  --level <id>        Select a declared project level (default: entry_level).
   --asset-root <dir>  Asset root holding catalog.json (default: PLACES_ASSET_ROOT
                       or the discovered assets directory).
   --require-current   verify only: exit 1 when the package is not current for the
@@ -113,6 +117,7 @@ impl From<String> for CliError {
 }
 
 struct Options {
+    level: Option<String>,
     asset_root: Option<PathBuf>,
     workers: usize,
     variants: Vec<LightmapQuality>,
@@ -123,6 +128,7 @@ struct Options {
 
 fn parse_options(args: &[String]) -> Result<Options, CliError> {
     let mut options = Options {
+        level: None,
         asset_root: None,
         workers: 0,
         variants: LightmapQuality::ALL.to_vec(),
@@ -133,6 +139,14 @@ fn parse_options(args: &[String]) -> Result<Options, CliError> {
     let mut index = 0;
     while index < args.len() {
         match args.get(index).map(String::as_str) {
+            Some("--level") => {
+                options.level = Some(
+                    args.get(index.saturating_add(1))
+                        .ok_or_else(|| CliError::Usage("--level needs an ID".into()))?
+                        .clone(),
+                );
+                index = index.saturating_add(2);
+            }
             Some("--progress") => {
                 options.progress = match args.get(index.saturating_add(1)).map(String::as_str) {
                     Some("auto") => Mode::Auto,
@@ -264,6 +278,7 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
         "--out",
         "--package",
         "--progress",
+        "--level",
     ];
     let mut it = rest.iter();
     while let Some(arg) = it.next() {
@@ -282,6 +297,11 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
         }
     }
     let options = parse_options(&option_args)?;
+    if options.level.is_some() && !matches!(command, "build" | "verify") {
+        return Err(CliError::Usage(
+            "--level is only supported by build and verify".into(),
+        ));
+    }
     match command {
         "gui" => {
             if positional.len() > 1
@@ -317,14 +337,19 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
             let source = positional
                 .first()
                 .ok_or_else(|| CliError::Usage("build needs a source path".to_string()))?;
-            let out = option_value(&option_args, "--out").map_or_else(
-                || compiler::package_path_for(std::path::Path::new(source.as_str())),
-                PathBuf::from,
-            );
+            let out = if let Some(output) = option_value(&option_args, "--out") {
+                PathBuf::from(output)
+            } else {
+                compiler::project::output_path(
+                    std::path::Path::new(source.as_str()),
+                    options.level.as_deref(),
+                )?
+            };
             let asset_root = compiler::resolve_asset_root(options.asset_root.as_deref())?;
             pin_asset_root(&asset_root);
             let request = BuildRequest {
                 source: PathBuf::from(source.as_str()),
+                project_level: options.level,
                 out,
                 asset_root,
                 variants: options.variants,
@@ -369,6 +394,50 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
                 }
                 for warning in &report.warnings {
                     println!("  note: {warning}");
+                }
+            }
+            Ok(())
+        }
+        "build-project" => {
+            if positional.len() != 1 {
+                return Err(CliError::Usage(
+                    "build-project needs one project folder or manifest".into(),
+                ));
+            }
+            let source = positional
+                .first()
+                .ok_or_else(|| CliError::Usage("build-project needs a project".into()))?;
+            let out = option_value(&option_args, "--out").ok_or_else(|| {
+                CliError::Usage("build-project needs --out <existing-directory>".into())
+            })?;
+            let asset_root = compiler::resolve_asset_root(options.asset_root.as_deref())?;
+            pin_asset_root(&asset_root);
+            let template = BuildRequest {
+                source: PathBuf::from(source.as_str()),
+                project_level: None,
+                out: PathBuf::from(out),
+                asset_root,
+                variants: options.variants,
+                workers: options.workers,
+                force: option_args.iter().any(|arg| arg == "--force"),
+                capture_probes: true,
+            };
+            let plan = compiler::project::build_plan(&template)?;
+            let session = Session::start(options.progress)?;
+            for request in plan {
+                let result = compiler::build(&request);
+                if session.interrupted() {
+                    return Err(CliError::Interrupted);
+                }
+                let report = result?;
+                if options.json {
+                    print_json(&report)?;
+                } else {
+                    println!(
+                        "{} {}",
+                        if report.rebuilt { "built" } else { "current" },
+                        report.out
+                    );
                 }
             }
             Ok(())
@@ -519,8 +588,9 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
                 .ok_or_else(|| CliError::Usage("verify needs --package <package>".to_string()))?;
             let asset_root = compiler::resolve_asset_root(options.asset_root.as_deref())?;
             pin_asset_root(&asset_root);
-            let report = compiler::verify(
+            let report = compiler::verify_selected(
                 &PathBuf::from(source.as_str()),
+                options.level.as_deref(),
                 &PathBuf::from(&package),
                 &asset_root,
             )?;

@@ -31,7 +31,7 @@ pub(super) fn factor_prepared_props(
         .filter(|name| {
             blobs
                 .get(name)
-                .is_some_and(|(bytes, _)| bytes.starts_with(b"PLMP"))
+                .is_some_and(|(bytes, _)| bytes.starts_with(b"PMP1"))
         })
         .collect();
     if source_names.is_empty() {

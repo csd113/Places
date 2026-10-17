@@ -52,7 +52,7 @@ def light(y: float, intensity: float, radius: float, color=(1.0, 0.84, 0.65), z:
 
 def build_level() -> dict:
     catalog = {a["id"]: a for a in json.loads((ROOT / "assets/catalog.json").read_text())["assets"]}
-    level = {"format_version": 3, "id": "lantern_hollow", "name": "Lantern Hollow", "author": "Places",
+    level = {"schema": "places-level", "format_version": 1, "id": "lantern_hollow", "name": "Lantern Hollow", "author": "Places",
              "spawn": {"x": 18.0, "z": 21.6, "yaw_degrees": -35.0},
              "defaults": {"wall": "home:wall_paint_offwhite_01", "floor": "outdoor:grass_ground_01",
                           "ceiling": "home:ceiling_white_01"},

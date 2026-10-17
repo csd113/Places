@@ -20,7 +20,7 @@ def build_level():
     # Reuse the developer-console fixture's established pair of rooms and
     # common wall. Remove its disconnected diagnostic room and north vestibule.
     level = {key: deepcopy(reference[key]) for key in (
-        "format_version", "defaults", "ceiling_lights")}
+        "schema", "format_version", "defaults", "ceiling_lights")}
     level.update(id="sound_native", name="Native Sound Fixture", author="Places",
         comment="Explicit opt-in audio acceptance only; no CI or Rust test bakes this map.",
         spawn=dict(x=0.0, z=1.6, yaw_degrees=0.0),

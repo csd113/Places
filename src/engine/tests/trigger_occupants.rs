@@ -12,7 +12,7 @@ use crate::engine::level::{ActionDef, LevelDef, WalkableFloor};
 
 fn fixture(filter: &str, occupancy: &str, bindings: &str) -> Result<EntityWorld, String> {
     let json = format!(
-        r#"{{"format_version":3,"id":"trigger_fixture","name":"Trigger fixture",
+        r#"{{"schema": "places-level", "format_version":1,"id":"trigger_fixture","name":"Trigger fixture",
         "spawn":{{"x":-5.0,"z":-5.0}},
         "props":[{{"id":"duck_1","model":"core:rubber_duck","components":[
             {{"component":"audio","sound":"duck.test"}}]}}],
@@ -246,7 +246,7 @@ fn shared_once_and_cooldown_rearm_without_consuming_exit_bindings() -> Result<()
 
 #[test]
 fn authored_playing_emitter_starts_mutes_resumes_and_restores_on_reset() -> Result<(), String> {
-    let level = LevelDef::from_json(r#"{"format_version":3,"id":"emitter_fixture","name":"Emitter fixture",
+    let level = LevelDef::from_json(r#"{"schema": "places-level", "format_version":1,"id":"emitter_fixture","name":"Emitter fixture",
         "spawn":{"x":-5.0,"z":-5.0},
         "props":[{"id":"radio","model":"core:plant","components":[
             {"component":"audio","sound":"ambient.test","playing":true,"looped":true,"time_domain":"real"}]}]}"#)
@@ -408,7 +408,7 @@ const fn is_play(command: &WorldCommand) -> bool {
 fn movable_audio_source_admission_preserves_other_component_and_binding_restrictions()
 -> Result<(), String> {
     let mut level = LevelDef::from_json(
-        r#"{"format_version":3,"id":"movable_audio_fixture","name":"Movable audio fixture",
+        r#"{"schema": "places-level", "format_version":1,"id":"movable_audio_fixture","name":"Movable audio fixture",
         "spawn":{"x":-5.0,"z":-5.0},
         "props":[{"id":"duck","model":"core:rubber_duck","solid":true,
             "physics":{"motion":"dynamic","pickup":true},
@@ -444,7 +444,7 @@ fn movable_audio_source_admission_preserves_other_component_and_binding_restrict
 // feedback and false cooldown feedback, without a device, assets or map bake.
 #[test]
 fn event_light_toggle_reports_feedback_only_when_binding_runs() -> Result<(), String> {
-    let level = LevelDef::from_json(r#"{"format_version":3,"id":"light_feedback_fixture","name":"Light feedback fixture",
+    let level = LevelDef::from_json(r#"{"schema": "places-level", "format_version":1,"id":"light_feedback_fixture","name":"Light feedback fixture",
         "spawn":{"x":-5.0,"z":-5.0},
         "props":[{"id":"switch","model":"core:plant","components":[{"component":"interactable"}],
             "bindings":[{"on":"interact","cooldown_seconds":1.0,"actions":[{"action":"toggle","target":"lamp"}]}]}],
@@ -487,7 +487,7 @@ fn event_light_toggle_reports_feedback_only_when_binding_runs() -> Result<(), St
 // terminate, rather than restarting a runaway chain at depth zero/one forever.
 #[test]
 fn synchronous_state_children_keep_depth_across_deferred_event_pumps() -> Result<(), String> {
-    let level = LevelDef::from_json(r#"{"format_version":3,"id":"depth_fixture","name":"Depth fixture",
+    let level = LevelDef::from_json(r#"{"schema": "places-level", "format_version":1,"id":"depth_fixture","name":"Depth fixture",
         "spawn":{"x":-5.0,"z":-5.0},
         "doors":[{"id":"door","x":0.0,"z":0.0,"width":1.0,"height":2.0,"bindings":[
             {"on":"object_state","key":"locked","when":[{"check":"locked","target":"door"}],"actions":[{"action":"unlock"}]},

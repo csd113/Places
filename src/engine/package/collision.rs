@@ -9,7 +9,7 @@
 //! Layout (little-endian, byte-aligned, no implicit padding):
 //!
 //! ```text
-//! magic         4 bytes  "PLCL"
+//! magic         4 bytes  "PCL1"
 //! version       u16      [`COLLISION_RECORD_VERSION`]
 //! walls         u32 count, then count x wall
 //! floor         u32 room count, then rooms
@@ -74,18 +74,11 @@ use crate::engine::level::{Ladders, LevelDef, WalkableCeiling, WalkableFloor, Wa
 use super::binary::{Reader, Writer};
 use super::{MAX_COLLISION_BOXES, MAX_COLLISION_BYTES};
 
-/// Version of the compiled collision record layout.
-///
-/// Version 1 wrote a water volume as footprint, surface, bottom, opacity,
-/// swimming and material. Version 2 adds the footprint shape byte and the
-/// circle radius after `opacity`, because a rectangular-only record cannot
-/// express a circular pool's membership or its drawn disc. A version-1 record
-/// is refused by name: its `swimming` byte would be misread as the shape code,
-/// so packages built by the previous compiler must be rebuilt.
-pub const COLLISION_RECORD_VERSION: u16 = 2;
+/// Current pre-release collision record version; superseded layouts require recompilation.
+pub const COLLISION_RECORD_VERSION: u16 = 1;
 
 /// Magic identifying a compiled collision record.
-pub const COLLISION_MAGIC: [u8; 4] = *b"PLCL";
+pub const COLLISION_MAGIC: [u8; 4] = *b"PCL1";
 
 /// Largest accepted count of water volumes in one record.
 pub(crate) const MAX_COLLISION_WATER_VOLUMES: u64 = 1 << 16;

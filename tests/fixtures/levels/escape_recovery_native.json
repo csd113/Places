@@ -1,5 +1,6 @@
 {
-  "format_version": 3,
+  "schema": "places-level",
+  "format_version": 1,
   "id": "escape_recovery_native",
   "name": "Escape recovery native control",
   "spawn": {

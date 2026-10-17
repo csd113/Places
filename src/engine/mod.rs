@@ -28,6 +28,7 @@ pub mod package;
 pub mod perf;
 pub mod physics;
 pub mod progress;
+pub mod project;
 pub mod props;
 pub mod quality;
 pub mod render;

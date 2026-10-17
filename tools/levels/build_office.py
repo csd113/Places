@@ -27,7 +27,7 @@ TRIM = 'core:baseboard_office_01'
 
 
 def build_level():
-    level = dict(format_version=3, id='office_demo', name='Office: After Hours',
+    level = dict(schema="places-level", format_version=1, id='office_demo', name='Office: After Hours',
                  author='Places', spawn=dict(x=-2, z=9, yaw_degrees=90),
                  defaults=dict(wall=CLEAN, floor=CARPET, ceiling=TILE),
                  environment=dict(presentation=dict(exposure=1, tone_knee=.8,

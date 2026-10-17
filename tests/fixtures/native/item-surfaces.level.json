@@ -1,5 +1,6 @@
 {
-  "format_version": 3,
+  "schema": "places-level",
+  "format_version": 1,
   "id": "item_surfaces_native",
   "name": "Native Item Floor Surfaces",
   "author": "Places",

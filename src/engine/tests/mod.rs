@@ -6,4 +6,5 @@ mod level_import;
 mod navigation_ai;
 mod package_loading;
 mod physics_clock;
+mod project_contract;
 mod trigger_occupants;

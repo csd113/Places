@@ -1,11 +1,11 @@
 //! Exact, cross-quality sharing of prepared prop record bytes.
 //!
-//! PLPS1 recipes retain every original PLMP byte. They split each serialized
+//! PPS1 recipes retain every original PMP1 byte. They split each serialized
 //! vertex into its 36-byte position/colour/UV prefix and remaining lighting/frame
 //! bytes, then reference content-interned 65,520-byte chunks. Raw headers,
 //! palettes and ordered indices use the same chunk store. Chunks are packed into
 //! bounded segments; segment identities and the reconstructed record identity
-//! are checked before the existing PLMP decoder sees the result.
+//! are checked before the existing PMP1 decoder sees the result.
 //!
 //! Reconstruction allocates one output record and traverses borrowed segment
 //! slices. It never concatenates whole vertex prefix or tail planes.
@@ -24,7 +24,7 @@ pub const MAX_SHARED_PROPS_SEGMENT_BYTES: u64 = 16 * 1024 * 1024;
 /// Largest recipe. Counts are additionally bounded by their actual wire storage.
 pub const MAX_SHARED_PROPS_RECIPE_BYTES: u64 = 64 * 1024 * 1024;
 
-const MAGIC: [u8; 4] = *b"PLPS";
+const MAGIC: [u8; 4] = *b"PPS1";
 const VERSION: u16 = 1;
 const PREFIX_BYTES: usize = 36;
 const MAX_CHUNKS: usize = 1 << 20;
@@ -32,7 +32,7 @@ const MAX_PARTS: usize = MAX_PROP_BATCHES.saturating_mul(2).saturating_add(1);
 
 /// Encoded recipes in input order and the physical shared segment payloads.
 pub struct FactoredProps {
-    /// One PLPS1 record for each original PLMP record.
+    /// One PPS1 record for each original PMP1 record.
     pub recipes: Vec<Vec<u8>>,
     /// Unique segment payloads, in deterministic first-occurrence order.
     pub segments: Vec<Vec<u8>>,
@@ -65,13 +65,13 @@ pub struct PropsRecipe {
 }
 
 impl PropsRecipe {
-    /// Original PLMP record length, bounded by the prepared-record limit.
+    /// Original PMP1 record length, bounded by the prepared-record limit.
     #[must_use]
     pub const fn expanded_bytes(&self) -> u64 {
         self.expanded_bytes
     }
 
-    /// Original PLMP content identity.
+    /// Original PMP1 content identity.
     #[must_use]
     pub fn sha256(&self) -> &str {
         &self.sha256
@@ -237,7 +237,7 @@ impl ChunkStore {
     }
 }
 
-/// Factor already encoded PLMP3–7 records together, preserving every original byte.
+/// Factor current encoded prop records together, preserving every original byte.
 ///
 /// Only a single bounded chunk staging buffer is used for a vertex plane. The
 /// caller retains the original records; the returned physical segment bytes are
@@ -246,7 +246,7 @@ impl ChunkStore {
 /// existing aggregate and entry-count caps.
 ///
 /// # Errors
-/// Rejects invalid original PLMP data, unsupported versions, too many qualities,
+/// Rejects invalid original PMP1 data, unsupported versions, too many qualities,
 /// hash collisions, or physical/recipe storage beyond the package bounds.
 pub fn factor_props(records: &[&[u8]]) -> Result<FactoredProps, String> {
     if records.is_empty() || records.len() > MAX_VARIANTS {
@@ -441,7 +441,7 @@ fn write_references(writer: &mut Writer, references: &[u32]) {
     }
 }
 
-/// Parse and fully bound a PLPS1 recipe before fetching or allocating expanded data.
+/// Parse and fully bound a PPS1 recipe before fetching or allocating expanded data.
 ///
 /// Segment identities are canonical lowercase SHA-256 strings. Every location,
 /// stream length, reference count and expanded length must agree exactly; unused
@@ -698,11 +698,11 @@ fn read_references(
     Ok(references)
 }
 
-/// Reconstruct one exact PLMP record from fetched segments in recipe order.
+/// Reconstruct one exact PMP1 record from fetched segments in recipe order.
 ///
 /// All fetched lengths and segment SHA-256 identities are checked before the
-/// single output allocation. The final PLMP SHA-256 is verified before return;
-/// callers then use the existing semantic PLMP decoder and its allocation cap.
+/// single output allocation. The final PMP1 SHA-256 is verified before return;
+/// callers then use the existing semantic PMP1 decoder and its allocation cap.
 ///
 /// # Errors
 /// Rejects missing/extra segments, wrong lengths or hashes, failed allocation,
@@ -880,7 +880,7 @@ fn usize_from_u64(value: u64) -> Result<usize, String> {
 }
 
 /// Loads a prepared props record, reconstructing shared payloads only when
-/// the declared recipe magic is present. Legacy PLMP records remain readable.
+/// the declared recipe magic is present. Current literal prop records are also supported.
 ///
 /// # Errors
 /// Rejects malformed recipes, missing/truncated segments, content mismatches,

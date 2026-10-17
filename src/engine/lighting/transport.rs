@@ -214,68 +214,8 @@ pub fn solver_fingerprint() -> u64 {
     hash
 }
 
-/// Bumped whenever the transport equations, bounce sampling or filtering
-/// change in a way that alters solved values.
-///
-/// * `1` — the initial offline transport solve.
-/// * `2` — the linear moment representation: the stored direction is the
-///   vector sum of the per-channel first moments and the octahedral dominant
-///   axis is gone, so every value a version-1 solver produced is invalid.
-/// * `3` — the moment reconstruction is the calibrated sharp cosine
-///   (`2 * max(0, dot(g, n)) - |g|`), which also changes the radiance the
-///   bounce passes and the probe field read back, so version-2 pages are
-///   invalid.
-/// * `4` — water surfaces and alpha-transparent architecture panes transmit
-///   instead of occluding, water attenuates by submerged depth, and the base
-///   solve lifts every floor/wall/skirt chart and probe room to its authored
-///   baseline fill (one uniform scalar per chart/room, so internal contrast
-///   survives; ceilings keep their physical solve), so every version-3 atlas
-///   is invalid.
-/// * `5` — scale-aware ray origins, watertight intersections, and a continuous
-///   receiver-local baseline response shared by ceilings and probes replace
-///   chart/room mean corrections.
-/// * `6` — bounce-cache cells retain each triangle's representative and bounce
-///   ray sequences are independent of chart ordering.
-/// * `7` — each diffuse order transports only the previous order, preventing
-///   repeated first-bounce energy in Full quality; surface irradiance retains
-///   the exact cosine integral instead of reusing compressed angular moments.
-/// * `8` — probes gather sky once with shared antipodal sphere samples; cache
-///   interpolation is visibility-tested, capped grids are centered in their
-///   actual bounds, compiler probe placement rejects solid/non-air cells, and
-///   prop cutout cards transmit rather than manufacturing opaque card shadows.
-/// * `9` — static model triangles are real surface receivers, with neutral
-///   albedo and triangular chart padding instead of legacy position samples.
-/// * `10` — architectural trapezoids follow the native mesh's piecewise affine
-///   UV interpolation; all folded triangles reflect onto real geometry and
-///   chart density/receiver area retain both native triangle extents.
-/// * `11` — atlas endpoints match bake texel centres; static models integrate
-///   imported shading normals with geometric visibility origins; coplanar
-///   faces share visibility-guarded cache/filter samples; direct shadow edges
-///   use adaptive footprint coverage; global directional light joins transport;
-///   gather rays respect geometric horizons and opaque front-face radiance.
-/// - 12: diffuse bounce reflectance decodes sRGB once, excluding architectural
-///   receiver shade, and model sheets use clamped UVs and centroid factors.
-/// - 13: MASK rays evaluate authored coverage, BLEND rays attenuate straight
-///   paths, finite sources integrate per-tap cosines and moments, and physical
-///   chart sample pitch is retained independently of atlas rounding.
-/// - 14: selected always-on sources retain separate direct probe coefficients.
-/// - 15: every solved field retains the spatial runtime contract, including
-///   zero selected-source fields with aligned zero direct coefficients.
-/// - 16: uncovered rooms can select a validated phase of the same bounded
-///   lattice; baseline targets and probe solves share that exact placement.
-/// - 17: architectural baseline support traces from the receiver's owning-side
-///   safe origin; complete physical stencils detect interior visibility, and
-///   authored material identity preserves textured coplanar continuation.
-/// - 18: silhouette texels retain the complete original 4×4 coverage grid and
-///   additionally integrate 8×8 positions without changing atlas density.
-/// - 19: rectangular finite sources sample equal-area cell centres instead of
-///   their boundary, preserving aperture energy behind real fixture frames.
-/// - 20: baseline amplitude compression preserves summed source RGB ratios;
-///   partition occupancy uses its own storey's roof probe; target lookups use
-///   the sample's visible wall side and inset exact architectural endpoints.
-/// - 21: shallow model folds retain their actual receiver face identity,
-///   preventing a neighbour's plane from clipping the visibility footprint.
-pub const SOLVER_REVISION: u64 = 21;
+/// Current pre-release solver revision; superseded layouts require recompilation.
+pub const SOLVER_REVISION: u64 = 1;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;

@@ -33,7 +33,6 @@ sys.path.insert(0, str(PACKAGE / "tools" / "props"))
 import tex  # noqa: E402
 
 sys.path.insert(0, str(PACKAGE / "tools" / "levels"))
-import convert_v3  # noqa: E402
 
 DECAL_SURFACES = {"floor", "ceiling", "wall_north", "wall_south", "wall_east", "wall_west"}
 
@@ -169,8 +168,8 @@ class ShippedLevelTests(unittest.TestCase):
         showcase = shipped["lantern_hollow"]
         self.assertEqual(showcase["id"], "lantern_hollow")
         self.assertEqual(showcase["name"], "Lantern Hollow")
-        self.assertEqual(showcase["format_version"], 3)
-    def test_retired_maps_remain_exact_historical_sources_outside_active_discovery(self):
+        self.assertEqual(showcase["format_version"], 1)
+    def test_retired_maps_preserve_historical_content_outside_active_discovery(self):
         # Two small hashes prevent accidental regeneration of the historical
         # record. No model inspection, renderer or production-map bake runs.
         expected = {
@@ -179,7 +178,12 @@ class ShippedLevelTests(unittest.TestCase):
         }
         for identity, digest in expected.items():
             path = PACKAGE / "docs/archive/levels" / (identity + ".json")
-            self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), digest)
+            source = path.read_bytes()
+            self.assertEqual(json.loads(source)["schema"], "places-level")
+            self.assertEqual(json.loads(source)["format_version"], 1)
+            historical = source.replace(b'  "schema": "places-level",\n', b'', 1)
+            historical = historical.replace(b'"format_version": 1,', b'"format_version": 3,', 1)
+            self.assertEqual(hashlib.sha256(historical).hexdigest(), digest)
             self.assertFalse((PACKAGE / "levels" / path.name).exists())
             self.assertNotIn(identity, (PACKAGE / "levels/lineup.txt").read_text().splitlines())
 
@@ -463,7 +467,7 @@ class AssetCatalogTests(unittest.TestCase):
         # A minimal level that uses every new field: a ceiling fixture switched
         # off, and rect/point/line prop lights with the documented defaults.
         level = {
-            "format_version": 3,
+            "schema": "places-level", "format_version": 1,
             "id": "schema_probe",
             "name": "Schema Probe",
             "spawn": {"x": 0.0, "z": 0.0, "yaw_degrees": 0.0},
@@ -582,7 +586,7 @@ class AssetCatalogTests(unittest.TestCase):
 
     def test_the_validator_counts_disabled_ultraviolet_sources(self):
         level = {
-            "format_version": 3, "id": "uv_probe", "name": "UV Probe",
+            "schema": "places-level", "format_version": 1, "id": "uv_probe", "name": "UV Probe",
             "spawn": {"x": 0, "z": 0},
             "rooms": [{"x": -5, "z": -5, "width": 10, "depth": 10, "height": 3.5}],
             "ceiling_lights": [
@@ -608,7 +612,7 @@ class AssetCatalogTests(unittest.TestCase):
             if enabled != "__missing__":
                 ceiling["enabled"] = enabled
             return {
-                "format_version": 3,
+                "schema": "places-level", "format_version": 1,
                 "id": "light_probe",
                 "name": "Light Probe",
                 "spawn": {"x": 0.0, "z": 0.0, "yaw_degrees": 0.0},
@@ -737,7 +741,7 @@ class AssetCatalogTests(unittest.TestCase):
             ceiling = {"fixture": "core:fluorescent_panel_01", "x": 0.0, "z": 0.0}
             ceiling.update(fields)
             return {
-                "format_version": 3,
+                "schema": "places-level", "format_version": 1,
                 "id": "fixture_probe",
                 "name": "Fixture Probe",
                 "spawn": {"x": 0.0, "z": 0.0, "yaw_degrees": 0.0},
@@ -784,7 +788,7 @@ class AssetCatalogTests(unittest.TestCase):
     def test_the_validator_checks_per_surface_shine(self):
         def level_with(**fields):
             level = {
-                "format_version": 3,
+                "schema": "places-level", "format_version": 1,
                 "id": "shine_probe",
                 "name": "Shine Probe",
                 "spawn": {"x": 0.0, "z": 0.0, "yaw_degrees": 0.0},
@@ -1527,63 +1531,6 @@ class SourceHygieneTests(unittest.TestCase):
             "| Look right | `L` |",
         ):
             self.assertNotIn(old_row, readme, f"README still lists the old row {old_row!r}")
-
-
-class LevelConversionTargetTests(unittest.TestCase):
-    """Cross-target animation controls must never rewrite the invoking prop."""
-
-    @staticmethod
-    def level(version=3, animated=True):
-        action = {"action": "toggle_animation", "target": "lever", "clip": "toggle"}
-        button = {"id": "button", "model": "home:wall_switch", "x": 1, "z": 1}
-        if version == 2:
-            button["interaction"] = {"prompt": "Toggle lever", "actions": [action]}
-        else:
-            button["components"] = [{"component": "interactable"}]
-            button["bindings"] = [{"on": "interact", "actions": [action]}]
-        lever = {"id": "lever", "model": "home:wall_switch", "x": 2, "z": 1}
-        if animated:
-            lever["components"] = [
-                {"component": "animation", "clip": "toggle", "looped": False, "playing": False}
-            ]
-        return {"format_version": version, "props": [button, lever]}
-
-    def test_existing_cross_target_animation_is_unchanged(self):
-        source = self.level()
-        original = copy.deepcopy(source)
-        converted, changed, report = convert_v3.convert_level(source, "cross-target")
-        self.assertFalse(changed)
-        self.assertEqual(report, [])
-        self.assertEqual(converted, original)
-
-    def test_missing_cross_target_animation_is_added_to_the_target(self):
-        source = self.level(animated=False)
-        original_button = copy.deepcopy(source["props"][0])
-        converted, changed, report = convert_v3.convert_level(source, "cross-target")
-        self.assertTrue(changed)
-        self.assertEqual(converted["props"][0], original_button)
-        self.assertEqual(converted["props"][1]["components"], self.level()["props"][1]["components"])
-        self.assertEqual(len(report), 1)
-        self.assertIn("props 1 gained", report[0])
-
-    def test_v2_cross_target_control_does_not_gain_animation(self):
-        converted, changed, _ = convert_v3.convert_level(self.level(version=2), "cross-target")
-        self.assertTrue(changed)
-        self.assertEqual(converted["format_version"], 3)
-        self.assertEqual(converted["props"][0]["components"],
-                         [{"component": "interactable", "prompt": "Toggle lever"}])
-        self.assertEqual(converted["props"][1], self.level()["props"][1])
-
-    def test_timer_animation_fixup_reaches_the_named_prop(self):
-        source = self.level(animated=False)
-        action = source["props"][0].pop("bindings")[0]["actions"][0]
-        source["timers"] = [{"id": "timer", "bindings": [{"on": "tick", "actions": [action]}]}]
-        original_timer = copy.deepcopy(source["timers"])
-        converted, changed, _ = convert_v3.convert_level(source, "cross-target")
-        self.assertTrue(changed)
-        self.assertEqual(converted["timers"], original_timer)
-        self.assertEqual(converted["props"][0]["components"], [{"component": "interactable"}])
-        self.assertEqual(converted["props"][1]["components"], self.level()["props"][1]["components"])
 
 
 if __name__ == "__main__":

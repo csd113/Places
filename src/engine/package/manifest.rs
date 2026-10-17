@@ -13,7 +13,7 @@ use super::{FORMAT_VERSION, MAX_DEPENDENCIES, MAX_VARIANTS};
 ///
 /// A package that requires a capability outside this list is rejected by name:
 /// the player must never guess at a payload it does not understand.
-pub const KNOWN_CAPABILITIES: [&str; 13] = [
+pub const KNOWN_CAPABILITIES: [&str; 12] = [
     "light-circuits-v1",
     "static-light-state-v1",
     "geometry",
@@ -23,7 +23,6 @@ pub const KNOWN_CAPABILITIES: [&str; 13] = [
     "lightmaps-compact-v1",
     "props-shared-streams",
     "irradiance-probes",
-    "probes-rgba8",
     "probes-hdr",
     "collision",
     "navigation",
@@ -77,10 +76,6 @@ pub struct ProbePayload {
     /// Probe face edge in texels (`48` or `64`).
     pub face_edge: u32,
     /// Mip levels each cubemap carries, base level first.
-    ///
-    /// A record written before offline prefiltering omits the field and is
-    /// read as a single level.
-    #[serde(default = "default_probe_levels")]
     pub levels: u32,
     /// Number of probes.
     pub count: u32,
@@ -88,12 +83,6 @@ pub struct ProbePayload {
     pub cubemaps: Vec<String>,
     /// JSON entry with the probe positions.
     pub positions: String,
-}
-
-/// The mip level count of a probe payload that predates offline prefiltering.
-#[must_use]
-pub const fn default_probe_levels() -> u32 {
-    1
 }
 
 /// One quality variant's prepared world entries.
@@ -152,6 +141,9 @@ pub struct Variant {
 /// The package manifest.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Manifest {
+    /// Schema identity; packages predating the revision reset must be recompiled.
+    #[serde(default)]
+    pub schema: String,
     /// Package format major version; must equal [`FORMAT_VERSION`].
     pub package_format: u32,
     /// Stable level id.
@@ -217,6 +209,12 @@ impl Manifest {
         reason = "one cohesive structural validation pass"
     )] // one cohesive structural validation pass
     pub fn validate(&self, archive_names: &[String]) -> Result<(), String> {
+        if self.schema != super::PACKAGE_SCHEMA {
+            return Err(
+                "unsupported package schema; recompile this map with the current places-compile"
+                    .to_string(),
+            );
+        }
         if self.package_format != FORMAT_VERSION {
             return Err(format!(
                 "package format {} is not supported (this player reads format {FORMAT_VERSION})",

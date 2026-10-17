@@ -1,5 +1,6 @@
 {
-  "format_version": 3,
+  "schema": "places-level",
+  "format_version": 1,
   "id": "terrain_side_contact_native",
   "name": "Terrain side contact native control",
   "spawn": { "x": 6.9, "z": 3.5, "yaw_degrees": 270 },

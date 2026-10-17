@@ -105,6 +105,7 @@ impl App {
         self.successful = false;
         let request = BuildRequest {
             source: source.clone(),
+            project_level: None,
             out: output.clone(),
             asset_root: self.asset_root.clone(),
             variants: LightmapQuality::ALL.to_vec(),

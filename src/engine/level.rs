@@ -6062,7 +6062,7 @@ const fn default_enabled() -> bool {
 /// the independent selected-direct and switched-source budgets remain eight.
 pub const MAX_PROP_LIGHTS: usize = 16;
 
-/// Existing compiled local-source ceiling, shared by source validation and PLLT.
+/// Existing compiled local-source ceiling, shared by source validation and PLT1.
 /// Disabled sources count because they retain stable compiled identities.
 pub const MAX_LEVEL_LIGHT_SOURCES: u64 = 1_000_000;
 
@@ -6399,7 +6399,23 @@ impl GeometryIntentDef {
 ///
 /// The engine is pre-release and there is exactly one current schema; a level
 /// whose `format_version` differs is rejected by name rather than migrated.
-pub const LEVEL_FORMAT_VERSION: u32 = 3;
+pub const LEVEL_FORMAT_VERSION: u32 = 1;
+
+/// Identifies the current level schema independently of historical revision numbers.
+pub const LEVEL_SCHEMA: &str = "places-level";
+
+fn deserialize_level_schema<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let schema = String::deserialize(deserializer)?;
+    if schema != LEVEL_SCHEMA {
+        return Err(serde::de::Error::custom(
+            "unsupported level schema; recreate the source using places-level revision 1",
+        ));
+    }
+    Ok(schema)
+}
 
 /// Largest accepted sky brightness multiplier.
 pub const MAX_SKY_BRIGHTNESS: f32 = 4.0;
@@ -6809,6 +6825,8 @@ const fn outward_faces(min: [f32; 3], max: [f32; 3]) -> [VoidWallFace; 6] {
 /// The level definition: rooms, geometry, props, fixtures and interactions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LevelDef {
+    #[serde(deserialize_with = "deserialize_level_schema")]
+    pub schema: String,
     pub format_version: u32,
     pub id: String,
     pub name: String,
@@ -10684,8 +10702,8 @@ const WATER_SHAPE_CIRCLE: u8 = 1;
 /// Encodes one water volume: footprint, shape, surface, bottom, contract and
 /// material.
 ///
-/// Record version 2 adds the shape byte and the circle radius after
-/// `opacity`; a version-1 record would misread the shape byte as `swimming`,
+/// The current record includes the shape byte and circle radius after
+/// `opacity`; superseded records would misread the shape byte as `swimming`,
 /// so it is refused by name.
 fn write_water_volume(writer: &mut Writer, volume: &WaterVolume) -> Result<(), String> {
     writer.f32(volume.x0);

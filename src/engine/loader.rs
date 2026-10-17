@@ -634,7 +634,12 @@ fn validate_animated_emissions(level: &LevelDef) -> Result<(), String> {
 
 /// Format version, identity and spawn point.
 fn validate_header(level: &LevelDef) -> Result<(), String> {
-    // 1. Format version
+    // 1. Schema identity and format version
+    if level.schema != crate::engine::level::LEVEL_SCHEMA {
+        return Err(
+            "Unsupported level schema; author this source as places-level revision 1".into(),
+        );
+    }
     if level.format_version != crate::engine::level::LEVEL_FORMAT_VERSION {
         return Err(format!(
             "Unsupported level format_version: {} (expected {})",

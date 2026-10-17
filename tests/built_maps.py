@@ -44,7 +44,7 @@ class BuiltMapTests(unittest.TestCase):
                 )
                 semantics = json.loads(archive.read("semantics.json"))
                 self.assertEqual(semantics["id"], stem, stem)
-                self.assertEqual(semantics["format_version"], 3, stem)
+                self.assertEqual(semantics["format_version"], 1, stem)
                 # Content addressing: every declared entry's SHA-256 matches its
                 # bytes, and every blob name embeds that same hash.
                 for entry in manifest["entries"]:

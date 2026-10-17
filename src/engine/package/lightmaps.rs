@@ -1,7 +1,7 @@
 //! Compiled linear HDR/moment atlas and unchanged chart metadata.
 //!
-//! New payloads use bounded PLLC1 tile-local ranges with exact six-half fallback
-//! and metadata version 4. Legacy version-3 KTX2 RGBA16F planes remain readable.
+//! New payloads use bounded PLC1 tile-local ranges with exact six-half fallback
+//! and metadata version 1. Exact KTX2 RGBA16F storage is an explicit current codec.
 //! Both decode to shared packed half-float page views for direct GPU uploads;
 //! scalar texel access does not materialize float arrays. The writer keeps the
 //! established page/group order, signed moments and implicit reserved alpha 0.5.
@@ -16,14 +16,8 @@ use crate::engine::package::ktx2::{self, Ktx2Rgba16f};
 
 use super::{MAX_LIGHTMAP_METADATA_BYTES, MAX_LIGHTMAP_PAGE_EDGE, MAX_LIGHTMAP_PAGES};
 
-/// Version of the lightmap metadata record.
-///
-/// * `2` — the HDR transport atlas with the octahedral dominant-axis encoding.
-/// * `4` — bounded compact storage for the same linear coefficients.
-/// * `3` — the legacy linear moment representation: `direction` is the vector sum of
-///   the per-channel first moments and the planes' alpha channels are reserved.
-///   Version-2 data is rejected.
-pub const LIGHTMAPS_RECORD_VERSION: u16 = 4;
+/// Current pre-release lightmaps record version; superseded layouts require recompilation.
+pub const LIGHTMAPS_RECORD_VERSION: u16 = 1;
 
 /// Pages the prepared atlas can encode without violating any typed container
 /// bound. Every switchable source repeats both planes of every resident page.
@@ -115,7 +109,7 @@ impl LightmapsMeta {
         faces: u32,
         mip_count: usize,
     ) -> Result<(), String> {
-        if !matches!(self.record_version, 3 | LIGHTMAPS_RECORD_VERSION) {
+        if self.record_version != LIGHTMAPS_RECORD_VERSION {
             return Err(format!(
                 "lightmap record version {} is not supported (this build reads {LIGHTMAPS_RECORD_VERSION})",
                 self.record_version
@@ -448,7 +442,7 @@ fn write_lightmaps_encoded(
     let mut stats = lightmaps.stats;
     stats.bake_millis = 0.0_f64;
     let meta = LightmapsMeta {
-        record_version: if compact { LIGHTMAPS_RECORD_VERSION } else { 3 },
+        record_version: LIGHTMAPS_RECORD_VERSION,
         page_edge: edge,
         page_count: u32::try_from(lightmaps.pages.len())
             .map_err(|error| format!("lightmap page count is too large: {error}"))?,
@@ -535,7 +529,7 @@ pub fn read_lightmaps_owned(
     }
     let meta: LightmapsMeta = serde_json::from_slice(meta_json)
         .map_err(|error| format!("lightmap record is not valid JSON: {error}"))?;
-    if !matches!(meta.record_version, 3 | LIGHTMAPS_RECORD_VERSION) {
+    if meta.record_version != LIGHTMAPS_RECORD_VERSION {
         return Err(format!(
             "lightmap record version {} is not supported",
             meta.record_version
@@ -625,9 +619,9 @@ fn decode_owned_image(
     meta: &LightmapsMeta,
     image_bytes: &mut Vec<u8>,
 ) -> Result<OwnedImageShape, String> {
-    let (edge, layers, faces, mip_count, range) = if image_bytes.starts_with(b"PLLC") {
+    let (edge, layers, faces, mip_count, range) = if image_bytes.starts_with(b"PLC1") {
         if meta.record_version != LIGHTMAPS_RECORD_VERSION {
-            return Err("compact lightmap data requires metadata version 4".to_string());
+            return Err("compact lightmap data requires metadata version 1".to_string());
         }
         let image = super::compact_lightmaps::decode(image_bytes)?;
         let groups = u32::try_from(meta.switchable_lights.len().saturating_add(1))
@@ -644,8 +638,8 @@ fn decode_owned_image(
         let length = image_bytes.len();
         (image.edge, layers, 1, 1, 0..length)
     } else {
-        if meta.record_version != 3 {
-            return Err("half-float KTX2 lightmaps require metadata version 3".to_string());
+        if meta.record_version != LIGHTMAPS_RECORD_VERSION {
+            return Err("half-float KTX2 lightmaps require metadata version 1".to_string());
         }
         let image = ktx2::read_rgba16f_ranges(image_bytes)?;
         let range = image

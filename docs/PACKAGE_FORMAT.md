@@ -26,17 +26,18 @@ tool. It compiles Static (`off`) and Full variants, with reflection capture for 
 every record. After editing one source, build its output explicitly:
 
 ```sh
-./target/release/places-compile build levels/places_demo.json \
-    --out assets/levels/places_demo.placesmap --asset-root assets
+./target/release/places-compile build levels/home_showcase.json \
+    --out assets/levels/home_showcase.placesmap --asset-root assets
 ```
 
 The player discovers bundled packages in `assets/levels/` and installed packages
 in its writable `levels/` directory. Authored JSON never becomes a playable row.
 There is no compiled Demo inside the executable: an absent Demo reports the
 explicit build/import action, and installing a valid package restores loading.
-`tools/package.sh` requires the full maintained lineup to be current before it
-exports the player and runtime assets; it never compiles maps on the player's
-behalf.
+Bundled maps are optional distribution content. A package can ship the player and
+runtime assets with no bundled maps; installed maps remain discoverable.
+When a distribution includes maps, verify the selected packages against current
+inputs before exporting them. Packaging never compiles maps on the player's behalf.
 
 `places-compile` reuses an existing package when the source, the referenced
 asset identities and the compiler version are unchanged; `--force` rebuilds.
@@ -53,9 +54,9 @@ blobs/<sha256>.props              transformed static prop batches (binary record
 blobs/<sha256>.lighting           baked LevelLighting (binary record)
 blobs/<sha256>.collision          static collision primitives (binary record)
 blobs/<sha256>.navigation         baked cell navigation mesh (binary record)
-blobs/<sha256>.lightmaps.pllc     compact HDR/moment atlas (PLLC1; expands to RGBA16F pairs)
-blobs/<sha256>.lightmaps.ktx2     legacy / exact-fallback HDR atlas (KTX2 RGBA16F pairs)
-blobs/<sha256>.props.recipe       exact prepared-prop reconstruction recipe (PLPS1)
+blobs/<sha256>.lightmaps.pllc     compact HDR/moment atlas (PLC1; expands to RGBA16F pairs)
+blobs/<sha256>.lightmaps.ktx2     explicit exact HDR atlas (KTX2 RGBA16F pairs)
+blobs/<sha256>.props.recipe       exact prepared-prop reconstruction recipe (PPS1)
 blobs/<sha256>.props.shared       shared prepared-model byte segments (at most 16 MiB)
 blobs/<sha256>.lightmaps.json     atlas chart/stat/config record
 blobs/<sha256>.probe.ktx2         one reflection probe cube (KTX2 cube, RGBA16F, roughness mips)
@@ -70,7 +71,7 @@ in sorted order with a fixed timestamp, so two builds of the same content
 produce the same archive.
 
 `semantics.json` is the **only** JSON a level author can influence. It is a
-`LevelDef` (current authored schema: `format_version: 3`, typed components,
+`LevelDef` (current authored schema: `schema: "places-level"`, `format_version: 1`, typed components,
 event bindings, actions, conditions, sequences, timers and spawn records)
 after `prepare_level` (fixture alignment, decal snapping, generated baseboards);
 the player validates it again but never emits geometry from it. Runtime JSON
@@ -80,6 +81,7 @@ never triggers procedural geometry generation.
 
 ```json
 {
+  "schema": "places-map",
   "package_format": 1,
   "id": "office_demo",
   "name": "Office: After Hours",
@@ -118,7 +120,7 @@ never triggers procedural geometry generation.
 * `required_capabilities` names what a runtime must understand. The current
   player understands `geometry`, `props`, `lighting`, `lightmaps-hdr`,
   `lightmaps-compact-v1`, `props-shared-streams`, `irradiance-probes`,
-  `probes-hdr`, legacy `probes-rgba8`, `collision` and
+  `probes-hdr`, `collision` and
   `navigation`, `light-circuits-v1` and `static-light-state-v1`. A package
   requiring anything else is rejected by name.
 * An Off variant may carry `static_light_off: { "fixtures": [0, 1],
@@ -127,7 +129,7 @@ never triggers procedural geometry generation.
   one through eight, then checked against decoded lighting. Mesh/props use the
   existing bounded codecs and shared prop streams; images remain shared. Full
   variants cannot carry this record. Navigation-only reuse preserves its refs
-  and all referenced dictionary blobs. Old packages omit it and remain readable.
+  and all referenced dictionary blobs. Maps without this optional state omit it.
 * `dependencies` records the content identity of every model and texture a
   package reads from the installed asset bundle (`kind: "model"`/`"texture"`,
   root-relative path) or embeds itself (`kind: "embedded"`). A package whose
@@ -154,12 +156,10 @@ never triggers procedural geometry generation.
   validity remains separate from this compiler identity.
 * `build-inputs.json` is an optional declared entry with role `compiler-inputs`:
   revision 1, `source_sha256`, `catalog_sha256`, `tool_sha256` and
-  `capture_probes`. Older players ignore it under the existing format. Missing,
-  corrupt or incompatible provenance requires a full compiler rebuild; older
-  otherwise valid packages remain loadable with their compatible assets. New
-  packages also verify the recorded catalogue hash at player package-open; a
-  changed catalogue requires rebuilding. Legacy packages without this optional
-  record retain their established bundle contract.
+  `capture_probes`. Missing, corrupt or incompatible provenance requires a full
+  compiler rebuild. Packages carrying this record also verify the recorded
+  catalogue hash at player package-open; a changed catalogue requires rebuilding.
+  The record is optional for data-only packages authored outside this compiler.
 * `lighting_fingerprint` identifies prepared geometry, collision, lighting and
   reflections. It retains source materials/images/models, physical environment
   and fog, lights, entities, tool/capture identity, formats and quality. It
@@ -183,15 +183,15 @@ or an explicit cache clear; it is not the asset/map incremental cache. See the
 
 ## 3. Quality variants
 
-New packages carry Static (`off`) and Full (`full`); legacy `medium` records
-remain readable for inspection and compatibility. Each variant is a complete
+Standard builds carry Static (`off`) and Full (`full`); the `medium` variant is
+also supported by the current codec. Each variant is a complete
 prepared world for that setting:
 
 * `off` is the historical vertex-lit build: prepared geometry with baked vertex
   colours and no atlas. It is a supported, intentional variant, not an empty
   package.
-* `full` carries prepared geometry and the full-quality atlas. Legacy
-  `medium` carries its historical atlas; rebuild the package for current modes.
+* `full` carries prepared geometry and the full-quality atlas; `medium` carries
+  its corresponding prepared atlas.
 * A variant whose atlas could not be filled records `lightmap_failure` and
   ships the vertex-lit geometry instead, exactly as the runtime used to fall
   back — the fallback is recorded at compile time, never re-derived at load.
@@ -212,8 +212,7 @@ is then partitioned into disjoint guillotine holes, retaining all existing chart
 coordinates and occupied texels. Model charts reuse this free area immediately.
 Exact adjacent disjoint holes are joined before opening another page; physical
 sampling density, inclusive endpoints and gutters remain unchanged. Atlas content
-key revision 15 invalidates previous layouts. Legacy packaged layouts and codecs
-remain readable without a package-format migration.
+key revision 1 identifies the current layout. Superseded packages require recompilation.
 Before geometry emission, the planner also bounds that cap by the actual base
 and switchable illumination groups, the typed record bytes (including the exact
 196-byte single-mip KTX2 header), the codec payload/layer bounds and the decoder
@@ -247,7 +246,7 @@ record.
 ### 4.1 Geometry — `blobs/<sha>.mesh`
 
 ```text
-magic "PLMW" | version u16 = 3
+magic "PMW1" | version u16 = 1
 range_count u32
 batches 6 x i32    floor, ceiling, wall, light, prop-fallback, decal (indices)
 vertex_count u32   declared total
@@ -266,21 +265,11 @@ vertex (81 bytes):
   | handedness f32 | lightmap u16 x 2 | lightmap_page u8 | caustics_albedo f32 x 3
 ```
 
-**Version history.** Version 1 wrote the range's `material` as a `u16`;
-version 2 widened it to `u32`, because the in-memory material index is 32 bits
-and a level may declare far more materials than a `u16` names
-(`MAX_LEVEL_MATERIALS`, 131 072). A version-1 record is refused by name — its
-`material` field would be misread as the first half of a 32-bit index — so
-packages built by the previous compiler must be rebuilt. A non-sentinel
-material above the level budget is refused too.
-
-Version 3 appends `caustics_albedo`, the linear material/vertex factor captured
-before baked lighting. It keeps source-coloured focused water light independent
-of the ordinary vertex-colour lighting in the Static variant. Model vertex
-pigment, per-prop tint, surface tint and face shade remain part of this neutral
-factor. Version 2 remains readable with an explicit white neutral factor;
-its pre-lit colour cannot recover the original factor. Rebuilding a water map
-records the exact factor; the fallback never guesses it from baked RGB.
+A non-sentinel material above the level budget (131,072) is refused.
+`caustics_albedo` is the linear material/vertex factor captured before baked
+lighting. It keeps source-coloured focused water light independent of ordinary
+vertex-colour lighting. Model pigment, prop tint, surface tint and face shade
+remain part of this factor. Every current vertex carries it explicitly.
 
 `lightmap_page = 0xFF` marks a vertex that takes the vertex-colour path.
 `normal = (0,0,0)` is the smooth-normal sentinel; the compiler resolves it
@@ -295,7 +284,7 @@ player attaches the decoded images from the same catalog model the manifest
 identifies by hash. One copy of model artwork stays on disk.
 
 ```text
-magic "PLMP" | version u16 = 9 | batch_count u32
+magic "PMP1" | version u16 = 1 | batch_count u32
 batch {
   model u32 length + UTF-8
   casts_static_lighting u8 (strict 0 or 1)
@@ -320,73 +309,40 @@ vertex_storage:
   mode 2: the same prefix and tail | frame u32
 ```
 
-Version 8 retains an optional light controller for independently controlled
-fixture models and fixed props. Fixture controllers use their authored ordinal;
-prop controllers use the fixture count plus the prop ordinal. Controlled
-instances retain separate luminous material uniforms while sharing source models,
-PNGs and ordinary material allocations. Versions 3–7 remain readable with no
-controller identity.
+The optional light controller identifies independently controlled fixture models
+and fixed props: fixture controllers use their authored ordinal, and prop
+controllers use the fixture count plus the prop ordinal. Controlled instances
+retain separate luminous uniforms while sharing source models, PNGs and ordinary
+material allocations.
 
-Version 9 appends the same 12-byte neutral `caustics_albedo` factor as PLMW3.
-The literal width is 81 bytes, and palette vertices retain 53 literal bytes
-plus their frame reference. Exact vertex interning includes this factor, so
-vertices with equal baked light but different pigment remain distinct.
-Versions 3–8 retain their historical 69-byte literals and 41-byte palette
-payloads and decode with an explicit white neutral factor. New records charge
-81 bytes per retained vertex to the expanded literal budget; old records keep
-their historical charge. No package-major change is required.
+Every current vertex includes its 12-byte neutral `caustics_albedo` factor.
+Exact vertex interning includes this factor and preserves complete vertex
+identity, first-occurrence order, ordered triangle indices and unreferenced
+vertices. Frame palettes preserve exact normal/tangent/handedness bytes,
+including signed zero. A palette is used only when its count, header, frames
+and references are strictly smaller than literals; ties retain literal storage.
+Mode 1 permits at most 65,536 frames; mode 2 uses u32 references.
 
-Version 6 shares only identical complete 69-byte vertices within their own
-batch, keeping first-occurrence order and remapping every ordered triangle
-index. It retains distinct normals, tangents, handedness, colour, UV and atlas
-seams, including signed-zero float bits. Unique unreferenced vertices remain.
-The frame palette also uses exact bytes and first-occurrence order. A batch
-uses a palette only when its count/header/frames/references are strictly smaller
-than literals; ties retain literal storage. Mode 1 requires at most 65,536
-frames, otherwise mode 2 uses u32 references. The decoder reconstructs the same
-neutral runtime vertices, without changing any value, shader or material.
+Frame counts cannot exceed vertex counts. The decoder bounds complete runs before
+allocation and rejects unknown modes, invalid references, truncation and nonfinite
+frames, including unused frames. Both writer and reader enforce a cumulative
+512 MiB expanded literal-record budget: ten record-header bytes, batch metadata
+through the vertex count, 81 bytes per vertex, four index-count bytes and two
+bytes per index. Encoded records have their own 512 MiB limit.
 
-Frame counts cannot exceed vertex counts. The decoder bounds complete payload
-runs before allocation, rejects unknown modes, invalid references, truncation
-and nonfinite frames (including unused ones), and retains the existing vertex
-and index limits. Both writer and reader enforce a cumulative 512-MiB expanded
-literal-record budget: ten record-header bytes, unchanged batch metadata through
-the vertex count, 69 bytes per retained vertex, and four index-count bytes plus
-two bytes per index. This makes the former literal allocation envelope explicit;
-the encoded typed record still has its independent 512-MiB limit.
+Blended submeshes carry opacity 1.0: imported GLB `baseColorFactor` alpha is
+already folded into vertices, while per-instance fade remains runtime state.
+Submesh draw ranges and every index must resolve inside their batch.
 
-Version 2 added the per-submesh alpha contract; version 3 added the blended
-mode. A blended submesh carries opacity `1.0` in the record: an imported GLB's
-`baseColorFactor` alpha is already folded into its vertices, and per-instance
-fade is a runtime component, not baked content. The static prop draw path still
-classifies every prop batch as opaque or cut-out; the blended flag exists so
-the record reproduces the model's alpha contract exactly and the runtime
-character/dynamic routes can consume it.
+Scalar material response is mandatory. The static-caster flag is 0 for fully
+claimed character models and 1 for static or partial/overflow fallback models,
+using the same bounded claim plan as character spawning. This prevents a moving
+actor from leaving a fixed bind-pose caster or rejecting its own probe rays.
 
-Submesh ranges must lie inside the batch's index list and every index must be
-inside the batch's vertex list.
-
-Version 4 adds scalar material response. Version 5 records whether the retained
-bind-pose batch casts static lighting. The same finite-placement, animator and
-128-character claim plan drives character spawning and this flag: a fully claimed
-model has flag 0, so its moving actors do not leave fixed bind-pose casters or
-reject their own probe rays. Partial/overflow model groups retain their visible
-static fallback and flag 1. Collision and model/vertex budget charges are unchanged.
-Readers accept literal versions 3, 4 and 5. Versions 3 and 4 retain conservative
-caster flag 1; version 3 has the explicit matte material default. Version 5's
-explicit caster flag remains authoritative. Version 6 adds a vertex-mode byte
-per batch and optional palette storage; no package-major change is needed.
-
-Version 7 adds finite ultraviolet pigment response (`0..=2`), an optional
-numeric-mask texture slot and a linear tint (`0..=1` per channel) to each
-submesh. Versions 3 through 6 read with zero response and white pigment tint.
-The mask names an ordinary model image and is reattached after dependency
-verification; its numeric upload is independent of display-color uploads.
-Pigment tint does not include baked vertex lighting. The response is evaluated
-from current enabled ultraviolet fixtures and visibility after loading; it
-adds no incident irradiance or emission-only bloom energy. At version 7,
-neutral PLMW geometry vertices retained their 69-byte record layout. GPU-only
-visibility values are derived at upload, not written into PLMW or PLMP.
+Ultraviolet response is finite in 0..=2, with an optional numeric-mask texture slot
+and independent linear tint in 0..=1 per channel. Model images are reattached after
+dependency verification. Runtime enabled fixtures and visibility evaluate this
+response; it adds no incident irradiance or emission-only bloom energy.
 
 ### 4.3 Baked lighting — `blobs/<sha>.lighting`
 
@@ -394,20 +350,15 @@ The complete `LevelLighting` bake: rooms, baselines, powered zones, resolved
 lights, opening blends, room-to-light candidate lists, fixture-to-light
 mapping, the sampling-tap count and the built static visibility set (wall,
 ceiling/floor and prop occluders plus each query site's reachable-solid pool).
-The compiled lighting record is version 4; versions 2 and 3 remain readable,
-with caustics eligibility defaulting to false for every legacy source. Version 2
-also defaults to zero sky radiance. Version 4 appends a `bool8` caustics flag
-immediately after each local source's enabled flag. Immediately after the local-light list it stores a `u8` global count (maximum eight), then each active/baked
-directional source: normalized incoming XYZ and RGB (`f32` triples), intensity
-(`f32`), shadow flag (`bool8`), angular radius in radians (`f32`), and in version 4
-the resolved caustics flag (`bool8`). Version 3
-then stores three finite, nonnegative sky-radiance floats. The reader validates finite unit directions and bounded energy/angle. Atlas layout version
-13 and transport revision 18 invalidate earlier prepared lighting identities.
-Revision 16 uses one strictly validated, deterministically chosen probe lattice
-for both prepared targets and solve positions; the source map remains format 3.
-The lighting-record version participates in both compiler dependency identities,
-so rebuilding invalidates old prepared lighting. Per-water caustics controls stay
-in `semantics.json`; the swimming/collision water record is unchanged.
+The compiled lighting record starts with magic `PLT1` and u16 revision 1.
+Each local source stores a strict caustics bool immediately after its enabled
+flag. After the local-light list, a u8 global count (maximum eight) precedes each
+active directional source: incoming XYZ and RGB f32 triples, f32 intensity,
+bool8 shadow flag, f32 angular radius in radians, and bool8 caustics eligibility.
+Three finite nonnegative sky-radiance floats follow. Unit directions, energy and
+angles are validated. Per-water controls remain in `semantics.json`.
+The current geometry, solver and atlas key revisions are all 1; old prepared
+lighting must be recompiled rather than decoded through earlier layouts.
 The player keeps this record resident because runtime entity lighting and
 fixture switches read it:
 
@@ -425,7 +376,7 @@ baked content.
 ### 4.4 Static collision — `blobs/<sha>.collision`
 
 ```text
-magic "PLCL" | version u16 = 2
+magic "PCL1" | version u16 = 1
 walls    u32 count + (min_x,min_y,min_z,max_x,max_y,max_z,step_up) f32 x 7
 floor    u32 room count + rooms (footprint, floor_y, ramps, stairs, regions)
 ceiling  u32 room count + rooms (footprint, floor_y, height, profile)
@@ -437,9 +388,8 @@ ladders  u32 ladder count + ladders (footprint, bottom_y, top_y, facing)
 
 `shape` is `0` for the historical rectangle (the bounding box *is* the
 footprint and `radius` is ignored) or `1` for a circle inscribed in the
-bounding box (`radius` must equal half of both extents). Version 1 is refused
-by name: its `swimming` byte would be misread as the shape code. A prepared
-package therefore always holds the exact footprint the player queries.
+bounding box (`radius` must equal half of both extents). Every current record
+carries the shape explicitly, preserving the exact footprint the player queries.
 
 Interactive semantics (doors, interactables, trigger volumes, entity routes,
 lights, timers, sequences and spawns) stay derived from the validated semantic
@@ -451,7 +401,7 @@ runtime and instantiates only the dynamic state each object needs; the prebuilt
 ### 4.5 Baked navigation — `blobs/<sha>.navigation`
 
 ```text
-magic "PLNV" | version u16 = 1
+magic "PNV1" | version u16 = 1
 cell_m          f32
 origin_x, origin_z   f32 x 2
 cells_x, cells_z     u32 x 2
@@ -496,7 +446,7 @@ the load by name; there is no runtime bake and no repair path.
 
 ### 4.2.1 Exact shared prepared prop data
 
-The compiler factors repeated PLMP3–8 streams losslessly when the dictionary
+The compiler factors repeated current PMP1 streams losslessly when the dictionary
 saves both raw bytes and Deflate-6 archive bytes, including a conservative
 manifest allowance. Recipes exceeding the reader working-set budget remain
 literal. Each vertex keeps its exact 36-byte
@@ -505,22 +455,22 @@ material data, frame palettes and ordered indices remain exact. First occurrence
 order interns chunks of at most 65,520 bytes into at most 16 MiB shared segments.
 Original GLBs and PNGs remain external dependencies.
 
-A PLPS1 recipe replaces a variant's `props` entry (role `props`). It records the
-original PLMP length/hash, required segment lengths/hashes, bounded chunk
+A PPS1 recipe replaces a variant's `props` entry (role `props`). It records the
+original PMP1 length/hash, required segment lengths/hashes, bounded chunk
 locations, and ordered raw or interleaved vertex runs. The reader verifies
 segment identities and reconstructs one output directly through borrowed chunk
-cursors; it verifies the original record hash before the established PLMP reader
+cursors; it verifies the original record hash before the current PMP1 reader
 validates its geometry. No complete intermediate prefix/tail arrays are built.
 The 512 MiB expanded-record limit remains. Recipe wire data is capped at 64 MiB;
 output, fetched segments and conservative recipe-table overhead together are
 capped at 1 GiB. Missing, truncated, out-of-range, unused or trailing
 recipe data is rejected. New packages require `props-shared-streams`; older
-players fail by named capability. Legacy literal records remain readable.
+players fail by named capability. Current literal PMP1 records remain valid when sharing would not save space.
 
 ## 5. Lightmap pages — compact storage and KTX2
 
-The default writer emits metadata version 4 and `blobs/<sha>.lightmaps.pllc`.
-PLLC1 has a 24-byte little-endian header (magic, version, 16-pixel tile edge,
+The default writer emits metadata revision 1 and `blobs/<sha>.lightmaps.pllc`.
+PLC1 has a 24-byte little-endian header (magic, version, 16-pixel tile edge,
 page edge, page count, contribution-group count and zero reserved word).
 Each page pair is encoded in 16×16 tile order. A compact tile has a 4-byte mode
 header, six independent `(minimum, step)` f32 ranges, and one 64-bit word per
@@ -543,14 +493,13 @@ read a texel on demand; a full diagnostic slice explicitly materializes floats.
 GPU format/storage remain two Rgba16Float planes (16 bytes/texel/group), with
 one mip and clamped bilinear filtering. Disk compression does not reduce GPU
 memory. The higher-precision `write_lightmaps_precise` writer and metadata
-version-3 KTX2 reader preserve all six half-float coefficients exactly.
+revision-1 KTX2 reader preserve all six half-float coefficients exactly.
 
-`blobs/<sha>.lightmaps.json` holds the unchanged chart record (shown here with
-legacy version 3):
+`blobs/<sha>.lightmaps.json` holds the revision-1 chart record:
 
 ```json
-{ "record_version": 3, "page_edge": 1024, "page_count": 2, "padding": 2,
-  "content_key": "v12-…",
+{ "record_version": 1, "page_edge": 1024, "page_count": 2, "padding": 2,
+  "content_key": "v1-…",
   "stats": { "charts": 1062, "pages": 2, "texels": …, "page_texels": …,
              "bake_millis": …, "cache_hit": false },
   "charts": [ { "patch": { "origin": […], "u_axis": […], "v_axis": […],
@@ -576,7 +525,7 @@ Each texel stores the offline transport solve in linear HDR: an irradiance mean
 The form is exact for any number of contributions sharing one direction of any
 colour (`2 * I * max(0, cos)`), evaluates its only nonlinear step on the
 *scalar* `dot(g, n)` of the interpolated moment vector (so a hardware bilinear
-interpolation cannot produce the octahedral-axis seam of record version 2),
+interpolation preserves a continuous moment field),
 collapses smoothly to the isotropic mean where the moment cancels, and is
 bounded by `2 * I`. Surface albedo is never folded into these values; the
 fragment shader multiplies the base colour exactly once.
@@ -600,14 +549,12 @@ re-captures and re-prefilters them; the player never prefilteres at load and
 never re-captures on a graphics change.
 
 ```json
-{ "record_version": 3, "face_edge": 64, "levels": 7, "points": [[x, y, z], …] }
+{ "record_version": 1, "face_edge": 64, "levels": 7, "points": [[x, y, z], …] }
 ```
 
-Positions version 3 identifies linear HDR RGBA16F cubes. Version 2 remains
-readable with legacy display RGBA8 cubes, decoded once into linear values at
-load; already clipped highlight energy cannot be recovered. Positions version 1
-is rejected. The current writer declares `probes-hdr` and retains authored HDR
-through capture and prefiltering, before runtime presentation.
+Positions revision 1 identifies linear HDR RGBA16F cubes. The writer declares
+`probes-hdr` and retains authored HDR through capture and prefiltering before
+runtime presentation. RGBA8 compatibility decoding is not supported.
 
 Both runtime face sizes are packaged (48 texels for Reflections Medium, 64 for
 Full), each with its own chain (`48 -> 6` levels, `64 -> 7`). The player
@@ -628,13 +575,15 @@ materials ask for.
 characters sample every frame instead of re-baking light:
 
 ```text
-magic "PLPF" | version u16 = 4 (versions 2 and 3 remain supported)
+magic "PPF1" | version u16 = 1
 origin f32 x 3 | cell_m f32 | dims u32 x 3 | count u32
 probes count x {
   irradiance f32 x 3 | direction f32 x 3 | axis f32 x 2 | room i32
 }
-selected_source_count u32 | selected_source_indices u32 x selected_source_count
-selected_local_direct count x { irradiance f32 x 3 | direction f32 x 3 }
+local_direct_present u8 (strict 0 or 1)
+if local_direct_present = 1:
+  selected_source_count u32 | selected_source_indices u32 x selected_source_count
+  selected_local_direct count x { irradiance f32 x 3 | direction f32 x 3 }
 switchable_group_count u32
 switchable_indirect switchable_group_count x {
   representative_light_index u32
@@ -645,7 +594,7 @@ switchable_indirect switchable_group_count x {
 The field is a bounded uniform 3D grid baked from the same physical surface
 transport solve as the lightmap atlas: visible non-switchable emitters, reflected
 surface radiance, and authored sky radiance on escaping rays. Switchable fixtures
-are excluded from the base in every state. Version 4 gathers each switched
+are excluded from the base in every state. The current writer gathers each switched
 atlas group's reflected surface radiance into an independent aligned probe plane;
 this plane contains no source direct term, global light, escaping sky or baseline
 fill. Entities add enabled planes before reconstructing their residual response,
@@ -654,11 +603,9 @@ surface. Disabled groups add neither term. Group count is at most four; indices
 are unique and must reference compiled lights. Every plane has exactly `count`
 finite, nonnegative HDR means and bounded signed moments.
 
-Version 3 retains selected direct-source data but has no switched indirect planes;
-version 2 retains combined base data only. These packages remain readable and
-keep their historical switched-bounce limitation. Recompile a map to prepare the
-missing planes; the player does not synthesize bounce or rebuild a map on load.
-Fields without switched planes keep their existing v2/v3 encoding.
+Every current record explicitly stores direct-sidecar presence and the
+switchable group count, including zero groups. Superseded layouts are rejected;
+the player never synthesizes missing bounce or rebuilds a map on load.
 Material emission without an authored light source is
 appearance, not transport emission.
 
@@ -671,9 +618,9 @@ there are no additional model transforms, origin offsets or exposure factors.
 `irradiance` is RGB, finite, nonnegative linear HDR in the engine's calibrated
 white-surface light units; it is not a normalized color or an sRGB value.
 Each channel must be at most 65504, the shared static-atlas representable range;
-larger values are rejected rather than clipped. Accepted PLPF values retain f32
+larger values are rejected rather than clipped. Accepted PPF1 values retain f32
 precision. No gamma,
-exposure, brightness clamp or half-float quantization is applied to the PLPF record.
+exposure, brightness clamp or half-float quantization is applied to the PPF1 record.
 `direction` is the signed world XYZ sum of the per-channel first moments, with
 `|direction| <= sum(irradiance)` up to floating-point rounding. `axis` is reserved;
 the baker writes `[0.5, 0.5]`. Reconstruction follows `LightmapTexel::light_at`.
@@ -690,7 +637,7 @@ all-zero sample means **darkness**, not missing data. Compiler labels use actual
 floor/stair/ramp/region heights, ceilings and 3D wall bounds. Rooms without a valid
 probe are reported in build warnings. Grid spacing starts at 1.5 m, increases to
 fit 64 cells per axis, and dimensions are recomputed and centered in the bounds.
-Solver 16 first checks this original grid with the complete air-volume predicate.
+The solver first checks this original grid with the complete air-volume predicate.
 When a room has no valid probe, at most 63 additional quarter-cell XYZ phases
 are considered at unchanged spacing and dimensions. A selected phase must
 preserve every initially covered room and increase the covered room count.
@@ -710,9 +657,9 @@ data. Unresolvable sampling returns `None`; fallback policy belongs to runtime.
 Runtime uses normalized compact Shepard weights within two grid cells:
 `(1 - distance_cells / 2)^2 / distance_cells^2`, with an exact-center path.
 Energy and signed moments accumulate in f64 and convert once to f32. The anchor
-is the transformed bind-pose model-bounds center for the legacy v2 path and
-combined diagnostic trace. The v3 spatial path uses eight transformed bind-bounds
-corners, with compatible visible centre/corner rescue for missing support.
+for a combined diagnostic trace is the transformed bind-pose model-bounds
+center. Fields with a direct sidecar use eight transformed bind-bounds corners,
+with compatible visible centre/corner rescue for missing support.
 Actual air-volume checks reject below-floor and above-ceiling samples. Every
 contributor segment is checked, including within a connected area: short
 dividers and furniture can block a ray without disconnecting room air.
@@ -723,7 +670,7 @@ roomless/invalid positions and unresolved support have explicit diagnostic reaso
 and use the existing authored environment sample, bounded to finite display RGB.
 No white/black constant or extra brightness floor is introduced.
 
-Version 3 retains the original combined coefficients and adds selected always-on
+A present direct sidecar retains combined coefficients and selected always-on
 local direct means/moments aligned to every slot. Source IDs are strictly ascending,
 unique and valid indices into packaged lighting; their bounded count is at most
 eight. The sidecar has no independent probe count: its length uses the shared field
@@ -731,10 +678,9 @@ eight. The sidecar has no independent probe count: its length uses the shared fi
 incident energy, with no material albedo or gamma conversion. Readers validate
 nonnegative combined-minus-selected energy and the residual moment bound. A zero
 selected-source count still requires all `count` coefficients, each with zero
-mean and moment. This preserves the v3 spatial contract for indirect-only and
-switch-only scenes; it does not encode switched energy in the baked base. Version
-2 has no sidecar, keeps the combined centre-sample runtime path and re-encodes as
-version 2. Unsupported/malformed records are rejected without repairing energy.
+mean and moment. This preserves spatial sampling for indirect-only and switch-only
+scenes. A field may explicitly omit the sidecar and use combined centre sampling.
+Unsupported or malformed records are rejected without repairing energy.
 
 Current spatial entity sampling interpolates eight transformed model-bounds
 anchors. It subtracts the selected means and moments before nonlinear directional
@@ -745,8 +691,8 @@ one connected air region; a short divider must not leak light merely because air
 connects above it. Invalid corner support can reuse a compatible visible centre
 or corner; unreachable support remains zero. Valid dark samples remain dark.
 
-Solver revision 16 changes the bake identity and invalidates package/lightmap
-fingerprints; rebuild current outputs. See
+Solver revision 1 identifies the current solve. Recompile outputs from superseded
+schemas. See
 [Probe baker audit](reports/probe-baker-audit.md) for diagnostics, regression evidence and
 remaining compiler/runtime limitations, and [Stage 4 contracts](art-style/stage4/contracts.md)
 for current entity direct/visibility/resource behavior.
@@ -760,7 +706,7 @@ for current entity direct/visibility/resource behavior.
 | semantics | 64 MiB |
 | ordinary entry (decompressed) | 256 MiB; typed records may impose tighter bounds |
 | mesh / props record | 512 MiB each |
-| props expanded literal record | 512 MiB, including metadata, 69-byte vertices and u16 indices |
+| props expanded literal record | 512 MiB, including metadata, 81-byte vertices and u16 indices |
 | lightmap atlas payload | 384 MiB + 64 KiB container overhead |
 | lightmap metadata | 64 MiB |
 | reflection positions | 16 MiB |
@@ -790,14 +736,16 @@ dependencies; and unsupported versions or capabilities.
 
 ## 8. Versioning
 
-`package_format: 1` is the one accepted version. A newer **compiler** is not a
-format change: rebuild fingerprints are separate from runtime validity, so a
-package built by a newer tool still loads when its records satisfy this
-contract. Adding a required capability is a format change only for runtimes
-that do not understand it: they reject it by name. There is no legacy reader
-for another package major. Individual accepted record revisions retain the
-explicit legacy readers described above; record compatibility does not establish
-source/catalogue/compiler currentness.
+`schema: "places-map"` and `package_format: 1` identify the one accepted
+package schema. The authored semantics require `schema: "places-level"` and
+`format_version: 1`. These mandatory schema markers distinguish this deliberate
+pre-release reset from historical files that also carried numeric revision 1.
+Every binary record uses its new signature and accepts revision 1 only.
+Superseded packages must be recompiled; no compatibility readers remain.
+
+A compiler fingerprint is a separate rebuild identity. Required capabilities
+remain explicit and unknown names are rejected. Record/schema validation runs
+independently of source, catalogue and executable currentness.
 
 ## 9. Compiler commands
 

@@ -9,7 +9,7 @@ use crate::engine::package::lighting::{read_lighting, write_lighting};
 #[test]
 fn caustic_source_eligibility_survives_compiled_lighting() -> Result<(), String> {
     let level = LevelDef::from_json(
-        r#"{"format_version":3,"id":"caustics_metadata","name":"Caustics metadata",
+        r#"{"schema": "places-level", "format_version":1,"id":"caustics_metadata","name":"Caustics metadata",
         "spawn":{"x":0,"z":0},"ceiling_lights":[
             {"fixture":"core:pool_light_round","x":0,"z":0},
             {"fixture":"core:pool_light_wall","x":1,"z":0,"mount":"wall","y":1},
@@ -108,7 +108,7 @@ fn legacy_source_flags_hydrate_from_stable_fixture_and_prop_identities() -> Resu
     // Reproduce the all-false source flags produced by legacy PLLT readers in
     // a tiny field, without coupling the regression to a shipped package.
     let level = LevelDef::from_json(
-        r#"{"format_version":3,"id":"caustics_legacy","name":"Legacy metadata",
+        r#"{"schema": "places-level", "format_version":1,"id":"caustics_legacy","name":"Legacy metadata",
         "spawn":{"x":0,"z":0},"ceiling_lights":[
             {"fixture":"core:pool_light_wall","x":0,"z":0,"mount":"wall","y":1},
             {"fixture":"core:pool_light_round","x":1,"z":0,"caustics":false},

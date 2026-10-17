@@ -1,5 +1,6 @@
 {
-  "format_version": 3,
+  "schema": "places-level",
+  "format_version": 1,
   "id": "developer_console_native",
   "name": "Native Developer Console Fixture",
   "author": "Places",

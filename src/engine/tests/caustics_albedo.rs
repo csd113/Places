@@ -51,7 +51,7 @@ fn model_vertices(lighting: &LevelLighting) -> Vec<Vertex> {
 #[test]
 fn static_model_neutral_rgb_is_independent_of_excluded_baked_rgb_and_roundtrips()
 -> Result<(), String> {
-    let mut level = LevelDef::from_json(r#"{"format_version":3,"id":"caustics_albedo","name":"Caustics albedo",
+    let mut level = LevelDef::from_json(r#"{"schema": "places-level", "format_version":1,"id":"caustics_albedo","name":"Caustics albedo",
         "spawn":{"x":0,"z":0},"rooms":[{"x":-1,"z":-1,"width":2,"depth":2,"floor_y":-1,"height":4}],
         "ceiling_lights":[{"fixture":"core:fluorescent_panel_01","x":0,"z":0,"y":2,"brightness":2,"color":[1,0,0]}]}"#)
         .map_err(|error| error.to_string())?;
@@ -138,53 +138,29 @@ fn static_model_neutral_rgb_is_independent_of_excluded_baked_rgb_and_roundtrips(
         batch.vertices,
         "PLMP palette storage preserves lit and neutral factors independently"
     );
-    check_legacy_props(&props_encoded, &batch.vertices)?;
+    check_legacy_props(&props_encoded)?;
     Ok(())
 }
 
-fn check_legacy_props(encoded: &[u8], expected: &[Vertex]) -> Result<(), String> {
-    let regions = props::vertex_regions(encoded)?;
-    let region = regions.first().ok_or("missing prop vertex region")?;
-    let run = encoded
-        .get(region.start..region.end)
-        .ok_or("prop run truncated")?;
-    let mut legacy = encoded
-        .get(..region.start)
-        .ok_or("prop header truncated")?
-        .to_vec();
-    for key in run.chunks_exact(region.stride) {
-        let old_literal_bytes = if region.stride == 81 { 69 } else { 41 };
-        legacy.extend_from_slice(
-            key.get(..old_literal_bytes)
-                .ok_or("prop literal truncated")?,
-        );
-        if region.stride != 81 {
-            legacy.extend_from_slice(key.get(53..).ok_or("prop frame reference truncated")?);
-        }
-    }
-    legacy.extend_from_slice(encoded.get(region.end..).ok_or("prop suffix truncated")?);
+// Reject the old signature even when its numeric version collides with revision 1.
+fn check_legacy_props(encoded: &[u8]) -> Result<(), String> {
+    let mut legacy = encoded.to_vec();
     legacy
+        .get_mut(..4)
+        .ok_or("missing props signature")?
+        .copy_from_slice(b"PLMP");
+    assert!(props::read_props(&legacy).is_err());
+    let mut unsupported = encoded.to_vec();
+    unsupported
         .get_mut(4..6)
-        .ok_or("missing prop version")?
-        .copy_from_slice(&8_u16.to_le_bytes());
-    let decoded = props::read_props(&legacy)?;
-    let old = decoded.first().ok_or("missing legacy prop batch")?;
-    assert!(
-        old.vertices
-            .iter()
-            .zip(expected)
-            .all(
-                |(a, b)| a.color.map(f32::to_bits) == b.color.map(f32::to_bits)
-                    && a.caustics_albedo.map(f32::to_bits) == [1.0_f32; 3].map(f32::to_bits)
-            ),
-        "legacy palette storage retains ordinary colours and explicitly defaults only the new factor"
-    );
+        .ok_or("missing props version")?
+        .copy_from_slice(&2_u16.to_le_bytes());
+    assert!(props::read_props(&unsupported).is_err());
     Ok(())
 }
 
 #[test]
-fn legacy_mesh_defaults_neutral_rgb_without_reusing_baked_colour_and_rejects_nan()
--> Result<(), String> {
+fn superseded_mesh_signature_is_rejected_and_neutral_rgb_rejects_nan() -> Result<(), String> {
     let vertex = Vertex {
         color: [0.1, 0.8, 0.2, 1.0],
         caustics_albedo: [0.3, 0.4, 0.5],
@@ -202,33 +178,21 @@ fn legacy_mesh_defaults_neutral_rgb_without_reusing_baked_colour_and_rejects_nan
         index_count: 3,
     };
     let mesh_encoded = mesh::write_mesh(&mesh)?;
-    // One record header (66), one range header (34), then a vertex whose
-    // legacy prefix is 69 bytes. Removing only the appended 12 yields PLMW2.
-    let mut legacy = mesh_encoded
-        .get(..169)
-        .ok_or("mesh prefix truncated")?
-        .to_vec();
-    legacy.extend_from_slice(mesh_encoded.get(181..).ok_or("mesh suffix truncated")?);
+    let mut legacy = mesh_encoded.clone();
     legacy
+        .get_mut(..4)
+        .ok_or("missing mesh signature")?
+        .copy_from_slice(b"PLMW");
+    assert!(
+        mesh::read_mesh(&legacy).is_err(),
+        "superseded layouts require recompilation even at revision 1"
+    );
+    let mut unsupported = mesh_encoded.clone();
+    unsupported
         .get_mut(4..6)
-        .ok_or("missing version")?
+        .ok_or("missing mesh version")?
         .copy_from_slice(&2_u16.to_le_bytes());
-    let decoded = mesh::read_mesh(&legacy)?;
-    let old = decoded
-        .ranges
-        .first()
-        .and_then(|range| range.vertices.first())
-        .ok_or("legacy vertex missing")?;
-    assert_eq!(
-        old.color.map(f32::to_bits),
-        vertex.color.map(f32::to_bits),
-        "legacy ordinary illumination remains exact"
-    );
-    assert_eq!(
-        old.caustics_albedo.map(f32::to_bits),
-        [1.0_f32; 3].map(f32::to_bits),
-        "legacy factors explicitly default to white without guessing from baked RGB"
-    );
+    assert!(mesh::read_mesh(&unsupported).is_err());
     let mut invalid = mesh_encoded;
     invalid
         .get_mut(169..173)

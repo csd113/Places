@@ -22,7 +22,7 @@ The checks here are the tooling half of the asset architecture:
   reference ids the catalog declares, and their optional ``ceiling_lights[]``
   pool/emission fields, ``ceiling_lights[].enabled`` switch and
   ``props[].lights`` sources obey the documented shapes, dimensions and ranges;
-* the v3 entity layer: instance ids and typed components, event bindings,
+* the revision 1 entity layer: instance ids and typed components, event bindings,
   conditions and actions with resolvable capability-fit targets, trigger
   volumes, timers, sequences and spawn templates/points/groups.
 
@@ -183,7 +183,7 @@ SEQUENCE_STEP_TAGS = (
 # the water volume it rides.
 MAX_LEVEL_FLOAT_PROPS = 32
 MAX_FLOAT_HEEL_DEGREES = 45.0
-# Mirrors the v3 schema's counted resources (src/engine/level.rs and
+# Mirrors the revision 1 schema's counted resources (src/engine/level.rs and
 # src/engine/entities/{sequences,spawn}.rs); reach mirrors src/interact.rs.
 MAX_ACTIONS_PER_SOURCE = 8
 MAX_BINDINGS_PER_ENTITY = 16
@@ -439,7 +439,7 @@ def is_color_triplet(value: object) -> bool:
 
 
 def validate_light_source_counts(counts, where: str, errors: List[str]) -> None:
-    """Retained sources, including disabled entries, share the PLLT limit."""
+    """Retained sources, including disabled entries, share the PLT1 limit."""
     total = 0
     for count in counts:
         total += count
@@ -2821,7 +2821,7 @@ def _validate_sequences(level: dict, where: str, index: Dict, errors: List[str])
 def validate_interactions(level: dict, where: str, errors: List[str]) -> None:
     """Instance ids, typed components, event bindings, timers, sequences and volumes.
 
-    Mirrors the v3 loader contract (``loader::validate_instance_ids``,
+    Mirrors the revision 1 loader contract (``loader::validate_instance_ids``,
     ``validate_bindings``, ``validate_volumes``, ``validate_timers``,
     ``validate_sequences``, ``validate_spawns``): well-formed unique ids,
     known component and event kinds, 1..8 typed actions per binding with
@@ -3403,6 +3403,10 @@ def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> 
             levels += 1
             with open(path, "r", encoding="utf-8") as handle:
                 level = json.load(handle)
+            if (not isinstance(level, dict) or level.get("schema") != "places-level"
+                    or type(level.get("format_version")) is not int or level["format_version"] != 1):
+                errors.append(f"{os.path.relpath(path, PACKAGE_ROOT)}: expected places-level schema revision 1")
+                continue
             catalog_ids_apply = name not in GENERATED_CAPACITY_FIXTURES
             for asset_id, what in level_ids(level):
                 if not catalog_ids_apply:

@@ -10,7 +10,7 @@ The active connected Arcade showcase includes the commercial restroom.
 | Field | Value |
 | --- | --- |
 | Document status | **Canonical / living.** Update it whenever the authoring contract changes (see [Maintaining This Guide](#maintaining-this-guide)). |
-| Level format version documented | `3` (`format_version` in every level JSON) |
+| Level format version documented | `schema: "places-level"`, `format_version: 1` in every level JSON |
 | Asset catalog format version documented | `2` (`format_version` in `assets/catalog.json`) |
 | Stage 7 integration audit | October 9, 2026: checked colour/HDR, measured Full ten-page/lower eight-page atlas policy, independent quality controls, panes, PLPF v3/solver 16, geometry revision 7 and compiler/runtime dependency identity against the current source. Wall spans evaluate exact endpoints against their own roof owner. Platform execution claims remain dated evidence in [VERIFICATION.md](VERIFICATION.md). |
 | Verification | Sky panorama limits and quality uploads re-verified against `src/engine/assets.rs`, `src/engine/materials/image.rs`, `src/engine/quality.rs` and `src/engine/render/wgpu/sky.rs` (October 2026 working tree). Movement support and rim backing in §10 re-verified against `src/game/mod.rs`, `src/engine/level.rs` and the permanent movement-map tests (October 2026 working tree). Verified against the working tree at version 0.7.0. Section 33 was checked against `src/engine/nav/`, `src/engine/ai/`, `src/engine/package/navigation.rs`, `src/engine/loader.rs`, `src/map_compiler/mod.rs`, `levels/places_demo.json` and the fixed-step tests `nav::tests`, `ai::tests` and `game::tests::demo_home_encounter_*`. The v3 contract (components, event bindings, trigger volumes, timers, sequences and spawns) was checked against `src/engine/level.rs`, `src/engine/loader.rs`, `src/engine/entities/`, `levels/places_demo.json`, `levels/model_zoo.json`, `levels/*.json` and the generator/converter tools. The `fade`/`glow` components in §29 were checked against `src/engine/level.rs` (`FadeDef`/`GlowDef`), `src/engine/loader.rs` (`validate_component_value`), `src/engine/entities/components.rs` (`Fade`/`Glow`), `src/engine/entity.rs` (`EntityFrame`) and `tools/assets/validate.py`. No commit SHA is pinned: the body was checked line-by-line against `src/engine/level.rs`, `src/engine/loader.rs`, `src/map_compiler/geometry_check.rs`, `src/engine/assets.rs`, `src/engine/materials/`, `src/engine/render/`, `src/engine/lighting/`, `assets/catalog.json`, `levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
@@ -301,7 +301,8 @@ skeleton and the per-field tables.
 
 ```jsonc
 {
-  "format_version": 3,                     // REQUIRED. Must be exactly 3.
+  "schema": "places-level",                // REQUIRED current schema identity.
+  "format_version": 1,                     // REQUIRED. Must be exactly 1.
   "id": "my_level",                        // REQUIRED. Non-empty; menu key.
   "name": "My Level",                      // REQUIRED. Non-empty; display name.
   "author": "",                            // optional, default "".
@@ -782,7 +783,7 @@ constant in `src/engine/level.rs`, not an inline literal.
 | Distinct decoded texture bytes | ≤ 1 GiB (`MAX_LEVEL_TEXTURE_BYTES`) | Loader rejection per level, after resolution and before upload |
 | Standalone level JSON file size | ≤ 32 MiB (`MAX_LEVEL_JSON_BYTES`) | Rejected before parsing |
 | Package archive: entries / entry / aggregate | ≤ 512 entries / ordinary entry ≤ 256 MiB; mesh/props ≤ 512 MiB, atlas ≤ 320 MiB + 64 KiB, other typed records may be tighter / aggregate ≤ 1 GiB uncompressed | Package rejected at open (see [PACKAGE_FORMAT.md](PACKAGE_FORMAT.md)) |
-| Package variants | one per lighting mode (`off`/`full`; legacy `medium` readable) | Package rejected at open |
+| Package variants | one per lighting mode (`off`/`full`; current-schema developer `medium` accepted) | Package rejected at open |
 | Package blob hashes | SHA-256 must match the name and the manifest | Blob rejected before decoding |
 | Distinct prop models placed | ≤ 4096 (`MAX_LEVEL_PROP_MODELS`) | **Not a rejection:** later placements draw placeholder boxes |
 | Summed prop vertices (after instancing) | ≤ 24 000 000 (`MAX_LEVEL_PROP_VERTICES`) | **Not a rejection:** further placements draw placeholder boxes |
@@ -839,7 +840,8 @@ nearby fixtures, and the prop vertex expansion samples lighting per vertex. See
 
 | Field | Type | Required | Default | Notes |
 | --- | --- | --- | --- | --- |
-| `format_version` | integer | **yes** | — | Must be `3`; anything else is rejected: `Unsupported level format_version: {v} (expected 3)`. |
+| `schema` | string | **yes** | — | Must be `"places-level"`; superseded or missing schema identities are rejected. |
+| `format_version` | integer | **yes** | — | Must be `1`; anything else is rejected: `Unsupported level format_version: {v} (expected 1)`. |
 | `id` | string | **yes** | — | Non-empty after trim. Not checked for uniqueness across files (see caveats). |
 | `name` | string | **yes** | — | Non-empty after trim. |
 | `author` | string | no | `""` | Display metadata only. |
@@ -851,7 +853,8 @@ Known-valid header (from Places Demo):
 
 ```json
 {
-  "format_version": 3,
+  "schema": "places-level",
+  "format_version": 1,
   "id": "places_demo",
   "name": "Places Demo",
   "author": "Places",
@@ -3276,7 +3279,7 @@ on every tiny face. Currently this applies to the five delivered tree variants.
 Their indexed geometry still casts opaque shadows and retains source albedo
 through transport; solved directional light is applied before packaging.
 Ordinary models retain surface receivers and their established density. Geometry
-revision 15 keys this preparation change without increasing lighting budgets.
+revision 1 includes this preparation policy without increasing lighting budgets.
 Offline compilation resolves source PNGs for the solve as well as the capture;
 architectural diffuse reflectance uses the mean decoded linear colour, while
 the saved incident light remains independent of the receiver's displayed albedo.
@@ -3368,7 +3371,7 @@ Two prepared-path rules keep a solved map readable, and both are automatic:
   models). Visibility origins stay on the geometric side. Compression alone is not an irradiance integral:
   opposing grazing sources must not manufacture illumination. Each bounce
   transports only the previous order; two bounces mean `D + KD + K²D`.
-  Current solver revision 21 invalidates earlier atlas and package fingerprints; sky is
+  Current solver revision 1 invalidates earlier atlas and package fingerprints; sky is
   injected only into the first diffuse order. Cache interpolation also tests
   visibility so one floor triangle spanning a divider cannot transfer light
   through that divider.
@@ -3387,9 +3390,9 @@ baked coefficients. Unrecoverable spaces still produce warnings;
 runtime support and opaque visibility remain unchanged. `PLACES_PROBE_DUMP_DIR=<directory>`
 enables deterministic JSON diagnostics; use `--force` and a separate directory
 per source/build. See [Probe baker audit](reports/probe-baker-audit.md) and
-[the PLPF contract](PACKAGE_FORMAT.md#61-irradiance-field-for-moving-objects).
+[the PPF1 contract](PACKAGE_FORMAT.md#61-irradiance-field-for-moving-objects).
 
-Current PLPF v4 keeps combined light, a selected local-direct sidecar and separate
+Current PPF1 revision 1 keeps combined light, a selected local-direct sidecar and separate
 indirect probe planes for switched atlas groups. Entities add only the currently
 enabled groups' reflected surface radiance; live direct coefficients remain
 separate and are evaluated once. Turning a group off removes its bounce too.
@@ -3399,9 +3402,8 @@ subtract that selected energy before reconstructing indirect response and evalua
 the corresponding finite sources at their actual transformed surfaces. Eight
 bounds anchors retain spatial response and tested visibility; they do not replace
 the static atlas. Every new field preserves the spatial path, including zero selected
-source fields with aligned zero direct coefficients. Legacy v2 keeps its combined
-centre sample. Legacy v3 has live switched direct sources but lacks their indirect
-planes; these packages retain that limitation until the map is recompiled.
+source fields with aligned zero direct coefficients. Superseded package schemas
+are rejected and must be recompiled.
 The player never adds an ambient floor or synthesizes missing bounce.
 Texture resolution
 and filtering remain independent of live lighting quality. The current controls,
@@ -3418,7 +3420,7 @@ quality presets, package hashes, logs and loading traces.
 
 ### Global directional illuminators
 
-Source format 3 accepts a bounded `global_illuminators` list (maximum eight):
+Source format 1 accepts a bounded `global_illuminators` list (maximum eight):
 
 ```json
 "global_illuminators": [{
@@ -3662,8 +3664,8 @@ player uploads these prepared package layers and multiplies receiver albedo once
   families share that free area; exact adjacent holes are joined and retried
   before opening a new page. Physical density, endpoints and gutters are retained.
   Genuine page overflow remains a named failure rather than dropped surfaces. Each resident GPU page uses two RGBA16F layers. Disk storage uses bounded
-  PLLC1 tile ranges with an exact six-half fallback; decoded coefficients precede
-  bilinear filtering, and legacy/exact KTX2 remains supported. See
+  PLC1 tile ranges with an exact six-half fallback; decoded coefficients precede
+  bilinear filtering, and explicit exact KTX2 storage is also supported. See
   [the package contract](PACKAGE_FORMAT.md#5-lightmap-pages--compact-storage-and-ktx2).
   Every switchable group adds another pair per base page. The GPU
   allocates exactly the produced layers, without reserving unused pages.
@@ -3719,7 +3721,7 @@ player uploads these prepared package layers and multiplies receiver albedo once
 * Fixtures, prop placeholder boxes and decals retain the vertex-lit path.
   Panes, stairs, water and real static props receive prepared charts in
   Medium/Full. Movable objects use spatial residual probes plus bounded live
-  finite-source direct light, with the legacy centre path for genuine PLPF v2.
+  finite-source direct light, with centre sampling for an explicitly combined-only field.
 * Set `PLACES_DUMP_LIGHTMAPS=1` to write the baked atlas pages as PNGs under
   `target/diagnostics/atlases/` for inspection.
 
@@ -3770,7 +3772,7 @@ an ordinary static prop and participates in the bake).
 * Movable receivers use eight inset bind-bounds support anchors for residual
   irradiance, and selected finite-source direct light at real fragments. Rigid
   moving casters use cached triangle/alpha visibility; skinned floor contacts
-  use bounds proxies. Genuine legacy PLPF v2 retains one centre probe.
+  use bounds proxies. An explicitly combined-only field retains one centre probe.
 * Moving one never rebuilds geometry, batches or lightmaps, and a door leaf casts
   no baked shadow.
 
@@ -4340,7 +4342,7 @@ All fixtures — ceiling and wall — live in the level's `ceiling_lights` array
 | `falloff` | `"smooth"` \| `"linear"` \| `"constant"` | no | `"smooth"` | Closed enum. Lateral pool decay curve for a ceiling fixture (`smooth` = `(1 - d/range)²`), or the radial curve for a wall sconce or prop light. `constant` holds full strength to `range` then stops (a deliberately hard pool). |
 | `enabled` | boolean | no | `true` | `false` removes environmental illumination and ultraviolet influence. Switchable faces and the operational `arcade:blacklight_tube` also turn dark; other nonswitchable fixture families retain their historical visible face behavior. |
 | `emission` | number | no | the fixture's `brightness` | Independent emissive strength of the visible face, finite, `≥ 0`, clamped to `8.0`. Lets a face read brighter (or dimmer) than the light the fixture casts. |
-| `switchable` | boolean | no | `false` | Marks the fixture as externally controllable: `{ "action": "set_light", "target": "<id>", "on": false }` or `{ "action": "toggle", "target": "<id>" }` may switch it at runtime (see §29). A switchable fixture is excluded from its room's baked baseline and contributes only its local pool; each switch state is prepared as its own selectable lightmap layer, so toggling **selects a prepared layer** — a real change of the baked illumination with no runtime rebake — and the visible face turns off with it. Moving objects and characters using a newly compiled v3 irradiance field receive the fixture's live direct light through reserved runtime source slots; base probes exclude switchable energy, so it is added once. Switched diffuse bounce is absent from the entity base field. Genuine legacy v2 fields retain their combined center path without switched entity response. A fixture that is **not** switchable is baked once and never changes: no action can move its illumination. Emission-only motion (`animated_emissions[]`) never changes illumination either; it animates the face's additive glow only. Layer selection needs the prepared lightmap variants (the default): with Lightmaps Off the level bakes into vertex colours, so the face still switches but the baked illumination cannot change until the level is reloaded. Leave it `false` unless a map action drives it. |
+| `switchable` | boolean | no | `false` | Marks the fixture as externally controllable: `{ "action": "set_light", "target": "<id>", "on": false }` or `{ "action": "toggle", "target": "<id>" }` may switch it at runtime (see §29). A switchable fixture is excluded from its room's baked baseline and contributes only its local pool; each switch state is prepared as its own selectable lightmap layer, so toggling **selects a prepared layer** — a real change of the baked illumination with no runtime rebake — and the visible face turns off with it. Moving objects and characters using a current PPF1 irradiance field receive the fixture's live direct light through reserved runtime source slots; base probes exclude switchable energy, so it is added once. Switched diffuse bounce is carried in separate prepared group planes. Superseded package schemas require recompilation. A fixture that is **not** switchable is baked once and never changes: no action can move its illumination. Emission-only motion (`animated_emissions[]`) never changes illumination either; it animates the face's additive glow only. Layer selection needs the prepared lightmap variants (the default): with Lightmaps Off the level bakes into vertex colours, so the face still switches but the baked illumination cannot change until the level is reloaded. Leave it `false` unless a map action drives it. |
 | `align` | `"grid"` \| `"none"` | no | `"grid"` | Closed enum. Grid alignment snaps a fluorescent panel's centre onto its ceiling material's visible panel grid at load (see *Ceiling grid alignment* below). `"none"` keeps the authored `x`/`z` exactly. |
 | `switch_group` | string | no | absent | Fixtures on the same named circuit toggle atomically through any member and share one prepared contribution pair. Members must have matching initial enabled/Static-hold states. At most eight switched sources fit the movable-light budget. |
 | `static_switch` | `"disabled"` \| `"prepared"` | no | `"disabled"` | Opt in all members of one initially enabled circuit (one to eight fixtures) to exact prepared Static on/off geometry. No runtime bake; world, props and decals switch with the fixture faces. Requires `switch_group`, `switchable: true`, and no `hold_in_static`. Other maps preserve their previous Static behavior. |
@@ -4384,8 +4386,8 @@ endpoints. Home's source plane is 70 mm below its mounting Y, inside the actual
 and 1.12 × 0.14 m aperture. These offsets do not change authored powers or colours.
 Static keeps its coarse visibility behavior without fixture self-occlusion.
 The delivered Office/Pool fixture models retain their existing geometry,
-material roles and source anchors. Geometry revision 16 invalidates prepared
-geometry and lighting from the earlier procedural contracts.
+material roles and source anchors. Geometry revision 1 includes these fixture policies; pre-reset prepared
+geometry and lighting require recompilation.
 
 Active items use a scale-aware Rapier contact skin of at most 2 mm, with CCD
 allowing two collisions per 120 Hz interval. The renderer uses the body's real
@@ -5289,11 +5291,10 @@ section is the field-by-field contract; every name below is verified against
 `EventKindName`, `TriggerVolumeDef`) and `src/engine/entities/`
 (`TimerDef`, `SequenceDef`, `Spawn*Def`).
 
-> **Format note.** This is the v3 contract and the only current level format.
-> The converter's input is the previous schema: a source that still carries the
-> previous keys either converts with `python3 tools/levels/convert_v3.py --all`
-> or fails to parse its behaviour. A door's own press is an `interact` binding
-> with `{ "action": "toggle" }`.
+> **Format note.** The current source contract requires `schema: "places-level"`
+> and `format_version: 1`. Earlier development schemas are rejected; the retired
+> conversion tool is not part of the current workflow. A door's own press is an
+> `interact` binding with `{ "action": "toggle" }`.
 
 ### Identity and namespaces
 
@@ -5612,7 +5613,7 @@ authors one, and every such door:
 * One press is one interaction: the key edge is latched, so holding E never
   repeats; menus, pause and lost focus do not latch.
 * `toggle_label` shows or hides a floating display name above *that placed
-  prop instance only* (doors have no label in v3). State is per instance, so
+  prop instance only* (doors have no label in revision 1). State is per instance, so
   the other copy of the same model is untouched; reloading a level hides every
   label again, while `reset_to_start` keeps them.
 * Labels are drawn with the existing UI text pipeline, projected from the
@@ -5863,7 +5864,7 @@ stops across the level. The existing reflection tests continue to exercise the s
 
 ### Places Demo examples
 
-The shipped demo authors real v3 entities; use them as the reference (all in
+The shipped demo authors current revision 1 entities; use them as the reference (all in
 `levels/places_demo.json`):
 
 ```json
@@ -6122,7 +6123,7 @@ A **manual** door is an `interactable` component plus an `interact` binding;
 its aim bound follows the live collider as the leaf swings, and its prompt is
 authored inside the component (`"Open"`/`"Close"` by phase when omitted). A
 door with neither is **externally controlled**: it moves only when an action
-drives it. In v3 a door has **no floating label**; `toggle_label` targets
+drives it. In revision 1 a door has **no floating label**; `toggle_label` targets
 placed props only.
 
 Three kinds ship:
@@ -8117,16 +8118,14 @@ A tube that reads bright but casts a restrained local pool (the demo's far corri
 `./target/release/places-compile build-collection levels/` compiles every source
 in a directory, reporting per-source failures without blocking the others.
 
-Current package major is 1, level schema 3, geometry revision 9 and transport
-solver revision 17. PLMP v7 retains v6's exact vertex/frame sharing and adds
-optional ultraviolet pigment response, numeric-mask slot and independent tint.
-Literal v3/v4/v5 and paletted v6 remain readable with zero ultraviolet response
-and their documented material/caster defaults. Both encoded
-and expanded literal prop records retain the 512-MiB bound. PLPF v3 preserves spatial selected
-direct presence even with zero sources; v2 remains a genuine legacy centre path.
-Probe positions v3 declares HDR captures; v2's old RGBA8 data decodes to linear
-without recovering already clipped energy. These reader guarantees do not make
-historical prepared fingerprints current.
+Current packages require `schema: "places-map"`, package format 1 and authored
+`places-level` schema revision 1. Mesh `PMW1`, props `PMP1`, collision `PCL1`,
+navigation `PNV1`, lighting `PLT1`, irradiance `PPF1`, compact atlases `PLC1` and
+shared prop recipes `PPS1` each accept binary revision 1 only. Reflection-position
+and lightmap metadata revisions, geometry revision, atlas key revision and solver
+revision are also 1. Earlier development packages require recompilation even when
+their numeric package version collides. Both encoded and expanded prop records
+retain the 512 MiB bound. See [the package contract](PACKAGE_FORMAT.md).
 
 Ordinary builds include placed models and every runtime spawn template in the
 dependency closure, including unused override choices. GLB SHA covers embedded
@@ -8153,7 +8152,7 @@ and gives deterministic source locations. The connected
 `levels/beach_demo.json` is generated by `tools/levels/build_beach.py`.
 
 `tools/levels/beach_components.py` supplies `shore_segment(x, sea_z, shore_z,
-width)` and `daylight()` as existing v3 arrays. The shore has real lowered
+width)` and `daylight()` as existing revision 1 arrays. The shore has real lowered
 support, two gentle ramps and separate deep/shallow WaterDef volumes. Ramps
 are narrow enough that their longer dimension runs north/south, as the current
 engine requires. The containing room begins at the seabed so underwater entity

@@ -1,4 +1,4 @@
-"""Reusable birthday arrangements expressed as ordinary v3 placed props.
+"""Reusable birthday arrangements expressed as ordinary revision 1 placed props.
 
 The caller provides catalog sizes and a real room/supporting floor. All four
 tables can be placed in any map at a new centre and yaw. Balloons are individual

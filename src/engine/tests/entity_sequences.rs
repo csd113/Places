@@ -11,7 +11,7 @@ use crate::engine::level::{ActionDef, ConditionDef, LevelDef, WalkableFloor};
 
 fn fixture(sequences: &str, bindings: &str) -> Result<(EntityWorld, WalkableFloor), String> {
     let json = format!(
-        r#"{{"format_version":3,"id":"sequence_fixture","name":"Sequence fixture",
+        r#"{{"schema": "places-level", "format_version":1,"id":"sequence_fixture","name":"Sequence fixture",
         "spawn":{{"x":3.0,"z":3.0}},
         "rooms":[{{"x":0.0,"z":0.0,"width":4.0,"depth":4.0}}],
         "props":[
@@ -383,7 +383,7 @@ fn sequence_movement_and_turns_publish_frame_changes() -> Result<(), String> {
 fn sequence_pose_reaches_ai_and_render_frames_and_survives_release() -> Result<(), String> {
     let level = LevelDef::from_json(
         r#"{
-        "format_version":3,"id":"sequence_ai_fixture","name":"Sequence AI fixture",
+        "schema": "places-level", "format_version":1,"id":"sequence_ai_fixture","name":"Sequence AI fixture",
         "spawn":{"x":3.0,"z":3.0},
         "rooms":[{"x":0.0,"z":0.0,"width":4.0,"depth":4.0}],
         "props":[{"id":"actor","model":"core:rubber_duck","x":0.5,"z":0.5,

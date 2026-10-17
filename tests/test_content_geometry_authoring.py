@@ -152,6 +152,10 @@ class OutdoorPerimeterAuthoringTests(unittest.TestCase):
 
     def test_unrelated_authored_content_and_asset_references_stay_exact(self):
         unrelated = {k: v for k, v in self.level.items() if k != "half_walls"}
+        # Compare authored content against the historical witness, normalizing
+        # only the deliberate 0.12.0 schema-header reset.
+        unrelated.pop("schema", None)
+        unrelated["format_version"] = 3
         canonical = json.dumps(unrelated, sort_keys=True, separators=(",", ":"))
         self.assertEqual(hashlib.sha256(canonical.encode()).hexdigest(),
                          UNRELATED_CONTENT_SHA256)

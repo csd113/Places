@@ -64,7 +64,7 @@ def cut_rectangle(piece, cut):
 
 
 def build_level():
-    level = dict(format_version=3, id='beach_demo', name='Beach', author='Places',
+    level = dict(schema="places-level", format_version=1, id='beach_demo', name='Beach', author='Places',
                  spawn=dict(x=HERO[0], z=HERO[1], yaw_degrees=HERO[2]),
                  defaults=dict(wall='beach:rock_01', floor='beach:sand_01', ceiling='beach:roof_yellow_01'))
     for key in ('rooms', 'floor_regions', 'floor_patches', 'ramps', 'stairs', 'archways',

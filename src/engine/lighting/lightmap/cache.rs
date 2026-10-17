@@ -25,27 +25,8 @@ use std::sync::Arc;
 
 use super::{LevelLightmaps, LightmapConfig};
 
-/// Bumped whenever the atlas layout, texel encoding or key inputs change.
-///
-/// It is part of every content key, so an implementation change can never
-/// silently reuse an atlas produced by an older build.
-///
-/// * `1`–`9` — the historical display-space pool/blend bake, where texels were
-///   RGB8 values of [`crate::engine::lighting::LevelLighting::sample_in_room`].
-/// * `10` — the four-page array layout and bounce-fill model.
-/// * `11` — the final display-space calibration before the transport upgrade.
-/// * `12` — the offline HDR transport solve: an RGBA16F atlas carrying an
-///   irradiance term and a directional moment per texel, real visible-emitter
-///   shadowing and diffuse bounces, and prepared switchable-light layer groups.
-///   No value from a version-11 or older atlas is valid.
-/// * `13` — mesh endpoints address the first/last data texel centres; prop
-///   chart density follows the selected architecture profile and size class.
-/// * `14` — compatible coplanar model triangles share their native quad domain;
-///   model topology is explicit rather than implied by the receiver family,
-///   and small opaque models resolve transport at twice architecture's density.
-/// * `15` — model charts reuse disjoint architecture holes before page growth,
-///   with free-edge coalescing before opening another model page.
-pub const LIGHTMAP_FORMAT_VERSION: u32 = 15;
+/// Current pre-release lightmap format version; superseded layouts require recompilation.
+pub const LIGHTMAP_FORMAT_VERSION: u32 = 1;
 
 /// Process-level memory cache of prepared atlases.
 ///
