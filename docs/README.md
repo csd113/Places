@@ -13,6 +13,7 @@ what you are changing:
 | Run source, package or native acceptance | [Verification](VERIFICATION.md) |
 | Inspect archive formats and safety limits | [Package format](PACKAGE_FORMAT.md) |
 | Work with authoring project folders and compiler selection | [Project format](PROJECT_FORMAT.md) |
+| Install resources, locate user data and import maps | [Installation and paths](INSTALLATION.md) |
 | Diagnose movement | [Movement diagnostics](MOVEMENT_DIAGNOSTICS.md) |
 
 [Environment profiles](assets/ENVIRONMENTS.md) and [entity profiles](assets/ENTITIES.md)

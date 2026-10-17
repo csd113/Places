@@ -47,8 +47,8 @@ const MAIN_MENU_ITEM_COUNT: usize = 3;
 /// Items in the fixed pause menu: Resume, Settings, Return to Main Menu.
 const PAUSE_MENU_ITEM_COUNT: usize = 3;
 
-/// Items the level list appends after the installed levels: Load/Import, Back.
-const LEVEL_SELECT_TRAILING_ITEMS: usize = 2;
+/// Items after the installed levels: Import, Open Import Folder, Back.
+const LEVEL_SELECT_TRAILING_ITEMS: usize = 3;
 
 /// Previous index in a `len`-item cyclic list, wrapping to the last item.
 const fn menu_prev(index: usize, len: usize) -> usize {
@@ -184,73 +184,20 @@ fn parse_spawn_override(value: &str) -> Option<[f32; 4]> {
     }
 }
 
-/// Root of the running installation.
-///
-/// The package root is the directory that owns `assets/`. It is found through
-/// [`crate::engine::assets::resolved_package_roots`], which searches `$PLACES_ASSET_ROOT`,
-/// the executable's own directory (and its ancestors, covering both the flat
-/// `Places/<executable>` layout and a macOS `.app` bundle's `Resources`), and
-/// then the working directory. The compile-time crate path is a development-only
-/// last resort, so a copied release build can never read the source tree it was
-/// compiled from and report a false pass.
-fn package_root() -> PathBuf {
-    if let Some(assets) = crate::engine::assets::resolve_asset_root()
-        && let Some(root) = assets.parent()
-    {
-        // Canonicalise for display and for the working directory: a bundle's
-        // `Contents/Resources` is reached through `Contents/MacOS/..`.
-        return std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
-    }
-    std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-}
-
-/// Points every relative asset path at the running installation.
-///
-/// The level loader, the prop catalogue, imported level packs and the settings
-/// file are all resolved relative to the working directory, so an installed
-/// package has to run from its own root. A development build already does this
-/// and is left alone.
-// Startup CLI output that has no logger to route through.
-#[expect(
-    clippy::print_stderr,
-    reason = "Startup CLI output that has no logger to route through."
-)]
-fn use_package_assets() -> PathBuf {
-    let package = package_root();
-    let current = std::env::current_dir().ok();
-    if current.as_deref() != Some(package.as_path())
-        && let Err(error) = std::env::set_current_dir(&package)
-    {
-        eprintln!(
-            "could not use the package directory {}: {error}",
-            package.display()
-        );
-        eprintln!(
-            "relative assets, levels and settings will resolve against {} instead",
-            current
-                .as_deref()
-                .map_or_else(|| "<unknown>".to_string(), |dir| dir.display().to_string())
-        );
-    }
-    package
-}
-
-/// Logs the resolved package directory and asset root at startup.
-///
-/// Developer telemetry: only printed when `PLACES_VERBOSE` is set.
-fn log_package(package: &Path) {
+/// Logs the same paths used by all resource and storage consumers.
+fn log_package() -> Result<(), String> {
+    let assets = crate::engine::paths::assets()?;
+    let user = crate::engine::paths::user()?;
     logging::event(format!(
-        "[package] {} (assets: {})",
-        package.display(),
-        package.join("assets/levels").display()
+        "[paths] assets={} data={} config={} cache={} import={} projects={}",
+        assets.display(),
+        user.data.display(),
+        user.config.display(),
+        user.cache.display(),
+        user.imports().display(),
+        user.projects().display()
     ));
-    match crate::engine::assets::resolve_asset_root() {
-        Some(assets) => {
-            let shown = std::fs::canonicalize(&assets).unwrap_or(assets);
-            logging::event(format!("[package] asset root: {}", shown.display()));
-        }
-        None => logging::event("[package] asset root: NONE"),
-    }
+    Ok(())
 }
 
 /// The usable work area of one display, in logical pixels.
@@ -475,6 +422,8 @@ fn level_entry_names(level_manager: &loader::LevelManager) -> Vec<String> {
 fn new_ui_state(level_manager: &loader::LevelManager) -> UiState {
     UiState {
         level_entries: level_entry_names(level_manager),
+        import_directory: crate::engine::paths::user()
+            .map_or_else(|error| error, |paths| paths.imports().display().to_string()),
         ..UiState::new()
     }
 }
@@ -614,6 +563,7 @@ fn apply_screen_request(game: &mut Game, ui_state: &mut UiState) {
         return;
     };
     match request.trim().to_ascii_lowercase().as_str() {
+        "explore" => game.set_app_state(AppState::LevelSelect),
         "settings" => {
             ui_state.settings_page = SettingsPage::Root;
             game.set_app_state(AppState::Settings);
@@ -2708,7 +2658,7 @@ impl FrameLoop<'_> {
         self.ui_state.level_select_idx = self
             .ui_state
             .level_select_idx
-            .min(self.ui_state.level_entries.len().saturating_add(1));
+            .min(self.ui_state.level_entries.len().saturating_add(2));
         self.ui_state.keep_selection_visible(AppState::LevelSelect);
     }
 
@@ -2721,7 +2671,11 @@ impl FrameLoop<'_> {
             Ordering::Less => self.load_level_at(selected),
             // `Import Levels`.
             Ordering::Equal => self.import_levels(),
-            // `Back`.
+            Ordering::Greater if selected == num_levels.saturating_add(1) => {
+                if let Err(error) = open_import_folder() {
+                    self.ui_state.set_status(error, true);
+                }
+            }
             Ordering::Greater => self.goto(AppState::MainMenu),
         }
     }
@@ -3504,7 +3458,10 @@ impl FrameLoop<'_> {
                 && self.current_level.is_none()
                 && self.load_intent.is_none()
                 && self.startup == StartupPhase::Ready
-                && self.game.app_state() == AppState::MainMenu);
+                && matches!(
+                    self.game.app_state(),
+                    AppState::MainMenu | AppState::LevelSelect | AppState::Settings
+                ));
         if capture_ready {
             self.ready_frames = self.ready_frames.saturating_add(1);
             self.capture_item_frame();
@@ -3801,11 +3758,10 @@ const fn on_off(value: bool) -> &'static str {
     if value { "on" } else { "off" }
 }
 
-/// Boots SDL, points relative paths at the running installation, loads the
+/// Boots SDL, logs resolved paths, loads the
 /// persisted settings (with any startup overrides) and creates the window.
 fn bootstrap() -> Result<(Sdl, VideoSubsystem, Window, Settings, Bench), String> {
-    let package = use_package_assets();
-    log_package(&package);
+    log_package()?;
     perf::startup_mark("package root");
     // The app identifier is what X11/Wayland use to associate the window with
     // Places; it must be set before `sdl3::init()`.
@@ -3820,9 +3776,9 @@ fn bootstrap() -> Result<(Sdl, VideoSubsystem, Window, Settings, Bench), String>
     // switch and has to be folded into the settings before the swap interval is
     // configured.
     let bench = Bench::new();
-    let mut settings = Settings::load_or_default();
+    let mut settings = Settings::load_or_default()?;
     settings.apply_startup_overrides(bench.vsync_override());
-    settings.ensure_saved();
+    settings.ensure_saved()?;
     log_effective_settings(&settings);
     perf::startup_mark("settings");
 
@@ -3868,6 +3824,52 @@ fn initial_level(level_manager: &loader::LevelManager) -> (Option<loader::LevelE
     selection
 }
 
+/// Opens only the resolved import directory, without a shell or arbitrary command.
+fn open_import_folder() -> Result<(), String> {
+    let directory = crate::engine::paths::user()?.imports();
+    let program = if cfg!(target_os = "macos") {
+        "open"
+    } else if cfg!(target_os = "windows") {
+        "explorer.exe"
+    } else {
+        "xdg-open"
+    };
+    let _child = std::process::Command::new(program)
+        .arg(&directory)
+        .spawn()
+        .map_err(|error| format!("Cannot open {}: {error}", directory.display()))?;
+    Ok(())
+}
+
+#[expect(clippy::print_stdout, reason = "explicit path/import CLI output")]
+fn dispatch_paths_cli(args: &[String]) -> Result<bool, String> {
+    if args.first().is_some_and(|arg| arg == "--paths") {
+        if args.len() != 1 {
+            return Err("Usage: places --paths".into());
+        }
+        let user = crate::engine::paths::user()?;
+        println!(
+            "{}",
+            serde_json::json!({
+                "assets": crate::engine::paths::assets()?, "data": user.data,
+                "config": user.config, "cache": user.cache, "settings": user.settings(),
+                "levels": user.levels(), "import": user.imports(), "projects": user.projects()
+            })
+        );
+        return Ok(true);
+    }
+    if args.first().is_some_and(|arg| arg == "--import") {
+        let [_, source] = args else {
+            return Err("Usage: places --import <file.placesmap>".into());
+        };
+        let mut manager = loader::LevelManager::new()?;
+        let entry = manager.import_file(Path::new(source))?;
+        println!("{}\t{}", entry.id, entry.path.display());
+        return Ok(true);
+    }
+    Ok(false)
+}
+
 /// Headless player CLI: `places --list-levels` prints what discovery found and
 /// exits before any window is created.
 ///
@@ -3881,11 +3883,11 @@ fn initial_level(level_manager: &loader::LevelManager) -> (Option<loader::LevelE
     clippy::print_stdout,
     reason = "Startup CLI output has no logger to route through."
 )]
-fn dispatch_list_levels_cli(args: &[String]) -> bool {
+fn dispatch_list_levels_cli(args: &[String]) -> Result<bool, String> {
     if !args.iter().any(|argument| argument == "--list-levels") {
-        return false;
+        return Ok(false);
     }
-    let manager = loader::LevelManager::new();
+    let manager = loader::LevelManager::new()?;
     for entry in manager.entries() {
         println!(
             "{}\t{}\t{}",
@@ -3894,7 +3896,7 @@ fn dispatch_list_levels_cli(args: &[String]) -> bool {
             entry.path.display()
         );
     }
-    true
+    Ok(true)
 }
 
 /// Runs the Places player: window, renderer, discovery, loading and the frame loop.
@@ -3905,7 +3907,9 @@ fn dispatch_list_levels_cli(args: &[String]) -> bool {
 /// # Errors
 /// Returns an error when the input is malformed, out of bounds or unsupported.
 pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
-    if dispatch_list_levels_cli(args) {
+    crate::engine::assets::validate_installation()?;
+    let _user = crate::engine::paths::initialize_user()?;
+    if dispatch_paths_cli(args)? || dispatch_list_levels_cli(args)? {
         return Ok(());
     }
     let interrupted = diagnostics::start();
@@ -3936,7 +3940,7 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
     let (sdl_context, video_subsystem, mut window, mut settings, mut bench) = bootstrap()?;
     diagnostics::previous_session_notice(interrupted);
 
-    let mut level_manager = loader::LevelManager::new();
+    let mut level_manager = loader::LevelManager::new()?;
     log_asset_catalog(&level_manager);
     perf::startup_mark("asset catalog");
     let mut renderer = create_renderer(&window, &settings, &bench)?;
@@ -3951,7 +3955,7 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
     let mut current_level = None;
     let mut display_status = DisplayStatus::default();
     let (initial_entry, direct) = initial_level(&level_manager);
-    let loader = loading::Loader::new(loader::LevelManager::new())?;
+    let loader = loading::Loader::new(loader::LevelManager::new()?)?;
     // `PLACES_STATE_LOG=file.csv` records `frame,x,y,z,yaw,pitch` while the
     // game runs, so control and movement checks can assert real input results
     // from a running build instead of inferring them from screenshots.

@@ -60,7 +60,7 @@ impl Recording {
         {
             return Err("native video frames must fit within 16 MiB".into());
         }
-        if !path.is_absolute() || !path.starts_with(crate::engine::assets::state_root()) {
+        if !path.is_absolute() || !path.starts_with(&crate::engine::paths::user()?.data) {
             return Err("native video FIFO must be inside the explicit state directory".into());
         }
         validate_fifo(&path)?;

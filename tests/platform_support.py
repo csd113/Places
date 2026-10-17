@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Display-capability gates shared by the release-binary smoke suites.
 
-Both smoke modules (``test_compiled_build`` and ``test_wgpu_bootstrap``) need
+Native smoke modules such as ``test_wgpu_bootstrap`` need
 the same answer to "can this host open an SDL window?". Keeping the table here
 means it can be exercised headless, without a release binary or a display.
 

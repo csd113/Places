@@ -42,6 +42,8 @@ class PackageDestinationGuardTests(unittest.TestCase):
             source = root / 'source'
             (source / 'tools').mkdir(parents=True)
             shutil.copyfile(PACKAGE_SH, source / 'tools/package.sh')
+            (source / 'docs').mkdir()
+            (source / 'docs/INSTALLATION.md').write_text('installation fixture')
             (source / 'Cargo.toml').write_text('[package]\nversion = "0.9.0"\n')
             for name in ('README.md', 'THIRD_PARTY_LICENSES.txt'):
                 (source / name).write_text('fixture')
@@ -84,8 +86,17 @@ class PackageDestinationGuardTests(unittest.TestCase):
                     self.assertEqual((payload / 'assets/audio' / name).read_bytes(), data)
                 self.assertFalse((payload / 'assets/completed-models.json').exists())
                 self.assertFalse((payload / 'assets/shared/branding').exists())
-                self.assertTrue((payload / 'levels').is_dir())
+                self.assertFalse((payload / 'levels').exists(), 'writable levels belong in user storage')
+                self.assertEqual((payload / 'docs/INSTALLATION.md').read_text(), 'installation fixture')
                 self.assertEqual(list(payload.rglob('*.placesmap')), [])
+            compiler = source / 'target/release/places-compile'
+            compiler.write_text('#!/bin/sh\nexit 0\n')
+            compiler.chmod(0o755)
+            with_compiler = subprocess.run(['sh', str(source / 'tools/package.sh'), '--with-compiler', str(output)],
+                                           text=True, capture_output=True, timeout=30, check=False)
+            self.assertEqual(with_compiler.returncode, 0, with_compiler.stdout + with_compiler.stderr)
+            for binary in (output / 'Places/places-compile', output / 'Places.app/Contents/MacOS/places-compile'):
+                self.assertEqual(binary.read_bytes(), compiler.read_bytes())
 
     def test_dangerous_destinations_are_refused(self):
         cases = {
@@ -175,7 +186,7 @@ class PackageDestinationGuardTests(unittest.TestCase):
             self.assertEqual(sentinel.read_text(), "unrelated data")
             self.assertTrue((unrelated_dir / "holiday.txt").is_file())
             self.assertTrue((root / "Places" / "places").is_file())
-            self.assertTrue((root / "Places" / "levels").is_dir())
+            self.assertFalse((root / "Places" / "levels").exists())
             self.assertTrue(
                 (root / "Places.app" / "Contents" / "MacOS" / "places").is_file()
             )

@@ -186,7 +186,13 @@ fn executable_identity() -> io::Result<String> {
 }
 
 pub fn start() -> bool {
-    let directory = crate::engine::assets::state_path("diagnostics");
+    let directory = match crate::engine::paths::user() {
+        Ok(paths) => paths.diagnostics(),
+        Err(error) => {
+            crate::engine::logging::warn(error);
+            return false;
+        }
+    };
     match Journal::open(&directory) {
         Ok((journal, interrupted)) => {
             if let Ok(mut slot) = JOURNAL.lock() {
@@ -277,7 +283,10 @@ pub fn show_notice(title: &str, message: &str) {
     let body = format!(
         "{}\n\nDiagnostics: {}\n\nIf reporting this problem, include player.log and player.previous.log. On macOS, the Places report in Console > Crash Reports may explain a native crash.",
         bounded(message),
-        crate::engine::assets::state_path("diagnostics").display()
+        crate::engine::paths::user().map_or_else(
+            |error| error,
+            |paths| paths.diagnostics().display().to_string()
+        )
     );
     let result = sdl3::messagebox::show_simple_message_box(
         sdl3::messagebox::MessageBoxFlag::ERROR,

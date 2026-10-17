@@ -191,16 +191,34 @@ fn import_failure_preserves_destination_and_cleans_only_owned_temporary() -> Res
         !levels.join("map.placesmap.partial-1").exists(),
         "a rejected staged package must be removed"
     );
-    let replacement = write_fixture(&source, "replacement")?;
-    let entry = manager.import_file(&source)?;
-    assert_eq!(
-        entry.id, "replacement",
-        "metadata must describe staged bytes"
+    let _different = write_fixture(&source, "replacement")?;
+    assert!(
+        manager.import_file(&source).is_err(),
+        "a filename collision must not overwrite another map id"
     );
+    assert_eq!(
+        fs::read(&installed).map_err(|error| error.to_string())?,
+        original
+    );
+    let replacement = write_fixture(&source, "original")?;
+    let entry = manager.import_file(&source)?;
+    assert_eq!(entry.id, "original", "metadata must describe staged bytes");
     assert_eq!(
         fs::read(&entry.path).map_err(|error| error.to_string())?,
         replacement,
         "successful publication replaces the entire package"
+    );
+    let duplicate = fixture.path("source")?.join("different-name.placesmap");
+    let _duplicate_bytes = write_fixture(&duplicate, "original")?;
+    assert!(
+        manager.import_file(&duplicate).is_err(),
+        "duplicate ids cannot create hidden rows"
+    );
+    let collision = fixture.path("source")?.join("MAP.placesmap");
+    let _case_bytes = write_fixture(&collision, "other")?;
+    assert!(
+        manager.import_file(&collision).is_err(),
+        "case-folded filenames conflict on every platform"
     );
     fs::remove_file(&installed).map_err(|error| error.to_string())?;
     fs::create_dir(&installed).map_err(|error| error.to_string())?;

@@ -158,6 +158,7 @@ pub struct UiState {
     /// colour it without parsing their own text.
     pub status_is_error: bool,
     pub level_entries: Vec<String>,
+    pub import_directory: String,
     pub current_map: Option<String>,
     pub level_scroll: usize,
     pub settings_scroll: usize,
@@ -221,6 +222,7 @@ fn ui_signature(
     ui_state.status_message.as_deref().hash(&mut hasher);
     ui_state.status_is_error.hash(&mut hasher);
     ui_state.level_entries.hash(&mut hasher);
+    ui_state.import_directory.hash(&mut hasher);
     ui_state.current_map.hash(&mut hasher);
     ui_state.level_scroll.hash(&mut hasher);
     ui_state.settings_scroll.hash(&mut hasher);

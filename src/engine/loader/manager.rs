@@ -40,50 +40,16 @@ pub struct LevelManager {
     texture_cache: RefCell<TextureCache>,
 }
 
-impl Default for LevelManager {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl LevelManager {
-    #[must_use]
-    pub fn new() -> Self {
-        let assets_dir = crate::engine::assets::resolve_asset_root().map_or_else(
-            || PathBuf::from("assets/levels"),
-            |root| root.join("levels"),
-        );
-        let mut manager = Self {
-            assets_dir,
-            levels_dir: crate::engine::assets::state_path("levels"),
-            import_dir: crate::engine::assets::state_path("import"),
-            entries: Vec::new(),
-            prop_catalog: PropCatalog::load_default(),
-            texture_cache: RefCell::new(TextureCache::new()),
-        };
-        manager.ensure_directories();
-        manager.refresh();
-        manager
-    }
-
-    /// Creates the writable directories a fresh install needs.
-    ///
-    /// A first launch must not require the player to construct `levels/` or
-    /// `import/` by hand, and a read-only installation must still boot: a
-    /// failure is reported once and the level list simply comes from the
-    /// shipped `assets/levels/` folder.
-    pub fn ensure_directories(&self) {
-        for dir in [&self.levels_dir, &self.import_dir] {
-            if let Err(error) = fs::create_dir_all(dir) {
-                crate::engine::logging::warn_once(
-                    format!("state-dir:{}", dir.display()),
-                    format!(
-                        "[levels] cannot create {}: {error}; custom levels may be unavailable",
-                        dir.display()
-                    ),
-                );
-            }
-        }
+    /// # Errors
+    /// Returns the shared resource/storage configuration error.
+    pub fn new() -> Result<Self, String> {
+        let paths = crate::engine::paths::user()?;
+        Ok(Self::with_paths(
+            crate::engine::paths::assets()?.join("levels"),
+            paths.levels(),
+            paths.imports(),
+        ))
     }
 
     #[must_use]
@@ -178,10 +144,22 @@ impl LevelManager {
         source_type: LevelSourceType,
         discovered: &mut Vec<LevelEntry>,
     ) {
-        let Ok(read_dir) = fs::read_dir(dir) else {
-            return;
+        let read_dir = match fs::read_dir(dir) {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return,
+            Err(error) => {
+                Self::report_skipped_level(dir, &format!("Cannot read map directory: {error}"));
+                return;
+            }
         };
-        for entry in read_dir.flatten() {
+        for result in read_dir {
+            let entry = match result {
+                Ok(entry) => entry,
+                Err(error) => {
+                    Self::report_skipped_level(dir, &format!("Cannot enumerate maps: {error}"));
+                    continue;
+                }
+            };
             let path = entry.path();
             if Self::is_authoring_source(&path) {
                 // Expected content, not a problem: see `is_authoring_source`.
@@ -237,7 +215,10 @@ impl LevelManager {
     /// Returns the package's load error, or installation guidance when empty.
     pub fn load_default(&self) -> Result<LoadedLevel, String> {
         let entry = self.entries.first().ok_or_else(|| {
-            "No maps installed. Add a .placesmap to levels/ or use Import levels.".to_owned()
+            format!(
+                "No maps installed. Put compiled .placesmap files in {} and choose Import levels.",
+                self.import_dir.display()
+            )
         })?;
         self.load_level(entry)
     }
@@ -400,14 +381,72 @@ impl LevelManager {
         let file_name = source_path
             .file_name()
             .ok_or_else(|| "Invalid file name".to_string())?;
+        let portable_name = file_name.to_str().ok_or("Import file name must be UTF-8")?;
+        let _validated = crate::engine::project::ProjectPath::new(portable_name.to_string())?;
         fs::create_dir_all(&self.levels_dir)
             .map_err(|error| format!("Failed to create levels directory: {error}"))?;
         let target_path = self.levels_dir.join(file_name);
+        for result in fs::read_dir(&self.levels_dir).map_err(|error| error.to_string())? {
+            let candidate = result.map_err(|error| error.to_string())?;
+            if candidate.file_name() != file_name
+                && candidate
+                    .file_name()
+                    .to_str()
+                    .is_some_and(|name| name.eq_ignore_ascii_case(portable_name))
+            {
+                return Err(format!(
+                    "Import name conflicts with {}; rename the source file",
+                    candidate.path().display()
+                ));
+            }
+        }
+        self.refresh();
         // Always stage, including aliases of the installed file: opening an
         // independent temporary never truncates the source's underlying inode.
         // Validation describes the exact bytes published, not an earlier read
         // of a source another process may edit while import is running.
-        let opened = import_package(source_path, &target_path)?;
+        let opened = import_package(source_path, &target_path, |opened| {
+            if let Some(existing) = self.entries.iter().find(|entry| {
+                entry.id.eq_ignore_ascii_case(&opened.level.id) && entry.path != target_path
+            }) {
+                return Err(format!(
+                    "Map id '{}' is already installed at {}; update that file's name instead",
+                    opened.level.id,
+                    existing.path.display()
+                ));
+            }
+            match fs::symlink_metadata(&target_path) {
+                Ok(metadata) => {
+                    if !metadata.file_type().is_file() {
+                        return Err(format!(
+                            "Refusing to replace non-regular import destination {}",
+                            target_path.display()
+                        ));
+                    }
+                    let previous =
+                        crate::engine::package::world::open(&target_path).map_err(|error| {
+                            format!(
+                                "Refusing to replace unreadable map {}: {error}",
+                                target_path.display()
+                            )
+                        })?;
+                    if previous.level.id != opened.level.id {
+                        return Err(format!(
+                            "Refusing to overwrite map '{}' with '{}' at {}; rename the incoming file",
+                            previous.level.id,
+                            opened.level.id,
+                            target_path.display()
+                        ));
+                    }
+                    Ok(())
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                Err(error) => Err(format!(
+                    "Cannot inspect import destination {}: {error}",
+                    target_path.display()
+                )),
+            }
+        })?;
         self.refresh();
         Ok(LevelEntry {
             id: opened.level.id,
@@ -446,10 +485,20 @@ impl LevelManager {
         let nested_import = self.levels_dir.join("import");
         let candidate_dirs = [self.import_dir.clone(), nested_import];
         for dir in &candidate_dirs {
-            let Ok(entries) = fs::read_dir(dir) else {
-                continue;
+            let entries = match fs::read_dir(dir) {
+                Ok(entries) => entries,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(error) => {
+                    return Err(format!(
+                        "Cannot read import directory {}: {error}",
+                        dir.display()
+                    ));
+                }
             };
-            let mut paths: Vec<PathBuf> = entries.flatten().map(|entry| entry.path()).collect();
+            let mut paths: Vec<PathBuf> = entries
+                .map(|result| result.map(|entry| entry.path()))
+                .collect::<Result<_, _>>()
+                .map_err(|error| format!("Cannot enumerate {}: {error}", dir.display()))?;
             paths.sort();
             for path in paths {
                 if crate::engine::package::is_package_path(&path) {
@@ -490,7 +539,11 @@ impl LevelManager {
 }
 
 /// Copies into an exclusively owned sibling and publishes only validated bytes.
-fn import_package(source: &Path, target: &Path) -> Result<OpenedPackage, String> {
+fn import_package(
+    source: &Path,
+    target: &Path,
+    accept: impl FnOnce(&OpenedPackage) -> Result<(), String>,
+) -> Result<OpenedPackage, String> {
     // Reject ordinary named pipes/devices before open, which could otherwise
     // wait for a writer indefinitely. Recheck the opened handle below too.
     let source_metadata = fs::metadata(source)
@@ -522,6 +575,7 @@ fn import_package(source: &Path, target: &Path) -> Result<OpenedPackage, String>
     let (temporary, output) = create_temporary(target)?;
     let staged = stage_import(&mut input, output, &temporary)
         .map_err(|error| cleanup_failed_write(&temporary, error))?;
+    accept(&staged).map_err(|error| cleanup_failed_write(&temporary, error))?;
     drop(input);
     fs::rename(&temporary, target).map_err(|error| {
         cleanup_failed_write(

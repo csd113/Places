@@ -194,13 +194,13 @@ pub fn menu_layout(
         }
         AppState::LevelSelect => {
             let total = ui.level_entries.len();
-            let offset = visible_offset(ui.level_scroll, ui.level_select_idx, total, 6);
+            let offset = visible_offset(ui.level_scroll, ui.level_select_idx, total, 5);
             for (visible, (index, label)) in ui
                 .level_entries
                 .iter()
                 .enumerate()
                 .skip(offset)
-                .take(6)
+                .take(5)
                 .enumerate()
             {
                 layout.rows.push(row(
@@ -215,18 +215,25 @@ pub fn menu_layout(
                 total,
                 "Import levels".to_string(),
                 String::new(),
-                194.0,
+                174.0,
                 18.0,
             ));
             layout.rows.push(row(
                 total.saturating_add(1),
+                "Open Import Folder".to_string(),
+                String::new(),
+                194.0,
+                18.0,
+            ));
+            layout.rows.push(row(
+                total.saturating_add(2),
                 "Back".to_string(),
                 String::new(),
                 214.0,
                 18.0,
             ));
-            if total > 6 {
-                layout.scroll = Some((offset, 6, total));
+            if total > 5 {
+                layout.scroll = Some((offset, 5, total));
             }
         }
         AppState::Settings | AppState::PauseSettings => {
@@ -663,14 +670,20 @@ fn draw_empty_state(vertices: &mut Vec<Vertex>, state: AppState, ui: &UiState) {
         small_line(vertices, "No maps installed.", 108.0, MUTED);
         small_line(
             vertices,
-            "Add .placesmap files to levels/ or import/.",
+            "Copy compiled .placesmap files to Import.",
             124.0,
             MUTED,
         );
         small_line(
             vertices,
-            "Import levels rescans both folders.",
+            "Then choose Import levels to install them.",
             136.0,
+            MUTED,
+        );
+        small_line(
+            vertices,
+            &fit_text(&format!("Import: {}", ui.import_directory), 432.0, 0.7),
+            152.0,
             MUTED,
         );
     } else if state == AppState::MainMenu && ui.level_entries.is_empty() {
@@ -773,7 +786,7 @@ impl UiState {
                 self.level_scroll,
                 self.level_select_idx,
                 self.level_entries.len(),
-                6,
+                5,
             );
         } else if matches!(state, AppState::Settings | AppState::PauseSettings)
             && self.settings_page == SettingsPage::Controls
@@ -794,7 +807,7 @@ impl UiState {
                 &mut self.level_scroll,
                 &mut self.level_select_idx,
                 self.level_entries.len(),
-                6,
+                5,
             )
         } else if matches!(state, AppState::Settings | AppState::PauseSettings)
             && self.settings_page == SettingsPage::Controls

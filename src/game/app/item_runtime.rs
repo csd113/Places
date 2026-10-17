@@ -231,7 +231,10 @@ impl FrameLoop<'_> {
     pub(super) fn capture_item_frame(&mut self) {
         if let Some(name) = self.items.captures.pop_front() {
             self.trace_world(&format!("native_capture:{name}"));
-            let path = crate::engine::assets::state_root().join(format!("{name}.png"));
+            let Ok(paths) = crate::engine::paths::user() else {
+                return;
+            };
+            let path = paths.data.join(format!("{name}.png"));
             super::write_capture(self.renderer, &path);
         }
         if self.items.quit_after_captures && self.items.captures.is_empty() {

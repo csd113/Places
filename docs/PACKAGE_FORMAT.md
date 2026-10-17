@@ -31,7 +31,9 @@ every record. After editing one source, build its output explicitly:
 ```
 
 The player discovers bundled packages in `assets/levels/` and installed packages
-in its writable `levels/` directory. Authored JSON never becomes a playable row.
+in its platform user-data `levels/` directory. Use `places --paths` to inspect
+resolved resource/data/import locations; see [installation and overrides](INSTALLATION.md).
+Authored JSON never becomes a playable row.
 There is no compiled Demo inside the executable: an absent Demo reports the
 explicit build/import action, and installing a valid package restores loading.
 Bundled maps are optional distribution content. A package can ship the player and

@@ -1,16 +1,17 @@
 #!/bin/sh
-# package.sh [--check-destination] [--maps directory] [output-root]
+# package.sh [--check-destination] [--with-compiler] [--maps directory] [output-root]
 #
-# Builds a clean, self-contained Places distribution from a release binary.
+# Stages a clean Places resource payload from a host release binary.
 #
 # Default exports contain no maps. --maps explicitly includes external compiled
 # packages from one directory; it never fetches or compiles map sources.
-# Layout produced (the assets/ + levels/ pair is the whole runtime payload):
+# Resource layout (writable state is created in platform user storage):
 #
 #   <output-root>/Places/
 #       places              the executable (built as `places`)
+#       places-compile      optional --with-compiler, same resource discovery
 #       assets/             catalog, gameplay profiles, levels, models, textures, decals
-#       levels/             drop-in compiled map packages (.placesmap)
+#       docs/INSTALLATION.md
 #       README.md           the project README, for reference
 #       THIRD_PARTY_LICENSES.txt
 #
@@ -29,19 +30,20 @@
 # `--check-destination` runs the destination validation only and exits 0/2; it
 # never creates, deletes or copies anything. The regression suite uses it.
 #
-# The game resolves its asset root from the executable's own location
-# (`$PLACES_ASSET_ROOT`, then the executable's directory and its ancestors,
-# then a macOS bundle's Contents/Resources), so either form runs from any
-# working directory and never reads the source tree.
+# Both executables resolve assets beside themselves or in Contents/Resources.
+# They never depend on the launch directory or write into this payload.
+# This stages host executables/resources, not a signed installer or bundled SDL.
 set -eu
 
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 OUT="$REPO/target/package"
 CHECK_ONLY=0
 MAPS=""
+WITH_COMPILER=0
 while [ $# -gt 0 ]; do
     case "$1" in
     --check-destination) CHECK_ONLY=1 ;;
+    --with-compiler) WITH_COMPILER=1 ;;
     --maps)
         shift
         if [ $# -eq 0 ] || [ -n "$MAPS" ]; then
@@ -149,6 +151,9 @@ if [ ! -x "$BIN" ]; then
     echo "package.sh: $BIN not found; run 'cargo build --release' first" >&2
     exit 1
 fi
+if [ "$WITH_COMPILER" = 1 ]; then
+    [ -x "$REPO/target/release/places-compile" ] || fail "release places-compile not found; build the workspace first"
+fi
 
 if [ -n "$MAPS" ]; then
     [ -d "$MAPS" ] || fail "map directory does not exist: $MAPS"
@@ -173,8 +178,12 @@ mkdir -p "$STAGE/Places" "$STAGE/Places.app/Contents/MacOS" "$STAGE/Places.app/C
 
 # The flat distribution: executable beside its asset root.
 cp "$BIN" "$STAGE/Places/$NAME"
+if [ "$WITH_COMPILER" = 1 ]; then
+    cp "$REPO/target/release/places-compile" "$STAGE/Places/places-compile"
+fi
 cp "$REPO/README.md" "$REPO/THIRD_PARTY_LICENSES.txt" "$STAGE/Places/"
-mkdir -p "$STAGE/Places/assets/levels" "$STAGE/Places/levels"
+mkdir -p "$STAGE/Places/assets/levels" "$STAGE/Places/docs"
+cp "$REPO/docs/INSTALLATION.md" "$STAGE/Places/docs/"
 cp "$REPO/assets/catalog.json" "$REPO/assets/gameplay.json" "$STAGE/Places/assets/"
 # Sound licenses and exact provenance accompany the compact runtime library.
 cp -R "$REPO/assets/audio" "$STAGE/Places/assets/audio"
@@ -191,6 +200,9 @@ fi
 
 # The macOS bundle: the same payload under Contents/Resources.
 cp "$BIN" "$STAGE/Places.app/Contents/MacOS/$NAME"
+if [ "$WITH_COMPILER" = 1 ]; then
+    cp "$REPO/target/release/places-compile" "$STAGE/Places.app/Contents/MacOS/places-compile"
+fi
 cat >"$STAGE/Places.app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -208,7 +220,7 @@ cat >"$STAGE/Places.app/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 cp -R "$STAGE/Places/assets" "$STAGE/Places.app/Contents/Resources/assets"
-mkdir -p "$STAGE/Places.app/Contents/Resources/levels"
+cp -R "$STAGE/Places/docs" "$STAGE/Places.app/Contents/Resources/docs"
 cp "$REPO/README.md" "$REPO/THIRD_PARTY_LICENSES.txt" "$STAGE/Places.app/Contents/Resources/"
 
 # Publish: replace exactly the two owned products, leaving every unrelated

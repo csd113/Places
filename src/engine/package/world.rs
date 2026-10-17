@@ -233,7 +233,7 @@ fn check_catalog_build_input<R: std::io::Read + std::io::Seek>(
         return Err(format!("package '{NAME}' has an invalid catalog SHA-256"));
     }
     let Some(installed_root) = root else {
-        return Ok(());
+        return Err("Package requires installed catalog.json for provenance verification; install the complete payload or set PLACES_ASSET_ROOT".into());
     };
     let actual = crate::engine::package::hash::sha256_file(&installed_root.join("catalog.json"))
         .map_err(|error| format!("package catalog.json could not be verified: {error}"))?;
@@ -252,16 +252,19 @@ fn check_catalog_build_input<R: std::io::Read + std::io::Seek>(
 /// With an installed asset bundle, a declared model or texture must exist with
 /// exactly the recorded size and SHA-256. The digest streams once during this
 /// package-open pass; frame rendering never rehashes assets. A substituted or
-/// resized resource is a load error naming the dependency. A truly asset-less
-/// install has nothing to check against and logs
-/// once instead.
+/// resized resource is a load error naming the dependency. Required external
+/// dependencies cannot be bypassed by running without an asset root.
 fn check_dependencies(manifest: &Manifest, root: Option<&Path>) -> Result<(), String> {
     let Some(installed_root) = root else {
-        crate::engine::logging::warn_once(
-            "package-dependencies-no-root",
-            "[levels] no asset root: package dependency identities cannot be checked",
-        );
-        return Ok(());
+        return if manifest
+            .dependencies
+            .iter()
+            .any(|dependency| dependency.kind != crate::engine::package::DependencyKind::Embedded)
+        {
+            Err("Package requires installed assets for dependency verification; install the complete payload or set PLACES_ASSET_ROOT".into())
+        } else {
+            Ok(())
+        };
     };
     for dependency in &manifest.dependencies {
         if dependency.kind == crate::engine::package::DependencyKind::Embedded {

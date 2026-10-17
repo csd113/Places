@@ -373,7 +373,10 @@ impl Capture {
         {
             return None;
         }
-        let path = crate::engine::assets::state_root().join("native-audio.wav");
+        let path = crate::engine::paths::user()
+            .ok()?
+            .data
+            .join("native-audio.wav");
         let mut file = std::fs::File::create(path).ok()?;
         file.write_all(&[0_u8; 44]).ok()?;
         Some(Self {

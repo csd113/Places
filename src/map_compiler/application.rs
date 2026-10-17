@@ -38,7 +38,7 @@ USAGE:
   places-compile build-project <project> --out <existing-directory>
                        [--asset-root <dir>] [--variants static,full] [--workers N]
                        [--force] [--json] [--progress auto|plain|off]
-  places-compile validate <package> [--json]
+  places-compile validate <package> [--asset-root <dir>] [--json]
   places-compile inspect <package> [--json]
   places-compile export-lighting <package> --out <new-directory>
                        [--variants static,full] [--json]
@@ -322,7 +322,7 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
                 ));
             }
             let asset_root = compiler::resolve_asset_root(options.asset_root.as_deref())?;
-            pin_asset_root(&asset_root);
+            crate::engine::paths::configure_assets(&asset_root)?;
             gui::run(
                 positional
                     .first()
@@ -346,7 +346,7 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
                 )?
             };
             let asset_root = compiler::resolve_asset_root(options.asset_root.as_deref())?;
-            pin_asset_root(&asset_root);
+            crate::engine::paths::configure_assets(&asset_root)?;
             let request = BuildRequest {
                 source: PathBuf::from(source.as_str()),
                 project_level: options.level,
@@ -411,7 +411,7 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
                 CliError::Usage("build-project needs --out <existing-directory>".into())
             })?;
             let asset_root = compiler::resolve_asset_root(options.asset_root.as_deref())?;
-            pin_asset_root(&asset_root);
+            crate::engine::paths::configure_assets(&asset_root)?;
             let template = BuildRequest {
                 source: PathBuf::from(source.as_str()),
                 project_level: None,
@@ -447,7 +447,7 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
                 .first()
                 .ok_or_else(|| CliError::Usage("build-collection needs a directory".to_string()))?;
             let asset_root = compiler::resolve_asset_root(options.asset_root.as_deref())?;
-            pin_asset_root(&asset_root);
+            crate::engine::paths::configure_assets(&asset_root)?;
             let session = Session::start(options.progress)?;
             let collection_result = compiler::build_collection(
                 &PathBuf::from(directory.as_str()),
@@ -497,6 +497,9 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
             Ok(())
         }
         "validate" => {
+            if let Some(root) = options.asset_root.as_deref() {
+                crate::engine::paths::configure_assets(root)?;
+            }
             let package = positional
                 .first()
                 .ok_or_else(|| CliError::Usage("validate needs a package path".to_string()))?;
@@ -587,7 +590,7 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
             let package = option_value(&option_args, "--package")
                 .ok_or_else(|| CliError::Usage("verify needs --package <package>".to_string()))?;
             let asset_root = compiler::resolve_asset_root(options.asset_root.as_deref())?;
-            pin_asset_root(&asset_root);
+            crate::engine::paths::configure_assets(&asset_root)?;
             let report = compiler::verify_selected(
                 &PathBuf::from(source.as_str()),
                 options.level.as_deref(),
@@ -615,22 +618,6 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
             Ok(())
         }
         other => Err(CliError::Usage(format!("unknown command '{other}'"))),
-    }
-}
-
-/// Pins the process-wide asset root so every later resolver in this process
-/// (fixture sheets, the headless renderer's own catalog load) agrees with the
-/// explicitly selected `--asset-root`.
-///
-/// # Safety
-///
-/// Called once at the start of a single-threaded command-line process, before
-/// any engine code has spawned a thread or read the environment.
-fn pin_asset_root(root: &std::path::Path) {
-    // SAFETY: command dispatch calls this before starting workers or engine
-    // code, while the compiler process still has only its main thread.
-    unsafe {
-        std::env::set_var("PLACES_ASSET_ROOT", root);
     }
 }
 

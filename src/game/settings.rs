@@ -1386,9 +1386,10 @@ impl Settings {
     }
 
     /// The path of the persistent settings file inside the runtime state root.
-    #[must_use]
-    pub fn default_path() -> PathBuf {
-        crate::engine::assets::state_path(DEFAULT_SETTINGS_PATH)
+    /// # Errors
+    /// Returns invalid platform storage or override configuration.
+    pub fn default_path() -> Result<PathBuf, String> {
+        Ok(crate::engine::paths::user()?.settings())
     }
 
     /// Loads the persistent settings, reporting a malformed file once.
@@ -1399,9 +1400,10 @@ impl Settings {
     /// the player's data is retained for
     /// inspection, the next save writes a clean file, and the game never
     /// silently overwrites a file it could not understand.
-    #[must_use]
-    pub fn load_or_default() -> Self {
-        Self::load_or_default_reporting(Self::default_path())
+    /// # Errors
+    /// Returns a storage configuration error; malformed settings are preserved.
+    pub fn load_or_default() -> Result<Self, String> {
+        Ok(Self::load_or_default_reporting(Self::default_path()?))
     }
 
     /// [`Self::load_or_default`] against an explicit path, for tests.
@@ -1452,8 +1454,16 @@ impl Settings {
     /// deliberately, so the first documented file the player can edit is
     /// present without having to change a setting first. An existing file —
     /// valid or not — is never overwritten here.
-    pub fn ensure_saved(&self) {
-        self.ensure_saved_to_path(Self::default_path());
+    /// # Errors
+    /// Returns an invalid storage root or first-save failure with its path.
+    pub fn ensure_saved(&self) -> Result<(), String> {
+        let path = Self::default_path()?;
+        if !path.exists() {
+            self.save_to_path(&path).map_err(|error| {
+                format!("Cannot initialize settings {}: {error}", path.display())
+            })?;
+        }
+        Ok(())
     }
 
     /// [`Self::ensure_saved`] against an explicit path, for tests.
@@ -1479,7 +1489,7 @@ impl Settings {
     /// Returns the serialization error or the I/O error from writing
     /// [`DEFAULT_SETTINGS_PATH`] below the state root.
     pub fn save(&self) -> Result<(), std::io::Error> {
-        self.save_to_path(Self::default_path())
+        self.save_to_path(Self::default_path().map_err(std::io::Error::other)?)
     }
 }
 

@@ -1,5 +1,18 @@
 ## 0.12.0 — in progress
 
+- Share explicit installation/user-path resolution across player and compiler:
+  executable-relative immutable assets, platform data/settings/cache locations,
+  authoritative overrides and isolated first-run projects/import folders. The
+  player preserves its launch directory and distinguishes empty maps from
+  missing required resources.
+- Show the resolved import location and Open Import Folder in Explore; add
+  `places --paths` / `--import` and preserve installed maps across launches.
+  Reject conflicting map IDs, portable filename/case collisions and user-folder
+  symlinks into installed resources; stage/validate imports before publication.
+- Keep player-only resource exports map-free by default; `--with-compiler` adds
+  the tool using the same flat/bundle discovery. Include installation guidance
+  and retain licenses. Native installers and Windows/Linux acceptance are later
+  work. See [paths and the stage3 integration boundary](docs/INSTALLATION.md).
 - Add a shared project-folder manifest with stable map IDs, entry-level
   selection, confined source/script/thumbnail references and reserved custom
   asset folders. Built-in assets keep their existing catalog identities.

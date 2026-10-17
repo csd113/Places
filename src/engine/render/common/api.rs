@@ -1039,7 +1039,10 @@ fn dump_lightmaps_if_requested(level: &LevelDef, lightmaps: &LevelLightmaps) {
     } else {
         id
     };
-    let dir = crate::engine::assets::state_path("target/diagnostics/atlases");
+    let Ok(paths) = crate::engine::paths::user() else {
+        return;
+    };
+    let dir = paths.cache.join("diagnostics/atlases");
     for (index, page) in lightmaps.pages.iter().enumerate() {
         let path = dir.join(format!("{level_id}_page{index}.png"));
         if let Err(error) = write_page_png(page, &path) {

@@ -272,6 +272,9 @@ pub struct VerifyReport {
 /// encoded, or the archive cannot be published. A failed build never replaces
 /// an existing package.
 pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
+    // Direct editor/API builds must use the same resource tree as fixture and
+    // renderer consumers, just as compiler CLI builds do.
+    crate::engine::paths::configure_assets(&request.asset_root)?;
     let scope = progress::BuildScope::start(&request.source);
     let result = build_inner(request);
     scope.finish(&result);
@@ -867,18 +870,7 @@ pub fn package_path_for(source: &Path) -> PathBuf {
 ///
 /// Returns an error when no candidate root holds a `catalog.json`.
 pub fn resolve_asset_root(explicit: Option<&Path>) -> Result<PathBuf, String> {
-    if let Some(root) = explicit {
-        if root.join("catalog.json").is_file() {
-            return Ok(root.to_path_buf());
-        }
-        return Err(format!("{} does not hold a catalog.json", root.display()));
-    }
-    let candidate = std::env::var_os("PLACES_ASSET_ROOT")
-        .map(PathBuf::from)
-        .or_else(crate::engine::assets::resolve_asset_root);
-    candidate
-        .filter(|root| root.join("catalog.json").is_file())
-        .ok_or_else(|| "no asset root with a catalog.json was found; pass --asset-root".to_string())
+    crate::engine::paths::PathConfig::from_env()?.resolve_assets(explicit)
 }
 
 /// The compiler's headless capture context: a window-free renderer plus the
@@ -1221,8 +1213,7 @@ fn validate_static_light_off<R: std::io::Read + std::io::Seek>(
 }
 
 fn check_dependencies(manifest: &Manifest, warnings: &mut Vec<String>) {
-    let asset_root =
-        crate::engine::assets::resolve_asset_root().unwrap_or_else(|| PathBuf::from("assets"));
+    let asset_root = crate::engine::paths::assets();
     for dependency in &manifest.dependencies {
         if dependency.kind == DependencyKind::Embedded {
             warnings.push(format!(
@@ -1231,7 +1222,17 @@ fn check_dependencies(manifest: &Manifest, warnings: &mut Vec<String>) {
             ));
             continue;
         }
-        let path = asset_root.join(&dependency.path);
+        let root = match &asset_root {
+            Ok(root) => root,
+            Err(error) => {
+                warnings.push(format!(
+                    "dependency {} cannot resolve: {error}",
+                    dependency.path
+                ));
+                continue;
+            }
+        };
+        let path = root.join(&dependency.path);
         match std::fs::read(&path) {
             Ok(bytes) => {
                 if u64::try_from(bytes.len()).unwrap_or(u64::MAX) != dependency.bytes {

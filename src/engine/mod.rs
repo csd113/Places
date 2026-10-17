@@ -25,6 +25,7 @@ pub mod logging;
 pub mod materials;
 pub mod nav;
 pub mod package;
+pub mod paths;
 pub mod perf;
 pub mod physics;
 pub mod progress;

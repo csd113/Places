@@ -157,10 +157,13 @@ player data. Reuse `engine::assets` resource APIs and the package loader for the
 installation policy; do not infer state storage from `ProjectFolder.root()`.
 `ProjectFolder::open`, `root`, `manifest`, `resolve` and `read_level` are the
 authoring boundaries. No new global environment override was introduced.
-The existing compiler `--asset-root` takes the directory containing
-`catalog.json`; current player `PLACES_ASSET_ROOT` discovery expects a package
-root containing `assets/`. Stage 2 should reconcile that existing discovery
-boundary while keeping authoring paths separate.
+The shared `engine::paths` API now owns installation/user storage. Both compiler
+`--asset-root` and `PLACES_ASSET_ROOT` accept the directory containing
+`catalog.json` (canonical) or the historical parent containing `assets/`.
+Installed resources and platform user folders are separate; launch cwd is
+preserved. See [installation paths and overrides](INSTALLATION.md). Direct
+compiler `build` calls pin `BuildRequest.asset_root` before resource use and
+reject a different already selected process tree.
 
 Stage 3 (editor save/compile/play): retain one `ProjectManifest` plus engine
 `LevelDef` documents, validate them before atomic saves, retain unknown/unsupported
@@ -170,6 +173,10 @@ compiler process/progress APIs. Use `BuildRequest.project_level`,
 Play the resulting ordinary package through the native game's existing import
 and loading path. Source JSON, project manifests and compiled outputs are
 different documents; do not let Save overwrite a compiled package.
+Use `paths::initialize_user()` and `UserPaths::projects()` for the default new
+project location, then retain the user's explicit chosen project root. The
+installed compiler discovers its own resources. `places --import <package>` and
+`places --list-levels` provide the same import/discovery path without a window.
 
 ## Task-1 validation (2026-10-17)
 

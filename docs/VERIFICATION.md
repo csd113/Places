@@ -118,21 +118,29 @@ and implementation constants rather than duplicated dated inventories.
 
 ## Empty installation and external delivery
 
-Zero maps is a supported installation. The menu, Settings, Quit and later package
-discovery must work without inventing a world or a preparation cache.
+Zero maps is a supported installation with a complete resource payload. Missing
+required assets are a separate startup error. The player creates platform user
+storage, not writable directories beside the executable; the cache directory is
+reserved for diagnostics/future cache users and is not a lightmap bake.
 `PLACES_LEVEL` naming a missing map returns to the menu with Explore/import advice.
-A focused real-window acceptance check uses the current release binary:
+Use the explicit native acceptance tool after building and staging a map-free
+`--with-compiler` package:
 
 ```sh
-PLACES_SMOKE_BIN="$PWD/target/release/places" \
-  python3 -m unittest tests.test_compiled_build.CompiledBuildSmokeTests.test_empty_install_shows_menu_and_creates_state
+python3 tools/verify-installation.py --installation /tmp/export/Places \
+  --project local/verification/0.12.0-task1/project \
+  --package local/verification/0.12.0-task1/project/packages/stage1_entry.placesmap \
+  --out local/verification/installation-check
 ```
 
-The test copies only the executable to isolated state, checks capture and no
-world commit, verifies created `levels/`, `import/`, default settings and absence
-of player-created `cache/`, and checks one missing-asset diagnostic. Full compiled
-smoke and wgpu bootstrap suites have additional explicit package/fixture needs;
-`PLACES_SKIP_SMOKE=1` excludes them in source checks. A skip is not native acceptance.
+It copies the payload, isolates state and records direct native captures, import
+and restart discovery, override precedence, read-only installation and unwritable
+storage failures. It uses only the tiny compatible project/package; it never
+bakes a demo or opens a desktop app handler. Existing `cases/` is refused to
+preserve earlier evidence. See [paths and installation](INSTALLATION.md) for
+platform conventions and tool limits. Ordinary unit tests never run this tool;
+`PLACES_SKIP_SMOKE=1` excludes other optional native suites in source checks.
+A skip is not native acceptance.
 
 `sh tools/package.sh OUTPUT_DIRECTORY` exports the map-free player. Explicit
 `--maps PACKAGE_DIRECTORY` includes external packages after validation/discovery

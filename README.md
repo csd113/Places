@@ -68,5 +68,8 @@ The images and walking footage above were captured from the native 0.9.0 game.
 [Developer documentation](docs/DEVELOPMENT.md) · [Changelog](CHANGELOG.md) ·
 [Documentation index](docs/README.md)
 
+[Installation, first launch and map imports](docs/INSTALLATION.md) documents the
+0.12.0 path foundations: optional maps, external resources and writable user data.
+
 Places is open source under the [MIT license](LICENSE).
 [Third-party notices](THIRD_PARTY_LICENSES.txt).
