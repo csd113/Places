@@ -5,12 +5,24 @@
 //! and sharing decoded content within a level and bounded session retention.
 
 use std::collections::{HashMap, HashSet};
-use std::fs;
 use std::io::Cursor;
 use std::path::Path;
 use std::sync::Arc;
 
-use crate::engine::assets::MAX_TEXTURE_DIMENSION;
+use crate::engine::assets::{MAX_TEXTURE_DIMENSION, read_asset_bytes};
+
+#[cfg(test)]
+#[path = "../tests/image_loading.rs"]
+mod tests;
+
+/// Encoded inputs have their own budget: PNG ancillary chunks and compression
+/// can otherwise consume memory before the decoded dimension policy runs.
+const MAX_ENCODED_PNG_BYTES: usize = 32 * 1024 * 1024;
+
+/// Prefetch is optional; leave large catalogs to the serial resolver's resident
+/// byte guard. Ordinary PNGs decode to at most 4 MiB, so workers stage at most
+/// 256 MiB of new pixels before the resolver can charge them to the level.
+const MAX_LEVEL_PREFETCH_IMAGES: usize = 64;
 
 /// Most CPUs one level's catalog-image prefetch may use.
 ///
@@ -212,6 +224,9 @@ fn decode_sky_png(bytes: &[u8]) -> Result<RawImage, String> {
 }
 
 fn decode_png_with_sky_policy(bytes: &[u8], sky: bool) -> Result<RawImage, String> {
+    if bytes.len() > MAX_ENCODED_PNG_BYTES {
+        return Err("encoded PNG exceeds the 32 MiB size limit".into());
+    }
     if !bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
         return Err("not a PNG file (missing signature)".into());
     }
@@ -286,8 +301,8 @@ fn decode_png_with_sky_policy(bytes: &[u8], sky: bool) -> Result<RawImage, Strin
 /// Returns a message when the file cannot be read or [`decode_png`] rejects it.
 pub fn load_png_relative(root: &Path, relative: &str) -> Result<RawImage, String> {
     let path = root.join(relative);
-    let bytes =
-        fs::read(&path).map_err(|error| format!("cannot read `{}`: {error}", path.display()))?;
+    let bytes = read_asset_bytes(&path, MAX_ENCODED_PNG_BYTES)
+        .map_err(|error| format!("cannot read `{}`: {error}", path.display()))?;
     decode_png(&bytes).map_err(|error| format!("`{}`: {error}", path.display()))
 }
 
@@ -297,8 +312,8 @@ pub fn load_png_relative(root: &Path, relative: &str) -> Result<RawImage, String
 /// Returns a message if the file cannot be read or fails sky PNG validation.
 pub fn load_sky_png_relative(root: &Path, relative: &str) -> Result<RawImage, String> {
     let path = root.join(relative);
-    let bytes =
-        fs::read(&path).map_err(|error| format!("cannot read `{}`: {error}", path.display()))?;
+    let bytes = read_asset_bytes(&path, MAX_ENCODED_PNG_BYTES)
+        .map_err(|error| format!("cannot read `{}`: {error}", path.display()))?;
     decode_sky_png(&bytes).map_err(|error| format!("`{}`: {error}", path.display()))
 }
 
@@ -331,10 +346,19 @@ impl TextureCache {
         Self::default()
     }
 
-    /// Bounds optional retention before a new level resolves its images.
-    /// No eviction happens during that level's material/fixture resolution.
+    /// Bounds optional retention between level resolutions. Live worlds keep
+    /// their own shared handles regardless of which cache entries are retired.
     pub fn begin_level(&mut self) {
         self.trim_retained(256, 256 * 1024 * 1024);
+    }
+
+    /// A failed material may have decoded an albedo before a later mask fails.
+    /// Drop speculative images with no world/table owner so repeated failures
+    /// cannot retain every partially resolved asset until the next level.
+    pub(super) fn discard_unused(&mut self) {
+        self.images.retain(|_, image| Arc::strong_count(image) > 1);
+        self.revisions
+            .retain(|_, key| self.images.contains_key(key));
     }
 
     fn trim_retained(&mut self, max_entries: usize, max_bytes: usize) {
@@ -394,7 +418,7 @@ impl TextureCache {
         logical: &str,
     ) -> Result<(Arc<RawImage>, String), String> {
         let path = root.join(relative);
-        let bytes = fs::read(&path)
+        let bytes = read_asset_bytes(&path, MAX_ENCODED_PNG_BYTES)
             .map_err(|error| format!("cannot read `{}`: {error}", path.display()))?;
         self.decode_encoded(logical, &bytes)
             .map_err(|error| format!("`{}`: {error}", path.display()))
@@ -440,12 +464,14 @@ impl TextureCache {
     /// `references` are `(logical key, path relative to `root`)` pairs in
     /// first-use order; duplicate logical keys decode once. Results are
     /// inserted in that order, so the cache state is deterministic regardless
-    /// of which worker finishes first.
+    /// of which worker finishes first. At most 64 distinct keys are staged;
+    /// further images resolve serially under the material residency budget.
     pub fn prefetch_catalog(&mut self, root: &Path, references: &[(String, String)]) {
         let mut seen = HashSet::new();
         let jobs: Vec<&(String, String)> = references
             .iter()
             .filter(|(logical, _)| seen.insert(logical.as_str()))
+            .take(MAX_LEVEL_PREFETCH_IMAGES)
             .collect();
         if jobs.is_empty() {
             return;
@@ -462,14 +488,17 @@ impl TextureCache {
     fn decode_references(&mut self, root: &Path, jobs: &[&(String, String)], workers: usize) {
         if workers <= 1 {
             for (logical, relative) in jobs {
-                if let Ok((key, image)) = decode_relative_image(root, logical, relative) {
+                if let Ok(Some((key, image))) =
+                    decode_relative_image(root, logical, relative, &self.images)
+                {
                     self.insert_prefetched(logical, key, image);
                 }
             }
             return;
         }
         let chunk = jobs.len().div_ceil(workers);
-        let mut decoded: HashMap<&str, Result<(String, RawImage), String>> = HashMap::new();
+        let mut decoded = HashMap::new();
+        let images = &self.images;
         std::thread::scope(|scope| {
             let mut handles = Vec::new();
             for chunk_jobs in jobs.chunks(chunk) {
@@ -479,7 +508,7 @@ impl TextureCache {
                         .map(|(logical, relative)| {
                             (
                                 logical.as_str(),
-                                decode_relative_image(root, logical, relative),
+                                decode_relative_image(root, logical, relative, images),
                             )
                         })
                         .collect::<Vec<_>>()
@@ -495,7 +524,7 @@ impl TextureCache {
             // A worker that panicked leaves its references out; the serial
             // resolver decodes them exactly as it would have without a
             // prefetch.
-            if let Some(Ok((key, image))) = decoded.remove(logical.as_str()) {
+            if let Some(Ok(Some((key, image)))) = decoded.remove(logical.as_str()) {
                 self.insert_prefetched(logical, key, image);
             }
         }
@@ -564,18 +593,23 @@ fn level_decode_workers(jobs: usize) -> usize {
 ///
 /// Returns the content key [`TextureCache::decode_encoded`] computes for the
 /// same bytes, so the prefetched image is found by whichever resolution call
-/// next reads those bytes.
+/// next reads those bytes. A warm content key returns `None` before decoding:
+/// retaining the pixels is useful only if subsequent levels reuse the decode.
 fn decode_relative_image(
     root: &Path,
     logical: &str,
     relative: &str,
-) -> Result<(String, RawImage), String> {
+    images: &HashMap<String, Arc<RawImage>>,
+) -> Result<Option<(String, RawImage)>, String> {
     let path = root.join(relative);
-    let bytes =
-        fs::read(&path).map_err(|error| format!("cannot read `{}`: {error}", path.display()))?;
+    let bytes = read_asset_bytes(&path, MAX_ENCODED_PNG_BYTES)
+        .map_err(|error| format!("cannot read `{}`: {error}", path.display()))?;
     let key = texture_content_key(logical, &bytes);
+    if images.contains_key(&key) {
+        return Ok(None);
+    }
     let image = decode_png(&bytes)?;
-    Ok((key, image))
+    Ok(Some((key, image)))
 }
 
 /// Encoded-content identity shared by CPU decoding and GPU texture lookup.

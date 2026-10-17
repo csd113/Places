@@ -1116,6 +1116,53 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertEqual(snapshot["player_position"][2], 1.0)
 
     @unittest.skipIf(DISPLAY_LOCKED, LOCKED_REASON)
+    def test_replaced_package_cannot_mix_retained_semantics_with_new_lighting(self):
+        # A graphics-only request used to combine the old semantic world with
+        # a newly replaced package's prepared variant. Unlike supersession,
+        # this needs a complete old world followed by a retained-world request.
+        # Two tiny room packages exercise it in seconds, only in explicit
+        # native validation; ordinary Rust/CI checks never bake these fixtures.
+        target = "wgpu_smoke_retained_replace"
+        original = _second_level()
+        original["id"], original["name"] = target, "Retained package control"
+        replacement = _second_level()
+        replacement["id"], replacement["name"] = target, original["name"]
+        replacement["spawn"] = {"x": 1.0, "z": 1.0}
+        replacement["rooms"][0]["width"] = 6.0
+        fixture = os.path.join(SMOKE_ROOT, "retained-replace-fixture")
+        shutil.rmtree(fixture, ignore_errors=True)
+        _write_level(fixture, replacement)
+        with open(os.path.join(fixture, "levels", f"{target}.placesmap"), "rb") as stream:
+            replacement_bytes = stream.read()
+        events, output = self.run_loading_actions(
+            "retained-replace-state", [original], target, [
+                {"after": f"ready:{target}", "delay_ms": 0,
+                 "action": {"kind": "lightmaps", "quality": "off"}},
+                {"after": f"failed:{target}", "delay_ms": 0,
+                 "action": {"kind": "load", "level": target}},
+            ], replace_after_read=(target, replacement_bytes),
+            extra_env={"PLACES_PAUSE": "1"},
+        )
+        failures = [event for event in events if event["event"] == "failed"]
+        self.assertEqual(len(failures), 1, "only the incompatible retained request must fail")
+        self.assertIn("reload the map before changing lighting", failures[0]["detail"])
+        recovered = [json.loads(event["detail"]) for event in events
+                     if event["event"] == "load_recovered"
+                     and event["request"] == failures[0]["request"]]
+        self.assertEqual(len(recovered), 1, "the refused request must finish recovery")
+        self.assertEqual(recovered[0]["player_position"][0], 2.0,
+                         "recovery must retain the complete original world before explicit reload")
+        commits = [json.loads(event["detail"]) for event in events
+                   if event["event"] == "world_committed"]
+        self.assertEqual(len(commits), 2, "a refused graphics request must not commit a mixed world")
+        for snapshot in commits:
+            self.assert_world_snapshot_consistent(snapshot)
+        self.assertEqual(commits[0]["player_position"][0], 2.0)
+        self.assertEqual(commits[1]["player_position"][0], 1.0)
+        self.assertEqual(commits[1]["lightmaps"], "off")
+        self.assert_no_gpu_failure(output)
+
+    @unittest.skipIf(DISPLAY_LOCKED, LOCKED_REASON)
     def test_failed_request_preserves_previous_world_and_allows_retry(self):
         # Requires the failed:<id> action anchor, emitted after recovery state is installed.
         good = _second_level()

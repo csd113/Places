@@ -282,6 +282,16 @@ impl Manifest {
                 ));
             }
             validate_sha256("entry", &entry.name, &entry.sha256)?;
+            if entry.name.starts_with("blobs/") {
+                let content_hash = super::hash::sha256_from_blob_name(&entry.name)
+                    .ok_or_else(|| format!("package blob '{}' has no content hash", entry.name))?;
+                if content_hash != entry.sha256 {
+                    return Err(format!(
+                        "package blob '{}' content hash disagrees with the manifest",
+                        entry.name
+                    ));
+                }
+            }
             if !entry.role.is_empty() && entry.role.len() > 32 {
                 return Err(format!("entry '{}' has an invalid role", entry.name));
             }

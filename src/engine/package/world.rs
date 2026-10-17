@@ -174,10 +174,7 @@ fn open_reader_with_asset_root<R: std::io::Read + std::io::Seek>(
     mut reader: PackageReader<R>,
     root: Option<&Path>,
 ) -> Result<OpenedPackage, String> {
-    let manifest_bytes =
-        reader.read_entry("manifest.json", crate::engine::package::MAX_MANIFEST_BYTES)?;
-    let names = reader.names().to_vec();
-    let manifest = Manifest::from_json(&manifest_bytes, &names)?;
+    let manifest = read_manifest(&mut reader)?;
     let semantics = read_named_entry(
         &mut reader,
         &manifest,
@@ -319,9 +316,29 @@ pub fn inspect(path: &Path) -> Result<Manifest, String> {
     let file = std::fs::File::open(path)
         .map_err(|error| format!("could not open {}: {error}", path.display()))?;
     let mut reader = PackageReader::new(file).map_err(|error| error.to_string())?;
+    read_manifest(&mut reader)
+}
+
+fn read_manifest<R: std::io::Read + std::io::Seek>(
+    reader: &mut PackageReader<R>,
+) -> Result<Manifest, String> {
     let bytes = reader.read_entry("manifest.json", crate::engine::package::MAX_MANIFEST_BYTES)?;
-    let names = reader.names().to_vec();
-    Manifest::from_json(&bytes, &names)
+    let manifest = Manifest::from_json(&bytes, reader.names())?;
+    for entry in &manifest.entries {
+        let indexed_bytes = reader.entry_size(&entry.name)?;
+        if indexed_bytes != entry.bytes {
+            return Err(format!(
+                "package entry '{}' declares {} bytes in the manifest but {indexed_bytes} in the archive",
+                entry.name, entry.bytes
+            ));
+        }
+    }
+    Ok(manifest)
+}
+
+/// Canonical content identity shared by package preparation and its cache key.
+pub(crate) fn manifest_identity(manifest: &Manifest) -> Result<String, String> {
+    Ok(super::hash::sha256_hex(&manifest.to_json()?))
 }
 
 /// Content identity of the package a level entry names.
@@ -340,8 +357,7 @@ pub fn package_identity(entry: &crate::engine::loader::LevelEntry) -> Result<Str
         crate::engine::loader::LevelSourceType::Bundled
         | crate::engine::loader::LevelSourceType::Installed => {
             let manifest = inspect(&entry.path)?;
-            let canonical = manifest.to_json()?;
-            Ok(crate::engine::package::hash::sha256_hex(&canonical))
+            manifest_identity(&manifest)
         }
     }
 }
@@ -386,6 +402,16 @@ fn decode_named_variant<R: std::io::Read + std::io::Seek>(
     quality: LightmapQuality,
     assets: &mut crate::engine::props::PropAssets,
 ) -> Result<LoadedVariant, String> {
+    // Semantics and variants can be read in separate operations. The archive
+    // opened for this operation must still be the one those semantics name;
+    // check before dependency synchronization can mutate the asset cache.
+    let current_manifest = read_manifest(reader)?;
+    if manifest_identity(&current_manifest)? != manifest_identity(manifest)? {
+        return Err(format!(
+            "package '{}' changed while loading; reload the level",
+            manifest.id
+        ));
+    }
     assets.synchronize_dependencies(&manifest.dependencies);
     let name = quality.name();
     let variant = manifest
@@ -456,7 +482,7 @@ fn material_variant_textures<R: std::io::Read + std::io::Seek>(
         None,
         Some(&root),
         &mut crate::engine::materials::TextureCache::new(),
-    );
+    )?;
     for prop in &material_level.props {
         if prop.material_overrides.is_empty() {
             continue;

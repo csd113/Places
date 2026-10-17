@@ -234,12 +234,18 @@ impl PackMaterials {
     /// the pack reuses), with the pack's own alias rules.
     #[must_use]
     pub fn lookup(&self, path: &str) -> Option<Arc<[u8]>> {
+        self.lookup_entry(path).map(|(_, bytes)| Arc::clone(bytes))
+    }
+
+    /// Alias spellings must identify the entry that actually supplied bytes,
+    /// otherwise filename fallback produces duplicate CPU/GPU texture keys.
+    fn lookup_entry(&self, path: &str) -> Option<(&str, &Arc<[u8]>)> {
         let normalized = path.replace('\\', "/");
         let file_name = normalized.rsplit('/').next().unwrap_or(&normalized);
         self.textures
-            .get(&normalized)
-            .or_else(|| self.textures.get(file_name))
-            .map(Arc::clone)
+            .get_key_value(&normalized)
+            .or_else(|| self.textures.get_key_value(file_name))
+            .map(|(key, bytes)| (key.as_str(), bytes))
     }
 
     /// Decodes one pack texture through the session cache.
@@ -248,12 +254,12 @@ impl PackMaterials {
         cache: &mut TextureCache,
         path: &str,
     ) -> Result<(Arc<RawImage>, String), String> {
-        let bytes = self
-            .lookup(path)
+        let (canonical, bytes) = self
+            .lookup_entry(path)
             .ok_or_else(|| format!("`{path}` is not present in the pack"))?;
-        let logical = format!("pack:{}:{}", self.namespace, path.replace('\\', "/"));
+        let logical = format!("pack:{}:{canonical}", self.namespace);
         cache
-            .decode_encoded(&logical, &bytes)
+            .decode_encoded(&logical, bytes)
             .map_err(|error| format!("`{path}`: {error}"))
     }
 
@@ -273,10 +279,11 @@ impl PackMaterials {
     /// The session-unique cache/dedupe key of one pack texture.
     #[must_use]
     pub fn cache_key(&self, path: &str) -> String {
-        let logical = format!("pack:{}:{}", self.namespace, path.replace('\\', "/"));
-        self.lookup(path).map_or_else(
-            || logical.clone(),
-            |bytes| texture_content_key(&logical, &bytes),
+        self.lookup_entry(path).map_or_else(
+            || format!("pack:{}:{}", self.namespace, path.replace('\\', "/")),
+            |(canonical, bytes)| {
+                texture_content_key(&format!("pack:{}:{canonical}", self.namespace), bytes)
+            },
         )
     }
 }

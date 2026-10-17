@@ -15,7 +15,6 @@
 //! draws normally and gets one developer warning naming the budget it breaks.
 
 use std::collections::HashMap;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock, Weak};
 
@@ -202,9 +201,12 @@ impl PropAssets {
             .as_ref()
             .ok_or_else(|| "no asset directory found (expected assets/)".to_string())?;
         let full_path = root.join(model_path);
-        fs::read(&full_path)
-            .map(Arc::from)
-            .map_err(|error| format!("cannot read prop model {}: {error}", full_path.display()))
+        crate::engine::assets::read_asset_bytes(
+            &full_path,
+            crate::engine::gltf::MAX_ENCODED_GLB_BYTES,
+        )
+        .map(Arc::from)
+        .map_err(|error| format!("cannot read prop model {}: {error}", full_path.display()))
     }
 
     /// Creates a cache using the standard asset search order.

@@ -1480,6 +1480,13 @@ impl FrameLoop<'_> {
     fn schedule_graphics_transition(&mut self) {
         // Any explicit schedule is a fresh attempt at the current request.
         self.failed_graphics = None;
+        self.request_renderer_graphics();
+        self.schedule_requested_graphics();
+    }
+
+    /// Publishes the selected configuration after a failed request may have
+    /// restored the renderer's request to its previous resident configuration.
+    fn request_renderer_graphics(&mut self) {
         self.renderer.set_quality(self.settings.quality_level());
         self.renderer
             .set_lighting_quality(self.settings.lighting_quality());
@@ -1491,6 +1498,9 @@ impl FrameLoop<'_> {
             .set_bloom_enabled(self.settings.bloom_enabled());
         self.renderer
             .set_texture_filtering(self.settings.texture_filtering_preset());
+    }
+
+    fn schedule_requested_graphics(&mut self) {
         if self.load_intent.is_none() && self.renderer.apply_frame_graphics() {
             self.trace.record(
                 "settings_applied",
@@ -2930,6 +2940,10 @@ impl FrameLoop<'_> {
                         cache_hit: _,
                         lightmaps: _,
                     } = prepared;
+                    // Recovery can restore the renderer's requested settings
+                    // while the player's selection remains intact. A fresh
+                    // level must stage its records with that current selection.
+                    self.request_renderer_graphics();
                     self.renderer.install_prepared_precompiled(
                         &loaded,
                         build,
@@ -3163,6 +3177,7 @@ impl FrameLoop<'_> {
         self.close_console();
         self.trace.record("gpu_ready", id, &loaded.level.id);
         logging::info(format!("[loading] committed {}", loaded.level.id));
+        self.failed_graphics = None;
         self.load_intent = None;
         if matches!(intent, LoadIntent::Graphics) {
             self.game.set_app_state(self.load_return_state);

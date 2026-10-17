@@ -112,6 +112,18 @@ pub struct CompiledCollision {
 }
 
 impl CompiledCollision {
+    /// Retained heap storage of every collision sampler, including capacity.
+    #[must_use]
+    pub(crate) fn retained_heap_bytes(&self) -> usize {
+        self.walls
+            .capacity()
+            .saturating_mul(std::mem::size_of::<WallAabb>())
+            .saturating_add(self.floor.retained_heap_bytes())
+            .saturating_add(self.ceiling.retained_heap_bytes())
+            .saturating_add(self.water.retained_heap_bytes())
+            .saturating_add(self.ladders.retained_heap_bytes())
+    }
+
     /// Derives the shared static samplers without creating a gameplay runtime.
     #[must_use]
     pub fn from_level(level: &LevelDef) -> Self {

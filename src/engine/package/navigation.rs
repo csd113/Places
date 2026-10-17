@@ -165,6 +165,57 @@ pub struct NavGrid {
 }
 
 impl NavGrid {
+    /// Retained heap storage, including spare capacity and per-class buffers.
+    #[must_use]
+    pub(crate) fn retained_heap_bytes(&self) -> usize {
+        let mut bytes = self
+            .classes
+            .capacity()
+            .saturating_mul(std::mem::size_of::<NavClass>())
+            .saturating_add(
+                self.cell_y
+                    .capacity()
+                    .saturating_mul(std::mem::size_of::<f32>()),
+            )
+            .saturating_add(self.cell_flags.capacity())
+            .saturating_add(
+                self.cell_headroom_cm
+                    .capacity()
+                    .saturating_mul(std::mem::size_of::<u16>()),
+            )
+            .saturating_add(
+                self.cell_portal
+                    .capacity()
+                    .saturating_mul(std::mem::size_of::<u16>()),
+            )
+            .saturating_add(
+                self.portals
+                    .capacity()
+                    .saturating_mul(std::mem::size_of::<NavPortal>()),
+            )
+            .saturating_add(
+                self.walkable
+                    .capacity()
+                    .saturating_mul(std::mem::size_of::<Vec<u8>>()),
+            )
+            .saturating_add(
+                self.region
+                    .capacity()
+                    .saturating_mul(std::mem::size_of::<Vec<u16>>()),
+            );
+        for portal in &self.portals {
+            bytes = bytes.saturating_add(portal.door.capacity());
+        }
+        for mask in &self.walkable {
+            bytes = bytes.saturating_add(mask.capacity());
+        }
+        for labels in &self.region {
+            bytes =
+                bytes.saturating_add(labels.capacity().saturating_mul(std::mem::size_of::<u16>()));
+        }
+        bytes
+    }
+
     /// Number of cells in the grid.
     #[must_use]
     #[expect(

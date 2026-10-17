@@ -92,6 +92,20 @@ introducing it.
    (`src/engine/materials/image.rs::decode_png`). There is no JPEG, WebP, TGA, BMP,
    EXR or KTX path.
 
+   Encoded inputs are bounded before allocation: PNG files at 32 MiB (including
+   skies), self-contained GLB files at 64 MiB, `catalog.json` at 8 MiB and
+   `gameplay.json` at 1 MiB. The regular-file readers check both metadata and
+   the bytes actually read; growth during reading cannot bypass the bound.
+   GLBs require an exact container length, one first JSON chunk, at most one
+   BIN chunk, and one local buffer with matching declared length (allowing up
+   to three alignment bytes). Existing decoded dimensions, mesh budgets, UV,
+   alpha and orientation contracts still apply inside these encoded bounds.
+   Material resolution checks the existing 1 GiB decoded level-image budget
+   incrementally; fixture sheets share that budget and count shared image Arcs
+   once. Optional catalog prefetch stages at most 64 images (256 MiB decoded).
+   Completed or failed level loads trim optional CPU image retention to the
+   existing 256-entry / 256 MiB limit; active worlds retain their own images.
+
 4. **Aspect ratio and source resolution are separate concepts.**
    *The aspect ratio* is the shape and UV layout the engine or the model
    expects (for example `2:1`, `1:1`, `model-defined`, `arbitrary`). *The

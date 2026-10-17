@@ -73,6 +73,17 @@ impl<R: Read + Seek> PackageReader<R> {
             .is_ok()
     }
 
+    /// The ZIP index's uncompressed size, without decoding the entry.
+    ///
+    /// # Errors
+    /// Returns an error when the entry cannot be opened.
+    pub(crate) fn entry_size(&mut self, name: &str) -> Result<u64, String> {
+        self.archive
+            .by_name(name)
+            .map(|entry| entry.size())
+            .map_err(|error| format!("package entry '{name}' is missing: {error}"))
+    }
+
     /// Reads one entry with a hard decompression cap.
     ///
     /// The declared uncompressed size is attacker-controlled and is only used
@@ -101,6 +112,11 @@ impl<R: Read + Seek> PackageReader<R> {
         if u64::try_from(read).unwrap_or(u64::MAX) > limit {
             return Err(format!(
                 "package entry '{name}' exceeds the {limit}-byte limit"
+            ));
+        }
+        if u64::try_from(read).unwrap_or(u64::MAX) != declared {
+            return Err(format!(
+                "package entry '{name}' declares {declared} bytes but decompressed {read}"
             ));
         }
         Ok(bytes)
@@ -408,7 +424,7 @@ pub(crate) fn write_archive_checked(
 
 /// Retains the original failure and reports an owned temporary that could not
 /// be removed. Missing temporaries require no cleanup.
-fn cleanup_failed_write(path: &Path, error: String) -> String {
+pub(crate) fn cleanup_failed_write(path: &Path, error: String) -> String {
     if let Err(cleanup_error) = std::fs::remove_file(path)
         && cleanup_error.kind() != std::io::ErrorKind::NotFound
     {
@@ -468,7 +484,7 @@ fn temporary_path(path: &Path, attempt: u8) -> PathBuf {
 }
 
 /// Skips existing interrupted artifacts without modifying files we do not own.
-fn create_temporary(path: &Path) -> Result<(PathBuf, std::fs::File), String> {
+pub(crate) fn create_temporary(path: &Path) -> Result<(PathBuf, std::fs::File), String> {
     for attempt in 0_u8..16 {
         let temporary = temporary_path(path, attempt);
         match std::fs::OpenOptions::new()

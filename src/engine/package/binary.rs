@@ -192,6 +192,29 @@ impl<'a> Reader<'a> {
         self.remaining() == 0
     }
 
+    /// Checks that a counted collection can fit before reserving its storage.
+    ///
+    /// `minimum_width` includes only bytes every encoded item must carry; any
+    /// optional or variable-length payload is checked by the item's reader.
+    pub(crate) fn require_items(
+        &self,
+        count: usize,
+        minimum_width: usize,
+        what: &str,
+    ) -> Result<(), String> {
+        let minimum_bytes = count
+            .checked_mul(minimum_width)
+            .ok_or_else(|| format!("{what} encoded size overflows"))?;
+        if minimum_bytes > self.remaining() {
+            return Err(format!(
+                "{what} declares {count} entries requiring at least {minimum_bytes} bytes, \
+                 but only {} remain",
+                self.remaining()
+            ));
+        }
+        Ok(())
+    }
+
     /// Reads exactly `length` bytes.
     ///
     /// # Errors

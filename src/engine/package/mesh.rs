@@ -131,11 +131,24 @@ pub fn read_mesh(bytes: &[u8]) -> Result<LevelMesh, String> {
              (limits {MAX_MESH_VERTICES}/{MAX_MESH_INDICES})"
         ));
     }
+    // Every range needs one vertex plus its fixed headers. Prove that these
+    // bytes exist before an untrusted count reserves a large range vector.
+    let vertex_width = if version >= 3 { 81_usize } else { 69 };
+    reader.require_items(
+        range_count,
+        vertex_width.saturating_add(38),
+        "mesh range count",
+    )?;
     let mut ranges = Vec::with_capacity(range_count);
     let mut vertices = 0_u64;
     let mut indices = 0_u64;
     for _ in 0..range_count {
-        let range = read_range(&mut reader, declared_vertices, declared_indices, version)?;
+        let range = read_range(
+            &mut reader,
+            declared_vertices.saturating_sub(vertices),
+            declared_indices.saturating_sub(indices),
+            version,
+        )?;
         vertices = vertices.saturating_add(u64::try_from(range.vertices.len()).unwrap_or(u64::MAX));
         indices = indices.saturating_add(u64::try_from(range.indices.len()).unwrap_or(u64::MAX));
         ranges.push(range);
@@ -263,7 +276,9 @@ fn read_range(
     }
     let range_vertex_count = usize::try_from(vertex_count)
         .map_err(|error| format!("mesh range vertex count is too large: {error}"))?;
-    let mut vertices = Vec::with_capacity(range_vertex_count.min(4096));
+    let vertex_width = if version >= 3 { 81_usize } else { 69 };
+    reader.require_items(range_vertex_count, vertex_width, "mesh range vertex count")?;
+    let mut vertices = Vec::with_capacity(range_vertex_count);
     for _ in 0..range_vertex_count {
         vertices.push(read_vertex(reader, version >= 3)?);
     }

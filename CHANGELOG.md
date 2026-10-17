@@ -1,5 +1,23 @@
 ## 0.11.0 — 2026-10-16
 
+### Asset/map loading and resource ownership
+
+- Bind loaded semantics, prepared variants and retained graphics transitions to
+  one canonical package identity; reject replacements before mixed worlds can
+  enter the prepared cache or GPU installation.
+- Validate manifest lengths and content-addressed blob declarations, and reject
+  impossible mesh/prop counts before reserving collections. Bound encoded PNG,
+  GLB and catalog reads; validate self-contained GLB containers before decoding.
+- Reuse decoded PNGs during warm prefetch, share pack texture aliases, reject
+  excessive image residency during resolution, and account for retained
+  collision, navigation and probe allocations in the prepared-world cache budget.
+- Move installed-level ownership into `engine/loader/manager.rs`. Import through
+  an exclusively owned, validated temporary before atomic publication, preserving
+  installed maps on failure and safely handling aliases of an installed file.
+- Add focused CPU boundary/import regressions and explicit native coverage for
+  retained lighting after package replacement. See
+  [the loading/resource report](docs/reports/loading-0.11.0.md) for evidence and limits.
+
 Development staging; this version has not been published.
 
 ### Source-aware water caustics

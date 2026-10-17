@@ -9291,6 +9291,34 @@ enum StairSampling {
 }
 
 impl WalkableFloor {
+    /// Retained room and nested surface storage for the prepared-world cache.
+    #[must_use]
+    pub(crate) fn retained_heap_bytes(&self) -> usize {
+        self.rooms.iter().fold(
+            self.rooms
+                .capacity()
+                .saturating_mul(std::mem::size_of::<WalkableRoom>()),
+            |bytes, room| {
+                bytes
+                    .saturating_add(
+                        room.ramps
+                            .capacity()
+                            .saturating_mul(std::mem::size_of::<WalkableRamp>()),
+                    )
+                    .saturating_add(
+                        room.stairs
+                            .capacity()
+                            .saturating_mul(std::mem::size_of::<WalkableStair>()),
+                    )
+                    .saturating_add(
+                        room.regions
+                            .capacity()
+                            .saturating_mul(std::mem::size_of::<WalkableRegion>()),
+                    )
+            },
+        )
+    }
+
     /// Builds the walkable surface model for a level.
     #[must_use]
     pub fn from_level(level: &LevelDef) -> Self {
@@ -9995,6 +10023,14 @@ pub struct WalkableCeiling {
 }
 
 impl WalkableCeiling {
+    /// Retained room storage for the prepared-world cache.
+    #[must_use]
+    pub(crate) const fn retained_heap_bytes(&self) -> usize {
+        self.rooms
+            .capacity()
+            .saturating_mul(std::mem::size_of::<WalkableCeilingRoom>())
+    }
+
     /// Builds the ceiling model for a level.
     #[must_use]
     pub fn from_level(level: &LevelDef) -> Self {
@@ -10406,6 +10442,19 @@ const WATER_CIRCLE_SAMPLES: [(f32, f32); 5] = [
 ];
 
 impl WaterVolumes {
+    /// Retained volume and material-id storage for the prepared-world cache.
+    #[must_use]
+    pub(crate) fn retained_heap_bytes(&self) -> usize {
+        self.volumes.iter().fold(
+            self.volumes
+                .capacity()
+                .saturating_mul(std::mem::size_of::<WaterVolume>()),
+            |bytes, volume| {
+                bytes.saturating_add(volume.material.as_ref().map_or(0, String::capacity))
+            },
+        )
+    }
+
     /// An empty set: every query misses.
     #[must_use]
     pub const fn new() -> Self {
@@ -10815,6 +10864,14 @@ pub struct Ladders {
 }
 
 impl Ladders {
+    /// Retained ladder storage for the prepared-world cache.
+    #[must_use]
+    pub(crate) const fn retained_heap_bytes(&self) -> usize {
+        self.ladders
+            .capacity()
+            .saturating_mul(std::mem::size_of::<Ladder>())
+    }
+
     /// An empty set: every query misses.
     #[must_use]
     pub const fn new() -> Self {

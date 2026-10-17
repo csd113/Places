@@ -489,6 +489,10 @@ pub fn read_props(bytes: &[u8]) -> Result<Vec<PropMeshBatch>, String> {
         u64::try_from(MAX_PROP_BATCHES).unwrap_or(u64::MAX),
         "prop batch count",
     )?;
+    // Even the oldest accepted batch needs its fixed header, nonempty model
+    // path, one literal vertex and the index count. Reject impossible counts
+    // before allocating their much larger in-memory batch records.
+    reader.require_items(count, 110, "prop batch count")?;
     let mut budget = LogicalPropsBudget::new();
     let mut batches = Vec::with_capacity(count);
     for _ in 0..count {

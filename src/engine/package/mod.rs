@@ -45,7 +45,7 @@
 //!
 //! The writer lives in the same module tree so the compiler and the player can
 //! never drift: the writer produces exactly what the reader accepts, and both
-//! are covered by the malformed-input suite in `src/package/tests.rs`.
+//! share the validation boundaries exercised in `src/engine/tests/package_loading.rs`.
 
 pub mod archive;
 pub mod binary;
@@ -156,10 +156,9 @@ pub const MAX_MESH_INDICES: u64 = 6 * MAX_MESH_VERTICES;
 /// material the level format would have refused. The sentinel
 /// [`crate::engine::render::MATERIAL_NONE`] is always accepted.
 ///
-/// The literal is kept in sync with [`crate::engine::level::MAX_LEVEL_MATERIALS`] by
-/// `src/package/tests.rs::the_mesh_material_budget_mirrors_the_level_budget`:
-/// `TryFrom` is not const-stable, so the equality cannot be expressed in the
-/// constant itself.
+/// Keep this literal aligned with [`crate::engine::level::MAX_LEVEL_MATERIALS`]:
+/// `TryFrom` is not const-stable, so the checked conversion cannot be expressed
+/// in the constant itself.
 pub const MAX_MESH_MATERIALS: u32 = 131_072;
 
 /// Largest accepted number of mesh ranges.

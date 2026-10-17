@@ -51,8 +51,17 @@ use crate::engine::level::{
     MAX_PROP_MATERIALS, MAX_PROP_MORPH_TARGETS, MAX_PROP_MORPH_TARGETS_PER_MODEL,
     MAX_PROP_PRIMITIVES, MAX_PROP_TEXTURE_SIZE, MAX_PROP_TRIANGLES, MAX_PROP_VERTICES,
 };
-use crate::engine::loader::RawImage;
-use crate::engine::materials::{AlphaMode, DEFAULT_ALPHA_CUTOFF, MaterialAlpha, MaterialEmission};
+use crate::engine::materials::{
+    AlphaMode, DEFAULT_ALPHA_CUTOFF, MaterialAlpha, MaterialEmission, RawImage,
+};
+
+#[cfg(test)]
+#[path = "tests/gltf_loading.rs"]
+mod tests;
+
+/// Conservative encoded model ceiling, checked before file reads and parsing.
+/// Geometry, image and animation policies still apply inside this envelope.
+pub(crate) const MAX_ENCODED_GLB_BYTES: usize = 64 * 1024 * 1024;
 
 const GLB_MAGIC: u32 = 0x4654_6C67;
 const CHUNK_JSON: u32 = 0x4E4F_534A;
@@ -479,13 +488,13 @@ fn parse_glb_with_limits(
 ) -> Result<PropModel, GltfError> {
     let (json, binary) = parse_container(bytes)?;
     let materials = validate_document_root(&json)?;
-    let mut doc = Doc::new(&json, &binary, materials, triangle_limit)?;
+    let mut doc = Doc::new(&json, binary, materials, triangle_limit)?;
     for root in scene_roots(&json)? {
         doc.traverse_node(root, Mat4::IDENTITY, &mut Vec::new())?;
     }
     doc.finish_morphs();
     let triangles = validate_mesh(&doc.vertices, &doc.indices, uv_max, triangle_limit)?;
-    let animations = parse_animations(&json, &binary)?;
+    let animations = parse_animations(&json, binary)?;
     // Joint and weight arrays are parallel to `vertices`. A rigged document
     // that binds nothing to a node has nothing for the character path to
     // claim, so its placeholder entries are dropped. A rigid animated model
@@ -1124,15 +1133,14 @@ impl<'a> Doc<'a> {
         primitive: &serde_json::Value,
         request: &PrimitiveRequest<'_>,
     ) -> Result<usize, GltfError> {
-        let mode = primitive
-            .get("mode")
-            .and_then(json_u32)
-            .unwrap_or(MODE_TRIANGLES);
-        if mode != MODE_TRIANGLES {
-            return Err(GltfError::new(format!(
-                "primitive mode {mode} is not TRIANGLES (4)"
-            )));
-        }
+        validate_primitive_mode(primitive)?;
+        validate_primitive_counts(
+            self.json,
+            primitive,
+            self.triangle_limit
+                .saturating_mul(3)
+                .saturating_sub(self.indices.len()),
+        )?;
         let attributes = read_attributes(
             self.json,
             self.binary,
@@ -2229,7 +2237,6 @@ fn parse_animation_channel(
     if output_view.component_type != COMPONENT_FLOAT {
         return Err(GltfError::new("animation sampler values must be float32"));
     }
-    let raw_values = read_vec(json, binary, output_accessor, element_width)?;
     let tuples_per_key = match interpolation {
         AnimationInterpolation::CubicSpline => 3,
         AnimationInterpolation::Linear | AnimationInterpolation::Step => 1,
@@ -2241,13 +2248,14 @@ fn parse_animation_channel(
             1
         },
     );
-    if raw_values.len() != rows_per_key {
+    if output_view.count != rows_per_key {
         return Err(GltfError::new(format!(
             "animation sampler has {} keyframes and {} value rows, expected {rows_per_key}",
             times.len(),
-            raw_values.len()
+            output_view.count
         )));
     }
+    let raw_values = read_vec(json, binary, output_accessor, element_width)?;
     let values = flatten_animation_values(&raw_values, values_per_key)?;
     Ok(PropAnimationChannel {
         node: u16::try_from(node).map_err(|error| {
@@ -2495,7 +2503,7 @@ fn read_attributes(
             "POSITION, JOINTS_0 and WEIGHTS_0 attribute counts differ",
         ));
     }
-    let targets = read_morph_targets(json, binary, primitive, mesh_index)?;
+    let targets = read_morph_targets(json, binary, primitive, positions.len())?;
     let mut defaults: Vec<f32> = match primitive.get("weights") {
         Some(values) => values
             .as_array()
@@ -2576,7 +2584,7 @@ fn read_morph_targets(
     json: &serde_json::Value,
     binary: &[u8],
     primitive: &serde_json::Value,
-    mesh_index: usize,
+    vertex_count: usize,
 ) -> Result<Vec<PropMorphTarget>, GltfError> {
     let Some(list) = primitive.get("targets").and_then(|value| value.as_array()) else {
         return Ok(Vec::new());
@@ -2587,19 +2595,6 @@ fn read_morph_targets(
             list.len()
         )));
     }
-    let vertex_count = read_vec(
-        json,
-        binary,
-        attribute(
-            primitive
-                .get("attributes")
-                .and_then(|value| value.as_object())
-                .ok_or_else(|| GltfError::new("primitive has no attributes"))?,
-            "POSITION",
-        )?,
-        3,
-    )?
-    .len();
     let mut targets = Vec::with_capacity(list.len());
     for target in list {
         let Some(object) = target.as_object() else {
@@ -2670,8 +2665,77 @@ fn read_morph_targets(
             tangent: convert_tangent(tangent)?,
         });
     }
-    let _ = mesh_index;
     Ok(targets)
+}
+
+/// Applies existing mesh ceilings to accessor metadata before any component
+/// vectors are allocated. Invalid or absent metadata is diagnosed by the
+/// ordinary accessor reader; only a declared over-budget count is handled here.
+fn validate_primitive_counts(
+    json: &serde_json::Value,
+    primitive: &serde_json::Value,
+    remaining_indices: usize,
+) -> Result<(), GltfError> {
+    let check = |value: &serde_json::Value, limit: usize, description: &str| {
+        let declared_count = json_usize(value)
+            .and_then(|index| json.get("accessors")?.as_array()?.get(index))
+            .and_then(|accessor| accessor.get("count"))
+            .and_then(json_usize);
+        if let Some(count) = declared_count
+            && count > limit
+        {
+            return Err(GltfError::new(format!(
+                "{description} declares {count} elements; the remaining engine ceiling is {limit}"
+            )));
+        }
+        Ok(())
+    };
+    if let Some(attributes) = primitive
+        .get("attributes")
+        .and_then(serde_json::Value::as_object)
+    {
+        for name in [
+            "POSITION",
+            "TEXCOORD_0",
+            "COLOR_0",
+            "NORMAL",
+            "JOINTS_0",
+            "WEIGHTS_0",
+        ] {
+            if let Some(value) = attributes.get(name) {
+                check(value, MAX_PROP_VERTICES, name)?;
+            }
+        }
+    }
+    if let Some(targets) = primitive
+        .get("targets")
+        .and_then(serde_json::Value::as_array)
+    {
+        for target in targets {
+            for name in ["POSITION", "NORMAL", "TANGENT"] {
+                if let Some(value) = target.get(name) {
+                    check(value, MAX_PROP_VERTICES, "morph attribute")?;
+                }
+            }
+        }
+    }
+    if let Some(value) = primitive.get("indices") {
+        check(value, remaining_indices, "triangle indices")?;
+    }
+    Ok(())
+}
+
+fn validate_primitive_mode(primitive: &serde_json::Value) -> Result<(), GltfError> {
+    let mode = primitive
+        .get("mode")
+        .and_then(json_u32)
+        .unwrap_or(MODE_TRIANGLES);
+    if mode != MODE_TRIANGLES {
+        return Err(GltfError::new(format!(
+            "primitive mode {mode} is not TRIANGLES (4)"
+        )));
+    }
+    Ok(())
 }
 
 /// Reads `JOINTS_0`: four unsigned byte or unsigned short joint slots per
@@ -3368,7 +3432,11 @@ fn buffer_view<'a>(
     let view = views
         .get(index)
         .ok_or_else(|| GltfError::new(format!("{what} bufferView {index} does not exist")))?;
-    let offset = view.get("byteOffset").and_then(json_usize).unwrap_or(0);
+    let offset = json_byte_field(
+        view.get("byteOffset"),
+        &format!("{what} bufferView {index} byteOffset"),
+    )?
+    .unwrap_or(0);
     let length = view
         .get("byteLength")
         .and_then(json_usize)
@@ -3454,7 +3522,10 @@ fn validate_mesh(
     Ok(triangles)
 }
 
-fn parse_container(bytes: &[u8]) -> Result<(serde_json::Value, Vec<u8>), GltfError> {
+fn parse_container(bytes: &[u8]) -> Result<(serde_json::Value, &[u8]), GltfError> {
+    if bytes.len() > MAX_ENCODED_GLB_BYTES {
+        return Err(GltfError::new("encoded GLB exceeds the 64 MiB size limit"));
+    }
     if bytes.len() < 12 {
         return Err(GltfError::new("file is too small to be a GLB"));
     }
@@ -3475,17 +3546,22 @@ fn parse_container(bytes: &[u8]) -> Result<(serde_json::Value, Vec<u8>), GltfErr
             "unsupported glTF container version {version}; only glTF 2.0 is supported"
         )));
     }
-    if declared_length > bytes.len() {
-        return Err(GltfError::new("GLB header length exceeds the file size"));
+    if declared_length != bytes.len() {
+        return Err(GltfError::new(
+            "GLB header length does not match the file size",
+        ));
     }
 
     let mut offset: usize = 12;
     let mut json: Option<serde_json::Value> = None;
-    let mut binary: Vec<u8> = Vec::new();
-    while offset
-        .checked_add(8)
-        .is_some_and(|header_end| header_end <= declared_length)
-    {
+    let mut binary = None;
+    while offset < declared_length {
+        if offset
+            .checked_add(8)
+            .is_none_or(|header_end| header_end > declared_length)
+        {
+            return Err(GltfError::new("GLB chunk header is truncated"));
+        }
         let length = usize::try_from(read_u32_le(bytes, offset)?).map_err(|error| {
             GltfError::new(format!(
                 "GLB chunk length does not fit this target: {error}"
@@ -3495,6 +3571,14 @@ fn parse_container(bytes: &[u8]) -> Result<(serde_json::Value, Vec<u8>), GltfErr
             .checked_add(4)
             .ok_or_else(|| GltfError::new("GLB chunk offset overflows"))?;
         let kind = read_u32_le(bytes, kind_offset)?;
+        if offset == 12 && kind != CHUNK_JSON {
+            return Err(GltfError::new("the first GLB chunk must be JSON"));
+        }
+        if !length.is_multiple_of(4) {
+            return Err(GltfError::new(
+                "GLB chunk length is not aligned to four bytes",
+            ));
+        }
         let start = offset
             .checked_add(8)
             .ok_or_else(|| GltfError::new("GLB chunk offset overflows"))?;
@@ -3506,6 +3590,9 @@ fn parse_container(bytes: &[u8]) -> Result<(serde_json::Value, Vec<u8>), GltfErr
         }
         match kind {
             CHUNK_JSON => {
+                if json.is_some() {
+                    return Err(GltfError::new("GLB has more than one JSON chunk"));
+                }
                 let text = std::str::from_utf8(
                     bytes
                         .get(start..end)
@@ -3520,10 +3607,14 @@ fn parse_container(bytes: &[u8]) -> Result<(serde_json::Value, Vec<u8>), GltfErr
                 json = Some(value);
             }
             CHUNK_BIN => {
-                binary = bytes
-                    .get(start..end)
-                    .ok_or_else(|| GltfError::new("GLB chunk is truncated"))?
-                    .to_vec();
+                if binary.is_some() {
+                    return Err(GltfError::new("GLB has more than one binary chunk"));
+                }
+                binary = Some(
+                    bytes
+                        .get(start..end)
+                        .ok_or_else(|| GltfError::new("GLB chunk is truncated"))?,
+                );
             }
             _ => {}
         }
@@ -3531,7 +3622,59 @@ fn parse_container(bytes: &[u8]) -> Result<(serde_json::Value, Vec<u8>), GltfErr
     }
 
     let json_chunk = json.ok_or_else(|| GltfError::new("GLB has no JSON chunk"))?;
-    Ok((json_chunk, binary))
+    let payload = validate_binary_buffer(&json_chunk, binary.unwrap_or_default())?;
+    Ok((json_chunk, payload))
+}
+
+/// Only the GLB's one local buffer is available to every view. Restrict reads
+/// to its declared length, excluding the container's optional alignment bytes.
+fn validate_binary_buffer<'a>(
+    json: &serde_json::Value,
+    binary: &'a [u8],
+) -> Result<&'a [u8], GltfError> {
+    let buffers = json
+        .get("buffers")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| GltfError::new("self-contained GLB has no buffers array"))?;
+    let [buffer] = buffers.as_slice() else {
+        return Err(GltfError::new(
+            "self-contained GLB must declare exactly one buffer",
+        ));
+    };
+    if buffer.get("uri").is_some() {
+        return Err(GltfError::new(
+            "external or data-URI buffers are not supported",
+        ));
+    }
+    let length = buffer
+        .get("byteLength")
+        .and_then(json_usize)
+        .filter(|length| *length > 0)
+        .ok_or_else(|| GltfError::new("GLB buffer has no positive byteLength"))?;
+    if binary
+        .len()
+        .checked_sub(length)
+        .is_none_or(|padding| padding > 3)
+    {
+        return Err(GltfError::new(
+            "GLB binary chunk does not match buffer byteLength",
+        ));
+    }
+    if let Some(views) = json
+        .get("bufferViews")
+        .and_then(serde_json::Value::as_array)
+    {
+        for view in views {
+            if view.get("buffer").and_then(json_usize) != Some(0) {
+                return Err(GltfError::new(
+                    "bufferView must reference the GLB's local buffer 0",
+                ));
+            }
+        }
+    }
+    binary
+        .get(..length)
+        .ok_or_else(|| GltfError::new("GLB buffer is truncated"))
 }
 
 /// Reads `N` bytes at `offset` as a fixed-size array.

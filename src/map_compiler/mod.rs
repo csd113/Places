@@ -886,7 +886,7 @@ fn resolve_build_materials(
         None,
         Some(asset_root),
         &mut TextureCache::new(),
-    );
+    )?;
     crate::engine::materials::check_texture_budget(&materials)
         .map_err(|error| format!("level `{}`: {error}", level.id))?;
     Ok(materials)
@@ -905,8 +905,10 @@ impl CaptureContext {
             catalog.assets(),
             None,
             &mut texture_cache,
-        );
+            &materials,
+        )?;
         let loaded = crate::engine::loader::LoadedLevel {
+            package_identity: None,
             catalog: Arc::new(catalog.clone()),
             level: level.clone(),
             materials,

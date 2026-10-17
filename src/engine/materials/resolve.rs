@@ -19,6 +19,10 @@ use super::{
     MaterialAlpha, MaterialEmission, MaterialReflection, MaterialResponse, ReflectionMode,
 };
 
+#[cfg(test)]
+#[path = "../tests/material_loading.rs"]
+mod tests;
+
 /// Where a resolved texture came from; also its GPU lifetime.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TextureOrigin {
@@ -249,10 +253,13 @@ impl MaterialTable {
 /// Returns the named rejection when `bytes` exceeds
 /// [`crate::engine::level::MAX_LEVEL_TEXTURE_BYTES`].
 pub fn check_texture_bytes(bytes: usize) -> Result<(), String> {
-    if bytes > crate::engine::level::MAX_LEVEL_TEXTURE_BYTES {
+    check_texture_bytes_with_budget(bytes, crate::engine::level::MAX_LEVEL_TEXTURE_BYTES)
+}
+
+fn check_texture_bytes_with_budget(bytes: usize, max_bytes: usize) -> Result<(), String> {
+    if bytes > max_bytes {
         return Err(format!(
-            "Level references too many decoded texture bytes: {bytes} (limit {})",
-            crate::engine::level::MAX_LEVEL_TEXTURE_BYTES
+            "Level references too many decoded texture bytes: {bytes} (limit {max_bytes})"
         ));
     }
     Ok(())
@@ -270,8 +277,8 @@ pub fn check_texture_bytes(bytes: usize) -> Result<(), String> {
 /// [`crate::engine::level::MAX_LEVEL_TEXTURE_BYTES`] is refused by name rather than
 /// decoded into an unbounded resident set.
 ///
-/// It runs after resolution (the decoded sizes only exist then) and before any
-/// GPU upload: the loader checks the table it is about to hand the renderer.
+/// Resolution charges newly interned pixels incrementally. This final guard
+/// also checks complete tables before the loader hands them to the renderer.
 ///
 /// # Errors
 ///
@@ -989,14 +996,35 @@ fn catalog_image_references(
 /// through the same cache and interned into the texture table, so two
 /// materials that share a mask upload one GPU texture. Unresolvable materials
 /// keep a context-rich error on their entry and share one diagnostic texture.
-#[must_use]
+///
+/// # Errors
+/// Returns the existing aggregate decoded-texture rejection as soon as newly
+/// interned pixels cross the level's resident byte budget.
 pub fn resolve_materials(
     level: &LevelDef,
     catalog: &AssetCatalog,
     pack: Option<&PackMaterials>,
     asset_root: Option<&Path>,
     cache: &mut TextureCache,
-) -> MaterialTable {
+) -> Result<MaterialTable, String> {
+    resolve_materials_with_budget(
+        level,
+        catalog,
+        pack,
+        asset_root,
+        cache,
+        crate::engine::level::MAX_LEVEL_TEXTURE_BYTES,
+    )
+}
+
+fn resolve_materials_with_budget(
+    level: &LevelDef,
+    catalog: &AssetCatalog,
+    pack: Option<&PackMaterials>,
+    asset_root: Option<&Path>,
+    cache: &mut TextureCache,
+    max_texture_bytes: usize,
+) -> Result<MaterialTable, String> {
     let mut table = MaterialTable::logical(level, catalog, pack);
     let missing = Arc::new(missing_texture());
     // Catalog images are independent PNG files, so decode them ahead of the
@@ -1021,11 +1049,20 @@ pub fn resolve_materials(
         asset_root,
     };
 
+    let mut decoded_bytes = 0_usize;
     for entry in entries.iter_mut() {
+        let previous_textures = textures.len();
         resolve_entry(entry, textures, &missing, &context, cache);
+        if entry.error.is_some() {
+            cache.discard_unused();
+        }
+        for texture in textures.iter().skip(previous_textures) {
+            decoded_bytes = decoded_bytes.saturating_add(texture.image.rgba.len());
+        }
+        check_texture_bytes_with_budget(decoded_bytes, max_texture_bytes)?;
     }
 
-    table
+    Ok(table)
 }
 
 /// The immutable inputs every per-material resolution step shares.

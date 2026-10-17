@@ -442,8 +442,8 @@ impl<I, O> Drop for Worker<I, O> {
     }
 }
 
-/// Identity of one decoded package variant: the package file's SHA-256 and the
-/// lightmap quality. Two packages with identical bytes decode identically.
+/// Identity of one decoded package variant: the canonical manifest SHA-256 and
+/// lightmap quality. Archive recompression does not change prepared content.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct PackageKey {
     package_sha256: String,
@@ -456,6 +456,23 @@ impl PackageKey {
             package_sha256: crate::engine::package::world::package_identity(entry)?,
             quality,
         })
+    }
+
+    fn check_manifest(&self, manifest: &crate::engine::package::Manifest) -> Result<(), String> {
+        if crate::engine::package::world::manifest_identity(manifest)? != self.package_sha256 {
+            return Err("Map package changed during loading; select the map again".to_string());
+        }
+        Ok(())
+    }
+
+    fn check_loaded(&self, loaded: &LoadedLevel) -> Result<(), String> {
+        if loaded.package_identity.as_deref() != Some(self.package_sha256.as_str()) {
+            return Err(
+                "Map package changed since its level was read; reload the map before changing lighting"
+                    .to_string(),
+            );
+        }
+        Ok(())
     }
 }
 
@@ -471,33 +488,35 @@ struct PreparedRecords {
 
 impl PreparedRecords {
     fn retained_bytes(&self) -> usize {
-        let collision_bytes = self
-            .collision
-            .walls
-            .len()
-            .saturating_mul(std::mem::size_of::<crate::engine::collision::WallAabb>());
         let probe_bytes = [&self.probes.medium, &self.probes.full]
             .into_iter()
             .flatten()
             .map(|capture| {
-                capture.chains.iter().fold(0_usize, |sum, chain| {
-                    chain.iter().fold(sum, |chain_bytes, faces| {
-                        faces.iter().fold(chain_bytes, |face_bytes, face| {
-                            face_bytes.saturating_add(face.len())
-                        })
-                    })
+                let bytes = allocation_bytes(&capture.points)
+                    .saturating_add(allocation_bytes(&capture.chains));
+                capture.chains.iter().fold(bytes, |sum, chain| {
+                    chain.iter().fold(
+                        sum.saturating_add(allocation_bytes(chain)),
+                        |chain_bytes, faces| {
+                            faces.iter().fold(chain_bytes, |face_bytes, face| {
+                                face_bytes.saturating_add(allocation_bytes(face))
+                            })
+                        },
+                    )
                 })
             })
             .fold(0_usize, usize::saturating_add);
-        // The grid's fixed runs are eight bytes per cell plus the per-class
-        // masks; a good enough resident estimate for the cache budget.
-        let navigation_bytes = self.navigation.cell_count().saturating_mul(8);
-        self.build
-            .retained_bytes()
-            .saturating_add(collision_bytes)
-            .saturating_add(navigation_bytes)
+        std::mem::size_of::<Self>()
+            .saturating_add(std::mem::size_of::<usize>().saturating_mul(2))
+            .saturating_add(self.build.retained_bytes())
+            .saturating_add(self.collision.retained_heap_bytes())
+            .saturating_add(self.navigation.retained_heap_bytes())
             .saturating_add(probe_bytes)
     }
+}
+
+const fn allocation_bytes<T>(values: &Vec<T>) -> usize {
+    values.capacity().saturating_mul(std::mem::size_of::<T>())
 }
 
 /// Small worker-owned LRU. Eviction releases only the cache's Arc; a displayed
@@ -682,8 +701,7 @@ fn prepare_world(
                 // pays the longer half instead of their sum. Phase::Reading
                 // spans both halves; the Geometry boundary follows the join.
                 let (loaded, variant) = std::thread::scope(|scope| {
-                    let reader =
-                        scope.spawn(|| load_entry_variant(&entry, request.lightmaps, assets));
+                    let reader = scope.spawn(|| load_entry_variant(&entry, &key, assets));
                     let loaded = manager.load_level(&entry);
                     (loaded, reader.join())
                 });
@@ -721,6 +739,9 @@ fn prepare_world(
         let reusable = reusable_records(&key, builds, identities);
         (key, reusable)
     };
+    // Semantics, prepared records and the cache key must describe the same
+    // manifest, including retained worlds used for graphics-only changes.
+    key.check_loaded(&loaded)?;
     crate::engine::logging::info(format_args!(
         "[loading] package identity level={} variant={} sha256={} source={}",
         loaded.level.id,
@@ -732,6 +753,7 @@ fn prepare_world(
     // release unrelated models and retain only this request's dependency hashes.
     if reusable.is_some() {
         let requested_manifest = crate::engine::package::world::inspect(&loaded.entry.path)?;
+        key.check_manifest(&requested_manifest)?;
         assets.synchronize_dependencies(&requested_manifest.dependencies);
     }
     let cache_hit = reusable.is_some();
@@ -750,7 +772,7 @@ fn prepare_world(
         ));
         let variant = match prefetched_variant {
             Some(variant) => variant,
-            None => load_entry_variant(&loaded.entry, request.lightmaps, assets)?,
+            None => load_entry_variant(&loaded.entry, &key, assets)?,
         };
         if !request.lightmaps.is_off() {
             crate::engine::package::world::validate_probe_captures(
@@ -878,14 +900,15 @@ impl Loader {
 /// supported Lightmaps setting instead of only seeing the load fail.
 fn load_entry_variant(
     entry: &LevelEntry,
-    quality: LightmapQuality,
+    key: &PackageKey,
     assets: &mut PropAssets,
 ) -> Result<crate::engine::package::world::LoadedVariant, String> {
     match entry.source_type {
         LevelSourceType::Bundled | LevelSourceType::Installed => {
             let opened = crate::engine::package::world::open(&entry.path)?;
-            ensure_variant_supported(entry, &opened.manifest, quality)?;
-            load_variant(&entry.path, &opened.manifest, quality, assets)
+            key.check_manifest(&opened.manifest)?;
+            ensure_variant_supported(entry, &opened.manifest, key.quality)?;
+            load_variant(&entry.path, &opened.manifest, key.quality, assets)
         }
     }
 }

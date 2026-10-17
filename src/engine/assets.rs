@@ -26,6 +26,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use crate::engine::materials::{
@@ -57,6 +58,50 @@ pub const CATALOG_FILE_NAME: &str = "catalog.json";
 pub const GAMEPLAY_FILE_NAME: &str = "gameplay.json";
 
 const MAX_GAMEPLAY_JSON_BYTES: usize = 1_048_576;
+
+/// Catalog metadata is small compared with model and image payloads. Bound it
+/// before parsing so malformed installations cannot allocate an arbitrary file.
+const MAX_CATALOG_JSON_BYTES: usize = 8 * 1024 * 1024;
+
+/// Reads one regular asset file without trusting its reported size alone.
+///
+/// The extra byte detects a file that grows after the metadata check; neither
+/// that race nor a misleading size can turn this into an unbounded read.
+pub(crate) fn read_asset_bytes(path: &Path, max_bytes: usize) -> std::io::Result<Vec<u8>> {
+    // Opening a named pipe may block before handle metadata is available.
+    // Reject ordinary special-file paths first, then recheck the opened file.
+    if !fs::metadata(path)?.is_file() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "asset path is not a regular file",
+        ));
+    }
+    let file = fs::File::open(path)?;
+    let metadata = file.metadata()?;
+    if !metadata.is_file() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "asset path is not a regular file",
+        ));
+    }
+    let limit = u64::try_from(max_bytes).unwrap_or(u64::MAX);
+    if metadata.len() > limit {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("asset exceeds the {max_bytes}-byte size limit"),
+        ));
+    }
+    let capacity = usize::try_from(metadata.len()).map_err(std::io::Error::other)?;
+    let mut bytes = Vec::with_capacity(capacity);
+    let _read_bytes = file.take(limit.saturating_add(1)).read_to_end(&mut bytes)?;
+    if bytes.len() > max_bytes {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("asset exceeds the {max_bytes}-byte size limit"),
+        ));
+    }
+    Ok(bytes)
+}
 
 /// Environment variable that overrides where writable runtime state lives.
 ///
@@ -1787,6 +1832,9 @@ impl AssetCatalog {
     /// is duplicated or malformed, or when an entry declares a malformed
     /// class/theme/type/source/resource path.
     pub fn from_json_str(json: &str) -> Result<Self, String> {
+        if json.len() > MAX_CATALOG_JSON_BYTES {
+            return Err("asset catalog exceeds the 8 MiB size limit".into());
+        }
         let file: CatalogFile =
             serde_json::from_str(json).map_err(|e| format!("Invalid asset catalog JSON: {e}"))?;
 
@@ -1971,16 +2019,26 @@ impl AssetCatalog {
     /// or invalid. Never panics.
     #[must_use]
     pub fn load_from_path(path: &Path) -> Option<Self> {
-        let content = fs::read_to_string(path).ok()?;
-        let parsed = Self::from_json_str(&content).and_then(|mut catalog| {
-            let sidecar = path.with_file_name(GAMEPLAY_FILE_NAME);
-            match read_gameplay_file(&sidecar) {
-                Ok(json) => catalog.apply_gameplay_json(&json)?,
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                Err(error) => return Err(format!("{}: {error}", sidecar.display())),
-            }
-            Ok(catalog)
-        });
+        let content_bytes = read_asset_bytes(path, MAX_CATALOG_JSON_BYTES);
+        if content_bytes
+            .as_ref()
+            .is_err_and(|error| error.kind() == std::io::ErrorKind::NotFound)
+        {
+            return None;
+        }
+        let parsed = content_bytes
+            .map_err(|error| error.to_string())
+            .and_then(|bytes| String::from_utf8(bytes).map_err(|error| error.to_string()))
+            .and_then(|content| Self::from_json_str(&content))
+            .and_then(|mut catalog| {
+                let sidecar = path.with_file_name(GAMEPLAY_FILE_NAME);
+                match read_gameplay_file(&sidecar) {
+                    Ok(json) => catalog.apply_gameplay_json(&json)?,
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(error) => return Err(format!("{}: {error}", sidecar.display())),
+                }
+                Ok(catalog)
+            });
         match parsed {
             Ok(catalog) => Some(catalog),
             Err(error) => {
@@ -2160,14 +2218,8 @@ impl AssetCatalog {
 }
 
 fn read_gameplay_file(path: &Path) -> std::io::Result<String> {
-    use std::io::Read;
-    let file = fs::File::open(path)?;
-    let limit = u64::try_from(MAX_GAMEPLAY_JSON_BYTES)
-        .unwrap_or(u64::MAX)
-        .saturating_add(1);
-    let mut json = String::new();
-    let _bytes = file.take(limit).read_to_string(&mut json)?;
-    Ok(json)
+    let bytes = read_asset_bytes(path, MAX_GAMEPLAY_JSON_BYTES)?;
+    String::from_utf8(bytes).map_err(std::io::Error::other)
 }
 
 /// Parses a `#rrggbb` catalog colour. The leading `#` is optional.
